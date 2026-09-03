@@ -1,0 +1,23 @@
+# 依賴與建置產物(容器內會重新安裝/建置)
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/storybook-static
+**/coverage
+
+# 與執行無關
+.git
+.github
+.claude
+.agents
+docs
+scripts
+**/*.md
+
+# 機密
+.env
+**/.env
+**/.env.*
+!**/.env.example

@@ -8,5 +8,35 @@ services:
     volumes:
       - mongo-data:/data/db
 
+  # 以下兩個服務屬於 "full" profile:
+  #   docker compose up -d                → 只起 mongo(日常開發)
+  #   docker compose --profile full up -d → 整套容器化跑起來(部署前驗證)
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: cookhome-api
+    profiles: ["full"]
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/cookhome
+      PORT: "5001"
+    ports:
+      - "5001:5001"
+    depends_on:
+      - mongo
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+      args:
+        VITE_GRAPHQL_ENDPOINT: http://localhost:5001/graphql
+    container_name: cookhome-admin
+    profiles: ["full"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+
 volumes:
   mongo-data:
