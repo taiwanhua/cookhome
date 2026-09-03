@@ -39,7 +39,11 @@ jobs:
           MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
           PORT: "5001"
 
-      - name: lint / typecheck / test / build(與本地同一套指令)
-        run: pnpm exec turbo run lint check-types test build
+      # check-types 與 build 分兩步:next build 會清寫 .next,與 next typegen 同時跑會競態
+      - name: lint / typecheck / test
+        run: pnpm exec turbo run lint check-types test
+
+      - name: build
+        run: pnpm exec turbo run build
         env:
           NEXT_PUBLIC_GRAPHQL_ENDPOINT: http://127.0.0.1:5001/graphql
