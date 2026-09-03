@@ -1,12 +1,14 @@
-import { describe, it, expect, jest } from "@jest/globals";
+/* eslint-disable no-console -- 測試需要 spy console 來驗證 logger 輸出 */
+import { describe, expect, it, jest } from "@jest/globals";
+
 import { log } from "..";
 
-jest.spyOn(global.console, "log");
+jest.spyOn(globalThis.console, "log");
 
 describe("@repo/logger", () => {
   it("prints a message", () => {
     log("hello");
-    // eslint-disable-next-line no-console -- testing console
-    expect(console.log).toHaveBeenCalledWith("LOGGER: ", "hello");
+
+    expect(console.log).toHaveBeenCalledWith("LOGGER:", "hello");
   });
 });

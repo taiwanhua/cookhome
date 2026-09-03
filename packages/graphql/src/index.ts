@@ -1,7 +1,7 @@
 import { GraphQLClient } from "graphql-request";
 
 export * from "./generated";
-export { GraphQLClient };
+export { GraphQLClient } from "graphql-request";
 
 export function createGraphQLClient(
   url: string,

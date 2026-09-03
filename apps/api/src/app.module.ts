@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import path from "node:path";
 
 import { ApolloDriver, type ApolloDriverConfig } from "@nestjs/apollo";
 import { Module } from "@nestjs/common";
@@ -21,7 +21,7 @@ import { RecipesModule } from "./recipes/recipes.module";
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), "schema.gql"),
+      autoSchemaFile: path.join(process.cwd(), "schema.gql"),
       sortSchema: true,
     }),
     RecipesModule,

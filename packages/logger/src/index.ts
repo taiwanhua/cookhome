@@ -1,4 +1,4 @@
+/* eslint-disable no-console -- logger 的本業就是輸出到 console,是全 repo 唯一的豁免點 */
 export const log = (...args: unknown[]): void => {
-  // eslint-disable-next-line no-console -- logger
-  console.log("LOGGER: ", ...args);
+  console.log("LOGGER:", ...args);
 };

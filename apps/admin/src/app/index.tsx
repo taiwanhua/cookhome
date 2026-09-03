@@ -1,7 +1,8 @@
-import "./styles.css";
 import { useRecipesQuery } from "@repo/graphql";
 
 import { graphqlClient } from "../lib/graphql";
+
+import "./styles.css";
 
 function App() {
   const { data, isPending, error } = useRecipesQuery(graphqlClient);
