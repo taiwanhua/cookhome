@@ -38,6 +38,7 @@
 - 部署拓撲與費用控管(max-instances 天花板 + Budget 警告)見 `docs/architecture.md`。
 - 網域已購(2026-07-31):`cookhome.online`;三個子網域共享 cookie domain,可用 cookie auth。
 - 學習路線(先手動再自動化):① 各 app Dockerfile + 本地驗證 → ② GCP 專案 + 手動推 image + `gcloud run deploy` → ③ Atlas 接上 → ④ 寫成 deploy.yml + WIF → ⑤ Environments 核准 + ci.yml + branch protection。
+  **進度(2026-09-04):①②③ 已完成** — image 在 Artifact Registry(asia-east1/cookhome,tag=git SHA);admin、api 已上 Cloud Run(min=0/max=2);Atlas `cookhome-dev` 已接(URI 走 Secret Manager,Network Access 0.0.0.0/0);端到端驗證通過。待辦追加:固定出口 IP(VPC connector + NAT,~US$10/月)與 Cloudflare 橙雲(需 Global LB)先不做;Cloudflare 已接管 DNS,紀錄於 ⑤ 設定。
 
 ### 5. 版本策略 ✅ 已統一(2026-09-03)
 
