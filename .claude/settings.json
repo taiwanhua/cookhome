@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/claude-hooks/post-edit-check.mjs",
+            "timeout": 180,
+            "statusMessage": "lint + typecheck(三層約束第一層)"
+          }
+        ]
+      }
+    ]
+  }
+}
