@@ -47,15 +47,15 @@
 
 ## 二、待辦與待討論
 
-### A. 馬上可做(不需再討論)
+### A. 已完成(2026-09-03)
 
-1. **commit 整理** — working tree 累積大量變更(約束三層、standards、設計系統、四波版本升級),等拍板分批 commit。
-2. **Claude Code hooks** — 第一層約束的最後一塊:AI 每次編輯後自動跑 lint/typecheck。
-3. **`ci.yml` + branch protection** — 與本地同一套指令,不依賴 GCP 可先做。
+1. ~~commit 整理~~ — 已拆成 5 個主題 commit(prettier / docs+standards / eslint / 設計系統 / 版本統一)。
+2. ~~Claude Code hooks~~ — `.claude/settings.json` PostToolUse:編輯後自動 lint(該檔)+ typecheck(該套件),失敗 exit 2 回饋 AI 當場修;腳本 `scripts/claude-hooks/post-edit-check.mjs`,已實測觸發。
+3. ~~ci.yml~~ — `.github/workflows/ci.yml`:PR 與 main push 觸發,MongoDB service + 起 api(front ISR 預渲染需要)→ `turbo run lint check-types test build`。首跑綠燈。**branch protection 不設**(私有 repo 免費方案不支援;決策 2026-09-03:純自律走 PR 流程,規則寫進 CLAUDE.md;之後想強制可升 Pro 或轉公開,隨時可補)。
+4. ~~front build 依賴 api~~ — 定案「起 API」:CI 用 service container + 空 DB;Vercel 端 build 打正式 api(部署順序:api 先上)。
 
 ### B. 需要討論決策
 
-4. **front build 依賴 api** — 首頁 ISR 在 build 時打 GraphQL,api 沒起就 build 失敗(check-types 也會被污染)。三選一:CI 裡起 api / 改 `force-dynamic` / fetch 失敗渲染空狀態。
 5. **設計系統收尾** — `react/styling.md` 規範、apps 禁直接 import `@mui/material` 的 lint 規則、Storybook 部署(建議 Vercel 第二專案)、figma-generate-library 投影(品牌 = Figma variable mode)、自訂 `/to-figma` skill。
 6. **staging api 環境時機** — 初期單環境是否足夠。
 7. **i18n 方案** — front(next-intl?)與 admin 的多國語系;設計系統已配合(元件不寫死文案)。
