@@ -9,6 +9,46 @@
     "dist"
   ],
   "exports": {
+    "./theme": {
+      "import": {
+        "types": "./dist/es/theme.d.mts",
+        "default": "./dist/es/theme.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/theme.d.ts",
+        "default": "./dist/cjs/theme.js"
+      }
+    },
+    "./button": {
+      "import": {
+        "types": "./dist/es/button.d.mts",
+        "default": "./dist/es/button.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/button.d.ts",
+        "default": "./dist/cjs/button.js"
+      }
+    },
+    "./text-field": {
+      "import": {
+        "types": "./dist/es/text-field.d.mts",
+        "default": "./dist/es/text-field.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/text-field.d.ts",
+        "default": "./dist/cjs/text-field.js"
+      }
+    },
+    "./card": {
+      "import": {
+        "types": "./dist/es/card.d.mts",
+        "default": "./dist/es/card.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/card.d.ts",
+        "default": "./dist/cjs/card.js"
+      }
+    },
     "./counter-button": {
       "import": {
         "types": "./dist/es/counter-button.d.mts",
@@ -34,24 +74,32 @@
     "build": "bunchee",
     "dev": "bunchee --watch",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src/",
+    "lint": "eslint src/ --max-warnings 0",
     "test": "jest"
   },
   "jest": {
     "preset": "@repo/jest-presets/browser"
   },
   "devDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
     "@jest/globals": "^30.2.0",
+    "@mui/material": "^9.0.0",
     "@repo/eslint-config": "workspace:*",
     "@repo/jest-presets": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@storybook/react-vite": "^10.6.0",
     "@types/node": "^22.15.3",
     "bunchee": "^6.4.0",
     "eslint": "^9.39.0",
     "jest": "^30.2.0",
+    "storybook": "^10.6.0",
     "typescript": "5.9.3"
   },
   "peerDependencies": {
+    "@emotion/react": "^11.0.0",
+    "@emotion/styled": "^11.0.0",
+    "@mui/material": "^9.0.0",
     "@types/react": ">=18",
     "@types/react-dom": ">=18",
     "react": ">=18",

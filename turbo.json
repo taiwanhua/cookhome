@@ -11,7 +11,8 @@
         "dist/**",
         ".next/**",
         "!.next/cache/**",
-        "!.next/dev/**"
+        "!.next/dev/**",
+        "storybook-static/**"
       ]
     },
     "test": {

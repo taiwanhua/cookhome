@@ -1,0 +1,119 @@
+import Box from "@mui/material/Box";
+import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import Slider from "@mui/material/Slider";
+import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
+import Typography from "@mui/material/Typography";
+import { ThemeProvider } from "@mui/material/styles";
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { useState } from "react";
+
+import { Button } from "@repo/ui/button";
+import { Card } from "@repo/ui/card";
+import { TextField } from "@repo/ui/text-field";
+import { createAppTheme, createBrandFromPrimary } from "@repo/ui/theme";
+
+const HEX_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+const DEFAULT_HEX = "#FB7B10";
+
+/**
+ * Palette Lab:貼上一個主色,立即預覽所有元件換裝後的效果。
+ * 為新品牌挑色的流程:調色 → 逛一圈 → 滿意再落地成 brands/<name>.ts。
+ */
+function PaletteLab() {
+  const [hex, setHex] = useState(DEFAULT_HEX);
+  const effectiveHex = HEX_PATTERN.test(hex) ? hex : DEFAULT_HEX;
+  const brand = createBrandFromPrimary("Preview", effectiveHex);
+  const theme = createAppTheme(brand, { cssVarPrefix: "lab" });
+
+  const scale = [
+    ["lighter", brand.primary.lighter],
+    ["light", brand.primary.light],
+    ["main", brand.primary.main],
+    ["dark", brand.primary.dark],
+    ["darker", brand.primary.darker],
+  ] as const;
+
+  return (
+    <ThemeProvider theme={theme}>
+      <Stack spacing={4} sx={{ p: 3, maxWidth: 720 }}>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          <input
+            aria-label="挑選主色"
+            type="color"
+            value={effectiveHex}
+            onChange={(event) => {
+              setHex(event.target.value.toUpperCase());
+            }}
+            style={{ width: 48, height: 48, border: "none", padding: 0 }}
+          />
+          <TextField
+            size="small"
+            label="主色 HEX"
+            value={hex}
+            error={!HEX_PATTERN.test(hex)}
+            onChange={(event) => {
+              setHex(event.target.value);
+            }}
+          />
+          <Stack direction="row" spacing={1}>
+            {scale.map(([label, color]) => (
+              <Stack key={label} sx={{ alignItems: "center" }} spacing={0.5}>
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 1,
+                    bgcolor: color,
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  {label}
+                </Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </Stack>
+
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          <Button>主要按鈕</Button>
+          <Button variant="outlined">外框按鈕</Button>
+          <Button variant="text">文字按鈕</Button>
+          <Button disabled>停用</Button>
+        </Stack>
+
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
+          <TextField label="食譜名稱" helperText="輸入框示範" />
+          <Chip label="家常菜" color="primary" />
+          <Switch defaultChecked />
+          <Box sx={{ width: 160 }}>
+            <Slider defaultValue={60} />
+          </Box>
+        </Stack>
+
+        <Card sx={{ maxWidth: 360 }}>
+          <CardContent>
+            <Typography variant="h6">番茄炒蛋</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              十分鐘上桌的家常經典,滑嫩蛋香配上酸甜茄汁。
+            </Typography>
+            <Button size="small">查看食譜</Button>
+          </CardContent>
+        </Card>
+      </Stack>
+    </ThemeProvider>
+  );
+}
+
+const meta = {
+  title: "Design/Palette Lab",
+  component: PaletteLab,
+} satisfies Meta<typeof PaletteLab>;
+
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const Default: Story = {};
