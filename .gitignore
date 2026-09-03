@@ -10,3 +10,9 @@ dist-ssr
 .cache
 server/dist
 public/dist
+
+# Claude Code 本地產物(symlink 由 `npx skills add` / skills-lock.json 重建)
+.claude/skills/
+
+# Storybook build 產物
+storybook-static

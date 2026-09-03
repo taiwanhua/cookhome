@@ -1,23 +1,33 @@
 # CookHome 專案架構
 
 家常食譜分享網站。Turborepo monorepo(pnpm workspace)。
+(最後更新:2026-09-03)
 
 ## Apps
 
-| App | 技術 | 用途 | Port |
-|-----|------|------|------|
-| `api` | NestJS + GraphQL(Apollo/Express, code-first)+ Mongoose + MongoDB | 後端 API,front 與 admin 都打這個服務 | 5001 |
-| `front` | Next.js(App Router) | 前台。SEO 頁面走 Server Component + ISR,不使用 Next API Routes | 3002 |
-| `admin` | Vite + React SPA | 後台管理,不需 SEO | 5173 |
+| App               | 技術                                                             | 用途                                                           | Port |
+| ----------------- | ---------------------------------------------------------------- | -------------------------------------------------------------- | ---- |
+| `@repo/api`       | NestJS + GraphQL(Apollo/Express, code-first)+ Mongoose + MongoDB | 後端 API,front 與 admin 都打這個服務                           | 5001 |
+| `@repo/front`     | Next.js(App Router)                                              | 前台。SEO 頁面走 Server Component + ISR,不使用 Next API Routes | 3002 |
+| `@repo/admin`     | Vite + React SPA                                                 | 後台管理,不需 SEO                                              | 3001 |
+| `@repo/storybook` | Storybook(react-vite)                                            | 設計系統目錄 + Palette Lab;stories 檔案住在 `packages/ui`      | 6006 |
+
+workspace 套件名一律 `@repo/` 前綴(規則 GEN-06)。
 
 ## Packages
 
-| Package | 用途 |
-|---------|------|
-| `@repo/graphql` | GraphQL codegen 共用套件:讀 `apps/api/schema.gql` + `src/documents/*.graphql`,產生 TypeScript 型別與 TanStack Query hooks(fetcher 為 graphql-request),front/admin 共用 |
-| `@repo/ui` | 共用 React 元件 |
-| `@repo/logger` | 共用 logger |
-| `@repo/eslint-config` / `@repo/typescript-config` / `@repo/jest-presets` | 共用開發設定 |
+| Package                                                                                            | 用途                                                                                                                                                                   |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@repo/graphql`                                                                                    | GraphQL codegen 共用套件:讀 `apps/api/schema.gql` + `src/documents/*.graphql`,產生 TypeScript 型別與 TanStack Query hooks(fetcher 為 graphql-request),front/admin 共用 |
+| `@repo/ui`                                                                                         | 設計系統:兩層 tokens(`src/theme/`,品牌層 `brands/*.ts` 可整包替換 + 語意層)、`createAppTheme`(MUI cssVariables、light/dark)、共用元件(元件+測試+story 三件套同居)      |
+| `@repo/logger`                                                                                     | 共用 logger(全 repo 唯一可用 `console` 的地方,其他地方被 `no-console` 擋)                                                                                              |
+| `@repo/eslint-config` / `@repo/prettier-config` / `@repo/typescript-config` / `@repo/jest-presets` | 共用開發設定(單一入口,各 app 不自訂規則)                                                                                                                               |
+
+## 品質約束(三層)
+
+1. **機器強制**:ESLint(typescript-eslint strictTypeChecked + import-x + unicorn + sonarjs + jsx-a11y,入口 `@repo/eslint-config`)、TS strict(含 `noUncheckedIndexedAccess`)、Prettier(`@repo/prettier-config`,@trivago import 排序)。`only-warn` + `--max-warnings 0`:編輯器顯示警告,CI/CLI 全擋。
+2. **可審查清單**:`docs/standards/`(編號規則 GEN/STRUCT/REACT/DATA/GQL/TEST)+ vercel-labs skills(`.agents/skills/`)。
+3. **原則層**:`CLAUDE.md`。
 
 ## 資料流
 
@@ -36,19 +46,37 @@
 
 後端 schema 變更後,重跑步驟 3 即可讓前端型別同步。
 
+## 部署架構(規劃,尚未實施)
+
+| App   | 位置                                              | 常駐設定                           | 網域                    |
+| ----- | ------------------------------------------------- | ---------------------------------- | ----------------------- |
+| front | Vercel                                            | (Vercel 自管)                      | `cookhome.online`       |
+| admin | Cloud Run(nginx 靜態)                             | min-instances = 0                  | `admin.cookhome.online` |
+| api   | Cloud Run(NestJS)                                 | production min = 1,staging min = 0 | `api.cookhome.online`   |
+| DB    | MongoDB Atlas(與 Cloud Run 同 region, asia-east1) | M0 免費層起步                      | —                       |
+
+費用控管:`max-instances` 為實質天花板 + GCP Budget 警告。CI/CD:GitHub Actions(CI 驗證 + 產 image;CD 拿同一 image 部署,Workload Identity Federation 認證)。詳見 `docs/tmp/dis.md`。
+
 ## 本地開發
 
 ```bash
 docker compose up -d        # 啟動 MongoDB
 pnpm install
-pnpm dev                    # turbo 同時啟動 api / front / admin
+pnpm dev                    # turbo 同時啟動 api / front / admin / storybook
+pnpm --filter @repo/storybook dev   # 只開設計系統(http://localhost:6006)
 ```
 
 環境變數見各 app 的 `.env.example`(`MONGODB_URI`、`NEXT_PUBLIC_GRAPHQL_ENDPOINT`、`VITE_GRAPHQL_ENDPOINT`)。
 
 ## 技術決策記錄
 
+> 這些之後會逐步正式化為 `docs/adr/`(由 `/domain-modeling` 建立)。
+
 - **MongoDB + Mongoose**(`@nestjs/mongoose`):食譜巢狀結構(食材、步驟)適合文件模型;曾評估 Prisma,因其 MongoDB 支援需 replica set 且無 migration 而改用 Mongoose
 - **graphql 固定在 v16**:Apollo Server 5 與 @nestjs/graphql 13 尚不支援 graphql 17
 - **front 不用 Apollo Client**:SEO 頁面在 Server Component 用 `useXxxQuery.fetcher` 直接抓;瀏覽器端互動用 TanStack Query hooks
 - **codegen 已知問題**:`typescript-react-query` plugin 會產生 graphql-request v4 的舊型別路徑,`scripts/fix-generated.mjs` 在 generate 後自動修正
+- **程式碼是設計的唯一真實來源**:設計系統先存在於 `@repo/ui`(tokens + MUI theme + 元件),Figma 是它的投影(figma-generate-library 生成、Code Connect 對應);不買現成 Figma kit 或模板
+- **設計風格走 Minimal 方向**:以 MUI theme 客製(柔和陰影、大圓角、冷灰階)重現,非購買模板
+- **版本統一策略**:同一套件全 repo 同版本(React 19、MUI 9、Vite 8、Storybook 10、TS 5.9);已知例外:`eslint-plugin-unicorn` 釘 65(最後支援 ESLint 9 的版本)
+- **apps 只能 import `@repo/ui`,不直接 import `@mui/material`**(lint 規則待補,見待辦)

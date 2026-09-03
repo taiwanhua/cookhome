@@ -1,25 +1,26 @@
+> 📁 歷史存檔(2026-08):這是最初拿去另一個 session 建專案的 scaffold prompt,僅供追溯。現況以 `docs/architecture.md` 為準(注意:ORM 後來從 Prisma 改為 Mongoose)。
+
 我接下來，要嘗試使用 ai 搭建整個食譜專案，
 
 專案架構上，
-我想要使用 turboRepos 做 monorepos 
+我想要使用 turboRepos 做 monorepos
 
 npx create-turbo@latest -e kitchen-sink
 
 應該會建出這幾個 app，我希望他們分別做為以下用途:
 
 api: 後端 API server，front admin 都會打這個服務
-storefront: 專案前台前端，幫我改名為 front，相關配置也幫我改正確，之後不會使用  API Routes
+storefront: 專案前台前端，幫我改名為 front，相關配置也幫我改正確，之後不會使用 API Routes
 admin: 後台前端
 blog: 我不需要這個請幫我刪除
-
 
 還會建出這幾個 package :
 
 @repo/eslint-config
-@repo/jest-presets 
-@repo/logger 
-@repo/ui 
-@repo/typescript-config 
+@repo/jest-presets
+@repo/logger
+@repo/ui
+@repo/typescript-config
 
 接下來，幫我調整後端 api 的架構:
 
@@ -30,4 +31,3 @@ blog: 我不需要這個請幫我刪除
 在幫我調整前端的 storefront 與 admin 套件架構:
 
 要搭配 graphql-request 與 TanStack Query 使用
- 
