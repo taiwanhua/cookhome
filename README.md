@@ -20,11 +20,11 @@ pnpm install
 pnpm dev               # 同時啟動 api / front / admin
 ```
 
-| 服務 | 網址 |
-|------|------|
+| 服務        | 網址                          |
+| ----------- | ----------------------------- |
 | GraphQL API | http://localhost:5001/graphql |
-| 前台 front | http://localhost:3002 |
-| 後台 admin | http://localhost:5173 |
+| 前台 front  | http://localhost:3002         |
+| 後台 admin  | http://localhost:5173         |
 
 ## 常用指令
 

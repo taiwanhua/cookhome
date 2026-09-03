@@ -10,7 +10,9 @@
     "test": "turbo run test",
     "check-types": "turbo run check-types"
   },
+  "prettier": "@repo/prettier-config",
   "devDependencies": {
+    "@repo/prettier-config": "workspace:*",
     "prettier": "^3.6.0",
     "turbo": "^2.10.7"
   },
