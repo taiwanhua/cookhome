@@ -9,6 +9,12 @@ import { MongooseModule } from "@nestjs/mongoose";
 
 import { RecipesModule } from "./recipes/recipes.module";
 
+// GraphQL Sandbox 開關:本地開發(NODE_ENV 非 production)預設開;
+// 雲端預設關(不讓外人窺探 schema),dev/staging 環境以 GRAPHQL_SANDBOX=true 明確打開
+const isSandboxEnabled =
+  process.env.GRAPHQL_SANDBOX === "true" ||
+  process.env.NODE_ENV !== "production";
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -24,11 +30,11 @@ import { RecipesModule } from "./recipes/recipes.module";
       driver: ApolloDriver,
       autoSchemaFile: path.join(process.cwd(), "schema.gql"),
       sortSchema: true,
-      // 雲端(NODE_ENV=production)也開放 Apollo Sandbox 與 introspection —
-      // 目前是學習/staging 性質;正式營運前改為環境變數開關(見 dis.md 待辦)
-      introspection: true,
+      introspection: isSandboxEnabled,
       playground: false,
-      plugins: [ApolloServerPluginLandingPageLocalDefault({ embed: true })],
+      plugins: isSandboxEnabled
+        ? [ApolloServerPluginLandingPageLocalDefault({ embed: true })]
+        : [],
     }),
     RecipesModule,
   ],
