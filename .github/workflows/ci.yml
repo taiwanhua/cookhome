@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # 版本讀 package.json 的 packageManager 欄位
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+
+      - name: 建置 api(front 的 ISR 預渲染需要活的 api)
+        run: pnpm exec turbo run build --filter=@repo/api
+
+      - name: 啟動 api(接 CI 的拋棄式 MongoDB,空資料庫)
+        run: |
+          node apps/api/dist/main.js &
+          timeout 60 bash -c 'until curl -sf -X POST -H "Content-Type: application/json" -d "{\"query\":\"{__typename}\"}" http://127.0.0.1:5001/graphql -o /dev/null; do sleep 2; done'
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
+          PORT: "5001"
+
+      - name: lint / typecheck / test / build(與本地同一套指令)
+        run: pnpm exec turbo run lint check-types test build
+        env:
+          NEXT_PUBLIC_GRAPHQL_ENDPOINT: http://127.0.0.1:5001/graphql
