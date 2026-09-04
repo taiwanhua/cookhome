@@ -1,9 +1,15 @@
 # CookHome
 
-## Git 工作流程
+## Git 工作流程(分支 ↔ 環境)
 
-功能與修正一律走 branch → PR → CI(`verify`)綠燈 → merge,**不直接 push `main`**。
-這是紀律約定而非 GitHub 強制(私有 repo 免費方案無 branch protection),AI 與人同樣遵守;僅文件/設定的微小修正可例外直推。
+`main`=production、`staging`=預發布、`dev`=開發測試。規則:
+
+- feat 分支**一律從 `main` 切出**;完成後 PR 合併到 `dev` 做整合測試(CI 綠才 merge)
+- 通過測試、要上線的 feat 分支,**逐一** PR 合併到 `staging` 做預發布驗證
+- 發布 = `staging` PR 合併回 `main`;release 後進行中的 feat 分支 rebase 到最新 `main`
+- `dev` 汙染時整支重置:`git checkout dev && git fetch && git reset --hard origin/main && git push --force origin dev`
+- **部署一律手動觸發 deploy.yml**(merge 不自動部署):Actions UI 或 `gh workflow run Deploy --ref <分支> -f environment=<dev|staging|production>`
+- 不直接 push `main`(僅文件/設定微小修正例外);此為紀律約定(免費方案無 branch protection),AI 與人同守
 
 ## Coding standards
 
