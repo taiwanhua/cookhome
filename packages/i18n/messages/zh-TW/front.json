@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "title": "CookHome — 家常食譜",
+    "titleTemplate": "%s | CookHome",
+    "description": "分享與收藏家常食譜的網站"
+  },
+  "home": {
+    "subtitle": "家常食譜",
+    "empty": "還沒有食譜,快來新增第一道菜!",
+    "recipeMeta": "烹調 {minutes} 分鐘 · {servings} 人份"
+  }
+}

@@ -11,10 +11,12 @@
   },
   "dependencies": {
     "@repo/graphql": "workspace:*",
+    "@repo/i18n": "workspace:*",
     "@repo/ui": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "use-intl": "^4.14.2"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

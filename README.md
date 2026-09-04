@@ -24,6 +24,7 @@ packages/
 ├── graphql    GraphQL codegen:型別 + TanStack Query hooks(front/admin 共用)
 ├── ui         設計系統:兩層 tokens、MUI theme(light/dark)、元件+測試+story 三件套
 ├── logger     共用 logger(全 repo 唯一可用 console 之處)
+├── i18n       多語訊息檔(zh-TW / en)+ locale 定義(front: next-intl、admin: use-intl)
 └── config-*   eslint / prettier / typescript / jest 共用設定(單一入口)
 ```
 
@@ -70,5 +71,6 @@ feat 分支一律從 `main` 切出 → PR 合併 `dev` 整合測試 → 要上�
 | [docs/architecture.md](docs/architecture.md) | 專案架構、資料流、codegen、技術決策                  |
 | [docs/deployment.md](docs/deployment.md)     | 部署操作手冊:環境對照、CI/CD、環境變數管理、維運速查 |
 | [docs/standards/](docs/standards/README.md)  | 程式碼規範(GEN/STRUCT/REACT/DATA/GQL/TEST)           |
+| [docs/branding.md](docs/branding.md)         | 品牌落點清單(換皮 / 以本 repo 為模板開新專案)        |
 | [docs/agents/](docs/agents/)                 | AI 工作流程設定(issue tracker、triage、domain docs)  |
 | [docs/tmp/dis.md](docs/tmp/dis.md)           | 決策共識與待辦追蹤                                   |
