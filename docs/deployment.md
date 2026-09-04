@@ -22,7 +22,7 @@
                                              │ M0, asia-east1│
                                              └──────────────┘
 
-dev / staging 環境:api 與 admin 各有 -dev、-staging 服務(run.app 網址),由對應分支手動部署
+dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-staging.、api=api-dev./api-staging.cookhome.online),由對應分支手動部署
 
 ```
 
