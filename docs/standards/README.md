@@ -14,7 +14,7 @@
 | 改動範圍                                        | 必讀                                        |
 | ----------------------------------------------- | ------------------------------------------- |
 | 任何程式碼                                      | `general/naming.md`、`general/structure.md` |
-| React 元件(front / admin / ui)                  | `react/components.md`                       |
+| React 元件(front / admin / ui)                  | `react/components.md`、`react/styling.md`   |
 | 前端資料存取(query / mutation)                  | `react/data-fetching.md`                    |
 | api 的 GraphQL schema(resolver / model / input) | `api/graphql-schema.md`                     |
 | 測試                                            | `testing/testing.md`                        |
@@ -22,7 +22,6 @@
 
 ## 尚未定案(刻意不寫)
 
-- `react/styling.md` — 等設計系統(design tokens + MUI theme)定案後建立。
 - 錯誤處理總策略、api 的 module 邊界細則 — 等 api 長出第二個 feature 再歸納。
 
 空規範比沒規範糟;沒把握的決定不要先寫進來。
