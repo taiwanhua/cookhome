@@ -22,7 +22,8 @@
                                              │ M0, asia-east1│
                                              └──────────────┘
 
-dev 環境(merge main 自動部署):cookhome-api-dev / cookhome-admin-dev(run.app 網址)
+dev / staging 環境:api 與 admin 各有 -dev、-staging 服務(run.app 網址),由對應分支手動部署
+
 ```
 
 ### 環境對照(分支 ↔ 環境)
