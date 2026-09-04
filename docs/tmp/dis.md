@@ -57,7 +57,7 @@
 
 ### B. 需要討論決策
 
-5. **設計系統收尾** — 進行中(2026-09-05):~~styling.md 規範(STYLE-01~05)~~、~~apps 禁直接 import MUI 的 lint 牆(designSystemWall)~~、~~Storybook 部署~~(Vercel 第二專案 `cookhome-design` → design.cookhome.online,只建 main)。剩:**3.5 Theme v2**(參考 MIT 開源 minimal-ui-kit 的技法:自訂陰影系統 z1~z24、grey 50~900 + 主色五階、typography scale、全域 component styleOverrides — Minimal Dashboard 級統一感的本體)→ figma-generate-library 投影(品牌 = Figma variable mode)→ 自訂 `/to-figma` skill。styling 選型定案:MUI + sx 一路走到底(否決全轉 Tailwind 與混用;Base UI + Tailwind 留給未來性質不同的新專案)。
+5. **設計系統收尾** — 進行中(2026-09-05):~~styling.md 規範(STYLE-01~05)~~、~~apps 禁直接 import MUI 的 lint 牆(designSystemWall)~~、~~Storybook 部署~~(Vercel 第二專案 `cookhome-design` → design.cookhome.online,只建 main)。剩:**3.5 Theme v2**(參考 MIT 開源 minimal-ui-kit 的技法:自訂陰影系統 z1~z24、grey 50~900 + 主色五階、typography scale、全域 component styleOverrides — Minimal Dashboard 級統一感的本體)→ figma-generate-library 投影(品牌 = Figma variable mode;**目的地已定案 2026-09-05:Wowgo 團隊**(Pro、Full 席位 — 多 mode + library 發佈都支援),MCP 開新檔「CookHome Design System」)→ 自訂 `/to-figma` skill。styling 選型定案:MUI + sx 一路走到底(否決全轉 Tailwind 與混用;Base UI + Tailwind 留給未來性質不同的新專案)。
 6. ~~staging api 環境時機~~ — **已解決(2026-09-04)**:三環境分支模型落地,staging 環境(api/admin/front/db)全數上線。
 7. ~~i18n 方案~~ — **已完成(2026-09-04)**:`@repo/i18n` 訊息檔套件(zh-TW/en);front 用 next-intl(`/` = zh-TW、`/en` 前綴,SSG×2 語言 + ISR,Next 16 改用 `proxy.ts`),admin 用 use-intl(語言切換 + localStorage,不進 URL);api 語言無關(錯誤走 code)。規範 `standards/general/i18n.md`(I18N-01~05)。內容資料(食譜)多語 = 未來 schema 設計問題,與 UI i18n 分開。
 8. **Budget 終極斷路器** — Pub/Sub + Cloud Function 自動解綁 billing;看過前幾個月帳單再決定。
