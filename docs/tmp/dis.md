@@ -63,6 +63,7 @@
 8. **Budget 終極斷路器** — Pub/Sub + Cloud Function 自動解綁 billing;看過前幾個月帳單再決定。
 9. **AI 自動 PR review 時機** — GitHub Actions 上的 AI review 與本地 `/code-review` 的分工。
 10. **Turbo remote cache** — 等 CI 時間變長再評估。
+15. **專案模板 skill(project-bootstrap)** — 使用者還有兩個 front+admin+api 專案要開;以 cookhome 為基底,品牌落點已盤點成 `docs/branding.md`(2026-09-05),skill 化後帶參數(品牌名、網域、GCP 專案)自動替換 + 走 deployment.md 建基礎設施。時機:第二個專案要開時。
 
 ### C. 小任務(不需討論,找時間做)
 

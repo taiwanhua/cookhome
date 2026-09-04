@@ -1,5 +1,6 @@
 import { isLocale, localeLabels, locales, type Locale } from "@repo/i18n";
 import { useRecipesQuery } from "@repo/graphql";
+import { useEffect } from "react";
 import { useTranslations } from "use-intl";
 
 import { graphqlClient } from "../lib/graphql";
@@ -15,6 +16,11 @@ function App({ locale, onLocaleChange }: Readonly<AppProps>) {
   const t = useTranslations("admin.app");
   const tCommon = useTranslations("common");
   const { data, isPending, error } = useRecipesQuery(graphqlClient);
+
+  useEffect(() => {
+    document.title = `${tCommon("brand")} ${t("subtitle")}`;
+    document.documentElement.lang = locale;
+  }, [locale, t, tCommon]);
 
   return (
     <div className="container">
