@@ -94,6 +94,43 @@ function PaletteLab() {
           </Box>
         </Stack>
 
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <Typography variant="subtitle2" sx={{ mr: 1 }}>
+            狀態色
+          </Typography>
+          <Chip label="資訊" color="info" />
+          <Chip label="成功" color="success" />
+          <Chip label="警告" color="warning" />
+          <Chip label="錯誤" color="error" />
+        </Stack>
+
+        <Stack direction="row" spacing={3} sx={{ alignItems: "center" }}>
+          <Typography variant="subtitle2">陰影</Typography>
+          {(
+            [
+              ["z1", theme.customShadows.z1],
+              ["z8", theme.customShadows.z8],
+              ["z24", theme.customShadows.z24],
+              ["primary", theme.customShadows.primary],
+            ] as const
+          ).map(([label, shadow]) => (
+            <Stack key={label} spacing={0.5} sx={{ alignItems: "center" }}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 1.5,
+                  bgcolor: "background.paper",
+                  boxShadow: shadow,
+                }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                {label}
+              </Typography>
+            </Stack>
+          ))}
+        </Stack>
+
         <Card sx={{ maxWidth: 360 }}>
           <CardContent>
             <Typography variant="h6">番茄炒蛋</Typography>
