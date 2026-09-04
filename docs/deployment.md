@@ -50,6 +50,7 @@ dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-st
 | Budget              | NT$600/月,50%/90%/100% 郵件警告                                                        | $0              |
 | MongoDB Atlas       | cluster `cookhome-dev`(M0)                                                             | $0              |
 | Cloudflare / Vercel | DNS 代管 / front(Hobby)                                                                | $0              |
+| Vercel 第二專案     | `cookhome-design` → `design.cookhome.online`(Storybook,root `apps/storybook`,output `storybook-static`,只建 main:Ignored Build Step = Only build production) | $0              |
 
 ## 二、分支模型與 CI/CD 流程
 
@@ -105,7 +106,7 @@ gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=a
 
 - Cloud Run UI:console.cloud.google.com → Cloud Run(注意:編輯表單顯示的 max instances「20」是表單預設建議值,實際生效值看 Revisions 分頁,目前為 2)
 - Atlas UI:cloud.mongodb.com → Network Access(0.0.0.0/0)/ Database Access / Browse Collections
-- Cloudflare:`api`、`erp`、`api-dev`、`erp-dev`、`api-staging`、`erp-staging` CNAME → `ghs.googlehosted.com`(灰雲,對應 6 筆 Cloud Run domain mapping);`www`、`@`、`dev`、`staging` CNAME → Vercel(灰雲);TXT 為 Google 網域驗證,勿刪
+- Cloudflare:`api`、`erp`、`api-dev`、`erp-dev`、`api-staging`、`erp-staging` CNAME → `ghs.googlehosted.com`(灰雲,對應 6 筆 Cloud Run domain mapping);`www`、`@`、`dev`、`staging`、`design` CNAME → Vercel(灰雲);TXT 為 Google 網域驗證,勿刪
 
 ## 四、環境變數管理
 

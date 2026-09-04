@@ -41,7 +41,7 @@ pnpm dev               # 同時啟動 api / front / admin / storybook
 | GraphQL API(+ Sandbox) | http://localhost:5001/graphql |
 | 前台 front             | http://localhost:3002         |
 | 後台 admin             | http://localhost:3001         |
-| Storybook              | http://localhost:6006         |
+| Storybook              | http://localhost:6006(線上:https://design.cookhome.online) |
 
 ## 常用指令
 
