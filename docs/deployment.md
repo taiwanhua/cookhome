@@ -1,6 +1,6 @@
 # CookHome 部署架構與操作手冊
 
-> 最後更新:2026-09-04。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域,dev 環境自動部署。
+> 最後更新:2026-09-04。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
 
 ## 一、架構總覽
 
@@ -22,18 +22,21 @@
                                              │ M0, asia-east1│
                                              └──────────────┘
 
-dev 環境(merge main 自動部署):cookhome-api-dev / cookhome-admin-dev(run.app 網址)
+dev / staging 環境:api 與 admin 各有 -dev、-staging 服務(run.app 網址),由對應分支手動部署
+
 ```
 
-### 環境對照
+### 環境對照(分支 ↔ 環境)
 
-|          | production                                 | dev                                                                  |
-| -------- | ------------------------------------------ | -------------------------------------------------------------------- |
-| front    | `www.cookhome.online`(Vercel,merge 自動)   | Vercel 的 PR Preview 網址                                            |
-| admin    | `erp.cookhome.online`                      | `cookhome-admin-dev-eozioc5kjq-de.a.run.app`                         |
-| api      | `api.cookhome.online`(Sandbox **關**)      | `cookhome-api-dev-...run.app`(Sandbox **開**,`GRAPHQL_SANDBOX=true`) |
-| 資料庫   | Atlas db `cookhome`(secret `mongodb-uri`)  | Atlas db `cookhome-dev`(secret `mongodb-uri-dev`,同一 M0 cluster)    |
-| 部署方式 | **手動觸發** deploy.yml(workflow_dispatch) | merge main **自動**                                                  |
+|                         | dev(開發測試)                             | staging(預發布)                               | production                        |
+| ----------------------- | ----------------------------------------- | --------------------------------------------- | --------------------------------- |
+| 對應分支                | `dev`                                     | `staging`                                     | `main`                            |
+| api                     | `cookhome-api-dev-...run.app`(Sandbox 開) | `cookhome-api-staging-...run.app`(Sandbox 關) | `api.cookhome.online`(Sandbox 關) |
+| admin                   | `cookhome-admin-dev-...run.app`           | `cookhome-admin-staging-...run.app`           | `erp.cookhome.online`             |
+| front                   | Vercel branch preview                     | Vercel branch preview                         | `www.cookhome.online`(merge 自動) |
+| 資料庫(同一 M0 cluster) | db `cookhome-dev`                         | db `cookhome-staging`                         | db `cookhome`                     |
+| secret                  | `mongodb-uri-dev`                         | `mongodb-uri-staging`                         | `mongodb-uri`                     |
+| 部署                    | 手動觸發 deploy.yml                       | 手動觸發 deploy.yml                           | 手動觸發 deploy.yml               |
 
 ### 資源清單
 
@@ -41,31 +44,34 @@ dev 環境(merge main 自動部署):cookhome-api-dev / cookhome-admin-dev(run.ap
 | ------------------- | -------------------------------------------------------------------------------------- | --------------- |
 | GCP 專案            | `cookhome-online`(region 預設 asia-east1)                                              | —               |
 | Artifact Registry   | `asia-east1-docker.pkg.dev/cookhome-online/cookhome`                                   | 儲存費 ~NT$1/月 |
-| Cloud Run ×4        | api / admin / api-dev / admin-dev(全部 min=0 / max=2)                                  | 無流量 = $0     |
-| Secret Manager      | `mongodb-uri`、`mongodb-uri-dev`                                                       | ~$0             |
+| Cloud Run ×6        | api / admin 各 ×(prod, staging, dev)(全部 min=0 / max=2)                               | 無流量 = $0     |
+| Secret Manager      | `mongodb-uri`、`mongodb-uri-staging`、`mongodb-uri-dev`                                | ~$0             |
 | WIF + 部署身分      | pool `github` / provider `github-oidc` / SA `github-deployer`(只認 taiwanhua/cookhome) | $0              |
 | Budget              | NT$600/月,50%/90%/100% 郵件警告                                                        | $0              |
 | MongoDB Atlas       | cluster `cookhome-dev`(M0)                                                             | $0              |
 | Cloudflare / Vercel | DNS 代管 / front(Hobby)                                                                | $0              |
 
-## 二、CI/CD 流程(現行)
+## 二、分支模型與 CI/CD 流程
 
 ```
-開 branch → PR ──▶ ci.yml:lint / typecheck / test / build(mongo service + 起 api)
-   │ CI 綠 → merge main
-   ▼
-deploy.yml(自動)──▶ build image(tag = git SHA;admin 分 dev/prod 兩顆,VITE 端點烘入)
-                     → 推 Artifact Registry → 部署 dev(api-dev + admin-dev)
-                     ;Vercel 同時自動部署 front
-   │ 在 dev 環境人工驗收
-   ▼
-deploy.yml(手動)──▶ GitHub → Actions → Deploy → Run workflow → confirm 欄輸入 production
-                     → 同一顆 SHA image 部署到正式環境(build once, deploy many,不重建)
+main(= production)
+  │  feat 分支一律從 main 切出
+  ├─▶ feat/xxx ──PR──▶ dev(整合測試環境;可被汙染,可隨時 reset 回 main)
+  │        │  測試通過、確定要上線的 feat,「逐一」PR 合併 ──▶ staging(預發布驗證)
+  │        ▼
+  ◀────── staging ──PR 合回 main = 正式發布
+release 後:進行中的 feat 分支 rebase 到最新 main
 ```
 
-- **認證**:Workload Identity Federation — GitHub Actions 以 OIDC 短期憑證換 `github-deployer` 身分,repo 裡**沒有任何 GCP 金鑰**;provider 條件限定只有本 repo 能換
-- **production 閘門**:免費方案沒有 Environments 核准,改用 workflow_dispatch 手動觸發等效替代
-- **回滾**:`gcloud run services update-traffic cookhome-api --to-revisions=<舊revision>=100`,或手動觸發舊 SHA 的部署
+- **CI(ci.yml)**:所有 PR + push 到 `main`/`dev`/`staging` 自動驗證(lint/typecheck/test/build)
+- **CD(deploy.yml)**:**只能手動觸發,merge 不會自動部署**
+  - UI:Actions → Deploy → Run workflow →「Use workflow from」選分支 + environment 選環境
+  - CLI:`gh workflow run Deploy --ref dev -f environment=dev`(staging 同理;production 的 ref 是 `main`)
+  - 防呆:分支與環境不對應會直接失敗(dev→`dev`、staging→`staging`、production→`main`)
+  - image tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(VITE 端點烘入)
+- **dev 汙染重置**:`git checkout dev && git fetch && git reset --hard origin/main && git push --force origin dev`
+- **認證**:Workload Identity Federation — OIDC 短期憑證換 `github-deployer` 身分,repo 裡**零 GCP 金鑰**,provider 限定本 repo
+- **回滾**:`gcloud run services update-traffic cookhome-api --to-revisions=<舊revision>=100`,或從舊 commit 觸發部署
 
 ## 三、手動操作(維運速查)
 
