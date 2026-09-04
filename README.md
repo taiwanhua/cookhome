@@ -24,6 +24,7 @@ packages/
 ├── graphql    GraphQL codegen:型別 + TanStack Query hooks(front/admin 共用)
 ├── ui         設計系統:兩層 tokens、MUI theme(light/dark)、元件+測試+story 三件套
 ├── logger     共用 logger(全 repo 唯一可用 console 之處)
+├── i18n       多語訊息檔(zh-TW / en)+ locale 定義(front: next-intl、admin: use-intl)
 └── config-*   eslint / prettier / typescript / jest 共用設定(單一入口)
 ```
 

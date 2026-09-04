@@ -21,6 +21,7 @@ workspace 套件名一律 `@repo/` 前綴(規則 GEN-06)。
 | `@repo/graphql`                                                                                    | GraphQL codegen 共用套件:讀 `apps/api/schema.gql` + `src/documents/*.graphql`,產生 TypeScript 型別與 TanStack Query hooks(fetcher 為 graphql-request),front/admin 共用 |
 | `@repo/ui`                                                                                         | 設計系統:兩層 tokens(`src/theme/`,品牌層 `brands/*.ts` 可整包替換 + 語意層)、`createAppTheme`(MUI cssVariables、light/dark)、共用元件(元件+測試+story 三件套同居)      |
 | `@repo/logger`                                                                                     | 共用 logger(全 repo 唯一可用 `console` 的地方,其他地方被 `no-console` 擋)                                                                                              |
+| `@repo/i18n`                                                                                       | 多語訊息檔(`messages/<locale>/<namespace>.json`)+ locale 定義;front 以 `next-intl`、admin 以 `use-intl` 消費(同生態);規範見 `standards/general/i18n.md`               |
 | `@repo/eslint-config` / `@repo/prettier-config` / `@repo/typescript-config` / `@repo/jest-presets` | 共用開發設定(單一入口,各 app 不自訂規則)                                                                                                                               |
 
 ## 品質約束(三層)

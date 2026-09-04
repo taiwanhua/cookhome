@@ -1,0 +1,9 @@
+{
+  "app": {
+    "subtitle": "後台管理",
+    "loading": "載入中…",
+    "apiError": "無法連線到 API,請確認 api 服務已啟動",
+    "total": "共 {count} 道食譜",
+    "language": "語言"
+  }
+}
