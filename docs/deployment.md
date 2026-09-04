@@ -107,7 +107,37 @@ gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=a
 - Atlas UI:cloud.mongodb.com → Network Access(0.0.0.0/0)/ Database Access / Browse Collections
 - Cloudflare:`api`、`erp` CNAME → `ghs.googlehosted.com`(灰雲);`www`、`@` CNAME → Vercel(灰雲);TXT 為 Google 網域驗證,勿刪
 
-## 四、安全與費用備忘
+## 四、環境變數管理
+
+**核心觀念:雲端沒有「env 檔案」— 環境變數是平台設定,不是檔案。** 各層的真實來源:
+
+| 層               | 真實來源                                                                                                               | 進版控?                                  |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| 本地開發         | 各 app 的 `.env`(範本:`.env.example`)                                                                                  | `.env` ❌(gitignored)/ `.env.example` ✅ |
+| Cloud Run(api)   | **`deploy.yml` 各環境區塊**:非機密走 `--set-env-vars`(如 `GRAPHQL_SANDBOX`),機密走 `--set-secrets` 引用 Secret Manager | deploy.yml ✅ / 機密值永不進版控         |
+| Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image)                                                                       | ✅                                       |
+| Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                     | ❌(平台保存;清單記載於下表)              |
+
+Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型):
+
+| 範圍                                     | 值                                            |
+| ---------------------------------------- | --------------------------------------------- |
+| Production                               | `https://api.cookhome.online/graphql`         |
+| Preview → branch `staging`               | `https://api-staging.cookhome.online/graphql` |
+| Preview → branch `dev`                   | `https://api-dev.cookhome.online/graphql`     |
+| Preview(其他分支 = 未來 feat 的 preview) | `https://api-dev.cookhome.online/graphql`     |
+
+**新增一個環境變數的 SOP**(依用到它的地方,最多三處):
+
+1. 本地:加進該 app 的 `.env` + 同步 `.env.example`(讓別人/AI 知道有這個變數)
+2. api/admin 雲端:機密 → `gcloud secrets create` + deploy.yml `--set-secrets`;非機密 → deploy.yml `--set-env-vars`(走 PR,可審查)
+3. front 雲端:Vercel dashboard 加(注意 Type 選 **Config**,除非真是機密;`NEXT_PUBLIC_` 前綴 = 會進瀏覽器,機密絕不可加此前綴)
+
+**機密判斷準則**:「這個值出現在瀏覽器/版控裡會不會出事?」會 → Secret Manager(Cloud Run)或 Secret 型(Vercel);不會 → 明文設定即可。
+
+小工具:裝了 vercel CLI 並登入後,`vercel env pull` 可把 Vercel 的變數拉成本地 `.env.local`(本地 front 想直連雲端 dev api 時方便)。
+
+## 五、安全與費用備忘
 
 - 連線字串(含密碼)只存在:Atlas、Secret Manager、擁有者本機 — 從未進版控或指令輸出
 - GraphQL Sandbox / introspection:production 關、dev 開(`GRAPHQL_SANDBOX` env);本地 dev 恆開
