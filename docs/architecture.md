@@ -1,7 +1,7 @@
 # CookHome 專案架構
 
 家常食譜分享網站。Turborepo monorepo(pnpm workspace)。
-(最後更新:2026-09-03)
+(最後更新:2026-09-04)
 
 ## Apps
 
@@ -21,6 +21,7 @@ workspace 套件名一律 `@repo/` 前綴(規則 GEN-06)。
 | `@repo/graphql`                                                                                    | GraphQL codegen 共用套件:讀 `apps/api/schema.gql` + `src/documents/*.graphql`,產生 TypeScript 型別與 TanStack Query hooks(fetcher 為 graphql-request),front/admin 共用 |
 | `@repo/ui`                                                                                         | 設計系統:兩層 tokens(`src/theme/`,品牌層 `brands/*.ts` 可整包替換 + 語意層)、`createAppTheme`(MUI cssVariables、light/dark)、共用元件(元件+測試+story 三件套同居)      |
 | `@repo/logger`                                                                                     | 共用 logger(全 repo 唯一可用 `console` 的地方,其他地方被 `no-console` 擋)                                                                                              |
+| `@repo/i18n`                                                                                       | 多語訊息檔(`messages/<locale>/<namespace>.json`)+ locale 定義;front 以 `next-intl`、admin 以 `use-intl` 消費(同生態);規範見 `standards/general/i18n.md`               |
 | `@repo/eslint-config` / `@repo/prettier-config` / `@repo/typescript-config` / `@repo/jest-presets` | 共用開發設定(單一入口,各 app 不自訂規則)                                                                                                                               |
 
 ## 品質約束(三層)
@@ -46,16 +47,18 @@ workspace 套件名一律 `@repo/` 前綴(規則 GEN-06)。
 
 後端 schema 變更後,重跑步驟 3 即可讓前端型別同步。
 
-## 部署架構(已上線)
+## 部署架構(已上線,三環境)
 
-| App   | production                                      | dev(merge main 自動部署)                  |
-| ----- | ----------------------------------------------- | ----------------------------------------- |
-| front | `www.cookhome.online`(Vercel;裸網域 308 轉 www) | Vercel PR Preview                         |
-| admin | `erp.cookhome.online`(Cloud Run + nginx)        | `cookhome-admin-dev-...run.app`           |
-| api   | `api.cookhome.online`(Cloud Run;Sandbox 關)     | `cookhome-api-dev-...run.app`(Sandbox 開) |
-| DB    | Atlas db `cookhome`(M0, asia-east1)             | Atlas db `cookhome-dev`(同 cluster)       |
+分支 ↔ 環境:`dev` → dev、`staging` → staging(預發布)、`main` → production。
 
-CI:`ci.yml`(PR 驗證);CD:`deploy.yml`(merge → dev 自動;production 手動 workflow_dispatch,同 SHA image「build once, deploy many」),認證走 Workload Identity Federation 免金鑰。費用:全服務 min=0/max=2 + Budget NT$600 警告。完整操作手冊見 `docs/deployment.md`。
+| App   | dev                                    | staging                                   | production                                     |
+| ----- | -------------------------------------- | ----------------------------------------- | ---------------------------------------------- |
+| front | `dev.cookhome.online`(Vercel 分支網域) | `staging.cookhome.online`                 | `www.cookhome.online`(裸網域 308 轉 www)       |
+| admin | `erp-dev.cookhome.online`              | `erp-staging.cookhome.online`             | `erp.cookhome.online`(Cloud Run + nginx)       |
+| api   | `api-dev.cookhome.online`(Sandbox 開)  | `api-staging.cookhome.online`(Sandbox 關) | `api.cookhome.online`(Cloud Run;Sandbox 關)    |
+| DB    | Atlas db `cookhome-dev`                | Atlas db `cookhome-staging`               | Atlas db `cookhome`(M0, asia-east1,同 cluster) |
+
+CI:`ci.yml`(所有 PR + 三分支 push 驗證);CD:`deploy.yml` **一律手動觸發**(Actions UI 或 `gh workflow run`,分支↔環境防呆;front 由 Vercel 於 merge/Deploy Hook 觸發),認證走 Workload Identity Federation 免金鑰。費用:全服務 min=0/max=2 + Budget NT$600 警告。完整操作手冊見 `docs/deployment.md`。
 
 ## 本地開發
 

@@ -1,0 +1,9 @@
+{
+  "app": {
+    "subtitle": "Admin",
+    "loading": "Loading…",
+    "apiError": "Cannot reach the API. Make sure the api service is running.",
+    "total": "{count, plural, one {# recipe} other {# recipes}}",
+    "language": "Language"
+  }
+}

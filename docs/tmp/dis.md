@@ -58,19 +58,25 @@
 ### B. 需要討論決策
 
 5. **設計系統收尾** — `react/styling.md` 規範、apps 禁直接 import `@mui/material` 的 lint 規則、Storybook 部署(建議 Vercel 第二專案)、figma-generate-library 投影(品牌 = Figma variable mode)、自訂 `/to-figma` skill。
-6. **staging api 環境時機** — 初期單環境是否足夠。
-7. **i18n 方案** — front(next-intl?)與 admin 的多國語系;設計系統已配合(元件不寫死文案)。
+6. ~~staging api 環境時機~~ — **已解決(2026-09-04)**:三環境分支模型落地,staging 環境(api/admin/front/db)全數上線。
+7. ~~i18n 方案~~ — **已完成(2026-09-04)**:`@repo/i18n` 訊息檔套件(zh-TW/en);front 用 next-intl(`/` = zh-TW、`/en` 前綴,SSG×2 語言 + ISR,Next 16 改用 `proxy.ts`),admin 用 use-intl(語言切換 + localStorage,不進 URL);api 語言無關(錯誤走 code)。規範 `standards/general/i18n.md`(I18N-01~05)。內容資料(食譜)多語 = 未來 schema 設計問題,與 UI i18n 分開。
 8. **Budget 終極斷路器** — Pub/Sub + Cloud Function 自動解綁 billing;看過前幾個月帳單再決定。
 9. **AI 自動 PR review 時機** — GitHub Actions 上的 AI review 與本地 `/code-review` 的分工。
 10. **Turbo remote cache** — 等 CI 時間變長再評估。
+15. **專案模板 skill(project-bootstrap)** — 使用者還有兩個 front+admin+api 專案要開;以 cookhome 為基底,品牌落點已盤點成 `docs/branding.md`(2026-09-05),skill 化後帶參數(品牌名、網域、GCP 專案)自動替換 + 走 deployment.md 建基礎設施。時機:第二個專案要開時。
 
-### C. 外部條件觸發(追蹤中)
+### C. 小任務(不需討論,找時間做)
 
-11. **unicorn 升級** — 等 ESLint 10 生態穩定,連 ESLint 一起升。
-12. **api 錯誤處理總策略 / module 邊界細則** — 等 api 長出第二個 feature 再歸納(見 standards README)。
+11. **deploy.yml 的 dev/staging api_url 換自訂子網域** — admin 的 dev/staging image 目前烘的端點仍是 run.app 網址(功能正常,run.app 恆有效);改成 `api-dev` / `api-staging.cookhome.online` 後重部署 admin ×2,達成一致性。
+12. **Atlas 拆成三個 cluster** — 現為單 M0 三 db(共用 500 連線上限與資源);已定案要拆(2026-09-04),時機:production 有真實流量升 M10 時一併(production 獨立 cluster + 正名,dev/staging 留 M0),或先用三個 Atlas project 各一免費 M0。過渡加固已做:三環境 URI 皆設 `maxPoolSize=10`(理論上限 60 連線,遠低於 500)。
+
+### D. 外部條件觸發(追蹤中)
+
+13. **unicorn 升級** — 等 ESLint 10 生態穩定,連 ESLint 一起升。
+14. **api 錯誤處理總策略 / module 邊界細則 + schema 演進規範(向後相容、破壞性變更配遷移腳本)** — 等 api 長出第二個 feature 再歸納。
 
 ---
 
 ## 三、建議的進行順序
 
-A1(commit)→ A2(hooks)→ A3(ci.yml)→ B4(front build 策略,ci.yml 需要它)→ B5(設計系統收尾)→ GCP 學習路線(一、4)→ 其餘看時機。
+基建全數完成。接下來:B5(設計系統收尾)→ 用完整工作流程(/grilling → /to-spec → tickets → TDD)開發第一個真功能 → 其餘看時機。

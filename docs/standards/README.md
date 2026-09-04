@@ -18,6 +18,7 @@
 | 前端資料存取(query / mutation)                  | `react/data-fetching.md`                    |
 | api 的 GraphQL schema(resolver / model / input) | `api/graphql-schema.md`                     |
 | 測試                                            | `testing/testing.md`                        |
+| UI 文案 / 多語(i18n)                            | `general/i18n.md`                           |
 
 ## 尚未定案(刻意不寫)
 

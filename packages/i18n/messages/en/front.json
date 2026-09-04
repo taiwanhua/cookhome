@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "title": "CookHome — Home-style Recipes",
+    "titleTemplate": "%s | CookHome",
+    "description": "Share and collect home-style recipes"
+  },
+  "home": {
+    "subtitle": "Home-style Recipes",
+    "empty": "No recipes yet — come add the first dish!",
+    "recipeMeta": "{minutes} min cook · serves {servings}"
+  }
+}
