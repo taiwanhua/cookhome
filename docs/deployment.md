@@ -149,5 +149,6 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 - 連線字串(含密碼)只存在:Atlas、Secret Manager、擁有者本機 — 從未進版控或指令輸出
 - GraphQL Sandbox / introspection:production 關、dev 開(`GRAPHQL_SANDBOX` env);本地 dev 恆開
 - 費用防線:全服務 `max-instances=2`(費用天花板)+ Budget NT$600 三段警告
+- 連線池:三環境的 MongoDB URI 均含 `maxPoolSize=10` — 理論上限 6 實例 × 10 = 60 連線,遠低於 M0 的 500(三環境共用同一 cluster 額度,拆 cluster 見 dis.md 待辦)
 - 已評估先不做:固定出口 IP(VPC connector + NAT ~US$10/月)、Cloudflare 橙雲 WAF(需 Global LB ~US$18/月)、production api `min-instances=1`(冷啟動換省錢,有流量後再開)
 - 待議:api schema 演進規範(向後相容 + 破壞性變更配遷移腳本)→ `docs/standards/api/`

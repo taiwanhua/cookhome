@@ -67,7 +67,7 @@
 ### C. 小任務(不需討論,找時間做)
 
 11. **deploy.yml 的 dev/staging api_url 換自訂子網域** — admin 的 dev/staging image 目前烘的端點仍是 run.app 網址(功能正常,run.app 恆有效);改成 `api-dev` / `api-staging.cookhome.online` 後重部署 admin ×2,達成一致性。
-12. **Atlas cluster 改名評估** — cluster 名 `cookhome-dev` 承載正式資料的名實不符;資料少時想換可建新 cluster 搬遷。
+12. **Atlas 拆成三個 cluster** — 現為單 M0 三 db(共用 500 連線上限與資源);已定案要拆(2026-09-04),時機:production 有真實流量升 M10 時一併(production 獨立 cluster + 正名,dev/staging 留 M0),或先用三個 Atlas project 各一免費 M0。過渡加固已做:三環境 URI 皆設 `maxPoolSize=10`(理論上限 60 連線,遠低於 500)。
 
 ### D. 外部條件觸發(追蹤中)
 
