@@ -1,0 +1,91 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main] # merge main → 自動部署 dev 環境
+  workflow_dispatch: # production 閘門:Actions 頁手動觸發(免費方案替代 Environments 核准)
+    inputs:
+      confirm:
+        description: "輸入 production 以確認部署正式環境(部署 main 最新 SHA 的既有 image)"
+        required: true
+
+env:
+  REGION: asia-east1
+  REGISTRY: asia-east1-docker.pkg.dev/cookhome-online/cookhome
+  DEV_API_URL: https://cookhome-api-dev-eozioc5kjq-de.a.run.app
+  PROD_API_URL: https://api.cookhome.online
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation 需要:用 OIDC token 免金鑰換 GCP 身分
+
+jobs:
+  # ── merge main:build 一次(tag = git SHA)→ 推倉庫 → 部署 dev ──
+  build-and-deploy-dev:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/728045896207/locations/global/workloadIdentityPools/github/providers/github-oidc
+          service_account: github-deployer@cookhome-online.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - run: gcloud auth configure-docker asia-east1-docker.pkg.dev --quiet
+
+      - name: build + push api
+        run: |
+          docker build -f apps/api/Dockerfile -t $REGISTRY/api:${{ steps.sha.outputs.short }} .
+          docker push $REGISTRY/api:${{ steps.sha.outputs.short }}
+
+      # admin 是 Vite:VITE_* 於 build 時烘入 → dev/prod 端點不同,各 build 一顆
+      - name: build + push admin(dev / prod 兩顆)
+        run: |
+          docker build -f apps/admin/Dockerfile -t $REGISTRY/admin:${{ steps.sha.outputs.short }}-dev  --build-arg VITE_GRAPHQL_ENDPOINT=$DEV_API_URL/graphql .
+          docker build -f apps/admin/Dockerfile -t $REGISTRY/admin:${{ steps.sha.outputs.short }}-prod --build-arg VITE_GRAPHQL_ENDPOINT=$PROD_API_URL/graphql .
+          docker push $REGISTRY/admin:${{ steps.sha.outputs.short }}-dev
+          docker push $REGISTRY/admin:${{ steps.sha.outputs.short }}-prod
+
+      - name: deploy dev
+        run: |
+          gcloud run deploy cookhome-api-dev --region=$REGION \
+            --image=$REGISTRY/api:${{ steps.sha.outputs.short }} \
+            --port=5001 --allow-unauthenticated --min-instances=0 --max-instances=2 \
+            --set-secrets=MONGODB_URI=mongodb-uri-dev:latest \
+            --set-env-vars=GRAPHQL_SANDBOX=true --quiet
+          gcloud run deploy cookhome-admin-dev --region=$REGION \
+            --image=$REGISTRY/admin:${{ steps.sha.outputs.short }}-dev \
+            --port=8080 --allow-unauthenticated --min-instances=0 --max-instances=2 --quiet
+
+  # ── 手動觸發:把 dev 已驗證的同一顆 SHA image 部署到 production(build once, deploy many) ──
+  deploy-production:
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm == 'production'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/728045896207/locations/global/workloadIdentityPools/github/providers/github-oidc
+          service_account: github-deployer@cookhome-online.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: deploy production(不重 build,直接用既有 image)
+        run: |
+          gcloud run deploy cookhome-api --region=$REGION \
+            --image=$REGISTRY/api:${{ steps.sha.outputs.short }} \
+            --port=5001 --allow-unauthenticated --min-instances=0 --max-instances=2 \
+            --set-secrets=MONGODB_URI=mongodb-uri:latest --quiet
+          gcloud run deploy cookhome-admin --region=$REGION \
+            --image=$REGISTRY/admin:${{ steps.sha.outputs.short }}-prod \
+            --port=8080 --allow-unauthenticated --min-instances=0 --max-instances=2 --quiet

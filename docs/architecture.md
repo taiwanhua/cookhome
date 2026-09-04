@@ -46,16 +46,16 @@ workspace 套件名一律 `@repo/` 前綴(規則 GEN-06)。
 
 後端 schema 變更後,重跑步驟 3 即可讓前端型別同步。
 
-## 部署架構(規劃,尚未實施)
+## 部署架構(已上線)
 
-| App   | 位置                                              | 常駐設定                           | 網域                    |
-| ----- | ------------------------------------------------- | ---------------------------------- | ----------------------- |
-| front | Vercel                                            | (Vercel 自管)                      | `cookhome.online`       |
-| admin | Cloud Run(nginx 靜態)                             | min-instances = 0                  | `admin.cookhome.online` |
-| api   | Cloud Run(NestJS)                                 | production min = 1,staging min = 0 | `api.cookhome.online`   |
-| DB    | MongoDB Atlas(與 Cloud Run 同 region, asia-east1) | M0 免費層起步                      | —                       |
+| App   | production                                      | dev(merge main 自動部署)                  |
+| ----- | ----------------------------------------------- | ----------------------------------------- |
+| front | `www.cookhome.online`(Vercel;裸網域 308 轉 www) | Vercel PR Preview                         |
+| admin | `erp.cookhome.online`(Cloud Run + nginx)        | `cookhome-admin-dev-...run.app`           |
+| api   | `api.cookhome.online`(Cloud Run;Sandbox 關)     | `cookhome-api-dev-...run.app`(Sandbox 開) |
+| DB    | Atlas db `cookhome`(M0, asia-east1)             | Atlas db `cookhome-dev`(同 cluster)       |
 
-費用控管:`max-instances` 為實質天花板 + GCP Budget 警告。CI/CD:GitHub Actions(CI 驗證 + 產 image;CD 拿同一 image 部署,Workload Identity Federation 認證)。詳見 `docs/tmp/dis.md`。
+CI:`ci.yml`(PR 驗證);CD:`deploy.yml`(merge → dev 自動;production 手動 workflow_dispatch,同 SHA image「build once, deploy many」),認證走 Workload Identity Federation 免金鑰。費用:全服務 min=0/max=2 + Budget NT$600 警告。完整操作手冊見 `docs/deployment.md`。
 
 ## 本地開發
 
