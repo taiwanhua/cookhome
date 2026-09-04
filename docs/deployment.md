@@ -33,7 +33,7 @@ dev / staging 環境:api 與 admin 各有 -dev、-staging 服務(run.app 網址)
 | 對應分支                | `dev`                                     | `staging`                                     | `main`                            |
 | api                     | `cookhome-api-dev-...run.app`(Sandbox 開) | `cookhome-api-staging-...run.app`(Sandbox 關) | `api.cookhome.online`(Sandbox 關) |
 | admin                   | `cookhome-admin-dev-...run.app`           | `cookhome-admin-staging-...run.app`           | `erp.cookhome.online`             |
-| front                   | Vercel branch preview                     | Vercel branch preview                         | `www.cookhome.online`(merge 自動) |
+| front                   | `dev.cookhome.online`                     | `staging.cookhome.online`                     | `www.cookhome.online`(merge 自動) |
 | 資料庫(同一 M0 cluster) | db `cookhome-dev`                         | db `cookhome-staging`                         | db `cookhome`                     |
 | secret                  | `mongodb-uri-dev`                         | `mongodb-uri-staging`                         | `mongodb-uri`                     |
 | 部署                    | 手動觸發 deploy.yml                       | 手動觸發 deploy.yml                           | 手動觸發 deploy.yml               |
@@ -136,6 +136,12 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 **機密判斷準則**:「這個值出現在瀏覽器/版控裡會不會出事?」會 → Secret Manager(Cloud Run)或 Secret 型(Vercel);不會 → 明文設定即可。
 
 小工具:裝了 vercel CLI 並登入後,`vercel env pull` 可把 Vercel 的變數拉成本地 `.env.local`(本地 front 想直連雲端 dev api 時方便)。
+
+### Vercel 補充設定(2026-09-04)
+
+- **分支網域**:`dev.cookhome.online` → branch `dev`、`staging.cookhome.online` → branch `staging`(Settings → Domains,各綁 Git Branch);api/admin 的 dev/staging 子網域走 Cloud Run domain mapping(`api-dev`、`erp-dev`、`api-staging`、`erp-staging`,Cloudflare 灰雲 CNAME → ghs.googlehosted.com)
+- **Deploy Hooks**(Settings → Git 最下方):`dev-front`、`staging-front` — 對 hook URL 發 POST 即可**不靠 commit** 重 build 該分支的 front(Vercel 會跳過無檔案變更的 commit,分支剛建立或只想重烘時用這個)
+- **Deployment Protection:已關閉** Vercel Authentication(決策:dev/staging 的 api/admin 在 Cloud Run 本就公開,單獨保護 front preview 無實益;未來要全面保護測試環境再另議)
 
 ## 五、安全與費用備忘
 
