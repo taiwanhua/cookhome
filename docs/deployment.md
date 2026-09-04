@@ -28,15 +28,15 @@ dev / staging 環境:api 與 admin 各有 -dev、-staging 服務(run.app 網址)
 
 ### 環境對照(分支 ↔ 環境)
 
-|                         | dev(開發測試)                             | staging(預發布)                               | production                        |
-| ----------------------- | ----------------------------------------- | --------------------------------------------- | --------------------------------- |
-| 對應分支                | `dev`                                     | `staging`                                     | `main`                            |
-| api                     | `cookhome-api-dev-...run.app`(Sandbox 開) | `cookhome-api-staging-...run.app`(Sandbox 關) | `api.cookhome.online`(Sandbox 關) |
-| admin                   | `cookhome-admin-dev-...run.app`           | `cookhome-admin-staging-...run.app`           | `erp.cookhome.online`             |
-| front                   | `dev.cookhome.online`                     | `staging.cookhome.online`                     | `www.cookhome.online`(merge 自動) |
-| 資料庫(同一 M0 cluster) | db `cookhome-dev`                         | db `cookhome-staging`                         | db `cookhome`                     |
-| secret                  | `mongodb-uri-dev`                         | `mongodb-uri-staging`                         | `mongodb-uri`                     |
-| 部署                    | 手動觸發 deploy.yml                       | 手動觸發 deploy.yml                           | 手動觸發 deploy.yml               |
+|                         | dev(開發測試)                         | staging(預發布)                           | production                        |
+| ----------------------- | ------------------------------------- | ----------------------------------------- | --------------------------------- |
+| 對應分支                | `dev`                                 | `staging`                                 | `main`                            |
+| api                     | `api-dev.cookhome.online`(Sandbox 開) | `api-staging.cookhome.online`(Sandbox 關) | `api.cookhome.online`(Sandbox 關) |
+| admin                   | `erp-dev.cookhome.online`             | `erp-staging.cookhome.online`             | `erp.cookhome.online`             |
+| front                   | `dev.cookhome.online`                 | `staging.cookhome.online`                 | `www.cookhome.online`(merge 自動) |
+| 資料庫(同一 M0 cluster) | db `cookhome-dev`                     | db `cookhome-staging`                     | db `cookhome`                     |
+| secret                  | `mongodb-uri-dev`                     | `mongodb-uri-staging`                     | `mongodb-uri`                     |
+| 部署                    | 手動觸發 deploy.yml                   | 手動觸發 deploy.yml                       | 手動觸發 deploy.yml               |
 
 ### 資源清單
 
@@ -105,7 +105,7 @@ gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=a
 
 - Cloud Run UI:console.cloud.google.com → Cloud Run(注意:編輯表單顯示的 max instances「20」是表單預設建議值,實際生效值看 Revisions 分頁,目前為 2)
 - Atlas UI:cloud.mongodb.com → Network Access(0.0.0.0/0)/ Database Access / Browse Collections
-- Cloudflare:`api`、`erp` CNAME → `ghs.googlehosted.com`(灰雲);`www`、`@` CNAME → Vercel(灰雲);TXT 為 Google 網域驗證,勿刪
+- Cloudflare:`api`、`erp`、`api-dev`、`erp-dev`、`api-staging`、`erp-staging` CNAME → `ghs.googlehosted.com`(灰雲,對應 6 筆 Cloud Run domain mapping);`www`、`@`、`dev`、`staging` CNAME → Vercel(灰雲);TXT 為 Google 網域驗證,勿刪
 
 ## 四、環境變數管理
 
@@ -142,6 +142,7 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 - **分支網域**:`dev.cookhome.online` → branch `dev`、`staging.cookhome.online` → branch `staging`(Settings → Domains,各綁 Git Branch);api/admin 的 dev/staging 子網域走 Cloud Run domain mapping(`api-dev`、`erp-dev`、`api-staging`、`erp-staging`,Cloudflare 灰雲 CNAME → ghs.googlehosted.com)
 - **Deploy Hooks**(Settings → Git 最下方):`dev-front`、`staging-front` — 對 hook URL 發 POST 即可**不靠 commit** 重 build 該分支的 front(Vercel 會跳過無檔案變更的 commit,分支剛建立或只想重烘時用這個)
 - **Deployment Protection:已關閉** Vercel Authentication(決策:dev/staging 的 api/admin 在 Cloud Run 本就公開,單獨保護 front preview 無實益;未來要全面保護測試環境再另議)
+- **已知不一致(待辦)**:deploy.yml 的 `DEV_API_URL` / staging `api_url` 仍指 run.app 網址 → admin 的 dev/staging image 烘的是 run.app 端點(功能正常);換成自訂子網域後需重部署 admin ×2
 
 ## 五、安全與費用備忘
 

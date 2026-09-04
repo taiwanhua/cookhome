@@ -58,19 +58,24 @@
 ### B. 需要討論決策
 
 5. **設計系統收尾** — `react/styling.md` 規範、apps 禁直接 import `@mui/material` 的 lint 規則、Storybook 部署(建議 Vercel 第二專案)、figma-generate-library 投影(品牌 = Figma variable mode)、自訂 `/to-figma` skill。
-6. **staging api 環境時機** — 初期單環境是否足夠。
+6. ~~staging api 環境時機~~ — **已解決(2026-09-04)**:三環境分支模型落地,staging 環境(api/admin/front/db)全數上線。
 7. **i18n 方案** — front(next-intl?)與 admin 的多國語系;設計系統已配合(元件不寫死文案)。
 8. **Budget 終極斷路器** — Pub/Sub + Cloud Function 自動解綁 billing;看過前幾個月帳單再決定。
 9. **AI 自動 PR review 時機** — GitHub Actions 上的 AI review 與本地 `/code-review` 的分工。
 10. **Turbo remote cache** — 等 CI 時間變長再評估。
 
-### C. 外部條件觸發(追蹤中)
+### C. 小任務(不需討論,找時間做)
 
-11. **unicorn 升級** — 等 ESLint 10 生態穩定,連 ESLint 一起升。
-12. **api 錯誤處理總策略 / module 邊界細則** — 等 api 長出第二個 feature 再歸納(見 standards README)。
+11. **deploy.yml 的 dev/staging api_url 換自訂子網域** — admin 的 dev/staging image 目前烘的端點仍是 run.app 網址(功能正常,run.app 恆有效);改成 `api-dev` / `api-staging.cookhome.online` 後重部署 admin ×2,達成一致性。
+12. **Atlas cluster 改名評估** — cluster 名 `cookhome-dev` 承載正式資料的名實不符;資料少時想換可建新 cluster 搬遷。
+
+### D. 外部條件觸發(追蹤中)
+
+13. **unicorn 升級** — 等 ESLint 10 生態穩定,連 ESLint 一起升。
+14. **api 錯誤處理總策略 / module 邊界細則 + schema 演進規範(向後相容、破壞性變更配遷移腳本)** — 等 api 長出第二個 feature 再歸納。
 
 ---
 
 ## 三、建議的進行順序
 
-A1(commit)→ A2(hooks)→ A3(ci.yml)→ B4(front build 策略,ci.yml 需要它)→ B5(設計系統收尾)→ GCP 學習路線(一、4)→ 其餘看時機。
+基建全數完成。接下來:B5(設計系統收尾)→ 用完整工作流程(/grilling → /to-spec → tickets → TDD)開發第一個真功能 → 其餘看時機。
