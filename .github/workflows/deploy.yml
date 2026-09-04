@@ -49,13 +49,13 @@ jobs:
               echo "suffix=-dev" >> "$GITHUB_OUTPUT"
               echo "secret=mongodb-uri-dev" >> "$GITHUB_OUTPUT"
               echo "sandbox=true" >> "$GITHUB_OUTPUT"
-              echo "api_url=https://cookhome-api-dev-eozioc5kjq-de.a.run.app" >> "$GITHUB_OUTPUT"
+              echo "api_url=https://api-dev.cookhome.online" >> "$GITHUB_OUTPUT"
               ;;
             staging)
               echo "suffix=-staging" >> "$GITHUB_OUTPUT"
               echo "secret=mongodb-uri-staging" >> "$GITHUB_OUTPUT"
               echo "sandbox=false" >> "$GITHUB_OUTPUT"
-              echo "api_url=https://cookhome-api-staging-eozioc5kjq-de.a.run.app" >> "$GITHUB_OUTPUT"
+              echo "api_url=https://api-staging.cookhome.online" >> "$GITHUB_OUTPUT"
               ;;
             production)
               echo "suffix=" >> "$GITHUB_OUTPUT"
