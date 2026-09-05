@@ -1,6 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { createBrandFromPrimary, createPalette, mixHex } from "./brand";
+import {
+  contrastRatio,
+  createBrandFromPrimary,
+  createPalette,
+  mixHex,
+} from "./brand";
 import { createAppTheme } from "./create-theme";
 import { statusPalettes } from "./tokens";
 
@@ -25,6 +30,17 @@ describe("brand palette", () => {
     expect(luma(p.light)).toBeGreaterThan(luma(p.main));
     expect(luma(p.main)).toBeGreaterThan(luma(p.dark));
     expect(luma(p.dark)).toBeGreaterThan(luma(p.darker));
+  });
+
+  it("contrastText 依 WCAG AA 自動挑色:亮主色配深字、暗主色配白字,全部 ≥ 4.5:1", () => {
+    // 品牌橘配白字只有 ~2.6:1 → 自動改深字
+    expect(createPalette("#FB7B10").contrastText).toBe("#222B35");
+    // 深藍配白字 ~5.5:1 → 維持白字
+    expect(createPalette("#2065D1").contrastText).toBe("#FFFFFF");
+    for (const hex of ["#FB7B10", "#2065D1", "#00B8D9", "#FF5630"]) {
+      const p = createPalette(hex);
+      expect(contrastRatio(p.main, p.contrastText)).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it("overrides 逃生口可逐階覆寫", () => {

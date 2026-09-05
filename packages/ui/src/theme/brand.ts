@@ -88,7 +88,33 @@ export const mixHex = (
   });
 };
 
+/** 深色對比文字(值同 tokens 的 grey/800;不直接 import 以避免循環依賴) */
+const DARK_CONTRAST_TEXT = "#222B35";
+
+/** WCAG 相對亮度(輸入 sRGB hex) */
+const relativeLuminance = (hex: string): number => {
+  const [r, g, b] = toRgb(hex).map((c) => srgbToLinear(c)) as [
+    number,
+    number,
+    number,
+  ];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+/** WCAG 對比度(1~21) */
+export const contrastRatio = (hexA: string, hexB: string): number => {
+  const la = relativeLuminance(hexA);
+  const lb = relativeLuminance(hexB);
+  const [light, dark] = la >= lb ? [la, lb] : [lb, la];
+  return (light + 0.05) / (dark + 0.05);
+};
+
+/** 依 WCAG AA(4.5:1)自動挑對比文字色:白字達標用白,否則用深色 */
+export const pickContrastText = (baseHex: string): string =>
+  contrastRatio(baseHex, "#FFFFFF") >= 4.5 ? "#FFFFFF" : DARK_CONTRAST_TEXT;
+
 export interface CreatePaletteOptions {
+  /** 未指定時依 WCAG AA 自動挑白/深字 */
   contrastText?: string;
   /** 逃生口:演算法生成的某一階不滿意時,逐階手動覆寫 */
   overrides?: Partial<BrandPalette>;
@@ -99,7 +125,7 @@ export const createPalette = (
   baseHex: string,
   options: CreatePaletteOptions = {},
 ): BrandPalette => {
-  const { contrastText = "#FFFFFF", overrides = {} } = options;
+  const { contrastText = pickContrastText(baseHex), overrides = {} } = options;
   return {
     lighter: mixHex(baseHex, "#FFFFFF", 0.84),
     light: mixHex(baseHex, "#FFFFFF", 0.48),

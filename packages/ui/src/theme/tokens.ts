@@ -25,9 +25,10 @@ export const statusPalettes: Record<
   "info" | "success" | "warning" | "error",
   BrandPalette
 > = {
+  // contrastText 由 createPalette 依 WCAG AA 自動挑白/深字
   info: createPalette("#00B8D9"),
   success: createPalette("#22C55E"),
-  warning: createPalette("#FFAB00", { contrastText: grey[800] }),
+  warning: createPalette("#FFAB00"),
   error: createPalette("#FF5630"),
 };
 
