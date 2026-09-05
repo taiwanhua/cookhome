@@ -29,7 +29,7 @@
 | passwordHash | string | argon2id,禁明文(ADR-0003) |
 | enabled | boolean | |
 | settings | object | |
-| orgId | ObjectId | **僅 customers**:註冊預設根組織;users 走 org_user 關聯(可多組織) |
+| orgId | ObjectId | **僅 customers**:註冊預設根組織、可指定為某租戶(該租戶的會員);users 走 org_user 關聯(可多組織) |
 
 ## roles(角色)
 
