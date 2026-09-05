@@ -45,7 +45,7 @@
 - **MongoDB Atlas**:cluster 名、資料庫名(`cookhome` / `cookhome_dev` / `cookhome_staging`)
 - **Vercel**:專案名、環境變數、branch domains、Deploy Hooks
 - **Cloudflare / 網域**:zone 本身 + 子網域 CNAME(www/dev/staging × front/api/erp,加 `design` = Storybook)
-- **Figma**:設計系統投影的目的地檔案(CookHome 用 Wowgo 團隊的「CookHome Design System」;新專案要自選 team/file,注意免費方案 variables 只有 1 mode、不能發佈 library)
+- **Figma**:設計系統投影的目的地檔案(CookHome:[CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)@Wowgo 團隊;新專案要自選 team/file,注意免費方案 variables 只有 1 mode、不能發佈 library;Code Connect 需 Org 方案)
 
 ## 三、之後的計畫
 
