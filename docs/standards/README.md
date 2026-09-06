@@ -19,6 +19,7 @@
 | api 的 GraphQL schema(resolver / model / input) | `api/graphql-schema.md`                     |
 | 測試                                            | `testing/testing.md`                        |
 | UI 文案 / 多語(i18n)                            | `general/i18n.md`                           |
+| Figma 設計稿                                    | `general/figma.md`                          |
 
 ## 尚未定案(刻意不寫)
 
