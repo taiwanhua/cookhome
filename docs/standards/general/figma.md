@@ -8,7 +8,7 @@
 - **殼與情境元件**(SideNav、AppBar、RouteTabs、StatCard / RecipeCard、AdSlot…)放對應 Shell 頁
 - 尚未 code 化的元件一律 `Draft/` 前綴;code 化並重新投影後移除前綴
 - 元件必填 description(用途 + 特殊規則),重要操作屬性化(TEXT/BOOLEAN 屬性)
-- **變體軸與屬性名對應 `@repo/ui` 包裝層的 props**(如 Select 的 Variant=Default/Compact),不是 MUI 原生屬性 — 包裝層自己定義 API(STYLE-05)
+- **變體軸與屬性名對應 `@repo/ui` 包裝層的 props**;包裝層能透傳 MUI 原生值就透傳、不發明新名(如 Select 的 Variant=Outlined/Standard 即 MUI variant),真有 MUI 沒有的才自定義(STYLE-05)
 
 ## FIGMA-02 零寫死
 

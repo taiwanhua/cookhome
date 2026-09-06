@@ -61,6 +61,7 @@
 | 欄位 | 型別 | 備註 |
 |---|---|---|
 | key ⊕ | string | unique,`模組樹.動作` 全 kebab-case;每模組含一筆 `模組key.*`(ADR-0004) |
+| kind ⊕ | enum | `action`(預設,矩陣渲染 checkbox)/ `data-scope`(資料範圍檔位,同模組成組渲染 radio,ADR-0008) |
 | name / description | string | |
 | enabled | boolean | 全域 kill switch |
 | isSystem ⊕ / settings | | |
