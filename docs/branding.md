@@ -1,53 +1,33 @@
-# 品牌落點清單(換皮 / 開新專案指南)
+# 品牌註冊表
 
-以本 repo 為模板開新專案(front + admin + api)時,品牌相關的東西**全部**在以下位置。
-原則:品牌只允許出現在這份清單列出的地方 — UI 上的品牌字一律取自 `@repo/i18n` 的
-`common.brand`,視覺取自 `@repo/ui` 的 brand tokens;其他地方硬編碼品牌字視為違規
-(程式碼註解、文件不在此限)。守住這條,換品牌的成本永遠是固定的清單,不是全文搜尋。
+**規則:任何新增或異動「品牌文字、圖案、色彩、網域」的地方,必須同步更新本表**(新增列或修訂),否則換品牌時會漏。AI 與人同守;review 時檢查。
 
-## 一、程式碼內(clone 模板後逐一替換)
+換品牌 = 逐列處理下表 + 主色一行(`createBrandFromPrimary` 的 hex)。
 
-### 品牌文字
+## 程式碼
 
 | 位置 | 內容 | 怎麼改 |
-| --- | --- | --- |
-| `packages/i18n/messages/{zh-TW,en}/common.json` | `brand` — 所有 UI 品牌顯示名的唯一來源 | 改字串 |
-| `packages/i18n/messages/{zh-TW,en}/front.json` | `meta.*` — 前台 SEO title / titleTemplate / description | 改字串 |
-| `packages/i18n/messages/{zh-TW,en}/admin.json` | `app.subtitle` — 後台副標 | 改字串 |
-| `apps/admin/index.html` | `<title>` 與 `<html lang>`(JS 載入前的 fallback;載入後由 `app/index.tsx` 的 effect 依語言同步) | 改字串 |
-| 根 `package.json` | workspace 名稱 `cookhome` | 改名 |
-| `apps/admin/src/app/root.tsx` | localStorage key `cookhome-admin-locale`(避免同網域多專案互踩) | 改前綴 |
-| `apps/api/src/app.module.ts` | 本地開發 Mongo fallback URI 的 DB 名(`mongodb://localhost:27017/cookhome`) | 改 DB 名 |
-| `docker-compose.yml` | container 名稱 `cookhome-mongo` / `cookhome-api` / `cookhome-admin` | 改名 |
+|---|---|---|
+| `packages/ui/src/theme/brand.ts` | `cookhomeBrand`(主色來源,全 theme 由此衍生) | 換 primary hex 一行;export 名稱可 alias 保留 |
+| `apps/storybook/.storybook/preview.tsx` | import `cookhomeBrand` | 隨上列改名連動 |
+| `apps/admin/src/app/root.tsx` | localStorage key `cookhome-admin-locale` | 換品牌 slug(舊 key 的既存值會失效,可接受) |
+| `apps/api/src/app.module.ts` | 預設 MongoDB 連線 `mongodb://localhost:27017/cookhome` | 換 db 名(僅本機預設,正式環境走環境變數) |
+| 網域 | `cookhome.online`、`design.cookhome.online`(deploy 設定 / DNS / Storybook 部署) | DNS + `.github/workflows/deploy.yml` 相關設定 |
+| 各 app metadata title / favicon | (實作畫面時逐一登記於此) | — |
 
-### 品牌視覺
+## Figma(SvnBvi8Opfj8daJAclOnWW)
 
-| 位置 | 內容 | 怎麼改 |
-| --- | --- | --- |
-| `packages/ui/src/theme/brands/cookhome.ts` | 品牌層 design tokens(色票等),語意層與元件只認語意 token | 新增 `brands/<新品牌>.ts` 整包替換,不改語意層 |
-| `packages/ui/src/theme/index.ts` | re-export 目前品牌(`export * from "./brands/cookhome"`) | 改指向新品牌檔 |
-| `apps/storybook/.storybook/preview.tsx` | `createAppTheme(cookhomeBrand)` | 改 import 的 brand |
-| `apps/front/public/favicon.ico` | 前台 favicon(目前是佔位圖示) | 換檔案 |
-| `apps/admin/public/favicon.ico` | 後台 favicon(目前是佔位圖示) | 換檔案 |
+| 位置 | 節點 | 內容 |
+|---|---|---|
+| Admin 登入 LoginCard | 17:7 / 17:8 / 17:26 | 「CookHome」「後台管理系統」「© 2026 CookHome…」(忘記密碼、設定新密碼頁為其複本,共 4 張圖同步改) |
+| Draft/AdminSideNav 元件 | 25:42(brandName)/ 120:50(logoImg 槽) | 頂部租戶識別:預設文字,ShowLogo=true 換商標圖;改元件即全畫面連動 |
+| Draft/FrontAppBar | 36:4(Desktop)/ 38:5(Mobile) | 前台 logo 文字 |
+| Draft/FrontFooter | 36:25 / 36:30(Desktop)、38:11 / 38:13(Mobile) | 品牌名 + © 行 |
+| Foundations / Cover | — | 主色變數 `primary/*`(6:43–6:48)由主色衍生;Cover 頁標題 |
 
-註:front 的頁面 title/description 不在程式碼裡硬編碼 — 由 `app/[locale]/layout.tsx` 的
-`generateMetadata` 從訊息檔讀,所以上表改訊息檔即可。
+## 資料
 
-## 二、基礎設施(新專案各自新開,不是「改」而是「建」)
-
-完整建立步驟見 `docs/deployment.md`;這裡只列「名字帶品牌」的資源:
-
-- **GitHub**:repo 名;`ci.yml` / `deploy.yml` 內的 image 名、service 名、WIF provider
-  條件(`repository == 'taiwanhua/cookhome'`)
-- **GCP**:專案 ID(`cookhome-online`)、Artifact Registry repo、Cloud Run 服務名
-  (`cookhome-api[-dev|-staging]`、`cookhome-admin[...]`)、Secret Manager 的
-  `mongodb-uri*`、deployer SA 名
-- **MongoDB Atlas**:cluster 名、資料庫名(`cookhome` / `cookhome_dev` / `cookhome_staging`)
-- **Vercel**:專案名、環境變數、branch domains、Deploy Hooks
-- **Cloudflare / 網域**:zone 本身 + 子網域 CNAME(www/dev/staging × front/api/erp,加 `design` = Storybook)
-- **Figma**:設計系統投影的目的地檔案(CookHome:[CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)@Wowgo 團隊;新專案要自選 team/file,注意免費方案 variables 只有 1 mode、不能發佈 library;Code Connect 需 Org 方案)
-
-## 三、之後的計畫
-
-此清單是「以 cookhome 為模板 bootstrap 新專案」skill 的素材(見 `docs/tmp/dis.md`);
-新專案落地時照本清單逐項替換,skill 化之後由 AI 帶參數(品牌名、網域、GCP 專案)自動跑。
+| 位置 | 內容 | 說明 |
+|---|---|---|
+| `orgs`(根組織)`name` | 「CookHome」 | AppBar orgSwitcher、清單等顯示的是組織名稱(資料),換品牌時改根組織名 |
+| `orgs.logoPath` | 各組織商標的 GCS 物件路徑(nullable) | 租戶自有商標;SideNav 頂部 ShowLogo 顯示(API 簽名讀取,ADR-0010),無值則顯示組織名稱文字 |

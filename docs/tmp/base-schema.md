@@ -10,10 +10,11 @@
 | name | string | |
 | parentId | ObjectId? | 根組織為 null |
 | ancestors ⊕ | ObjectId[] | 物化路徑(ADR-0005) |
-| key ⊕ | string? | 僅系統組織(root)需要,seed 冪等用 |
-| isSystem ⊕ | boolean | 保護 root |
+| key ⊕ | string? | 僅根組織需要,seed 冪等用 |
+| isSystem ⊕ | boolean | 保護根組織 |
 | enabled ⊕ | boolean | 停用租戶 |
 | description | string? | |
+| logoPath ⊕ | string? | 組織商標的 GCS 物件路徑(2026-09-09,存路徑非 URL — ADR-0010 私有優先):SideNav 頂部有圖顯圖、無圖顯組織名稱文字;見 docs/branding.md |
 | settings | object | 含租戶頂層「子孫可見性」開關 |
 
 ## users(使用者)/ customers(會員)
@@ -102,6 +103,10 @@
 
 accountId、accountType(user|customer)、tokenHash、expiresAt、revokedAt、deviceInfo、createdAt。
 
+## action_tokens ⊕(ADR-0009/0010)
+
+userId、type(activation|password-reset)、tokenHash、expiresAt(TTL index;啟用 7 天、重設 30 分鐘,env 可調)、usedAt、createdAt。單次使用。
+
 ## audit_logs ⊕(ADR-0004)
 
 actorId、actorType、orgId、action、targetType、targetId、before、after、createdAt。只增不改,v1 僅記授權相關變更。
@@ -112,5 +117,5 @@ oauth_clients、scope 目錄(種子)— 第一個串接方出現時隨 node-oidc
 
 ## 種子 vs 業務分類(ADR-0002)
 
-- 種子:modules、permissions、field_categories、fields(orgId=null 者)、種子 roles、root org、scope 目錄
-- 業務:orgs(租戶)、users、customers、fields(租戶自訂)、關聯、refresh_tokens、audit_logs
+- 種子:modules、permissions、field_categories、fields(orgId=null 者)、種子 roles、根組織、scope 目錄
+- 業務:orgs(租戶)、users、customers、fields(租戶自訂)、關聯、refresh_tokens、action_tokens、audit_logs
