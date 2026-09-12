@@ -1,7 +1,7 @@
 # CookHome AI 開發工作流程 — 討論整理
 
-> 最後更新:2026-09-03
-> 專案現況與架構事實見 `docs/architecture.md`;程式碼規範見 `docs/standards/`。本文件只追蹤:已拍板的流程共識、與待討論事項。
+> 最後更新:2026-09-12
+> 專案現況與架構事實見 `docs/architecture.md`;程式碼規範見 `docs/standards/`。本文件只追蹤:已拍板的流程共識、與待討論事項。編號被其他文件引用(如「dis.md #16」),**不要改號**。
 
 ---
 
@@ -9,11 +9,10 @@
 
 ### 1. 三層約束模型 ✅ 已實作(2026-09-03)
 
-1. **機器強制**:ESLint 積木式組合(typescript-eslint `strictTypeChecked` + `stylisticTypeChecked`、import-x 含 `no-cycle`、unicorn、sonarjs、jsx-a11y、`no-console`)、TS 加開 `noUncheckedIndexedAccess` 等、Prettier 抽成 `@repo/prettier-config`(@trivago import 排序)。
-2. **可審查清單**:`docs/standards/` 7 檔編號規則(GEN/STRUCT/REACT/DATA/GQL/TEST,附好壞範例)+ vercel-labs skills(`vercel-react-best-practices`、`web-design-guidelines`、`writing-guidelines`,裝在 `.agents/skills/`)。
-3. **原則層**:`CLAUDE.md`(指向 standards 索引與 docs/agents/)。
-
-回饋循環:review 採納的決定回寫規範檔(已實際運轉,例:GEN-06 套件命名)。
+- **機器強制**:ESLint 積木式組合(typescript-eslint `strictTypeChecked` + `stylisticTypeChecked`、import-x 含 `no-cycle`、unicorn、sonarjs、jsx-a11y、`no-console`)、TS 加開 `noUncheckedIndexedAccess` 等、Prettier 抽成 `@repo/prettier-config`(@trivago import 排序)。
+- **可審查清單**:`docs/standards/` 編號規則(GEN/STRUCT/REACT/DATA/GQL/TEST,附好壞範例)+ vercel-labs skills(裝在 `.agents/skills/`)。
+- **原則層**:`CLAUDE.md`(指向 standards 索引與 docs/agents/)。
+- 回饋循環:review 採納的決定回寫規範檔(已實際運轉,例:GEN-06 套件命名)。
 
 ### 2. 需求 → 開發流程(Matt Pocock skills)
 
@@ -21,28 +20,28 @@
 /grilling → /to-spec → /to-tickets(GitHub Issues)→ /triage → /tdd → /code-review(規範軸 + 規格軸)
 ```
 
-- Issue tracker:GitHub Issues(taiwanhua/cookhome,`gh` CLI);triage 標籤五個預設值。設定在 `docs/agents/`。
+- Issue tracker:GitHub Issues(taiwanhua/cookhome,`gh` CLI);triage 標籤五個預設值;設定在 `docs/agents/`。
 - TDD:測行為不測外觀;AI 先寫測試 → 人審測試(= 驗收介面)→ 實作;E2E 刻意少。
 
 ### 3. 設計系統 ✅ 起手式完成(2026-09-03)
 
-- 程式碼是唯一真實來源,Figma 是投影;風格走 Minimal 方向(MUI theme 客製,不買模板/Figma kit)。
-- 已完成:兩層 tokens(品牌層可整包替換)、`createAppTheme`(cssVariables、light/dark)、`@repo/storybook`(stories 與元件同居於 ui)+ Palette Lab(貼主色即時預覽全元件)、第一批元件 Button/TextField/Card 三件套。
-- 風格一致性機制:唯一供給(只准用 `@repo/ui`)+ 元件內只用語意 token + AI 產稿只從生成的 Figma 庫組裝。
+- 程式碼是唯一真實來源,Figma 是投影;風格走 Minimal(MUI theme 客製,不買模板)。
+- 已完成:兩層 tokens(品牌層可整包替換)、`createAppTheme`、Storybook + Palette Lab、首批元件。
+- 一致性機制:唯一供給(只准用 `@repo/ui`)+ 元件內只用語意 token + AI 產稿只從 Figma 庫組裝。
 - front 走 Figma 設計稿階段;admin 直接 spec → code。
 
-### 4. CI/CD 與部署
+### 4. CI/CD 與部署 ✅ 學習路線全數完成(2026-09-04)
 
-- CI = 驗證 + 產 artifact(image 以 SHA 標記);CD = 拿同一 artifact 部署(build once, deploy many);本地 hooks 與 CI 同一套指令。
-- GitHub Actions:`ci.yml`(PR + branch protection)、`deploy.yml`(merge main → Artifact Registry → Cloud Run staging;production 走 GitHub Environments 人工核准);認證用 Workload Identity Federation。
-- 部署拓撲與費用控管(max-instances 天花板 + Budget 警告)見 `docs/architecture.md`。
-- 網域已購(2026-07-31):`cookhome.online`;三個子網域共享 cookie domain,可用 cookie auth。
-- 學習路線(先手動再自動化):① 各 app Dockerfile + 本地驗證 → ② GCP 專案 + 手動推 image + `gcloud run deploy` → ③ Atlas 接上 → ④ 寫成 deploy.yml + WIF → ⑤ Environments 核准 + ci.yml + branch protection。
-  **進度(2026-09-04):①②③⑤ 已完成** — `www.cookhome.online`(Vercel front,裸網域 308 轉 www)、`erp.cookhome.online`(admin)、`api.cookhome.online`(api)全數上線,憑證自動簽發;GraphQL Sandbox 以 `GRAPHQL_SANDBOX` env 控制,雲端預設關。**④ 亦完成(deploy.yml + WIF)**:merge main 自動部署 dev(api-dev/admin-dev,獨立 db `cookhome-dev`、Sandbox 開);production 手動 workflow_dispatch(免費方案無 Environments 核准,等效替代);Budget NT$600 三段警告已設。學習路線全數完成,詳見 `docs/deployment.md`。 — image 在 Artifact Registry(asia-east1/cookhome,tag=git SHA);admin、api 已上 Cloud Run(min=0/max=2);Atlas `cookhome-dev` 已接(URI 走 Secret Manager,Network Access 0.0.0.0/0);端到端驗證通過。待辦追加:固定出口 IP(VPC connector + NAT,~US$10/月)與 Cloudflare 橙雲(需 Global LB)先不做;Cloudflare 已接管 DNS,紀錄於 ⑤ 設定。
+- 原則:CI = 驗證 + 產 artifact(image 以 SHA 標記);CD = 同一 artifact 部署;本地 hooks 與 CI 同一套指令。
+- 三個網域上線:`www`(Vercel front)/ `erp`(admin)/ `api`(Cloud Run,min=0/max=2)`.cookhome.online`;Cloudflare 管 DNS。
+- `deploy.yml` + WIF:merge main 自動部署 dev;production 手動 workflow_dispatch;Budget NT$600 三段警告。
+- Atlas `cookhome-dev` 已接(URI 走 Secret Manager);GraphQL Sandbox 以 env 控制,雲端預設關。
+- 不做(記錄):固定出口 IP(VPC connector + NAT ~US$10/月)、Cloudflare 橙雲(需 Global LB)。
+- 細節見 `docs/deployment.md`。
 
 ### 5. 版本策略 ✅ 已統一(2026-09-03)
 
-同一套件全 repo 同版本;裝套件前查 registry 不憑記憶。現況:React 19.2、MUI 9.4、Vite 8.2、Storybook 10.6、TS 5.9.3、ESLint 9.39;例外:unicorn 釘 65(等 ESLint 10 生態)。套件名一律 `@repo/` 前綴(GEN-06)。
+同一套件全 repo 同版本;裝套件前查 registry 不憑記憶。React 19.2、MUI 9.4、Vite 8.2、Storybook 10.6、TS 5.9.3、ESLint 9.39;unicorn 釘 65(等 ESLint 10)。套件名一律 `@repo/`(GEN-06)。
 
 ---
 
@@ -50,37 +49,66 @@
 
 ### A. 已完成(2026-09-03)
 
-1. ~~commit 整理~~ — 已拆成 5 個主題 commit(prettier / docs+standards / eslint / 設計系統 / 版本統一)。
-2. ~~Claude Code hooks~~ — `.claude/settings.json` PostToolUse:編輯後自動 lint(該檔)+ typecheck(該套件),失敗 exit 2 回饋 AI 當場修;腳本 `scripts/claude-hooks/post-edit-check.mjs`,已實測觸發。
-3. ~~ci.yml~~ — `.github/workflows/ci.yml`:PR 與 main push 觸發,MongoDB service + 起 api(front ISR 預渲染需要)→ `turbo run lint check-types test build`。首跑綠燈。**branch protection 不設**(私有 repo 免費方案不支援;決策 2026-09-03:純自律走 PR 流程,規則寫進 CLAUDE.md;之後想強制可升 Pro 或轉公開,隨時可補)。
-4. ~~front build 依賴 api~~ — 定案「起 API」:CI 用 service container + 空 DB;Vercel 端 build 打正式 api(部署順序:api 先上)。
+1. ~~commit 整理~~ — 拆成 5 個主題 commit。
+2. ~~Claude Code hooks~~ — PostToolUse 編輯後自動 lint + typecheck,失敗 exit 2 回饋 AI 當場修。
+3. ~~ci.yml~~ — PR 與 main push 觸發;**branch protection 不設**(免費方案不支援,純自律走 PR,規則在 CLAUDE.md)。
+4. ~~front build 依賴 api~~ — CI 用 service container + 空 DB;Vercel build 打正式 api(api 先上)。
 
 ### B. 需要討論決策
 
-5. **設計系統收尾** — 進行中(2026-09-05):~~styling.md 規範(STYLE-01~05)~~、~~apps 禁直接 import MUI 的 lint 牆(designSystemWall)~~、~~Storybook 部署~~(Vercel 第二專案 `cookhome-design` → design.cookhome.online,只建 main)。~~theme 補完~~(2026-09-05:OKLab 感知混色 + overrides 逃生口、info/success/warning/error 四組狀態色、z1~z24 + colored shadows、typography scale、styleOverrides 擴到 11 個元件;全部是主色的函數,Palette Lab 實測換色一行全自動重算)。~~figma-generate-library 投影~~ — **已完成(2026-09-05)**:Wowgo 團隊「[CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)」— 4 collections(Brand mode=CookHome/Primitives/Color Light+Dark/Radius)65 變數(38 別名零斷鏈、全 scope、code syntax = `var(--mui-*)`)、15 effect styles、13 text styles、元件 Button(18 變體)/TextField(8)/Card/Link(含 TEXT 屬性,Card 內嵌 Button 實例)。限制:Code Connect 需 Org 方案(Wowgo 是 Pro)→ 以元件 description + Storybook 連結替代。已知發現:primary/main(#FB7B10)配白字對比 ~2.6:1 低於 WCAG AA(待討論,修要改 code)。剩:自訂 `/to-figma` skill。styling 選型定案:MUI + sx 一路走到底(否決全轉 Tailwind 與混用;Base UI + Tailwind 留給未來性質不同的新專案)。
-6. ~~staging api 環境時機~~ — **已解決(2026-09-04)**:三環境分支模型落地,staging 環境(api/admin/front/db)全數上線。
-7. ~~i18n 方案~~ — **已完成(2026-09-04)**:`@repo/i18n` 訊息檔套件(zh-TW/en);front 用 next-intl(`/` = zh-TW、`/en` 前綴,SSG×2 語言 + ISR,Next 16 改用 `proxy.ts`),admin 用 use-intl(語言切換 + localStorage,不進 URL);api 語言無關(錯誤走 code)。規範 `standards/general/i18n.md`(I18N-01~05)。內容資料(食譜)多語 = 未來 schema 設計問題,與 UI i18n 分開。
+5. **設計系統收尾** — 大致完成(2026-09-05):
+   - ~~styling.md(STYLE-01~05)~~、~~designSystemWall lint 牆~~、~~Storybook 部署(design.cookhome.online,只建 main)~~
+   - ~~theme 補完~~:OKLab 感知混色、四組狀態色、z1~z24 shadows、typography、11 個元件 styleOverrides — 全部是主色的函數,換色一行全自動重算
+   - ~~figma-generate-library 投影~~:Wowgo 團隊「CookHome Design System」— 65 變數、15 effect / 13 text styles、Button/TextField/Card/Link 等;Code Connect 需 Org 方案 → 以元件 description + Storybook 連結替代
+   - styling 選型定案:MUI + sx 一路走到底(否決 Tailwind 混用;Base UI + Tailwind 留給未來新專案)
+   - 剩:自訂 `/to-figma` skill
+6. ~~staging 環境時機~~ — 已解決(2026-09-04):三環境分支模型落地。
+7. ~~i18n 方案~~ — 已完成(2026-09-04):`@repo/i18n`;front 用 next-intl(SSG×2 + ISR)、admin 用 use-intl、api 語言無關;規範 I18N-01~05。內容資料多語 = 未來 schema 問題,與 UI i18n 分開。
 8. **Budget 終極斷路器** — Pub/Sub + Cloud Function 自動解綁 billing;看過前幾個月帳單再決定。
-9. **AI 自動 PR review 時機** — GitHub Actions 上的 AI review 與本地 `/code-review` 的分工。
+9. **AI 自動 PR review 時機** — Actions 上的 AI review 與本地 `/code-review` 的分工。
 10. **Turbo remote cache** — 等 CI 時間變長再評估。
-15. **admin shell 規格備忘(2026-09-05,設計稿已畫)** — 側欄:依 module 設定分層、群組可展開收合(Draft/NavGroup+NavItem)。**路由頁籤列**(AppBar 下方,Draft/RouteTab):使用者開過的路由生成 tab;以路由 id/名稱**去重**;點側欄選單 → 出現對應 tab 並切換;點 tab 切回該路由;鑽入詳情生成「模組 / 項目名」子 tab;tab 可關閉、可拖曳排序(實作用 **dnd-kit**);資料結構以路由紀錄 id 比對顯示。其餘:Customer 與 User 分表分模組、Customer 依業務邏輯關聯 Org;JWT/OAuth 與資料結構設計待 /domain-modeling。
-16. **建模組 skill(module-scaffold,2026-09-05)** — 協助使用者建立新後台模組(Figma 畫面 + 之後的 code 鷹架)。**必問使用者的問題**:①模組中文命名(語系中文,避免 User/Org 這類英文;既定:組織管理/使用者管理/角色管理/模組與權限/字段管理)②掛在側欄哪個群組、共幾層(1~3 層,對應遞迴 module 樹)③要生成哪些頁(列表/編輯/詳情)④RouteTab 顯示名稱⑤**有無檔案/圖片欄位?有 → 引導選公開或私有 bucket(2026-09-09)**:判斷準則=「需要 CDN 快取、SEO、對未登入者展示或社群分享(og:image)→ 公開;其餘一律私有(預設)」;私有走 API 驗權+短效簽名讀取、DB 存物件路徑,公開存穩定 URL(ADR-0010);UI 用 Draft/UploadField,並確認讀取權限對應哪個 data-scope。Figma 端做法已定型:AdminSideNav/AdminAppBar 為元件,實例覆寫 Label 與 active 色、備用列 visible 開關增減項目;RouteTabs 也已元件化(AdminRouteTabs:8 個預埋槽,各頁開 visible/改 Label/swap Active — 「備用槽」模式繞過實例不能增減子節點的限制,側欄同理);RouteTab 有 Closable 開關(Dashboard 固定頁不可關)。Figma API 陷阱:遍歷實例隱藏子節點要先 `figma.skipInvisibleInstanceChildren = false`。與 /to-figma skill 合併設計。命名已定案(2026-09-05):總覽、欄位管理。**RWD 規則**:front 每頁三檔 artboard(1440/768/375,斷點值以 MUI 為準:768→md、375→xs;手機廣告 320×100、平板 728×90、桌面 970×90);admin 單檔 1440 + 表格橫向捲動;殼元件用 Device=Desktop/Mobile 變體(FrontAppBar 漢堡、FrontFooter 直排)。
-17. **開發手冊 `docs/workflow.md`(2026-09-05,使用者:「我根本忘記它的存在」)** — 整理「什麼階段用什麼 skill」的流程總覽,讓工具不再被遺忘。素材:①mattpocock-skills 工程套件:`/domain-modeling`(術語+ADR)、`/grill-with-docs`(拷問需求)、`/to-spec`、`/to-tickets`、`/tdd`、`/implement`、`/code-review`、`/diagnosing-bugs`、`/codebase-design`、`/improve-codebase-architecture`、`/prototype`、`/research`、`/triage`、`/wayfinder` ②figma 套件:figma-use / generate-design / generate-library ③repo skills(symlink+skills-lock):vercel-react-best-practices、web-design-guidelines、writing-guidelines ④自訂(待建):/to-figma、module-scaffold、project-bootstrap。內容:標準功能流程圖(需求→/grill-with-docs→/domain-modeling→/to-spec→/to-tickets→設計稿→/tdd 實作→/code-review→PR→dev→staging→main)+ 每 skill 一句話用途 + 觸發時機表。
-18. **模組文件系統(2026-09-07 定案;2026-09-12 修訂 help 存放與載入)** — 每模組**兩份**檔案:`docs/modules/<module-key>.md`(內部技術/業務文件:流程、規則、建模結論)+ `apps/admin/src/md/module-help/<module-key>.help.md`(**給使用者看的說明**,語氣白話、守詞彙表);後者**不進 DB、不走 seed** — admin 於 build 時以 Vite glob raw import 打包(dev 有 HMR 即時預覽),AppBar 標題旁「?」彈窗以模組 key 對應渲染。help 放 admin 內是為了 app 自包含與 turbo 快取正確(app 不跨界依賴 docs/)。兩份受眾不同、內容不同,但同目錄同 PR 維護。**help 邊界(2026-09-09 定案)**:`.help.md` 讀者是**租戶使用者**,不得出現平台視角詞彙(根組織/租戶/開通/跨租戶/開發流程等),對外聯絡窗口統一寫「系統管理員」;平台視角事實寫在 `.md` 的「平台視角(不進 help)」段。例外:根組織專屬模組(如模組與權限)的 help 讀者即系統管理員,可用平台詞彙。五個底座模組雙檔已於 2026-09-09 完成初稿。
-19. **專案模板 skill(project-bootstrap)** — 使用者還有兩個 front+admin+api 專案要開;以 cookhome 為基底,品牌落點已盤點成 `docs/branding.md`(2026-09-05),skill 化後帶參數(品牌名、網域、GCP 專案)自動替換 + 走 deployment.md 建基礎設施。時機:第二個專案要開時。
+
+15. **admin shell 規格備忘(2026-09-05,設計稿已畫)**
+    - 側欄:依 module 設定分層、群組可展開收合(Draft/NavGroup + NavItem)。
+    - 路由頁籤列(Draft/RouteTab):開過的路由生成 tab、以路由 id 去重;點側欄 → 出 tab 並切換;鑽入詳情生成「模組 / 項目名」子 tab;可關閉、可拖曳排序(dnd-kit)。
+
+16. **建模組 skill(module-scaffold,2026-09-05)** — 協助建立新後台模組(Figma 畫面 + code 鷹架),與 /to-figma skill 合併設計。
+    - **模板 = 示範模組**(2026-09-12 定案,規格見 `docs/modules/demo.sub.sample-one.md` 與 `demo.sample-two.md`,測試劇本 `docs/testing/permission-scenarios.md`):三層樹、隱藏頁(`-page` 結尾)、CRUD + wildcard、欄位級權限與頁面自有權限、資料範圍規則示範、公私雙檔案欄位、測試劇本 — scaffold 照抄改名。
+    - **必問使用者**:①模組中文命名(語系中文,避免英文;既定:組織管理/使用者管理/角色管理/模組與權限/欄位管理)②掛哪個側欄群組、共幾層(1~3)③生成哪些頁(列表/詳情/新增/編輯)④RouteTab 顯示名稱 ⑤有無檔案/圖片欄位 → 引導選公開或私有 bucket(準則見 ADR-0010:預設私有;需 CDN/SEO/未登入展示/社群分享才公開)⑥要不要宣告資料範圍目標(dataScopeTarget,ADR-0008)。
+    - **Figma 做法已定型**:殼元件(AdminSideNav/AdminAppBar/AdminRouteTabs)instance 覆寫 + 「備用槽」模式(預埋隱藏槽開 visible,繞過 instance 不能增減子節點);RouteTab 有 Closable 開關;API 陷阱:遍歷隱藏子節點先 `figma.skipInvisibleInstanceChildren = false`。
+    - **RWD 規則**:front 每頁三檔 artboard(1440/768/375,斷點照 MUI;廣告 970/728/320);admin 單檔 1440 + 表格橫向捲動;殼元件 Device=Desktop/Mobile 變體。
+
+17. **開發手冊 `docs/workflow.md`(2026-09-05)** — 「什麼階段用什麼 skill」總覽,讓工具不再被遺忘(使用者:「我根本忘記它的存在」)。
+    - 素材:mattpocock 工程 skills、figma 三件套、repo skills、自訂(待建:/to-figma、module-scaffold、project-bootstrap)。
+    - 內容:標準流程圖(需求 → /grill-with-docs → /domain-modeling → /to-spec → /to-tickets → 設計稿 → /tdd → /code-review → PR → dev → staging → main)+ 每 skill 一句話用途 + 觸發時機表。
+
+18. **模組文件系統(2026-09-07 定案;2026-09-12 修訂存放)** — 每模組兩份檔案:
+    - `docs/modules/<module-key>.md`:內部技術/業務文件(流程、規則、建模結論;可用平台詞彙)。
+    - `apps/admin/src/md/module-help/<module-key>.help.md`:給使用者的說明,**不進 DB、不走 seed** — admin build 時 Vite glob raw import 打包(dev 有 HMR),「?」彈窗以模組 key 渲染。放 admin 內是為了 app 自包含與 turbo 快取正確。
+    - **help 邊界(2026-09-09)**:讀者是租戶使用者 — 不得出現平台視角詞彙(根組織/租戶/開通/跨租戶/開發流程),窗口統一「系統管理員」;平台事實寫在 `.md` 的「平台視角」段。例外:根組織專屬模組的 help 讀者即系統管理員。
+    - 兩份受眾不同、內容不同,同 PR 維護。五個底座模組雙檔已完成初稿(2026-09-09)。
+
+19. **專案模板 skill(project-bootstrap)** — 還有兩個 front+admin+api 專案要開;以 cookhome 為基底,品牌落點在 `docs/branding.md`,skill 化後帶參數(品牌名、網域、GCP 專案)自動替換 + 走 deployment.md 建基礎設施。時機:第二個專案要開時。
+
+20. **權限相關 Figma 重畫與新畫(2026-09-13 更新)**
+    - 示範模組1:列表頁(instance 組裝、三層側欄展開)、詳情頁、新增/編輯頁(共版型,含示範分類下拉、internalNote、UploadField ×2)、刪除確認;模組2 同版型不畫,註記卡說明。
+    - **權限矩陣重畫**(規則見 role-manager.md):模組樹粗體可勾選、上下聯動、全選/清空整組按鈕、權限縮排、`*` 互斥連動;資料範圍 radio 移除。
+    - **「資料範圍」頁新畫**(根組織專屬,規格見 ADR-0008):左資料目標清單、右規則編輯器(套用對象 + 巢狀條件樹、頂層 AND/OR 切換)。
+
+21. **`apps/db-migrator` 實作(2026-09-13 定案,規格見 ADR-0002)** — migrate-mongo(migrations/,檔名三類別)+ seed runner(seeds/ registry);deploy.yml 部署 api 後接 migrate → seed 兩步;本地同指令。實作時把 base-schema 的種子清單落成 seeds/ 宣告檔。
 
 ### C. 小任務(不需討論,找時間做)
 
-11. ~~deploy.yml 的 dev/staging api_url 換自訂子網域~~ — **已完成(2026-09-05)**:PR #11~#13,dev/staging admin 已重部署並驗證 bundle 烘入 `api-dev` / `api-staging.cookhome.online`。
-12. **Atlas 拆成三個 cluster** — 現為單 M0 三 db(共用 500 連線上限與資源);已定案要拆(2026-09-04),時機:production 有真實流量升 M10 時一併(production 獨立 cluster + 正名,dev/staging 留 M0),或先用三個 Atlas project 各一免費 M0。過渡加固已做:三環境 URI 皆設 `maxPoolSize=10`(理論上限 60 連線,遠低於 500)。
+11. ~~deploy.yml 的 api_url 換自訂子網域~~ — 已完成(2026-09-05,PR #11~#13)。
+12. **Atlas 拆三 cluster** — 已定案要拆(2026-09-04);時機:production 有真實流量升 M10 時(或先三個 Atlas project 各一 M0)。過渡加固:三環境 URI 皆 `maxPoolSize=10`。
 
 ### D. 外部條件觸發(追蹤中)
 
 13. **unicorn 升級** — 等 ESLint 10 生態穩定,連 ESLint 一起升。
-14. **api 錯誤處理總策略 / module 邊界細則 + schema 演進規範(向後相容、破壞性變更配遷移腳本)** — 等 api 長出第二個 feature 再歸納。
+14. **api 錯誤處理總策略 / module 邊界細則 / schema 演進規範** — 等 api 長出第二個 feature 再歸納。
 
 ---
 
 ## 三、建議的進行順序
 
-基建全數完成。接下來:B5(設計系統收尾)→ 用完整工作流程(/grilling → /to-spec → tickets → TDD)開發第一個真功能 → 其餘看時機。
+底座領域模型與文件已定稿(ADR-0001~0010 + CONTEXT.md,2026-09-12 commit f4ede9f)。接下來:**示範模組**(文件已定 → Figma #20 → 進實作當第一個真功能,走完整流程 /to-spec → tickets → /tdd)→ 食譜域第二輪 /domain-modeling → 其餘看時機。

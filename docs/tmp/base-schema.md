@@ -52,7 +52,7 @@
 | name | string | 顯示名,與 key 分離 |
 | parentId / ancestors ⊕ | | 樹 |
 | route | string | 只有自己那段(前綴父路由已移除,由 API 組合) |
-| sidebarType | enum | group(可展開)/ link / hidden |
+| sidebarType | enum | group(可展開)/ link / hidden(隱藏頁,key 一律 `-page` 結尾) |
 | order ⊕ | number | 側欄排序 |
 | enabled | boolean | 停用連動整棵子樹 |
 | isSystem ⊕ / description / settings | | |
@@ -61,25 +61,36 @@
 
 | 欄位 | 型別 | 備註 |
 |---|---|---|
-| key ⊕ | string | unique,`模組樹.動作` 全 kebab-case;每模組含一筆 `模組key.*`(ADR-0004) |
-| kind ⊕ | enum | `action`(預設,矩陣渲染 checkbox)/ `data-scope`(資料範圍檔位,同模組成組渲染 radio,ADR-0008) |
-| name / description | string | |
+| key ⊕ | string | unique,`擁有模組key.動作`(動作可多段,全 kebab-case 無例外);每模組含一筆 `模組key.*`(ADR-0004) |
+| moduleId ⊕ | ObjectId | 擁有模組(固定從屬用直接欄位,ADR-0001/0004);綁定原則:綁「按鈕/欄位所在的那一頁」 |
+| name | string | 顯示名(矩陣與權限清單) |
+| description | string? | 補充說明(矩陣 hover / 權限清單) |
 | enabled | boolean | 全域 kill switch |
 | isSystem ⊕ / settings | | |
 
-隸屬模組走 `module_permission` 關聯(permission 側唯一)。
+資料範圍不在權限體系內,見 `data_scope_rules` 與 ADR-0008。
 
 ## core_relationships(核心關聯,ADR-0001)
 
 | 欄位 | 型別 | 備註 |
 |---|---|---|
-| type | enum | `org_user` `org_role` `user_role` `role_permission` `module_permission`(封閉,程式碼定義) |
+| type | enum | `org_user` `org_role` `user_role` `role_module` `role_permission`(封閉,程式碼定義,完整清單見 ADR-0001) |
 | firstId / secondId | ObjectId | 命名順序 Org>User>Role>Module>Permission |
 | thirdId | ObjectId? | 保留不使用 |
 | meta | object? | 授權人/時間等 |
 | description | string? | |
 
-索引:unique(type, firstId, secondId, thirdId);`org_role`/`module_permission` 另於 second 側唯一(單一擁有)。
+索引:unique(type, firstId, secondId, thirdId);`org_role` 另於 second 側唯一(單一擁有組織)。
+
+## data_scope_rules ⊕(資料範圍規則,ADR-0008)
+
+| 欄位 | 型別 | 備註 |
+|---|---|---|
+| collection | string | unique,資料目標(seed 的 dataScopeTarget 宣告) |
+| combineOp | enum | AND / OR — 命中規則的頂層合成(預設 OR) |
+| rules | array | `{ audience:{type: all\|role\|org\|user, ids[]}, filter: 巢狀樹{op, children[{field, cond, value{kind: static\|dynamic, …}}]} }` |
+
+執行:BaseRepository 查詢時套用,外層恆 AND 租戶隔離保底;設定記憶體快取、儲存時作廢。
 
 ## field_categories(欄位類別)— 全域種子,租戶不可自訂
 
@@ -98,6 +109,11 @@
 | label / value | string | |
 | order / enabled | | 下架不刪(舊資料仍引用) |
 | isSystem ⊕ / description | | |
+
+## demo_items_one / demo_items_two ⊕(示範模組,docs/modules/demo.sub.sample-one.md、demo.sample-two.md)
+
+**demo_items_one**(示範模組1):name、category(欄位管理「示範分類」選項)、note、internalNote(欄位級權限控)、coverPath(公開 bucket)、attachmentPath(私有 bucket)、enabled + 基礎欄位(ADR-0007)。
+**demo_items_two**(示範模組2,不宣告資料範圍目標的對照組):name、note、enabled + 基礎欄位。
 
 ## refresh_tokens ⊕(ADR-0003)
 
