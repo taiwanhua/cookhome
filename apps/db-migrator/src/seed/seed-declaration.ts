@@ -18,7 +18,17 @@ export interface SeedDocumentSet {
   entries: SeedDocument[];
 }
 
-export type SeedSet = SeedDocumentSet;
+/**
+ * root 初始超級管理員帳號(ADR-0002):account/email/密碼自環境變數讀取,
+ * 僅在帳號不存在時建立(加入 orgKey 組織 + 授予 roleKey 角色);已存在則完全不動。
+ */
+export interface SeedRootAdminSet {
+  kind: "root-admin";
+  orgKey: string;
+  roleKey: string;
+}
 
-/** registry 收齊所有種子;依序執行。 */
+export type SeedSet = SeedDocumentSet | SeedRootAdminSet;
+
+/** registry 收齊所有種子;依序執行(被引用者在前)。 */
 export type SeedRegistry = SeedSet[];

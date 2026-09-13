@@ -56,7 +56,9 @@ async function main(): Promise<void> {
 
   const client = await MongoClient.connect(uri);
   try {
-    const results = await runSeeds(client.db(), registry);
+    const results = await runSeeds(client.db(), registry, {
+      env: process.env,
+    });
     for (const { label, counts } of results) {
       print(`${label}:${formatCounts(counts)}`);
     }

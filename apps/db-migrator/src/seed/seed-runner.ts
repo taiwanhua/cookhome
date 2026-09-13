@@ -2,7 +2,13 @@ import { isDeepStrictEqual } from "node:util";
 
 import type { Collection, Db, Document } from "mongodb";
 
-import type { SeedDocument, SeedDocumentSet, SeedRegistry } from "./seed-declaration";
+import { ensureRootAdmin, readRootAdminInput } from "./root-admin";
+import type {
+  SeedDocument,
+  SeedDocumentSet,
+  SeedRegistry,
+  SeedRootAdminSet,
+} from "./seed-declaration";
 
 export interface SeedCounts {
   created: number;
@@ -71,15 +77,42 @@ async function runDocumentSet(
   return { label: set.collection, counts };
 }
 
+async function runRootAdminSet(
+  database: Db,
+  set: SeedRootAdminSet,
+  env: NodeJS.ProcessEnv,
+  now: Date,
+): Promise<SeedSetResult> {
+  const outcome = await ensureRootAdmin(
+    database,
+    set,
+    readRootAdminInput(env),
+    now,
+  );
+  const counts: SeedCounts = { created: 0, updated: 0, unchanged: 0 };
+  counts[outcome] += 1;
+  return { label: "root-admin", counts };
+}
+
+export interface SeedContext {
+  /** 供 root 初始帳號讀取 ROOT_ADMIN_* 的環境。 */
+  env: NodeJS.ProcessEnv;
+}
+
 /** 依 registry 順序把所有種子冪等同步到資料庫,回傳每組的新增/更新/未變計數。 */
 export async function runSeeds(
   database: Db,
   registry: SeedRegistry,
+  context: SeedContext,
 ): Promise<SeedSetResult[]> {
   const now = new Date();
   const results: SeedSetResult[] = [];
   for (const set of registry) {
-    results.push(await runDocumentSet(database, set, now));
+    results.push(
+      set.kind === "root-admin"
+        ? await runRootAdminSet(database, set, context.env, now)
+        : await runDocumentSet(database, set, now),
+    );
   }
   return results;
 }

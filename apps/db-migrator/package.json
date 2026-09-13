@@ -8,7 +8,7 @@
     "migrate:down": "migrate-mongo down",
     "migrate:status": "migrate-mongo status",
     "seed": "tsx src/seed/run.ts",
-    "lint": "eslint src/ seeds/ --max-warnings 0",
+    "lint": "eslint src/ seeds/ test/ --max-warnings 0",
     "check-types": "tsc --noEmit",
     "test": "jest --runInBand"
   },
@@ -16,7 +16,7 @@
     "preset": "@repo/jest-presets/node"
   },
   "dependencies": {
-    "argon2": "^0.45.1",
+    "@node-rs/argon2": "^2.2.1",
     "migrate-mongo": "^14.0.7",
     "mongodb": "~7.5.0"
   },

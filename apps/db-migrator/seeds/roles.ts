@@ -1,5 +1,8 @@
 import type { SeedDocumentSet } from "../src/seed/seed-declaration";
 
+export const SUPER_ADMIN_ROLE_KEY = "super-admin";
+export const TENANT_ADMIN_ROLE_KEY = "tenant-admin";
+
 /**
  * 種子角色(術語正本:CONTEXT.md;開通流程:ADR-0009)。
  * - 超級管理員:isSystem,解析時直接全權放行(ADR-0004),僅可授予根組織的使用者
@@ -12,7 +15,7 @@ export const roles: SeedDocumentSet = {
   collection: "roles",
   entries: [
     {
-      key: "super-admin",
+      key: SUPER_ADMIN_ROLE_KEY,
       data: {
         name: "超級管理員",
         description: "系統內建角色;僅可授予根組織的使用者",
@@ -21,7 +24,7 @@ export const roles: SeedDocumentSet = {
       },
     },
     {
-      key: "tenant-admin",
+      key: TENANT_ADMIN_ROLE_KEY,
       data: {
         name: "租戶管理員",
         description: "種子模板;開通租戶時複製一份到該租戶名下",
