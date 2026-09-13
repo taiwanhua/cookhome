@@ -27,6 +27,7 @@ export class DataScopeRule {
   rules!: Record<string, unknown>[];
 }
 
+// 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引)
 export const DataScopeRuleSchema = SchemaFactory.createForClass(DataScopeRule);
 
 DataScopeRuleSchema.index({ collection: 1 }, { unique: true });

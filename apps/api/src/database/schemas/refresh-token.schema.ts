@@ -34,6 +34,7 @@ export class RefreshToken {
   deviceInfo?: Record<string, unknown>;
 }
 
+// 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引)
 export const RefreshTokenSchema = SchemaFactory.createForClass(RefreshToken);
 
 RefreshTokenSchema.index({ accountType: 1, accountId: 1 });

@@ -12,6 +12,7 @@ export class Customer extends AccountBase {
   orgId!: Types.ObjectId;
 }
 
+// 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引/plugin)
 export const CustomerSchema = SchemaFactory.createForClass(Customer);
 
 CustomerSchema.index({ account: 1 }, { unique: true });

@@ -20,6 +20,7 @@ export class FieldCategory {
   isSystem!: boolean;
 }
 
+// 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引)
 export const FieldCategorySchema =
   SchemaFactory.createForClass(FieldCategory);
 

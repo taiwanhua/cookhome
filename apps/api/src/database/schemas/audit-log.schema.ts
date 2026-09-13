@@ -39,6 +39,7 @@ export class AuditLog {
   after?: Record<string, unknown>;
 }
 
+// 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引)
 export const AuditLogSchema = SchemaFactory.createForClass(AuditLog);
 
 AuditLogSchema.index({ orgId: 1, createdAt: 1 });

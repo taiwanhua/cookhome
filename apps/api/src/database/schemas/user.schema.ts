@@ -7,6 +7,7 @@ import { ACCOUNT_ENCRYPTED_FIELDS, AccountBase } from "./account-base.schema";
 @Schema({ collection: "users" })
 export class User extends AccountBase {}
 
+// 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引/plugin)
 export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.index({ account: 1 }, { unique: true });

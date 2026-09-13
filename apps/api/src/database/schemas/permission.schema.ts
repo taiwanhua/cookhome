@@ -33,6 +33,7 @@ export class Permission {
   settings!: Record<string, unknown>;
 }
 
+// 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引/plugin)
 export const PermissionSchema = SchemaFactory.createForClass(Permission);
 
 PermissionSchema.index({ key: 1 }, { unique: true });
