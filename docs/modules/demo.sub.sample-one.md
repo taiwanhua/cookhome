@@ -36,7 +36,7 @@
 
 **demo_items_one**:name、category(欄位管理「示範分類」選項)、note、internalNote(欄位級權限控)、coverPath(公開 bucket)、attachmentPath(私有 bucket)、enabled + 基礎欄位(ADR-0007)。
 
-**資料範圍(ADR-0008)**:seed 宣告 `dataScopeTarget`(collection=demo_items_one,可篩欄位=基礎欄位即足)。
+**資料範圍(ADR-0008)**:seed 宣告 `dataScopeTarget`(collection=demo_items_one,可篩業務欄位=無,基礎欄位由程式自動附加),落庫至 `data_scope_targets`。
 
 連動 seed:欄位管理新增全域類別「示範分類」+ 數個選項。
 

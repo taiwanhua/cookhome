@@ -21,4 +21,6 @@ apps/db-migrator/
 
 **遷移 vs 種子的語意差異**:遷移一次性(跑過記 changelog,變更寫新檔不改舊檔);種子冪等(直接改宣告檔,每次部署重跑等於同步)。
 
+**root 初始帳號**:seed 需建立平台第一個超級管理員帳號 — account/email/密碼自環境變數讀取(`ROOT_ADMIN_ACCOUNT` / `ROOT_ADMIN_EMAIL` / `ROOT_ADMIN_PASSWORD`,雲端存 Secret Manager);**僅在帳號不存在時建立**,已存在則完全不動(不會因部署重設密碼)。
+
 **執行時機與順序**:build 不碰 DB(build once, deploy many)。deploy.yml 部署 api 成功後,對該環境依序跑 `pnpm --filter db-migrator migrate` → `pnpm --filter db-migrator seed`(CI runner 直連)。本地開發同兩條指令。不放在 server 啟動時自動執行(Cloud Run 冷啟要快,且避免多實例併發寫)。

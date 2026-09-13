@@ -37,6 +37,14 @@ GitHub 的 issue 與 PR 共用同一組編號,所以單看 `#42` 無法確定是
 - **spec 引用的內容若 repo 沒有正本,先補文件再發 spec** — 只存在於對話或設計圖裡的細節,對接手者等於不存在。
 - 每份 spec issue 附「**接手指南**」節:無 session 的閱讀順序(CLAUDE.md 文件地圖 → `docs/agents/domain.md` ADR 導讀 → 本 spec 的資料來源表)。
 
+## 怎麼分辨一張 issue 的狀態
+
+| 這張 issue 是什麼 | 判斷方式 | 下一步 |
+|---|---|---|
+| **Spec(規格,不可直接開發)** | 標題 `Spec:` 開頭、內文為 spec 模板、**沒有** `## Parent` 段 | 對它跑 /to-tickets 拆票 |
+| **Ticket(開發票)** | 內文**有** `## Parent` 指回 spec + 驗收條件 | 可動工 ⟺ `ready-for-agent` 標籤 **且** Blocked by 的票全數關閉(dependencies `blocked_by` 計數 = 0);掛 `needs-info` 者先解開內列問題 |
+| 「可 code-review 的」 | **不存在這種 issue** — review 的對象是 PR:票完成 → PR → /code-review → merge → 關票 | |
+
 ## 當 skill 說「fetch the relevant ticket」
 
 執行 `gh issue view <number> --comments`。

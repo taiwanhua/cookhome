@@ -1,6 +1,6 @@
 # 底座 Schema 總表(建模定案彙整,2026-09-06)
 
-依 CONTEXT.md 與 ADR-0001~0007 彙整。⊕ = 建模過程新增(非使用者原始清單)。
+依 CONTEXT.md 與 ADR-0001~0011 彙整。⊕ = 建模過程新增(非使用者原始清單)。
 **全表共通 base 欄位**(plugin 繼承,ADR-0007):`createdAt` `updatedAt` `createdBy` `updatedBy` `deletedAt`(軟刪除)。`settings` 為受控 JSON。
 
 ## orgs(組織)
@@ -14,7 +14,8 @@
 | isSystem ⊕ | boolean | 保護根組織 |
 | enabled ⊕ | boolean | 停用租戶 |
 | description | string? | |
-| logoPath ⊕ | string? | 組織商標的 GCS 物件路徑(2026-09-09,存路徑非 URL — ADR-0010 私有優先):SideNav 頂部有圖顯圖、無圖顯組織名稱文字;見 docs/branding.md |
+| logoPath ⊕ | string? | 組織商標的 GCS 物件路徑(存路徑非 URL — ADR-0010 私有優先):SideNav 頂部有圖顯圖、無圖顯組織名稱文字;見 docs/branding.md |
+| ownerUserId ⊕ | ObjectId? | 租戶擁有者(僅租戶頂層有值,ADR-0009):開通時 = 首任租戶管理員;保護 — 其「租戶管理員」授予不可被解除、不可被移出租戶、不可被停用(根組織可,處理例外);v1 轉移僅根組織可執行 |
 | settings | object | 含租戶頂層「子孫可見性」開關 |
 
 ## users(使用者)/ customers(會員)
@@ -24,9 +25,10 @@
 | 欄位 | 型別 | 備註 |
 |---|---|---|
 | name / gender / nickname | string | gender 選項來自欄位管理 |
-| nationalId | string? | 非必填;收取時欄位級加密、API 預設不回傳(ADR-0007) |
-| phone / email / address | string | |
-| account | string | 登入帳號,unique |
+| nationalId | string? | **身分證字號**,非必填;欄位級加密存放、API 預設投影不回傳、特權查詢才解密(ADR-0007)。底座目前無功能使用 — 作為加密機制的驗證載體保留 |
+| phone / address | string | |
+| email | string | **unique(全庫)** — 啟用信、忘記密碼等信件流程以此定位帳號(ADR-0003/0009);不作登入識別 |
+| account | string | **登入帳號,unique(全庫)** — users 與 customers 皆以 account 登入;與 auth_identities.accountId(文件 `_id`)是兩回事 |
 | passwordHash | string | argon2id,禁明文(ADR-0003) |
 | enabled | boolean | |
 | settings | object | |
@@ -92,6 +94,17 @@
 
 執行:BaseRepository 查詢時套用,外層恆 AND 租戶隔離保底;設定記憶體快取、儲存時作廢。
 
+## data_scope_targets ⊕(資料範圍目標,ADR-0008)— 全表種子資料
+
+「資料範圍」頁左側清單的來源;各模組 seed 的 `dataScopeTarget` 宣告落庫於此。
+
+| 欄位 | 型別 | 備註 |
+|---|---|---|
+| collection | string | unique(如 `demo_items_one`) |
+| name / description | string | 中文名與說明(頁面顯示) |
+| fields | array | 可篩**業務**欄位目錄:`{ field, name, type: org\|user\|date\|enum, options? }`;基礎欄位(orgId/createdBy/…)由程式自動附加,不入庫 |
+| isSystem ⊕ | boolean | 種子保護 |
+
 ## field_categories(欄位類別)— 全域種子,租戶不可自訂
 
 | 欄位 | 型別 |
@@ -127,9 +140,40 @@ userId、type(activation|password-reset)、tokenHash、expiresAt(TTL index;啟�
 
 actorId、actorType、orgId、action、targetType、targetId、before、after、createdAt。只增不改,v1 僅記授權相關變更。
 
-## 預留(不建,ADR-0006)
+## 索引總表 ⊕
 
-oauth_clients、scope 目錄(種子)— 第一個串接方出現時隨 node-oidc-provider 建。
+| collection | 索引 |
+|---|---|
+| orgs | unique(key, sparse);(parentId);(ancestors) |
+| users / customers | unique(account);unique(email) |
+| roles | unique(key, sparse) |
+| modules | unique(key);(ancestors) |
+| permissions | unique(key);(moduleId) |
+| core_relationships | unique(type, firstId, secondId, thirdId);org_role 另於 second 側唯一;各 type 查詢用 (type, firstId) / (type, secondId) |
+| data_scope_rules | unique(collection) |
+| data_scope_targets | unique(collection) |
+| field_categories | unique(key) |
+| fields | (categoryId, orgId) |
+| refresh_tokens | (accountType, accountId);TTL(expiresAt) |
+| action_tokens | (userId);TTL(expiresAt) |
+| audit_logs | (orgId, createdAt);(targetType, targetId) |
+| demo_items_one / two | (orgId, createdAt) |
+
+## 預留(不建)
+
+- **oauth_clients、scope 目錄**(ADR-0006)— 第一個串接方出現時隨 node-oidc-provider 建。
+- **auth_identities**(第三方登入綁定;會員線開發時啟用):
+
+| 欄位 | 型別 | 備註 |
+|---|---|---|
+| accountType | enum:`user` \| `customer` | 固定從屬:指向哪張帳號表 |
+| accountId | ObjectId | **= 該帳號文件的 `_id`(主鍵),不是 account 登入欄位** |
+| provider | enum(封閉,程式碼定義,如 `google`) | `password` 不進此表 — 密碼留在帳號表 passwordHash |
+| providerUserId | string | 第三方使用者識別(Google = `sub`) |
+| email | string? | 第三方回傳,僅記錄與綁定比對輔助,不作登入識別 |
+| meta | object? | 顯示名、頭像 URL 等 |
+
+索引:unique(provider, providerUserId)/ unique(accountType, accountId, provider)/(accountType, accountId)。不掛 orgId、不進租戶過濾(帳號為平台級)。
 
 ## 種子 vs 業務分類(ADR-0002)
 

@@ -15,7 +15,7 @@
 
 ## 欄位目錄(seed 宣告)
 
-- 各資料目標在模組 seed 宣告 `dataScopeTarget`:collection、中文名、描述、可篩欄位清單(欄位名/中文名/型別/enum 選項)。
+- 各資料目標在模組 seed 宣告 `dataScopeTarget`:collection、中文名、描述、可篩欄位清單(欄位名/中文名/型別/enum 選項);seed 落庫至 `data_scope_targets`(種子資料,「資料範圍」頁左側清單的來源)。
 - **基礎欄位由底座自動掛進目錄**:組織(orgId)、建立者(createdBy)、更新者(updatedBy)、建立/更新/刪除時間。
 - **型別決定 UI 與查詢翻譯**,翻譯器不認識個別欄位:
 
