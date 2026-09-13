@@ -29,6 +29,14 @@ GitHub 的 issue 與 PR 共用同一組編號,所以單看 `#42` 無法確定是
 
 建立一個 GitHub issue。
 
+## Spec issue 撰寫規則(接手性)
+
+目標:**沒有本地對話 session 的人,拿 repo + issue 就能接手**。
+
+- **細節不重複進 issue** — 權限表、種子清單、schema 這類細節的正本在 repo 文件(`docs/modules/`、`docs/adr/`、schema 文件),issue 只做**精確指路**(提到數量或清單時,同句附上正本檔案)。
+- **spec 引用的內容若 repo 沒有正本,先補文件再發 spec** — 只存在於對話或設計圖裡的細節,對接手者等於不存在。
+- 每份 spec issue 附「**接手指南**」節:無 session 的閱讀順序(CLAUDE.md 文件地圖 → `docs/agents/domain.md` ADR 導讀 → 本 spec 的資料來源表)。
+
 ## 當 skill 說「fetch the relevant ticket」
 
 執行 `gh issue view <number> --comments`。

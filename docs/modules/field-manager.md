@@ -7,3 +7,19 @@
 - **UI 規格**:「來源」欄顯示「全域」或「<組織名稱> 自訂」(2026-09-09 定案;不用「租戶自訂」— 下層組織也可能自訂,且租戶為平台詞彙)
 - **權限備忘**:新增類別走 code+PR(seed 冪等 upsert);seed 選項僅 `enabled` 可改;租戶自訂選項限本租戶可見;選項不可刪(舊資料對照),僅停用
 - **使用者說明**:[field-manager.help.md](../../apps/admin/src/md/module-help/field-manager.help.md)
+
+## 種子內容(正本)
+
+全域類別與選項(orgId=null),seed 依 key 冪等 upsert:
+
+| 類別 key | 類別名 | 選項 value | 選項 label | order |
+|---|---|---|---|---|
+| `gender` | 性別 | `male` | 男 | 1 |
+| | | `female` | 女 | 2 |
+| | | `other` | 其他 | 3 |
+| | | `undisclosed` | 不透露 | 4 |
+| `demo-category` | 示範分類 | `staple` | 主食 | 1 |
+| | | `side-dish` | 小菜 | 2 |
+| | | `drink` | 飲品 | 3 |
+
+示範畫面上的「甜點」是租戶自訂選項的示意(orgId=租戶A),**不是種子**。

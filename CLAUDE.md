@@ -32,5 +32,6 @@ Issues 追蹤在 `taiwanhua/cookhome` 的 GitHub Issues,透過 `gh` CLI 操作�
 單一 context:repo 根目錄的 `CONTEXT.md` + `docs/adr/`(由 `/domain-modeling` 惰性建立)。見 `docs/agents/domain.md`。
 
 - 開發/修改後台模組 → 先讀 `docs/modules/<key>.md`(內部技術文件)+ `apps/admin/src/md/module-help/<key>.help.md`(租戶使用者說明:守詞彙表、不得出現平台視角詞彙;build 時打包進說明彈窗)
+- 設計稿 → [Figma:CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)(頁面結構:Foundations / 各元件頁 / Screen 系列;規範見 `docs/standards/general/figma.md`)
 - 進行中討論與待辦 → `docs/tmp/dis.md`
 - 底座 schema 草案 → `docs/tmp/base-schema.md`(實作時轉正)

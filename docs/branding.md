@@ -15,7 +15,7 @@
 | 網域 | `cookhome.online`、`design.cookhome.online`(deploy 設定 / DNS / Storybook 部署) | DNS + `.github/workflows/deploy.yml` 相關設定 |
 | 各 app metadata title / favicon | (實作畫面時逐一登記於此) | — |
 
-## Figma(SvnBvi8Opfj8daJAclOnWW)
+## [Figma:CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)(Wowgo 團隊,fileKey `SvnBvi8Opfj8daJAclOnWW`)
 
 | 位置 | 節點 | 內容 |
 |---|---|---|
