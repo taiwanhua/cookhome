@@ -64,7 +64,9 @@ GitHub 的 issue 與 PR 共用同一組編號,所以單看 `#42` 無法確定是
 
 Spec issue 不上板(看板只放票);staging 的 PR 內文也要含 `Closes #<票號>` 或 `Refs #<票號>`,自動化才找得到票。
 
-**自動化**(`.github/workflows/project-status.yml`,需 repo secret `GH_PROJECT_TOKEN` — PAT classic 勾 project scope):issue opened → 入板 Backlog;issue closed → Released(not planned → Won't Do);PR 開啟(目標 dev)→ In Review;PR 合 dev → Dev 驗證中;PR 合 staging → Staging 驗證中。其餘欄位手動移卡。
+**自動化**(`.github/workflows/project-status.yml`):issue opened → 入板 Backlog;issue closed → Released(not planned → Won't Do);PR 開啟(目標 dev)→ In Review;PR 合 dev → Dev 驗證中;PR 合 staging → Staging 驗證中。其餘欄位手動移卡。
+
+**生效條件(兩個都要滿足才算真的自動)**:①repo secret `GH_PROJECT_TOKEN`(PAT classic 勾 project scope)已設;②**`issues` 事件的 workflow 只從預設分支(main)版本觸發** — 所以此檔必須進到 `main`(release 時才會),在那之前 issue 開關的自動移卡不會跑;`pull_request` 事件用 base 分支版本,合進 dev 後對 dev 的 PR 可觸發但仍需 secret。**結論:未同時滿足前,一律手動移卡**(指令見上)。
 
 **手動移卡指令**(Project #3,owner taiwanhua):
 
