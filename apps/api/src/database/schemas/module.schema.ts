@@ -6,7 +6,7 @@ export const MODULE_SIDEBAR_TYPES = ["group", "link", "hidden"] as const;
 
 export type ModuleSidebarType = (typeof MODULE_SIDEBAR_TYPES)[number];
 
-/** 模組(全表種子資料):樹狀,物化路徑 ancestors。 */
+/** 模組(全表種子資料):樹狀,物化路徑 ancestors。模組即頁面(ADR-0004)。 */
 @Schema({ collection: "modules", timestamps: true })
 export class Module {
   /** unique,kebab-case。 */
@@ -17,9 +17,11 @@ export class Module {
   @Prop({ type: String, required: true })
   name!: string;
 
+  /** 上層模組 id;頂層為 null。 */
   @Prop({ type: Types.ObjectId, default: null })
   parentId!: Types.ObjectId | null;
 
+  /** 物化路徑祖先 id 陣列(ADR-0005)。 */
   @Prop({ type: [Types.ObjectId], default: [] })
   ancestors!: Types.ObjectId[];
 
@@ -27,6 +29,7 @@ export class Module {
   @Prop({ type: String })
   route?: string;
 
+  /** 側欄呈現型別。 */
   @Prop({ type: String, required: true, enum: MODULE_SIDEBAR_TYPES })
   sidebarType!: ModuleSidebarType;
 
@@ -38,12 +41,15 @@ export class Module {
   @Prop({ type: Boolean, default: true })
   enabled!: boolean;
 
+  /** 保護種子模組(不可刪/改 key)。 */
   @Prop({ type: Boolean, default: false })
   isSystem!: boolean;
 
+  /** 描述說明(選填)。 */
   @Prop({ type: String })
   description?: string;
 
+  /** 受控 JSON 設定。 */
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   settings!: Record<string, unknown>;
 }

@@ -8,12 +8,15 @@ export class Role {
   @Prop({ type: String })
   key?: string;
 
+  /** 角色顯示名稱。 */
   @Prop({ type: String, required: true })
   name!: string;
 
+  /** 描述說明(選填)。 */
   @Prop({ type: String })
   description?: string;
 
+  /** 停用。 */
   @Prop({ type: Boolean, default: true })
   enabled!: boolean;
 
@@ -21,6 +24,7 @@ export class Role {
   @Prop({ type: Boolean, default: false })
   isSystem!: boolean;
 
+  /** 受控 JSON 設定。 */
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   settings!: Record<string, unknown>;
 }

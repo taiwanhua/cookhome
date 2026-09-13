@@ -14,10 +14,11 @@ export type DataScopeCombineOp = (typeof DATA_SCOPE_COMBINE_OPS)[number];
   suppressReservedKeysWarning: true,
 })
 export class DataScopeRule {
-  /** unique,資料目標。 */
+  /** unique,資料目標(對應的業務 collection 名)。 */
   @Prop({ type: String, required: true })
   collection!: string;
 
+  /** 多條規則命中同一人時的合成:OR=聯集(變多)/ AND=交集(變少)。 */
   @Prop({ type: String, enum: DATA_SCOPE_COMBINE_OPS, default: "OR" })
   combineOp!: DataScopeCombineOp;
 

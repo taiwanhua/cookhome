@@ -15,12 +15,15 @@ export type CoreRelationshipType = (typeof CORE_RELATIONSHIP_TYPES)[number];
 /** 核心關聯單一 collection(ADR-0001):命名順序 Org > User > Role > Module > Permission。 */
 @Schema({ collection: "core_relationships" })
 export class CoreRelationship {
+  /** 關聯種類(決定 first/second 各是誰)。 */
   @Prop({ type: String, required: true, enum: CORE_RELATIONSHIP_TYPES })
   type!: CoreRelationshipType;
 
+  /** 命名順序在前者的 id(如 org_user 的 org)。 */
   @Prop({ type: Types.ObjectId, required: true })
   firstId!: Types.ObjectId;
 
+  /** 命名順序在後者的 id(如 org_user 的 user)。 */
   @Prop({ type: Types.ObjectId, required: true })
   secondId!: Types.ObjectId;
 
@@ -32,6 +35,7 @@ export class CoreRelationship {
   @Prop({ type: MongooseSchema.Types.Mixed })
   meta?: Record<string, unknown>;
 
+  /** 描述說明(選填)。 */
   @Prop({ type: String })
   description?: string;
 }

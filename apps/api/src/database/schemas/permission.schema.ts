@@ -12,9 +12,11 @@ export class Permission {
   @Prop({ type: Types.ObjectId, required: true })
   moduleId!: Types.ObjectId;
 
+  /** 顯示名(矩陣與權限清單)。 */
   @Prop({ type: String, required: true })
   name!: string;
 
+  /** 補充說明(矩陣 hover / 權限清單)。 */
   @Prop({ type: String })
   description?: string;
 
@@ -22,9 +24,11 @@ export class Permission {
   @Prop({ type: Boolean, default: true })
   enabled!: boolean;
 
+  /** 保護種子權限。 */
   @Prop({ type: Boolean, default: false })
   isSystem!: boolean;
 
+  /** 受控 JSON 設定。 */
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   settings!: Record<string, unknown>;
 }

@@ -6,13 +6,15 @@ import { Schema as MongooseSchema } from "mongoose";
  * 共用欄位定義於此,兩張 collection 各自建模繼承。
  */
 export abstract class AccountBase {
+  /** 姓名。 */
   @Prop({ type: String, required: true })
   name!: string;
 
-  /** 選項來自欄位管理 gender 類別(存 value)。 */
+  /** 性別;選項來自欄位管理 gender 類別(存 value)。 */
   @Prop({ type: String })
   gender?: string;
 
+  /** 暱稱(選填)。 */
   @Prop({ type: String })
   nickname?: string;
 
@@ -23,9 +25,11 @@ export abstract class AccountBase {
   @Prop({ type: String })
   nationalId?: string;
 
+  /** 聯絡電話(選填)。 */
   @Prop({ type: String })
   phone?: string;
 
+  /** 地址(選填)。 */
   @Prop({ type: String })
   address?: string;
 
@@ -37,13 +41,15 @@ export abstract class AccountBase {
   @Prop({ type: String, required: true })
   account!: string;
 
-  /** argon2id,禁明文(ADR-0003)。 */
+  /** 密碼雜湊,argon2id,禁明文(ADR-0003)。 */
   @Prop({ type: String, required: true })
   passwordHash!: string;
 
+  /** 停用即無法登入。 */
   @Prop({ type: Boolean, default: true })
   enabled!: boolean;
 
+  /** 受控 JSON 設定(如 mustChangePassword 等旗標)。 */
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   settings!: Record<string, unknown>;
 }

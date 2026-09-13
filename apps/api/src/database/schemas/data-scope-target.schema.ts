@@ -13,9 +13,11 @@ export class DataScopeTarget {
   @Prop({ type: String, required: true })
   collection!: string;
 
+  /** 中文名(頁面顯示)。 */
   @Prop({ type: String, required: true })
   name!: string;
 
+  /** 說明(頁面顯示,選填)。 */
   @Prop({ type: String })
   description?: string;
 
@@ -23,6 +25,7 @@ export class DataScopeTarget {
   @Prop({ type: [MongooseSchema.Types.Mixed], default: [] })
   fields!: Record<string, unknown>[];
 
+  /** 保護種子目標。 */
   @Prop({ type: Boolean, default: false })
   isSystem!: boolean;
 }

@@ -13,18 +13,23 @@ export class RefreshToken {
   @Prop({ type: Types.ObjectId, required: true })
   accountId!: Types.ObjectId;
 
+  /** 帳號體系:user / customer(決定 accountId 指向哪張表)。 */
   @Prop({ type: String, required: true, enum: ACCOUNT_TYPES })
   accountType!: AccountType;
 
+  /** token 雜湊(不存明碼)。 */
   @Prop({ type: String, required: true })
   tokenHash!: string;
 
+  /** 到期時間;逾期即失效。 */
   @Prop({ type: Date, required: true })
   expiresAt!: Date;
 
+  /** 撤銷時間;有值表示已登出/輪替作廢。 */
   @Prop({ type: Date, default: null })
   revokedAt!: Date | null;
 
+  /** 裝置資訊(供「登出所有裝置」辨識,選填)。 */
   @Prop({ type: MongooseSchema.Types.Mixed })
   deviceInfo?: Record<string, unknown>;
 }

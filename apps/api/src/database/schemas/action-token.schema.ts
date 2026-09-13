@@ -9,12 +9,15 @@ export type ActionTokenType = (typeof ACTION_TOKEN_TYPES)[number];
 /** 單次使用的動作 token(啟用信、密碼重設)。 */
 @Schema({ collection: "action_tokens", timestamps: true })
 export class ActionToken {
+  /** 對應的使用者 id。 */
   @Prop({ type: Types.ObjectId, required: true })
   userId!: Types.ObjectId;
 
+  /** token 用途:activation(啟用)/ password-reset(重設)。 */
   @Prop({ type: String, required: true, enum: ACTION_TOKEN_TYPES })
   type!: ActionTokenType;
 
+  /** token 雜湊(不存明碼)。 */
   @Prop({ type: String, required: true })
   tokenHash!: string;
 
@@ -22,6 +25,7 @@ export class ActionToken {
   @Prop({ type: Date, required: true })
   expiresAt!: Date;
 
+  /** 已使用時間;null 表示尚未使用(單次使用判斷)。 */
   @Prop({ type: Date, default: null })
   usedAt!: Date | null;
 }
