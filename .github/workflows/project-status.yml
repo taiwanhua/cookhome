@@ -1,0 +1,99 @@
+name: Project Status
+
+# 看板移卡自動化(規則正本:docs/agents/issue-tracker.md「票的生命週期」)
+# 需要 repo secret GH_PROJECT_TOKEN:PAT(classic),僅勾 project scope —
+# 內建 GITHUB_TOKEN 無權編輯使用者名下的 Projects v2。
+#
+# 規則:
+#   issue opened            → 入板,Status = Backlog
+#   issue closed            → Released(以 not planned 關閉者 → Won't Do)
+#   PR 開啟(目標 dev,內文 Closes #n)      → #n → In Review
+#   PR 合進 dev(內文 Closes #n)           → #n → Dev 驗證中
+#   PR 合進 staging(內文 Closes/Refs #n)  → #n → Staging 驗證中
+# 不自動:Ready(blockers 判斷)、In Progress(認領)、Dev/Staging 通過(QA 是人)、release 關票。
+
+on:
+  issues:
+    types: [opened, closed]
+  pull_request:
+    types: [opened, reopened, ready_for_review, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  move-card:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GH_PROJECT_TOKEN }}
+          script: |
+            const PROJECT_ID = "PVT_kwHOAeiiKc4BjXhz";
+            const FIELD_ID = "PVTSSF_lAHOAeiiKc4BjXhzzhiME14";
+            const OPT = {
+              backlog: "2882aeb7",
+              review: "43e18a1a",
+              devVerify: "0eaa8179",
+              stagingVerify: "e94980d1",
+              released: "e3445e43",
+              wontDo: "b6b968cd",
+            };
+
+            async function setStatus(contentNodeId, optionId) {
+              const add = await github.graphql(
+                `mutation($p:ID!,$c:ID!){ addProjectV2ItemById(input:{projectId:$p,contentId:$c}){ item { id } } }`,
+                { p: PROJECT_ID, c: contentNodeId },
+              );
+              const itemId = add.addProjectV2ItemById.item.id;
+              await github.graphql(
+                `mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){
+                   updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){ projectV2Item { id } }
+                 }`,
+                { p: PROJECT_ID, i: itemId, f: FIELD_ID, o: optionId },
+              );
+            }
+
+            async function issueNodeId(num) {
+              const { data } = await github.rest.issues.get({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: num,
+              });
+              return data.node_id;
+            }
+
+            function linkedIssueNumbers(body) {
+              const re = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?)\s+#(\d+)/gi;
+              const nums = new Set();
+              for (const m of (body ?? "").matchAll(re)) nums.add(Number(m[1]));
+              return [...nums];
+            }
+
+            if (context.eventName === "issues") {
+              const issue = context.payload.issue;
+              if (context.payload.action === "opened") {
+                await setStatus(issue.node_id, OPT.backlog);
+              } else if (context.payload.action === "closed") {
+                const opt = issue.state_reason === "not_planned" ? OPT.wontDo : OPT.released;
+                await setStatus(issue.node_id, opt);
+              }
+              return;
+            }
+
+            const pr = context.payload.pull_request;
+            if (pr.draft) return;
+            const base = pr.base.ref;
+            const nums = linkedIssueNumbers(pr.body);
+            if (nums.length === 0) return;
+
+            let optionId = null;
+            if (["opened", "reopened", "ready_for_review"].includes(context.payload.action) && base === "dev") {
+              optionId = OPT.review;
+            } else if (context.payload.action === "closed" && pr.merged) {
+              if (base === "dev") optionId = OPT.devVerify;
+              else if (base === "staging") optionId = OPT.stagingVerify;
+            }
+            if (!optionId) return;
+
+            for (const num of nums) {
+              await setStatus(await issueNodeId(num), optionId);
+            }
