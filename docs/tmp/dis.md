@@ -97,7 +97,7 @@
 
 22. **接手考核機制(2026-09-13 定案)** — 驗「無 session AI 能否理解專案」的三關:①場景推理題(考卷 `docs/testing/handover-quiz.md`,只放題目)②流程計畫題(給小任務只寫計畫)③實戰(票實作)。**標準答案與其存放位置皆不記於 repo**(由主考官持有,施測時只提供給評分 agent);施測=派受測 agent 作答(限 repo 內容)→ 派評分 agent 對照答案卷出報告 → 錯題視為文件缺口,修文件後重考。
 
-21. **`apps/db-migrator` 實作(2026-09-13 定案,規格見 ADR-0002)** — migrate-mongo(migrations/,檔名三類別)+ seed runner(seeds/ registry);deploy.yml 部署 api 後接 migrate → seed 兩步;本地同指令。實作時把 base-schema 的種子清單落成 seeds/ 宣告檔。
+21. **`apps/db-migrator` 實作(2026-09-13 定案,規格見 ADR-0002)** — migrate-mongo(migrations/,檔名三類別)+ seed runner(seeds/ registry);deploy.yml 部署 api 後接 migrate → seed 兩步;本地同指令。實作時把 data-model 的種子清單落成 seeds/ 宣告檔。
 
 25. **設計殘項(等食譜域第二輪 domain modeling)** — 食譜詳情頁、分類頁;front 會員線(註冊 — 含 account 欄位、登入、個人頁、寫食譜、收藏);會員管理頁(admin)。
 
