@@ -1,13 +1,17 @@
 import { isDeepStrictEqual } from "node:util";
 
-import type { Collection, Db, Document } from "mongodb";
+import type { Collection, Db, Document, ObjectId } from "mongodb";
 
 import { ensureRootAdmin, readRootAdminInput } from "./root-admin";
 import type {
   SeedDocument,
   SeedDocumentSet,
+  SeedKeyReference,
   SeedRegistry,
+  SeedRelation,
+  SeedRelationSet,
   SeedRootAdminSet,
+  SeedSet,
 } from "./seed-declaration";
 
 export interface SeedCounts {
@@ -77,6 +81,53 @@ async function runDocumentSet(
   return { label: set.collection, counts };
 }
 
+async function resolveSeedId(
+  database: Db,
+  reference: SeedKeyReference,
+): Promise<ObjectId> {
+  const document = await database
+    .collection(reference.collection)
+    .findOne({ key: reference.key }, { projection: { _id: 1 } });
+  if (!document) {
+    throw new Error(
+      `找不到種子文件 ${reference.collection}.${reference.key},請確認 registry 順序(被引用者在前)`,
+    );
+  }
+  return document._id;
+}
+
+async function syncRelation(
+  database: Db,
+  relation: SeedRelation,
+  now: Date,
+): Promise<SyncOutcome> {
+  const collection = database.collection("core_relationships");
+  const link = {
+    type: relation.type,
+    firstId: await resolveSeedId(database, relation.first),
+    secondId: await resolveSeedId(database, relation.second),
+    thirdId: null,
+  };
+  const existing = await collection.findOne(link);
+  if (existing) {
+    return "unchanged";
+  }
+  await collection.insertOne({ ...link, createdAt: now, updatedAt: now });
+  return "created";
+}
+
+async function runRelationSet(
+  database: Db,
+  set: SeedRelationSet,
+  now: Date,
+): Promise<SeedSetResult> {
+  const counts: SeedCounts = { created: 0, updated: 0, unchanged: 0 };
+  for (const relation of set.entries) {
+    counts[await syncRelation(database, relation, now)] += 1;
+  }
+  return { label: "core_relationships", counts };
+}
+
 async function runRootAdminSet(
   database: Db,
   set: SeedRootAdminSet,
@@ -99,6 +150,25 @@ export interface SeedContext {
   env: NodeJS.ProcessEnv;
 }
 
+function runSet(
+  database: Db,
+  set: SeedSet,
+  context: SeedContext,
+  now: Date,
+): Promise<SeedSetResult> {
+  switch (set.kind) {
+    case "documents": {
+      return runDocumentSet(database, set, now);
+    }
+    case "relations": {
+      return runRelationSet(database, set, now);
+    }
+    case "root-admin": {
+      return runRootAdminSet(database, set, context.env, now);
+    }
+  }
+}
+
 /** 依 registry 順序把所有種子冪等同步到資料庫,回傳每組的新增/更新/未變計數。 */
 export async function runSeeds(
   database: Db,
@@ -108,11 +178,7 @@ export async function runSeeds(
   const now = new Date();
   const results: SeedSetResult[] = [];
   for (const set of registry) {
-    results.push(
-      set.kind === "root-admin"
-        ? await runRootAdminSet(database, set, context.env, now)
-        : await runDocumentSet(database, set, now),
-    );
+    results.push(await runSet(database, set, context, now));
   }
   return results;
 }

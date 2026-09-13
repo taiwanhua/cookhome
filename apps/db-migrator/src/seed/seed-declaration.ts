@@ -28,7 +28,28 @@ export interface SeedRootAdminSet {
   roleKey: string;
 }
 
-export type SeedSet = SeedDocumentSet | SeedRootAdminSet;
+/** 以(collection, key)指向另一筆種子文件;執行時解析成該環境的 _id。 */
+export interface SeedKeyReference {
+  collection: string;
+  key: string;
+}
+
+/**
+ * 種子之間的核心關聯(ADR-0001;命名順序 Org > User > Role > Module > Permission):
+ * 以 (type, firstId, secondId) 冪等,不存在才寫入。
+ */
+export interface SeedRelation {
+  type: string;
+  first: SeedKeyReference;
+  second: SeedKeyReference;
+}
+
+export interface SeedRelationSet {
+  kind: "relations";
+  entries: SeedRelation[];
+}
+
+export type SeedSet = SeedDocumentSet | SeedRelationSet | SeedRootAdminSet;
 
 /** registry 收齊所有種子;依序執行(被引用者在前)。 */
 export type SeedRegistry = SeedSet[];

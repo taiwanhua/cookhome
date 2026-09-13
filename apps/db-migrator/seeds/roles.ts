@@ -1,4 +1,8 @@
-import type { SeedDocumentSet } from "../src/seed/seed-declaration";
+import type {
+  SeedDocumentSet,
+  SeedRelationSet,
+} from "../src/seed/seed-declaration";
+import { ROOT_ORG_KEY } from "./orgs";
 
 export const SUPER_ADMIN_ROLE_KEY = "super-admin";
 export const TENANT_ADMIN_ROLE_KEY = "tenant-admin";
@@ -33,4 +37,14 @@ export const roles: SeedDocumentSet = {
       },
     },
   ],
+};
+
+/** 種子角色的擁有組織 = 根組織(每個角色只屬一個組織,ADR-0003;org_role 關聯,ADR-0001)。 */
+export const roleOwners: SeedRelationSet = {
+  kind: "relations",
+  entries: [SUPER_ADMIN_ROLE_KEY, TENANT_ADMIN_ROLE_KEY].map((roleKey) => ({
+    type: "org_role",
+    first: { collection: "orgs", key: ROOT_ORG_KEY },
+    second: { collection: "roles", key: roleKey },
+  })),
 };

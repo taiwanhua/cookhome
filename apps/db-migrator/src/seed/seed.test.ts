@@ -192,6 +192,38 @@ describe("seed 指令(對真 MongoDB)", () => {
     expect(result.stdout).toMatch(/新增 \d+ \/ 更新 0 \/ 未變 0/);
   }, 120_000);
 
+  it("種子角色的擁有組織為根組織(org_role),重跑不重複建立", async () => {
+    const databaseUri = createTestDatabaseUri("org-role");
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+
+    const { orgRoles, rootOrg, roles } = await withDatabase(
+      databaseUri,
+      async (database) => ({
+        orgRoles: await database
+          .collection<RelationshipDocument>("core_relationships")
+          .find({ type: "org_role" })
+          .toArray(),
+        rootOrg: await database
+          .collection<SeededDocument>("orgs")
+          .findOne({ key: "root" }),
+        roles: await database
+          .collection<SeededDocument>("roles")
+          .find()
+          .toArray(),
+      }),
+    );
+
+    expect(orgRoles).toHaveLength(2);
+    expect(new Set(orgRoles.map((link) => link.secondId?.toHexString()))).toEqual(
+      new Set(roles.map((role) => role._id.toHexString())),
+    );
+    for (const link of orgRoles) {
+      expect(link.firstId?.toHexString()).toBe(rootOrg?._id.toHexString());
+    }
+  }, 120_000);
+
   it("重跑第二次 0 新增 0 更新(冪等),既有文件的 id 與時間戳不動", async () => {
     const databaseUri = createTestDatabaseUri("rerun");
 
