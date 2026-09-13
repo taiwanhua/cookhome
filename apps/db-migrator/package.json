@@ -1,0 +1,32 @@
+{
+  "name": "@repo/db-migrator",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "migrate": "migrate-mongo up",
+    "migrate:down": "migrate-mongo down",
+    "migrate:status": "migrate-mongo status",
+    "lint": "eslint src/ --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "test": "jest --runInBand"
+  },
+  "jest": {
+    "preset": "@repo/jest-presets/node"
+  },
+  "dependencies": {
+    "migrate-mongo": "^14.0.7",
+    "mongodb": "~7.5.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/jest-presets": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^9.39.0",
+    "jest": "^30.2.0",
+    "mongodb-memory-server": "^11.2.0",
+    "typescript": "5.9.3"
+  }
+}
