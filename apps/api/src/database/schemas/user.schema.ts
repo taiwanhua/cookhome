@@ -1,5 +1,6 @@
 import { Schema, SchemaFactory } from "@nestjs/mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 import { fieldEncryptionPlugin } from "../plugins/field-encryption.plugin";
 import { ACCOUNT_ENCRYPTED_FIELDS, AccountBase } from "./account-base.schema";
 
@@ -13,3 +14,5 @@ export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.index({ account: 1 }, { unique: true });
 UserSchema.index({ email: 1 }, { unique: true });
 UserSchema.plugin(fieldEncryptionPlugin, { fields: ACCOUNT_ENCRYPTED_FIELDS });
+// 基礎欄位(ADR-0007);使用者為平台級帳號、所屬組織走關聯,不掛 tenantScope
+UserSchema.plugin(baseFieldsPlugin);

@@ -1,6 +1,9 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
+
 /** 示範模組2(docs/modules/demo.sample-two.md):不宣告資料範圍目標的對照組。 */
 @Schema({ collection: "demo_items_two", timestamps: true })
 export class DemoItemTwo {
@@ -25,3 +28,6 @@ export class DemoItemTwo {
 export const DemoItemTwoSchema = SchemaFactory.createForClass(DemoItemTwo);
 
 DemoItemTwoSchema.index({ orgId: 1, createdAt: 1 });
+// 基礎欄位(ADR-0007)+ 租戶資料:查詢自動限縮在操作者可見組織內(ADR-0005)
+DemoItemTwoSchema.plugin(baseFieldsPlugin);
+DemoItemTwoSchema.plugin(tenantScopePlugin);

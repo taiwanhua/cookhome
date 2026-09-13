@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+
 /** 資料範圍目標(全表種子資料,ADR-0008):「資料範圍」頁左側清單來源。 */
 // `collection` 為 base-schema 指定的欄位名;Mongoose 視其為保留字,明確放行
 @Schema({
@@ -35,3 +37,5 @@ export const DataScopeTargetSchema =
   SchemaFactory.createForClass(DataScopeTarget);
 
 DataScopeTargetSchema.index({ collection: 1 }, { unique: true });
+// 基礎欄位(ADR-0007);全表種子資料,不掛 tenantScope
+DataScopeTargetSchema.plugin(baseFieldsPlugin);

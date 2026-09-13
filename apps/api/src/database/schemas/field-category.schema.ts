@@ -1,5 +1,7 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+
 /** 欄位類別(全域種子,租戶不可自訂)。 */
 @Schema({ collection: "field_categories", timestamps: true })
 export class FieldCategory {
@@ -25,3 +27,5 @@ export const FieldCategorySchema =
   SchemaFactory.createForClass(FieldCategory);
 
 FieldCategorySchema.index({ key: 1 }, { unique: true });
+// 基礎欄位(ADR-0007);全域種子,不掛 tenantScope
+FieldCategorySchema.plugin(baseFieldsPlugin);

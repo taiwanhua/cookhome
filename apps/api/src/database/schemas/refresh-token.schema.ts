@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema, Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+
 /** token 所屬帳號體系(ADR-0003):user=後台使用者、customer=前台會員。 */
 export const ACCOUNT_TYPES = ["user", "customer"] as const;
 
@@ -40,3 +42,5 @@ export const RefreshTokenSchema = SchemaFactory.createForClass(RefreshToken);
 RefreshTokenSchema.index({ accountType: 1, accountId: 1 });
 // TTL:到期即由 MongoDB 自動清除
 RefreshTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// 基礎欄位(ADR-0007);token 屬帳號、非租戶資料,不掛 tenantScope
+RefreshTokenSchema.plugin(baseFieldsPlugin);

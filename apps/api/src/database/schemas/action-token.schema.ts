@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+
 /** 單次動作 token 類型(ADR-0009/0010)。 */
 export const ACTION_TOKEN_TYPES = ["activation", "password-reset"] as const;
 
@@ -35,3 +37,5 @@ export const ActionTokenSchema = SchemaFactory.createForClass(ActionToken);
 
 ActionTokenSchema.index({ userId: 1 });
 ActionTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+// 基礎欄位(ADR-0007);token 屬帳號、非租戶資料,不掛 tenantScope
+ActionTokenSchema.plugin(baseFieldsPlugin);

@@ -1,0 +1,316 @@
+import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import { type HydratedDocument, type Model, Types } from "mongoose";
+
+import { BaseRepository } from "./base.repository";
+import type { OperatorContext } from "./operator-context";
+import { TenantScopeError } from "./plugins/tenant-scope.plugin";
+import { DemoItemOne, DemoItemOneSchema } from "./schemas/demo-item-one.schema";
+import {
+  FieldCategory,
+  FieldCategorySchema,
+} from "./schemas/field-category.schema";
+import { Field, FieldSchema } from "./schemas/field.schema";
+import { Module, ModuleSchema } from "./schemas/module.schema";
+import { Org, OrgSchema } from "./schemas/org.schema";
+import {
+  type TestDatabase,
+  openTestDatabase,
+} from "./test-support/mongo-connection";
+
+/** 組一個操作者上下文;未指定者給合理預設(操作者 id 隨機、當前組織 = 可見集合第一個)。 */
+function operator(
+  overrides: Partial<OperatorContext> & Pick<OperatorContext, "visibleOrgIds">,
+): OperatorContext {
+  const firstVisible =
+    overrides.visibleOrgIds === "all" ? null : overrides.visibleOrgIds[0];
+  return {
+    actorId: new Types.ObjectId(),
+    currentOrgId: firstVisible ?? null,
+    ...overrides,
+  };
+}
+
+describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 MongoDB 驗證)", () => {
+  let database: TestDatabase;
+  let demoItemModel: Model<DemoItemOne>;
+  let demoItems: BaseRepository<DemoItemOne, HydratedDocument<DemoItemOne>>;
+
+  beforeAll(async () => {
+    database = await openTestDatabase("cookhome-test-base-repository");
+    demoItemModel = database.connection.model<DemoItemOne>(
+      DemoItemOne.name,
+      DemoItemOneSchema,
+    );
+    demoItems = new BaseRepository(demoItemModel);
+  });
+
+  afterAll(async () => {
+    await database.close();
+  });
+
+  describe("租戶隔離:查詢自動限縮在操作者可見組織集合內", () => {
+    const orgA = new Types.ObjectId();
+    const orgB = new Types.ObjectId();
+    const orgC = new Types.ObjectId();
+    const asA = operator({ visibleOrgIds: [orgA] });
+    const asB = operator({ visibleOrgIds: [orgB] });
+
+    beforeAll(async () => {
+      await demoItems.create(asA, { name: "A 的資料" });
+      await demoItems.create(asB, { name: "B 的資料" });
+    });
+
+    it("findMany:只看得到可見集合內的資料;集合外的資料查不到", async () => {
+      const seenByA = await demoItems.findMany(asA);
+      expect(seenByA.map((item) => item.name)).toEqual(["A 的資料"]);
+
+      const seenByAB = await demoItems.findMany(
+        operator({ visibleOrgIds: [orgA, orgB] }),
+      );
+      const namesSeenByAB = seenByAB.map((item) => item.name);
+      expect(namesSeenByAB).toHaveLength(2);
+      expect(namesSeenByAB).toEqual(
+        expect.arrayContaining(["A 的資料", "B 的資料"]),
+      );
+
+      const seenByC = await demoItems.findMany(
+        operator({ visibleOrgIds: [orgC] }),
+      );
+      expect(seenByC).toEqual([]);
+    });
+
+    it("findById / findOne / count:集合外的資料查不到(null / 0),連用 id 直指也一樣", async () => {
+      const [itemOfB] = await demoItems.findMany(asB);
+      expect(itemOfB).toBeDefined();
+      if (!itemOfB) {
+        return;
+      }
+
+      await expect(demoItems.findById(asA, itemOfB._id)).resolves.toBeNull();
+      await expect(
+        demoItems.findOne(asA, { name: "B 的資料" }),
+      ).resolves.toBeNull();
+      await expect(demoItems.count(asA)).resolves.toBe(1);
+
+      // 同一筆對 B 自己是看得到的(確認不是資料不存在)
+      await expect(demoItems.findById(asB, itemOfB._id)).resolves.toMatchObject(
+        { name: "B 的資料" },
+      );
+    });
+
+    it("呼叫端自己下的 orgId 條件只會收窄,不能放寬到可見集合外", async () => {
+      const escaped = await demoItems.findMany(asA, { orgId: orgB });
+      expect(escaped).toEqual([]);
+    });
+  });
+
+  describe("基礎欄位(ADR-0007):建立 / 更新自動填 createdBy、updatedBy 與時間", () => {
+    const org = new Types.ObjectId();
+    const creator = new Types.ObjectId();
+    const editor = new Types.ObjectId();
+
+    it("create 填 createdBy = updatedBy = 操作者,並帶 createdAt / updatedAt", async () => {
+      const created = await demoItems.create(
+        operator({ visibleOrgIds: [org], actorId: creator }),
+        { name: "由 creator 建立" },
+      );
+      expect(created.createdBy).toEqual(creator);
+      expect(created.updatedBy).toEqual(creator);
+      expect(created.createdAt).toBeInstanceOf(Date);
+      expect(created.updatedAt).toBeInstanceOf(Date);
+      expect(created.deletedAt).toBeNull();
+    });
+
+    it("updateById 只改 updatedBy 為新操作者,createdBy 不動", async () => {
+      const asCreator = operator({ visibleOrgIds: [org], actorId: creator });
+      const asEditor = operator({ visibleOrgIds: [org], actorId: editor });
+      const created = await demoItems.create(asCreator, { name: "待編輯" });
+
+      const updated = await demoItems.updateById(asEditor, created._id, {
+        name: "已編輯",
+      });
+      expect(updated).toMatchObject({
+        name: "已編輯",
+        createdBy: creator,
+        updatedBy: editor,
+      });
+
+      // 更新同樣受租戶隔離:可見集合外的操作者改不到(回 null、資料不變)
+      const outsider = operator({ visibleOrgIds: [new Types.ObjectId()] });
+      await expect(
+        demoItems.updateById(outsider, created._id, { name: "越權改名" }),
+      ).resolves.toBeNull();
+      await expect(
+        demoItems.findById(asCreator, created._id),
+      ).resolves.toMatchObject({ name: "已編輯" });
+    });
+  });
+
+  describe("軟刪除(ADR-0007):deletedAt 有值即視為不存在,資料仍保留", () => {
+    const org = new Types.ObjectId();
+    const asMember = operator({ visibleOrgIds: [org] });
+
+    it("softDeleteById 後預設查不到;includeDeleted 才看得到且 deletedAt 有值", async () => {
+      const created = await demoItems.create(asMember, { name: "將被刪除" });
+
+      const deleted = await demoItems.softDeleteById(asMember, created._id);
+      expect(deleted?.deletedAt).toBeInstanceOf(Date);
+      expect(deleted?.updatedBy).toEqual(asMember.actorId);
+
+      await expect(
+        demoItems.findById(asMember, created._id),
+      ).resolves.toBeNull();
+      expect(await demoItems.findMany(asMember)).toEqual([]);
+      await expect(demoItems.count(asMember)).resolves.toBe(0);
+
+      const stillStored = await demoItems.findMany(
+        asMember,
+        {},
+        { includeDeleted: true },
+      );
+      expect(stillStored.map((item) => item.name)).toEqual(["將被刪除"]);
+
+      // 已刪除的資料不可再被更新(視為不存在)
+      await expect(
+        demoItems.updateById(asMember, created._id, { name: "死而復生" }),
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe("寫入保護與根組織(ADR-0005)", () => {
+    const orgA = new Types.ObjectId();
+    const orgB = new Types.ObjectId();
+
+    it("create 不可寫入可見範圍外的組織;未指定 orgId 時寫入當前組織", async () => {
+      const asA = operator({ visibleOrgIds: [orgA] });
+      await expect(
+        demoItems.create(asA, { name: "越權寫入", orgId: orgB }),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+
+      const created = await demoItems.create(asA, { name: "寫入當前組織" });
+      expect(created.orgId).toEqual(orgA);
+
+      // 沒有當前組織(如尚未選組織)也不允許建立租戶資料
+      await expect(
+        demoItems.create(
+          operator({ visibleOrgIds: [orgA], currentOrgId: null }),
+          { name: "無當前組織" },
+        ),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+    });
+
+    it('根組織 visibleOrgIds = "all":看得到全部,也可寫入任一組織', async () => {
+      const asRoot = operator({ visibleOrgIds: "all" });
+      await demoItems.create(operator({ visibleOrgIds: [orgB] }), {
+        name: "B 的私有資料",
+      });
+      const created = await demoItems.create(asRoot, {
+        name: "根組織代 A 建立",
+        orgId: orgA,
+      });
+      expect(created.orgId).toEqual(orgA);
+
+      const seenByRoot = await demoItems.findMany(asRoot, {
+        orgId: { $in: [orgA, orgB] },
+      });
+      expect(seenByRoot.map((item) => item.name)).toEqual(
+        expect.arrayContaining(["B 的私有資料", "根組織代 A 建立"]),
+      );
+    });
+  });
+
+  describe("非租戶資料 vs 租戶資料的判定機制:是否掛 tenantScope plugin", () => {
+    it("種子表(modules)未掛 tenantScope:任何操作者都查得到,且同樣自動填基礎欄位", async () => {
+      const modules = new BaseRepository(
+        database.connection.model<Module>(Module.name, ModuleSchema),
+      );
+      const asTenant = operator({ visibleOrgIds: [new Types.ObjectId()] });
+      const created = await modules.create(asTenant, {
+        key: "seed-only-module",
+        name: "種子模組",
+        sidebarType: "link",
+      });
+      expect(created.createdBy).toEqual(asTenant.actorId);
+
+      const asOther = operator({ visibleOrgIds: [new Types.ObjectId()] });
+      await expect(
+        modules.findOne(asOther, { key: "seed-only-module" }),
+      ).resolves.toMatchObject({ name: "種子模組" });
+    });
+
+    it("租戶表被裸查(未攜帶操作者上下文)→ 拋 TenantScopeError,不會靜默回傳全部", async () => {
+      await expect(demoItemModel.find().exec()).rejects.toBeInstanceOf(
+        TenantScopeError,
+      );
+      await expect(
+        demoItemModel.countDocuments({}).exec(),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+    });
+
+    it("orgs 以自身 _id 判定可見:只看得到可見集合內的組織", async () => {
+      const orgs = new BaseRepository(
+        database.connection.model<Org>(Org.name, OrgSchema),
+      );
+      const asRoot = operator({ visibleOrgIds: "all" });
+      const tenantA = await orgs.create(asRoot, { name: "租戶 A" });
+      const tenantB = await orgs.create(asRoot, { name: "租戶 B" });
+
+      const asA = operator({ visibleOrgIds: [tenantA._id] });
+      const seenByA = await orgs.findMany(asA);
+      expect(seenByA.map((org) => org.name)).toEqual(["租戶 A"]);
+      await expect(orgs.findById(asA, tenantB._id)).resolves.toBeNull();
+    });
+
+    it("fields:orgId null 的全域種子對所有租戶可見(ADR-0005 $or),租戶自訂選項只有自己看得到;全域只有根組織可建", async () => {
+      const fields = new BaseRepository(
+        database.connection.model<Field>(Field.name, FieldSchema),
+      );
+      const categories = new BaseRepository(
+        database.connection.model<FieldCategory>(
+          FieldCategory.name,
+          FieldCategorySchema,
+        ),
+      );
+      const asRoot = operator({ visibleOrgIds: "all" });
+      const category = await categories.create(asRoot, {
+        key: "gender",
+        name: "性別",
+      });
+      const orgA = new Types.ObjectId();
+      const orgB = new Types.ObjectId();
+      const asA = operator({ visibleOrgIds: [orgA] });
+      const asB = operator({ visibleOrgIds: [orgB] });
+
+      await fields.create(asRoot, {
+        categoryId: category._id,
+        orgId: null,
+        label: "男",
+        value: "male",
+      });
+      await fields.create(asA, {
+        categoryId: category._id,
+        label: "A 自訂",
+        value: "custom-a",
+      });
+
+      const seenByA = await fields.findMany(asA, { categoryId: category._id });
+      expect(seenByA.map((field) => field.value)).toEqual(
+        expect.arrayContaining(["male", "custom-a"]),
+      );
+      expect(seenByA).toHaveLength(2);
+
+      const seenByB = await fields.findMany(asB, { categoryId: category._id });
+      expect(seenByB.map((field) => field.value)).toEqual(["male"]);
+
+      // 租戶不可建立全域選項
+      await expect(
+        fields.create(asA, {
+          categoryId: category._id,
+          orgId: null,
+          label: "偷建全域",
+          value: "sneaky",
+        }),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+    });
+  });
+});

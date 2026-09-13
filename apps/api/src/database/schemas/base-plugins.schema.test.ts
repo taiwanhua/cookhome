@@ -1,0 +1,85 @@
+import { describe, expect, it } from "@jest/globals";
+import type { Schema } from "mongoose";
+
+import { BASE_FIELD_PATHS } from "../plugins/base-fields.plugin";
+import {
+  type TenantScope,
+  getTenantScope,
+} from "../plugins/tenant-scope.plugin";
+import { ActionTokenSchema } from "./action-token.schema";
+import { AuditLogSchema } from "./audit-log.schema";
+import { CoreRelationshipSchema } from "./core-relationship.schema";
+import { CustomerSchema } from "./customer.schema";
+import { DataScopeRuleSchema } from "./data-scope-rule.schema";
+import { DataScopeTargetSchema } from "./data-scope-target.schema";
+import { DemoItemOneSchema } from "./demo-item-one.schema";
+import { DemoItemTwoSchema } from "./demo-item-two.schema";
+import { FieldCategorySchema } from "./field-category.schema";
+import { FieldSchema } from "./field.schema";
+import { ModuleSchema } from "./module.schema";
+import { OrgSchema } from "./org.schema";
+import { PermissionSchema } from "./permission.schema";
+import { RefreshTokenSchema } from "./refresh-token.schema";
+import { RoleSchema } from "./role.schema";
+import { UserSchema } from "./user.schema";
+
+/** 全部底座 collection(docs/data-model.md「Collection 一覽」,16 張)。 */
+const ALL_SCHEMAS: Record<string, Schema> = {
+  orgs: OrgSchema,
+  users: UserSchema,
+  customers: CustomerSchema,
+  roles: RoleSchema,
+  modules: ModuleSchema,
+  permissions: PermissionSchema,
+  core_relationships: CoreRelationshipSchema,
+  data_scope_rules: DataScopeRuleSchema,
+  data_scope_targets: DataScopeTargetSchema,
+  field_categories: FieldCategorySchema,
+  fields: FieldSchema,
+  demo_items_one: DemoItemOneSchema,
+  demo_items_two: DemoItemTwoSchema,
+  refresh_tokens: RefreshTokenSchema,
+  action_tokens: ActionTokenSchema,
+  audit_logs: AuditLogSchema,
+};
+
+/**
+ * 租戶資料 = 掛 tenantScope plugin 的 collection(ADR-0005「掛 orgId 的業務 collection」+ orgs 自身)。
+ * 其餘(種子表、平台級帳號表、以關聯決定歸屬的 users/roles、token、核心關聯)不受租戶過濾。
+ */
+const TENANT_SCOPED: Record<string, TenantScope> = {
+  orgs: { path: "_id", allowGlobal: false },
+  customers: { path: "orgId", allowGlobal: false },
+  fields: { path: "orgId", allowGlobal: true },
+  demo_items_one: { path: "orgId", allowGlobal: false },
+  demo_items_two: { path: "orgId", allowGlobal: false },
+  audit_logs: { path: "orgId", allowGlobal: false },
+};
+
+describe("底座 schema 的 plugin 掛載(ADR-0005 / ADR-0007)", () => {
+  it("全部 16 張 collection 都掛 baseFields:timestamps + createdBy / updatedBy / deletedAt", () => {
+    expect(Object.keys(ALL_SCHEMAS)).toHaveLength(16);
+    for (const [name, schema] of Object.entries(ALL_SCHEMAS)) {
+      expect({ name, timestamps: schema.get("timestamps") }).toEqual({
+        name,
+        timestamps: true,
+      });
+      for (const path of BASE_FIELD_PATHS) {
+        expect({ name, path, pathType: schema.pathType(path) }).toEqual({
+          name,
+          path,
+          pathType: "real",
+        });
+      }
+    }
+  });
+
+  it("租戶資料的判定 = 是否掛 tenantScope;清單與設定明確列出,其餘一律不受租戶過濾", () => {
+    for (const [name, schema] of Object.entries(ALL_SCHEMAS)) {
+      expect({ name, scope: getTenantScope(schema) }).toEqual({
+        name,
+        scope: TENANT_SCOPED[name],
+      });
+    }
+  });
+});
