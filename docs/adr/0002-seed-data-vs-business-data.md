@@ -12,7 +12,9 @@
 apps/db-migrator/
 ├─ migrate-mongo-config.js        讀 MONGODB_URI
 ├─ migrations/                    一次性、版本化(migrate-mongo 管;raw db handle,up/down)
-│    檔名:<時間戳>_<類別>_<描述>;類別:schema(索引/結構)| data(回填/轉換)| cleanup(清理)
+│    檔名:<時間戳>_<類別>_<描述>.js
+│    時間戳 = 14 位 YYYYMMDDHHmmss(決定執行順序);類別:schema(索引/結構)| data(回填/轉換)| cleanup(清理);
+│    描述 = kebab-case。規約由測試全掃強制(程式正本:apps/db-migrator/src/migration-filename.ts)
 └─ seeds/                         冪等、每次部署都跑(薄 runner 依 key upsert)
      registry.ts                  收齊所有種子
      orgs.ts / roles.ts / field-categories.ts / scope-catalog.ts
@@ -23,4 +25,4 @@ apps/db-migrator/
 
 **root 初始帳號**:seed 需建立平台第一個超級管理員帳號 — account/email/密碼自環境變數讀取(`ROOT_ADMIN_ACCOUNT` / `ROOT_ADMIN_EMAIL` / `ROOT_ADMIN_PASSWORD`,雲端存 Secret Manager);**僅在帳號不存在時建立**,已存在則完全不動(不會因部署重設密碼)。
 
-**執行時機與順序**:build 不碰 DB(build once, deploy many)。deploy.yml 部署 api 成功後,對該環境依序跑 `pnpm --filter db-migrator migrate` → `pnpm --filter db-migrator seed`(CI runner 直連)。本地開發同兩條指令。不放在 server 啟動時自動執行(Cloud Run 冷啟要快,且避免多實例併發寫)。
+**執行時機與順序**:build 不碰 DB(build once, deploy many)。deploy.yml 部署 api 成功後,對該環境依序跑 `pnpm --filter db-migrator migrate` → `pnpm --filter db-migrator seed`(CI runner 直連;filter 不帶 scope 亦可匹配 `@repo/db-migrator`,執行的是該套件 package.json 的同名 script)。本地開發同兩條指令。不放在 server 啟動時自動執行(Cloud Run 冷啟要快,且避免多實例併發寫)。

@@ -34,7 +34,7 @@
 
 - 原則:CI = 驗證 + 產 artifact(image 以 SHA 標記);CD = 同一 artifact 部署;本地 hooks 與 CI 同一套指令。
 - 三個網域上線:`www`(Vercel front)/ `erp`(admin)/ `api`(Cloud Run,min=0/max=2)`.cookhome.online`;Cloudflare 管 DNS。
-- `deploy.yml` + WIF:merge main 自動部署 dev;production 手動 workflow_dispatch;Budget NT$600 三段警告。
+- `deploy.yml` + WIF:**全環境一律手動 workflow_dispatch**(merge 不觸發部署;早期曾自動部署 dev,已廢);Budget NT$600 三段警告。
 - Atlas `cookhome-dev` 已接(URI 走 Secret Manager);GraphQL Sandbox 以 env 控制,雲端預設關。
 - 不做(記錄):固定出口 IP(VPC connector + NAT ~US$10/月)、Cloudflare 橙雲(需 Global LB)。
 - 細節見 `docs/deployment.md`。
@@ -103,6 +103,10 @@
 
 11. ~~deploy.yml 的 api_url 換自訂子網域~~ — 已完成(2026-09-05,PR #11~#13)。
 12. **Atlas 拆三 cluster** — 已定案要拆(2026-09-04);時機:production 有真實流量升 M10 時(或先三個 Atlas project 各一 M0)。過渡加固:三環境 URI 皆 `maxPoolSize=10`。
+
+24. ~~看板移卡自動化~~ — **已完成(2026-09-14,PR #32)**:Project「CookHome」(#3)十欄 Status;Action 連動 issue/PR 事件(規則與移卡指令見 issue-tracker.md)。生效前置:repo secret `GH_PROJECT_TOKEN`(PAT classic,project scope)由使用者建立。
+
+23. **Claude hook 在 git worktree 誤報(2026-09-13,無 session agent 發現)** — `scripts/claude-hooks/post-edit-check.mjs` 固定從主 repo 目錄跑 turbo;在 git worktree 內開發新 workspace 時,主 repo 的 turbo 找不到該套件而誤報「No package found」。修法:hook 以「被編輯檔案向上找到的 repo 根」為工作目錄。
 
 ### D. 外部條件觸發(追蹤中)
 
