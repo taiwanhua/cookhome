@@ -194,6 +194,10 @@ export function sumCounts(results: SeedSetResult[]): SeedCounts {
   );
 }
 
-export function formatCounts({ created, updated, unchanged }: SeedCounts): string {
+export function formatCounts({
+  created,
+  updated,
+  unchanged,
+}: SeedCounts): string {
   return `新增 ${String(created)} / 更新 ${String(updated)} / 未變 ${String(unchanged)}`;
 }

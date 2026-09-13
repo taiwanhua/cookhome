@@ -7,7 +7,13 @@ import { MongoClient, type ObjectId } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
-const TSX_CLI = path.join(PACKAGE_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
+const TSX_CLI = path.join(
+  PACKAGE_ROOT,
+  "node_modules",
+  "tsx",
+  "dist",
+  "cli.mjs",
+);
 const SEED_ENTRY = path.join(PACKAGE_ROOT, "src", "seed", "run.ts");
 
 /** 測試用 root 初始帳號(正式環境自 Secret Manager 注入,ADR-0002);密碼為測試假值。 */
@@ -163,14 +169,7 @@ describe("seed 指令(對真 MongoDB)", () => {
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
 
-    const { orgs, roles } = await withDatabase(databaseUri, async (database) => ({
-      orgs: await database.collection<SeededDocument>("orgs").find().toArray(),
-      roles: await database
-        .collection<SeededDocument>("roles")
-        .find()
-        .sort({ key: 1 })
-        .toArray(),
-    }));
+    const { orgs, roles } = await readSeededDocuments(databaseUri);
 
     expect(orgs).toHaveLength(1);
     expect(orgs[0]).toMatchObject({
@@ -182,7 +181,10 @@ describe("seed 指令(對真 MongoDB)", () => {
       enabled: true,
     });
 
-    expect(roles.map((role) => role.key)).toEqual(["super-admin", "tenant-admin"]);
+    expect(roles.map((role) => role.key)).toEqual([
+      "super-admin",
+      "tenant-admin",
+    ]);
     for (const role of roles) {
       expect(role).toMatchObject({ isSystem: true, enabled: true });
       expect(typeof role.name).toBe("string");
@@ -216,9 +218,9 @@ describe("seed 指令(對真 MongoDB)", () => {
     );
 
     expect(orgRoles).toHaveLength(2);
-    expect(new Set(orgRoles.map((link) => link.secondId?.toHexString()))).toEqual(
-      new Set(roles.map((role) => role._id.toHexString())),
-    );
+    expect(
+      new Set(orgRoles.map((link) => link.secondId?.toHexString())),
+    ).toEqual(new Set(roles.map((role) => role._id.toHexString())));
     for (const link of orgRoles) {
       expect(link.firstId?.toHexString()).toBe(rootOrg?._id.toHexString());
     }
