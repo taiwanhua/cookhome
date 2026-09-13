@@ -4,6 +4,9 @@
     "build": {
       "env": ["PORT"],
       "outputs": ["dist/**"]
+    },
+    "test": {
+      "env": ["MONGODB_URI", "FIELD_ENCRYPTION_KEY"]
     }
   }
 }
