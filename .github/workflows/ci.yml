@@ -40,8 +40,11 @@ jobs:
           PORT: "5001"
 
       # check-types 與 build 分兩步:next build 會清寫 .next,與 next typegen 同時跑會競態
+      # MONGODB_URI:db-migrator 測試沿用本 job 的 MongoDB service container(本地無此變數時自起 mongodb-memory-server)
       - name: lint / typecheck / test
         run: pnpm exec turbo run lint check-types test
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
 
       - name: build
         run: pnpm exec turbo run build
