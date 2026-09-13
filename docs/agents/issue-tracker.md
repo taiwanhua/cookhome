@@ -81,6 +81,15 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz \
 
 **實作 agent 的義務**:開工時移 In Progress + assign;開 PR 時移 In Review 且 PR 內文含 `Closes #<n>`;merge 後移 Dev 驗證中。移卡指令(欄位/選項 id 建板後記錄於本檔)。
 
+## 實作一張票(接手 SOP,無對話 session 亦適用)
+
+1. **讀**:票全文與留言 → Parent spec(含接手指南)→ CLAUDE.md → 相關規範與 ADR
+2. **認領**:assign 給自己,看板移 In Progress
+3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支一律從 main 切
+4. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試/lint/typecheck 全綠才開;看板移 In Review
+5. **不做**:不 merge、不動 main/dev/staging 本體、不改 docs(發現文件錯誤寫進回報)
+6. **回報**:PR 連結、測試結果、**接手體驗報告**(找不到/矛盾/用猜的資訊 — 這是文件品質的回饋來源)
+
 ## 當 skill 說「fetch the relevant ticket」
 
 執行 `gh issue view <number> --comments`。

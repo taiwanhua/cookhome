@@ -99,6 +99,8 @@
 
 21. **`apps/db-migrator` 實作(2026-09-13 定案,規格見 ADR-0002)** — migrate-mongo(migrations/,檔名三類別)+ seed runner(seeds/ registry);deploy.yml 部署 api 後接 migrate → seed 兩步;本地同指令。實作時把 base-schema 的種子清單落成 seeds/ 宣告檔。
 
+25. **設計殘項(等食譜域第二輪 domain modeling)** — 食譜詳情頁、分類頁;front 會員線(註冊 — 含 account 欄位、登入、個人頁、寫食譜、收藏);會員管理頁(admin)。
+
 ### C. 小任務(不需討論,找時間做)
 
 11. ~~deploy.yml 的 api_url 換自訂子網域~~ — 已完成(2026-09-05,PR #11~#13)。
