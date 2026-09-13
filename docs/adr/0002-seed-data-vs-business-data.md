@@ -16,6 +16,8 @@ apps/db-migrator/
 │    時間戳 = 14 位 YYYYMMDDHHmmss(決定執行順序);類別:schema(索引/結構)| data(回填/轉換)| cleanup(清理);
 │    描述 = kebab-case。規約由測試全掃強制(程式正本:apps/db-migrator/src/migration-filename.ts)
 └─ seeds/                         冪等、每次部署都跑(薄 runner 依 key upsert)
+     執行:TypeScript 直跑 — package.json `"seed": "tsx src/seed/run.ts"`(tsx 為 devDependency,零編譯步驟;
+     型別檢查由 tsc --noEmit 管)。migrations 維持 .js(migrate-mongo 自己的載入器,不值得為 TS 駭它)
      registry.ts                  收齊所有種子
      orgs.ts / roles.ts / field-categories.ts / scope-catalog.ts
      modules/<key>.ts             每模組一檔:模組樹節點 + permissions + dataScopeTarget
