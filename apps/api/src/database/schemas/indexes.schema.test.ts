@@ -1,0 +1,206 @@
+import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import type { Connection, Schema } from "mongoose";
+
+import {
+  openTestDatabase,
+  type TestDatabase,
+} from "../test-support/mongo-connection";
+import { ActionToken, ActionTokenSchema } from "./action-token.schema";
+import { AuditLog, AuditLogSchema } from "./audit-log.schema";
+import {
+  CoreRelationship,
+  CoreRelationshipSchema,
+} from "./core-relationship.schema";
+import { Customer, CustomerSchema } from "./customer.schema";
+import { DataScopeRule, DataScopeRuleSchema } from "./data-scope-rule.schema";
+import {
+  DataScopeTarget,
+  DataScopeTargetSchema,
+} from "./data-scope-target.schema";
+import { DemoItemOne, DemoItemOneSchema } from "./demo-item-one.schema";
+import { DemoItemTwo, DemoItemTwoSchema } from "./demo-item-two.schema";
+import { FieldCategory, FieldCategorySchema } from "./field-category.schema";
+import { Field, FieldSchema } from "./field.schema";
+import { Module, ModuleSchema } from "./module.schema";
+import { Org, OrgSchema } from "./org.schema";
+import { Permission, PermissionSchema } from "./permission.schema";
+import { RefreshToken, RefreshTokenSchema } from "./refresh-token.schema";
+import { Role, RoleSchema } from "./role.schema";
+import { User, UserSchema } from "./user.schema";
+
+interface IndexInfo {
+  key: Record<string, number>;
+  unique?: boolean;
+  sparse?: boolean;
+  expireAfterSeconds?: number;
+  partialFilterExpression?: Record<string, unknown>;
+}
+
+/** 索引總表的正本:docs/tmp/base-schema.md「索引總表」+ #23 索引段。 */
+const REGISTRY: { name: string; schema: Schema }[] = [
+  { name: Org.name, schema: OrgSchema },
+  { name: User.name, schema: UserSchema },
+  { name: Customer.name, schema: CustomerSchema },
+  { name: Role.name, schema: RoleSchema },
+  { name: Module.name, schema: ModuleSchema },
+  { name: Permission.name, schema: PermissionSchema },
+  { name: CoreRelationship.name, schema: CoreRelationshipSchema },
+  { name: DataScopeRule.name, schema: DataScopeRuleSchema },
+  { name: DataScopeTarget.name, schema: DataScopeTargetSchema },
+  { name: FieldCategory.name, schema: FieldCategorySchema },
+  { name: Field.name, schema: FieldSchema },
+  { name: DemoItemOne.name, schema: DemoItemOneSchema },
+  { name: DemoItemTwo.name, schema: DemoItemTwoSchema },
+  { name: RefreshToken.name, schema: RefreshTokenSchema },
+  { name: ActionToken.name, schema: ActionTokenSchema },
+  { name: AuditLog.name, schema: AuditLogSchema },
+];
+
+async function readIndexes(
+  connection: Connection,
+  modelName: string,
+): Promise<IndexInfo[]> {
+  const raw = await connection
+    .model(modelName)
+    .collection.listIndexes()
+    .toArray();
+  return raw as IndexInfo[];
+}
+
+function findIndex(
+  indexes: IndexInfo[],
+  key: Record<string, number>,
+): IndexInfo | undefined {
+  const target = JSON.stringify(key);
+  return indexes.find((index) => JSON.stringify(index.key) === target);
+}
+
+describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
+  let database: TestDatabase;
+  const indexesByModel = new Map<string, IndexInfo[]>();
+
+  const indexesOf = (modelName: string): IndexInfo[] => {
+    const indexes = indexesByModel.get(modelName);
+    if (!indexes) {
+      throw new Error(`索引未載入:${modelName}`);
+    }
+    return indexes;
+  };
+
+  beforeAll(async () => {
+    database = await openTestDatabase("cookhome-test-indexes");
+    for (const { name, schema } of REGISTRY) {
+      const model = database.connection.model(name, schema);
+      await model.syncIndexes();
+      indexesByModel.set(name, await readIndexes(database.connection, name));
+    }
+  });
+
+  afterAll(async () => {
+    await database.close();
+  });
+
+  it("全部 collection 皆已建模並可建立索引", () => {
+    expect(indexesByModel.size).toBe(16);
+  });
+
+  it("orgs:unique(key sparse)+(parentId)+(ancestors)", () => {
+    const indexes = indexesOf(Org.name);
+    const keyIndex = findIndex(indexes, { key: 1 });
+    expect(keyIndex?.unique).toBe(true);
+    expect(keyIndex?.sparse).toBe(true);
+    expect(findIndex(indexes, { parentId: 1 })).toBeDefined();
+    expect(findIndex(indexes, { ancestors: 1 })).toBeDefined();
+  });
+
+  it("users / customers:unique(account)+unique(email)", () => {
+    for (const name of [User.name, Customer.name]) {
+      const indexes = indexesOf(name);
+      expect(findIndex(indexes, { account: 1 })?.unique).toBe(true);
+      expect(findIndex(indexes, { email: 1 })?.unique).toBe(true);
+    }
+  });
+
+  it("roles:unique(key sparse)", () => {
+    const keyIndex = findIndex(indexesOf(Role.name), { key: 1 });
+    expect(keyIndex?.unique).toBe(true);
+    expect(keyIndex?.sparse).toBe(true);
+  });
+
+  it("modules:unique(key)+(ancestors)", () => {
+    const indexes = indexesOf(Module.name);
+    expect(findIndex(indexes, { key: 1 })?.unique).toBe(true);
+    expect(findIndex(indexes, { ancestors: 1 })).toBeDefined();
+  });
+
+  it("permissions:unique(key)+(moduleId)", () => {
+    const indexes = indexesOf(Permission.name);
+    expect(findIndex(indexes, { key: 1 })?.unique).toBe(true);
+    expect(findIndex(indexes, { moduleId: 1 })).toBeDefined();
+  });
+
+  it("core_relationships:unique 複合 + org_role second 側唯一 + 查詢用索引", () => {
+    const indexes = indexesOf(CoreRelationship.name);
+    expect(
+      findIndex(indexes, {
+        type: 1,
+        firstId: 1,
+        secondId: 1,
+        thirdId: 1,
+      })?.unique,
+    ).toBe(true);
+    const orgRoleUnique = indexes.find(
+      (index) =>
+        index.unique === true &&
+        index.partialFilterExpression?.type === "org_role",
+    );
+    expect(orgRoleUnique).toBeDefined();
+    expect(findIndex(indexes, { type: 1, firstId: 1 })).toBeDefined();
+    expect(findIndex(indexes, { type: 1, secondId: 1 })).toBeDefined();
+  });
+
+  it("data_scope_rules / data_scope_targets:unique(collection)", () => {
+    for (const name of [DataScopeRule.name, DataScopeTarget.name]) {
+      expect(findIndex(indexesOf(name), { collection: 1 })?.unique).toBe(
+        true,
+      );
+    }
+  });
+
+  it("field_categories:unique(key);fields:(categoryId, orgId)", () => {
+    expect(
+      findIndex(indexesOf(FieldCategory.name), { key: 1 })?.unique,
+    ).toBe(true);
+    expect(
+      findIndex(indexesOf(Field.name), { categoryId: 1, orgId: 1 }),
+    ).toBeDefined();
+  });
+
+  it("demo_items_one / two:(orgId, createdAt)", () => {
+    for (const name of [DemoItemOne.name, DemoItemTwo.name]) {
+      expect(
+        findIndex(indexesOf(name), { orgId: 1, createdAt: 1 }),
+      ).toBeDefined();
+    }
+  });
+
+  it("refresh_tokens:(accountType, accountId)+ TTL(expiresAt)", () => {
+    const indexes = indexesOf(RefreshToken.name);
+    expect(
+      findIndex(indexes, { accountType: 1, accountId: 1 }),
+    ).toBeDefined();
+    expect(findIndex(indexes, { expiresAt: 1 })?.expireAfterSeconds).toBe(0);
+  });
+
+  it("action_tokens:(userId)+ TTL(expiresAt)", () => {
+    const indexes = indexesOf(ActionToken.name);
+    expect(findIndex(indexes, { userId: 1 })).toBeDefined();
+    expect(findIndex(indexes, { expiresAt: 1 })?.expireAfterSeconds).toBe(0);
+  });
+
+  it("audit_logs:(orgId, createdAt)+(targetType, targetId)", () => {
+    const indexes = indexesOf(AuditLog.name);
+    expect(findIndex(indexes, { orgId: 1, createdAt: 1 })).toBeDefined();
+    expect(findIndex(indexes, { targetType: 1, targetId: 1 })).toBeDefined();
+  });
+});

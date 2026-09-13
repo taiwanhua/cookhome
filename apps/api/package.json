@@ -39,6 +39,7 @@
     "@types/node": "^22.15.3",
     "eslint": "^9.39.0",
     "jest": "^30.2.0",
+    "mongodb-memory-server": "^11.2.0",
     "typescript": "5.9.3"
   }
 }
