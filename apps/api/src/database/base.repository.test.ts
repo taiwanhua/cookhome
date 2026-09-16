@@ -181,6 +181,28 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
     const orgA = new Types.ObjectId();
     const orgB = new Types.ObjectId();
 
+    it("updateById 不得變更 orgId 與建立資訊(不可把資料搬進別的組織)", async () => {
+      const asA = operator({ visibleOrgIds: [orgA] });
+      const created = await demoItems.create(asA, { name: "留在 A" });
+
+      await expect(
+        demoItems.updateById(asA, created._id, { $set: { orgId: orgB } }),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+      await expect(
+        demoItems.updateById(asA, created._id, { orgId: orgB }),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+      await expect(
+        demoItems.updateById(asA, created._id, {
+          $set: { createdBy: new Types.ObjectId() },
+        }),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+
+      // 資料仍在 A、內容未變
+      const still = await demoItems.findById(asA, created._id);
+      expect(still?.orgId).toEqual(orgA);
+      expect(still?.name).toBe("留在 A");
+    });
+
     it("create 不可寫入可見範圍外的組織;未指定 orgId 時寫入當前組織", async () => {
       const asA = operator({ visibleOrgIds: [orgA] });
       await expect(

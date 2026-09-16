@@ -107,12 +107,16 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     return document as Persisted<TDocument>;
   }
 
-  /** 依 id 更新;可見範圍外或已軟刪除的資料視為不存在(回 null)。回傳更新後的文件。 */
+  /**
+   * 依 id 更新;可見範圍外或已軟刪除的資料視為不存在(回 null)。回傳更新後的文件。
+   * update 不得觸及 orgId(否則可把資料搬進別的租戶)與建立資訊(createdBy / createdAt)。
+   */
   async updateById(
     operator: OperatorContext,
     id: Types.ObjectId | string,
     update: RepositoryUpdate<TSchema>,
   ): Promise<Persisted<TDocument> | null> {
+    assertUpdateLeavesProtectedPaths(this.model.modelName, update);
     const document = await scopeQuery(
       this.model.findOneAndUpdate({ _id: id }, update, {
         returnDocument: "after",
@@ -157,5 +161,38 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
       );
     }
     return { ...data, orgId };
+  }
+}
+
+/** 更新內容不得觸及的欄位:所屬組織(租戶隔離)與建立資訊(稽核)。 */
+const PROTECTED_UPDATE_PATHS = ["orgId", "createdBy", "createdAt"] as const;
+
+/**
+ * 檢查 update 的頂層與各運算子(`$set` / `$unset` / `$setOnInsert` / `$rename`…)內
+ * 是否觸及受保護欄位(含 `orgId.x` 這類子路徑);觸及即拋 TenantScopeError。
+ * 搬移資料到別的組織若有需求,應是獨立且明確的操作,不經一般更新。
+ */
+function assertUpdateLeavesProtectedPaths(
+  modelName: string,
+  update: unknown,
+): void {
+  if (!update || typeof update !== "object") {
+    return;
+  }
+  for (const [key, value] of Object.entries(update)) {
+    const paths = key.startsWith("$")
+      ? Object.keys((value ?? {}) as Record<string, unknown>)
+      : [key];
+    const touched = paths.find((path) =>
+      PROTECTED_UPDATE_PATHS.some(
+        (protectedPath) =>
+          path === protectedPath || path.startsWith(`${protectedPath}.`),
+      ),
+    );
+    if (touched) {
+      throw new TenantScopeError(
+        `${modelName}:更新不得變更 ${touched}(所屬組織與建立資訊不可經一般更新修改)`,
+      );
+    }
   }
 }
