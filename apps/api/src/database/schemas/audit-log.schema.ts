@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema, Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
 import { ACCOUNT_TYPES, type AccountType } from "./refresh-token.schema";
 
 /** 稽核日誌(ADR-0004):只增不改,v1 僅記授權相關變更。 */
@@ -44,3 +46,6 @@ export const AuditLogSchema = SchemaFactory.createForClass(AuditLog);
 
 AuditLogSchema.index({ orgId: 1, createdAt: 1 });
 AuditLogSchema.index({ targetType: 1, targetId: 1 });
+// 基礎欄位(ADR-0007)+ 動作發生的組織脈絡 = 租戶資料:查詢限縮在操作者可見組織內(ADR-0005)
+AuditLogSchema.plugin(baseFieldsPlugin);
+AuditLogSchema.plugin(tenantScopePlugin);

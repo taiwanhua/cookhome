@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import type { Connection, Schema } from "mongoose";
 
 import {
+  HOOK_TIMEOUT_MS,
   openTestDatabase,
   type TestDatabase,
 } from "../test-support/mongo-connection";
@@ -36,7 +37,7 @@ interface IndexInfo {
   partialFilterExpression?: Record<string, unknown>;
 }
 
-/** 索引總表的正本:docs/tmp/base-schema.md「索引總表」+ #23 索引段。 */
+/** 索引的正本:各 schema 檔的 `.index(...)` 宣告(地圖見 docs/data-model.md)+ #23 索引段。 */
 const REGISTRY: { name: string; schema: Schema }[] = [
   { name: Org.name, schema: OrgSchema },
   { name: User.name, schema: UserSchema },
@@ -94,11 +95,11 @@ describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
       await model.syncIndexes();
       indexesByModel.set(name, await readIndexes(database.connection, name));
     }
-  });
+  }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     await database.close();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   it("全部 collection 皆已建模並可建立索引", () => {
     expect(indexesByModel.size).toBe(16);

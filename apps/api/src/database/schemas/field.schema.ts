@@ -1,6 +1,9 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
+
 /** 欄位選項(ADR-0005):orgId null=全域種子、有值=租戶自訂;下架不刪。 */
 @Schema({ collection: "fields", timestamps: true })
 export class Field {
@@ -41,3 +44,6 @@ export class Field {
 export const FieldSchema = SchemaFactory.createForClass(Field);
 
 FieldSchema.index({ categoryId: 1, orgId: 1 });
+// 基礎欄位(ADR-0007)+ 租戶自訂選項限縮在可見組織內;orgId null 的全域種子對所有人可見(ADR-0005 $or)
+FieldSchema.plugin(baseFieldsPlugin);
+FieldSchema.plugin(tenantScopePlugin, { allowGlobal: true });

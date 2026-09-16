@@ -5,6 +5,7 @@
   "private": true,
   "exports": {
     ".": "./index.js",
+    "./mongoose": "./mongoose.js",
     "./next": "./next.js",
     "./react": "./react.js",
     "./vite": "./vite.js"

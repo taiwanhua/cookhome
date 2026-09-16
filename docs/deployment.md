@@ -45,7 +45,7 @@ dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-st
 | GCP 專案            | `cookhome-online`(region 預設 asia-east1)                                              | —               |
 | Artifact Registry   | `asia-east1-docker.pkg.dev/cookhome-online/cookhome`                                   | 儲存費 ~NT$1/月 |
 | Cloud Run ×6        | api / admin 各 ×(prod, staging, dev)(全部 min=0 / max=2)                               | 無流量 = $0     |
-| Secret Manager      | `mongodb-uri`、`mongodb-uri-staging`、`mongodb-uri-dev`                                | ~$0             |
+| Secret Manager      | 三環境各一份(`-dev` / `-staging` / 無後綴):`mongodb-uri`、`field-encryption-key`、`root-admin-password`;清單見 `docs/env-registry.md` | ~$0             |
 | WIF + 部署身分      | pool `github` / provider `github-oidc` / SA `github-deployer`(只認 taiwanhua/cookhome) | $0              |
 | Budget              | NT$600/月,50%/90%/100% 郵件警告                                                        | $0              |
 | MongoDB Atlas       | cluster `cookhome-dev`(M0)                                                             | $0              |
@@ -135,6 +135,47 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 3. front 雲端:Vercel dashboard 加(注意 Type 選 **Config**,除非真是機密;`NEXT_PUBLIC_` 前綴 = 會進瀏覽器,機密絕不可加此前綴)
 
 **機密判斷準則**:「這個值出現在瀏覽器/版控裡會不會出事?」會 → Secret Manager(Cloud Run)或 Secret 型(Vercel);不會 → 明文設定即可。
+
+變數清單(用途/是否機密/放哪/狀態)的正本是 `docs/env-registry.md`,新增或異動變數時必須更新它。
+
+### 新增一個 Secret Manager 機密的標準步驟
+
+指令都在 Claude Code 的 `!` 提示或 Git Bash 執行(**是 bash,不是 PowerShell** — `$env:TEMP` 這種 PowerShell 語法在這裡不會動)。
+
+**1. 命名慣例**:每個環境各一份、值互不相同 — `<名稱>-dev`、`<名稱>-staging`、`<名稱>`(production 無後綴)。例:`mongodb-uri-dev`、`field-encryption-key`。
+
+**2. 建立** — 依值的來源選一種:
+
+- **程式產生的金鑰**(沒有人需要看到它):node 把值寫進 Windows 暫存資料夾 → gcloud 從檔案讀 → 刪檔。值不會印在螢幕、不進 shell 歷史。
+
+  ```
+  node -e "require('fs').writeFileSync(process.env.TEMP+'/k.txt', require('crypto').randomBytes(32).toString('base64'))" && gcloud secrets create <名稱>-dev --data-file="$TEMP/k.txt" --replication-policy=automatic --project=cookhome-online; rm -f "$TEMP/k.txt"
+  ```
+
+  路徑要用 `$TEMP`(node 是 Windows 程式,`/tmp` 會被當成不存在的 `C:\tmp`)。
+- **人打的密碼、連線字串**:走 GCP Console(Secret Manager → Create secret → 貼值 → Create),或**另開自己的終端機**跑 `printf '%s' '<值>' | gcloud secrets create <名稱>-dev --data-file=- --replication-policy=automatic --project=cookhome-online`。**不要在 AI 對話裡貼密碼**(對話紀錄會留存,等於外洩)。
+
+**3. 授權讀取者**(漏這步,部署或 CI 會報讀不到 secret):
+
+| 誰會讀這個 secret | 授權對象(`--member`) |
+| --- | --- |
+| Cloud Run 執行中的 api(`--set-secrets` 掛進去) | Cloud Run 執行身分;查法:`gcloud run services describe cookhome-api-dev --region=asia-east1 --format="value(spec.template.spec.serviceAccountName)"`,目前為預設 `728045896207-compute@developer.gserviceaccount.com` |
+| CI 步驟(如 deploy.yml 跑 migrate/seed) | 部署身分 `github-deployer@cookhome-online.iam.gserviceaccount.com` |
+
+```
+gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上表身分>" --role="roles/secretmanager.secretAccessor" --project=cookhome-online
+```
+
+三個環境各跑一次。
+
+**4. 接線**(走 PR):Cloud Run 用的 → deploy.yml 環境參數區加對應輸出、`--set-secrets` 追加 `<環境變數名>=<secret 名>:latest`;CI 步驟用的 → 該步驟 `gcloud secrets versions access latest --secret=<名稱>`。
+
+**5. 登記**:更新 `docs/env-registry.md`(狀態、secret 名稱、讀取身分)與本檔「資源清單」。
+
+**陷阱**:
+- 貼值時尾端多一個換行或空白,會變成值的一部分(密碼登入失敗最常見原因)。
+- 欄位加密金鑰(`field-encryption-key*`)**建立後不可輪替或刪除**,換鑰匙 = 舊密文全部解不開。
+- seed 只在帳號**不存在**時建立、存在就不動 — 帳號建立後再改 `root-admin-password*` 的值,**不會**改到資料庫裡的密碼;要改密碼在系統內改。
 
 小工具:裝了 vercel CLI 並登入後,`vercel env pull` 可把 Vercel 的變數拉成本地 `.env.local`(本地 front 想直連雲端 dev api 時方便)。
 

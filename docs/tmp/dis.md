@@ -97,7 +97,15 @@
 
 22. **接手考核機制(2026-09-13 定案)** — 驗「無 session AI 能否理解專案」的三關:①場景推理題(考卷 `docs/testing/handover-quiz.md`,只放題目)②流程計畫題(給小任務只寫計畫)③實戰(票實作)。**標準答案與其存放位置皆不記於 repo**(由主考官持有,施測時只提供給評分 agent);施測=派受測 agent 作答(限 repo 內容)→ 派評分 agent 對照答案卷出報告 → 錯題視為文件缺口,修文件後重考。
 
-21. **`apps/db-migrator` 實作(2026-09-13 定案,規格見 ADR-0002)** — migrate-mongo(migrations/,檔名三類別)+ seed runner(seeds/ registry);deploy.yml 部署 api 後接 migrate → seed 兩步;本地同指令。實作時把 data-model 的種子清單落成 seeds/ 宣告檔。
+21. **`apps/db-migrator` 實作** — migrate(#24,PR #31)與 seed runner + 根組織/種子角色/root 帳號(#28,PR #34)**已完成**;剩 deploy.yml 接 migrate → seed 兩步 + `ROOT_ADMIN_*` 注入(第 2 段前)。
+
+26. **CI 沒有 format 檢查(2026-09-16,agent 發現)** — #25 產出與 prettier 設定不一致,跑 `prettier --write` 會重排;CI 只 lint 不 format-check,遲早有人踩。待辦:ci.yml 加 `prettier --check`,先把既有檔案格式化一次。
+
+27. **抽 `@repo/db-schemas` 共用型別(2026-09-16 記)** — seed 與 api 的欄位形狀存在兩處(ADR-0002 種子定案段);漂移開始咬人時把 schema 抽成 packages 套件供兩邊 import 型別。
+
+28. **BaseRepository 支援 populate(2026-09-16 記)** — 目前 populate 子查詢不帶操作者上下文、對租戶資料拋錯(ADR-0005 已知限制);需要時加 `populate` 選項由 repository 轉傳上下文。
+
+29. **開通租戶時勾選開放模組(2026-09-16 定案,第 3 段做)** — 開通彈窗加模組勾選(預設全勾,清單來自模板);副本只綁勾選的模組;Figma 開通彈窗 + org-manager.md 同步。規則已寫 ADR-0009。
 
 25. **設計殘項(等食譜域第二輪 domain modeling)** — 食譜詳情頁、分類頁;front 會員線(註冊 — 含 account 欄位、登入、個人頁、寫食譜、收藏);會員管理頁(admin)。
 

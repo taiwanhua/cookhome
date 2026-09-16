@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { type Model, Types } from "mongoose";
 
 import {
+  HOOK_TIMEOUT_MS,
   openTestDatabase,
   type TestDatabase,
 } from "../test-support/mongo-connection";
@@ -23,11 +24,11 @@ describe("core_relationships schema(ADR-0001)", () => {
       CoreRelationshipSchema,
     );
     await model.syncIndexes();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     await database.close();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   it("封閉 enum 完整清單 = ADR-0001 的五種,且五種皆可寫入", async () => {
     // 完整清單的正本:ADR-0001(命名順序 Org > User > Role > Module > Permission)

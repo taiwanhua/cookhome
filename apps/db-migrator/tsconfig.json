@@ -5,6 +5,6 @@
     "lib": ["ES2022"],
     "types": ["jest", "node"]
   },
-  "include": ["src"],
+  "include": ["src", "seeds", "test"],
   "exclude": ["node_modules"]
 }

@@ -19,3 +19,6 @@ public/dist
 
 # Storybook build 產物
 storybook-static
+
+# Claude Code 背景 agent 的隔離 worktree(機器特定)
+.claude/worktrees/

@@ -1,6 +1,9 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema, Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
+
 /** 組織(ADR-0005):物化路徑 ancestors;根組織以 key 供 seed 冪等。 */
 @Schema({ collection: "orgs", timestamps: true })
 export class Org {
@@ -51,3 +54,6 @@ export const OrgSchema = SchemaFactory.createForClass(Org);
 OrgSchema.index({ key: 1 }, { unique: true, sparse: true });
 OrgSchema.index({ parentId: 1 });
 OrgSchema.index({ ancestors: 1 });
+// 基礎欄位(ADR-0007);組織自身以 _id 判定是否在操作者可見範圍內(ADR-0005)
+OrgSchema.plugin(baseFieldsPlugin);
+OrgSchema.plugin(tenantScopePlugin, { path: "_id" });

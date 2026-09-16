@@ -3,12 +3,22 @@ import { randomBytes } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import type { Model } from "mongoose";
 
+import { BaseRepository } from "../base.repository";
+import type { OperatorContext } from "../operator-context";
 import {
+  HOOK_TIMEOUT_MS,
   openTestDatabase,
   type TestDatabase,
 } from "../test-support/mongo-connection";
 import { Customer, CustomerSchema } from "./customer.schema";
 import { User, UserSchema } from "./user.schema";
+
+/** customers 是租戶資料(ADR-0005),讀取須經 BaseRepository;此處以根組織身分(可見全部)讀。 */
+const asRoot: OperatorContext = {
+  actorId: null,
+  currentOrgId: null,
+  visibleOrgIds: "all",
+};
 
 let sequence = 0;
 
@@ -43,11 +53,11 @@ describe("users / customers schema(ADR-0003 / ADR-0007)", () => {
     );
     await userModel.syncIndexes();
     await customerModel.syncIndexes();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     await database.close();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   it("users:account 唯一(登入識別)、email 唯一(信件流程定位)", async () => {
     await userModel.create(
@@ -131,10 +141,11 @@ describe("users / customers schema(ADR-0003 / ADR-0007)", () => {
       .findOne({ account: "encrypted-customer" });
     expect(raw?.nationalId as string).not.toContain(plaintext);
 
-    const withSelect = await customerModel
-      .findOne({ account: "encrypted-customer" })
-      .select("+nationalId")
-      .exec();
+    const withSelect = await new BaseRepository(customerModel).findOne(
+      asRoot,
+      { account: "encrypted-customer" },
+      { select: "+nationalId" },
+    );
     expect(withSelect?.nationalId).toBe(plaintext);
   });
 });

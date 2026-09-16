@@ -40,3 +40,7 @@ feature 之間不互相 import 內部檔案;需要共用就上移到 `components
 ```ts
 /* eslint-disable @repo/no-raw-model-query -- deprecated:早期原型,食譜域重寫時整包刪除 */
 ```
+
+## STRUCT-06 CLI 工具的輸出走 `process.stdout.write`,不走 `@repo/logger`
+
+`apps/db-migrator` 這類指令列工具,摘要輸出(新增 N / 更新 M / 未變 K)就是它的介面,且 logger 需先 build 才能被 tsx 直跑的腳本使用。規則:CLI 工具用 `process.stdout.write` / `process.stderr.write`;`no-console` 仍禁 `console.*`;server(api)一律 `@repo/logger`。
