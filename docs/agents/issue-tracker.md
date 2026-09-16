@@ -71,13 +71,14 @@ Spec issue 不上板(看板只放票);staging 的 PR 內文也要含 `Closes #<�
 **手動移卡指令**(Project #3,owner taiwanhua):
 
 ```
-gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz \
-  --field-id PVTSSF_lAHOAeiiKc4BjXhzzhiME14 --single-select-option-id <OPTION_ID>
-# ITEM_ID:gh project item-list 3 --owner taiwanhua --format json 依 issue 號查
-# OPTION_ID:Backlog=2882aeb7 Ready=e053bab2 In Progress=5adedc57 In Review=43e18a1a
-#           Dev驗證中=0eaa8179 Dev通過=cc87d3d5 Staging驗證中=e94980d1 Staging通過=45c49925
-#           Released=e3445e43 Won't Do=b6b968cd
+gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id PVTSSF_lAHOAeiiKc4BjXhzzhiME14 --single-select-option-id <OPTION_ID>
 ```
+
+- `--project-id` 是 `PVT_kwHOAeiiKc4BjXhz`(整行單行,不要斷行 — PowerShell 沒有 `\` 續行)
+- ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json` 依 issue 號查
+- OPTION_ID:Backlog=`2882aeb7` Ready=`e053bab2` In Progress=`5adedc57` In Review=`43e18a1a` Dev驗證中=`0eaa8179` Dev通過=`cc87d3d5` Staging驗證中=`e94980d1` Staging通過=`45c49925` Released=`e3445e43` Won't Do=`b6b968cd`
+
+**Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。
 
 **陷阱**:PR 內文的 `Closes #n` 只在合進**預設分支(main)**時自動關票 — 我們的 PR 合 `dev`,**不會自動關**;關票時機是 Released(手動 `gh issue close <n> --comment "<PR 連結>"`)。部署一律手動觸發(deploy.yml 僅 workflow_dispatch),merge 不會部署任何環境。
 

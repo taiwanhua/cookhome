@@ -3,7 +3,13 @@
 ## 資料隔離機制
 
 - 所有租戶資料 collection 都掛 `orgId`;複合索引以 orgId 開頭。
-- 所有查詢必經共用層 **BaseRepository**(禁用裸 `Model.find`,見 ADR-0008):內部以 Mongoose plugin 自動把「orgId ∈ 操作者可見組織」加進查詢條件 — 個別功能不自己寫這條過濾,也繞不過。
+- 所有查詢必經共用層 **BaseRepository**(禁用裸 `Model.find`,由型別感知 ESLint 規則 `@repo/no-raw-model-query` 強制):內部以 Mongoose plugin 自動把「orgId ∈ 操作者可見組織」加進查詢條件 — 個別功能不自己寫這條過濾,也繞不過。
+- **資料層三類 collection**(詞條見 CONTEXT.md「資料層」):租戶資料(掛 tenantScope plugin,自動過濾)、全域資料(不掛,不過濾)、關聯歸屬資料(users / roles:沒有 orgId,由模組經 org_user / org_role 查關聯後再查本表,資料層**不**自動保護)。哪些 schema 掛了 plugin 由測試鎖定。
+- **操作者上下文**是 BaseRepository 每個方法的第一參數(操作者 id、當前組織、可見範圍)。**沒帶上下文的查詢直接拋錯(fail-closed)**,不會靜默回傳全部;租戶條件以 `$and` 追加,呼叫端自己的條件只能再收窄。
+- 根組織的可見範圍以 `"all"` 表示(不列舉組織 id),plugin 遇到即不加過濾。
+- 寫入保護:`create` 自動寫入當前組織、不可寫入可見範圍外;`updateById` 不得變更 `orgId`(否則可把資料搬進別的租戶)與建立資訊 `createdBy` / `createdAt`。搬移組織若有需求,是獨立且明確的操作。
+- `audit_logs` 視為租戶資料(orgId 必填);根組織的操作記在根組織名下。
+- **已知限制**:Mongoose `populate()` 的子查詢不帶上下文,對租戶資料會拋錯 — 現階段關聯資料分兩次查;將來由 BaseRepository 轉傳上下文(dis.md #28)。
 - 組織與模組樹採物化路徑:每份文件存 `ancestors` 祖先 id 陣列;子樹查詢一句 `find({ ancestors: X })` 完成;搬移節點時批次更新子孫。
 
 ## 可見範圍
