@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { type Model, Types } from "mongoose";
 
 import {
+  HOOK_TIMEOUT_MS,
   openTestDatabase,
   type TestDatabase,
 } from "../test-support/mongo-connection";
@@ -35,11 +36,11 @@ describe("封閉 enum 與種子 key 唯一性(對真 MongoDB 驗證)", () => {
       ActionTokenSchema,
     );
     await moduleModel.syncIndexes();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     await database.close();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   it("modules.sidebarType 只接受 group/link/hidden", async () => {
     await expect(

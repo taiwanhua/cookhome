@@ -6,6 +6,7 @@ import type { Model } from "mongoose";
 import { BaseRepository } from "../base.repository";
 import type { OperatorContext } from "../operator-context";
 import {
+  HOOK_TIMEOUT_MS,
   openTestDatabase,
   type TestDatabase,
 } from "../test-support/mongo-connection";
@@ -52,11 +53,11 @@ describe("users / customers schema(ADR-0003 / ADR-0007)", () => {
     );
     await userModel.syncIndexes();
     await customerModel.syncIndexes();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     await database.close();
-  });
+  }, HOOK_TIMEOUT_MS);
 
   it("users:account 唯一(登入識別)、email 唯一(信件流程定位)", async () => {
     await userModel.create(
