@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema, Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+
 /** 封閉 enum,完整清單正本:ADR-0001(命名順序 Org > User > Role > Module > Permission)。 */
 export const CORE_RELATIONSHIP_TYPES = [
   "org_user",
@@ -61,3 +63,5 @@ CoreRelationshipSchema.index(
 // 各 type 查詢用索引(base-schema 索引總表)
 CoreRelationshipSchema.index({ type: 1, firstId: 1 });
 CoreRelationshipSchema.index({ type: 1, secondId: 1 });
+// 基礎欄位(ADR-0007);關聯的租戶歸屬由兩端實體決定,不掛 tenantScope(存取經 RelationService,ADR-0001)
+CoreRelationshipSchema.plugin(baseFieldsPlugin);

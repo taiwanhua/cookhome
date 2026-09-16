@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema, Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+
 /** 側欄呈現型別:group(可展開)/ link / hidden(隱藏頁,key 一律 -page 結尾)。 */
 export const MODULE_SIDEBAR_TYPES = ["group", "link", "hidden"] as const;
 
@@ -59,3 +61,5 @@ export const ModuleSchema = SchemaFactory.createForClass(Module);
 
 ModuleSchema.index({ key: 1 }, { unique: true });
 ModuleSchema.index({ ancestors: 1 });
+// 基礎欄位(ADR-0007);全表種子資料,不掛 tenantScope
+ModuleSchema.plugin(baseFieldsPlugin);

@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema, Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+
 /** 權限(全表種子資料,ADR-0004):key = 擁有模組key.動作。 */
 @Schema({ collection: "permissions", timestamps: true })
 export class Permission {
@@ -38,3 +40,5 @@ export const PermissionSchema = SchemaFactory.createForClass(Permission);
 
 PermissionSchema.index({ key: 1 }, { unique: true });
 PermissionSchema.index({ moduleId: 1 });
+// 基礎欄位(ADR-0007);全表種子資料,不掛 tenantScope
+PermissionSchema.plugin(baseFieldsPlugin);

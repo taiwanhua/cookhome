@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+
 /** 命中規則的頂層合成方式(預設 OR)。 */
 export const DATA_SCOPE_COMBINE_OPS = ["AND", "OR"] as const;
 
@@ -31,3 +33,5 @@ export class DataScopeRule {
 export const DataScopeRuleSchema = SchemaFactory.createForClass(DataScopeRule);
 
 DataScopeRuleSchema.index({ collection: 1 }, { unique: true });
+// 基礎欄位(ADR-0007);根組織專屬設定,不掛 tenantScope
+DataScopeRuleSchema.plugin(baseFieldsPlugin);
