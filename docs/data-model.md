@@ -24,7 +24,7 @@
 
 ## 全表共通
 
-- **基礎欄位**(ADR-0007):`createdAt` `updatedAt` `createdBy` `updatedBy` `deletedAt`(軟刪除)。timestamps 由 schema `timestamps:true` 提供;createdBy/updatedBy/deletedAt 由 base-fields plugin(#26)自動填。
+- **基礎欄位**(ADR-0007):`createdAt` `updatedAt` `createdBy` `updatedBy` `deletedAt`(軟刪除)。五個欄位全部由 `baseFieldsPlugin` 掛上與自動填(timestamps 也是,schema class 不宣告);哪些 collection 受租戶過濾見 CONTEXT.md「資料層」三類與 ADR-0005。
 - **租戶隔離**:業務 collection 掛 `orgId`,查詢一律經 BaseRepository 自動過濾(ADR-0005),禁裸 `Model.find`。
 - **種子 vs 業務**:種子由 seed 以 key 冪等 upsert(`apps/db-migrator/seeds/`,ADR-0002);業務資料不做跨環境搬移。
 - **索引**:各 schema 檔以 `.index(...)` 就地宣告(唯一鍵、orgId 複合、ancestors、TTL 等)。
