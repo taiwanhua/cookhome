@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
+
 /** 角色(ADR-0004):擁有組織走 org_role 關聯;種子角色以 key 冪等。 */
 @Schema({ collection: "roles", timestamps: true })
 export class Role {
@@ -33,3 +35,5 @@ export class Role {
 export const RoleSchema = SchemaFactory.createForClass(Role);
 
 RoleSchema.index({ key: 1 }, { unique: true, sparse: true });
+// 基礎欄位(ADR-0007);擁有組織走 org_role 關聯,不掛 tenantScope
+RoleSchema.plugin(baseFieldsPlugin);

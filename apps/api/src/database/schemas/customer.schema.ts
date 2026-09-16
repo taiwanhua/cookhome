@@ -1,7 +1,9 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Types } from "mongoose";
 
+import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 import { fieldEncryptionPlugin } from "../plugins/field-encryption.plugin";
+import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
 import { ACCOUNT_ENCRYPTED_FIELDS, AccountBase } from "./account-base.schema";
 
 /** 前台會員(ADR-0003):單一歸屬組織 — 註冊預設根組織、可指定為某租戶。 */
@@ -21,3 +23,6 @@ CustomerSchema.index({ orgId: 1, createdAt: 1 });
 CustomerSchema.plugin(fieldEncryptionPlugin, {
   fields: ACCOUNT_ENCRYPTED_FIELDS,
 });
+// 基礎欄位(ADR-0007)+ 會員單一歸屬組織:查詢限縮在操作者可見組織內(ADR-0005)
+CustomerSchema.plugin(baseFieldsPlugin);
+CustomerSchema.plugin(tenantScopePlugin);
