@@ -2,7 +2,12 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      "env": ["MONGODB_URI"]
+      "env": [
+        "MONGODB_URI",
+        "ROOT_ADMIN_ACCOUNT",
+        "ROOT_ADMIN_EMAIL",
+        "ROOT_ADMIN_PASSWORD"
+      ]
     }
   }
 }
