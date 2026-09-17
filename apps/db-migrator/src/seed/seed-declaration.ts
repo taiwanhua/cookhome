@@ -21,8 +21,16 @@ export interface SeedDocumentSet {
    * 注意:seedRef 只以 `key` 欄位解析,改用其他欄位的 set 不可被引用。
    */
   keyField?: string;
+  /**
+   * 「初始 seed 值的欄位」:建立時寫入宣告值,之後永不比對、永不覆寫(由人在系統內管理,如 enabled 開關)。
+   * 其餘欄位為「每次都 seed 的欄位」,每次同步回宣告值。未指定時採 runner 預設(`["enabled"]`)。
+   */
+  initialSeedValueFields?: string[];
   entries: SeedDocument[];
 }
+
+/** 所有 documents 種子表的預設「初始 seed 值的欄位」:enabled 開關 seed 只給初值,之後由人管理。 */
+export const DEFAULT_INITIAL_SEED_VALUE_FIELDS: readonly string[] = ["enabled"];
 
 /**
  * root 初始超級管理員帳號(ADR-0002):account/email/密碼自環境變數讀取,

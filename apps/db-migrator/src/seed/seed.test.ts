@@ -541,7 +541,7 @@ describe("root 初始超級管理員帳號(ADR-0002)", () => {
 });
 
 describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/*.md)", () => {
-  it("示範家族 10 節點依正本落庫:parentId/ancestors 指向該環境的 _id、sidebarType、order;非 production 全部 enabled", async () => {
+  it("示範家族 10 節點依正本落庫:parentId/ancestors 指向該環境的 _id、sidebarType、order;全部 enabled", async () => {
     const databaseUri = createTestDatabaseUri("module-tree");
 
     const result = runSeedCommand(databaseUri);
@@ -617,14 +617,15 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       siblingsOfDemo.length,
     );
 
-    // 樹全種(#29 留言定案):治理模組、資料範圍、隱藏 api 模組也在,且皆 enabled
+    // 樹全種(#29 留言定案):治理模組、資料範圍、隱藏 api 模組也在,且皆 enabled(D4:不分環境)
     for (const key of [
-      "org-manager",
-      "user-manager",
-      "role-manager",
-      "module-manager",
-      "field-manager",
-      "data-scope",
+      "system",
+      "system.org-manager",
+      "system.user-manager",
+      "system.role-manager",
+      "system.module-manager",
+      "system.field-manager",
+      "system.data-scope",
       "api",
     ]) {
       expect(byKey.get(key)).toMatchObject({ isSystem: true, enabled: true });
@@ -632,7 +633,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     expect(byKey.get("api")?.sidebarType).toBe("hidden");
   }, 120_000);
 
-  it("示範家族 14 筆權限依正本落庫:moduleId 指向擁有模組(綁「所在的那一頁」)", async () => {
+  it("示範家族 12 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 18 個模組各一筆 wildcard,共 30 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     expect(runSeedCommand(databaseUri).status).toBe(0);
@@ -643,7 +644,6 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
 
     // 正本:demo.sub.sample-one.md 權限表(9)+ demo.sample-two.md 權限表(5)
     const expectedOwners: Record<string, string> = {
-      "demo.sub.sample-one.*": "demo.sub.sample-one",
       "demo.sub.sample-one.view": "demo.sub.sample-one",
       "demo.sub.sample-one.create": "demo.sub.sample-one",
       "demo.sub.sample-one.edit": "demo.sub.sample-one",
@@ -654,14 +654,18 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
         "demo.sub.sample-one.create-page",
       "demo.sub.sample-one.edit-page.show-history":
         "demo.sub.sample-one.edit-page",
-      "demo.sample-two.*": "demo.sample-two",
       "demo.sample-two.view": "demo.sample-two",
       "demo.sample-two.create": "demo.sample-two",
       "demo.sample-two.edit": "demo.sample-two",
       "demo.sample-two.delete": "demo.sample-two",
     };
 
-    expect(permissions).toHaveLength(14);
+    // D3:wildcard 只代表該模組自己這一層 → 每個模組(含群組、隱藏頁、api 樹)各一筆 `<key>.*`
+    for (const module of modules) {
+      expectedOwners[`${String(module.key)}.*`] = String(module.key);
+    }
+    expect(modules).toHaveLength(18);
+    expect(permissions).toHaveLength(30);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
       expect(permission).toMatchObject({ isSystem: true, enabled: true });
@@ -691,31 +695,69 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     expect(dataScopeTargets[0]).not.toHaveProperty("key");
   }, 120_000);
 
-  it("production(NODE_ENV=production)時示範家族預設 enabled=false,治理模組不受影響", async () => {
-    const databaseUri = createTestDatabaseUri("production");
+  it("enabled 是「初始 seed 值的欄位」:建立後在系統內改為 false,重跑 seed 為未變、值仍為 false;宣告的其他欄位改了仍同步", async () => {
+    const databaseUri = createTestDatabaseUri("initial-seed-value");
 
-    const result = runSeedCommand(databaseUri, {
-      env: { NODE_ENV: "production" },
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+    await withDatabase(databaseUri, async (database) => {
+      await database
+        .collection("modules")
+        .updateOne({ key: "demo.sample-two" }, { $set: { enabled: false } });
+      await database
+        .collection("roles")
+        .updateOne({ key: "tenant-admin" }, { $set: { enabled: false } });
     });
-    expect(result.stderr).toBe("");
-    expect(result.status).toBe(0);
 
-    const { modules } = await readSeededDocuments(databaseUri);
-    const demoFamily = modules.filter((module) =>
-      module.key?.startsWith("demo"),
-    );
-    expect(demoFamily).toHaveLength(10);
-    for (const module of demoFamily) {
-      expect(module.enabled).toBe(false);
-    }
+    const secondRun = runSeedCommand(databaseUri);
+    expect(secondRun.stderr).toBe("");
+    expect(secondRun.status).toBe(0);
+    expect(secondRun.stdout).toMatch(/新增 0 \/ 更新 0 \/ 未變 [1-9]\d*/);
+
+    const { modules, roles } = await readSeededDocuments(databaseUri);
     expect(
-      modules.find((module) => module.key === "org-manager")?.enabled,
-    ).toBe(true);
+      modules.find((module) => module.key === "demo.sample-two")?.enabled,
+    ).toBe(false);
+    expect(roles.find((role) => role.key === "tenant-admin")?.enabled).toBe(
+      false,
+    );
+    // 其他模組不受影響
+    expect(modules.find((module) => module.key === "demo")?.enabled).toBe(true);
+  }, 120_000);
+
+  it("初始 seed 值的欄位改了不算變更,每次都 seed 的欄位改了仍同步(以夾具 registry 驗證)", async () => {
+    const databaseUri = createTestDatabaseUri("initial-seed-value-fixture");
+
+    const firstRun = runSeedCommand(databaseUri, {
+      registryPath: fixtureRegistryPath("seeds-initial-v1"),
+    });
+    expect(firstRun.stderr).toBe("");
+    expect(firstRun.status).toBe(0);
+    expect(firstRun.stdout).toContain("新增 2 / 更新 0 / 未變 0");
+
+    // v2:alpha 的 enabled 改 false(初始 seed 值,不同步)、beta 的 name 改了(每次都 seed,同步)
+    const secondRun = runSeedCommand(databaseUri, {
+      registryPath: fixtureRegistryPath("seeds-initial-v2"),
+    });
+    expect(secondRun.stderr).toBe("");
+    expect(secondRun.status).toBe(0);
+    expect(secondRun.stdout).toContain("新增 0 / 更新 1 / 未變 1");
+
+    const items = await withDatabase(databaseUri, (database) =>
+      database
+        .collection<SeededDocument>("seed_fixture_items")
+        .find()
+        .sort({ key: 1 })
+        .toArray(),
+    );
+    expect(items.map((item) => [item.key, item.name, item.enabled])).toEqual([
+      ["alpha", "Alpha", true],
+      ["beta", "Beta 2", true],
+    ]);
   }, 120_000);
 });
 
 describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除根組織專屬模組)", () => {
-  it("租戶管理員模板綁全部非根組織專屬模組(role_module)與各該模組的 wildcard(role_permission);超級管理員不造任何綁定;重跑不重複", async () => {
+  it("租戶管理員模板綁全部非根組織專屬模組(role_module)與各該模組各自的 wildcard(role_permission,一一對應);超級管理員不造任何綁定;重跑不重複", async () => {
     const databaseUri = createTestDatabaseUri("role-bindings");
 
     expect(runSeedCommand(databaseUri).status).toBe(0);
@@ -737,24 +779,26 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
       (link) => keyOf(modules)(link.secondId),
     );
     const allModuleKeys = modules.map((module) => module.key);
-    // 根組織專屬:模組與權限(module-manager)、資料範圍(data-scope)— docs/modules/*.md
-    expect(new Set(boundModuleKeys)).toEqual(
-      new Set(
-        allModuleKeys.filter(
-          (key) => key !== "module-manager" && key !== "data-scope",
-        ),
-      ),
+    // 根組織專屬:模組與權限(system.module-manager)、資料範圍(system.data-scope)— docs/modules/*.md
+    const rootOnlyKeys = new Set([
+      "system.module-manager",
+      "system.data-scope",
+    ]);
+    const tenantModuleKeys = allModuleKeys.filter(
+      (key) => key !== undefined && !rootOnlyKeys.has(key),
     );
-    expect(boundModuleKeys).toHaveLength(allModuleKeys.length - 2);
+    expect(new Set(boundModuleKeys)).toEqual(new Set(tenantModuleKeys));
+    expect(boundModuleKeys).toHaveLength(16);
 
     const boundPermissionKeys = boundBy(
       tenantAdmin?._id,
       "role_permission",
     ).map((link) => keyOf(permissions)(link.secondId));
+    // D3:wildcard 只代表自己這一層 → 綁的每個模組各自的 `*`(含 system 群組、api、六個隱藏頁)
     expect(new Set(boundPermissionKeys)).toEqual(
-      new Set(["demo.sub.sample-one.*", "demo.sample-two.*"]),
+      new Set(tenantModuleKeys.map((key) => `${String(key)}.*`)),
     );
-    expect(boundPermissionKeys).toHaveLength(2);
+    expect(boundPermissionKeys).toHaveLength(16);
 
     // 超級管理員:解析時 bypass,不靠記錄(ADR-0004)
     expect(boundBy(superAdmin?._id, "role_module")).toHaveLength(0);

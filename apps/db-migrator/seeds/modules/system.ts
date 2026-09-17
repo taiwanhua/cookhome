@@ -5,10 +5,11 @@ export const SYSTEM_GROUP_KEY = "system";
 /**
  * 治理模組(CONTEXT.md「治理模組」):管平台結構本身,隨底座出貨。
  * 節點正本:docs/modules/org-manager.md、user-manager.md、role-manager.md、
- * module-manager.md、field-manager.md、data-scope.md(模組 key 皆標「暫定」,照文件種)。
+ * module-manager.md、field-manager.md、data-scope.md;模組 key 累加父 key(`system.` 前綴,2026-09-17 定案),
+ * route 維持 key 末段。
  *
- * 樹全種、權限只種有正本的(#29 留言定案):治理模組權限表尚無正本,待各 docs/modules/<key>.md
- * 補上後再由該段 seed;因此本檔沒有 permissions。
+ * 樹全種、權限只種有正本的(#29 留言定案):治理模組個別權限表尚無正本,待各 docs/modules/<key>.md
+ * 補上後再種;每個模組的 wildcard 由 seeds/modules.ts 自動產生。
  */
 export const systemModules: ModuleSeedDeclaration = {
   nodes: [
@@ -23,7 +24,7 @@ export const systemModules: ModuleSeedDeclaration = {
         "治理模組群組:組織、使用者、角色、模組與權限、欄位管理、資料範圍",
     },
     {
-      key: "org-manager",
+      key: `${SYSTEM_GROUP_KEY}.org-manager`,
       name: "組織管理",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,
@@ -31,7 +32,7 @@ export const systemModules: ModuleSeedDeclaration = {
       route: "org-manager",
     },
     {
-      key: "user-manager",
+      key: `${SYSTEM_GROUP_KEY}.user-manager`,
       name: "使用者管理",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,
@@ -39,7 +40,7 @@ export const systemModules: ModuleSeedDeclaration = {
       route: "user-manager",
     },
     {
-      key: "role-manager",
+      key: `${SYSTEM_GROUP_KEY}.role-manager`,
       name: "角色管理",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,
@@ -47,7 +48,7 @@ export const systemModules: ModuleSeedDeclaration = {
       route: "role-manager",
     },
     {
-      key: "module-manager",
+      key: `${SYSTEM_GROUP_KEY}.module-manager`,
       name: "模組與權限",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,
@@ -57,7 +58,7 @@ export const systemModules: ModuleSeedDeclaration = {
       isRootOnly: true,
     },
     {
-      key: "field-manager",
+      key: `${SYSTEM_GROUP_KEY}.field-manager`,
       name: "欄位管理",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,
@@ -65,7 +66,7 @@ export const systemModules: ModuleSeedDeclaration = {
       route: "field-manager",
     },
     {
-      key: "data-scope",
+      key: `${SYSTEM_GROUP_KEY}.data-scope`,
       name: "資料範圍",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,

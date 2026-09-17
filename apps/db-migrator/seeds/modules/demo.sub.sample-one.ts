@@ -1,9 +1,7 @@
 import {
   type ModuleSeedDeclaration,
   permissionKey,
-  wildcardPermission,
 } from "../module-declaration";
-import { isProductionSeed } from "../seed-environment";
 
 export const DEMO_GROUP_KEY = "demo";
 export const DEMO_SUB_GROUP_KEY = "demo.sub";
@@ -13,12 +11,13 @@ const VIEW_PAGE_KEY = `${SAMPLE_ONE_KEY}.view-page`;
 const CREATE_PAGE_KEY = `${SAMPLE_ONE_KEY}.create-page`;
 const EDIT_PAGE_KEY = `${SAMPLE_ONE_KEY}.edit-page`;
 
-/** 全環境灌;production 預設 enabled=false(docs/modules/demo.sub.sample-one.md「Seed 與環境」)。 */
-export const DEMO_FAMILY_ENABLED = !isProductionSeed;
-
 /**
  * 示範模組1(正本:docs/modules/demo.sub.sample-one.md):底座模板、權限測試場、活教材。
  * 家族樹的 `demo` / `demo.sub` 群組在此宣告;示範模組2 掛 `demo` 直下(demo.sample-two.ts)。
+ *
+ * 全環境灌、seed 時 enabled=true;`enabled` 是「初始 seed 值的欄位」(建立後由人在系統內管理,
+ * seed 重跑不覆寫),production 要關示範家族就在「模組與權限」頁停用。
+ * 每個節點的 wildcard `<key>.*` 由 seeds/modules.ts 自動產生,此處只列個別權限。
  */
 export const sampleOneModule: ModuleSeedDeclaration = {
   nodes: [
@@ -29,7 +28,6 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       parentKey: null,
       order: 2,
       route: "demo",
-      enabled: DEMO_FAMILY_ENABLED,
     },
     {
       key: DEMO_SUB_GROUP_KEY,
@@ -38,7 +36,6 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       parentKey: DEMO_GROUP_KEY,
       order: 1,
       route: "sub",
-      enabled: DEMO_FAMILY_ENABLED,
     },
     {
       key: SAMPLE_ONE_KEY,
@@ -49,7 +46,6 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       route: "sample-one",
       description:
         "示範家族的完整示範:三層樹、隱藏頁、CRUD + wildcard、欄位級與頁面自有權限、資料範圍目標",
-      enabled: DEMO_FAMILY_ENABLED,
     },
     {
       key: VIEW_PAGE_KEY,
@@ -58,7 +54,6 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       parentKey: SAMPLE_ONE_KEY,
       order: 1,
       route: "view-page",
-      enabled: DEMO_FAMILY_ENABLED,
     },
     {
       key: CREATE_PAGE_KEY,
@@ -67,7 +62,6 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       parentKey: SAMPLE_ONE_KEY,
       order: 2,
       route: "create-page",
-      enabled: DEMO_FAMILY_ENABLED,
     },
     {
       key: EDIT_PAGE_KEY,
@@ -76,12 +70,10 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       parentKey: SAMPLE_ONE_KEY,
       order: 3,
       route: "edit-page",
-      enabled: DEMO_FAMILY_ENABLED,
     },
   ],
-  // 權限表(綁「按鈕/欄位所在的那一頁」,ADR-0004);`delete` 無對應頁,權限與頁面不必一一對應
+  // 個別權限(綁「按鈕/欄位所在的那一頁」,ADR-0004);`delete` 無對應頁,權限與頁面不必一一對應
   permissions: [
-    wildcardPermission(SAMPLE_ONE_KEY, "示範模組1"),
     {
       key: permissionKey(SAMPLE_ONE_KEY, "view"),
       moduleKey: SAMPLE_ONE_KEY,

@@ -4,6 +4,7 @@ import type { Collection, Db, Document, ObjectId } from "mongodb";
 
 import { ensureRootAdmin, readRootAdminInput } from "./root-admin";
 import {
+  DEFAULT_INITIAL_SEED_VALUE_FIELDS,
   type SeedDocument,
   type SeedDocumentSet,
   type SeedKeyReference,
@@ -28,13 +29,17 @@ export interface SeedSetResult {
 
 type SyncOutcome = keyof SeedCounts;
 
-/** 只挑出與宣告不同的欄位,讓「未變」不產生任何寫入。 */
+/** 只挑出與宣告不同的欄位,讓「未變」不產生任何寫入;初始 seed 值的欄位建立後永不比對。 */
 function pickChangedFields(
   existing: Document,
   desired: Record<string, unknown>,
+  initialSeedValueFields: ReadonlySet<string>,
 ): Record<string, unknown> {
   const changes: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(desired)) {
+    if (initialSeedValueFields.has(field)) {
+      continue;
+    }
     if (!isDeepStrictEqual(existing[field], value)) {
       changes[field] = value;
     }
@@ -79,13 +84,21 @@ async function resolveReferences(
   return resolved;
 }
 
+interface DocumentSyncOptions {
+  /** 存放 entry.key 的欄位名。 */
+  keyField: string;
+  /** 建立後永不比對、永不覆寫的欄位。 */
+  initialSeedValueFields: ReadonlySet<string>;
+}
+
 async function syncDocument(
   database: Db,
   collection: Collection,
-  keyField: string,
+  options: DocumentSyncOptions,
   entry: SeedDocument,
   now: Date,
 ): Promise<SyncOutcome> {
+  const { keyField, initialSeedValueFields } = options;
   // 種子記錄一律掛 isSystem 保護(ADR-0002);宣告不得覆寫識別鍵
   const desired = {
     ...(await resolveReferences(database, entry.data)),
@@ -99,7 +112,7 @@ async function syncDocument(
     return "created";
   }
 
-  const changes = pickChangedFields(existing, desired);
+  const changes = pickChangedFields(existing, desired, initialSeedValueFields);
   if (Object.keys(changes).length === 0) {
     return "unchanged";
   }
@@ -117,13 +130,18 @@ async function runDocumentSet(
   now: Date,
 ): Promise<SeedSetResult> {
   const collection = database.collection(set.collection);
-  const keyField = set.keyField ?? "key";
+  const options: DocumentSyncOptions = {
+    keyField: set.keyField ?? "key",
+    initialSeedValueFields: new Set(
+      set.initialSeedValueFields ?? DEFAULT_INITIAL_SEED_VALUE_FIELDS,
+    ),
+  };
   const counts: SeedCounts = { created: 0, updated: 0, unchanged: 0 };
   for (const entry of set.entries) {
     const outcome = await syncDocument(
       database,
       collection,
-      keyField,
+      options,
       entry,
       now,
     );

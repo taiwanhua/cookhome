@@ -9,6 +9,7 @@ export type ModuleSidebarType = "group" | "link" | "hidden";
 
 /** 一個模組樹節點;parentId / ancestors 由 seeds/modules.ts 依 parentKey 解析。 */
 export interface ModuleNodeDeclaration {
+  /** 累加父 key(`<父key>.<自己那段>`),規約由靜態測試強制。 */
   key: string;
   name: string;
   sidebarType: ModuleSidebarType;
@@ -19,13 +20,11 @@ export interface ModuleNodeDeclaration {
   /** 只有自己那段(前綴父路由由 API 組合);純 API 樹等非頁面節點不填。 */
   route?: string;
   description?: string;
-  /** 停用連動整棵子樹;示範家族於 production 預設 false。預設 true。 */
-  enabled?: boolean;
   /** 根組織專屬(租戶不可見):租戶管理員模板扣除之(ADR-0009)。 */
   isRootOnly?: boolean;
 }
 
-/** 一筆權限;key 須為 `<moduleKey>.<動作>`(規約由 seed-key-convention 靜態測試強制)。 */
+/** 一筆個別權限;key 須為 `<moduleKey>.<動作>`(規約由 seed-key-convention 靜態測試強制)。 */
 export interface PermissionDeclaration {
   key: string;
   /** 擁有模組(綁「它作為按鈕/欄位/跳窗/flag 所在的那一頁」,ADR-0004)。 */
@@ -46,11 +45,12 @@ export interface DataScopeTargetDeclaration {
 export interface ModuleSeedDeclaration {
   /** 依樹的先後宣告(父在前),runner 依序解析 parentId。 */
   nodes: ModuleNodeDeclaration[];
+  /** 個別權限;每個節點的 wildcard `<key>.*` 由 seeds/modules.ts 自動產生,不在此宣告。 */
   permissions?: PermissionDeclaration[];
   dataScopeTarget?: DataScopeTargetDeclaration;
 }
 
-/** 權限 key 的最後一段;wildcard 動作 `*` 代表整組(ADR-0004)。 */
+/** 權限 key 的最後一段;wildcard 動作 `*` 代表該模組自己這一層的全部權限(ADR-0004,2026-09-17 定案「同層」語意)。 */
 export const WILDCARD_ACTION = "*";
 
 /** `<moduleKey>.<action>`。 */
@@ -58,15 +58,14 @@ export function permissionKey(moduleKey: string, action: string): string {
   return `${moduleKey}.${action}`;
 }
 
-/** 模組的 wildcard 權限(每個有自有權限的模組一筆;role_permission 只存這一筆)。 */
+/** 模組的 wildcard 權限(每個模組恰一筆;role_permission 只存這一筆)。 */
 export function wildcardPermission(
-  moduleKey: string,
-  moduleName: string,
+  node: ModuleNodeDeclaration,
 ): PermissionDeclaration {
   return {
-    key: permissionKey(moduleKey, WILDCARD_ACTION),
-    moduleKey,
+    key: permissionKey(node.key, WILDCARD_ACTION),
+    moduleKey: node.key,
     name: "全部",
-    description: `${moduleName} 及其子孫模組的全部權限(含未來新增)`,
+    description: `${node.name} 這一層的全部權限(含未來新增)`,
   };
 }

@@ -1,15 +1,14 @@
 import {
   type ModuleSeedDeclaration,
   permissionKey,
-  wildcardPermission,
 } from "../module-declaration";
-import { DEMO_FAMILY_ENABLED, DEMO_GROUP_KEY } from "./demo.sub.sample-one";
+import { DEMO_GROUP_KEY } from "./demo.sub.sample-one";
 
 export const SAMPLE_TWO_KEY = "demo.sample-two";
 
 /**
  * 示範模組2(正本:docs/modules/demo.sample-two.md):示範家族的對照組 —
- * 掛示範群組直下(兩層結構)、不宣告 dataScopeTarget、只有基本五筆權限。
+ * 掛示範群組直下(兩層結構)、不宣告 dataScopeTarget、只有基本四筆個別權限(wildcard 自動產生)。
  */
 export const sampleTwoModule: ModuleSeedDeclaration = {
   nodes: [
@@ -21,7 +20,6 @@ export const sampleTwoModule: ModuleSeedDeclaration = {
       order: 2,
       route: "sample-two",
       description: "示範家族的對照組:兩層結構、無資料範圍目標、只有基本權限",
-      enabled: DEMO_FAMILY_ENABLED,
     },
     {
       key: `${SAMPLE_TWO_KEY}.view-page`,
@@ -30,7 +28,6 @@ export const sampleTwoModule: ModuleSeedDeclaration = {
       parentKey: SAMPLE_TWO_KEY,
       order: 1,
       route: "view-page",
-      enabled: DEMO_FAMILY_ENABLED,
     },
     {
       key: `${SAMPLE_TWO_KEY}.create-page`,
@@ -39,7 +36,6 @@ export const sampleTwoModule: ModuleSeedDeclaration = {
       parentKey: SAMPLE_TWO_KEY,
       order: 2,
       route: "create-page",
-      enabled: DEMO_FAMILY_ENABLED,
     },
     {
       key: `${SAMPLE_TWO_KEY}.edit-page`,
@@ -48,12 +44,10 @@ export const sampleTwoModule: ModuleSeedDeclaration = {
       parentKey: SAMPLE_TWO_KEY,
       order: 3,
       route: "edit-page",
-      enabled: DEMO_FAMILY_ENABLED,
     },
   ],
   // 語意與示範模組1 對應權限相同,全綁示範模組2(列表頁)
   permissions: [
-    wildcardPermission(SAMPLE_TWO_KEY, "示範模組2"),
     {
       key: permissionKey(SAMPLE_TWO_KEY, "view"),
       moduleKey: SAMPLE_TWO_KEY,

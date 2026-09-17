@@ -19,9 +19,9 @@ const tenantAdmin = { collection: "roles", key: TENANT_ADMIN_ROLE_KEY };
 /**
  * 種子角色的模組/權限綁定(核心關聯,ADR-0001;命名順序 Role > Module > Permission)。
  *
- * - 租戶管理員模板 = 全部非根組織專屬模組(role_module)+ 各該模組的 wildcard(role_permission,
- *   ADR-0004:只存 `*` 一筆;ADR-0009:扣除根組織專屬模組)。由模組/權限宣告推導,
- *   新模組加入即自動納入模板(既有租戶的副本不會自動拿到,ADR-0009)。
+ * - 租戶管理員模板 = 全部非根組織專屬模組(role_module)+ 各該模組各自的 wildcard(role_permission,
+ *   與 role_module 一一對應;ADR-0004:每層只存 `*` 一筆;ADR-0009:扣除根組織專屬模組)。
+ *   由模組/權限宣告推導,新模組加入即自動納入模板(既有租戶的副本不會自動拿到,ADR-0009)。
  * - 超級管理員不造任何綁定:持有者解析時直接全權放行(ADR-0004)。
  */
 const moduleBindings: SeedRelation[] = moduleNodes

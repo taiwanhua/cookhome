@@ -7,10 +7,11 @@ import {
   MODULES_COLLECTION,
   PERMISSIONS_COLLECTION,
 } from "../src/seed/seed-key-convention";
-import type {
-  ModuleNodeDeclaration,
-  ModuleSeedDeclaration,
-  PermissionDeclaration,
+import {
+  type ModuleNodeDeclaration,
+  type ModuleSeedDeclaration,
+  type PermissionDeclaration,
+  wildcardPermission,
 } from "./module-declaration";
 import { apiModules } from "./modules/api";
 import { sampleTwoModule } from "./modules/demo.sample-two";
@@ -35,9 +36,14 @@ export const moduleNodes: ModuleNodeDeclaration[] = moduleDeclarations.flatMap(
   (declaration) => declaration.nodes,
 );
 
-/** 全部權限宣告(依宣告順序)。 */
-export const permissionDeclarations: PermissionDeclaration[] =
-  moduleDeclarations.flatMap((declaration) => declaration.permissions ?? []);
+/**
+ * 全部權限宣告:每個模組自動一筆 wildcard(含群組、隱藏頁、api 樹;wildcard 只代表該模組自己這一層)
+ * + 各模組檔宣告的個別權限。
+ */
+export const permissionDeclarations: PermissionDeclaration[] = [
+  ...moduleNodes.map((node) => wildcardPermission(node)),
+  ...moduleDeclarations.flatMap((declaration) => declaration.permissions ?? []),
+];
 
 const nodeByKey = new Map(moduleNodes.map((node) => [node.key, node]));
 
@@ -84,7 +90,8 @@ function toModuleDocument(node: ModuleNodeDeclaration): SeedDocument {
       ...(node.route === undefined ? {} : { route: node.route }),
       sidebarType: node.sidebarType,
       order: node.order,
-      enabled: node.enabled ?? true,
+      // 初始 seed 值(runner 預設 initialSeedValueFields=["enabled"]):建立後由人在系統內管理
+      enabled: true,
       ...(node.description === undefined
         ? {}
         : { description: node.description }),
@@ -116,7 +123,7 @@ export const modules: SeedDocumentSet = {
   entries: moduleNodes.map((node) => toModuleDocument(node)),
 };
 
-/** 權限(目前只有示範家族 14 筆;治理模組權限表補正本後再種)。 */
+/** 權限(每模組一筆 wildcard + 示範家族個別權限;治理模組個別權限表補正本後再種)。 */
 export const permissions: SeedDocumentSet = {
   kind: "documents",
   collection: PERMISSIONS_COLLECTION,
