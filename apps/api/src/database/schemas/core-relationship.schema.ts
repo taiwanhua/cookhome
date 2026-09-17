@@ -14,8 +14,11 @@ export const CORE_RELATIONSHIP_TYPES = [
 
 export type CoreRelationshipType = (typeof CORE_RELATIONSHIP_TYPES)[number];
 
+/** collection 名;BaseRepository 以此拒絕成為核心關聯的第二個入口(存取僅經 RelationService,ADR-0001)。 */
+export const CORE_RELATIONSHIPS_COLLECTION = "core_relationships";
+
 /** 核心關聯單一 collection(ADR-0001):命名順序 Org > User > Role > Module > Permission。 */
-@Schema({ collection: "core_relationships" })
+@Schema({ collection: CORE_RELATIONSHIPS_COLLECTION })
 export class CoreRelationship {
   /** 關聯種類(決定 first/second 各是誰)。 */
   @Prop({ type: String, required: true, enum: CORE_RELATIONSHIP_TYPES })
