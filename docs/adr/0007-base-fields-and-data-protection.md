@@ -9,6 +9,7 @@
 - 「刪除」= 寫入 `deletedAt` 時間戳,資料仍在庫裡;之後所有查詢**預設排除**(視為不存在),要連已刪除一起看須明講 `includeDeleted`。
 - 已刪除的資料不能再被更新(更新的查詢也找不到它);再刪一次回 null。
 - **BaseRepository 不提供硬刪除**。真正從資料庫抹除(個資清除、清理測試資料)一律以 cleanup migration 執行(ADR-0002),不給 API 硬刪按鈕。
+- **例外:核心關聯**(`core_relationships`)是「有 / 沒有」的事實而非實體,移除即硬刪(ADR-0001);歷史交給 audit_logs。
 
 ## 更新保護
 

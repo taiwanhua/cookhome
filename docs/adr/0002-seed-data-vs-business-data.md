@@ -19,11 +19,18 @@ apps/db-migrator/
      執行:TypeScript 直跑 — package.json `"seed": "tsx src/seed/run.ts"`(tsx 為 devDependency,零編譯步驟;
      型別檢查由 tsc --noEmit 管)。migrations 維持 .js(migrate-mongo 自己的載入器,不值得為 TS 駭它)
      registry.ts                  收齊所有種子
-     orgs.ts / roles.ts / field-categories.ts / scope-catalog.ts
-     modules/<key>.ts             每模組一檔:模組樹節點 + permissions + dataScopeTarget
+     orgs.ts / roles.ts / root-admin.ts / field-categories.ts / fields.ts / role-bindings.ts
+     modules/<key>.ts             每模組一檔:模組樹節點 + permissions + dataScopeTarget(每模組的 `*` 自動產生)
 ```
 
 **遷移 vs 種子的語意差異**:遷移一次性(跑過記 changelog,變更寫新檔不改舊檔);種子冪等(直接改宣告檔,每次部署重跑等於同步)。
+
+**種子文件的兩種欄位**(runner 以 key 找到既有那筆後,逐欄比對宣告值):
+- **每次都 seed 的欄位**(預設):每次部署都同步回宣告值 — 改宣告檔的 route / name / order 等,下次 seed 即生效(摘要計「更新」);人在資料庫手動改的會被拉回宣告值。
+- **初始 seed 值的欄位**:只在建立時寫入,之後永不比對、永不覆寫,由人在系統內管理。runner 預設 `initialSeedValueFields = ["enabled"]`,對所有種子表統一生效(模組、角色、欄位類別、欄位選項)— 停用/啟用是給人操作的開關,seed 不得每次翻回去。
+- key 是識別,不是欄位:改 key = 新種一筆、舊的變孤兒,要配 cleanup migration。
+
+**seed 不分環境**:三環境跑同一份宣告(無環境變數)。示範家族在 production 要關閉,就在「模組與權限」頁手動停用 — `enabled` 是初始 seed 值欄位,不會被下次部署翻回。
 
 **root 初始帳號**:seed 需建立平台第一個超級管理員帳號 — account/email/密碼自環境變數讀取(`ROOT_ADMIN_ACCOUNT` / `ROOT_ADMIN_EMAIL` / `ROOT_ADMIN_PASSWORD`,雲端存 Secret Manager);**僅在帳號不存在時建立**,已存在則完全不動(不會因部署重設密碼)。
 

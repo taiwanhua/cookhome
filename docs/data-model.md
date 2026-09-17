@@ -12,7 +12,7 @@
 | `roles` | 業務(種子角色除外) | 角色(權限集合) | 0004 | `role.schema.ts` |
 | `modules` | 種子 | 模組樹(= 頁面/側欄) | 0004 | `module.schema.ts` |
 | `permissions` | 種子 | 權限(頁面裡的按鈕/欄位) | 0004 | `permission.schema.ts` |
-| `core_relationships` | 業務 | 五實體的關聯(org_user/org_role/user_role/role_module/role_permission) | 0001 | `core-relationship.schema.ts` |
+| `core_relationships` | 業務(種子亦寫入:種子角色的 org_role、模板綁定)| 五實體的關聯(org_user/org_role/user_role/role_module/role_permission) | 0001 | `core-relationship.schema.ts` |
 | `data_scope_rules` | 業務 | 資料範圍規則 | 0008 | `data-scope-rule.schema.ts` |
 | `data_scope_targets` | 種子 | 資料範圍目標(頁面左側清單來源) | 0008 | `data-scope-target.schema.ts` |
 | `field_categories` | 種子(全域) | 欄位類別 | 0005 | `field-category.schema.ts` |
