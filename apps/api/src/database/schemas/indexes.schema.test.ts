@@ -168,13 +168,17 @@ describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
     }
   });
 
-  it("field_categories:unique(key);fields:(categoryId, orgId)", () => {
+  it("field_categories:unique(key);fields:(categoryId, orgId)+ unique(key sparse)", () => {
     expect(
       findIndex(indexesOf(FieldCategory.name), { key: 1 })?.unique,
     ).toBe(true);
+    const fieldIndexes = indexesOf(Field.name);
     expect(
-      findIndex(indexesOf(Field.name), { categoryId: 1, orgId: 1 }),
+      findIndex(fieldIndexes, { categoryId: 1, orgId: 1 }),
     ).toBeDefined();
+    const fieldKey = findIndex(fieldIndexes, { key: 1 });
+    expect(fieldKey?.unique).toBe(true);
+    expect(fieldKey?.sparse).toBe(true);
   });
 
   it("demo_items_one / two:(orgId, createdAt)", () => {
