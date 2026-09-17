@@ -4,7 +4,7 @@ import type { Collection, Db, Document, ObjectId } from "mongodb";
 
 import { ensureRootAdmin, readRootAdminInput } from "./root-admin";
 import {
-  isSeedIdReference,
+  DEFAULT_INITIAL_SEED_VALUE_FIELDS,
   type SeedDocument,
   type SeedDocumentSet,
   type SeedKeyReference,
@@ -13,6 +13,7 @@ import {
   type SeedRelationSet,
   type SeedRootAdminSet,
   type SeedSet,
+  isSeedIdReference,
 } from "./seed-declaration";
 
 export interface SeedCounts {
@@ -28,13 +29,17 @@ export interface SeedSetResult {
 
 type SyncOutcome = keyof SeedCounts;
 
-/** 只挑出與宣告不同的欄位,讓「未變」不產生任何寫入。 */
+/** 只挑出與宣告不同的欄位,讓「未變」不產生任何寫入;初始 seed 值的欄位建立後永不比對。 */
 function pickChangedFields(
   existing: Document,
   desired: Record<string, unknown>,
+  initialSeedValueFields: ReadonlySet<string>,
 ): Record<string, unknown> {
   const changes: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(desired)) {
+    if (initialSeedValueFields.has(field)) {
+      continue;
+    }
     if (!isDeepStrictEqual(existing[field], value)) {
       changes[field] = value;
     }
@@ -57,40 +62,57 @@ async function resolveSeedId(
   return document._id;
 }
 
-/** 把 data 中的 seedRef 欄位值換成該環境的 _id(只看頂層欄位)。 */
+async function resolveValue(database: Db, value: unknown): Promise<unknown> {
+  if (isSeedIdReference(value)) {
+    return resolveSeedId(database, value.$seedRef);
+  }
+  if (Array.isArray(value)) {
+    return Promise.all(value.map((item) => resolveValue(database, item)));
+  }
+  return value;
+}
+
+/** 把 data 中的 seedRef 欄位值換成該環境的 _id(只看頂層欄位;頂層陣列逐元素解析)。 */
 async function resolveReferences(
   database: Db,
   data: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const resolved: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(data)) {
-    resolved[field] = isSeedIdReference(value)
-      ? await resolveSeedId(database, value.$seedRef)
-      : value;
+    resolved[field] = await resolveValue(database, value);
   }
   return resolved;
+}
+
+interface DocumentSyncOptions {
+  /** 存放 entry.key 的欄位名。 */
+  keyField: string;
+  /** 建立後永不比對、永不覆寫的欄位。 */
+  initialSeedValueFields: ReadonlySet<string>;
 }
 
 async function syncDocument(
   database: Db,
   collection: Collection,
+  options: DocumentSyncOptions,
   entry: SeedDocument,
   now: Date,
 ): Promise<SyncOutcome> {
-  // 種子記錄一律掛 isSystem 保護(ADR-0002);宣告不得覆寫 key
+  const { keyField, initialSeedValueFields } = options;
+  // 種子記錄一律掛 isSystem 保護(ADR-0002);宣告不得覆寫識別鍵
   const desired = {
     ...(await resolveReferences(database, entry.data)),
-    key: entry.key,
+    [keyField]: entry.key,
     isSystem: true,
   };
-  const existing = await collection.findOne({ key: entry.key });
+  const existing = await collection.findOne({ [keyField]: entry.key });
 
   if (!existing) {
     await collection.insertOne({ ...desired, createdAt: now, updatedAt: now });
     return "created";
   }
 
-  const changes = pickChangedFields(existing, desired);
+  const changes = pickChangedFields(existing, desired, initialSeedValueFields);
   if (Object.keys(changes).length === 0) {
     return "unchanged";
   }
@@ -108,9 +130,21 @@ async function runDocumentSet(
   now: Date,
 ): Promise<SeedSetResult> {
   const collection = database.collection(set.collection);
+  const options: DocumentSyncOptions = {
+    keyField: set.keyField ?? "key",
+    initialSeedValueFields: new Set(
+      set.initialSeedValueFields ?? DEFAULT_INITIAL_SEED_VALUE_FIELDS,
+    ),
+  };
   const counts: SeedCounts = { created: 0, updated: 0, unchanged: 0 };
   for (const entry of set.entries) {
-    const outcome = await syncDocument(database, collection, entry, now);
+    const outcome = await syncDocument(
+      database,
+      collection,
+      options,
+      entry,
+      now,
+    );
     counts[outcome] += 1;
   }
   return { label: set.collection, counts };
