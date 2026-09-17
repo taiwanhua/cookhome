@@ -103,12 +103,35 @@ function fixtureRegistryPath(fixtureName: string): string {
   );
 }
 
+/** 欄位選項的觀察欄位(正本:docs/modules/field-manager.md「種子內容」)。 */
+interface FieldDocument {
+  key?: string;
+  categoryId?: ObjectId;
+  orgId?: ObjectId | null;
+  value?: string;
+  label?: string;
+  order?: number;
+  enabled?: boolean;
+  isSystem?: boolean;
+  [field: string]: unknown;
+}
+
 /** 讀出全部種子文件(含 _id 與時間戳),供前後比對。 */
 async function readSeededDocuments(databaseUri: string) {
   return withDatabase(databaseUri, async (database) => ({
     orgs: await database.collection<SeededDocument>("orgs").find().toArray(),
     roles: await database
       .collection<SeededDocument>("roles")
+      .find()
+      .sort({ key: 1 })
+      .toArray(),
+    fieldCategories: await database
+      .collection<SeededDocument>("field_categories")
+      .find()
+      .sort({ key: 1 })
+      .toArray(),
+    fields: await database
+      .collection<FieldDocument>("fields")
       .find()
       .sort({ key: 1 })
       .toArray(),
@@ -274,6 +297,117 @@ describe("seed 指令(對真 MongoDB)", () => {
     for (const item of items) {
       expect(item.isSystem).toBe(true);
     }
+  }, 120_000);
+});
+
+describe("欄位類別與全域選項種子(docs/modules/field-manager.md「種子內容」)", () => {
+  it("空資料庫執行後具備兩個全域類別與七個全域選項(orgId=null、isSystem=true),選項以 categoryId 指向所屬類別", async () => {
+    const databaseUri = createTestDatabaseUri("fields");
+
+    const result = runSeedCommand(databaseUri);
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+
+    const { fieldCategories, fields } = await readSeededDocuments(databaseUri);
+
+    expect(
+      fieldCategories.map((category) => [category.key, category.name]),
+    ).toEqual([
+      ["demo-category", "示範分類"],
+      ["gender", "性別"],
+    ]);
+    for (const category of fieldCategories) {
+      expect(category.isSystem).toBe(true);
+    }
+
+    const categoryIdOf = (key: string): string | undefined =>
+      fieldCategories
+        .find((category) => category.key === key)
+        ?._id.toHexString();
+
+    // 正本表格:類別 key → [value, label, order]
+    const expectedOptions: Record<string, [string, string, number][]> = {
+      gender: [
+        ["male", "男", 1],
+        ["female", "女", 2],
+        ["other", "其他", 3],
+        ["undisclosed", "不透露", 4],
+      ],
+      "demo-category": [
+        ["staple", "主食", 1],
+        ["side-dish", "小菜", 2],
+        ["drink", "飲品", 3],
+      ],
+    };
+
+    expect(fields).toHaveLength(7);
+    for (const [categoryKey, options] of Object.entries(expectedOptions)) {
+      const seeded = fields.filter(
+        (field) =>
+          field.categoryId?.toHexString() === categoryIdOf(categoryKey),
+      );
+      expect(seeded).toHaveLength(options.length);
+      for (const [value, label, order] of options) {
+        expect(seeded).toContainEqual(
+          expect.objectContaining({ value, label, order }),
+        );
+      }
+    }
+    for (const field of fields) {
+      expect(field).toMatchObject({
+        orgId: null,
+        isSystem: true,
+        enabled: true,
+      });
+    }
+
+    // 「甜點」是租戶自訂選項的示意,不是種子
+    expect(fields.map((field) => field.label)).not.toContain("甜點");
+  }, 120_000);
+});
+
+describe("種子文件之間的引用(seedRef → 該環境的 _id)", () => {
+  it("引用改指向另一筆種子後重跑:同步為新目標的 _id、計為 1 筆更新(以夾具 registry 驗證)", async () => {
+    const databaseUri = createTestDatabaseUri("ref-change");
+
+    const firstRun = runSeedCommand(databaseUri, {
+      registryPath: fixtureRegistryPath("seeds-ref-v1"),
+    });
+    expect(firstRun.stderr).toBe("");
+    expect(firstRun.status).toBe(0);
+    expect(firstRun.stdout).toContain("新增 3 / 更新 0 / 未變 0");
+
+    const secondRun = runSeedCommand(databaseUri, {
+      registryPath: fixtureRegistryPath("seeds-ref-v2"),
+    });
+    expect(secondRun.stderr).toBe("");
+    expect(secondRun.status).toBe(0);
+    expect(secondRun.stdout).toContain("新增 0 / 更新 1 / 未變 2");
+
+    const { groupB, member } = await withDatabase(
+      databaseUri,
+      async (database) => ({
+        groupB: await database
+          .collection<SeededDocument>("seed_fixture_groups")
+          .findOne({ key: "b" }),
+        member: await database
+          .collection<{ groupId?: ObjectId; [field: string]: unknown }>(
+            "seed_fixture_members",
+          )
+          .findOne({ key: "m" }),
+      }),
+    );
+    expect(member?.groupId?.toHexString()).toBe(groupB?._id.toHexString());
+  }, 120_000);
+
+  it("引用到不存在的種子文件時以非零結束並指出缺哪一筆", () => {
+    const databaseUri = createTestDatabaseUri("ref-missing");
+
+    const result = runSeedCommand(databaseUri, {
+      registryPath: fixtureRegistryPath("seeds-ref-missing"),
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("seed_fixture_groups.nowhere");
   }, 120_000);
 });
 

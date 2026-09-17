@@ -1,0 +1,10 @@
+# 全 repo 一律 LF(Windows 的 autocrlf 會把工作樹轉成 CRLF,使 prettier 全檔誤報);二進位檔不動
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary

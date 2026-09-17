@@ -7,6 +7,10 @@ import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
 /** 欄位選項(ADR-0005):orgId null=全域種子、有值=租戶自訂;下架不刪。 */
 @Schema({ collection: "fields", timestamps: true })
 export class Field {
+  /** 種子選項的冪等識別 `<類別 key>.<value>`(如 `gender.male`,ADR-0002);租戶自訂選項無 key、以 _id 識別。 */
+  @Prop({ type: String })
+  key?: string;
+
   /** 所屬欄位類別 id。 */
   @Prop({ type: Types.ObjectId, required: true })
   categoryId!: Types.ObjectId;
@@ -44,6 +48,7 @@ export class Field {
 export const FieldSchema = SchemaFactory.createForClass(Field);
 
 FieldSchema.index({ categoryId: 1, orgId: 1 });
+FieldSchema.index({ key: 1 }, { unique: true, sparse: true });
 // 基礎欄位(ADR-0007)+ 租戶自訂選項限縮在可見組織內;orgId null 的全域種子對所有人可見(ADR-0005 $or)
 FieldSchema.plugin(baseFieldsPlugin);
 FieldSchema.plugin(tenantScopePlugin, { allowGlobal: true });
