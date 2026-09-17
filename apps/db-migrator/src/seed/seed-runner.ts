@@ -3,15 +3,16 @@ import { isDeepStrictEqual } from "node:util";
 import type { Collection, Db, Document, ObjectId } from "mongodb";
 
 import { ensureRootAdmin, readRootAdminInput } from "./root-admin";
-import type {
-  SeedDocument,
-  SeedDocumentSet,
-  SeedKeyReference,
-  SeedRegistry,
-  SeedRelation,
-  SeedRelationSet,
-  SeedRootAdminSet,
-  SeedSet,
+import {
+  isSeedIdReference,
+  type SeedDocument,
+  type SeedDocumentSet,
+  type SeedKeyReference,
+  type SeedRegistry,
+  type SeedRelation,
+  type SeedRelationSet,
+  type SeedRootAdminSet,
+  type SeedSet,
 } from "./seed-declaration";
 
 export interface SeedCounts {
@@ -41,13 +42,47 @@ function pickChangedFields(
   return changes;
 }
 
+async function resolveSeedId(
+  database: Db,
+  reference: SeedKeyReference,
+): Promise<ObjectId> {
+  const document = await database
+    .collection(reference.collection)
+    .findOne({ key: reference.key }, { projection: { _id: 1 } });
+  if (!document) {
+    throw new Error(
+      `找不到種子文件 ${reference.collection}.${reference.key},請確認 registry 順序(被引用者在前)`,
+    );
+  }
+  return document._id;
+}
+
+/** 把 data 中的 seedRef 欄位值換成該環境的 _id(只看頂層欄位)。 */
+async function resolveReferences(
+  database: Db,
+  data: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const resolved: Record<string, unknown> = {};
+  for (const [field, value] of Object.entries(data)) {
+    resolved[field] = isSeedIdReference(value)
+      ? await resolveSeedId(database, value.$seedRef)
+      : value;
+  }
+  return resolved;
+}
+
 async function syncDocument(
+  database: Db,
   collection: Collection,
   entry: SeedDocument,
   now: Date,
 ): Promise<SyncOutcome> {
   // 種子記錄一律掛 isSystem 保護(ADR-0002);宣告不得覆寫 key
-  const desired = { ...entry.data, key: entry.key, isSystem: true };
+  const desired = {
+    ...(await resolveReferences(database, entry.data)),
+    key: entry.key,
+    isSystem: true,
+  };
   const existing = await collection.findOne({ key: entry.key });
 
   if (!existing) {
@@ -75,25 +110,10 @@ async function runDocumentSet(
   const collection = database.collection(set.collection);
   const counts: SeedCounts = { created: 0, updated: 0, unchanged: 0 };
   for (const entry of set.entries) {
-    const outcome = await syncDocument(collection, entry, now);
+    const outcome = await syncDocument(database, collection, entry, now);
     counts[outcome] += 1;
   }
   return { label: set.collection, counts };
-}
-
-async function resolveSeedId(
-  database: Db,
-  reference: SeedKeyReference,
-): Promise<ObjectId> {
-  const document = await database
-    .collection(reference.collection)
-    .findOne({ key: reference.key }, { projection: { _id: 1 } });
-  if (!document) {
-    throw new Error(
-      `找不到種子文件 ${reference.collection}.${reference.key},請確認 registry 順序(被引用者在前)`,
-    );
-  }
-  return document._id;
 }
 
 async function syncRelation(
