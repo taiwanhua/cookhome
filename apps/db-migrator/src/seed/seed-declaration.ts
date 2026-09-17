@@ -35,6 +35,27 @@ export interface SeedKeyReference {
 }
 
 /**
+ * 種子文件 `data` 中「指向另一筆種子文件」的欄位值(如 fields.categoryId → field_categories):
+ * 宣告時寫 (collection, key),runner 執行時解析成該環境的 _id 再寫入(只支援頂層欄位)。
+ */
+export interface SeedIdReference {
+  $seedRef: SeedKeyReference;
+}
+
+export function seedRef(collection: string, key: string): SeedIdReference {
+  return { $seedRef: { collection, key } };
+}
+
+export function isSeedIdReference(value: unknown): value is SeedIdReference {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "$seedRef" in value &&
+    typeof value.$seedRef === "object"
+  );
+}
+
+/**
  * 種子之間的核心關聯(ADR-0001;命名順序 Org > User > Role > Module > Permission):
  * 以 (type, firstId, secondId) 冪等,不存在才寫入。
  */
