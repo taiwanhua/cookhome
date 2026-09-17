@@ -135,7 +135,61 @@ async function readSeededDocuments(databaseUri: string) {
       .find()
       .sort({ key: 1 })
       .toArray(),
+    modules: await database
+      .collection<ModuleDocument>("modules")
+      .find()
+      .sort({ key: 1 })
+      .toArray(),
+    permissions: await database
+      .collection<PermissionDocument>("permissions")
+      .find()
+      .sort({ key: 1 })
+      .toArray(),
+    dataScopeTargets: await database
+      .collection<SeededDocument>("data_scope_targets")
+      .find()
+      .sort({ collection: 1 })
+      .toArray(),
+    relationships: await database
+      .collection<RelationshipDocument>("core_relationships")
+      .find()
+      .sort({ type: 1, firstId: 1, secondId: 1 })
+      .toArray(),
   }));
+}
+
+const hex = (ids: ObjectId[] | undefined): string[] | undefined =>
+  ids?.map((id) => id.toHexString());
+
+/** 以 _id 反查種子文件的 key(核心關聯的兩端只存 id)。 */
+const keyOf =
+  (documents: { key?: string; _id: ObjectId }[]) =>
+  (id: ObjectId | undefined): string | undefined =>
+    documents.find((document) => id !== undefined && document._id.equals(id))
+      ?.key;
+
+/** 模組節點的觀察欄位(正本:docs/modules/*.md 模組樹;欄位形狀:module.schema.ts)。 */
+interface ModuleDocument {
+  key?: string;
+  name?: string;
+  parentId?: ObjectId | null;
+  ancestors?: ObjectId[];
+  route?: string;
+  sidebarType?: string;
+  order?: number;
+  enabled?: boolean;
+  isSystem?: boolean;
+  [field: string]: unknown;
+}
+
+/** 權限的觀察欄位(正本:docs/modules/demo*.md 權限表;欄位形狀:permission.schema.ts)。 */
+interface PermissionDocument {
+  key?: string;
+  name?: string;
+  moduleId?: ObjectId;
+  enabled?: boolean;
+  isSystem?: boolean;
+  [field: string]: unknown;
 }
 
 /** 帳號相關最終狀態:使用者、根組織、超級管理員角色、核心關聯。 */
@@ -483,5 +537,227 @@ describe("root 初始超級管理員帳號(ADR-0002)", () => {
     });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("ROOT_ADMIN_PASSWORD");
+  }, 120_000);
+});
+
+describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/*.md)", () => {
+  it("示範家族 10 節點依正本落庫:parentId/ancestors 指向該環境的 _id、sidebarType、order;非 production 全部 enabled", async () => {
+    const databaseUri = createTestDatabaseUri("module-tree");
+
+    const result = runSeedCommand(databaseUri);
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+
+    const { modules } = await readSeededDocuments(databaseUri);
+    const byKey = new Map(modules.map((module) => [module.key, module]));
+    const idOf = (key: string): string | undefined =>
+      byKey.get(key)?._id.toHexString();
+
+    // 正本:docs/modules/demo.sub.sample-one.md「家族模組樹」+ demo.sample-two.md「模組節點」
+    const expectedTree: [string, string, string, string | null][] = [
+      ["demo", "示範群組", "group", null],
+      ["demo.sub", "示範次群組", "group", "demo"],
+      ["demo.sub.sample-one", "示範模組1", "link", "demo.sub"],
+      [
+        "demo.sub.sample-one.view-page",
+        "示範項目詳情",
+        "hidden",
+        "demo.sub.sample-one",
+      ],
+      [
+        "demo.sub.sample-one.create-page",
+        "新增示範項目",
+        "hidden",
+        "demo.sub.sample-one",
+      ],
+      [
+        "demo.sub.sample-one.edit-page",
+        "編輯示範項目",
+        "hidden",
+        "demo.sub.sample-one",
+      ],
+      ["demo.sample-two", "示範模組2", "link", "demo"],
+      ["demo.sample-two.view-page", "詳情", "hidden", "demo.sample-two"],
+      ["demo.sample-two.create-page", "新增", "hidden", "demo.sample-two"],
+      ["demo.sample-two.edit-page", "編輯", "hidden", "demo.sample-two"],
+    ];
+    for (const [key, name, sidebarType, parentKey] of expectedTree) {
+      const module = byKey.get(key);
+      expect(module).toBeDefined();
+      expect(module).toMatchObject({
+        name,
+        sidebarType,
+        isSystem: true,
+        enabled: true,
+      });
+      expect(typeof module?.order).toBe("number");
+      expect(typeof module?.route).toBe("string");
+      expect(module?.parentId?.toHexString() ?? null).toBe(
+        parentKey === null ? null : idOf(parentKey),
+      );
+    }
+
+    // 物化路徑:祖先由根到父依序
+    expect(hex(byKey.get("demo")?.ancestors)).toEqual([]);
+    expect(hex(byKey.get("demo.sub.sample-one.edit-page")?.ancestors)).toEqual([
+      idOf("demo"),
+      idOf("demo.sub"),
+      idOf("demo.sub.sample-one"),
+    ]);
+    expect(hex(byKey.get("demo.sample-two.view-page")?.ancestors)).toEqual([
+      idOf("demo"),
+      idOf("demo.sample-two"),
+    ]);
+
+    // 同層 order 不重複,側欄才有確定順序
+    const siblingsOfDemo = modules.filter(
+      (module) => module.parentId?.toHexString() === idOf("demo"),
+    );
+    expect(new Set(siblingsOfDemo.map((module) => module.order)).size).toBe(
+      siblingsOfDemo.length,
+    );
+
+    // 樹全種(#29 留言定案):治理模組、資料範圍、隱藏 api 模組也在,且皆 enabled
+    for (const key of [
+      "org-manager",
+      "user-manager",
+      "role-manager",
+      "module-manager",
+      "field-manager",
+      "data-scope",
+      "api",
+    ]) {
+      expect(byKey.get(key)).toMatchObject({ isSystem: true, enabled: true });
+    }
+    expect(byKey.get("api")?.sidebarType).toBe("hidden");
+  }, 120_000);
+
+  it("示範家族 14 筆權限依正本落庫:moduleId 指向擁有模組(綁「所在的那一頁」)", async () => {
+    const databaseUri = createTestDatabaseUri("permissions");
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+
+    const { modules, permissions } = await readSeededDocuments(databaseUri);
+    const moduleIdOf = (key: string): string | undefined =>
+      modules.find((module) => module.key === key)?._id.toHexString();
+
+    // 正本:demo.sub.sample-one.md 權限表(9)+ demo.sample-two.md 權限表(5)
+    const expectedOwners: Record<string, string> = {
+      "demo.sub.sample-one.*": "demo.sub.sample-one",
+      "demo.sub.sample-one.view": "demo.sub.sample-one",
+      "demo.sub.sample-one.create": "demo.sub.sample-one",
+      "demo.sub.sample-one.edit": "demo.sub.sample-one",
+      "demo.sub.sample-one.delete": "demo.sub.sample-one",
+      "demo.sub.sample-one.show-internal-note": "demo.sub.sample-one",
+      "demo.sub.sample-one.edit-internal-note": "demo.sub.sample-one",
+      "demo.sub.sample-one.create-page.show-tips":
+        "demo.sub.sample-one.create-page",
+      "demo.sub.sample-one.edit-page.show-history":
+        "demo.sub.sample-one.edit-page",
+      "demo.sample-two.*": "demo.sample-two",
+      "demo.sample-two.view": "demo.sample-two",
+      "demo.sample-two.create": "demo.sample-two",
+      "demo.sample-two.edit": "demo.sample-two",
+      "demo.sample-two.delete": "demo.sample-two",
+    };
+
+    expect(permissions).toHaveLength(14);
+    for (const [key, ownerKey] of Object.entries(expectedOwners)) {
+      const permission = permissions.find((entry) => entry.key === key);
+      expect(permission).toMatchObject({ isSystem: true, enabled: true });
+      expect(typeof permission?.name).toBe("string");
+      expect(permission?.moduleId?.toHexString()).toBe(moduleIdOf(ownerKey));
+    }
+  }, 120_000);
+
+  it("示範模組1 的 dataScopeTarget 落庫至 data_scope_targets(collection 為識別鍵,不多掛 key 欄位),重跑冪等", async () => {
+    const databaseUri = createTestDatabaseUri("data-scope-targets");
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+    const secondRun = runSeedCommand(databaseUri);
+    expect(secondRun.status).toBe(0);
+    expect(secondRun.stdout).toContain(
+      "data_scope_targets:新增 0 / 更新 0 / 未變 1",
+    );
+
+    const { dataScopeTargets } = await readSeededDocuments(databaseUri);
+    expect(dataScopeTargets).toHaveLength(1);
+    expect(dataScopeTargets[0]).toMatchObject({
+      collection: "demo_items_one",
+      isSystem: true,
+      fields: [],
+    });
+    expect(typeof dataScopeTargets[0]?.name).toBe("string");
+    expect(dataScopeTargets[0]).not.toHaveProperty("key");
+  }, 120_000);
+
+  it("production(NODE_ENV=production)時示範家族預設 enabled=false,治理模組不受影響", async () => {
+    const databaseUri = createTestDatabaseUri("production");
+
+    const result = runSeedCommand(databaseUri, {
+      env: { NODE_ENV: "production" },
+    });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+
+    const { modules } = await readSeededDocuments(databaseUri);
+    const demoFamily = modules.filter((module) =>
+      module.key?.startsWith("demo"),
+    );
+    expect(demoFamily).toHaveLength(10);
+    for (const module of demoFamily) {
+      expect(module.enabled).toBe(false);
+    }
+    expect(
+      modules.find((module) => module.key === "org-manager")?.enabled,
+    ).toBe(true);
+  }, 120_000);
+});
+
+describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除根組織專屬模組)", () => {
+  it("租戶管理員模板綁全部非根組織專屬模組(role_module)與各該模組的 wildcard(role_permission);超級管理員不造任何綁定;重跑不重複", async () => {
+    const databaseUri = createTestDatabaseUri("role-bindings");
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+
+    const { roles, modules, permissions, relationships } =
+      await readSeededDocuments(databaseUri);
+    const tenantAdmin = roles.find((role) => role.key === "tenant-admin");
+    const superAdmin = roles.find((role) => role.key === "super-admin");
+    const boundBy = (roleId: ObjectId | undefined, type: string) =>
+      relationships.filter(
+        (link) =>
+          link.type === type &&
+          roleId !== undefined &&
+          link.firstId?.equals(roleId),
+      );
+
+    const boundModuleKeys = boundBy(tenantAdmin?._id, "role_module").map(
+      (link) => keyOf(modules)(link.secondId),
+    );
+    const allModuleKeys = modules.map((module) => module.key);
+    // 根組織專屬:模組與權限(module-manager)、資料範圍(data-scope)— docs/modules/*.md
+    expect(new Set(boundModuleKeys)).toEqual(
+      new Set(
+        allModuleKeys.filter(
+          (key) => key !== "module-manager" && key !== "data-scope",
+        ),
+      ),
+    );
+    expect(boundModuleKeys).toHaveLength(allModuleKeys.length - 2);
+
+    const boundPermissionKeys = boundBy(
+      tenantAdmin?._id,
+      "role_permission",
+    ).map((link) => keyOf(permissions)(link.secondId));
+    expect(new Set(boundPermissionKeys)).toEqual(
+      new Set(["demo.sub.sample-one.*", "demo.sample-two.*"]),
+    );
+    expect(boundPermissionKeys).toHaveLength(2);
+
+    // 超級管理員:解析時 bypass,不靠記錄(ADR-0004)
+    expect(boundBy(superAdmin?._id, "role_module")).toHaveLength(0);
+    expect(boundBy(superAdmin?._id, "role_permission")).toHaveLength(0);
   }, 120_000);
 });

@@ -15,6 +15,12 @@ export interface SeedDocument {
 export interface SeedDocumentSet {
   kind: "documents";
   collection: string;
+  /**
+   * 存放 `entry.key` 的欄位名,預設 `key`。schema 以別的欄位當識別鍵時指定
+   * (如 data_scope_targets 以 `collection` unique),避免多掛一個 schema 沒有的欄位。
+   * 注意:seedRef 只以 `key` 欄位解析,改用其他欄位的 set 不可被引用。
+   */
+  keyField?: string;
   entries: SeedDocument[];
 }
 
@@ -36,7 +42,8 @@ export interface SeedKeyReference {
 
 /**
  * 種子文件 `data` 中「指向另一筆種子文件」的欄位值(如 fields.categoryId → field_categories):
- * 宣告時寫 (collection, key),runner 執行時解析成該環境的 _id 再寫入(只支援頂層欄位)。
+ * 宣告時寫 (collection, key),runner 執行時解析成該環境的 _id 再寫入
+ * (只支援頂層欄位;頂層欄位為陣列時逐元素解析,如 modules.ancestors)。
  */
 export interface SeedIdReference {
   $seedRef: SeedKeyReference;

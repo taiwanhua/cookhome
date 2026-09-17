@@ -4,7 +4,6 @@ import type { Collection, Db, Document, ObjectId } from "mongodb";
 
 import { ensureRootAdmin, readRootAdminInput } from "./root-admin";
 import {
-  isSeedIdReference,
   type SeedDocument,
   type SeedDocumentSet,
   type SeedKeyReference,
@@ -13,6 +12,7 @@ import {
   type SeedRelationSet,
   type SeedRootAdminSet,
   type SeedSet,
+  isSeedIdReference,
 } from "./seed-declaration";
 
 export interface SeedCounts {
@@ -57,16 +57,24 @@ async function resolveSeedId(
   return document._id;
 }
 
-/** 把 data 中的 seedRef 欄位值換成該環境的 _id(只看頂層欄位)。 */
+async function resolveValue(database: Db, value: unknown): Promise<unknown> {
+  if (isSeedIdReference(value)) {
+    return resolveSeedId(database, value.$seedRef);
+  }
+  if (Array.isArray(value)) {
+    return Promise.all(value.map((item) => resolveValue(database, item)));
+  }
+  return value;
+}
+
+/** 把 data 中的 seedRef 欄位值換成該環境的 _id(只看頂層欄位;頂層陣列逐元素解析)。 */
 async function resolveReferences(
   database: Db,
   data: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   const resolved: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(data)) {
-    resolved[field] = isSeedIdReference(value)
-      ? await resolveSeedId(database, value.$seedRef)
-      : value;
+    resolved[field] = await resolveValue(database, value);
   }
   return resolved;
 }
@@ -74,16 +82,17 @@ async function resolveReferences(
 async function syncDocument(
   database: Db,
   collection: Collection,
+  keyField: string,
   entry: SeedDocument,
   now: Date,
 ): Promise<SyncOutcome> {
-  // 種子記錄一律掛 isSystem 保護(ADR-0002);宣告不得覆寫 key
+  // 種子記錄一律掛 isSystem 保護(ADR-0002);宣告不得覆寫識別鍵
   const desired = {
     ...(await resolveReferences(database, entry.data)),
-    key: entry.key,
+    [keyField]: entry.key,
     isSystem: true,
   };
-  const existing = await collection.findOne({ key: entry.key });
+  const existing = await collection.findOne({ [keyField]: entry.key });
 
   if (!existing) {
     await collection.insertOne({ ...desired, createdAt: now, updatedAt: now });
@@ -108,9 +117,16 @@ async function runDocumentSet(
   now: Date,
 ): Promise<SeedSetResult> {
   const collection = database.collection(set.collection);
+  const keyField = set.keyField ?? "key";
   const counts: SeedCounts = { created: 0, updated: 0, unchanged: 0 };
   for (const entry of set.entries) {
-    const outcome = await syncDocument(database, collection, entry, now);
+    const outcome = await syncDocument(
+      database,
+      collection,
+      keyField,
+      entry,
+      now,
+    );
     counts[outcome] += 1;
   }
   return { label: set.collection, counts };
