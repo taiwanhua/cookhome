@@ -4,6 +4,10 @@ import { type HydratedDocument, type Model, Types } from "mongoose";
 import { BaseRepository } from "./base.repository";
 import type { OperatorContext } from "./operator-context";
 import { TenantScopeError } from "./plugins/tenant-scope.plugin";
+import {
+  CoreRelationship,
+  CoreRelationshipSchema,
+} from "./schemas/core-relationship.schema";
 import { DemoItemOne, DemoItemOneSchema } from "./schemas/demo-item-one.schema";
 import {
   FieldCategory,
@@ -237,6 +241,18 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
       });
       expect(seenByRoot.map((item) => item.name)).toEqual(
         expect.arrayContaining(["B 的私有資料", "根組織代 A 建立"]),
+      );
+    });
+  });
+
+  describe("封裝邊界(ADR-0001):核心關聯只能經 RelationService", () => {
+    it("以 core_relationships 的 Model 建 BaseRepository 直接拒絕(不給第二個入口)", () => {
+      const coreRelationshipModel = database.connection.model<CoreRelationship>(
+        CoreRelationship.name,
+        CoreRelationshipSchema,
+      );
+      expect(() => new BaseRepository(coreRelationshipModel)).toThrow(
+        /RelationService/,
       );
     });
   });

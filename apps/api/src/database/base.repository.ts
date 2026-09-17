@@ -12,6 +12,7 @@ import {
   TenantScopeError,
   getTenantScope,
 } from "./plugins/tenant-scope.plugin";
+import { CORE_RELATIONSHIPS_COLLECTION } from "./schemas/core-relationship.schema";
 
 /** Model 型別參數固定為預設值(無 query helpers / instance methods / virtuals),只讓 hydrated 文件型別可推導。 */
 type NoExtras = Record<never, never>;
@@ -51,7 +52,14 @@ export interface FindOptions {
  * 不提供硬刪除:刪除一律走 `softDeleteById`(ADR-0007)。
  */
 export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
-  constructor(protected readonly model: RepositoryModel<TSchema, TDocument>) {}
+  constructor(protected readonly model: RepositoryModel<TSchema, TDocument>) {
+    // 核心關聯只能經 RelationService 的具名包裝(ADR-0001);不讓 BaseRepository 成為第二個入口
+    if (model.collection.collectionName === CORE_RELATIONSHIPS_COLLECTION) {
+      throw new TenantScopeError(
+        `${model.modelName}:核心關聯不經 BaseRepository,請改用 RelationService(ADR-0001)`,
+      );
+    }
+  }
 
   async findMany(
     operator: OperatorContext,
