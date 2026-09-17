@@ -49,6 +49,7 @@ jobs:
               echo "suffix=-dev" >> "$GITHUB_OUTPUT"
               echo "secret=mongodb-uri-dev" >> "$GITHUB_OUTPUT"
               echo "enc_secret=field-encryption-key-dev" >> "$GITHUB_OUTPUT"
+              echo "root_secret=root-admin-password-dev" >> "$GITHUB_OUTPUT"
               echo "sandbox=true" >> "$GITHUB_OUTPUT"
               echo "api_url=https://api-dev.cookhome.online" >> "$GITHUB_OUTPUT"
               ;;
@@ -56,6 +57,7 @@ jobs:
               echo "suffix=-staging" >> "$GITHUB_OUTPUT"
               echo "secret=mongodb-uri-staging" >> "$GITHUB_OUTPUT"
               echo "enc_secret=field-encryption-key-staging" >> "$GITHUB_OUTPUT"
+              echo "root_secret=root-admin-password-staging" >> "$GITHUB_OUTPUT"
               echo "sandbox=false" >> "$GITHUB_OUTPUT"
               echo "api_url=https://api-staging.cookhome.online" >> "$GITHUB_OUTPUT"
               ;;
@@ -63,6 +65,7 @@ jobs:
               echo "suffix=" >> "$GITHUB_OUTPUT"
               echo "secret=mongodb-uri" >> "$GITHUB_OUTPUT"
               echo "enc_secret=field-encryption-key" >> "$GITHUB_OUTPUT"
+              echo "root_secret=root-admin-password" >> "$GITHUB_OUTPUT"
               echo "sandbox=false" >> "$GITHUB_OUTPUT"
               echo "api_url=https://api.cookhome.online" >> "$GITHUB_OUTPUT"
               ;;
@@ -102,3 +105,30 @@ jobs:
           gcloud run deploy cookhome-admin${{ steps.cfg.outputs.suffix }} --region=$REGION \
             --image=$REGISTRY/admin:${{ steps.cfg.outputs.sha }}${{ steps.cfg.outputs.suffix }} \
             --port=8080 --allow-unauthenticated --min-instances=0 --max-instances=2 --quiet
+
+      # 部署成功後對該環境資料庫跑「遷移 → 種子」(ADR-0002:CI runner 直連,不放 server 啟動)。
+      # 只裝 db-migrator 及其依賴;MONGOMS_DISABLE_POSTINSTALL 避免下載測試用的 mongod 二進位檔。
+      - uses: pnpm/action-setup@v4 # 版本讀 package.json 的 packageManager 欄位
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝 db-migrator 依賴
+        run: pnpm install --frozen-lockfile --filter @repo/db-migrator...
+        env:
+          MONGOMS_DISABLE_POSTINSTALL: "1"
+
+      - name: migrate → seed
+        env:
+          ROOT_ADMIN_ACCOUNT: root
+          ROOT_ADMIN_EMAIL: a0987837233@gmail.com
+        run: |
+          MONGODB_URI=$(gcloud secrets versions access latest --secret=${{ steps.cfg.outputs.secret }})
+          ROOT_ADMIN_PASSWORD=$(gcloud secrets versions access latest --secret=${{ steps.cfg.outputs.root_secret }})
+          echo "::add-mask::$MONGODB_URI"
+          echo "::add-mask::$ROOT_ADMIN_PASSWORD"
+          export MONGODB_URI ROOT_ADMIN_PASSWORD
+          pnpm --filter @repo/db-migrator migrate
+          pnpm --filter @repo/db-migrator seed

@@ -97,7 +97,7 @@
 
 22. **接手考核機制(2026-09-13 定案)** — 驗「無 session AI 能否理解專案」的三關:①場景推理題(考卷 `docs/testing/handover-quiz.md`,只放題目)②流程計畫題(給小任務只寫計畫)③實戰(票實作)。**標準答案與其存放位置皆不記於 repo**(由主考官持有,施測時只提供給評分 agent);施測=派受測 agent 作答(限 repo 內容)→ 派評分 agent 對照答案卷出報告 → 錯題視為文件缺口,修文件後重考。
 
-21. **`apps/db-migrator` 實作** — migrate(#24,PR #31)與 seed runner + 根組織/種子角色/root 帳號(#28,PR #34)**已完成**;剩 deploy.yml 接 migrate → seed 兩步 + `ROOT_ADMIN_*` 注入(第 2 段前)。
+21. ~~`apps/db-migrator` 實作~~ — **全部完成(2026-09-18)**:migrate(#24)、seed runner(#28)、欄位種子(#30)、模組樹/權限/綁定(#29);deploy.yml 接 migrate → seed + `ROOT_ADMIN_*`(PR feat/deploy-migrate-seed)。
 
 26. **CI 沒有 format 檢查(2026-09-16,agent 發現)** — #25 產出與 prettier 設定不一致,跑 `prettier --write` 會重排;CI 只 lint 不 format-check,遲早有人踩。待辦:ci.yml 加 `prettier --check`,先把既有檔案格式化一次。
 

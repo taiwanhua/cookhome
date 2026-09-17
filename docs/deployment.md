@@ -70,6 +70,7 @@ release 後:進行中的 feat 分支 rebase 到最新 main
   - CLI:`gh workflow run Deploy --ref dev -f environment=dev`(staging 同理;production 的 ref 是 `main`)
   - 防呆:分支與環境不對應會直接失敗(dev→`dev`、staging→`staging`、production→`main`)
   - image tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(VITE 端點烘入)
+  - **部署成功後自動跑 `migrate → seed`**(ADR-0002):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`;seed 摘要(新增 N / 更新 M / 未變 K)印在 Actions log — 第一次跑應全為新增,之後每次應為 0 / 0 / K。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)
 - **dev 汙染重置**:`git checkout dev && git fetch && git reset --hard origin/main && git push --force origin dev`
 - **認證**:Workload Identity Federation — OIDC 短期憑證換 `github-deployer` 身分,repo 裡**零 GCP 金鑰**,provider 限定本 repo
 - **回滾**:`gcloud run services update-traffic cookhome-api --to-revisions=<舊revision>=100`,或從舊 commit 觸發部署
