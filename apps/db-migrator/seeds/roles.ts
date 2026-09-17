@@ -12,7 +12,7 @@ export const TENANT_ADMIN_ROLE_KEY = "tenant-admin";
  * - 超級管理員:isSystem,解析時直接全權放行(ADR-0004),僅可授予根組織的使用者
  * - 租戶管理員:模板,開通租戶時複製一份到該租戶名下
  *
- * 角色與模組/權限的綁定(role_module / role_permission)不在此(#29)。
+ * 角色與模組/權限的綁定(role_module / role_permission)見 role-bindings.ts。
  */
 export const roles: SeedDocumentSet = {
   kind: "documents",

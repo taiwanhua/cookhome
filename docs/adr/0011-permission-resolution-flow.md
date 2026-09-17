@@ -17,7 +17,7 @@
 2. `user_role`:查此人的角色 → roleIds
 3. `role_module`:roleIds → moduleIds(樹必然完整 — 權限矩陣 UI 強制「勾下層必勾上層」)
 4. `role_permission`:roleIds → permissionIds → 查 permissions(每筆自帶 moduleId、key)
-5. wildcard 展開:key 以 `.*` 結尾者 → 該模組**及其子孫模組**的全部權限視為持有(`role_permission` 只存 `*` 一筆,見 ADR-0004)
+5. wildcard 展開:key 以 `.*` 結尾者 → **該模組自己這一層**(moduleId 等於它)的全部權限視為持有,不含子模組(同層語意,ADR-0004;`role_permission` 對該模組只存 `*` 一筆)
 6. 組陣列:查 modules(_id ∈ moduleIds;enabled=false 者連子樹剔除)→ 每個模組物件塞 `permissions` = 有效權限中 moduleId 等於它的那些
 7. 回傳**模組陣列**,每筆含:parentId、sidebarType、route、permissions
 
@@ -25,12 +25,12 @@
 
 - **側欄**:以 parentId 組樹;sidebarType 決定呈現(group=可展開群組、link=連結、hidden=不顯示)
 - **路由防守**:每個模組的 route 與上層 route 組合 → 「可進入路由集合」;手打網址不在集合內 → 擋。**可進 = 有那個模組路由**,僅此一條
-- **頁內功能**:登入時把模組陣列組成全域權限結構(模組 key + 動作 = 完整權限 key),放全域快取(react-query/全域 state),所有頁面共用;判斷 = 「key 在集合中,或被持有的某 `*` 前綴命中」
+- **頁內功能**:登入時把模組陣列組成全域權限結構(模組 key + 動作 = 完整權限 key),放全域快取(react-query/全域 state),所有頁面共用;判斷 = 「key 在集合中,或該權限的擁有模組 key + `.*` 在集合中」(一次查表,不掃前綴)
 - **key 切分共識**:最後一段 = 權限動作(恆為單段;`*` 是唯一特殊動作),其餘 = 擁有模組 key(= 路由層級累加)。歸屬的真相仍以 `moduleId` 欄位為準,切字串僅供人讀與前端組 key
 
 ## API 防守
 
-- controller 標註所需權限 key(重用頁面權限 key,ADR-0004);後端同樣以「聯集 + wildcard 前綴」判斷
+- controller 標註所需權限 key(重用頁面權限 key,ADR-0004);後端同樣以「聯集 + 擁有模組的 `*`」判斷
 - 資料查詢一律經 BaseRepository:租戶隔離保底 + 資料範圍規則(ADR-0008)
 
 ## 快取
