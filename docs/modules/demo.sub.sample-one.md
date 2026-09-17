@@ -8,12 +8,12 @@
 
 | key | 名稱 | sidebarType | 自有權限 |
 |---|---|---|---|
-| `demo` | 示範群組 | group | 無 |
-| `demo.sub` | 示範次群組 | group | 無 |
+| `demo` | 示範群組 | group | 僅 `*` |
+| `demo.sub` | 示範次群組 | group | 僅 `*` |
 | `demo.sub.sample-one` | 示範模組1 | link(列表頁) | 見權限表 |
-| `demo.sub.sample-one.view-page` | 示範項目詳情 | hidden | 無 |
-| `demo.sub.sample-one.create-page` | 新增示範項目 | hidden | `show-tips` |
-| `demo.sub.sample-one.edit-page` | 編輯示範項目 | hidden | `show-history` |
+| `demo.sub.sample-one.view-page` | 示範項目詳情 | hidden | 僅 `*` |
+| `demo.sub.sample-one.create-page` | 新增示範項目 | hidden | `*`、`show-tips` |
+| `demo.sub.sample-one.edit-page` | 編輯示範項目 | hidden | `*`、`show-history` |
 | `demo.sample-two` 一支 | 見 [示範模組2](./demo.sample-two.md) | | |
 
 `delete` 無對應頁(列表動作+確認彈窗)— 權限與頁面不必一一對應,本身即示範。
@@ -22,7 +22,7 @@
 
 | 權限 key | moduleId 指向 | 它是哪一頁的什麼 |
 |---|---|---|
-| `demo.sub.sample-one.*` | 示範模組1(列表頁) | wildcard,代表整組(role_permission 只存這一筆) |
+| `demo.sub.sample-one.*` | 示範模組1(列表頁) | wildcard,代表本模組自己這層的全部權限(同層語意,ADR-0004;role_permission 只存這一筆)。每個模組(含群組與隱藏頁)都固定有一筆 `<key>.*`,由 seed 自動產生,本表不逐列重複 |
 | `demo.sub.sample-one.view` | 示範模組1(列表頁) | 看列表與單筆資料、進入檢視頁/打開檢視跳窗 |
 | `demo.sub.sample-one.create` | 示範模組1(列表頁) | 進入新增頁的按鈕 + 新增 API |
 | `demo.sub.sample-one.edit` | 示範模組1(列表頁) | 進入編輯頁的按鈕 + 編輯 API |
@@ -42,4 +42,4 @@
 
 ## Seed 與環境
 
-全環境灌;production 預設 `enabled=false`;納入租戶管理員模板。help:`apps/admin/src/md/module-help/demo.sub.sample-one.help.md`。畫面規劃見 dis.md #20。
+全環境灌同一份(seed 不分環境);`enabled` 初始 true,production 要關閉就在「模組與權限」頁手動停用(初始 seed 值欄位,不會被下次 seed 翻回,ADR-0002);納入租戶管理員模板。help:`apps/admin/src/md/module-help/demo.sub.sample-one.help.md`。畫面規劃見 dis.md #20。
