@@ -1,8 +1,6 @@
 {
   "extends": "@repo/typescript-config/base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022"],
     "resolveJsonModule": true
   },
   "include": ["src/**/*", "messages/**/*.json"]
