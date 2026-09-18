@@ -4,6 +4,7 @@ import type { HydratedDocument, Model } from "mongoose";
 
 import { BaseRepository, type RepositoryModel } from "./base.repository";
 import { RelationService } from "./relation.service";
+import { ActionToken, ActionTokenSchema } from "./schemas/action-token.schema";
 import {
   CoreRelationship,
   CoreRelationshipSchema,
@@ -24,6 +25,7 @@ import { User, UserSchema } from "./schemas/user.schema";
 export type UserDocument = HydratedDocument<User>;
 export type OrgDocument = HydratedDocument<Org>;
 export type RefreshTokenDocument = HydratedDocument<RefreshToken>;
+export type ActionTokenDocument = HydratedDocument<ActionToken>;
 export type RoleDocument = HydratedDocument<Role>;
 export type ModuleDocument = HydratedDocument<ModuleEntity>;
 export type PermissionDocument = HydratedDocument<Permission>;
@@ -60,6 +62,19 @@ export class RefreshTokensRepository extends BaseRepository<
   }
 }
 
+/** action_tokens(啟用信 / 重設密碼的單次 token;屬帳號、非租戶資料,ADR-0009)。 */
+@Injectable()
+export class ActionTokensRepository extends BaseRepository<
+  ActionToken,
+  ActionTokenDocument
+> {
+  constructor(
+    @InjectModel(ActionToken.name)
+    model: RepositoryModel<ActionToken, ActionTokenDocument>,
+  ) {
+    super(model);
+  }
+}
 /** roles(關聯歸屬資料:擁有組織走 org_role,資料層不自動過濾,ADR-0005)。 */
 @Injectable()
 export class RolesRepository extends BaseRepository<Role, RoleDocument> {
@@ -109,6 +124,7 @@ export class PermissionsRepository extends BaseRepository<
       { name: User.name, schema: UserSchema },
       { name: Org.name, schema: OrgSchema },
       { name: RefreshToken.name, schema: RefreshTokenSchema },
+      { name: ActionToken.name, schema: ActionTokenSchema },
       { name: Role.name, schema: RoleSchema },
       { name: ModuleEntity.name, schema: ModuleSchema },
       { name: Permission.name, schema: PermissionSchema },
@@ -119,6 +135,7 @@ export class PermissionsRepository extends BaseRepository<
     UsersRepository,
     OrgsRepository,
     RefreshTokensRepository,
+    ActionTokensRepository,
     RolesRepository,
     ModulesRepository,
     PermissionsRepository,
@@ -133,6 +150,7 @@ export class PermissionsRepository extends BaseRepository<
     UsersRepository,
     OrgsRepository,
     RefreshTokensRepository,
+    ActionTokensRepository,
     RolesRepository,
     ModulesRepository,
     PermissionsRepository,

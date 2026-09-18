@@ -194,7 +194,11 @@ export class AuthService {
     );
   }
 
-  private async issueTokens(
+  /**
+   * 發一組登入 token(access + refresh)。公開給密碼流程用:設定新密碼(啟用 / 重設)成功後
+   * 直接發登入 token,免再登入(#61)。呼叫端須已確認使用者存在且未停用。
+   */
+  async issueTokens(
     userId: Types.ObjectId,
     currentOrgId: Types.ObjectId | null,
   ): Promise<IssuedTokens> {

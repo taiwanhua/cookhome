@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "type": "module",
   "private": true,
+  "sideEffects": false,
   "description": "前後端共用的純邏輯(STRUCT-07):按主題分子路徑匯出,不碰 React / Nest / Mongoose",
   "files": [
     "dist"
@@ -17,12 +18,25 @@
         "types": "./dist/cjs/permission.d.cts",
         "default": "./dist/cjs/permission.cjs"
       }
+    },
+    "./password": {
+      "import": {
+        "types": "./dist/es/password.d.ts",
+        "default": "./dist/es/password.js"
+      },
+      "require": {
+        "types": "./dist/cjs/password.d.cts",
+        "default": "./dist/cjs/password.cjs"
+      }
     }
   },
   "typesVersions": {
     "*": {
       "permission": [
         "./dist/es/permission.d.ts"
+      ],
+      "password": [
+        "./dist/es/password.d.ts"
       ]
     }
   },
