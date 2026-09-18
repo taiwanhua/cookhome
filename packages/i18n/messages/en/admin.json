@@ -81,6 +81,16 @@
     "placeholder": {
       "pending": "This page is not built yet"
     },
+    "tabs": {
+      "label": "Route tabs",
+      "close": "Close {label}",
+      "keyboardHint": "Use the left and right arrow keys to move focus and Enter to open a tab; hold Shift with an arrow key to reorder; press Delete to close the focused tab. Tabs can also be reordered by dragging.",
+      "dragStart": "Picked up \"{label}\"",
+      "dragOver": "\"{label}\" was moved to the position of \"{over}\"",
+      "dragEnd": "\"{label}\" was dropped at the position of \"{over}\"",
+      "dragEndNoTarget": "\"{label}\" was returned to its original position",
+      "dragCancel": "Dragging \"{label}\" was cancelled"
+    },
     "forbidden": {
       "title": "You do not have access to this page",
       "body": "Your current role does not include this page. Contact the system administrator if you need it.",

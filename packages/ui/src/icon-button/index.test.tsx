@@ -1,20 +1,17 @@
 import { describe, expect, it } from "@jest/globals";
 import { createRoot } from "react-dom/client";
 
-import { ChevronDownIcon, ChevronRightIcon, CloseIcon, DotIcon } from ".";
+import { IconButton } from ".";
 
-describe("icons", () => {
+describe("IconButton", () => {
   it("renders without crashing", () => {
     expect(() => {
       const div = document.createElement("div");
       const root = createRoot(div);
       root.render(
-        <>
-          <ChevronDownIcon fontSize="small" />
-          <ChevronRightIcon fontSize="small" />
-          <DotIcon fontSize="small" />
-          <CloseIcon fontSize="small" />
-        </>,
+        <IconButton aria-label="關閉" size="small">
+          <span>×</span>
+        </IconButton>,
       );
       root.unmount();
     }).not.toThrow();
