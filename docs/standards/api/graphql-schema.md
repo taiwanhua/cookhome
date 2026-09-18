@@ -49,6 +49,8 @@ type RecipeList {
 | `ACCOUNT_DISABLED` | 帳號已停用(登入時,或已登入者的下一次請求) | 顯示帳號已停用,清登入狀態 |
 | `TOO_MANY_ATTEMPTS` | 同帳號連續 5 次登入失敗,鎖 1 分鐘 | 顯示稍後再試 |
 | `MUST_CHANGE_PASSWORD` | 首登須改密碼者做了「看自己 / 改密碼 / 登出」以外的操作 | 導向改密碼頁 |
+| `ACTION_TOKEN_INVALID` | 信件連結的 token(啟用 / 重設密碼)不存在、已用過或逾期 — 三者同碼,不透露差別 | 顯示「連結已失效」+ 一鍵重新申請;**不是** `TOKEN_EXPIRED`,不要換票重送 |
+| `CURRENT_PASSWORD_INVALID` | 已登入者改密碼時「目前密碼」打錯(本人操作,無枚舉風險,所以可以明講) | 顯示「目前密碼錯誤」 |
 
 錯誤的 `message` 給開發者看(英文);給使用者的繁體中文文案由前端依 code 對應,不從 api 傳。
 

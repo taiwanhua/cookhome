@@ -2,6 +2,15 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input ChangePasswordInput {
+  currentPassword: String!
+  newPassword: String!
+}
+
+type ChangePasswordPayload {
+  success: Boolean!
+}
+
 input CreateRecipeInput {
   cookMinutes: Int
   description: String
@@ -84,11 +93,14 @@ enum ModuleSidebarType {
 }
 
 type Mutation {
+  changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   login(input: LoginInput!): LoginPayload!
   logout: LogoutPayload!
   logoutAllDevices: LogoutAllDevicesPayload!
   refresh: RefreshPayload!
+  requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
+  setPassword(input: SetPasswordInput!): SetPasswordPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
 }
 
@@ -113,6 +125,23 @@ type Recipe {
 }
 
 type RefreshPayload {
+  accessToken: String!
+}
+
+input RequestPasswordResetInput {
+  email: String!
+}
+
+type RequestPasswordResetPayload {
+  success: Boolean!
+}
+
+input SetPasswordInput {
+  newPassword: String!
+  token: String!
+}
+
+type SetPasswordPayload {
   accessToken: String!
 }
 
