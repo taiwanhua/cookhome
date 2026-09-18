@@ -1,6 +1,6 @@
 # CookHome 部署架構與操作手冊
 
-> 最後更新:2026-09-04。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
+> 最後更新:2026-09-19(#69:api 非機密環境變數改由 `deploy/env/<環境>.yaml` 提供;Secret Manager 加 `jwt-secret*`、`resend-api-key*`)。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
 
 ## 一、架構總覽
 
@@ -40,17 +40,17 @@ dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-st
 
 ### 資源清單
 
-| 資源                | 識別                                                                                                                                                         | 費用            |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
-| GCP 專案            | `cookhome-online`(region 預設 asia-east1)                                                                                                                    | —               |
-| Artifact Registry   | `asia-east1-docker.pkg.dev/cookhome-online/cookhome`                                                                                                         | 儲存費 ~NT$1/月 |
-| Cloud Run ×6        | api / admin 各 ×(prod, staging, dev)(全部 min=0 / max=2)                                                                                                     | 無流量 = $0     |
-| Secret Manager      | 三環境各一份(`-dev` / `-staging` / 無後綴):`mongodb-uri`、`field-encryption-key`、`root-admin-password`;清單見 `docs/env-registry.md`                        | ~$0             |
-| WIF + 部署身分      | pool `github` / provider `github-oidc` / SA `github-deployer`(只認 taiwanhua/cookhome)                                                                       | $0              |
-| Budget              | NT$600/月,50%/90%/100% 郵件警告                                                                                                                              | $0              |
-| MongoDB Atlas       | cluster `cookhome-dev`(M0)                                                                                                                                   | $0              |
-| Cloudflare / Vercel | DNS 代管 / front(Hobby)                                                                                                                                      | $0              |
-| Vercel 第二專案     | `cookhome-design` → `design.cookhome.online`(Storybook,root `apps/storybook`,output `storybook-static`,只建 main:Ignored Build Step = Only build production) | $0              |
+| 資源                | 識別                                                                                                                                                                  | 費用            |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| GCP 專案            | `cookhome-online`(region 預設 asia-east1)                                                                                                                             | —               |
+| Artifact Registry   | `asia-east1-docker.pkg.dev/cookhome-online/cookhome`                                                                                                                  | 儲存費 ~NT$1/月 |
+| Cloud Run ×6        | api / admin 各 ×(prod, staging, dev)(全部 min=0 / max=2)                                                                                                              | 無流量 = $0     |
+| Secret Manager      | 三環境各一份(`-dev` / `-staging` / 無後綴):`mongodb-uri`、`field-encryption-key`、`root-admin-password`、`jwt-secret`、`resend-api-key`;清單見 `docs/env-registry.md` | ~$0             |
+| WIF + 部署身分      | pool `github` / provider `github-oidc` / SA `github-deployer`(只認 taiwanhua/cookhome)                                                                                | $0              |
+| Budget              | NT$600/月,50%/90%/100% 郵件警告                                                                                                                                       | $0              |
+| MongoDB Atlas       | cluster `cookhome-dev`(M0)                                                                                                                                            | $0              |
+| Cloudflare / Vercel | DNS 代管 / front(Hobby)                                                                                                                                               | $0              |
+| Vercel 第二專案     | `cookhome-design` → `design.cookhome.online`(Storybook,root `apps/storybook`,output `storybook-static`,只建 main:Ignored Build Step = Only build production)          | $0              |
 
 ## 二、分支模型與 CI/CD 流程
 
@@ -92,13 +92,13 @@ docker compose --profile full up -d   # 部署前驗證:mongo + api + admin 整�
 
 ### 手動部署(CD 掛掉時的備援;平常交給 deploy.yml)
 
+**照 `.github/workflows/deploy.yml` 的「deploy」步驟打,不要憑記憶**:`gcloud run deploy` 必須同時帶 `--env-vars-file=deploy/env/<環境>.yaml`(非機密變數,整包取代)與完整的 `--set-secrets=MONGODB_URI=…,FIELD_ENCRYPTION_KEY=…,JWT_SECRET=…,RESEND_API_KEY=…`(secret 名稱依環境加 `-dev` / `-staging` 後綴)。`--set-secrets` 是整組取代,少列一個就等於把那個 secret 從服務拿掉。build / push 的部分:
+
 ```bash
 SHA=$(git rev-parse --short HEAD)
 REG=asia-east1-docker.pkg.dev/cookhome-online/cookhome
 docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$SHA
-gcloud run deploy cookhome-api --image=$REG/api:$SHA \
-  --port=5001 --allow-unauthenticated --min-instances=0 --max-instances=2 \
-  --set-secrets=MONGODB_URI=mongodb-uri:latest
+# 接著複製 deploy.yml「deploy」步驟裡 api 的 gcloud run deploy 指令,把 ${{ … }} 換成該環境的值
 ```
 
 ### 觀測與維運
@@ -205,7 +205,7 @@ gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上
 ## 五、安全與費用備忘
 
 - 連線字串(含密碼)只存在:Atlas、Secret Manager、擁有者本機 — 從未進版控或指令輸出
-- GraphQL Sandbox / introspection:production 關、dev 開(`GRAPHQL_SANDBOX` env);本地 dev 恆開
+- GraphQL Sandbox / introspection:production 關、dev 開(`GRAPHQL_SANDBOX`,值寫在 `deploy/env/dev.yaml`,其他環境的檔不寫此鍵 = 關);本地 dev 恆開
 - 費用防線:全服務 `max-instances=2`(費用天花板)+ Budget NT$600 三段警告
 - 連線池:三環境的 MongoDB URI 均含 `maxPoolSize=10` — 理論上限 6 實例 × 10 = 60 連線,遠低於 M0 的 500(三環境共用同一 cluster 額度,拆 cluster 見 dis.md 待辦)
 - 已評估先不做:固定出口 IP(VPC connector + NAT ~US$10/月)、Cloudflare 橙雲 WAF(需 Global LB ~US$18/月)、production api `min-instances=1`(冷啟動換省錢,有流量後再開)

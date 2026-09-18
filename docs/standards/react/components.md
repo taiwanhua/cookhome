@@ -37,3 +37,14 @@ JSX 內只放渲染邏輯;超過幾行的計算、轉換、條件組合抽成 ho
 ✅ <RecipeCard actions={<DeleteButton id={recipe.id} />} />   // 用 children/slot 組合
 ❌ <RecipeCard onDelete={onDelete} />  // onDelete 只是為了往下傳第三層
 ```
+
+## REACT-06 遵守 `eslint-plugin-react-hooks` v7 的 compiler 規則,狀態容器用外部 store
+
+lint 入口啟用的 react-hooks v7 除了 `rules-of-hooks` / `exhaustive-deps`,還有 React Compiler 的一組規則,它們實質決定狀態要怎麼寫:
+
+- `set-state-in-effect`:**effect 內不可直接 setState**(同步 sessionStorage、依網址補 tab 這類「衍生狀態」都算)。要嘛在 render 期間用 `useMemo` 推導,要嘛把狀態搬進外部 store,以 `useSyncExternalStore` 訂閱(先例:`apps/admin/src/features/shell/route-tabs-store.ts`,純函式 + `createRouteTabsStore`,殼 mount 時建立、一使用者一份)
+- `refs`:render 期間不讀寫 `ref.current`;只在事件處理與 effect 內用
+- `globals`:render 期間不改模組層變數
+- `immutability`:props / state 不就地修改,陣列用 `toSorted` / 展開建新值
+
+判斷順序:能用 `useMemo` 從既有 state / props 推導 → 推導;需要跨元件、跨 render 存活且有副作用(storage、channel)→ 外部 store + `useSyncExternalStore`;仍不夠再考慮 context(REACT-02)。

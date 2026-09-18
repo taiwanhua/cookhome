@@ -24,6 +24,8 @@ apps/<app>/src/
 
 feature 之間不互相 import 內部檔案;需要共用就上移到 `components/`、`lib/` 或 packages。
 
+已知例外(2026-09-19 記錄):admin 的 `features/auth/use-me`(`useMe()`)與 `features/auth/paths` 被 `features/shell`、`features/overview` 引用 — auth 實質是共用層,新程式碼**照此引用即可**,不要再另做一份;上移到 `lib/auth/` 是一張獨立的重構票,做完後把這段刪掉。
+
 ## STRUCT-04 GraphQL 產物只走 `@repo/graphql` 的出口
 
 ```ts
