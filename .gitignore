@@ -22,3 +22,6 @@ storybook-static
 
 # Claude Code 背景 agent 的隔離 worktree(機器特定)
 .claude/worktrees/
+
+# Claude Code PostToolUse hook 的本機開關(見 scripts/claude-hooks/post-edit-check.mjs)
+.claude/hook-typecheck-off

@@ -3,9 +3,17 @@
  * Claude Code PostToolUse hook:AI 每次 Edit/Write 完 ts/tsx 檔案後,
  * 自動對該檔跑 ESLint、對該檔所屬套件跑 typecheck。
  * 失敗時以 exit code 2 把錯誤回饋給 AI 當場修正 — 三層約束第一層的閉環。
+ *
+ * 速度(2026-09-19 調整):
+ * - ESLint 開 `--cache`(cache 放套件的 node_modules/.cache,不入版控),第二次起只重算改過的檔
+ * - typecheck 直接跑 `tsc --noEmit --incremental`(buildinfo 同樣放 node_modules/.cache),不經 turbo:
+ *   turbo 的快取檔案一改就失效、每次全量;tsc 的 incremental 只重算受影響的部分
+ * - 關閉 typecheck(重構型工作「先搬檔再修 import」中途必紅,跑了只是浪費):
+ *   環境變數 `CLAUDE_HOOK_TYPECHECK=off`,或在 repo 根放一個空檔 `.claude/hook-typecheck-off`(已 gitignore;
+ *   agent 開工時建、交件前刪 — PR 前本來就要求 lint / typecheck / test 全綠,閉環不破)
  */
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 let filePath = "";
@@ -39,6 +47,8 @@ while (pkgDir !== repoRoot && !existsSync(path.join(pkgDir, "package.json"))) {
 if (pkgDir === repoRoot) process.exit(0); // root 層檔案沒有 lint 設定,跳過
 
 const pkg = JSON.parse(readFileSync(path.join(pkgDir, "package.json"), "utf8"));
+const cacheDir = path.join(pkgDir, "node_modules", ".cache", "claude-hook");
+mkdirSync(cacheDir, { recursive: true });
 
 const run = (command, cwd) => {
   try {
@@ -51,20 +61,26 @@ const run = (command, cwd) => {
   }
 };
 
-// 1) 對該檔跑 ESLint(與 CI 同一套規則)
+// 1) 對該檔跑 ESLint(與 CI 同一套規則;--cache 讓沒改的檔不重算)
 if (pkg.scripts?.lint) {
-  const lintError = run(`pnpm exec eslint --max-warnings 0 "${filePath}"`, pkgDir);
+  const lintError = run(
+    `pnpm exec eslint --max-warnings 0 --cache --cache-location "${path.join(cacheDir, "eslint")}" "${filePath}"`,
+    pkgDir,
+  );
   if (lintError !== null) {
     console.error(`[hook] ESLint 未通過:${filePath}\n${lintError}`);
     process.exit(2);
   }
 }
 
-// 2) 對該套件跑 typecheck(型別錯誤會跨檔案;turbo 快取讓沒改的依賴不重跑)
-if (pkg.scripts?.["check-types"] && pkg.name) {
+// 2) 對該套件跑 typecheck(型別錯誤會跨檔案);可關閉,見檔頭
+const typecheckOff =
+  process.env.CLAUDE_HOOK_TYPECHECK === "off" ||
+  existsSync(path.join(repoRoot, ".claude", "hook-typecheck-off"));
+if (!typecheckOff && pkg.scripts?.["check-types"]) {
   const typeError = run(
-    `pnpm exec turbo run check-types --filter=${pkg.name} --output-logs=errors-only`,
-    repoRoot,
+    `pnpm exec tsc --noEmit --incremental --tsBuildInfoFile "${path.join(cacheDir, "tsc.tsbuildinfo")}"`,
+    pkgDir,
   );
   if (typeError !== null) {
     console.error(`[hook] 型別檢查未通過(${pkg.name})\n${typeError}`);
