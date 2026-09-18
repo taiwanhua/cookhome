@@ -11,17 +11,14 @@ export interface SessionChannel {
   close: () => void;
 }
 
-function isSessionMessage(value: unknown): value is SessionMessage {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { type?: unknown }).type === "logout"
-  );
-}
+const isSessionMessage = (value: unknown): value is SessionMessage =>
+  typeof value === "object" &&
+  value !== null &&
+  (value as { type?: unknown }).type === "logout";
 
-export function createSessionChannel(
+export const createSessionChannel = (
   name = SESSION_CHANNEL_NAME,
-): SessionChannel {
+): SessionChannel => {
   const channel = new BroadcastChannel(name);
   const listeners = new Set<() => void>();
 
@@ -50,4 +47,4 @@ export function createSessionChannel(
       channel.close();
     },
   };
-}
+};
