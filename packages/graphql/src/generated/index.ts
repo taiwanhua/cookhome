@@ -1,6 +1,6 @@
 import { GraphQLClient } from 'graphql-request';
 type RequestInit = { headers?: HeadersInit };
-import { useQuery, useMutation, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
+import { useMutation, useQuery, UseMutationOptions, UseQueryOptions } from '@tanstack/react-query';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
@@ -49,9 +49,75 @@ export type IngredientInput = {
   name: Scalars['String']['input'];
 };
 
+export type LoginInput = {
+  account: Scalars['String']['input'];
+  password: Scalars['String']['input'];
+};
+
+export type LoginPayload = {
+  __typename?: 'LoginPayload';
+  accessToken: Scalars['String']['output'];
+};
+
+export type LogoutAllDevicesPayload = {
+  __typename?: 'LogoutAllDevicesPayload';
+  success: Scalars['Boolean']['output'];
+};
+
+export type LogoutPayload = {
+  __typename?: 'LogoutPayload';
+  success: Scalars['Boolean']['output'];
+};
+
+export type Me = {
+  __typename?: 'Me';
+  account: Scalars['String']['output'];
+  address?: Maybe<Scalars['String']['output']>;
+  currentOrg?: Maybe<MeOrg>;
+  email: Scalars['String']['output'];
+  gender?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  modules: Array<MeModule>;
+  mustChangePassword: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  nickname?: Maybe<Scalars['String']['output']>;
+  orgs: Array<MeOrg>;
+  phone?: Maybe<Scalars['String']['output']>;
+};
+
+export type MeModule = {
+  __typename?: 'MeModule';
+  id: Scalars['ID']['output'];
+  key: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  order: Scalars['Int']['output'];
+  parentId?: Maybe<Scalars['ID']['output']>;
+  permissions: Array<Scalars['String']['output']>;
+  route?: Maybe<Scalars['String']['output']>;
+  sidebarType: ModuleSidebarType;
+};
+
+export type MeOrg = {
+  __typename?: 'MeOrg';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+/** 側欄呈現型別:GROUP=可展開群組(非連結)、LINK=模組連結、HIDDEN=隱藏頁(有路由但不出現在側欄) */
+export enum ModuleSidebarType {
+  Group = 'GROUP',
+  Hidden = 'HIDDEN',
+  Link = 'LINK'
+}
+
 export type Mutation = {
   __typename?: 'Mutation';
   createRecipe: Recipe;
+  login: LoginPayload;
+  logout: LogoutPayload;
+  logoutAllDevices: LogoutAllDevicesPayload;
+  refresh: RefreshPayload;
+  switchOrg: SwitchOrgPayload;
 };
 
 
@@ -59,8 +125,20 @@ export type MutationCreateRecipeArgs = {
   input: CreateRecipeInput;
 };
 
+
+export type MutationLoginArgs = {
+  input: LoginInput;
+};
+
+
+export type MutationSwitchOrgArgs = {
+  input: SwitchOrgInput;
+};
+
 export type Query = {
   __typename?: 'Query';
+  me: Me;
+  permissionProbe: Scalars['Boolean']['output'];
   recipe: Recipe;
   recipes: Array<Recipe>;
 };
@@ -85,6 +163,54 @@ export type Recipe = {
   updatedAt: Scalars['DateTime']['output'];
 };
 
+export type RefreshPayload = {
+  __typename?: 'RefreshPayload';
+  accessToken: Scalars['String']['output'];
+};
+
+export type SwitchOrgInput = {
+  orgId: Scalars['ID']['input'];
+};
+
+export type SwitchOrgPayload = {
+  __typename?: 'SwitchOrgPayload';
+  accessToken: Scalars['String']['output'];
+};
+
+export type LoginMutationVariables = Exact<{
+  input: LoginInput;
+}>;
+
+
+export type LoginMutation = { __typename?: 'Mutation', login: { __typename?: 'LoginPayload', accessToken: string } };
+
+export type RefreshMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type RefreshMutation = { __typename?: 'Mutation', refresh: { __typename?: 'RefreshPayload', accessToken: string } };
+
+export type LogoutMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type LogoutMutation = { __typename?: 'Mutation', logout: { __typename?: 'LogoutPayload', success: boolean } };
+
+export type LogoutAllDevicesMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type LogoutAllDevicesMutation = { __typename?: 'Mutation', logoutAllDevices: { __typename?: 'LogoutAllDevicesPayload', success: boolean } };
+
+export type SwitchOrgMutationVariables = Exact<{
+  input: SwitchOrgInput;
+}>;
+
+
+export type SwitchOrgMutation = { __typename?: 'Mutation', switchOrg: { __typename?: 'SwitchOrgPayload', accessToken: string } };
+
+export type MeQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MeQuery = { __typename?: 'Query', me: { __typename?: 'Me', id: string, account: string, name: string, email: string, nickname?: string | null, mustChangePassword: boolean, currentOrg?: { __typename?: 'MeOrg', id: string, name: string } | null, orgs: Array<{ __typename?: 'MeOrg', id: string, name: string }>, modules: Array<{ __typename?: 'MeModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, route?: string | null, permissions: Array<string> }> } };
+
 export type RecipesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -105,6 +231,200 @@ export type CreateRecipeMutationVariables = Exact<{
 export type CreateRecipeMutation = { __typename?: 'Mutation', createRecipe: { __typename?: 'Recipe', id: string, title: string } };
 
 
+
+export const LoginDocument = `
+    mutation Login($input: LoginInput!) {
+  login(input: $input) {
+    accessToken
+  }
+}
+    `;
+
+export const useLoginMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<LoginMutation, TError, LoginMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<LoginMutation, TError, LoginMutationVariables, TContext>(
+      {
+    mutationKey: ['Login'],
+    mutationFn: (variables?: LoginMutationVariables) => fetcher<LoginMutation, LoginMutationVariables>(client, LoginDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useLoginMutation.fetcher = (client: GraphQLClient, variables: LoginMutationVariables, headers?: RequestInit['headers']) => fetcher<LoginMutation, LoginMutationVariables>(client, LoginDocument, variables, headers);
+
+export const RefreshDocument = `
+    mutation Refresh {
+  refresh {
+    accessToken
+  }
+}
+    `;
+
+export const useRefreshMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RefreshMutation, TError, RefreshMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RefreshMutation, TError, RefreshMutationVariables, TContext>(
+      {
+    mutationKey: ['Refresh'],
+    mutationFn: (variables?: RefreshMutationVariables) => fetcher<RefreshMutation, RefreshMutationVariables>(client, RefreshDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRefreshMutation.fetcher = (client: GraphQLClient, variables?: RefreshMutationVariables, headers?: RequestInit['headers']) => fetcher<RefreshMutation, RefreshMutationVariables>(client, RefreshDocument, variables, headers);
+
+export const LogoutDocument = `
+    mutation Logout {
+  logout {
+    success
+  }
+}
+    `;
+
+export const useLogoutMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<LogoutMutation, TError, LogoutMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<LogoutMutation, TError, LogoutMutationVariables, TContext>(
+      {
+    mutationKey: ['Logout'],
+    mutationFn: (variables?: LogoutMutationVariables) => fetcher<LogoutMutation, LogoutMutationVariables>(client, LogoutDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useLogoutMutation.fetcher = (client: GraphQLClient, variables?: LogoutMutationVariables, headers?: RequestInit['headers']) => fetcher<LogoutMutation, LogoutMutationVariables>(client, LogoutDocument, variables, headers);
+
+export const LogoutAllDevicesDocument = `
+    mutation LogoutAllDevices {
+  logoutAllDevices {
+    success
+  }
+}
+    `;
+
+export const useLogoutAllDevicesMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<LogoutAllDevicesMutation, TError, LogoutAllDevicesMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<LogoutAllDevicesMutation, TError, LogoutAllDevicesMutationVariables, TContext>(
+      {
+    mutationKey: ['LogoutAllDevices'],
+    mutationFn: (variables?: LogoutAllDevicesMutationVariables) => fetcher<LogoutAllDevicesMutation, LogoutAllDevicesMutationVariables>(client, LogoutAllDevicesDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useLogoutAllDevicesMutation.fetcher = (client: GraphQLClient, variables?: LogoutAllDevicesMutationVariables, headers?: RequestInit['headers']) => fetcher<LogoutAllDevicesMutation, LogoutAllDevicesMutationVariables>(client, LogoutAllDevicesDocument, variables, headers);
+
+export const SwitchOrgDocument = `
+    mutation SwitchOrg($input: SwitchOrgInput!) {
+  switchOrg(input: $input) {
+    accessToken
+  }
+}
+    `;
+
+export const useSwitchOrgMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SwitchOrgMutation, TError, SwitchOrgMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SwitchOrgMutation, TError, SwitchOrgMutationVariables, TContext>(
+      {
+    mutationKey: ['SwitchOrg'],
+    mutationFn: (variables?: SwitchOrgMutationVariables) => fetcher<SwitchOrgMutation, SwitchOrgMutationVariables>(client, SwitchOrgDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSwitchOrgMutation.fetcher = (client: GraphQLClient, variables: SwitchOrgMutationVariables, headers?: RequestInit['headers']) => fetcher<SwitchOrgMutation, SwitchOrgMutationVariables>(client, SwitchOrgDocument, variables, headers);
+
+export const MeDocument = `
+    query Me {
+  me {
+    id
+    account
+    name
+    email
+    nickname
+    mustChangePassword
+    currentOrg {
+      id
+      name
+    }
+    orgs {
+      id
+      name
+    }
+    modules {
+      id
+      key
+      name
+      parentId
+      sidebarType
+      order
+      route
+      permissions
+    }
+  }
+}
+    `;
+
+export const useMeQuery = <
+      TData = MeQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: MeQueryVariables,
+      options?: Omit<UseQueryOptions<MeQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MeQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<MeQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['Me'] : ['Me', variables],
+    queryFn: fetcher<MeQuery, MeQueryVariables>(client, MeDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useMeQuery.getKey = (variables?: MeQueryVariables) => variables === undefined ? ['Me'] : ['Me', variables];
+
+
+useMeQuery.fetcher = (client: GraphQLClient, variables?: MeQueryVariables, headers?: RequestInit['headers']) => fetcher<MeQuery, MeQueryVariables>(client, MeDocument, variables, headers);
 
 export const RecipesDocument = `
     query Recipes {
