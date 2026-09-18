@@ -21,6 +21,7 @@
 | 新增 workspace 套件                             | `general/structure.md` STRUCT-07 / STRUCT-08                       |
 | UI 文案 / 多語(i18n)                            | `general/i18n.md`                                                  |
 | Figma 設計稿                                    | `general/figma.md`                                                 |
+| Markdown 文件(docs/、help.md、README)           | `general/structure.md` STRUCT-09                                   |
 
 ## 尚未定案(刻意不寫)
 

@@ -6,3 +6,12 @@ pnpm-lock.yaml
 **/coverage
 **/next-env.d.ts
 **/src/generated
+
+# 外部安裝的 skill 正本(skills-lock.json 以 hash 校驗;重排會使校驗失敗、與上游漂移)
+.agents
+# 同一批 skill 在 .claude/skills 的 symlink(與 .gitignore 同一份清單);自製 skill 不在此列、照常檢查
+.claude/skills/vercel-react-best-practices
+.claude/skills/web-design-guidelines
+.claude/skills/writing-guidelines
+# Claude Code 背景 agent 的隔離 worktree(整個 repo 的副本,機器特定)
+.claude/worktrees
