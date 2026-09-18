@@ -1,7 +1,6 @@
 {
   "extends": "@repo/typescript-config/vite.json",
   "compilerOptions": {
-    "lib": ["ES2021", "DOM", "DOM.Iterable"],
     "noEmit": true
   },
   "include": ["stories/**/*", ".storybook/**/*"]
