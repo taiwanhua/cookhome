@@ -28,7 +28,7 @@
 
 - **可進 = 角色綁了那個模組**(`role_module` 關聯):模組即頁面;route 必須明確,不可有 `*`。
 - 權限矩陣 UI 保證樹完整:勾下層模組必連動勾上層;有子孫被勾的上層為「勾選且不可取消」。
-- 隱藏頁(sidebarType=hidden)key 一律以 `-page` 結尾;權限動作禁用 `-page` 結尾 — 模組 key 與權限 key 永不同字串。**例外:`api` 模組樹**(隱藏、但不是頁面)整棵不受 `-page` 規則約束。
+- 隱藏頁(sidebarType=hidden **且有 route**)key 一律以 `-page` 結尾;權限動作禁用 `-page` 結尾 — 模組 key 與權限 key 永不同字串。**無 route 的隱藏節點不是頁面、只是權限容器**(`api` 模組樹、`system.org-manager.tenant-ops` 這類根組織專屬動作的容器),不受 `-page` 規則約束,`me.modules` 對它們回 `route: null`(2026-09-19 改,原本只寫 `api` 樹例外)。
 - 隱藏頁可擁有權限(例:編輯頁的變更歷程區塊),也有自己的 `*`。
 - 登入後的完整查詢與判斷鏈路見 ADR-0011。
 
