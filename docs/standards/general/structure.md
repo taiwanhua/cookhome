@@ -41,9 +41,15 @@ feature 之間不互相 import 內部檔案;需要共用就上移到 `components
 /* eslint-disable @repo/no-raw-model-query -- deprecated:早期原型,食譜域重寫時整包刪除 */
 ```
 
-## STRUCT-06 CLI 工具的輸出走 `process.stdout.write`,不走 `@repo/logger`
+## STRUCT-06 輸出與 log 依執行環境分三種,都不直接 `console.*`
 
-`apps/db-migrator` 這類指令列工具,摘要輸出(新增 N / 更新 M / 未變 K)就是它的介面,且 logger 需先 build 才能被 tsx 直跑的腳本使用。規則:CLI 工具用 `process.stdout.write` / `process.stderr.write`;`no-console` 仍禁 `console.*`;server(api)一律 `@repo/logger`。
+| 環境                         | 用什麼                                          | 為什麼                                                                                 |
+| ---------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------- |
+| CLI 工具(`apps/db-migrator`) | `process.stdout.write` / `process.stderr.write` | 摘要輸出(新增 N / 更新 M / 未變 K)就是它的介面;tsx 直跑的腳本不該依賴需先 build 的套件 |
+| api(NestJS)                  | Nest 內建 `Logger`(`new Logger(ClassName)`)     | 框架自帶等級、前綴與輸出管道,與 Nest 的啟動 log 一致;不另接 `@repo/logger`             |
+| front / admin(瀏覽器、Next)  | `@repo/logger`                                  | 全 repo 唯一允許碰 `console` 的地方,集中管理                                           |
+
+`no-console` 一律開著;三種以外的寫法都算違規。
 
 ## STRUCT-07 前後端共用的純邏輯放 `@repo/domain`,按主題分資料夾,不一個共用開一個包
 
@@ -55,3 +61,14 @@ packages/domain/src/permission/   → import { ownerModuleKey } from "@repo/doma
 ```
 
 入包門檻(三個都要符合):①純函式 / 純型別,不碰 React、Nest、Mongoose ②api 與 admin(或 front)都會用 ③規則只能有一份、兩邊漂移會出事。不符合的留在各自 app;只有一邊用的不進來。
+
+**api 怎麼吃到它**(踩過的坑,一次講清楚):api 是 CommonJS + `moduleResolution: node`,**看不到 `package.json` 的 `exports`**,子路徑的型別要靠 `typesVersions` 指到 `dist/es/<主題>.d.ts`;套件用 bunchee 出雙格式(`dist/es` 給 admin / front,`dist/cjs` 給 api)。api 測試在執行期 `require` 的是 dist,所以根 `turbo.json` 的 `test` 依賴 `^build`(先建依賴套件再跑測試);本地直接跑 `jest` 前要先 `pnpm --filter @repo/domain build`。
+
+## STRUCT-08 新增 workspace 套件的清單
+
+新開 `packages/<name>` 時照這份做,不要拼湊既有套件猜:
+
+1. `package.json`:`"name": "@repo/<name>"`(GEN-06)、`"type": "module"`、`"private": true`、`"files": ["dist"]`;`exports` 一律**子路徑**(`"./<主題>"`)並附 `import` / `require` 兩組 `types` + `default`;同一組子路徑再寫一份 `typesVersions`(給 api 這種 node10 解析用);scripts 固定 `build: bunchee`、`lint`、`check-types`、`test`
+2. `tsconfig.json` extends `@repo/typescript-config/base.json`;`eslint.config.js` 只有一行 `export { config as default } from "@repo/eslint-config"`;jest 用 `@repo/jest-presets/node`(純邏輯)或 `browser-esm`(瀏覽器);`turbo.json` 宣告 `build` 輸出 `dist/**`
+3. 消費端:api 加 devDependency `workspace:*` 後直接 `import "@repo/<name>/<主題>"`;admin / front 同
+4. 登記:`docs/architecture.md` 的 packages 表加一列,寫「誰用、怎麼用」

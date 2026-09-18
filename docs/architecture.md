@@ -23,7 +23,8 @@ workspace 套件名一律 `@repo/` 前綴(規則 GEN-06)。
 | `@repo/ui`                                                                                         | 設計系統:兩層 tokens(`src/theme/`,品牌層 `brands/*.ts` 可整包替換 + 語意層)、`createAppTheme`(MUI cssVariables、light/dark)、共用元件(元件+測試+story 三件套同居)      |
 | `@repo/logger`                                                                                     | 共用 logger(全 repo 唯一可用 `console` 的地方,其他地方被 `no-console` 擋)                                                                                              |
 | `@repo/i18n`                                                                                       | 多語訊息檔(`messages/<locale>/<namespace>.json`)+ locale 定義;front 以 `next-intl`、admin 以 `use-intl` 消費(同生態);規範見 `standards/general/i18n.md`               |
-| `@repo/eslint-config` / `@repo/prettier-config` / `@repo/typescript-config` / `@repo/jest-presets` | 共用開發設定(單一入口,各 app 不自訂規則)                                                                                                                               |
+| `@repo/domain`                                                                                     | 前後端共用的純邏輯(STRUCT-07):`@repo/domain/permission`(權限 key 切分、同層 wildcard 比對 `hasPermission`)、`@repo/domain/password`(密碼規則);bunchee 雙格式,api 走 cjs + `typesVersions`,admin 走 es |
+| `@repo/eslint-config` / `@repo/prettier-config` / `@repo/typescript-config` / `@repo/jest-presets` | 共用開發設定(單一入口,各 app 不自訂規則)。jest-presets 三種:`node`(純邏輯 / api)、`browser`(純元件庫 `ui`)、`browser-esm`(admin:jsdom + MSW 需要的 Node 全域 + ts-jest ESM,TEST-08)                          |
 
 ## 品質約束(三層)
 
