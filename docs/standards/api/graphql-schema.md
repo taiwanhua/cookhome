@@ -52,6 +52,9 @@ type RecipeList {
 | `ACTION_TOKEN_INVALID`     | 信件連結的 token(啟用 / 重設密碼)不存在、已用過或逾期 — 三者同碼,不透露差別                                         | 顯示「連結已失效」+ 一鍵重新申請;**不是** `TOKEN_EXPIRED`,不要換票重送           |
 | `CURRENT_PASSWORD_INVALID` | 已登入者改密碼時「目前密碼」打錯(本人操作,無枚舉風險,所以可以明講)                                                  | 顯示「目前密碼錯誤」                                                             |
 | `UPLOAD_REJECTED`          | 要上傳票時檔型不在白名單(png / jpg / webp)或大小超過 2MB(ADR-0010;程式正本 `apps/api/src/storage/storage-error.ts`) | 顯示「只能上傳 PNG / JPG / WebP,且不超過 2MB」,讓使用者重選檔案                  |
+| `CROSS_TENANT`             | 搬移組織時新上層不在同一個租戶(程式正本 `apps/api/src/orgs/org-error.ts`)                                            | 顯示「只能搬到同一個頂層組織之下」,樹上不讓放                                    |
+| `CYCLIC_MOVE`              | 搬移組織時新上層是自己或自己的子孫(會造出環)                                                                        | 顯示「不能搬到自己的下層」,樹上不讓放                                            |
+| `ORG_NOT_DELETABLE`        | 刪除組織的前置檢查未過;`extensions.reasons` 逐項列出(`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG`) | 依 reasons 逐項顯示中文原因,並引導改用停用                                       |
 
 錯誤的 `message` 給開發者看(英文);給使用者的繁體中文文案由前端依 code 對應,不從 api 傳。
 

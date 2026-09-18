@@ -47,6 +47,28 @@
 
 **刪除**:前置檢查全部通過才可:無子組織、無成員(`org_user`)、不是任何角色的擁有組織、無業務資料引用。任一不通過 → 提示改用停用。刪除 = 軟刪除(ADR-0007)。
 
+## api 介面(#134 已實作,程式在 `apps/api/src/orgs/`)
+
+```graphql
+orgTree: [OrgNode!]!              # 可見範圍內的樹;租戶視角以租戶頂層為根,範圍外節點標 disabled
+org(id: ID!): Org!                # 範圍外視為不存在(NOT_FOUND);logoUrl 為現簽的短效網址
+createChildOrg(input: { parentId, name, description }): OrgPayload!
+updateOrg(input: { id, name, description, logoPath }): OrgPayload!
+setOrgEnabled(input: { id, enabled }): OrgPayload!
+moveOrg(input: { id, newParentId }): OrgPayload!
+deleteOrg(input: { id }): DeletePayload!
+```
+
+實作時定下的幾件事(spec 未寫、以本檔的規則推導):
+
+- **`OrgNode.disabled` 不是 `enabled` 的反面**:`enabled` 是組織自己的停用狀態,`disabled` 是「在操作者可見範圍外」(樹上照樣顯示、但不可選不可操作)。兩個欄位同時存在。
+- **停用連動、搬移的 `ancestors` 重算、刪除前置的「有沒有子組織」以整棵子樹為準**,不受操作者可見範圍裁切(可見範圍決定「看得到誰的資料」,不該讓連動只做一半)。程式上是 `orgs.service.ts` 的 `subtreeContext()`,只准搭配把查詢釘在該子樹內的條件。
+- **根組織保護**:不可停用、不可搬移、不可刪除(刪除的 reasons 多一項 `SYSTEM_ORG`)。
+- **`updateOrg` 動不到擁有者與可見範圍開關**:`UpdateOrgInput` 根本沒有這兩個欄位(租戶作業 #135 另開 mutation),不是靠執行期判斷。
+- **`updateOrg` 沒有任何欄位真的變動時不寫入、也不留審計**(審計的 before / after 只放有變的欄位,空紀錄是雜訊)。
+- **「無業務資料引用」的清單**= 目前有 `orgId` 的業務 collection:`customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)。`audit_logs` 不算(只增不改的歷史紀錄)。第 5 段示範模組長出新 collection 時在 `orgs.service.ts` 的 `hasBusinessData()` 加一項。
+- 錯誤碼:`ORG_NOT_DELETABLE`(`extensions.reasons`:`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG`)、`CROSS_TENANT`、`CYCLIC_MOVE`、`NOT_FOUND`、`VALIDATION_FAILED`、`FORBIDDEN`(GQL-04 表)。
+
 **商標上傳**(ADR-0010,本段建立 StorageService 的第一條線):前端向 API 要簽名上傳 URL → 直傳私有 bucket → 把物件路徑存進 `logoPath`;顯示時 API 發簽名讀取 URL。開通與編輯兩個彈窗共用同一個 `Draft/UploadField`。
 
 介面(#137 已實作,程式在 `apps/api/src/storage/`):`createUploadUrl(input: { purpose: ORG_LOGO, contentType, size })` 回 `{ uploadUrl, objectPath, expiresAt }` — 檔型限 png / jpg / webp、大小 ≤ 2MB(不合回 `UPLOAD_REJECTED`),上傳網址效期 10 分鐘,`objectPath` 為 `org-logos/<uuid>.<副檔名>`(簽票時組織可能還不存在,所以不含 orgId);持 `system.org-manager.edit` 或 `system.org-manager.tenant-ops.provision` 任一即可要票。**寫 `logoPath` 前必須以 `isOwnedUploadPath(path)`(`apps/api/src/storage/storage.service.ts`)驗歸屬**,不讓呼叫端塞任意路徑進 DB。讀取端:`me.currentOrg.logoUrl` 現簽短效網址(TTL `GCS_SIGNED_URL_TTL`,預設 1h),無商標或路徑不合為 null。
