@@ -27,8 +27,11 @@
 
 | 位置 | 節點 | 內容 |
 |---|---|---|
-| Admin 登入 LoginCard | 17:7 / 17:8 / 17:26 | 「CookHome」「後台管理系統」「© 2026 CookHome…」(忘記密碼、設定新密碼頁為其複本,共 4 張圖同步改) |
-| Draft/AdminSideNav 元件 | 25:42(brandName)/ 120:50(logoImg 槽) | 頂部租戶識別:預設文字,ShowLogo=true 換商標圖;改元件即全畫面連動 |
+| Admin 登入 LoginCard | 17:4(desktop)/ 17:5(mobile);文字 17:7 / 17:8 / 17:26 | 「CookHome」「後台管理系統」「© 2026 CookHome…」(忘記密碼、設定新密碼頁為其複本,共 4 張圖同步改) |
+| Admin 忘記密碼 / 設定新密碼 | 忘記密碼 120:1533 / 120:1557;設定新密碼 120:1582(說明文字 120:1605)/ 連結失效 121:1520(說明文字 121:1525) | LoginCard 複本;文案以 `admin.json` 的 `setPassword.description` / `setPassword.invalid.description` 為準(至少 8 碼、不可為純數字;成功後直接進入後台),設計稿待同步 |
+| Draft/AdminSideNav 元件 | root 30:52;25:42(brandName)/ 120:50(logoImg 槽) | 頂部租戶識別:預設文字,ShowLogo=true 換商標圖;改元件即全畫面連動;第一列「總覽」是模組(受授權),不是固定列 |
+| Draft/AdminAppBar 元件 | root 30:95 | 當前組織 Select、語言切換、使用者選單(登出 / 登出所有裝置;程式做成 Menu,設計稿待補) |
+| Draft/AdminRouteTabs / RouteTab | 34:33(頁籤列範例)/ 26:48(單一 tab,Closable 開關) | 範例裡「總覽」tab 畫成不可關,程式是全部可關(#67);設計稿待改 |
 | Draft/FrontAppBar | 36:4(Desktop)/ 38:5(Mobile) | 前台 logo 文字 |
 | Draft/FrontFooter | 36:25 / 36:30(Desktop)、38:11 / 38:13(Mobile) | 品牌名 + © 行 |
 | Foundations / Cover | — | 主色變數 `primary/*`(6:43–6:48)由主色衍生;Cover 頁標題 |

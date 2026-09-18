@@ -68,7 +68,7 @@
 9. **AI 自動 PR review 時機** — Actions 上的 AI review 與本地 `/code-review` 的分工。
 10. **Turbo remote cache** — 等 CI 時間變長再評估。
 
-15. **admin shell 規格備忘(2026-09-05,設計稿已畫)**
+15. **admin shell 規格備忘(2026-09-05,設計稿已畫)** ✅ 已實作(#66 側欄與殼、#67 頁籤列;正本:ADR-0011「路由與導向規則」、`apps/admin/src/features/shell/`;子 tab 只留擴充點)
     - 側欄:依 module 設定分層、群組可展開收合(Draft/NavGroup + NavItem)。
     - 路由頁籤列(Draft/RouteTab):開過的路由生成 tab、以路由 id 去重;點側欄 → 出 tab 並切換;鑽入詳情生成「模組 / 項目名」子 tab;可關閉、可拖曳排序(dnd-kit)。
 
