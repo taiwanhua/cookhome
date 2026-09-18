@@ -14,6 +14,9 @@ const require = createRequire(import.meta.url);
 const config = {
   roots: ["<rootDir>"],
   testEnvironment: require.resolve("jest-fixed-jsdom"),
+  // CI runner 比本機慢:jsdom + MSW + ts-jest ESM 的第一個測試要付暖機成本,5 秒預設會偶發逾時(#88 / #91 都遇過);
+  // 個別測試不自行加 timeout,統一在 preset 放寬
+  testTimeout: 15_000,
   extensionsToTreatAsEsm: [".ts", ".tsx"],
   transform: {
     "^.+\\.tsx?$": [require.resolve("ts-jest"), { useESM: true }],
