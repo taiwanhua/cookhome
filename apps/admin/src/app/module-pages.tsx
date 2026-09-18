@@ -1,5 +1,5 @@
-import { OverviewPage } from "../features/overview";
-import type { ModulePageRegistry } from "../features/shell/module-route";
+import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
+import type { ModulePageRegistry } from "./guards/ModuleRoute/ModuleRoute";
 
 /** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
 export const OVERVIEW_MODULE_KEY = "overview";

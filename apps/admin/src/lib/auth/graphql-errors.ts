@@ -34,23 +34,20 @@ interface GraphqlErrorShape {
   extensions?: { code?: unknown; violations?: unknown };
 }
 
-function isAuthErrorCode(value: unknown): value is AuthErrorCode {
-  return (
-    typeof value === "string" &&
-    (AUTH_ERROR_CODES as readonly string[]).includes(value)
-  );
-}
+const isAuthErrorCode = (value: unknown): value is AuthErrorCode =>
+  typeof value === "string" &&
+  (AUTH_ERROR_CODES as readonly string[]).includes(value);
 
-function errorsOfBody(body: unknown): GraphqlErrorShape[] {
+const errorsOfBody = (body: unknown): GraphqlErrorShape[] => {
   if (typeof body !== "object" || body === null || !("errors" in body)) {
     return [];
   }
   const { errors } = body as { errors?: unknown };
   return Array.isArray(errors) ? (errors as GraphqlErrorShape[]) : [];
-}
+};
 
 /** 從 GraphQL 回應 body 的 `errors[]` 取出第一個登入線錯誤碼;沒有則 null。 */
-export function authErrorCodeOfBody(body: unknown): AuthErrorCode | null {
+export const authErrorCodeOfBody = (body: unknown): AuthErrorCode | null => {
   for (const error of errorsOfBody(body)) {
     const code = error.extensions?.code;
     if (isAuthErrorCode(code)) {
@@ -58,22 +55,19 @@ export function authErrorCodeOfBody(body: unknown): AuthErrorCode | null {
     }
   }
   return null;
-}
+};
 
 /** 從 codegen hook 拋出的錯誤(graphql-request 的 ClientError)取出登入線錯誤碼。 */
-export function authErrorCodeOf(error: unknown): AuthErrorCode | null {
-  return error instanceof ClientError
-    ? authErrorCodeOfBody(error.response)
-    : null;
-}
+export const authErrorCodeOf = (error: unknown): AuthErrorCode | null =>
+  error instanceof ClientError ? authErrorCodeOfBody(error.response) : null;
 
 /**
  * 密碼不符規則時 api 回 `VALIDATION_FAILED` + `extensions.violations`(正本 `apps/api/src/auth/password/password-error.ts`);
  * 取出違規項供表單逐條提示。不是密碼規則錯誤則回 null。
  */
-export function passwordViolationsOf(
+export const passwordViolationsOf = (
   error: unknown,
-): PasswordRuleViolation[] | null {
+): PasswordRuleViolation[] | null => {
   if (!(error instanceof ClientError)) {
     return null;
   }
@@ -88,8 +82,7 @@ export function passwordViolationsOf(
     }
   }
   return null;
-}
+};
 
-export function isSessionEndedCode(code: AuthErrorCode | null): boolean {
-  return code !== null && SESSION_ENDED_CODES.has(code);
-}
+export const isSessionEndedCode = (code: AuthErrorCode | null): boolean =>
+  code !== null && SESSION_ENDED_CODES.has(code);

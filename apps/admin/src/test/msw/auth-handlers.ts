@@ -28,16 +28,15 @@ export type AuthErrorCode =
 type ErrorBody = GraphQLResponseBody<Record<string, never>>;
 
 /** 以 GQL-04 形式回業務錯誤:HTTP 200 + `errors[].extensions.code`(`extensions` 可附加如 `violations`)。 */
-export function graphqlError(
+export const graphqlError = (
   code: AuthErrorCode,
   message: string = code,
   extensions: Record<string, unknown> = {},
-) {
-  return HttpResponse.json<ErrorBody>({
+) =>
+  HttpResponse.json<ErrorBody>({
     data: null,
     errors: [{ message, extensions: { ...extensions, code } }],
   });
-}
 
 export type TestModule = MeQuery["me"]["modules"][number];
 export type TestOrg = MeQuery["me"]["orgs"][number];
@@ -68,10 +67,10 @@ export const testUser: MeQuery["me"] = {
   modules: [overviewModule],
 };
 
-export function bearerOf(request: Request): string | null {
+export const bearerOf = (request: Request): string | null => {
   const header = request.headers.get("authorization");
   return header?.startsWith("Bearer ") ? header.slice(7) : null;
-}
+};
 
 export interface AuthWorldOptions {
   /** 一開始就有有效的 refresh cookie(模擬「重新整理頁面」);預設沒有 */
@@ -130,7 +129,7 @@ export const SWITCHED_ACCESS_TOKEN = "access-switched";
  * - ChangePassword:要有效 bearer;目前密碼不對回 CURRENT_PASSWORD_INVALID;成功清 mustChangePassword
  * - Recipes(代表「其他受保護操作」):mustChangePassword 時回 MUST_CHANGE_PASSWORD
  */
-export function authWorld(options: AuthWorldOptions = {}): AuthWorld {
+export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
   const {
     accessToken = "access-1",
     refreshedTokens = ["access-2"],
@@ -294,9 +293,8 @@ export function authWorld(options: AuthWorldOptions = {}): AuthWorld {
   ];
 
   return { handlers, calls, resetRequests };
-}
+};
 
 /** 只要 handler、不需要計數時的簡寫。 */
-export function authHandlers(options: AuthWorldOptions = {}) {
-  return authWorld(options).handlers;
-}
+export const authHandlers = (options: AuthWorldOptions = {}) =>
+  authWorld(options).handlers;

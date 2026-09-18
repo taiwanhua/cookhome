@@ -8,8 +8,8 @@ interface AuthFetchDeps {
 }
 
 /** 記憶體沒有 token 時的 GraphQL 形式錯誤,讓呼叫端(codegen hook)拿到和 api 一樣的 UNAUTHENTICATED。 */
-function unauthenticatedResponse(): Response {
-  return Response.json({
+const unauthenticatedResponse = (): Response =>
+  Response.json({
     data: null,
     errors: [
       {
@@ -18,15 +18,14 @@ function unauthenticatedResponse(): Response {
       },
     ],
   });
-}
 
-async function codeOf(response: Response) {
+const codeOf = async (response: Response) => {
   try {
     return authErrorCodeOfBody(await response.clone().json());
   } catch {
     return null;
   }
-}
+};
 
 /**
  * 受保護請求的 fetch 層(#61 / GQL-04):
@@ -36,12 +35,12 @@ async function codeOf(response: Response) {
  * 4. 回 `UNAUTHENTICATED` / `ACCOUNT_DISABLED` → 清狀態(路由守門會導回 /login?next=…)
  * 5. 回 `MUST_CHANGE_PASSWORD` → 在 store 立旗(路由守門會導去 /change-password?next=…);回應原樣交回呼叫端
  */
-export function createAuthFetch({
+export const createAuthFetch = ({
   store,
   refresh,
-}: AuthFetchDeps): typeof fetch {
+}: AuthFetchDeps): typeof fetch => {
   const ensureToken = async (): Promise<string | null> => {
-    const { accessToken } = store.getSnapshot();
+    const { accessToken } = store.getState();
     if (accessToken !== null) {
       return accessToken;
     }
@@ -54,7 +53,7 @@ export function createAuthFetch({
 
   /** 換票時若別的請求已經換過(token 已不同),直接沿用新票,不再打第二次 refresh */
   const refreshIfStale = async (usedToken: string): Promise<string | null> => {
-    const current = store.getSnapshot().accessToken;
+    const current = store.getState().accessToken;
     if (current !== null && current !== usedToken) {
       return current;
     }
@@ -90,10 +89,10 @@ export function createAuthFetch({
     }
 
     if (isSessionEndedCode(code)) {
-      store.clear();
+      store.getState().clear();
     } else if (code === "MUST_CHANGE_PASSWORD") {
-      store.setMustChangePassword(true);
+      store.getState().setMustChangePassword(true);
     }
     return response;
   };
-}
+};
