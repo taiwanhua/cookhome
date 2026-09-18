@@ -6,5 +6,5 @@
 - **資料**:`users`、`core_relationships`(org_user、user_role)
 - **清單範圍**:查詢組織子樹 ∩ 操作者可見組織集;組織樹以租戶頂層為根,範圍外節點 disabled
 - **移除所屬組織**:radio 三檔 + dry-run,規則見 ADR-0003;角色欄以「組織外」標示失去擁有組織子樹支撐的角色授予(UI 文案用白話;樣式見 Figma)
-- **密碼流程**:「設定新密碼」頁共用三入口 — 啟用信(7 天)、重設信(30 分鐘)、首登強改(mustChangePassword);連結失效頁導向忘記密碼自助;`action_tokens` 見 ADR-0009/0010
+- **密碼流程**(api 已落地,第 2 段 #64):「設定新密碼」頁共用三入口 — 啟用信(7 天,`PasswordService.sendActivationEmail`,由本模組新增使用者與開通租戶時呼叫)、重設信(30 分鐘,`requestPasswordReset`)、首登強改(`mustChangePassword` → `changePassword`);啟用與重設都走同一個 `setPassword(input: { token, newPassword })`,成功直接發登入 token;連結失效(`ACTION_TOKEN_INVALID`)頁導向忘記密碼自助;`action_tokens` 見 ADR-0009/0010
 - **使用者說明**:[system.user-manager.help.md](../../apps/admin/src/md/module-help/system.user-manager.help.md)
