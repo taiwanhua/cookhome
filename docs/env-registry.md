@@ -13,7 +13,7 @@ Secret 命名:三環境各一份 `<名稱>-dev` / `<名稱>-staging` / `<名稱>
 | `MONGODB_URI` | DB 連線(含帳密) | api runtime、db-migrator(deploy.yml 的 migrate → seed 步驟)、CI 測試 | `mongodb+srv://…/<db>` | `mongodb-uri*` / Cloud Run compute SA + `github-deployer` SA | 已設、已接線 |
 | `FIELD_ENCRYPTION_KEY` | 欄位級加密金鑰(ADR-0007;nationalId) | api runtime(用到加密欄位時) | 32 bytes 的 base64 | `field-encryption-key*` / Cloud Run compute SA | 已設、已接線(deploy.yml `--set-secrets`) |
 | `ROOT_ADMIN_PASSWORD` | seed 建立首個超管的初始密碼(ADR-0002;只在帳號不存在時用) | db-migrator seed(deploy.yml 步驟) | 字串 | `root-admin-password*` / `github-deployer` SA | 已設、已接線 |
-| `JWT_SECRET` | access token HS256 簽章(ADR-0003);**唯一沒有內建預設值的變數,缺少即 api 啟動失敗**(本地見 `apps/api/.env.example`;CI 在 ci.yml 給假值) | api runtime | 32 bytes 的 base64 | `jwt-secret*` / Cloud Run compute SA | 程式已讀取(#62);Secret 建立與 deploy.yml `--set-secrets` 接線屬登入線8 |
+| `JWT_SECRET` | access token HS256 簽章(ADR-0003);**唯一沒有內建預設值的變數,缺少即 api 啟動失敗**(本地見 `apps/api/.env.example`;CI 在 ci.yml 給假值) | api runtime | 32 bytes 的 base64 | `jwt-secret*` / Cloud Run compute SA | 已設(2026-09-18)、已接線(deploy.yml `--set-secrets`,隨 #62 一起) |
 | `RESEND_API_KEY` | 寄交易信(ADR-0010) | api runtime | Resend 後台產生 | `resend-api-key*` / Cloud Run compute SA | 第 2 段(#64 前建立;需先完成 Resend 網域驗證) |
 
 ## 非機密(雲端:`deploy/env/<環境>.yaml`;本地:`.env`)

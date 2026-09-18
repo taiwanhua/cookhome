@@ -1,5 +1,7 @@
+import { randomBytes } from "node:crypto";
+
 import { Injectable } from "@nestjs/common";
-import { verify as verifyPassword } from "@node-rs/argon2";
+import { hashSync, verify as verifyPassword } from "@node-rs/argon2";
 import type { Types } from "mongoose";
 
 import {
@@ -31,6 +33,14 @@ function asAccount(userId: Types.ObjectId): OperatorContext {
   return { actorId: userId, currentOrgId: null, visibleOrgIds: "all" };
 }
 
+/**
+ * 帳號不存在時拿來「假驗證」的雜湊(每次啟動隨機產生,永遠驗不過)。
+ * 目的:讓「帳號不存在」與「帳號存在但密碼錯」花一樣久 — argon2 刻意很慢(約百毫秒),
+ * 若不存在的帳號直接回錯,攻擊者用回應時間就能分辨帳號是否存在(時間側信道枚舉帳號),
+ * 即使錯誤訊息相同也一樣。詳見 ADR-0003「登入」。
+ */
+const DUMMY_PASSWORD_HASH = hashSync(randomBytes(32).toString("hex"));
+
 /** 查使用者 / 定位 refresh token 用:兩張表都不受租戶過濾,可見範圍在此無作用。 */
 const LOOKUP: OperatorContext = {
   actorId: null,
@@ -60,8 +70,11 @@ export class AuthService {
       );
     }
     const user = await this.users.findOne(LOOKUP, { account });
-    const isPasswordValid =
-      user !== null && (await verifyPassword(user.passwordHash, password));
+    // 帳號不存在也跑一次 argon2(對假雜湊),與「存在但密碼錯」耗時相同 — 見 DUMMY_PASSWORD_HASH 說明
+    const isPasswordValid = await verifyPassword(
+      user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+      password,
+    );
     if (!user || !isPasswordValid) {
       this.throttle.recordFailure(account);
       throw authError("INVALID_CREDENTIALS", "Invalid account or password");
