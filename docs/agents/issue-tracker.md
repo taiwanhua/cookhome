@@ -72,7 +72,7 @@ Spec issue 不上板(看板只放票);staging 的 PR 內文也要含 `Closes #<�
 
 **自動化**(`.github/workflows/project-status.yml`):issue opened → 入板 Backlog;issue closed → Released(not planned → Won't Do);PR 開啟(目標 dev)→ In Review;PR 合 dev → Dev 驗證中;PR 合 staging → Staging 驗證中。其餘欄位手動移卡。
 
-**生效條件(兩個都要滿足才算真的自動)**:①repo secret `GH_PROJECT_TOKEN`(PAT classic 勾 project scope)已設;②**`issues` 事件的 workflow 只從預設分支(main)版本觸發** — 所以此檔必須進到 `main`(release 時才會),在那之前 issue 開關的自動移卡不會跑;`pull_request` 事件用 base 分支版本,合進 dev 後對 dev 的 PR 可觸發但仍需 secret。**結論:未同時滿足前,一律手動移卡**(指令見上)。
+**已全部生效(2026-09-19 確認)**:secret `GH_PROJECT_TOKEN` 已設、workflow 已在 `main`,所以 PR 開啟 / 合 dev / 合 staging、issue 開啟 / 關閉都會自動移卡(PR 內文 `Closes #n` 的票在 release 進 main 時由 GitHub 自動關閉、再由自動化移到 Released)。**仍要手動的只有三格**:Ready(blocker 關閉時)、Dev 通過、Staging 通過(QA 者)。
 
 **手動移卡指令**(Project #3,owner taiwanhua):
 
@@ -81,7 +81,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 ```
 
 - `--project-id` 是 `PVT_kwHOAeiiKc4BjXhz`(整行單行,不要斷行 — PowerShell 沒有 `\` 續行)
-- ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json --limit 200` 依 issue 號查(預設只回 30 筆,新票不在裡面)
+- ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json --limit 200 --jq '.items[] | select(.content.number==<票號>) | .id'`(預設只回 30 筆,新票不在裡面;`--jq` 直接取 id)
 - OPTION_ID:Backlog=`2882aeb7` Ready=`e053bab2` In Progress=`5adedc57` In Review=`43e18a1a` Dev驗證中=`0eaa8179` Dev通過=`cc87d3d5` Staging驗證中=`e94980d1` Staging通過=`45c49925` Released=`e3445e43` Won't Do=`b6b968cd`
 
 **Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。
