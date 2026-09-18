@@ -6,8 +6,8 @@
  * - 子模組 key 必須以父模組 key +「.」為前綴(key 累加父 key,2026-09-17 定案)
  * - 權限 key = 擁有模組 key(moduleId 指向者)+「.」+ 動作;動作恆為單段,`*` 是唯一特殊動作
  * - 每個模組必有且只有一筆 wildcard `<key>.*`(wildcard 只代表該模組自己這一層,含群組、隱藏頁、api 樹)
- * - 隱藏頁(sidebarType=hidden)模組 key 一律 `-page` 結尾,其他型別不得;權限動作禁用 `-page` 結尾;
- *   隱藏的 `api` 模組子樹整體豁免(不是頁面)
+ * - `-page` 結尾 ⇔ 隱藏頁(sidebarType=hidden **且有 route**);權限動作禁用 `-page` 結尾。
+ *   無 route 的隱藏節點不是頁面、只是權限容器(`api` 樹、`system.org-manager.tenant-ops`),兩邊都豁免
  * - key 全域唯一;parentId / moduleId 指向的模組必須已宣告(且先宣告,runner 依序解析)
  */
 import {
@@ -20,18 +20,14 @@ export const MODULES_COLLECTION = "modules";
 export const PERMISSIONS_COLLECTION = "permissions";
 
 /**
- * 隱藏的純 API 模組樹根(ADR-0004「API 權限」):不在側欄、也不是頁面,
- * 整棵子樹豁免「hidden 一律 `-page` 結尾」規則。
+ * 隱藏的純 API 模組樹根(ADR-0004「API 權限」):不在側欄、也不是頁面(無 route),
+ * 故豁免「hidden 一律 `-page` 結尾」規則(判準是無 route,不是這個 key)。
  */
 export const API_MODULE_KEY = "api";
 
 const KEBAB_SEGMENT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const WILDCARD_ACTION = "*";
 const HIDDEN_PAGE_SUFFIX = "-page";
-
-function isInApiTree(key: string): boolean {
-  return key === API_MODULE_KEY || key.startsWith(`${API_MODULE_KEY}.`);
-}
 
 function isKebabPath(key: string, allowWildcardAction: boolean): boolean {
   const segments = key.split(".");
@@ -87,16 +83,22 @@ function moduleKeyViolations(
   return violations;
 }
 
-/** 隱藏頁 ⇔ `-page` 結尾(api 子樹豁免)。 */
+/**
+ * `-page` 結尾 ⇔ 隱藏頁(hidden 且有 route)。
+ * 無 route 的隱藏節點不是頁面、只是權限容器(`api` 樹、`system.org-manager.tenant-ops`),兩邊都豁免。
+ */
 function hiddenPageViolations({ key, data }: SeedDocument): string[] {
-  const isHidden = data.sidebarType === "hidden";
+  const isHiddenPage =
+    data.sidebarType === "hidden" &&
+    typeof data.route === "string" &&
+    data.route !== "";
   const endsWithPage = key.endsWith(HIDDEN_PAGE_SUFFIX);
-  if (isHidden && !endsWithPage && !isInApiTree(key)) {
+  if (isHiddenPage && !endsWithPage) {
     return [`模組 ${key}:隱藏頁模組 key 一律以 ${HIDDEN_PAGE_SUFFIX} 結尾`];
   }
-  if (!isHidden && endsWithPage) {
+  if (!isHiddenPage && endsWithPage) {
     return [
-      `模組 ${key}:只有隱藏頁(sidebarType=hidden)可以 ${HIDDEN_PAGE_SUFFIX} 結尾`,
+      `模組 ${key}:只有隱藏頁(sidebarType=hidden 且有 route)可以 ${HIDDEN_PAGE_SUFFIX} 結尾`,
     ];
   }
   return [];

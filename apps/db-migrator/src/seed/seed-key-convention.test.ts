@@ -19,10 +19,12 @@ function registryOf(
   ];
 }
 
+/** 頁面節點(有 route,預設取 key 末段);`route: null` 代表非頁面的權限容器(api 樹、tenant-ops)。 */
 function moduleNode(
   key: string,
   sidebarType: "group" | "link" | "hidden",
   parentKey: string | null = null,
+  route: string | null = key.split(".").at(-1) ?? key,
 ): SeedDocument {
   return {
     key,
@@ -30,6 +32,7 @@ function moduleNode(
       name: key,
       sidebarType,
       parentId: parentKey === null ? null : seedRef("modules", parentKey),
+      ...(route === null ? {} : { route }),
     },
   };
 }
@@ -108,7 +111,7 @@ describe("種子權限 key 規約(ADR-0004;純函式全掃種子宣告)", () => 
     ]);
   });
 
-  it("隱藏頁模組 key 一律以 -page 結尾,其他側欄型別不得以 -page 結尾", () => {
+  it("隱藏頁(有 route)模組 key 一律以 -page 結尾,其他側欄型別不得以 -page 結尾", () => {
     const extra = [
       moduleNode("demo.sub.sample-one.view", "hidden", "demo.sub.sample-one"),
       moduleNode("demo.list-page", "link", "demo"),
@@ -128,10 +131,10 @@ describe("種子權限 key 規約(ADR-0004;純函式全掃種子宣告)", () => 
     ]);
   });
 
-  it("隱藏的 api 模組子樹整體豁免 -page 規則(不是頁面,ADR-0004「API 權限」)", () => {
+  it("無 route 的隱藏節點不是頁面,豁免 -page 規則(api 樹,ADR-0004「API 權限」)", () => {
     const apiTree = [
-      moduleNode("api", "hidden"),
-      moduleNode("api.export", "hidden", "api"),
+      moduleNode("api", "hidden", null, null),
+      moduleNode("api.export", "hidden", "api", null),
     ];
     const violations = findSeedKeyViolations(
       registryOf(
@@ -140,6 +143,44 @@ describe("種子權限 key 規約(ADR-0004;純函式全掃種子宣告)", () => 
       ),
     );
     expect(violations).toEqual([]);
+  });
+
+  it("無 route 的隱藏節點也可掛在頁面模組底下當純權限容器(system.org-manager.tenant-ops)", () => {
+    const container = moduleNode(
+      "demo.sub.sample-one.owner-ops",
+      "hidden",
+      "demo.sub.sample-one",
+      null,
+    );
+    const violations = findSeedKeyViolations(
+      registryOf(
+        [...demoTree, container],
+        [
+          ...demoWildcards,
+          permission(`${container.key}.*`, container.key),
+          permission("demo.sub.sample-one.owner-ops.provision", container.key),
+        ],
+      ),
+    );
+    expect(violations).toEqual([]);
+  });
+
+  it("非頁面節點(無 route)不得以 -page 結尾(-page 專屬於隱藏頁)", () => {
+    const fake = moduleNode(
+      "demo.sub.sample-one.ghost-page",
+      "hidden",
+      "demo.sub.sample-one",
+      null,
+    );
+    const violations = findSeedKeyViolations(
+      registryOf(
+        [...demoTree, fake],
+        [...demoWildcards, permission(`${fake.key}.*`, fake.key)],
+      ),
+    );
+    expect(violations).toEqual([
+      expect.stringContaining("demo.sub.sample-one.ghost-page"),
+    ]);
   });
 
   it("子模組 key 必須以父模組 key + 「.」為前綴(D1:key 累加父 key)", () => {
@@ -219,7 +260,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(findSeedKeyViolations(seedRegistry)).toEqual([]);
   });
 
-  it("示範家族依正本落地:10 個模組節點、12 筆個別權限;全部 19 個模組各一筆 wildcard(共 31 筆)", () => {
+  it("示範家族與兩個治理模組依正本落地:個別權限 12 + 9 + 8 = 29 筆;全部 20 個模組各一筆 wildcard(共 49 筆)", () => {
     const documentSets = seedRegistry.filter((set) => set.kind === "documents");
     const moduleKeys = documentSets
       .filter((set) => set.collection === "modules")
@@ -242,9 +283,9 @@ describe("seeds/registry.ts 靜態檢查", () => {
       "demo.sample-two.edit-page",
     ]);
 
-    // 正本:兩份權限表的個別權限(7 + 5);權限只種示範家族(#29 留言定案)
+    // 正本:示範家族兩份權限表(7 + 5)+ docs/modules/org-manager.md(9)、user-manager.md(8)
     const individualKeys = permissionKeys.filter((key) => !key.endsWith(".*"));
-    expect(individualKeys).toHaveLength(12);
+    expect(individualKeys).toHaveLength(29);
     expect(new Set(individualKeys)).toEqual(
       new Set([
         "demo.sub.sample-one.view",
@@ -259,20 +300,38 @@ describe("seeds/registry.ts 靜態檢查", () => {
         "demo.sample-two.create",
         "demo.sample-two.edit",
         "demo.sample-two.delete",
+        "system.org-manager.view",
+        "system.org-manager.create-child",
+        "system.org-manager.edit",
+        "system.org-manager.toggle-enabled",
+        "system.org-manager.move",
+        "system.org-manager.delete",
+        "system.org-manager.tenant-ops.provision",
+        "system.org-manager.tenant-ops.transfer-owner",
+        "system.org-manager.tenant-ops.set-visibility",
+        "system.user-manager.view",
+        "system.user-manager.create",
+        "system.user-manager.edit",
+        "system.user-manager.toggle-enabled",
+        "system.user-manager.manage-orgs",
+        "system.user-manager.assign-roles",
+        "system.user-manager.show-national-id",
+        "system.user-manager.edit-national-id",
       ]),
     );
 
     // 每個模組各一筆 `<key>.*`(D3:wildcard 只代表該模組自己這一層)
-    expect(moduleKeys).toHaveLength(19);
+    expect(moduleKeys).toHaveLength(20);
     expect(new Set(permissionKeys.filter((key) => key.endsWith(".*")))).toEqual(
       new Set(moduleKeys.map((key) => `${key}.*`)),
     );
-    expect(permissionKeys).toHaveLength(31);
+    expect(permissionKeys).toHaveLength(49);
 
-    // D1:治理模組 key 累加 system 群組前綴
+    // D1:治理模組 key 累加 system 群組前綴;tenant-ops 是組織管理底下的純權限容器
     expect(moduleKeys.filter((key) => key.startsWith("system"))).toEqual([
       "system",
       "system.org-manager",
+      "system.org-manager.tenant-ops",
       "system.user-manager",
       "system.role-manager",
       "system.module-manager",

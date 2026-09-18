@@ -1,5 +1,10 @@
+/* eslint-disable unicorn/no-this-outside-of-class -- Mongoose 中介層以 this 接收 Document,無參數式替代;到期條件:Mongoose 提供以參數傳入的中介層 API */
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Schema as MongooseSchema, Types } from "mongoose";
+import {
+  type MongooseQueryMiddleware,
+  Schema as MongooseSchema,
+  Types,
+} from "mongoose";
 
 import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
@@ -46,6 +51,40 @@ export const AuditLogSchema = SchemaFactory.createForClass(AuditLog);
 
 AuditLogSchema.index({ orgId: 1, createdAt: 1 });
 AuditLogSchema.index({ targetType: 1, targetId: 1 });
+
+/** 稽核紀錄被嘗試更新 / 刪除時拋出;屬程式錯誤(只增不改是不變量),不是使用者錯誤。 */
+export class AuditLogImmutableError extends Error {
+  override name = "AuditLogImmutableError";
+}
+
+/** 會改動既有文件的查詢中介層:全部封死(建立走 `save`,不在此列)。 */
+const MUTATING_QUERY_MIDDLEWARE = [
+  "updateOne",
+  "updateMany",
+  "replaceOne",
+  "findOneAndUpdate",
+  "findOneAndReplace",
+  "findOneAndDelete",
+  "deleteOne",
+  "deleteMany",
+] as const satisfies readonly MongooseQueryMiddleware[];
+
+// 只增不改(ADR-0004):不變量掛在 schema 上,任何入口(含 BaseRepository 的
+// updateById / updateMany / softDeleteById)都改不動已寫入的稽核紀錄;軟刪除也不行。
+AuditLogSchema.pre([...MUTATING_QUERY_MIDDLEWARE], () => {
+  throw new AuditLogImmutableError(
+    "audit_logs 只增不改(ADR-0004):稽核紀錄不可更新或刪除",
+  );
+});
+
+AuditLogSchema.pre("save", function () {
+  if (!this.isNew) {
+    throw new AuditLogImmutableError(
+      "audit_logs 只增不改(ADR-0004):已寫入的稽核紀錄不可再存檔",
+    );
+  }
+});
+
 // 基礎欄位(ADR-0007)+ 動作發生的組織脈絡 = 租戶資料:查詢限縮在操作者可見組織內(ADR-0005)
 AuditLogSchema.plugin(baseFieldsPlugin);
 AuditLogSchema.plugin(tenantScopePlugin);
