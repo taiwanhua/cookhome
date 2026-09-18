@@ -118,11 +118,16 @@ describe("模組陣列 → 側欄樹(ADR-0011「前端判斷」:以 parentId 組
     expect(keys.has("demo.sample-two")).toBe(true);
   });
 
-  it("firstLinkRoute:群組本身不是頁面,回它底下第一個可進入的 link 路由", () => {
+  it("firstLinkRoute:側欄順序深度優先第一個 link — `/` 用整棵樹、群組路由用該群組的子樹,同一個函式", () => {
     const tree = buildNavTree(modules);
-    expect(firstLinkRoute(tree[0])).toBe("/system/org-manager");
-    expect(firstLinkRoute(tree[1])).toBe("/demo/sample-two");
-    expect(firstLinkRoute(buildNavTree([system])[0])).toBeNull();
+    // `/`:整棵樹第一個 link(第一個頂層是「系統管理」群組 → 鑽進去)
+    expect(firstLinkRoute(tree)).toBe("/system/org-manager");
+    // 群組路由:該群組的子樹
+    expect(firstLinkRoute(tree[0]?.children ?? [])).toBe("/system/org-manager");
+    expect(firstLinkRoute(tree[1]?.children ?? [])).toBe("/demo/sample-two");
+    // 只有空群組 → 一個都沒有
+    expect(firstLinkRoute(buildNavTree([system]))).toBeNull();
+    expect(firstLinkRoute([])).toBeNull();
   });
 });
 

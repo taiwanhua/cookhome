@@ -3,16 +3,19 @@ import { useTranslations } from "use-intl";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { useShellOutlet } from "../shell/shell-context";
+import { useMe } from "../auth/use-me";
 
 /**
- * 總覽(首頁)佔位:顯示使用者名稱與當前組織,驗證整條登入線(#65);
- * 殼(側欄 / AppBar / 登出)由登入線5 提供,`me` 由殼載入後經 outlet context 傳入。
+ * 總覽(模組 key `overview`,正本 docs/modules/overview.md):登入後的第一頁。
+ * 本輪只有佔位內容(問候 + 當前組織,沿用 #65 的驗證頁);統計卡等實際內容待後續票。
  */
-export function HomePage() {
+export function OverviewPage() {
   const t = useTranslations("admin.session");
-  const { me } = useShellOutlet();
-  const { name, currentOrg } = me;
+  const me = useMe();
+  if (me.data === undefined) {
+    return null;
+  }
+  const { name, currentOrg } = me.data.me;
 
   return (
     <Stack spacing={2}>

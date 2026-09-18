@@ -76,7 +76,6 @@
   },
   "shell": {
     "sideNav": "Main navigation",
-    "home": "Overview",
     "currentOrg": "Current organization",
     "userMenu": "User menu",
     "placeholder": {
@@ -85,7 +84,7 @@
     "forbidden": {
       "title": "You do not have access to this page",
       "body": "Your current role does not include this page. Contact the system administrator if you need it.",
-      "backHome": "Back to overview"
+      "backHome": "Back to home"
     }
   }
 }

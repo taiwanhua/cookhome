@@ -1,6 +1,6 @@
 import { ModuleSidebarType } from "@repo/graphql";
 
-import type { TestModule } from "./auth-handlers";
+import { type TestModule, overviewModule } from "./auth-handlers";
 
 /**
  * 與 `apps/db-migrator/seeds/modules/*` 同形的模組陣列(ADR-0011 步驟 7 的輸出形狀:
@@ -182,9 +182,10 @@ export const apiModules: TestModule[] = [
   hidden("m-api", "api", "API 能力", null, 99, null),
 ];
 
-/** 超級管理員看到的全部:系統管理六項 + 示範家族 + api 樹。 */
+/** 超級管理員看到的全部:總覽 + 系統管理六項 + 示範家族 + api 樹。 */
 export const superAdminModules: TestModule[] = [
   ...apiModules,
+  overviewModule,
   ...sampleOneModules,
   ...systemModules,
   ...sampleTwoModules,

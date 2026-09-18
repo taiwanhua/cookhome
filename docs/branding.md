@@ -18,7 +18,7 @@
 | `packages/i18n/messages/*/common.json` `brand` | 「CookHome」(admin 登入頁 LoginCard 品牌名、footer 的 {brand}) | 改兩語系的值 |
 | `packages/i18n/messages/*/admin.json` `login.subtitle` / `login.footer` | 「後台管理系統」/「© {year} {brand} · 僅供授權人員使用」(對應 Figma LoginCard 17:8 / 17:26,#65) | 改兩語系的值 |
 | `packages/i18n/messages/*/admin.json` `app.subtitle` | 「後台管理」(SideNav 頂部組織名稱下方的副標,對應 Figma AdminSideNav 25:43,#66) | 改兩語系的值 |
-| `apps/admin/src/features/shell/side-nav.tsx` | SideNav 頂部顯示**當前組織名稱**(資料,`me.currentOrg.name`;無當前組織時退回 `common.brand`);商標圖槽位(Figma 120:50)保留註解、第 3 段接 StorageService 簽名讀取(#66) | 顯圖時在此接 `orgs.logoPath` |
+| `apps/admin/src/features/shell/side-nav.tsx` | SideNav 頂部顯示**當前組織名稱**(資料,`me.currentOrg.name`;無當前組織時退回 `common.brand`);商標圖槽位(Figma 120:50)保留註解、第 3 段接 StorageService 簽名讀取(#66);側欄第一列「總覽」是模組 `overview`(seed),不是品牌文字 | 顯圖時在此接 `orgs.logoPath` |
 | `apps/admin/src/lib/auth/session-channel.ts` | BroadcastChannel 名稱 `cookhome-admin-session`(分頁登出同步) | 換品牌 slug |
 | 各 app metadata title / favicon(front) | (實作畫面時逐一登記於此) | — |
 

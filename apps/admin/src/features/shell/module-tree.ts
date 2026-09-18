@@ -77,16 +77,16 @@ export function findNavNode(
   return undefined;
 }
 
-/** 群組不是頁面:點群組時要去的地方 = 它底下(深度優先)第一個 link 的路由;沒有則 null。 */
-export function firstLinkRoute(node: NavNode | undefined): string | null {
-  if (node === undefined) {
-    return null;
-  }
-  if (node.module.sidebarType === ModuleSidebarType.Link) {
-    return node.module.route ?? null;
-  }
-  for (const child of node.children) {
-    const route = firstLinkRoute(child);
+/**
+ * 「側欄第一個能進的頁」(ADR-0011「路由與導向規則」):依側欄順序深度優先,第一個 link 模組的路由;沒有則 null。
+ * `/` 用整棵樹呼叫、群組路由用該群組的 children 呼叫 — 同一條規則。
+ */
+export function firstLinkRoute(nodes: readonly NavNode[]): string | null {
+  for (const node of nodes) {
+    if (node.module.sidebarType === ModuleSidebarType.Link) {
+      return node.module.route ?? null;
+    }
+    const route = firstLinkRoute(node.children);
     if (route !== null) {
       return route;
     }

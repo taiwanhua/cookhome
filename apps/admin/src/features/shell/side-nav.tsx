@@ -145,7 +145,8 @@ function NavNodes({ nodes, currentPath }: Readonly<NavNodesProps>) {
 }
 
 /**
- * 後台側欄(Figma Draft/AdminSideNav 30:52):頂部租戶識別 + 固定的「總覽」+ 模組樹。
+ * 後台側欄(Figma Draft/AdminSideNav 30:52):頂部租戶識別 + 模組樹。
+ * Figma 第一列的「總覽」是模組(key `overview`,seeds/modules/overview.ts),和其他模組一樣從 `me.modules` 長出來、受權限過濾,不是固定列。
  * 商標槽位(Figma logoImg 120:50)本段保留不顯圖:`orgs.logoPath` 顯圖需 StorageService 簽名讀取(ADR-0010),屬第 3 段。
  */
 export function SideNav({
@@ -180,11 +181,6 @@ export function SideNav({
         </Typography>
       </Stack>
       <List component="div" disablePadding sx={{ display: "grid", gap: 0.5 }}>
-        <NavLinkItem
-          to="/"
-          label={t("home")}
-          isSelected={currentPath === "/"}
-        />
         <NavNodes nodes={tree} currentPath={currentPath} />
       </List>
     </Box>

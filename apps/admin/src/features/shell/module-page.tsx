@@ -5,7 +5,7 @@ import { Typography } from "@repo/ui/typography";
 
 import type { ShellModule } from "./module-tree";
 
-interface ModulePageProps {
+export interface ModulePageProps {
   module: ShellModule;
 }
 

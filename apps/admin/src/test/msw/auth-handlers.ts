@@ -1,9 +1,10 @@
 import { type GraphQLResponseBody, HttpResponse } from "msw";
 
 import { validatePassword } from "@repo/domain/password";
-import type {
-  ChangePasswordMutationVariables,
+import {
+  type ChangePasswordMutationVariables,
   MeQuery,
+  ModuleSidebarType,
   RequestPasswordResetMutationVariables,
   SetPasswordMutationVariables,
   SwitchOrgMutationVariables,
@@ -43,6 +44,18 @@ export type TestOrg = MeQuery["me"]["orgs"][number];
 
 export const testOrg: TestOrg = { id: "org-1", name: "CookHome" };
 
+/** 總覽模組(seeds/modules/overview.ts):登入後的第一頁;預設每個測試使用者都有它 */
+export const overviewModule: TestModule = {
+  id: "m-overview",
+  key: "overview",
+  name: "總覽",
+  parentId: null,
+  sidebarType: ModuleSidebarType.Link,
+  order: 0,
+  route: "/overview",
+  permissions: ["overview.*"],
+};
+
 export const testUser: MeQuery["me"] = {
   id: "user-1",
   account: "root",
@@ -52,7 +65,7 @@ export const testUser: MeQuery["me"] = {
   mustChangePassword: false,
   currentOrg: testOrg,
   orgs: [testOrg],
-  modules: [],
+  modules: [overviewModule],
 };
 
 export function bearerOf(request: Request): string | null {
@@ -69,7 +82,7 @@ export interface AuthWorldOptions {
   refreshedTokens?: string[];
   /** 帶這些 token 的受保護請求回 TOKEN_EXPIRED */
   expiredTokens?: string[];
-  /** `me.modules`(預設空) */
+  /** `me.modules`(預設只有總覽) */
   modules?: TestModule[];
   /** 所屬組織清單(預設只有 CookHome);當前組織預設 = 第一個(#66 組織切換器) */
   orgs?: TestOrg[];
@@ -122,7 +135,7 @@ export function authWorld(options: AuthWorldOptions = {}): AuthWorld {
     accessToken = "access-1",
     refreshedTokens = ["access-2"],
     expiredTokens = [],
-    modules = [],
+    modules = [overviewModule],
     orgs = [testOrg],
     currentPassword = "secret-1234",
     validActionTokens = ["token-1"],

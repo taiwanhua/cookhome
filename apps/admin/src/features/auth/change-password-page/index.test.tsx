@@ -33,11 +33,11 @@ describe("改密碼頁(/change-password;首登強改)", () => {
       mustChangePassword: true,
     });
     server.use(...world.handlers);
-    const { user } = renderApp({ path: "/?tab=recipes" });
+    const { user } = renderApp({ path: "/overview?tab=recipes" });
 
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent(
-        "/change-password?next=%2F%3Ftab%3Drecipes",
+        "/change-password?next=%2Foverview%3Ftab%3Drecipes",
       );
     });
     expect(screen.getByText(/首次登入請先變更密碼/)).toBeInTheDocument();
@@ -45,7 +45,9 @@ describe("改密碼頁(/change-password;首登強改)", () => {
     await fillAndSubmit(user, "secret-1234");
 
     expect(await screen.findByText("小華,你好")).toBeInTheDocument();
-    expect(screen.getByTestId("location")).toHaveTextContent("/?tab=recipes");
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/overview?tab=recipes",
+    );
     expect(world.calls.changePassword).toBe(1);
   });
 

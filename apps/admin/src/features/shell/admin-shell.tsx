@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Outlet, useLocation } from "react-router";
 import { useTranslations } from "use-intl";
 
+import type { MeQuery } from "@repo/graphql";
 import { Box } from "@repo/ui/box";
 import { Typography } from "@repo/ui/typography";
 
@@ -12,7 +13,6 @@ import {
   enterableRouteMap,
   normalizePathname,
 } from "./module-tree";
-import type { ShellOutletContext } from "./shell-context";
 import { SideNav } from "./side-nav";
 
 /**
@@ -37,7 +37,7 @@ export function AdminShell() {
   return <ShellLayout me={me.data.me} />;
 }
 
-function ShellLayout({ me }: Readonly<ShellOutletContext>) {
+function ShellLayout({ me }: Readonly<{ me: MeQuery["me"] }>) {
   const t = useTranslations("admin.shell");
   const tCommon = useTranslations("common");
   const { pathname } = useLocation();
@@ -47,9 +47,9 @@ function ShellLayout({ me }: Readonly<ShellOutletContext>) {
   const routes = useMemo(() => enterableRouteMap(modules), [modules]);
 
   const path = normalizePathname(pathname);
+  // `/` 與群組路由會立刻轉走(ModuleRoute),標題留空不閃「無權限」
   const title =
-    path === "/" ? t("home") : (routes.get(path)?.name ?? t("forbidden.title"));
-  const outletContext: ShellOutletContext = useMemo(() => ({ me }), [me]);
+    routes.get(path)?.name ?? (path === "/" ? "" : t("forbidden.title"));
 
   return (
     <Box
@@ -75,7 +75,7 @@ function ShellLayout({ me }: Readonly<ShellOutletContext>) {
         <ShellAppBar me={me} title={title} />
         {/* RouteTabs 掛載點(登入線6 #67):<RouteTabs /> 放這裡 — AppBar 之下、內容區之上(Figma 34:33) */}
         <Box component="main" sx={{ flex: 1, p: 4 }}>
-          <Outlet context={outletContext} />
+          <Outlet />
         </Box>
       </Box>
     </Box>
