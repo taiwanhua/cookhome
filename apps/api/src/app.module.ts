@@ -7,6 +7,8 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { GraphQLModule } from "@nestjs/graphql";
 import { MongooseModule } from "@nestjs/mongoose";
 
+import { AuthModule } from "./auth/auth.module";
+import type { GraphqlContext } from "./auth/request-context";
 import { RecipesModule } from "./recipes/recipes.module";
 
 // GraphQL Sandbox 開關:本地開發(NODE_ENV 非 production)預設開;
@@ -32,10 +34,13 @@ const isSandboxEnabled =
       sortSchema: true,
       introspection: isSandboxEnabled,
       playground: false,
+      // 登入守門讀 Authorization 標頭、refresh cookie 讀寫都要拿到 Express 的 req / res
+      context: ({ req, res }: GraphqlContext): GraphqlContext => ({ req, res }),
       plugins: isSandboxEnabled
         ? [ApolloServerPluginLandingPageLocalDefault({ embed: true })]
         : [],
     }),
+    AuthModule,
     RecipesModule,
   ],
 })

@@ -28,11 +28,53 @@ input IngredientInput {
   name: String!
 }
 
+input LoginInput {
+  account: String!
+  password: String!
+}
+
+type LoginPayload {
+  accessToken: String!
+}
+
+type LogoutAllDevicesPayload {
+  success: Boolean!
+}
+
+type LogoutPayload {
+  success: Boolean!
+}
+
+type Me {
+  account: String!
+  address: String
+  currentOrg: MeOrg
+  email: String!
+  gender: String
+  id: ID!
+  mustChangePassword: Boolean!
+  name: String!
+  nickname: String
+  orgs: [MeOrg!]!
+  phone: String
+}
+
+type MeOrg {
+  id: ID!
+  name: String!
+}
+
 type Mutation {
   createRecipe(input: CreateRecipeInput!): Recipe!
+  login(input: LoginInput!): LoginPayload!
+  logout: LogoutPayload!
+  logoutAllDevices: LogoutAllDevicesPayload!
+  refresh: RefreshPayload!
+  switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
 }
 
 type Query {
+  me: Me!
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
 }
@@ -49,4 +91,16 @@ type Recipe {
   tags: [String!]!
   title: String!
   updatedAt: DateTime!
+}
+
+type RefreshPayload {
+  accessToken: String!
+}
+
+input SwitchOrgInput {
+  orgId: ID!
+}
+
+type SwitchOrgPayload {
+  accessToken: String!
 }

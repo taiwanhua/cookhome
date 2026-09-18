@@ -50,6 +50,7 @@ jobs:
               echo "secret=mongodb-uri-dev" >> "$GITHUB_OUTPUT"
               echo "enc_secret=field-encryption-key-dev" >> "$GITHUB_OUTPUT"
               echo "root_secret=root-admin-password-dev" >> "$GITHUB_OUTPUT"
+              echo "jwt_secret=jwt-secret-dev" >> "$GITHUB_OUTPUT"
               echo "sandbox=true" >> "$GITHUB_OUTPUT"
               echo "api_url=https://api-dev.cookhome.online" >> "$GITHUB_OUTPUT"
               ;;
@@ -58,6 +59,7 @@ jobs:
               echo "secret=mongodb-uri-staging" >> "$GITHUB_OUTPUT"
               echo "enc_secret=field-encryption-key-staging" >> "$GITHUB_OUTPUT"
               echo "root_secret=root-admin-password-staging" >> "$GITHUB_OUTPUT"
+              echo "jwt_secret=jwt-secret-staging" >> "$GITHUB_OUTPUT"
               echo "sandbox=false" >> "$GITHUB_OUTPUT"
               echo "api_url=https://api-staging.cookhome.online" >> "$GITHUB_OUTPUT"
               ;;
@@ -66,6 +68,7 @@ jobs:
               echo "secret=mongodb-uri" >> "$GITHUB_OUTPUT"
               echo "enc_secret=field-encryption-key" >> "$GITHUB_OUTPUT"
               echo "root_secret=root-admin-password" >> "$GITHUB_OUTPUT"
+              echo "jwt_secret=jwt-secret" >> "$GITHUB_OUTPUT"
               echo "sandbox=false" >> "$GITHUB_OUTPUT"
               echo "api_url=https://api.cookhome.online" >> "$GITHUB_OUTPUT"
               ;;
@@ -100,7 +103,7 @@ jobs:
           gcloud run deploy cookhome-api${{ steps.cfg.outputs.suffix }} --region=$REGION \
             --image=$REGISTRY/api:${{ steps.cfg.outputs.sha }} \
             --port=5001 --allow-unauthenticated --min-instances=0 --max-instances=2 \
-            --set-secrets=MONGODB_URI=${{ steps.cfg.outputs.secret }}:latest,FIELD_ENCRYPTION_KEY=${{ steps.cfg.outputs.enc_secret }}:latest \
+            --set-secrets=MONGODB_URI=${{ steps.cfg.outputs.secret }}:latest,FIELD_ENCRYPTION_KEY=${{ steps.cfg.outputs.enc_secret }}:latest,JWT_SECRET=${{ steps.cfg.outputs.jwt_secret }}:latest \
             $SANDBOX_ARGS --quiet
           gcloud run deploy cookhome-admin${{ steps.cfg.outputs.suffix }} --region=$REGION \
             --image=$REGISTRY/admin:${{ steps.cfg.outputs.sha }}${{ steps.cfg.outputs.suffix }} \

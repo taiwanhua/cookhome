@@ -67,6 +67,12 @@ function bulkWriteFailuresOf(error: unknown): BulkWriteFailure[] | undefined {
 export type RelationRecord = CoreRelationship &
   BaseFields & { _id: Types.ObjectId };
 
+/** 使用者的一筆所屬組織(org_user)與加入時間。 */
+export interface OrgMembership {
+  orgId: Types.ObjectId;
+  joinedAt: Date;
+}
+
 /** `ensureLinks` 的結果:與 seed 摘要同一套詞彙(新增 / 未變)。 */
 export interface EnsureLinksResult {
   created: number;
@@ -109,6 +115,24 @@ export class RelationService {
   /** 使用者的所屬組織 id(可見範圍計算的原料,ADR-0005)。 */
   listOrgIdsOfUser(userId: Types.ObjectId): Promise<Types.ObjectId[]> {
     return this.firstIdsOf("org_user", [userId]);
+  }
+
+  /**
+   * 使用者的所屬組織,依加入時間(關聯建立時間)由早到晚 —
+   * 登入時的預設當前組織 = 第一個(#61);與 `listOrgIdsOfUser` 的差別只在保證順序。
+   */
+  async listOrgMembershipsOfUser(
+    userId: Types.ObjectId,
+  ): Promise<OrgMembership[]> {
+    const links = await this.model
+      .find({ type: "org_user", secondId: userId })
+      .sort({ createdAt: 1, _id: 1 })
+      .lean<RelationRecord[]>()
+      .exec();
+    return links.map((link) => ({
+      orgId: link.firstId,
+      joinedAt: link.createdAt,
+    }));
   }
 
   /** 某組織的成員(使用者)id。 */

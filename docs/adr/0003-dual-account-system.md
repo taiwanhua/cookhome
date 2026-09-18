@@ -9,6 +9,8 @@ admin 的使用者(User)與 front 的會員(Customer)分 collection、分登入�
 - 短效 access token(HS256,密鑰在 Secret Manager)+ 長效 refresh token(獨立 collection 存雜湊,支援輪替與「登出所有裝置」)。
 - 簽章演算法不寫入資料庫;未來第三方需要驗證簽章時,改用 RS256+JWKS,只動設定。
 - 密碼一律 argon2id(或 bcrypt)雜湊,禁明文與可逆加密。實作套件統一 **`@node-rs/argon2`**(官方 `argon2` 的 Windows 預編譯檔在 Node 20 載入即崩);seed 與 api 驗證必須同一套件。備案:`hash-wasm`(純 WASM、零原生依賴、慢 3–5 倍)。雜湊為標準 PHC 字串,跨實作可互驗。
+- **登入不可枚舉帳號**:帳號不存在與密碼錯誤回同一個錯誤碼(`INVALID_CREDENTIALS`),**而且耗時相同** — 帳號不存在時也對一個假雜湊跑一次 argon2,否則「不存在秒回、存在慢一百毫秒」的差距就足以用碼表分辨帳號是否存在(時間側信道)。忘記密碼同理:Email 不存在也回「已寄出」。
+- **登入相關錯誤碼的語意與前端對應**(`UNAUTHENTICATED` / `TOKEN_EXPIRED` / `FORBIDDEN` 等)正本在 `docs/standards/api/graphql-schema.md` GQL-04。
 - **登入識別 = `account`**,users 與 customers 皆同;`email` 只用於信件流程定位(啟用信、忘記密碼),不作登入識別。兩者在**各自的表內唯一**(users 一個索引、customers 一個索引;使用者與會員是兩套帳號體系,跨表不互斥)。
 - 第三方登入(Google 等)為預留:綁定存 `auth_identities`(固定從屬用欄位,不進核心關聯 — 見 docs/data-model.md 預留段),會員線開發時啟用。
 
