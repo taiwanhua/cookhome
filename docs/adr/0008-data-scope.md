@@ -19,12 +19,12 @@
 - **基礎欄位由底座自動掛進目錄**:組織(orgId)、建立者(createdBy)、更新者(updatedBy)、建立/更新/刪除時間。
 - **型別決定 UI 與查詢翻譯**,翻譯器不認識個別欄位:
 
-| 型別 | 運算子 | 值來源(範圍欄的 UI 與代入) |
-|---|---|---|
-| org | in / not in | 可見組織選擇器,或動態值【操作者的所屬組織】 |
-| user | in / not in | 可見使用者選擇器,或動態值【操作者本人】 |
-| date | 之間 / 之前 / 之後 | 日期選擇器(區間為兩個) |
-| enum | in / not in | seed 宣告的固定選項 |
+| 型別 | 運算子             | 值來源(範圍欄的 UI 與代入)                  |
+| ---- | ------------------ | ------------------------------------------- |
+| org  | in / not in        | 可見組織選擇器,或動態值【操作者的所屬組織】 |
+| user | in / not in        | 可見使用者選擇器,或動態值【操作者本人】     |
+| date | 之間 / 之前 / 之後 | 日期選擇器(區間為兩個)                      |
+| enum | in / not in        | seed 宣告的固定選項                         |
 
 - **動態值存佔位符**,查詢當下代入正在查的人的 userId / 所屬組織。「僅本人」=「建立者 = 【操作者本人】」;「僅所屬組織」=「組織 = 【操作者的所屬組織】」。
 
@@ -32,14 +32,23 @@
 
 ```jsonc
 {
-  "collection": "demo_items_one",        // unique
-  "combineOp": "OR",                     // 頂層合成
+  "collection": "demo_items_one", // unique
+  "combineOp": "OR", // 頂層合成
   "rules": [
-    { "audience": { "type": "role", "ids": ["客服角色id"] },
-      "filter": { "op": "AND", "children": [
-        { "field": "createdBy", "cond": "in", "value": { "kind": "dynamic", "ref": "current-user" } }
-      ]}}
-  ]
+    {
+      "audience": { "type": "role", "ids": ["客服角色id"] },
+      "filter": {
+        "op": "AND",
+        "children": [
+          {
+            "field": "createdBy",
+            "cond": "in",
+            "value": { "kind": "dynamic", "ref": "current-user" },
+          },
+        ],
+      },
+    },
+  ],
 }
 ```
 

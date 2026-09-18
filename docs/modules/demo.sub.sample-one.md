@@ -6,31 +6,31 @@
 
 可進入 = 角色綁了該模組(`role_module`,ADR-0011);矩陣 UI 保證勾下層必連動上層。
 
-| key | 名稱 | sidebarType | 自有權限 |
-|---|---|---|---|
-| `demo` | 示範群組 | group | 僅 `*` |
-| `demo.sub` | 示範次群組 | group | 僅 `*` |
-| `demo.sub.sample-one` | 示範模組1 | link(列表頁) | 見權限表 |
-| `demo.sub.sample-one.view-page` | 示範項目詳情 | hidden | 僅 `*` |
-| `demo.sub.sample-one.create-page` | 新增示範項目 | hidden | `*`、`show-tips` |
-| `demo.sub.sample-one.edit-page` | 編輯示範項目 | hidden | `*`、`show-history` |
-| `demo.sample-two` 一支 | 見 [示範模組2](./demo.sample-two.md) | | |
+| key                               | 名稱                                 | sidebarType  | 自有權限            |
+| --------------------------------- | ------------------------------------ | ------------ | ------------------- |
+| `demo`                            | 示範群組                             | group        | 僅 `*`              |
+| `demo.sub`                        | 示範次群組                           | group        | 僅 `*`              |
+| `demo.sub.sample-one`             | 示範模組1                            | link(列表頁) | 見權限表            |
+| `demo.sub.sample-one.view-page`   | 示範項目詳情                         | hidden       | 僅 `*`              |
+| `demo.sub.sample-one.create-page` | 新增示範項目                         | hidden       | `*`、`show-tips`    |
+| `demo.sub.sample-one.edit-page`   | 編輯示範項目                         | hidden       | `*`、`show-history` |
+| `demo.sample-two` 一支            | 見 [示範模組2](./demo.sample-two.md) |              |                     |
 
 `delete` 無對應頁(列表動作+確認彈窗)— 權限與頁面不必一一對應,本身即示範。
 
 ## 權限表(綁定原則:綁「按鈕/欄位所在的那一頁」,ADR-0004)
 
-| 權限 key | moduleId 指向 | 它是哪一頁的什麼 |
-|---|---|---|
-| `demo.sub.sample-one.*` | 示範模組1(列表頁) | wildcard,代表本模組自己這層的全部權限(同層語意,ADR-0004;role_permission 只存這一筆)。每個模組(含群組與隱藏頁)都固定有一筆 `<key>.*`,由 seed 自動產生,本表不逐列重複 |
-| `demo.sub.sample-one.view` | 示範模組1(列表頁) | 看列表與單筆資料、進入檢視頁/打開檢視跳窗 |
-| `demo.sub.sample-one.create` | 示範模組1(列表頁) | 進入新增頁的按鈕 + 新增 API |
-| `demo.sub.sample-one.edit` | 示範模組1(列表頁) | 進入編輯頁的按鈕 + 編輯 API |
-| `demo.sub.sample-one.delete` | 示範模組1(列表頁) | 列表的刪除按鈕 + 刪除 API |
-| `demo.sub.sample-one.show-internal-note` | 示範模組1(列表頁=父) | 跨頁共用欄位:內部備註可見(詳情+編輯) |
-| `demo.sub.sample-one.edit-internal-note` | 示範模組1(列表頁=父) | 同上(可改;無此權限硬送寫入 → API 拒) |
-| `demo.sub.sample-one.create-page.show-tips` | 新增頁 | 頁面自有示範:填寫提示區塊 |
-| `demo.sub.sample-one.edit-page.show-history` | 編輯頁 | 頁面自有示範:變更歷程區塊 |
+| 權限 key                                     | moduleId 指向        | 它是哪一頁的什麼                                                                                                                                                    |
+| -------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `demo.sub.sample-one.*`                      | 示範模組1(列表頁)    | wildcard,代表本模組自己這層的全部權限(同層語意,ADR-0004;role_permission 只存這一筆)。每個模組(含群組與隱藏頁)都固定有一筆 `<key>.*`,由 seed 自動產生,本表不逐列重複 |
+| `demo.sub.sample-one.view`                   | 示範模組1(列表頁)    | 看列表與單筆資料、進入檢視頁/打開檢視跳窗                                                                                                                           |
+| `demo.sub.sample-one.create`                 | 示範模組1(列表頁)    | 進入新增頁的按鈕 + 新增 API                                                                                                                                         |
+| `demo.sub.sample-one.edit`                   | 示範模組1(列表頁)    | 進入編輯頁的按鈕 + 編輯 API                                                                                                                                         |
+| `demo.sub.sample-one.delete`                 | 示範模組1(列表頁)    | 列表的刪除按鈕 + 刪除 API                                                                                                                                           |
+| `demo.sub.sample-one.show-internal-note`     | 示範模組1(列表頁=父) | 跨頁共用欄位:內部備註可見(詳情+編輯)                                                                                                                                |
+| `demo.sub.sample-one.edit-internal-note`     | 示範模組1(列表頁=父) | 同上(可改;無此權限硬送寫入 → API 拒)                                                                                                                                |
+| `demo.sub.sample-one.create-page.show-tips`  | 新增頁               | 頁面自有示範:填寫提示區塊                                                                                                                                           |
+| `demo.sub.sample-one.edit-page.show-history` | 編輯頁               | 頁面自有示範:變更歷程區塊                                                                                                                                           |
 
 ## 資料
 
