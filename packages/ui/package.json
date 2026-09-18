@@ -68,6 +68,66 @@
         "types": "./dist/cjs/link.d.ts",
         "default": "./dist/cjs/link.js"
       }
+    },
+    "./app-theme-provider": {
+      "import": {
+        "types": "./dist/es/app-theme-provider.d.mts",
+        "default": "./dist/es/app-theme-provider.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/app-theme-provider.d.ts",
+        "default": "./dist/cjs/app-theme-provider.js"
+      }
+    },
+    "./typography": {
+      "import": {
+        "types": "./dist/es/typography.d.mts",
+        "default": "./dist/es/typography.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/typography.d.ts",
+        "default": "./dist/cjs/typography.js"
+      }
+    },
+    "./stack": {
+      "import": {
+        "types": "./dist/es/stack.d.mts",
+        "default": "./dist/es/stack.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/stack.d.ts",
+        "default": "./dist/cjs/stack.js"
+      }
+    },
+    "./box": {
+      "import": {
+        "types": "./dist/es/box.d.mts",
+        "default": "./dist/es/box.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/box.d.ts",
+        "default": "./dist/cjs/box.js"
+      }
+    },
+    "./alert": {
+      "import": {
+        "types": "./dist/es/alert.d.mts",
+        "default": "./dist/es/alert.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/alert.d.ts",
+        "default": "./dist/cjs/alert.js"
+      }
+    },
+    "./circular-progress": {
+      "import": {
+        "types": "./dist/es/circular-progress.d.mts",
+        "default": "./dist/es/circular-progress.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/circular-progress.d.ts",
+        "default": "./dist/cjs/circular-progress.js"
+      }
     }
   },
   "scripts": {
