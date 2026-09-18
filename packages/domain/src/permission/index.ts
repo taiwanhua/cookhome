@@ -51,6 +51,12 @@ export function wildcardKeyOf(moduleKey: string): string {
   return permissionKey(moduleKey, WILDCARD_ACTION);
 }
 
+/** 是否為 wildcard 權限 key(動作 = `*`);不是合法權限 key 的字串回 false。 */
+export function isWildcardKey(key: string): boolean {
+  return key.endsWith(`${PERMISSION_KEY_SEPARATOR}${WILDCARD_ACTION}`) &&
+    key.length > 2;
+}
+
 /**
  * 判斷是否持有某權限(ADR-0011,前後端同一條規則):
  * key 在集合中,或「該權限的擁有模組 key + `.*`」在集合中 — 兩次 Set 查表,不掃字串前綴。

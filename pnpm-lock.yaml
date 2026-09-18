@@ -99,6 +99,9 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.1
         version: 2.2.1
+      '@repo/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       graphql:
         specifier: ^16.14.2
         version: 16.14.2

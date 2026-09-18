@@ -9,6 +9,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 
 import { AuthModule } from "./auth/auth.module";
 import type { GraphqlContext } from "./auth/request-context";
+import { PermissionModule } from "./permission/permission.module";
 import { RecipesModule } from "./recipes/recipes.module";
 
 // GraphQL Sandbox 開關:本地開發(NODE_ENV 非 production)預設開;
@@ -41,6 +42,7 @@ const isSandboxEnabled =
         : [],
     }),
     AuthModule,
+    PermissionModule,
     RecipesModule,
   ],
 })

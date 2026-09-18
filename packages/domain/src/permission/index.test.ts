@@ -3,6 +3,7 @@ import { describe, expect, it } from "@jest/globals";
 import {
   WILDCARD_ACTION,
   hasPermission,
+  isWildcardKey,
   ownerModuleKey,
   permissionAction,
   splitPermissionKey,
@@ -33,8 +34,11 @@ describe("@repo/domain/permission:權限 key 切分(ADR-0004:最後一段 = 動�
     expect(() => splitPermissionKey("")).toThrow(/permission key/i);
   });
 
-  it("wildcardKeyOf:模組 key + `.*`", () => {
+  it("wildcardKeyOf:模組 key + `.*`;isWildcardKey 只認動作是 `*` 的 key", () => {
     expect(wildcardKeyOf("demo.sub.sample-one")).toBe("demo.sub.sample-one.*");
+    expect(isWildcardKey("demo.sub.sample-one.*")).toBe(true);
+    expect(isWildcardKey("demo.sub.sample-one.edit")).toBe(false);
+    expect(isWildcardKey("*")).toBe(false);
   });
 });
 
