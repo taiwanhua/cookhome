@@ -37,6 +37,7 @@ type RecipeList {
 可預期的業務錯誤 throw `GraphQLError`,`extensions.code` 用列舉值;非預期錯誤讓框架轉 `INTERNAL_SERVER_ERROR`,不吞掉。初始 code 集(新增時回寫本條):
 
 - `NOT_FOUND`、`VALIDATION_FAILED`、`UNAUTHENTICATED`、`FORBIDDEN`
+- 登入線(#62,程式正本 `apps/api/src/auth/auth-error.ts`):`INVALID_CREDENTIALS`(帳號不存在與密碼錯誤同碼)、`ACCOUNT_DISABLED`、`TOO_MANY_ATTEMPTS`、`TOKEN_EXPIRED`(access token 或 refresh token 逾期)、`MUST_CHANGE_PASSWORD`;缺 token / 簽章不對 / `aud` 不符 / refresh 重放皆為 `UNAUTHENTICATED`,`switchOrg` 到所屬組織外為 `FORBIDDEN`
 
 錯誤的 `message` 給開發者看(英文);給使用者的繁體中文文案由前端依 code 對應,不從 api 傳。
 

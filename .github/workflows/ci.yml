@@ -38,6 +38,8 @@ jobs:
         env:
           MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
           PORT: "5001"
+          # api 缺少 JWT_SECRET 即啟動失敗(#62);CI 只需一個假值讓 front 預渲染能打到 api
+          JWT_SECRET: ci-only-jwt-secret
 
       # check-types 與 build 分兩步:next build 會清寫 .next,與 next typegen 同時跑會競態
       # MONGODB_URI:db-migrator 測試沿用本 job 的 MongoDB service container(本地無此變數時自起 mongodb-memory-server)
