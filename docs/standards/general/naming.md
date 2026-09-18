@@ -12,7 +12,7 @@
 
 資料夾規則(與 STRUCT-03 的分層搭配):
 
-- 元件**有子元件才開同名資料夾**;單檔就夠的元件直接放檔,不硬開資料夾。
+- 元件**有子元件才開同名資料夾**;單檔就夠的元件直接放檔,不硬開資料夾。例外是**頁面一律資料夾**(路由 = 資料夾,STRUCT-03)。
 - 子元件放在**唯一使用它的父元件**資料夾底下;同一層有多個葉元件可用一個 PascalCase「分組資料夾」收起來(裡面沒有同名元件)。
 - **不用 `index.ts` barrel**,import 寫到檔案:`import { SideNav } from "./SideNav/SideNav"`。子元件只給父用這件事靠位置與 review 表達,不靠 index 藏。
 - 測試與 story 跟元件同資料夾、同名:`Foo.tsx` / `Foo.test.tsx` / `Foo.stories.tsx`(ui 的三件套)。
@@ -23,6 +23,7 @@
 ✅ app/AdminShell/SideNav/NavNodes/NavItems/NavGroupItem.tsx   ← 分組資料夾 NavItems,裡面兩個葉元件
 ✅ app/AdminShell/SideNav/NavNodes/NavItems/NavLinkItem.tsx
 ✅ hooks/useMe.ts     lib/module-tree.ts
+   (遞迴樹拆成葉元件時,葉元件不 import 回遞迴層 — NavGroupItem 收 `children`,遞迴只留在 NavNodes,否則撞 `import-x/no-cycle`)
 ❌ features/shell/side-nav.tsx(一檔四個元件、kebab)   ❌ SideNav/index.ts
 ```
 

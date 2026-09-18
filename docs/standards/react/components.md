@@ -28,12 +28,14 @@
 2. URL 能表達的(頁碼、篩選、tab)→ URL(searchParams / router)。
 3. 只有單一元件用 → `useState`。
 4. 跨元件的用戶端狀態(登入狀態、語言、路由頁籤…)→ **zustand**:`stores/useXxxStore.ts`,需要跨重新整理保留的用 `persist` middleware(sessionStorage / localStorage 由該狀態的規則決定)。
-5. context **只剩注入用**(theme、QueryClient、Intl provider),不承載會變的狀態;redux / 自刻 `useSyncExternalStore` store 不用。
+5. context **只剩注入用**(theme、QueryClient、Intl provider、`AuthSession` 實例),不承載會變的狀態;redux / 自刻 `useSyncExternalStore` store 不用。注入用的 context 物件**與它的 hook 同檔、放 `hooks/`**(`hooks/useSession.ts` 同時匯出 `SessionContext` 與 `useSession`),provider 元件放 `app/providers/`。
 
 ```ts
-✅ export const useRouteTabsStore = create<RouteTabsState>()(persist((set) => ({ … }), { name: "cookhome-admin-route-tabs", storage: createJSONStorage(() => sessionStorage) }));
+✅ export const useLocaleStore = create<LocaleState>()(persist((set) => ({ … }), { name: "cookhome-admin-locale", storage: localeStorage }));
 ❌ const LocaleContext = createContext<{ locale; setLocale }>(…)   // 承載狀態的 context
 ```
+
+`persist` 的兩個注意:①它預設寫 `{ state, version }` 的 JSON 封包,**沿用既有 storage key 與格式時**(`docs/branding.md` 登記的那些)要給自訂的 `PersistStorage` adapter 保住舊格式,不然既存值失效、既有測試的 storage 斷言也會壞;②key 依使用者分把(如頁籤的 `…:<userId>`)的,store 提供 `bind(userId)` 以 `persist.setOptions({ name }) + rehydrate()` 換 key,不要把 userId 寫死在 `name`。
 
 ## REACT-03 業務邏輯離開 JSX
 
@@ -65,6 +67,8 @@ lint 入口啟用的 react-hooks v7 除了 `rules-of-hooks` / `exhaustive-deps`,
 - `immutability`:props / state 不就地修改,陣列用 `toSorted` / 展開建新值
 
 判斷順序:能用 `useMemo` 從既有 state / props 推導 → 推導;需要跨元件、跨 render 存活且有副作用(storage、channel)→ zustand store;仍不夠再談。
+
+render 期呼叫 store action **只允許冪等的初始化**(放 `useState` 的 lazy 初始化器,只跑一次;例:殼 mount 時 `bind(userId)` + `sync()` 讓首次渲染就有 tab),其餘 action 一律在 effect 或事件處理內。
 
 ## REACT-07 一檔一元件;單檔以 300 行為目標,超過就拆
 
