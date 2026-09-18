@@ -7,6 +7,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { GraphQLModule } from "@nestjs/graphql";
 import { MongooseModule } from "@nestjs/mongoose";
 
+import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import type { GraphqlContext } from "./auth/request-context";
 import { PermissionModule } from "./permission/permission.module";
@@ -46,6 +47,7 @@ const isSandboxEnabled =
         : [],
     }),
     AuthModule,
+    AuditModule,
     PermissionModule,
     RecipesModule,
   ],
