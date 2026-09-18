@@ -27,13 +27,23 @@ export class RefreshToken {
   @Prop({ type: Date, required: true })
   expiresAt!: Date;
 
-  /** 撤銷時間;有值表示已登出/輪替作廢。 */
+  /**
+   * 輪替作廢時間:refresh 每次使用即輪替,舊筆在此記時間;有值的 token 再被使用視為外洩
+   * (該帳號全部 refresh 作廢)。主動登出 / 登出所有裝置走軟刪除(deletedAt,ADR-0007),不寫此欄。
+   */
   @Prop({ type: Date, default: null })
   revokedAt!: Date | null;
 
   /** 裝置資訊(供「登出所有裝置」辨識,選填)。 */
   @Prop({ type: MongooseSchema.Types.Mixed })
   deviceInfo?: Record<string, unknown>;
+
+  /**
+   * 這個 session 的當前組織(#61 `switchOrg`):refresh 換發的 access token 沿用它,
+   * 切換組織後不會因 access token 過期而跳回預設組織;會員(customer)為 null。
+   */
+  @Prop({ type: Types.ObjectId, default: null })
+  currentOrgId!: Types.ObjectId | null;
 }
 
 // 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引)
