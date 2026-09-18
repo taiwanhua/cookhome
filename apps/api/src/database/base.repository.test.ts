@@ -150,6 +150,41 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
     });
   });
 
+  describe("updateMany:批次更新同樣受租戶隔離與欄位保護", () => {
+    const orgA = new Types.ObjectId();
+    const orgB = new Types.ObjectId();
+
+    it("只更新可見範圍內符合條件的資料,回傳筆數;updatedBy 為操作者;不得觸及 orgId", async () => {
+      const asA = operator({ visibleOrgIds: [orgA] });
+      const asB = operator({ visibleOrgIds: [orgB] });
+      await demoItems.create(asA, { name: "A-1" });
+      await demoItems.create(asA, { name: "A-2" });
+      await demoItems.create(asB, { name: "B-1" });
+
+      const modified = await demoItems.updateMany(
+        asA,
+        {},
+        { $set: { name: "批次改名" } },
+      );
+      expect(modified).toBe(2);
+
+      const seenByA = await demoItems.findMany(asA);
+      expect(seenByA.map((item) => item.name)).toEqual([
+        "批次改名",
+        "批次改名",
+      ]);
+      expect(seenByA.every((item) => item.updatedBy?.equals(asA.actorId))).toBe(
+        true,
+      );
+      const seenByB = await demoItems.findMany(asB);
+      expect(seenByB.map((item) => item.name)).toEqual(["B-1"]);
+
+      await expect(
+        demoItems.updateMany(asA, {}, { $set: { orgId: orgB } }),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+    });
+  });
+
   describe("軟刪除(ADR-0007):deletedAt 有值即視為不存在,資料仍保留", () => {
     const org = new Types.ObjectId();
     const asMember = operator({ visibleOrgIds: [org] });

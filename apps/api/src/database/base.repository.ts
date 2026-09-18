@@ -135,6 +135,23 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     return document as Persisted<TDocument> | null;
   }
 
+  /**
+   * 批次更新可見範圍內符合條件的資料,回傳實際更新筆數;欄位保護與 `updateById` 相同。
+   * 用途如「作廢該帳號全部 refresh token」這類同時對多筆做同一變更的操作。
+   */
+  async updateMany(
+    operator: OperatorContext,
+    filter: RepositoryFilter<TSchema>,
+    update: RepositoryUpdate<TSchema>,
+  ): Promise<number> {
+    assertUpdateLeavesProtectedPaths(this.model.modelName, update);
+    const { modifiedCount } = await scopeQuery(
+      this.model.updateMany({ ...filter }, update, { runValidators: true }),
+      { operator },
+    ).exec();
+    return modifiedCount;
+  }
+
   /** 軟刪除(ADR-0007):寫入 deletedAt,之後預設查詢視為不存在;已刪除者再刪回 null。 */
   softDeleteById(
     operator: OperatorContext,

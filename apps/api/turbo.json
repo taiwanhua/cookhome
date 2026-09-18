@@ -6,7 +6,7 @@
       "outputs": ["dist/**"]
     },
     "test": {
-      "env": ["MONGODB_URI", "FIELD_ENCRYPTION_KEY"]
+      "env": ["MONGODB_URI", "FIELD_ENCRYPTION_KEY", "JWT_SECRET"]
     }
   }
 }
