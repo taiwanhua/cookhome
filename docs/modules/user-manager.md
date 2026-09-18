@@ -57,3 +57,32 @@
 ## 資料
 
 `users` 欄位見 `account-base.schema.ts` / `user.schema.ts`(逐欄有註解);`nationalId` 欄位級加密、預設投影排除(ADR-0007)。清單查詢走 `org_user` 反查 + 可見範圍過濾,不做 populate(dis #28 的限制)。
+
+## API 介面(#136 已實作,程式在 `apps/api/src/users/`)
+
+```graphql
+users(input: { orgId, page, pageSize, keyword }): UsersPayload!   # items + totalCount + page + pageSize
+user(id: ID!): User!
+createUser(input: { …基本欄位, nationalId, orgIds, roleIds, activation: { mode: EMAIL | PASSWORD, initialPassword } }): UserPayload!
+updateUser(input: { id, …基本欄位, nationalId }): UserPayload!
+setUserEnabled(input: { id, enabled }): UserPayload!
+setUserOrgs(input: { userId, orgIds, dryRun, removalPolicy }): SetUserOrgsPayload!
+assignUserRoles(input: { userId, roleIds }): UserPayload!
+```
+
+- **清單範圍**:不給 `orgId` 即攤開整個可見範圍(治理模組慣例,ADR-0005);給了就是該組織子樹 ∩ 可見範圍。組織子樹直接查 `orgs.ancestors`,租戶過濾由 BaseRepository 自動加上。`pageSize` 上限 100。
+- **每列的 `roles[].outOfScope`** = 「組織外」標記,與移除 dry-run 用同一份資格判斷(`OrgQualificationService`)。判斷子樹歸屬時**刻意不套可見範圍**(ADR-0005:可見性開關不影響授予資格),但顯示用的組織名稱仍只給可見範圍內的,範圍外只露 id。
+- **`nationalId`**:`user(id)` 持 `show-national-id` 才以 `select("+nationalId")` 取回並解密,清單一律不回;寫入(新增或編輯)需 `edit-national-id`,否則 `FORBIDDEN`。
+- **全量覆蓋的邊界**:`setUserOrgs` 只覆蓋操作者**可見範圍內**的所屬組織,`assignUserRoles` 只覆蓋操作者**可觸及**(自己持有)的角色 — 彈窗列不出來的那些不會被順手移除。
+- **`removalPolicy`**:`KEEP_ALL` / `REVOKE_OWNED_BY_ORG` / `REVOKE_ALL_UNQUALIFIED`(預設)。`unqualifiedRoles` 逐筆附 `reasons`(`OWNED_BY_REMOVED_ORG` / `NO_REMAINING_SUBTREE_SUPPORT`,可同時成立)與 `ownerProtected`。
+- **防越權**:`ROLE_OUT_OF_REACH` = 要授予的角色不在操作者自己持有的角色內;**超級管理員 bypass**(ADR-0004 解析時全權放行),否則根組織無法把租戶的角色授予任何人。授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹),不符回 `VALIDATION_FAILED`。
+- **錯誤碼**:`LAST_ORG`、`ROLE_OUT_OF_REACH`、`OWNER_PROTECTED`(程式正本 `apps/api/src/users/users-error.ts`,表在 GQL-04);帳號 / Email 重複與資格不符沿用 `VALIDATION_FAILED`(`extensions.fields` 指出欄位)。
+
+## 平台視角(不進 help)
+
+**擁有者保護的實作**(ADR-0009):`apps/api/src/users/owner-protection.service.ts` —
+
+- 擁有者 = 任一 `orgs.ownerUserId` 等於該使用者;**根組織操作者**(當前組織 `parentId === null`)一律放行。
+- 受保護的角色授予 = 該使用者擁有的組織所擁有、且帶租戶管理員模板標記的角色;標記為 `roles.key === "tenant-admin"`(模板本身)或 **`roles.settings.templateKey === "tenant-admin"`(開通租戶複製出來的副本)— #134 的 `provisionTenant` 建副本時必須寫入這個標記**,否則保護認不出那一筆。
+- 擁有者 / 根組織的判斷**不套可見範圍**(以 `visibleOrgIds: "all"` 讀,只取 `ownerUserId` / `parentId`):租戶頂層可能不在操作者可見範圍內,查不到就等於保護失效,安全檢查要 fail-closed。
+- 本服務暫置於 `users/`;#135(租戶作業:轉移擁有者)也要同一套判斷,屆時抽成共用。

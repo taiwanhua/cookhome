@@ -13,6 +13,7 @@ import type { GraphqlContext } from "./auth/request-context";
 import { PermissionModule } from "./permission/permission.module";
 import { RecipesModule } from "./recipes/recipes.module";
 import { StorageModule } from "./storage/storage.module";
+import { UsersModule } from "./users/users.module";
 
 // GraphQL Sandbox 開關:本地開發(NODE_ENV 非 production)預設開;
 // 雲端預設關(不讓外人窺探 schema),dev/staging 環境以 GRAPHQL_SANDBOX=true 明確打開
@@ -51,6 +52,7 @@ const isSandboxEnabled =
     AuditModule,
     PermissionModule,
     StorageModule,
+    UsersModule,
     RecipesModule,
   ],
 })

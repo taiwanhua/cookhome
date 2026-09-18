@@ -52,6 +52,9 @@ type RecipeList {
 | `ACTION_TOKEN_INVALID`     | 信件連結的 token(啟用 / 重設密碼)不存在、已用過或逾期 — 三者同碼,不透露差別                                         | 顯示「連結已失效」+ 一鍵重新申請;**不是** `TOKEN_EXPIRED`,不要換票重送           |
 | `CURRENT_PASSWORD_INVALID` | 已登入者改密碼時「目前密碼」打錯(本人操作,無枚舉風險,所以可以明講)                                                  | 顯示「目前密碼錯誤」                                                             |
 | `UPLOAD_REJECTED`          | 要上傳票時檔型不在白名單(png / jpg / webp)或大小超過 2MB(ADR-0010;程式正本 `apps/api/src/storage/storage-error.ts`) | 顯示「只能上傳 PNG / JPG / WebP,且不超過 2MB」,讓使用者重選檔案                  |
+| `LAST_ORG`                 | 移除所屬組織後使用者會一個組織都不剩(至少要有一個,ADR-0003;程式正本 `apps/api/src/users/users-error.ts`)            | 提示「至少要保留一個所屬組織」,把該筆勾選還原                                    |
+| `ROLE_OUT_OF_REACH`        | 防越權:要授予的角色不是操作者自己持有的(ADR-0003)                                                                   | 提示無法授予該角色並重新載入可選清單(清單本來就只列可觸及的角色)                 |
+| `OWNER_PROTECTED`          | 擁有者保護:租戶擁有者被停用 / 被移出租戶 / 其「租戶管理員」授予被解除(ADR-0009;根組織操作者不受限)                  | 提示「租戶擁有者受保護,請聯絡平台管理者」,不要重試                               |
 
 錯誤的 `message` 給開發者看(英文);給使用者的繁體中文文案由前端依 code 對應,不從 api 傳。
 

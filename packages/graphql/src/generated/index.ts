@@ -27,6 +27,11 @@ export type Scalars = {
   DateTime: { input: string; output: string; }
 };
 
+export type AssignUserRolesInput = {
+  roleIds: Array<Scalars['ID']['input']>;
+  userId: Scalars['ID']['input'];
+};
+
 export type ChangePasswordInput = {
   currentPassword: Scalars['String']['input'];
   newPassword: Scalars['String']['input'];
@@ -46,6 +51,28 @@ export type CreateRecipeInput = {
   steps?: InputMaybe<Array<Scalars['String']['input']>>;
   tags?: InputMaybe<Array<Scalars['String']['input']>>;
   title: Scalars['String']['input'];
+};
+
+export type CreateUploadUrlInput = {
+  /** 允許 image/png / image/jpeg / image/webp */
+  contentType: Scalars['String']['input'];
+  purpose: UploadPurpose;
+  /** 檔案大小(bytes),上限 2097152 */
+  size: Scalars['Int']['input'];
+};
+
+export type CreateUserInput = {
+  account: Scalars['String']['input'];
+  activation: UserActivationInput;
+  address?: InputMaybe<Scalars['String']['input']>;
+  email: Scalars['String']['input'];
+  gender?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  nationalId?: InputMaybe<Scalars['String']['input']>;
+  nickname?: InputMaybe<Scalars['String']['input']>;
+  orgIds: Array<Scalars['ID']['input']>;
+  phone?: InputMaybe<Scalars['String']['input']>;
+  roleIds?: InputMaybe<Array<Scalars['ID']['input']>>;
 };
 
 export type Ingredient = {
@@ -110,6 +137,7 @@ export type MeModule = {
 export type MeOrg = {
   __typename?: 'MeOrg';
   id: Scalars['ID']['output'];
+  logoUrl?: Maybe<Scalars['String']['output']>;
   name: Scalars['String']['output'];
 };
 
@@ -122,15 +150,26 @@ export enum ModuleSidebarType {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  assignUserRoles: UserPayload;
   changePassword: ChangePasswordPayload;
   createRecipe: Recipe;
+  createUploadUrl: UploadUrlPayload;
+  createUser: UserPayload;
   login: LoginPayload;
   logout: LogoutPayload;
   logoutAllDevices: LogoutAllDevicesPayload;
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
   setPassword: SetPasswordPayload;
+  setUserEnabled: UserPayload;
+  setUserOrgs: SetUserOrgsPayload;
   switchOrg: SwitchOrgPayload;
+  updateUser: UserPayload;
+};
+
+
+export type MutationAssignUserRolesArgs = {
+  input: AssignUserRolesInput;
 };
 
 
@@ -141,6 +180,16 @@ export type MutationChangePasswordArgs = {
 
 export type MutationCreateRecipeArgs = {
   input: CreateRecipeInput;
+};
+
+
+export type MutationCreateUploadUrlArgs = {
+  input: CreateUploadUrlInput;
+};
+
+
+export type MutationCreateUserArgs = {
+  input: CreateUserInput;
 };
 
 
@@ -159,8 +208,23 @@ export type MutationSetPasswordArgs = {
 };
 
 
+export type MutationSetUserEnabledArgs = {
+  input: SetUserEnabledInput;
+};
+
+
+export type MutationSetUserOrgsArgs = {
+  input: SetUserOrgsInput;
+};
+
+
 export type MutationSwitchOrgArgs = {
   input: SwitchOrgInput;
+};
+
+
+export type MutationUpdateUserArgs = {
+  input: UpdateUserInput;
 };
 
 export type Query = {
@@ -168,11 +232,23 @@ export type Query = {
   me: Me;
   recipe: Recipe;
   recipes: Array<Recipe>;
+  user: User;
+  users: UsersPayload;
 };
 
 
 export type QueryRecipeArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type QueryUserArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryUsersArgs = {
+  input: UsersInput;
 };
 
 export type Recipe = {
@@ -204,6 +280,12 @@ export type RequestPasswordResetPayload = {
   success: Scalars['Boolean']['output'];
 };
 
+/** 所屬組織移除後角色失去資格的原因(ADR-0003) */
+export enum RoleUnqualifiedReason {
+  NoRemainingSubtreeSupport = 'NO_REMAINING_SUBTREE_SUPPORT',
+  OwnedByRemovedOrg = 'OWNED_BY_REMOVED_ORG'
+}
+
 export type SetPasswordInput = {
   newPassword: Scalars['String']['input'];
   token: Scalars['String']['input'];
@@ -214,6 +296,26 @@ export type SetPasswordPayload = {
   accessToken: Scalars['String']['output'];
 };
 
+export type SetUserEnabledInput = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+export type SetUserOrgsInput = {
+  dryRun?: InputMaybe<Scalars['Boolean']['input']>;
+  orgIds: Array<Scalars['ID']['input']>;
+  removalPolicy?: InputMaybe<UserOrgRemovalPolicy>;
+  userId: Scalars['ID']['input'];
+};
+
+export type SetUserOrgsPayload = {
+  __typename?: 'SetUserOrgsPayload';
+  removedOrgs: Array<UserOrg>;
+  revokedRoleIds: Array<Scalars['ID']['output']>;
+  unqualifiedRoles: Array<UnqualifiedRole>;
+  user: User;
+};
+
 export type SwitchOrgInput = {
   orgId: Scalars['ID']['input'];
 };
@@ -221,6 +323,111 @@ export type SwitchOrgInput = {
 export type SwitchOrgPayload = {
   __typename?: 'SwitchOrgPayload';
   accessToken: Scalars['String']['output'];
+};
+
+export type UnqualifiedRole = {
+  __typename?: 'UnqualifiedRole';
+  ownerOrgId?: Maybe<Scalars['ID']['output']>;
+  ownerOrgName?: Maybe<Scalars['String']['output']>;
+  ownerProtected: Scalars['Boolean']['output'];
+  reasons: Array<RoleUnqualifiedReason>;
+  roleId: Scalars['ID']['output'];
+  roleName: Scalars['String']['output'];
+};
+
+export type UpdateUserInput = {
+  account?: InputMaybe<Scalars['String']['input']>;
+  address?: InputMaybe<Scalars['String']['input']>;
+  email?: InputMaybe<Scalars['String']['input']>;
+  gender?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  nationalId?: InputMaybe<Scalars['String']['input']>;
+  nickname?: InputMaybe<Scalars['String']['input']>;
+  phone?: InputMaybe<Scalars['String']['input']>;
+};
+
+/** 上傳用途:決定物件路徑前綴與所需權限(ADR-0010) */
+export enum UploadPurpose {
+  OrgLogo = 'ORG_LOGO'
+}
+
+export type UploadUrlPayload = {
+  __typename?: 'UploadUrlPayload';
+  expiresAt: Scalars['DateTime']['output'];
+  objectPath: Scalars['ID']['output'];
+  uploadUrl: Scalars['String']['output'];
+};
+
+export type User = {
+  __typename?: 'User';
+  account: Scalars['String']['output'];
+  address?: Maybe<Scalars['String']['output']>;
+  email: Scalars['String']['output'];
+  enabled: Scalars['Boolean']['output'];
+  gender?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  mustChangePassword: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  nationalId?: Maybe<Scalars['String']['output']>;
+  nickname?: Maybe<Scalars['String']['output']>;
+  orgs: Array<UserOrg>;
+  phone?: Maybe<Scalars['String']['output']>;
+  roles: Array<UserRoleGrant>;
+};
+
+export type UserActivationInput = {
+  initialPassword?: InputMaybe<Scalars['String']['input']>;
+  mode?: UserActivationMode;
+};
+
+/** 新增使用者的啟用方式(ADR-0009:啟用信 / 初始密碼) */
+export enum UserActivationMode {
+  Email = 'EMAIL',
+  Password = 'PASSWORD'
+}
+
+export type UserOrg = {
+  __typename?: 'UserOrg';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+/** 移除所屬組織時角色授予的處理方式(ADR-0003,radio 三檔) */
+export enum UserOrgRemovalPolicy {
+  KeepAll = 'KEEP_ALL',
+  RevokeAllUnqualified = 'REVOKE_ALL_UNQUALIFIED',
+  RevokeOwnedByOrg = 'REVOKE_OWNED_BY_ORG'
+}
+
+export type UserPayload = {
+  __typename?: 'UserPayload';
+  user: User;
+};
+
+export type UserRoleGrant = {
+  __typename?: 'UserRoleGrant';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  outOfScope: Scalars['Boolean']['output'];
+  ownerOrgId?: Maybe<Scalars['ID']['output']>;
+  ownerOrgName?: Maybe<Scalars['String']['output']>;
+};
+
+export type UsersInput = {
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  orgId?: InputMaybe<Scalars['ID']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type UsersPayload = {
+  __typename?: 'UsersPayload';
+  items: Array<User>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
 };
 
 export type LoginMutationVariables = Exact<{
@@ -296,6 +503,55 @@ export type CreateRecipeMutationVariables = Exact<{
 
 
 export type CreateRecipeMutation = { __typename?: 'Mutation', createRecipe: { __typename?: 'Recipe', id: string, title: string } };
+
+export type UsersQueryVariables = Exact<{
+  input: UsersInput;
+}>;
+
+
+export type UsersQuery = { __typename?: 'Query', users: { __typename?: 'UsersPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'User', id: string, account: string, name: string, email: string, enabled: boolean, orgs: Array<{ __typename?: 'UserOrg', id: string, name: string }>, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, ownerOrgId?: string | null, ownerOrgName?: string | null, outOfScope: boolean }> }> } };
+
+export type UserQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type UserQuery = { __typename?: 'Query', user: { __typename?: 'User', id: string, account: string, name: string, email: string, nickname?: string | null, gender?: string | null, phone?: string | null, address?: string | null, nationalId?: string | null, enabled: boolean, mustChangePassword: boolean, orgs: Array<{ __typename?: 'UserOrg', id: string, name: string }>, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, ownerOrgId?: string | null, ownerOrgName?: string | null, outOfScope: boolean }> } };
+
+export type CreateUserMutationVariables = Exact<{
+  input: CreateUserInput;
+}>;
+
+
+export type CreateUserMutation = { __typename?: 'Mutation', createUser: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, account: string, email: string, mustChangePassword: boolean } } };
+
+export type UpdateUserMutationVariables = Exact<{
+  input: UpdateUserInput;
+}>;
+
+
+export type UpdateUserMutation = { __typename?: 'Mutation', updateUser: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, name: string, account: string, email: string, nickname?: string | null, gender?: string | null, phone?: string | null, address?: string | null, nationalId?: string | null } } };
+
+export type SetUserEnabledMutationVariables = Exact<{
+  input: SetUserEnabledInput;
+}>;
+
+
+export type SetUserEnabledMutation = { __typename?: 'Mutation', setUserEnabled: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, enabled: boolean } } };
+
+export type SetUserOrgsMutationVariables = Exact<{
+  input: SetUserOrgsInput;
+}>;
+
+
+export type SetUserOrgsMutation = { __typename?: 'Mutation', setUserOrgs: { __typename?: 'SetUserOrgsPayload', revokedRoleIds: Array<string>, user: { __typename?: 'User', id: string, orgs: Array<{ __typename?: 'UserOrg', id: string, name: string }>, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, outOfScope: boolean }> }, removedOrgs: Array<{ __typename?: 'UserOrg', id: string, name: string }>, unqualifiedRoles: Array<{ __typename?: 'UnqualifiedRole', roleId: string, roleName: string, ownerOrgId?: string | null, ownerOrgName?: string | null, reasons: Array<RoleUnqualifiedReason>, ownerProtected: boolean }> } };
+
+export type AssignUserRolesMutationVariables = Exact<{
+  input: AssignUserRolesInput;
+}>;
+
+
+export type AssignUserRolesMutation = { __typename?: 'Mutation', assignUserRoles: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, ownerOrgId?: string | null, ownerOrgName?: string | null, outOfScope: boolean }> } } };
 
 
 
@@ -688,3 +944,297 @@ export const useCreateRecipeMutation = <
 
 
 useCreateRecipeMutation.fetcher = (client: GraphQLClient, variables: CreateRecipeMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateRecipeMutation, CreateRecipeMutationVariables>(client, CreateRecipeDocument, variables, headers);
+
+export const UsersDocument = `
+    query Users($input: UsersInput!) {
+  users(input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      id
+      account
+      name
+      email
+      enabled
+      orgs {
+        id
+        name
+      }
+      roles {
+        id
+        name
+        ownerOrgId
+        ownerOrgName
+        outOfScope
+      }
+    }
+  }
+}
+    `;
+
+export const useUsersQuery = <
+      TData = UsersQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: UsersQueryVariables,
+      options?: Omit<UseQueryOptions<UsersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<UsersQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<UsersQuery, TError, TData>(
+      {
+    queryKey: ['Users', variables],
+    queryFn: fetcher<UsersQuery, UsersQueryVariables>(client, UsersDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useUsersQuery.getKey = (variables: UsersQueryVariables) => ['Users', variables];
+
+
+useUsersQuery.fetcher = (client: GraphQLClient, variables: UsersQueryVariables, headers?: RequestInit['headers']) => fetcher<UsersQuery, UsersQueryVariables>(client, UsersDocument, variables, headers);
+
+export const UserDocument = `
+    query User($id: ID!) {
+  user(id: $id) {
+    id
+    account
+    name
+    email
+    nickname
+    gender
+    phone
+    address
+    nationalId
+    enabled
+    mustChangePassword
+    orgs {
+      id
+      name
+    }
+    roles {
+      id
+      name
+      ownerOrgId
+      ownerOrgName
+      outOfScope
+    }
+  }
+}
+    `;
+
+export const useUserQuery = <
+      TData = UserQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: UserQueryVariables,
+      options?: Omit<UseQueryOptions<UserQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<UserQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<UserQuery, TError, TData>(
+      {
+    queryKey: ['User', variables],
+    queryFn: fetcher<UserQuery, UserQueryVariables>(client, UserDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useUserQuery.getKey = (variables: UserQueryVariables) => ['User', variables];
+
+
+useUserQuery.fetcher = (client: GraphQLClient, variables: UserQueryVariables, headers?: RequestInit['headers']) => fetcher<UserQuery, UserQueryVariables>(client, UserDocument, variables, headers);
+
+export const CreateUserDocument = `
+    mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    user {
+      id
+      account
+      email
+      mustChangePassword
+    }
+  }
+}
+    `;
+
+export const useCreateUserMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateUserMutation, TError, CreateUserMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateUserMutation, TError, CreateUserMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateUser'],
+    mutationFn: (variables?: CreateUserMutationVariables) => fetcher<CreateUserMutation, CreateUserMutationVariables>(client, CreateUserDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateUserMutation.fetcher = (client: GraphQLClient, variables: CreateUserMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateUserMutation, CreateUserMutationVariables>(client, CreateUserDocument, variables, headers);
+
+export const UpdateUserDocument = `
+    mutation UpdateUser($input: UpdateUserInput!) {
+  updateUser(input: $input) {
+    user {
+      id
+      name
+      account
+      email
+      nickname
+      gender
+      phone
+      address
+      nationalId
+    }
+  }
+}
+    `;
+
+export const useUpdateUserMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateUserMutation, TError, UpdateUserMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateUserMutation, TError, UpdateUserMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateUser'],
+    mutationFn: (variables?: UpdateUserMutationVariables) => fetcher<UpdateUserMutation, UpdateUserMutationVariables>(client, UpdateUserDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateUserMutation.fetcher = (client: GraphQLClient, variables: UpdateUserMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateUserMutation, UpdateUserMutationVariables>(client, UpdateUserDocument, variables, headers);
+
+export const SetUserEnabledDocument = `
+    mutation SetUserEnabled($input: SetUserEnabledInput!) {
+  setUserEnabled(input: $input) {
+    user {
+      id
+      enabled
+    }
+  }
+}
+    `;
+
+export const useSetUserEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetUserEnabledMutation, TError, SetUserEnabledMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetUserEnabledMutation, TError, SetUserEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['SetUserEnabled'],
+    mutationFn: (variables?: SetUserEnabledMutationVariables) => fetcher<SetUserEnabledMutation, SetUserEnabledMutationVariables>(client, SetUserEnabledDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetUserEnabledMutation.fetcher = (client: GraphQLClient, variables: SetUserEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetUserEnabledMutation, SetUserEnabledMutationVariables>(client, SetUserEnabledDocument, variables, headers);
+
+export const SetUserOrgsDocument = `
+    mutation SetUserOrgs($input: SetUserOrgsInput!) {
+  setUserOrgs(input: $input) {
+    user {
+      id
+      orgs {
+        id
+        name
+      }
+      roles {
+        id
+        name
+        outOfScope
+      }
+    }
+    removedOrgs {
+      id
+      name
+    }
+    unqualifiedRoles {
+      roleId
+      roleName
+      ownerOrgId
+      ownerOrgName
+      reasons
+      ownerProtected
+    }
+    revokedRoleIds
+  }
+}
+    `;
+
+export const useSetUserOrgsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetUserOrgsMutation, TError, SetUserOrgsMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetUserOrgsMutation, TError, SetUserOrgsMutationVariables, TContext>(
+      {
+    mutationKey: ['SetUserOrgs'],
+    mutationFn: (variables?: SetUserOrgsMutationVariables) => fetcher<SetUserOrgsMutation, SetUserOrgsMutationVariables>(client, SetUserOrgsDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetUserOrgsMutation.fetcher = (client: GraphQLClient, variables: SetUserOrgsMutationVariables, headers?: RequestInit['headers']) => fetcher<SetUserOrgsMutation, SetUserOrgsMutationVariables>(client, SetUserOrgsDocument, variables, headers);
+
+export const AssignUserRolesDocument = `
+    mutation AssignUserRoles($input: AssignUserRolesInput!) {
+  assignUserRoles(input: $input) {
+    user {
+      id
+      roles {
+        id
+        name
+        ownerOrgId
+        ownerOrgName
+        outOfScope
+      }
+    }
+  }
+}
+    `;
+
+export const useAssignUserRolesMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<AssignUserRolesMutation, TError, AssignUserRolesMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<AssignUserRolesMutation, TError, AssignUserRolesMutationVariables, TContext>(
+      {
+    mutationKey: ['AssignUserRoles'],
+    mutationFn: (variables?: AssignUserRolesMutationVariables) => fetcher<AssignUserRolesMutation, AssignUserRolesMutationVariables>(client, AssignUserRolesDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useAssignUserRolesMutation.fetcher = (client: GraphQLClient, variables: AssignUserRolesMutationVariables, headers?: RequestInit['headers']) => fetcher<AssignUserRolesMutation, AssignUserRolesMutationVariables>(client, AssignUserRolesDocument, variables, headers);
