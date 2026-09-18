@@ -10,21 +10,30 @@
 
 被兩個以上 app 使用(或明確預期會被共用)的元件 → `@repo/ui`;單一 app 專用的元件留在該 app 內。搬移時機:第二個使用者出現的那個 PR。
 
-## STRUCT-03 app 內用 feature 資料夾切分
+## STRUCT-03 app 內分層:`app / pages / components / hooks / stores / lib / test`,import 只能往下
 
-參考 bulletproof-react 的架構:
+(2026-09-19 改,ADR-0012,取代原本的 `features/` 分法;lint:`@repo/eslint-config/frontend-style` 的 `import-x/no-restricted-paths`)
 
 ```
 apps/<app>/src/
-├── features/<feature>/     ← 該功能的元件、hooks、邏輯(例:features/recipes/)
-├── components/             ← 跨 feature 共用、但還不到進 @repo/ui 的元件
-├── lib/                    ← 跨 feature 的工具(例:graphql client)
-└── app/ 或 main.tsx        ← 路由與組裝層,不放業務邏輯
+├── app/          組裝層:main.tsx、routes.tsx、providers/、guards/(RequireAuth、ModuleRoute、ForbiddenPage)、
+│                 AdminShell/(AppBar / SideNav / RouteTabs 版面)、module-pages.tsx。不含業務內容
+├── pages/        路由進入點,一個路由一個資料夾,樹照側欄(= 路由路徑)長:
+│                 auth/LoginPage/、OverviewPage/、system/OrgManagerPage/ …;只有這頁用的元件放在頁底下
+├── components/   兩個以上頁面共用、但還不到進 @repo/ui 的元件
+├── hooks/        跨頁 hook(useMe、useSession)
+├── stores/       zustand store(useXxxStore.ts)
+├── lib/          純工具、client、paths(不含 React)
+└── test/         MSW、renderApp 等測試支援
 ```
 
-feature 之間不互相 import 內部檔案;需要共用就上移到 `components/`、`lib/` 或 packages。
+- **import 方向只能往下**:`app → pages → components → hooks / stores → lib`;下層不准 import 上層,同層的頁面之間不准互相 import(要共用就往上提到 `components/` 或 `hooks/`)。
+- **元件放在唯一使用它的那層**:只有一頁用 → 該頁資料夾底下;兩頁以上用 → `components/`;兩個 app 用 → `@repo/ui`(STRUCT-02)。殼(AdminShell)只被 `routes.tsx` 用,所以住 `app/`。
+- **`pages/` 為什麼取代 `features/`**:admin 的業務單位是模組(側欄每一項),「一個頁面 = 一個模組」已是產品定義(ADR-0004),不需要再一層沒定義的 feature。
 
-已知例外(2026-09-19 記錄):admin 的 `features/auth/use-me`(`useMe()`)與 `features/auth/paths` 被 `features/shell`、`features/overview` 引用 — auth 實質是共用層,新程式碼**照此引用即可**,不要再另做一份;上移到 `lib/auth/` 是一張獨立的重構票,做完後把這段刪掉。
+其他包的對應:`packages/ui` 沒有分層,`src/<Component>/<Component>.tsx` 平鋪(`theme/`、`icons/` 維持);`apps/front` 的 `app/` 是 Next.js 路由目錄(框架例外),其餘 `components / hooks / lib` 同上。
+
+**現況註記(重構完成後刪除)**:admin 目前仍是 `features/` 舊制,由 #116 整包轉換(ui #117、front #118);轉換前新程式碼一律照新制放,舊檔照舊路徑引用即可,不要兩邊各做一份。
 
 ## STRUCT-04 GraphQL 產物只走 `@repo/graphql` 的出口
 

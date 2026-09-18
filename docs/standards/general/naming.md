@@ -1,13 +1,32 @@
 # 命名(GEN)
 
-## GEN-01 檔案與資料夾一律 kebab-case;元件一個資料夾
+## GEN-01 檔名依內容分三種:元件 PascalCase、hook camelCase、其餘 kebab-case
 
-`unicorn/filename-case` 強制 kebab-case(`__tests__` 豁免)。元件以資料夾為單位,入口固定 `index.tsx`:
+(2026-09-19 改,ADR-0012;lint:`@repo/eslint-config/frontend-style` 的 `unicorn/filename-case` 三條,各包完成重構後啟用)
+
+| 檔案是什麼                                  | 檔名                               | 例                                                        |
+| ------------------------------------------- | ---------------------------------- | --------------------------------------------------------- |
+| React 元件(`.tsx`)                          | **PascalCase**,檔名 = 匯出的元件名 | `SideNav.tsx`、`SideNav.test.tsx`、`Button.stories.tsx`   |
+| hook(含 zustand store,回傳值給元件用的都算) | **camelCase**,`use` 開頭           | `useMe.ts`、`useSession.ts`、`useRouteTabsStore.ts`       |
+| 其餘:工具、常數、型別、設定、測試支援       | **kebab-case**                     | `module-tree.ts`、`auth-fetch.ts`、`paths.ts`、`setup.ts` |
+
+資料夾規則(與 STRUCT-03 的分層搭配):
+
+- 元件**有子元件才開同名資料夾**;單檔就夠的元件直接放檔,不硬開資料夾。
+- 子元件放在**唯一使用它的父元件**資料夾底下;同一層有多個葉元件可用一個 PascalCase「分組資料夾」收起來(裡面沒有同名元件)。
+- **不用 `index.ts` barrel**,import 寫到檔案:`import { SideNav } from "./SideNav/SideNav"`。子元件只給父用這件事靠位置與 review 表達,不靠 index 藏。
+- 測試與 story 跟元件同資料夾、同名:`Foo.tsx` / `Foo.test.tsx` / `Foo.stories.tsx`(ui 的三件套)。
 
 ```
-✅ packages/ui/src/counter-button/index.tsx
-❌ packages/ui/src/CounterButton.tsx
+✅ app/AdminShell/SideNav/SideNav.tsx
+✅ app/AdminShell/SideNav/NavNodes/NavNodes.tsx
+✅ app/AdminShell/SideNav/NavNodes/NavItems/NavGroupItem.tsx   ← 分組資料夾 NavItems,裡面兩個葉元件
+✅ app/AdminShell/SideNav/NavNodes/NavItems/NavLinkItem.tsx
+✅ hooks/useMe.ts     lib/module-tree.ts
+❌ features/shell/side-nav.tsx(一檔四個元件、kebab)   ❌ SideNav/index.ts
 ```
+
+框架例外(lint 已排除):Next.js `app/` 路由檔(`page.tsx`、`layout.tsx`…)由框架命名並 default export;app 組裝層的非元件 tsx(`main.tsx`、`routes.tsx`、`module-pages.tsx`)與 `test/` 底下的測試支援檔(`render.tsx`、MSW handlers)用 kebab。`__tests__` 目錄慣例保留。lint 只檢查**檔名**(含把 `use-me.ts` 改成 `useMe.ts`),資料夾命名靠規範與 review。
 
 ## GEN-02 識別符英文,使用者可見文案繁體中文
 
