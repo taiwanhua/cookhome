@@ -31,7 +31,11 @@ const isSandboxEnabled =
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: path.join(process.cwd(), "schema.gql"),
+      // 測試(NODE_ENV=test)用記憶體 schema:測試專用 module(如權限探針)不得寫進提交的 schema.gql 產物(GQL-05)
+      autoSchemaFile:
+        process.env.NODE_ENV === "test"
+          ? true
+          : path.join(process.cwd(), "schema.gql"),
       sortSchema: true,
       introspection: isSandboxEnabled,
       playground: false,

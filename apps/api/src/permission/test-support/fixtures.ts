@@ -110,3 +110,28 @@ export async function setModuleEnabled(
     throw new Error(`測試資料庫沒有模組 key=${key}(seed 未跑?)`);
   }
 }
+
+/** 角色的 enabled 由人在角色管理停用;測試直接改資料庫模擬。 */
+export async function setRoleEnabled(
+  connection: Connection,
+  roleId: Types.ObjectId,
+  enabled: boolean,
+): Promise<void> {
+  await connection
+    .collection("roles")
+    .updateOne({ _id: roleId }, { $set: { enabled } });
+}
+
+/** 權限的 enabled 是全域 kill switch(seed 後由人在「模組與權限」頁停用);測試直接改資料庫模擬。 */
+export async function setPermissionEnabled(
+  connection: Connection,
+  key: string,
+  enabled: boolean,
+): Promise<void> {
+  const { matchedCount } = await connection
+    .collection("permissions")
+    .updateOne({ key }, { $set: { enabled } });
+  if (matchedCount === 0) {
+    throw new Error(`測試資料庫沒有權限 key=${key}(seed 未跑?)`);
+  }
+}

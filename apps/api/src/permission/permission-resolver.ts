@@ -60,10 +60,10 @@ function idsOf(records: { _id: Types.ObjectId }[]): Types.ObjectId[] {
 /**
  * 權限解析的單一入口(ADR-0003 / ADR-0011):每請求現查,v1 不快取。
  * 步驟(ADR-0011「登入後的查詢步驟」):
- * 2. user_role → roleIds(持有超級管理員 → bypass)
+ * 2. user_role → roleIds;**停用的角色(roles.enabled=false)不計**(持有超級管理員 → bypass)
  * 3. role_module → moduleIds
- * 4. role_permission → permissionIds → permissions
- * 5. wildcard 展開:`X.*` → moduleId = X 的全部權限(同層,不含子模組)
+ * 4. role_permission → permissionIds → permissions;**停用的權限(permissions.enabled=false,全域 kill switch)不算持有**
+ * 5. wildcard 展開:`X.*` → moduleId = X 的全部 enabled 權限(同層,不含子模組)
  * 6. 查 modules(enabled=false 者連子樹剔除),每個模組塞 moduleId 等於它的有效權限
  * 7. 回模組陣列(route 由父段累加成完整路徑)
  * 當前組織不參與計算(ADR-0003),參數保留以符合單一入口的簽章。
@@ -86,13 +86,20 @@ export class PermissionResolver {
     if (roleIds.length === 0) {
       return { isSuperAdmin: false, modules: [], permissionKeys: new Set() };
     }
-    const roles = await this.roles.findMany(reader, { _id: { $in: roleIds } });
+    // 停用的角色不計(roles.enabled 是「停用這個角色」的開關,授予仍在但不生效)
+    const roles = await this.roles.findMany(reader, {
+      _id: { $in: roleIds },
+      enabled: true,
+    });
+    if (roles.length === 0) {
+      return { isSuperAdmin: false, modules: [], permissionKeys: new Set() };
+    }
     const isSuperAdmin = roles.some(
       (role) => role.isSystem && role.key === SUPER_ADMIN_ROLE_KEY,
     );
     return isSuperAdmin
       ? this.resolveSuperAdmin(reader)
-      : this.resolveRoles(reader, roleIds);
+      : this.resolveRoles(reader, idsOf(roles));
   }
 
   /** 超級管理員 bypass(ADR-0004):全部 enabled 模組(含根組織專屬)+ 這些模組的全部權限。 */
@@ -101,8 +108,10 @@ export class PermissionResolver {
   ): Promise<PermissionResolution> {
     const allModules = await this.modules.findMany(reader, {});
     const visibleModules = pruneDisabledSubtrees(allModules);
+    // 停用的權限(permissions.enabled = 全域 kill switch)連超級管理員也不給
     const permissions = await this.permissions.findMany(reader, {
       moduleId: { $in: idsOf(visibleModules) },
+      enabled: true,
     });
     return {
       isSuperAdmin: true,
@@ -119,8 +128,10 @@ export class PermissionResolver {
       this.relations.listModuleIdsOfRoles(roleIds),
       this.relations.listPermissionIdsOfRoles(roleIds),
     ]);
+    // 停用的權限(permissions.enabled = 全域 kill switch)不算持有,連 `*` 被停用也不展開
     const granted = await this.permissions.findMany(reader, {
       _id: { $in: permissionIds },
+      enabled: true,
     });
 
     // 步驟 5:wildcard 展開 — `X.*` 的 moduleId 就是 X,查 moduleId ∈ 那些模組即同層全部
@@ -132,6 +143,7 @@ export class PermissionResolver {
         ? []
         : await this.permissions.findMany(reader, {
             moduleId: { $in: wildcardModuleIds },
+            enabled: true,
           });
     const effective = uniqueById([...granted, ...expanded]);
 

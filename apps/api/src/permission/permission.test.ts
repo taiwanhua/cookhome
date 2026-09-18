@@ -8,7 +8,12 @@ import {
   startAuthTestApp,
 } from "../auth/test-support/auth-app";
 import { createOrg, createUser } from "../auth/test-support/fixtures";
-import { createRole, setModuleEnabled } from "./test-support/fixtures";
+import {
+  createRole,
+  setModuleEnabled,
+  setPermissionEnabled,
+  setRoleEnabled,
+} from "./test-support/fixtures";
 import {
   PROBE_PERMISSION_KEY,
   PermissionProbeModule,
@@ -295,6 +300,44 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
       expect(byKey(modules, SAMPLE_ONE).permissions).toEqual([
         `${SAMPLE_ONE}.edit`,
       ]);
+    });
+
+    it("停用的角色不計:角色 enabled=false 後,它綁的模組與權限全部消失(授予仍在,只是不生效)", async () => {
+      const { userId, accessToken } = await createLoggedInUser();
+      const roleId = await createRole(api.app, api.connection, {
+        name: "會被停用的角色",
+        ownerOrgId: tenantId,
+        moduleKeys: ["demo", "demo.sample-two"],
+        permissionKeys: ["demo.sample-two.view"],
+        assignTo: [userId],
+      });
+      const before = await fetchModules(accessToken);
+      expect(before).toHaveLength(2);
+
+      await setRoleEnabled(api.connection, roleId, false);
+      expect(await fetchModules(accessToken)).toEqual([]);
+    });
+
+    it("停用的權限不算持有(全域 kill switch):permissions.enabled=false 的權限不出現,連被 `*` 展開的也不給", async () => {
+      const { userId, accessToken } = await createLoggedInUser();
+      await createRole(api.app, api.connection, {
+        name: "示範模組2 全給",
+        ownerOrgId: tenantId,
+        moduleKeys: ["demo", "demo.sample-two"],
+        permissionKeys: ["demo.sample-two.*"],
+        assignTo: [userId],
+      });
+      const before = byKey(await fetchModules(accessToken), "demo.sample-two");
+      expect(before.permissions).toContain("demo.sample-two.delete");
+
+      await setPermissionEnabled(api.connection, "demo.sample-two.delete", false);
+      try {
+        const after = byKey(await fetchModules(accessToken), "demo.sample-two");
+        expect(after.permissions).not.toContain("demo.sample-two.delete");
+        expect(after.permissions).toContain("demo.sample-two.view");
+      } finally {
+        await setPermissionEnabled(api.connection, "demo.sample-two.delete", true);
+      }
     });
 
     it("沒有任何角色 → 空陣列", async () => {
