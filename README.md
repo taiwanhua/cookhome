@@ -36,11 +36,11 @@ pnpm install
 pnpm dev               # 同時啟動 api / front / admin / storybook
 ```
 
-| 本地服務               | 網址                          |
-| ---------------------- | ----------------------------- |
-| GraphQL API(+ Sandbox) | http://localhost:5001/graphql |
-| 前台 front             | http://localhost:3002         |
-| 後台 admin             | http://localhost:3001         |
+| 本地服務               | 網址                                                       |
+| ---------------------- | ---------------------------------------------------------- |
+| GraphQL API(+ Sandbox) | http://localhost:5001/graphql                              |
+| 前台 front             | http://localhost:3002                                      |
+| 後台 admin             | http://localhost:3001                                      |
 | Storybook              | http://localhost:6006(線上:https://design.cookhome.online) |
 
 ## 常用指令

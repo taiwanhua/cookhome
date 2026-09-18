@@ -28,6 +28,11 @@ jobs:
       - name: 安裝依賴
         run: pnpm install --frozen-lockfile
 
+      # Markdown 不經 turbo lint(各 workspace 的 lint 只跑 eslint,且根目錄 docs/ 不屬於任何 workspace),
+      # 獨立一步在最前面 fail-fast。ts/tsx 尚未納入 prettier --check(dis.md #26 的待辦)
+      - name: Markdown 格式檢查(prettier --check)
+        run: pnpm run format:check
+
       - name: 建置 api(front 的 ISR 預渲染需要活的 api)
         run: pnpm exec turbo run build --filter=@repo/api
 

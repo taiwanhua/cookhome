@@ -56,6 +56,7 @@
 
 ### B. 需要討論決策
 
+<!-- prettier-ignore -->
 5. **設計系統收尾** — 大致完成(2026-09-05):
    - ~~styling.md(STYLE-01~05)~~、~~designSystemWall lint 牆~~、~~Storybook 部署(design.cookhome.online,只建 main)~~
    - ~~theme 補完~~:OKLab 感知混色、四組狀態色、z1~z24 shadows、typography、11 個元件 styleOverrides — 全部是主色的函數,換色一行全自動重算
@@ -115,6 +116,7 @@
 
 ### C. 小任務(不需討論,找時間做)
 
+<!-- prettier-ignore -->
 11. ~~deploy.yml 的 api_url 換自訂子網域~~ — 已完成(2026-09-05,PR #11~#13)。
 12. **Atlas 拆三 cluster** — 已定案要拆(2026-09-04);時機:production 有真實流量升 M10 時(或先三個 Atlas project 各一 M0)。過渡加固:三環境 URI 皆 `maxPoolSize=10`。
 
