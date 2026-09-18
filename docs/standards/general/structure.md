@@ -74,3 +74,14 @@ packages/domain/src/permission/   → import { ownerModuleKey } from "@repo/doma
 2. `tsconfig.json` extends `@repo/typescript-config/base.json`;`eslint.config.js` 只有一行 `export { config as default } from "@repo/eslint-config"`;jest 用 `@repo/jest-presets/node`(純邏輯)或 `browser-esm`(瀏覽器);`turbo.json` 宣告 `build` 輸出 `dist/**`
 3. 消費端:api 加 devDependency `workspace:*` 後直接 `import "@repo/<name>/<主題>"`;admin / front 同
 4. 登記:`docs/architecture.md` 的 packages 表加一列,寫「誰用、怎麼用」
+
+## STRUCT-09 Markdown 也走 prettier:表格由它排版,不手排
+
+全 repo 的 `.md`(`docs/`、各模組 `help.md`、README、規範檔)都受 CI 的 `prettier --check` 檢查(`pnpm run format:check`,與 `pnpm format` 同一套設定,2026-09-19 起)。表格的分隔列與欄寬對齊一律交給 prettier:寫完跑 `pnpm format`,不要手動對齊、也不要為了省寬度刻意寫緊湊式 `|---|---|`(prettier 會展開,產生與內容無關的大 diff)。
+
+只有兩種例外,都要附原因:
+
+1. **清單編號是跨文件引用的穩定 ID**(如 `docs/tmp/dis.md` 二.B / 二.C 以「dis.md #27」被 ADR 指路)— prettier 會把非連續編號重排成連號,在該清單前一行放 `<!-- prettier-ignore -->`。
+2. **不歸我們管的內容** — 外部安裝、由 `skills-lock.json` 以 hash 校驗的 `.agents/`,以及 Claude Code 的本機目錄,整目錄列在 `.prettierignore`。
+
+順帶:字面星號(例如 wildcard 權限「全部(\*)」)要寫成 `\*`,否則成對的 `*` 會被當成強調符號,prettier 會把它改寫成 `_` 讓問題浮現。

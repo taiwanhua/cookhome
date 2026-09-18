@@ -5,26 +5,26 @@
 
 ## Apps
 
-| App               | 技術                                                             | 用途                                                           | Port |
-| ----------------- | ---------------------------------------------------------------- | -------------------------------------------------------------- | ---- |
-| `@repo/api`       | NestJS + GraphQL(Apollo/Express, code-first)+ Mongoose + MongoDB | 後端 API,front 與 admin 都打這個服務                           | 5001 |
-| `@repo/front`     | Next.js(App Router)                                              | 前台。SEO 頁面走 Server Component + ISR,不使用 Next API Routes | 3002 |
-| `@repo/admin`     | Vite + React SPA                                                 | 後台管理,不需 SEO                                              | 3001 |
-| `@repo/storybook` | Storybook(react-vite)                                            | 設計系統目錄 + Palette Lab;stories 檔案住在 `packages/ui`      | 6006 |
-| `@repo/db-migrator` | migrate-mongo + seed runner                            | 資料庫遷移與種子工具,不部署不常駐;CI 於部署 api 後呼叫(ADR-0002) | — |
+| App                 | 技術                                                             | 用途                                                             | Port |
+| ------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- | ---- |
+| `@repo/api`         | NestJS + GraphQL(Apollo/Express, code-first)+ Mongoose + MongoDB | 後端 API,front 與 admin 都打這個服務                             | 5001 |
+| `@repo/front`       | Next.js(App Router)                                              | 前台。SEO 頁面走 Server Component + ISR,不使用 Next API Routes   | 3002 |
+| `@repo/admin`       | Vite + React SPA                                                 | 後台管理,不需 SEO                                                | 3001 |
+| `@repo/storybook`   | Storybook(react-vite)                                            | 設計系統目錄 + Palette Lab;stories 檔案住在 `packages/ui`        | 6006 |
+| `@repo/db-migrator` | migrate-mongo + seed runner                                      | 資料庫遷移與種子工具,不部署不常駐;CI 於部署 api 後呼叫(ADR-0002) | —    |
 
 workspace 套件名一律 `@repo/` 前綴(規則 GEN-06)。
 
 ## Packages
 
-| Package                                                                                            | 用途                                                                                                                                                                   |
-| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@repo/graphql`                                                                                    | GraphQL codegen 共用套件:讀 `apps/api/schema.gql` + `src/documents/*.graphql`,產生 TypeScript 型別與 TanStack Query hooks(fetcher 為 graphql-request),front/admin 共用 |
-| `@repo/ui`                                                                                         | 設計系統:兩層 tokens(`src/theme/`,品牌層 `brands/*.ts` 可整包替換 + 語意層)、`createAppTheme`(MUI cssVariables、light/dark)、共用元件(元件+測試+story 三件套同居)      |
-| `@repo/logger`                                                                                     | 共用 logger(全 repo 唯一可用 `console` 的地方,其他地方被 `no-console` 擋)                                                                                              |
-| `@repo/i18n`                                                                                       | 多語訊息檔(`messages/<locale>/<namespace>.json`)+ locale 定義;front 以 `next-intl`、admin 以 `use-intl` 消費(同生態);規範見 `standards/general/i18n.md`               |
+| Package                                                                                            | 用途                                                                                                                                                                                                  |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@repo/graphql`                                                                                    | GraphQL codegen 共用套件:讀 `apps/api/schema.gql` + `src/documents/*.graphql`,產生 TypeScript 型別與 TanStack Query hooks(fetcher 為 graphql-request),front/admin 共用                                |
+| `@repo/ui`                                                                                         | 設計系統:兩層 tokens(`src/theme/`,品牌層 `brands/*.ts` 可整包替換 + 語意層)、`createAppTheme`(MUI cssVariables、light/dark)、共用元件(元件+測試+story 三件套同居)                                     |
+| `@repo/logger`                                                                                     | 共用 logger(全 repo 唯一可用 `console` 的地方,其他地方被 `no-console` 擋)                                                                                                                             |
+| `@repo/i18n`                                                                                       | 多語訊息檔(`messages/<locale>/<namespace>.json`)+ locale 定義;front 以 `next-intl`、admin 以 `use-intl` 消費(同生態);規範見 `standards/general/i18n.md`                                               |
 | `@repo/domain`                                                                                     | 前後端共用的純邏輯(STRUCT-07):`@repo/domain/permission`(權限 key 切分、同層 wildcard 比對 `hasPermission`)、`@repo/domain/password`(密碼規則);bunchee 雙格式,api 走 cjs + `typesVersions`,admin 走 es |
-| `@repo/eslint-config` / `@repo/prettier-config` / `@repo/typescript-config` / `@repo/jest-presets` | 共用開發設定(單一入口,各 app 不自訂規則)。jest-presets 三種:`node`(純邏輯 / api)、`browser`(純元件庫 `ui`)、`browser-esm`(admin:jsdom + MSW 需要的 Node 全域 + ts-jest ESM,TEST-08)                          |
+| `@repo/eslint-config` / `@repo/prettier-config` / `@repo/typescript-config` / `@repo/jest-presets` | 共用開發設定(單一入口,各 app 不自訂規則)。jest-presets 三種:`node`(純邏輯 / api)、`browser`(純元件庫 `ui`)、`browser-esm`(admin:jsdom + MSW 需要的 Node 全域 + ts-jest ESM,TEST-08)                   |
 
 ## 品質約束(三層)
 

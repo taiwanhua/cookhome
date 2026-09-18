@@ -26,6 +26,7 @@ apps/db-migrator/
 **遷移 vs 種子的語意差異**:遷移一次性(跑過記 changelog,變更寫新檔不改舊檔);種子冪等(直接改宣告檔,每次部署重跑等於同步)。
 
 **種子文件的兩種欄位**(runner 以 key 找到既有那筆後,逐欄比對宣告值):
+
 - **每次都 seed 的欄位**(預設):每次部署都同步回宣告值 — 改宣告檔的 route / name / order 等,下次 seed 即生效(摘要計「更新」);人在資料庫手動改的會被拉回宣告值。
 - **初始 seed 值的欄位**:只在建立時寫入,之後永不比對、永不覆寫,由人在系統內管理。runner 預設 `initialSeedValueFields = ["enabled"]`,對所有種子表統一生效(模組、角色、欄位類別、欄位選項)— 停用/啟用是給人操作的開關,seed 不得每次翻回去。
 - key 是識別,不是欄位:改 key = 新種一筆、舊的變孤兒,要配 cleanup migration。
@@ -35,6 +36,7 @@ apps/db-migrator/
 **root 初始帳號**:seed 需建立平台第一個超級管理員帳號 — account/email/密碼自環境變數讀取(`ROOT_ADMIN_ACCOUNT` / `ROOT_ADMIN_EMAIL` / `ROOT_ADMIN_PASSWORD`,雲端存 Secret Manager);**僅在帳號不存在時建立**,已存在則完全不動(不會因部署重設密碼)。
 
 **種子 key 與內容定案**(2026-09-16):
+
 - 根組織 key `root`(name 依 branding.md);種子角色 key `super-admin`、`tenant-admin`,兩者的擁有組織(org_role)= 根組織,隨角色一起種。
 - root 初始帳號的顯示名 `name` = account 值,建立後可在系統內改。
 - **seed 以原生 mongodb driver 手寫文件形狀**,不 import `apps/api` 的 Mongoose schema:STRUCT-01 禁 app 互相 import,且 BaseRepository 的租戶過濾對沒有操作者上下文的查詢一律拋錯(seed 本來就不該走它)。代價是欄位形狀存在兩處,schema 改了 seed 要跟(索引測試不會抓欄位漂移);若漂移變嚴重,再抽 `@repo/db-schemas` 共用型別(dis.md #27)。

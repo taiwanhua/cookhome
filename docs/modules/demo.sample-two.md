@@ -10,10 +10,10 @@
 
 ## 模組節點
 
-| key | 名稱 | sidebarType | 自有權限 |
-|---|---|---|---|
-| `demo.sample-two` | 示範模組2 | link(列表頁) | 見下 |
-| `demo.sample-two.view-page` / `.create-page` / `.edit-page` | 詳情/新增/編輯 | hidden | 各自僅 `*` |
+| key                                                         | 名稱           | sidebarType  | 自有權限   |
+| ----------------------------------------------------------- | -------------- | ------------ | ---------- |
+| `demo.sample-two`                                           | 示範模組2      | link(列表頁) | 見下       |
+| `demo.sample-two.view-page` / `.create-page` / `.edit-page` | 詳情/新增/編輯 | hidden       | 各自僅 `*` |
 
 ## 權限表
 

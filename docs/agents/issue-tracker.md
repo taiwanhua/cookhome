@@ -45,28 +45,28 @@ GitHub 的 issue 與 PR 共用同一組編號,所以單看 `#42` 無法確定是
 
 ## 怎麼分辨一張 issue 的種類
 
-| 這張 issue 是什麼 | 判斷方式 | 下一步 |
-|---|---|---|
-| **Spec(規格,不可直接開發)** | 標題 `Spec:` 開頭、內文為 spec 模板、**沒有** `## Parent` 段 | 對它跑 /to-tickets 拆票 |
-| **Ticket(開發票)** | 內文**有** `## Parent` 指回 spec + 驗收條件 | 依看板 Status 行動(見下);掛 `needs-info` 者先解開內列問題 |
-| 「可 code-review 的」 | **不存在這種 issue** — review 的對象是 PR:票完成 → PR → /code-review → merge | |
+| 這張 issue 是什麼           | 判斷方式                                                                     | 下一步                                                    |
+| --------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Spec(規格,不可直接開發)** | 標題 `Spec:` 開頭、內文為 spec 模板、**沒有** `## Parent` 段                 | 對它跑 /to-tickets 拆票                                   |
+| **Ticket(開發票)**          | 內文**有** `## Parent` 指回 spec + 驗收條件                                  | 依看板 Status 行動(見下);掛 `needs-info` 者先解開內列問題 |
+| 「可 code-review 的」       | **不存在這種 issue** — review 的對象是 PR:票完成 → PR → /code-review → merge |                                                           |
 
 ## 票的生命週期:GitHub Projects 看板(唯一真相)
 
 狀態一律以 **Project「CookHome」的 Status 欄位**為準;標籤只當資格註記(`needs-info`、`wontfix` 等),**不用標籤表示狀態**。
 
-| Status | 意義(對應 3 分支流程) | 誰在何時移卡 |
-|---|---|---|
-| Backlog | 票已開但 Blocked by 尚有 open | 拆票時放入 |
-| Ready | blockers 全關,可認領 | blocker 關閉時 |
-| In Progress | 已認領開工(assign 給自己) | 實作者開工時 |
-| In Review | PR 已開啟(內文必含 `Closes #<票號>` 建立連結) | 實作者開 PR 時 |
-| Dev 驗證中 | PR 已合 `dev` → 等手動部署 dev(`gh workflow run Deploy --ref dev -f environment=dev`)+ QA | merge 時 |
-| Dev 通過 | dev QA 通過,等合 `staging` | QA 者 |
-| Staging 驗證中 | 已合 `staging` → 等手動部署 staging + QA | merge 時 |
-| Staging 通過 | staging QA 通過,等 release | QA 者 |
-| Released | `staging` 已合回 `main` 並部署 production;**此時關閉 issue** | release 時 |
-| Won't Do | 決定不做(issue 以 not planned 關閉) | 決策時 |
+| Status         | 意義(對應 3 分支流程)                                                                     | 誰在何時移卡   |
+| -------------- | ----------------------------------------------------------------------------------------- | -------------- |
+| Backlog        | 票已開但 Blocked by 尚有 open                                                             | 拆票時放入     |
+| Ready          | blockers 全關,可認領                                                                      | blocker 關閉時 |
+| In Progress    | 已認領開工(assign 給自己)                                                                 | 實作者開工時   |
+| In Review      | PR 已開啟(內文必含 `Closes #<票號>` 建立連結)                                             | 實作者開 PR 時 |
+| Dev 驗證中     | PR 已合 `dev` → 等手動部署 dev(`gh workflow run Deploy --ref dev -f environment=dev`)+ QA | merge 時       |
+| Dev 通過       | dev QA 通過,等合 `staging`                                                                | QA 者          |
+| Staging 驗證中 | 已合 `staging` → 等手動部署 staging + QA                                                  | merge 時       |
+| Staging 通過   | staging QA 通過,等 release                                                                | QA 者          |
+| Released       | `staging` 已合回 `main` 並部署 production;**此時關閉 issue**                              | release 時     |
+| Won't Do       | 決定不做(issue 以 not planned 關閉)                                                       | 決策時         |
 
 Spec issue 不上板(看板只放票);staging 的 PR 內文也要含 `Closes #<票號>` 或 `Refs #<票號>`,自動化才找得到票。
 
