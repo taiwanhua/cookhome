@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { createRoot } from "react-dom/client";
 
+import { CheckIcon } from "./CheckIcon";
 import { ChevronDownIcon } from "./ChevronDownIcon";
 import { ChevronRightIcon } from "./ChevronRightIcon";
 import { CloseIcon } from "./CloseIcon";
@@ -17,6 +18,7 @@ describe("icons", () => {
           <ChevronRightIcon fontSize="small" />
           <DotIcon fontSize="small" />
           <CloseIcon fontSize="small" />
+          <CheckIcon fontSize="small" />
         </>,
       );
       root.unmount();
