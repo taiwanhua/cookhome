@@ -10,6 +10,16 @@ import {
   CoreRelationship,
   CoreRelationshipSchema,
 } from "./schemas/core-relationship.schema";
+import { Customer, CustomerSchema } from "./schemas/customer.schema";
+import {
+  DemoItemOne,
+  DemoItemOneSchema,
+} from "./schemas/demo-item-one.schema";
+import {
+  DemoItemTwo,
+  DemoItemTwoSchema,
+} from "./schemas/demo-item-two.schema";
+import { Field, FieldSchema } from "./schemas/field.schema";
 import { Module as ModuleEntity, ModuleSchema } from "./schemas/module.schema";
 import { Org, OrgSchema } from "./schemas/org.schema";
 import { Permission, PermissionSchema } from "./schemas/permission.schema";
@@ -28,6 +38,10 @@ export type RoleDocument = HydratedDocument<Role>;
 export type ModuleDocument = HydratedDocument<ModuleEntity>;
 export type PermissionDocument = HydratedDocument<Permission>;
 export type AuditLogDocument = HydratedDocument<AuditLog>;
+export type CustomerDocument = HydratedDocument<Customer>;
+export type DemoItemOneDocument = HydratedDocument<DemoItemOne>;
+export type DemoItemTwoDocument = HydratedDocument<DemoItemTwo>;
+export type FieldDocument = HydratedDocument<Field>;
 
 /** users(關聯歸屬資料:所屬組織走 org_user,資料層不自動過濾,ADR-0005)。 */
 @Injectable()
@@ -131,6 +145,61 @@ export class AuditLogsRepository extends BaseRepository<
 }
 
 /**
+ * 業務資料(租戶資料,`orgId` 指向所屬組織):目前只有「這個組織還有沒有資料掛著」的用途 —
+ * 組織刪除前置的第四項(docs/modules/org-manager.md「刪除」)。各自的功能模組長出來時直接沿用。
+ */
+@Injectable()
+export class CustomersRepository extends BaseRepository<
+  Customer,
+  CustomerDocument
+> {
+  constructor(
+    @InjectModel(Customer.name)
+    model: RepositoryModel<Customer, CustomerDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** demo_items_one(第 5 段示範模組的業務資料)。 */
+@Injectable()
+export class DemoItemsOneRepository extends BaseRepository<
+  DemoItemOne,
+  DemoItemOneDocument
+> {
+  constructor(
+    @InjectModel(DemoItemOne.name)
+    model: RepositoryModel<DemoItemOne, DemoItemOneDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** demo_items_two(第 5 段示範模組的業務資料)。 */
+@Injectable()
+export class DemoItemsTwoRepository extends BaseRepository<
+  DemoItemTwo,
+  DemoItemTwoDocument
+> {
+  constructor(
+    @InjectModel(DemoItemTwo.name)
+    model: RepositoryModel<DemoItemTwo, DemoItemTwoDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** fields(欄位選項:`orgId` null = 全域種子、有值 = 租戶自訂,ADR-0005)。 */
+@Injectable()
+export class FieldsRepository extends BaseRepository<Field, FieldDocument> {
+  constructor(
+    @InjectModel(Field.name) model: RepositoryModel<Field, FieldDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/**
  * 資料層的 Nest 接線:把 BaseRepository 子類與 RelationService 註冊為 provider,
  * 功能模組只注入這些出口,不直接拿 Model(ESLint `@repo/no-raw-model-query`,ADR-0005)。
  * 新 collection 要給功能模組用時,在此加一個 Repository 子類並匯出。
@@ -147,6 +216,10 @@ export class AuditLogsRepository extends BaseRepository<
       { name: Permission.name, schema: PermissionSchema },
       { name: AuditLog.name, schema: AuditLogSchema },
       { name: CoreRelationship.name, schema: CoreRelationshipSchema },
+      { name: Customer.name, schema: CustomerSchema },
+      { name: DemoItemOne.name, schema: DemoItemOneSchema },
+      { name: DemoItemTwo.name, schema: DemoItemTwoSchema },
+      { name: Field.name, schema: FieldSchema },
     ]),
   ],
   providers: [
@@ -158,6 +231,10 @@ export class AuditLogsRepository extends BaseRepository<
     ModulesRepository,
     PermissionsRepository,
     AuditLogsRepository,
+    CustomersRepository,
+    DemoItemsOneRepository,
+    DemoItemsTwoRepository,
+    FieldsRepository,
     {
       provide: RelationService,
       inject: [getModelToken(CoreRelationship.name)],
@@ -174,6 +251,10 @@ export class AuditLogsRepository extends BaseRepository<
     ModulesRepository,
     PermissionsRepository,
     AuditLogsRepository,
+    CustomersRepository,
+    DemoItemsOneRepository,
+    DemoItemsTwoRepository,
+    FieldsRepository,
     RelationService,
   ],
 })

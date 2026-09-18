@@ -16,6 +16,12 @@ type ChangePasswordPayload {
   success: Boolean!
 }
 
+input CreateChildOrgInput {
+  description: String
+  name: String!
+  parentId: ID!
+}
+
 input CreateRecipeInput {
   cookMinutes: Int
   description: String
@@ -54,6 +60,15 @@ input CreateUserInput {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+input DeleteOrgInput {
+  id: ID!
+}
+
+type DeletePayload {
+  deletedId: ID!
+  success: Boolean!
+}
 
 type Ingredient {
   amount: String!
@@ -121,26 +136,69 @@ enum ModuleSidebarType {
   LINK
 }
 
+input MoveOrgInput {
+  id: ID!
+  newParentId: ID!
+}
+
 type Mutation {
   assignUserRoles(input: AssignUserRolesInput!): UserPayload!
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
+  createChildOrg(input: CreateChildOrgInput!): OrgPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   createUser(input: CreateUserInput!): UserPayload!
+  deleteOrg(input: DeleteOrgInput!): DeletePayload!
   login(input: LoginInput!): LoginPayload!
   logout: LogoutPayload!
   logoutAllDevices: LogoutAllDevicesPayload!
+  moveOrg(input: MoveOrgInput!): OrgPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
+  setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
   setUserEnabled(input: SetUserEnabledInput!): UserPayload!
   setUserOrgs(input: SetUserOrgsInput!): SetUserOrgsPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
+  updateOrg(input: UpdateOrgInput!): OrgPayload!
   updateUser(input: UpdateUserInput!): UserPayload!
+}
+
+type Org {
+  description: String
+  enabled: Boolean!
+  id: ID!
+  isSystem: Boolean!
+  logoUrl: String
+  name: String!
+  ownerUserId: ID
+  parentId: ID
+  visibility: OrgVisibility
+}
+
+type OrgNode {
+  children: [OrgNode!]!
+  enabled: Boolean!
+  id: ID!
+  name: String!
+  outOfScope: Boolean!
+  parentId: ID
+}
+
+type OrgPayload {
+  org: Org!
+}
+
+"""租戶頂層的使用者可見範圍開關(ADR-0005;未設視為 OWN)"""
+enum OrgVisibility {
+  OWN
+  SUBTREE
 }
 
 type Query {
   me: Me!
+  org(id: ID!): Org!
+  orgTree: [OrgNode!]!
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
   user(id: ID!): User!
@@ -177,6 +235,11 @@ type RequestPasswordResetPayload {
 enum RoleUnqualifiedReason {
   NO_REMAINING_SUBTREE_SUPPORT
   OWNED_BY_REMOVED_ORG
+}
+
+input SetOrgEnabledInput {
+  enabled: Boolean!
+  id: ID!
 }
 
 input SetPasswordInput {
@@ -222,6 +285,13 @@ type UnqualifiedRole {
   reasons: [RoleUnqualifiedReason!]!
   roleId: ID!
   roleName: String!
+}
+
+input UpdateOrgInput {
+  description: String
+  id: ID!
+  logoPath: String
+  name: String
 }
 
 input UpdateUserInput {
