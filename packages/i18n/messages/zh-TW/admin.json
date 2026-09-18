@@ -81,6 +81,16 @@
     "placeholder": {
       "pending": "此頁面尚未建置"
     },
+    "tabs": {
+      "label": "路由頁籤",
+      "close": "關閉 {label}",
+      "keyboardHint": "左右方向鍵移動焦點、Enter 開啟頁籤;Shift 加方向鍵調整順序;Delete 關閉目前焦點的頁籤;也可用滑鼠拖曳排序。",
+      "dragStart": "已拿起「{label}」",
+      "dragOver": "「{label}」移到「{over}」的位置",
+      "dragEnd": "「{label}」已放到「{over}」的位置",
+      "dragEndNoTarget": "「{label}」已放回原位",
+      "dragCancel": "已取消拖曳「{label}」"
+    },
     "forbidden": {
       "title": "沒有權限進入此頁面",
       "body": "你目前的角色沒有這個頁面的權限;若需要使用,請聯絡系統管理員。",
