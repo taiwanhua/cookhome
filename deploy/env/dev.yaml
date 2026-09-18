@@ -1,0 +1,20 @@
+# Cloud Run `cookhome-api-dev` 的非機密環境變數(deploy.yml 以 `--env-vars-file` 整包餵入;
+# 此檔是該環境全部明文變數的唯一來源 — 檔內沒寫的變數,部署後就不存在)。
+# 機密(MONGODB_URI / FIELD_ENCRYPTION_KEY / JWT_SECRET / RESEND_API_KEY)走 Secret Manager,
+# 由 deploy.yml `--set-secrets` 掛入,不在此檔。變數說明:docs/env-registry.md;
+# 值一律加引號(gcloud 只收字串)。NODE_ENV=production 已烘在 apps/api/Dockerfile。
+
+# 信件連結的後台網址(連結 = <ADMIN_APP_URL>/set-password?token=…)
+ADMIN_APP_URL: "https://erp-dev.cookhome.online"
+# refresh cookie 的 Domain(api-dev 與 erp-dev 同屬此網域)
+COOKIE_DOMAIN: ".cookhome.online"
+# 收件白名單(逗號分隔):dev 只寄給開發者,防誤寄真人
+MAIL_ALLOWLIST: "a0987837233@gmail.com"
+# GraphQL Sandbox / introspection:dev 開(其他環境不寫此鍵 = 關)
+GRAPHQL_SANDBOX: "true"
+
+# 以下皆有內建預設值,需要調整時再打開(格式:15m / 30d 等;見 apps/api/src/auth/duration.ts)
+# ACCESS_TOKEN_TTL: "15m"
+# REFRESH_TOKEN_TTL: "30d"
+# ACTIVATION_TOKEN_TTL: "7d"
+# PASSWORD_RESET_TOKEN_TTL: "30m"
