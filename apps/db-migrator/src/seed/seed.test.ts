@@ -622,6 +622,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "overview",
       "system",
       "system.org-manager",
+      "system.org-manager.tenant-ops",
       "system.user-manager",
       "system.role-manager",
       "system.module-manager",
@@ -632,9 +633,22 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       expect(byKey.get(key)).toMatchObject({ isSystem: true, enabled: true });
     }
     expect(byKey.get("api")?.sidebarType).toBe("hidden");
+
+    // 租戶作業:組織管理底下的隱藏權限容器,沒有路由(docs/modules/org-manager.md 模組樹)
+    const tenantOps = byKey.get("system.org-manager.tenant-ops");
+    expect(tenantOps).toMatchObject({
+      name: "租戶作業",
+      sidebarType: "hidden",
+    });
+    expect(tenantOps).not.toHaveProperty("route");
+    expect(tenantOps?.parentId?.toHexString()).toBe(idOf("system.org-manager"));
+    expect(hex(tenantOps?.ancestors)).toEqual([
+      idOf("system"),
+      idOf("system.org-manager"),
+    ]);
   }, 120_000);
 
-  it("示範家族 12 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 19 個模組各一筆 wildcard,共 31 筆", async () => {
+  it("示範家族 12 筆 + 組織管理 9 筆 + 使用者管理 8 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 49 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     expect(runSeedCommand(databaseUri).status).toBe(0);
@@ -659,14 +673,36 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "demo.sample-two.create": "demo.sample-two",
       "demo.sample-two.edit": "demo.sample-two",
       "demo.sample-two.delete": "demo.sample-two",
+      // 正本:docs/modules/org-manager.md 權限表(6 + 租戶作業 3)
+      "system.org-manager.view": "system.org-manager",
+      "system.org-manager.create-child": "system.org-manager",
+      "system.org-manager.edit": "system.org-manager",
+      "system.org-manager.toggle-enabled": "system.org-manager",
+      "system.org-manager.move": "system.org-manager",
+      "system.org-manager.delete": "system.org-manager",
+      "system.org-manager.tenant-ops.provision":
+        "system.org-manager.tenant-ops",
+      "system.org-manager.tenant-ops.transfer-owner":
+        "system.org-manager.tenant-ops",
+      "system.org-manager.tenant-ops.set-visibility":
+        "system.org-manager.tenant-ops",
+      // 正本:docs/modules/user-manager.md 權限表(8)
+      "system.user-manager.view": "system.user-manager",
+      "system.user-manager.create": "system.user-manager",
+      "system.user-manager.edit": "system.user-manager",
+      "system.user-manager.toggle-enabled": "system.user-manager",
+      "system.user-manager.manage-orgs": "system.user-manager",
+      "system.user-manager.assign-roles": "system.user-manager",
+      "system.user-manager.show-national-id": "system.user-manager",
+      "system.user-manager.edit-national-id": "system.user-manager",
     };
 
     // D3:wildcard 只代表該模組自己這一層 → 每個模組(含群組、隱藏頁、api 樹)各一筆 `<key>.*`
     for (const module of modules) {
       expectedOwners[`${String(module.key)}.*`] = String(module.key);
     }
-    expect(modules).toHaveLength(19);
-    expect(permissions).toHaveLength(31);
+    expect(modules).toHaveLength(20);
+    expect(permissions).toHaveLength(49);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
       expect(permission).toMatchObject({ isSystem: true, enabled: true });
@@ -780,16 +816,20 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
       (link) => keyOf(modules)(link.secondId),
     );
     const allModuleKeys = modules.map((module) => module.key);
-    // 根組織專屬:模組與權限(system.module-manager)、資料範圍(system.data-scope)— docs/modules/*.md
+    // 根組織專屬:模組與權限(system.module-manager)、資料範圍(system.data-scope)、
+    // 租戶作業(system.org-manager.tenant-ops,隱藏權限容器)— docs/modules/*.md
     const rootOnlyKeys = new Set([
       "system.module-manager",
       "system.data-scope",
+      "system.org-manager.tenant-ops",
     ]);
     const tenantModuleKeys = allModuleKeys.filter(
       (key) => key !== undefined && !rootOnlyKeys.has(key),
     );
     expect(new Set(boundModuleKeys)).toEqual(new Set(tenantModuleKeys));
     expect(boundModuleKeys).toHaveLength(17);
+    // 開通租戶的三個動作永遠不進模板(ADR-0009 第 3 步:整個 rootOnly 模組被扣除)
+    expect(boundModuleKeys).not.toContain("system.org-manager.tenant-ops");
 
     const boundPermissionKeys = boundBy(
       tenantAdmin?._id,
