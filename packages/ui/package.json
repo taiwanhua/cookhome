@@ -19,6 +19,16 @@
         "default": "./dist/cjs/theme.js"
       }
     },
+    "./tree": {
+      "import": {
+        "types": "./dist/es/tree.d.mts",
+        "default": "./dist/es/tree.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/tree.d.ts",
+        "default": "./dist/cjs/tree.js"
+      }
+    },
     "./button": {
       "import": {
         "types": "./dist/es/button.d.mts",
@@ -89,6 +99,16 @@
         "default": "./dist/cjs/typography.js"
       }
     },
+    "./upload-field": {
+      "import": {
+        "types": "./dist/es/upload-field.d.mts",
+        "default": "./dist/es/upload-field.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/upload-field.d.ts",
+        "default": "./dist/cjs/upload-field.js"
+      }
+    },
     "./stack": {
       "import": {
         "types": "./dist/es/stack.d.mts",
@@ -97,6 +117,16 @@
       "require": {
         "types": "./dist/cjs/stack.d.ts",
         "default": "./dist/cjs/stack.js"
+      }
+    },
+    "./table": {
+      "import": {
+        "types": "./dist/es/table.d.mts",
+        "default": "./dist/es/table.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/table.d.ts",
+        "default": "./dist/cjs/table.js"
       }
     },
     "./box": {
@@ -159,6 +189,16 @@
         "default": "./dist/cjs/menu.js"
       }
     },
+    "./pagination": {
+      "import": {
+        "types": "./dist/es/pagination.d.mts",
+        "default": "./dist/es/pagination.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/pagination.d.ts",
+        "default": "./dist/cjs/pagination.js"
+      }
+    },
     "./select": {
       "import": {
         "types": "./dist/es/select.d.mts",
@@ -219,6 +259,8 @@
     "@repo/jest-presets": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@storybook/react-vite": "^10.6.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^22.15.3",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
@@ -238,6 +280,7 @@
     "react-dom": ">=18"
   },
   "dependencies": {
+    "@mui/x-tree-view": "^9.14.0",
     "@swc/helpers": "^0.5.18"
   }
 }
