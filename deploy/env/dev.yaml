@@ -12,9 +12,14 @@ COOKIE_DOMAIN: ".cookhome.online"
 MAIL_ALLOWLIST: "a0987837233@gmail.com"
 # GraphQL Sandbox / introspection:dev 開(其他環境不寫此鍵 = 關)
 GRAPHQL_SANDBOX: "true"
+# 檔案儲存的 GCS bucket(ADR-0010;未設 GCS_BUCKET_PRIVATE = 改用記錄用 adapter,不會真的上傳)
+GCS_BUCKET_PRIVATE: "cookhome-assets-dev"
+# 公開讀 bucket:第 3 段沒有呼叫端,先接線備用(第 5 段示範模組的封面才用)
+GCS_BUCKET_PUBLIC: "cookhome-public-dev"
 
 # 以下皆有內建預設值,需要調整時再打開(格式:15m / 30d 等;見 apps/api/src/auth/duration.ts)
 # ACCESS_TOKEN_TTL: "15m"
 # REFRESH_TOKEN_TTL: "30d"
 # ACTIVATION_TOKEN_TTL: "7d"
 # PASSWORD_RESET_TOKEN_TTL: "30m"
+# GCS_SIGNED_URL_TTL: "1h"

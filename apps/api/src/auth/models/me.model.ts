@@ -8,6 +8,12 @@ export class MeOrg {
 
   @Field(() => String)
   name!: string;
+
+  /**
+   * 商標的 GCS 物件路徑(`orgs.logoPath`)。**不進 schema**:對外只給簽名網址,
+   * 由 `storage/me-org-logo.resolver.ts` 的 `logoUrl` field resolver 現簽(ADR-0010)。
+   */
+  logoPath?: string;
 }
 
 /**

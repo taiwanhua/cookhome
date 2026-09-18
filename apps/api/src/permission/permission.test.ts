@@ -110,11 +110,12 @@ const SAMPLE_ONE_FAMILY = [
   `${SAMPLE_ONE}.create-page`,
   `${SAMPLE_ONE}.edit-page`,
 ];
-/** seed 的全部模組(總覽 1 + 系統管理群組 7 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4)。 */
+/** seed 的全部模組(總覽 1 + 系統管理群組 8 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4)。 */
 const ALL_SEEDED_MODULES = [
   "overview",
   "system",
   "system.org-manager",
+  "system.org-manager.tenant-ops",
   "system.user-manager",
   "system.role-manager",
   "system.module-manager",
@@ -410,6 +411,27 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
         parentId: null,
         permissions: ["api.*"],
       });
+    });
+
+    it("無 route 的隱藏模組掛在有 route 的父模組底下(system.org-manager.tenant-ops)也回 route: null,不繼承父路徑", async () => {
+      const login = await api.graphql<LoginData>(LOGIN, {
+        input: { account: ROOT_ADMIN.account, password: ROOT_ADMIN.password },
+      });
+      const modules = await fetchModules(login.data?.login.accessToken ?? "");
+
+      const tenantOps = byKey(modules, "system.org-manager.tenant-ops");
+      expect(tenantOps).toMatchObject({
+        sidebarType: "HIDDEN",
+        route: null,
+        parentId: byKey(modules, "system.org-manager").id,
+      });
+      // 權限仍在(彈窗開在組織管理頁上,權限由這個容器模組承載)
+      expectSameMembers(tenantOps.permissions, [
+        "system.org-manager.tenant-ops.*",
+        "system.org-manager.tenant-ops.provision",
+        "system.org-manager.tenant-ops.transfer-owner",
+        "system.org-manager.tenant-ops.set-visibility",
+      ]);
     });
   });
 
