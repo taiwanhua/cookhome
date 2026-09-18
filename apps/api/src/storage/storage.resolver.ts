@@ -1,0 +1,64 @@
+import { Args, Mutation, Resolver } from "@nestjs/graphql";
+import { hasPermission } from "@repo/domain/permission";
+
+import { authError } from "../auth/auth-error";
+import { CurrentOperator } from "../auth/decorators";
+import type { OperatorContext } from "../database/operator-context";
+import { PermissionResolver } from "../permission/permission-resolver";
+import {
+  CreateUploadUrlInput,
+  UploadUrlPayload,
+} from "./models/upload-url.model";
+import { StorageService } from "./storage.service";
+import { UploadPurpose } from "./upload-rules";
+
+/**
+ * 每個用途「誰可以要一張上傳票」(ADR-0010:簽發前先驗操作者權限)。
+ * 商標同時出現在編輯組織與開通租戶兩個彈窗,任一權限即可;`@RequirePermission` 是單一 key 的守門,
+ * 這裡是「多選一」所以自己查有效權限集合(判斷語意同 PermissionGuard:含同層 wildcard,ADR-0004)。
+ */
+const PURPOSE_PERMISSIONS: Readonly<Record<UploadPurpose, readonly string[]>> = {
+  [UploadPurpose.ORG_LOGO]: [
+    "system.org-manager.edit",
+    "system.org-manager.tenant-ops.provision",
+  ],
+};
+
+/** 簽名上傳網址(ADR-0010);檔案直傳 GCS 不經過 API。 */
+@Resolver()
+export class StorageResolver {
+  constructor(
+    private readonly storage: StorageService,
+    private readonly permissions: PermissionResolver,
+  ) {}
+
+  @Mutation(() => UploadUrlPayload)
+  async createUploadUrl(
+    @Args("input") input: CreateUploadUrlInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<UploadUrlPayload> {
+    await this.requirePurposePermission(input.purpose, operator);
+    return this.storage.createUploadUrl(input);
+  }
+
+  private async requirePurposePermission(
+    purpose: UploadPurpose,
+    operator: OperatorContext,
+  ): Promise<void> {
+    const allowed = PURPOSE_PERMISSIONS[purpose];
+    if (!operator.actorId) {
+      // 防呆:全域 guard 已擋掉未登入,這裡只是讓型別與 PermissionGuard 一致
+      throw authError("UNAUTHENTICATED", "Upload requires a login");
+    }
+    const { permissionKeys } = await this.permissions.resolve(
+      operator.actorId,
+      operator.currentOrgId,
+    );
+    if (!allowed.some((key) => hasPermission(permissionKeys, key))) {
+      throw authError(
+        "FORBIDDEN",
+        `Missing permission for upload purpose ${purpose}(${allowed.join(" / ")})`,
+      );
+    }
+  }
+}

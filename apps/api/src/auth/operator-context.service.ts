@@ -20,6 +20,8 @@ export interface MemberOrg {
   id: Types.ObjectId;
   name: string;
   parentId: Types.ObjectId | null;
+  /** 商標的 GCS 物件路徑(ADR-0010:存路徑不存 URL);`me` 據此現簽讀取網址。 */
+  logoPath?: string;
 }
 
 export interface OperatorResolution {
@@ -63,6 +65,7 @@ export class OperatorContextService {
       id: org._id,
       name: org.name,
       parentId: org.parentId,
+      logoPath: org.logoPath,
     }));
     const resolvedCurrentOrgId =
       currentOrgId && memberOrgs.some((org) => org.id.equals(currentOrgId))

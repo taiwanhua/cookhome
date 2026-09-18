@@ -98,6 +98,8 @@ export class AuthResolver {
     const orgs: MeOrg[] = memberOrgs.map((org) => ({
       id: String(org.id),
       name: org.name,
+      // 不對外;`logoUrl` field resolver 據此現簽讀取網址(ADR-0010)
+      logoPath: org.logoPath,
     }));
     const currentOrg =
       orgs.find((org) => org.id === String(operator.currentOrgId)) ?? null;
