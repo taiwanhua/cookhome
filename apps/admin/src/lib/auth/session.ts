@@ -7,9 +7,10 @@ import {
 import { createAuthFetch } from "./auth-fetch";
 import { authErrorCodeOf } from "./graphql-errors";
 import { type SessionChannel, createSessionChannel } from "./session-channel";
-import { type SessionStore, createSessionStore } from "./session-store";
+import type { SessionStore } from "./session-store";
 
 export interface AuthSession {
+  /** 登入狀態(`stores/useSessionStore.ts`,由組裝根注入);元件經 `useSession()` 讀,非 React 程式碼經 `getState()` */
   store: SessionStore;
   channel: SessionChannel;
   /** 公開端點用(login / refresh):不帶 access token、不攔截 */
@@ -30,8 +31,11 @@ export interface AuthSession {
   dispose: () => void;
 }
 
-export function createAuthSession(endpoint: string): AuthSession {
-  const store = createSessionStore();
+/** `store` 由組裝根(app/App.tsx)與測試(test/render.tsx)注入 — lib 不 import stores(STRUCT-03)。 */
+export const createAuthSession = (
+  endpoint: string,
+  store: SessionStore,
+): AuthSession => {
   const channel = createSessionChannel();
   const publicClient = createGraphQLClient(endpoint, undefined, {
     credentials: "include",
@@ -43,11 +47,11 @@ export function createAuthSession(endpoint: string): AuthSession {
     inflightRefresh ??= useRefreshMutation
       .fetcher(publicClient)()
       .then((result) => {
-        store.setAccessToken(result.refresh.accessToken);
+        store.getState().setAccessToken(result.refresh.accessToken);
         return result.refresh.accessToken;
       })
       .catch((error: unknown) => {
-        store.clear();
+        store.getState().clear();
         throw error;
       })
       .finally(() => {
@@ -57,7 +61,7 @@ export function createAuthSession(endpoint: string): AuthSession {
   };
 
   const restore = async () => {
-    if (store.getSnapshot().status !== "booting") {
+    if (store.getState().status !== "booting") {
       return;
     }
     try {
@@ -83,11 +87,11 @@ export function createAuthSession(endpoint: string): AuthSession {
     refresh,
     restore,
     signOut: () => {
-      store.clear();
+      store.getState().clear();
       channel.postLogout();
     },
     dispose: () => {
       channel.close();
     },
   };
-}
+};

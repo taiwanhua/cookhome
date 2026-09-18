@@ -1,6 +1,9 @@
+import type { StoreApi } from "zustand";
+
 /**
  * access token 的唯一存放處:記憶體(ADR-0003;不進 localStorage / cookie)。
- * 以 external store 形式提供給 React(`useSyncExternalStore`)與非 React 的 fetch 層共用。
+ * 狀態本體是 zustand store(`stores/useSessionStore.ts`);這裡只放型別與初值,讓 fetch 層(lib)與 store(stores)共用 —
+ * lib 不 import stores(STRUCT-03),store 由組裝根注入 `createAuthSession`。
  */
 export type SessionStatus =
   /** 開機中:記憶體沒有 token,正在用 refresh cookie 換票 */
@@ -16,58 +19,20 @@ export interface SessionSnapshot {
   mustChangePassword: boolean;
 }
 
-export interface SessionStore {
-  getSnapshot: () => SessionSnapshot;
-  subscribe: (listener: () => void) => () => void;
+export interface SessionActions {
   setAccessToken: (token: string) => void;
   setMustChangePassword: (value: boolean) => void;
   /** 清空 token 並標記為未登入(登出、refresh 失敗、其他分頁登出) */
   clear: () => void;
 }
 
-const ANONYMOUS: SessionSnapshot = {
-  status: "anonymous",
+export type SessionState = SessionSnapshot & SessionActions;
+
+/** 非 React 的 fetch 層看到的 store 介面(zustand 的 `getState` / `subscribe`);`useSessionStore` 本身就滿足它。 */
+export type SessionStore = StoreApi<SessionState>;
+
+export const INITIAL_SESSION_SNAPSHOT: SessionSnapshot = {
+  status: "booting",
   accessToken: null,
   mustChangePassword: false,
 };
-
-export function createSessionStore(): SessionStore {
-  let snapshot: SessionSnapshot = {
-    status: "booting",
-    accessToken: null,
-    mustChangePassword: false,
-  };
-  const listeners = new Set<() => void>();
-
-  const update = (next: SessionSnapshot) => {
-    snapshot = next;
-    for (const listener of listeners) {
-      listener();
-    }
-  };
-
-  return {
-    getSnapshot: () => snapshot,
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    setAccessToken: (token) => {
-      update({ ...snapshot, status: "authenticated", accessToken: token });
-    },
-    setMustChangePassword: (value) => {
-      if (snapshot.mustChangePassword === value) {
-        return;
-      }
-      update({ ...snapshot, mustChangePassword: value });
-    },
-    clear: () => {
-      if (snapshot.status === "anonymous") {
-        return;
-      }
-      update(ANONYMOUS);
-    },
-  };
-}

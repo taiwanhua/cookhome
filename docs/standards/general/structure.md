@@ -33,8 +33,6 @@ apps/<app>/src/
 
 其他包的對應:`packages/ui` 沒有分層,`src/<Component>/<Component>.tsx` 平鋪(`theme/`、`icons/` 維持);`apps/front` 的 `app/` 是 Next.js 路由目錄(框架例外),其餘 `components / hooks / lib` 同上。
 
-**現況註記(重構完成後刪除)**:admin 目前仍是 `features/` 舊制,由 #116 整包轉換(ui #117、front #118);轉換前新程式碼一律照新制放,舊檔照舊路徑引用即可,不要兩邊各做一份。
-
 ## STRUCT-04 GraphQL 產物只走 `@repo/graphql` 的出口
 
 ```ts

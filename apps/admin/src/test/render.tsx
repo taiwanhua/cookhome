@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 
 import { type AuthSession, createAuthSession } from "../lib/auth/session";
+import { useSessionStore } from "../stores/useSessionStore";
 import { TEST_GRAPHQL_ENDPOINT } from "./msw/server";
 import { TestApp } from "./test-app";
 
@@ -16,22 +17,23 @@ export interface RenderAppOptions {
   extra?: ReactNode;
 }
 
-export function createTestQueryClient(): QueryClient {
-  return new QueryClient({
+export const createTestQueryClient = (): QueryClient =>
+  new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-}
 
 /**
- * 以完整的 providers + 路由渲染 app(組裝見 `TestApp`,與 root.tsx 相同,只把 BrowserRouter 換成 MemoryRouter)。
+ * 以完整的 providers + 路由渲染 app(組裝見 `TestApp`,與 App.tsx 相同,只把 BrowserRouter 換成 MemoryRouter)。
  * 回傳的 `session` 可讓測試在同一分頁語意下重新渲染或直接呼叫 client。
+ * 登入狀態在模組層的 `useSessionStore`(測試之間由 setup.ts 歸零),新建的 session 只是換一組 client / channel。
  */
-export function renderApp({
+export const renderApp = ({
   path = "/",
   session,
   extra,
-}: RenderAppOptions = {}) {
-  const activeSession = session ?? createAuthSession(TEST_GRAPHQL_ENDPOINT);
+}: RenderAppOptions = {}) => {
+  const activeSession =
+    session ?? createAuthSession(TEST_GRAPHQL_ENDPOINT, useSessionStore);
   const queryClient = createTestQueryClient();
   const user = userEvent.setup();
   const view = render(
@@ -43,4 +45,4 @@ export function renderApp({
     />,
   );
   return { ...view, user, session: activeSession, queryClient };
-}
+};
