@@ -13,12 +13,14 @@ import {
   enterableRouteMap,
   normalizePathname,
 } from "./module-tree";
+import { RouteTabs } from "./route-tabs";
 import { SideNav } from "./side-nav";
+import { useRouteTabs } from "./use-route-tabs";
 
 /**
- * 登入後的後台殼(#66;Figma Admin Shell 頁:Draft/AdminSideNav 30:52 + Draft/AdminAppBar 30:95):
- * 側欄 + AppBar + 內容區(`<Outlet>`),`me` 走 `useMe()` 全域快取(RequireAuth 已等它載入;
- * 首登強改的導向也在 RequireAuth,殼不重複判斷)。RouteTabs 頁籤列(登入線6 #67)掛在 AppBar 與內容區之間,見下方註記。
+ * 登入後的後台殼(#66;Figma Admin Shell 頁:Draft/AdminSideNav 30:52 + Draft/AdminAppBar 30:95 + Draft/AdminRouteTabs 34:33):
+ * 側欄 + AppBar + 路由頁籤列(#67)+ 內容區(`<Outlet>`),`me` 走 `useMe()` 全域快取(RequireAuth 已等它載入;
+ * 首登強改的導向也在 RequireAuth,殼不重複判斷)。
  */
 export function AdminShell() {
   const tApp = useTranslations("admin.app");
@@ -47,6 +49,7 @@ function ShellLayout({ me }: Readonly<{ me: MeQuery["me"] }>) {
   const routes = useMemo(() => enterableRouteMap(modules), [modules]);
 
   const path = normalizePathname(pathname);
+  const routeTabs = useRouteTabs({ userId: me.id, routes, currentPath: path });
   // `/` 與群組路由會立刻轉走(ModuleRoute),標題留空不閃「無權限」
   const title =
     routes.get(path)?.name ?? (path === "/" ? "" : t("forbidden.title"));
@@ -73,7 +76,13 @@ function ShellLayout({ me }: Readonly<{ me: MeQuery["me"] }>) {
         }}
       >
         <ShellAppBar me={me} title={title} />
-        {/* RouteTabs 掛載點(登入線6 #67):<RouteTabs /> 放這裡 — AppBar 之下、內容區之上(Figma 34:33) */}
+        <RouteTabs
+          tabs={routeTabs.tabs}
+          activeRoute={routeTabs.activeRoute}
+          onSelect={routeTabs.select}
+          onClose={routeTabs.close}
+          onMove={routeTabs.move}
+        />
         <Box component="main" sx={{ flex: 1, p: 4 }}>
           <Outlet />
         </Box>

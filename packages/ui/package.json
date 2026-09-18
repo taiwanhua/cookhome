@@ -188,6 +188,16 @@
         "types": "./dist/cjs/icons.d.ts",
         "default": "./dist/cjs/icons.js"
       }
+    },
+    "./icon-button": {
+      "import": {
+        "types": "./dist/es/icon-button.d.mts",
+        "default": "./dist/es/icon-button.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/icon-button.d.ts",
+        "default": "./dist/cjs/icon-button.js"
+      }
     }
   },
   "scripts": {
