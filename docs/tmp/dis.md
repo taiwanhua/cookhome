@@ -80,7 +80,7 @@
 
 17. **開發手冊 `docs/workflow.md`(2026-09-05)** — 「什麼階段用什麼 skill」總覽,讓工具不再被遺忘(使用者:「我根本忘記它的存在」)。
     - 素材:mattpocock 工程 skills、figma 三件套、repo skills、自訂(待建:/to-figma、module-scaffold、project-bootstrap)。
-    - 內容:標準流程圖(需求 → /grill-with-docs → /domain-modeling → /to-spec → /to-tickets → 設計稿 → /tdd → /code-review → PR → dev → staging → main)+ 每 skill 一句話用途 + 觸發時機表。
+    - 內容:標準流程圖(需求 → /grilling → /domain-modeling → /to-spec → /to-tickets → 設計稿 → /tdd → /code-review → PR → dev → staging → main)+ 每 skill 一句話用途 + 觸發時機表。
 
 18. **模組文件系統(2026-09-07 定案;2026-09-12 修訂存放)** — 每模組兩份檔案:
     - `docs/modules/<module-key>.md`:內部技術/業務文件(流程、規則、建模結論;可用平台詞彙)。
