@@ -27,6 +27,16 @@ export type Scalars = {
   DateTime: { input: string; output: string; }
 };
 
+export type ChangePasswordInput = {
+  currentPassword: Scalars['String']['input'];
+  newPassword: Scalars['String']['input'];
+};
+
+export type ChangePasswordPayload = {
+  __typename?: 'ChangePasswordPayload';
+  success: Scalars['Boolean']['output'];
+};
+
 export type CreateRecipeInput = {
   cookMinutes?: InputMaybe<Scalars['Int']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
@@ -112,12 +122,20 @@ export enum ModuleSidebarType {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  changePassword: ChangePasswordPayload;
   createRecipe: Recipe;
   login: LoginPayload;
   logout: LogoutPayload;
   logoutAllDevices: LogoutAllDevicesPayload;
   refresh: RefreshPayload;
+  requestPasswordReset: RequestPasswordResetPayload;
+  setPassword: SetPasswordPayload;
   switchOrg: SwitchOrgPayload;
+};
+
+
+export type MutationChangePasswordArgs = {
+  input: ChangePasswordInput;
 };
 
 
@@ -131,6 +149,16 @@ export type MutationLoginArgs = {
 };
 
 
+export type MutationRequestPasswordResetArgs = {
+  input: RequestPasswordResetInput;
+};
+
+
+export type MutationSetPasswordArgs = {
+  input: SetPasswordInput;
+};
+
+
 export type MutationSwitchOrgArgs = {
   input: SwitchOrgInput;
 };
@@ -138,7 +166,6 @@ export type MutationSwitchOrgArgs = {
 export type Query = {
   __typename?: 'Query';
   me: Me;
-  permissionProbe: Scalars['Boolean']['output'];
   recipe: Recipe;
   recipes: Array<Recipe>;
 };
@@ -165,6 +192,25 @@ export type Recipe = {
 
 export type RefreshPayload = {
   __typename?: 'RefreshPayload';
+  accessToken: Scalars['String']['output'];
+};
+
+export type RequestPasswordResetInput = {
+  email: Scalars['String']['input'];
+};
+
+export type RequestPasswordResetPayload = {
+  __typename?: 'RequestPasswordResetPayload';
+  success: Scalars['Boolean']['output'];
+};
+
+export type SetPasswordInput = {
+  newPassword: Scalars['String']['input'];
+  token: Scalars['String']['input'];
+};
+
+export type SetPasswordPayload = {
+  __typename?: 'SetPasswordPayload';
   accessToken: Scalars['String']['output'];
 };
 
@@ -210,6 +256,27 @@ export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type MeQuery = { __typename?: 'Query', me: { __typename?: 'Me', id: string, account: string, name: string, email: string, nickname?: string | null, mustChangePassword: boolean, currentOrg?: { __typename?: 'MeOrg', id: string, name: string } | null, orgs: Array<{ __typename?: 'MeOrg', id: string, name: string }>, modules: Array<{ __typename?: 'MeModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, route?: string | null, permissions: Array<string> }> } };
+
+export type RequestPasswordResetMutationVariables = Exact<{
+  input: RequestPasswordResetInput;
+}>;
+
+
+export type RequestPasswordResetMutation = { __typename?: 'Mutation', requestPasswordReset: { __typename?: 'RequestPasswordResetPayload', success: boolean } };
+
+export type SetPasswordMutationVariables = Exact<{
+  input: SetPasswordInput;
+}>;
+
+
+export type SetPasswordMutation = { __typename?: 'Mutation', setPassword: { __typename?: 'SetPasswordPayload', accessToken: string } };
+
+export type ChangePasswordMutationVariables = Exact<{
+  input: ChangePasswordInput;
+}>;
+
+
+export type ChangePasswordMutation = { __typename?: 'Mutation', changePassword: { __typename?: 'ChangePasswordPayload', success: boolean } };
 
 export type RecipesQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -425,6 +492,90 @@ useMeQuery.getKey = (variables?: MeQueryVariables) => variables === undefined ? 
 
 
 useMeQuery.fetcher = (client: GraphQLClient, variables?: MeQueryVariables, headers?: RequestInit['headers']) => fetcher<MeQuery, MeQueryVariables>(client, MeDocument, variables, headers);
+
+export const RequestPasswordResetDocument = `
+    mutation RequestPasswordReset($input: RequestPasswordResetInput!) {
+  requestPasswordReset(input: $input) {
+    success
+  }
+}
+    `;
+
+export const useRequestPasswordResetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RequestPasswordResetMutation, TError, RequestPasswordResetMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RequestPasswordResetMutation, TError, RequestPasswordResetMutationVariables, TContext>(
+      {
+    mutationKey: ['RequestPasswordReset'],
+    mutationFn: (variables?: RequestPasswordResetMutationVariables) => fetcher<RequestPasswordResetMutation, RequestPasswordResetMutationVariables>(client, RequestPasswordResetDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRequestPasswordResetMutation.fetcher = (client: GraphQLClient, variables: RequestPasswordResetMutationVariables, headers?: RequestInit['headers']) => fetcher<RequestPasswordResetMutation, RequestPasswordResetMutationVariables>(client, RequestPasswordResetDocument, variables, headers);
+
+export const SetPasswordDocument = `
+    mutation SetPassword($input: SetPasswordInput!) {
+  setPassword(input: $input) {
+    accessToken
+  }
+}
+    `;
+
+export const useSetPasswordMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetPasswordMutation, TError, SetPasswordMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetPasswordMutation, TError, SetPasswordMutationVariables, TContext>(
+      {
+    mutationKey: ['SetPassword'],
+    mutationFn: (variables?: SetPasswordMutationVariables) => fetcher<SetPasswordMutation, SetPasswordMutationVariables>(client, SetPasswordDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetPasswordMutation.fetcher = (client: GraphQLClient, variables: SetPasswordMutationVariables, headers?: RequestInit['headers']) => fetcher<SetPasswordMutation, SetPasswordMutationVariables>(client, SetPasswordDocument, variables, headers);
+
+export const ChangePasswordDocument = `
+    mutation ChangePassword($input: ChangePasswordInput!) {
+  changePassword(input: $input) {
+    success
+  }
+}
+    `;
+
+export const useChangePasswordMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ChangePasswordMutation, TError, ChangePasswordMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ChangePasswordMutation, TError, ChangePasswordMutationVariables, TContext>(
+      {
+    mutationKey: ['ChangePassword'],
+    mutationFn: (variables?: ChangePasswordMutationVariables) => fetcher<ChangePasswordMutation, ChangePasswordMutationVariables>(client, ChangePasswordDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useChangePasswordMutation.fetcher = (client: GraphQLClient, variables: ChangePasswordMutationVariables, headers?: RequestInit['headers']) => fetcher<ChangePasswordMutation, ChangePasswordMutationVariables>(client, ChangePasswordDocument, variables, headers);
 
 export const RecipesDocument = `
     query Recipes {

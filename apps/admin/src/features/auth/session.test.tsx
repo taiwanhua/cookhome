@@ -25,11 +25,11 @@ describe("登入狀態(access token 記憶體 / 靜默 refresh / 導回 login?ne
     const world = authWorld({ hasRefreshCookie: false });
     server.use(...world.handlers);
 
-    const { user } = renderApp({ path: "/?tab=recipes" });
+    const { user } = renderApp({ path: "/overview?tab=recipes" });
 
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent(
-        "/login?next=%2F%3Ftab%3Drecipes",
+        "/login?next=%2Foverview%3Ftab%3Drecipes",
       );
     });
 
@@ -38,7 +38,9 @@ describe("登入狀態(access token 記憶體 / 靜默 refresh / 導回 login?ne
     await user.click(screen.getByRole("button", { name: "登入" }));
 
     expect(await screen.findByText("小華,你好")).toBeInTheDocument();
-    expect(screen.getByTestId("location")).toHaveTextContent("/?tab=recipes");
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/overview?tab=recipes",
+    );
   });
 
   it("受保護請求 TOKEN_EXPIRED → 靜默 refresh → 原請求重送成功", async () => {
@@ -141,7 +143,9 @@ describe("分頁登出同步(BroadcastChannel)", () => {
       });
     });
 
-    await user.click(screen.getByRole("button", { name: "登出" }));
+    // 登出在 AppBar 的使用者選單裡(登入線5 殼)
+    await user.click(screen.getByRole("button", { name: "小華" }));
+    await user.click(screen.getByRole("menuitem", { name: "登出" }));
 
     await expect(received).resolves.toEqual({ type: "logout" });
     expect(world.calls.logout).toBe(1);

@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import type { Types } from "mongoose";
 
-import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import {
   type AuthTestApp,
   ROOT_ADMIN,
   startAuthTestApp,
 } from "../auth/test-support/auth-app";
 import { createOrg, createUser } from "../auth/test-support/fixtures";
+import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import {
   createRole,
   setModuleEnabled,
@@ -110,8 +110,9 @@ const SAMPLE_ONE_FAMILY = [
   `${SAMPLE_ONE}.create-page`,
   `${SAMPLE_ONE}.edit-page`,
 ];
-/** seed 的全部模組(系統管理群組 7 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4)。 */
+/** seed 的全部模組(總覽 1 + 系統管理群組 7 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4)。 */
 const ALL_SEEDED_MODULES = [
+  "overview",
   "system",
   "system.org-manager",
   "system.user-manager",
@@ -330,13 +331,21 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
       const before = byKey(await fetchModules(accessToken), "demo.sample-two");
       expect(before.permissions).toContain("demo.sample-two.delete");
 
-      await setPermissionEnabled(api.connection, "demo.sample-two.delete", false);
+      await setPermissionEnabled(
+        api.connection,
+        "demo.sample-two.delete",
+        false,
+      );
       try {
         const after = byKey(await fetchModules(accessToken), "demo.sample-two");
         expect(after.permissions).not.toContain("demo.sample-two.delete");
         expect(after.permissions).toContain("demo.sample-two.view");
       } finally {
-        await setPermissionEnabled(api.connection, "demo.sample-two.delete", true);
+        await setPermissionEnabled(
+          api.connection,
+          "demo.sample-two.delete",
+          true,
+        );
       }
     });
 
