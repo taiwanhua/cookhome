@@ -6,7 +6,11 @@ import { defineConfig } from "eslint/config";
  * 沒加之前既有程式碼不會紅。用法:
  *   import { config } from "@repo/eslint-config/vite";
  *   import { frontendStyle } from "@repo/eslint-config/frontend-style";
+ *   /** @type {import("eslint").Linter.Config[]} *\/
  *   export default [...config, ...frontendStyle];
+ *
+ * 檔名規則只看第一段(unicorn 的 multipleFileExtensions 預設):`RouteTabs.drag.test.tsx` 檢 `RouteTabs`、
+ * `vite-env.d.ts` 檢 `vite-env`,第二段以後不管。
  */
 
 /** 元件檔 PascalCase(`SideNav.tsx`、`SideNav.test.tsx`、`Button.stories.tsx`);只看檔名,資料夾命名靠規範與 review(GEN-01)。 */
