@@ -619,6 +619,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
 
     // 樹全種(#29 留言定案):治理模組、資料範圍、隱藏 api 模組也在,且皆 enabled(D4:不分環境)
     for (const key of [
+      "overview",
       "system",
       "system.org-manager",
       "system.user-manager",
@@ -633,7 +634,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     expect(byKey.get("api")?.sidebarType).toBe("hidden");
   }, 120_000);
 
-  it("示範家族 12 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 18 個模組各一筆 wildcard,共 30 筆", async () => {
+  it("示範家族 12 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 19 個模組各一筆 wildcard,共 31 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     expect(runSeedCommand(databaseUri).status).toBe(0);
@@ -664,8 +665,8 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     for (const module of modules) {
       expectedOwners[`${String(module.key)}.*`] = String(module.key);
     }
-    expect(modules).toHaveLength(18);
-    expect(permissions).toHaveLength(30);
+    expect(modules).toHaveLength(19);
+    expect(permissions).toHaveLength(31);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
       expect(permission).toMatchObject({ isSystem: true, enabled: true });
@@ -788,17 +789,17 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
       (key) => key !== undefined && !rootOnlyKeys.has(key),
     );
     expect(new Set(boundModuleKeys)).toEqual(new Set(tenantModuleKeys));
-    expect(boundModuleKeys).toHaveLength(16);
+    expect(boundModuleKeys).toHaveLength(17);
 
     const boundPermissionKeys = boundBy(
       tenantAdmin?._id,
       "role_permission",
     ).map((link) => keyOf(permissions)(link.secondId));
-    // D3:wildcard 只代表自己這一層 → 綁的每個模組各自的 `*`(含 system 群組、api、六個隱藏頁)
+    // D3:wildcard 只代表自己這一層 → 綁的每個模組各自的 `*`(含 overview、system 群組、api、六個隱藏頁)
     expect(new Set(boundPermissionKeys)).toEqual(
       new Set(tenantModuleKeys.map((key) => `${String(key)}.*`)),
     );
-    expect(boundPermissionKeys).toHaveLength(16);
+    expect(boundPermissionKeys).toHaveLength(17);
 
     // 超級管理員:解析時 bypass,不靠記錄(ADR-0004)
     expect(boundBy(superAdmin?._id, "role_module")).toHaveLength(0);

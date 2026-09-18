@@ -16,6 +16,7 @@ import {
 import { apiModules } from "./modules/api";
 import { sampleTwoModule } from "./modules/demo.sample-two";
 import { sampleOneModule } from "./modules/demo.sub.sample-one";
+import { overviewModule } from "./modules/overview";
 import { systemModules } from "./modules/system";
 
 export const DATA_SCOPE_TARGETS_COLLECTION = "data_scope_targets";
@@ -25,6 +26,7 @@ export const DATA_SCOPE_TARGETS_COLLECTION = "data_scope_targets";
  * (跨檔引用的父 — 如示範模組2 掛 `demo` — 由 sample-one 檔先宣告)。
  */
 const moduleDeclarations: ModuleSeedDeclaration[] = [
+  overviewModule,
   systemModules,
   apiModules,
   sampleOneModule,

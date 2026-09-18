@@ -1,0 +1,13 @@
+import { OverviewPage } from "../features/overview";
+import type { ModulePageRegistry } from "../features/shell/module-route";
+
+/** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
+export const OVERVIEW_MODULE_KEY = "overview";
+
+/**
+ * 模組 key → 頁面元件(組裝層,STRUCT-03):各模組實作時在此登記;
+ * 沒登記的模組由殼顯示佔位頁(模組名)。路由本身仍由 `me.modules` 決定,這裡只決定「進去看到什麼」。
+ */
+export const modulePages: ModulePageRegistry = {
+  [OVERVIEW_MODULE_KEY]: OverviewPage,
+};

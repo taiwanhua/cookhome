@@ -128,6 +128,66 @@
         "types": "./dist/cjs/circular-progress.d.ts",
         "default": "./dist/cjs/circular-progress.js"
       }
+    },
+    "./list": {
+      "import": {
+        "types": "./dist/es/list.d.mts",
+        "default": "./dist/es/list.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/list.d.ts",
+        "default": "./dist/cjs/list.js"
+      }
+    },
+    "./collapse": {
+      "import": {
+        "types": "./dist/es/collapse.d.mts",
+        "default": "./dist/es/collapse.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/collapse.d.ts",
+        "default": "./dist/cjs/collapse.js"
+      }
+    },
+    "./menu": {
+      "import": {
+        "types": "./dist/es/menu.d.mts",
+        "default": "./dist/es/menu.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/menu.d.ts",
+        "default": "./dist/cjs/menu.js"
+      }
+    },
+    "./select": {
+      "import": {
+        "types": "./dist/es/select.d.mts",
+        "default": "./dist/es/select.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/select.d.ts",
+        "default": "./dist/cjs/select.js"
+      }
+    },
+    "./avatar": {
+      "import": {
+        "types": "./dist/es/avatar.d.mts",
+        "default": "./dist/es/avatar.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/avatar.d.ts",
+        "default": "./dist/cjs/avatar.js"
+      }
+    },
+    "./icons": {
+      "import": {
+        "types": "./dist/es/icons.d.mts",
+        "default": "./dist/es/icons.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/icons.d.ts",
+        "default": "./dist/cjs/icons.js"
+      }
     }
   },
   "scripts": {
@@ -150,6 +210,8 @@
     "@repo/typescript-config": "workspace:*",
     "@storybook/react-vite": "^10.6.0",
     "@types/node": "^22.15.3",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
     "bunchee": "^6.4.0",
     "eslint": "^9.39.0",
     "jest": "^30.2.0",

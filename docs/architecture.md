@@ -84,4 +84,5 @@ pnpm --filter @repo/storybook dev   # 只開設計系統(http://localhost:6006)
 - **程式碼是設計的唯一真實來源**:設計系統先存在於 `@repo/ui`(tokens + MUI theme + 元件),Figma 是它的投影(figma-generate-library 生成、Code Connect 對應);不買現成 Figma kit 或模板
 - **設計風格走 Minimal 方向**:以 MUI theme 客製(柔和陰影、大圓角、冷灰階)重現,非購買模板
 - **版本統一策略**:同一套件全 repo 同版本(React 19、MUI 9、Vite 8、Storybook 10、TS 5.9);已知例外:`eslint-plugin-unicorn` 釘 65(最後支援 ESLint 9 的版本)
+- **TS 編譯目標統一**(2026-09-18):`@repo/typescript-config` 各範本一律 `lib` ES2024、`target` ES2022(執行環境 Node 22 與現代瀏覽器都支援;不用 `ESNext` 因為它隨 TS 版本變動),各 app / package 不再自訂這兩項,只補 `DOM` 之類的環境差異
 - **apps 只能 import `@repo/ui`,不直接 import `@mui/material`**(lint 規則待補,見待辦)
