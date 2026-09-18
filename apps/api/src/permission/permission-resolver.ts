@@ -124,11 +124,9 @@ export class PermissionResolver {
     });
 
     // 步驟 5:wildcard 展開 — `X.*` 的 moduleId 就是 X,查 moduleId ∈ 那些模組即同層全部
-    const wildcardModuleIds = idsOf(
-      granted
-        .filter((permission) => isWildcardKey(permission.key))
-        .map((permission) => ({ _id: permission.moduleId })),
-    );
+    const wildcardModuleIds = granted
+      .filter((permission) => isWildcardKey(permission.key))
+      .map((permission) => permission.moduleId);
     const expanded =
       wildcardModuleIds.length === 0
         ? []
@@ -179,8 +177,9 @@ function uniqueById<T extends { _id: Types.ObjectId }>(records: T[]): T[] {
 }
 
 /**
- * 剔除自己或任一祖先 enabled=false 的模組(「停用父模組時整棵子樹視同停用」,CONTEXT.md);
- * 祖先不在 `known` 內(樹不完整)視同停用 — 沒有父頁的子頁不可能進得去。
+ * 剔除自己或任一祖先 enabled=false 的模組(「停用父模組時整棵子樹視同停用」,CONTEXT.md)。
+ * 樹的完整性(綁下層必綁上層)是權限矩陣 UI 的不變量(ADR-0011 步驟 3),此處不重驗;
+ * 祖先文件不存在(資料損毀)才視同停用。
  */
 function pruneDisabledSubtrees(
   candidates: ModuleRecord[],

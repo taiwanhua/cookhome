@@ -94,6 +94,7 @@ type Mutation {
 
 type Query {
   me: Me!
+  permissionProbe: Boolean!
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
 }
