@@ -52,6 +52,7 @@ type Me {
   email: String!
   gender: String
   id: ID!
+  modules: [MeModule!]!
   mustChangePassword: Boolean!
   name: String!
   nickname: String
@@ -59,9 +60,27 @@ type Me {
   phone: String
 }
 
+type MeModule {
+  id: ID!
+  key: String!
+  name: String!
+  order: Int!
+  parentId: ID
+  permissions: [String!]!
+  route: String
+  sidebarType: ModuleSidebarType!
+}
+
 type MeOrg {
   id: ID!
   name: String!
+}
+
+"""側欄呈現型別:GROUP=可展開群組(非連結)、LINK=模組連結、HIDDEN=隱藏頁(有路由但不出現在側欄)"""
+enum ModuleSidebarType {
+  GROUP
+  HIDDEN
+  LINK
 }
 
 type Mutation {

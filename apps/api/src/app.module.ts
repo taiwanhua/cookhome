@@ -9,6 +9,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 
 import { AuthModule } from "./auth/auth.module";
 import type { GraphqlContext } from "./auth/request-context";
+import { PermissionModule } from "./permission/permission.module";
 import { RecipesModule } from "./recipes/recipes.module";
 
 // GraphQL Sandbox 開關:本地開發(NODE_ENV 非 production)預設開;
@@ -30,7 +31,11 @@ const isSandboxEnabled =
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
-      autoSchemaFile: path.join(process.cwd(), "schema.gql"),
+      // 測試(NODE_ENV=test)用記憶體 schema:測試專用 module(如權限探針)不得寫進提交的 schema.gql 產物(GQL-05)
+      autoSchemaFile:
+        process.env.NODE_ENV === "test"
+          ? true
+          : path.join(process.cwd(), "schema.gql"),
       sortSchema: true,
       introspection: isSandboxEnabled,
       playground: false,
@@ -41,6 +46,7 @@ const isSandboxEnabled =
         : [],
     }),
     AuthModule,
+    PermissionModule,
     RecipesModule,
   ],
 })

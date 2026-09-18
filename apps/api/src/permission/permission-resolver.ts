@@ -1,0 +1,270 @@
+import { Injectable } from "@nestjs/common";
+import { isWildcardKey } from "@repo/domain/permission";
+import type { Types } from "mongoose";
+
+import type { Persisted } from "../database/base.repository";
+import {
+  type ModuleDocument,
+  ModulesRepository,
+  type PermissionDocument,
+  PermissionsRepository,
+  RolesRepository,
+} from "../database/database.module";
+import type { OperatorContext } from "../database/operator-context";
+import { RelationService } from "../database/relation.service";
+import type { ModuleSidebarType } from "../database/schemas/module.schema";
+
+/** 超級管理員種子角色 key(apps/db-migrator/seeds/roles.ts;isSystem,解析時 bypass,ADR-0004)。 */
+export const SUPER_ADMIN_ROLE_KEY = "super-admin";
+
+/** 模組陣列的一筆(ADR-0011 步驟 7;GraphQL 形狀見 models/me-module.model.ts)。 */
+export interface ResolvedModule {
+  id: Types.ObjectId;
+  key: string;
+  name: string;
+  parentId: Types.ObjectId | null;
+  sidebarType: ModuleSidebarType;
+  order: number;
+  /** 完整路徑(父段累加);非頁面節點(隱藏 `api` 樹)為 null。 */
+  route: string | null;
+  /** 有效權限 key(moduleId 等於此模組者)。 */
+  permissions: string[];
+}
+
+export interface PermissionResolution {
+  /** 持有 isSystem 超級管理員角色:全部 enabled 模組與全部權限,不靠權限記錄。 */
+  isSuperAdmin: boolean;
+  modules: ResolvedModule[];
+  /** 有效權限 key 的集合(= 模組陣列內全部 permissions 的聯集),供 @RequirePermission 守門一次查表。 */
+  permissionKeys: ReadonlySet<string>;
+}
+
+type ModuleRecord = Persisted<ModuleDocument>;
+type PermissionRecord = Persisted<PermissionDocument>;
+
+/**
+ * 讀全域 / 關聯歸屬資料(modules、permissions、roles 不受租戶過濾),可見範圍在此無作用;
+ * 當前組織只是帶著走,不參與計算(ADR-0003)。
+ */
+function readerOf(
+  userId: Types.ObjectId,
+  currentOrgId: Types.ObjectId | null,
+): OperatorContext {
+  return { actorId: userId, currentOrgId, visibleOrgIds: "all" };
+}
+
+function idsOf(records: { _id: Types.ObjectId }[]): Types.ObjectId[] {
+  return records.map((record) => record._id);
+}
+
+/**
+ * 權限解析的單一入口(ADR-0003 / ADR-0011):每請求現查,v1 不快取。
+ * 步驟(ADR-0011「登入後的查詢步驟」):
+ * 2. user_role → roleIds;**停用的角色(roles.enabled=false)不計**(持有超級管理員 → bypass)
+ * 3. role_module → moduleIds
+ * 4. role_permission → permissionIds → permissions;**停用的權限(permissions.enabled=false,全域 kill switch)不算持有**
+ * 5. wildcard 展開:`X.*` → moduleId = X 的全部 enabled 權限(同層,不含子模組)
+ * 6. 查 modules(enabled=false 者連子樹剔除),每個模組塞 moduleId 等於它的有效權限
+ * 7. 回模組陣列(route 由父段累加成完整路徑)
+ * 當前組織不參與計算(ADR-0003),參數保留以符合單一入口的簽章。
+ */
+@Injectable()
+export class PermissionResolver {
+  constructor(
+    private readonly relations: RelationService,
+    private readonly roles: RolesRepository,
+    private readonly modules: ModulesRepository,
+    private readonly permissions: PermissionsRepository,
+  ) {}
+
+  async resolve(
+    userId: Types.ObjectId,
+    currentOrgId: Types.ObjectId | null,
+  ): Promise<PermissionResolution> {
+    const reader = readerOf(userId, currentOrgId);
+    const roleIds = await this.relations.listRoleIdsOfUser(userId);
+    if (roleIds.length === 0) {
+      return { isSuperAdmin: false, modules: [], permissionKeys: new Set() };
+    }
+    // 停用的角色不計(roles.enabled 是「停用這個角色」的開關,授予仍在但不生效)
+    const roles = await this.roles.findMany(reader, {
+      _id: { $in: roleIds },
+      enabled: true,
+    });
+    if (roles.length === 0) {
+      return { isSuperAdmin: false, modules: [], permissionKeys: new Set() };
+    }
+    const isSuperAdmin = roles.some(
+      (role) => role.isSystem && role.key === SUPER_ADMIN_ROLE_KEY,
+    );
+    return isSuperAdmin
+      ? this.resolveSuperAdmin(reader)
+      : this.resolveRoles(reader, idsOf(roles));
+  }
+
+  /** 超級管理員 bypass(ADR-0004):全部 enabled 模組(含根組織專屬)+ 這些模組的全部權限。 */
+  private async resolveSuperAdmin(
+    reader: OperatorContext,
+  ): Promise<PermissionResolution> {
+    const allModules = await this.modules.findMany(reader, {});
+    const visibleModules = pruneDisabledSubtrees(allModules);
+    // 停用的權限(permissions.enabled = 全域 kill switch)連超級管理員也不給
+    const permissions = await this.permissions.findMany(reader, {
+      moduleId: { $in: idsOf(visibleModules) },
+      enabled: true,
+    });
+    return {
+      isSuperAdmin: true,
+      ...assemble(visibleModules, allModules, permissions),
+    };
+  }
+
+  private async resolveRoles(
+    reader: OperatorContext,
+    roleIds: Types.ObjectId[],
+  ): Promise<PermissionResolution> {
+    // 步驟 3、4:兩種關聯各查一次(聯集,ADR-0003)
+    const [moduleIds, permissionIds] = await Promise.all([
+      this.relations.listModuleIdsOfRoles(roleIds),
+      this.relations.listPermissionIdsOfRoles(roleIds),
+    ]);
+    // 停用的權限(permissions.enabled = 全域 kill switch)不算持有,連 `*` 被停用也不展開
+    const granted = await this.permissions.findMany(reader, {
+      _id: { $in: permissionIds },
+      enabled: true,
+    });
+
+    // 步驟 5:wildcard 展開 — `X.*` 的 moduleId 就是 X,查 moduleId ∈ 那些模組即同層全部
+    const wildcardModuleIds = granted
+      .filter((permission) => isWildcardKey(permission.key))
+      .map((permission) => permission.moduleId);
+    const expanded =
+      wildcardModuleIds.length === 0
+        ? []
+        : await this.permissions.findMany(reader, {
+            moduleId: { $in: wildcardModuleIds },
+            enabled: true,
+          });
+    const effective = uniqueById([...granted, ...expanded]);
+
+    // 步驟 6:綁定的模組 + 祖先(算 enabled 連動與完整路由要看祖先;樹完整時祖先已在集合內)
+    const boundModules = await this.modules.findMany(reader, {
+      _id: { $in: moduleIds },
+    });
+    const knownModules = await this.withAncestors(reader, boundModules);
+    const visibleModules = pruneDisabledSubtrees(boundModules, knownModules);
+    return {
+      isSuperAdmin: false,
+      ...assemble(visibleModules, knownModules, effective),
+    };
+  }
+
+  /** 補齊 `modules` 的祖先文件(通常一筆不缺);回傳含祖先的完整清單。 */
+  private async withAncestors(
+    reader: OperatorContext,
+    modules: ModuleRecord[],
+  ): Promise<ModuleRecord[]> {
+    const known = new Map(modules.map((module) => [String(module._id), module]));
+    const missingIds = new Map<string, Types.ObjectId>();
+    for (const module of modules) {
+      for (const ancestorId of module.ancestors) {
+        if (!known.has(String(ancestorId))) {
+          missingIds.set(String(ancestorId), ancestorId);
+        }
+      }
+    }
+    if (missingIds.size === 0) {
+      return modules;
+    }
+    const ancestors = await this.modules.findMany(reader, {
+      _id: { $in: [...missingIds.values()] },
+    });
+    return [...modules, ...ancestors];
+  }
+}
+
+function uniqueById<T extends { _id: Types.ObjectId }>(records: T[]): T[] {
+  const byId = new Map(records.map((record) => [String(record._id), record]));
+  return [...byId.values()];
+}
+
+/**
+ * 剔除自己或任一祖先 enabled=false 的模組(「停用父模組時整棵子樹視同停用」,CONTEXT.md)。
+ * 樹的完整性(綁下層必綁上層)是權限矩陣 UI 的不變量(ADR-0011 步驟 3),此處不重驗;
+ * 祖先文件不存在(資料損毀)才視同停用。
+ */
+function pruneDisabledSubtrees(
+  candidates: ModuleRecord[],
+  known: ModuleRecord[] = candidates,
+): ModuleRecord[] {
+  const byId = new Map(known.map((module) => [String(module._id), module]));
+  const isLive = (module: ModuleRecord): boolean =>
+    module.enabled &&
+    module.ancestors.every(
+      (ancestorId) => byId.get(String(ancestorId))?.enabled === true,
+    );
+  return candidates.filter((module) => isLive(module));
+}
+
+/** 步驟 6、7:塞權限、組完整路由、排序(祖先深度 → order → key,前端仍以 parentId 組樹)。 */
+function assemble(
+  visibleModules: ModuleRecord[],
+  knownModules: ModuleRecord[],
+  permissions: PermissionRecord[],
+): Pick<PermissionResolution, "modules" | "permissionKeys"> {
+  const byId = new Map(
+    knownModules.map((module) => [String(module._id), module]),
+  );
+  const visibleIds = new Set(visibleModules.map((module) => String(module._id)));
+  const keysByModule = new Map<string, string[]>();
+  for (const permission of permissions) {
+    const moduleId = String(permission.moduleId);
+    if (!visibleIds.has(moduleId)) {
+      continue;
+    }
+    keysByModule.set(moduleId, [
+      ...(keysByModule.get(moduleId) ?? []),
+      permission.key,
+    ]);
+  }
+
+  const modules = visibleModules
+    .map((module): ResolvedModule => {
+      const permissionKeys = keysByModule.get(String(module._id)) ?? [];
+      return {
+        id: module._id,
+        key: module.key,
+        name: module.name,
+        parentId: module.parentId,
+        sidebarType: module.sidebarType,
+        order: module.order,
+        route: fullRouteOf(module, byId),
+        permissions: permissionKeys.toSorted((a, b) => a.localeCompare(b)),
+      };
+    })
+    .toSorted(compareModules);
+  const permissionKeys = new Set(
+    modules.flatMap((module) => module.permissions),
+  );
+  return { modules, permissionKeys };
+}
+
+/** 完整路徑 = `/` + 祖先(由根到父)的 route 段 + 自己那段;自己沒有 route(非頁面節點)→ null。 */
+function fullRouteOf(
+  module: ModuleRecord,
+  byId: ReadonlyMap<string, ModuleRecord>,
+): string | null {
+  if (module.route === undefined || module.route === "") {
+    return null;
+  }
+  const segments = module.ancestors
+    .map((ancestorId) => byId.get(String(ancestorId))?.route)
+    .filter(
+      (segment): segment is string => segment !== undefined && segment !== "",
+    );
+  return `/${[...segments, module.route].join("/")}`;
+}
+
+function compareModules(a: ResolvedModule, b: ResolvedModule): number {
+  return a.order - b.order || a.key.localeCompare(b.key);
+}
