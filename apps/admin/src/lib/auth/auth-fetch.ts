@@ -34,6 +34,7 @@ async function codeOf(response: Response) {
  * 2. 帶 `Authorization: Bearer <access token>` 送出
  * 3. 回 `TOKEN_EXPIRED` → 靜默換票(單飛)後**只重送一次**
  * 4. 回 `UNAUTHENTICATED` / `ACCOUNT_DISABLED` → 清狀態(路由守門會導回 /login?next=…)
+ * 5. 回 `MUST_CHANGE_PASSWORD` → 在 store 立旗(路由守門會導去 /change-password?next=…);回應原樣交回呼叫端
  */
 export function createAuthFetch({
   store,
@@ -90,6 +91,8 @@ export function createAuthFetch({
 
     if (isSessionEndedCode(code)) {
       store.clear();
+    } else if (code === "MUST_CHANGE_PASSWORD") {
+      store.setMustChangePassword(true);
     }
     return response;
   };

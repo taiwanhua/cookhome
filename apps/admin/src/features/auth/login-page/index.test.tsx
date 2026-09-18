@@ -28,12 +28,16 @@ describe("登入頁", () => {
 
   it("帶 next 時登入後回到原路徑", async () => {
     server.use(...authHandlers());
-    const { user } = renderApp({ path: "/login?next=%2F%3Ftab%3Drecipes" });
+    const { user } = renderApp({
+      path: "/login?next=%2Foverview%3Ftab%3Drecipes",
+    });
 
     await fillAndSubmit(user);
 
     expect(await screen.findByText("小華,你好")).toBeInTheDocument();
-    expect(screen.getByTestId("location")).toHaveTextContent("/?tab=recipes");
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/overview?tab=recipes",
+    );
   });
 
   it("帳號或密碼錯誤只顯示統一文案", async () => {

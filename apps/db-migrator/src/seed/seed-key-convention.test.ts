@@ -219,7 +219,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(findSeedKeyViolations(seedRegistry)).toEqual([]);
   });
 
-  it("示範家族依正本落地:10 個模組節點、12 筆個別權限;全部 18 個模組各一筆 wildcard(共 30 筆)", () => {
+  it("示範家族依正本落地:10 個模組節點、12 筆個別權限;全部 19 個模組各一筆 wildcard(共 31 筆)", () => {
     const documentSets = seedRegistry.filter((set) => set.kind === "documents");
     const moduleKeys = documentSets
       .filter((set) => set.collection === "modules")
@@ -263,11 +263,11 @@ describe("seeds/registry.ts 靜態檢查", () => {
     );
 
     // 每個模組各一筆 `<key>.*`(D3:wildcard 只代表該模組自己這一層)
-    expect(moduleKeys).toHaveLength(18);
+    expect(moduleKeys).toHaveLength(19);
     expect(new Set(permissionKeys.filter((key) => key.endsWith(".*")))).toEqual(
       new Set(moduleKeys.map((key) => `${key}.*`)),
     );
-    expect(permissionKeys).toHaveLength(30);
+    expect(permissionKeys).toHaveLength(31);
 
     // D1:治理模組 key 累加 system 群組前綴
     expect(moduleKeys.filter((key) => key.startsWith("system"))).toEqual([

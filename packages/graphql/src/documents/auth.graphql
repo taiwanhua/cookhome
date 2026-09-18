@@ -61,3 +61,25 @@ query Me {
     }
   }
 }
+
+# 密碼流程(#61 / #68;api 端 #64):三個入口共用「設定新密碼」頁(user-manager.md「密碼流程」)。
+# requestPasswordReset / setPassword 為公開端點(admin 用 session.publicClient);changePassword 要已登入。
+mutation RequestPasswordReset($input: RequestPasswordResetInput!) {
+  requestPasswordReset(input: $input) {
+    success
+  }
+}
+
+# 啟用信與重設信共用;成功直接回登入 token(refresh token 同 login 走 httpOnly cookie)
+mutation SetPassword($input: SetPasswordInput!) {
+  setPassword(input: $input) {
+    accessToken
+  }
+}
+
+# 已登入者改密碼;首登強改(mustChangePassword)也走此路,成功後旗標清除
+mutation ChangePassword($input: ChangePasswordInput!) {
+  changePassword(input: $input) {
+    success
+  }
+}

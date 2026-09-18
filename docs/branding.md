@@ -10,13 +10,15 @@
 |---|---|---|
 | `packages/ui/src/theme/brand.ts` | `cookhomeBrand`(主色來源,全 theme 由此衍生) | 換 primary hex 一行;export 名稱可 alias 保留 |
 | `apps/storybook/.storybook/preview.tsx` | import `cookhomeBrand` | 隨上列改名連動 |
-| `apps/admin/src/app/root.tsx` | localStorage key `cookhome-admin-locale` | 換品牌 slug(舊 key 的既存值會失效,可接受) |
+| `apps/admin/src/lib/locale.ts` | localStorage key `cookhome-admin-locale`(AppBar 語言切換器寫入,#66) | 換品牌 slug(舊 key 的既存值會失效,可接受) |
 | `apps/api/src/app.module.ts` | 預設 MongoDB 連線 `mongodb://localhost:27017/cookhome` | 換 db 名(僅本機預設,正式環境走環境變數) |
 | `apps/api/src/mail/mail-templates.ts` | 信件(啟用信、重設密碼信):寄件人 `MAIL_SENDER` = `CookHome <no-reply@cookhome.online>`、品牌名「CookHome」(主旨前綴「【CookHome】」、內文「CookHome 後台帳號」)、署名「CookHome 後台管理系統」 | 改該檔頂部的 `MAIL_SENDER` / `BRAND_NAME` / `SIGNATURE` 三個常數;寄件網域須同步在 Resend 完成 SPF / DKIM 驗證(ADR-0010) |
 | 網域 | `cookhome.online`、`design.cookhome.online`(deploy 設定 / DNS / Storybook 部署) | DNS + `.github/workflows/deploy.yml` 相關設定 |
 | `apps/admin/index.html` | `<title>CookHome 後台管理</title>`(favicon 為 Vite 鷹架預設 `public/favicon.ico`,尚未換品牌圖) | 換 title 文字 / 換 favicon 檔 |
 | `packages/i18n/messages/*/common.json` `brand` | 「CookHome」(admin 登入頁 LoginCard 品牌名、footer 的 {brand}) | 改兩語系的值 |
 | `packages/i18n/messages/*/admin.json` `login.subtitle` / `login.footer` | 「後台管理系統」/「© {year} {brand} · 僅供授權人員使用」(對應 Figma LoginCard 17:8 / 17:26,#65) | 改兩語系的值 |
+| `packages/i18n/messages/*/admin.json` `app.subtitle` | 「後台管理」(SideNav 頂部組織名稱下方的副標,對應 Figma AdminSideNav 25:43,#66) | 改兩語系的值 |
+| `apps/admin/src/features/shell/side-nav.tsx` | SideNav 頂部顯示**當前組織名稱**(資料,`me.currentOrg.name`;無當前組織時退回 `common.brand`);商標圖槽位(Figma 120:50)保留註解、第 3 段接 StorageService 簽名讀取(#66);側欄第一列「總覽」是模組 `overview`(seed),不是品牌文字 | 顯圖時在此接 `orgs.logoPath` |
 | `apps/admin/src/lib/auth/session-channel.ts` | BroadcastChannel 名稱 `cookhome-admin-session`(分頁登出同步) | 換品牌 slug |
 | 各 app metadata title / favicon(front) | (實作畫面時逐一登記於此) | — |
 

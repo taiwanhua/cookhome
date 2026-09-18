@@ -9,18 +9,34 @@ export type SessionStatus =
 export interface SessionSnapshot {
   status: SessionStatus;
   accessToken: string | null;
+  /**
+   * api 對某個受保護請求回了 `MUST_CHANGE_PASSWORD`(GQL-04;首登須改密碼者做了「看自己 / 改密碼 / 登出」以外的操作)。
+   * 由 fetch 層寫入、路由守門讀取後導向改密碼頁;改完密碼清掉。
+   */
+  mustChangePassword: boolean;
 }
 
 export interface SessionStore {
   getSnapshot: () => SessionSnapshot;
   subscribe: (listener: () => void) => () => void;
   setAccessToken: (token: string) => void;
+  setMustChangePassword: (value: boolean) => void;
   /** 清空 token 並標記為未登入(登出、refresh 失敗、其他分頁登出) */
   clear: () => void;
 }
 
+const ANONYMOUS: SessionSnapshot = {
+  status: "anonymous",
+  accessToken: null,
+  mustChangePassword: false,
+};
+
 export function createSessionStore(): SessionStore {
-  let snapshot: SessionSnapshot = { status: "booting", accessToken: null };
+  let snapshot: SessionSnapshot = {
+    status: "booting",
+    accessToken: null,
+    mustChangePassword: false,
+  };
   const listeners = new Set<() => void>();
 
   const update = (next: SessionSnapshot) => {
@@ -39,13 +55,19 @@ export function createSessionStore(): SessionStore {
       };
     },
     setAccessToken: (token) => {
-      update({ status: "authenticated", accessToken: token });
+      update({ ...snapshot, status: "authenticated", accessToken: token });
+    },
+    setMustChangePassword: (value) => {
+      if (snapshot.mustChangePassword === value) {
+        return;
+      }
+      update({ ...snapshot, mustChangePassword: value });
     },
     clear: () => {
       if (snapshot.status === "anonymous") {
         return;
       }
-      update({ status: "anonymous", accessToken: null });
+      update(ANONYMOUS);
     },
   };
 }
