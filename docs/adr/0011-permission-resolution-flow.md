@@ -4,22 +4,27 @@
 
 ## 資料來源(誰決定什麼)
 
-| 資料 | 決定什麼 |
-|---|---|
-| `role_module`(核心關聯) | 角色綁模組 — **進得去哪些頁**(模組=頁面) |
-| `role_permission`(核心關聯) | 角色綁權限 — **頁面裡什麼能用**(權限=按鈕/欄位/跳窗/flag) |
-| `permissions.moduleId`(直接欄位) | 每筆權限屬於哪個模組(唯一從屬) |
-| `data_scope_rules` | 查資料時**看得到哪些**(ADR-0008) |
+| 資料                             | 決定什麼                                                  |
+| -------------------------------- | --------------------------------------------------------- |
+| `role_module`(核心關聯)          | 角色綁模組 — **進得去哪些頁**(模組=頁面)                  |
+| `role_permission`(核心關聯)      | 角色綁權限 — **頁面裡什麼能用**(權限=按鈕/欄位/跳窗/flag) |
+| `permissions.moduleId`(直接欄位) | 每筆權限屬於哪個模組(唯一從屬)                            |
+| `data_scope_rules`               | 查資料時**看得到哪些**(ADR-0008)                          |
 
 ## 登入後的查詢步驟(API 組「模組陣列」)
 
 1. 驗 token,取 userId 與當前組織
-2. `user_role`:查此人的角色 → roleIds
+2. `user_role`:查此人的角色 → roleIds;**停用的角色(`roles.enabled=false`)不計** — 授予仍在,只是不生效。持有 isSystem 超級管理員角色者到此即 bypass(ADR-0004)
 3. `role_module`:roleIds → moduleIds(樹必然完整 — 權限矩陣 UI 強制「勾下層必勾上層」)
-4. `role_permission`:roleIds → permissionIds → 查 permissions(每筆自帶 moduleId、key)
+4. `role_permission`:roleIds → permissionIds → 查 permissions(每筆自帶 moduleId、key);**停用的權限(`permissions.enabled=false`,全域 kill switch)不算持有**,連超級管理員也不給
 5. wildcard 展開:key 以 `.*` 結尾者 → **該模組自己這一層**(moduleId 等於它)的全部權限視為持有,不含子模組(同層語意,ADR-0004;`role_permission` 對該模組只存 `*` 一筆)
 6. 組陣列:查 modules(_id ∈ moduleIds;enabled=false 者連子樹剔除)→ 每個模組物件塞 `permissions` = 有效權限中 moduleId 等於它的那些
-7. 回傳**模組陣列**,每筆含:parentId、sidebarType、route、permissions
+7. 回傳**模組陣列**(GraphQL `me.modules`),每筆含:`id`、`key`、`name`、`parentId`、`sidebarType`、`order`、`route`、`permissions`
+   - **`route` 是完整路徑**:`/` 開頭、父段累加(如 `/system/org-manager`、`/demo/sub/sample-one`);群組也有 route(它是側欄可展開的節點,不是頁面,但路徑要當前綴)。隱藏的 `api` 模組樹會出現在陣列裡但 `route: null`(不是頁面;側欄與路由防守都略過它)
+   - **`permissions` 是完整權限 key 字串的陣列**(如 `demo.sub.sample-one.view`),只放 moduleId 等於這個模組的;持有 `X.*` 時陣列裡含 `X.*` 本身與展開後的同層各筆
+   - 排序:祖先深度 → `order` → `key`;前端仍以 `parentId` 組樹
+
+以上由 api 的 `PermissionResolver` 單一入口實作,`@RequirePermission(key)` 守門與 `me.modules` 都吃它的結果,兩邊永遠一致(模組子樹停用 → 該處權限也隨之 FORBIDDEN)。
 
 ## 前端判斷
 

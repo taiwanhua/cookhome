@@ -6,7 +6,6 @@
       "outputs": ["dist/**"]
     },
     "test": {
-      "dependsOn": ["^build"],
       "env": ["MONGODB_URI", "FIELD_ENCRYPTION_KEY", "JWT_SECRET"]
     }
   }
