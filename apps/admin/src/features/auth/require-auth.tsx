@@ -6,18 +6,28 @@ import { CircularProgress } from "@repo/ui/circular-progress";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { loginPathWithNext } from "./paths";
+import {
+  CHANGE_PASSWORD_PATH,
+  changePasswordPathWithNext,
+  loginPathWithNext,
+} from "./paths";
+import { useMe } from "./use-me";
 import { useSession } from "./use-session";
 
 /**
- * 路由守門:未登入 → 導 `/login?next=<原路徑>`;開機換票中 → 顯示恢復中,不閃登入頁。
+ * 路由守門:
+ * - 未登入 → 導 `/login?next=<原路徑>`;開機換票中 → 顯示恢復中,不閃登入頁
+ * - 首登須改密碼(`me.mustChangePassword`,或 fetch 層攔到 `MUST_CHANGE_PASSWORD`)→ 導 `/change-password?next=<原路徑>`;
+ *   改密碼頁本身不再轉向
  */
 export function RequireAuth({ children }: Readonly<{ children: ReactNode }>) {
   const { snapshot } = useSession();
   const location = useLocation();
   const t = useTranslations("admin.session");
+  const isAuthenticated = snapshot.status === "authenticated";
+  const me = useMe();
 
-  if (snapshot.status === "booting") {
+  if (snapshot.status === "booting" || (isAuthenticated && me.isPending)) {
     return (
       <Stack
         component="main"
@@ -34,9 +44,16 @@ export function RequireAuth({ children }: Readonly<{ children: ReactNode }>) {
     );
   }
 
+  const here = `${location.pathname}${location.search}`;
+
   if (snapshot.status === "anonymous") {
-    const next = `${location.pathname}${location.search}`;
-    return <Navigate to={loginPathWithNext(next)} replace />;
+    return <Navigate to={loginPathWithNext(here)} replace />;
+  }
+
+  const mustChangePassword =
+    snapshot.mustChangePassword || me.data?.me.mustChangePassword === true;
+  if (mustChangePassword && location.pathname !== CHANGE_PASSWORD_PATH) {
+    return <Navigate to={changePasswordPathWithNext(here)} replace />;
   }
 
   return <>{children}</>;

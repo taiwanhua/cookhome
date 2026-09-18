@@ -26,5 +26,52 @@
     "noOrg": "Not a member of any organization yet",
     "logout": "Sign out",
     "logoutAllDevices": "Sign out of all devices"
+  },
+  "passwordRules": {
+    "tooShort": "At least {min} characters",
+    "digitsOnly": "Cannot be digits only",
+    "mismatch": "The two passwords do not match"
+  },
+  "forgotPassword": {
+    "subtitle": "Forgot password",
+    "description": "Enter your account email and we will send you a password reset link.",
+    "sent": "A password reset link has been sent. Please check your inbox; the link is valid for 30 minutes. Didn't get it? You can resend it.",
+    "email": "Email",
+    "submit": "Send reset link",
+    "resend": "Resend",
+    "backToLogin": "Back to sign in",
+    "errors": {
+      "unexpected": "Failed to send. Please try again later."
+    }
+  },
+  "setPassword": {
+    "subtitle": "Set a new password",
+    "description": "Choose a new password: at least {min} characters and not digits only. You will be signed in right after.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "submit": "Set password and sign in",
+    "backToLogin": "Back to sign in",
+    "invalid": {
+      "description": "This link has expired or has already been used. Request a new one and we will send you a fresh link.",
+      "requestAgain": "Request a new reset link"
+    },
+    "errors": {
+      "unexpected": "Failed to set the password. Please try again later."
+    }
+  },
+  "changePassword": {
+    "subtitle": "Change password",
+    "description": "Enter your current password and a new one: at least {min} characters and not digits only.",
+    "forced": "Please change your password before continuing; other features are available afterwards.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "submit": "Confirm",
+    "back": "Back",
+    "errors": {
+      "currentPasswordInvalid": "Current password is incorrect",
+      "tooManyAttempts": "Too many attempts. Please try again later.",
+      "unexpected": "Failed to change the password. Please try again later."
+    }
   }
 }

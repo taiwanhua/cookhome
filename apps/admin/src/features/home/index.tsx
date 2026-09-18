@@ -1,12 +1,13 @@
 import { useNavigate } from "react-router";
 import { useTranslations } from "use-intl";
 
-import { useLogoutMutation, useMeQuery } from "@repo/graphql";
+import { useLogoutMutation } from "@repo/graphql";
 import { Button } from "@repo/ui/button";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import { LOGIN_PATH } from "../auth/paths";
+import { useMe } from "../auth/use-me";
 import { useSession } from "../auth/use-session";
 
 /**
@@ -17,7 +18,7 @@ export function HomePage() {
   const tApp = useTranslations("admin.app");
   const { session } = useSession();
   const navigate = useNavigate();
-  const me = useMeQuery(session.client);
+  const me = useMe();
 
   const logout = useLogoutMutation(session.client, {
     onSettled: () => {
