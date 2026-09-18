@@ -3,7 +3,28 @@
     "subtitle": "Admin",
     "loading": "Loading…",
     "apiError": "Cannot reach the API. Make sure the api service is running.",
-    "total": "{count, plural, one {# recipe} other {# recipes}}",
     "language": "Language"
+  },
+  "login": {
+    "subtitle": "Admin Console",
+    "account": "Account",
+    "password": "Password",
+    "submit": "Sign in",
+    "forgotPassword": "Forgot password?",
+    "footer": "© {year} {brand} · Authorized personnel only",
+    "errors": {
+      "invalidCredentials": "Incorrect account or password",
+      "accountDisabled": "This account has been disabled. Please contact the system administrator.",
+      "tooManyAttempts": "Too many failed attempts. Please try again later.",
+      "unexpected": "Sign-in failed. Please try again later."
+    }
+  },
+  "session": {
+    "restoring": "Restoring your session…",
+    "greeting": "Hello, {name}",
+    "currentOrg": "Current organization: {org}",
+    "noOrg": "Not a member of any organization yet",
+    "logout": "Sign out",
+    "logoutAllDevices": "Sign out of all devices"
   }
 }
