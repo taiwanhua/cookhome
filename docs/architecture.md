@@ -11,7 +11,7 @@
 | `@repo/front`     | Next.js(App Router)                                              | 前台。SEO 頁面走 Server Component + ISR,不使用 Next API Routes | 3002 |
 | `@repo/admin`     | Vite + React SPA                                                 | 後台管理,不需 SEO                                              | 3001 |
 | `@repo/storybook` | Storybook(react-vite)                                            | 設計系統目錄 + Palette Lab;stories 檔案住在 `packages/ui`      | 6006 |
-| `@repo/db-migrator`(規劃中) | migrate-mongo + seed runner                            | 資料庫遷移與種子工具,不部署不常駐;CI 於部署 api 後呼叫(ADR-0002) | — |
+| `@repo/db-migrator` | migrate-mongo + seed runner                            | 資料庫遷移與種子工具,不部署不常駐;CI 於部署 api 後呼叫(ADR-0002) | — |
 
 workspace 套件名一律 `@repo/` 前綴(規則 GEN-06)。
 
