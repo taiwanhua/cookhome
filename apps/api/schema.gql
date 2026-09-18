@@ -22,6 +22,15 @@ input CreateRecipeInput {
   title: String!
 }
 
+input CreateUploadUrlInput {
+  """允許 image/png / image/jpeg / image/webp"""
+  contentType: String!
+  purpose: UploadPurpose!
+
+  """檔案大小(bytes),上限 2097152"""
+  size: Int!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -82,6 +91,7 @@ type MeModule {
 
 type MeOrg {
   id: ID!
+  logoUrl: String
   name: String!
 }
 
@@ -95,6 +105,7 @@ enum ModuleSidebarType {
 type Mutation {
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
+  createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   login(input: LoginInput!): LoginPayload!
   logout: LogoutPayload!
   logoutAllDevices: LogoutAllDevicesPayload!
@@ -151,4 +162,15 @@ input SwitchOrgInput {
 
 type SwitchOrgPayload {
   accessToken: String!
+}
+
+"""上傳用途:決定物件路徑前綴與所需權限(ADR-0010)"""
+enum UploadPurpose {
+  ORG_LOGO
+}
+
+type UploadUrlPayload {
+  expiresAt: DateTime!
+  objectPath: ID!
+  uploadUrl: String!
 }

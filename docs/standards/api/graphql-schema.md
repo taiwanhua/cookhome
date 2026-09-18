@@ -38,19 +38,20 @@ type RecipeList {
 
 可預期的業務錯誤 throw `GraphQLError`,`extensions.code` 用列舉值;非預期錯誤讓框架轉 `INTERNAL_SERVER_ERROR`,不吞掉。GraphQL 永遠回 HTTP 200,**前端只能靠 code 分流**,所以每個 code 都要說清楚「什麼情況回它、前端該做什麼」。code 清單(新增時回寫本條;登入線的程式正本 `apps/api/src/auth/auth-error.ts`):
 
-| code                       | 什麼情況回它                                                                                                   | 前端該做什麼                                                                     |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `NOT_FOUND`                | 查的資料不存在                                                                                                 | 顯示找不到                                                                       |
-| `VALIDATION_FAILED`        | 輸入不合法                                                                                                     | 表單顯示錯誤                                                                     |
-| `UNAUTHENTICATED`          | **等於沒登入**:沒帶 token、token 偽造或簽章不對、會員的 token(`aud=front`)打後台、refresh token 被重放或已登出 | 清掉登入狀態,導向登入頁                                                          |
-| `TOKEN_EXPIRED`            | access token 或 refresh token **逾期**(正常現象,access 每 15 分鐘一次)                                         | access 逾期:靜默用 cookie 換一張後重送原請求;refresh 也逾期:同 `UNAUTHENTICATED` |
-| `FORBIDDEN`                | **有登入,但做了不被允許的事**:沒有該權限、切到不屬於自己的組織                                                 | 顯示無權限提示,**不**登出                                                        |
-| `INVALID_CREDENTIALS`      | 登入時帳號不存在**或**密碼錯(同一碼,且回應耗時相同,不可枚舉帳號)                                               | 顯示「帳號或密碼錯誤」                                                           |
-| `ACCOUNT_DISABLED`         | 帳號已停用(登入時,或已登入者的下一次請求)                                                                      | 顯示帳號已停用,清登入狀態                                                        |
-| `TOO_MANY_ATTEMPTS`        | 同帳號連續 5 次登入失敗,鎖 1 分鐘                                                                              | 顯示稍後再試                                                                     |
-| `MUST_CHANGE_PASSWORD`     | 首登須改密碼者做了「看自己 / 改密碼 / 登出」以外的操作                                                         | 導向改密碼頁                                                                     |
-| `ACTION_TOKEN_INVALID`     | 信件連結的 token(啟用 / 重設密碼)不存在、已用過或逾期 — 三者同碼,不透露差別                                    | 顯示「連結已失效」+ 一鍵重新申請;**不是** `TOKEN_EXPIRED`,不要換票重送           |
-| `CURRENT_PASSWORD_INVALID` | 已登入者改密碼時「目前密碼」打錯(本人操作,無枚舉風險,所以可以明講)                                             | 顯示「目前密碼錯誤」                                                             |
+| code                       | 什麼情況回它                                                                                                        | 前端該做什麼                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NOT_FOUND`                | 查的資料不存在                                                                                                      | 顯示找不到                                                                       |
+| `VALIDATION_FAILED`        | 輸入不合法                                                                                                          | 表單顯示錯誤                                                                     |
+| `UNAUTHENTICATED`          | **等於沒登入**:沒帶 token、token 偽造或簽章不對、會員的 token(`aud=front`)打後台、refresh token 被重放或已登出      | 清掉登入狀態,導向登入頁                                                          |
+| `TOKEN_EXPIRED`            | access token 或 refresh token **逾期**(正常現象,access 每 15 分鐘一次)                                              | access 逾期:靜默用 cookie 換一張後重送原請求;refresh 也逾期:同 `UNAUTHENTICATED` |
+| `FORBIDDEN`                | **有登入,但做了不被允許的事**:沒有該權限、切到不屬於自己的組織                                                      | 顯示無權限提示,**不**登出                                                        |
+| `INVALID_CREDENTIALS`      | 登入時帳號不存在**或**密碼錯(同一碼,且回應耗時相同,不可枚舉帳號)                                                    | 顯示「帳號或密碼錯誤」                                                           |
+| `ACCOUNT_DISABLED`         | 帳號已停用(登入時,或已登入者的下一次請求)                                                                           | 顯示帳號已停用,清登入狀態                                                        |
+| `TOO_MANY_ATTEMPTS`        | 同帳號連續 5 次登入失敗,鎖 1 分鐘                                                                                   | 顯示稍後再試                                                                     |
+| `MUST_CHANGE_PASSWORD`     | 首登須改密碼者做了「看自己 / 改密碼 / 登出」以外的操作                                                              | 導向改密碼頁                                                                     |
+| `ACTION_TOKEN_INVALID`     | 信件連結的 token(啟用 / 重設密碼)不存在、已用過或逾期 — 三者同碼,不透露差別                                         | 顯示「連結已失效」+ 一鍵重新申請;**不是** `TOKEN_EXPIRED`,不要換票重送           |
+| `CURRENT_PASSWORD_INVALID` | 已登入者改密碼時「目前密碼」打錯(本人操作,無枚舉風險,所以可以明講)                                                  | 顯示「目前密碼錯誤」                                                             |
+| `UPLOAD_REJECTED`          | 要上傳票時檔型不在白名單(png / jpg / webp)或大小超過 2MB(ADR-0010;程式正本 `apps/api/src/storage/storage-error.ts`) | 顯示「只能上傳 PNG / JPG / WebP,且不超過 2MB」,讓使用者重選檔案                  |
 
 錯誤的 `message` 給開發者看(英文);給使用者的繁體中文文案由前端依 code 對應,不從 api 傳。
 
