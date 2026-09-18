@@ -31,10 +31,9 @@ const config: StorybookConfig = {
           "@emotion/styled",
           "@mui/material",
         ],
-        // @repo/ui/* 指向原始碼(各出口都是 folder/index 慣例)
-        alias: [
-          { find: /^@repo\/ui\/(.+)$/, replacement: `${uiSrc}/$1/index` },
-        ],
+        // @repo/ui/* 指向原始碼:出口檔就是 src/<子路徑>(bunchee 的慣例),
+        // 元件本體在 PascalCase 資料夾裡由出口檔轉接;theme / icons 則由 vite 解到目錄的 index.ts
+        alias: [{ find: /^@repo\/ui\/(.+)$/, replacement: `${uiSrc}/$1` }],
       },
     }),
 };
