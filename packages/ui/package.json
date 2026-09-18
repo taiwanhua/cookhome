@@ -278,7 +278,10 @@
     "test": "jest"
   },
   "jest": {
-    "preset": "@repo/jest-presets/browser"
+    "preset": "@repo/jest-presets/browser",
+    "setupFilesAfterEnv": [
+      "<rootDir>/src/test/setup.ts"
+    ]
   },
   "devDependencies": {
     "@emotion/react": "^11.14.0",
@@ -289,6 +292,10 @@
     "@repo/jest-presets": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@storybook/react-vite": "^10.6.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.10.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.15.3",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

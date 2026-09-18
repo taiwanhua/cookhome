@@ -1,57 +1,49 @@
 import { describe, expect, it, jest } from "@jest/globals";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { FormControlLabel } from "../FormControlLabel/FormControlLabel";
-import { clickElement, mount, requireInput } from "../test-support/mount";
 import { Radio } from "./Radio";
 import { RadioGroup } from "./RadioGroup";
 
-const renderGroup = (onChange: (event: unknown, value: string) => void) =>
-  mount(
+const byEmail = "寄啟用信";
+const byPassword = "設定初始密碼";
+
+const renderGroup = (onChange?: () => void) =>
+  render(
     <RadioGroup name="activation" defaultValue="email" onChange={onChange}>
-      <FormControlLabel value="email" control={<Radio />} label="寄啟用信" />
+      <FormControlLabel value="email" control={<Radio />} label={byEmail} />
       <FormControlLabel
         value="password"
         control={<Radio />}
-        label="設定初始密碼"
+        label={byPassword}
       />
     </RadioGroup>,
   );
 
 describe("Radio", () => {
-  it("渲染出 radio input", () => {
-    const { container, unmount } = mount(
-      <Radio slotProps={{ input: { "aria-label": "寄啟用信" } }} />,
-    );
+  it("渲染出 radio", () => {
+    render(<Radio slotProps={{ input: { "aria-label": byEmail } }} />);
 
-    expect(requireInput(container).type).toBe("radio");
-
-    unmount();
+    expect(screen.getByRole("radio", { name: byEmail })).toBeInTheDocument();
   });
 
   it("RadioGroup 以 defaultValue 決定預設選取項", () => {
-    const { container, unmount } = renderGroup(jest.fn());
+    renderGroup();
 
-    const [first, second] = [...container.querySelectorAll("input")];
-    expect(first?.checked).toBe(true);
-    expect(second?.checked).toBe(false);
-
-    unmount();
+    expect(screen.getByRole("radio", { name: byEmail })).toBeChecked();
+    expect(screen.getByRole("radio", { name: byPassword })).not.toBeChecked();
   });
 
-  it("點第二個選項會換選並回報新的值", () => {
+  it("點第二個選項會換選並回報 onChange", async () => {
+    const user = userEvent.setup();
     const onChange = jest.fn();
-    const { container, unmount } = renderGroup(onChange);
+    renderGroup(onChange);
 
-    const [first, second] = [...container.querySelectorAll("input")];
-    if (second === undefined) {
-      throw new Error("測試找不到第二個選項");
-    }
-    clickElement(second);
+    await user.click(screen.getByRole("radio", { name: byPassword }));
 
-    expect(second.checked).toBe(true);
-    expect(first?.checked).toBe(false);
+    expect(screen.getByRole("radio", { name: byPassword })).toBeChecked();
+    expect(screen.getByRole("radio", { name: byEmail })).not.toBeChecked();
     expect(onChange).toHaveBeenCalledTimes(1);
-
-    unmount();
   });
 });

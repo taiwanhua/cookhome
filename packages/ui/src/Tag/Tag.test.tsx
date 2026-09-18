@@ -1,19 +1,18 @@
 import { describe, expect, it, jest } from "@jest/globals";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
-import { clickElement, mount, requireElement } from "../test-support/mount";
 import { Tag } from "./Tag";
 
 describe("Tag", () => {
   it("渲染標籤文字", () => {
-    const { container, unmount } = mount(<Tag label="系統內建" />);
+    render(<Tag label="系統內建" />);
 
-    expect(container.textContent).toContain("系統內建");
-
-    unmount();
+    expect(screen.getByText("系統內建")).toBeInTheDocument();
   });
 
   it("每個色調都渲染得出來", () => {
-    const { container, unmount } = mount(
+    render(
       <>
         <Tag tone="grey" label="停用" />
         <Tag tone="primary" label="群組" />
@@ -23,29 +22,29 @@ describe("Tag", () => {
       </>,
     );
 
-    expect(container.querySelectorAll(".MuiChip-root")).toHaveLength(5);
-
-    unmount();
+    for (const text of ["停用", "群組", "啟用", "隱藏頁", "組織外"]) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
   });
 
-  it("有 onDelete 時出現關閉鈕,點下去會回報", () => {
+  it("有 onDelete 時出現關閉鈕,點下去會回報", async () => {
+    const user = userEvent.setup();
     const onDelete = jest.fn();
-    const { container, unmount } = mount(
-      <Tag label="客服" onDelete={onDelete} />,
-    );
+    const { container } = render(<Tag label="客服" onDelete={onDelete} />);
 
-    clickElement(requireElement(container, ".MuiChip-deleteIcon"));
+    // MUI 的關閉圖示是 svg、沒有 role,只能用 class 取
+    const deleteIcon = container.querySelector(".MuiChip-deleteIcon");
+    if (deleteIcon === null) {
+      throw new Error("測試找不到關閉鈕");
+    }
+    await user.click(deleteIcon);
 
     expect(onDelete).toHaveBeenCalledTimes(1);
-
-    unmount();
   });
 
   it("沒有 onDelete 就不渲染關閉鈕", () => {
-    const { container, unmount } = mount(<Tag label="客服" />);
+    const { container } = render(<Tag label="客服" />);
 
-    expect(container.querySelector(".MuiChip-deleteIcon")).toBeNull();
-
-    unmount();
+    expect(container.querySelector(".MuiChip-deleteIcon")).not.toBeInTheDocument();
   });
 });

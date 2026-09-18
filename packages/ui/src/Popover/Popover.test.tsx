@@ -1,13 +1,14 @@
 import { describe, expect, it, jest } from "@jest/globals";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
-import { clickElement, mount, requireElement } from "../test-support/mount";
 import { Popover } from "./Popover";
 
 const anchorPosition = { top: 100, left: 100 };
 
 describe("Popover", () => {
   it("open 時把內容渲染進 portal", () => {
-    const { unmount } = mount(
+    render(
       <Popover
         open
         anchorReference="anchorPosition"
@@ -17,15 +18,11 @@ describe("Popover", () => {
       </Popover>,
     );
 
-    expect(
-      requireElement(document.body, ".MuiPopover-paper").textContent,
-    ).toContain("項目 1");
-
-    unmount();
+    expect(screen.getByRole("button", { name: "項目 1" })).toBeInTheDocument();
   });
 
   it("open=false 時不渲染內容", () => {
-    const { unmount } = mount(
+    render(
       <Popover
         open={false}
         anchorReference="anchorPosition"
@@ -35,14 +32,13 @@ describe("Popover", () => {
       </Popover>,
     );
 
-    expect(document.body.querySelector(".MuiPopover-paper")).toBeNull();
-
-    unmount();
+    expect(screen.queryByRole("button", { name: "項目 1" })).not.toBeInTheDocument();
   });
 
-  it("點浮層內的項目會觸發它的 onClick", () => {
+  it("點浮層內的項目會觸發它的 onClick", async () => {
+    const user = userEvent.setup();
     const onPick = jest.fn();
-    const { unmount } = mount(
+    render(
       <Popover
         open
         anchorReference="anchorPosition"
@@ -54,9 +50,8 @@ describe("Popover", () => {
       </Popover>,
     );
 
-    clickElement(requireElement(document.body, "button"));
-    expect(onPick).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "項目 1" }));
 
-    unmount();
+    expect(onPick).toHaveBeenCalledTimes(1);
   });
 });

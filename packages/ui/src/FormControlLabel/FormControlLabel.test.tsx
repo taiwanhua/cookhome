@@ -1,34 +1,25 @@
 import { describe, expect, it } from "@jest/globals";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import { Checkbox } from "../Checkbox/Checkbox";
-import {
-  clickElement,
-  mount,
-  requireElement,
-  requireInput,
-} from "../test-support/mount";
 import { FormControlLabel } from "./FormControlLabel";
 
+const label = "開放此模組";
+
 describe("FormControlLabel", () => {
-  it("把標籤文字渲染在控制項旁", () => {
-    const { container, unmount } = mount(
-      <FormControlLabel control={<Checkbox />} label="開放此模組" />,
-    );
+  it("標籤文字成為控制項的可及名稱", () => {
+    render(<FormControlLabel control={<Checkbox />} label={label} />);
 
-    expect(container.textContent).toContain("開放此模組");
-
-    unmount();
+    expect(screen.getByRole("checkbox", { name: label })).toBeInTheDocument();
   });
 
-  it("點標籤文字等於點控制項", () => {
-    const { container, unmount } = mount(
-      <FormControlLabel control={<Checkbox />} label="開放此模組" />,
-    );
+  it("點標籤文字等於點控制項", async () => {
+    const user = userEvent.setup();
+    render(<FormControlLabel control={<Checkbox />} label={label} />);
 
-    clickElement(requireElement(container, ".MuiFormControlLabel-label"));
+    await user.click(screen.getByText(label));
 
-    expect(requireInput(container).checked).toBe(true);
-
-    unmount();
+    expect(screen.getByRole("checkbox", { name: label })).toBeChecked();
   });
 });

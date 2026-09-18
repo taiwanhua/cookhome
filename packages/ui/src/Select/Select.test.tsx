@@ -13,7 +13,7 @@ describe("Select", () => {
         <Select
           variant="standard"
           value="org-1"
-          inputProps={{ "aria-label": "當前組織" }}
+          slotProps={{ input: { "aria-label": "當前組織" } }}
         >
           <MenuItem value="org-1">CookHome</MenuItem>
         </Select>,
