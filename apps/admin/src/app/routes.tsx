@@ -12,10 +12,15 @@ import {
 import { RequireAuth } from "../features/auth/require-auth";
 import { SetPasswordPage } from "../features/auth/set-password-page";
 import { HomePage } from "../features/home";
+import { AdminShell } from "../features/shell/admin-shell";
+import { ModuleRoute } from "../features/shell/module-route";
 
 /**
- * 路由表(#61「admin — 三頁與殼」):登入線的公開頁(/login、/forgot-password、/set-password)、
- * 已登入者的 /change-password(首登強改也走它)、首頁佔位;其餘路由由模組陣列產生(登入線5)。
+ * 路由表(#61「admin — 三頁與殼」):
+ * - 公開:/login、/forgot-password、/set-password(登入線7)
+ * - 已登入者的 /change-password(首登強改也走它;守門在 RequireAuth)
+ * - 受保護:殼(`AdminShell`)包住首頁與所有模組路由;模組路由由 `me.modules` 產生,
+ *   不在「可進入路由集合」內的網址由 `ModuleRoute` 顯示無權限頁(ADR-0011「路由防守」,登入線5)
  */
 export function AppRoutes() {
   return (
@@ -35,10 +40,13 @@ export function AppRoutes() {
         path="/"
         element={
           <RequireAuth>
-            <HomePage />
+            <AdminShell />
           </RequireAuth>
         }
-      />
+      >
+        <Route index element={<HomePage />} />
+        <Route path="*" element={<ModuleRoute />} />
+      </Route>
     </Routes>
   );
 }

@@ -141,7 +141,9 @@ describe("分頁登出同步(BroadcastChannel)", () => {
       });
     });
 
-    await user.click(screen.getByRole("button", { name: "登出" }));
+    // 登出在 AppBar 的使用者選單裡(登入線5 殼)
+    await user.click(screen.getByRole("button", { name: "小華" }));
+    await user.click(screen.getByRole("menuitem", { name: "登出" }));
 
     await expect(received).resolves.toEqual({ type: "logout" });
     expect(world.calls.logout).toBe(1);

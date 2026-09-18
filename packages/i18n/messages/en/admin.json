@@ -73,5 +73,19 @@
       "tooManyAttempts": "Too many attempts. Please try again later.",
       "unexpected": "Failed to change the password. Please try again later."
     }
+  },
+  "shell": {
+    "sideNav": "Main navigation",
+    "home": "Overview",
+    "currentOrg": "Current organization",
+    "userMenu": "User menu",
+    "placeholder": {
+      "pending": "This page is not built yet"
+    },
+    "forbidden": {
+      "title": "You do not have access to this page",
+      "body": "Your current role does not include this page. Contact the system administrator if you need it.",
+      "backHome": "Back to overview"
+    }
   }
 }

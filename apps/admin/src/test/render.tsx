@@ -2,13 +2,10 @@ import { QueryClient } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { MemoryRouter } from "react-router";
 
-import { AppProviders } from "../app/providers";
-import { AppRoutes } from "../app/routes";
 import { type AuthSession, createAuthSession } from "../lib/auth/session";
-import { LocationProbe } from "./location-probe";
 import { TEST_GRAPHQL_ENDPOINT } from "./msw/server";
+import { TestApp } from "./test-app";
 
 export interface RenderAppOptions {
   /** 起始網址(含 query),預設首頁 */
@@ -26,7 +23,7 @@ export function createTestQueryClient(): QueryClient {
 }
 
 /**
- * 以完整的 providers + 路由渲染 app(與 root.tsx 相同組裝,只把 BrowserRouter 換成 MemoryRouter)。
+ * 以完整的 providers + 路由渲染 app(組裝見 `TestApp`,與 root.tsx 相同,只把 BrowserRouter 換成 MemoryRouter)。
  * 回傳的 `session` 可讓測試在同一分頁語意下重新渲染或直接呼叫 client。
  */
 export function renderApp({
@@ -38,13 +35,12 @@ export function renderApp({
   const queryClient = createTestQueryClient();
   const user = userEvent.setup();
   const view = render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppProviders session={activeSession} queryClient={queryClient}>
-        <AppRoutes />
-        {extra}
-        <LocationProbe />
-      </AppProviders>
-    </MemoryRouter>,
+    <TestApp
+      path={path}
+      session={activeSession}
+      queryClient={queryClient}
+      extra={extra}
+    />,
   );
   return { ...view, user, session: activeSession, queryClient };
 }

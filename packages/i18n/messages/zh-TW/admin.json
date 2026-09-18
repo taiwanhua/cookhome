@@ -73,5 +73,19 @@
       "tooManyAttempts": "嘗試次數過多,請稍後再試",
       "unexpected": "變更失敗,請稍後再試"
     }
+  },
+  "shell": {
+    "sideNav": "主選單",
+    "home": "總覽",
+    "currentOrg": "當前組織",
+    "userMenu": "使用者選單",
+    "placeholder": {
+      "pending": "此頁面尚未建置"
+    },
+    "forbidden": {
+      "title": "沒有權限進入此頁面",
+      "body": "你目前的角色沒有這個頁面的權限;若需要使用,請聯絡系統管理員。",
+      "backHome": "回總覽"
+    }
   }
 }

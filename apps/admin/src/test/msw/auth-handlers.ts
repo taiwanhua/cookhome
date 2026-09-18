@@ -6,6 +6,7 @@ import type {
   MeQuery,
   RequestPasswordResetMutationVariables,
   SetPasswordMutationVariables,
+  SwitchOrgMutationVariables,
 } from "@repo/graphql";
 
 import { api } from "./server";
@@ -38,6 +39,9 @@ export function graphqlError(
 }
 
 export type TestModule = MeQuery["me"]["modules"][number];
+export type TestOrg = MeQuery["me"]["orgs"][number];
+
+export const testOrg: TestOrg = { id: "org-1", name: "CookHome" };
 
 export const testUser: MeQuery["me"] = {
   id: "user-1",
@@ -46,8 +50,8 @@ export const testUser: MeQuery["me"] = {
   email: "root@cookhome.online",
   nickname: null,
   mustChangePassword: false,
-  currentOrg: { id: "org-1", name: "CookHome" },
-  orgs: [{ id: "org-1", name: "CookHome" }],
+  currentOrg: testOrg,
+  orgs: [testOrg],
   modules: [],
 };
 
@@ -67,6 +71,8 @@ export interface AuthWorldOptions {
   expiredTokens?: string[];
   /** `me.modules`(預設空) */
   modules?: TestModule[];
+  /** 所屬組織清單(預設只有 CookHome);當前組織預設 = 第一個(#66 組織切換器) */
+  orgs?: TestOrg[];
   /** 首登須改密碼(預設 false):true 時除 me / changePassword / logout 外的受保護操作回 MUST_CHANGE_PASSWORD */
   mustChangePassword?: boolean;
   /** 使用者目前的密碼(changePassword 驗「目前密碼」用) */
@@ -85,6 +91,8 @@ export interface AuthWorld {
     refresh: number;
     me: number;
     logout: number;
+    logoutAllDevices: number;
+    switchOrg: number;
     requestPasswordReset: number;
     setPassword: number;
     changePassword: number;
@@ -93,11 +101,15 @@ export interface AuthWorld {
   resetRequests: string[];
 }
 
+/** SwitchOrg 發的 access token(換組織即換票,ADR-0003)。 */
+export const SWITCHED_ACCESS_TOKEN = "access-switched";
+
 /**
  * 「登入線」的假 api(httpOnly cookie 用 `hasRefreshCookie` 旗標模擬,jsdom 看不到真 cookie):
  * - Login:任何帳密都成功,發 `accessToken` 並「種下」refresh cookie
  * - Refresh:有 cookie 才依序發 `refreshedTokens`;沒有回 UNAUTHENTICATED
  * - Logout / LogoutAllDevices:清 cookie
+ * - SwitchOrg:orgId 須在所屬組織內(否則 FORBIDDEN);換發 `SWITCHED_ACCESS_TOKEN` 並更新 `me.currentOrg`
  * - Me:帶有效 bearer 才回使用者;沒帶回 UNAUTHENTICATED;在 `expiredTokens` 內回 TOKEN_EXPIRED
  * - RequestPasswordReset:任何 email 都回成功(api 不透露帳號是否存在)
  * - SetPassword:token 在 `validActionTokens` 內才成功(用過即失效),否則 ACTION_TOKEN_INVALID;
@@ -111,6 +123,7 @@ export function authWorld(options: AuthWorldOptions = {}): AuthWorld {
     refreshedTokens = ["access-2"],
     expiredTokens = [],
     modules = [],
+    orgs = [testOrg],
     currentPassword = "secret-1234",
     validActionTokens = ["token-1"],
     setPasswordAccessToken = "access-set",
@@ -128,12 +141,19 @@ export function authWorld(options: AuthWorldOptions = {}): AuthWorld {
     refresh: 0,
     me: 0,
     logout: 0,
+    logoutAllDevices: 0,
+    switchOrg: 0,
     requestPasswordReset: 0,
     setPassword: 0,
     changePassword: 0,
   };
   const resetRequests: string[] = [];
-  const me: MeQuery["me"] = { ...testUser, modules };
+  const me: MeQuery["me"] = {
+    ...testUser,
+    modules,
+    orgs,
+    currentOrg: orgs[0] ?? null,
+  };
 
   /** 受保護操作共用的守門(對應 api 的 AuthGuard):回 null 代表放行 */
   const guard = (request: Request, allowMustChange = false) => {
@@ -175,9 +195,27 @@ export function authWorld(options: AuthWorldOptions = {}): AuthWorld {
       return HttpResponse.json({ data: { logout: { success: true } } });
     }),
     api.mutation("LogoutAllDevices", () => {
+      calls.logoutAllDevices += 1;
       hasRefreshCookie = false;
       return HttpResponse.json({
         data: { logoutAllDevices: { success: true } },
+      });
+    }),
+    api.mutation("SwitchOrg", ({ request, variables }) => {
+      calls.switchOrg += 1;
+      const denied = guard(request);
+      if (denied !== null) {
+        return denied;
+      }
+      const { input } = variables as SwitchOrgMutationVariables;
+      const target = orgs.find((org) => org.id === input.orgId);
+      if (target === undefined) {
+        return graphqlError("FORBIDDEN", "Not a member of that org");
+      }
+      me.currentOrg = target;
+      validTokens.add(SWITCHED_ACCESS_TOKEN);
+      return HttpResponse.json({
+        data: { switchOrg: { accessToken: SWITCHED_ACCESS_TOKEN } },
       });
     }),
     api.query("Me", ({ request }) => {
