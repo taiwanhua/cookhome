@@ -111,12 +111,19 @@ gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=a
 
 ## 四、環境變數管理
 
-**核心觀念:雲端沒有「env 檔案」— 環境變數是平台設定,不是檔案。** 各層的真實來源:
+**核心觀念:環境變數只有三個家,依「性質」決定放哪** — 要改某個變數,先問它是哪一種,就知道去哪改:
 
-| 層               | 真實來源                                                                                                               | 進版控?                                  |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| 本地開發         | 各 app 的 `.env`(範本:`.env.example`)                                                                                  | `.env` ❌(gitignored)/ `.env.example` ✅ |
-| Cloud Run(api)   | **`deploy.yml` 各環境區塊**:非機密走 `--set-env-vars`(如 `GRAPHQL_SANDBOX`),機密走 `--set-secrets` 引用 Secret Manager | deploy.yml ✅ / 機密值永不進版控         |
+| 性質 | 放哪(真實來源) | 進版控? |
+| --- | --- | --- |
+| **非機密、雲端用**(網址、開關、效期…) | **`deploy/env/<環境>.yaml`**(dev / staging / production 各一檔),deploy.yml 以 `--env-vars-file` 整包餵給 Cloud Run | ✅(走 PR,可審) |
+| **機密**(連線字串、金鑰、API key) | Secret Manager,名稱 `<名稱>-dev` / `-staging` / `<名稱>`;deploy.yml 以 `--set-secrets` 引用 | ❌ 值永不進版控 |
+| **本地開發** | 各 app 的 `.env`(範本 `.env.example` 列出全部變數與預設值) | `.env` ❌ / `.env.example` ✅ |
+
+其他層:
+
+| 層 | 真實來源 | 進版控? |
+| --- | --- | --- |
+| Cloud Run(api) | 上表前兩列(`deploy/env/<環境>.yaml` + Secret Manager);`deploy/env/` 於第 2 段 #69 建立,之前的 `--set-env-vars` 寫法屆時一併搬入 | ✅ / ❌ |
 | Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image)                                                                       | ✅                                       |
 | Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                     | ❌(平台保存;清單記載於下表)              |
 
@@ -132,7 +139,7 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 **新增一個環境變數的 SOP**(依用到它的地方,最多三處):
 
 1. 本地:加進該 app 的 `.env` + 同步 `.env.example`(讓別人/AI 知道有這個變數)
-2. api/admin 雲端:機密 → `gcloud secrets create` + deploy.yml `--set-secrets`;非機密 → deploy.yml `--set-env-vars`(走 PR,可審查)
+2. api/admin 雲端:機密 → `gcloud secrets create`(SOP 見下節)+ deploy.yml `--set-secrets`;非機密 → 加進 `deploy/env/<環境>.yaml`(三個環境各給值;走 PR,可審查)。程式端一律給**內建預設值**,變數不設也能跑
 3. front 雲端:Vercel dashboard 加(注意 Type 選 **Config**,除非真是機密;`NEXT_PUBLIC_` 前綴 = 會進瀏覽器,機密絕不可加此前綴)
 
 **機密判斷準則**:「這個值出現在瀏覽器/版控裡會不會出事?」會 → Secret Manager(Cloud Run)或 Secret 型(Vercel);不會 → 明文設定即可。
