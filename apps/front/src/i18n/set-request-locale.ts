@@ -7,7 +7,7 @@ import { setRequestLocale } from "next-intl/server";
  * 但該 API 在 Next 16.2 仍是編譯期置換的佔位模組(型別為 any);
  * 在它穩定前,把唯一的 deprecated 呼叫點集中在這裡。
  */
-export function enableStaticRendering(locale: string): void {
+export const enableStaticRendering = (locale: string): void => {
   // eslint-disable-next-line sonarjs/deprecation, @typescript-eslint/no-deprecated
   setRequestLocale(locale);
-}
+};

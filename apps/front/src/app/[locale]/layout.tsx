@@ -1,20 +1,25 @@
 import "./styles.css";
 
-import { hasLocale, NextIntlClientProvider } from "next-intl";
+import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 
+import { AppProviders } from "../../components/AppProviders";
 import { routing } from "../../i18n/routing";
 import { enableStaticRendering } from "../../i18n/set-request-locale";
-import { Providers } from "./providers";
 
-export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
+export interface RootLayoutProps {
+  children: ReactNode;
+  params: Promise<{ locale: string }>;
 }
 
-export async function generateMetadata({
+export const generateStaticParams = () =>
+  routing.locales.map((locale) => ({ locale }));
+
+export const generateMetadata = async ({
   params,
-}: Readonly<{ params: Promise<{ locale: string }> }>) {
+}: Pick<RootLayoutProps, "params">) => {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "front.meta" });
 
@@ -25,15 +30,9 @@ export async function generateMetadata({
     },
     description: t("description"),
   };
-}
+};
 
-export default async function RootLayout({
-  children,
-  params,
-}: Readonly<{
-  children: React.ReactNode;
-  params: Promise<{ locale: string }>;
-}>) {
+const RootLayout = async ({ children, params }: RootLayoutProps) => {
   const { locale } = await params;
   if (!hasLocale(routing.locales, locale)) {
     notFound();
@@ -44,9 +43,11 @@ export default async function RootLayout({
     <html lang={locale}>
       <body>
         <NextIntlClientProvider>
-          <Providers>{children}</Providers>
+          <AppProviders>{children}</AppProviders>
         </NextIntlClientProvider>
       </body>
     </html>
   );
-}
+};
+
+export default RootLayout;
