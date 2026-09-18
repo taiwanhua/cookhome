@@ -12,6 +12,7 @@
 | `apps/storybook/.storybook/preview.tsx` | import `cookhomeBrand` | 隨上列改名連動 |
 | `apps/admin/src/app/root.tsx` | localStorage key `cookhome-admin-locale` | 換品牌 slug(舊 key 的既存值會失效,可接受) |
 | `apps/api/src/app.module.ts` | 預設 MongoDB 連線 `mongodb://localhost:27017/cookhome` | 換 db 名(僅本機預設,正式環境走環境變數) |
+| `apps/api/src/mail/mail-templates.ts` | 信件(啟用信、重設密碼信):寄件人 `MAIL_SENDER` = `CookHome <no-reply@cookhome.online>`、品牌名「CookHome」(主旨前綴「【CookHome】」、內文「CookHome 後台帳號」)、署名「CookHome 後台管理系統」 | 改該檔頂部的 `MAIL_SENDER` / `BRAND_NAME` / `SIGNATURE` 三個常數;寄件網域須同步在 Resend 完成 SPF / DKIM 驗證(ADR-0010) |
 | 網域 | `cookhome.online`、`design.cookhome.online`(deploy 設定 / DNS / Storybook 部署) | DNS + `.github/workflows/deploy.yml` 相關設定 |
 | 各 app metadata title / favicon | (實作畫面時逐一登記於此) | — |
 

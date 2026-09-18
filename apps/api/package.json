@@ -21,10 +21,12 @@
     "@nestjs/mongoose": "^11.0.4",
     "@nestjs/platform-express": "^11.1.28",
     "@node-rs/argon2": "^2.2.1",
+    "@repo/domain": "workspace:*",
     "graphql": "^16.14.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.8.1",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.28.1",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {

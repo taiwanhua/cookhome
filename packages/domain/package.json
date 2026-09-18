@@ -1,0 +1,48 @@
+{
+  "name": "@repo/domain",
+  "version": "0.0.0",
+  "private": true,
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./password": {
+      "import": {
+        "types": "./dist/es/password.d.mts",
+        "default": "./dist/es/password.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/password.d.ts",
+        "default": "./dist/cjs/password.js"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "password": [
+        "./dist/cjs/password.d.ts"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "bunchee",
+    "dev": "bunchee --watch",
+    "lint": "eslint src/ --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "@repo/jest-presets/node"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/jest-presets": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "bunchee": "^6.4.0",
+    "eslint": "^9.39.0",
+    "jest": "^30.2.0",
+    "typescript": "5.9.3"
+  }
+}
