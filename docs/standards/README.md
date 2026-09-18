@@ -11,16 +11,17 @@
 
 ## 索引
 
-| 改動範圍                                        | 必讀                                        |
-| ----------------------------------------------- | ------------------------------------------- |
-| 任何程式碼                                      | `general/naming.md`、`general/structure.md` |
-| React 元件(front / admin / ui)                  | `react/components.md`、`react/styling.md`   |
-| 前端資料存取(query / mutation)                  | `react/data-fetching.md`                    |
-| api 的 GraphQL schema(resolver / model / input) | `api/graphql-schema.md`                     |
-| 測試                                            | `testing/testing.md`(api 整合測試 TEST-07、admin 元件測試 TEST-08)|
-| 新增 workspace 套件                             | `general/structure.md` STRUCT-07 / STRUCT-08 |
-| UI 文案 / 多語(i18n)                            | `general/i18n.md`                           |
-| Figma 設計稿                                    | `general/figma.md`                          |
+| 改動範圍                                        | 必讀                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------ |
+| 任何程式碼                                      | `general/naming.md`、`general/structure.md`                        |
+| React 元件(front / admin / ui)                  | `react/components.md`、`react/styling.md`                          |
+| 前端資料存取(query / mutation)                  | `react/data-fetching.md`                                           |
+| api 的 GraphQL schema(resolver / model / input) | `api/graphql-schema.md`                                            |
+| 測試                                            | `testing/testing.md`(api 整合測試 TEST-07、admin 元件測試 TEST-08) |
+| 新增 workspace 套件                             | `general/structure.md` STRUCT-07 / STRUCT-08                       |
+| UI 文案 / 多語(i18n)                            | `general/i18n.md`                                                  |
+| Figma 設計稿                                    | `general/figma.md`                                                 |
+| Markdown 文件(docs/、help.md、README)           | `general/structure.md` STRUCT-09                                   |
 
 ## 尚未定案(刻意不寫)
 
