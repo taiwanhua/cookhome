@@ -46,6 +46,7 @@ dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-st
 | Artifact Registry   | `asia-east1-docker.pkg.dev/cookhome-online/cookhome`                                                                                                                  | 儲存費 ~NT$1/月 |
 | Cloud Run ×6        | api / admin 各 ×(prod, staging, dev)(全部 min=0 / max=2)                                                                                                              | 無流量 = $0     |
 | Secret Manager      | 三環境各一份(`-dev` / `-staging` / 無後綴):`mongodb-uri`、`field-encryption-key`、`root-admin-password`、`jwt-secret`、`resend-api-key`;清單見 `docs/env-registry.md` | ~$0             |
+| GCS bucket ×6       | 私有 `cookhome-assets-dev` / `-staging` / `-prod`(uniform access、封鎖公開存取);公開讀 `cookhome-public-dev` / `-staging` / `-prod`(ADR-0010;建立與授權見下節)        | 空 bucket = $0  |
 | WIF + 部署身分      | pool `github` / provider `github-oidc` / SA `github-deployer`(只認 taiwanhua/cookhome)                                                                                | $0              |
 | Budget              | NT$600/月,50%/90%/100% 郵件警告                                                                                                                                       | $0              |
 | MongoDB Atlas       | cluster `cookhome-dev`(M0)                                                                                                                                            | $0              |
@@ -194,6 +195,39 @@ gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上
 - seed 只在帳號**不存在**時建立、存在就不動 — 帳號建立後再改 `root-admin-password*` 的值,**不會**改到資料庫裡的密碼;要改密碼在系統內改。
 
 小工具:裝了 vercel CLI 並登入後,`vercel env pull` 可把 Vercel 的變數拉成本地 `.env.local`(本地 front 想直連雲端 dev api 時方便)。
+
+### GCS bucket 與 IAM(已建於 2026-09-19,重建或加新環境時照此)
+
+檔案儲存走 GCS 簽名網址直傳(ADR-0010):瀏覽器拿 API 簽的 V4 網址直接上傳 / 讀取,檔案不經過 api。**簽名不下載金鑰檔** — Cloud Run 執行身分沒有私鑰,`@google-cloud/storage` 會改呼叫 IAM Credentials 的 `signBlob`,所以那個 SA 必須能簽自己的名(第 3 步)。指令在 Git Bash 執行,`<env>` 取 `dev` / `staging` / `prod`。
+
+**1. 建 bucket**(私有;region 與 Cloud Run 同 asia-east1,跨區會付流量費):
+
+```
+gcloud storage buckets create gs://cookhome-assets-<env> --project=cookhome-online --location=asia-east1 --uniform-bucket-level-access --public-access-prevention
+```
+
+公開 bucket 同一條指令,名稱改 `gs://cookhome-public-<env>`、**拿掉 `--public-access-prevention`**,再加一行開公開讀:
+
+```
+gcloud storage buckets add-iam-policy-binding gs://cookhome-public-<env> --member=allUsers --role=roles/storage.objectViewer
+```
+
+**2. 授權 Cloud Run 執行身分讀寫物件**(六顆 bucket 各跑一次;身分同 Secret Manager 那張表的查法):
+
+```
+gcloud storage buckets add-iam-policy-binding gs://cookhome-assets-<env> --member=serviceAccount:728045896207-compute@developer.gserviceaccount.com --role=roles/storage.objectAdmin
+```
+
+**3. 讓執行身分能簽自己的名**(V4 簽名走 signBlob;漏這步 api 會在簽名時報 `iam.serviceAccounts.signBlob` 權限不足):
+
+```
+gcloud services enable iamcredentials.googleapis.com --project=cookhome-online
+gcloud iam service-accounts add-iam-policy-binding 728045896207-compute@developer.gserviceaccount.com --member=serviceAccount:728045896207-compute@developer.gserviceaccount.com --role=roles/iam.serviceAccountTokenCreator --project=cookhome-online
+```
+
+**4. 接線**(走 PR):`deploy/env/<環境>.yaml` 的 `GCS_BUCKET_PRIVATE` / `GCS_BUCKET_PUBLIC` 填 bucket 名稱(非機密,不進 Secret Manager);登記於 `docs/env-registry.md`。`GCS_BUCKET_PRIVATE` 沒設時 api 照常啟動,但改用記錄用 adapter(簽出來的網址是假的、檔案不會真的上傳)—— 本地開發與測試即此模式。
+
+**驗證**(需要 Cloud Run 的執行身分,本地做不到):部署後以 GraphQL 要一張上傳票 → 用該網址 PUT 一張圖 → 讀回簽名網址能開,步驟見 #137 的 PR 內文。
 
 ### Vercel 補充設定(2026-09-04)
 
