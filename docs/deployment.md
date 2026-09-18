@@ -127,11 +127,11 @@ gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=a
 
 其他層:
 
-| 層               | 真實來源                                                                                                                        | 進版控?                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| Cloud Run(api)   | 上表前兩列(`deploy/env/<環境>.yaml` + Secret Manager);`deploy/env/` 於第 2 段 #69 建立,之前的 `--set-env-vars` 寫法屆時一併搬入 | ✅ / ❌                     |
-| Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image)                                                                                | ✅                          |
-| Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                              | ❌(平台保存;清單記載於下表) |
+| 層               | 真實來源                                                                                                                                                                                                                               | 進版控?                     |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Cloud Run(api)   | 上表前兩列(`deploy/env/<環境>.yaml` + Secret Manager)。YAML 自 #69 起是該環境**全部明文變數**的唯一來源(`GRAPHQL_SANDBOX` 也在檔內):`--env-vars-file` 整包取代,檔內沒寫的變數部署後即不存在;`--set-secrets` 掛入的 secret 變數不受影響 | ✅ / ❌                     |
+| Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image)                                                                                                                                                                                       | ✅                          |
+| Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                                                                                                                                     | ❌(平台保存;清單記載於下表) |
 
 Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型):
 
