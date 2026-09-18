@@ -1,9 +1,9 @@
-import enAdmin from "../messages/en/admin.json";
-import enCommon from "../messages/en/common.json";
-import enFront from "../messages/en/front.json";
-import zhAdmin from "../messages/zh-TW/admin.json";
-import zhCommon from "../messages/zh-TW/common.json";
-import zhFront from "../messages/zh-TW/front.json";
+import enAdmin from "../messages/en/admin.json" with { type: "json" };
+import enCommon from "../messages/en/common.json" with { type: "json" };
+import enFront from "../messages/en/front.json" with { type: "json" };
+import zhAdmin from "../messages/zh-TW/admin.json" with { type: "json" };
+import zhCommon from "../messages/zh-TW/common.json" with { type: "json" };
+import zhFront from "../messages/zh-TW/front.json" with { type: "json" };
 
 export const locales = ["zh-TW", "en"] as const;
 
