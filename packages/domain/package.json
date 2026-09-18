@@ -1,0 +1,64 @@
+{
+  "name": "@repo/domain",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "sideEffects": false,
+  "description": "前後端共用的純邏輯(STRUCT-07):按主題分子路徑匯出,不碰 React / Nest / Mongoose",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./permission": {
+      "import": {
+        "types": "./dist/es/permission.d.ts",
+        "default": "./dist/es/permission.js"
+      },
+      "require": {
+        "types": "./dist/cjs/permission.d.cts",
+        "default": "./dist/cjs/permission.cjs"
+      }
+    },
+    "./password": {
+      "import": {
+        "types": "./dist/es/password.d.ts",
+        "default": "./dist/es/password.js"
+      },
+      "require": {
+        "types": "./dist/cjs/password.d.cts",
+        "default": "./dist/cjs/password.cjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "permission": [
+        "./dist/es/permission.d.ts"
+      ],
+      "password": [
+        "./dist/es/password.d.ts"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "bunchee",
+    "dev": "bunchee --watch",
+    "lint": "eslint src/ --max-warnings 0",
+    "check-types": "tsc --noEmit",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "@repo/jest-presets/node"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/jest-presets": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "bunchee": "^6.4.0",
+    "eslint": "^9.39.0",
+    "jest": "^30.2.0",
+    "typescript": "5.9.3"
+  }
+}

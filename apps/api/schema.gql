@@ -2,6 +2,15 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input ChangePasswordInput {
+  currentPassword: String!
+  newPassword: String!
+}
+
+type ChangePasswordPayload {
+  success: Boolean!
+}
+
 input CreateRecipeInput {
   cookMinutes: Int
   description: String
@@ -52,6 +61,7 @@ type Me {
   email: String!
   gender: String
   id: ID!
+  modules: [MeModule!]!
   mustChangePassword: Boolean!
   name: String!
   nickname: String
@@ -59,17 +69,38 @@ type Me {
   phone: String
 }
 
+type MeModule {
+  id: ID!
+  key: String!
+  name: String!
+  order: Int!
+  parentId: ID
+  permissions: [String!]!
+  route: String
+  sidebarType: ModuleSidebarType!
+}
+
 type MeOrg {
   id: ID!
   name: String!
 }
 
+"""側欄呈現型別:GROUP=可展開群組(非連結)、LINK=模組連結、HIDDEN=隱藏頁(有路由但不出現在側欄)"""
+enum ModuleSidebarType {
+  GROUP
+  HIDDEN
+  LINK
+}
+
 type Mutation {
+  changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   login(input: LoginInput!): LoginPayload!
   logout: LogoutPayload!
   logoutAllDevices: LogoutAllDevicesPayload!
   refresh: RefreshPayload!
+  requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
+  setPassword(input: SetPasswordInput!): SetPasswordPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
 }
 
@@ -94,6 +125,23 @@ type Recipe {
 }
 
 type RefreshPayload {
+  accessToken: String!
+}
+
+input RequestPasswordResetInput {
+  email: String!
+}
+
+type RequestPasswordResetPayload {
+  success: Boolean!
+}
+
+input SetPasswordInput {
+  newPassword: String!
+  token: String!
+}
+
+type SetPasswordPayload {
   accessToken: String!
 }
 

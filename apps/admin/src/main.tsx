@@ -1,9 +1,9 @@
+import "@fontsource-variable/public-sans";
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import Root from "./app/root";
-
-import "./index.css";
 
 const el = document.querySelector("#root");
 if (el) {
