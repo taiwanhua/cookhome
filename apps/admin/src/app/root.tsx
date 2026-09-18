@@ -1,11 +1,14 @@
-import { defaultLocale, isLocale, messages, type Locale } from "@repo/i18n";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
-import { IntlProvider } from "use-intl";
+import { QueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { BrowserRouter } from "react-router";
 
-import App from "./index";
+import { type Locale, defaultLocale, isLocale } from "@repo/i18n";
 
-const queryClient = new QueryClient();
+import { type AuthSession, createAuthSession } from "../lib/auth/session";
+import { GRAPHQL_ENDPOINT } from "../lib/graphql";
+import { AppProviders } from "./providers";
+import { AppRoutes } from "./routes";
+
 const LOCALE_STORAGE_KEY = "cookhome-admin-locale";
 
 function readStoredLocale(): Locale {
@@ -20,24 +23,24 @@ function readStoredLocale(): Locale {
   return defaultLocale;
 }
 
+/** 組裝根:瀏覽器 router + 單一 session(access token 只活在這個物件的記憶體裡)+ providers。 */
 function Root() {
-  const [locale, setLocale] = useState<Locale>(readStoredLocale);
+  const [locale] = useState<Locale>(readStoredLocale);
+  const [session] = useState<AuthSession>(() =>
+    createAuthSession(GRAPHQL_ENDPOINT),
+  );
+  const [queryClient] = useState(() => new QueryClient());
 
-  const changeLocale = (next: Locale) => {
-    setLocale(next);
-    try {
-      localStorage.setItem(LOCALE_STORAGE_KEY, next);
-    } catch {
-      // 存不進去就只影響下次開啟的預設值,忽略
-    }
-  };
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   return (
-    <IntlProvider locale={locale} messages={messages[locale]}>
-      <QueryClientProvider client={queryClient}>
-        <App locale={locale} onLocaleChange={changeLocale} />
-      </QueryClientProvider>
-    </IntlProvider>
+    <BrowserRouter>
+      <AppProviders session={session} queryClient={queryClient} locale={locale}>
+        <AppRoutes />
+      </AppProviders>
+    </BrowserRouter>
   );
 }
 

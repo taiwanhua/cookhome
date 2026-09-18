@@ -147,6 +147,14 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
   let api: AuthTestApp;
   let mail: RecordingMailService;
 
+  /** 寄信在背景執行(時間側信道,ADR-0003),測試要等記錄用 adapter 收到 */
+  async function waitForSent(count: number): Promise<void> {
+    const deadline = Date.now() + 5000;
+    while (mail.sent.length < count && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+
   beforeAll(async () => {
     api = await startAuthTestApp("cookhome-test-password", {
       ADMIN_APP_URL: "https://erp-test.cookhome.online",
@@ -220,6 +228,7 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
       expect(result.errors).toBeUndefined();
       expect(result.data?.requestPasswordReset.success).toBe(true);
 
+      await waitForSent(1);
       expect(mail.sent).toHaveLength(1);
       const [sent] = mail.sent;
       expect(sent).toMatchObject({
@@ -306,11 +315,11 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
       const rows = await actionTokensOf(userId);
       expect(rows[0]?.usedAt).toBeInstanceOf(Date);
       const reused = await setPassword(token, "another-password-1");
-      expect(reused.errors?.[0]?.extensions?.code).toBe("TOKEN_EXPIRED");
+      expect(reused.errors?.[0]?.extensions?.code).toBe("ACTION_TOKEN_INVALID");
       expect(reused.setCookies).toEqual([]);
     });
 
-    it("逾期(30 分鐘後)→ TOKEN_EXPIRED;不存在的 token → TOKEN_EXPIRED(連結失效頁,不透露差別)", async () => {
+    it("逾期(30 分鐘後)→ ACTION_TOKEN_INVALID;不存在的 token → 同碼(連結失效頁,不透露差別)", async () => {
       const rootOrgId = await findRootOrgId(api.connection);
       await createUser(api.connection, {
         account: "expired-user",
@@ -323,10 +332,10 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
 
       travelTo(start + 31 * MINUTE_MS);
       const expired = await setPassword(token, NEW_PASSWORD);
-      expect(expired.errors?.[0]?.extensions?.code).toBe("TOKEN_EXPIRED");
+      expect(expired.errors?.[0]?.extensions?.code).toBe("ACTION_TOKEN_INVALID");
 
       const bogus = await setPassword("not-a-real-token", NEW_PASSWORD);
-      expect(bogus.errors?.[0]?.extensions?.code).toBe("TOKEN_EXPIRED");
+      expect(bogus.errors?.[0]?.extensions?.code).toBe("ACTION_TOKEN_INVALID");
 
       // 密碼未被改動
       const stillOld = await login("expired-user", PASSWORD);
@@ -369,6 +378,7 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
 
       await api.app.get(PasswordService).sendActivationEmail(userId);
 
+      await waitForSent(1);
       expect(mail.sent).toHaveLength(1);
       const [sent] = mail.sent;
       expect(sent).toMatchObject({
@@ -434,7 +444,7 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
       expect(withNew.errors).toBeUndefined();
     });
 
-    it("目前密碼錯誤 → INVALID_CREDENTIALS 且密碼不變;新密碼不符規則 → VALIDATION_FAILED", async () => {
+    it("目前密碼錯誤 → CURRENT_PASSWORD_INVALID 且密碼不變;新密碼不符規則 → VALIDATION_FAILED", async () => {
       const rootOrgId = await findRootOrgId(api.connection);
       await createUser(api.connection, {
         account: "change-user",
@@ -452,7 +462,7 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
         { accessToken },
       );
       expect(wrongCurrent.errors?.[0]?.extensions?.code).toBe(
-        "INVALID_CREDENTIALS",
+        "CURRENT_PASSWORD_INVALID",
       );
       const stillOld = await login("change-user", PASSWORD);
       expect(stillOld.errors).toBeUndefined();
@@ -478,7 +488,7 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
       const reset = await requestReset("nobody@example.com");
       expect(reset.errors).toBeUndefined();
       const set = await setPassword("not-a-real-token", NEW_PASSWORD);
-      expect(set.errors?.[0]?.extensions?.code).toBe("TOKEN_EXPIRED");
+      expect(set.errors?.[0]?.extensions?.code).toBe("ACTION_TOKEN_INVALID");
     });
   });
 });

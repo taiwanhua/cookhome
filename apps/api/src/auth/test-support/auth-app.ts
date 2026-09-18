@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
-import type { INestApplication } from "@nestjs/common";
+import type { INestApplication, Type } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose, { type Connection } from "mongoose";
@@ -106,10 +106,12 @@ export function cookiePair(
  * 啟動對真 MongoDB 的完整 Nest app(#61 Testing Decisions):
  * 本地起 mongodb-memory-server;CI 沿用 MongoDB service container(MONGODB_URI)。
  * 環境變數在 import AppModule 之前設定 — AppModule 於載入時讀取設定。
+ * `extraModules`:測試專用的額外 Nest module(如 #63 的 @RequirePermission 探針 resolver),與 AppModule 一起掛上。
  */
 export async function startAuthTestApp(
   databaseName: string,
   env: Record<string, string> = {},
+  extraModules: Type[] = [],
 ): Promise<AuthTestApp> {
   let memoryServer: MongoMemoryServer | undefined;
   let baseUri = process.env.MONGODB_URI;
@@ -127,7 +129,7 @@ export async function startAuthTestApp(
   // 動態載入:AppModule 內的設定於 import 時讀取,必須在環境變數就緒後才載入
   const { AppModule } = await import("../../app.module");
   const moduleRef = await Test.createTestingModule({
-    imports: [AppModule],
+    imports: [AppModule, ...extraModules],
   }).compile();
   const app = moduleRef.createNestApplication();
   await app.init();

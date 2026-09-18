@@ -3,7 +3,28 @@
     "subtitle": "後台管理",
     "loading": "載入中…",
     "apiError": "無法連線到 API,請確認 api 服務已啟動",
-    "total": "共 {count} 道食譜",
     "language": "語言"
+  },
+  "login": {
+    "subtitle": "後台管理系統",
+    "account": "帳號",
+    "password": "密碼",
+    "submit": "登入",
+    "forgotPassword": "忘記密碼?",
+    "footer": "© {year} {brand} · 僅供授權人員使用",
+    "errors": {
+      "invalidCredentials": "帳號或密碼錯誤",
+      "accountDisabled": "此帳號已停用,請聯絡系統管理員",
+      "tooManyAttempts": "登入失敗次數過多,請稍後再試",
+      "unexpected": "登入失敗,請稍後再試"
+    }
+  },
+  "session": {
+    "restoring": "正在恢復登入狀態…",
+    "greeting": "{name},你好",
+    "currentOrg": "當前組織:{org}",
+    "noOrg": "尚未加入任何組織",
+    "logout": "登出",
+    "logoutAllDevices": "登出所有裝置"
   }
 }

@@ -1,0 +1,63 @@
+# 登入線(#61 / #65):login / refresh / logout / logoutAllDevices / switchOrg / me
+# access token 回 body(前端只放記憶體);refresh token 走 httpOnly cookie,不在 payload。
+
+mutation Login($input: LoginInput!) {
+  login(input: $input) {
+    accessToken
+  }
+}
+
+mutation Refresh {
+  refresh {
+    accessToken
+  }
+}
+
+mutation Logout {
+  logout {
+    success
+  }
+}
+
+mutation LogoutAllDevices {
+  logoutAllDevices {
+    success
+  }
+}
+
+mutation SwitchOrg($input: SwitchOrgInput!) {
+  switchOrg(input: $input) {
+    accessToken
+  }
+}
+
+# modules = PermissionResolver 算出的模組陣列(ADR-0011;#63):route 為完整路徑(api 樹為 null)、
+# permissions 為完整權限 key 字串(含展開後的 `<模組 key>.*`),前端據此組側欄、守路由、判斷頁內功能
+query Me {
+  me {
+    id
+    account
+    name
+    email
+    nickname
+    mustChangePassword
+    currentOrg {
+      id
+      name
+    }
+    orgs {
+      id
+      name
+    }
+    modules {
+      id
+      key
+      name
+      parentId
+      sidebarType
+      order
+      route
+      permissions
+    }
+  }
+}
