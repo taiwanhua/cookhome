@@ -36,6 +36,12 @@ GitHub 的 issue 與 PR 共用同一組編號,所以單看 `#42` 無法確定是
 - **細節不重複進 issue** — 權限表、種子清單、schema 這類細節的正本在 repo 文件(`docs/modules/`、`docs/adr/`、schema 文件),issue 只做**精確指路**(提到數量或清單時,同句附上正本檔案)。
 - **spec 引用的內容若 repo 沒有正本,先補文件再發 spec** — 只存在於對話或設計圖裡的細節,對接手者等於不存在。
 - 每份 spec issue 附「**接手指南**」節:無 session 的閱讀順序(CLAUDE.md 文件地圖 → `docs/agents/domain.md` ADR 導讀 → 本 spec 的資料來源表)。
+- **指路要能 grep 到**:引用 `docs/tmp/dis.md` 這類長備忘時,除了條目編號再給一個關鍵字(如「dis.md 二.B 第 15 項,搜『頁籤』」),編號不是標題、用 heading 搜不到。
+
+拆票時的兩條教訓(第 2 段,2026-09-19):
+
+- **同一個行為只歸一張票**:#66(殼)與 #68(密碼頁)都寫了「`mustChangePassword` → 導向改密碼頁」,兩位實作者各做一次、主流程還得對齊。導向、守衛這種橫跨畫面的行為,拆票時指定唯一的 owner 票,另一張只寫「沿用 #n」。
+- **驗收條件要在該環境驗得到**:#69 寫「白名單外信箱在 dev 不寄」,但 dev 只有 root 一個帳號、信箱就是白名單,這條在 dev 根本驗不到。寫驗收前先問「這個環境有讓它成立的資料嗎」,沒有就改成單元測試覆蓋或註明需要的前置資料。
 
 ## 怎麼分辨一張 issue 的種類
 
@@ -75,7 +81,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 ```
 
 - `--project-id` 是 `PVT_kwHOAeiiKc4BjXhz`(整行單行,不要斷行 — PowerShell 沒有 `\` 續行)
-- ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json` 依 issue 號查
+- ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json --limit 200` 依 issue 號查(預設只回 30 筆,新票不在裡面)
 - OPTION_ID:Backlog=`2882aeb7` Ready=`e053bab2` In Progress=`5adedc57` In Review=`43e18a1a` Dev驗證中=`0eaa8179` Dev通過=`cc87d3d5` Staging驗證中=`e94980d1` Staging通過=`45c49925` Released=`e3445e43` Won't Do=`b6b968cd`
 
 **Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。
@@ -88,7 +94,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 
 1. **讀**:票全文與留言 → Parent spec(含接手指南)→ CLAUDE.md → 相關規範與 ADR
 2. **認領**:assign 給自己,看板移 In Progress
-3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支從 main 切,**命名含票號**:`feat/<票號>-<kebab 描述>`(如 `feat/25-base-schemas`)。**票有依賴時:從依賴票的 feat 分支切(stacked)** — main 上還沒有依賴內容,從 main 切會沒得開發;PR 一樣目標 dev,**依賴票的 PR 先合、自己後合**(合完 diff 自動只剩本票變更);依賴票被 review 改動時要 rebase 跟上。依賴票已 release 進 main 時,直接從 main 切即可(最常見)。線性依賴鏈是健康的(依序上);**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**
+3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支從 main 切,**命名含票號**:`feat/<票號>-<kebab 描述>`(如 `feat/25-base-schemas`)。**票有依賴時:從依賴票的 feat 分支切(stacked)** — main 上還沒有依賴內容,從 main 切會沒得開發;PR 一樣目標 dev,**依賴票的 PR 先合、自己後合**(合完 diff 自動只剩本票變更);依賴票被 review 改動時要 rebase 跟上。依賴票已 release 進 main 時,直接從 main 切即可(最常見)。線性依賴鏈是健康的(依序上);**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**。**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」
 4. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試/lint/typecheck 全綠才開;看板移 In Review
 5. **不做**:不 merge、不動 main/dev/staging 本體;**docs 只改本票必然連動的兩種**:①本票新增/異動的模組 → 同 PR 維護 `docs/modules/<key>.md` 與 help.md(dis #18)②本票新增的環境變數 / 品牌元素 → 同 PR 更新 env-registry.md / branding.md(CLAUDE.md 規定)。其他文件錯誤(ADR、CONTEXT、規範)**不改**,寫進回報由主流程處理
 6. **回報**:PR 連結、測試結果、**接手體驗報告**(找不到/矛盾/用猜的資訊 — 這是文件品質的回饋來源)
