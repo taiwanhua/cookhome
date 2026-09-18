@@ -43,7 +43,7 @@ export class Org {
   @Prop({ type: Types.ObjectId })
   ownerUserId?: Types.ObjectId;
 
-  /** 受控 JSON 設定;租戶頂層含「子孫可見性」開關(ADR-0005)。 */
+  /** 受控 JSON。租戶頂層專用:`visibility` = "own"(使用者只看自己所屬組織的資料)| "subtree"(含整棵下層);未設視為 "own";下層組織不看自己的(ADR-0005)。 */
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   settings!: Record<string, unknown>;
 }
