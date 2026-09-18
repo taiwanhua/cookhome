@@ -154,10 +154,10 @@ type Org {
 
 type OrgNode {
   children: [OrgNode!]!
-  disabled: Boolean!
   enabled: Boolean!
   id: ID!
   name: String!
+  outOfScope: Boolean!
   parentId: ID
 }
 

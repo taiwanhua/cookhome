@@ -29,7 +29,7 @@ const ORG_TREE = /* GraphQL */ `
     name
     parentId
     enabled
-    disabled
+    outOfScope
   }
   query OrgTree {
     orgTree {
@@ -133,7 +133,7 @@ interface TreeNode {
   name: string;
   parentId: string | null;
   enabled: boolean;
-  disabled: boolean;
+  outOfScope: boolean;
   children?: TreeNode[];
 }
 
@@ -354,7 +354,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
   }, HOOK_TIMEOUT_MS);
 
   describe("orgTree:可見範圍與視角(ADR-0005)", () => {
-    it("根組織視角:以根組織為根,看得到全部租戶,沒有節點被標 disabled", async () => {
+    it("根組織視角:以根組織為根,看得到全部租戶,沒有節點被標 outOfScope", async () => {
       const result = await api.graphql<OrgTreeData>(
         ORG_TREE,
         {},
@@ -370,7 +370,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       expect(all.map((node) => node.id)).toEqual(
         expect.arrayContaining([String(tenantAId), String(tenantBId)]),
       );
-      expect(all.every((node) => !node.disabled)).toBe(true);
+      expect(all.every((node) => !node.outOfScope)).toBe(true);
     });
 
     it("租戶視角:以租戶頂層為根(parentId 為 null),看不到別的租戶", async () => {
@@ -393,7 +393,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       expect(ids).not.toContain(String(rootOrgId));
     });
 
-    it("可見範圍外的節點照樣回、但標 disabled(樹不斷,只是不能選)", async () => {
+    it("可見範圍外的節點照樣回、但標 outOfScope(樹不斷,只是不能選)", async () => {
       const result = await api.graphql<OrgTreeData>(
         ORG_TREE,
         {},
@@ -403,10 +403,10 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       expect(result.errors).toBeUndefined();
       const tree = result.data?.orgTree ?? [];
       // 樹仍以租戶頂層為根,但頂層與另一個部門都在可見範圍外
-      expect(nodeOf(tree, tenantAId)?.disabled).toBe(true);
-      expect(nodeOf(tree, deptTwoId)?.disabled).toBe(true);
-      expect(nodeOf(tree, deptOneId)?.disabled).toBe(false);
-      expect(nodeOf(tree, deptOneSubId)?.disabled).toBe(false);
+      expect(nodeOf(tree, tenantAId)?.outOfScope).toBe(true);
+      expect(nodeOf(tree, deptTwoId)?.outOfScope).toBe(true);
+      expect(nodeOf(tree, deptOneId)?.outOfScope).toBe(false);
+      expect(nodeOf(tree, deptOneSubId)?.outOfScope).toBe(false);
     });
 
     it("沒有 view 權限進不來:FORBIDDEN;沒登入:UNAUTHENTICATED", async () => {
@@ -673,12 +673,12 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
         parentId: childId,
       });
 
-      const disabled = await api.graphql(
+      const turnedOff = await api.graphql(
         SET_ORG_ENABLED,
         { input: { id: String(branchId), enabled: false } },
         { accessToken: tenantAdminToken },
       );
-      expect(disabled.errors).toBeUndefined();
+      expect(turnedOff.errors).toBeUndefined();
       expect(await enabledOf(branchId)).toBe(false);
       expect(await enabledOf(childId)).toBe(false);
       expect(await enabledOf(grandChildId)).toBe(false);

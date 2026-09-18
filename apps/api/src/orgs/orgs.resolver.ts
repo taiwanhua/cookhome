@@ -42,7 +42,7 @@ export class OrgsResolver {
     private readonly storage: StorageService,
   ) {}
 
-  /** 可見範圍內的組織樹;範圍外的節點標 `disabled`(ADR-0005)。 */
+  /** 可見範圍內的組織樹;範圍外的節點標 `outOfScope`(ADR-0005)。 */
   @RequirePermission(PERMISSIONS.view)
   @Query(() => [OrgNode])
   orgTree(@CurrentOperator() operator: OperatorContext): Promise<OrgNode[]> {

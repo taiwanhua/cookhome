@@ -1,13 +1,13 @@
 # 組織管理(#134;模組 system.org-manager,規則正本 docs/modules/org-manager.md)。
 # 樹以操作者可見範圍決定(ADR-0005):根組織視角以根組織為根、租戶視角以租戶頂層為根;
-# 可見範圍外的節點照樣回、標 disabled(樹不斷,但不能選也不能操作)。
+# 可見範圍外的節點照樣回、標 outOfScope(樹不斷,但不能選也不能操作)。
 
 fragment OrgNodeFields on OrgNode {
   id
   name
   parentId
   enabled
-  disabled
+  outOfScope
 }
 
 # 五層夠現行組織深度(根 > 租戶 > 部門 > 子部門 > 再一層);GraphQL 沒有遞迴 fragment,深度只能展開

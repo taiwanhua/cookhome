@@ -219,7 +219,7 @@ function buildForest(
         : String(document.parentId),
     enabled: document.enabled,
     // 可見範圍外:樹上照樣顯示(不然樹會斷),但前端不讓選、不讓操作(ADR-0005)
-    disabled: !isOrgVisible(operator, document._id),
+    outOfScope: !isOrgVisible(operator, document._id),
     children: byName(childrenByParent.get(String(document._id)) ?? []).map(
       (child) => toNode(child),
     ),
@@ -249,14 +249,14 @@ export class OrgsService {
 
   /**
    * 可見範圍內的組織樹(ADR-0005):根組織視角以根組織為根、看得到全部租戶;
-   * 租戶視角以**租戶頂層**為根。可見範圍外的節點照樣回,標 `disabled`。
+   * 租戶視角以**租戶頂層**為根。可見範圍外的節點照樣回,標 `outOfScope`。
    */
   async tree(operator: OperatorContext): Promise<OrgNode[]> {
     const rootIds = await this.treeRootIds(operator);
     if (rootIds.length === 0) {
       return [];
     }
-    // 讀取範圍由 rootIds 釘死在「操作者的租戶(們)」內,再以 disabled 標出範圍外的節點
+    // 讀取範圍由 rootIds 釘死在「操作者的租戶(們)」內,再以 outOfScope 標出範圍外的節點
     const documents = await this.orgs.findMany(subtreeContext(operator), {
       $or: [{ _id: { $in: rootIds } }, { ancestors: { $in: rootIds } }],
     });

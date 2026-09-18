@@ -61,3 +61,5 @@ type RecipeList {
 ## GQL-05 `schema.gql` 是產物
 
 由 api 啟動時自動生成,不手改;PR 內 schema 變更以 decorator 的 diff 為準。
+
+**重生指令**:`pnpm --filter @repo/api schema:generate`(`apps/api/scripts/generate-schema.ts`:起一次完整 AppModule 讓 GraphQLModule 寫檔,跑完自動退出;不必先啟 api、也不碰真資料庫)。改過 resolver / model / input 後跑一次,把產物一起進 commit。

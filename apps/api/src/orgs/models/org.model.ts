@@ -34,11 +34,12 @@ export class OrgNode {
   enabled!: boolean;
 
   /**
-   * **不是** `enabled` 的反面:表示這個節點在操作者的可見範圍(ADR-0005)之外 —
-   * 樹上照樣顯示(不然樹會斷),但不可選取、不可操作(docs/modules/org-manager.md「組織樹」)。
+   * 這個節點在操作者的可見範圍(ADR-0005)之外 — 樹上照樣顯示(不然樹會斷),
+   * 但不可選取、不可操作(docs/modules/org-manager.md「組織樹」)。
+   * 與 `enabled`(組織自己的停用狀態)是兩件事;命名與使用者列的 `outOfScope` 一致(#136)。
    */
   @Field(() => Boolean)
-  disabled!: boolean;
+  outOfScope!: boolean;
 
   @Field(() => [OrgNode])
   children!: OrgNode[];
