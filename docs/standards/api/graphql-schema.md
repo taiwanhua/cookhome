@@ -66,3 +66,11 @@ type RecipeList {
 由 api 啟動時自動生成,不手改;PR 內 schema 變更以 decorator 的 diff 為準。
 
 **重生指令**:`pnpm --filter @repo/api schema:generate`(`apps/api/scripts/generate-schema.ts`:起一次完整 AppModule 讓 GraphQLModule 寫檔,跑完自動退出;不必先啟 api、也不碰真資料庫)。改過 resolver / model / input 後跑一次,把產物一起進 commit。
+
+## GQL-06 可選輸入欄位的「缺席」與 `null` 若語意不同,必須寫在模組文件的 api 介面段
+
+`updateOrg` 的 `logoPath`:缺席 = 不動、`null` = 清空。這個差異沒寫在任何地方,前端就一律送欄位,結果只改名稱會把商標清掉(#186)。規則:凡可選輸入欄位有「缺席 / null」語意差異,在 `docs/modules/<key>.md` 的「api 介面」節逐欄寫明;前端 mutation 的 input 只放使用者碰過的欄位。
+
+## GQL-07 跨 api / 前端的欄位語意,正本寫在模組文件的「api 介面」節,前端段只引用
+
+`OrgNode.parentId` 對每棵樹的根一律回 `null`(不是真的上層),api 測試有斷言,但模組文件的前端段寫成「`parentId` 為 null = 站在根組織」,兩位實作者各照自己那半邊寫,前端拿它判視角就錯了(#186)。回傳欄位的語意只在 api 介面段定義一次;前端段需要時引用該段,不另寫解釋。api-only 的票也要**同 PR 補前端要用的 operation 文件**(`packages/graphql/src/documents/*.graphql` + generate),否則下游票撞不到 hook(#137 → #138)。

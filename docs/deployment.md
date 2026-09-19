@@ -154,6 +154,18 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 
 變數清單(用途/是否機密/放哪/狀態)的正本是 `docs/env-registry.md`,新增或異動變數時必須更新它。
 
+### GCS bucket 的 CORS(瀏覽器直傳必要)
+
+瀏覽器對簽名網址 `PUT` 直傳受 CORS 限制,六個 bucket 都已設(2026-09-19;#140 驗收時開通租戶因此失敗過):
+
+```bash
+# cors.json:origin = erp-dev / erp-staging / erp 三個網域 + http://localhost:3001,method GET / PUT / HEAD,responseHeader Content-Type,maxAge 3600
+gcloud storage buckets update gs://cookhome-assets-dev --cors-file=cors.json   # 六個 bucket 各一次
+gcloud storage buckets describe gs://cookhome-assets-dev --format="value(cors_config)"
+```
+
+新增前端網域(例如自訂網域)時要把 origin 加進去再更新。
+
 ### 新增一個 Secret Manager 機密的標準步驟
 
 指令都在 Claude Code 的 `!` 提示或 Git Bash 執行(**是 bash,不是 PowerShell** — `$env:TEMP` 這種 PowerShell 語法在這裡不會動)。
