@@ -91,9 +91,10 @@ describe("RouteTabs:生成與去重(dis #15:開過的路由生成 tab、以路�
     useSuperAdmin();
     const { user } = renderApp({ path: "/overview" });
     const list = await findTabList();
-    await user.click(sideNavLink("組織管理"));
+    // 用還沒實作的模組(佔位頁顯示模組名)驗「內容區換了」— 已實作的頁沒有這個標題
+    await user.click(sideNavLink("角色管理"));
     expect(
-      await screen.findByRole("heading", { name: "組織管理" }),
+      await screen.findByRole("heading", { name: "角色管理" }),
     ).toBeInTheDocument();
 
     await user.click(within(list).getByRole("tab", { name: "總覽" }));
@@ -113,19 +114,19 @@ describe("RouteTabs:關閉", () => {
     useSuperAdmin();
     const { user } = renderApp({ path: "/overview" });
     const list = await findTabList();
-    await user.click(sideNavLink("組織管理"));
+    await user.click(sideNavLink("角色管理"));
     await waitFor(() => {
-      expect(tabLabels(list)).toEqual(["總覽", "組織管理"]);
+      expect(tabLabels(list)).toEqual(["總覽", "角色管理"]);
     });
 
     await user.click(within(list).getByRole("button", { name: "關閉 總覽" }));
 
-    expect(tabLabels(list)).toEqual(["組織管理"]);
+    expect(tabLabels(list)).toEqual(["角色管理"]);
     expect(screen.getByTestId("location")).toHaveTextContent(
-      "/system/org-manager",
+      "/system/role-manager",
     );
     expect(
-      screen.getByRole("heading", { name: "組織管理" }),
+      screen.getByRole("heading", { name: "角色管理" }),
     ).toBeInTheDocument();
   });
 

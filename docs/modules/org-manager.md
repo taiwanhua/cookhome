@@ -111,6 +111,35 @@ setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
 
 介面(#137 已實作,程式在 `apps/api/src/storage/`):`createUploadUrl(input: { purpose: ORG_LOGO, contentType, size })` 回 `{ uploadUrl, objectPath, expiresAt }` — 檔型限 png / jpg / webp、大小 ≤ 2MB(不合回 `UPLOAD_REJECTED`),上傳網址效期 10 分鐘,`objectPath` 為 `org-logos/<uuid>.<副檔名>`(簽票時組織可能還不存在,所以不含 orgId);持 `system.org-manager.edit` 或 `system.org-manager.tenant-ops.provision` 任一即可要票。**寫 `logoPath` 前必須以 `isOwnedUploadPath(path)`(`apps/api/src/storage/storage.service.ts`)驗歸屬**,不讓呼叫端塞任意路徑進 DB。讀取端:`me.currentOrg.logoUrl` 現簽短效網址(TTL `GCS_SIGNED_URL_TTL`,預設 1h),無商標或路徑不合為 null。
 
+## admin 頁面(#138 已實作,程式在 `apps/admin/src/pages/system/OrgManagerPage/`)
+
+左樹 + 右資料區,所有動作都是這一頁上的彈窗;登記在 `app/module-pages.tsx`。實作時定下的幾件事:
+
+- **兩種視角不做兩套頁,全由資料決定**:樹根的 `parentId` 為 null = 操作者站在根組織(根組織視角),
+  有值 = 樹根就是租戶頂層(租戶視角)。加上手上有沒有 `tenant-ops` 那三筆權限,已足以決定畫面,
+  不需要「我是不是超級管理員」這種旗標。Figma 87:3 / 92:694 只是同一支頁面的兩組資料。
+- **「是不是租戶頂層」讀 `org.visibility !== null`**:api 只讓租戶頂層有 `visibility` 與 `ownerUserId`
+  (`orgs/org-mapper.ts`),前端不必自己數 `ancestors` 或比對樹的層數。樹上的「租戶」標籤則是另一回事 —
+  那是「根組織的直接子組織」,租戶視角看不到那一層,標籤自然不出現。
+- **搬移是編輯彈窗裡的「上層組織」下拉,不是動作列上的按鈕**(Figma 88:182、help.md 沿用此說法);
+  候選人在前端先照三條規則濾過(同租戶、不含自己的子樹、不含可見範圍外),api 仍會再驗一次。
+- **編輯彈窗最多打四個 mutation**,依序 `updateOrg` → `moveOrg` → `transferOrgOwner` → `setOrgVisibility`,
+  **只送有變動的那幾個**(`UpdateOrgInput` 本來就沒有後三者的欄位)。任何一步失敗就停在那裡,
+  前面已成功的不回滾 — 它們各自是完整的動作、各自留了審計;重新送出只會補上還沒做的那幾步。
+- **擁有者欄位要靠 `users`**:`orgs` 只存 `ownerUserId`,顯示姓名與列出可轉移的候選人都得查使用者,
+  而 `users` 掛在 `system.user-manager.view` 底下。沒有那個權限時,資料區的擁有者欄位仍然出現
+  (那是組織的事實),只是顯示不出是誰;轉移欄位則不給。
+- **刪除不在前端預判**:前置四項全在 api,送出後收到 `ORG_NOT_DELETABLE` 才把 `extensions.reasons`
+  攤成清單並提示改用停用。根組織保護(`isSystem`)則是**按鈕出現但停用** —
+  「我做不到這個動作」(無權限,不給按鈕)與「這個組織不准被這樣動」(給按鈕、停用並說明)是兩回事。
+- **`@repo/ui/tree` 為此加了 `TreeNode.labelSuffix`**(Figma Draft/OrgTreeItem 的 ShowTag 槽位):
+  停用的組織掛「停用」標籤、根組織視角下的租戶頂層掛「租戶」標籤。`label` 仍是純文字,
+  搜尋與無障礙名稱不受影響。`OrgTreePicker`(#139 起共用)多一個 `labelSuffixOf` 把它接出來。
+- **成功後失效三把**:`orgTree`、被改到的那一筆 `org(id)`、以及 `me` — 側欄的租戶識別讀
+  `me.currentOrg.logoUrl`(有商標顯示商標圖、沒有才顯示組織名),改完商標不重取 `me` 就不會更新。
+- **設計稿差異**:Figma 的資料區有「建立時間」一列,`org(id)` 沒有這個欄位,故未做;
+  可見範圍在 Figma 是核取方塊,依本檔與 ADR-0005 的說法改用開關(`Switch`)。
+
 ## 審計(ADR-0004:由模組層寫 `audit_logs`)
 
 本模組每個會改資料的動作都寫一筆:`action` = 權限 key 的動作段前加模組簡稱(`org.provision`、`org.create-child`、`org.edit`、`org.toggle-enabled`、`org.move`、`org.delete`、`org.transfer-owner`、`org.set-visibility`),`targetType = "org"`,`targetId` = 被操作的組織,`before` / `after` 只放有變的欄位;`orgId` = 動作發生的組織脈絡(操作者的當前組織)。

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
+import { Tag } from "../Tag/Tag";
 import { type TreeNode, Tree } from "./Tree";
 
 const items: TreeNode[] = [
@@ -50,6 +51,30 @@ export const CheckboxSelection: Story = {
     checkboxSelection: true,
     multiSelect: true,
     defaultSelectedIds: ["org-2"],
+  },
+};
+
+/** 標籤槽位:停用的組織在名稱右側掛一個 `Tag`(Figma Draft/OrgTreeItem 的 ShowTag) */
+export const WithLabelSuffix: Story = {
+  args: {
+    items: [
+      {
+        id: "root",
+        label: "CookHome",
+        children: [
+          {
+            id: "org-1",
+            label: "台北分店",
+            labelSuffix: <Tag tone="grey" label="租戶" />,
+          },
+          {
+            id: "org-2",
+            label: "高雄分店",
+            labelSuffix: <Tag tone="error" label="停用" />,
+          },
+        ],
+      },
+    ],
   },
 };
 

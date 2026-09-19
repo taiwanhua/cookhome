@@ -88,7 +88,7 @@ describe("SideNav(模組陣列以 parentId 組樹;ADR-0011「前端判斷 / 側�
     expect(await within(nav).findByText("示範模組2")).toBeInTheDocument();
   });
 
-  it("頂部顯示當前組織名稱(商標槽位保留,本段不顯圖)", async () => {
+  it("當前組織沒有商標時頂部顯示組織名稱", async () => {
     server.use(...authWorld({ hasRefreshCookie: true }).handlers);
 
     renderApp({ path: "/" });
@@ -96,6 +96,23 @@ describe("SideNav(模組陣列以 parentId 組樹;ADR-0011「前端判斷 / 側�
 
     expect(within(nav).getByText("CookHome")).toBeInTheDocument();
     expect(within(nav).queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("當前組織有商標時頂部改顯示商標圖,alt 為組織名", async () => {
+    server.use(
+      ...authWorld({
+        hasRefreshCookie: true,
+        currentOrgLogoUrl: "https://cdn.test/org-1.png",
+      }).handlers,
+    );
+
+    renderApp({ path: "/" });
+    const nav = await findSideNav();
+
+    const logo = await within(nav).findByRole("img", { name: "CookHome" });
+    expect(logo).toHaveAttribute("src", "https://cdn.test/org-1.png");
+    // 商標取代名稱文字(Figma AdminSideNav 的 ShowLogo 變體);名稱仍由 alt 讀得到
+    expect(within(nav).queryByText("CookHome")).not.toBeInTheDocument();
   });
 });
 
@@ -180,11 +197,12 @@ describe("路由與導向(ADR-0011「路由與導向規則」:模組路由 / 群
         .handlers,
     );
 
-    renderApp({ path: "/system/org-manager" });
+    // 用還沒實作的模組驗佔位頁(組織管理 / 使用者管理已有真頁面,沒有這個標題)
+    renderApp({ path: "/system/role-manager" });
 
-    const heading = await screen.findByRole("heading", { name: "組織管理" });
+    const heading = await screen.findByRole("heading", { name: "角色管理" });
     expect(screen.getByRole("main")).toContainElement(heading);
-    expect(screen.getByRole("banner")).toHaveTextContent("組織管理");
+    expect(screen.getByRole("banner")).toHaveTextContent("角色管理");
   });
 
   it("隱藏頁(編輯頁)有路由可進;點側欄連結切換內容區", async () => {
