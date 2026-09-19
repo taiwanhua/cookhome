@@ -26,17 +26,18 @@
 
 **種子選項的 key**:`<類別 key>.<value>`(如 `gender.male`、`demo-category.side-dish`),只給冪等識別用;租戶自訂選項沒有 key、以 `_id` 識別(`fields.key` 選填、sparse unique)。production 第一次 seed 後不可改。
 同一類別、同一組織下 `value` 不可重複 — `(categoryId, orgId, value)` 唯一索引(`field.schema.ts`)+ 表單驗證(#206 完成)。
+**自訂選項也不可與同類別的全域選項同 `value`**:全域那筆的 `orgId` 是 `null`,唯一索引擋不到,由 service 的表單驗證擋,一樣回 `FIELD_VALUE_DUPLICATE`(合併清單是給表單下拉用的,同一個 `value` 出現兩次,存進業務資料後分不出是哪一筆)。
 
 ## 權限表(第 4 段前置,2026-09-20)
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。綁定原則:綁「按鈕 / 欄位所在的那一頁」(ADR-0004)。
 
-| 權限 key                              | 它是哪一頁的什麼                                                                                               |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `system.field-manager.view`           | 看類別與選項(來源欄:全域 / <組織名稱> 自訂)                                                                    |
-| `system.field-manager.create`         | 「新增選項」+ API(本組織自訂,`orgId` = 當前組織;`(categoryId, orgId, value)` 唯一;Figma「Overlay / 新增選項」) |
-| `system.field-manager.edit`           | 編輯自訂選項的 label / order / description + API(種子選項只能改 `enabled`;`value` 建立後不可改)                |
-| `system.field-manager.toggle-enabled` | 停用 / 啟用選項 + API(種子與自訂皆可;選項不可刪,舊資料要對照)                                                  |
+| 權限 key                              | 它是哪一頁的什麼                                                                                                                                                                                      |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system.field-manager.view`           | 看類別與選項(來源欄:全域 / <組織名稱> 自訂)                                                                                                                                                           |
+| `system.field-manager.create`         | 「新增選項」+ API(本組織自訂,`orgId` = 當前組織;`(categoryId, orgId, value)` 唯一,且**不可與同類別的全域選項同 `value`**;Figma「Overlay / 新增選項」)                                                 |
+| `system.field-manager.edit`           | 編輯自訂選項的 label / order / description + API(種子選項只能改 `enabled`;`value` 建立後不可改)                                                                                                       |
+| `system.field-manager.toggle-enabled` | 停用 / 啟用選項 + API(選項不可刪,舊資料要對照)。**自訂選項**由擁有它的組織切;**種子選項限根組織操作者**(那一筆 `orgId = null`,切下去是全域生效),租戶操作者切種子選項 → `FORBIDDEN`(2026-09-20 / #206) |
 
 審計動作:`field.create` / `field.edit` / `field.toggle-enabled`(`targetType = "field"`)。
 
@@ -56,7 +57,7 @@
   (欄位管理的操作者未必有)。前端改以「`me.modules` 裡有沒有根組織專屬模組
   (`system.module-manager` / `system.data-scope` / `system.org-manager.tenant-ops`)」判斷
   (`field-manager-permissions.ts` 的 `isRootPerspective`)。**它偏保守**:根組織裡只被授予
-  欄位管理的人會看到唯讀的種子開關(api 其實會放行)。api 補上正式旗標後換掉那個函式即可。
+  欄位管理的人會看到唯讀的種子開關(api 其實會放行)。api 補上正式旗標後換掉那個函式即可(待 #252)。
 
 ## api 介面(#206;正本,前端引用不另寫解釋 — GQL-07)
 

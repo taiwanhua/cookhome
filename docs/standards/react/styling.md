@@ -36,6 +36,17 @@ front/admin 只從 `@repo/ui` 拿元件;`@mui/*`、`@emotion/*` 由
 只套 apps,ui 套件自身可用)。缺的元件到 `packages/ui` 包一層再用 — 就算第一版
 只是 re-export,也讓「哪些元件在系統裡」有唯一清單,版本與客製集中一處。
 
+**包一層時碰到外部庫的型別擋路,換掉它的 slot 元件,不要 `as` 硬轉**(2026-09-20,#207 的邊界範例):
+`RichTreeView` 的 `slotProps.checkbox` 只宣告成 `HTMLAttributes`,`indeterminate` / `disabled`
+根本傳不進去。做法是 `slots={{ checkbox: TreeItemRowCheckbox }}` 換成自家的
+`@repo/ui` `Checkbox`,狀態經 context 交給它(REACT-09)—— 順帶讓三態勾選框的外觀
+與 admin 其他勾選框一致(原本直接吃 MUI 內建的那顆,長得不一樣)。
+`as unknown as` 硬轉只是把錯誤推到執行期,而且下一版庫改型別就再撞一次。
+
+**目前已知缺的元件**(缺的期間用原生替代並在 PR 記一筆,不要在 app 裡直接 import MUI):
+`Tooltip`(待 #240,`OrgActionBar` 與模組與權限頁各用一次原生 `title` 代替)、
+`EditIcon` / `DeleteIcon` 與 `Tabs`(待 #254,角色管理頁先用文字按鈕與自組 `role="tablist"`)。
+
 ## STYLE-06 設計稿的值不在 token 裡時:一次性直寫並註記,重複兩處以上補 token
 
 STYLE-01 禁裸值,但 Figma 常給 theme 沒有的值(Tag 字級 11px、Checkbox 圓角 5px、樹縮排 18px、上傳框虛線 1.5px)。裁決(2026-09-19,#131 / #132):

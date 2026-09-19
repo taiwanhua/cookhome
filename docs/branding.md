@@ -4,6 +4,8 @@
 
 換品牌 = 逐列處理下表 + 主色一行(`createBrandFromPrimary` 的 hex)。
 
+**不在本表的**:設計系統的通用圖示(`@repo/ui/icons` 的 `CloseIcon`、`HelpIcon` 等)—— 它們是介面元件、跟著 `currentColor` 走,換品牌不必逐一處理;本表只登記品牌**文字、圖案(商標 / favicon)、色彩、網域**。
+
 ## 程式碼
 
 | 位置                                                                    | 內容                                                                                                                                                                                                                                                                                                    | 怎麼改                                                                                                                  |

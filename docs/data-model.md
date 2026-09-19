@@ -29,6 +29,11 @@
 - **種子 vs 業務**:種子由 seed 以 key 冪等 upsert(`apps/db-migrator/seeds/`,ADR-0002);業務資料不做跨環境搬移。
 - **索引**:各 schema 檔以 `.index(...)` 就地宣告(唯一鍵、orgId 複合、ancestors、TTL 等)。
 
+## 跨檔約定(語意正本不在 schema 的幾處)
+
+- **`fields` 的唯一索引是 `(categoryId, orgId, value)`**(`field.schema.ts`):全域種子那筆 `orgId = null`,所以「自訂選項與**同類別的全域選項**同 `value`」索引擋不到,由 service 的表單驗證擋(同回 `FIELD_VALUE_DUPLICATE`)。規則與種子內容的正本:`docs/modules/field-manager.md`。
+- **`data_scope_rules.rules[]` 的形狀**(`audience` + `filter` 條件樹的節點種類、型別 → 運算子 → 值來源、`RULE_INVALID` 的 `path` / `reason`)正本在 `docs/modules/data-scope.md`,schema 只把 `filter` 存成自由 JSON;機制本體見 ADR-0008。
+
 ## 種子清單
 
 modules、permissions、field_categories、fields(全域)、種子 roles(super-admin、租戶管理員模板)、根組織、data_scope_targets、scope 目錄。內容正本見 `docs/modules/*.md`(權限表)與 `docs/modules/field-manager.md`(欄位選項)。

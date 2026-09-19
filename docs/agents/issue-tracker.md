@@ -76,6 +76,8 @@ Spec issue 不上板(看板只放票);staging 的 PR 內文也要含 `Closes #<�
 
 **自動化**(`.github/workflows/project-status.yml`):issue opened → 入板 Backlog;issue closed → Released(not planned → Won't Do);PR 開啟(目標 dev)→ In Review;PR 合 dev → Dev 驗證中;PR 合 staging → Staging 驗證中。其餘欄位手動移卡。
 
+**「PR 開啟 → In Review」只移 PR 自己的卡**(2026-09-20 確認):PR 進板是一張獨立的卡,`Closes #n` 連到的**票卡不會跟著動**,實作者要自己把票卡移到 In Review(下方手動移卡指令)。合 dev / 合 staging 的兩格同理,看到 PR 卡動了不代表票卡動了。
+
 **已全部生效(2026-09-19 確認)**:secret `GH_PROJECT_TOKEN` 已設、workflow 已在 `main`,所以 PR 開啟 / 合 dev / 合 staging、issue 開啟 / 關閉都會自動移卡(PR 內文 `Closes #n` 的票在 release 進 main 時由 GitHub 自動關閉、再由自動化移到 Released)。**仍要手動的只有三格**:Ready(blocker 關閉時)、Dev 通過、Staging 通過(QA 者)。
 
 **手動移卡指令**(Project #3,owner taiwanhua):
@@ -85,12 +87,12 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 ```
 
 - `--project-id` 是 `PVT_kwHOAeiiKc4BjXhz`(整行單行,不要斷行 — PowerShell 沒有 `\` 續行)
-- ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json --limit 200 --jq '.items[] | select(.content.number==<票號>) | .id'`(預設只回 30 筆,新票不在裡面;`--jq` 直接取 id)
+- ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json --limit 200 --jq '.items[] | select(.content.number==<票號>) | {id, status}'`(預設只回 30 筆,新票不在裡面;連 `status` 一起取,才知道現在在哪一格、要不要移)
 - OPTION_ID:Backlog=`2882aeb7` Ready=`e053bab2` In Progress=`5adedc57` In Review=`43e18a1a` Dev驗證中=`0eaa8179` Dev通過=`cc87d3d5` Staging驗證中=`e94980d1` Staging通過=`45c49925` Released=`e3445e43` Won't Do=`b6b968cd`
 
 **看板欄位在 UI 的位置**(重建看板時對得起來):Project「CookHome」→ 右上 … → Settings → Fields → `Status` 的選項清單,順序即上表。
 
-**改含中文的檔案**:PowerShell 的 cp950 stdout 會把繁中印成亂碼、`sed -i` 對含 CJK 的行常靜默不生效;最可靠的做法是 `python - <<'PY'` 寫精準取代腳本(worktree 守衛不擋這種 heredoc),或直接用 Write / Edit 工具。這台機器沒有外部 `jq`,只有 `gh --jq`;filter 名一律寫全名 `@repo/admin`(`--filter=admin` 找不到套件)。
+**改含中文的檔案**:PowerShell 的 cp950 stdout 會把繁中印成亂碼、`sed -i` 對含 CJK 的行常靜默不生效;最可靠的做法是 `python - <<'PY'` 寫精準取代腳本(worktree 守衛不擋這種 heredoc,但**寫 `.md` 要加 `newline="\n"`**,否則寫出 CRLF、`format:check` 立刻紅),或直接用 Write / Edit 工具。這台機器沒有外部 `jq`,只有 `gh --jq`;filter 名一律寫全名 `@repo/admin`(`--filter=admin` 找不到套件)。其餘守衛細節見下方「worktree 裡的 Bash 守衛與寫檔」。
 
 **Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。
 
@@ -102,10 +104,46 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 
 1. **讀**:票全文與留言 → Parent spec(含接手指南)→ CLAUDE.md → 相關規範與 ADR
 2. **認領**:assign 給自己,看板移 In Progress
-3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支從 main 切,**命名含票號**:`feat/<票號>-<kebab 描述>`(如 `feat/25-base-schemas`)。**票有依賴時:從依賴票的 feat 分支切(stacked)** — main 上還沒有依賴內容,從 main 切會沒得開發;PR 一樣目標 dev,**依賴票的 PR 先合、自己後合**(合完 diff 自動只剩本票變更);依賴票被 review 改動時要 rebase 跟上。依賴票已 release 進 main 時,直接從 main 切即可(最常見)。線性依賴鏈是健康的(依序上);**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**。**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。**重構型的票**(先搬檔再修 import,中途型別必紅)開工時在 repo 根建空檔 `.claude/hook-typecheck-off`(已 gitignore),PostToolUse hook 就只跑 ESLint;交件前刪掉並自己跑一次 `turbo run check-types`。**這件事要開工第一個、單獨一行指令做,做完 `ls` 確認**(有人把它串在複合指令裡被 worktree 守衛整條擋掉而不自知);改檔名為 PascalCase 的重構要**先在該包啟用 `frontend-style` 再搬檔**(基礎設定的 `unicorn/filename-case` 會連目錄名一起檢查)。**worktree 裡的 Bash 守衛**對含 `$(...)`、管線、heredoc、迴圈的指令會拒絕,習慣寫平鋪的單行指令,寫檔用 Write 工具;暫存檔放 scratchpad 且**檔名帶票號**(多個 agent 共用同一個 scratchpad)
+3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支從 main 切,**命名含票號**:`feat/<票號>-<kebab 描述>`(如 `feat/25-base-schemas`)。**票有依賴時:從依賴票的 feat 分支切(stacked)** — main 上還沒有依賴內容,從 main 切會沒得開發;PR 一樣目標 dev,**依賴票的 PR 先合、自己後合**(合完 diff 自動只剩本票變更);依賴票被 review 改動時要 rebase 跟上。依賴票已 release 進 main 時,直接從 main 切即可(最常見)。線性依賴鏈是健康的(依序上);**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**。**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。開工的兩個環境動作見下方「`.claude/hook-typecheck-off`」與「worktree 裡的 Bash 守衛與寫檔」兩節。改檔名為 PascalCase 的重構要**先在該包啟用 `frontend-style` 再搬檔**(基礎設定的 `unicorn/filename-case` 會連目錄名一起檢查)
 4. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試/lint/typecheck 全綠才開;看板移 In Review
 5. **不做**:不 merge、不動 main/dev/staging 本體;**docs 只改本票必然連動的兩種**:①本票新增/異動的模組 → 同 PR 維護 `docs/modules/<key>.md` 與 help.md(dis #18)②本票新增的環境變數 / 品牌元素 → 同 PR 更新 env-registry.md / branding.md(CLAUDE.md 規定)。其他文件錯誤(ADR、CONTEXT、規範)**不改**,寫進回報由主流程處理
 6. **回報**:PR 連結、測試結果、**接手體驗報告**(找不到/矛盾/用猜的資訊 — 這是文件品質的回饋來源)
+
+### `.claude/hook-typecheck-off`
+
+**重構型的票**(先搬檔再修 import,中途型別必紅)與**只改文件的票**,在 repo 根建空檔 `.claude/hook-typecheck-off`(已 gitignore),PostToolUse hook 就只跑 ESLint。
+
+- **開工第一件事、單獨一行指令做,做完 `ls .claude/` 確認** — 有人把它串在複合指令裡,被 worktree 守衛整條擋掉而不自知,結果每改一個檔都等一次 typecheck。
+- **交件前刪掉**,並自己跑一次 `pnpm exec turbo run check-types`(文件票則跑 `pnpm run format:check`)。
+
+### worktree 裡的 Bash 守衛與寫檔
+
+守衛對含 `$(...)`、管線、迴圈的指令會拒絕,習慣寫**平鋪的單行指令**。已知的幾個坑:
+
+- **寫檔用 Write / Edit 工具**;`python - <<'PY'` 的單檔精準取代可用,但**一支腳本裡用 `pathlib` 批次寫多個檔會被判定太複雜而擋掉**,逐檔改回 Write(#203)。
+- **python 寫 `.md` 要 `newline="\n"`**:Windows 預設會寫成 CRLF,`format:check` 立刻紅。
+- **這台機器沒有外部 `jq`**:含 `jq` 的指令不是報錯而是**靜默失敗**(輸出空的),一律用 `gh --jq`。
+- **CI 輪詢用平鋪的單行 `until`**(`until gh pr checks <n> --required; do sleep 30; done` 這種寫在一行),多行 / 巢狀的迴圈會被擋。
+- **`git stash` 的堆疊與主 checkout、其他 worktree 共用**:不要用裸 `git stash` / `git stash pop`(會撈到別的 session 的東西),要用時 `git stash push -u -m "<票號>-<標記>"`,取回前先 `git stash list` 找到**自己那一筆當下的 `stash@{n}`**再 apply;更安全的做法是開一個 WIP commit。
+- 暫存檔放 scratchpad 且**檔名帶票號**(多個 agent 共用同一個 scratchpad)。
+
+### 開 PR 之後的等待(CI 與 mergeable)
+
+- **PR 對 `dev` 是 `CONFLICTING` 時,GitHub 根本不建 merge ref、CI 一個 check 都不會跑**,`gh pr checks --watch` 會永遠等下去。開 PR 後先看 `gh pr view <n> --json mergeable`,`CONFLICTING` 就先 rebase 到最新的 `origin/main` 再說(#206)。
+- **剛開 PR 時 Actions 可能排隊很久**(沒有 check 不等於失敗),**force-push 之後 `mergeable` 會短暫回 `UNKNOWN`** —— 等幾秒重查,不要據此判斷有衝突(#203)。
+- **`pnpm format` 會重排全 repo 的 `.ts` import**(CI 的 `format:check` 只看 `**/*.md`,所以 main 上本來就不乾淨):跑完只保留 `.md` 的 diff,其餘 `git checkout` 還原。這是 **#241 收斂前的暫行做法**。
+
+### 拆票時要寫清楚的幾件事(第 4 段補充,2026-09-20)
+
+- **seed 類的票要明寫「連帶修 api 既有測試的斷言屬於本票」**:動了種子數量 / 內容,別人寫死數字的測試一定會紅(#202 改了 44 / 64 筆就連帶修 `permission.test.ts`)。
+- **跨頁共用的測試 harness 要指定歸屬**:分工清單只寫「頁面 + 自己的 handler 檔」時,兩張票都要動的 `*-handlers.ts` / `*-test-support.ts` 會變成沒人認領的衝突點(#211)。
+- **已知會超過 `max-lines` 400 的檔案,拆票時就直接指定兩個檔名**,不要讓實作者自行決定怎麼拆(#210 的 `data-scope-rule.ts`)。
+- **「二選一」不留給實作者,並指定 owner 票**:尤其是**過渡做法的退場時機**(第 3 段的指派角色過渡寫法拖到 #211 才退場,期間兩套判準並存)。
+- **規格要寫明邊界條件**:例如「停用的角色不可選」要補「**已持有 + 已停用**時仍可取消」,否則照字面實作會讓人永遠拔不掉那個角色(#211)。
+
+### 新套件的版本怎麼查
+
+**一律 `npm view <pkg> version` 查 registry 上的最新版**(CLAUDE.md「版本查 registry」指的就是這個),不要照記憶或別處抄的版本號寫;同時確認與既有同家族套件的主 / 次版本一致(`@mui/x-date-pickers` 要對齊已裝的 `@mui/x-tree-view`)。
 
 ## 當 skill 說「fetch the relevant ticket」
 
