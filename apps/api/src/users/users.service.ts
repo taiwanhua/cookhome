@@ -796,22 +796,32 @@ export class UsersService {
     }
   }
 
-  /** 操作者可觸及的角色 = 自己持有的那些(ADR-0003);超級管理員全權放行(ADR-0004)。 */
+  /**
+   * 操作者可觸及的角色 = **擁有組織在管理範圍內**的那些(ADR-0003「擁有組織 = 角色的
+   * 管轄邊界」、ADR-0005)。
+   *
+   * 2026-09-20(#211)改:原本是「操作者自己持有的角色」—— 那是第 3 段還沒有 `roles`
+   * 查詢時的過渡做法,與第 4 段的 `roles` / `grantRoleUsers` 兩套判準,同一個授予
+   * 從角色頁做得到、從使用者頁做不到。主流程裁決統一成這一條。
+   *
+   * 落實點與 `RoleScopeService.managedRoleFilter` 相同:凡查組織都經 `this.orgs`
+   * (治理類 collection,過濾自動吃 `managedOrgIds`),再由組織反查 `org_role` ——
+   * 本檔不自己比對任何組織集合。
+   */
   private async reachableRoleIds(
     operator: OperatorContext,
   ): Promise<ReadonlySet<string> | "all"> {
-    if (!operator.actorId) {
-      return new Set();
-    }
-    const { isSuperAdmin } = await this.permissions.resolve(
-      operator.actorId,
-      operator.currentOrgId,
-    );
-    if (isSuperAdmin) {
+    if (operator.managedOrgIds === "all") {
       return "all";
     }
-    const roleIds = await this.relations.listRoleIdsOfUser(operator.actorId);
-    return new Set(roleIds.map(String));
+    const managedOrgs = await this.orgs.findMany(operator, {});
+    if (managedOrgs.length === 0) {
+      return new Set();
+    }
+    const links = await this.relations.listLinks("org_role", {
+      firstIds: managedOrgs.map((org) => org._id),
+    });
+    return new Set(links.map((link) => String(link.secondId)));
   }
 
   /** 防越權 + 授予資格(ADR-0003:只在按下授予的當下檢查一次)。 */
@@ -830,7 +840,7 @@ export class UsersService {
       if (blocked) {
         throw userError(
           "ROLE_OUT_OF_REACH",
-          `Role ${String(blocked)} is not held by the operator and cannot be granted`,
+          `Role ${String(blocked)} is owned by an org outside the operator's managed scope`,
         );
       }
     }

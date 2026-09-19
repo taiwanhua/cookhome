@@ -1,6 +1,8 @@
 import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
 import { DataScopePage } from "../pages/system/DataScopePage/DataScopePage";
 import { DATA_SCOPE_MODULE_KEY } from "../pages/system/DataScopePage/data-scope-permissions";
+import { FieldManagerPage } from "../pages/system/FieldManagerPage/FieldManagerPage";
+import { FIELD_MANAGER_MODULE_KEY } from "../pages/system/FieldManagerPage/field-manager-permissions";
 import { ModuleManagerPage } from "../pages/system/ModuleManagerPage/ModuleManagerPage";
 import { MODULE_MANAGER_MODULE_KEY } from "../pages/system/ModuleManagerPage/module-manager-permissions";
 import { OrgManagerPage } from "../pages/system/OrgManagerPage/OrgManagerPage";
@@ -22,6 +24,7 @@ export const modulePages: ModulePageRegistry = {
   [OVERVIEW_MODULE_KEY]: OverviewPage,
   [ORG_MANAGER_MODULE_KEY]: OrgManagerPage,
   [MODULE_MANAGER_MODULE_KEY]: ModuleManagerPage,
+  [FIELD_MANAGER_MODULE_KEY]: FieldManagerPage,
   [USER_MANAGER_MODULE_KEY]: UserManagerPage,
   [ROLE_MANAGER_MODULE_KEY]: RoleManagerPage,
   [DATA_SCOPE_MODULE_KEY]: DataScopePage,

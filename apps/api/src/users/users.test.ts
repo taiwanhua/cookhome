@@ -293,7 +293,6 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
   let deptOfB: Types.ObjectId;
 
   let managerToken: string;
-  let managerUserId: Types.ObjectId;
   let fieldManagerToken: string;
   let ownScopeManagerToken: string;
   let rootToken: string;
@@ -570,7 +569,6 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
       permissionKeys: MANAGER_PERMISSIONS,
     });
     managerToken = manager.token;
-    managerUserId = manager.userId;
     managerRoleId = manager.roleId;
 
     // 同一個租戶,另外持有兩個欄位級權限(以同層 wildcard 一次給全,ADR-0004)
@@ -589,10 +587,10 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
     });
     ownScopeManagerToken = ownScopeManager.token;
 
-    // 操作者不持有的角色(防越權用)
+    // 擁有組織在操作者**管理範圍外**的角色(防越權用;#211 起判準是擁有組織,不是「操作者持不持有」)
     outOfReachRoleId = await createRole(api.app, connection, {
-      name: "操作者沒有的角色",
-      ownerOrgId: tenantA,
+      name: "管理範圍外的角色",
+      ownerOrgId: tenantB,
     });
 
     rootToken = await login(ROOT_ADMIN.account, ROOT_ADMIN.password);
@@ -1266,7 +1264,7 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
   });
 
   describe("指派角色:全量覆蓋 + 防越權(ADR-0003)", () => {
-    it("只能給操作者自己持有的角色;其他角色 → ROLE_OUT_OF_REACH", async () => {
+    it("只能給擁有組織在管理範圍內的角色;範圍外 → ROLE_OUT_OF_REACH", async () => {
       const userId = await createUser(connection, {
         account: nextAccount("out-of-reach"),
         password: PASSWORD,
@@ -1307,8 +1305,8 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
         orgIds: [deptOne],
       });
       await createRole(api.app, connection, {
-        name: "既有但操作者沒有的角色",
-        ownerOrgId: tenantA,
+        name: "既有但管理範圍外的角色",
+        ownerOrgId: tenantB,
         assignTo: [userId],
       });
       const existing = await roleIdsOf(userId);
@@ -1323,20 +1321,20 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
         password: PASSWORD,
         orgIds: [deptTwo],
       });
-      // 先授予操作者本人,讓它落在「可觸及」範圍內,才驗得到資格這一關
+      // 擁有組織(小組一)在操作者管理範圍內,防越權這關先過,才驗得到資格這一關
       const teamRoleId = await createRole(api.app, connection, {
         name: "小組一專屬角色",
         ownerOrgId: teamOne,
-        assignTo: [managerUserId],
       });
       expect(await assignRoles(userId, [teamRoleId])).toBe("VALIDATION_FAILED");
     });
 
     it("超級管理員(根組織)不受角色可觸及範圍限制", async () => {
+      // 角色的擁有組織是租戶乙,所以使用者也要在租戶乙底下才過得了「授予資格」那一關
       const userId = await createUser(connection, {
         account: nextAccount("root-assign"),
         password: PASSWORD,
-        orgIds: [deptOne],
+        orgIds: [deptOfB],
       });
       expect(
         await assignRoles(userId, [outOfReachRoleId], rootToken),
