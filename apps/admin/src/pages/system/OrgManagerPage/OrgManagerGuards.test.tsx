@@ -45,7 +45,7 @@ describe("組織管理頁:標籤與租戶頂層保護", () => {
     expect(disableButton).toBeDisabled();
     expect(disableButton).toHaveAttribute(
       "title",
-      "頂層組織不可由組織內的人停用、搬移或刪除,需要時請聯絡系統管理者",
+      "頂層組織不可由組織內的人停用、搬移或刪除,需要時請聯絡系統管理員",
     );
     expect(
       within(detail()).getByRole("button", { name: "刪除" }),
