@@ -2,6 +2,9 @@ import type { MeQuery } from "@repo/graphql";
 import { Box } from "@repo/ui/box";
 import { Typography } from "@repo/ui/typography";
 
+import type { ShellModule } from "@/lib/module-tree";
+
+import { HelpButton } from "./HelpButton";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { UserMenu } from "./UserMenu";
@@ -13,10 +16,15 @@ export interface AppBarProps {
   me: MeQuery["me"];
   /** 目前頁面的名稱(模組名 / 總覽) */
   title: string;
+  /**
+   * 目前網址對上的模組(殼已由 `enterableRouteMap` 查好,不再查一次);
+   * 非模組路由(`/`、群組路由、無權限頁)為 undefined,此時不顯示「?」。
+   */
+  module?: ShellModule;
 }
 
-/** 後台 AppBar(Figma Draft/AdminAppBar 30:95):頁名、語言切換、當前組織切換器、使用者選單(登出 / 登出所有裝置)。 */
-export const AppBar = ({ me, title }: AppBarProps) => (
+/** 後台 AppBar(Figma Draft/AdminAppBar 30:95):頁名、模組說明「?」、語言切換、當前組織切換器、使用者選單(登出 / 登出所有裝置)。 */
+export const AppBar = ({ me, title, module }: AppBarProps) => (
   <Box
     component="header"
     sx={{
@@ -35,7 +43,10 @@ export const AppBar = ({ me, title }: AppBarProps) => (
     <Typography variant="h6" component="div" noWrap>
       {title}
     </Typography>
-    {/* 「?」模組說明彈窗(dis #18)的掛載點:說明系統落地時在此放 <IconButton aria-label={t("help")}><HelpIcon /></IconButton> */}
+    {/* 「?」模組說明彈窗(dis #18;Figma help-button I44:119;81:51):只有模組路由才有 */}
+    {module !== undefined && (
+      <HelpButton moduleKey={module.key} moduleName={module.name} />
+    )}
     <Box sx={{ flex: 1 }} />
 
     <LocaleSwitcher />

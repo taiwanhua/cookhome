@@ -39,9 +39,11 @@ export const ShellLayout = ({ me }: ShellLayoutProps) => {
 
   const path = normalizePathname(pathname);
   const routeTabs = useRouteTabs({ userId: me.id, routes, currentPath: path });
+  // 目前網址對上的模組(可進入路由集合,ADR-0011);非模組路由為 undefined
+  const currentModule = routes.get(path);
   // `/` 與群組路由會立刻轉走(ModuleRoute),標題留空不閃「無權限」
   const title =
-    routes.get(path)?.name ?? (path === "/" ? "" : t("forbidden.title"));
+    currentModule?.name ?? (path === "/" ? "" : t("forbidden.title"));
 
   return (
     <Box
@@ -66,7 +68,7 @@ export const ShellLayout = ({ me }: ShellLayoutProps) => {
           flexDirection: "column",
         }}
       >
-        <AppBar me={me} title={title} />
+        <AppBar me={me} title={title} module={currentModule} />
         <RouteTabs
           tabs={routeTabs.tabs}
           activeRoute={routeTabs.activeRoute}

@@ -9,6 +9,7 @@ import { INITIAL_SESSION_SNAPSHOT } from "../lib/auth/session-store";
 import { LOCALE_STORAGE_KEY } from "../lib/locale";
 import { useLocaleStore } from "../stores/useLocaleStore";
 import { useSessionStore } from "../stores/useSessionStore";
+import { resetHelpFiles } from "./help-registry";
 import { server } from "./msw/server";
 
 // `findBy*` / `waitFor` 的預設 1 秒在 CI runner 上不夠:一頁可能串好幾個查詢(樹 → 單筆 → 清單),
@@ -30,6 +31,8 @@ afterEach(() => {
   useSessionStore.setState(INITIAL_SESSION_SNAPSHOT);
   useLocaleStore.setState({ locale: defaultLocale });
   localStorage.removeItem(LOCALE_STORAGE_KEY);
+  // 模組說明的假 registry 也是模組層單例(#197);改過的測試不影響下一個
+  resetHelpFiles();
 });
 
 afterAll(() => {
