@@ -1,0 +1,60 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+
+import { useMeQuery, useModuleTreeQuery } from "@repo/graphql";
+
+import { usePermissions } from "@/hooks/usePermissions";
+import { useSession } from "@/hooks/useSession";
+
+import { findModuleNode, firstModuleId } from "./module-admin-tree";
+import { MODULE_MANAGER_PERMISSIONS } from "./module-manager-permissions";
+import type { ModuleAdminNodeLike } from "./module-manager-types";
+
+/**
+ * 模組與權限頁的資料層:全樹、選中的那一枝、權限判斷與失效。
+ *
+ * 這一頁只有一個查詢(`moduleTree` 回全樹),選中的模組直接從樹上取 —— 不像組織管理
+ * 還要 `org(id)` 補單筆,所以沒有第二個查詢,也就沒有「樹與明細不同步」的空窗。
+ */
+export const useModuleManagerData = () => {
+  const { session } = useSession();
+  const { hasPermission } = usePermissions();
+  const queryClient = useQueryClient();
+
+  const canToggleEnabled = hasPermission(
+    MODULE_MANAGER_PERMISSIONS.toggleEnabled,
+  );
+
+  const [pickedModuleId, setPickedModuleId] = useState<string | null>(null);
+
+  const moduleTree = useModuleTreeQuery(session.client);
+  const nodes: readonly ModuleAdminNodeLike[] =
+    moduleTree.data?.moduleTree ?? [];
+
+  /** 還沒點過任何節點時預設選第一棵樹的根(不在 effect 內 setState,REACT-06)。 */
+  const selectedModuleId = pickedModuleId ?? firstModuleId(nodes);
+  const selectedModule =
+    selectedModuleId === null ? null : findModuleNode(nodes, selectedModuleId);
+
+  /**
+   * 寫入成功後精準失效(DATA-02 / 04):治理面的全樹,以及 `me` ——
+   * 停用模組會讓側欄少一項(`me.modules` 吃 enabled 當過濾,ADR-0011 步驟 6),
+   * 停用權限會讓頁內按鈕消失(步驟 4),兩者都是操作者自己立刻看得到的變化。
+   */
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: useModuleTreeQuery.getKey(),
+    });
+    await queryClient.invalidateQueries({ queryKey: useMeQuery.getKey() });
+  };
+
+  return {
+    canToggleEnabled,
+    nodes,
+    isLoading: moduleTree.isLoading,
+    selectedModuleId,
+    selectModule: setPickedModuleId,
+    selectedModule,
+    invalidate,
+  };
+};

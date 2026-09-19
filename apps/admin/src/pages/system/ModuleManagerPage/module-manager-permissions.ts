@@ -1,0 +1,24 @@
+/**
+ * 模組與權限的權限 key(正本 `docs/modules/module-manager.md` 權限表;判斷走 ADR-0011「頁內功能」)。
+ *
+ * 本模組 `isRootOnly`(seed 層),租戶管理員模板不含它 — 所以「非根組織不該進這一頁」
+ * 由 `me.modules` 就擋掉了(路由集合裡根本沒有這條),頁面不必再判一次身分。
+ * api 端另有一道:三個端點都要求「當前組織是根組織」,否則 `FORBIDDEN`。
+ */
+export const MODULE_MANAGER_MODULE_KEY = "system.module-manager";
+
+export const MODULE_MANAGER_PERMISSIONS = {
+  view: `${MODULE_MANAGER_MODULE_KEY}.view`,
+  toggleEnabled: `${MODULE_MANAGER_MODULE_KEY}.toggle-enabled`,
+} as const;
+
+/**
+ * 自鎖保護(前端,#233 未定案前的低成本防呆):
+ * api 目前**允許**停用 `system.module-manager` 自己 — 一旦關掉,這一頁與它的
+ * `toggle-enabled` 權限同時失效,沒有任何畫面能把它開回來(只剩改資料庫)。
+ * 在 api 補上防護之前,前端先把這一枝(模組本身、它底下的子模組、以及它們的權限)
+ * 的開關停用,避免誤觸;真正的把關仍屬 api,見 #233。
+ */
+export const isSelfLockedModuleKey = (key: string): boolean =>
+  key === MODULE_MANAGER_MODULE_KEY ||
+  key.startsWith(`${MODULE_MANAGER_MODULE_KEY}.`);
