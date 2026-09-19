@@ -88,9 +88,59 @@ describe("Tree", () => {
     expect(handleChange.mock.calls[0]?.[0]).toEqual(["org-1"]);
   });
 
+  it("labelSuffix 渲染在節點標籤旁,沒給的節點不受影響", () => {
+    render(
+      <Tree
+        items={[
+          {
+            id: "root",
+            label: "CookHome",
+            children: [
+              { id: "org-1", label: "台北分店" },
+              {
+                id: "org-2",
+                label: "高雄分店",
+                labelSuffix: <span>停用</span>,
+              },
+            ],
+          },
+        ]}
+        defaultExpandedIds={["root"]}
+      />,
+    );
+
+    const labels = screen
+      .getAllByRole("treeitem")
+      .map((item) => item.textContent);
+
+    expect(labels).toContain("高雄分店停用");
+    expect(labels).toContain("台北分店");
+  });
+
+  it("有 labelSuffix 的節點照樣可以被選取", () => {
+    const handleChange = jest.fn();
+    render(
+      <Tree
+        items={[
+          { id: "org-2", label: "高雄分店", labelSuffix: <span>停用</span> },
+        ]}
+        onSelectedIdsChange={handleChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("高雄分店"));
+
+    expect(handleChange.mock.calls[0]?.[0]).toEqual(["org-2"]);
+  });
+
   it("勾選模式下 disabled 節點的核取方塊為停用", () => {
     render(
-      <Tree items={items} checkboxSelection multiSelect defaultExpandedIds={["root"]} />,
+      <Tree
+        items={items}
+        checkboxSelection
+        multiSelect
+        defaultExpandedIds={["root"]}
+      />,
     );
 
     const kaohsiungCheckbox = screen

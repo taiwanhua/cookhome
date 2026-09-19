@@ -97,6 +97,105 @@
       "backHome": "回首頁"
     }
   },
+  "orgManager": {
+    "tree": {
+      "title": "組織樹",
+      "provision": "開通租戶",
+      "createChild": "+ 子組織",
+      "disabledTag": "停用",
+      "tenantTag": "租戶"
+    },
+    "detail": {
+      "region": "組織資料",
+      "loading": "載入組織資料",
+      "empty": "選一個組織以檢視資料",
+      "enabled": "啟用中",
+      "disabled": "已停用",
+      "parent": "上層組織",
+      "description": "描述",
+      "logo": "商標",
+      "logoAlt": "{name} 的商標",
+      "owner": "擁有者",
+      "ownerHidden": "(你沒有使用者管理的檢視權限,看不到擁有者姓名)",
+      "none": "—"
+    },
+    "actions": {
+      "edit": "編輯",
+      "disable": "停用",
+      "enable": "啟用",
+      "delete": "刪除",
+      "systemOrgHint": "最上層組織不可停用、搬移或刪除"
+    },
+    "form": {
+      "name": "名稱",
+      "description": "描述",
+      "parent": "上層組織(搬移)",
+      "parentUnset": "不變更",
+      "parentHint": "新的上層必須在同一個頂層組織之下,而且不能是這個組織自己的下層。",
+      "logo": "商標(選填)",
+      "logoHint": "PNG / JPG / WebP,建議正方形,2MB 以內",
+      "owner": "擁有者",
+      "ownerUnset": "不變更",
+      "ownerOption": "{name}({account})",
+      "ownerHint": "轉移後,新擁有者的管理員授予不可被解除、不可被移出組織、不可被停用。",
+      "visibility": "使用者可見自身組織的下層組織資料",
+      "visibilityHint": "此設定僅出現在頂層組織,套用整個組織。",
+      "cancel": "取消",
+      "save": "儲存"
+    },
+    "createChild": {
+      "title": "新增子組織 — 於「{parent}」底下",
+      "hint": "輕量入口:只建一個下層組織。",
+      "submit": "新增"
+    },
+    "edit": {
+      "title": "編輯組織 — {name}"
+    },
+    "toggle": {
+      "disableTitle": "停用組織?",
+      "enableTitle": "啟用組織?",
+      "disableBody": "「{name}」與其全部下層組織將一併停用;僅屬於停用組織的使用者將無法登入。可隨時重新啟用。",
+      "enableBody": "只會啟用「{name}」這一個組織,下層組織要各自再啟用。",
+      "confirmDisable": "停用",
+      "confirmEnable": "啟用"
+    },
+    "delete": {
+      "title": "刪除「{name}」?",
+      "body": "刪除後資料仍保留,只是不再出現在組織樹上。",
+      "confirm": "刪除",
+      "close": "關閉",
+      "blocked": "這個組織還不能刪除,原因如下:",
+      "useDisableInstead": "請改用「停用」— 停用會連同全部下層組織一起停用,資料照樣保留。",
+      "reasons": {
+        "HAS_CHILDREN": "還有下層組織",
+        "HAS_MEMBERS": "還有成員屬於這個組織",
+        "OWNS_ROLES": "還有以它為擁有組織的角色",
+        "HAS_BUSINESS_DATA": "還有資料掛在它底下",
+        "SYSTEM_ORG": "這是最上層組織,不可刪除"
+      }
+    },
+    "provision": {
+      "title": "開通租戶",
+      "tenantName": "租戶名稱",
+      "adminEmail": "首任租戶管理員 Email",
+      "adminAccount": "首任租戶管理員帳號",
+      "adminAccountHint": "帳號為登入識別,預設帶入 Email、可修改。",
+      "modules": "開放模組(預設全勾;之後可在角色管理調整該租戶的副本)",
+      "modulesHint": "「模組與權限」「資料範圍」為平台專屬,不在清單內。",
+      "note": "開通將自動:建立租戶組織、複製「租戶管理員」角色模板、建立首任管理員並完成綁定。系統會寄送啟用信給首任管理員,由其自行設定密碼(連結 7 天內有效)。",
+      "submit": "開通"
+    },
+    "errors": {
+      "ORG_NOT_DELETABLE": "這個組織還不能刪除,請改用停用。",
+      "CROSS_TENANT": "新的上層組織不在同一個頂層組織之下,無法搬移。",
+      "CYCLIC_MOVE": "不能把組織搬到自己的下層組織底下。",
+      "NOT_FOUND": "找不到這個組織,或它不在你的可見範圍內。",
+      "VALIDATION_FAILED": "欄位填寫不正確,請檢查後再送出。",
+      "UPLOAD_REJECTED": "商標檔案不符規定(限 PNG / JPG / WebP,2MB 以內)。",
+      "FORBIDDEN": "你沒有執行這個動作的權限。",
+      "UNEXPECTED": "操作失敗,請稍後再試。"
+    }
+  },
   "userManager": {
     "orgTree": {
       "title": "組織",

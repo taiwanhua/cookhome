@@ -1,4 +1,6 @@
 import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
+import { OrgManagerPage } from "../pages/system/OrgManagerPage/OrgManagerPage";
+import { ORG_MANAGER_MODULE_KEY } from "../pages/system/OrgManagerPage/org-manager-permissions";
 import { UserManagerPage } from "../pages/system/UserManagerPage/UserManagerPage";
 import { USER_MANAGER_MODULE_KEY } from "../pages/system/UserManagerPage/user-manager-permissions";
 import type { ModulePageRegistry } from "./guards/ModuleRoute/ModuleRoute";
@@ -12,5 +14,6 @@ export const OVERVIEW_MODULE_KEY = "overview";
  */
 export const modulePages: ModulePageRegistry = {
   [OVERVIEW_MODULE_KEY]: OverviewPage,
+  [ORG_MANAGER_MODULE_KEY]: OrgManagerPage,
   [USER_MANAGER_MODULE_KEY]: UserManagerPage,
 };

@@ -40,6 +40,8 @@ export const graphqlError = (
 
 export type TestModule = MeQuery["me"]["modules"][number];
 export type TestOrg = MeQuery["me"]["orgs"][number];
+/** 當前組織比所屬組織清單多一個 `logoUrl`(側欄的商標;清單不顯示商標所以不簽)。 */
+export type TestCurrentOrg = NonNullable<MeQuery["me"]["currentOrg"]>;
 
 export const testOrg: TestOrg = { id: "org-1", name: "CookHome" };
 
@@ -62,7 +64,7 @@ export const testUser: MeQuery["me"] = {
   email: "root@cookhome.online",
   nickname: null,
   mustChangePassword: false,
-  currentOrg: testOrg,
+  currentOrg: { ...testOrg, logoUrl: null },
   orgs: [testOrg],
   modules: [overviewModule],
 };
@@ -85,6 +87,8 @@ export interface AuthWorldOptions {
   modules?: TestModule[];
   /** 所屬組織清單(預設只有 CookHome);當前組織預設 = 第一個(#66 組織切換器) */
   orgs?: TestOrg[];
+  /** 當前組織的商標網址(側欄有商標就顯示圖、沒有才顯示名稱);預設沒有 */
+  currentOrgLogoUrl?: string | null;
   /** 首登須改密碼(預設 false):true 時除 me / changePassword / logout 外的受保護操作回 MUST_CHANGE_PASSWORD */
   mustChangePassword?: boolean;
   /** 使用者目前的密碼(changePassword 驗「目前密碼」用) */
@@ -136,6 +140,7 @@ export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
     expiredTokens = [],
     modules = [overviewModule],
     orgs = [testOrg],
+    currentOrgLogoUrl = null,
     currentPassword = "secret-1234",
     validActionTokens = ["token-1"],
     setPasswordAccessToken = "access-set",
@@ -160,11 +165,15 @@ export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
     changePassword: 0,
   };
   const resetRequests: string[] = [];
+  /** 所屬組織 → 當前組織(多一個現簽的商標網址)。 */
+  const toCurrentOrg = (org: TestOrg | undefined): TestCurrentOrg | null =>
+    org === undefined ? null : { ...org, logoUrl: currentOrgLogoUrl };
+
   const me: MeQuery["me"] = {
     ...testUser,
     modules,
     orgs,
-    currentOrg: orgs[0] ?? null,
+    currentOrg: toCurrentOrg(orgs[0]),
   };
 
   /** 受保護操作共用的守門(對應 api 的 AuthGuard):回 null 代表放行 */
@@ -224,7 +233,7 @@ export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
       if (target === undefined) {
         return graphqlError("FORBIDDEN", "Not a member of that org");
       }
-      me.currentOrg = target;
+      me.currentOrg = toCurrentOrg(target);
       validTokens.add(SWITCHED_ACCESS_TOKEN);
       return HttpResponse.json({
         data: { switchOrg: { accessToken: SWITCHED_ACCESS_TOKEN } },
