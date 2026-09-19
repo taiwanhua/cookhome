@@ -17,7 +17,8 @@
 ```
 
 - 元件、hook、一般函式**一律箭頭函數**;只有需要 overload 或 `function*` 的才用 `function` 宣告,並以行內豁免附原因(STRUCT-05)。
-- props 型別**獨立宣告、`export`、用 `interface`**(GEN-03 命名 `XxxProps`);參數不再包 `Readonly<>`(props 本來就不該改,包起來只是雜訊)。
+- props 型別**獨立宣告、`export`、用 `interface`**(GEN-03 命名 `XxxProps`);參數不再包 `Readonly<>`(props 本來就不該改,包起來只是雜訊)。**例外**:props 是外部庫型別的直通別名(`export type ButtonProps = MuiButtonProps`,含 union、泛型)時用 `type`,因為 `interface extends` 對 union 不成立、對空 body 會撞 `no-empty-object-type`;自己定義形狀的才用 `interface`(ui 的慣例)。
+- Next.js 的 page / layout 也照箭頭函數寫,只是最後 `export default HomePage`(`const HomePage = async ({ params }: HomePageProps) => { … }; export default HomePage;`),不需要豁免 `func-style`。
 - Next.js 的 page / layout 必須 default export,屬框架要求的例外。
 
 ## REACT-02 狀態放哪:照決策樹;跨元件的用戶端狀態用 zustand

@@ -1,0 +1,146 @@
+# 使用者管理(#136;api 正本 apps/api/src/users/、規則正本 docs/modules/user-manager.md)。
+# 清單範圍 = 選中組織的子樹 ∩ 操作者可見組織集(ADR-0005);不給 orgId 即攤開整個可見範圍。
+# 每列的 roles.outOfScope = 「組織外」標記(使用者的所屬組織皆不在該角色擁有組織的子樹內,ADR-0003)。
+
+query Users($input: UsersInput!) {
+  users(input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      id
+      account
+      name
+      email
+      enabled
+      orgs {
+        id
+        name
+      }
+      roles {
+        id
+        name
+        ownerOrgId
+        ownerOrgName
+        outOfScope
+      }
+    }
+  }
+}
+
+# 單筆:nationalId 只有持 system.user-manager.show-national-id 才有值,否則一律 null(ADR-0007)
+query User($id: ID!) {
+  user(id: $id) {
+    id
+    account
+    name
+    email
+    nickname
+    gender
+    phone
+    address
+    nationalId
+    enabled
+    mustChangePassword
+    orgs {
+      id
+      name
+    }
+    roles {
+      id
+      name
+      ownerOrgId
+      ownerOrgName
+      outOfScope
+    }
+  }
+}
+
+# 啟用方式二選一(ADR-0009):EMAIL 寄 7 天有效的啟用信;PASSWORD 直接設初始密碼 + 首登強改。
+# 帳號 / Email 重複回 VALIDATION_FAILED,extensions.fields 指出是哪個欄位。
+mutation CreateUser($input: CreateUserInput!) {
+  createUser(input: $input) {
+    user {
+      id
+      account
+      email
+      mustChangePassword
+    }
+  }
+}
+
+# 基本欄位;nationalId 需 system.user-manager.edit-national-id,否則 FORBIDDEN
+mutation UpdateUser($input: UpdateUserInput!) {
+  updateUser(input: $input) {
+    user {
+      id
+      name
+      account
+      email
+      nickname
+      gender
+      phone
+      address
+      nationalId
+    }
+  }
+}
+
+# 停用即刻作廢該使用者全部 refresh token;擁有者不可被停用(OWNER_PROTECTED,根組織操作者例外)
+mutation SetUserEnabled($input: SetUserEnabledInput!) {
+  setUserEnabled(input: $input) {
+    user {
+      id
+      enabled
+    }
+  }
+}
+
+# 有移除時先送 dryRun: true 取得 removedOrgs + unqualifiedRoles(確認彈窗的清單),
+# 再帶著 radio 的 removalPolicy 送第二次(ADR-0003 三檔;預設 REVOKE_ALL_UNQUALIFIED)。
+mutation SetUserOrgs($input: SetUserOrgsInput!) {
+  setUserOrgs(input: $input) {
+    user {
+      id
+      orgs {
+        id
+        name
+      }
+      roles {
+        id
+        name
+        outOfScope
+      }
+    }
+    removedOrgs {
+      id
+      name
+    }
+    unqualifiedRoles {
+      roleId
+      roleName
+      ownerOrgId
+      ownerOrgName
+      reasons
+      ownerProtected
+    }
+    revokedRoleIds
+  }
+}
+
+# 全量覆蓋:只能給操作者自己持有的角色(ROLE_OUT_OF_REACH);
+# 操作者觸及不到的既有授予不動;擁有者的租戶管理員授予不可解除(OWNER_PROTECTED)。
+mutation AssignUserRoles($input: AssignUserRolesInput!) {
+  assignUserRoles(input: $input) {
+    user {
+      id
+      roles {
+        id
+        name
+        ownerOrgId
+        ownerOrgName
+        outOfScope
+      }
+    }
+  }
+}

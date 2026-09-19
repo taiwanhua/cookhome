@@ -84,6 +84,8 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 - ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json --limit 200 --jq '.items[] | select(.content.number==<票號>) | .id'`(預設只回 30 筆,新票不在裡面;`--jq` 直接取 id)
 - OPTION_ID:Backlog=`2882aeb7` Ready=`e053bab2` In Progress=`5adedc57` In Review=`43e18a1a` Dev驗證中=`0eaa8179` Dev通過=`cc87d3d5` Staging驗證中=`e94980d1` Staging通過=`45c49925` Released=`e3445e43` Won't Do=`b6b968cd`
 
+**看板欄位在 UI 的位置**(重建看板時對得起來):Project「CookHome」→ 右上 … → Settings → Fields → `Status` 的選項清單,順序即上表。
+
 **Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。
 
 **陷阱**:PR 內文的 `Closes #n` 只在合進**預設分支(main)**時自動關票 — 我們的 PR 合 `dev`,**不會自動關**;關票時機是 Released(手動 `gh issue close <n> --comment "<PR 連結>"`)。部署一律手動觸發(deploy.yml 僅 workflow_dispatch),merge 不會部署任何環境。
@@ -94,7 +96,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 
 1. **讀**:票全文與留言 → Parent spec(含接手指南)→ CLAUDE.md → 相關規範與 ADR
 2. **認領**:assign 給自己,看板移 In Progress
-3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支從 main 切,**命名含票號**:`feat/<票號>-<kebab 描述>`(如 `feat/25-base-schemas`)。**票有依賴時:從依賴票的 feat 分支切(stacked)** — main 上還沒有依賴內容,從 main 切會沒得開發;PR 一樣目標 dev,**依賴票的 PR 先合、自己後合**(合完 diff 自動只剩本票變更);依賴票被 review 改動時要 rebase 跟上。依賴票已 release 進 main 時,直接從 main 切即可(最常見)。線性依賴鏈是健康的(依序上);**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**。**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。**重構型的票**(先搬檔再修 import,中途型別必紅)開工時在 repo 根建空檔 `.claude/hook-typecheck-off`(已 gitignore),PostToolUse hook 就只跑 ESLint;交件前刪掉並自己跑一次 `turbo run check-types`
+3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支從 main 切,**命名含票號**:`feat/<票號>-<kebab 描述>`(如 `feat/25-base-schemas`)。**票有依賴時:從依賴票的 feat 分支切(stacked)** — main 上還沒有依賴內容,從 main 切會沒得開發;PR 一樣目標 dev,**依賴票的 PR 先合、自己後合**(合完 diff 自動只剩本票變更);依賴票被 review 改動時要 rebase 跟上。依賴票已 release 進 main 時,直接從 main 切即可(最常見)。線性依賴鏈是健康的(依序上);**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**。**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。**重構型的票**(先搬檔再修 import,中途型別必紅)開工時在 repo 根建空檔 `.claude/hook-typecheck-off`(已 gitignore),PostToolUse hook 就只跑 ESLint;交件前刪掉並自己跑一次 `turbo run check-types`。**這件事要開工第一個、單獨一行指令做,做完 `ls` 確認**(有人把它串在複合指令裡被 worktree 守衛整條擋掉而不自知);改檔名為 PascalCase 的重構要**先在該包啟用 `frontend-style` 再搬檔**(基礎設定的 `unicorn/filename-case` 會連目錄名一起檢查)。**worktree 裡的 Bash 守衛**對含 `$(...)`、管線、heredoc、迴圈的指令會拒絕,習慣寫平鋪的單行指令,寫檔用 Write 工具;暫存檔放 scratchpad 且**檔名帶票號**(多個 agent 共用同一個 scratchpad)
 4. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試/lint/typecheck 全綠才開;看板移 In Review
 5. **不做**:不 merge、不動 main/dev/staging 本體;**docs 只改本票必然連動的兩種**:①本票新增/異動的模組 → 同 PR 維護 `docs/modules/<key>.md` 與 help.md(dis #18)②本票新增的環境變數 / 品牌元素 → 同 PR 更新 env-registry.md / branding.md(CLAUDE.md 規定)。其他文件錯誤(ADR、CONTEXT、規範)**不改**,寫進回報由主流程處理
 6. **回報**:PR 連結、測試結果、**接手體驗報告**(找不到/矛盾/用猜的資訊 — 這是文件品質的回饋來源)
