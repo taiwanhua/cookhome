@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { Button } from "../Button/Button";
+import { Stack } from "../Stack/Stack";
+import { TextField } from "../TextField/TextField";
 import { Dialog } from "./Dialog";
 
 const meta = {
@@ -37,6 +39,30 @@ export const Help: Story = {
     maxWidth: "sm",
     fullWidth: true,
     actions: <Button variant="text">關閉</Button>,
+  },
+};
+
+/**
+ * 標題 + 表單(開通租戶 88:146、編輯組織 88:167、新增使用者、選擇所屬組織都是這個形狀):
+ * 第一個欄位的浮動標籤要完整看得到、不被標題壓住(#186 ①)。
+ */
+export const TitleWithForm: Story = {
+  args: {
+    title: "開通租戶",
+    children: (
+      <Stack spacing={2.25}>
+        <TextField label="租戶名稱" required fullWidth />
+        <TextField label="首任管理員帳號" fullWidth />
+      </Stack>
+    ),
+    maxWidth: "sm",
+    fullWidth: true,
+    actions: (
+      <>
+        <Button variant="text">取消</Button>
+        <Button>送出</Button>
+      </>
+    ),
   },
 };
 

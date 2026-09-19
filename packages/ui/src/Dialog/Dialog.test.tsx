@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { Button } from "../Button/Button";
+import { TextField } from "../TextField/TextField";
 import { Dialog } from "./Dialog";
 
 describe("Dialog", () => {
@@ -45,5 +46,27 @@ describe("Dialog", () => {
     await user.click(screen.getByRole("button", { name: "刪除" }));
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * MUI 的 `.MuiDialogTitle-root + .MuiDialogContent-root { padding-top: 0 }` 特異度贏過
+   * `sx` 的單一 class,上內距被吃掉後,第一個 TextField 的浮動標籤會被標題壓住(#186 ①)。
+   */
+  it("標題 + 表單:內容區上內距沒被標題吃掉,第一個欄位的標籤看得到", () => {
+    render(
+      <Dialog open title="開通租戶">
+        <TextField label="租戶名稱" />
+      </Dialog>,
+    );
+
+    const content = screen
+      .getByRole("dialog")
+      .querySelector(".MuiDialogContent-root");
+    if (content === null) {
+      throw new Error("找不到 DialogContent");
+    }
+
+    expect(globalThis.getComputedStyle(content).paddingTop).not.toBe("0px");
+    expect(screen.getByLabelText("租戶名稱")).toBeInTheDocument();
   });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import { type TreeNode, Tree } from "./Tree";
+import { Tree, type TreeNode } from "./Tree";
 
 const items: TreeNode[] = [
   {
@@ -13,6 +13,13 @@ const items: TreeNode[] = [
     ],
   },
 ];
+
+/** 節點左側的展開箭頭;不可展開的節點沒有。 */
+const arrowOf = (label: string) =>
+  screen
+    .getAllByRole("treeitem")
+    .find((item) => item.textContent.startsWith(label))
+    ?.querySelector(".MuiTreeItem-iconContainer svg") ?? null;
 
 describe("Tree", () => {
   it("依 items 渲染節點,展開後看得到子節點", () => {
@@ -131,6 +138,30 @@ describe("Tree", () => {
     fireEvent.click(screen.getByText("高雄分店"));
 
     expect(handleChange.mock.calls[0]?.[0]).toEqual(["org-2"]);
+  });
+
+  /**
+   * 呼叫端的資料來源常常對葉節點回 `children: []`(api 的 `orgTree` 就是),
+   * 那不該讓節點長出展開箭頭(#186 ③)。
+   */
+  it("children 是空陣列的節點不可展開,沒有展開箭頭", () => {
+    render(
+      <Tree
+        items={[
+          { id: "leaf", label: "台北分店", children: [] },
+          {
+            id: "parent",
+            label: "內容組",
+            children: [{ id: "c", label: "小組" }],
+          },
+        ]}
+        // 呼叫端可能把全部 id 都放進展開清單(OrgTreePicker 的「預設整棵展開」)
+        expandedIds={["leaf", "parent"]}
+      />,
+    );
+
+    expect(arrowOf("台北分店")).toBeNull();
+    expect(arrowOf("內容組")).not.toBeNull();
   });
 
   it("勾選模式下 disabled 節點的核取方塊為停用", () => {

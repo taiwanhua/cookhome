@@ -48,9 +48,13 @@ export const rootTree: TestOrgNode[] = [
   }),
 ];
 
-/** 租戶視角:樹根就是租戶頂層,上面沒有東西(`parentId` 有值,但那一層不在樹上)。 */
+/**
+ * 租戶視角:樹根就是租戶頂層。**樹根的 `parentId` 是 null** —
+ * api 的 `buildForest` 把本棵樹的根一律對外回 null(`orgs.service.ts`,orgs.test.ts 亦有斷言),
+ * 所以前端不能拿 `parentId` 判斷視角(#186 ④)。
+ */
 export const tenantTree: TestOrgNode[] = [
-  node("org-tenant-a", "租戶 A", "org-root", {
+  node("org-tenant-a", "租戶 A", null, {
     ownerUserId: "user-owner",
     children: tenantChildren,
   }),

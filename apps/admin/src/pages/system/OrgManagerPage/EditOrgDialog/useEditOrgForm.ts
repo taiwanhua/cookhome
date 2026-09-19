@@ -12,9 +12,15 @@ export interface EditOrgFormState {
   /** 新的上層組織(搬移);沒改就等於原本的 `parentId` */
   parentId: string;
   setParentId: (value: string) => void;
-  /** 新選的商標檔案;null = 這次不換商標 */
+  /** 新選的商標檔案;null = 這次不換商標,或者把既有商標移除了 */
   logoFile: File | null;
   setLogoFile: (file: File | null) => void;
+  /**
+   * 使用者碰過商標欄(選了新檔或按了移除)。
+   * 沒碰過就**不送 `logoPath`** — `UpdateOrgInput` 的 `logoPath: null` 在 api 是「清空」,
+   * 沒有這個旗標的話,只改名稱也會把既有商標連帶刪掉(#186 ②)。
+   */
+  isLogoTouched: boolean;
   ownerUserId: string;
   setOwnerUserId: (value: string) => void;
   visibility: OrgVisibility;
@@ -43,6 +49,7 @@ export const useEditOrgForm = (org: OrgDetail): EditOrgFormState => {
   const [description, setDescription] = useState(org.description ?? "");
   const [parentId, setParentId] = useState(org.parentId ?? "");
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [isLogoTouched, setIsLogoTouched] = useState(false);
   const [ownerUserId, setOwnerUserId] = useState(org.ownerUserId ?? "");
   const [visibility, setVisibility] = useState(
     org.visibility ?? OrgVisibility.Own,
@@ -59,7 +66,11 @@ export const useEditOrgForm = (org: OrgDetail): EditOrgFormState => {
     parentId,
     setParentId,
     logoFile,
-    setLogoFile,
+    setLogoFile: (file: File | null) => {
+      setIsLogoTouched(true);
+      setLogoFile(file);
+    },
+    isLogoTouched,
     ownerUserId,
     setOwnerUserId,
     visibility,
@@ -69,7 +80,7 @@ export const useEditOrgForm = (org: OrgDetail): EditOrgFormState => {
       hasProfileChange:
         trimmedName !== org.name ||
         trimmedDescription !== (org.description ?? "") ||
-        logoFile !== null,
+        isLogoTouched,
       hasMove: parentId !== "" && parentId !== (org.parentId ?? ""),
       hasOwnerChange:
         ownerUserId !== "" && ownerUserId !== (org.ownerUserId ?? ""),

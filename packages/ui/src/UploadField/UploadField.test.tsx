@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import { type UploadFieldError, UploadField } from "./UploadField";
+import { UploadField, type UploadFieldError } from "./UploadField";
 
 const makeFile = (name: string, type: string, size: number): File => {
   const file = new File(["x"], name, { type });
@@ -66,7 +66,9 @@ describe("UploadField", () => {
 
   it("副檔名寫法的 accept 也擋得下來", () => {
     const handleError = jest.fn();
-    render(<UploadField label="商標" accept={[".png"]} onError={handleError} />);
+    render(
+      <UploadField label="商標" accept={[".png"]} onError={handleError} />,
+    );
 
     selectFile(makeFile("logo.gif", "image/gif", 100));
 
@@ -94,7 +96,9 @@ describe("UploadField", () => {
     expect((handleError.mock.calls[0]?.[0] as UploadFieldError).code).toBe(
       "FILE_TOO_LARGE",
     );
-    expect(screen.getByRole("alert").textContent).toBe("檔案大小超過上限(1 KB)");
+    expect(screen.getByRole("alert").textContent).toBe(
+      "檔案大小超過上限(1 KB)",
+    );
   });
 
   it("按移除後回到空狀態並回傳 null", () => {
@@ -111,11 +115,17 @@ describe("UploadField", () => {
   it("拖放檔案與點擊選檔走同一套驗證", () => {
     const handleChange = jest.fn();
     render(
-      <UploadField label="商標" accept={["image/png"]} onChange={handleChange} />,
+      <UploadField
+        label="商標"
+        accept={["image/png"]}
+        onChange={handleChange}
+      />,
     );
 
     // 拖放區是包住 label 的虛線方塊
-    const dropZone = screen.getByLabelText("商標").closest("label")?.parentElement;
+    const dropZone = screen
+      .getByLabelText("商標")
+      .closest("label")?.parentElement;
     if (dropZone === null || dropZone === undefined) {
       throw new Error("找不到拖放區");
     }
@@ -124,5 +134,57 @@ describe("UploadField", () => {
     });
 
     expect(handleChange).toHaveBeenCalledTimes(1);
+  });
+
+  describe("initialPreviewUrl(編輯情境的既有圖片,#186 ②)", () => {
+    const LOGO_URL = "https://cdn.test/tenant-a.png";
+
+    it("一開啟就顯示既有圖片的預覽,不是空狀態", () => {
+      render(<UploadField label="商標" initialPreviewUrl={LOGO_URL} />);
+
+      expect(screen.queryByText("點擊或拖曳圖片至此")).toBeNull();
+      expect(screen.getByText("目前的圖片")).not.toBeNull();
+      expect(document.querySelector("img")?.getAttribute("src")).toBe(LOGO_URL);
+    });
+
+    it("選了新檔就換成新檔的預覽(換圖行為不變)", () => {
+      const handleChange = jest.fn();
+      render(
+        <UploadField
+          label="商標"
+          initialPreviewUrl={LOGO_URL}
+          onChange={handleChange}
+        />,
+      );
+
+      selectFile(makeFile("new-logo.png", "image/png", 1024));
+
+      expect(screen.getByText("new-logo.png")).not.toBeNull();
+      expect(screen.queryByText("目前的圖片")).toBeNull();
+      expect(handleChange.mock.calls[0]?.[0]).not.toBeNull();
+    });
+
+    it("按移除後既有圖片一併清掉、回到空狀態並回傳 null(清除行為不變)", () => {
+      const handleChange = jest.fn();
+      render(
+        <UploadField
+          label="商標"
+          initialPreviewUrl={LOGO_URL}
+          onChange={handleChange}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "移除" }));
+
+      expect(handleChange.mock.calls[0]?.[0]).toBeNull();
+      expect(screen.getByText("點擊或拖曳圖片至此")).not.toBeNull();
+    });
+
+    it("沒給 initialPreviewUrl 時維持原本的空狀態", () => {
+      render(<UploadField label="商標" />);
+
+      expect(screen.getByText("點擊或拖曳圖片至此")).not.toBeNull();
+      expect(screen.queryByRole("button", { name: "移除" })).toBeNull();
+    });
   });
 });

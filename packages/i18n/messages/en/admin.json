@@ -124,16 +124,18 @@
       "disable": "Disable",
       "enable": "Enable",
       "delete": "Delete",
-      "systemOrgHint": "The top-most organization cannot be disabled, moved or deleted"
+      "systemOrgHint": "The top-most organization cannot be disabled, moved or deleted",
+      "tenantTopHint": "The top-level organization cannot be disabled, moved or deleted from inside the organization; contact your system administrator if you need this"
     },
     "form": {
       "name": "Name",
       "description": "Description",
       "parent": "Parent organization (move)",
       "parentUnset": "Keep current",
-      "parentHint": "The new parent must sit under the same top-level organization, and cannot be one of this organization's own descendants.",
+      "parentHint": "It can be moved under any organization within your management scope, except itself and the organizations below it.",
       "logo": "Logo (optional)",
       "logoHint": "PNG / JPG / WebP, square recommended, up to 2MB",
+      "logoCurrent": "Current logo",
       "owner": "Owner",
       "ownerUnset": "Keep current",
       "ownerOption": "{name} ({account})",

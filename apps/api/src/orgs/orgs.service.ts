@@ -28,6 +28,7 @@ import {
   orgNotDeletableError,
 } from "./org-error";
 import { type OrgRecord, tenantTopIdOf, toOrg } from "./org-mapper";
+import { OwnerProtectionService } from "./owner-protection.service";
 
 /** 審計動作名(docs/modules/org-manager.md「審計」;`targetType` 一律 org)。 */
 const AUDIT_TARGET_TYPE = "org";
@@ -212,6 +213,7 @@ export class OrgsService {
     private readonly demoItemsOne: DemoItemsOneRepository,
     private readonly demoItemsTwo: DemoItemsTwoRepository,
     private readonly fields: FieldsRepository,
+    private readonly protection: OwnerProtectionService,
   ) {}
 
   /**
@@ -301,6 +303,12 @@ export class OrgsService {
     if (current.isSystem && !input.enabled) {
       throw orgError("VALIDATION_FAILED", "System org cannot be disabled");
     }
+    // 租戶頂層只有根組織能停用 / 啟用(ADR-0009);租戶內的人只能動子組織
+    await this.protection.assertTenantTopOperableBy(
+      operator,
+      current,
+      "set-enabled",
+    );
     const updated = await this.orgs.updateById(operator, current._id, {
       $set: { enabled: input.enabled },
     });
@@ -333,6 +341,8 @@ export class OrgsService {
     if (org.parentId === null || org.isSystem) {
       throw orgError("VALIDATION_FAILED", "System org cannot be moved");
     }
+    // 租戶頂層只有根組織能搬(跨租戶的檢查在下面另外擋,ADR-0009)
+    await this.protection.assertTenantTopOperableBy(operator, org, "move");
     const newParent = await this.requireVisible(operator, input.newParentId);
     if (
       newParent._id.equals(org._id) ||
@@ -377,6 +387,8 @@ export class OrgsService {
     input: DeleteOrgInput,
   ): Promise<DeletePayload> {
     const org = await this.requireVisible(operator, input.id);
+    // 租戶頂層只有根組織能刪(ADR-0009);先於前置四項判斷,不透露租戶內部狀態
+    await this.protection.assertTenantTopOperableBy(operator, org, "delete");
     const reasons = await this.notDeletableReasons(operator, org);
     if (reasons.length > 0) {
       throw orgNotDeletableError(reasons);
