@@ -11,8 +11,9 @@ import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
 import { Stack } from "@repo/ui/stack";
 
-import { useSession } from "../../../../hooks/useSession";
-import { type OrgNodeLike, flattenOrgs } from "../../../../lib/org-tree";
+import { useSession } from "@/hooks/useSession";
+import { type OrgNodeLike, flattenOrgs } from "@/lib/org-tree";
+
 import { OrgPickerDialog } from "../OrgPickerDialog/OrgPickerDialog";
 import { userManagerErrorOf } from "../user-manager-error";
 import type { UserActionAbility } from "../user-manager-types";

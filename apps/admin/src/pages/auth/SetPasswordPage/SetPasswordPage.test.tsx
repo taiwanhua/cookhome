@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor } from "@testing-library/react";
 
-import { authWorld } from "../../../test/msw/auth-handlers";
-import { server } from "../../../test/msw/server";
-import { renderApp } from "../../../test/render";
+import { authWorld } from "@/test/msw/auth-handlers";
+import { server } from "@/test/msw/server";
+import { renderApp } from "@/test/render";
 
 const fillPasswords = async (
   user: ReturnType<typeof renderApp>["user"],

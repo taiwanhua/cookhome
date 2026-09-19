@@ -2,7 +2,8 @@ import { useTranslations } from "use-intl";
 
 import { Typography } from "@repo/ui/typography";
 
-import { useMe } from "../../hooks/useMe";
+import { useMe } from "@/hooks/useMe";
+
 import { ShellLayout } from "./ShellLayout";
 
 /**

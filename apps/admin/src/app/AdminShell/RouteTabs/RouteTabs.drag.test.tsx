@@ -5,16 +5,16 @@ import {
   dndKitCoreDouble,
   dndKitSortableDouble,
   dragEnd,
-} from "../../../test/dnd-kit-double";
-import { authWorld } from "../../../test/msw/auth-handlers";
-import { superAdminModules } from "../../../test/msw/module-fixtures";
-import { server } from "../../../test/msw/server";
+} from "@/test/dnd-kit-double";
+import { authWorld } from "@/test/msw/auth-handlers";
+import { superAdminModules } from "@/test/msw/module-fixtures";
+import { server } from "@/test/msw/server";
 
 // dnd-kit 換成測試替身(jsdom 沒有版面幾何);受測 app 必須在替身掛上之後才載入
 jest.unstable_mockModule("@dnd-kit/core", () => dndKitCoreDouble);
 jest.unstable_mockModule("@dnd-kit/sortable", () => dndKitSortableDouble);
-const { renderApp } = await import("../../../test/render");
-const { routeTabsStorageKey } = await import("../../../lib/route-tabs");
+const { renderApp } = await import("@/test/render");
+const { routeTabsStorageKey } = await import("@/lib/route-tabs");
 
 const tabLabels = (list: HTMLElement) =>
   within(list)

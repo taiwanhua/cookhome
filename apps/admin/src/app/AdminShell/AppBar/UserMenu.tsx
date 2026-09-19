@@ -7,8 +7,8 @@ import { Avatar } from "@repo/ui/avatar";
 import { Button } from "@repo/ui/button";
 import { Menu, MenuItem } from "@repo/ui/menu";
 
-import { useSession } from "../../../hooks/useSession";
-import { LOGIN_PATH } from "../../../lib/paths";
+import { useSession } from "@/hooks/useSession";
+import { LOGIN_PATH } from "@/lib/paths";
 
 /** 頭像尺寸(theme.spacing 單位;Figma AdminAppBar avatar 32)。 */
 const AVATAR_SIZE = 4;

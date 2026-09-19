@@ -10,7 +10,8 @@ import { Select } from "@repo/ui/select";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { useSession } from "../../../../hooks/useSession";
+import { useSession } from "@/hooks/useSession";
+
 import type { UserManagerErrorCode } from "../user-manager-error";
 import type { UserRow } from "../user-manager-types";
 import { RoleOptionRow } from "./RoleOptionRow";

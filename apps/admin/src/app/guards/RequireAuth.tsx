@@ -6,13 +6,13 @@ import { CircularProgress } from "@repo/ui/circular-progress";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { useMe } from "../../hooks/useMe";
-import { useSession } from "../../hooks/useSession";
+import { useMe } from "@/hooks/useMe";
+import { useSession } from "@/hooks/useSession";
 import {
   CHANGE_PASSWORD_PATH,
   changePasswordPathWithNext,
   loginPathWithNext,
-} from "../../lib/paths";
+} from "@/lib/paths";
 
 export interface RequireAuthProps {
   children: ReactNode;

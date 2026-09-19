@@ -2,7 +2,8 @@ import { getTranslations } from "next-intl/server";
 
 import { useRecipesQuery } from "@repo/graphql";
 
-import { graphqlClient } from "../../lib/graphql";
+import { graphqlClient } from "@/lib/graphql";
+
 import { RecipeList } from "./RecipeList";
 
 export const HomeView = async () => {

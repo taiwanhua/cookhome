@@ -1,18 +1,14 @@
 import { beforeEach, describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { routeTabsStorageKey } from "../../../lib/route-tabs";
-import {
-  authWorld,
-  overviewModule,
-  testUser,
-} from "../../../test/msw/auth-handlers";
+import { routeTabsStorageKey } from "@/lib/route-tabs";
+import { authWorld, overviewModule, testUser } from "@/test/msw/auth-handlers";
 import {
   sampleTwoModules,
   superAdminModules,
-} from "../../../test/msw/module-fixtures";
-import { server } from "../../../test/msw/server";
-import { renderApp } from "../../../test/render";
+} from "@/test/msw/module-fixtures";
+import { server } from "@/test/msw/server";
+import { renderApp } from "@/test/render";
 
 const STORAGE_KEY = routeTabsStorageKey(testUser.id);
 
