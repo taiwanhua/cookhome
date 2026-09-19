@@ -18,16 +18,16 @@
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。
 
-| 權限 key                               | 它是哪一頁的什麼                                                                         |
-| -------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `system.user-manager.view`             | 看使用者清單與單筆資料(基本欄位、所屬組織、角色、狀態);沒有它整頁進不去內容              |
-| `system.user-manager.create`           | 「新增使用者」按鈕 + API(含選擇啟用方式,見流程)                                          |
-| `system.user-manager.edit`             | 「編輯」按鈕 + API:姓名、暱稱、性別、電話、地址、Email、帳號                             |
-| `system.user-manager.toggle-enabled`   | 「停用 / 啟用」按鈕 + API;停用即刻作廢該使用者全部 refresh token                         |
-| `system.user-manager.manage-orgs`      | 「選擇所屬組織」彈窗 + API:加入 / 移除所屬組織,移除時的 dry-run 與 radio 三檔            |
-| `system.user-manager.assign-roles`     | 「指派角色」彈窗 + API:授予 / 解除角色(防越權:只能給操作者自己持有的角色與模組,ADR-0003) |
-| `system.user-manager.show-national-id` | 欄位級:身分證字號可見(清單不顯示;詳情 / 編輯彈窗顯示解密後的值;無此權限 API 投影排除)    |
-| `system.user-manager.edit-national-id` | 欄位級:身分證字號可改(無此權限硬送寫入 → API 拒)                                         |
+| 權限 key                               | 它是哪一頁的什麼                                                                             |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `system.user-manager.view`             | 看使用者清單與單筆資料(基本欄位、所屬組織、角色、狀態);沒有它整頁進不去內容                  |
+| `system.user-manager.create`           | 「新增使用者」按鈕 + API(含選擇啟用方式,見流程)                                              |
+| `system.user-manager.edit`             | 「編輯」按鈕 + API:姓名、暱稱、性別、電話、地址、Email、帳號                                 |
+| `system.user-manager.toggle-enabled`   | 「停用 / 啟用」按鈕 + API;停用即刻作廢該使用者全部 refresh token                             |
+| `system.user-manager.manage-orgs`      | 「選擇所屬組織」彈窗 + API:加入 / 移除所屬組織,移除時的 dry-run 與 radio 三檔                |
+| `system.user-manager.assign-roles`     | 「指派角色」彈窗 + API:授予 / 解除角色(防越權:只能給**擁有組織在管理範圍內**的角色,ADR-0003) |
+| `system.user-manager.show-national-id` | 欄位級:身分證字號可見(清單不顯示;詳情 / 編輯彈窗顯示解密後的值;無此權限 API 投影排除)        |
+| `system.user-manager.edit-national-id` | 欄位級:身分證字號可改(無此權限硬送寫入 → API 拒)                                             |
 
 ## 畫面與流程
 
@@ -48,7 +48,7 @@
 
 **所屬組織**:「選擇所屬組織」彈窗以樹勾選(勾 = 加入、取消 = 移除;只能勾操作者管理範圍內的組織)→ 有移除時必出「確認所屬組織變更」彈窗:API 先 dry-run 回「移除後失去資格的角色清單」,radio 三檔(ADR-0003):(a) 全部保留 (b) 解除該組織擁有的角色 (c) 解除所有失去資格的角色 = 該組織擁有的 + 失去全部子樹支撐的(**預設**)。「失去資格」逐筆判斷:該角色擁有組織的子樹 ∩ 使用者移除後剩餘的所屬組織 = 空集合。操作者的選擇與解除清單寫入 `audit_logs`。使用者至少要有一個所屬組織(最後一個不可移除)。
 
-**指派角色**:清單 = 擁有組織在操作者管理範圍內、且操作者自己持有的角色(防越權,ADR-0003);已授予的顯示勾選;每個角色旁標示擁有組織。解除擁有者的「租戶管理員」授予被拒。
+**指派角色**:清單 = `roles` query 的結果 = 擁有組織在操作者**管理範圍**內的角色(防越權,ADR-0003;2026-09-20 / #211 與 `grantRoleUsers` 統一,不再另外要求「操作者自己也持有」);已授予的顯示勾選;每列標示擁有組織與描述,已停用的角色不可新勾、租戶副本掛標籤。解除擁有者的「租戶管理員」授予被拒。
 
 **密碼流程**(api 第 2 段 #64、admin 三頁 #68):「設定新密碼」頁共用三入口 — 啟用信(7 天,`PasswordService.sendActivationEmail`,由本模組新增使用者與開通租戶時呼叫)、重設信(30 分鐘,`requestPasswordReset`)、首登強改(`mustChangePassword` → `changePassword`);啟用與重設都走同一個 `setPassword(input: { token, newPassword })`,成功直接發登入 token;連結失效(`ACTION_TOKEN_INVALID`)頁導向忘記密碼自助;`action_tokens` 見 ADR-0009 / 0010。admin 端(`apps/admin/src/pages/auth/`):`/forgot-password`(任何 Email 都顯示已寄出)、`/set-password?token=…`(啟用與重設共用;成功持回傳 token 直接進後台;`ACTION_TOKEN_INVALID` 或無 token → 連結失效 + 一鍵重新申請)、`/change-password?next=…`(已登入;路由守門 `RequireAuth` 依 `me.mustChangePassword` 或 fetch 層攔到的 `MUST_CHANGE_PASSWORD` 導來,成功後清旗標、重取 `me`、回 `next`)。密碼規則即時提示與 api 同用 `@repo/domain/password`;文案在 `admin.forgotPassword` / `admin.setPassword` / `admin.changePassword` / `admin.passwordRules`。啟用信逾期走忘記密碼自助,本模組不提供重寄。
 
@@ -75,9 +75,9 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 - **清單範圍**:不給 `orgId` 即攤開整個**管理範圍**(治理模組慣例,ADR-0005 的分工表;2026-09-19 改,原本是可見範圍);給了就是該組織子樹 ∩ 管理範圍。組織子樹直接查 `orgs.ancestors`,範圍過濾由 BaseRepository 自動加上(`orgs` 是治理類 collection)。`pageSize` 上限 100。
 - **每列的 `roles[].outOfScope`** = 「組織外」標記,與移除 dry-run 用同一份資格判斷(`OrgQualificationService`)。判斷子樹歸屬時**刻意不套任何範圍**(ADR-0005:可見性開關與管理範圍都不影響授予資格),但顯示用的組織名稱仍只給管理範圍內的,範圍外只露 id。
 - **`nationalId`**:`user(id)` 持 `show-national-id` 才以 `select("+nationalId")` 取回並解密,清單一律不回;寫入(新增或編輯)需 `edit-national-id`,否則 `FORBIDDEN`。
-- **全量覆蓋的邊界**:`setUserOrgs` 只覆蓋操作者**管理範圍內**的所屬組織,`assignUserRoles` 只覆蓋操作者**可觸及**(自己持有)的角色 — 彈窗列不出來的那些不會被順手移除。
+- **全量覆蓋的邊界**:`setUserOrgs` 只覆蓋操作者**管理範圍內**的所屬組織,`assignUserRoles` 只覆蓋操作者**可觸及**(擁有組織在管理範圍內)的角色 — 彈窗列不出來的那些不會被順手移除。
 - **`removalPolicy`**:`KEEP_ALL` / `REVOKE_OWNED_BY_ORG` / `REVOKE_ALL_UNQUALIFIED`(預設)。`unqualifiedRoles` 逐筆附 `reasons`(`OWNED_BY_REMOVED_ORG` / `NO_REMAINING_SUBTREE_SUPPORT`,可同時成立)與 `ownerProtected`。
-- **防越權**:`ROLE_OUT_OF_REACH` = 要授予的角色不在操作者自己持有的角色內;**超級管理員 bypass**(ADR-0004 解析時全權放行),否則根組織無法把租戶的角色授予任何人。授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹),不符回 `VALIDATION_FAILED`。
+- **防越權**:`ROLE_OUT_OF_REACH` = 要授予的角色其**擁有組織不在操作者的管理範圍內**(2026-09-20 / #211 改;原判準「操作者自己持有」是第 3 段沒有 `roles` query 時的過渡做法,與 `grantRoleUsers` 兩套判準會讓同一個授予從角色頁做得到、從使用者頁做不到)。管理範圍是 `"all"`(超級管理員 / 擁有組織為根組織)時全權放行,否則根組織無法把租戶的角色授予任何人。授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹),不符回 `VALIDATION_FAILED`。
 - **錯誤碼**:`LAST_ORG`、`ROLE_OUT_OF_REACH`、`OWNER_PROTECTED`(程式正本 `apps/api/src/users/users-error.ts`,表在 GQL-04);帳號 / Email 重複與資格不符沿用 `VALIDATION_FAILED`(`extensions.fields` 指出欄位)。
 
 ## admin 實作(#139,程式在 `apps/admin/src/pages/system/UserManagerPage/`)
@@ -90,10 +90,10 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
   但本頁的左樹與「選擇所屬組織」都要它。admin 的處理是**頁內判斷**(ADR-0011):沒有那個 key 就不送查詢,
   清單改成不給 `orgId`(= 整個管理範圍),「所屬組織」動作 disabled。**這是 api 的耦合,不是前端的設計** —
   第 4 段動權限表時應考慮讓 `orgTree` 同時接受 `system.user-manager.view`。
-- **角色清單沒有查詢端點**:第 3 段沒有 `roles` query(角色管理是第 4 段)。指派角色彈窗改查
-  `user(操作者自己的 id)` 的 `roles` — 它正好就是「操作者自己持有的角色 + 擁有組織」,與 api 防越權
-  (`ROLE_OUT_OF_REACH`)同一份資料。已授予但操作者觸及不到的角色唯讀顯示,送出時不包含(api 也不會動它)。
-  因此角色的**描述文字**(Figma 86:245 有)前端拿不到,暫不顯示。
+- **角色清單**(2026-09-20 / #211 起):指派角色彈窗用正式的 `roles` query,範圍與 api 防越權
+  (`ROLE_OUT_OF_REACH`)同一條 —— 擁有組織在操作者管理範圍內。第 3 段那個「查 `user(操作者自己的 id)`
+  的 `roles`」的過渡做法已退場,角色的**描述文字**(Figma 86:245)也因此拿得到了。已授予但操作者
+  觸及不到的角色仍唯讀顯示,送出時不包含(api 也不會動它)。
 - **擁有者保護只需要一個 id**:前端不重做 `owner-protection.service.ts` 的判斷,只取
   `org(樹根 id)`:`parentId === null` 代表操作者站在根組織 → 一律放行不標保護;否則樹根就是租戶頂層,
   它的 `ownerUserId` 就是受保護的那一位,該列的「停用」「所屬組織」disabled 並提示。

@@ -6,6 +6,7 @@ import {
   type OrgQuery,
   type OrgQueryVariables,
   type OrgTreeQuery,
+  type RolesQueryVariables,
   type SetUserEnabledMutationVariables,
   type SetUserOrgsMutationVariables,
   type UpdateUserMutationVariables,
@@ -14,6 +15,7 @@ import {
 } from "@repo/graphql";
 
 import { type AuthErrorCode, graphqlError } from "./auth-handlers";
+import type { TestRole } from "./role-fixtures";
 import { api } from "./server";
 
 /** 測試夾具的一筆使用者 = `user(id)` 的完整形狀(清單投影掉細節欄位)。 */
@@ -65,6 +67,11 @@ const listItem = (user: TestUser) => ({
 export interface UserWorldOptions {
   users?: TestUser[];
   orgTree?: TestOrgNode[];
+  /**
+   * `roles` query 的回應:指派角色彈窗的候選來源(#211 起改用正式的 `roles`,
+   * 範圍 = 擁有組織在操作者管理範圍內;夾具型別與角色管理頁共用 `role-fixtures.ts`)。
+   */
+  roles?: TestRole[];
   /** `org(樹根 id)` 的回應:`parentId` 決定是不是根組織視角、`ownerUserId` 是受保護的擁有者 */
   rootOrg?: TestOrg;
   pageSize?: number;
@@ -98,6 +105,7 @@ export interface UserWorld {
   /** 各操作收到的輸入(依序),用來斷言「送出去的是什麼」 */
   inputs: {
     users: UsersQueryVariables["input"][];
+    roles: RolesQueryVariables["input"][];
     createUser: CreateUserMutationVariables["input"][];
     updateUser: UpdateUserMutationVariables["input"][];
     setUserEnabled: SetUserEnabledMutationVariables["input"][];
@@ -114,6 +122,7 @@ export const userWorld = (options: UserWorldOptions = {}): UserWorld => {
   const {
     users = [],
     orgTree = [],
+    roles = [],
     rootOrg,
     pageSize = 10,
     dryRun = { removedOrgs: [], unqualifiedRoles: [] },
@@ -122,6 +131,7 @@ export const userWorld = (options: UserWorldOptions = {}): UserWorld => {
 
   const inputs: UserWorld["inputs"] = {
     users: [],
+    roles: [],
     createUser: [],
     updateUser: [],
     setUserEnabled: [],
@@ -169,6 +179,20 @@ export const userWorld = (options: UserWorldOptions = {}): UserWorld => {
             items: matched
               .slice((page - 1) * size, page * size)
               .map((user) => listItem(user)),
+          },
+        },
+      });
+    }),
+    api.query("Roles", ({ variables }) => {
+      const { input } = variables as RolesQueryVariables;
+      inputs.roles.push(input);
+      return HttpResponse.json({
+        data: {
+          roles: {
+            totalCount: roles.length,
+            page: input.page ?? 1,
+            pageSize: input.pageSize ?? pageSize,
+            items: roles,
           },
         },
       });

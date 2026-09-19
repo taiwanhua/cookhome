@@ -8,7 +8,7 @@ import { GraphQLError } from "graphql";
 export const USER_ERROR_CODES = [
   /** 最後一個所屬組織不可移除(使用者至少要有一個所屬組織,ADR-0003) */
   "LAST_ORG",
-  /** 防越權:操作者只能授予自己持有的角色(ADR-0003) */
+  /** 防越權:操作者只能授予擁有組織在自己管理範圍內的角色(ADR-0003;#211 起與 grantRoleUsers 同判準) */
   "ROLE_OUT_OF_REACH",
   /** 擁有者保護:租戶擁有者不可停用 / 移出租戶 / 解除其租戶管理員授予(ADR-0009;根組織操作者例外) */
   "OWNER_PROTECTED",

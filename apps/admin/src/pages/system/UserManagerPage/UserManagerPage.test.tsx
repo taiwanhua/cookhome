@@ -1,190 +1,15 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { ModuleSidebarType } from "@repo/graphql";
-
-import {
-  type TestModule,
-  authWorld,
-  overviewModule,
-} from "@/test/msw/auth-handlers";
-import { server } from "@/test/msw/server";
-import {
-  type TestOrg,
-  type TestOrgNode,
-  type TestUser,
-  type UserWorldOptions,
-  userWorld,
-} from "@/test/msw/user-manager-handlers";
-import { renderApp } from "@/test/render";
-
 import {
   ORG_MANAGER_VIEW_PERMISSION,
   USER_MANAGER_PERMISSIONS,
 } from "./user-manager-permissions";
-
-/** 左樹要 `system.org-manager.view`;拿掉它就是「樹不可用」那條路。 */
-const ALL_PERMISSIONS = [
-  ...Object.values(USER_MANAGER_PERMISSIONS),
-  ORG_MANAGER_VIEW_PERMISSION,
-];
-
-const modulesWith = (permissions: readonly string[]): TestModule[] => [
-  overviewModule,
-  {
-    id: "m-system",
-    key: "system",
-    name: "系統管理",
-    parentId: null,
-    sidebarType: ModuleSidebarType.Group,
-    order: 1,
-    route: "/system",
-    permissions: [],
-  },
-  {
-    id: "m-org",
-    key: "system.org-manager",
-    name: "組織管理",
-    parentId: "m-system",
-    sidebarType: ModuleSidebarType.Link,
-    order: 1,
-    route: "/system/org-manager",
-    permissions: permissions.includes(ORG_MANAGER_VIEW_PERMISSION)
-      ? [ORG_MANAGER_VIEW_PERMISSION]
-      : [],
-  },
-  {
-    id: "m-user",
-    key: "system.user-manager",
-    name: "使用者管理",
-    parentId: "m-system",
-    sidebarType: ModuleSidebarType.Link,
-    order: 2,
-    route: "/system/user-manager",
-    permissions: [...permissions],
-  },
-];
-
-const orgTree: TestOrgNode[] = [
-  {
-    id: "org-tenant",
-    name: "租戶 A",
-    parentId: "org-root",
-    enabled: true,
-    outOfScope: false,
-    children: [
-      {
-        id: "org-content",
-        name: "內容組",
-        parentId: "org-tenant",
-        enabled: true,
-        outOfScope: false,
-        children: [],
-      },
-      {
-        id: "org-other",
-        name: "租戶 B",
-        parentId: "org-tenant",
-        enabled: true,
-        outOfScope: true,
-        children: [],
-      },
-    ],
-  },
-];
-
-/** 樹根 = 租戶頂層(`parentId` 不是 null)→ 它的 `ownerUserId` 是受保護的擁有者。 */
-const tenantRootOrg: TestOrg = {
-  id: "org-tenant",
-  name: "租戶 A",
-  description: null,
-  parentId: "org-root",
-  enabled: true,
-  isSystem: false,
-  ownerUserId: "user-owner",
-  visibility: null,
-  logoUrl: null,
-};
-
-const role = (
-  id: string,
-  name: string,
-  outOfScope = false,
-): TestUser["roles"][number] => ({
-  id,
-  name,
-  ownerOrgId: "org-tenant",
-  ownerOrgName: "租戶 A",
-  outOfScope,
-});
-
-const user = (
-  id: string,
-  name: string,
-  overrides: Partial<TestUser> = {},
-): TestUser => ({
-  id,
-  account: id,
-  name,
-  email: `${id}@cookhome.online`,
-  nickname: null,
-  gender: null,
-  phone: null,
-  address: null,
-  nationalId: null,
-  enabled: true,
-  mustChangePassword: false,
-  orgs: [{ id: "org-tenant", name: "租戶 A" }],
-  roles: [],
-  ...overrides,
-});
-
-/** 操作者本人(`testUser.id` 是 user-1):自己只持有「編輯」,審核員給不出去。 */
-const operator = user("user-1", "小華", {
-  roles: [role("role-editor", "編輯")],
-});
-const owner = user("user-owner", "何家華", {
-  roles: [role("role-admin", "租戶管理員")],
-});
-const ming = user("user-ming", "王小明", {
-  orgs: [
-    { id: "org-tenant", name: "租戶 A" },
-    { id: "org-content", name: "內容組" },
-  ],
-  roles: [role("role-editor", "編輯"), role("role-audit", "審核員", true)],
-  nationalId: "A123456789",
-});
-const fillers = Array.from({ length: 9 }, (_, index) =>
-  user(`user-f${String(index)}`, `路人${String(index)}`),
-);
-
-const defaultUsers = [operator, owner, ming, ...fillers];
-
-const renderPage = ({
-  permissions = ALL_PERMISSIONS,
-  world = {},
-}: {
-  permissions?: readonly string[];
-  world?: UserWorldOptions;
-} = {}) => {
-  const fake = userWorld({
-    users: defaultUsers,
-    orgTree,
-    rootOrg: tenantRootOrg,
-    ...world,
-  });
-  server.use(
-    ...fake.handlers,
-    ...authWorld({
-      hasRefreshCookie: true,
-      modules: modulesWith(permissions),
-    }).handlers,
-  );
-  return { ...renderApp({ path: "/system/user-manager" }), fake };
-};
-
-const rowOf = (name: string) =>
-  screen.getByRole("row", { name: new RegExp(name) });
+import {
+  ALL_PERMISSIONS,
+  renderPage,
+  rowOf,
+} from "./user-manager-test-support";
 
 describe("使用者管理頁(/system/user-manager)", () => {
   it("左樹選組織後清單收斂到該組織子樹,分頁換頁重查", async () => {
@@ -375,30 +200,6 @@ describe("使用者管理頁(/system/user-manager)", () => {
       removalPolicy: "REVOKE_ALL_UNQUALIFIED",
       orgIds: ["org-tenant"],
     });
-  });
-
-  it("指派角色:清單只有操作者自己持有的可勾,對方已有而自己沒有的唯讀", async () => {
-    const { user: actor, fake } = renderPage();
-
-    await screen.findByText("王小明");
-    await actor.click(
-      within(rowOf("王小明")).getByRole("button", { name: "指派角色" }),
-    );
-
-    const editor = await screen.findByRole("checkbox", { name: "編輯" });
-    expect(editor).toBeChecked();
-    expect(editor).toBeEnabled();
-    const auditor = screen.getByRole("checkbox", { name: "審核員" });
-    expect(auditor).toBeDisabled();
-    expect(screen.getByText("你的權限不足,無法下放")).toBeInTheDocument();
-
-    await actor.click(editor);
-    await actor.click(screen.getByRole("button", { name: "儲存指派" }));
-
-    await waitFor(() => {
-      expect(fake.inputs.assignUserRoles).toHaveLength(1);
-    });
-    expect(fake.inputs.assignUserRoles[0].roleIds).toEqual([]);
   });
 
   it("停用彈窗確認後送出,api 回 OWNER_PROTECTED 時顯示原因", async () => {

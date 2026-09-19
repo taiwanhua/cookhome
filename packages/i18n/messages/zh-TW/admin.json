@@ -326,11 +326,13 @@
       "outOfScope": "組織外",
       "orgFilter": "組織(列出該組織的角色)",
       "allOrgs": "全部組織",
-      "empty": "你目前沒有可以指派的角色",
-      "outOfReach": "你的權限不足,無法下放",
+      "empty": "沒有可以指派的角色",
+      "outOfReach": "不在你的管理範圍內,無法變更",
       "ownerOrg": "擁有組織:{org}",
       "save": "儲存指派",
-      "cancel": "取消"
+      "cancel": "取消",
+      "roleDisabled": "已停用",
+      "templateCopy": "租戶副本"
     },
     "toggle": {
       "disableTitle": "停用 {name}?",
@@ -344,7 +346,7 @@
     "errors": {
       "OWNER_PROTECTED": "頂層組織的擁有者受保護,這個動作被拒絕。",
       "LAST_ORG": "每位使用者至少要保留一個所屬組織。",
-      "ROLE_OUT_OF_REACH": "你只能指派自己也擁有的角色。",
+      "ROLE_OUT_OF_REACH": "這個角色的擁有組織不在你的管理範圍內。",
       "FORBIDDEN": "你沒有執行這個動作的權限。",
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
       "UNEXPECTED": "操作失敗,請稍後再試。"
@@ -612,6 +614,57 @@
       "RULE_INVALID": "規則不合法,請依畫面上標出的位置修正後再儲存。",
       "NOT_FOUND": "找不到這個資料目標。",
       "FORBIDDEN": "你沒有執行這個動作的權限(本頁僅根組織可用)。",
+      "UNEXPECTED": "操作失敗,請稍後再試。"
+    }
+  },
+  "fieldManager": {
+    "categories": {
+      "title": "欄位類別",
+      "seedNotice": "類別由系統統一維護(唯讀)",
+      "loading": "載入欄位類別"
+    },
+    "options": {
+      "region": "欄位選項",
+      "title": "{category} — 選項",
+      "noCategory": "欄位選項",
+      "noCategoryHint": "目前沒有任何欄位類別。",
+      "create": "+ 新增自訂選項",
+      "empty": "這個類別還沒有選項",
+      "tableAria": "選項清單",
+      "label": "顯示名稱",
+      "value": "值(value)",
+      "order": "排序",
+      "source": "來源",
+      "sourceGlobal": "全域",
+      "sourceOwn": "{org} 自訂",
+      "enabled": "啟用",
+      "toggleAria": "啟用「{name}」",
+      "stateEnabled": "啟用中",
+      "stateDisabled": "已停用",
+      "actions": "操作",
+      "edit": "編輯",
+      "seedManaged": "由系統管理員維護",
+      "seedManagedHint": "全域選項由系統管理員統一維護,需要停用請聯絡系統管理員。",
+      "none": "—"
+    },
+    "form": {
+      "createTitle": "新增選項 — {category}",
+      "editTitle": "編輯選項 — {category}",
+      "label": "選項名稱",
+      "value": "值(value)",
+      "order": "排序",
+      "description": "描述",
+      "createHint": "本組織自訂的選項只在本組織可見;選項建立後不能刪除,只能停用(舊資料還要對照)。",
+      "editHint": "值(value)建立後不能修改 — 既有資料以它對照;要換值請新增一個選項並停用舊的。",
+      "submit": "新增",
+      "save": "儲存",
+      "cancel": "取消"
+    },
+    "errors": {
+      "FIELD_VALUE_DUPLICATE": "這個值在這個類別已經有人用了,請換一個。",
+      "FORBIDDEN": "全域選項由系統管理員統一維護,你的組織不能變更它。",
+      "NOT_FOUND": "找不到這個類別或選項,可能已被移除,請重新整理。",
+      "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
       "UNEXPECTED": "操作失敗,請稍後再試。"
     }
   }

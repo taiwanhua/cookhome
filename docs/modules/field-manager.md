@@ -40,6 +40,24 @@
 
 審計動作:`field.create` / `field.edit` / `field.toggle-enabled`(`targetType = "field"`)。
 
+## admin 畫面(#211)
+
+`apps/admin/src/pages/system/FieldManagerPage/`(Figma「欄位管理」90:2、新增選項 211:176)。
+左類別清單唯讀,右邊是所選類別的合併清單:顯示名稱、值、排序、**來源**、啟用開關、操作。
+
+- **來源欄與「這一列能做什麼」集中在 `field-source.ts`**(`isSeedOption` / `fieldSourceView` /
+  `canToggleOption` / `canEditOption`),表格與彈窗不自己解讀 `source`。可見範圍語意若之後改成
+  向下繼承(看得到上層組織的自訂選項),要動的只有這個檔。
+- **停用 / 啟用直接送**,不另開確認彈窗:可逆,而且只影響新填寫(既有資料不受影響)。
+- **編輯彈窗只給自訂選項**;種子選項連彈窗都不開,操作欄改顯示「由系統管理員維護」。
+- **`FIELD_VALUE_DUPLICATE` 標在「值」欄位上**(不是頁面 Alert),彈窗留著讓人改值。
+- **根組織視角的判定是個暫時的近似**:種子選項的 `enabled` 是全域開關、api 限根組織,
+  但 `me` 目前沒有「當前組織是不是根組織」的旗標,而查 `org(id)` 要 `system.org-manager.view`
+  (欄位管理的操作者未必有)。前端改以「`me.modules` 裡有沒有根組織專屬模組
+  (`system.module-manager` / `system.data-scope` / `system.org-manager.tenant-ops`)」判斷
+  (`field-manager-permissions.ts` 的 `isRootPerspective`)。**它偏保守**:根組織裡只被授予
+  欄位管理的人會看到唯讀的種子開關(api 其實會放行)。api 補上正式旗標後換掉那個函式即可。
+
 ## api 介面(#206;正本,前端引用不另寫解釋 — GQL-07)
 
 ```graphql

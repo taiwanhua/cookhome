@@ -326,11 +326,13 @@
       "outOfScope": "Outside org",
       "orgFilter": "Organization (lists that organization's roles)",
       "allOrgs": "All organizations",
-      "empty": "You hold no role that can be assigned",
-      "outOfReach": "You do not hold this role and cannot pass it on",
+      "empty": "No roles available to assign",
+      "outOfReach": "Outside your managed scope",
       "ownerOrg": "Owned by {org}",
       "save": "Save assignment",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "roleDisabled": "Disabled",
+      "templateCopy": "Tenant copy"
     },
     "toggle": {
       "disableTitle": "Disable {name}?",
@@ -344,7 +346,7 @@
     "errors": {
       "OWNER_PROTECTED": "The owner of the top-level organization is protected; the action was rejected.",
       "LAST_ORG": "Every user must keep at least one organization.",
-      "ROLE_OUT_OF_REACH": "You can only assign roles you hold yourself.",
+      "ROLE_OUT_OF_REACH": "This role's owner organisation is outside your managed scope.",
       "FORBIDDEN": "You do not have permission for this action.",
       "VALIDATION_FAILED": "The data did not pass validation, please check and submit again.",
       "UNEXPECTED": "The action failed, please try again later."
@@ -613,6 +615,57 @@
       "NOT_FOUND": "That data target does not exist.",
       "FORBIDDEN": "You do not have permission for this action (this page is root-org only).",
       "UNEXPECTED": "The action failed, please try again later."
+    }
+  },
+  "fieldManager": {
+    "categories": {
+      "title": "Field categories",
+      "seedNotice": "Categories are maintained by the system (read-only)",
+      "loading": "Loading field categories"
+    },
+    "options": {
+      "region": "Field options",
+      "title": "{category} — options",
+      "noCategory": "Field options",
+      "noCategoryHint": "There are no field categories yet.",
+      "create": "+ Add custom option",
+      "empty": "This category has no options yet",
+      "tableAria": "Option list",
+      "label": "Display name",
+      "value": "Value",
+      "order": "Order",
+      "source": "Source",
+      "sourceGlobal": "Global",
+      "sourceOwn": "{org} custom",
+      "enabled": "Enabled",
+      "toggleAria": "Enable \"{name}\"",
+      "stateEnabled": "Enabled",
+      "stateDisabled": "Disabled",
+      "actions": "Actions",
+      "edit": "Edit",
+      "seedManaged": "Maintained by the system administrator",
+      "seedManagedHint": "Global options are maintained by the system administrator; contact them if one needs to be disabled.",
+      "none": "—"
+    },
+    "form": {
+      "createTitle": "Add option — {category}",
+      "editTitle": "Edit option — {category}",
+      "label": "Option name",
+      "value": "Value",
+      "order": "Order",
+      "description": "Description",
+      "createHint": "Options your organisation adds are visible only inside it. Options cannot be deleted once created, only disabled, so existing records keep their reference.",
+      "editHint": "The value cannot be changed after creation — existing records refer to it. To change it, add a new option and disable the old one.",
+      "submit": "Add",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "errors": {
+      "FIELD_VALUE_DUPLICATE": "This value is already used in this category. Pick another one.",
+      "FORBIDDEN": "Global options are maintained by the system administrator and cannot be changed by your organisation.",
+      "NOT_FOUND": "This category or option no longer exists. Refresh the page.",
+      "VALIDATION_FAILED": "The form did not pass validation. Check it and try again.",
+      "UNEXPECTED": "The action failed. Please try again later."
     }
   }
 }
