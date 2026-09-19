@@ -9,7 +9,12 @@ import type { OperatorContext } from "../../database/operator-context";
 
 /** 以該使用者為操作者寫入(createdBy / updatedBy = 本人)。 */
 export function asAccount(userId: Types.ObjectId): OperatorContext {
-  return { actorId: userId, currentOrgId: null, visibleOrgIds: "all" };
+  return {
+    actorId: userId,
+    currentOrgId: null,
+    visibleOrgIds: "all",
+    managedOrgIds: "all",
+  };
 }
 
 /** 尚未知道操作者是誰時的查詢用上下文(以 email / token 雜湊定位帳號)。 */
@@ -17,4 +22,5 @@ export const LOOKUP: OperatorContext = {
   actorId: null,
   currentOrgId: null,
   visibleOrgIds: "all",
+  managedOrgIds: "all",
 };

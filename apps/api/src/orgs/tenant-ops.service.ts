@@ -24,7 +24,6 @@ import {
 import { ModuleSidebarType } from "../permission/models/me-module.model";
 import { isOwnedUploadPath } from "../storage/storage.service";
 import type { ProvisionTenantInput } from "./dto/provision-tenant.input";
-import type { SetOrgVisibilityInput } from "./dto/set-org-visibility.input";
 import type { TransferOrgOwnerInput } from "./dto/transfer-org-owner.input";
 import type { Org } from "./models/org.model";
 import type {
@@ -32,14 +31,7 @@ import type {
   ProvisionTenantPayload,
 } from "./models/tenant-ops.model";
 import { orgError } from "./org-error";
-import {
-  type OrgRecord,
-  VISIBILITY_SETTING,
-  isTenantTop,
-  toOrg,
-  visibilityOf,
-  visibilitySettingOf,
-} from "./org-mapper";
+import { type OrgRecord, isTenantTop, toOrg } from "./org-mapper";
 import {
   OwnerProtectionService,
   TEMPLATE_KEY_SETTING,
@@ -54,7 +46,6 @@ const AUDIT_TARGET_TYPE = "org";
 const AUDIT_ACTIONS = {
   provision: "org.provision",
   transferOwner: "org.transfer-owner",
-  setVisibility: "org.set-visibility",
 } as const;
 
 /**
@@ -168,9 +159,12 @@ function selectModules(
 }
 
 /**
- * 租戶作業(`system.org-manager.tenant-ops`,根組織專屬):開通租戶、轉移擁有者、設定可見範圍。
- * 規則正本 ADR-0009 / ADR-0005 與 docs/modules/org-manager.md;
+ * 租戶作業(`system.org-manager.tenant-ops`,根組織專屬):開通租戶、轉移擁有者。
+ * 規則正本 ADR-0009 與 docs/modules/org-manager.md;
  * resolver 以 `@RequirePermission` 守門,本層再確認操作者站在根組織(權限有了也不夠)。
+ *
+ * 可見範圍開關 2026-09-19 搬出本服務(#187):它是**租戶自己的資料政策**、由管理範圍守門,
+ * 不是根組織專屬動作,因此住在 `OrgsService.setVisibility`。
  */
 @Injectable()
 export class TenantOpsService {
@@ -359,34 +353,6 @@ export class TenantOpsService {
     return toOrg(updated ?? org);
   }
 
-  /** 設定可見範圍開關(ADR-0005);只掛租戶頂層、套用整棵子樹。 */
-  async setVisibility(
-    operator: OperatorContext,
-    input: SetOrgVisibilityInput,
-  ): Promise<Org> {
-    await this.assertRootOperator(operator, AUDIT_ACTIONS.setVisibility);
-    const org = await this.requireTenantTop(operator, input.orgId);
-    const previous = visibilityOf(org);
-    if (previous === input.visibility) {
-      return toOrg(org);
-    }
-    const updated = await this.orgs.updateById(operator, org._id, {
-      $set: {
-        [`settings.${VISIBILITY_SETTING}`]: visibilitySettingOf(
-          input.visibility,
-        ),
-      },
-    });
-    await this.audit.record(operator, {
-      action: AUDIT_ACTIONS.setVisibility,
-      targetType: AUDIT_TARGET_TYPE,
-      targetId: org._id,
-      before: { visibility: previous },
-      after: { visibility: input.visibility },
-    });
-    return toOrg(updated ?? org);
-  }
-
   /**
    * 租戶作業一律只在根組織執行(docs/modules/org-manager.md):持有權限還不夠 —
    * 權限可能經角色被帶到別的組織,站在哪裡才是判準(與擁有者保護的根組織例外同一個函式)。
@@ -467,7 +433,7 @@ export class TenantOpsService {
     return root;
   }
 
-  /** 擁有者與可見範圍都只存在於租戶頂層(根組織的直接子組織);其餘層級一律拒。 */
+  /** 擁有者只存在於租戶頂層(根組織的直接子組織);其餘層級一律拒。 */
   private async requireTenantTop(
     operator: OperatorContext,
     id: string,
@@ -480,7 +446,7 @@ export class TenantOpsService {
     }
     if (!isTenantTop(org)) {
       throw validationError(
-        `Org ${id} is not a tenant top-level org; owner and visibility only exist there`,
+        `Org ${id} is not a tenant top-level org; the owner only exists there`,
         ["orgId"],
       );
     }

@@ -4,7 +4,6 @@ import { CurrentOperator } from "../auth/decorators";
 import type { OperatorContext } from "../database/operator-context";
 import { RequirePermission } from "../permission/require-permission.decorator";
 import { ProvisionTenantInput } from "./dto/provision-tenant.input";
-import { SetOrgVisibilityInput } from "./dto/set-org-visibility.input";
 import { TransferOrgOwnerInput } from "./dto/transfer-org-owner.input";
 import { OrgPayload } from "./models/org-payloads.model";
 import {
@@ -14,14 +13,15 @@ import {
 import { TenantOpsService } from "./tenant-ops.service";
 
 /**
- * 權限 key(docs/modules/org-manager.md 權限表的後三列;種子 apps/db-migrator/seeds/modules/system.ts)。
- * 三筆都屬 `system.org-manager.tenant-ops` — 一個 `isRootOnly` 的隱藏模組,
+ * 權限 key(docs/modules/org-manager.md 權限表;種子 apps/db-migrator/seeds/modules/system.ts)。
+ * 兩筆都屬 `system.org-manager.tenant-ops` — 一個 `isRootOnly` 的隱藏模組,
  * 租戶管理員模板複製時整個模組被扣除,所以租戶永遠拿不到(ADR-0009 第 3 步)。
+ * (可見範圍開關 2026-09-19 搬到組織管理層 `system.org-manager.set-visibility`,#187:
+ * 它是租戶自己的資料政策,不是根組織專屬動作。)
  */
 const PERMISSIONS = {
   provision: "system.org-manager.tenant-ops.provision",
   transferOwner: "system.org-manager.tenant-ops.transfer-owner",
-  setVisibility: "system.org-manager.tenant-ops.set-visibility",
 } as const;
 
 /**
@@ -58,14 +58,5 @@ export class TenantOpsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<OrgPayload> {
     return { org: await this.tenantOps.transferOwner(operator, input) };
-  }
-
-  @RequirePermission(PERMISSIONS.setVisibility)
-  @Mutation(() => OrgPayload)
-  async setOrgVisibility(
-    @Args("input") input: SetOrgVisibilityInput,
-    @CurrentOperator() operator: OperatorContext,
-  ): Promise<OrgPayload> {
-    return { org: await this.tenantOps.setVisibility(operator, input) };
   }
 }

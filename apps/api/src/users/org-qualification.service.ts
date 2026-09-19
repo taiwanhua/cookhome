@@ -5,7 +5,7 @@ import { OrgsRepository } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 
 /**
- * 判定「角色授予資格」時讀組織用的上下文,**刻意不套可見範圍**:
+ * 判定「角色授予資格」時讀組織用的上下文,**刻意不套任何範圍**(可見範圍與管理範圍都放到全部):
  * ADR-0005 明定「可見性開關不影響被授予角色的資格 — 資格恆以擁有組織子樹判定(ADR-0003)」,
  * 若拿操作者的可見範圍去算,看不到的所屬組織會被誤判成「失去支撐」而誤解角色。
  * 讀出來的只有 `_id` / `ancestors`(樹的形狀),不外流組織名稱等內容 —
@@ -16,6 +16,7 @@ function ancestryReader(operator: OperatorContext): OperatorContext {
     actorId: operator.actorId,
     currentOrgId: operator.currentOrgId,
     visibleOrgIds: "all",
+    managedOrgIds: "all",
   };
 }
 

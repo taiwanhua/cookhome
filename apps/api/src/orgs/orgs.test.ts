@@ -12,7 +12,7 @@ import {
   findRootOrgId,
 } from "../auth/test-support/fixtures";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
-import { createRole } from "../permission/test-support/fixtures";
+import { createRole, setRoleEnabled } from "../permission/test-support/fixtures";
 
 const LOGIN = /* GraphQL */ `
   mutation Login($input: LoginInput!) {
@@ -115,6 +115,17 @@ const MOVE_ORG = /* GraphQL */ `
   }
 `;
 
+const SET_ORG_VISIBILITY = /* GraphQL */ `
+  mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
+    setOrgVisibility(input: $input) {
+      org {
+        id
+        visibility
+      }
+    }
+  }
+`;
+
 const DELETE_ORG = /* GraphQL */ `
   mutation DeleteOrg($input: DeleteOrgInput!) {
     deleteOrg(input: $input) {
@@ -182,6 +193,10 @@ interface DeleteOrgData {
   deleteOrg: { success: boolean; deletedId: string };
 }
 
+interface SetOrgVisibilityData {
+  setOrgVisibility: { org: { id: string; visibility: string | null } };
+}
+
 interface OrgRow {
   _id: Types.ObjectId;
   name: string;
@@ -226,10 +241,25 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
   let deptOneId: Types.ObjectId;
   let deptOneSubId: Types.ObjectId;
   let deptTwoId: Types.ObjectId;
+  /** 租戶 B(**沒有**可見性開關 = own):驗「管理範圍不受開關影響」 */
   let tenantBId: Types.ObjectId;
-  /** 租戶 A 的管理員(整個租戶可見)與部門使用者(只看得到部門子樹) */
+  let deptBId: Types.ObjectId;
+  /** 租戶 A 的管理員(擁有組織 = 租戶頂層)與部門使用者(擁有組織 = A 部門一) */
   let tenantAdminToken: string;
   let deptUserToken: string;
+  /** 租戶 B 的管理員(擁有組織 = 租戶 B 頂層,開關為 own) */
+  let tenantBAdminToken: string;
+  /** 持兩個沒有共同上層的角色(擁有組織 = A 部門一 / A 部門二):驗多根樹 */
+  let multiRootToken: string;
+  /** 只靠一個之後會被停用的角色進來:驗「管理範圍只算啟用中角色」 */
+  let toggledRoleId: Types.ObjectId;
+  let toggledRoleToken: string;
+  /**
+   * 租戶 C:操作者的**管理範圍與可見範圍刻意不重疊** —
+   * 所屬組織是 C 部門一(開關 own → 可見範圍只有它),角色的擁有組織是 C 部門二。
+   */
+  let cDeptTwoId: Types.ObjectId;
+  let crossScopeToken: string;
   /** 有登入、沒有任何角色的使用者 */
   let nobodyToken: string;
 
@@ -300,6 +330,10 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       settings: { visibility: "subtree" },
     });
     tenantBId = await createOrg(api.connection, { name: "租戶B" });
+    deptBId = await createOrg(api.connection, {
+      name: "B 部門",
+      parentId: tenantBId,
+    });
     deptOneId = await createOrg(api.connection, {
       name: "A 部門一",
       parentId: tenantAId,
@@ -341,6 +375,79 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
     });
     deptUserToken = await loginAccessToken("orgs-dept-user", PASSWORD);
 
+    // 租戶 B 的管理員:所屬組織是 B 部門(不是頂層),角色的擁有組織才是租戶 B 頂層 —
+    // 管理範圍由角色決定、與所屬哪裡無關(ADR-0003),而租戶 B 的可見性開關是 own
+    const tenantBAdminId = await createUser(api.connection, {
+      account: "orgs-tenant-b-admin",
+      password: PASSWORD,
+      orgIds: [deptBId],
+    });
+    await createRole(api.app, api.connection, {
+      name: "租戶B 組織管理員",
+      ownerOrgId: tenantBId,
+      moduleKeys: [ORG_MANAGER_MODULE],
+      permissionKeys: [`${ORG_MANAGER_MODULE}.*`],
+      assignTo: [tenantBAdminId],
+    });
+    tenantBAdminToken = await loginAccessToken("orgs-tenant-b-admin", PASSWORD);
+
+    // 兩個沒有共同上層的角色 → 管理範圍是兩棵子樹的聯集 → 樹有兩個根
+    const multiRootId = await createUser(api.connection, {
+      account: "orgs-multi-root",
+      password: PASSWORD,
+      orgIds: [tenantAId],
+    });
+    for (const [name, ownerOrgId] of [
+      ["A 部門一 檢視者(多根)", deptOneId],
+      ["A 部門二 檢視者(多根)", deptTwoId],
+    ] as const) {
+      await createRole(api.app, api.connection, {
+        name,
+        ownerOrgId,
+        moduleKeys: [ORG_MANAGER_MODULE],
+        permissionKeys: [`${ORG_MANAGER_MODULE}.view`],
+        assignTo: [multiRootId],
+      });
+    }
+    multiRootToken = await loginAccessToken("orgs-multi-root", PASSWORD);
+
+    const toggledId = await createUser(api.connection, {
+      account: "orgs-toggled-role",
+      password: PASSWORD,
+      orgIds: [tenantAId],
+    });
+    toggledRoleId = await createRole(api.app, api.connection, {
+      name: "A 部門二 檢視者(可停用)",
+      ownerOrgId: deptTwoId,
+      moduleKeys: [ORG_MANAGER_MODULE],
+      permissionKeys: [`${ORG_MANAGER_MODULE}.view`],
+      assignTo: [toggledId],
+    });
+    toggledRoleToken = await loginAccessToken("orgs-toggled-role", PASSWORD);
+
+    const tenantCId = await createOrg(api.connection, { name: "租戶C" });
+    const cDeptOneId = await createOrg(api.connection, {
+      name: "C 部門一",
+      parentId: tenantCId,
+    });
+    cDeptTwoId = await createOrg(api.connection, {
+      name: "C 部門二",
+      parentId: tenantCId,
+    });
+    const crossScopeId = await createUser(api.connection, {
+      account: "orgs-cross-scope",
+      password: PASSWORD,
+      orgIds: [cDeptOneId],
+    });
+    await createRole(api.app, api.connection, {
+      name: "C 部門二 管理員",
+      ownerOrgId: cDeptTwoId,
+      moduleKeys: [ORG_MANAGER_MODULE],
+      permissionKeys: [`${ORG_MANAGER_MODULE}.*`],
+      assignTo: [crossScopeId],
+    });
+    crossScopeToken = await loginAccessToken("orgs-cross-scope", PASSWORD);
+
     await createUser(api.connection, {
       account: "orgs-nobody",
       password: PASSWORD,
@@ -353,7 +460,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
     await api.close();
   }, HOOK_TIMEOUT_MS);
 
-  describe("orgTree:可見範圍與視角(ADR-0005)", () => {
+  describe("orgTree:管理範圍與視角(CONTEXT.md「管理範圍」;ADR-0003 / ADR-0005)", () => {
     it("根組織視角:以根組織為根,看得到全部租戶,沒有節點被標 outOfScope", async () => {
       const result = await api.graphql<OrgTreeData>(
         ORG_TREE,
@@ -373,7 +480,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       expect(all.every((node) => !node.outOfScope)).toBe(true);
     });
 
-    it("租戶視角:以租戶頂層為根(parentId 為 null),看不到別的租戶", async () => {
+    it("租戶視角:樹根 = 角色的擁有組織(租戶頂層),看不到別的租戶", async () => {
       const result = await api.graphql<OrgTreeData>(
         ORG_TREE,
         {},
@@ -384,7 +491,8 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       const tree = result.data?.orgTree ?? [];
       expect(tree).toHaveLength(1);
       expect(tree[0]?.id).toBe(String(tenantAId));
-      expect(tree[0]?.parentId).toBeNull();
+      // `parentId` 一律是真的上層,即使它不在樹上 — 前端靠它分得出「平台根組織」與「租戶頂層」
+      expect(tree[0]?.parentId).toBe(String(rootOrgId));
       const ids = flatten(tree).map((node) => node.id);
       expect(ids).toEqual(
         expect.arrayContaining([String(deptOneId), String(deptOneSubId)]),
@@ -393,7 +501,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       expect(ids).not.toContain(String(rootOrgId));
     });
 
-    it("可見範圍外的節點照樣回、但標 outOfScope(樹不斷,只是不能選)", async () => {
+    it("擁有組織 = 部門的角色:樹根 = 該部門,租戶頂層與別的部門都不在樹上(不再有 outOfScope 節點)", async () => {
       const result = await api.graphql<OrgTreeData>(
         ORG_TREE,
         {},
@@ -402,11 +510,76 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
 
       expect(result.errors).toBeUndefined();
       const tree = result.data?.orgTree ?? [];
-      // 樹仍以租戶頂層為根,但頂層與另一個部門都在可見範圍外
-      expect(nodeOf(tree, tenantAId)?.outOfScope).toBe(true);
-      expect(nodeOf(tree, deptTwoId)?.outOfScope).toBe(true);
-      expect(nodeOf(tree, deptOneId)?.outOfScope).toBe(false);
+      expect(tree).toHaveLength(1);
+      expect(tree[0]?.id).toBe(String(deptOneId));
+      expect(tree[0]?.parentId).toBe(String(tenantAId));
+      // 管理範圍外的組織不回傳(#187:`outOfScope` 的灰節點取消)
+      expect(nodeOf(tree, tenantAId)).toBeUndefined();
+      expect(nodeOf(tree, deptTwoId)).toBeUndefined();
+      // 自己這棵子樹完整
       expect(nodeOf(tree, deptOneSubId)?.outOfScope).toBe(false);
+      expect(flatten(tree).every((node) => !node.outOfScope)).toBe(true);
+    });
+
+    it("租戶管理員在可見性開關為 own 時仍管得到整個租戶(管理範圍不看開關,ADR-0005)", async () => {
+      // 租戶 B 沒設 settings.visibility(= own),且這位管理員的所屬組織只有 B 部門
+      const tenantB = await orgRow(tenantBId);
+      expect(tenantB?.settings.visibility).toBeUndefined();
+
+      const result = await api.graphql<OrgTreeData>(
+        ORG_TREE,
+        {},
+        { accessToken: tenantBAdminToken },
+      );
+
+      expect(result.errors).toBeUndefined();
+      const tree = result.data?.orgTree ?? [];
+      expect(tree).toHaveLength(1);
+      expect(tree[0]?.id).toBe(String(tenantBId));
+      expect(nodeOf(tree, deptBId)).toBeDefined();
+      expect(nodeOf(tree, tenantAId)).toBeUndefined();
+    });
+
+    it("多根:持有兩個沒有共同上層的角色 → 兩個樹根,各自的子樹完整", async () => {
+      const result = await api.graphql<OrgTreeData>(
+        ORG_TREE,
+        {},
+        { accessToken: multiRootToken },
+      );
+
+      expect(result.errors).toBeUndefined();
+      const tree = result.data?.orgTree ?? [];
+      expect(new Set(tree.map((node) => node.id))).toEqual(
+        new Set([String(deptOneId), String(deptTwoId)]),
+      );
+      // 兩個根都指向自己真正的上層(租戶頂層),即使它不在樹上
+      expect(tree.every((node) => node.parentId === String(tenantAId))).toBe(
+        true,
+      );
+      expect(nodeOf(tree, deptOneSubId)).toBeDefined();
+      // 共同上層(租戶頂層)不是任何一個角色的擁有組織,不進樹
+      expect(nodeOf(tree, tenantAId)).toBeUndefined();
+    });
+
+    it("管理範圍只算**啟用中**的角色:停用唯一的角色後,治理端點整個關上", async () => {
+      const before = await api.graphql<OrgTreeData>(
+        ORG_TREE,
+        {},
+        { accessToken: toggledRoleToken },
+      );
+      expect(before.data?.orgTree.map((node) => node.id)).toEqual([
+        String(deptTwoId),
+      ]);
+
+      await setRoleEnabled(api.connection, toggledRoleId, false);
+      const after = await api.graphql(
+        ORG_TREE,
+        {},
+        { accessToken: toggledRoleToken },
+      );
+      // 停用的角色不給權限也不給管理範圍(ADR-0011 步驟 2):先撞到權限這一關
+      expect(after.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      await setRoleEnabled(api.connection, toggledRoleId, true);
     });
 
     it("沒有 view 權限進不來:FORBIDDEN;沒登入:UNAUTHENTICATED", async () => {
@@ -452,7 +625,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       expect(result.data?.org.visibility).toBeNull();
     });
 
-    it("可見範圍外的組織視為不存在:NOT_FOUND", async () => {
+    it("管理範圍外的組織視為不存在:NOT_FOUND", async () => {
       const result = await api.graphql(
         ORG,
         { id: String(tenantBId) },
@@ -786,6 +959,29 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       );
     });
 
+    it("租戶頂層不可搬:租戶內的人即使管得到整個租戶也拒(FORBIDDEN;只有根組織能動租戶頂層)", async () => {
+      const result = await api.graphql(
+        MOVE_ORG,
+        { input: { id: String(tenantAId), newParentId: String(deptOneId) } },
+        { accessToken: tenantAdminToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await parentIdOf(tenantAId)).toBe(String(rootOrgId));
+    });
+
+    it("新上層在管理範圍外:NOT_FOUND(候選 = 管理範圍 ∩ 同租戶 − 自己的子樹)", async () => {
+      const result = await api.graphql(
+        MOVE_ORG,
+        { input: { id: String(deptOneId), newParentId: String(tenantBId) } },
+        { accessToken: tenantAdminToken },
+      );
+
+      // 範圍外不透露「存在但跨租戶」,一律當不存在
+      expect(result.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+      expect(await parentIdOf(deptOneId)).toBe(String(tenantAId));
+    });
+
     it("把租戶頂層搬到根組織下也算跨租戶:CROSS_TENANT;根組織自己不可搬:VALIDATION_FAILED", async () => {
       const tenantToTenant = await api.graphql(
         MOVE_ORG,
@@ -800,6 +996,60 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
         { accessToken: rootToken },
       );
       expect(rootMove.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+    });
+  });
+
+  describe("setOrgVisibility:權限搬到組織管理層、範圍由管理範圍決定(#187 / ADR-0005)", () => {
+    it("租戶管理員設得了自己租戶的頂層(不再是根組織專屬):DB 寫入 + 審計", async () => {
+      const result = await api.graphql<SetOrgVisibilityData>(
+        SET_ORG_VISIBILITY,
+        { input: { orgId: String(tenantBId), visibility: "SUBTREE" } },
+        { accessToken: tenantBAdminToken },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.setOrgVisibility.org.visibility).toBe("SUBTREE");
+      const stored = await orgRow(tenantBId);
+      expect(stored?.settings.visibility).toBe("subtree");
+
+      const audits = await auditRows("org.set-visibility", tenantBId);
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        before: { visibility: "OWN" },
+        after: { visibility: "SUBTREE" },
+      });
+    });
+
+    it("設別的租戶的頂層:管理範圍外 → NOT_FOUND,資料不動", async () => {
+      const result = await api.graphql(
+        SET_ORG_VISIBILITY,
+        { input: { orgId: String(tenantAId), visibility: "OWN" } },
+        { accessToken: tenantBAdminToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+      const untouched = await orgRow(tenantAId);
+      expect(untouched?.settings.visibility).toBe("subtree");
+    });
+
+    it("對象不是租戶頂層:VALIDATION_FAILED(開關只掛租戶頂層)", async () => {
+      const result = await api.graphql(
+        SET_ORG_VISIBILITY,
+        { input: { orgId: String(deptBId), visibility: "SUBTREE" } },
+        { accessToken: tenantBAdminToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+    });
+
+    it("沒有 set-visibility 權限:FORBIDDEN(只有 view 的人連開關都送不出去)", async () => {
+      const result = await api.graphql(
+        SET_ORG_VISIBILITY,
+        { input: { orgId: String(tenantAId), visibility: "OWN" } },
+        { accessToken: deptUserToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
     });
   });
 
@@ -884,6 +1134,41 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
         code: "ORG_NOT_DELETABLE",
         reasons: ["HAS_BUSINESS_DATA"],
       });
+    });
+
+    it("業務資料的前置檢查不吃操作者的可見範圍:管得到、看不到的組織照樣擋得下來", async () => {
+      // 這位操作者的管理範圍是 C 部門二子樹,可見範圍只有 C 部門一(開關 own)—
+      // 若用可見範圍去數業務資料,這一筆會數成 0,還掛著會員的組織就被誤判成可刪
+      const orgId = await createOrg(api.connection, {
+        name: "C 部門二之一",
+        parentId: cDeptTwoId,
+      });
+      const now = new Date();
+      await api.connection.collection("customers").insertOne({
+        name: "C 會員",
+        account: "orgs-c-customer",
+        email: "orgs-c-customer@example.com",
+        orgId,
+        enabled: true,
+        settings: {},
+        createdAt: now,
+        updatedAt: now,
+        createdBy: null,
+        updatedBy: null,
+        deletedAt: null,
+      });
+
+      const result = await api.graphql(
+        DELETE_ORG,
+        { input: { id: String(orgId) } },
+        { accessToken: crossScopeToken },
+      );
+
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "ORG_NOT_DELETABLE",
+        reasons: ["HAS_BUSINESS_DATA"],
+      });
+      expect(await deletedAtOf(orgId)).toBeNull();
     });
 
     it("根組織不可刪:reasons 含 SYSTEM_ORG", async () => {

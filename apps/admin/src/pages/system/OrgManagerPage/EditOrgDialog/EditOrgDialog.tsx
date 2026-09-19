@@ -31,7 +31,7 @@ import { useEditOrgForm } from "./useEditOrgForm";
 
 export interface EditOrgDialogProps {
   org: OrgDetail;
-  /** 可當新上層的組織(同租戶、可見範圍內、不含自己與自己的子樹) */
+  /** 可當新上層的組織(管理範圍內、同租戶、不含自己與自己的子樹;租戶頂層本身候選為空) */
   parentOptions: readonly OrgOption[];
   /** 這個組織是租戶頂層(api 只讓這一層有擁有者與可見範圍) */
   isTenantTop: boolean;

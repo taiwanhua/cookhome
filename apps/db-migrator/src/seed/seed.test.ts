@@ -648,7 +648,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     ]);
   }, 120_000);
 
-  it("示範家族 12 筆 + 組織管理 9 筆 + 使用者管理 8 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 49 筆", async () => {
+  it("示範家族 12 筆 + 組織管理 9 筆(7 + 租戶作業 2)+ 使用者管理 8 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 49 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     expect(runSeedCommand(databaseUri).status).toBe(0);
@@ -673,18 +673,18 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "demo.sample-two.create": "demo.sample-two",
       "demo.sample-two.edit": "demo.sample-two",
       "demo.sample-two.delete": "demo.sample-two",
-      // 正本:docs/modules/org-manager.md 權限表(6 + 租戶作業 3)
+      // 正本:docs/modules/org-manager.md 權限表(7 + 租戶作業 2;
+      // set-visibility 2026-09-19 從 tenant-ops 搬到組織管理層,#187 / ADR-0005)
       "system.org-manager.view": "system.org-manager",
       "system.org-manager.create-child": "system.org-manager",
       "system.org-manager.edit": "system.org-manager",
       "system.org-manager.toggle-enabled": "system.org-manager",
       "system.org-manager.move": "system.org-manager",
       "system.org-manager.delete": "system.org-manager",
+      "system.org-manager.set-visibility": "system.org-manager",
       "system.org-manager.tenant-ops.provision":
         "system.org-manager.tenant-ops",
       "system.org-manager.tenant-ops.transfer-owner":
-        "system.org-manager.tenant-ops",
-      "system.org-manager.tenant-ops.set-visibility":
         "system.org-manager.tenant-ops",
       // 正本:docs/modules/user-manager.md 權限表(8)
       "system.user-manager.view": "system.user-manager",
@@ -828,8 +828,17 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
     );
     expect(new Set(boundModuleKeys)).toEqual(new Set(tenantModuleKeys));
     expect(boundModuleKeys).toHaveLength(17);
-    // 開通租戶的三個動作永遠不進模板(ADR-0009 第 3 步:整個 rootOnly 模組被扣除)
+    // 租戶作業(開通、轉移擁有者)永遠不進模板(ADR-0009 第 3 步:整個 rootOnly 模組被扣除)
     expect(boundModuleKeys).not.toContain("system.org-manager.tenant-ops");
+    // 反面:可見範圍開關搬到組織管理層後,模板靠 `system.org-manager.*` 自動取得(#187 / ADR-0005)—
+    // 模板不綁個別權限,所以這裡驗的是「它的擁有模組在模板綁的模組內」
+    expect(boundModuleKeys).toContain("system.org-manager");
+    const setVisibility = permissions.find(
+      (permission) => permission.key === "system.org-manager.set-visibility",
+    );
+    expect(
+      modules.find((module) => module._id.equals(setVisibility?.moduleId))?.key,
+    ).toBe("system.org-manager");
 
     const boundPermissionKeys = boundBy(
       tenantAdmin?._id,

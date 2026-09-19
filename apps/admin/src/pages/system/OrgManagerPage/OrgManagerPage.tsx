@@ -36,7 +36,6 @@ export const OrgManagerPage = () => {
   const owner = useTenantOwner(data.org);
   const moveTargets = useMoveTargets({
     nodes: data.orgNodes,
-    isRootPerspective: data.isRootPerspective,
     orgId: data.selectedOrgId,
   });
 
@@ -80,7 +79,7 @@ export const OrgManagerPage = () => {
       <OrgTreePanel
         nodes={data.orgNodes}
         isLoading={data.isOrgTreeLoading}
-        isRootPerspective={data.isRootPerspective}
+        rootOrgId={data.rootOrgId}
         selectedOrgId={data.selectedOrgId}
         onSelectOrg={data.selectOrg}
         canProvision={data.ability.canProvision}

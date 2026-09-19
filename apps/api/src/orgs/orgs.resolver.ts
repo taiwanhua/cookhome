@@ -20,6 +20,7 @@ import { CreateChildOrgInput } from "./dto/create-child-org.input";
 import { DeleteOrgInput } from "./dto/delete-org.input";
 import { MoveOrgInput } from "./dto/move-org.input";
 import { SetOrgEnabledInput } from "./dto/set-org-enabled.input";
+import { SetOrgVisibilityInput } from "./dto/set-org-visibility.input";
 import { UpdateOrgInput } from "./dto/update-org.input";
 import { DeletePayload, OrgPayload } from "./models/org-payloads.model";
 import { Org, OrgNode } from "./models/org.model";
@@ -33,12 +34,16 @@ const PERMISSIONS = {
   toggleEnabled: "system.org-manager.toggle-enabled",
   move: "system.org-manager.move",
   delete: "system.org-manager.delete",
+  // 2026-09-19 從根組織專屬的 tenant-ops 搬到這一層(#187 / ADR-0005):
+  // 可見範圍開關是**租戶自己的資料政策**,租戶管理員模板拿到 `system.org-manager.*` 就會含它;
+  // 能設哪些租戶頂層則由管理範圍決定(service 層),不是靠「站在根組織」。
+  setVisibility: "system.org-manager.set-visibility",
 } as const;
 
 /**
  * 「讀組織樹 / 單筆組織」的多選一權限(#139 回饋):
  * 組織樹不只組織管理頁在用 — 使用者管理頁的左樹與「選擇所屬組織」彈窗也要它,
- * 而那些人未必持有組織管理的檢視權。可見範圍(ADR-0005)照樣把關看得到誰,
+ * 而那些人未必持有組織管理的檢視權。管理範圍(ADR-0005)照樣把關看得到誰,
  * 這裡只決定「進不進得了這個端點」。
  * `@RequirePermission` 是單一 key 的守門,多選一自己查有效權限集合
  * (判斷語意同 PermissionGuard:含同層 wildcard,ADR-0004;寫法同 `storage.resolver.ts`)。
@@ -61,7 +66,7 @@ export class OrgsResolver {
     private readonly permissions: PermissionResolver,
   ) {}
 
-  /** 可見範圍內的組織樹;範圍外的節點標 `outOfScope`(ADR-0005)。 */
+  /** **管理範圍**的組織樹(CONTEXT.md);根可能有多個,範圍外的組織不回傳(#187)。 */
   @Query(() => [OrgNode])
   async orgTree(
     @CurrentOperator() operator: OperatorContext,
@@ -82,7 +87,7 @@ export class OrgsResolver {
   /**
    * 商標的短效簽名讀取網址(ADR-0010:DB 存路徑不存 URL,看時現簽);
    * 只在客戶端有問 `logoUrl` 時才簽 — 簽名在 Cloud Run 上是一次 IAM signBlob 呼叫。
-   * 可取範圍由 `org` / `orgTree` 的可見範圍把關(呼叫端拿得到這筆資料才問得到網址)。
+   * 可取範圍由 `org` / `orgTree` 的管理範圍把關(呼叫端拿得到這筆資料才問得到網址)。
    */
   @ResolveField(() => String, { nullable: true })
   logoUrl(@Parent() org: Org): Promise<string | null> {
@@ -123,6 +128,16 @@ export class OrgsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<OrgPayload> {
     return { org: await this.orgs.move(operator, input) };
+  }
+
+  /** 可見範圍開關(ADR-0005):只掛租戶頂層;能設哪些由管理範圍決定,見 OrgsService。 */
+  @RequirePermission(PERMISSIONS.setVisibility)
+  @Mutation(() => OrgPayload)
+  async setOrgVisibility(
+    @Args("input") input: SetOrgVisibilityInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<OrgPayload> {
+    return { org: await this.orgs.setVisibility(operator, input) };
   }
 
   @RequirePermission(PERMISSIONS.delete)

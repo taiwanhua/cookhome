@@ -5,7 +5,11 @@ import { useMeQuery, useOrgQuery, useOrgTreeQuery } from "@repo/graphql";
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
-import { type OrgNodeLike, rootOrgId } from "@/lib/org-tree";
+import {
+  type OrgNodeLike,
+  firstRootOrgId,
+  platformRootOrgId,
+} from "@/lib/org-tree";
 
 import { ORG_MANAGER_PERMISSIONS } from "./org-manager-permissions";
 import type { OrgActionAbility } from "./org-manager-types";
@@ -13,9 +17,10 @@ import type { OrgActionAbility } from "./org-manager-types";
 /**
  * 組織管理頁的資料層:組織樹、選中組織的單筆資料、權限判斷與失效。
  *
- * **視角完全由資料決定**(#138 不做兩套頁):`orgTree` 的樹根在根組織視角是根組織
- * (`parentId === null`)、在租戶視角是租戶頂層(`parentId` 有值)。加上操作者有沒有
- * `tenant-ops.*` 那三筆權限,就足以決定畫面長什麼樣,不需要「我是不是超級管理員」這種旗標。
+ * **視角完全由資料決定**(#138 不做兩套頁):`orgTree` 回的是操作者的**管理範圍**
+ * (#187),根可能有**多個**;只有管理範圍是全部的人樹上才有平台根組織
+ * (唯一 `parentId === null` 的節點)。加上操作者有沒有 `tenant-ops` 的權限,
+ * 就足以決定畫面長什麼樣,不需要「我是不是超級管理員」這種旗標。
  */
 export const useOrgManagerData = () => {
   const { session } = useSession();
@@ -37,10 +42,12 @@ export const useOrgManagerData = () => {
 
   const orgTree = useOrgTreeQuery(session.client);
   const orgNodes: readonly OrgNodeLike[] = orgTree.data?.orgTree ?? [];
-  const treeRootId = rootOrgId(orgNodes);
-  /** 樹根的上層為 null = 操作者站在根組織(根組織視角);租戶視角的樹根是租戶頂層。 */
-  const isRootPerspective =
-    orgNodes.length > 0 && (orgNodes[0]?.parentId ?? null) === null;
+  const treeRootId = firstRootOrgId(orgNodes);
+  /**
+   * 平台根組織的 id:在樹上 = 根組織視角(管理範圍是全部),不在 = 租戶 / 部門視角。
+   * 「租戶」標籤與搬移候選的租戶上限都靠它判(`OrgTreePanel` / `useMoveTargets`)。
+   */
+  const rootOrgId = platformRootOrgId(orgNodes);
 
   /** 還沒點過任何節點時預設選樹根(不在 effect 內 setState,REACT-06)。 */
   const selectedOrgId = pickedOrgId ?? treeRootId;
@@ -65,7 +72,7 @@ export const useOrgManagerData = () => {
     ability,
     orgNodes,
     isOrgTreeLoading: orgTree.isLoading,
-    isRootPerspective,
+    rootOrgId,
     treeRootId,
     selectedOrgId,
     selectOrg: setPickedOrgId,

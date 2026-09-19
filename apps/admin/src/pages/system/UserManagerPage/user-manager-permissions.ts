@@ -1,7 +1,7 @@
 /**
  * 使用者管理的權限 key(正本 `docs/modules/user-manager.md` 權限表;判斷走 ADR-0011「頁內功能」)。
  * 組織樹來自 `orgTree`,而它由 api 掛在 `system.org-manager.view` 底下 —
- * 所以左側樹與「選擇所屬組織」彈窗要額外看這個 key,沒有就退成「整個可見範圍的清單」。
+ * 所以左側樹與「選擇所屬組織」彈窗要額外看這個 key,沒有就退成「整個管理範圍的清單」。
  */
 export const USER_MANAGER_MODULE_KEY = "system.user-manager";
 

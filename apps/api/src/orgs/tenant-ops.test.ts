@@ -240,7 +240,6 @@ const ROOT_ONLY_MODULES = [
 const TENANT_OPS_PERMISSIONS = [
   `${TENANT_OPS_MODULE}.provision`,
   `${TENANT_OPS_MODULE}.transfer-owner`,
-  `${TENANT_OPS_MODULE}.set-visibility`,
 ];
 
 /** 字串排序的比較函式(`toSorted()` 不給比較函式在非 ASCII 下不可靠)。 */
@@ -998,57 +997,24 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
     });
   });
 
-  describe("setOrgVisibility:開關改變操作者的可見範圍(ADR-0005)", () => {
-    it("開關打開前:部門管理員看不到子部門的資料(樹上 outOfScope、清單不列)", async () => {
+  describe("可見性開關與治理頁的分工(#187 / ADR-0005「管理範圍與可見範圍的分工」)", () => {
+    it("開關為 own 時:部門管理員照樣看得到子部門的樹節點與使用者(治理頁吃管理範圍)", async () => {
+      // 這位管理員的角色擁有組織 = 既有部門 → 管理範圍 = 既有部門子樹,與開關無關
+      const before = await orgRow(legacyTenantId);
+      expect(before?.settings.visibility).toBeUndefined();
+
       const tree = await api.graphql<OrgTreeData>(
         ORG_TREE,
         {},
         { accessToken: tenantManagerToken },
       );
-      const subNode = flatten(tree.data?.orgTree ?? []).find(
-        (node) => node.id === String(legacySubDeptId),
+      const nodes = flatten(tree.data?.orgTree ?? []);
+      expect(nodes.map((node) => node.id)).toContain(String(legacySubDeptId));
+      expect(nodes.every((node) => !node.outOfScope)).toBe(true);
+      // 租戶頂層不是這個角色的擁有組織,不在管理範圍內
+      expect(nodes.map((node) => node.id)).not.toContain(
+        String(legacyTenantId),
       );
-      expect(subNode?.outOfScope).toBe(true);
-
-      const users = await api.graphql<UsersData>(
-        USERS,
-        { input: { orgId: String(legacyDeptId) } },
-        { accessToken: tenantManagerToken },
-      );
-      expect(users.data?.users.items.map((item) => item.id)).not.toContain(
-        String(subDeptUserId),
-      );
-    });
-
-    it("根組織設 SUBTREE:資料庫寫 settings.visibility、留審計", async () => {
-      const result = await api.graphql<SetOrgVisibilityData>(
-        SET_ORG_VISIBILITY,
-        {
-          input: { orgId: String(legacyTenantId), visibility: "SUBTREE" },
-        },
-        { accessToken: rootOpsToken },
-      );
-
-      expect(result.errors).toBeUndefined();
-      expect(result.data?.setOrgVisibility.org.visibility).toBe("SUBTREE");
-      const org = await orgRow(legacyTenantId);
-      expect(org?.settings.visibility).toBe("subtree");
-
-      const audit = await latestAudit("org.set-visibility", legacyTenantId);
-      expect(audit?.before).toEqual({ visibility: "OWN" });
-      expect(audit?.after).toEqual({ visibility: "SUBTREE" });
-    });
-
-    it("開關打開後:同一個部門管理員看得到子部門的樹節點與使用者", async () => {
-      const tree = await api.graphql<OrgTreeData>(
-        ORG_TREE,
-        {},
-        { accessToken: tenantManagerToken },
-      );
-      const subNode = flatten(tree.data?.orgTree ?? []).find(
-        (node) => node.id === String(legacySubDeptId),
-      );
-      expect(subNode?.outOfScope).toBe(false);
 
       const users = await api.graphql<UsersData>(
         USERS,
@@ -1060,24 +1026,44 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
       );
     });
 
-    it("對象不是租戶頂層:VALIDATION_FAILED(開關只掛租戶頂層、套用整棵子樹)", async () => {
-      const result = await api.graphql(
+    it("租戶內持 set-visibility 者設得了自己租戶的頂層(不再是根組織專屬),且治理頁不因此改變", async () => {
+      const result = await api.graphql<SetOrgVisibilityData>(
         SET_ORG_VISIBILITY,
-        { input: { orgId: String(legacyDeptId), visibility: "SUBTREE" } },
-        { accessToken: rootOpsToken },
-      );
-
-      expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
-    });
-
-    it("非根組織的操作者即使持有權限也拒(FORBIDDEN)", async () => {
-      const result = await api.graphql(
-        SET_ORG_VISIBILITY,
-        { input: { orgId: String(legacyTenantId), visibility: "OWN" } },
+        { input: { orgId: String(legacyTenantId), visibility: "SUBTREE" } },
         { accessToken: tenantOpsToken },
       );
 
-      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.setOrgVisibility.org.visibility).toBe("SUBTREE");
+      const stored = await orgRow(legacyTenantId);
+      expect(stored?.settings.visibility).toBe("subtree");
+
+      const audit = await latestAudit("org.set-visibility", legacyTenantId);
+      expect(audit?.before).toEqual({ visibility: "OWN" });
+      expect(audit?.after).toEqual({ visibility: "SUBTREE" });
+
+      // 開關切換不觸發任何重算:部門管理員的樹根仍是既有部門,租戶頂層仍不在管理範圍內
+      const tree = await api.graphql<OrgTreeData>(
+        ORG_TREE,
+        {},
+        { accessToken: tenantManagerToken },
+      );
+      expect(tree.data?.orgTree.map((node) => node.id)).toEqual([
+        String(legacyDeptId),
+      ]);
+    });
+
+    it("根組織設別人的租戶:管理範圍是全部,照樣設得了", async () => {
+      const result = await api.graphql<SetOrgVisibilityData>(
+        SET_ORG_VISIBILITY,
+        { input: { orgId: String(legacyTenantId), visibility: "OWN" } },
+        { accessToken: rootOpsToken },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.setOrgVisibility.org.visibility).toBe("OWN");
+      const stored = await orgRow(legacyTenantId);
+      expect(stored?.settings.visibility).toBe("own");
     });
   });
 });

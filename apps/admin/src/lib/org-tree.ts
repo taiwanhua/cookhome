@@ -5,7 +5,12 @@ import type { TreeNode } from "@repo/ui/tree";
 /**
  * `orgTree` 的節點形狀(codegen 把遞迴展開成五層具名型別,無法直接遞迴走訪,
  * 這裡給一個結構相容的型別當走訪介面;`children` 在最深一層不存在,故為選填)。
- * `outOfScope` = 可見範圍外(ADR-0005):樹上照樣顯示,但不可選、不可操作。
+ *
+ * `parentId` 一律是**真的上層**,即使它不在樹上(樹根是租戶頂層時指向平台根組織);
+ * 只有平台根組織的 `parentId` 是 null。「我是不是樹根」看的是「在不在回傳陣列的第一層」。
+ *
+ * `outOfScope`:#187 起管理範圍外的組織根本不回傳,這個欄位因此恆為 false;
+ * 留著是為了與使用者列的 `roles[].outOfScope` 一致、也讓舊資料(快取)不會炸。
  */
 export interface OrgNodeLike {
   id: string;
@@ -21,13 +26,15 @@ export interface OrgOption {
   id: string;
   name: string;
   path: string;
+  parentId?: string | null;
+  /** 恆為 false(#187:範圍外的組織不回傳);保留欄位以相容舊快取與既有呼叫端。 */
   outOfScope: boolean;
 }
 
 /** 節點 → 標籤右側的附加內容(停用 / 租戶標籤);不需要標籤時回 undefined。 */
 export type OrgLabelSuffix = (node: OrgNodeLike) => ReactNode;
 
-/** 樹 → `@repo/ui/tree` 的資料;範圍外節點 disabled(顯示但不可選)。 */
+/** 樹 → `@repo/ui/tree` 的資料;`outOfScope` 的節點 disabled(#187 後不會再出現,相容保留)。 */
 export const toTreeNodes = (
   nodes: readonly OrgNodeLike[],
   labelSuffixOf?: OrgLabelSuffix,
@@ -55,6 +62,7 @@ export const flattenOrgs = (
         id: node.id,
         name: node.name,
         path: trail.join(" / "),
+        parentId: node.parentId ?? null,
         outOfScope: node.outOfScope,
       },
       ...flattenOrgs(node.children ?? [], trail),
@@ -83,7 +91,8 @@ export const findOrgNode = (
 };
 
 /**
- * 從樹根到指定節點的路徑(含自己);找不到回空陣列。
+ * 從樹根到指定節點的路徑(含自己);找不到回空陣列。管理範圍多根時(#187)會自動找到
+ * 含這個節點的那一棵,`[0]` 就是它所屬的那個根。
  * 組織管理頁靠它一次拿到三件事:上層是誰(`at(-2)`)、所屬租戶頂層是誰、以及自己的子樹。
  */
 export const orgTrail = (
@@ -102,9 +111,22 @@ export const orgTrail = (
   return [];
 };
 
-/** 整棵樹的根節點 id;空樹回 null(租戶視角 = 租戶頂層、根組織視角 = 根組織)。 */
-export const rootOrgId = (nodes: readonly OrgNodeLike[]): string | null =>
+/**
+ * 預設選中的節點 = 第一棵樹的根;空樹回 null。
+ * 管理範圍可能有多個頂點(#187),所以這是「第一個根」而不是「唯一的根」。
+ */
+export const firstRootOrgId = (nodes: readonly OrgNodeLike[]): string | null =>
   nodes[0]?.id ?? null;
+
+/**
+ * 平台根組織的 id:樹上唯一 `parentId` 為 null 的那個根(管理範圍是全部時才會出現在樹上)。
+ * 樹根是租戶頂層 / 部門時回 null — 那些人看不到平台根組織,也就沒有「租戶」這層概念。
+ */
+export const platformRootOrgId = (
+  nodes: readonly OrgNodeLike[],
+): string | null =>
+  nodes.find((node) => (node.parentId ?? null) === null)?.id ?? null;
+
 
 /**
  * 依關鍵字過濾:節點自己命中、或子樹裡有命中的就留下(留下時子樹也一併保留,

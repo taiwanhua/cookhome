@@ -21,7 +21,11 @@ import {
   openTestDatabase,
 } from "./test-support/mongo-connection";
 
-/** 組一個操作者上下文;未指定者給合理預設(操作者 id 隨機、當前組織 = 可見集合第一個)。 */
+/**
+ * 組一個操作者上下文;未指定者給合理預設(操作者 id 隨機、當前組織 = 可見集合第一個)。
+ * `managedOrgIds` 預設跟著可見範圍走 — 本檔驗的是業務類 collection(demo_items_one),
+ * 吃的是可見範圍;治理類(orgs)吃管理範圍,由需要的測試自己指定。
+ */
 function operator(
   overrides: Partial<OperatorContext> & Pick<OperatorContext, "visibleOrgIds">,
 ): OperatorContext {
@@ -30,6 +34,7 @@ function operator(
   return {
     actorId: new Types.ObjectId(),
     currentOrgId: firstVisible ?? null,
+    managedOrgIds: overrides.visibleOrgIds,
     ...overrides,
   };
 }
