@@ -132,6 +132,21 @@ input SaveDataScopeRuleInput {
 | `VALUE_INVALID`            | 空清單、id 不是 ObjectId、日期解析不了、`between` 不是兩個、enum 不在選項內 |
 | `AUDIENCE_INVALID`         | `audience.type` 不認得,或 `ALL` 以外沒給 `ids` / `ids` 不是 id              |
 
+### admin 頁面(#210;程式正本 `apps/admin/src/pages/system/DataScopePage/`)
+
+- 純函式在 `apps/admin/src/lib/`:`data-scope-rule.ts`(型別目錄、編輯器狀態 ↔ api JSON、條件樹增刪改)
+  與 `data-scope-issues.ts`(本地驗證、`RULE_INVALID` 的 `path` → 標在哪一格)。
+  **型別 → 運算子 → 值來源那張表在 admin 重寫了一份**(STRUCT-01 不能 import api),改動時兩邊一起改。
+- 條件樹節點**不帶自產 id**:位置(`rules[n]` + 往下的 `children[i]`)就是身分,與 api 回的 `path` 同一套座標。
+- **UI 上限三層**(ADR-0008「任意深、UI 建議 3 層」):第三層的群組不再給「+ 群組」;資料結構本身不設限,
+  更深的規則若由 api 回來仍讀得回、顯示得出來,只是不能再往下加。
+- 新群組**一定帶一條條件列**(空群組會被 `EMPTY_GROUP` 拒絕,不讓它先出現在畫面上)。
+- 動態值與靜態值在同一個「值」下拉裡(動態值排在最前面):選了動態值就取代整份靜態值,反之亦然。
+- **「有沒有規則」沒有現成欄位**:左清單的「已設規則」目前是對每個目標各查一次 `dataScopeRule`
+  (目標是 seed 宣告的小清單,成本可接受)。目標變多時的正解是 `DataScopeTarget` 上補 `hasRule`。
+- 未儲存就切換資料目標 → 放棄變更確認;`saveDataScopeRule` 成功後失效該 collection 的 `dataScopeRule`
+  與 `dataScopeTargets`。動作按鈕依 `system.data-scope.edit`,只有 `.view` 時整個編輯器唯讀。
+
 ### 執行面的回傳語意(GQL-07:正本在此)
 
 - **沒有規則命中操作者 = 不過濾**(只剩租戶保底),不是「什麼都看不到」

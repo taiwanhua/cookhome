@@ -529,5 +529,90 @@
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
       "UNEXPECTED": "操作失敗,請稍後再試。"
     }
+  },
+  "dataScope": {
+    "targets": {
+      "title": "資料目標",
+      "hint": "由各模組的種子宣告",
+      "hasRule": "已設規則",
+      "loading": "載入資料目標",
+      "empty": "目前沒有資料目標。"
+    },
+    "editor": {
+      "region": "規則編輯器",
+      "loading": "載入規則",
+      "empty": "選一個資料目標以檢視規則",
+      "targetName": "{name}({collection})",
+      "defaultHint": "未命中任何規則的人 → 預設:可見範圍內。租戶隔離保底(orgId ∈ 可見範圍)永遠生效,規則只能在保底之內縮小。",
+      "combineOp": "規則合成",
+      "combineOpHint": "AND 則需滿足全部命中的規則(資料變少)",
+      "combineOr": "OR — 命中任一規則即可(資料變多)",
+      "combineAnd": "AND — 需滿足全部命中的規則(資料變少)",
+      "addRule": "+ 新增規則",
+      "noRules": "目前沒有規則:每個人都看得到自己可見範圍內的全部資料。",
+      "discard": "放棄變更",
+      "save": "儲存"
+    },
+    "rule": {
+      "title": "規則 {index}",
+      "audience": "套用對象",
+      "audienceTargets": "對象",
+      "audienceAll": "全部",
+      "audienceRole": "角色",
+      "audienceOrg": "組織",
+      "audienceUser": "使用者",
+      "remove": "刪除規則"
+    },
+    "group": {
+      "rootOp": "條件組合",
+      "nestedOp": "群組組合",
+      "nestedHint": "整個群組視為上一層的一個條件",
+      "opAnd": "AND — 全部成立才放行",
+      "opOr": "OR — 其中一個成立即可",
+      "addCondition": "+ 條件",
+      "addGroup": "+ 群組",
+      "remove": "刪除群組"
+    },
+    "condition": {
+      "field": "欄位",
+      "cond": "條件",
+      "value": "值",
+      "valueFrom": "起日",
+      "valueTo": "迄日",
+      "remove": "刪除"
+    },
+    "conditions": {
+      "in": "屬於",
+      "not-in": "不屬於",
+      "between": "之間",
+      "before": "之前",
+      "after": "之後"
+    },
+    "dynamic": {
+      "current-user": "【操作者本人】",
+      "current-user-orgs": "【操作者的所屬組織】"
+    },
+    "discardDialog": {
+      "title": "放棄未儲存的變更?",
+      "body": "這個資料目標的規則有未儲存的變更,切換到別的目標後就會消失。",
+      "cancel": "繼續編輯",
+      "confirm": "放棄變更"
+    },
+    "reasons": {
+      "MALFORMED_RULE": "規則的資料格式不正確。",
+      "MALFORMED_NODE": "條件的資料格式不正確。",
+      "EMPTY_GROUP": "群組至少要有一個條件。",
+      "UNKNOWN_FIELD": "這個欄位不在資料目標的欄位目錄裡。",
+      "CONDITION_NOT_ALLOWED": "這個比較方式不適用於該欄位的型別。",
+      "VALUE_SOURCE_NOT_ALLOWED": "這個值來源不適用於該欄位的型別。",
+      "VALUE_INVALID": "請填一個有效的值。",
+      "AUDIENCE_INVALID": "請選擇這條規則要套用給誰。"
+    },
+    "errors": {
+      "RULE_INVALID": "規則不合法,請依畫面上標出的位置修正後再儲存。",
+      "NOT_FOUND": "找不到這個資料目標。",
+      "FORBIDDEN": "你沒有執行這個動作的權限(本頁僅根組織可用)。",
+      "UNEXPECTED": "操作失敗,請稍後再試。"
+    }
   }
 }
