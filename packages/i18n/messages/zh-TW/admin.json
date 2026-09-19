@@ -349,5 +349,57 @@
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
       "UNEXPECTED": "操作失敗,請稍後再試。"
     }
+  },
+  "moduleManager": {
+    "seedNotice": "模組與權限屬於種子資料,隨系統版本自動更新 — 此頁僅供檢視與啟用 / 停用切換。如需新增模組,請聯絡系統管理員。",
+    "tree": {
+      "title": "模組樹",
+      "groupTag": "群組",
+      "hiddenTag": "隱藏頁",
+      "disabledTag": "停用"
+    },
+    "detail": {
+      "region": "模組資料",
+      "loading": "載入模組樹",
+      "empty": "選一個模組以檢視權限",
+      "enabled": "啟用",
+      "toggleAria": "啟用「{name}」",
+      "stateEnabled": "啟用中",
+      "stateDisabled": "已停用",
+      "key": "key",
+      "sidebarType": "側欄類型",
+      "sidebarGroup": "群組",
+      "sidebarLink": "模組連結",
+      "sidebarHidden": "隱藏頁",
+      "order": "排序",
+      "description": "描述",
+      "none": "—",
+      "selfLockedHint": "此模組用於管理模組本身,不可停用"
+    },
+    "permissions": {
+      "title": "權限清單",
+      "killSwitchHint": "停用一筆權限是全平台的開關:所有持有者立即失去它,連超級管理員也不再擁有,角色的權限矩陣仍勾著也不生效。",
+      "name": "名稱",
+      "key": "key",
+      "description": "描述",
+      "enabled": "啟用",
+      "toggleAria": "啟用權限「{name}」",
+      "stateEnabled": "啟用中",
+      "stateDisabled": "已停用",
+      "selfLockedHint": "此模組用於管理模組本身,不可停用",
+      "empty": "這個模組這一層沒有宣告權限",
+      "none": "—"
+    },
+    "disable": {
+      "title": "停用模組「{name}」?",
+      "body": "停用後,所有租戶的側欄都不再顯示這個模組,它底下的子模組與權限一併停用;已授予的角色設定保留,重新啟用後恢復。重新啟用只會啟用這一個模組,子模組要逐一開啟。此設定影響全平台。",
+      "cancel": "取消",
+      "confirm": "停用"
+    },
+    "errors": {
+      "FORBIDDEN": "只有根組織能變更模組與權限的啟用狀態。",
+      "NOT_FOUND": "找不到這個模組或權限,可能已被移除,請重新整理。",
+      "UNEXPECTED": "操作失敗,請稍後再試。"
+    }
   }
 }
