@@ -13,6 +13,11 @@ on:
         required: true
         type: choice
         options: [dev, staging, production]
+      force:
+        description: "全部重部署(忽略「只部署改到的 app」判斷;第一次部署或 Cloud Run 讀不到 tag 時會自動視為全部)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -39,6 +44,8 @@ jobs:
           fi
 
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 只部署改到的 app:要拿 git 歷史與上次部署的 SHA 比
 
       - name: 環境參數
         id: cfg
@@ -83,21 +90,52 @@ jobs:
 
       - run: gcloud auth configure-docker asia-east1-docker.pkg.dev --quiet
 
+      # 只部署改到的 app:image tag = git SHA,所以 Cloud Run 上目前跑的 image 就是「上次部署的 commit」。
+      # 以它為 base 跑 turbo ls --affected(依 workspace 依賴圖:改 packages/ui 會讓 admin 受影響、改 @repo/domain 會讓 api 受影響)。
+      # 讀不到 tag(第一次部署)、base 不在歷史裡(force push)、或 inputs.force 時 → 全部部署。
+      - name: 受影響的 app(比對該環境目前部署的 SHA)
+        id: affected
+        run: |
+          decide() { # $1=服務名 $2=package 名 → 印 true/false
+            local img base
+            img=$(gcloud run services describe "$1" --region=$REGION --format='value(spec.template.spec.containers[0].image)' 2>/dev/null || true)
+            base=${img##*:}; base=${base%-*}
+            if [ "${{ inputs.force }}" = "true" ] || [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then echo true; return; fi
+            if [ "$base" = "$(git rev-parse --short HEAD)" ]; then echo false; return; fi
+            local list
+            list=$(TURBO_SCM_BASE="$base" npx --yes turbo@$(node -p "require('./package.json').devDependencies.turbo.replace(/[^0-9.]/g,'')") ls --affected --output json | jq -r '.packages.items[].name' | tr '\n' ' ')
+            case " $list " in *" $2 "*) echo true ;; *) echo false ;; esac
+          }
+          api=$(decide cookhome-api${{ steps.cfg.outputs.suffix }} @repo/api)
+          admin=$(decide cookhome-admin${{ steps.cfg.outputs.suffix }} @repo/admin)
+          migrator=$(decide cookhome-api${{ steps.cfg.outputs.suffix }} @repo/db-migrator)
+          migrate=false; { [ "$api" = true ] || [ "$migrator" = true ]; } && migrate=true
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "admin=$admin" >> "$GITHUB_OUTPUT"
+          echo "migrate=$migrate" >> "$GITHUB_OUTPUT"
+          echo "::notice::部署判斷:api=$api admin=$admin migrate→seed=$migrate(force=${{ inputs.force }})"
+
       # image tag = 分支 HEAD 的 git SHA;admin 是 Vite,VITE_* build 時烘入 → 每環境各一顆
-      - name: build + push
+      - name: build + push api
+        if: steps.affected.outputs.api == 'true'
         run: |
           docker build -f apps/api/Dockerfile -t $REGISTRY/api:${{ steps.cfg.outputs.sha }} .
+          docker push $REGISTRY/api:${{ steps.cfg.outputs.sha }}
+
+      - name: build + push admin
+        if: steps.affected.outputs.admin == 'true'
+        run: |
           docker build -f apps/admin/Dockerfile \
             -t $REGISTRY/admin:${{ steps.cfg.outputs.sha }}${{ steps.cfg.outputs.suffix }} \
             --build-arg VITE_GRAPHQL_ENDPOINT=${{ steps.cfg.outputs.api_url }}/graphql .
-          docker push $REGISTRY/api:${{ steps.cfg.outputs.sha }}
           docker push $REGISTRY/admin:${{ steps.cfg.outputs.sha }}${{ steps.cfg.outputs.suffix }}
 
       # api 的環境變數兩個來源(docs/deployment.md「四、環境變數管理」):
       #   非機密 → deploy/env/<環境>.yaml(--env-vars-file 整包取代既有明文變數;GRAPHQL_SANDBOX 也在檔內)
       #   機密   → Secret Manager(--set-secrets;secret 名稱由上方「環境參數」步驟決定)
       # 兩個旗標各管各的:--env-vars-file 只取代明文變數,不會清掉 --set-secrets 掛入的 secret 變數
-      - name: deploy
+      - name: deploy api
+        if: steps.affected.outputs.api == 'true'
         run: |
           gcloud run deploy cookhome-api${{ steps.cfg.outputs.suffix }} --region=$REGION \
             --image=$REGISTRY/api:${{ steps.cfg.outputs.sha }} \
@@ -105,6 +143,10 @@ jobs:
             --env-vars-file=deploy/env/${{ inputs.environment }}.yaml \
             --set-secrets=MONGODB_URI=${{ steps.cfg.outputs.secret }}:latest,FIELD_ENCRYPTION_KEY=${{ steps.cfg.outputs.enc_secret }}:latest,JWT_SECRET=${{ steps.cfg.outputs.jwt_secret }}:latest,RESEND_API_KEY=${{ steps.cfg.outputs.resend_secret }}:latest \
             --quiet
+
+      - name: deploy admin
+        if: steps.affected.outputs.admin == 'true'
+        run: |
           gcloud run deploy cookhome-admin${{ steps.cfg.outputs.suffix }} --region=$REGION \
             --image=$REGISTRY/admin:${{ steps.cfg.outputs.sha }}${{ steps.cfg.outputs.suffix }} \
             --port=8080 --allow-unauthenticated --min-instances=0 --max-instances=2 --quiet
@@ -112,18 +154,22 @@ jobs:
       # 部署成功後對該環境資料庫跑「遷移 → 種子」(ADR-0002:CI runner 直連,不放 server 啟動)。
       # 只裝 db-migrator 及其依賴;MONGOMS_DISABLE_POSTINSTALL 避免下載測試用的 mongod 二進位檔。
       - uses: pnpm/action-setup@v4 # 版本讀 package.json 的 packageManager 欄位
+        if: steps.affected.outputs.migrate == 'true'
 
       - uses: actions/setup-node@v4
+        if: steps.affected.outputs.migrate == 'true'
         with:
           node-version: 22
           cache: pnpm
 
       - name: 安裝 db-migrator 依賴
+        if: steps.affected.outputs.migrate == 'true'
         run: pnpm install --frozen-lockfile --filter @repo/db-migrator...
         env:
           MONGOMS_DISABLE_POSTINSTALL: "1"
 
       - name: migrate → seed
+        if: steps.affected.outputs.migrate == 'true'
         env:
           ROOT_ADMIN_ACCOUNT: root
           ROOT_ADMIN_EMAIL: a0987837233@gmail.com
