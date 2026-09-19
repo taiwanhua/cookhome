@@ -5,9 +5,9 @@ import {
   authHandlers,
   authWorld,
   graphqlError,
-} from "../../../test/msw/auth-handlers";
-import { api, server } from "../../../test/msw/server";
-import { renderApp } from "../../../test/render";
+} from "@/test/msw/auth-handlers";
+import { api, server } from "@/test/msw/server";
+import { renderApp } from "@/test/render";
 
 describe("忘記密碼頁(/forgot-password)", () => {
   it("送出 Email 後顯示已寄出,不透露帳號是否存在(不存在的 Email 畫面相同)", async () => {

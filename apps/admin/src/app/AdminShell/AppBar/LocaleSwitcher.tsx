@@ -4,7 +4,7 @@ import { type Locale, localeLabels, locales } from "@repo/i18n";
 import { MenuItem } from "@repo/ui/menu";
 import { Select } from "@repo/ui/select";
 
-import { useLocaleStore } from "../../../stores/useLocaleStore";
+import { useLocaleStore } from "@/stores/useLocaleStore";
 
 /** AppBar 的語言切換器:語言只記 localStorage(I18N-05),經 `useLocaleStore` 寫回。 */
 export const LocaleSwitcher = () => {

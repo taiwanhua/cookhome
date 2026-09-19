@@ -10,8 +10,9 @@ import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { useMe } from "../../../hooks/useMe";
-import { useSession } from "../../../hooks/useSession";
+import { useMe } from "@/hooks/useMe";
+import { useSession } from "@/hooks/useSession";
+
 import { AssignRolesDialog } from "./AssignRolesDialog/AssignRolesDialog";
 import { OrgChangeDialog } from "./OrgChangeDialog/OrgChangeDialog";
 import { OrgPickerDialog } from "./OrgPickerDialog/OrgPickerDialog";

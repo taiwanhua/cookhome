@@ -2,7 +2,8 @@ import { useState } from "react";
 
 import { UserOrgRemovalPolicy, useSetUserOrgsMutation } from "@repo/graphql";
 
-import { useSession } from "../../../hooks/useSession";
+import { useSession } from "@/hooks/useSession";
+
 import {
   type UserManagerErrorCode,
   userManagerErrorOf,

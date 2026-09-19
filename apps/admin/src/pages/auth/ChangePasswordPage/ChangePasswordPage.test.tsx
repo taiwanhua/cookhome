@@ -3,10 +3,10 @@ import { screen, waitFor } from "@testing-library/react";
 
 import { useRecipesQuery } from "@repo/graphql";
 
-import { useSession } from "../../../hooks/useSession";
-import { authWorld, graphqlError } from "../../../test/msw/auth-handlers";
-import { api, server } from "../../../test/msw/server";
-import { renderApp } from "../../../test/render";
+import { useSession } from "@/hooks/useSession";
+import { authWorld, graphqlError } from "@/test/msw/auth-handlers";
+import { api, server } from "@/test/msw/server";
+import { renderApp } from "@/test/render";
 
 const fillAndSubmit = async (
   user: ReturnType<typeof renderApp>["user"],

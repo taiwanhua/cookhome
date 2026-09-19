@@ -1,5 +1,5 @@
-import { HomeView } from "../../components/HomeView/HomeView";
-import { enableStaticRendering } from "../../i18n/set-request-locale";
+import { HomeView } from "@/components/HomeView/HomeView";
+import { enableStaticRendering } from "@/i18n/set-request-locale";
 
 export const revalidate = 60;
 

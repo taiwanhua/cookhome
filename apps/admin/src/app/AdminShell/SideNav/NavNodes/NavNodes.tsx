@@ -1,7 +1,8 @@
 import { ModuleSidebarType } from "@repo/graphql";
 import { List } from "@repo/ui/list";
 
-import type { NavNode } from "../../../../lib/module-tree";
+import type { NavNode } from "@/lib/module-tree";
+
 import { NavGroupItem } from "./NavItems/NavGroupItem";
 import { NavLinkItem } from "./NavItems/NavLinkItem";
 import { CHILD_INDENT } from "./NavItems/nav-item-styles";
