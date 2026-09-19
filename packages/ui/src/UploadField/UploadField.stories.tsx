@@ -24,6 +24,14 @@ export const WithoutHint: Story = { args: { hint: undefined } };
 
 export const Disabled: Story = { args: { isDisabled: true } };
 
+/** 編輯情境:一開啟就顯示既有的圖片,選新檔會取代它、按移除回到空狀態(#186 ②) */
+export const WithInitialPreview: Story = {
+  args: {
+    initialPreviewUrl:
+      "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='40' height='40' fill='%23f97316'/></svg>",
+  },
+};
+
 /** 只收 PDF,示範 accept 換成別的型別 */
 export const PdfOnly: Story = {
   args: {

@@ -944,6 +944,55 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
     });
   });
 
+  describe("租戶頂層保護(ADR-0009:停用 / 刪除 / 搬移只有根組織能做)", () => {
+    it("租戶內的人動不了自己的租戶頂層:三個動作一律 FORBIDDEN,資料不動", async () => {
+      const disable = await api.graphql(
+        SET_ORG_ENABLED,
+        { input: { id: String(tenantAId), enabled: false } },
+        { accessToken: tenantAdminToken },
+      );
+      expect(disable.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await enabledOf(tenantAId)).toBe(true);
+
+      const removed = await api.graphql(
+        DELETE_ORG,
+        { input: { id: String(tenantAId) } },
+        { accessToken: tenantAdminToken },
+      );
+      expect(removed.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await deletedAtOf(tenantAId)).toBeNull();
+
+      // 租戶頂層的保護排在 CYCLIC_MOVE / CROSS_TENANT 之前
+      const moved = await api.graphql(
+        MOVE_ORG,
+        { input: { id: String(tenantAId), newParentId: String(deptOneId) } },
+        { accessToken: tenantAdminToken },
+      );
+      expect(moved.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await parentIdOf(tenantAId)).toBe(String(rootOrgId));
+    });
+
+    it("根組織停用得了租戶頂層;租戶內的人對子組織照樣做得到", async () => {
+      const tenantCId = await createOrg(api.connection, { name: "租戶C" });
+      const byRoot = await api.graphql(
+        SET_ORG_ENABLED,
+        { input: { id: String(tenantCId), enabled: false } },
+        { accessToken: rootToken },
+      );
+      expect(byRoot.errors).toBeUndefined();
+      expect(await enabledOf(tenantCId)).toBe(false);
+
+      const childId = await newOrgUnderTenantA("租戶內子組織");
+      const byTenantAdmin = await api.graphql(
+        SET_ORG_ENABLED,
+        { input: { id: String(childId), enabled: false } },
+        { accessToken: tenantAdminToken },
+      );
+      expect(byTenantAdmin.errors).toBeUndefined();
+      expect(await enabledOf(childId)).toBe(false);
+    });
+  });
+
   describe("審計:每個寫入動作都記在操作者身上", () => {
     it("actorId 是操作者、orgId 是操作者的當前組織", async () => {
       const created = await api.graphql<CreateChildOrgData>(

@@ -5,12 +5,14 @@ import MuiStack from "@mui/material/Stack";
 import MuiTypography from "@mui/material/Typography";
 
 export interface UploadFieldPreviewProps {
-  /** 已選擇的檔案(檔名與大小取自它) */
-  file: File;
+  /** 這次選的檔案(檔名與大小取自它);顯示既有圖片時為 null */
+  file: File | null;
   /** 圖片檔的預覽網址;非圖片或環境不支援時為 null,改顯示佔位方塊 */
   previewUrl: string | null;
   /** 顯示成「24 KB」這類人類可讀的大小 */
   formatSize: (bytes: number) => string;
+  /** `file` 為 null(顯示既有圖片)時的說明文字 */
+  fallbackLabel: string;
 }
 
 /** 已選檔案的預覽列(Figma Draft/UploadField State=Preview;`UploadField` 專用子元件)。 */
@@ -18,6 +20,7 @@ export const UploadFieldPreview = ({
   file,
   previewUrl,
   formatSize,
+  fallbackLabel,
 }: UploadFieldPreviewProps) => (
   <MuiStack
     direction="row"
@@ -39,11 +42,13 @@ export const UploadFieldPreview = ({
     />
     <MuiStack spacing={0.25} sx={{ minWidth: 0 }}>
       <MuiTypography variant="body2" noWrap>
-        {file.name}
+        {file === null ? fallbackLabel : file.name}
       </MuiTypography>
-      <MuiTypography variant="caption" sx={{ color: "text.secondary" }}>
-        {formatSize(file.size)}
-      </MuiTypography>
+      {file !== null && (
+        <MuiTypography variant="caption" sx={{ color: "text.secondary" }}>
+          {formatSize(file.size)}
+        </MuiTypography>
+      )}
     </MuiStack>
   </MuiStack>
 );

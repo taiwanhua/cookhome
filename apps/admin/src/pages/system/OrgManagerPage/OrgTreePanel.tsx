@@ -13,7 +13,10 @@ import type { OrgNodeLike } from "@/lib/org-tree";
 export interface OrgTreePanelProps {
   nodes: readonly OrgNodeLike[];
   isLoading: boolean;
-  /** 根組織視角:樹根是根組織,它的直接子組織才是租戶(租戶視角看不到這層,標籤也就不出現) */
+  /**
+   * 樹根是**平台根組織**(`org(id).isSystem`)。租戶視角的樹根是租戶頂層,
+   * api 也把它的 `parentId` 回成 null,所以這個旗標不能從樹的資料推(#186 ④)。
+   */
   isRootPerspective: boolean;
   selectedOrgId: string | null;
   onSelectOrg: (orgId: string | null) => void;
@@ -45,7 +48,10 @@ export const OrgTreePanel = ({
 }: OrgTreePanelProps) => {
   const t = useTranslations("admin.orgManager.tree");
 
-  /** 租戶頂層 = 根組織的直接子組織;租戶視角看不到根組織,所以這個標籤只在根組織視角出現。 */
+  /**
+   * 「租戶」= **父節點是平台根組織**的節點,不是「父節點是樹根」(#186 ④)。
+   * 租戶視角的樹根是租戶頂層,它的子組織只是部門 / 分店,不掛這個標籤。
+   */
   const tenantTopIds = useMemo(
     () =>
       new Set(

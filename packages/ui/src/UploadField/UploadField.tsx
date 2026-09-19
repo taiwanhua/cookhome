@@ -2,8 +2,8 @@
 
 import MuiBox from "@mui/material/Box";
 import MuiStack from "@mui/material/Stack";
-import { styled, type SxProps, type Theme } from "@mui/material/styles";
 import MuiTypography from "@mui/material/Typography";
+import { type SxProps, type Theme, styled } from "@mui/material/styles";
 import type { ChangeEvent, DragEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -27,6 +27,13 @@ export interface UploadFieldProps {
   hint?: ReactNode;
   /** 受控值;不傳則由元件自行保存所選檔案 */
   value?: File | null;
+  /**
+   * 已經存在的圖片網址(編輯情境:組織現有的商標)。還沒選新檔之前就顯示它的預覽,
+   * 選了新檔即被新檔的預覽取代,按「移除」則一併清掉、回到空狀態(#186 ②)。
+   */
+  initialPreviewUrl?: string | null;
+  /** `initialPreviewUrl` 的預覽說明文字(既有圖片沒有檔名與大小可顯示) */
+  initialPreviewLabel?: string;
   /** 選到或清除檔案時觸發;清除時給 null */
   onChange?: (file: File | null) => void;
   /** 允許的型別:MIME(`image/png`)、萬用 MIME(`image/*`)或副檔名(`.png`) */
@@ -92,6 +99,8 @@ export const UploadField = ({
   label,
   hint,
   value,
+  initialPreviewUrl = null,
+  initialPreviewLabel = "目前的圖片",
   onChange,
   accept,
   maxSize,
@@ -102,10 +111,18 @@ export const UploadField = ({
   const [internalFile, setInternalFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  /** 按過「移除」之後就不再退回既有圖片(移除一律回到空狀態) */
+  const [isInitialCleared, setIsInitialCleared] = useState(false);
 
   const file = value === undefined ? internalFile : value;
+  /** 還沒選新檔、也還沒被移除時,顯示的是既有圖片 */
+  const isShowingInitial =
+    file === null &&
+    !isInitialCleared &&
+    initialPreviewUrl !== null &&
+    initialPreviewUrl !== "";
 
-  const previewUrl = useMemo(() => {
+  const filePreviewUrl = useMemo(() => {
     if (
       file === null ||
       !file.type.startsWith("image/") ||
@@ -118,12 +135,15 @@ export const UploadField = ({
 
   useEffect(
     () => () => {
-      if (previewUrl !== null) {
-        URL.revokeObjectURL(previewUrl);
+      if (filePreviewUrl !== null) {
+        URL.revokeObjectURL(filePreviewUrl);
       }
     },
-    [previewUrl],
+    [filePreviewUrl],
   );
+
+  /** 預覽的來源:選了新檔就是新檔,否則是既有圖片(都沒有就沒有預覽) */
+  const previewUrl = isShowingInitial ? initialPreviewUrl : filePreviewUrl;
 
   const reject = (rejected: File, code: UploadFieldErrorCode) => {
     const message =
@@ -177,6 +197,7 @@ export const UploadField = ({
   const handleClear = () => {
     setErrorMessage(null);
     setInternalFile(null);
+    setIsInitialCleared(true);
     onChange?.(null);
   };
 
@@ -212,7 +233,8 @@ export const UploadField = ({
             flex: 1,
             minWidth: 0,
             alignItems: "center",
-            justifyContent: file === null ? "center" : "flex-start",
+            justifyContent:
+              file === null && !isShowingInitial ? "center" : "flex-start",
             cursor: isDisabled ? "not-allowed" : "pointer",
           }}
         >
@@ -225,11 +247,14 @@ export const UploadField = ({
             aria-label={label ?? "選擇檔案"}
             sx={visuallyHiddenInputSx}
           />
-          {file === null ? (
+          {file === null && !isShowingInitial ? (
             <MuiStack spacing={0.5} sx={{ alignItems: "center" }}>
               <MuiTypography variant="body2">點擊或拖曳圖片至此</MuiTypography>
               {hint !== undefined && (
-                <MuiTypography variant="caption" sx={{ color: "text.secondary" }}>
+                <MuiTypography
+                  variant="caption"
+                  sx={{ color: "text.secondary" }}
+                >
                   {hint}
                 </MuiTypography>
               )}
@@ -239,10 +264,11 @@ export const UploadField = ({
               file={file}
               previewUrl={previewUrl}
               formatSize={formatSize}
+              fallbackLabel={initialPreviewLabel}
             />
           )}
         </MuiBox>
-        {file !== null && (
+        {(file !== null || isShowingInitial) && (
           <Button
             variant="text"
             size="small"
@@ -254,7 +280,11 @@ export const UploadField = ({
         )}
       </MuiBox>
       {errorMessage !== null && (
-        <MuiTypography variant="caption" sx={{ color: "error.main" }} role="alert">
+        <MuiTypography
+          variant="caption"
+          sx={{ color: "error.main" }}
+          role="alert"
+        >
           {errorMessage}
         </MuiTypography>
       )}
