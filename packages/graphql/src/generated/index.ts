@@ -50,6 +50,14 @@ export type CreateChildOrgInput = {
   parentId: Scalars['ID']['input'];
 };
 
+export type CreateFieldInput = {
+  categoryId: Scalars['ID']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  label: Scalars['String']['input'];
+  order?: InputMaybe<Scalars['Int']['input']>;
+  value: Scalars['String']['input'];
+};
+
 export type CreateRecipeInput = {
   cookMinutes?: InputMaybe<Scalars['Int']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
@@ -178,6 +186,49 @@ export type DeletePayload = {
   success: Scalars['Boolean']['output'];
 };
 
+export type Field = {
+  __typename?: 'Field';
+  categoryId: Scalars['ID']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  label: Scalars['String']['output'];
+  order: Scalars['Int']['output'];
+  source: FieldSource;
+  value: Scalars['String']['output'];
+};
+
+export type FieldCategoriesPayload = {
+  __typename?: 'FieldCategoriesPayload';
+  items: Array<FieldCategory>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type FieldCategory = {
+  __typename?: 'FieldCategory';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  key: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type FieldPayload = {
+  __typename?: 'FieldPayload';
+  field: Field;
+};
+
+/** 欄位選項的來源:全域種子 / 當前組織自訂(field-manager.md) */
+export enum FieldSource {
+  Global = 'GLOBAL',
+  Own = 'OWN'
+}
+
+export type FieldsPayload = {
+  __typename?: 'FieldsPayload';
+  items: Array<Field>;
+  totalCount: Scalars['Int']['output'];
+};
+
 export type Ingredient = {
   __typename?: 'Ingredient';
   amount: Scalars['String']['output'];
@@ -290,6 +341,7 @@ export type Mutation = {
   assignUserRoles: UserPayload;
   changePassword: ChangePasswordPayload;
   createChildOrg: OrgPayload;
+  createField: FieldPayload;
   createRecipe: Recipe;
   createUploadUrl: UploadUrlPayload;
   createUser: UserPayload;
@@ -302,6 +354,7 @@ export type Mutation = {
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
   saveDataScopeRule: SaveDataScopeRulePayload;
+  setFieldEnabled: FieldPayload;
   setModuleEnabled: ModuleAdminPayload;
   setOrgEnabled: OrgPayload;
   setOrgVisibility: OrgPayload;
@@ -311,6 +364,7 @@ export type Mutation = {
   setUserOrgs: SetUserOrgsPayload;
   switchOrg: SwitchOrgPayload;
   transferOrgOwner: OrgPayload;
+  updateField: FieldPayload;
   updateOrg: OrgPayload;
   updateUser: UserPayload;
 };
@@ -328,6 +382,11 @@ export type MutationChangePasswordArgs = {
 
 export type MutationCreateChildOrgArgs = {
   input: CreateChildOrgInput;
+};
+
+
+export type MutationCreateFieldArgs = {
+  input: CreateFieldInput;
 };
 
 
@@ -376,6 +435,11 @@ export type MutationSaveDataScopeRuleArgs = {
 };
 
 
+export type MutationSetFieldEnabledArgs = {
+  input: SetFieldEnabledInput;
+};
+
+
 export type MutationSetModuleEnabledArgs = {
   input: SetModuleEnabledInput;
 };
@@ -418,6 +482,11 @@ export type MutationSwitchOrgArgs = {
 
 export type MutationTransferOrgOwnerArgs = {
   input: TransferOrgOwnerInput;
+};
+
+
+export type MutationUpdateFieldArgs = {
+  input: UpdateFieldInput;
 };
 
 
@@ -499,6 +568,8 @@ export type Query = {
   __typename?: 'Query';
   dataScopeRule: DataScopeRulePayload;
   dataScopeTargets: DataScopeTargetsPayload;
+  fieldCategories: FieldCategoriesPayload;
+  fields: FieldsPayload;
   me: Me;
   moduleTree: Array<ModuleAdminNode>;
   org: Org;
@@ -513,6 +584,11 @@ export type Query = {
 
 export type QueryDataScopeRuleArgs = {
   collection: Scalars['String']['input'];
+};
+
+
+export type QueryFieldsArgs = {
+  categoryId: Scalars['ID']['input'];
 };
 
 
@@ -579,6 +655,11 @@ export type SaveDataScopeRuleInput = {
 export type SaveDataScopeRulePayload = {
   __typename?: 'SaveDataScopeRulePayload';
   rule: DataScopeRule;
+};
+
+export type SetFieldEnabledInput = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
 };
 
 export type SetModuleEnabledInput = {
@@ -653,6 +734,13 @@ export type UnqualifiedRole = {
   reasons: Array<RoleUnqualifiedReason>;
   roleId: Scalars['ID']['output'];
   roleName: Scalars['String']['output'];
+};
+
+export type UpdateFieldInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  label?: InputMaybe<Scalars['String']['input']>;
+  order?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type UpdateOrgInput = {
@@ -831,6 +919,41 @@ export type SaveDataScopeRuleMutationVariables = Exact<{
 
 export type SaveDataScopeRuleMutation = { __typename?: 'Mutation', saveDataScopeRule: { __typename?: 'SaveDataScopeRulePayload', rule: { __typename?: 'DataScopeRule', collection: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } } };
 
+export type FieldFieldsFragment = { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource };
+
+export type FieldCategoriesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type FieldCategoriesQuery = { __typename?: 'Query', fieldCategories: { __typename?: 'FieldCategoriesPayload', totalCount: number, items: Array<{ __typename?: 'FieldCategory', id: string, key: string, name: string, description?: string | null }> } };
+
+export type FieldsQueryVariables = Exact<{
+  categoryId: Scalars['ID']['input'];
+}>;
+
+
+export type FieldsQuery = { __typename?: 'Query', fields: { __typename?: 'FieldsPayload', totalCount: number, items: Array<{ __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource }> } };
+
+export type CreateFieldMutationVariables = Exact<{
+  input: CreateFieldInput;
+}>;
+
+
+export type CreateFieldMutation = { __typename?: 'Mutation', createField: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource } } };
+
+export type UpdateFieldMutationVariables = Exact<{
+  input: UpdateFieldInput;
+}>;
+
+
+export type UpdateFieldMutation = { __typename?: 'Mutation', updateField: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource } } };
+
+export type SetFieldEnabledMutationVariables = Exact<{
+  input: SetFieldEnabledInput;
+}>;
+
+
+export type SetFieldEnabledMutation = { __typename?: 'Mutation', setFieldEnabled: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource } } };
+
 export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
 
 export type ModuleTreeQueryVariables = Exact<{ [key: string]: never; }>;
@@ -1003,6 +1126,18 @@ export type AssignUserRolesMutationVariables = Exact<{
 export type AssignUserRolesMutation = { __typename?: 'Mutation', assignUserRoles: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, ownerOrgId?: string | null, ownerOrgName?: string | null, outOfScope: boolean }> } } };
 
 
+export const FieldFieldsFragmentDoc = `
+    fragment FieldFields on Field {
+  id
+  categoryId
+  label
+  value
+  order
+  enabled
+  description
+  source
+}
+    `;
 export const ModuleAdminNodeFieldsFragmentDoc = `
     fragment ModuleAdminNodeFields on ModuleAdminNode {
   id
@@ -1436,6 +1571,167 @@ export const useSaveDataScopeRuleMutation = <
 
 
 useSaveDataScopeRuleMutation.fetcher = (client: GraphQLClient, variables: SaveDataScopeRuleMutationVariables, headers?: RequestInit['headers']) => fetcher<SaveDataScopeRuleMutation, SaveDataScopeRuleMutationVariables>(client, SaveDataScopeRuleDocument, variables, headers);
+
+export const FieldCategoriesDocument = `
+    query FieldCategories {
+  fieldCategories {
+    items {
+      id
+      key
+      name
+      description
+    }
+    totalCount
+  }
+}
+    `;
+
+export const useFieldCategoriesQuery = <
+      TData = FieldCategoriesQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: FieldCategoriesQueryVariables,
+      options?: Omit<UseQueryOptions<FieldCategoriesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FieldCategoriesQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FieldCategoriesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['FieldCategories'] : ['FieldCategories', variables],
+    queryFn: fetcher<FieldCategoriesQuery, FieldCategoriesQueryVariables>(client, FieldCategoriesDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFieldCategoriesQuery.getKey = (variables?: FieldCategoriesQueryVariables) => variables === undefined ? ['FieldCategories'] : ['FieldCategories', variables];
+
+
+useFieldCategoriesQuery.fetcher = (client: GraphQLClient, variables?: FieldCategoriesQueryVariables, headers?: RequestInit['headers']) => fetcher<FieldCategoriesQuery, FieldCategoriesQueryVariables>(client, FieldCategoriesDocument, variables, headers);
+
+export const FieldsDocument = `
+    query Fields($categoryId: ID!) {
+  fields(categoryId: $categoryId) {
+    items {
+      ...FieldFields
+    }
+    totalCount
+  }
+}
+    ${FieldFieldsFragmentDoc}`;
+
+export const useFieldsQuery = <
+      TData = FieldsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FieldsQueryVariables,
+      options?: Omit<UseQueryOptions<FieldsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FieldsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FieldsQuery, TError, TData>(
+      {
+    queryKey: ['Fields', variables],
+    queryFn: fetcher<FieldsQuery, FieldsQueryVariables>(client, FieldsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFieldsQuery.getKey = (variables: FieldsQueryVariables) => ['Fields', variables];
+
+
+useFieldsQuery.fetcher = (client: GraphQLClient, variables: FieldsQueryVariables, headers?: RequestInit['headers']) => fetcher<FieldsQuery, FieldsQueryVariables>(client, FieldsDocument, variables, headers);
+
+export const CreateFieldDocument = `
+    mutation CreateField($input: CreateFieldInput!) {
+  createField(input: $input) {
+    field {
+      ...FieldFields
+    }
+  }
+}
+    ${FieldFieldsFragmentDoc}`;
+
+export const useCreateFieldMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateFieldMutation, TError, CreateFieldMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateFieldMutation, TError, CreateFieldMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateField'],
+    mutationFn: (variables?: CreateFieldMutationVariables) => fetcher<CreateFieldMutation, CreateFieldMutationVariables>(client, CreateFieldDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateFieldMutation.fetcher = (client: GraphQLClient, variables: CreateFieldMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateFieldMutation, CreateFieldMutationVariables>(client, CreateFieldDocument, variables, headers);
+
+export const UpdateFieldDocument = `
+    mutation UpdateField($input: UpdateFieldInput!) {
+  updateField(input: $input) {
+    field {
+      ...FieldFields
+    }
+  }
+}
+    ${FieldFieldsFragmentDoc}`;
+
+export const useUpdateFieldMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateFieldMutation, TError, UpdateFieldMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateFieldMutation, TError, UpdateFieldMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateField'],
+    mutationFn: (variables?: UpdateFieldMutationVariables) => fetcher<UpdateFieldMutation, UpdateFieldMutationVariables>(client, UpdateFieldDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateFieldMutation.fetcher = (client: GraphQLClient, variables: UpdateFieldMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateFieldMutation, UpdateFieldMutationVariables>(client, UpdateFieldDocument, variables, headers);
+
+export const SetFieldEnabledDocument = `
+    mutation SetFieldEnabled($input: SetFieldEnabledInput!) {
+  setFieldEnabled(input: $input) {
+    field {
+      ...FieldFields
+    }
+  }
+}
+    ${FieldFieldsFragmentDoc}`;
+
+export const useSetFieldEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetFieldEnabledMutation, TError, SetFieldEnabledMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetFieldEnabledMutation, TError, SetFieldEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['SetFieldEnabled'],
+    mutationFn: (variables?: SetFieldEnabledMutationVariables) => fetcher<SetFieldEnabledMutation, SetFieldEnabledMutationVariables>(client, SetFieldEnabledDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetFieldEnabledMutation.fetcher = (client: GraphQLClient, variables: SetFieldEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetFieldEnabledMutation, SetFieldEnabledMutationVariables>(client, SetFieldEnabledDocument, variables, headers);
 
 export const ModuleTreeDocument = `
     query ModuleTree {

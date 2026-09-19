@@ -27,6 +27,10 @@ import {
   DemoItemTwo,
   DemoItemTwoSchema,
 } from "./schemas/demo-item-two.schema";
+import {
+  FieldCategory,
+  FieldCategorySchema,
+} from "./schemas/field-category.schema";
 import { Field, FieldSchema } from "./schemas/field.schema";
 import { Module as ModuleEntity, ModuleSchema } from "./schemas/module.schema";
 import { Org, OrgSchema } from "./schemas/org.schema";
@@ -52,6 +56,7 @@ export type DataScopeTargetDocument = HydratedDocument<DataScopeTarget>;
 export type DemoItemOneDocument = HydratedDocument<DemoItemOne>;
 export type DemoItemTwoDocument = HydratedDocument<DemoItemTwo>;
 export type FieldDocument = HydratedDocument<Field>;
+export type FieldCategoryDocument = HydratedDocument<FieldCategory>;
 
 /** users(關聯歸屬資料:所屬組織走 org_user,資料層不自動過濾,ADR-0005)。 */
 @Injectable()
@@ -237,6 +242,20 @@ export class FieldsRepository extends BaseRepository<Field, FieldDocument> {
   }
 }
 
+/** field_categories(全域種子:租戶不可自訂,不掛 tenantScope,ADR-0005)。 */
+@Injectable()
+export class FieldCategoriesRepository extends BaseRepository<
+  FieldCategory,
+  FieldCategoryDocument
+> {
+  constructor(
+    @InjectModel(FieldCategory.name)
+    model: RepositoryModel<FieldCategory, FieldCategoryDocument>,
+  ) {
+    super(model);
+  }
+}
+
 /**
  * 資料層的 Nest 接線:把 BaseRepository 子類與 RelationService 註冊為 provider,
  * 功能模組只注入這些出口,不直接拿 Model(ESLint `@repo/no-raw-model-query`,ADR-0005)。
@@ -260,6 +279,7 @@ export class FieldsRepository extends BaseRepository<Field, FieldDocument> {
       { name: DemoItemOne.name, schema: DemoItemOneSchema },
       { name: DemoItemTwo.name, schema: DemoItemTwoSchema },
       { name: Field.name, schema: FieldSchema },
+      { name: FieldCategory.name, schema: FieldCategorySchema },
     ]),
   ],
   providers: [
@@ -277,6 +297,7 @@ export class FieldsRepository extends BaseRepository<Field, FieldDocument> {
     DemoItemsOneRepository,
     DemoItemsTwoRepository,
     FieldsRepository,
+    FieldCategoriesRepository,
     {
       provide: RelationService,
       inject: [getModelToken(CoreRelationship.name)],
@@ -299,6 +320,7 @@ export class FieldsRepository extends BaseRepository<Field, FieldDocument> {
     DemoItemsOneRepository,
     DemoItemsTwoRepository,
     FieldsRepository,
+    FieldCategoriesRepository,
     RelationService,
   ],
 })

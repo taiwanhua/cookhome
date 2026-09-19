@@ -168,7 +168,7 @@ describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
     }
   });
 
-  it("field_categories:unique(key);fields:(categoryId, orgId)+ unique(key sparse)", () => {
+  it("field_categories:unique(key);fields:(categoryId, orgId)+ unique(key sparse)+ unique(categoryId, orgId, value)", () => {
     expect(
       findIndex(indexesOf(FieldCategory.name), { key: 1 })?.unique,
     ).toBe(true);
@@ -179,6 +179,10 @@ describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
     const fieldKey = findIndex(fieldIndexes, { key: 1 });
     expect(fieldKey?.unique).toBe(true);
     expect(fieldKey?.sparse).toBe(true);
+    // 同一類別、同一組織下 value 不可重複(field-manager.md「待辦」,#206)
+    expect(
+      findIndex(fieldIndexes, { categoryId: 1, orgId: 1, value: 1 })?.unique,
+    ).toBe(true);
   });
 
   it("demo_items_one / two:(orgId, createdAt)", () => {
