@@ -60,6 +60,8 @@ type RecipeList {
 | `ORG_NOT_DELETABLE`        | 刪除組織的前置檢查未過;`extensions.reasons` 逐項列出(`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG`)                                                                              | 依 reasons 逐項顯示中文原因,並引導改用停用                                       |
 | `RULE_INVALID`             | 資料範圍規則不合法:欄位不在目錄、運算子不符型別、值來源不符型別…;`extensions.path` 指到條件樹裡的位置、`extensions.reason` 是原因列舉(程式正本 `apps/api/src/data-scope/data-scope-error.ts` 與 `data-scope-rule.ts`) | 依 reason 顯示中文原因,並把錯誤標在 `path` 指到的那一列條件上                    |
 | `FIELD_VALUE_DUPLICATE`    | 欄位選項的 `value` 在同一類別下重複:本組織已有同 value 的自訂選項,或與該類別的全域種子選項同 value(程式正本 `apps/api/src/fields/fields-error.ts`)                                                                    | 把錯誤標在「值」欄位(`extensions.fields` 為 `["value"]`),要求改一個值            |
+| `ROLE_NOT_DELETABLE`       | 刪除角色的前置檢查未過;`extensions.reasons` 逐項列出(`HAS_GRANTS` / `SYSTEM_ROLE` / `TEMPLATE_COPY`;程式正本 `apps/api/src/roles/roles-error.ts`)                                                                     | 依 reasons 逐項顯示中文原因,並引導改用停用                                       |
+| `USER_NOT_ELIGIBLE`        | 角色的「加入使用者」候選規則未過:該使用者的所屬組織皆不在角色擁有組織的子樹內(ADR-0003)                                                                                                                               | 提示該使用者不在此角色的管轄範圍內,並重新載入候選清單(清單本來就只列有資格的人)  |
 
 錯誤的 `message` 給開發者看(英文);給使用者的繁體中文文案由前端依 code 對應,不從 api 傳。
 

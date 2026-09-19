@@ -69,6 +69,12 @@ export type CreateRecipeInput = {
   title: Scalars['String']['input'];
 };
 
+export type CreateRoleInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  ownerOrgId?: InputMaybe<Scalars['ID']['input']>;
+};
+
 export type CreateUploadUrlInput = {
   /** 允許 image/png / image/jpeg / image/webp */
   contentType: Scalars['String']['input'];
@@ -186,6 +192,10 @@ export type DeletePayload = {
   success: Scalars['Boolean']['output'];
 };
 
+export type DeleteRoleInput = {
+  id: Scalars['ID']['input'];
+};
+
 export type Field = {
   __typename?: 'Field';
   categoryId: Scalars['ID']['output'];
@@ -227,6 +237,11 @@ export type FieldsPayload = {
   __typename?: 'FieldsPayload';
   items: Array<Field>;
   totalCount: Scalars['Int']['output'];
+};
+
+export type GrantRoleUsersInput = {
+  roleId: Scalars['ID']['input'];
+  userIds: Array<Scalars['ID']['input']>;
 };
 
 export type Ingredient = {
@@ -343,9 +358,12 @@ export type Mutation = {
   createChildOrg: OrgPayload;
   createField: FieldPayload;
   createRecipe: Recipe;
+  createRole: RolePayload;
   createUploadUrl: UploadUrlPayload;
   createUser: UserPayload;
   deleteOrg: DeletePayload;
+  deleteRole: DeletePayload;
+  grantRoleUsers: RoleUsersPayload;
   login: LoginPayload;
   logout: LogoutPayload;
   logoutAllDevices: LogoutAllDevicesPayload;
@@ -353,19 +371,23 @@ export type Mutation = {
   provisionTenant: ProvisionTenantPayload;
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
+  revokeRoleUsers: RoleUsersPayload;
   saveDataScopeRule: SaveDataScopeRulePayload;
+  saveRoleMatrix: RoleMatrixPayload;
   setFieldEnabled: FieldPayload;
   setModuleEnabled: ModuleAdminPayload;
   setOrgEnabled: OrgPayload;
   setOrgVisibility: OrgPayload;
   setPassword: SetPasswordPayload;
   setPermissionEnabled: PermissionAdminPayload;
+  setRoleEnabled: RolePayload;
   setUserEnabled: UserPayload;
   setUserOrgs: SetUserOrgsPayload;
   switchOrg: SwitchOrgPayload;
   transferOrgOwner: OrgPayload;
   updateField: FieldPayload;
   updateOrg: OrgPayload;
+  updateRole: RolePayload;
   updateUser: UserPayload;
 };
 
@@ -395,6 +417,11 @@ export type MutationCreateRecipeArgs = {
 };
 
 
+export type MutationCreateRoleArgs = {
+  input: CreateRoleInput;
+};
+
+
 export type MutationCreateUploadUrlArgs = {
   input: CreateUploadUrlInput;
 };
@@ -407,6 +434,16 @@ export type MutationCreateUserArgs = {
 
 export type MutationDeleteOrgArgs = {
   input: DeleteOrgInput;
+};
+
+
+export type MutationDeleteRoleArgs = {
+  input: DeleteRoleInput;
+};
+
+
+export type MutationGrantRoleUsersArgs = {
+  input: GrantRoleUsersInput;
 };
 
 
@@ -430,8 +467,18 @@ export type MutationRequestPasswordResetArgs = {
 };
 
 
+export type MutationRevokeRoleUsersArgs = {
+  input: RevokeRoleUsersInput;
+};
+
+
 export type MutationSaveDataScopeRuleArgs = {
   input: SaveDataScopeRuleInput;
+};
+
+
+export type MutationSaveRoleMatrixArgs = {
+  input: SaveRoleMatrixInput;
 };
 
 
@@ -465,6 +512,11 @@ export type MutationSetPermissionEnabledArgs = {
 };
 
 
+export type MutationSetRoleEnabledArgs = {
+  input: SetRoleEnabledInput;
+};
+
+
 export type MutationSetUserEnabledArgs = {
   input: SetUserEnabledInput;
 };
@@ -492,6 +544,11 @@ export type MutationUpdateFieldArgs = {
 
 export type MutationUpdateOrgArgs = {
   input: UpdateOrgInput;
+};
+
+
+export type MutationUpdateRoleArgs = {
+  input: UpdateRoleInput;
 };
 
 
@@ -576,6 +633,10 @@ export type Query = {
   orgTree: Array<OrgNode>;
   recipe: Recipe;
   recipes: Array<Recipe>;
+  role: RolePayload;
+  roleMatrix: RoleMatrixPayload;
+  roleUsers: RoleUsersPayload;
+  roles: RolesPayload;
   tenantModuleOptions: Array<ModuleOption>;
   user: User;
   users: UsersPayload;
@@ -599,6 +660,27 @@ export type QueryOrgArgs = {
 
 export type QueryRecipeArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type QueryRoleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryRoleMatrixArgs = {
+  roleId: Scalars['ID']['input'];
+};
+
+
+export type QueryRoleUsersArgs = {
+  input: RoleUsersInput;
+  roleId: Scalars['ID']['input'];
+};
+
+
+export type QueryRolesArgs = {
+  input: RolesInput;
 };
 
 
@@ -640,11 +722,123 @@ export type RequestPasswordResetPayload = {
   success: Scalars['Boolean']['output'];
 };
 
+export type RevokeRoleUsersInput = {
+  roleId: Scalars['ID']['input'];
+  userIds: Array<Scalars['ID']['input']>;
+};
+
+export type Role = {
+  __typename?: 'Role';
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  isSystem: Scalars['Boolean']['output'];
+  isTemplateCopy: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  ownerOrg?: Maybe<RoleOwnerOrg>;
+  userCount: Scalars['Int']['output'];
+};
+
+export type RoleGrant = {
+  __typename?: 'RoleGrant';
+  moduleKeys: Array<Scalars['String']['output']>;
+  permissionKeys: Array<Scalars['String']['output']>;
+};
+
+export type RoleMatrixModule = {
+  __typename?: 'RoleMatrixModule';
+  children: Array<RoleMatrixModule>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  key: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  order: Scalars['Int']['output'];
+  parentId?: Maybe<Scalars['ID']['output']>;
+  permissions: Array<RoleMatrixPermission>;
+  sidebarType: ModuleSidebarType;
+};
+
+export type RoleMatrixPayload = {
+  __typename?: 'RoleMatrixPayload';
+  granted: RoleGrant;
+  modules: Array<RoleMatrixModule>;
+  role: Role;
+  shrinkOnly: Scalars['Boolean']['output'];
+};
+
+export type RoleMatrixPermission = {
+  __typename?: 'RoleMatrixPermission';
+  action: Scalars['String']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  key: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type RoleOwnerOrg = {
+  __typename?: 'RoleOwnerOrg';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type RolePayload = {
+  __typename?: 'RolePayload';
+  role: Role;
+};
+
 /** 所屬組織移除後角色失去資格的原因(ADR-0003) */
 export enum RoleUnqualifiedReason {
   NoRemainingSubtreeSupport = 'NO_REMAINING_SUBTREE_SUPPORT',
   OwnedByRemovedOrg = 'OWNED_BY_REMOVED_ORG'
 }
+
+export type RoleUser = {
+  __typename?: 'RoleUser';
+  account: Scalars['String']['output'];
+  email: Scalars['String']['output'];
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  orgs: Array<RoleUserOrg>;
+  outOfScope: Scalars['Boolean']['output'];
+  ownerProtected: Scalars['Boolean']['output'];
+};
+
+export type RoleUserOrg = {
+  __typename?: 'RoleUserOrg';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type RoleUsersInput = {
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type RoleUsersPayload = {
+  __typename?: 'RoleUsersPayload';
+  items: Array<RoleUser>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  role: Role;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type RolesInput = {
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type RolesPayload = {
+  __typename?: 'RolesPayload';
+  items: Array<Role>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
 
 export type SaveDataScopeRuleInput = {
   collection: Scalars['String']['input'];
@@ -655,6 +849,12 @@ export type SaveDataScopeRuleInput = {
 export type SaveDataScopeRulePayload = {
   __typename?: 'SaveDataScopeRulePayload';
   rule: DataScopeRule;
+};
+
+export type SaveRoleMatrixInput = {
+  moduleKeys: Array<Scalars['String']['input']>;
+  permissionKeys: Array<Scalars['String']['input']>;
+  roleId: Scalars['ID']['input'];
 };
 
 export type SetFieldEnabledInput = {
@@ -688,6 +888,11 @@ export type SetPasswordPayload = {
 };
 
 export type SetPermissionEnabledInput = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+export type SetRoleEnabledInput = {
   enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
 };
@@ -747,6 +952,12 @@ export type UpdateOrgInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
   logoPath?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateRoleInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -1069,6 +1280,92 @@ export type CreateRecipeMutationVariables = Exact<{
 
 export type CreateRecipeMutation = { __typename?: 'Mutation', createRecipe: { __typename?: 'Recipe', id: string, title: string } };
 
+export type RoleFieldsFragment = { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null };
+
+export type RolesQueryVariables = Exact<{
+  input: RolesInput;
+}>;
+
+
+export type RolesQuery = { __typename?: 'Query', roles: { __typename?: 'RolesPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }> } };
+
+export type RoleQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type RoleQuery = { __typename?: 'Query', role: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null } } };
+
+export type CreateRoleMutationVariables = Exact<{
+  input: CreateRoleInput;
+}>;
+
+
+export type CreateRoleMutation = { __typename?: 'Mutation', createRole: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null } } };
+
+export type UpdateRoleMutationVariables = Exact<{
+  input: UpdateRoleInput;
+}>;
+
+
+export type UpdateRoleMutation = { __typename?: 'Mutation', updateRole: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null } } };
+
+export type SetRoleEnabledMutationVariables = Exact<{
+  input: SetRoleEnabledInput;
+}>;
+
+
+export type SetRoleEnabledMutation = { __typename?: 'Mutation', setRoleEnabled: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null } } };
+
+export type DeleteRoleMutationVariables = Exact<{
+  input: DeleteRoleInput;
+}>;
+
+
+export type DeleteRoleMutation = { __typename?: 'Mutation', deleteRole: { __typename?: 'DeletePayload', success: boolean, deletedId: string } };
+
+export type RoleMatrixNodeFieldsFragment = { __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> };
+
+export type RoleMatrixFieldsFragment = { __typename?: 'RoleMatrixPayload', shrinkOnly: boolean, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, granted: { __typename?: 'RoleGrant', moduleKeys: Array<string>, permissionKeys: Array<string> }, modules: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }> };
+
+export type RoleMatrixQueryVariables = Exact<{
+  roleId: Scalars['ID']['input'];
+}>;
+
+
+export type RoleMatrixQuery = { __typename?: 'Query', roleMatrix: { __typename?: 'RoleMatrixPayload', shrinkOnly: boolean, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, granted: { __typename?: 'RoleGrant', moduleKeys: Array<string>, permissionKeys: Array<string> }, modules: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }> } };
+
+export type SaveRoleMatrixMutationVariables = Exact<{
+  input: SaveRoleMatrixInput;
+}>;
+
+
+export type SaveRoleMatrixMutation = { __typename?: 'Mutation', saveRoleMatrix: { __typename?: 'RoleMatrixPayload', shrinkOnly: boolean, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, granted: { __typename?: 'RoleGrant', moduleKeys: Array<string>, permissionKeys: Array<string> }, modules: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }> } };
+
+export type RoleUsersFieldsFragment = { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> };
+
+export type RoleUsersQueryVariables = Exact<{
+  roleId: Scalars['ID']['input'];
+  input: RoleUsersInput;
+}>;
+
+
+export type RoleUsersQuery = { __typename?: 'Query', roleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
+
+export type GrantRoleUsersMutationVariables = Exact<{
+  input: GrantRoleUsersInput;
+}>;
+
+
+export type GrantRoleUsersMutation = { __typename?: 'Mutation', grantRoleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
+
+export type RevokeRoleUsersMutationVariables = Exact<{
+  input: RevokeRoleUsersInput;
+}>;
+
+
+export type RevokeRoleUsersMutation = { __typename?: 'Mutation', revokeRoleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
+
 export type CreateUploadUrlMutationVariables = Exact<{
   input: CreateUploadUrlInput;
 }>;
@@ -1167,6 +1464,87 @@ export const OrgNodeFieldsFragmentDoc = `
   ownerUserId
 }
     `;
+export const RoleFieldsFragmentDoc = `
+    fragment RoleFields on Role {
+  id
+  name
+  description
+  enabled
+  isSystem
+  isTemplateCopy
+  userCount
+  ownerOrg {
+    id
+    name
+  }
+}
+    `;
+export const RoleMatrixNodeFieldsFragmentDoc = `
+    fragment RoleMatrixNodeFields on RoleMatrixModule {
+  id
+  key
+  name
+  parentId
+  sidebarType
+  order
+  description
+  permissions {
+    id
+    key
+    name
+    description
+    action
+  }
+}
+    `;
+export const RoleMatrixFieldsFragmentDoc = `
+    fragment RoleMatrixFields on RoleMatrixPayload {
+  role {
+    ...RoleFields
+  }
+  shrinkOnly
+  granted {
+    moduleKeys
+    permissionKeys
+  }
+  modules {
+    ...RoleMatrixNodeFields
+    children {
+      ...RoleMatrixNodeFields
+      children {
+        ...RoleMatrixNodeFields
+        children {
+          ...RoleMatrixNodeFields
+        }
+      }
+    }
+  }
+}
+    ${RoleFieldsFragmentDoc}
+${RoleMatrixNodeFieldsFragmentDoc}`;
+export const RoleUsersFieldsFragmentDoc = `
+    fragment RoleUsersFields on RoleUsersPayload {
+  role {
+    ...RoleFields
+  }
+  totalCount
+  page
+  pageSize
+  items {
+    id
+    account
+    name
+    email
+    enabled
+    outOfScope
+    ownerProtected
+    orgs {
+      id
+      name
+    }
+  }
+}
+    ${RoleFieldsFragmentDoc}`;
 export const LoginDocument = `
     mutation Login($input: LoginInput!) {
   login(input: $input) {
@@ -2337,6 +2715,340 @@ export const useCreateRecipeMutation = <
 
 
 useCreateRecipeMutation.fetcher = (client: GraphQLClient, variables: CreateRecipeMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateRecipeMutation, CreateRecipeMutationVariables>(client, CreateRecipeDocument, variables, headers);
+
+export const RolesDocument = `
+    query Roles($input: RolesInput!) {
+  roles(input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      ...RoleFields
+    }
+  }
+}
+    ${RoleFieldsFragmentDoc}`;
+
+export const useRolesQuery = <
+      TData = RolesQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: RolesQueryVariables,
+      options?: Omit<UseQueryOptions<RolesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<RolesQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<RolesQuery, TError, TData>(
+      {
+    queryKey: ['Roles', variables],
+    queryFn: fetcher<RolesQuery, RolesQueryVariables>(client, RolesDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useRolesQuery.getKey = (variables: RolesQueryVariables) => ['Roles', variables];
+
+
+useRolesQuery.fetcher = (client: GraphQLClient, variables: RolesQueryVariables, headers?: RequestInit['headers']) => fetcher<RolesQuery, RolesQueryVariables>(client, RolesDocument, variables, headers);
+
+export const RoleDocument = `
+    query Role($id: ID!) {
+  role(id: $id) {
+    role {
+      ...RoleFields
+    }
+  }
+}
+    ${RoleFieldsFragmentDoc}`;
+
+export const useRoleQuery = <
+      TData = RoleQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: RoleQueryVariables,
+      options?: Omit<UseQueryOptions<RoleQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<RoleQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<RoleQuery, TError, TData>(
+      {
+    queryKey: ['Role', variables],
+    queryFn: fetcher<RoleQuery, RoleQueryVariables>(client, RoleDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useRoleQuery.getKey = (variables: RoleQueryVariables) => ['Role', variables];
+
+
+useRoleQuery.fetcher = (client: GraphQLClient, variables: RoleQueryVariables, headers?: RequestInit['headers']) => fetcher<RoleQuery, RoleQueryVariables>(client, RoleDocument, variables, headers);
+
+export const CreateRoleDocument = `
+    mutation CreateRole($input: CreateRoleInput!) {
+  createRole(input: $input) {
+    role {
+      ...RoleFields
+    }
+  }
+}
+    ${RoleFieldsFragmentDoc}`;
+
+export const useCreateRoleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateRoleMutation, TError, CreateRoleMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateRoleMutation, TError, CreateRoleMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateRole'],
+    mutationFn: (variables?: CreateRoleMutationVariables) => fetcher<CreateRoleMutation, CreateRoleMutationVariables>(client, CreateRoleDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateRoleMutation.fetcher = (client: GraphQLClient, variables: CreateRoleMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateRoleMutation, CreateRoleMutationVariables>(client, CreateRoleDocument, variables, headers);
+
+export const UpdateRoleDocument = `
+    mutation UpdateRole($input: UpdateRoleInput!) {
+  updateRole(input: $input) {
+    role {
+      ...RoleFields
+    }
+  }
+}
+    ${RoleFieldsFragmentDoc}`;
+
+export const useUpdateRoleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateRoleMutation, TError, UpdateRoleMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateRoleMutation, TError, UpdateRoleMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateRole'],
+    mutationFn: (variables?: UpdateRoleMutationVariables) => fetcher<UpdateRoleMutation, UpdateRoleMutationVariables>(client, UpdateRoleDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateRoleMutation.fetcher = (client: GraphQLClient, variables: UpdateRoleMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateRoleMutation, UpdateRoleMutationVariables>(client, UpdateRoleDocument, variables, headers);
+
+export const SetRoleEnabledDocument = `
+    mutation SetRoleEnabled($input: SetRoleEnabledInput!) {
+  setRoleEnabled(input: $input) {
+    role {
+      ...RoleFields
+    }
+  }
+}
+    ${RoleFieldsFragmentDoc}`;
+
+export const useSetRoleEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetRoleEnabledMutation, TError, SetRoleEnabledMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetRoleEnabledMutation, TError, SetRoleEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['SetRoleEnabled'],
+    mutationFn: (variables?: SetRoleEnabledMutationVariables) => fetcher<SetRoleEnabledMutation, SetRoleEnabledMutationVariables>(client, SetRoleEnabledDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetRoleEnabledMutation.fetcher = (client: GraphQLClient, variables: SetRoleEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetRoleEnabledMutation, SetRoleEnabledMutationVariables>(client, SetRoleEnabledDocument, variables, headers);
+
+export const DeleteRoleDocument = `
+    mutation DeleteRole($input: DeleteRoleInput!) {
+  deleteRole(input: $input) {
+    success
+    deletedId
+  }
+}
+    `;
+
+export const useDeleteRoleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteRoleMutation, TError, DeleteRoleMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteRoleMutation, TError, DeleteRoleMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteRole'],
+    mutationFn: (variables?: DeleteRoleMutationVariables) => fetcher<DeleteRoleMutation, DeleteRoleMutationVariables>(client, DeleteRoleDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useDeleteRoleMutation.fetcher = (client: GraphQLClient, variables: DeleteRoleMutationVariables, headers?: RequestInit['headers']) => fetcher<DeleteRoleMutation, DeleteRoleMutationVariables>(client, DeleteRoleDocument, variables, headers);
+
+export const RoleMatrixDocument = `
+    query RoleMatrix($roleId: ID!) {
+  roleMatrix(roleId: $roleId) {
+    ...RoleMatrixFields
+  }
+}
+    ${RoleMatrixFieldsFragmentDoc}`;
+
+export const useRoleMatrixQuery = <
+      TData = RoleMatrixQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: RoleMatrixQueryVariables,
+      options?: Omit<UseQueryOptions<RoleMatrixQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<RoleMatrixQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<RoleMatrixQuery, TError, TData>(
+      {
+    queryKey: ['RoleMatrix', variables],
+    queryFn: fetcher<RoleMatrixQuery, RoleMatrixQueryVariables>(client, RoleMatrixDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useRoleMatrixQuery.getKey = (variables: RoleMatrixQueryVariables) => ['RoleMatrix', variables];
+
+
+useRoleMatrixQuery.fetcher = (client: GraphQLClient, variables: RoleMatrixQueryVariables, headers?: RequestInit['headers']) => fetcher<RoleMatrixQuery, RoleMatrixQueryVariables>(client, RoleMatrixDocument, variables, headers);
+
+export const SaveRoleMatrixDocument = `
+    mutation SaveRoleMatrix($input: SaveRoleMatrixInput!) {
+  saveRoleMatrix(input: $input) {
+    ...RoleMatrixFields
+  }
+}
+    ${RoleMatrixFieldsFragmentDoc}`;
+
+export const useSaveRoleMatrixMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SaveRoleMatrixMutation, TError, SaveRoleMatrixMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SaveRoleMatrixMutation, TError, SaveRoleMatrixMutationVariables, TContext>(
+      {
+    mutationKey: ['SaveRoleMatrix'],
+    mutationFn: (variables?: SaveRoleMatrixMutationVariables) => fetcher<SaveRoleMatrixMutation, SaveRoleMatrixMutationVariables>(client, SaveRoleMatrixDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSaveRoleMatrixMutation.fetcher = (client: GraphQLClient, variables: SaveRoleMatrixMutationVariables, headers?: RequestInit['headers']) => fetcher<SaveRoleMatrixMutation, SaveRoleMatrixMutationVariables>(client, SaveRoleMatrixDocument, variables, headers);
+
+export const RoleUsersDocument = `
+    query RoleUsers($roleId: ID!, $input: RoleUsersInput!) {
+  roleUsers(roleId: $roleId, input: $input) {
+    ...RoleUsersFields
+  }
+}
+    ${RoleUsersFieldsFragmentDoc}`;
+
+export const useRoleUsersQuery = <
+      TData = RoleUsersQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: RoleUsersQueryVariables,
+      options?: Omit<UseQueryOptions<RoleUsersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<RoleUsersQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<RoleUsersQuery, TError, TData>(
+      {
+    queryKey: ['RoleUsers', variables],
+    queryFn: fetcher<RoleUsersQuery, RoleUsersQueryVariables>(client, RoleUsersDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useRoleUsersQuery.getKey = (variables: RoleUsersQueryVariables) => ['RoleUsers', variables];
+
+
+useRoleUsersQuery.fetcher = (client: GraphQLClient, variables: RoleUsersQueryVariables, headers?: RequestInit['headers']) => fetcher<RoleUsersQuery, RoleUsersQueryVariables>(client, RoleUsersDocument, variables, headers);
+
+export const GrantRoleUsersDocument = `
+    mutation GrantRoleUsers($input: GrantRoleUsersInput!) {
+  grantRoleUsers(input: $input) {
+    ...RoleUsersFields
+  }
+}
+    ${RoleUsersFieldsFragmentDoc}`;
+
+export const useGrantRoleUsersMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<GrantRoleUsersMutation, TError, GrantRoleUsersMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<GrantRoleUsersMutation, TError, GrantRoleUsersMutationVariables, TContext>(
+      {
+    mutationKey: ['GrantRoleUsers'],
+    mutationFn: (variables?: GrantRoleUsersMutationVariables) => fetcher<GrantRoleUsersMutation, GrantRoleUsersMutationVariables>(client, GrantRoleUsersDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useGrantRoleUsersMutation.fetcher = (client: GraphQLClient, variables: GrantRoleUsersMutationVariables, headers?: RequestInit['headers']) => fetcher<GrantRoleUsersMutation, GrantRoleUsersMutationVariables>(client, GrantRoleUsersDocument, variables, headers);
+
+export const RevokeRoleUsersDocument = `
+    mutation RevokeRoleUsers($input: RevokeRoleUsersInput!) {
+  revokeRoleUsers(input: $input) {
+    ...RoleUsersFields
+  }
+}
+    ${RoleUsersFieldsFragmentDoc}`;
+
+export const useRevokeRoleUsersMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RevokeRoleUsersMutation, TError, RevokeRoleUsersMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RevokeRoleUsersMutation, TError, RevokeRoleUsersMutationVariables, TContext>(
+      {
+    mutationKey: ['RevokeRoleUsers'],
+    mutationFn: (variables?: RevokeRoleUsersMutationVariables) => fetcher<RevokeRoleUsersMutation, RevokeRoleUsersMutationVariables>(client, RevokeRoleUsersDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRevokeRoleUsersMutation.fetcher = (client: GraphQLClient, variables: RevokeRoleUsersMutationVariables, headers?: RequestInit['headers']) => fetcher<RevokeRoleUsersMutation, RevokeRoleUsersMutationVariables>(client, RevokeRoleUsersDocument, variables, headers);
 
 export const CreateUploadUrlDocument = `
     mutation CreateUploadUrl($input: CreateUploadUrlInput!) {
