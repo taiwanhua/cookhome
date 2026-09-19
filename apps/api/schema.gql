@@ -41,6 +41,12 @@ input CreateRecipeInput {
   title: String!
 }
 
+input CreateRoleInput {
+  description: String
+  name: String!
+  ownerOrgId: ID
+}
+
 input CreateUploadUrlInput {
   """允許 image/png / image/jpeg / image/webp"""
   contentType: String!
@@ -155,6 +161,10 @@ type DeletePayload {
   success: Boolean!
 }
 
+input DeleteRoleInput {
+  id: ID!
+}
+
 type Field {
   categoryId: ID!
   description: String
@@ -191,6 +201,11 @@ enum FieldSource {
 type FieldsPayload {
   items: [Field!]!
   totalCount: Int!
+}
+
+input GrantRoleUsersInput {
+  roleId: ID!
+  userIds: [ID!]!
 }
 
 type Ingredient {
@@ -299,9 +314,12 @@ type Mutation {
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
   createField(input: CreateFieldInput!): FieldPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
+  createRole(input: CreateRoleInput!): RolePayload!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   createUser(input: CreateUserInput!): UserPayload!
   deleteOrg(input: DeleteOrgInput!): DeletePayload!
+  deleteRole(input: DeleteRoleInput!): DeletePayload!
+  grantRoleUsers(input: GrantRoleUsersInput!): RoleUsersPayload!
   login(input: LoginInput!): LoginPayload!
   logout: LogoutPayload!
   logoutAllDevices: LogoutAllDevicesPayload!
@@ -309,19 +327,23 @@ type Mutation {
   provisionTenant(input: ProvisionTenantInput!): ProvisionTenantPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
+  revokeRoleUsers(input: RevokeRoleUsersInput!): RoleUsersPayload!
   saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!
+  saveRoleMatrix(input: SaveRoleMatrixInput!): RoleMatrixPayload!
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
   setPermissionEnabled(input: SetPermissionEnabledInput!): PermissionAdminPayload!
+  setRoleEnabled(input: SetRoleEnabledInput!): RolePayload!
   setUserEnabled(input: SetUserEnabledInput!): UserPayload!
   setUserOrgs(input: SetUserOrgsInput!): SetUserOrgsPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
   transferOrgOwner(input: TransferOrgOwnerInput!): OrgPayload!
   updateField(input: UpdateFieldInput!): FieldPayload!
   updateOrg(input: UpdateOrgInput!): OrgPayload!
+  updateRole(input: UpdateRoleInput!): RolePayload!
   updateUser(input: UpdateUserInput!): UserPayload!
 }
 
@@ -395,6 +417,10 @@ type Query {
   orgTree: [OrgNode!]!
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
+  role(id: ID!): RolePayload!
+  roleMatrix(roleId: ID!): RoleMatrixPayload!
+  roleUsers(input: RoleUsersInput!, roleId: ID!): RoleUsersPayload!
+  roles(input: RolesInput!): RolesPayload!
   tenantModuleOptions: [ModuleOption!]!
   user(id: ID!): User!
   users(input: UsersInput!): UsersPayload!
@@ -426,10 +452,113 @@ type RequestPasswordResetPayload {
   success: Boolean!
 }
 
+input RevokeRoleUsersInput {
+  roleId: ID!
+  userIds: [ID!]!
+}
+
+type Role {
+  description: String
+  enabled: Boolean!
+  id: ID!
+  isSystem: Boolean!
+  isTemplateCopy: Boolean!
+  name: String!
+  ownerOrg: RoleOwnerOrg
+  userCount: Int!
+}
+
+type RoleGrant {
+  moduleKeys: [String!]!
+  permissionKeys: [String!]!
+}
+
+type RoleMatrixModule {
+  children: [RoleMatrixModule!]!
+  description: String
+  id: ID!
+  key: String!
+  name: String!
+  order: Int!
+  parentId: ID
+  permissions: [RoleMatrixPermission!]!
+  sidebarType: ModuleSidebarType!
+}
+
+type RoleMatrixPayload {
+  granted: RoleGrant!
+  modules: [RoleMatrixModule!]!
+  role: Role!
+  shrinkOnly: Boolean!
+}
+
+type RoleMatrixPermission {
+  action: String!
+  description: String
+  id: ID!
+  key: String!
+  name: String!
+}
+
+type RoleOwnerOrg {
+  id: ID!
+  name: String!
+}
+
+type RolePayload {
+  role: Role!
+}
+
 """所屬組織移除後角色失去資格的原因(ADR-0003)"""
 enum RoleUnqualifiedReason {
   NO_REMAINING_SUBTREE_SUPPORT
   OWNED_BY_REMOVED_ORG
+}
+
+type RoleUser {
+  account: String!
+  email: String!
+  enabled: Boolean!
+  id: ID!
+  name: String!
+  orgs: [RoleUserOrg!]!
+  outOfScope: Boolean!
+  ownerProtected: Boolean!
+}
+
+type RoleUserOrg {
+  id: ID!
+  name: String!
+}
+
+input RoleUsersInput {
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
+type RoleUsersPayload {
+  items: [RoleUser!]!
+  page: Int!
+  pageSize: Int!
+  role: Role!
+  totalCount: Int!
+}
+
+input RolesInput {
+  keyword: String
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
+type RolesPayload {
+  items: [Role!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
 }
 
 input SaveDataScopeRuleInput {
@@ -440,6 +569,12 @@ input SaveDataScopeRuleInput {
 
 type SaveDataScopeRulePayload {
   rule: DataScopeRule!
+}
+
+input SaveRoleMatrixInput {
+  moduleKeys: [String!]!
+  permissionKeys: [String!]!
+  roleId: ID!
 }
 
 input SetFieldEnabledInput {
@@ -472,6 +607,11 @@ type SetPasswordPayload {
 }
 
 input SetPermissionEnabledInput {
+  enabled: Boolean!
+  id: ID!
+}
+
+input SetRoleEnabledInput {
   enabled: Boolean!
   id: ID!
 }
@@ -528,6 +668,12 @@ input UpdateOrgInput {
   description: String
   id: ID!
   logoPath: String
+  name: String
+}
+
+input UpdateRoleInput {
+  description: String
+  id: ID!
   name: String
 }
 

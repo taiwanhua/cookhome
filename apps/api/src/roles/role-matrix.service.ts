@@ -1,0 +1,464 @@
+import { Injectable } from "@nestjs/common";
+import type { Types } from "mongoose";
+
+import {
+  type MatrixModuleNode,
+  type PermissionGrant,
+  expandGrant,
+  isSubsetOf,
+  isWildcardKey,
+  normalizeGrant,
+  permissionAction,
+  wildcardKeyOf,
+} from "@repo/domain/permission";
+
+import { AuditService } from "../audit/audit.service";
+import type { Persisted } from "../database/base.repository";
+import {
+  type ModuleDocument,
+  ModulesRepository,
+  type PermissionDocument,
+  PermissionsRepository,
+} from "../database/database.module";
+import type { OperatorContext } from "../database/operator-context";
+import { RelationService } from "../database/relation.service";
+import { ModuleSidebarType } from "../permission/models/me-module.model";
+import { PermissionResolver } from "../permission/permission-resolver";
+import type { SaveRoleMatrixInput } from "./dto/save-role-matrix.input";
+import type {
+  RoleMatrixModule,
+  RoleMatrixPayload,
+} from "./models/role-matrix.model";
+import {
+  type RoleRecord,
+  RoleScopeService,
+  isTemplateCopy,
+} from "./role-scope.service";
+import { roleError } from "./roles-error";
+import { AUDIT_ACTIONS, AUDIT_TARGET_TYPE } from "./roles.service";
+
+type ModuleRecord = Persisted<ModuleDocument>;
+type PermissionRecord = Persisted<PermissionDocument>;
+
+/** 讀全域資料(modules / permissions 不掛租戶過濾),兩個範圍在此皆無作用。 */
+function globalReader(operator: OperatorContext): OperatorContext {
+  return {
+    actorId: operator.actorId,
+    currentOrgId: operator.currentOrgId,
+    visibleOrgIds: "all",
+    managedOrgIds: "all",
+  };
+}
+
+const SIDEBAR_TYPE_BY_VALUE: Record<string, ModuleSidebarType> = {
+  group: ModuleSidebarType.GROUP,
+  link: ModuleSidebarType.LINK,
+  hidden: ModuleSidebarType.HIDDEN,
+};
+
+/**
+ * 權限矩陣(`system.role-manager.edit-matrix`)。
+ *
+ * 規則正本是 ADR-0004 與 docs/modules/role-manager.md「權限矩陣規則」;
+ * **正規化與 subset 判斷一律呼叫 `@repo/domain/permission`**(`normalizeGrant` / `isSubsetOf` /
+ * `expandGrant`),前後端同一份,本檔不自己再算一次(STRUCT-07)。
+ *
+ * 一次請求算出**兩棵樹**,分工明確:
+ * - `fullTree`(全樹):全部 enabled 模組(停用連子樹剔除)+ 各模組全部 enabled 權限。
+ *   **所有正規化與比對都對它做** — `*` 的收斂語意是「這一層的每一筆都給了」,
+ *   餵一棵被裁過的樹會讓「操作者只看得到 5 筆,勾滿 5 筆」被收斂成 `*` 而擴權
+ * - `matrixTree`(顯示樹):`fullTree` 再交集操作者自身的有效權限集(ADR-0004 防越權:
+ *   只能授出自身有的;超級管理員 = 全部)。矩陣上沒出現的就是勾不到的,UI 不必自己再算防越權
+ *
+ * 整份覆蓋只動「操作者搆得到」的範圍(同 `assignUserRoles`「操作者觸及不到的既有授予不動」):
+ * 加的一定在他的權限集內(subset 檢查保證),刪的只刪他本來就搆得到的那些。
+ */
+@Injectable()
+export class RoleMatrixService {
+  constructor(
+    private readonly modules: ModulesRepository,
+    private readonly permissions: PermissionsRepository,
+    private readonly relations: RelationService,
+    private readonly audit: AuditService,
+    private readonly scope: RoleScopeService,
+    private readonly resolver: PermissionResolver,
+  ) {}
+
+  /** 矩陣的讀取:顯示樹 + 這個角色在顯示樹內的綁定。 */
+  async matrix(
+    operator: OperatorContext,
+    roleId: string,
+  ): Promise<RoleMatrixPayload> {
+    const role = await this.scope.loadManagedRole(operator, roleId);
+    const view = await this.buildView(operator);
+    return this.payload(operator, role, view);
+  }
+
+  /**
+   * 整份覆蓋(role-manager.md 權限表「編輯權限矩陣」):
+   * 1. 以**全樹**正規化送進來的授予(`normalizeGrant`:樹外丟棄、勾下層補上層、`*` 收斂)
+   * 2. subset-only 防越權:正規化後要是操作者有效權限集的子集,否則 `ROLE_OUT_OF_REACH`
+   * 3. 租戶管理員副本只能縮不能擴:還要是**目前綁定**的子集,否則同樣 `ROLE_OUT_OF_REACH`
+   * 4. 差集寫入 `role_module` / `role_permission`(刪只刪操作者搆得到的)
+   */
+  async save(
+    operator: OperatorContext,
+    input: SaveRoleMatrixInput,
+  ): Promise<RoleMatrixPayload> {
+    const role = await this.scope.loadManagedRole(operator, input.roleId);
+    const view = await this.buildView(operator);
+    const currentRaw = await this.currentGrant(role._id, view);
+    const desired = normalizeGrant(view.fullTree, {
+      moduleKeys: input.moduleKeys,
+      permissionKeys: input.permissionKeys,
+    });
+
+    // 防越權(ADR-0004「操作者只能授出自身有效權限集的子集」);模組勾選同理
+    if (!isSubsetOf(desired, view.holder)) {
+      throw roleError(
+        "ROLE_OUT_OF_REACH",
+        "The submitted matrix is not a subset of the operator's effective modules and permissions",
+      );
+    }
+    // 租戶管理員副本只能縮不能擴(ADR-0009):新的授予要是目前綁定的子集
+    if (
+      isTemplateCopy(role) &&
+      !isSubsetOf(desired, normalizeGrant(view.fullTree, currentRaw))
+    ) {
+      throw roleError(
+        "ROLE_OUT_OF_REACH",
+        "A tenant-admin copy can only be narrowed; the submitted matrix adds modules or permissions",
+      );
+    }
+
+    const changed = await this.apply(
+      operator,
+      role._id,
+      view,
+      currentRaw,
+      desired,
+    );
+    if (changed) {
+      await this.audit.record(operator, {
+        action: AUDIT_ACTIONS.editMatrix,
+        targetType: AUDIT_TARGET_TYPE,
+        targetId: role._id,
+        before: {
+          moduleKeys: [...currentRaw.moduleKeys],
+          permissionKeys: [...currentRaw.permissionKeys],
+        },
+        after: {
+          moduleKeys: [...desired.moduleKeys],
+          permissionKeys: [...desired.permissionKeys],
+        },
+      });
+    }
+    return this.payload(operator, role, view);
+  }
+
+  // ---- 內部 ----
+
+  private async payload(
+    operator: OperatorContext,
+    role: RoleRecord,
+    view: MatrixView,
+  ): Promise<RoleMatrixPayload> {
+    const currentRaw = await this.currentGrant(role._id, view);
+    // 顯示用:先展開(`X.*` → 同層各筆),再收到顯示樹內 —
+    // 操作者搆不到的 `*` 也要讓他看到底下那幾列是勾著的
+    const expanded = expandGrant(view.fullTree, currentRaw);
+    return {
+      role: await this.scope.decorateOne(operator, role),
+      modules: view.matrixTree,
+      granted: {
+        moduleKeys: expanded.moduleKeys.filter((key) =>
+          view.visibleModuleKeys.has(key),
+        ),
+        permissionKeys: expanded.permissionKeys.filter((key) =>
+          view.visiblePermissionKeys.has(key),
+        ),
+      },
+      shrinkOnly: isTemplateCopy(role),
+    };
+  }
+
+  private async buildView(operator: OperatorContext): Promise<MatrixView> {
+    const reader = globalReader(operator);
+    const [allModules, allPermissions] = await Promise.all([
+      this.modules.findMany(reader, {}),
+      this.permissions.findMany(reader, { enabled: true }),
+    ]);
+    // 停用的模組(連子樹)與停用的權限不進矩陣:勾了也不生效(ADR-0011 的剔除規則)
+    const liveModules = pruneDisabledSubtrees(allModules);
+    const liveIds = new Set(liveModules.map((module) => String(module._id)));
+    const livePermissions = allPermissions.filter((permission) =>
+      liveIds.has(String(permission.moduleId)),
+    );
+    const fullTree = buildMatrixTree(liveModules, livePermissions);
+
+    const holder = normalizeGrant(
+      fullTree,
+      await this.holderGrant(operator, liveModules, livePermissions),
+    );
+    const holderModuleKeys = new Set(holder.moduleKeys);
+    const visibleModules = liveModules.filter((module) =>
+      holderModuleKeys.has(module.key),
+    );
+    // 擁有模組以 `moduleId` 為準,不切字串(ADR-0004「反向歸屬不解析字串」)
+    const moduleKeyById = new Map(
+      visibleModules.map((module) => [String(module._id), module.key]),
+    );
+    const visiblePermissions = livePermissions.filter((permission) => {
+      const ownerKey = moduleKeyById.get(String(permission.moduleId));
+      return (
+        ownerKey !== undefined &&
+        isSubsetOf({ moduleKeys: [], permissionKeys: [permission.key] }, holder)
+      );
+    });
+
+    return {
+      holder,
+      fullTree,
+      matrixTree: buildMatrixTree(visibleModules, visiblePermissions),
+      visibleModuleKeys: new Set(visibleModules.map((module) => module.key)),
+      visiblePermissionKeys: new Set(
+        visiblePermissions.map((permission) => permission.key),
+      ),
+      moduleIdByKey: new Map(
+        liveModules.map((module) => [module.key, module._id]),
+      ),
+      permissionIdByKey: new Map(
+        livePermissions.map((permission) => [permission.key, permission._id]),
+      ),
+    };
+  }
+
+  /**
+   * 操作者的有效權限集,表成一份授予(`PermissionGrant`)。
+   * 超級管理員 → 整棵 enabled 樹 + 每個模組的 `*`(ADR-0004 bypass,不靠權限記錄);
+   * 一般操作者 → `PermissionResolver` 的結果(已做 enabled 剔除與 wildcard 展開,ADR-0011)。
+   */
+  private async holderGrant(
+    operator: OperatorContext,
+    liveModules: ModuleRecord[],
+    livePermissions: PermissionRecord[],
+  ): Promise<PermissionGrant> {
+    if (!operator.actorId) {
+      return { moduleKeys: [], permissionKeys: [] };
+    }
+    const resolution = await this.resolver.resolve(
+      operator.actorId,
+      operator.currentOrgId,
+    );
+    if (resolution.isSuperAdmin) {
+      return {
+        moduleKeys: liveModules.map((module) => module.key),
+        permissionKeys: [
+          ...liveModules.map((module) => wildcardKeyOf(module.key)),
+          ...livePermissions.map((permission) => permission.key),
+        ],
+      };
+    }
+    return {
+      moduleKeys: resolution.modules.map((module) => module.key),
+      permissionKeys: [...resolution.permissionKeys],
+    };
+  }
+
+  /** 角色目前的綁定,以 key 表示(**照資料庫原樣**:`*` 維持單筆、不補上層、不收斂)。 */
+  private async currentGrant(
+    roleId: Types.ObjectId,
+    view: MatrixView,
+  ): Promise<PermissionGrant> {
+    const [moduleIds, permissionIds] = await Promise.all([
+      this.relations.listModuleIdsOfRoles([roleId]),
+      this.relations.listPermissionIdsOfRoles([roleId]),
+    ]);
+    const moduleKeyById = invert(view.moduleIdByKey);
+    const permissionKeyById = invert(view.permissionIdByKey);
+    return {
+      moduleKeys: moduleIds.flatMap(
+        (id) => moduleKeyById.get(String(id)) ?? [],
+      ),
+      permissionKeys: permissionIds.flatMap(
+        (id) => permissionKeyById.get(String(id)) ?? [],
+      ),
+    };
+  }
+
+  /** 差集寫入;回傳是否真的動到資料(沒動就不寫稽核)。 */
+  private async apply(
+    operator: OperatorContext,
+    roleId: Types.ObjectId,
+    view: MatrixView,
+    current: PermissionGrant,
+    desired: PermissionGrant,
+  ): Promise<boolean> {
+    const currentModules = new Set(current.moduleKeys);
+    const desiredModules = new Set(desired.moduleKeys);
+    const currentPermissions = new Set(current.permissionKeys);
+    const desiredPermissions = new Set(desired.permissionKeys);
+
+    const moduleAdds = desired.moduleKeys.filter(
+      (key) => !currentModules.has(key),
+    );
+    // 只刪操作者搆得到的:他看不到的綁定不該被順手清掉
+    const moduleRemoves = current.moduleKeys.filter(
+      (key) => !desiredModules.has(key) && view.visibleModuleKeys.has(key),
+    );
+    // 只刪操作者搆得到的;刪掉的不算數,所以先算刪、再用「留下來的」判斷要不要補
+    const permissionRemoves = current.permissionKeys.filter(
+      (key) =>
+        !desiredPermissions.has(key) &&
+        isSubsetOf({ moduleKeys: [], permissionKeys: [key] }, view.holder),
+    );
+    const removedPermissions = new Set(permissionRemoves);
+    const keptPermissions = {
+      moduleKeys: [],
+      permissionKeys: current.permissionKeys.filter(
+        (key) => !removedPermissions.has(key),
+      ),
+    };
+    const permissionAdds = desired.permissionKeys.filter(
+      (key) =>
+        !currentPermissions.has(key) &&
+        // 已被「留下來的 `*`」涵蓋的個別權限不重複寫入(操作者搆不到那筆 `*`,刪不掉也不必補)
+        !isSubsetOf({ moduleKeys: [], permissionKeys: [key] }, keptPermissions),
+    );
+
+    await this.relations.linkMany(operator, [
+      ...linksOf("role_module", roleId, moduleAdds, view.moduleIdByKey),
+      ...linksOf(
+        "role_permission",
+        roleId,
+        permissionAdds,
+        view.permissionIdByKey,
+      ),
+    ]);
+    await this.relations.unlinkMany(operator, [
+      ...linksOf("role_module", roleId, moduleRemoves, view.moduleIdByKey),
+      ...linksOf(
+        "role_permission",
+        roleId,
+        permissionRemoves,
+        view.permissionIdByKey,
+      ),
+    ]);
+    return (
+      moduleAdds.length +
+        moduleRemoves.length +
+        permissionAdds.length +
+        permissionRemoves.length >
+      0
+    );
+  }
+}
+
+/** 一次請求算好的「操作者視角」:兩棵樹 + 自身有效權限集 + key ↔ id 對照。 */
+interface MatrixView {
+  /** 操作者自身的有效權限集(已對全樹正規化)。 */
+  holder: PermissionGrant;
+  /** 全部 enabled 模組與權限:正規化與比對的基準。 */
+  fullTree: readonly MatrixModuleNode[];
+  /** 顯示樹(全樹 ∩ 操作者有效權限集),GraphQL 形狀。 */
+  matrixTree: RoleMatrixModule[];
+  visibleModuleKeys: ReadonlySet<string>;
+  visiblePermissionKeys: ReadonlySet<string>;
+  moduleIdByKey: ReadonlyMap<string, Types.ObjectId>;
+  permissionIdByKey: ReadonlyMap<string, Types.ObjectId>;
+}
+
+function invert(
+  byKey: ReadonlyMap<string, Types.ObjectId>,
+): Map<string, string> {
+  return new Map([...byKey].map(([key, id]) => [String(id), key]));
+}
+
+function linksOf(
+  type: "role_module" | "role_permission",
+  roleId: Types.ObjectId,
+  keys: readonly string[],
+  idByKey: ReadonlyMap<string, Types.ObjectId>,
+): {
+  type: "role_module" | "role_permission";
+  firstId: Types.ObjectId;
+  secondId: Types.ObjectId;
+}[] {
+  return keys.flatMap((key) => {
+    const id = idByKey.get(key);
+    return id === undefined ? [] : [{ type, firstId: roleId, secondId: id }];
+  });
+}
+
+/**
+ * 剔除自己或任一祖先 enabled=false 的模組(ADR-0011;與 PermissionResolver 同一條規則)。
+ * 停用的模組不該出現在矩陣上 — 勾了也不生效,徒增誤會。
+ */
+function pruneDisabledSubtrees(modules: ModuleRecord[]): ModuleRecord[] {
+  const byId = new Map(modules.map((module) => [String(module._id), module]));
+  return modules.filter(
+    (module) =>
+      module.enabled &&
+      module.ancestors.every(
+        (ancestorId) => byId.get(String(ancestorId))?.enabled === true,
+      ),
+  );
+}
+
+/** 組樹:深度優先、同層依 order → key(與 `me.modules` 同一套排序)。 */
+function buildMatrixTree(
+  modules: ModuleRecord[],
+  permissions: PermissionRecord[],
+): RoleMatrixModule[] {
+  const permissionsByModule = new Map<string, PermissionRecord[]>();
+  for (const permission of permissions) {
+    const key = String(permission.moduleId);
+    permissionsByModule.set(key, [
+      ...(permissionsByModule.get(key) ?? []),
+      permission,
+    ]);
+  }
+  const childrenByParent = new Map<string, ModuleRecord[]>();
+  for (const module of modules) {
+    const key = module.parentId === null ? "" : String(module.parentId);
+    childrenByParent.set(key, [...(childrenByParent.get(key) ?? []), module]);
+  }
+
+  const build = (module: ModuleRecord): RoleMatrixModule => ({
+    id: String(module._id),
+    key: module.key,
+    name: module.name,
+    parentId: module.parentId === null ? null : String(module.parentId),
+    sidebarType:
+      SIDEBAR_TYPE_BY_VALUE[module.sidebarType] ?? ModuleSidebarType.HIDDEN,
+    order: module.order,
+    description: module.description ?? null,
+    // `*` 排在同層第一列(矩陣的「全部」列),其餘依 key
+    permissions: (permissionsByModule.get(String(module._id)) ?? [])
+      .toSorted(comparePermissions)
+      .map((permission) => ({
+        id: String(permission._id),
+        key: permission.key,
+        name: permission.name,
+        description: permission.description ?? null,
+        action: permissionAction(permission.key),
+      })),
+    children: (childrenByParent.get(String(module._id)) ?? [])
+      .toSorted(compareModules)
+      .map((child) => build(child)),
+  });
+
+  return (childrenByParent.get("") ?? [])
+    .toSorted(compareModules)
+    .map((module) => build(module));
+}
+
+function compareModules(a: ModuleRecord, b: ModuleRecord): number {
+  return a.order - b.order || a.key.localeCompare(b.key);
+}
+
+function comparePermissions(a: PermissionRecord, b: PermissionRecord): number {
+  const wildcardFirst =
+    Number(isWildcardKey(b.key)) - Number(isWildcardKey(a.key));
+  return wildcardFirst || a.key.localeCompare(b.key);
+}

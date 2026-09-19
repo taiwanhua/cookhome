@@ -1,0 +1,174 @@
+# 角色管理(#203;api 正本 apps/api/src/roles/、規則正本 docs/modules/role-manager.md)。
+# 清單範圍 = 擁有組織在操作者**管理範圍**內的角色(ADR-0003「擁有組織 = 角色的管轄邊界」、ADR-0005)。
+# 欄位語意的正本在 role-manager.md「api 介面」節(GQL-07),這裡不重複解釋。
+
+fragment RoleFields on Role {
+  id
+  name
+  description
+  enabled
+  isSystem
+  isTemplateCopy
+  userCount
+  ownerOrg {
+    id
+    name
+  }
+}
+
+query Roles($input: RolesInput!) {
+  roles(input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      ...RoleFields
+    }
+  }
+}
+
+query Role($id: ID!) {
+  role(id: $id) {
+    role {
+      ...RoleFields
+    }
+  }
+}
+
+# 擁有組織限操作者管理範圍內(範圍外 → FORBIDDEN),不給即取當前組織
+mutation CreateRole($input: CreateRoleInput!) {
+  createRole(input: $input) {
+    role {
+      ...RoleFields
+    }
+  }
+}
+
+# 只改名稱與描述;description 送 null = 清空、缺席 = 不動(GQL-06)。擁有組織建立後不可改
+mutation UpdateRole($input: UpdateRoleInput!) {
+  updateRole(input: $input) {
+    role {
+      ...RoleFields
+    }
+  }
+}
+
+# 停用後持有者的該角色立即不生效(授予仍在;ADR-0011 步驟 2)
+mutation SetRoleEnabled($input: SetRoleEnabledInput!) {
+  setRoleEnabled(input: $input) {
+    role {
+      ...RoleFields
+    }
+  }
+}
+
+# 前置三項(無授予 / 非種子角色 / 非租戶副本)任一不過 →
+# ROLE_NOT_DELETABLE,extensions.reasons 逐項列出(HAS_GRANTS / SYSTEM_ROLE / TEMPLATE_COPY)
+mutation DeleteRole($input: DeleteRoleInput!) {
+  deleteRole(input: $input) {
+    success
+    deletedId
+  }
+}
+
+# 權限矩陣的樹:巢狀四層(群組 → 次群組 → 模組 → 隱藏頁)已涵蓋目前的模組樹深度;
+# 新增更深的層時在此補一層 children(codegen 不做遞迴展開)。
+fragment RoleMatrixNodeFields on RoleMatrixModule {
+  id
+  key
+  name
+  parentId
+  sidebarType
+  order
+  description
+  permissions {
+    id
+    key
+    name
+    description
+    action
+  }
+}
+
+fragment RoleMatrixFields on RoleMatrixPayload {
+  role {
+    ...RoleFields
+  }
+  shrinkOnly
+  granted {
+    moduleKeys
+    permissionKeys
+  }
+  modules {
+    ...RoleMatrixNodeFields
+    children {
+      ...RoleMatrixNodeFields
+      children {
+        ...RoleMatrixNodeFields
+        children {
+          ...RoleMatrixNodeFields
+        }
+      }
+    }
+  }
+}
+
+# 樹只回「enabled 且操作者授得出去的」:矩陣上沒出現的就是勾不到的,前端不必自己算防越權。
+# granted 已展開 `*`(含 `*` 本身與同層各筆),直接餵 @repo/domain/permission 的連動純函式。
+query RoleMatrix($roleId: ID!) {
+  roleMatrix(roleId: $roleId) {
+    ...RoleMatrixFields
+  }
+}
+
+# 整份覆蓋;後端以 normalizeGrant 正規化後落庫(`*` 收斂、勾下層補上層)。
+# 送出不是操作者有效權限集的子集 → ROLE_OUT_OF_REACH;租戶副本擴權同碼(shrinkOnly = true 時先提示)。
+mutation SaveRoleMatrix($input: SaveRoleMatrixInput!) {
+  saveRoleMatrix(input: $input) {
+    ...RoleMatrixFields
+  }
+}
+
+fragment RoleUsersFields on RoleUsersPayload {
+  role {
+    ...RoleFields
+  }
+  totalCount
+  page
+  pageSize
+  items {
+    id
+    account
+    name
+    email
+    enabled
+    outOfScope
+    ownerProtected
+    orgs {
+      id
+      name
+    }
+  }
+}
+
+# 每列的 outOfScope = 「組織外」Warning Tag(所屬組織皆不在角色擁有組織的子樹內,ADR-0003);
+# ownerProtected = 移除會被 OWNER_PROTECTED 擋下,UI 把「移除」設為 disabled(ADR-0009)。
+query RoleUsers($roleId: ID!, $input: RoleUsersInput!) {
+  roleUsers(roleId: $roleId, input: $input) {
+    ...RoleUsersFields
+  }
+}
+
+# 增量加入(不是全量覆蓋);候選 = 所屬組織在角色擁有組織子樹內,否則 USER_NOT_ELIGIBLE
+mutation GrantRoleUsers($input: GrantRoleUsersInput!) {
+  grantRoleUsers(input: $input) {
+    ...RoleUsersFields
+  }
+}
+
+# 擁有者的「租戶管理員」授予不可解除 → OWNER_PROTECTED(根組織操作者不受限)
+mutation RevokeRoleUsers($input: RevokeRoleUsersInput!) {
+  revokeRoleUsers(input: $input) {
+    ...RoleUsersFields
+  }
+}

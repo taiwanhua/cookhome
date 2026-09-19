@@ -1,0 +1,185 @@
+import { Injectable } from "@nestjs/common";
+import { Types } from "mongoose";
+
+import type { Persisted } from "../database/base.repository";
+import {
+  OrgsRepository,
+  type RoleDocument,
+  RolesRepository,
+} from "../database/database.module";
+import type { OperatorContext } from "../database/operator-context";
+import { RelationService } from "../database/relation.service";
+import {
+  TEMPLATE_KEY_SETTING,
+  TENANT_ADMIN_ROLE_KEY,
+} from "../orgs/owner-protection.service";
+import type { RoleModel } from "./models/role.model";
+import { notFoundError, validationError } from "./roles-error";
+
+export type RoleRecord = Persisted<RoleDocument>;
+
+/** id 字串轉 ObjectId;不合法即 `VALIDATION_FAILED` 並指出是哪一欄(不讓 Mongo 的 CastError 外漏)。 */
+export function toObjectId(value: string, field: string): Types.ObjectId {
+  if (!Types.ObjectId.isValid(value)) {
+    throw validationError(`${field} is not a valid id: ${value}`, [field]);
+  }
+  return new Types.ObjectId(value);
+}
+
+export function uniqueIds(ids: readonly string[]): string[] {
+  return [...new Set(ids)];
+}
+
+export function uniqueObjectIds(ids: Types.ObjectId[]): Types.ObjectId[] {
+  return [...new Map(ids.map((id) => [String(id), id])).values()];
+}
+
+/** 開通租戶時從「租戶管理員」模板複製出來的副本(ADR-0009;不可刪、矩陣只能縮不能擴)。 */
+export function isTemplateCopy(role: RoleRecord): boolean {
+  return role.settings[TEMPLATE_KEY_SETTING] === TENANT_ADMIN_ROLE_KEY;
+}
+
+/**
+ * 角色的**管轄邊界判定**與清單投影(ADR-0003「擁有組織 = 角色的管轄邊界」、
+ * CONTEXT.md「管理範圍」):三支角色服務(CRUD / 矩陣 / 分配使用者)共用同一個判斷點,
+ * 不各寫一套。
+ *
+ * 範圍的落實點只有一個:凡查組織都經 `this.orgs`(治理類 collection,過濾自動吃
+ * `managedOrgIds`),再由組織反查 `org_role` — 本檔不自己比對任何組織集合。
+ * `roles` 自己沒掛租戶過濾(歸屬走 `org_role` 關聯,ADR-0005),所以範圍必須在這裡補上。
+ */
+@Injectable()
+export class RoleScopeService {
+  constructor(
+    private readonly roles: RolesRepository,
+    private readonly orgs: OrgsRepository,
+    private readonly relations: RelationService,
+  ) {}
+
+  /**
+   * 清單的角色過濾條件:擁有組織在操作者**管理範圍**內的角色。
+   * 管理範圍是全部(超級管理員 / 擁有組織是根組織)→ 不必先攤開組織樹再反查。
+   * 管理範圍內沒有任何組織擁有角色 → 回 null = 空清單。
+   */
+  async managedRoleFilter(
+    operator: OperatorContext,
+  ): Promise<Record<string, unknown> | null> {
+    if (operator.managedOrgIds === "all") {
+      return {};
+    }
+    const managedOrgs = await this.orgs.findMany(operator, {});
+    if (managedOrgs.length === 0) {
+      return null;
+    }
+    const links = await this.relations.listLinks("org_role", {
+      firstIds: managedOrgs.map((org) => org._id),
+    });
+    if (links.length === 0) {
+      return null;
+    }
+    return { _id: { $in: links.map((link) => link.secondId) } };
+  }
+
+  /**
+   * 取一筆在操作者管理範圍內的角色;範圍外或不存在一律 `NOT_FOUND`(不透露差別)。
+   * 沒有擁有組織的角色(資料損毀)視同範圍外 — 管轄邊界不明的角色不給操作。
+   */
+  async loadManagedRole(
+    operator: OperatorContext,
+    id: string,
+  ): Promise<RoleRecord> {
+    const role = await this.roles.findById(operator, toObjectId(id, "id"));
+    if (!role) {
+      throw notFoundError(`Role ${id} not found`);
+    }
+    const ownerOrgId = await this.relations.findOwnerOrgIdOfRole(role._id);
+    if (ownerOrgId === null) {
+      throw notFoundError(`Role ${id} not found`);
+    }
+    if (operator.managedOrgIds === "all") {
+      return role;
+    }
+    const managed = await this.orgs.findById(operator, ownerOrgId);
+    if (!managed) {
+      throw notFoundError(`Role ${id} not found`);
+    }
+    return role;
+  }
+
+  /** 角色的擁有組織 id(`org_role`);沒有即資料損毀,呼叫端已先經 `loadManagedRole` 排除。 */
+  ownerOrgIdOf(role: RoleRecord): Promise<Types.ObjectId | null> {
+    return this.relations.findOwnerOrgIdOfRole(role._id);
+  }
+
+  /** 組織必須在操作者**管理範圍**內(ADR-0005 的分工表);不在即 `FORBIDDEN` 由呼叫端丟。 */
+  async findManagedOrg(
+    operator: OperatorContext,
+    orgId: Types.ObjectId,
+  ): Promise<{ _id: Types.ObjectId; name: string } | null> {
+    const org = await this.orgs.findById(operator, orgId);
+    return org === null ? null : { _id: org._id, name: org.name };
+  }
+
+  /** 把角色文件組成 GraphQL 形狀:擁有組織(名稱只給管理範圍內的)、副本標記、授予人數。 */
+  async decorate(
+    operator: OperatorContext,
+    documents: RoleRecord[],
+  ): Promise<RoleModel[]> {
+    if (documents.length === 0) {
+      return [];
+    }
+    const roleIds = documents.map((role) => role._id);
+    const [ownerLinks, grantLinks] = await Promise.all([
+      this.relations.listLinks("org_role", { secondIds: roleIds }),
+      this.relations.listLinks("user_role", { secondIds: roleIds }),
+    ]);
+    const ownerOrgIdByRole = new Map(
+      ownerLinks.map((link) => [String(link.secondId), String(link.firstId)]),
+    );
+    const userCountByRole = new Map<string, number>();
+    for (const link of grantLinks) {
+      const key = String(link.secondId);
+      userCountByRole.set(key, (userCountByRole.get(key) ?? 0) + 1);
+    }
+    const ownerOrgIds = uniqueObjectIds(ownerLinks.map((link) => link.firstId));
+    const managedOrgs =
+      ownerOrgIds.length === 0
+        ? []
+        : await this.orgs.findMany(operator, { _id: { $in: ownerOrgIds } });
+    const orgNameById = new Map(
+      managedOrgs.map((org) => [String(org._id), org.name]),
+    );
+
+    return documents.map((role) => {
+      const key = String(role._id);
+      const ownerOrgId = ownerOrgIdByRole.get(key) ?? null;
+      const ownerOrgName =
+        ownerOrgId === null ? undefined : orgNameById.get(ownerOrgId);
+      return {
+        id: key,
+        name: role.name,
+        description: role.description ?? null,
+        enabled: role.enabled,
+        isSystem: role.isSystem,
+        isTemplateCopy: isTemplateCopy(role),
+        ownerOrg:
+          ownerOrgId === null || ownerOrgName === undefined
+            ? null
+            : { id: ownerOrgId, name: ownerOrgName },
+        userCount: userCountByRole.get(key) ?? 0,
+      };
+    });
+  }
+
+  /** 單筆的 `decorate`(寫入動作的回傳都是一份文件)。 */
+  async decorateOne(
+    operator: OperatorContext,
+    document: RoleRecord,
+  ): Promise<RoleModel> {
+    const [model] = await this.decorate(operator, [document]);
+    if (!model) {
+      throw notFoundError(`Role ${String(document._id)} not found`);
+    }
+    return model;
+  }
+}

@@ -16,6 +16,7 @@ import { ModuleManagerModule } from "./modules/module-manager.module";
 import { OrgsModule } from "./orgs/orgs.module";
 import { PermissionModule } from "./permission/permission.module";
 import { RecipesModule } from "./recipes/recipes.module";
+import { RolesModule } from "./roles/roles.module";
 import { StorageModule } from "./storage/storage.module";
 import { UsersModule } from "./users/users.module";
 
@@ -58,6 +59,7 @@ const isSandboxEnabled =
     StorageModule,
     OrgsModule,
     UsersModule,
+    RolesModule,
     ModuleManagerModule,
     DataScopeModule,
     FieldsModule,
