@@ -11,7 +11,7 @@ import {
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
-import { type OrgNodeLike, firstRootOrgId } from "@/lib/org-tree";
+import { type OrgNodeLike, rootOrgId } from "@/lib/org-tree";
 
 import {
   ORG_MANAGER_VIEW_PERMISSION,
@@ -28,6 +28,9 @@ import {
  *
  * 組織樹來自 `orgTree`,而 api 把它掛在 `system.org-manager.view` 底下 — 沒有那個權限時
  * 不送查詢,清單改成「不給 orgId」= 攤開整個管理範圍(治理模組慣例,ADR-0005 的分工表)。
+ *
+ * **初始狀態**(#183):樹可用時預設選中樹根 = 操作者可見範圍的根,與組織管理頁一致;
+ * 樹根還沒到手前不送 `users`(`orgId` 為 null 的查詢會被 api 擋下),右區塊顯示載入中。
  *
  * 擁有者保護(ADR-0009)在前端只需要一個 id:樹根就是「租戶頂層」(租戶視角)或「根組織」
  * (根組織視角)。樹根 `parentId === null` 代表操作者站在根組織 — 一律放行,不標保護;
@@ -49,7 +52,7 @@ export const useUserManagerData = () => {
   };
   const isOrgTreeAvailable = hasPermission(ORG_MANAGER_VIEW_PERMISSION);
 
-  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [pickedOrgId, setPickedOrgId] = useState<string | null>(null);
   const [keyword, setKeywordValue] = useState("");
   const [page, setPage] = useState(1);
 
@@ -57,7 +60,7 @@ export const useUserManagerData = () => {
     enabled: isOrgTreeAvailable,
   });
   const orgNodes: readonly OrgNodeLike[] = orgTree.data?.orgTree ?? [];
-  const treeRootId = firstRootOrgId(orgNodes);
+  const treeRootId = rootOrgId(orgNodes);
 
   const treeRoot = useOrgQuery(
     session.client,
@@ -70,10 +73,20 @@ export const useUserManagerData = () => {
       ? null
       : (rootOrg.ownerUserId ?? null);
 
+  /**
+   * 初始選中樹根(與組織管理頁一致,#183 的 (a) 案;不在 effect 內 setState,REACT-06)。
+   * 樹還沒回來時是 null — 那段時間不送 `users`(見下方 `enabled`)。
+   */
+  const selectedOrgId = pickedOrgId ?? treeRootId;
+
+  /**
+   * `orgId` 為 null 一律不送進 input:api 的 `UsersInput.orgId` 是「不給 = 整個可見範圍」,
+   * 給 null 會在 `toObjectId` 炸 `orgId is not a valid id: null`(#183 第 4 項的直接原因)。
+   */
   const usersVariables = useMemo<UsersQueryVariables>(
     () => ({
       input: {
-        orgId: selectedOrgId,
+        ...(selectedOrgId === null ? {} : { orgId: selectedOrgId }),
         page,
         pageSize: USERS_PAGE_SIZE,
         keyword: keyword.trim() === "" ? null : keyword.trim(),
@@ -81,14 +94,18 @@ export const useUserManagerData = () => {
     }),
     [selectedOrgId, page, keyword],
   );
-  const users = useUsersQuery(session.client, usersVariables);
+  /** 樹可用時要等樹根到手才查(否則會先閃一次「整個可見範圍」再收斂);樹不可用時直接查整個可見範圍。 */
+  const isUsersEnabled = !isOrgTreeAvailable || selectedOrgId !== null;
+  const users = useUsersQuery(session.client, usersVariables, {
+    enabled: isUsersEnabled,
+  });
 
   const rows: readonly UserRow[] = users.data?.users.items ?? [];
   const totalCount = users.data?.users.totalCount ?? 0;
 
   /** 換組織 / 換關鍵字都回到第一頁(否則會停在一個不存在的頁碼上看到空清單)。 */
   const selectOrg = (orgId: string | null) => {
-    setSelectedOrgId(orgId);
+    setPickedOrgId(orgId);
     setPage(1);
   };
   const setKeyword = (value: string) => {
@@ -122,7 +139,8 @@ export const useUserManagerData = () => {
     setPage,
     rows,
     totalCount,
-    isUsersLoading: users.isLoading,
+    /** 等樹根的那段時間也算載入中 — 右區塊顯示載入指示,而不是「目前沒有資料」。 */
+    isUsersLoading: !isUsersEnabled || users.isLoading,
     invalidate,
   };
 };

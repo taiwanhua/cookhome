@@ -1,5 +1,7 @@
-import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
+
+import { tenantTree } from "@/test/msw/org-fixtures";
 
 import { ORG_MANAGER_PERMISSIONS } from "./org-manager-permissions";
 import {
@@ -8,21 +10,54 @@ import {
   clickNode,
   detail,
   renderPage,
-  stubObjectUrls,
+  stubObjectUrl,
+  treeItem,
+  treeLabel,
   waitForTree,
 } from "./org-manager-test-support";
 
-let restoreObjectUrls: () => void;
-
-beforeAll(() => {
-  restoreObjectUrls = stubObjectUrls();
-});
-
-afterAll(() => {
-  restoreObjectUrls();
-});
+stubObjectUrl();
 
 describe("組織管理頁(/system/org-manager)", () => {
+  it("根組織視角:樹以根組織為根、租戶與停用各自帶標籤,預設選中樹根", async () => {
+    renderPage();
+
+    await waitForTree();
+    // 「租戶」標籤要等 `org(樹根)` 回來才確定(樹根是不是平台根組織看 `isSystem`,#186 ④)
+    await waitFor(() => {
+      expect(treeLabel("租戶 A")).toBe("租戶 A租戶");
+    });
+    expect(treeLabel("A-2 台北分店")).toBe("A-2 台北分店停用");
+    // 「租戶」標籤標的是**父節點是平台根組織**的節點,所以兩個租戶都有、下層組織沒有
+    expect(treeLabel("租戶 B")).toBe("租戶 B租戶");
+    // #187 起管理範圍外的組織根本不回傳,樹上不再有「顯示但不可選」的灰節點
+    expect(treeItem("租戶 B")?.getAttribute("aria-disabled")).toBeNull();
+    // 預設選中的樹根是根組織 → 它是系統組織,停用與刪除都停用
+    expect(await within(detail()).findByText("啟用中")).toBeInTheDocument();
+    expect(
+      within(detail()).getByRole("button", { name: "停用" }),
+    ).toBeDisabled();
+    expect(
+      within(detail()).getByRole("button", { name: "刪除" }),
+    ).toBeDisabled();
+  });
+
+  it("租戶視角:樹根是租戶頂層、沒有租戶標籤,也沒有開通租戶按鈕", async () => {
+    renderPage({
+      permissions: OWN_PERMISSIONS,
+      world: { orgTree: tenantTree },
+    });
+
+    await waitForTree();
+    expect(treeLabel("租戶 A")).toBe("租戶 A");
+    expect(
+      screen.queryByRole("button", { name: "開通租戶" }),
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "+ 子組織" }),
+    ).toBeInTheDocument();
+  });
+
   it("只有檢視權限時,動作按鈕一個都不出現", async () => {
     renderPage({ permissions: [ORG_MANAGER_PERMISSIONS.view] });
 
@@ -90,7 +125,7 @@ describe("組織管理頁(/system/org-manager)", () => {
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
-  it("編輯彈窗:兩筆權限都沒有時,租戶頂層也看不到那兩欄", async () => {
+  it("編輯彈窗:兩邊的權限都沒有時,租戶頂層也看不到那兩欄", async () => {
     const { user: actor } = renderPage({
       permissions: [...OWN_PERMISSIONS, USER_VIEW_PERMISSION],
     });
@@ -277,5 +312,30 @@ describe("組織管理頁(/system/org-manager)", () => {
     // 帳號沒動過 → 預設帶入 Email
     expect(input.adminAccount).toBe("admin@tenant-c.tw");
     expect(input.adminEmail).toBe("admin@tenant-c.tw");
+  });
+
+  /** #183 第 3 項:Figma 202:351 的每層 28px 縮排(= theme.spacing(3.5))。 */
+  it("開通彈窗:模組清單依層級縮排,每層 28px", async () => {
+    const { user: actor } = renderPage();
+
+    await waitForTree();
+    await actor.click(await screen.findByRole("button", { name: "開通租戶" }));
+    await screen.findByRole("checkbox", { name: "系統管理" });
+
+    // 縮排掛在列上:`data-depth` 是層級、`padding-left` 是實際縮排
+    const rows = [...document.querySelectorAll<HTMLElement>("[data-depth]")];
+
+    expect(
+      rows.map(
+        (row) =>
+          `${row.textContent} ${row.dataset.depth ?? ""} ${globalThis.getComputedStyle(row).paddingLeft}`,
+      ),
+    ).toEqual([
+      // jsdom 不算 CSS 變數,所以下層那兩列的值是 spacing(3.5) 的算式 = 28px
+      "總覽 0 0px",
+      "系統管理 0 0px",
+      "組織管理 1 calc(3.5 * var(--mui-spacing))",
+      "使用者管理 1 calc(3.5 * var(--mui-spacing))",
+    ]);
   });
 });

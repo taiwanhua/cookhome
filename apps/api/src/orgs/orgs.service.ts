@@ -172,10 +172,9 @@ function byName(documents: OrgRecord[]): OrgRecord[] {
 /**
  * 由平坦的組織清單組回樹(森林:`rootIds` 可能有多個根,#187)。
  *
- * **`parentId` 一律是真的上層**,即使那個上層不在樹上(樹根是租戶頂層時它指向根組織)。
- * 「我是不是樹根」由「有沒有出現在回傳陣列的第一層」回答,不靠 parentId 為 null —
- * 前端要靠 `parentId` 才分得出「平台根組織」(唯一真的沒有上層的那個)與「租戶頂層」,
- * 樹上的「租戶」標籤就是這樣判的(docs/modules/org-manager.md「管理範圍與租戶標示」)。
+ * 每棵樹的樹根對外一律回 `parentId: null`(它的上層不在樹上,給了前端也查不到)。
+ * 因此**前端不能拿 `parentId` 判斷「樹根是不是平台根組織」** — 租戶視角的樹根也是 null;
+ * 那件事由 `org(樹根).isSystem` 回答(#186 ④,`useOrgManagerData.ts`)。
  */
 function buildForest(
   operator: OperatorContext,
@@ -196,7 +195,10 @@ function buildForest(
   const toNode = (document: OrgRecord): OrgNode => ({
     id: String(document._id),
     name: document.name,
-    parentId: document.parentId === null ? null : String(document.parentId),
+    parentId:
+      rootKeys.has(String(document._id)) || document.parentId === null
+        ? null
+        : String(document.parentId),
     enabled: document.enabled,
     // 僅租戶頂層有值(ADR-0009);樹上就給,前端不必逐筆查 org(id) 才判斷得出擁有者(#139)
     ownerUserId:
@@ -229,7 +231,7 @@ export class OrgsService {
     private readonly demoItemsOne: DemoItemsOneRepository,
     private readonly demoItemsTwo: DemoItemsTwoRepository,
     private readonly fields: FieldsRepository,
-    private readonly ownerProtection: OwnerProtectionService,
+    private readonly protection: OwnerProtectionService,
   ) {}
 
   /**
@@ -320,6 +322,12 @@ export class OrgsService {
     if (current.isSystem && !input.enabled) {
       throw orgError("VALIDATION_FAILED", "System org cannot be disabled");
     }
+    // 租戶頂層只有根組織能停用 / 啟用(ADR-0009);租戶內的人只能動子組織
+    await this.protection.assertTenantTopOperableBy(
+      operator,
+      current,
+      "set-enabled",
+    );
     const updated = await this.orgs.updateById(operator, current._id, {
       $set: { enabled: input.enabled },
     });
@@ -353,8 +361,8 @@ export class OrgsService {
     if (org.parentId === null || org.isSystem) {
       throw orgError("VALIDATION_FAILED", "System org cannot be moved");
     }
-    // 租戶頂層不可搬(ADR-0009:只有根組織能動租戶頂層本身);與 #186 共用同一個判斷點
-    await this.ownerProtection.assertTenantTopOperableBy(operator, org, "move");
+    // 租戶頂層只有根組織能搬(跨租戶的檢查在下面另外擋,ADR-0009)
+    await this.protection.assertTenantTopOperableBy(operator, org, "move");
     // 新上層也必須在管理範圍內(治理類過濾自動套用:範圍外即 NOT_FOUND)
     const newParent = await this.requireManaged(operator, input.newParentId);
     if (
@@ -400,6 +408,8 @@ export class OrgsService {
     input: DeleteOrgInput,
   ): Promise<DeletePayload> {
     const org = await this.requireManaged(operator, input.id);
+    // 租戶頂層只有根組織能刪(ADR-0009);先於前置四項判斷,不透露租戶內部狀態
+    await this.protection.assertTenantTopOperableBy(operator, org, "delete");
     const reasons = await this.notDeletableReasons(operator, org);
     if (reasons.length > 0) {
       throw orgNotDeletableError(reasons);

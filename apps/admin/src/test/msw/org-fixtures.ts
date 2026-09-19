@@ -60,9 +60,13 @@ export const rootTree: TestOrgNode[] = [
   }),
 ];
 
-/** 租戶視角:樹根就是租戶頂層(`parentId` 指向根組織,但那一層不在樹上)。 */
+/**
+ * 租戶視角:樹根就是租戶頂層。**樹根的 `parentId` 是 null** —
+ * api 的 `buildForest` 把本棵樹的根一律對外回 null(`orgs.service.ts`,orgs.test.ts 亦有斷言),
+ * 所以前端不能拿 `parentId` 判斷視角(#186 ④)。
+ */
 export const tenantTree: TestOrgNode[] = [
-  node("org-tenant-a", "租戶 A", "org-root", {
+  node("org-tenant-a", "租戶 A", null, {
     ownerUserId: "user-owner",
     children: tenantChildren,
   }),
@@ -70,9 +74,16 @@ export const tenantTree: TestOrgNode[] = [
 
 /**
  * 多根視角(#187):持有兩個擁有組織是部門、彼此沒有共同上層的角色 →
- * 管理範圍 = 兩棵子樹的聯集,樹有兩個根,共同上層(租戶頂層)不在樹上。
+ * 管理範圍 = 兩棵子樹的聯集,樹有**兩個根**,共同上層(租戶頂層)不在樹上。
+ * 兩個根的 `parentId` 同樣是 null(`buildForest` 對每棵樹的根都這樣回)。
  */
-export const multiRootTree: TestOrgNode[] = tenantChildren;
+export const multiRootTree: TestOrgNode[] = [
+  node("org-content", "A-1 內容組", null, { children: [contentChild] }),
+  node("org-store", "A-2 台北分店", null, {
+    enabled: false,
+    children: [storeChild],
+  }),
+];
 
 const org = (
   id: string,

@@ -491,8 +491,9 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       const tree = result.data?.orgTree ?? [];
       expect(tree).toHaveLength(1);
       expect(tree[0]?.id).toBe(String(tenantAId));
-      // `parentId` 一律是真的上層,即使它不在樹上 — 前端靠它分得出「平台根組織」與「租戶頂層」
-      expect(tree[0]?.parentId).toBe(String(rootOrgId));
+      // 每棵樹的樹根對外一律回 parentId: null(它的上層不在樹上);
+      // 「樹根是不是平台根組織」由 org(樹根).isSystem 回答,不看這個欄位(#186 ④)
+      expect(tree[0]?.parentId).toBeNull();
       const ids = flatten(tree).map((node) => node.id);
       expect(ids).toEqual(
         expect.arrayContaining([String(deptOneId), String(deptOneSubId)]),
@@ -512,7 +513,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       const tree = result.data?.orgTree ?? [];
       expect(tree).toHaveLength(1);
       expect(tree[0]?.id).toBe(String(deptOneId));
-      expect(tree[0]?.parentId).toBe(String(tenantAId));
+      expect(tree[0]?.parentId).toBeNull();
       // 管理範圍外的組織不回傳(#187:`outOfScope` 的灰節點取消)
       expect(nodeOf(tree, tenantAId)).toBeUndefined();
       expect(nodeOf(tree, deptTwoId)).toBeUndefined();
@@ -552,10 +553,8 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       expect(new Set(tree.map((node) => node.id))).toEqual(
         new Set([String(deptOneId), String(deptTwoId)]),
       );
-      // 兩個根都指向自己真正的上層(租戶頂層),即使它不在樹上
-      expect(tree.every((node) => node.parentId === String(tenantAId))).toBe(
-        true,
-      );
+      // 每棵樹的根都回 parentId: null
+      expect(tree.every((node) => node.parentId === null)).toBe(true);
       expect(nodeOf(tree, deptOneSubId)).toBeDefined();
       // 共同上層(租戶頂層)不是任何一個角色的擁有組織,不進樹
       expect(nodeOf(tree, tenantAId)).toBeUndefined();
@@ -1226,6 +1225,55 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       );
       expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
       expect(await deletedAtOf(orgId)).toBeNull();
+    });
+  });
+
+  describe("租戶頂層保護(ADR-0009:停用 / 刪除 / 搬移只有根組織能做)", () => {
+    it("租戶內的人動不了自己的租戶頂層:三個動作一律 FORBIDDEN,資料不動", async () => {
+      const disable = await api.graphql(
+        SET_ORG_ENABLED,
+        { input: { id: String(tenantAId), enabled: false } },
+        { accessToken: tenantAdminToken },
+      );
+      expect(disable.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await enabledOf(tenantAId)).toBe(true);
+
+      const removed = await api.graphql(
+        DELETE_ORG,
+        { input: { id: String(tenantAId) } },
+        { accessToken: tenantAdminToken },
+      );
+      expect(removed.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await deletedAtOf(tenantAId)).toBeNull();
+
+      // 租戶頂層的保護排在 CYCLIC_MOVE / CROSS_TENANT 之前
+      const moved = await api.graphql(
+        MOVE_ORG,
+        { input: { id: String(tenantAId), newParentId: String(deptOneId) } },
+        { accessToken: tenantAdminToken },
+      );
+      expect(moved.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await parentIdOf(tenantAId)).toBe(String(rootOrgId));
+    });
+
+    it("根組織停用得了租戶頂層;租戶內的人對子組織照樣做得到", async () => {
+      const tenantCId = await createOrg(api.connection, { name: "租戶C" });
+      const byRoot = await api.graphql(
+        SET_ORG_ENABLED,
+        { input: { id: String(tenantCId), enabled: false } },
+        { accessToken: rootToken },
+      );
+      expect(byRoot.errors).toBeUndefined();
+      expect(await enabledOf(tenantCId)).toBe(false);
+
+      const childId = await newOrgUnderTenantA("租戶內子組織");
+      const byTenantAdmin = await api.graphql(
+        SET_ORG_ENABLED,
+        { input: { id: String(childId), enabled: false } },
+        { accessToken: tenantAdminToken },
+      );
+      expect(byTenantAdmin.errors).toBeUndefined();
+      expect(await enabledOf(childId)).toBe(false);
     });
   });
 

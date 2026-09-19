@@ -36,6 +36,7 @@ export const OrgManagerPage = () => {
   const owner = useTenantOwner(data.org);
   const moveTargets = useMoveTargets({
     nodes: data.orgNodes,
+    isRootPerspective: data.isRootPerspective,
     orgId: data.selectedOrgId,
   });
 
@@ -68,6 +69,12 @@ export const OrgManagerPage = () => {
     onError: onActionError,
   });
 
+  /**
+   * 租戶頂層對租戶內的人:停用 / 刪除 / 搬移只有根組織能做(ADR-0009)。
+   * api 也會擋(`assertTenantTopOperableBy`);這裡只是讓人先看得出來。
+   */
+  const isTenantTopProtected = isTenantTop(data.org) && !data.isRootPerspective;
+
   const trail = orgTrail(data.orgNodes, data.selectedOrgId ?? "");
   const parentName = trail.length > 1 ? (trail.at(-2)?.name ?? null) : null;
   const selectedNode = trail.at(-1);
@@ -75,11 +82,12 @@ export const OrgManagerPage = () => {
     selectedNode !== undefined && !selectedNode.outOfScope;
 
   return (
-    <Stack direction="row" spacing={3} sx={{ alignItems: "flex-start" }}>
+    // 撐滿殼給的內容區高度(#183 / Figma 87:214:左右兩塊等高、各自內部捲動)
+    <Stack direction="row" spacing={3} sx={{ flex: 1, minHeight: 0 }}>
       <OrgTreePanel
         nodes={data.orgNodes}
         isLoading={data.isOrgTreeLoading}
-        rootOrgId={data.rootOrgId}
+        isRootPerspective={data.isRootPerspective}
         selectedOrgId={data.selectedOrgId}
         onSelectOrg={data.selectOrg}
         canProvision={data.ability.canProvision}
@@ -100,6 +108,7 @@ export const OrgManagerPage = () => {
         ownerName={owner.ownerName}
         hasOwner={isTenantTop(data.org)}
         ability={data.ability}
+        isTenantTopProtected={isTenantTopProtected}
         onEdit={() => {
           setOpenDialog("edit");
         }}
@@ -130,6 +139,7 @@ export const OrgManagerPage = () => {
           org={data.org}
           parentOptions={moveTargets}
           isTenantTop={isTenantTop(data.org)}
+          isTenantTopProtected={isTenantTopProtected}
           ownerCandidates={owner.candidates}
           ability={data.ability}
           onClose={closeDialog}

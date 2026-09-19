@@ -5,6 +5,7 @@ import { OrgsRepository, RolesRepository } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
 import { orgError } from "./org-error";
+import { type OrgRecord, isTenantTop } from "./org-mapper";
 
 /**
  * 種子「租戶管理員」模板的 key(正本 `apps/db-migrator/seeds/roles.ts`)。
@@ -21,8 +22,8 @@ export const TEMPLATE_KEY_SETTING = "templateKey";
 export type OwnerProtectedAction =
   "disable" | "remove-from-org" | "revoke-tenant-admin";
 
-/** 租戶頂層**只有根組織**能做的三件事(ADR-0009;租戶內的人只能對子組織做)。 */
-export type TenantTopAction = "disable" | "delete" | "move";
+/** 租戶頂層只有根組織能做的三個動作(ADR-0009;只影響錯誤訊息)。 */
+export type TenantTopAction = "set-enabled" | "delete" | "move";
 
 /**
  * 擁有者保護與根組織例外都不該受可見範圍左右:
@@ -42,6 +43,8 @@ function protectionReader(operator: OperatorContext): OperatorContext {
 /**
  * 擁有者保護(ADR-0009):租戶擁有者不可被停用、不可被移出租戶、
  * 其「租戶管理員」授予不可被解除;**根組織的操作者可執行**(處理擁有者失聯等例外)。
+ * 同一支服務也守**租戶頂層保護**(`assertTenantTopOperableBy`):租戶頂層本身的
+ * 停用 / 刪除 / 搬移只有根組織能做 — 兩者都是「以組織為主體、以根組織為例外」的同一類判斷。
  *
  * 住在 `orgs/`(#135 定案):判斷的主體是組織(`orgs.ownerUserId`、根組織例外),
  * 使用者管理(#136)與租戶作業(#135 的轉移擁有者 / 開通租戶)兩邊都靠它,
@@ -66,6 +69,30 @@ export class OwnerProtectionService {
       operator.currentOrgId,
     );
     return currentOrg?.parentId === null;
+  }
+
+  /**
+   * 租戶頂層保護(ADR-0009:「租戶頂層本身不可被租戶內的人停用、刪除、搬移」)。
+   * 目標不是租戶頂層就直接放行;是租戶頂層則只有**根組織的操作者**能做,其餘 `FORBIDDEN`。
+   *
+   * 判斷點與擁有者保護、租戶作業共用 `isRootOperator` —「站在哪裡」才是判準,
+   * 權限可能經角色被帶到別的組織(`docs/modules/org-manager.md`)。
+   */
+  async assertTenantTopOperableBy(
+    operator: OperatorContext,
+    org: OrgRecord,
+    action: TenantTopAction = "set-enabled",
+  ): Promise<void> {
+    if (!isTenantTop(org)) {
+      return;
+    }
+    if (await this.isRootOperator(operator)) {
+      return;
+    }
+    throw orgError(
+      "FORBIDDEN",
+      `Org ${String(org._id)} is a tenant top; ${action} is only allowed from the root org`,
+    );
   }
 
   /** 該使用者是哪些組織的擁有者(`orgs.ownerUserId`);不是擁有者即空陣列。 */
@@ -109,32 +136,6 @@ export class OwnerProtectionService {
       candidates
         .filter((role) => isTenantAdminRole(role.key, role.settings))
         .map((role) => String(role._id)),
-    );
-  }
-
-  /**
-   * **租戶頂層保護**(ADR-0009 / ADR-0005):租戶頂層本身的停用、刪除、搬移只有根組織能做,
-   * 租戶內的人即使管理範圍涵蓋租戶頂層也不行(管理範圍給的是「管裡面」,不是「動掉自己這個租戶」)。
-   * 根組織自己(`parentId === null`)不是租戶頂層,由各動作既有的 `SYSTEM_ORG` 規則擋。
-   *
-   * 與 #186 的租戶頂層保護共用同一個判斷點(本票定義、bug 票改用):
-   * 三個動作只差錯誤訊息,規則不得各寫一套。
-   */
-  async assertTenantTopOperableBy(
-    operator: OperatorContext,
-    org: { _id: Types.ObjectId; ancestors: Types.ObjectId[] },
-    action: TenantTopAction,
-  ): Promise<void> {
-    // 租戶頂層 = 根組織的直接子組織(`ancestors` 只有根組織一層,org-mapper.ts `isTenantTop`)
-    if (org.ancestors.length !== 1) {
-      return;
-    }
-    if (await this.isRootOperator(operator)) {
-      return;
-    }
-    throw orgError(
-      "FORBIDDEN",
-      `Org ${String(org._id)} is a tenant top-level org; ${action} is only allowed from the root org`,
     );
   }
 

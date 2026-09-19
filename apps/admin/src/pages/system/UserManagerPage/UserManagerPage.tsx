@@ -5,6 +5,7 @@ import {
   useAssignUserRolesMutation,
   useSetUserEnabledMutation,
 } from "@repo/graphql";
+import { Box } from "@repo/ui/box";
 import { Card } from "@repo/ui/card";
 import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
@@ -78,7 +79,8 @@ export const UserManagerPage = () => {
   const pageCount = Math.max(1, Math.ceil(data.totalCount / USERS_PAGE_SIZE));
 
   return (
-    <Stack direction="row" spacing={3} sx={{ alignItems: "flex-start" }}>
+    // 撐滿殼給的內容區高度(#183 / Figma 30:166:左右兩塊等高、各自內部捲動)
+    <Stack direction="row" spacing={3} sx={{ flex: 1, minHeight: 0 }}>
       <OrgTreePanel
         nodes={data.orgNodes}
         isLoading={data.isOrgTreeLoading}
@@ -87,7 +89,7 @@ export const UserManagerPage = () => {
         onSelectOrg={data.selectOrg}
       />
 
-      <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0 }}>
+      <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
         <UserToolbar
           keyword={data.keyword}
           onKeywordChange={data.setKeyword}
@@ -99,23 +101,33 @@ export const UserManagerPage = () => {
         <Typography variant="caption" color="text.secondary">
           {t("outOfScopeHint")}
         </Typography>
-        <Card>
-          <UserTable
-            rows={data.rows}
-            isLoading={data.isUsersLoading}
-            ability={data.ability}
-            protectedOwnerUserId={data.protectedOwnerUserId}
-            isOrgTreeAvailable={data.isOrgTreeAvailable}
-            onEdit={(user) => {
-              setFormTarget({ user });
-            }}
-            onManageOrgs={orgsFlow.open}
-            onAssignRoles={setRolesUser}
-            onToggleEnabled={(user) => {
-              setActionError(null);
-              setToggleUser(user);
-            }}
-          />
+        {/* 表格吃掉剩下的高度、自己捲;分頁列永遠留在卡片底部(#183 / Figma 31:82 + 31:157) */}
+        <Card
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+            <UserTable
+              rows={data.rows}
+              isLoading={data.isUsersLoading}
+              ability={data.ability}
+              protectedOwnerUserId={data.protectedOwnerUserId}
+              isOrgTreeAvailable={data.isOrgTreeAvailable}
+              onEdit={(user) => {
+                setFormTarget({ user });
+              }}
+              onManageOrgs={orgsFlow.open}
+              onAssignRoles={setRolesUser}
+              onToggleEnabled={(user) => {
+                setActionError(null);
+                setToggleUser(user);
+              }}
+            />
+          </Box>
           <Stack
             direction="row"
             spacing={1}

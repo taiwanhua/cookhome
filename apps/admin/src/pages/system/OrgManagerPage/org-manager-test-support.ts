@@ -1,4 +1,4 @@
-import { expect } from "@jest/globals";
+import { afterAll, beforeAll, expect } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
 import { ModuleSidebarType } from "@repo/graphql";
@@ -23,6 +23,12 @@ import { renderApp } from "@/test/render";
 
 import { ORG_MANAGER_PERMISSIONS } from "./org-manager-permissions";
 
+/**
+ * 組織管理頁測試的共用場景(`OrgManagerPage.test.tsx`、`OrgManagerGuards.test.tsx`、
+ * `OrgTreeAfterMove.test.tsx`、`OrgManagerScope.test.tsx` 共用)。
+ * 這幾個測試檔看同一頁、同一組夾具,場景放這裡而不是各寫一份(一份形狀,測試檔只寫行為)。
+ */
+
 /** 組織管理層的自有權限(租戶管理員靠 `system.org-manager.*` 拿到的那一組,扣掉可見範圍開關)。 */
 export const OWN_PERMISSIONS = [
   ORG_MANAGER_PERMISSIONS.view,
@@ -39,12 +45,15 @@ export const TENANT_OPS_PERMISSIONS = [
   ORG_MANAGER_PERMISSIONS.transferOwner,
 ];
 
-/** 2026-09-19 搬到組織管理層(#187):租戶管理員靠 `system.org-manager.*` 自動取得。 */
+/**
+ * 可見範圍開關 2026-09-19 從 tenant-ops 搬到組織管理層(#187):
+ * 租戶管理員靠 `system.org-manager.*` 自動取得,所以它不在 `TENANT_OPS_PERMISSIONS` 裡。
+ */
 export const SET_VISIBILITY_PERMISSION = ORG_MANAGER_PERMISSIONS.setVisibility;
 
 export const USER_VIEW_PERMISSION = "system.user-manager.view";
 
-const modulesWith = (permissions: readonly string[]): TestModule[] => [
+export const modulesWith = (permissions: readonly string[]): TestModule[] => [
   overviewModule,
   {
     id: "m-system",
@@ -90,7 +99,6 @@ const modulesWith = (permissions: readonly string[]): TestModule[] => [
   },
 ];
 
-/** 兩支測試檔共用的渲染入口(預設是「什麼權限都有、管理範圍是全部」的根組織操作者)。 */
 export const renderPage = ({
   permissions = [
     ...OWN_PERMISSIONS,
@@ -142,9 +150,9 @@ export const treeLabel = (name: string) => {
  * 樹是先渲染骨架、資料後到的;載入完成時 MUI 會換掉整個樹根元素,
  * 所以每次輪詢都要重新查(抓住舊的那顆會永遠等不到)。
  */
-export const waitForTree = async (anyNodeName = "A-1 內容組") => {
+export const waitForTree = async () => {
   await waitFor(() => {
-    expect(within(orgTree()).getByText(anyNodeName)).toBeInTheDocument();
+    expect(within(orgTree()).getByText("A-1 內容組")).toBeInTheDocument();
   });
 };
 
@@ -162,19 +170,23 @@ export const clickNode = async (
 /**
  * `jest-fixed-jsdom` 補回來的 `URL` 是 Node 的:`createObjectURL` 只收 Node 的 Blob,
  * 餵 jsdom 的 File 會丟型別錯,讓 `UploadField` 的預覽在 render 期整個炸掉。
- * 預覽不是這一頁要驗的行為,測試期間給一個固定網址即可。
+ * 預覽不是這一頁要驗的行為,測試期間給一個固定網址即可 — 由各測試檔在最上層呼叫。
  */
-export const stubObjectUrls = (): (() => void) => {
+export const stubObjectUrl = () => {
   const real = {
     createObjectURL: URL.createObjectURL.bind(URL),
     revokeObjectURL: URL.revokeObjectURL.bind(URL),
   };
-  URL.createObjectURL = () => "blob:logo-preview";
-  URL.revokeObjectURL = () => {
-    // 預覽網址是假的,不用釋放
-  };
-  return () => {
+
+  beforeAll(() => {
+    URL.createObjectURL = () => "blob:logo-preview";
+    URL.revokeObjectURL = () => {
+      // 預覽網址是假的,不用釋放
+    };
+  });
+
+  afterAll(() => {
     URL.createObjectURL = real.createObjectURL;
     URL.revokeObjectURL = real.revokeObjectURL;
-  };
+  });
 };

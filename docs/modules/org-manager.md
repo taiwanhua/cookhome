@@ -63,7 +63,7 @@ deleteOrg(input: { id }): DeletePayload!
 實作時定下的幾件事(spec 未寫、以本檔的規則推導):
 
 - **`OrgNode.outOfScope` 自 #187 起恆為 false**:管理範圍外的組織根本不回傳(不再有「顯示但不可選」的灰節點),欄位保留是為了與使用者列的 `roles[].outOfScope`(#136)命名一致、且不必同步改前端。`enabled` 仍是組織自己的停用狀態,兩者無關。
-- **`OrgNode.parentId` 一律是真的上層**(#187 改):即使那個上層不在樹上(樹根是租戶頂層時它指向根組織)。「我是不是樹根」由「在不在回傳陣列的第一層」回答 —— 前端要靠 `parentId` 才分得出「平台根組織」(唯一 `parentId` 為 null 的)與「租戶頂層」,樹上的「租戶」標籤就是這樣判的。改之前根節點一律回 null,於是租戶視角的樹也被當成根組織視角。
+- **每棵樹的樹根對外一律回 `parentId: null`**(它的上層不在樹上,給了前端也查不到),多根時每個根都是。因此前端**不能**拿 `parentId` 判斷「樹根是不是平台根組織」— 那件事由 `org(樹根).isSystem` 回答(#186 ④)。
 - **`setOrgVisibility` 自 #187 搬到這一組**:權限 `system.org-manager.set-visibility`(不再是 `tenant-ops`),也不再要求「站在根組織」;能設哪些租戶頂層由**管理範圍**回答 —— 範圍外的 `orgId` 查不到即 `NOT_FOUND`,非租戶頂層 `VALIDATION_FAILED`。程式在 `orgs.service.ts`(原本在 `tenant-ops.service.ts`)。
 - **`moveOrg` 的租戶頂層保護**:租戶頂層本身的停用 / 刪除 / 搬移只有根組織能做(ADR-0009),判斷點是 `OwnerProtectionService.assertTenantTopOperableBy(operator, org, action)` —— 與 #186 的停用 / 刪除共用同一個函式,不各寫一套。
 - **停用連動、搬移的 `ancestors` 重算、刪除前置的「有沒有子組織」以整棵子樹為準**,不受操作者可見範圍裁切(可見範圍決定「看得到誰的資料」,不該讓連動只做一半)。程式上是 `orgs.service.ts` 的 `subtreeContext()`,只准搭配把查詢釘在該子樹內的條件。
@@ -126,12 +126,13 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
   不需要「我是不是超級管理員」這種旗標。Figma 87:3 / 92:694 只是同一支頁面的兩組資料。
 - **「是不是租戶頂層」讀 `org.visibility !== null`**:api 只讓租戶頂層有 `visibility` 與 `ownerUserId`
   (`orgs/org-mapper.ts`),前端不必自己數 `ancestors` 或比對樹的層數。樹上的「租戶」標籤則是另一回事 —
-  那是「根組織的直接子組織」,租戶視角看不到那一層,標籤自然不出現。
+  那是「根組織的直接子組織」,租戶視角看不到那一層,標籤自然不出現(判斷方式見 #186 ④)。
 - **搬移是編輯彈窗裡的「上層組織」下拉,不是動作列上的按鈕**(Figma 88:182、help.md 沿用此說法);
   候選人在前端先照三條規則濾過(管理範圍內、同租戶、不含自己的子樹),api 仍會再驗一次。
   樹上有的就是管理範圍(#187),所以「管理範圍內」= 在樹上走得到;「同租戶」的上限是
-  **含自己的那一棵樹根**,只有管理範圍是全部的人樹上才有平台根組織,那時要再往下一層取租戶頂層
-  (`useMoveTargets.ts`)。租戶頂層自己的候選是空的 = 搬不動。
+  **含自己的那一棵樹根**(管理範圍多根時 `orgTrail` 會找出是哪一棵),根組織視角要再往下一層
+  取租戶頂層(`useMoveTargets.ts`,視角由 `org(樹根).isSystem` 判,#186 ④)。
+  租戶頂層自己的候選是空的 = 搬不動,與 api 的租戶頂層保護一致。
 - **編輯彈窗最多打四個 mutation**,依序 `updateOrg` → `moveOrg` → `transferOrgOwner` → `setOrgVisibility`,
   **只送有變動的那幾個**(`UpdateOrgInput` 本來就沒有後三者的欄位)。任何一步失敗就停在那裡,
   前面已成功的不回滾 — 它們各自是完整的動作、各自留了審計;重新送出只會補上還沒做的那幾步。
@@ -166,5 +167,27 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 ## 管理範圍與租戶標示(2026-09-19,#140 驗收後修正;#187 實作)
 
 - 本頁與使用者管理、角色管理的範圍都是**管理範圍**(CONTEXT.md),不是可見範圍;api 的 `orgTree` / `org` / 各 mutation 都以 `managedOrgIds` 守門。落實點只有一個:`orgs` 這張 collection 在 schema 上宣告成**治理類**(`tenantScopePlugin({ kind: "governance" })`),租戶過濾就自動吃管理範圍;業務 collection 維持吃可見範圍。個別 service 不自己選範圍,凡查組織就經 `OrgsRepository`,反查 `org_user` 得到的使用者清單自然也對。
-- 「租戶」標籤只標**父節點是平台根組織**的節點(`parentId` 等於根組織 id),不是「父節點是樹根」— 租戶視角的樹根是租戶頂層,它的子組織不是租戶。
+- 「租戶」標籤只標**父節點是平台根組織**的節點,不是「父節點是樹根」— 租戶視角的樹根是租戶頂層,它的子組織不是租戶。實作上不能看 `OrgNode.parentId`(樹根一律回 null),而是先以 `org(樹根).isSystem` 判斷「樹根就是平台根組織」,是的話它的直接子組織才掛標籤(#186 ④)。
 - 側欄商標:當前組織自己的,沒有就繼承最近有商標的上層(ADR-0010)。
+
+## 實作細節(#186:#140 驗收的六項修正)
+
+- **「這棵樹的根是不是平台根組織」不能看 `OrgNode.parentId`**:`buildForest`
+  把本棵樹的根一律對外回 `parentId: null`(租戶視角的租戶頂層也是),拿它判斷會把
+  租戶頂層當成平台根組織、把租戶的子組織標成「租戶」。admin 改讀 `org(樹根).isSystem`
+  (樹根沒被點掉時跟選中的那一筆同一把 query key,不多發一次請求)。
+- **租戶頂層保護的判斷點是 `OwnerProtectionService.assertTenantTopOperableBy(operator, org)`**
+  (`orgs/owner-protection.service.ts`):不是租戶頂層就放行,是的話只有根組織的操作者能做
+  (`isRootOperator`,與擁有者保護、租戶作業同一個判準),否則 `FORBIDDEN`。
+  `setOrgEnabled` / `deleteOrg` / `moveOrg` 各呼叫一次;**排在 `CYCLIC_MOVE` / `CROSS_TENANT` 與
+  刪除前置四項之前**,不透露租戶內部狀態。admin 那邊停用 / 刪除按鈕與編輯彈窗的
+  「上層組織」下拉都 `disabled` 加 `title` 提示(同根組織保護:給按鈕、停用、說明為什麼)。
+- **`updateOrg` 沒碰商標欄就不送 `logoPath`**:`UpdateOrgInput.logoPath` 給 `null` 在 api 是「清空商標」,
+  欄位缺席才是「不動它」— 前端以「使用者有沒有碰過商標欄」決定要不要送。
+  既有商標的預覽走 `@repo/ui/upload-field` 的 `initialPreviewUrl`(選新檔即取代、按移除回空狀態)。
+- **樹的葉節點在 admin 歸一化成 `children: undefined`**(`lib/org-tree.ts` 的 `toTreeNodes`):
+  api 對葉節點回 `children: []`,而 `TreeNode.children` 的語意是「有沒有下一層」—
+  不把「能不能展開」交給樹元件自己解讀。
+- **彈窗裡的表單欄位**:MUI 有一條 `.MuiDialogTitle-root + .MuiDialogContent-root { padding-top: 0 }`,
+  特異度贏過 `sx` 的單一 class,第一個 `TextField` 的浮動標籤會被標題壓住;
+  `@repo/ui/dialog` 以 `&&` 拉高特異度修好,四個彈窗一次到位。
