@@ -8,6 +8,7 @@ import type {
 
 import type { OperatorOrgScope } from "../operator-context";
 import { getQueryScope } from "../operator-context";
+import { getDataScopeRuleProvider } from "./data-scope-provider";
 
 /**
  * 這個 collection 屬哪一類(ADR-0005「管理範圍與可見範圍的分工」),決定過濾吃哪個集合:
@@ -74,8 +75,12 @@ export function tenantScopePlugin(
     kind: options.kind ?? "business",
   };
   tenantScopes.set(schema, scope);
-  schema.pre([...SCOPED_QUERY_MIDDLEWARE], function () {
+  // collection 名在 schema 定義時就確定(每張 schema 都以 `@Schema({ collection })` 明寫),
+  // 在此取一次:資料範圍規則以 collection 為識別鍵(ADR-0008),中介層裡不必再碰原生驅動程式
+  const collectionName: string | undefined = schema.get("collection");
+  schema.pre([...SCOPED_QUERY_MIDDLEWARE], async function () {
     applyTenantScope(this, scope);
+    await applyDataScope(this, scope, collectionName);
   });
 }
 
@@ -104,6 +109,40 @@ function applyTenantScope(query: AnyQuery, scope: TenantScope): void {
     ? { $or: [inScopeOrgs, { [scope.path]: null }] }
     : inScopeOrgs;
   query.and([condition]);
+}
+
+/**
+ * 資料範圍規則(ADR-0008):在租戶保底**之內**再收窄 —
+ * 條件同樣以 `$and` 追加,所以規則永遠只會讓看到的變少,保底不可被關掉。
+ *
+ * 只套**業務類**(`kind: "business"`):治理類 collection(組織 / 使用者 / 角色)吃的是管理範圍,
+ * 由角色決定,不是資料範圍要管的事(`docs/modules/data-scope.md`「執行面」)。
+ * 未宣告 `dataScopeTarget` 的業務 collection(如 `demo_items_two`)也不會有規則 → provider 回 null。
+ */
+async function applyDataScope(
+  query: AnyQuery,
+  scope: TenantScope,
+  collectionName: string | undefined,
+): Promise<void> {
+  if (scope.kind !== "business" || collectionName === undefined) {
+    return;
+  }
+  const provider = getDataScopeRuleProvider();
+  if (!provider) {
+    return;
+  }
+  // applyTenantScope 已在同一個中介層先跑過,沒有上下文的查詢在那裡就 fail-closed 了
+  const queryScope = getQueryScope(query);
+  if (!queryScope) {
+    return;
+  }
+  const condition = await provider.conditionFor(
+    collectionName,
+    queryScope.operator,
+  );
+  if (condition) {
+    query.and([condition]);
+  }
 }
 
 /** 治理類吃管理範圍、業務類吃可見範圍(ADR-0005 的分工表;此處是唯一的選擇點)。 */

@@ -28,6 +28,22 @@ export interface OperatorContext {
    * 持超級管理員或擁有組織為根組織的角色 = `"all"`;沒有任何角色 = 空陣列。
    */
   managedOrgIds: OperatorOrgScope;
+  /**
+   * **所屬組織**(`org_user` 的直接關聯,不含下層):資料範圍規則的動態值
+   * 【操作者的所屬組織】與套用對象「指定組織」以它比對(ADR-0008)。
+   * 與 `visibleOrgIds` 不同 — 後者含可見性開關展開的下層(ADR-0005)。
+   *
+   * 由登入線的 `OperatorContextService` 填寫;**沒有經登入線解析的內部上下文**
+   * (密碼流程的 `LOOKUP` / `asAccount`、夾具的系統上下文)留空 —
+   * 那些流程只碰非租戶資料,永遠走不到資料範圍規則。留空時規則算出的對象是空集合,
+   * `$in: []` 命中不到任何資料(fail-closed,不會放寬)。
+   */
+  memberOrgIds?: Types.ObjectId[];
+  /**
+   * 持有的**啟用中角色** id:資料範圍規則的套用對象「指定角色」以它比對(ADR-0008)。
+   * 與 `managedOrgIds` 同一批角色(停用的不算,ADR-0011 步驟 2);留空的語意同 `memberOrgIds`。
+   */
+  roleIds?: Types.ObjectId[];
 }
 
 /** 掛在單一 Query 上的範圍資訊,供 plugin 的查詢中介層讀取。 */

@@ -17,6 +17,8 @@ const config: CodegenConfig = {
         exposeFetcher: true,
         scalars: {
           DateTime: "string",
+          // 資料範圍的條件樹(ADR-0008):自由 JSON 物件,形狀由 api 驗證
+          JSONObject: "Record<string, unknown>",
         },
       },
     },

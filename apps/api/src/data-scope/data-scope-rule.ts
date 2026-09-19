@@ -1,0 +1,637 @@
+import { Types } from "mongoose";
+
+/**
+ * 資料範圍規則的**型別目錄與純邏輯**(ADR-0008 的「型別 → 運算子 → 值來源」表的程式正本):
+ * 欄位目錄、驗證、套用對象命中、條件樹編譯成 Mongo filter。
+ *
+ * 這裡沒有 Nest、沒有資料庫:輸入是「規則 JSON + 欄位目錄 + 操作者事實」,輸出是條件或錯誤。
+ * 執行面(快取、讀規則、掛進查詢中介層)在 `data-scope.service.ts` 與
+ * `database/plugins/tenant-scope.plugin.ts`。
+ *
+ * **翻譯器不認識個別欄位**(ADR-0008):能用哪些運算子、值可以是什麼,一律由欄位的**型別**決定。
+ */
+
+/** 可篩欄位的型別(ADR-0008 的表;seed 宣告與基礎欄位都只能用這四種)。 */
+export const DATA_SCOPE_FIELD_TYPES = ["org", "user", "date", "enum"] as const;
+
+export type DataScopeFieldType = (typeof DATA_SCOPE_FIELD_TYPES)[number];
+
+/** 全部運算子(ADR-0008:org/user/enum 的 in、not in;date 的之間 / 之前 / 之後)。 */
+export const DATA_SCOPE_CONDITIONS = [
+  "in",
+  "not-in",
+  "between",
+  "before",
+  "after",
+] as const;
+
+export type DataScopeCondition = (typeof DATA_SCOPE_CONDITIONS)[number];
+
+/** 型別 → 允許的運算子(ADR-0008 的表;UI 依此出下拉)。 */
+export const CONDITIONS_BY_TYPE: Record<
+  DataScopeFieldType,
+  readonly DataScopeCondition[]
+> = {
+  org: ["in", "not-in"],
+  user: ["in", "not-in"],
+  date: ["between", "before", "after"],
+  enum: ["in", "not-in"],
+};
+
+/** 動態值佔位符(ADR-0008:存佔位符,查詢當下代入正在查的人)。 */
+export const DATA_SCOPE_DYNAMIC_REFS = [
+  "current-user",
+  "current-user-orgs",
+] as const;
+
+export type DataScopeDynamicRef = (typeof DATA_SCOPE_DYNAMIC_REFS)[number];
+
+/** 型別 → 允許的動態值(ADR-0008 的「值來源」欄;沒列的型別只能給靜態值)。 */
+export const DYNAMIC_REFS_BY_TYPE: Record<
+  DataScopeFieldType,
+  readonly DataScopeDynamicRef[]
+> = {
+  org: ["current-user-orgs"],
+  user: ["current-user"],
+  date: [],
+  enum: [],
+};
+
+/** 套用對象的種類(ADR-0008:全部人 / 指定角色 / 指定組織 / 指定使用者)。 */
+export const DATA_SCOPE_AUDIENCE_TYPES = [
+  "all",
+  "role",
+  "org",
+  "user",
+] as const;
+
+export type DataScopeAudienceType = (typeof DATA_SCOPE_AUDIENCE_TYPES)[number];
+
+/** 條件樹的群組節點運算子(每層可切,ADR-0008)。 */
+export const DATA_SCOPE_GROUP_OPS = ["AND", "OR"] as const;
+
+export type DataScopeGroupOp = (typeof DATA_SCOPE_GROUP_OPS)[number];
+
+/** 一個 enum 欄位的固定選項(seed 宣告)。 */
+export interface DataScopeFieldOption {
+  value: string;
+  label: string;
+}
+
+/** 欄位目錄的一欄(seed 宣告的業務欄位,或底座自動掛入的基礎欄位)。 */
+export interface DataScopeField {
+  name: string;
+  label: string;
+  type: DataScopeFieldType;
+  /** 只有 `enum` 型別有值。 */
+  options?: DataScopeFieldOption[];
+  /** 底座自動掛入的基礎欄位(ADR-0007),非 seed 宣告。 */
+  isBase?: boolean;
+}
+
+/**
+ * 基礎欄位目錄(ADR-0008「基礎欄位由底座自動掛進目錄」;欄位本身由 ADR-0007 的
+ * `baseFieldsPlugin` + 租戶隔離的 `orgId` 保證每張業務表都有)。
+ * 存進 `data_scope_targets` 的只有 seed 宣告的業務欄位,這六欄查詢時才附加。
+ */
+export const BASE_DATA_SCOPE_FIELDS: readonly DataScopeField[] = [
+  { name: "orgId", label: "組織", type: "org", isBase: true },
+  { name: "createdBy", label: "建立者", type: "user", isBase: true },
+  { name: "updatedBy", label: "更新者", type: "user", isBase: true },
+  { name: "createdAt", label: "建立時間", type: "date", isBase: true },
+  { name: "updatedAt", label: "更新時間", type: "date", isBase: true },
+  { name: "deletedAt", label: "刪除時間", type: "date", isBase: true },
+];
+
+/** 值:靜態清單,或動態佔位符。 */
+export type DataScopeValue =
+  | { kind: "static"; values: string[] }
+  | { kind: "dynamic"; ref: DataScopeDynamicRef };
+
+export interface DataScopeLeaf {
+  field: string;
+  cond: DataScopeCondition;
+  value: DataScopeValue;
+}
+
+export interface DataScopeGroup {
+  op: DataScopeGroupOp;
+  children: DataScopeNode[];
+}
+
+export type DataScopeNode = DataScopeGroup | DataScopeLeaf;
+
+export interface DataScopeAudience {
+  type: DataScopeAudienceType;
+  /** `all` 以外必給且非空;role / org / user 各自是該種類的 id 清單。 */
+  ids?: string[];
+}
+
+export interface DataScopeRuleEntry {
+  audience: DataScopeAudience;
+  filter: DataScopeNode;
+}
+
+/**
+ * 規則不合法的原因(`RULE_INVALID` 的 `extensions.reason`;前端依此顯示中文並標在條件列上)。
+ * 每一條都對應 ADR-0008 的一句規定,新增時同步回寫 `docs/standards/api/graphql-schema.md` GQL-04。
+ */
+export const RULE_INVALID_REASONS = [
+  /** 節點既不是群組(op + children)也不是條件列(field + cond + value) */
+  "MALFORMED_NODE",
+  /** 群組的 children 是空的 —「什麼都不限制」與「什麼都看不到」語意含糊,一律拒絕 */
+  "EMPTY_GROUP",
+  /** 欄位不在該資料目標的欄位目錄裡(含基礎欄位) */
+  "UNKNOWN_FIELD",
+  /** 運算子不在該欄位型別允許的清單裡(CONDITIONS_BY_TYPE) */
+  "CONDITION_NOT_ALLOWED",
+  /** 值來源不符型別:給了該型別不支援的動態值,或 kind 不是 static / dynamic */
+  "VALUE_SOURCE_NOT_ALLOWED",
+  /** 值本身不合法:空清單、id 不是 ObjectId、日期解析不了、between 不是兩個、enum 不在選項內 */
+  "VALUE_INVALID",
+  /** 套用對象的 type 不認得,或 all 以外沒給 ids / ids 不是 ObjectId */
+  "AUDIENCE_INVALID",
+  /** rules 不是陣列、單筆不是物件、缺 audience / filter */
+  "MALFORMED_RULE",
+] as const;
+
+export type RuleInvalidReason = (typeof RULE_INVALID_REASONS)[number];
+
+/** 驗證失敗的單一結果:`path` 指到出問題的位置(如 `rules[0].filter.children[1].value`)。 */
+export interface RuleViolation {
+  path: string;
+  reason: RuleInvalidReason;
+  /** 給開發者看的英文補充(GQL-04:使用者文案由前端依 reason 對應)。 */
+  detail: string;
+}
+
+/** 查詢當下代入動態值與比對套用對象所需的操作者事實(來自 OperatorContext)。 */
+export interface DataScopeOperatorFacts {
+  actorId: Types.ObjectId | null;
+  /** 所屬組織(org_user);動態值【操作者的所屬組織】與套用對象「指定組織」用它。 */
+  memberOrgIds: readonly Types.ObjectId[];
+  /** 持有的啟用中角色;套用對象「指定角色」用它。 */
+  roleIds: readonly Types.ObjectId[];
+}
+
+/** 編譯後要 AND 進查詢的 Mongo 條件(欄位名 → 條件運算式)。 */
+export type MongoCondition = Record<string, unknown>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isGroupNode(node: Record<string, unknown>): boolean {
+  return "op" in node || "children" in node;
+}
+
+/**
+ * 欄位目錄 = seed 宣告的業務欄位 + 底座自動掛入的基礎欄位(ADR-0008)。
+ * 同名時以 seed 宣告優先(模組自己宣告了 `createdBy` 就用它的標籤 / 型別)。
+ */
+export function fieldCatalogOf(
+  declared: readonly DataScopeField[],
+): DataScopeField[] {
+  const byName = new Map<string, DataScopeField>();
+  for (const field of BASE_DATA_SCOPE_FIELDS) {
+    byName.set(field.name, field);
+  }
+  for (const field of declared) {
+    byName.set(field.name, field);
+  }
+  // 目錄順序:seed 宣告的在前(頁面上先看到業務欄位),基礎欄位殿後
+  const declaredNames = new Set(declared.map((field) => field.name));
+  return [
+    ...declared.map((field) => byName.get(field.name) ?? field),
+    ...BASE_DATA_SCOPE_FIELDS.filter((field) => !declaredNames.has(field.name)),
+  ];
+}
+
+// ---- 驗證(saveDataScopeRule) ----
+
+/**
+ * 驗證整份規則;回傳第一個違規(沒有違規則 undefined)。
+ * 整份覆蓋的語意讓「只驗到第一個錯」夠用:編輯器一次只送一份,修掉再送。
+ */
+export function validateRules(
+  rules: unknown,
+  catalog: readonly DataScopeField[],
+): RuleViolation | undefined {
+  if (!Array.isArray(rules)) {
+    return {
+      path: "rules",
+      reason: "MALFORMED_RULE",
+      detail: "rules must be an array",
+    };
+  }
+  const byName = new Map(catalog.map((field) => [field.name, field]));
+  for (const [index, entry] of rules.entries()) {
+    const violation = validateRuleEntry(entry, byName, `rules[${String(index)}]`);
+    if (violation) {
+      return violation;
+    }
+  }
+  return undefined;
+}
+
+function validateRuleEntry(
+  entry: unknown,
+  byName: ReadonlyMap<string, DataScopeField>,
+  path: string,
+): RuleViolation | undefined {
+  if (!isRecord(entry)) {
+    return {
+      path,
+      reason: "MALFORMED_RULE",
+      detail: "a rule must be an object with audience and filter",
+    };
+  }
+  const audienceViolation = validateAudience(
+    entry.audience,
+    `${path}.audience`,
+  );
+  if (audienceViolation) {
+    return audienceViolation;
+  }
+  if (entry.filter === undefined) {
+    return {
+      path: `${path}.filter`,
+      reason: "MALFORMED_RULE",
+      detail: "filter is required",
+    };
+  }
+  return validateNode(entry.filter, byName, `${path}.filter`);
+}
+
+function validateAudience(
+  audience: unknown,
+  path: string,
+): RuleViolation | undefined {
+  if (!isRecord(audience)) {
+    return {
+      path,
+      reason: "AUDIENCE_INVALID",
+      detail: "audience must be an object",
+    };
+  }
+  const type = audience.type;
+  if (
+    typeof type !== "string" ||
+    !(DATA_SCOPE_AUDIENCE_TYPES as readonly string[]).includes(type)
+  ) {
+    return {
+      path: `${path}.type`,
+      reason: "AUDIENCE_INVALID",
+      detail: `audience.type must be one of ${DATA_SCOPE_AUDIENCE_TYPES.join(" / ")}`,
+    };
+  }
+  if (type === "all") {
+    return undefined;
+  }
+  const ids = audience.ids;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return {
+      path: `${path}.ids`,
+      reason: "AUDIENCE_INVALID",
+      detail: `audience.ids is required and must not be empty for type=${type}`,
+    };
+  }
+  const bad = ids.findIndex(
+    (id) => typeof id !== "string" || !Types.ObjectId.isValid(id),
+  );
+  if (bad !== -1) {
+    return {
+      path: `${path}.ids[${String(bad)}]`,
+      reason: "AUDIENCE_INVALID",
+      detail: "audience.ids must be object ids",
+    };
+  }
+  return undefined;
+}
+
+function validateNode(
+  node: unknown,
+  byName: ReadonlyMap<string, DataScopeField>,
+  path: string,
+): RuleViolation | undefined {
+  if (!isRecord(node)) {
+    return {
+      path,
+      reason: "MALFORMED_NODE",
+      detail: "a filter node must be an object",
+    };
+  }
+  return isGroupNode(node)
+    ? validateGroup(node, byName, path)
+    : validateLeaf(node, byName, path);
+}
+
+function validateGroup(
+  node: Record<string, unknown>,
+  byName: ReadonlyMap<string, DataScopeField>,
+  path: string,
+): RuleViolation | undefined {
+  const op = node.op;
+  if (
+    typeof op !== "string" ||
+    !(DATA_SCOPE_GROUP_OPS as readonly string[]).includes(op)
+  ) {
+    return {
+      path: `${path}.op`,
+      reason: "MALFORMED_NODE",
+      detail: `group op must be one of ${DATA_SCOPE_GROUP_OPS.join(" / ")}`,
+    };
+  }
+  const children = node.children;
+  if (!Array.isArray(children)) {
+    return {
+      path: `${path}.children`,
+      reason: "MALFORMED_NODE",
+      detail: "group children must be an array",
+    };
+  }
+  if (children.length === 0) {
+    return {
+      path: `${path}.children`,
+      reason: "EMPTY_GROUP",
+      detail: "a group must have at least one child",
+    };
+  }
+  for (const [index, child] of children.entries()) {
+    const violation = validateNode(
+      child,
+      byName,
+      `${path}.children[${String(index)}]`,
+    );
+    if (violation) {
+      return violation;
+    }
+  }
+  return undefined;
+}
+
+function validateLeaf(
+  node: Record<string, unknown>,
+  byName: ReadonlyMap<string, DataScopeField>,
+  path: string,
+): RuleViolation | undefined {
+  const name = node.field;
+  if (typeof name !== "string") {
+    return {
+      path: `${path}.field`,
+      reason: "MALFORMED_NODE",
+      detail: "field must be a string",
+    };
+  }
+  const field = byName.get(name);
+  if (!field) {
+    return {
+      path: `${path}.field`,
+      reason: "UNKNOWN_FIELD",
+      detail: `field ${name} is not in the target's field catalog`,
+    };
+  }
+  const cond = node.cond;
+  if (
+    typeof cond !== "string" ||
+    !(CONDITIONS_BY_TYPE[field.type] as readonly string[]).includes(cond)
+  ) {
+    return {
+      path: `${path}.cond`,
+      reason: "CONDITION_NOT_ALLOWED",
+      detail: `field ${name} is ${field.type}; allowed conditions are ${CONDITIONS_BY_TYPE[field.type].join(" / ")}`,
+    };
+  }
+  return validateValue(node.value, field, cond as DataScopeCondition, `${path}.value`);
+}
+
+function validateValue(
+  value: unknown,
+  field: DataScopeField,
+  cond: DataScopeCondition,
+  path: string,
+): RuleViolation | undefined {
+  if (!isRecord(value)) {
+    return {
+      path,
+      reason: "VALUE_SOURCE_NOT_ALLOWED",
+      detail: "value must be an object with kind static | dynamic",
+    };
+  }
+  if (value.kind === "dynamic") {
+    return validateDynamicValue(value, field, path);
+  }
+  if (value.kind !== "static") {
+    return {
+      path: `${path}.kind`,
+      reason: "VALUE_SOURCE_NOT_ALLOWED",
+      detail: "value.kind must be static or dynamic",
+    };
+  }
+  return validateStaticValue(value, field, cond, path);
+}
+
+function validateDynamicValue(
+  value: Record<string, unknown>,
+  field: DataScopeField,
+  path: string,
+): RuleViolation | undefined {
+  const allowed = DYNAMIC_REFS_BY_TYPE[field.type];
+  const ref = value.ref;
+  if (
+    typeof ref !== "string" ||
+    !(allowed as readonly string[]).includes(ref)
+  ) {
+    return {
+      path: `${path}.ref`,
+      reason: "VALUE_SOURCE_NOT_ALLOWED",
+      detail:
+        allowed.length === 0
+          ? `field ${field.name} is ${field.type} and takes no dynamic value`
+          : `field ${field.name} only accepts dynamic ref ${allowed.join(" / ")}`,
+    };
+  }
+  return undefined;
+}
+
+function validateStaticValue(
+  value: Record<string, unknown>,
+  field: DataScopeField,
+  cond: DataScopeCondition,
+  path: string,
+): RuleViolation | undefined {
+  const values = value.values;
+  if (!Array.isArray(values) || values.length === 0) {
+    return {
+      path: `${path}.values`,
+      reason: "VALUE_INVALID",
+      detail: "value.values is required and must not be empty",
+    };
+  }
+  if (values.some((item) => typeof item !== "string")) {
+    return {
+      path: `${path}.values`,
+      reason: "VALUE_INVALID",
+      detail: "value.values must be strings (ids / ISO dates / enum values)",
+    };
+  }
+  const items = values as string[];
+  if (field.type === "org" || field.type === "user") {
+    const bad = items.findIndex((item) => !Types.ObjectId.isValid(item));
+    return bad === -1
+      ? undefined
+      : {
+          path: `${path}.values[${String(bad)}]`,
+          reason: "VALUE_INVALID",
+          detail: `field ${field.name} is ${field.type}; values must be object ids`,
+        };
+  }
+  if (field.type === "enum") {
+    const options = new Set((field.options ?? []).map((item) => item.value));
+    const bad = items.findIndex((item) => !options.has(item));
+    return bad === -1
+      ? undefined
+      : {
+          path: `${path}.values[${String(bad)}]`,
+          reason: "VALUE_INVALID",
+          detail: `${String(items[bad])} is not one of the declared options of ${field.name}`,
+        };
+  }
+  return validateDateValues(items, cond, path);
+}
+
+function validateDateValues(
+  values: string[],
+  cond: DataScopeCondition,
+  path: string,
+): RuleViolation | undefined {
+  const expected = cond === "between" ? 2 : 1;
+  if (values.length !== expected) {
+    return {
+      path: `${path}.values`,
+      reason: "VALUE_INVALID",
+      detail: `${cond} expects exactly ${String(expected)} date value(s)`,
+    };
+  }
+  const bad = values.findIndex((item) => Number.isNaN(Date.parse(item)));
+  return bad === -1
+    ? undefined
+    : {
+        path: `${path}.values[${String(bad)}]`,
+        reason: "VALUE_INVALID",
+        detail: "date values must be parsable ISO date strings",
+      };
+}
+
+// ---- 執行(查詢中介層) ----
+
+/** 套用對象是否命中操作者(ADR-0008:全部人 / 指定角色 / 指定組織 / 指定使用者)。 */
+export function matchesAudience(
+  audience: DataScopeAudience,
+  facts: DataScopeOperatorFacts,
+): boolean {
+  if (audience.type === "all") {
+    return true;
+  }
+  const ids = new Set(audience.ids);
+  if (ids.size === 0) {
+    return false;
+  }
+  if (audience.type === "user") {
+    return facts.actorId !== null && ids.has(String(facts.actorId));
+  }
+  const mine =
+    audience.type === "role" ? facts.roleIds : facts.memberOrgIds;
+  return mine.some((id) => ids.has(String(id)));
+}
+
+/**
+ * 把一份已驗證的規則編譯成要 AND 進查詢的 Mongo 條件;沒有規則命中操作者 → `null`
+ * (ADR-0008:「沒有規則命中操作者 → 預設 = 可見範圍內」,也就是只剩租戶保底)。
+ */
+export function compileRules(
+  rules: readonly DataScopeRuleEntry[],
+  combineOp: DataScopeGroupOp,
+  catalog: readonly DataScopeField[],
+  facts: DataScopeOperatorFacts,
+): MongoCondition | null {
+  const byName = new Map(catalog.map((field) => [field.name, field]));
+  const matched = rules
+    .filter((rule) => matchesAudience(rule.audience, facts))
+    .map((rule) => compileNode(rule.filter, byName, facts));
+  if (matched.length === 0) {
+    return null;
+  }
+  const [only] = matched;
+  if (only && matched.length === 1) {
+    return only;
+  }
+  return combineOp === "AND" ? { $and: matched } : { $or: matched };
+}
+
+function compileNode(
+  node: DataScopeNode,
+  byName: ReadonlyMap<string, DataScopeField>,
+  facts: DataScopeOperatorFacts,
+): MongoCondition {
+  if ("children" in node) {
+    const children = node.children.map((child) =>
+      compileNode(child, byName, facts),
+    );
+    return node.op === "AND" ? { $and: children } : { $or: children };
+  }
+  return compileLeaf(node, byName, facts);
+}
+
+function compileLeaf(
+  leaf: DataScopeLeaf,
+  byName: ReadonlyMap<string, DataScopeField>,
+  facts: DataScopeOperatorFacts,
+): MongoCondition {
+  // 驗證已保證欄位在目錄內;防守性地以 enum 當退路(不會讓條件放寬)
+  const field = byName.get(leaf.field);
+  const type = field?.type ?? "enum";
+  const values = resolveValues(leaf.value, type, facts);
+  switch (leaf.cond) {
+    case "in": {
+      return { [leaf.field]: { $in: values } };
+    }
+    case "not-in": {
+      return { [leaf.field]: { $nin: values } };
+    }
+    case "between": {
+      return { [leaf.field]: { $gte: values[0], $lte: values[1] } };
+    }
+    case "before": {
+      return { [leaf.field]: { $lt: values[0] } };
+    }
+    default: {
+      return { [leaf.field]: { $gt: values[0] } };
+    }
+  }
+}
+
+/**
+ * 值來源 → 實際比對值:動態值在此代入正在查的人(ADR-0008),靜態值依型別轉型。
+ * 動態值代入後可能是空陣列(操作者沒有登入主體 / 沒有所屬組織)— 這時 `$in: []` 命中不到任何資料,
+ * 是刻意的 fail-closed:規則命中了卻算不出對象,寧可看不到也不放寬。
+ */
+function resolveValues(
+  value: DataScopeValue,
+  type: DataScopeFieldType,
+  facts: DataScopeOperatorFacts,
+): unknown[] {
+  if (value.kind === "dynamic") {
+    if (value.ref === "current-user-orgs") {
+      return [...facts.memberOrgIds];
+    }
+    return facts.actorId === null ? [] : [facts.actorId];
+  }
+  if (type === "org" || type === "user") {
+    return value.values.map((item) => new Types.ObjectId(item));
+  }
+  if (type === "date") {
+    return value.values.map((item) => new Date(item));
+  }
+  return [...value.values];
+}

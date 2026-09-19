@@ -1,0 +1,61 @@
+# 資料範圍(#205;api 正本 apps/api/src/data-scope/、規則正本 docs/adr/0008-data-scope.md)。
+# 根組織專屬模組:站在租戶裡即使持有權限,api 也回 FORBIDDEN。
+# fields 已含底座自動掛入的基礎欄位(isBase = true:組織 / 建立者 / 更新者 / 建立、更新、刪除時間)。
+# 型別決定 UI:org / user → in、not-in(可選動態值);date → between / before / after;enum → in、not-in。
+
+query DataScopeTargets {
+  dataScopeTargets {
+    targets {
+      collection
+      name
+      description
+      fields {
+        name
+        label
+        type
+        isBase
+        options {
+          value
+          label
+        }
+      }
+    }
+  }
+}
+
+# rule = null 代表這個目標尚無規則(查詢只受租戶保底);rules[].filter 是條件樹 JSON,形狀見 api 正本
+query DataScopeRule($collection: String!) {
+  dataScopeRule(collection: $collection) {
+    rule {
+      collection
+      combineOp
+      updatedAt
+      rules {
+        audience {
+          type
+          ids
+        }
+        filter
+      }
+    }
+  }
+}
+
+# 整份覆蓋:送出的就是之後生效的全部;rules 給空陣列 = 刪掉這個目標的規則
+# 不合法 → RULE_INVALID,extensions.path 指到出問題的節點、extensions.reason 是原因列舉
+mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
+  saveDataScopeRule(input: $input) {
+    rule {
+      collection
+      combineOp
+      updatedAt
+      rules {
+        audience {
+          type
+          ids
+        }
+        filter
+      }
+    }
+  }
+}
