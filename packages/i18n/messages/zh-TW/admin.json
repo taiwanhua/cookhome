@@ -81,6 +81,12 @@
     "placeholder": {
       "pending": "此頁面尚未建置"
     },
+    "help": {
+      "open": "模組說明",
+      "unavailable": "此頁尚無說明",
+      "title": "模組說明 — {name}",
+      "close": "關閉"
+    },
     "tabs": {
       "label": "路由頁籤",
       "close": "關閉 {label}",

@@ -11,3 +11,4 @@ export * from "./ChevronRightIcon";
 export * from "./DotIcon";
 export * from "./CloseIcon";
 export * from "./CheckIcon";
+export * from "./HelpIcon";

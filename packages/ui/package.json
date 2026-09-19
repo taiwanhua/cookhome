@@ -308,6 +308,16 @@
         "types": "./dist/cjs/tag.d.ts",
         "default": "./dist/cjs/tag.js"
       }
+    },
+    "./markdown": {
+      "import": {
+        "types": "./dist/es/markdown.d.mts",
+        "default": "./dist/es/markdown.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/markdown.d.ts",
+        "default": "./dist/cjs/markdown.js"
+      }
     }
   },
   "scripts": {
@@ -315,13 +325,7 @@
     "dev": "bunchee --watch",
     "check-types": "tsc --noEmit",
     "lint": "eslint src/ --max-warnings 0",
-    "test": "jest"
-  },
-  "jest": {
-    "preset": "@repo/jest-presets/browser",
-    "setupFilesAfterEnv": [
-      "<rootDir>/src/test/setup.ts"
-    ]
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "devDependencies": {
     "@emotion/react": "^11.14.0",
@@ -356,6 +360,8 @@
   },
   "dependencies": {
     "@mui/x-tree-view": "^9.14.0",
-    "@swc/helpers": "^0.5.18"
+    "@swc/helpers": "^0.5.18",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   }
 }
