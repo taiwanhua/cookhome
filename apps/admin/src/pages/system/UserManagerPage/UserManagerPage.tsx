@@ -11,7 +11,6 @@ import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { useMe } from "@/hooks/useMe";
 import { useSession } from "@/hooks/useSession";
 
 import { AssignRolesDialog } from "./AssignRolesDialog/AssignRolesDialog";
@@ -39,7 +38,6 @@ export const UserManagerPage = () => {
   const t = useTranslations("admin.userManager");
   const tErrors = useTranslations("admin.userManager.errors");
   const { session } = useSession();
-  const me = useMe();
   const data = useUserManagerData();
 
   /** 表單彈窗:null = 沒開;`{ user: null }` = 新增;`{ user }` = 編輯 */
@@ -197,10 +195,9 @@ export const UserManagerPage = () => {
         />
       )}
 
-      {rolesUser !== null && me.data !== undefined && (
+      {rolesUser !== null && (
         <AssignRolesDialog
           user={rolesUser}
-          operatorUserId={me.data.me.id}
           isSubmitting={assignRoles.isPending}
           errorCode={actionError}
           onCancel={() => {

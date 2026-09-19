@@ -45,7 +45,7 @@ export class CreateUserInput {
   @Field(() => [ID])
   orgIds!: string[];
 
-  /** 角色授予(選填);只能給操作者自己持有的角色(防越權,ADR-0003)。 */
+  /** 角色授予(選填);只能給擁有組織在操作者管理範圍內的角色(防越權,ADR-0003)。 */
   @Field(() => [ID], { nullable: true })
   roleIds?: string[];
 

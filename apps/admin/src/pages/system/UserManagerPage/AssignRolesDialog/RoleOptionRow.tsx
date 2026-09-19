@@ -5,7 +5,7 @@ import { Stack } from "@repo/ui/stack";
 import { Tag } from "@repo/ui/tag";
 import { Typography } from "@repo/ui/typography";
 
-import type { RoleOption } from "./assignable-roles";
+import { type RoleOption, isRoleSelectable } from "./assignable-roles";
 
 export interface RoleOptionRowProps {
   role: RoleOption;
@@ -14,8 +14,11 @@ export interface RoleOptionRowProps {
 }
 
 /**
- * 指派角色的一列(Figma 86:255):勾選框 + 角色名 +「組織外」標籤 + 擁有組織。
- * 操作者自己沒有的角色 disabled 並說明原因(防越權,不是壞掉)。
+ * 指派角色的一列(Figma 86:255):勾選框 + 角色名 + 標籤(組織外 / 已停用 / 租戶副本)
+ * + 擁有組織與描述。
+ *
+ * 勾不動的兩種情形講明原因,不是把列藏起來:管理範圍外(我搆不到,只能看)、
+ * 角色已停用(勾了也不生效,ADR-0011 步驟 2)。
  */
 export const RoleOptionRow = ({
   role,
@@ -23,6 +26,9 @@ export const RoleOptionRow = ({
   onToggle,
 }: RoleOptionRowProps) => {
   const t = useTranslations("admin.userManager.assignRoles");
+
+  const isSelectable = isRoleSelectable(role, isChecked);
+  const ownerOrg = role.ownerOrgName ?? role.ownerOrgId ?? "";
 
   return (
     <Stack
@@ -37,7 +43,7 @@ export const RoleOptionRow = ({
     >
       <Checkbox
         checked={isChecked}
-        disabled={role.isOutOfReach}
+        disabled={!isSelectable}
         slotProps={{ input: { "aria-label": role.name } }}
         onChange={(event) => {
           onToggle(role.id, event.target.checked);
@@ -45,21 +51,27 @@ export const RoleOptionRow = ({
       />
       <Typography
         variant="subtitle2"
-        color={role.isOutOfReach ? "text.disabled" : "text.primary"}
+        color={isSelectable ? "text.primary" : "text.disabled"}
         sx={{ minWidth: 100 }}
       >
         {role.name}
       </Typography>
       {role.isOutOfScope && <Tag tone="warning" label={t("outOfScope")} />}
-      <Typography
-        variant="caption"
-        color={role.isOutOfReach ? "warning.main" : "text.secondary"}
-        sx={{ flex: 1 }}
-      >
-        {role.isOutOfReach
-          ? t("outOfReach")
-          : t("ownerOrg", { org: role.ownerOrgName ?? role.ownerOrgId ?? "" })}
-      </Typography>
+      {!role.enabled && <Tag tone="error" label={t("roleDisabled")} />}
+      {role.isTemplateCopy && <Tag tone="grey" label={t("templateCopy")} />}
+      <Stack spacing={0} sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="caption"
+          color={role.isOutOfReach ? "warning.main" : "text.secondary"}
+        >
+          {role.isOutOfReach ? t("outOfReach") : t("ownerOrg", { org: ownerOrg })}
+        </Typography>
+        {role.description !== null && role.description !== "" && (
+          <Typography variant="caption" color="text.disabled">
+            {role.description}
+          </Typography>
+        )}
+      </Stack>
     </Stack>
   );
 };

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { useUserQuery } from "@repo/graphql";
+import { useRolesQuery } from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
@@ -20,10 +20,14 @@ import { buildRoleOptions, ownerOrgOptions } from "./assignable-roles";
 /** 篩選器的「全部組織」。 */
 const ALL_ORGS = "__all__";
 
+/**
+ * 彈窗一次把候選角色抓齊(api 上限 100,`RolesInput`)。角色是治理資料、數量遠小於
+ * 使用者,分頁在這個彈窗裡只會讓「勾一勾按儲存」變成跨頁操作。
+ */
+const ROLES_PAGE_SIZE = 100;
+
 export interface AssignRolesDialogProps {
   user: UserRow;
-  /** 操作者自己的 id:角色清單 = 他自己持有的角色(防越權,ADR-0003) */
-  operatorUserId: string;
   isSubmitting: boolean;
   errorCode: UserManagerErrorCode | null;
   onCancel: () => void;
@@ -32,12 +36,13 @@ export interface AssignRolesDialogProps {
 
 /**
  * 指派角色(Figma 86:245):全量覆蓋。
- * api 這一段沒有「角色清單」查詢(角色管理是第 4 段),所以清單改由 `user(自己的 id)` 的
- * `roles` 取得 — 它正好就是「操作者自己持有的角色 + 擁有組織」,與 api 的防越權同一份資料。
+ *
+ * 候選來自正式的 `roles` query(#211;第 3 段拿「操作者自己持有的角色」當清單的過渡
+ * 做法退場)—— 範圍是**擁有組織在操作者管理範圍內**,與 api 的 `assignUserRoles`、
+ * 角色頁的 `grantRoleUsers` 同一條判準(ADR-0003 / ADR-0005)。
  */
 export const AssignRolesDialog = ({
   user,
-  operatorUserId,
   isSubmitting,
   errorCode,
   onCancel,
@@ -47,10 +52,16 @@ export const AssignRolesDialog = ({
   const tErrors = useTranslations("admin.userManager.errors");
   const { session } = useSession();
 
-  const operator = useUserQuery(session.client, { id: operatorUserId });
+  const rolesQuery = useRolesQuery(session.client, {
+    input: { page: 1, pageSize: ROLES_PAGE_SIZE },
+  });
+  const assignable = useMemo(
+    () => rolesQuery.data?.roles.items ?? [],
+    [rolesQuery.data],
+  );
   const options = useMemo(
-    () => buildRoleOptions(operator.data?.user.roles ?? [], user.roles),
-    [operator.data, user.roles],
+    () => buildRoleOptions(assignable, user.roles),
+    [assignable, user.roles],
   );
 
   const [checkedIds, setCheckedIds] = useState<readonly string[]>(
