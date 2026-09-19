@@ -466,4 +466,29 @@ describe("組織管理頁(/system/org-manager)", () => {
     expect(input.adminAccount).toBe("admin@tenant-c.tw");
     expect(input.adminEmail).toBe("admin@tenant-c.tw");
   });
+
+  /** #183 第 3 項:Figma 202:351 的每層 28px 縮排(= theme.spacing(3.5))。 */
+  it("開通彈窗:模組清單依層級縮排,每層 28px", async () => {
+    const { user: actor } = renderPage();
+
+    await waitForTree();
+    await actor.click(await screen.findByRole("button", { name: "開通租戶" }));
+    await screen.findByRole("checkbox", { name: "系統管理" });
+
+    // 縮排掛在列上:`data-depth` 是層級、`padding-left` 是實際縮排
+    const rows = [...document.querySelectorAll<HTMLElement>("[data-depth]")];
+
+    expect(
+      rows.map(
+        (row) =>
+          `${row.textContent} ${row.dataset.depth ?? ""} ${globalThis.getComputedStyle(row).paddingLeft}`,
+      ),
+    ).toEqual([
+      // jsdom 不算 CSS 變數,所以下層那兩列的值是 spacing(3.5) 的算式 = 28px
+      "總覽 0 0px",
+      "系統管理 0 0px",
+      "組織管理 1 calc(3.5 * var(--mui-spacing))",
+      "使用者管理 1 calc(3.5 * var(--mui-spacing))",
+    ]);
+  });
 });

@@ -1,5 +1,6 @@
 import { useTranslations } from "use-intl";
 
+import { Box } from "@repo/ui/box";
 import { Checkbox } from "@repo/ui/checkbox";
 import { FormControlLabel } from "@repo/ui/form-control-label";
 import { Stack } from "@repo/ui/stack";
@@ -35,21 +36,30 @@ export const ModuleCheckList = ({
         {t("modules")}
       </Typography>
       {rows.map(({ option, depth }) => (
-        <FormControlLabel
+        // 縮排用外層 Box 的 **padding**,不能用直接子元素的 `ml`:
+        // `Stack spacing` 會對每個直接子元素下 `& > :not(style):not(style) { margin: 0 }`,
+        // 那條選擇器的優先序高過子元素自己的 `sx`,`ml` 會被歸零 —
+        // 這就是 #183 驗收看到「勾選清單沒有縮排」的原因。
+        // `data-depth` 讓測試不必去讀計算後的樣式就能斷言層級。
+        <Box
           key={option.id}
-          sx={{ ml: depth * INDENT }}
-          control={
-            <Checkbox
-              checked={selectedIds.has(option.id)}
-              indeterminate={isIndeterminate(selectedIds, rows, option.id)}
-              disabled={isDisabled}
-              onChange={(event) => {
-                onToggle(option.id, event.target.checked);
-              }}
-            />
-          }
-          label={option.name}
-        />
+          data-depth={depth}
+          sx={{ pl: depth * INDENT, display: "flex" }}
+        >
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={selectedIds.has(option.id)}
+                indeterminate={isIndeterminate(selectedIds, rows, option.id)}
+                disabled={isDisabled}
+                onChange={(event) => {
+                  onToggle(option.id, event.target.checked);
+                }}
+              />
+            }
+            label={option.name}
+          />
+        </Box>
       ))}
       <Typography variant="caption" color="text.secondary">
         {t("modulesHint")}

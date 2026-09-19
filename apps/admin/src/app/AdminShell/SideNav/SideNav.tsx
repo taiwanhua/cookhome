@@ -49,6 +49,8 @@ export const SideNav = ({
       sx={{
         width: (theme) => theme.spacing(NAV_WIDTH),
         flexShrink: 0,
+        // 殼釘死 100vh(#183),模組多到超過視窗時側欄自己捲
+        overflowY: "auto",
         bgcolor: "background.paper",
         borderRight: 1,
         borderColor: "divider",
