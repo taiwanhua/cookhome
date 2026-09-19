@@ -125,7 +125,7 @@ export const modules: SeedDocumentSet = {
   entries: moduleNodes.map((node) => toModuleDocument(node)),
 };
 
-/** 權限(每模組一筆 wildcard + 示範家族個別權限;治理模組個別權限表補正本後再種)。 */
+/** 權限(每模組一筆 wildcard + 示範家族與六個治理模組的個別權限;正本:docs/modules/*.md 權限表)。 */
 export const permissions: SeedDocumentSet = {
   kind: "documents",
   collection: PERMISSIONS_COLLECTION,

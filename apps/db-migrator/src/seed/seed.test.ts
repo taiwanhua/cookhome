@@ -648,10 +648,16 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     ]);
   }, 120_000);
 
-  it("示範家族 12 筆 + 組織管理 9 筆(7 + 租戶作業 2)+ 使用者管理 8 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 49 筆", async () => {
+  it("示範家族 12 筆 + 組織管理 9 筆(7 + 租戶作業 2)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 2 筆 + 欄位管理 4 筆 + 資料範圍 2 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 64 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
-    expect(runSeedCommand(databaseUri).status).toBe(0);
+    const firstRun = runSeedCommand(databaseUri);
+    expect(firstRun.status).toBe(0);
+    expect(firstRun.stdout).toContain("permissions:新增 64 / 更新 0 / 未變 0");
+    // 冪等:重跑 0 新增 / 0 更新 / 全部未變
+    const secondRun = runSeedCommand(databaseUri);
+    expect(secondRun.status).toBe(0);
+    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 64");
 
     const { modules, permissions } = await readSeededDocuments(databaseUri);
     const moduleIdOf = (key: string): string | undefined =>
@@ -695,6 +701,25 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "system.user-manager.assign-roles": "system.user-manager",
       "system.user-manager.show-national-id": "system.user-manager",
       "system.user-manager.edit-national-id": "system.user-manager",
+      // 正本:docs/modules/role-manager.md 權限表(7)
+      "system.role-manager.view": "system.role-manager",
+      "system.role-manager.create": "system.role-manager",
+      "system.role-manager.edit": "system.role-manager",
+      "system.role-manager.edit-matrix": "system.role-manager",
+      "system.role-manager.assign-users": "system.role-manager",
+      "system.role-manager.toggle-enabled": "system.role-manager",
+      "system.role-manager.delete": "system.role-manager",
+      // 正本:docs/modules/module-manager.md 權限表(2;根組織專屬模組)
+      "system.module-manager.view": "system.module-manager",
+      "system.module-manager.toggle-enabled": "system.module-manager",
+      // 正本:docs/modules/field-manager.md 權限表(4)
+      "system.field-manager.view": "system.field-manager",
+      "system.field-manager.create": "system.field-manager",
+      "system.field-manager.edit": "system.field-manager",
+      "system.field-manager.toggle-enabled": "system.field-manager",
+      // 正本:docs/modules/data-scope.md 權限表(2;根組織專屬模組)
+      "system.data-scope.view": "system.data-scope",
+      "system.data-scope.edit": "system.data-scope",
     };
 
     // D3:wildcard 只代表該模組自己這一層 → 每個模組(含群組、隱藏頁、api 樹)各一筆 `<key>.*`
@@ -702,7 +727,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       expectedOwners[`${String(module.key)}.*`] = String(module.key);
     }
     expect(modules).toHaveLength(20);
-    expect(permissions).toHaveLength(49);
+    expect(permissions).toHaveLength(64);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
       expect(permission).toMatchObject({ isSystem: true, enabled: true });
