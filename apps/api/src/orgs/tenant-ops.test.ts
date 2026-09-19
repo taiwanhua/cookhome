@@ -82,6 +82,7 @@ const ORG_TREE = /* GraphQL */ `
   fragment NodeFields on OrgNode {
     id
     outOfScope
+    ownerUserId
   }
   query OrgTree {
     orgTree {
@@ -164,6 +165,7 @@ interface SetOrgVisibilityData {
 interface TreeNode {
   id: string;
   outOfScope: boolean;
+  ownerUserId: string | null;
   children?: TreeNode[];
 }
 
@@ -274,6 +276,10 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
   let tenantOpsToken: string;
   /** 租戶內的使用者管理員(部門層,用來驗擁有者保護對象換人與可見範圍) */
   let tenantManagerToken: string;
+  /** 只有 `system.user-manager.view`(完全沒有組織管理的權限);驗讀組織樹的多選一守門 */
+  let userManagerOnlyToken: string;
+  /** 有登入、完全沒有角色 */
+  let nobodyToken: string;
   let legacyOwnerId: Types.ObjectId;
   let legacySuccessorId: Types.ObjectId;
   let subDeptUserId: Types.ObjectId;
@@ -524,6 +530,31 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
       assignTo: [tenantManagerId],
     });
     tenantManagerToken = await login(tenantManagerAccount);
+
+    // 只有使用者管理的檢視權(完全沒有組織管理的權限):使用者管理頁的左樹也要組織樹(#139)
+    const userManagerOnlyAccount = nextAccount("user-manager-only");
+    const userManagerOnlyId = await createUser(api.connection, {
+      account: userManagerOnlyAccount,
+      password: PASSWORD,
+      orgIds: [legacyDeptId],
+    });
+    await createRole(api.app, api.connection, {
+      name: "只有使用者管理檢視權",
+      ownerOrgId: legacyDeptId,
+      moduleKeys: [USER_MANAGER_MODULE],
+      permissionKeys: [`${USER_MANAGER_MODULE}.view`],
+      assignTo: [userManagerOnlyId],
+    });
+    userManagerOnlyToken = await login(userManagerOnlyAccount);
+
+    // 有登入、完全沒有角色
+    const nobodyAccount = nextAccount("nobody");
+    await createUser(api.connection, {
+      account: nobodyAccount,
+      password: PASSWORD,
+      orgIds: [legacyDeptId],
+    });
+    nobodyToken = await login(nobodyAccount);
   }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -578,6 +609,60 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
       );
 
       expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+  });
+
+  describe("orgTree / org:讀取權限多選一與 OrgNode.ownerUserId(#139 回饋)", () => {
+    it("只有 system.user-manager.view 也讀得到組織樹與單筆組織", async () => {
+      const tree = await api.graphql<OrgTreeData>(
+        ORG_TREE,
+        {},
+        { accessToken: userManagerOnlyToken },
+      );
+      expect(tree.errors).toBeUndefined();
+      expect(
+        flatten(tree.data?.orgTree ?? []).map((node) => node.id),
+      ).toContain(String(legacyDeptId));
+
+      const one = await api.graphql(
+        /* GraphQL */ `
+          query Org($id: ID!) {
+            org(id: $id) {
+              id
+              name
+            }
+          }
+        `,
+        { id: String(legacyDeptId) },
+        { accessToken: userManagerOnlyToken },
+      );
+      expect(one.errors).toBeUndefined();
+    });
+
+    it("兩個檢視權都沒有:FORBIDDEN(多選一不是不設防)", async () => {
+      const result = await api.graphql(
+        ORG_TREE,
+        {},
+        { accessToken: nobodyToken },
+      );
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+
+    it("樹上租戶頂層帶 ownerUserId,子組織為 null(前端不必逐筆查 org(id))", async () => {
+      const tree = await api.graphql<OrgTreeData>(
+        ORG_TREE,
+        {},
+        { accessToken: rootOpsToken },
+      );
+
+      expect(tree.errors).toBeUndefined();
+      const nodes = flatten(tree.data?.orgTree ?? []);
+      const tenantTop = nodes.find(
+        (node) => node.id === String(legacyTenantId),
+      );
+      const dept = nodes.find((node) => node.id === String(legacyDeptId));
+      expect(tenantTop?.ownerUserId).toBe(String(legacyOwnerId));
+      expect(dept?.ownerUserId).toBeNull();
     });
   });
 

@@ -194,6 +194,7 @@ type OrgNode {
   id: ID!
   name: String!
   outOfScope: Boolean!
+  ownerUserId: ID
   parentId: ID
 }
 

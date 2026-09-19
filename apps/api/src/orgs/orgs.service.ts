@@ -182,6 +182,9 @@ function buildForest(
         ? null
         : String(document.parentId),
     enabled: document.enabled,
+    // 僅租戶頂層有值(ADR-0009);樹上就給,前端不必逐筆查 org(id) 才判斷得出擁有者(#139)
+    ownerUserId:
+      document.ownerUserId === undefined ? null : String(document.ownerUserId),
     // 可見範圍外:樹上照樣顯示(不然樹會斷),但前端不讓選、不讓操作(ADR-0005)
     outOfScope: !isOrgVisible(operator, document._id),
     children: byName(childrenByParent.get(String(document._id)) ?? []).map(
