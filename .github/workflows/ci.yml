@@ -1,9 +1,18 @@
 name: CI
 
+# 純文件改動不跑本 workflow(由 docs.yml 只做 md 的 prettier 檢查);
+# 注意 apps/admin/src/md/**(help.md)會被 build 進 admin,不在忽略清單內。
 on:
   pull_request:
+    paths-ignore: ["docs/**", "*.md", ".claude/**", ".agents/**"]
   push:
     branches: [main, dev, staging]
+    paths-ignore: ["docs/**", "*.md", ".claude/**", ".agents/**"]
+
+# 同一個 PR(或同一分支)有新 commit 時,取消還在跑的舊 run
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -17,6 +26,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # turbo --affected 要拿 git 歷史算 diff
 
       - uses: pnpm/action-setup@v4 # 版本讀 package.json 的 packageManager 欄位
 
@@ -28,15 +39,45 @@ jobs:
       - name: 安裝依賴
         run: pnpm install --frozen-lockfile
 
+      # 只跑「這次 diff 改到的 package + 依賴它們的 package」(turbo 依 workspace 依賴圖推導:
+      # 改 packages/ui 會連 admin / front / storybook 一起跑;改根設定或 lockfile 會全跑)。
+      # base:PR 對 base 分支比;push 對推送前的分支 HEAD 比(等於這次合進來的內容)。
+      # 改到 .github/** 或 base 拿不到(首推、force push)時退回全跑。
+      - name: 受影響的 package
+        id: affected
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          all=false
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            all=true
+          elif git diff --name-only "$BASE...HEAD" | grep -q '^\.github/'; then
+            all=true
+          fi
+          if [ "$all" = true ]; then
+            echo "filter=" >> "$GITHUB_OUTPUT"
+            echo "front=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::受影響範圍:全部(base 不可用或 .github 有改)"
+          else
+            list=$(TURBO_SCM_BASE="$BASE" pnpm exec turbo ls --affected --output json | jq -r '.packages.items[].name' | tr '\n' ' ')
+            echo "filter=--affected" >> "$GITHUB_OUTPUT"
+            case " $list " in *" @repo/front "*) echo "front=true" >> "$GITHUB_OUTPUT" ;; *) echo "front=false" >> "$GITHUB_OUTPUT" ;; esac
+            echo "::notice::受影響的 package:${list:-(無)}"
+          fi
+          echo "TURBO_SCM_BASE=$BASE" >> "$GITHUB_ENV"
+
       # Markdown 不經 turbo lint(各 workspace 的 lint 只跑 eslint,且根目錄 docs/ 不屬於任何 workspace),
       # 獨立一步在最前面 fail-fast。ts/tsx 尚未納入 prettier --check(dis.md #26 的待辦)
       - name: Markdown 格式檢查(prettier --check)
         run: pnpm run format:check
 
+      # front 的 ISR 預渲染需要活的 api;front 沒被改到就不用起
       - name: 建置 api(front 的 ISR 預渲染需要活的 api)
+        if: steps.affected.outputs.front == 'true'
         run: pnpm exec turbo run build --filter=@repo/api
 
       - name: 啟動 api(接 CI 的拋棄式 MongoDB,空資料庫)
+        if: steps.affected.outputs.front == 'true'
         run: |
           node apps/api/dist/main.js &
           timeout 60 bash -c 'until curl -sf -X POST -H "Content-Type: application/json" -d "{\"query\":\"{__typename}\"}" http://127.0.0.1:5001/graphql -o /dev/null; do sleep 2; done'
@@ -49,11 +90,11 @@ jobs:
       # check-types 與 build 分兩步:next build 會清寫 .next,與 next typegen 同時跑會競態
       # MONGODB_URI:db-migrator 測試沿用本 job 的 MongoDB service container(本地無此變數時自起 mongodb-memory-server)
       - name: lint / typecheck / test
-        run: pnpm exec turbo run lint check-types test
+        run: pnpm exec turbo run lint check-types test ${{ steps.affected.outputs.filter }}
         env:
           MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
 
       - name: build
-        run: pnpm exec turbo run build
+        run: pnpm exec turbo run build ${{ steps.affected.outputs.filter }}
         env:
           NEXT_PUBLIC_GRAPHQL_ENDPOINT: http://127.0.0.1:5001/graphql
