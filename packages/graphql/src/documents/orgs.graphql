@@ -1,0 +1,98 @@
+# 組織管理(#134;模組 system.org-manager,規則正本 docs/modules/org-manager.md)。
+# 樹以操作者可見範圍決定(ADR-0005):根組織視角以根組織為根、租戶視角以租戶頂層為根;
+# 可見範圍外的節點照樣回、標 outOfScope(樹不斷,但不能選也不能操作)。
+
+fragment OrgNodeFields on OrgNode {
+  id
+  name
+  parentId
+  enabled
+  outOfScope
+}
+
+# 五層夠現行組織深度(根 > 租戶 > 部門 > 子部門 > 再一層);GraphQL 沒有遞迴 fragment,深度只能展開
+query OrgTree {
+  orgTree {
+    ...OrgNodeFields
+    children {
+      ...OrgNodeFields
+      children {
+        ...OrgNodeFields
+        children {
+          ...OrgNodeFields
+          children {
+            ...OrgNodeFields
+          }
+        }
+      }
+    }
+  }
+}
+
+# 右側資料區;logoUrl 是現簽的短效網址(ADR-0010:DB 存路徑不存 URL),
+# ownerUserId / visibility 只在租戶頂層有值,且只有根組織改得動(租戶作業 #135)
+query Org($id: ID!) {
+  org(id: $id) {
+    id
+    name
+    description
+    parentId
+    enabled
+    isSystem
+    ownerUserId
+    visibility
+    logoUrl
+  }
+}
+
+mutation CreateChildOrg($input: CreateChildOrgInput!) {
+  createChildOrg(input: $input) {
+    org {
+      id
+      name
+      description
+      parentId
+      enabled
+    }
+  }
+}
+
+# logoPath 只收 createUploadUrl 發出的物件路徑;給 null 代表清空描述 / 商標
+mutation UpdateOrg($input: UpdateOrgInput!) {
+  updateOrg(input: $input) {
+    org {
+      id
+      name
+      description
+      logoUrl
+    }
+  }
+}
+
+# 停用連動整棵子樹;啟用只啟用自己這一節 → 成功後整棵樹要重查
+mutation SetOrgEnabled($input: SetOrgEnabledInput!) {
+  setOrgEnabled(input: $input) {
+    org {
+      id
+      enabled
+    }
+  }
+}
+
+# 限同租戶(CROSS_TENANT)、不可搬進自己的子樹(CYCLIC_MOVE)
+mutation MoveOrg($input: MoveOrgInput!) {
+  moveOrg(input: $input) {
+    org {
+      id
+      parentId
+    }
+  }
+}
+
+# 前置四項不過 → ORG_NOT_DELETABLE,errors[0].extensions.reasons 逐項列出原因
+mutation DeleteOrg($input: DeleteOrgInput!) {
+  deleteOrg(input: $input) {
+    success
+    deletedId
+  }
+}

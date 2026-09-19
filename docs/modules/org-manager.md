@@ -33,7 +33,7 @@
 
 ## 畫面與流程
 
-**組織樹**:根組織視角以根為根、看得到全部租戶;租戶視角以租戶頂層為根(租戶眼中的根 = 自己的頂層組織)。操作者可見範圍(ADR-0005)外的節點顯示但 disabled。選中節點後右側顯示該組織資料與可用動作;動作按鈕依權限顯示(ADR-0011「頁內判斷」)。
+**組織樹**:根組織視角以根為根、看得到全部租戶;租戶視角以租戶頂層為根(租戶眼中的根 = 自己的頂層組織)。操作者可見範圍(ADR-0005)外的節點顯示但不可選取(`OrgNode.outOfScope`)。選中節點後右側顯示該組織資料與可用動作;動作按鈕依權限顯示(ADR-0011「頁內判斷」)。
 
 **開通租戶**(根組織專屬):表單欄位 = 租戶名稱、首任管理員的帳號(預設帶入 Email、可改)與 Email、商標(選填)、**開放模組勾選**(清單 = 租戶管理員模板綁的模組扣除根組織專屬模組,預設全勾;勾群組連動下層、勾下層連動上層,規則同角色管理的矩陣)。送出後由 API 一次完成 ADR-0009 的四步(建租戶 Org → 複製「租戶管理員」角色副本、只綁勾選的模組 → 建首任管理員帳號並綁 `org_user` / `user_role` → 寄啟用信)並設 `ownerUserId`。首任管理員不設初始密碼,由啟用信自行設定(`docs/modules/user-manager.md` 密碼流程)。
 
@@ -46,6 +46,28 @@
 **搬移**:改上層組織;新上層必須在同一租戶(`ancestors` 含同一個租戶頂層),且不能搬到自己的子樹底下。搬移後整棵子樹的 `ancestors` 重算。
 
 **刪除**:前置檢查全部通過才可:無子組織、無成員(`org_user`)、不是任何角色的擁有組織、無業務資料引用。任一不通過 → 提示改用停用。刪除 = 軟刪除(ADR-0007)。
+
+## api 介面(#134 已實作,程式在 `apps/api/src/orgs/`)
+
+```graphql
+orgTree: [OrgNode!]!              # 可見範圍內的樹;租戶視角以租戶頂層為根,範圍外節點標 outOfScope
+org(id: ID!): Org!                # 範圍外視為不存在(NOT_FOUND);logoUrl 為現簽的短效網址
+createChildOrg(input: { parentId, name, description }): OrgPayload!
+updateOrg(input: { id, name, description, logoPath }): OrgPayload!
+setOrgEnabled(input: { id, enabled }): OrgPayload!
+moveOrg(input: { id, newParentId }): OrgPayload!
+deleteOrg(input: { id }): DeletePayload!
+```
+
+實作時定下的幾件事(spec 未寫、以本檔的規則推導):
+
+- **`OrgNode.outOfScope` 與 `enabled` 是兩件事**:`enabled` 是組織自己的停用狀態,`outOfScope` 是「在操作者可見範圍外」(樹上照樣顯示、但不可選不可操作)。兩個欄位同時存在;命名與使用者列的 `outOfScope`(#136)一致。
+- **停用連動、搬移的 `ancestors` 重算、刪除前置的「有沒有子組織」以整棵子樹為準**,不受操作者可見範圍裁切(可見範圍決定「看得到誰的資料」,不該讓連動只做一半)。程式上是 `orgs.service.ts` 的 `subtreeContext()`,只准搭配把查詢釘在該子樹內的條件。
+- **根組織保護**:不可停用、不可搬移、不可刪除(刪除的 reasons 多一項 `SYSTEM_ORG`)。
+- **`updateOrg` 動不到擁有者與可見範圍開關**:`UpdateOrgInput` 根本沒有這兩個欄位(租戶作業 #135 另開 mutation),不是靠執行期判斷。
+- **`updateOrg` 沒有任何欄位真的變動時不寫入、也不留審計**(審計的 before / after 只放有變的欄位,空紀錄是雜訊)。
+- **「無業務資料引用」的清單**= 目前有 `orgId` 的業務 collection:`customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)。`audit_logs` 不算(只增不改的歷史紀錄)。第 5 段示範模組長出新 collection 時在 `orgs.service.ts` 的 `hasBusinessData()` 加一項。
+- 錯誤碼:`ORG_NOT_DELETABLE`(`extensions.reasons`:`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG`)、`CROSS_TENANT`、`CYCLIC_MOVE`、`NOT_FOUND`、`VALIDATION_FAILED`、`FORBIDDEN`(GQL-04 表)。
 
 **商標上傳**(ADR-0010,本段建立 StorageService 的第一條線):前端向 API 要簽名上傳 URL → 直傳私有 bucket → 把物件路徑存進 `logoPath`;顯示時 API 發簽名讀取 URL。開通與編輯兩個彈窗共用同一個 `Draft/UploadField`。
 

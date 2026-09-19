@@ -11,6 +11,12 @@ type ChangePasswordPayload {
   success: Boolean!
 }
 
+input CreateChildOrgInput {
+  description: String
+  name: String!
+  parentId: ID!
+}
+
 input CreateRecipeInput {
   cookMinutes: Int
   description: String
@@ -35,6 +41,15 @@ input CreateUploadUrlInput {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+input DeleteOrgInput {
+  id: ID!
+}
+
+type DeletePayload {
+  deletedId: ID!
+  success: Boolean!
+}
 
 type Ingredient {
   amount: String!
@@ -102,21 +117,64 @@ enum ModuleSidebarType {
   LINK
 }
 
+input MoveOrgInput {
+  id: ID!
+  newParentId: ID!
+}
+
 type Mutation {
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
+  createChildOrg(input: CreateChildOrgInput!): OrgPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
+  deleteOrg(input: DeleteOrgInput!): DeletePayload!
   login(input: LoginInput!): LoginPayload!
   logout: LogoutPayload!
   logoutAllDevices: LogoutAllDevicesPayload!
+  moveOrg(input: MoveOrgInput!): OrgPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
+  setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
+  updateOrg(input: UpdateOrgInput!): OrgPayload!
+}
+
+type Org {
+  description: String
+  enabled: Boolean!
+  id: ID!
+  isSystem: Boolean!
+  logoUrl: String
+  name: String!
+  ownerUserId: ID
+  parentId: ID
+  visibility: OrgVisibility
+}
+
+type OrgNode {
+  children: [OrgNode!]!
+  enabled: Boolean!
+  id: ID!
+  name: String!
+  outOfScope: Boolean!
+  parentId: ID
+}
+
+type OrgPayload {
+  org: Org!
+}
+
+"""租戶頂層的使用者可見範圍開關(ADR-0005;未設視為 OWN)"""
+enum OrgVisibility {
+  OWN
+  SUBTREE
 }
 
 type Query {
   me: Me!
+  org(id: ID!): Org!
+  orgTree: [OrgNode!]!
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
 }
@@ -147,6 +205,11 @@ type RequestPasswordResetPayload {
   success: Boolean!
 }
 
+input SetOrgEnabledInput {
+  enabled: Boolean!
+  id: ID!
+}
+
 input SetPasswordInput {
   newPassword: String!
   token: String!
@@ -162,6 +225,13 @@ input SwitchOrgInput {
 
 type SwitchOrgPayload {
   accessToken: String!
+}
+
+input UpdateOrgInput {
+  description: String
+  id: ID!
+  logoPath: String
+  name: String
 }
 
 """上傳用途:決定物件路徑前綴與所需權限(ADR-0010)"""
