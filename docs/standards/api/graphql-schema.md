@@ -19,6 +19,8 @@ schema 採 code-first:NestJS decorators 產出 `schema.gql`,產物不手改(GQL-
 
 **例外:沒有任何輸入的 mutation 不做空的 input**(如 `refresh`、`logout`、`logoutAllDevices` — 身分來自 token 與 cookie)。硬給一個 `input: {}` 只是為了形式一致,對呼叫端沒有價值。
 
+**Spec 的 Interface design 也一律照本條寫 payload type**(2026-09-20 裁決,#204 / #206 / #205 / #203 各撞一次):spec 裡寫 `createField(input: …): Field!`、`role(id): Role!` 這種裸型別是簡寫,實作時**照 GQL-02 補 payload**,不必回頭改 spec;query 回清單照 GQL-03 的 `{ items, totalCount }`。**例外:樹狀回傳可以裸回陣列**(`moduleTree: [ModuleAdminNode!]!` 是先例 — 它不是清單、沒有 `totalCount` 可言,包一層只是多一層)。同一份 spec 的多張票並行時,這條決定哪一邊都行**但要先定案**,否則四票四種形狀。
+
 ## GQL-03 列表查詢統一分頁形狀
 
 所有回傳列表的 query 用同一個形狀,一次定案全站一致:
@@ -64,6 +66,10 @@ type RecipeList {
 | `USER_NOT_ELIGIBLE`        | 角色的「加入使用者」候選規則未過:該使用者的所屬組織皆不在角色擁有組織的子樹內(ADR-0003)                                                                                                                               | 提示該使用者不在此角色的管轄範圍內,並重新載入候選清單(清單本來就只列有資格的人)  |
 
 錯誤的 `message` 給開發者看(英文);給使用者的繁體中文文案由前端依 code 對應,不從 api 傳。
+
+**多票並行時這張表的衝突解法**(2026-09-20 / 第 4 段四票各追加一列):每張票**只追加自己的列**,但
+追加一列會讓 prettier 重排整張表的欄寬(STRUCT-09),所以 diff 看起來整張表都動了。合併衝突時
+**保留兩邊的新列後重跑 `pnpm format`,不要照行比對**(照行比對必定弄丟其中一邊的欄寬或列)。
 
 ## GQL-05 `schema.gql` 是產物
 
