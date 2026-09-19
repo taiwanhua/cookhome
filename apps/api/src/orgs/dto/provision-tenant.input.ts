@@ -1,0 +1,33 @@
+import { Field, InputType } from "@nestjs/graphql";
+
+/**
+ * 開通租戶(ADR-0009 四步 + 擁有者 + 啟用信;根組織專屬)。
+ * 表單欄位正本:docs/modules/org-manager.md「開通租戶」— 租戶名稱、首任管理員的帳號與 Email、
+ * 商標(選填)、開放模組勾選。首任管理員**不設初始密碼**,由啟用信自行設定(根組織不經手租戶密碼)。
+ */
+@InputType()
+export class ProvisionTenantInput {
+  /** 租戶名稱 = 租戶頂層組織的名稱。 */
+  @Field(() => String)
+  name!: string;
+
+  /** 首任管理員帳號(前端預設帶入 Email、可改);在 `users` 內唯一(ADR-0003)。 */
+  @Field(() => String)
+  adminAccount!: string;
+
+  /** 首任管理員 Email(啟用信寄到這裡);在 `users` 內唯一。 */
+  @Field(() => String)
+  adminEmail!: string;
+
+  /** `createUploadUrl` 發出的物件路徑;非本 API 簽出來的路徑一律 `VALIDATION_FAILED`(ADR-0010)。 */
+  @Field(() => String, { nullable: true })
+  logoPath?: string | null;
+
+  /**
+   * 開放給這個租戶的模組 key:必須落在 `tenantModuleOptions` 內(= 租戶管理員模板綁的模組),
+   * 否則 `VALIDATION_FAILED` — 根組織專屬模組不在選項內,勾了就是被這一條擋下。
+   * 至少要勾一個(一個模組都沒有的租戶管理員進不了任何頁面)。
+   */
+  @Field(() => [String])
+  moduleKeys!: string[];
+}
