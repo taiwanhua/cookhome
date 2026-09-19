@@ -26,3 +26,16 @@
 
 **種子選項的 key**:`<類別 key>.<value>`(如 `gender.male`、`demo-category.side-dish`),只給冪等識別用;租戶自訂選項沒有 key、以 `_id` 識別(`fields.key` 選填、sparse unique)。production 第一次 seed 後不可改。
 **待辦(本模組實作時)**:同一類別、同一組織下 `value` 不可重複 — `(categoryId, orgId, value)` 唯一索引 + 表單驗證。
+
+## 權限表(第 4 段前置,2026-09-20)
+
+每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。綁定原則:綁「按鈕 / 欄位所在的那一頁」(ADR-0004)。
+
+| 權限 key                              | 它是哪一頁的什麼                                                                                               |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `system.field-manager.view`           | 看類別與選項(來源欄:全域 / <組織名稱> 自訂)                                                                    |
+| `system.field-manager.create`         | 「新增選項」+ API(本組織自訂,`orgId` = 當前組織;`(categoryId, orgId, value)` 唯一;Figma「Overlay / 新增選項」) |
+| `system.field-manager.edit`           | 編輯自訂選項的 label / order / description + API(種子選項只能改 `enabled`;`value` 建立後不可改)                |
+| `system.field-manager.toggle-enabled` | 停用 / 啟用選項 + API(種子與自訂皆可;選項不可刪,舊資料要對照)                                                  |
+
+審計動作:`field.create` / `field.edit` / `field.toggle-enabled`(`targetType = "field"`)。

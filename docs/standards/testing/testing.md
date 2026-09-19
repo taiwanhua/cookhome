@@ -55,6 +55,10 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 - preset 用 `@repo/jest-presets/browser-esm`(jsdom + Node 的 fetch / Request / Response / BroadcastChannel 全域給 MSW;ts-jest ESM 模式 — react-router 8、use-intl 4 只出 ESM);純元件庫(`packages/ui`)仍用 `browser`
 - **httpOnly cookie 在 jsdom 看不到**,用 `authWorld({ hasRefreshCookie })` 這類旗標模擬「瀏覽器有沒有帶 cookie」並計數請求;MSW `server.use()` 的 handler **先列的先贏**
 - 渲染一律用 `renderApp()`(帶 Intl / Theme / QueryClient / Session / Router 的完整 providers),不裸 render 元件
+- 逾時有兩層:preset 的 `testTimeout` 15 秒(單一測試)之外,testing-library 的 `findBy*` / `waitFor` 預設只等 1 秒;`src/test/setup.ts` 已 `configure({ asyncUtilTimeout: 5000 })`,串三段查詢的頁面在 CI runner 上才不會偶發紅
+- jsdom 陷阱:`URL.createObjectURL` 在 `jest-fixed-jsdom` 會炸(補回來的是 Node 的 `URL`,只收 Node 的 `Blob`),測到上傳預覽的頁面要在測試檔 stub;MUI 樹「點內容區 = 選取 + 展開 / 收合」,測試先點父再點子要注意順序
+- **MSW 夾具的形狀以 api 測試的斷言為準**(`apps/api/src/**/*.test.ts` 裡有現成斷言可對照):`tenantTree` 夾具曾把樹根的 `parentId` 寫成有值,而 api 對樹根一律回 `null`,讓前端拿 `parentId` 判視角的 bug 在測試裡是對的(#186)
+- 頁面測試怎麼分檔:一頁一個 `<Page>.test.tsx` 放主流程;超過 `max-lines` 400 就依情境拆成 `<Page>Scope.test.tsx`、`<Page>Dialogs.test.tsx`…,共用的 world / 夾具 / helper 抽成同資料夾的 `<page>-test-support.ts`(kebab,非元件)
 - 跑法:**`pnpm exec turbo run test --filter=@repo/admin`**(turbo 會先 build `ui` / `graphql` / `domain`)。`pnpm --filter @repo/admin test` 不經 turbo、**不會 build 依賴**,新 checkout 或依賴改過就會炸型別(第 2 段三位實作者都撞到,2026-09-19 改正)
 - 逾時:`browser-esm` preset 已放寬 `testTimeout` 到 15 秒(CI runner 慢,jsdom + MSW + ts-jest ESM 的第一個測試要付暖機成本);個別測試不再自行加 timeout
 - 輸出雜訊:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`
