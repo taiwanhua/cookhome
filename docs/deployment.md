@@ -70,6 +70,7 @@ release 後:進行中的 feat 分支 rebase 到最新 main
   - UI:Actions → Deploy → Run workflow →「Use workflow from」選分支 + environment 選環境
   - CLI:`gh workflow run Deploy --ref dev -f environment=dev`(staging 同理;production 的 ref 是 `main`)
   - 防呆:分支與環境不對應會直接失敗(dev→`dev`、staging→`staging`、production→`main`)
+  - **只部署改到的 app**(2026-09-19):workflow 讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過(migrate → seed 也只在 api 或 db-migrator 受影響時跑);判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`(第一次部署或 Cloud Run 讀不到 tag 時會自動全部)
   - image tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(VITE 端點烘入)
   - **部署成功後自動跑 `migrate → seed`**(ADR-0002):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`;seed 摘要(新增 N / 更新 M / 未變 K)印在 Actions log — 第一次跑應全為新增,之後每次應為 0 / 0 / K。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)
 - **Release 步驟(每次一樣;票的看板狀態見 `docs/agents/issue-tracker.md`)**:
