@@ -1,0 +1,587 @@
+import { randomBytes } from "node:crypto";
+
+import { Injectable, Logger } from "@nestjs/common";
+import { hash } from "@node-rs/argon2";
+import { Types } from "mongoose";
+
+import { AuditService } from "../audit/audit.service";
+import { PasswordService } from "../auth/password/password.service";
+import type { Persisted } from "../database/base.repository";
+import {
+  type ModuleDocument,
+  ModulesRepository,
+  OrgsRepository,
+  PermissionsRepository,
+  type RoleDocument,
+  RolesRepository,
+  UsersRepository,
+} from "../database/database.module";
+import type { OperatorContext } from "../database/operator-context";
+import {
+  type RelationLink,
+  RelationService,
+} from "../database/relation.service";
+import { ModuleSidebarType } from "../permission/models/me-module.model";
+import { isOwnedUploadPath } from "../storage/storage.service";
+import type { ProvisionTenantInput } from "./dto/provision-tenant.input";
+import type { SetOrgVisibilityInput } from "./dto/set-org-visibility.input";
+import type { TransferOrgOwnerInput } from "./dto/transfer-org-owner.input";
+import type { Org } from "./models/org.model";
+import type {
+  ModuleOption,
+  ProvisionTenantPayload,
+} from "./models/tenant-ops.model";
+import { orgError } from "./org-error";
+import {
+  type OrgRecord,
+  VISIBILITY_SETTING,
+  isTenantTop,
+  toOrg,
+  visibilityOf,
+  visibilitySettingOf,
+} from "./org-mapper";
+import {
+  OwnerProtectionService,
+  TEMPLATE_KEY_SETTING,
+  TENANT_ADMIN_ROLE_KEY,
+} from "./owner-protection.service";
+
+type ModuleRecord = Persisted<ModuleDocument>;
+type RoleRecord = Persisted<RoleDocument>;
+
+/** 審計動作名(docs/modules/org-manager.md「審計」;`targetType` 一律 org)。 */
+const AUDIT_TARGET_TYPE = "org";
+const AUDIT_ACTIONS = {
+  provision: "org.provision",
+  transferOwner: "org.transfer-owner",
+  setVisibility: "org.set-visibility",
+} as const;
+
+/**
+ * 開通失敗時要補償刪除的東西(Mongo 單節點無 transaction,見 `provision` 的說明)。
+ * 順序即「建立順序」,回滾時反向處理。
+ */
+interface ProvisionedArtifacts {
+  links: Omit<RelationLink, "meta">[];
+  orgId?: Types.ObjectId;
+  roleId?: Types.ObjectId;
+  userId?: Types.ObjectId;
+}
+
+/** 必填文字去空白;空字串即 `VALIDATION_FAILED`,`extensions.fields` 指出是哪一欄。 */
+function requireText(value: string, field: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw validationError(`${field} must not be empty`, [field]);
+  }
+  return trimmed;
+}
+
+/** 輸入不合法(GQL-04 `VALIDATION_FAILED`):`extensions.fields` 讓前端標到對應的表單欄位。 */
+function validationError(message: string, fields: string[]) {
+  const error = orgError("VALIDATION_FAILED", message);
+  (error.extensions as Record<string, unknown>).fields = fields;
+  return error;
+}
+
+/** 商標只收本 API 自己簽出來的路徑(ADR-0010;與 `updateOrg` 同一條規則)。 */
+function ownedLogoPath(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim() ?? "";
+  if (trimmed === "") {
+    return undefined;
+  }
+  if (!isOwnedUploadPath(trimmed)) {
+    throw validationError(
+      `logoPath ${trimmed} was not issued by createUploadUrl`,
+      ["logoPath"],
+    );
+  }
+  return trimmed;
+}
+
+/** 模組文件 → 勾選選項;上層不在選項內時 `parentId` 為 null(該節點自成一棵根)。 */
+function toModuleOptions(documents: ModuleRecord[]): ModuleOption[] {
+  const ids = new Set(documents.map((document) => String(document._id)));
+  return sortForTree(documents).map((document) => ({
+    id: String(document._id),
+    key: document.key,
+    name: document.name,
+    parentId:
+      document.parentId !== null && ids.has(String(document.parentId))
+        ? String(document.parentId)
+        : null,
+    sidebarType: document.sidebarType as ModuleSidebarType,
+    order: document.order,
+  }));
+}
+
+/** 上層一定排在下層前面(深度),同層照側欄順序 — 前端不必先排就能一路建樹。 */
+function sortForTree(documents: ModuleRecord[]): ModuleRecord[] {
+  return documents.toSorted(
+    (left, right) =>
+      left.ancestors.length - right.ancestors.length ||
+      left.order - right.order ||
+      left.key.localeCompare(right.key),
+  );
+}
+
+/**
+ * 勾選 → 實際要綁的模組。
+ * - 選項外的 key(含根組織專屬模組)→ `VALIDATION_FAILED`
+ * - 一個都沒勾 → `VALIDATION_FAILED`(沒有模組的租戶管理員進不了任何頁面)
+ * - **自動補上仍在選項內的上層模組**:模組樹是側欄的樹,只綁下層不綁群組會讓側欄斷成孤兒
+ *   (ADR-0004「勾下層模組必連動勾上層」,前端矩陣本來就這樣送;API 這一層不依賴前端做對)
+ */
+function selectModules(
+  options: ModuleRecord[],
+  requestedKeys: string[],
+): ModuleRecord[] {
+  const byKey = new Map(options.map((option) => [option.key, option]));
+  const byId = new Map(options.map((option) => [String(option._id), option]));
+  const unknown = [...new Set(requestedKeys)].filter((key) => !byKey.has(key));
+  if (unknown.length > 0) {
+    throw validationError(
+      `Modules not offered to tenants: ${unknown.join(", ")}`,
+      ["moduleKeys"],
+    );
+  }
+  const picked = new Map<string, ModuleRecord>();
+  for (const key of requestedKeys) {
+    const node = byKey.get(key);
+    if (!node) {
+      continue;
+    }
+    picked.set(String(node._id), node);
+    for (const ancestorId of node.ancestors) {
+      const ancestor = byId.get(String(ancestorId));
+      if (ancestor) {
+        picked.set(String(ancestor._id), ancestor);
+      }
+    }
+  }
+  if (picked.size === 0) {
+    throw validationError("At least one module must be selected", [
+      "moduleKeys",
+    ]);
+  }
+  return sortForTree([...picked.values()]);
+}
+
+/**
+ * 租戶作業(`system.org-manager.tenant-ops`,根組織專屬):開通租戶、轉移擁有者、設定可見範圍。
+ * 規則正本 ADR-0009 / ADR-0005 與 docs/modules/org-manager.md;
+ * resolver 以 `@RequirePermission` 守門,本層再確認操作者站在根組織(權限有了也不夠)。
+ */
+@Injectable()
+export class TenantOpsService {
+  private readonly logger = new Logger(TenantOpsService.name);
+
+  constructor(
+    private readonly orgs: OrgsRepository,
+    private readonly users: UsersRepository,
+    private readonly roles: RolesRepository,
+    private readonly modules: ModulesRepository,
+    private readonly permissions: PermissionsRepository,
+    private readonly relations: RelationService,
+    private readonly audit: AuditService,
+    private readonly passwords: PasswordService,
+    private readonly ownerProtection: OwnerProtectionService,
+  ) {}
+
+  /**
+   * 開通彈窗的模組勾選清單 = 租戶管理員模板綁的模組(`tenant-ops.model.ts` 說明判準),
+   * 前端預設全勾。
+   */
+  async moduleOptions(operator: OperatorContext): Promise<ModuleOption[]> {
+    await this.assertRootOperator(operator, "tenantModuleOptions");
+    const template = await this.templateRole(operator);
+    return toModuleOptions(await this.optionModules(operator, template));
+  }
+
+  /**
+   * 開通租戶(ADR-0009):建租戶 Org → 複製租戶管理員模板(只綁勾選的模組 + 各該模組的 `*`)
+   * → 建首任管理員(不設密碼)並綁 `org_user` / `user_role` → 設 `ownerUserId` → 寄啟用信。
+   *
+   * **回滾**:Mongo 單節點沒有 transaction,整段以**補償刪除**實作 — 過程中建立的關聯、
+   * 使用者、角色副本、租戶組織逐一抹掉(`hardDeleteById`,不是軟刪除:`users` 的唯一索引含
+   * 已軟刪除的文件,留殭屍會讓同一組帳號永遠再也開不了)。
+   * 補償範圍**不含 `audit_logs`**(只增不改,ADR-0004):極端情況下會留一筆 `org.provision`
+   * 但資料已回滾 — 這是刻意取捨,寧可多一筆稽核痕跡,也不要漏記特權動作。
+   * 寄信放最後(唯一不可逆的外部副作用);信寄出後失敗的話 token 指向已刪除的使用者,
+   * 對方點連結得到 `ACTION_TOKEN_INVALID`,重新開通即可。
+   */
+  async provision(
+    operator: OperatorContext,
+    input: ProvisionTenantInput,
+  ): Promise<ProvisionTenantPayload> {
+    await this.assertRootOperator(operator, AUDIT_ACTIONS.provision);
+    const name = requireText(input.name, "name");
+    const account = requireText(input.adminAccount, "adminAccount");
+    const email = requireText(input.adminEmail, "adminEmail");
+    const logoPath = ownedLogoPath(input.logoPath);
+    await this.assertAccountAndEmailFree(operator, account, email);
+
+    const template = await this.templateRole(operator);
+    const selected = selectModules(
+      await this.optionModules(operator, template),
+      input.moduleKeys,
+    );
+    const permissionIds = await this.templatePermissionIds(
+      operator,
+      template,
+      selected,
+    );
+    const rootOrg = await this.rootOrg(operator);
+
+    const created: ProvisionedArtifacts = { links: [] };
+    try {
+      // 1. 租戶 Org:根組織的直接子組織
+      const org = await this.orgs.create(operator, {
+        name,
+        parentId: rootOrg._id,
+        ancestors: [rootOrg._id],
+        enabled: true,
+        isSystem: false,
+        settings: {},
+        ...(logoPath === undefined ? {} : { logoPath }),
+      });
+      created.orgId = org._id;
+
+      // 2. 租戶管理員副本:沒有 key(全庫唯一),以 settings.templateKey 標記來源(ADR-0009)
+      const role = await this.roles.create(operator, {
+        name: template.name,
+        ...(template.description === undefined
+          ? {}
+          : { description: template.description }),
+        enabled: true,
+        isSystem: false,
+        settings: { [TEMPLATE_KEY_SETTING]: TENANT_ADMIN_ROLE_KEY },
+      });
+      created.roleId = role._id;
+      await this.link(operator, created, [
+        { type: "org_role", firstId: org._id, secondId: role._id },
+        ...selected.map((module) => ({
+          type: "role_module" as const,
+          firstId: role._id,
+          secondId: module._id,
+        })),
+        ...permissionIds.map((permissionId) => ({
+          type: "role_permission" as const,
+          firstId: role._id,
+          secondId: permissionId,
+        })),
+      ]);
+
+      // 3. 首任租戶管理員:不設可用密碼(隨機值雜湊,驗不過),由啟用信自行設定
+      const user = await this.users.create(operator, {
+        name: account,
+        account,
+        email,
+        passwordHash: await hash(randomBytes(32).toString("hex")),
+        enabled: true,
+        settings: { mustChangePassword: false },
+      });
+      created.userId = user._id;
+      await this.link(operator, created, [
+        { type: "org_user", firstId: org._id, secondId: user._id },
+        { type: "user_role", firstId: user._id, secondId: role._id },
+      ]);
+
+      // 4. 租戶擁有者
+      const owned = await this.orgs.updateById(operator, org._id, {
+        $set: { ownerUserId: user._id },
+      });
+
+      await this.audit.record(operator, {
+        action: AUDIT_ACTIONS.provision,
+        targetType: AUDIT_TARGET_TYPE,
+        targetId: org._id,
+        after: {
+          name,
+          adminAccount: account,
+          adminEmail: email,
+          ownerUserId: String(user._id),
+          roleId: String(role._id),
+          moduleKeys: selected.map((module) => module.key),
+          ...(logoPath === undefined ? {} : { logoPath }),
+        },
+      });
+
+      // 5. 啟用信(7 天;逾期走忘記密碼自助,不重寄)
+      await this.passwords.sendActivationEmail(user._id);
+
+      return {
+        org: toOrg(owned ?? org),
+        ownerUserId: String(user._id),
+        roleId: String(role._id),
+        moduleKeys: selected.map((module) => module.key),
+      };
+    } catch (error) {
+      await this.rollback(operator, created);
+      throw error;
+    }
+  }
+
+  /** 轉移擁有者(ADR-0009:v1 僅根組織可操作);轉移後擁有者保護的對象隨之換人。 */
+  async transferOwner(
+    operator: OperatorContext,
+    input: TransferOrgOwnerInput,
+  ): Promise<Org> {
+    await this.assertRootOperator(operator, AUDIT_ACTIONS.transferOwner);
+    const org = await this.requireTenantTop(operator, input.orgId);
+    const newOwner = await this.requireUser(operator, input.newOwnerUserId);
+    if (!newOwner.enabled) {
+      throw validationError(
+        `User ${input.newOwnerUserId} is disabled and cannot own a tenant`,
+        ["newOwnerUserId"],
+      );
+    }
+    if (!(await this.isMemberOfTenant(operator, newOwner._id, org))) {
+      throw validationError(
+        `User ${input.newOwnerUserId} does not belong to tenant ${input.orgId}`,
+        ["newOwnerUserId"],
+      );
+    }
+    const previous = org.ownerUserId;
+    if (previous?.equals(newOwner._id)) {
+      return toOrg(org);
+    }
+    const updated = await this.orgs.updateById(operator, org._id, {
+      $set: { ownerUserId: newOwner._id },
+    });
+    await this.audit.record(operator, {
+      action: AUDIT_ACTIONS.transferOwner,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId: org._id,
+      before: { ownerUserId: previous === undefined ? null : String(previous) },
+      after: { ownerUserId: String(newOwner._id) },
+    });
+    return toOrg(updated ?? org);
+  }
+
+  /** 設定可見範圍開關(ADR-0005);只掛租戶頂層、套用整棵子樹。 */
+  async setVisibility(
+    operator: OperatorContext,
+    input: SetOrgVisibilityInput,
+  ): Promise<Org> {
+    await this.assertRootOperator(operator, AUDIT_ACTIONS.setVisibility);
+    const org = await this.requireTenantTop(operator, input.orgId);
+    const previous = visibilityOf(org);
+    if (previous === input.visibility) {
+      return toOrg(org);
+    }
+    const updated = await this.orgs.updateById(operator, org._id, {
+      $set: {
+        [`settings.${VISIBILITY_SETTING}`]: visibilitySettingOf(
+          input.visibility,
+        ),
+      },
+    });
+    await this.audit.record(operator, {
+      action: AUDIT_ACTIONS.setVisibility,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId: org._id,
+      before: { visibility: previous },
+      after: { visibility: input.visibility },
+    });
+    return toOrg(updated ?? org);
+  }
+
+  /**
+   * 租戶作業一律只在根組織執行(docs/modules/org-manager.md):持有權限還不夠 —
+   * 權限可能經角色被帶到別的組織,站在哪裡才是判準(與擁有者保護的根組織例外同一個函式)。
+   */
+  private async assertRootOperator(
+    operator: OperatorContext,
+    action: string,
+  ): Promise<void> {
+    if (!(await this.ownerProtection.isRootOperator(operator))) {
+      throw orgError(
+        "FORBIDDEN",
+        `${action} is only available from the root org`,
+      );
+    }
+  }
+
+  /** 種子的「租戶管理員」模板;沒有它代表 seed 沒跑完,屬部署問題不是使用者錯誤。 */
+  private async templateRole(operator: OperatorContext): Promise<RoleRecord> {
+    const template = await this.roles.findOne(operator, {
+      key: TENANT_ADMIN_ROLE_KEY,
+    });
+    if (!template) {
+      throw new Error(
+        `找不到種子角色 ${TENANT_ADMIN_ROLE_KEY}(apps/db-migrator/seeds/roles.ts;seed 未跑?)`,
+      );
+    }
+    return template;
+  }
+
+  /** 模板綁的模組(role_module)= 可開放給租戶的全部模組。 */
+  private async optionModules(
+    operator: OperatorContext,
+    template: RoleRecord,
+  ): Promise<ModuleRecord[]> {
+    const moduleIds = await this.relations.listModuleIdsOfRoles([template._id]);
+    if (moduleIds.length === 0) {
+      return [];
+    }
+    return this.modules.findMany(operator, { _id: { $in: moduleIds } });
+  }
+
+  /**
+   * 副本要綁的權限 = **模板綁的權限**(每個模組一筆該模組的 `*`,ADR-0004)中,
+   * 擁有模組落在勾選範圍內的那些。直接取模板的綁定而不是自己組 key,
+   * 模板未來多綁 / 少綁什麼,副本自動跟著,不會在這裡長出第二套規則。
+   */
+  private async templatePermissionIds(
+    operator: OperatorContext,
+    template: RoleRecord,
+    selected: ModuleRecord[],
+  ): Promise<Types.ObjectId[]> {
+    const permissionIds = await this.relations.listPermissionIdsOfRoles([
+      template._id,
+    ]);
+    if (permissionIds.length === 0) {
+      return [];
+    }
+    const selectedModuleIds = new Set(
+      selected.map((module) => String(module._id)),
+    );
+    const permissions = await this.permissions.findMany(operator, {
+      _id: { $in: permissionIds },
+    });
+    return permissions
+      .filter((permission) =>
+        selectedModuleIds.has(String(permission.moduleId)),
+      )
+      .map((permission) => permission._id);
+  }
+
+  private async rootOrg(operator: OperatorContext): Promise<OrgRecord> {
+    const root = await this.orgs.findOne(operator, { parentId: null });
+    if (!root) {
+      throw new Error(
+        "找不到根組織(apps/db-migrator/seeds/orgs.ts;seed 未跑?)",
+      );
+    }
+    return root;
+  }
+
+  /** 擁有者與可見範圍都只存在於租戶頂層(根組織的直接子組織);其餘層級一律拒。 */
+  private async requireTenantTop(
+    operator: OperatorContext,
+    id: string,
+  ): Promise<OrgRecord> {
+    const org = Types.ObjectId.isValid(id)
+      ? await this.orgs.findById(operator, id)
+      : null;
+    if (org === null) {
+      throw orgError("NOT_FOUND", `Org ${id} not found`);
+    }
+    if (!isTenantTop(org)) {
+      throw validationError(
+        `Org ${id} is not a tenant top-level org; owner and visibility only exist there`,
+        ["orgId"],
+      );
+    }
+    return org;
+  }
+
+  private async requireUser(operator: OperatorContext, id: string) {
+    const user = Types.ObjectId.isValid(id)
+      ? await this.users.findById(operator, id)
+      : null;
+    if (user === null) {
+      throw orgError("NOT_FOUND", `User ${id} not found`);
+    }
+    return user;
+  }
+
+  /** 新擁有者必須是這個租戶的人:任一所屬組織是租戶頂層自己或其子孫。 */
+  private async isMemberOfTenant(
+    operator: OperatorContext,
+    userId: Types.ObjectId,
+    tenantTop: OrgRecord,
+  ): Promise<boolean> {
+    const orgIds = await this.relations.listOrgIdsOfUser(userId);
+    if (orgIds.length === 0) {
+      return false;
+    }
+    const memberOrgs = await this.orgs.findMany(operator, {
+      _id: { $in: orgIds },
+    });
+    return memberOrgs.some(
+      (org) =>
+        org._id.equals(tenantTop._id) ||
+        org.ancestors.some((ancestor) => ancestor.equals(tenantTop._id)),
+    );
+  }
+
+  /** 帳號與 Email 在 `users` 內各自唯一(ADR-0003);先問一次,不靠唯一索引的例外當流程。 */
+  private async assertAccountAndEmailFree(
+    operator: OperatorContext,
+    account: string,
+    email: string,
+  ): Promise<void> {
+    const clashes = await this.users.findMany(operator, {
+      $or: [{ account }, { email }],
+    });
+    const fields = new Set<string>();
+    for (const clash of clashes) {
+      if (clash.account === account) {
+        fields.add("adminAccount");
+      }
+      if (clash.email === email) {
+        fields.add("adminEmail");
+      }
+    }
+    if (fields.size > 0) {
+      throw validationError(`Already taken: ${[...fields].join(", ")}`, [
+        ...fields,
+      ]);
+    }
+  }
+
+  /** 建關聯並記進補償清單(回滾時逐筆移除)。 */
+  private async link(
+    operator: OperatorContext,
+    created: ProvisionedArtifacts,
+    links: RelationLink[],
+  ): Promise<void> {
+    await this.relations.linkMany(operator, links);
+    created.links.push(
+      ...links.map(({ type, firstId, secondId }) => ({
+        type,
+        firstId,
+        secondId,
+      })),
+    );
+  }
+
+  /**
+   * 補償刪除:反向抹掉已建立的東西。回滾自己失敗時只記 log 不蓋掉原始錯誤 —
+   * 呼叫端該看到的是「為什麼開通失敗」,殘留資料由 log 交給維運處理。
+   */
+  private async rollback(
+    operator: OperatorContext,
+    created: ProvisionedArtifacts,
+  ): Promise<void> {
+    try {
+      await this.relations.unlinkMany(operator, created.links);
+      if (created.userId) {
+        await this.users.hardDeleteById(operator, created.userId);
+      }
+      if (created.roleId) {
+        await this.roles.hardDeleteById(operator, created.roleId);
+      }
+      if (created.orgId) {
+        await this.orgs.hardDeleteById(operator, created.orgId);
+      }
+    } catch (error) {
+      this.logger.error(
+        `開通租戶回滾失敗,可能留下殘留資料:org=${String(created.orgId)} role=${String(created.roleId)} user=${String(created.userId)}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
+  }
+}

@@ -8,8 +8,12 @@ import {
   Resolver,
 } from "@nestjs/graphql";
 
+import { hasPermission } from "@repo/domain/permission";
+
+import { authError } from "../auth/auth-error";
 import { CurrentOperator } from "../auth/decorators";
 import type { OperatorContext } from "../database/operator-context";
+import { PermissionResolver } from "../permission/permission-resolver";
 import { RequirePermission } from "../permission/require-permission.decorator";
 import { StorageService } from "../storage/storage.service";
 import { CreateChildOrgInput } from "./dto/create-child-org.input";
@@ -17,8 +21,8 @@ import { DeleteOrgInput } from "./dto/delete-org.input";
 import { MoveOrgInput } from "./dto/move-org.input";
 import { SetOrgEnabledInput } from "./dto/set-org-enabled.input";
 import { UpdateOrgInput } from "./dto/update-org.input";
-import { Org, OrgNode } from "./models/org.model";
 import { DeletePayload, OrgPayload } from "./models/org-payloads.model";
+import { Org, OrgNode } from "./models/org.model";
 import { OrgsService } from "./orgs.service";
 
 /** 權限 key(docs/modules/org-manager.md 權限表;種子 apps/db-migrator/seeds/modules/system.ts)。 */
@@ -32,29 +36,46 @@ const PERMISSIONS = {
 } as const;
 
 /**
+ * 「讀組織樹 / 單筆組織」的多選一權限(#139 回饋):
+ * 組織樹不只組織管理頁在用 — 使用者管理頁的左樹與「選擇所屬組織」彈窗也要它,
+ * 而那些人未必持有組織管理的檢視權。可見範圍(ADR-0005)照樣把關看得到誰,
+ * 這裡只決定「進不進得了這個端點」。
+ * `@RequirePermission` 是單一 key 的守門,多選一自己查有效權限集合
+ * (判斷語意同 PermissionGuard:含同層 wildcard,ADR-0004;寫法同 `storage.resolver.ts`)。
+ */
+const READ_ORG_PERMISSIONS = [
+  PERMISSIONS.view,
+  "system.user-manager.view",
+] as const;
+
+/**
  * 組織管理的 GraphQL 端點(形式 GQL-02、錯誤 GQL-04):resolver 薄,規則全在 OrgsService。
- * 每個端點以 `@RequirePermission` 守門(ADR-0011「API 防守」:重用頁面權限 key)。
+ * 寫入類端點以 `@RequirePermission` 守門(ADR-0011「API 防守」:重用頁面權限 key);
+ * 讀取類的兩個端點是多選一,見 `READ_ORG_PERMISSIONS`。
  */
 @Resolver(() => Org)
 export class OrgsResolver {
   constructor(
     private readonly orgs: OrgsService,
     private readonly storage: StorageService,
+    private readonly permissions: PermissionResolver,
   ) {}
 
   /** 可見範圍內的組織樹;範圍外的節點標 `outOfScope`(ADR-0005)。 */
-  @RequirePermission(PERMISSIONS.view)
   @Query(() => [OrgNode])
-  orgTree(@CurrentOperator() operator: OperatorContext): Promise<OrgNode[]> {
+  async orgTree(
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<OrgNode[]> {
+    await this.requireReadPermission(operator);
     return this.orgs.tree(operator);
   }
 
-  @RequirePermission(PERMISSIONS.view)
   @Query(() => Org)
-  org(
+  async org(
     @Args("id", { type: () => ID }) id: string,
     @CurrentOperator() operator: OperatorContext,
   ): Promise<Org> {
+    await this.requireReadPermission(operator);
     return this.orgs.one(operator, id);
   }
 
@@ -111,5 +132,27 @@ export class OrgsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<DeletePayload> {
     return this.orgs.remove(operator, input);
+  }
+
+  /** `READ_ORG_PERMISSIONS` 任一即可;都沒有 → `FORBIDDEN`(語意同 PermissionGuard)。 */
+  private async requireReadPermission(
+    operator: OperatorContext,
+  ): Promise<void> {
+    if (!operator.actorId) {
+      // 防呆:全域 guard 已擋掉未登入,這裡只是讓型別與 PermissionGuard 一致
+      throw authError("UNAUTHENTICATED", "Reading orgs requires a login");
+    }
+    const { permissionKeys } = await this.permissions.resolve(
+      operator.actorId,
+      operator.currentOrgId,
+    );
+    if (
+      !READ_ORG_PERMISSIONS.some((key) => hasPermission(permissionKeys, key))
+    ) {
+      throw authError(
+        "FORBIDDEN",
+        `Missing permission to read orgs(${READ_ORG_PERMISSIONS.join(" / ")})`,
+      );
+    }
   }
 }

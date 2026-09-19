@@ -18,6 +18,7 @@ import {
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
+import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import { PermissionResolver } from "../permission/permission-resolver";
 import type { AssignUserRolesInput } from "./dto/assign-user-roles.input";
 import type { CreateUserInput } from "./dto/create-user.input";
@@ -39,7 +40,6 @@ import {
 } from "./models/user-payloads.model";
 import type { UserModel, UserOrg, UserRoleGrant } from "./models/user.model";
 import { OrgQualificationService } from "./org-qualification.service";
-import { OwnerProtectionService } from "./owner-protection.service";
 import {
   forbiddenError,
   notFoundError,

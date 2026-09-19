@@ -55,7 +55,7 @@ export interface FindOptions {
  * 所有資料存取的共用層(ADR-0005 / ADR-0007 / ADR-0011):
  * 每個公開方法都以操作者上下文開頭 — 租戶過濾、軟刪除排除、基礎欄位填寫全由 plugin 依此自動完成,
  * 個別功能不自己寫、也繞不過(api 內裸 `Model.xxx()` 由 ESLint 規則 `@repo/no-raw-model-query` 擋下)。
- * 不提供硬刪除:刪除一律走 `softDeleteById`(ADR-0007)。
+ * 刪除一律走 `softDeleteById`(ADR-0007);唯一的硬刪除是 `hardDeleteById`,只給補償刪除用。
  */
 export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
   constructor(protected readonly model: RepositoryModel<TSchema, TDocument>) {
@@ -175,6 +175,27 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     id: Types.ObjectId | string,
   ): Promise<Persisted<TDocument> | null> {
     return this.updateById(operator, id, { $set: { deletedAt: new Date() } });
+  }
+
+  /**
+   * **補償刪除**:把一筆文件從資料庫抹掉,回傳是否真的刪到(ADR-0007 軟刪除的唯一例外)。
+   *
+   * 為什麼需要它:Mongo 單節點沒有 transaction,多步驟寫入(開通租戶的四步,ADR-0009)失敗時
+   * 只能以補償刪除回滾。這裡軟刪除幫不上忙 — `users` 的 account / email 唯一索引**含已軟刪除的文件**,
+   * 留一筆殭屍會讓同一組帳號 / Email 永遠再也開不了,重試必然再失敗。
+   *
+   * **只准用在「本次請求剛建立、尚未對外可見」的文件**:使用者要刪的資料一律 `softDeleteById`。
+   * 租戶過濾與 `deletedAt` 一樣由 plugin 套上(`includeDeleted` 讓半途已被標記刪除的也刪得掉)。
+   */
+  async hardDeleteById(
+    operator: OperatorContext,
+    id: Types.ObjectId | string,
+  ): Promise<boolean> {
+    const { deletedCount } = await scopeQuery(
+      this.model.deleteOne({ _id: id }),
+      { operator, includeDeleted: true },
+    ).exec();
+    return deletedCount > 0;
   }
 
   private withTenantOrg(

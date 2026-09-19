@@ -34,6 +34,13 @@ export class OrgNode {
   enabled!: boolean;
 
   /**
+   * 租戶擁有者(僅租戶頂層有值,ADR-0009);其餘節點恆為 null。
+   * 樹上就給,讓使用者管理頁不必再逐筆查 `org(id)` 才知道哪些人受擁有者保護(#139 回饋)。
+   */
+  @Field(() => ID, { nullable: true })
+  ownerUserId!: string | null;
+
+  /**
    * 這個節點在操作者的可見範圍(ADR-0005)之外 — 樹上照樣顯示(不然樹會斷),
    * 但不可選取、不可操作(docs/modules/org-manager.md「組織樹」)。
    * 與 `enabled`(組織自己的停用狀態)是兩件事;命名與使用者列的 `outOfScope` 一致(#136)。
