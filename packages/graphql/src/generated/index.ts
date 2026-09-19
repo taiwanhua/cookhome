@@ -25,6 +25,8 @@ export type Scalars = {
   Float: { input: number; output: number; }
   /** A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format. */
   DateTime: { input: string; output: string; }
+  /** 任意 JSON 物件(資料範圍的條件樹;形狀見 apps/api/src/data-scope/data-scope-rule.ts) */
+  JSONObject: { input: Record<string, unknown>; output: Record<string, unknown>; }
 };
 
 export type AssignUserRolesInput = {
@@ -79,6 +81,91 @@ export type CreateUserInput = {
   orgIds: Array<Scalars['ID']['input']>;
   phone?: InputMaybe<Scalars['String']['input']>;
   roleIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+};
+
+export type DataScopeAudience = {
+  __typename?: 'DataScopeAudience';
+  ids: Array<Scalars['ID']['output']>;
+  type: DataScopeAudienceType;
+};
+
+export type DataScopeAudienceInput = {
+  ids?: InputMaybe<Array<Scalars['ID']['input']>>;
+  type: DataScopeAudienceType;
+};
+
+/** 套用對象:全部人 / 指定角色 / 指定組織 / 指定使用者 */
+export enum DataScopeAudienceType {
+  All = 'ALL',
+  Org = 'ORG',
+  Role = 'ROLE',
+  User = 'USER'
+}
+
+/** 多條規則命中同一操作者時的頂層合成:OR = 聯集(命中越多看得越多)、AND = 交集 */
+export enum DataScopeCombineOp {
+  And = 'AND',
+  Or = 'OR'
+}
+
+export type DataScopeFieldOption = {
+  __typename?: 'DataScopeFieldOption';
+  label: Scalars['String']['output'];
+  value: Scalars['String']['output'];
+};
+
+/** 可篩欄位的型別;決定 UI 出哪些運算子與值來源(ADR-0008 的表,翻譯器不認識個別欄位) */
+export enum DataScopeFieldType {
+  Date = 'DATE',
+  Enum = 'ENUM',
+  Org = 'ORG',
+  User = 'USER'
+}
+
+export type DataScopeRule = {
+  __typename?: 'DataScopeRule';
+  collection: Scalars['String']['output'];
+  combineOp: DataScopeCombineOp;
+  rules: Array<DataScopeRuleEntry>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type DataScopeRuleEntry = {
+  __typename?: 'DataScopeRuleEntry';
+  audience: DataScopeAudience;
+  filter: Scalars['JSONObject']['output'];
+};
+
+export type DataScopeRuleEntryInput = {
+  audience: DataScopeAudienceInput;
+  filter: Scalars['JSONObject']['input'];
+};
+
+export type DataScopeRulePayload = {
+  __typename?: 'DataScopeRulePayload';
+  rule?: Maybe<DataScopeRule>;
+};
+
+export type DataScopeTarget = {
+  __typename?: 'DataScopeTarget';
+  collection: Scalars['String']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  fields: Array<DataScopeTargetField>;
+  name: Scalars['String']['output'];
+};
+
+export type DataScopeTargetField = {
+  __typename?: 'DataScopeTargetField';
+  isBase: Scalars['Boolean']['output'];
+  label: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  options: Array<DataScopeFieldOption>;
+  type: DataScopeFieldType;
+};
+
+export type DataScopeTargetsPayload = {
+  __typename?: 'DataScopeTargetsPayload';
+  targets: Array<DataScopeTarget>;
 };
 
 export type DeleteOrgInput = {
@@ -214,6 +301,7 @@ export type Mutation = {
   provisionTenant: ProvisionTenantPayload;
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
+  saveDataScopeRule: SaveDataScopeRulePayload;
   setModuleEnabled: ModuleAdminPayload;
   setOrgEnabled: OrgPayload;
   setOrgVisibility: OrgPayload;
@@ -280,6 +368,11 @@ export type MutationProvisionTenantArgs = {
 
 export type MutationRequestPasswordResetArgs = {
   input: RequestPasswordResetInput;
+};
+
+
+export type MutationSaveDataScopeRuleArgs = {
+  input: SaveDataScopeRuleInput;
 };
 
 
@@ -404,6 +497,8 @@ export type ProvisionTenantPayload = {
 
 export type Query = {
   __typename?: 'Query';
+  dataScopeRule: DataScopeRulePayload;
+  dataScopeTargets: DataScopeTargetsPayload;
   me: Me;
   moduleTree: Array<ModuleAdminNode>;
   org: Org;
@@ -413,6 +508,11 @@ export type Query = {
   tenantModuleOptions: Array<ModuleOption>;
   user: User;
   users: UsersPayload;
+};
+
+
+export type QueryDataScopeRuleArgs = {
+  collection: Scalars['String']['input'];
 };
 
 
@@ -469,6 +569,17 @@ export enum RoleUnqualifiedReason {
   NoRemainingSubtreeSupport = 'NO_REMAINING_SUBTREE_SUPPORT',
   OwnedByRemovedOrg = 'OWNED_BY_REMOVED_ORG'
 }
+
+export type SaveDataScopeRuleInput = {
+  collection: Scalars['String']['input'];
+  combineOp?: DataScopeCombineOp;
+  rules: Array<DataScopeRuleEntryInput>;
+};
+
+export type SaveDataScopeRulePayload = {
+  __typename?: 'SaveDataScopeRulePayload';
+  rule: DataScopeRule;
+};
 
 export type SetModuleEnabledInput = {
   enabled: Scalars['Boolean']['input'];
@@ -700,6 +811,25 @@ export type ChangePasswordMutationVariables = Exact<{
 
 
 export type ChangePasswordMutation = { __typename?: 'Mutation', changePassword: { __typename?: 'ChangePasswordPayload', success: boolean } };
+
+export type DataScopeTargetsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type DataScopeTargetsQuery = { __typename?: 'Query', dataScopeTargets: { __typename?: 'DataScopeTargetsPayload', targets: Array<{ __typename?: 'DataScopeTarget', collection: string, name: string, description?: string | null, fields: Array<{ __typename?: 'DataScopeTargetField', name: string, label: string, type: DataScopeFieldType, isBase: boolean, options: Array<{ __typename?: 'DataScopeFieldOption', value: string, label: string }> }> }> } };
+
+export type DataScopeRuleQueryVariables = Exact<{
+  collection: Scalars['String']['input'];
+}>;
+
+
+export type DataScopeRuleQuery = { __typename?: 'Query', dataScopeRule: { __typename?: 'DataScopeRulePayload', rule?: { __typename?: 'DataScopeRule', collection: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } | null } };
+
+export type SaveDataScopeRuleMutationVariables = Exact<{
+  input: SaveDataScopeRuleInput;
+}>;
+
+
+export type SaveDataScopeRuleMutation = { __typename?: 'Mutation', saveDataScopeRule: { __typename?: 'SaveDataScopeRulePayload', rule: { __typename?: 'DataScopeRule', collection: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } } };
 
 export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
 
@@ -1180,6 +1310,132 @@ export const useChangePasswordMutation = <
 
 
 useChangePasswordMutation.fetcher = (client: GraphQLClient, variables: ChangePasswordMutationVariables, headers?: RequestInit['headers']) => fetcher<ChangePasswordMutation, ChangePasswordMutationVariables>(client, ChangePasswordDocument, variables, headers);
+
+export const DataScopeTargetsDocument = `
+    query DataScopeTargets {
+  dataScopeTargets {
+    targets {
+      collection
+      name
+      description
+      fields {
+        name
+        label
+        type
+        isBase
+        options {
+          value
+          label
+        }
+      }
+    }
+  }
+}
+    `;
+
+export const useDataScopeTargetsQuery = <
+      TData = DataScopeTargetsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: DataScopeTargetsQueryVariables,
+      options?: Omit<UseQueryOptions<DataScopeTargetsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DataScopeTargetsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<DataScopeTargetsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['DataScopeTargets'] : ['DataScopeTargets', variables],
+    queryFn: fetcher<DataScopeTargetsQuery, DataScopeTargetsQueryVariables>(client, DataScopeTargetsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useDataScopeTargetsQuery.getKey = (variables?: DataScopeTargetsQueryVariables) => variables === undefined ? ['DataScopeTargets'] : ['DataScopeTargets', variables];
+
+
+useDataScopeTargetsQuery.fetcher = (client: GraphQLClient, variables?: DataScopeTargetsQueryVariables, headers?: RequestInit['headers']) => fetcher<DataScopeTargetsQuery, DataScopeTargetsQueryVariables>(client, DataScopeTargetsDocument, variables, headers);
+
+export const DataScopeRuleDocument = `
+    query DataScopeRule($collection: String!) {
+  dataScopeRule(collection: $collection) {
+    rule {
+      collection
+      combineOp
+      updatedAt
+      rules {
+        audience {
+          type
+          ids
+        }
+        filter
+      }
+    }
+  }
+}
+    `;
+
+export const useDataScopeRuleQuery = <
+      TData = DataScopeRuleQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: DataScopeRuleQueryVariables,
+      options?: Omit<UseQueryOptions<DataScopeRuleQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DataScopeRuleQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<DataScopeRuleQuery, TError, TData>(
+      {
+    queryKey: ['DataScopeRule', variables],
+    queryFn: fetcher<DataScopeRuleQuery, DataScopeRuleQueryVariables>(client, DataScopeRuleDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useDataScopeRuleQuery.getKey = (variables: DataScopeRuleQueryVariables) => ['DataScopeRule', variables];
+
+
+useDataScopeRuleQuery.fetcher = (client: GraphQLClient, variables: DataScopeRuleQueryVariables, headers?: RequestInit['headers']) => fetcher<DataScopeRuleQuery, DataScopeRuleQueryVariables>(client, DataScopeRuleDocument, variables, headers);
+
+export const SaveDataScopeRuleDocument = `
+    mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
+  saveDataScopeRule(input: $input) {
+    rule {
+      collection
+      combineOp
+      updatedAt
+      rules {
+        audience {
+          type
+          ids
+        }
+        filter
+      }
+    }
+  }
+}
+    `;
+
+export const useSaveDataScopeRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SaveDataScopeRuleMutation, TError, SaveDataScopeRuleMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SaveDataScopeRuleMutation, TError, SaveDataScopeRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['SaveDataScopeRule'],
+    mutationFn: (variables?: SaveDataScopeRuleMutationVariables) => fetcher<SaveDataScopeRuleMutation, SaveDataScopeRuleMutationVariables>(client, SaveDataScopeRuleDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSaveDataScopeRuleMutation.fetcher = (client: GraphQLClient, variables: SaveDataScopeRuleMutationVariables, headers?: RequestInit['headers']) => fetcher<SaveDataScopeRuleMutation, SaveDataScopeRuleMutationVariables>(client, SaveDataScopeRuleDocument, variables, headers);
 
 export const ModuleTreeDocument = `
     query ModuleTree {

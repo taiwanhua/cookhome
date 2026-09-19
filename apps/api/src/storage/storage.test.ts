@@ -35,6 +35,28 @@ import {
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
+/** 假時鐘的固定時間(值本身不重要,只要測試期間不動)。 */
+const FIXED_NOW = Date.UTC(2026, 0, 1, 0, 0, 0);
+
+/**
+ * 在固定時鐘下跑一段測試,讓效期斷言可以「精確相等」。
+ *
+ * 舊寫法是呼叫**前**取 `before = Date.now()`,再斷言 `expiresAt - before <= TTL`;但到期時間是
+ * 簽名端以呼叫**當下**(較晚)的 `Date.now()` 加 TTL 算出來的,只要呼叫過程經過 ≥ 1 ms 就必然
+ * 大於 TTL —— 本機幾乎同毫秒完成而僥倖綠,CI runner 慢一點就紅(#227)。
+ *
+ * 這裡用假時鐘而非容差:簽名路徑(`StorageService` + 記錄用 / 假 bucket adapter)只讀 `Date.now()`,
+ * 沒有任何非同步計時器,`await` 走的是 promise microtask、不受假時鐘影響,所以不會卡住。
+ */
+async function withFixedClock<T>(run: () => Promise<T>): Promise<T> {
+  jest.useFakeTimers({ now: FIXED_NOW });
+  try {
+    return await run();
+  } finally {
+    jest.useRealTimers();
+  }
+}
+
 function configWith(values: Record<string, string>): ConfigService {
   return new ConfigService(values);
 }
@@ -165,15 +187,14 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
 
     it("上傳網址效期 10 分鐘(ADR-0010),與讀取網址的 TTL 無關", async () => {
       const storage = recordingWith({ signedUrlTtlMs: ONE_HOUR_MS });
-      const before = Date.now();
-      const ticket = await storage.createUploadUrl({
-        purpose: UploadPurpose.ORG_LOGO,
-        contentType: "image/png",
-        size: 1024,
-      });
-      const ttl = ticket.expiresAt.getTime() - before;
-      expect(ttl).toBeGreaterThan(UPLOAD_URL_TTL_MS - 5000);
-      expect(ttl).toBeLessThanOrEqual(UPLOAD_URL_TTL_MS);
+      const ticket = await withFixedClock(() =>
+        storage.createUploadUrl({
+          purpose: UploadPurpose.ORG_LOGO,
+          contentType: "image/png",
+          size: 1024,
+        }),
+      );
+      expect(ticket.expiresAt.getTime()).toBe(FIXED_NOW + UPLOAD_URL_TTL_MS);
     });
 
     it("每次路徑都不同(uuid,覆蓋不到別人的檔)", async () => {
@@ -265,15 +286,13 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
     });
 
     it("合法路徑回網址,效期為 GCS_SIGNED_URL_TTL", async () => {
-      const storage = recordingWith({ signedUrlTtlMs: 15 * 60 * 1000 });
-      const before = Date.now();
-      const url = await storage.readUrlOf(OWNED);
+      const ttlMs = 15 * 60 * 1000;
+      const storage = recordingWith({ signedUrlTtlMs: ttlMs });
+      const url = await withFixedClock(() => storage.readUrlOf(OWNED));
       expect(url).toContain(OWNED);
       const [signature] = storage.signed;
       expect(signature?.action).toBe("read");
-      expect((signature?.expiresAt.getTime() ?? 0) - before).toBeLessThanOrEqual(
-        15 * 60 * 1000,
-      );
+      expect(signature?.expiresAt.getTime()).toBe(FIXED_NOW + ttlMs);
     });
   });
 
@@ -298,8 +317,7 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
     it("讀取:version v4、action read、效期為 TTL、不帶 content type", async () => {
       const { storage, getSignedUrl, files } = gcsWith();
       const path = "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.png";
-      const before = Date.now();
-      await expect(storage.readUrlOf(path)).resolves.toBe(
+      await expect(withFixedClock(() => storage.readUrlOf(path))).resolves.toBe(
         "https://storage.googleapis.com/signed",
       );
       expect(files).toEqual([path]);
@@ -307,9 +325,7 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
       expect(options?.version).toBe("v4");
       expect(options?.action).toBe("read");
       expect(options?.contentType).toBeUndefined();
-      expect((options?.expires.getTime() ?? 0) - before).toBeLessThanOrEqual(
-        ONE_HOUR_MS,
-      );
+      expect(options?.expires.getTime()).toBe(FIXED_NOW + ONE_HOUR_MS);
     });
 
     it("沒有 bucket 名稱就不給建(啟動即失敗,不靜默用錯 bucket)", () => {
@@ -463,9 +479,13 @@ describe("商標上傳線(GraphQL 端點,對真 Nest app + 真 MongoDB;未設 GC
   });
 
   it("me.currentOrg.logoUrl:沒有商標時為 null;有 logoPath 時回簽名讀取網址", async () => {
-    const before = await api.graphql<MeLogoData>(ME_LOGO, {}, {
-      accessToken: rootToken,
-    });
+    const before = await api.graphql<MeLogoData>(
+      ME_LOGO,
+      {},
+      {
+        accessToken: rootToken,
+      },
+    );
     expect(before.errors).toBeUndefined();
     expect(before.data?.me.currentOrg.logoUrl).toBeNull();
 
@@ -473,9 +493,13 @@ describe("商標上傳線(GraphQL 端點,對真 Nest app + 真 MongoDB;未設 GC
       .collection("orgs")
       .updateOne({ _id: rootOrgId }, { $set: { logoPath: LOGO_PATH } });
 
-    const after = await api.graphql<MeLogoData>(ME_LOGO, {}, {
-      accessToken: rootToken,
-    });
+    const after = await api.graphql<MeLogoData>(
+      ME_LOGO,
+      {},
+      {
+        accessToken: rootToken,
+      },
+    );
     expect(after.data?.me.currentOrg.logoUrl).toContain(LOGO_PATH);
     expect(after.data?.me.currentOrg.logoUrl).toContain("action=read");
   });
@@ -488,9 +512,13 @@ describe("商標上傳線(GraphQL 端點,對真 Nest app + 真 MongoDB;未設 GC
         { $set: { logoPath: "secrets/passwords.png" } },
       );
 
-    const result = await api.graphql<MeLogoData>(ME_LOGO, {}, {
-      accessToken: rootToken,
-    });
+    const result = await api.graphql<MeLogoData>(
+      ME_LOGO,
+      {},
+      {
+        accessToken: rootToken,
+      },
+    );
     expect(result.data?.me.currentOrg.logoUrl).toBeNull();
 
     await api.connection

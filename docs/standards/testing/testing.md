@@ -63,6 +63,13 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 - 逾時:`browser-esm` preset 已放寬 `testTimeout` 到 15 秒(CI runner 慢,jsdom + MSW + ts-jest ESM 的第一個測試要付暖機成本);個別測試不再自行加 timeout
 - 輸出雜訊:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`
 
+## TEST-10 時間相關的斷言:不可用呼叫「前」的 `Date.now()` 當上界
+
+效期 / 到期時間通常是受測程式在呼叫**當下**(較晚)以 `Date.now() + TTL` 算出來的,所以拿呼叫**前**取的 `before` 去斷言 `expiresAt - before <= TTL`,只要呼叫過程經過 ≥ 1 ms 就必然失敗 —— 本機快、幾乎同毫秒完成而僥倖綠,CI runner 慢一點就紅。**這類斷言不是偶發,是方向錯**(#227:`storage.test.ts` 三案在 CI 三次命中)。改法二選一,並在測試註解寫選哪個與理由:
+
+- **優先假時鐘 + 精確相等**:`jest.useFakeTimers({ now })` 固定時間,斷言 `expiresAt.getTime()` 等於 `now + TTL`,`finally` 裡 `jest.useRealTimers()` 收尾。前提是受測路徑沒有非同步計時器(`await` 走 promise microtask,不受假時鐘影響;有真計時器才會卡住)
+- **否則用呼叫後的時間夾上界**:`expect(ttl).toBeLessThanOrEqual(TTL + (Date.now() - before))`,別用固定容差硬湊
+
 ## 已知偶發(CI 紅先對這裡)
 
 - `apps/api/src/auth/password/password.test.ts` 的 `setPassword` describe 四案偶爾整組逾時(2026-09-18 兩次,重跑即過;疑與 CI runner 慢 + argon2 雜湊有關)。重跑一次仍紅才算真的紅。
