@@ -43,6 +43,12 @@ export interface FindOptions {
   includeDeleted?: boolean;
   /** 投影;預設排除的欄位(如加密個資,ADR-0007)需在此明確以 `+欄位` 請求才回傳。 */
   select?: string;
+  /** 排序(如 `{ createdAt: -1 }`);分頁清單要有穩定順序才不會漏筆 / 重複。 */
+  sort?: Record<string, 1 | -1>;
+  /** 跳過筆數(分頁:`(page - 1) * pageSize`)。 */
+  skip?: number;
+  /** 取回上限(分頁:`pageSize`)。 */
+  limit?: number;
 }
 
 /**
@@ -66,10 +72,21 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     filter: RepositoryFilter<TSchema> = {},
     options: FindOptions = {},
   ): Promise<Persisted<TDocument>[]> {
-    const documents = await scopeQuery(
-      this.model.find({ ...filter }, options.select),
-      { operator, includeDeleted: options.includeDeleted },
-    ).exec();
+    // sort / skip / limit 是同一個 Query 實例上的鏈式設定,不會換掉 scopeQuery 掛上的上下文
+    const query = scopeQuery(this.model.find({ ...filter }, options.select), {
+      operator,
+      includeDeleted: options.includeDeleted,
+    });
+    if (options.sort) {
+      query.sort(options.sort);
+    }
+    if (options.skip !== undefined) {
+      query.skip(options.skip);
+    }
+    if (options.limit !== undefined) {
+      query.limit(options.limit);
+    }
+    const documents = await query.exec();
     return documents as Persisted<TDocument>[];
   }
 

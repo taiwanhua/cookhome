@@ -2,6 +2,11 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AssignUserRolesInput {
+  roleIds: [ID!]!
+  userId: ID!
+}
+
 input ChangePasswordInput {
   currentPassword: String!
   newPassword: String!
@@ -35,6 +40,20 @@ input CreateUploadUrlInput {
 
   """檔案大小(bytes),上限 2097152"""
   size: Int!
+}
+
+input CreateUserInput {
+  account: String!
+  activation: UserActivationInput!
+  address: String
+  email: String!
+  gender: String
+  name: String!
+  nationalId: String
+  nickname: String
+  orgIds: [ID!]!
+  phone: String
+  roleIds: [ID!]
 }
 
 """
@@ -123,10 +142,12 @@ input MoveOrgInput {
 }
 
 type Mutation {
+  assignUserRoles(input: AssignUserRolesInput!): UserPayload!
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
+  createUser(input: CreateUserInput!): UserPayload!
   deleteOrg(input: DeleteOrgInput!): DeletePayload!
   login(input: LoginInput!): LoginPayload!
   logout: LogoutPayload!
@@ -136,8 +157,11 @@ type Mutation {
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
+  setUserEnabled(input: SetUserEnabledInput!): UserPayload!
+  setUserOrgs(input: SetUserOrgsInput!): SetUserOrgsPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
   updateOrg(input: UpdateOrgInput!): OrgPayload!
+  updateUser(input: UpdateUserInput!): UserPayload!
 }
 
 type Org {
@@ -177,6 +201,8 @@ type Query {
   orgTree: [OrgNode!]!
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
+  user(id: ID!): User!
+  users(input: UsersInput!): UsersPayload!
 }
 
 type Recipe {
@@ -205,6 +231,12 @@ type RequestPasswordResetPayload {
   success: Boolean!
 }
 
+"""所屬組織移除後角色失去資格的原因(ADR-0003)"""
+enum RoleUnqualifiedReason {
+  NO_REMAINING_SUBTREE_SUPPORT
+  OWNED_BY_REMOVED_ORG
+}
+
 input SetOrgEnabledInput {
   enabled: Boolean!
   id: ID!
@@ -219,6 +251,25 @@ type SetPasswordPayload {
   accessToken: String!
 }
 
+input SetUserEnabledInput {
+  enabled: Boolean!
+  id: ID!
+}
+
+input SetUserOrgsInput {
+  dryRun: Boolean = false
+  orgIds: [ID!]!
+  removalPolicy: UserOrgRemovalPolicy = REVOKE_ALL_UNQUALIFIED
+  userId: ID!
+}
+
+type SetUserOrgsPayload {
+  removedOrgs: [UserOrg!]!
+  revokedRoleIds: [ID!]!
+  unqualifiedRoles: [UnqualifiedRole!]!
+  user: User!
+}
+
 input SwitchOrgInput {
   orgId: ID!
 }
@@ -227,11 +278,32 @@ type SwitchOrgPayload {
   accessToken: String!
 }
 
+type UnqualifiedRole {
+  ownerOrgId: ID
+  ownerOrgName: String
+  ownerProtected: Boolean!
+  reasons: [RoleUnqualifiedReason!]!
+  roleId: ID!
+  roleName: String!
+}
+
 input UpdateOrgInput {
   description: String
   id: ID!
   logoPath: String
   name: String
+}
+
+input UpdateUserInput {
+  account: String
+  address: String
+  email: String
+  gender: String
+  id: ID!
+  name: String
+  nationalId: String
+  nickname: String
+  phone: String
 }
 
 """上傳用途:決定物件路徑前綴與所需權限(ADR-0010)"""
@@ -243,4 +315,71 @@ type UploadUrlPayload {
   expiresAt: DateTime!
   objectPath: ID!
   uploadUrl: String!
+}
+
+type User {
+  account: String!
+  address: String
+  email: String!
+  enabled: Boolean!
+  gender: String
+  id: ID!
+  mustChangePassword: Boolean!
+  name: String!
+  nationalId: String
+  nickname: String
+  orgs: [UserOrg!]!
+  phone: String
+  roles: [UserRoleGrant!]!
+}
+
+input UserActivationInput {
+  initialPassword: String
+  mode: UserActivationMode! = EMAIL
+}
+
+"""新增使用者的啟用方式(ADR-0009:啟用信 / 初始密碼)"""
+enum UserActivationMode {
+  EMAIL
+  PASSWORD
+}
+
+type UserOrg {
+  id: ID!
+  name: String!
+}
+
+"""移除所屬組織時角色授予的處理方式(ADR-0003,radio 三檔)"""
+enum UserOrgRemovalPolicy {
+  KEEP_ALL
+  REVOKE_ALL_UNQUALIFIED
+  REVOKE_OWNED_BY_ORG
+}
+
+type UserPayload {
+  user: User!
+}
+
+type UserRoleGrant {
+  id: ID!
+  name: String!
+  outOfScope: Boolean!
+  ownerOrgId: ID
+  ownerOrgName: String
+}
+
+input UsersInput {
+  keyword: String
+  orgId: ID
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
+type UsersPayload {
+  items: [User!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
 }

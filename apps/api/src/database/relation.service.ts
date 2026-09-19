@@ -271,6 +271,30 @@ export class RelationService {
 
   // ---- 通用讀取 ----
 
+  /**
+   * 批次取關聯(依任一端或兩端過濾),保留「哪一筆配哪一筆」的配對 —
+   * `listXxxIdsOfYyy` 系列用 distinct 取聯集,配對資訊會掉。
+   * 用途:使用者清單一次取整頁使用者的所屬組織(`org_user`)、角色授予(`user_role`)
+   * 與這些角色的擁有組織(`org_role`),不必每列各打一次查詢。
+   * 兩端都不給即回該類型全部(呼叫端自己負責範圍),空陣列的一端視為「查無」直接回空。
+   */
+  async listLinks(
+    type: CoreRelationshipType,
+    ends: { firstIds?: Types.ObjectId[]; secondIds?: Types.ObjectId[] },
+  ): Promise<RelationRecord[]> {
+    if (ends.firstIds?.length === 0 || ends.secondIds?.length === 0) {
+      return [];
+    }
+    return this.model
+      .find({
+        type,
+        ...(ends.firstIds ? { firstId: { $in: ends.firstIds } } : {}),
+        ...(ends.secondIds ? { secondId: { $in: ends.secondIds } } : {}),
+      })
+      .lean<RelationRecord[]>()
+      .exec();
+  }
+
   /** 取一筆關聯(含 meta 與基礎欄位);不存在回 null。 */
   findLink(
     type: CoreRelationshipType,
