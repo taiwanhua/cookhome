@@ -1,11 +1,15 @@
+import { existsSync, statSync } from "node:fs";
+import path from "node:path";
+
 import js from "@eslint/js";
-import { defineConfig, globalIgnores } from "eslint/config";
 import eslintConfigPrettier from "eslint-config-prettier";
+import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import importX from "eslint-plugin-import-x";
 import onlyWarn from "eslint-plugin-only-warn";
 import sonarjs from "eslint-plugin-sonarjs";
 import turboPlugin from "eslint-plugin-turbo";
 import unicorn from "eslint-plugin-unicorn";
+import { defineConfig, globalIgnores } from "eslint/config";
 import tseslint from "typescript-eslint";
 
 /**
@@ -18,6 +22,40 @@ import tseslint from "typescript-eslint";
  * - sonarjs:複雜度與程式碼氣味
  * - eslint-config-prettier 放最後,關閉所有與格式化衝突的規則
  */
+/** 從檔案往上找最近的 package.json 所在目錄(= 該 app 的根)。 */
+const packageRootOf = (file) => {
+  let dir = path.dirname(file);
+  while (!existsSync(path.join(dir, "package.json"))) {
+    const parent = path.dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return dir;
+};
+
+const RESOLVE_EXTENSIONS = [".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs"];
+
+/** `@/x` → `<app 根>/src/x`(檔案或目錄 index);不是 `@/` 開頭的交給下一個 resolver。 */
+const srcAliasResolver = {
+  interfaceVersion: 3,
+  name: "src-alias",
+  resolve(source, file) {
+    if (!source.startsWith("@/")) return { found: false };
+    const root = packageRootOf(file);
+    if (root === null) return { found: false };
+    const base = path.join(root, "src", source.slice(2));
+    const candidates = [
+      base,
+      ...RESOLVE_EXTENSIONS.map((ext) => base + ext),
+      ...RESOLVE_EXTENSIONS.map((ext) => path.join(base, "index" + ext)),
+    ];
+    const hit = candidates.find(
+      (candidate) => existsSync(candidate) && statSync(candidate).isFile(),
+    );
+    return hit === undefined ? { found: false } : { found: true, path: hit };
+  },
+};
+
 export const config = defineConfig(
   globalIgnores(["dist/**"]),
   js.configs.recommended,
@@ -34,6 +72,17 @@ export const config = defineConfig(
       parserOptions: {
         projectService: true,
       },
+    },
+  },
+  {
+    // import-x 的模組解析:先認 `@/` 路徑別名(GEN-01:`@/` = 該 app 的 src/,與 tsconfig paths、
+    // Vite alias、jest moduleNameMapper 同一份約定),其餘交給 TypeScript resolver(新介面,認 exports 子路徑)。
+    // 別名自己解而不靠 TS resolver 讀 tsconfig paths:eslint-import-resolver-typescript 4.4 對這組 paths 解不出來。
+    settings: {
+      "import-x/resolver-next": [
+        srcAliasResolver,
+        createTypeScriptImportResolver(),
+      ],
     },
   },
   {
