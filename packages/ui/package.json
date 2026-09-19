@@ -19,6 +19,16 @@
         "default": "./dist/cjs/theme.js"
       }
     },
+    "./tree": {
+      "import": {
+        "types": "./dist/es/tree.d.mts",
+        "default": "./dist/es/tree.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/tree.d.ts",
+        "default": "./dist/cjs/tree.js"
+      }
+    },
     "./button": {
       "import": {
         "types": "./dist/es/button.d.mts",
@@ -89,6 +99,16 @@
         "default": "./dist/cjs/typography.js"
       }
     },
+    "./upload-field": {
+      "import": {
+        "types": "./dist/es/upload-field.d.mts",
+        "default": "./dist/es/upload-field.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/upload-field.d.ts",
+        "default": "./dist/cjs/upload-field.js"
+      }
+    },
     "./stack": {
       "import": {
         "types": "./dist/es/stack.d.mts",
@@ -97,6 +117,16 @@
       "require": {
         "types": "./dist/cjs/stack.d.ts",
         "default": "./dist/cjs/stack.js"
+      }
+    },
+    "./table": {
+      "import": {
+        "types": "./dist/es/table.d.mts",
+        "default": "./dist/es/table.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/table.d.ts",
+        "default": "./dist/cjs/table.js"
       }
     },
     "./box": {
@@ -159,6 +189,16 @@
         "default": "./dist/cjs/menu.js"
       }
     },
+    "./pagination": {
+      "import": {
+        "types": "./dist/es/pagination.d.mts",
+        "default": "./dist/es/pagination.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/pagination.d.ts",
+        "default": "./dist/cjs/pagination.js"
+      }
+    },
     "./select": {
       "import": {
         "types": "./dist/es/select.d.mts",
@@ -198,6 +238,76 @@
         "types": "./dist/cjs/icon-button.d.ts",
         "default": "./dist/cjs/icon-button.js"
       }
+    },
+    "./checkbox": {
+      "import": {
+        "types": "./dist/es/checkbox.d.mts",
+        "default": "./dist/es/checkbox.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/checkbox.d.ts",
+        "default": "./dist/cjs/checkbox.js"
+      }
+    },
+    "./dialog": {
+      "import": {
+        "types": "./dist/es/dialog.d.mts",
+        "default": "./dist/es/dialog.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/dialog.d.ts",
+        "default": "./dist/cjs/dialog.js"
+      }
+    },
+    "./form-control-label": {
+      "import": {
+        "types": "./dist/es/form-control-label.d.mts",
+        "default": "./dist/es/form-control-label.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/form-control-label.d.ts",
+        "default": "./dist/cjs/form-control-label.js"
+      }
+    },
+    "./popover": {
+      "import": {
+        "types": "./dist/es/popover.d.mts",
+        "default": "./dist/es/popover.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/popover.d.ts",
+        "default": "./dist/cjs/popover.js"
+      }
+    },
+    "./radio": {
+      "import": {
+        "types": "./dist/es/radio.d.mts",
+        "default": "./dist/es/radio.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/radio.d.ts",
+        "default": "./dist/cjs/radio.js"
+      }
+    },
+    "./switch": {
+      "import": {
+        "types": "./dist/es/switch.d.mts",
+        "default": "./dist/es/switch.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/switch.d.ts",
+        "default": "./dist/cjs/switch.js"
+      }
+    },
+    "./tag": {
+      "import": {
+        "types": "./dist/es/tag.d.mts",
+        "default": "./dist/es/tag.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/tag.d.ts",
+        "default": "./dist/cjs/tag.js"
+      }
     }
   },
   "scripts": {
@@ -208,7 +318,10 @@
     "test": "jest"
   },
   "jest": {
-    "preset": "@repo/jest-presets/browser"
+    "preset": "@repo/jest-presets/browser",
+    "setupFilesAfterEnv": [
+      "<rootDir>/src/test/setup.ts"
+    ]
   },
   "devDependencies": {
     "@emotion/react": "^11.14.0",
@@ -219,6 +332,10 @@
     "@repo/jest-presets": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@storybook/react-vite": "^10.6.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.10.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.15.3",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
@@ -238,6 +355,7 @@
     "react-dom": ">=18"
   },
   "dependencies": {
+    "@mui/x-tree-view": "^9.14.0",
     "@swc/helpers": "^0.5.18"
   }
 }

@@ -1,0 +1,50 @@
+import { describe, expect, it, jest } from "@jest/globals";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+import { Tag } from "./Tag";
+
+describe("Tag", () => {
+  it("渲染標籤文字", () => {
+    render(<Tag label="系統內建" />);
+
+    expect(screen.getByText("系統內建")).toBeInTheDocument();
+  });
+
+  it("每個色調都渲染得出來", () => {
+    render(
+      <>
+        <Tag tone="grey" label="停用" />
+        <Tag tone="primary" label="群組" />
+        <Tag tone="success" label="啟用" />
+        <Tag tone="warning" label="隱藏頁" />
+        <Tag tone="error" label="組織外" />
+      </>,
+    );
+
+    for (const text of ["停用", "群組", "啟用", "隱藏頁", "組織外"]) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
+  });
+
+  it("有 onDelete 時出現關閉鈕,點下去會回報", async () => {
+    const user = userEvent.setup();
+    const onDelete = jest.fn();
+    const { container } = render(<Tag label="客服" onDelete={onDelete} />);
+
+    // MUI 的關閉圖示是 svg、沒有 role,只能用 class 取
+    const deleteIcon = container.querySelector(".MuiChip-deleteIcon");
+    if (deleteIcon === null) {
+      throw new Error("測試找不到關閉鈕");
+    }
+    await user.click(deleteIcon);
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it("沒有 onDelete 就不渲染關閉鈕", () => {
+    const { container } = render(<Tag label="客服" />);
+
+    expect(container.querySelector(".MuiChip-deleteIcon")).not.toBeInTheDocument();
+  });
+});
