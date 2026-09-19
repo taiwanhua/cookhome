@@ -78,6 +78,31 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 - **防越權**:`ROLE_OUT_OF_REACH` = 要授予的角色不在操作者自己持有的角色內;**超級管理員 bypass**(ADR-0004 解析時全權放行),否則根組織無法把租戶的角色授予任何人。授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹),不符回 `VALIDATION_FAILED`。
 - **錯誤碼**:`LAST_ORG`、`ROLE_OUT_OF_REACH`、`OWNER_PROTECTED`(程式正本 `apps/api/src/users/users-error.ts`,表在 GQL-04);帳號 / Email 重複與資格不符沿用 `VALIDATION_FAILED`(`extensions.fields` 指出欄位)。
 
+## admin 實作(#139,程式在 `apps/admin/src/pages/system/UserManagerPage/`)
+
+左 `OrgTreePicker`(跨頁共用,`components/OrgTreePicker/`;#138 也用)+ 右 `Table` / `Pagination`;
+五個彈窗各一個資料夾,狀態一律在頁面層,關閉即卸載(初始值靠 props 帶入,不用 effect 同步,REACT-06)。
+三個實作決定,都是 api 目前的形狀逼出來的:
+
+- **組織樹掛在別人的權限底下**:`orgTree` / `org` 由 api 守在 `system.org-manager.view`(`orgs.resolver.ts`),
+  但本頁的左樹與「選擇所屬組織」都要它。admin 的處理是**頁內判斷**(ADR-0011):沒有那個 key 就不送查詢,
+  清單改成不給 `orgId`(= 整個可見範圍),「所屬組織」動作 disabled。**這是 api 的耦合,不是前端的設計** —
+  第 4 段動權限表時應考慮讓 `orgTree` 同時接受 `system.user-manager.view`。
+- **角色清單沒有查詢端點**:第 3 段沒有 `roles` query(角色管理是第 4 段)。指派角色彈窗改查
+  `user(操作者自己的 id)` 的 `roles` — 它正好就是「操作者自己持有的角色 + 擁有組織」,與 api 防越權
+  (`ROLE_OUT_OF_REACH`)同一份資料。已授予但操作者觸及不到的角色唯讀顯示,送出時不包含(api 也不會動它)。
+  因此角色的**描述文字**(Figma 86:245 有)前端拿不到,暫不顯示。
+- **擁有者保護只需要一個 id**:前端不重做 `owner-protection.service.ts` 的判斷,只取
+  `org(樹根 id)`:`parentId === null` 代表操作者站在根組織 → 一律放行不標保護;否則樹根就是租戶頂層,
+  它的 `ownerUserId` 就是受保護的那一位,該列的「停用」「所屬組織」disabled 並提示。
+  api 仍會回 `OWNER_PROTECTED`,彈窗照樣顯示訊息(fail-closed 在後端,前端只是先講清楚)。
+
+與 Figma 的差異(刻意):清單多一欄「帳號」(30:105 沒有,但清單欄位的正本是本文);
+列動作多一個「所屬組織」(31:98 只有編輯 / 指派角色 / 停用,但所屬組織需要入口);
+新增彈窗的「初始密碼」欄改成選了 PASSWORD 才出現(202:743 常駐);
+新增 / 編輯彈窗的「啟用此使用者」勾選框不做(`createUser` / `updateUser` 沒有 `enabled` 欄位,
+啟用停用走專用動作);編輯彈窗的所屬組織唯讀(正本規定所屬組織走專用彈窗)。
+
 ## 平台視角(不進 help)
 
 **擁有者保護的實作**(ADR-0009):`apps/api/src/users/owner-protection.service.ts` —

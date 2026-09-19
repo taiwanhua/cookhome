@@ -96,5 +96,151 @@
       "body": "你目前的角色沒有這個頁面的權限;若需要使用,請聯絡系統管理員。",
       "backHome": "回首頁"
     }
+  },
+  "userManager": {
+    "orgTree": {
+      "title": "組織",
+      "hint": "選擇組織以篩選使用者",
+      "all": "全部組織",
+      "search": "搜尋組織",
+      "unavailable": "你沒有組織管理的檢視權限,清單直接顯示你可見範圍內的所有使用者。"
+    },
+    "toolbar": {
+      "search": "搜尋",
+      "searchPlaceholder": "姓名或 Email",
+      "create": "新增使用者"
+    },
+    "tableLabel": "使用者清單",
+    "outOfScopeHint": "「組織外」表示使用者不在該角色的所屬組織內",
+    "columns": {
+      "name": "姓名",
+      "account": "帳號",
+      "email": "Email",
+      "orgs": "組織",
+      "roles": "角色",
+      "status": "狀態",
+      "actions": "操作"
+    },
+    "status": {
+      "enabled": "啟用",
+      "disabled": "停用"
+    },
+    "roleOutOfScope": "組織外",
+    "orgsMore": "+{count}",
+    "orgsMoreLabel": "{name} 還屬於其他 {count} 個組織",
+    "none": "—",
+    "empty": "這個組織底下還沒有使用者",
+    "total": "共 {total} 筆,每頁 {pageSize} 筆",
+    "ownerProtected": "頂層組織的擁有者受保護,無法執行此動作",
+    "actions": {
+      "edit": "編輯",
+      "orgs": "所屬組織",
+      "roles": "指派角色",
+      "enable": "啟用",
+      "disable": "停用",
+      "rowLabel": "{action} {name}"
+    },
+    "form": {
+      "createTitle": "新增使用者",
+      "editTitle": "編輯使用者 — {name}",
+      "account": "登入帳號",
+      "name": "姓名",
+      "nickname": "暱稱",
+      "gender": "性別",
+      "email": "Email",
+      "phone": "連絡電話",
+      "address": "居住地址",
+      "nationalId": "身分證(選填)",
+      "genderOptions": {
+        "unset": "未填",
+        "male": "男",
+        "female": "女",
+        "other": "其他"
+      },
+      "activation": {
+        "legend": "啟用方式",
+        "email": "寄啟用信,由使用者自行設定密碼(連結 7 天內有效)",
+        "password": "直接設定初始密碼(首次登入強制修改)",
+        "note": "預設寄啟用信;選擇直接設定初始密碼時,使用者首次登入將強制修改密碼。"
+      },
+      "initialPassword": "初始密碼",
+      "orgs": "所屬組織",
+      "pickOrgs": "+ 選擇組織",
+      "orgsReadonly": "所屬組織請用清單上的「所屬組織」動作調整。",
+      "removeOrg": "移除 {name}",
+      "submitCreate": "新增",
+      "submitEdit": "儲存",
+      "cancel": "取消",
+      "errors": {
+        "required": "請填寫必填欄位(登入帳號、姓名、Email、所屬組織)",
+        "duplicate": "以下欄位已被使用:{fields}",
+        "forbidden": "你沒有執行這個動作的權限",
+        "unexpected": "儲存失敗,請稍後再試"
+      }
+    },
+    "orgPicker": {
+      "title": "選擇所屬組織 — {name}",
+      "createTitle": "選擇所屬組織",
+      "selected": "已選 {count} 個組織",
+      "hint": "加入組織會擴大此使用者的資料可見範圍;移除組織時,受影響的角色授予會在送出前列出,由你選擇保留或解除(保留的角色功能繼續有效,資料範圍仍由所屬組織決定)。",
+      "confirm": "確定",
+      "cancel": "取消"
+    },
+    "orgChange": {
+      "title": "確認所屬組織變更?",
+      "intro": "你對 {name} 的所屬組織做了以下變更:",
+      "removed": "移除:{orgs}",
+      "affected": "受影響的角色授予(由你決定處理方式):",
+      "noneAffected": "沒有角色會因此失去資格。",
+      "keepAll": {
+        "label": "保留所有角色授予",
+        "hint": "角色功能對他繼續有效;可操作的資料範圍仍由所屬組織決定,列表會有標示"
+      },
+      "revokeOwned": {
+        "label": "只解除此組織擁有的角色",
+        "hint": "將解除:{roles}"
+      },
+      "revokeAll": {
+        "label": "解除所有因此失去資格的角色",
+        "hint": "將解除:{roles}"
+      },
+      "roleWithOrg": "{role}({org})",
+      "protected": "{role} 受擁有者保護,不會被解除",
+      "reasons": {
+        "OWNED_BY_REMOVED_ORG": "由被移除的組織擁有",
+        "NO_REMAINING_SUBTREE_SUPPORT": "剩餘的所屬組織都不在該角色的擁有組織底下"
+      },
+      "confirm": "確認變更",
+      "cancel": "取消"
+    },
+    "assignRoles": {
+      "title": "指派角色 — {name}",
+      "hint": "「組織外」表示 {name} 不在該角色的所屬組織內",
+      "outOfScope": "組織外",
+      "orgFilter": "組織(列出該組織的角色)",
+      "allOrgs": "全部組織",
+      "empty": "你目前沒有可以指派的角色",
+      "outOfReach": "你的權限不足,無法下放",
+      "ownerOrg": "擁有組織:{org}",
+      "save": "儲存指派",
+      "cancel": "取消"
+    },
+    "toggle": {
+      "disableTitle": "停用 {name}?",
+      "disableBody": "停用後他無法登入,當下就會被踢出所有已登入的裝置。不提供刪除,停用可再啟用。",
+      "enableTitle": "啟用 {name}?",
+      "enableBody": "啟用後他可以重新登入後台。",
+      "confirmDisable": "停用",
+      "confirmEnable": "啟用",
+      "cancel": "取消"
+    },
+    "errors": {
+      "OWNER_PROTECTED": "頂層組織的擁有者受保護,這個動作被拒絕。",
+      "LAST_ORG": "每位使用者至少要保留一個所屬組織。",
+      "ROLE_OUT_OF_REACH": "你只能指派自己也擁有的角色。",
+      "FORBIDDEN": "你沒有執行這個動作的權限。",
+      "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
+      "UNEXPECTED": "操作失敗,請稍後再試。"
+    }
   }
 }
