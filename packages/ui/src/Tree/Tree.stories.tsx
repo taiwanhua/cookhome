@@ -1,7 +1,28 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
+import { Button } from "../Button/Button";
 import { Tag } from "../Tag/Tag";
+import { Typography } from "../Typography/Typography";
 import { type TreeNode, Tree } from "./Tree";
+
+/** 權限矩陣列在名稱右邊的權限 key(Figma 172:281:12px、text.disabled)。 */
+const MatrixKey = ({ value }: { value: string }) => (
+  <Typography variant="caption" color="text.disabled">
+    {value}
+  </Typography>
+);
+
+/** 頂層群組列的列尾:狀態說明 + 整組操作(Figma 172:283 / 172:284)。 */
+const MatrixActions = () => (
+  <>
+    <Typography variant="caption" color="text.secondary">
+      有下層被勾選,不可取消
+    </Typography>
+    <Button size="small" variant="text">
+      清空整組
+    </Button>
+  </>
+);
 
 const items: TreeNode[] = [
   {
@@ -75,6 +96,68 @@ export const WithLabelSuffix: Story = {
         ],
       },
     ],
+  },
+};
+
+/**
+ * 三態 + 列尾操作 + 勾選框停用:角色管理的權限矩陣(Figma Screen / Admin 角色管理 57:142)。
+ * 連動規則由呼叫端算(`@repo/domain/permission`),這裡只是把算好的結果餵進來:
+ * 群組列部分勾選 → `indeterminateIds`;有子孫被勾的上層不可取消 → `disabledCheckIds`;
+ * 「全選整組 / 清空整組」放節點的 `actions`。縮排照 Figma 的 24。
+ */
+export const PermissionMatrix: Story = {
+  args: {
+    items: [
+      {
+        id: "demo",
+        label: "示範群組",
+        labelSuffix: <MatrixKey value="demo" />,
+        actions: <MatrixActions />,
+        children: [
+          {
+            id: "demo.sample-one",
+            label: "示範模組1",
+            labelSuffix: <MatrixKey value="demo.sample-one" />,
+            children: [
+              {
+                id: "demo.sample-one.*",
+                label: "全部(*)",
+                labelSuffix: <MatrixKey value="demo.sample-one.*" />,
+              },
+              {
+                id: "demo.sample-one.view",
+                label: "檢視",
+                labelSuffix: <MatrixKey value="demo.sample-one.view" />,
+              },
+              {
+                id: "demo.sample-one.create",
+                label: "新增",
+                labelSuffix: <MatrixKey value="demo.sample-one.create" />,
+              },
+            ],
+          },
+          {
+            id: "demo.sample-two",
+            label: "示範模組2",
+            labelSuffix: <MatrixKey value="demo.sample-two" />,
+          },
+        ],
+      },
+      {
+        id: "ads-manager",
+        label: "廣告管理",
+        labelSuffix: <MatrixKey value="ads-manager" />,
+        disabled: true,
+      },
+    ],
+    checkboxSelection: true,
+    multiSelect: true,
+    childrenIndentation: 24,
+    defaultExpandedIds: ["demo", "demo.sample-one"],
+    selectedIds: ["demo", "demo.sample-one", "demo.sample-one.view"],
+    indeterminateIds: ["demo.sample-one"],
+    disabledCheckIds: ["demo", "demo.sample-one"],
+    "aria-label": "權限矩陣",
   },
 };
 
