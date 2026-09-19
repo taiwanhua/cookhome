@@ -135,8 +135,8 @@ setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
 - **`@repo/ui/tree` 為此加了 `TreeNode.labelSuffix`**(Figma Draft/OrgTreeItem 的 ShowTag 槽位):
   停用的組織掛「停用」標籤、根組織視角下的租戶頂層掛「租戶」標籤。`label` 仍是純文字,
   搜尋與無障礙名稱不受影響。`OrgTreePicker`(#139 起共用)多一個 `labelSuffixOf` 把它接出來。
-- **成功後失效三把**:`orgTree`、被改到的那一筆 `org(id)`、以及 `me` — 商標與組織名會進側欄。
-  (側欄目前只顯示名稱,商標圖待 `me.currentOrg.logoUrl` 接上,見 `SideNav.tsx` 的槽位註解。)
+- **成功後失效三把**:`orgTree`、被改到的那一筆 `org(id)`、以及 `me` — 側欄的租戶識別讀
+  `me.currentOrg.logoUrl`(有商標顯示商標圖、沒有才顯示組織名),改完商標不重取 `me` 就不會更新。
 - **設計稿差異**:Figma 的資料區有「建立時間」一列,`org(id)` 沒有這個欄位,故未做;
   可見範圍在 Figma 是核取方塊,依本檔與 ADR-0005 的說法改用開關(`Switch`)。
 

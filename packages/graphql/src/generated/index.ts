@@ -622,7 +622,7 @@ export type SwitchOrgMutation = { __typename?: 'Mutation', switchOrg: { __typena
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type MeQuery = { __typename?: 'Query', me: { __typename?: 'Me', id: string, account: string, name: string, email: string, nickname?: string | null, mustChangePassword: boolean, currentOrg?: { __typename?: 'MeOrg', id: string, name: string } | null, orgs: Array<{ __typename?: 'MeOrg', id: string, name: string }>, modules: Array<{ __typename?: 'MeModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, route?: string | null, permissions: Array<string> }> } };
+export type MeQuery = { __typename?: 'Query', me: { __typename?: 'Me', id: string, account: string, name: string, email: string, nickname?: string | null, mustChangePassword: boolean, currentOrg?: { __typename?: 'MeOrg', id: string, name: string, logoUrl?: string | null } | null, orgs: Array<{ __typename?: 'MeOrg', id: string, name: string }>, modules: Array<{ __typename?: 'MeModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, route?: string | null, permissions: Array<string> }> } };
 
 export type RequestPasswordResetMutationVariables = Exact<{
   input: RequestPasswordResetInput;
@@ -958,6 +958,7 @@ export const MeDocument = `
     currentOrg {
       id
       name
+      logoUrl
     }
     orgs {
       id

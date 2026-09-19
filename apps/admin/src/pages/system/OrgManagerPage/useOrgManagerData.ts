@@ -3,9 +3,10 @@ import { useState } from "react";
 
 import { useMeQuery, useOrgQuery, useOrgTreeQuery } from "@repo/graphql";
 
-import { usePermissions } from "../../../hooks/usePermissions";
-import { useSession } from "../../../hooks/useSession";
-import { type OrgNodeLike, rootOrgId } from "../../../lib/org-tree";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useSession } from "@/hooks/useSession";
+import { type OrgNodeLike, rootOrgId } from "@/lib/org-tree";
+
 import { ORG_MANAGER_PERMISSIONS } from "./org-manager-permissions";
 import type { OrgActionAbility } from "./org-manager-types";
 

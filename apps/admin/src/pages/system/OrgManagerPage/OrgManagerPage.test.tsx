@@ -7,20 +7,21 @@ import {
   type TestModule,
   authWorld,
   overviewModule,
-} from "../../../test/msw/auth-handlers";
+} from "@/test/msw/auth-handlers";
 import {
   orgDetails,
   orgUsers,
   rootTree,
   tenantModuleOptions,
   tenantTree,
-} from "../../../test/msw/org-fixtures";
+} from "@/test/msw/org-fixtures";
 import {
   type OrgWorldOptions,
   orgWorld,
-} from "../../../test/msw/org-manager-handlers";
-import { server } from "../../../test/msw/server";
-import { renderApp } from "../../../test/render";
+} from "@/test/msw/org-manager-handlers";
+import { server } from "@/test/msw/server";
+import { renderApp } from "@/test/render";
+
 import { ORG_MANAGER_PERMISSIONS } from "./org-manager-permissions";
 
 const OWN_PERMISSIONS = [

@@ -1,7 +1,8 @@
 import { useUsersQuery } from "@repo/graphql";
 
-import { usePermissions } from "../../../hooks/usePermissions";
-import { useSession } from "../../../hooks/useSession";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useSession } from "@/hooks/useSession";
+
 import { USER_MANAGER_VIEW_PERMISSION } from "./org-manager-permissions";
 import { OWNER_CANDIDATE_PAGE_SIZE, type OrgDetail } from "./org-manager-types";
 

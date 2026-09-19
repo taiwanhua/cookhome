@@ -3,8 +3,9 @@ import { useState } from "react";
 import { useDeleteOrgMutation, useSetOrgEnabledMutation } from "@repo/graphql";
 import { Stack } from "@repo/ui/stack";
 
-import { useSession } from "../../../hooks/useSession";
-import { orgTrail } from "../../../lib/org-tree";
+import { useSession } from "@/hooks/useSession";
+import { orgTrail } from "@/lib/org-tree";
+
 import { CreateChildOrgDialog } from "./CreateChildOrgDialog";
 import { DeleteOrgDialog } from "./DeleteOrgDialog";
 import { EditOrgDialog } from "./EditOrgDialog/EditOrgDialog";
