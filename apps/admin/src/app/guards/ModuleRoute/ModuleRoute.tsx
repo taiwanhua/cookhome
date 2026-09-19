@@ -1,7 +1,7 @@
 import { type ComponentType, useMemo } from "react";
 import { Navigate, useLocation } from "react-router";
 
-import { useMe } from "../../../hooks/useMe";
+import { useMe } from "@/hooks/useMe";
 import {
   type ModulePageProps,
   buildNavTree,
@@ -9,7 +9,8 @@ import {
   findNavNode,
   firstLinkRoute,
   normalizePathname,
-} from "../../../lib/module-tree";
+} from "@/lib/module-tree";
+
 import { ForbiddenPage } from "../ForbiddenPage";
 import { ModulePage } from "./ModulePage";
 

@@ -5,8 +5,9 @@ import { CircularProgress } from "@repo/ui/circular-progress";
 import { Dialog } from "@repo/ui/dialog";
 import { Stack } from "@repo/ui/stack";
 
-import { useSession } from "../../../../hooks/useSession";
-import type { OrgNodeLike } from "../../../../lib/org-tree";
+import { useSession } from "@/hooks/useSession";
+import type { OrgNodeLike } from "@/lib/org-tree";
+
 import type { UserActionAbility, UserRow } from "../user-manager-types";
 import { UserFormBody } from "./UserFormBody";
 import { EMPTY_USER_FORM } from "./useUserForm";

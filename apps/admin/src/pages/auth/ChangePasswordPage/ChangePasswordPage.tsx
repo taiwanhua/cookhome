@@ -13,10 +13,11 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
-import { useMe } from "../../../hooks/useMe";
-import { useSession } from "../../../hooks/useSession";
-import { passwordViolationsOf } from "../../../lib/auth/graphql-errors";
-import { NEXT_PARAM, safeNextPath } from "../../../lib/paths";
+import { useMe } from "@/hooks/useMe";
+import { useSession } from "@/hooks/useSession";
+import { passwordViolationsOf } from "@/lib/auth/graphql-errors";
+import { NEXT_PARAM, safeNextPath } from "@/lib/paths";
+
 import { AuthCard } from "../AuthCard";
 import { NewPasswordFields } from "../NewPasswordFields/NewPasswordFields";
 import { useNewPassword } from "../NewPasswordFields/useNewPassword";

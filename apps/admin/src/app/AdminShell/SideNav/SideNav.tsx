@@ -5,7 +5,8 @@ import { List } from "@repo/ui/list";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import type { NavNode } from "../../../lib/module-tree";
+import type { NavNode } from "@/lib/module-tree";
+
 import { NavNodes } from "./NavNodes/NavNodes";
 
 /** 側欄寬度(theme.spacing 單位;Figma AdminSideNav 240 寬)。 */

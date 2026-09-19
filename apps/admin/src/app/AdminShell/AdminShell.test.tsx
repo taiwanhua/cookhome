@@ -1,19 +1,19 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { LOCALE_STORAGE_KEY } from "../../lib/locale";
+import { LOCALE_STORAGE_KEY } from "@/lib/locale";
 import {
   SWITCHED_ACCESS_TOKEN,
   authWorld,
   overviewModule,
   testOrg,
-} from "../../test/msw/auth-handlers";
+} from "@/test/msw/auth-handlers";
 import {
   sampleTwoModules,
   superAdminModules,
-} from "../../test/msw/module-fixtures";
-import { server } from "../../test/msw/server";
-import { renderApp } from "../../test/render";
+} from "@/test/msw/module-fixtures";
+import { server } from "@/test/msw/server";
+import { renderApp } from "@/test/render";
 
 const findSideNav = async () =>
   screen.findByRole("navigation", { name: "主選單" });

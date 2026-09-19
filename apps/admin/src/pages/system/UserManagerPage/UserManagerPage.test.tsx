@@ -7,16 +7,17 @@ import {
   type TestModule,
   authWorld,
   overviewModule,
-} from "../../../test/msw/auth-handlers";
-import { server } from "../../../test/msw/server";
+} from "@/test/msw/auth-handlers";
+import { server } from "@/test/msw/server";
 import {
   type TestOrg,
   type TestOrgNode,
   type TestUser,
   type UserWorldOptions,
   userWorld,
-} from "../../../test/msw/user-manager-handlers";
-import { renderApp } from "../../../test/render";
+} from "@/test/msw/user-manager-handlers";
+import { renderApp } from "@/test/render";
+
 import { USER_MANAGER_PERMISSIONS } from "./user-manager-permissions";
 
 const ALL_PERMISSIONS = Object.values(USER_MANAGER_PERMISSIONS);

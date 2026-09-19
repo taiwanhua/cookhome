@@ -6,8 +6,9 @@ import { messages } from "@repo/i18n";
 import { AppThemeProvider } from "@repo/ui/app-theme-provider";
 import { cookhomeBrand } from "@repo/ui/theme";
 
-import type { AuthSession } from "../../lib/auth/session";
-import { useLocaleStore } from "../../stores/useLocaleStore";
+import type { AuthSession } from "@/lib/auth/session";
+import { useLocaleStore } from "@/stores/useLocaleStore";
+
 import { SessionProvider } from "./SessionProvider";
 
 export interface AppProvidersProps {

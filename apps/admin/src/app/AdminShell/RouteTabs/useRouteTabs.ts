@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
-import type { ShellModule } from "../../../lib/module-tree";
-import { type RouteTab, resolveTabs } from "../../../lib/route-tabs";
-import { useRouteTabsStore } from "../../../stores/useRouteTabsStore";
+import type { ShellModule } from "@/lib/module-tree";
+import { type RouteTab, resolveTabs } from "@/lib/route-tabs";
+import { useRouteTabsStore } from "@/stores/useRouteTabsStore";
 
 export interface UseRouteTabsOptions {
   /** 登入者 id:sessionStorage 以它分 key */

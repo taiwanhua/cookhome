@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen } from "@testing-library/react";
 
-import { authHandlers, graphqlError } from "../../../test/msw/auth-handlers";
-import { api, server } from "../../../test/msw/server";
-import { renderApp } from "../../../test/render";
+import { authHandlers, graphqlError } from "@/test/msw/auth-handlers";
+import { api, server } from "@/test/msw/server";
+import { renderApp } from "@/test/render";
 
 const fillAndSubmit = async (
   user: ReturnType<typeof renderApp>["user"],

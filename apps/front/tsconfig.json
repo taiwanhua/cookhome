@@ -8,7 +8,9 @@
         "name": "next"
       }
     ],
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src", "next.config.ts", "next-env.d.ts", ".next/types/**/*.ts"]
 }
