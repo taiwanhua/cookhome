@@ -10,7 +10,9 @@ import {
 } from "./data-scope-test-support";
 
 /** 每個測試都從「加一條新規則」開始:新規則預設是第一個欄位(狀態,enum)的一條條件列。 */
-const startRule = async (actor: { click: (element: Element) => Promise<void> }) => {
+const startRule = async (actor: {
+  click: (element: Element) => Promise<void>;
+}) => {
   await waitForEditor("示範項目(demo_items_one)");
   await actor.click(screen.getByRole("button", { name: "+ 新增規則" }));
 };
@@ -33,8 +35,12 @@ describe("條件樹編輯器(資料範圍)", () => {
     await chooseOption(actor, comboboxAt("欄位"), "建立時間");
     expect(comboboxAt("條件")).toHaveTextContent("之間");
     // MUI X 的日期欄位把 label 連到多個節點(欄位容器與各個區段),所以用 getAll
-    expect(within(editor()).getAllByLabelText("起日").length).toBeGreaterThan(0);
-    expect(within(editor()).getAllByLabelText("迄日").length).toBeGreaterThan(0);
+    expect(within(editor()).getAllByLabelText("起日").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(editor()).getAllByLabelText("迄日").length).toBeGreaterThan(
+      0,
+    );
 
     await chooseOption(actor, comboboxAt("條件"), "之後");
     expect(within(editor()).getAllByLabelText("值").length).toBeGreaterThan(0);
@@ -118,7 +124,9 @@ describe("條件樹編輯器(資料範圍)", () => {
     await chooseOption(actor, comboboxAt("值", 2), "草稿");
     await actor.keyboard("{Escape}");
 
-    expect(within(editor()).getAllByRole("combobox", { name: "群組組合" })).toHaveLength(2);
+    expect(
+      within(editor()).getAllByRole("combobox", { name: "群組組合" }),
+    ).toHaveLength(2);
     // 第三層的群組不再給「+ 群組」(UI 上限三層),但「+ 條件」還在
     expect(screen.getAllByRole("button", { name: "+ 群組" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "+ 條件" })).toHaveLength(3);

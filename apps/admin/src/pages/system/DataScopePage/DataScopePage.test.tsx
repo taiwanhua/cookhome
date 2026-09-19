@@ -89,9 +89,7 @@ describe("資料範圍頁(/system/data-scope)", () => {
       within(targetList()).getByRole("button", { name: /示範項目2/ }),
     );
 
-    expect(
-      await screen.findByText("放棄未儲存的變更?"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("放棄未儲存的變更?")).toBeInTheDocument();
     await actor.click(screen.getByRole("button", { name: "繼續編輯" }));
     await waitFor(() => {
       expect(screen.queryByText("放棄未儲存的變更?")).not.toBeInTheDocument();
@@ -103,9 +101,7 @@ describe("資料範圍頁(/system/data-scope)", () => {
     await actor.click(
       within(targetList()).getByRole("button", { name: /示範項目2/ }),
     );
-    await actor.click(
-      await screen.findByRole("button", { name: "放棄變更" }),
-    );
+    await actor.click(await screen.findByRole("button", { name: "放棄變更" }));
 
     await waitForEditor("示範項目2(demo_items_two)");
   });
@@ -117,8 +113,16 @@ describe("資料範圍頁(/system/data-scope)", () => {
     });
 
     await waitForEditor("示範項目(demo_items_one)");
-    for (const label of ["+ 新增規則", "刪除規則", "+ 條件", "+ 群組", "儲存"]) {
-      expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+    for (const label of [
+      "+ 新增規則",
+      "刪除規則",
+      "+ 條件",
+      "+ 群組",
+      "儲存",
+    ]) {
+      expect(
+        screen.queryByRole("button", { name: label }),
+      ).not.toBeInTheDocument();
     }
     expect(
       within(editor()).getByRole("combobox", { name: "規則合成" }),

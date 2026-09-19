@@ -83,7 +83,12 @@ export const ConditionGroup = ({
       sx={
         isRoot
           ? undefined
-          : { bgcolor: "background.default", borderRadius: 1, px: 1.75, py: 1.5 }
+          : {
+              bgcolor: "background.default",
+              borderRadius: 1,
+              px: 1.75,
+              py: 1.5,
+            }
       }
     >
       <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>

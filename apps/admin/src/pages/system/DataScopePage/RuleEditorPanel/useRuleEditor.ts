@@ -1,6 +1,9 @@
 import { useState } from "react";
 
-import { type DataScopeCombineOp, useSaveDataScopeRuleMutation } from "@repo/graphql";
+import {
+  type DataScopeCombineOp,
+  useSaveDataScopeRuleMutation,
+} from "@repo/graphql";
 
 import { useSession } from "@/hooks/useSession";
 import {
@@ -17,10 +20,7 @@ import {
   toRuleEntryInputs,
 } from "@/lib/data-scope-rule";
 
-import {
-  type DataScopeError,
-  dataScopeErrorOf,
-} from "../data-scope-error";
+import { type DataScopeError, dataScopeErrorOf } from "../data-scope-error";
 import type { DataScopeRuleData, DataScopeTarget } from "../data-scope-types";
 
 export interface UseRuleEditorOptions {
@@ -50,7 +50,9 @@ export const useRuleEditor = ({
   onDirtyChange,
 }: UseRuleEditorOptions) => {
   const { session } = useSession();
-  const [draft, setDraft] = useState<RuleEditorDraft>(() => toEditorDraft(rule));
+  const [draft, setDraft] = useState<RuleEditorDraft>(() =>
+    toEditorDraft(rule),
+  );
   const [localIssues, setLocalIssues] = useState<readonly RuleIssue[]>([]);
   const [serverIssue, setServerIssue] = useState<RuleIssue | null>(null);
   const [error, setError] = useState<DataScopeError | null>(null);

@@ -256,7 +256,8 @@ export const withCondition = (
     return { ...condition, cond };
   }
   const size = cond === "between" ? 2 : 1;
-  const values = condition.value.kind === "static" ? condition.value.values : [];
+  const values =
+    condition.value.kind === "static" ? condition.value.values : [];
   return {
     ...condition,
     cond,
@@ -311,7 +312,11 @@ export const replaceNode = (
   return child.kind === "group"
     ? {
         ...group,
-        children: replaceAt(group.children, index, replaceNode(child, rest, next)),
+        children: replaceAt(
+          group.children,
+          index,
+          replaceNode(child, rest, next),
+        ),
       }
     : group;
 };

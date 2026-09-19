@@ -20,7 +20,13 @@ import type {
  * 第二個目標 `demo_items_two` 只為了驗左清單的切換與「已設規則」標籤。
  */
 const baseFields: TestDataScopeTarget["fields"] = [
-  { name: "orgId", label: "組織", type: DataScopeFieldType.Org, isBase: true, options: [] },
+  {
+    name: "orgId",
+    label: "組織",
+    type: DataScopeFieldType.Org,
+    isBase: true,
+    options: [],
+  },
   {
     name: "createdBy",
     label: "建立者",

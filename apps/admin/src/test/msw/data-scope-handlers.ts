@@ -98,7 +98,9 @@ export const dataScopeWorld = (
         rules: input.rules,
       } as TestDataScopeRule;
       stored.set(input.collection, saved);
-      return HttpResponse.json({ data: { saveDataScopeRule: { rule: saved } } });
+      return HttpResponse.json({
+        data: { saveDataScopeRule: { rule: saved } },
+      });
     }),
     api.query("Roles", ({ variables }) => {
       const { input } = variables as RolesQueryVariables;

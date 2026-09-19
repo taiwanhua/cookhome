@@ -117,8 +117,7 @@ export const renderPage = ({
 /** 右邊的規則編輯器(左清單也有目標名稱,查詢一律先收斂到其中一邊)。 */
 export const editor = () => screen.getByRole("region", { name: "規則編輯器" });
 
-export const targetList = () =>
-  screen.getByRole("list", { name: "資料目標" });
+export const targetList = () => screen.getByRole("list", { name: "資料目標" });
 
 /** 編輯器載完(標題列出現)才開始操作。 */
 export const waitForEditor = async (name: string) => {

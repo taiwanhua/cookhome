@@ -90,7 +90,14 @@ export const RuleEditorPanel = ({
           </Typography>
         </Stack>
 
-        <Box sx={{ bgcolor: "background.default", borderRadius: 1, px: 1.5, py: 1.25 }}>
+        <Box
+          sx={{
+            bgcolor: "background.default",
+            borderRadius: 1,
+            px: 1.5,
+            py: 1.25,
+          }}
+        >
           <Typography variant="caption" color="text.secondary">
             {t("defaultHint")}
           </Typography>
@@ -109,7 +116,9 @@ export const RuleEditorPanel = ({
             }}
           >
             <MenuItem value={DataScopeCombineOp.Or}>{t("combineOr")}</MenuItem>
-            <MenuItem value={DataScopeCombineOp.And}>{t("combineAnd")}</MenuItem>
+            <MenuItem value={DataScopeCombineOp.And}>
+              {t("combineAnd")}
+            </MenuItem>
           </TextField>
           <Typography variant="caption" color="text.secondary">
             {t("combineOpHint")}

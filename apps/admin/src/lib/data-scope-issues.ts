@@ -3,8 +3,8 @@ import { DataScopeAudienceType, DataScopeFieldType } from "@repo/graphql";
 import {
   CONDITIONS_BY_TYPE,
   type ConditionDraft,
-  type DataScopeFieldLike,
   DYNAMIC_REFS_BY_TYPE,
+  type DataScopeFieldLike,
   type GroupDraft,
   type RuleEditorDraft,
   nodeKey,
@@ -32,12 +32,7 @@ export const RULE_INVALID_REASONS = [
 export type RuleInvalidReason = (typeof RULE_INVALID_REASONS)[number];
 
 /** 問題標在節點的哪一格;`audience` 與 `group` 的 `childPath` 指的是規則 / 群組本身。 */
-export type RuleIssueTarget =
-  | "audience"
-  | "group"
-  | "field"
-  | "cond"
-  | "value";
+export type RuleIssueTarget = "audience" | "group" | "field" | "cond" | "value";
 
 export interface RuleIssue {
   ruleIndex: number;
@@ -105,8 +100,10 @@ const conditionIssues = (
   childPath: readonly number[],
   byName: ReadonlyMap<string, DataScopeFieldLike>,
 ): RuleIssue[] => {
-  const at = (target: RuleIssueTarget, reason: RuleInvalidReason): RuleIssue[] =>
-    [{ ruleIndex, childPath, target, reason }];
+  const at = (
+    target: RuleIssueTarget,
+    reason: RuleInvalidReason,
+  ): RuleIssue[] => [{ ruleIndex, childPath, target, reason }];
 
   const field = byName.get(condition.field);
   if (field === undefined) {

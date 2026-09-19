@@ -179,7 +179,10 @@ describe("目錄驅動的預設值", () => {
     );
     expect(between.value).toEqual({ kind: "static", values: ["", ""] });
 
-    const filled = { ...between, value: { kind: "static" as const, values: ["2026-01-01", "2026-12-31"] } };
+    const filled = {
+      ...between,
+      value: { kind: "static" as const, values: ["2026-01-01", "2026-12-31"] },
+    };
     expect(
       withCondition(filled, "after", DataScopeFieldType.Date).value,
     ).toEqual({ kind: "static", values: ["2026-01-01"] });
@@ -275,8 +278,18 @@ describe("本地驗證", () => {
     );
 
     expect(issues).toEqual([
-      { ruleIndex: 0, childPath: [0], target: "value", reason: "VALUE_INVALID" },
-      { ruleIndex: 0, childPath: [1], target: "value", reason: "VALUE_INVALID" },
+      {
+        ruleIndex: 0,
+        childPath: [0],
+        target: "value",
+        reason: "VALUE_INVALID",
+      },
+      {
+        ruleIndex: 0,
+        childPath: [1],
+        target: "value",
+        reason: "VALUE_INVALID",
+      },
     ]);
   });
 
@@ -314,7 +327,9 @@ describe("本地驗證", () => {
       }),
     );
 
-    expect(issues.map((issue) => [issue.childPath, issue.target, issue.reason])).toEqual([
+    expect(
+      issues.map((issue) => [issue.childPath, issue.target, issue.reason]),
+    ).toEqual([
       [[0], "value", "VALUE_SOURCE_NOT_ALLOWED"],
       [[1], "value", "VALUE_INVALID"],
       [[2], "cond", "CONDITION_NOT_ALLOWED"],
@@ -376,7 +391,10 @@ describe("RULE_INVALID 的 path 對回節點", () => {
       "rules[1].filter.children[0].field",
       { ruleIndex: 1, childPath: [0], target: "field" },
     ],
-    ["rules[0].filter.children", { ruleIndex: 0, childPath: [], target: "group" }],
+    [
+      "rules[0].filter.children",
+      { ruleIndex: 0, childPath: [], target: "group" },
+    ],
     [
       "rules[3].audience.ids[1]",
       { ruleIndex: 3, childPath: [], target: "audience" },

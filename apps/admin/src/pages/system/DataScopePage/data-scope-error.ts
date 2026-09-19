@@ -16,8 +16,7 @@ export const DATA_SCOPE_ERROR_CODES = [
 ] as const;
 
 export type DataScopeErrorCode =
-  | (typeof DATA_SCOPE_ERROR_CODES)[number]
-  | "UNEXPECTED";
+  (typeof DATA_SCOPE_ERROR_CODES)[number] | "UNEXPECTED";
 
 export interface DataScopeError {
   code: DataScopeErrorCode;

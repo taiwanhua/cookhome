@@ -62,7 +62,9 @@ export const ConditionRow = ({
       disabled={env.isReadOnly}
       sx={{ width: 190 }}
       onChange={(event) => {
-        const next = env.fields.find((item) => item.name === event.target.value);
+        const next = env.fields.find(
+          (item) => item.name === event.target.value,
+        );
         if (next !== undefined) {
           onChange(newCondition(next));
         }
