@@ -529,5 +529,90 @@
       "VALIDATION_FAILED": "The data did not pass validation, please check and submit again.",
       "UNEXPECTED": "The action failed, please try again later."
     }
+  },
+  "dataScope": {
+    "targets": {
+      "title": "Data targets",
+      "hint": "Declared by each module's seed",
+      "hasRule": "Has rules",
+      "loading": "Loading data targets",
+      "empty": "There are no data targets yet."
+    },
+    "editor": {
+      "region": "Rule editor",
+      "loading": "Loading rules",
+      "empty": "Pick a data target to see its rules",
+      "targetName": "{name} ({collection})",
+      "defaultHint": "Anyone matched by no rule defaults to their visible scope. Tenant isolation (orgId within the visible scope) always applies; rules can only narrow what is already visible.",
+      "combineOp": "Combine rules",
+      "combineOpHint": "AND requires every matched rule to be satisfied (less data)",
+      "combineOr": "OR — any matched rule is enough (more data)",
+      "combineAnd": "AND — every matched rule must be satisfied (less data)",
+      "addRule": "+ Add rule",
+      "noRules": "No rules yet: everyone sees all data within their visible scope.",
+      "discard": "Discard changes",
+      "save": "Save"
+    },
+    "rule": {
+      "title": "Rule {index}",
+      "audience": "Applies to",
+      "audienceTargets": "Targets",
+      "audienceAll": "Everyone",
+      "audienceRole": "Roles",
+      "audienceOrg": "Organizations",
+      "audienceUser": "Users",
+      "remove": "Delete rule"
+    },
+    "group": {
+      "rootOp": "Combine conditions",
+      "nestedOp": "Combine group",
+      "nestedHint": "The whole group counts as one condition of the level above",
+      "opAnd": "AND — all must hold",
+      "opOr": "OR — any one is enough",
+      "addCondition": "+ Condition",
+      "addGroup": "+ Group",
+      "remove": "Delete group"
+    },
+    "condition": {
+      "field": "Field",
+      "cond": "Comparison",
+      "value": "Value",
+      "valueFrom": "From",
+      "valueTo": "To",
+      "remove": "Delete"
+    },
+    "conditions": {
+      "in": "is one of",
+      "not-in": "is not one of",
+      "between": "between",
+      "before": "before",
+      "after": "after"
+    },
+    "dynamic": {
+      "current-user": "[The current user]",
+      "current-user-orgs": "[The current user's organizations]"
+    },
+    "discardDialog": {
+      "title": "Discard unsaved changes?",
+      "body": "This data target has unsaved rule changes; switching to another target will lose them.",
+      "cancel": "Keep editing",
+      "confirm": "Discard changes"
+    },
+    "reasons": {
+      "MALFORMED_RULE": "The rule data is malformed.",
+      "MALFORMED_NODE": "The condition data is malformed.",
+      "EMPTY_GROUP": "A group needs at least one condition.",
+      "UNKNOWN_FIELD": "This field is not in the data target's field catalog.",
+      "CONDITION_NOT_ALLOWED": "This comparison does not apply to the field's type.",
+      "VALUE_SOURCE_NOT_ALLOWED": "This value source does not apply to the field's type.",
+      "VALUE_INVALID": "Please provide a valid value.",
+      "AUDIENCE_INVALID": "Please choose who this rule applies to."
+    },
+    "errors": {
+      "RULE_INVALID": "The rules are invalid; fix the highlighted spots and save again.",
+      "NOT_FOUND": "That data target does not exist.",
+      "FORBIDDEN": "You do not have permission for this action (this page is root-org only).",
+      "UNEXPECTED": "The action failed, please try again later."
+    }
   }
 }
