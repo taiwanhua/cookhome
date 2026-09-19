@@ -1,16 +1,11 @@
 "use client";
 
-import MuiBox from "@mui/material/Box";
 import { styled, type SxProps, type Theme } from "@mui/material/styles";
 import { RichTreeView } from "@mui/x-tree-view/RichTreeView";
-import { TreeItem, type TreeItemProps } from "@mui/x-tree-view/TreeItem";
-import {
-  createContext,
-  type ReactNode,
-  type SyntheticEvent,
-  useContext,
-  useMemo,
-} from "react";
+import { type ReactNode, type SyntheticEvent, useMemo } from "react";
+
+import { TreeItemRow } from "./TreeItemRow";
+import { type TreeItemRowState, TreeRowsContext } from "./tree-rows";
 
 /** 樹節點資料(Figma Draft/OrgTreeItem 98:2)。`disabled` = 顯示但不可選(可見範圍外 / 無權限)。 */
 export interface TreeNode {
@@ -19,10 +14,16 @@ export interface TreeNode {
   children?: TreeNode[];
   disabled?: boolean;
   /**
-   * 標籤右側的附加內容(Figma Draft/OrgTreeItem 的 ShowTag 槽位):停用 / 租戶這類 `Tag`。
+   * 標籤右側的附加內容(Figma Draft/OrgTreeItem 的 ShowTag 槽位):停用 / 租戶這類 `Tag`、權限 key。
    * 只影響呈現,不影響選取與鍵盤操作;`label` 仍是純文字,搜尋與無障礙名稱照舊。
    */
   labelSuffix?: ReactNode;
+  /**
+   * 列尾靠右的操作槽位(權限矩陣頂層群組列的「全選整組 / 清空整組」;Figma 角色管理 172:284)。
+   * 與 `labelSuffix` 是同一套機制的兩個位置:`labelSuffix` 是貼著標籤的唯讀資訊,
+   * `actions` 是推到列尾、點擊不會外溢成選取或展開的操作。
+   */
+  actions?: ReactNode;
 }
 
 export interface TreeProps {
@@ -37,11 +38,24 @@ export interface TreeProps {
   defaultSelectedIds?: readonly string[];
   /** 選取變動;單選模式一律回傳 0 或 1 個 id */
   onSelectedIdsChange?: (ids: string[]) => void;
+  /**
+   * 部分勾選(三態)的節點 id:勾選框顯示 indeterminate、該列 `aria-checked="mixed"`。
+   * **連動由呼叫端算**(權限矩陣的規則在 `@repo/domain/permission`),`Tree` 只負責呈現。
+   */
+  indeterminateIds?: readonly string[];
+  /**
+   * 勾選框停用的節點 id:不可勾也不可取消(「有子孫被勾的上層不可取消」),
+   * 但該列仍可展開 / 收合 — 和把整個節點標 `disabled` 不一樣。
+   * 鍵盤(空白鍵)同樣擋下,前提是 `selectedIds` 受控(矩陣本來就是受控的)。
+   */
+  disabledCheckIds?: readonly string[];
   /** 受控的展開節點 id */
   expandedIds?: readonly string[];
   /** 非受控的初始展開節點 id */
   defaultExpandedIds?: readonly string[];
   onExpandedIdsChange?: (ids: string[]) => void;
+  /** 子節點相對父節點的水平縮排;預設 12px(MUI),權限矩陣照 Figma 用 24 */
+  childrenIndentation?: number | string;
   /** 載入中:顯示骨架列取代節點 */
   isLoading?: boolean;
   sx?: SxProps<Theme>;
@@ -67,50 +81,33 @@ const TreeRoot = styled("div")(({ theme }) => ({
   },
 }));
 
-/**
- * 每個節點的 `labelSuffix`(id → 內容)。
- * `RichTreeView` 的 item slot 只能是模組層的元件(放在 render 內會每次換成新元件、整棵樹重新掛載),
- * 所以附加內容經 context 傳給它,而不是閉包。
- */
-const LabelSuffixContext = createContext<ReadonlyMap<string, ReactNode>>(
-  new Map(),
-);
-
-/** 攤平整棵樹上有 `labelSuffix` 的節點。 */
-const collectLabelSuffixes = (
+/** 攤平整棵樹,收集每一列的附加內容與勾選框狀態;沒有任何額外資訊的列不進表。 */
+const collectRows = (
   nodes: readonly TreeNode[],
-  into: Map<string, ReactNode>,
-): Map<string, ReactNode> => {
+  indeterminateIds: ReadonlySet<string>,
+  disabledCheckIds: ReadonlySet<string>,
+  into: Map<string, TreeItemRowState>,
+): Map<string, TreeItemRowState> => {
   for (const node of nodes) {
+    const row: TreeItemRowState = {};
     if (node.labelSuffix !== undefined) {
-      into.set(node.id, node.labelSuffix);
+      row.labelSuffix = node.labelSuffix;
     }
-    collectLabelSuffixes(node.children ?? [], into);
+    if (node.actions !== undefined) {
+      row.actions = node.actions;
+    }
+    if (indeterminateIds.has(node.id)) {
+      row.indeterminate = true;
+    }
+    if (disabledCheckIds.has(node.id)) {
+      row.disabled = true;
+    }
+    if (Object.keys(row).length > 0) {
+      into.set(node.id, row);
+    }
+    collectRows(node.children ?? [], indeterminateIds, disabledCheckIds, into);
   }
   return into;
-};
-
-/** 帶附加內容的節點:`label` 換成「文字 + 附加內容」,其餘行為完全沿用 `TreeItem`。 */
-const TreeItemWithSuffix = (props: TreeItemProps) => {
-  const suffixes = useContext(LabelSuffixContext);
-  const suffix = suffixes.get(props.itemId);
-  if (suffix === undefined) {
-    return <TreeItem {...props} />;
-  }
-  return (
-    <TreeItem
-      {...props}
-      label={
-        <MuiBox
-          component="span"
-          sx={{ display: "inline-flex", alignItems: "center", gap: 1 }}
-        >
-          {props.label}
-          {suffix}
-        </MuiBox>
-      }
-    />
-  );
 };
 
 /** MUI 單選回傳 `string | null`、多選回傳 `string[]`;本包裝層一律正規化成陣列。 */
@@ -121,10 +118,16 @@ const toIdArray = (value: string | readonly string[] | null): string[] => {
   return typeof value === "string" ? [value] : [...value];
 };
 
+const EMPTY_IDS: readonly string[] = [];
+
 /**
  * 樹狀選單:包一層 `@mui/x-tree-view`(MIT 社群版)。
  * 資料以 `{ id, label, children, disabled }` 陣列傳入,不用 children 組裝;
  * 選取值對外一律是 `string[]`,單 / 多選只差在 `multiSelect`,呼叫端不必改型別。
+ *
+ * 兩類 props 的分工:**內容**(`labelSuffix`、`actions`、`disabled`)跟著節點資料走;
+ * **狀態**(`selectedIds`、`expandedIds`、`indeterminateIds`、`disabledCheckIds`)是 id 陣列,
+ * 隨勾選即時變動而不必重建整棵 `items`。
  */
 export const Tree = ({
   items,
@@ -133,16 +136,25 @@ export const Tree = ({
   selectedIds,
   defaultSelectedIds,
   onSelectedIdsChange,
+  indeterminateIds = EMPTY_IDS,
+  disabledCheckIds = EMPTY_IDS,
   expandedIds,
   defaultExpandedIds,
   onExpandedIdsChange,
+  childrenIndentation,
   isLoading = false,
   sx,
   "aria-label": ariaLabel,
 }: TreeProps) => {
-  const labelSuffixes = useMemo(
-    () => collectLabelSuffixes(items, new Map<string, ReactNode>()),
-    [items],
+  const rows = useMemo(
+    () =>
+      collectRows(
+        items,
+        new Set(indeterminateIds),
+        new Set(disabledCheckIds),
+        new Map<string, TreeItemRowState>(),
+      ),
+    [items, indeterminateIds, disabledCheckIds],
   );
 
   const toSelectionValue = (
@@ -154,11 +166,22 @@ export const Tree = ({
     return multiSelect ? ids : (ids[0] ?? null);
   };
 
+  /** 勾選框停用的列不該因為鍵盤(空白鍵)繞過停用;滑鼠那條路 MUI 自己就擋住了。 */
+  const isBlockedByDisabledCheck = (next: readonly string[]) =>
+    selectedIds !== undefined &&
+    disabledCheckIds.some(
+      (id) => selectedIds.includes(id) !== next.includes(id),
+    );
+
   const handleSelectedItemsChange = (
     _event: SyntheticEvent | null,
     value: string | string[] | null,
   ) => {
-    onSelectedIdsChange?.(toIdArray(value));
+    const next = toIdArray(value);
+    if (isBlockedByDisabledCheck(next)) {
+      return;
+    }
+    onSelectedIdsChange?.(next);
   };
 
   const handleExpandedItemsChange = (
@@ -170,10 +193,10 @@ export const Tree = ({
 
   return (
     <TreeRoot sx={sx}>
-      <LabelSuffixContext.Provider value={labelSuffixes}>
+      <TreeRowsContext.Provider value={rows}>
         <RichTreeView<TreeNode, boolean>
           items={items}
-          slots={{ item: TreeItemWithSuffix }}
+          slots={{ item: TreeItemRow }}
           multiSelect={multiSelect}
           checkboxSelection={checkboxSelection}
           isItemDisabled={(item) => item.disabled === true}
@@ -183,10 +206,11 @@ export const Tree = ({
           expandedItems={expandedIds}
           defaultExpandedItems={defaultExpandedIds}
           onExpandedItemsChange={handleExpandedItemsChange}
+          itemChildrenIndentation={childrenIndentation}
           loading={isLoading}
           aria-label={ariaLabel}
         />
-      </LabelSuffixContext.Provider>
+      </TreeRowsContext.Provider>
     </TreeRoot>
   );
 };

@@ -21,6 +21,28 @@ const arrowOf = (label: string) =>
     .find((item) => item.textContent.startsWith(label))
     ?.querySelector(".MuiTreeItem-iconContainer svg") ?? null;
 
+/** 以標籤開頭找一列;找不到就讓測試直接失敗(比 optional chaining 的空斷言好讀)。 */
+const rowOf = (label: string): HTMLElement => {
+  const row = screen
+    .getAllByRole("treeitem")
+    .find((item) => item.textContent.startsWith(label));
+  if (row === undefined) {
+    throw new Error(`找不到「${label}」這一列`);
+  }
+  return row;
+};
+
+/** 某一列自己的核取方塊(DOM 上是該列的第一個 input)。 */
+const checkboxOf = (label: string): HTMLInputElement => {
+  const checkbox = rowOf(label).querySelector<HTMLInputElement>(
+    "input[type='checkbox']",
+  );
+  if (checkbox === null) {
+    throw new Error(`「${label}」這一列沒有核取方塊`);
+  }
+  return checkbox;
+};
+
 describe("Tree", () => {
   it("依 items 渲染節點,展開後看得到子節點", () => {
     render(<Tree items={items} defaultExpandedIds={["root"]} />);
@@ -180,5 +202,95 @@ describe("Tree", () => {
       ?.querySelector("input[type='checkbox']:disabled");
 
     expect(kaohsiungCheckbox).not.toBeNull();
+  });
+
+  it("indeterminateIds 的節點顯示部分勾選,並對輔助技術標成 mixed", () => {
+    render(
+      <Tree
+        items={items}
+        checkboxSelection
+        multiSelect
+        defaultExpandedIds={["root"]}
+        selectedIds={["org-1"]}
+        indeterminateIds={["root"]}
+      />,
+    );
+
+    expect(rowOf("CookHome").getAttribute("aria-checked")).toBe("mixed");
+    expect(checkboxOf("CookHome").dataset.indeterminate).toBe("true");
+
+    // 完全勾選與完全未勾選的列不受影響
+    expect(rowOf("台北分店").getAttribute("aria-checked")).toBe("true");
+    expect(checkboxOf("台北分店").dataset.indeterminate).toBe("false");
+  });
+
+  it("disabledCheckIds 的節點勾選框停用、切不動,但仍可展開", () => {
+    const handleChange = jest.fn();
+    render(
+      <Tree
+        items={items}
+        checkboxSelection
+        multiSelect
+        selectedIds={["root"]}
+        disabledCheckIds={["root"]}
+        onSelectedIdsChange={handleChange}
+      />,
+    );
+
+    expect(checkboxOf("CookHome").disabled).toBe(true);
+
+    fireEvent.click(checkboxOf("CookHome"));
+    expect(handleChange).not.toHaveBeenCalled();
+
+    // 鍵盤也繞不過去(MUI 的空白鍵不看勾選框的 disabled)
+    fireEvent.focus(rowOf("CookHome"));
+    fireEvent.keyDown(rowOf("CookHome"), { key: " " });
+    expect(handleChange).not.toHaveBeenCalled();
+
+    // 勾選框停用 ≠ 整列 disabled:展開箭頭照樣有用
+    const iconContainer = rowOf("CookHome").querySelector(
+      ".MuiTreeItem-iconContainer",
+    );
+    if (iconContainer === null) {
+      throw new Error("找不到展開箭頭");
+    }
+    fireEvent.click(iconContainer);
+
+    expect(screen.getByText("台北分店")).not.toBeNull();
+  });
+
+  it("actions 渲染在列尾,點了不會變成選取或展開這一列", () => {
+    const handleAction = jest.fn();
+    const handleSelectedIdsChange = jest.fn();
+    const handleExpandedIdsChange = jest.fn();
+    render(
+      <Tree
+        items={[
+          {
+            id: "demo",
+            label: "示範群組",
+            labelSuffix: <span>demo</span>,
+            actions: (
+              <button type="button" onClick={handleAction}>
+                清空整組
+              </button>
+            ),
+            children: [{ id: "demo.one", label: "示範模組1" }],
+          },
+        ]}
+        checkboxSelection
+        multiSelect
+        onSelectedIdsChange={handleSelectedIdsChange}
+        onExpandedIdsChange={handleExpandedIdsChange}
+      />,
+    );
+
+    expect(rowOf("示範群組").textContent).toBe("示範群組demo清空整組");
+
+    fireEvent.click(screen.getByRole("button", { name: "清空整組" }));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleSelectedIdsChange).not.toHaveBeenCalled();
+    expect(handleExpandedIdsChange).not.toHaveBeenCalled();
   });
 });

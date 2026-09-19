@@ -7,6 +7,10 @@ export const SYSTEM_GROUP_KEY = "system";
 export const ORG_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.org-manager`;
 export const TENANT_OPS_KEY = `${ORG_MANAGER_KEY}.tenant-ops`;
 export const USER_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.user-manager`;
+export const ROLE_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.role-manager`;
+export const MODULE_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.module-manager`;
+export const FIELD_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.field-manager`;
+export const DATA_SCOPE_KEY = `${SYSTEM_GROUP_KEY}.data-scope`;
 
 /**
  * 治理模組(CONTEXT.md「治理模組」):管平台結構本身,隨底座出貨。
@@ -14,8 +18,9 @@ export const USER_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.user-manager`;
  * module-manager.md、field-manager.md、data-scope.md;模組 key 累加父 key(`system.` 前綴,2026-09-17 定案),
  * route 維持 key 末段。
  *
- * 樹全種、權限只種有正本的(#29 留言定案):組織管理(含租戶作業)與使用者管理的權限表已有正本(#133),
- * 其餘治理模組待各 docs/modules/<key>.md 補上權限表後再種;每個模組的 wildcard 由 seeds/modules.ts 自動產生。
+ * 六個治理模組的權限表皆已有正本(組織管理 / 使用者管理 #133;角色管理、模組與權限、欄位管理、
+ * 資料範圍 2026-09-20 補於各 docs/modules/<key>.md「權限表」節,#202 種下),
+ * 每個模組的 wildcard 由 seeds/modules.ts 自動產生。
  */
 export const systemModules: ModuleSeedDeclaration = {
   nodes: [
@@ -58,7 +63,7 @@ export const systemModules: ModuleSeedDeclaration = {
       route: "user-manager",
     },
     {
-      key: `${SYSTEM_GROUP_KEY}.role-manager`,
+      key: ROLE_MANAGER_KEY,
       name: "角色管理",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,
@@ -66,7 +71,7 @@ export const systemModules: ModuleSeedDeclaration = {
       route: "role-manager",
     },
     {
-      key: `${SYSTEM_GROUP_KEY}.module-manager`,
+      key: MODULE_MANAGER_KEY,
       name: "模組與權限",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,
@@ -76,7 +81,7 @@ export const systemModules: ModuleSeedDeclaration = {
       isRootOnly: true,
     },
     {
-      key: `${SYSTEM_GROUP_KEY}.field-manager`,
+      key: FIELD_MANAGER_KEY,
       name: "欄位管理",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,
@@ -84,7 +89,7 @@ export const systemModules: ModuleSeedDeclaration = {
       route: "field-manager",
     },
     {
-      key: `${SYSTEM_GROUP_KEY}.data-scope`,
+      key: DATA_SCOPE_KEY,
       name: "資料範圍",
       sidebarType: "link",
       parentKey: SYSTEM_GROUP_KEY,
@@ -204,6 +209,107 @@ export const systemModules: ModuleSeedDeclaration = {
       moduleKey: USER_MANAGER_KEY,
       name: "身分證字號可改",
       description: "欄位級:無此權限硬送寫入 → API 拒",
+    },
+    // 角色管理(docs/modules/role-manager.md 權限表)
+    {
+      key: permissionKey(ROLE_MANAGER_KEY, "view"),
+      moduleKey: ROLE_MANAGER_KEY,
+      name: "檢視",
+      description: "看角色清單與單筆(權限矩陣、分配使用者兩個頁籤)",
+    },
+    {
+      key: permissionKey(ROLE_MANAGER_KEY, "create"),
+      moduleKey: ROLE_MANAGER_KEY,
+      name: "新增",
+      description:
+        "「新增角色」按鈕 + API(擁有組織限操作者管理範圍內,預設當前組織)",
+    },
+    {
+      key: permissionKey(ROLE_MANAGER_KEY, "edit"),
+      moduleKey: ROLE_MANAGER_KEY,
+      name: "編輯",
+      description: "「編輯」按鈕 + API:名稱、描述",
+    },
+    {
+      key: permissionKey(ROLE_MANAGER_KEY, "edit-matrix"),
+      moduleKey: ROLE_MANAGER_KEY,
+      name: "編輯權限矩陣",
+      description:
+        "權限矩陣「儲存」+ API(role_module / role_permission 整份覆蓋;subset-only 防越權;租戶副本只能縮不能擴)",
+    },
+    {
+      key: permissionKey(ROLE_MANAGER_KEY, "assign-users"),
+      moduleKey: ROLE_MANAGER_KEY,
+      name: "分配使用者",
+      description:
+        "分配使用者頁籤的「加入使用者」「移除」+ API(user_role;候選 = 所屬組織在角色擁有組織子樹內)",
+    },
+    {
+      key: permissionKey(ROLE_MANAGER_KEY, "toggle-enabled"),
+      moduleKey: ROLE_MANAGER_KEY,
+      name: "停用 / 啟用",
+      description: "停用 / 啟用角色 + API(停用後持有者的該角色立即不生效)",
+    },
+    {
+      key: permissionKey(ROLE_MANAGER_KEY, "delete"),
+      moduleKey: ROLE_MANAGER_KEY,
+      name: "刪除",
+      description: "刪除角色 + API(前置:無授予、非種子角色、非租戶副本;軟刪除)",
+    },
+    // 模組與權限(docs/modules/module-manager.md 權限表;模組本身 isRootOnly)
+    {
+      key: permissionKey(MODULE_MANAGER_KEY, "view"),
+      moduleKey: MODULE_MANAGER_KEY,
+      name: "檢視",
+      description: "看模組樹與各模組的權限清單(唯讀)",
+    },
+    {
+      key: permissionKey(MODULE_MANAGER_KEY, "toggle-enabled"),
+      moduleKey: MODULE_MANAGER_KEY,
+      name: "停用 / 啟用",
+      description:
+        "模組 / 權限的 enabled 切換 + API(停用父模組連動整棵子樹;停用權限 = 全域 kill switch)",
+    },
+    // 欄位管理(docs/modules/field-manager.md 權限表)
+    {
+      key: permissionKey(FIELD_MANAGER_KEY, "view"),
+      moduleKey: FIELD_MANAGER_KEY,
+      name: "檢視",
+      description: "看類別與選項(來源欄:全域 / <組織名稱> 自訂)",
+    },
+    {
+      key: permissionKey(FIELD_MANAGER_KEY, "create"),
+      moduleKey: FIELD_MANAGER_KEY,
+      name: "新增選項",
+      description:
+        "「新增選項」+ API(本組織自訂,orgId = 當前組織;(categoryId, orgId, value) 唯一)",
+    },
+    {
+      key: permissionKey(FIELD_MANAGER_KEY, "edit"),
+      moduleKey: FIELD_MANAGER_KEY,
+      name: "編輯",
+      description:
+        "編輯自訂選項的 label / order / description + API(種子選項只能改 enabled;value 建立後不可改)",
+    },
+    {
+      key: permissionKey(FIELD_MANAGER_KEY, "toggle-enabled"),
+      moduleKey: FIELD_MANAGER_KEY,
+      name: "停用 / 啟用",
+      description: "停用 / 啟用選項 + API(種子與自訂皆可;選項不可刪)",
+    },
+    // 資料範圍(docs/modules/data-scope.md 權限表;模組本身 isRootOnly)
+    {
+      key: permissionKey(DATA_SCOPE_KEY, "view"),
+      moduleKey: DATA_SCOPE_KEY,
+      name: "檢視",
+      description: "看資料目標清單與各目標的規則",
+    },
+    {
+      key: permissionKey(DATA_SCOPE_KEY, "edit"),
+      moduleKey: DATA_SCOPE_KEY,
+      name: "編輯",
+      description:
+        "規則編輯器「儲存」+ API(整份 data_scope_rules 覆蓋;儲存即作廢記憶體快取)",
     },
   ],
 };

@@ -299,6 +299,16 @@
         "default": "./dist/cjs/switch.js"
       }
     },
+    "./date-picker": {
+      "import": {
+        "types": "./dist/es/date-picker.d.mts",
+        "default": "./dist/es/date-picker.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/date-picker.d.ts",
+        "default": "./dist/cjs/date-picker.js"
+      }
+    },
     "./tag": {
       "import": {
         "types": "./dist/es/tag.d.mts",
@@ -359,8 +369,10 @@
     "react-dom": ">=18"
   },
   "dependencies": {
+    "@mui/x-date-pickers": "^9.14.0",
     "@mui/x-tree-view": "^9.14.0",
     "@swc/helpers": "^0.5.18",
+    "dayjs": "^1.11.23",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   }
