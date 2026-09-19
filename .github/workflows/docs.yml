@@ -1,0 +1,32 @@
+name: Docs
+
+# 純文件改動的輕量檢查(ci.yml 對這些路徑不跑):只驗 Markdown 的 prettier 格式(STRUCT-09)。
+on:
+  pull_request:
+    paths: ["docs/**", "*.md", "**/*.md"]
+  push:
+    branches: [main, dev, staging]
+    paths: ["docs/**", "*.md", "**/*.md"]
+
+concurrency:
+  group: docs-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴(只要根目錄的 prettier 與設定)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Markdown 格式檢查(prettier --check)
+        run: pnpm run format:check
