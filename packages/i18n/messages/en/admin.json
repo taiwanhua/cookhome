@@ -81,6 +81,12 @@
     "placeholder": {
       "pending": "This page is not built yet"
     },
+    "help": {
+      "open": "Module help",
+      "unavailable": "No help for this page yet",
+      "title": "Module help — {name}",
+      "close": "Close"
+    },
     "tabs": {
       "label": "Route tabs",
       "close": "Close {label}",
