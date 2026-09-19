@@ -21,7 +21,7 @@ export class AuditLog {
   @Prop({ type: String, required: true, enum: ACCOUNT_TYPES })
   actorType!: AccountType;
 
-  /** 動作發生的組織脈絡(選填)。 */
+  /** 動作發生的組織脈絡 = 操作者當前組織;型別選填但 tenantScopePlugin(allowGlobal: false)實質必填,沒有當前組織的操作者寫不進來。 */
   @Prop({ type: Types.ObjectId })
   orgId?: Types.ObjectId;
 

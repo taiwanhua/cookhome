@@ -37,3 +37,7 @@ front 畫面三檔 artboard(1440 / 768 / 375,斷點對應 MUI lg/md/xs);admin �
 ## FIGMA-08 Plugin API 慣例(AI 產稿)
 
 批次綁定時 placeholder 色放解析後的值(佔位灰會黏著);遍歷實例隱藏子節點先 `figma.skipInvisibleInstanceChildren = false`;`resize` 會把 HUG 變 FIXED,事後補回;變數/元件 id 記錄於 session 狀態檔。
+
+## FIGMA-09 給 AI 的指路:節點 id 要給元件 frame,不是頁
+
+Figma MCP 的 `get_design_context(nodeId)` 對「頁(canvas)」的 id 會直接報錯,要先 `get_metadata(pageId)` 找到元件 frame 的 id 再讀。票或文件引用設計稿時,寫元件 frame 的 id(如 Draft/Tag 76:722),頁的 id(如 Tag 頁 76:711)只當索引。

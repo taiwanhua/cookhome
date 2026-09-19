@@ -31,6 +31,14 @@ const componentFiles = {
     "**/app/**/not-found.tsx",
     "**/app/**/template.tsx",
     "**/app/**/default.tsx",
+    "**/app/**/global-error.tsx",
+    "**/app/**/forbidden.tsx",
+    "**/app/**/unauthorized.tsx",
+    "**/app/**/icon.tsx",
+    "**/app/**/apple-icon.tsx",
+    "**/app/**/opengraph-image.tsx",
+    "**/app/**/twitter-image.tsx",
+    "**/mdx-components.tsx",
   ],
   rules: {
     "unicorn/filename-case": [

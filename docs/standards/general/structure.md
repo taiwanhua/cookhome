@@ -34,7 +34,7 @@ apps/<app>/src/
 - **非 React 程式碼要碰 store**(如 `lib/auth/auth-fetch.ts` 要讀 access token、失效時 `clear()`):lib 不准 import `stores/`,改由 app 層把 store 實例注入(`createAuthSession(endpoint, useSessionStore)`),lib 只認 zustand 的 `StoreApi<T>` 介面(型別放 `lib/`)。#116 的做法就是這樣。
 - **`pages/` 為什麼取代 `features/`**:admin 的業務單位是模組(側欄每一項),「一個頁面 = 一個模組」已是產品定義(ADR-0004),不需要再一層沒定義的 feature。
 
-其他包的對應:`packages/ui` 沒有分層,`src/<Component>/<Component>.tsx` 平鋪(`theme/`、`icons/` 維持);`apps/front` 的 `app/` 是 Next.js 路由目錄(框架例外),其餘 `components / hooks / lib` 同上。
+其他包的對應:`packages/ui` 沒有分層,`src/<Component>/<Component>.tsx` 平鋪(`theme/`、`icons/` 維持);`apps/front` 的 `app/` 是 Next.js 路由目錄(框架例外),其餘 `components / hooks / lib` 同上。front 沒有 `pages/` 層,**單一路由專用的元件放 `components/<RouteView>/`**(如 `components/HomeView/HomeView.tsx` + 它的子元件),路由檔 `app/**/page.tsx` 只剩組裝;兩個路由共用的才是一般的 `components/`。
 
 ## STRUCT-04 GraphQL 產物只走 `@repo/graphql` 的出口
 

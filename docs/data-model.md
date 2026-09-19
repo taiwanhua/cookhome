@@ -9,7 +9,7 @@
 | `orgs`                              | 業務(根組織為種子)                             | 組織樹;資料隔離邊界                                                   | 0005          | `org.schema.ts`               |
 | `users`                             | 業務                                           | 後台使用者帳號                                                        | 0003          | `user.schema.ts`              |
 | `customers`                         | 業務                                           | 前台會員帳號                                                          | 0003          | `customer.schema.ts`          |
-| `roles`                             | 業務(種子角色除外)                             | 角色(權限集合)                                                        | 0004          | `role.schema.ts`              |
+| `roles`                             | 業務(種子角色除外)                             | 角色(權限集合);租戶副本以 `settings.templateKey` 標記來源(ADR-0009)   | 0004          | `role.schema.ts`              |
 | `modules`                           | 種子                                           | 模組樹(= 頁面/側欄)                                                   | 0004          | `module.schema.ts`            |
 | `permissions`                       | 種子                                           | 權限(頁面裡的按鈕/欄位)                                               | 0004          | `permission.schema.ts`        |
 | `core_relationships`                | 業務(種子亦寫入:種子角色的 org_role、模板綁定) | 五實體的關聯(org_user/org_role/user_role/role_module/role_permission) | 0001          | `core-relationship.schema.ts` |
