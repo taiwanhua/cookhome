@@ -49,6 +49,10 @@ export const FieldSchema = SchemaFactory.createForClass(Field);
 
 FieldSchema.index({ categoryId: 1, orgId: 1 });
 FieldSchema.index({ key: 1 }, { unique: true, sparse: true });
+// 同一類別、同一組織下 value 不可重複(field-manager.md「待辦」,#206);
+// 全域種子的 orgId 為 null,故「自訂選項與全域選項同 value」此索引擋不到 —
+// 那條是合併清單的語意需求,由 FieldsService 的表單驗證擋(FIELD_VALUE_DUPLICATE)。
+FieldSchema.index({ categoryId: 1, orgId: 1, value: 1 }, { unique: true });
 // 基礎欄位(ADR-0007)+ 租戶自訂選項限縮在可見組織內;orgId null 的全域種子對所有人可見(ADR-0005 $or)
 FieldSchema.plugin(baseFieldsPlugin);
 FieldSchema.plugin(tenantScopePlugin, { allowGlobal: true });
