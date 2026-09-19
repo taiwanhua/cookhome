@@ -46,6 +46,7 @@ export const ShellLayout = ({ me }: ShellLayoutProps) => {
     >
       <SideNav
         orgName={me.currentOrg?.name ?? tCommon("brand")}
+        logoUrl={me.currentOrg?.logoUrl}
         tree={tree}
         currentPath={path}
       />

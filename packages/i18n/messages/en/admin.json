@@ -97,6 +97,105 @@
       "backHome": "Back to home"
     }
   },
+  "orgManager": {
+    "tree": {
+      "title": "Organization tree",
+      "provision": "Provision tenant",
+      "createChild": "+ Sub-organization",
+      "disabledTag": "Disabled",
+      "tenantTag": "Tenant"
+    },
+    "detail": {
+      "region": "Organization details",
+      "loading": "Loading organization",
+      "empty": "Select an organization to see its details",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "parent": "Parent organization",
+      "description": "Description",
+      "logo": "Logo",
+      "logoAlt": "Logo of {name}",
+      "owner": "Owner",
+      "ownerHidden": "(You cannot view user records, so the owner's name is hidden.)",
+      "none": "—"
+    },
+    "actions": {
+      "edit": "Edit",
+      "disable": "Disable",
+      "enable": "Enable",
+      "delete": "Delete",
+      "systemOrgHint": "The top-most organization cannot be disabled, moved or deleted"
+    },
+    "form": {
+      "name": "Name",
+      "description": "Description",
+      "parent": "Parent organization (move)",
+      "parentUnset": "Keep current",
+      "parentHint": "The new parent must sit under the same top-level organization, and cannot be one of this organization's own descendants.",
+      "logo": "Logo (optional)",
+      "logoHint": "PNG / JPG / WebP, square recommended, up to 2MB",
+      "owner": "Owner",
+      "ownerUnset": "Keep current",
+      "ownerOption": "{name} ({account})",
+      "ownerHint": "After the transfer, the new owner's administrator grant cannot be revoked, and the owner cannot be removed from the organization or disabled.",
+      "visibility": "Users can see data from organizations below their own",
+      "visibilityHint": "This setting only appears on the top-level organization and applies to the whole organization.",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
+    "createChild": {
+      "title": "New sub-organization under “{parent}”",
+      "hint": "Lightweight entry point: it only creates one child organization.",
+      "submit": "Create"
+    },
+    "edit": {
+      "title": "Edit organization — {name}"
+    },
+    "toggle": {
+      "disableTitle": "Disable organization?",
+      "enableTitle": "Enable organization?",
+      "disableBody": "“{name}” and all of its descendants will be disabled. Users who only belong to disabled organizations will not be able to sign in. You can re-enable it at any time.",
+      "enableBody": "Only “{name}” will be enabled; each descendant has to be enabled separately.",
+      "confirmDisable": "Disable",
+      "confirmEnable": "Enable"
+    },
+    "delete": {
+      "title": "Delete “{name}”?",
+      "body": "The data is kept after deletion; the organization just no longer appears in the tree.",
+      "confirm": "Delete",
+      "close": "Close",
+      "blocked": "This organization cannot be deleted yet:",
+      "useDisableInstead": "Use “Disable” instead — it disables the whole subtree and keeps all data.",
+      "reasons": {
+        "HAS_CHILDREN": "It still has sub-organizations",
+        "HAS_MEMBERS": "It still has members",
+        "OWNS_ROLES": "Roles are still owned by it",
+        "HAS_BUSINESS_DATA": "Records are still attached to it",
+        "SYSTEM_ORG": "This is the top-most organization and cannot be deleted"
+      }
+    },
+    "provision": {
+      "title": "Provision tenant",
+      "tenantName": "Tenant name",
+      "adminEmail": "First tenant administrator email",
+      "adminAccount": "First tenant administrator account",
+      "adminAccountHint": "The account is the sign-in identifier; it defaults to the email and can be changed.",
+      "modules": "Available modules (all selected by default; adjust the tenant's copy later in role management)",
+      "modulesHint": "“Modules & permissions” and “Data scope” are platform-only and not listed.",
+      "note": "Provisioning creates the tenant organization, copies the “Tenant administrator” role template, creates the first administrator and wires everything up. An activation email is sent to the administrator, who sets their own password (the link is valid for 7 days).",
+      "submit": "Provision"
+    },
+    "errors": {
+      "ORG_NOT_DELETABLE": "This organization cannot be deleted; disable it instead.",
+      "CROSS_TENANT": "The new parent is not under the same top-level organization, so the move was rejected.",
+      "CYCLIC_MOVE": "An organization cannot be moved underneath one of its own descendants.",
+      "NOT_FOUND": "This organization does not exist, or is outside your scope.",
+      "VALIDATION_FAILED": "Some fields are invalid; please check and try again.",
+      "UPLOAD_REJECTED": "The logo file was rejected (PNG / JPG / WebP only, up to 2MB).",
+      "FORBIDDEN": "You do not have permission to perform this action.",
+      "UNEXPECTED": "The action failed; please try again later."
+    }
+  },
   "userManager": {
     "orgTree": {
       "title": "Organizations",

@@ -1,7 +1,7 @@
 import "@testing-library/jest-dom/jest-globals";
 
 import { afterAll, afterEach, beforeAll } from "@jest/globals";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 
 import { defaultLocale } from "@repo/i18n";
 
@@ -10,6 +10,11 @@ import { LOCALE_STORAGE_KEY } from "../lib/locale";
 import { useLocaleStore } from "../stores/useLocaleStore";
 import { useSessionStore } from "../stores/useSessionStore";
 import { server } from "./msw/server";
+
+// `findBy*` / `waitFor` 的預設 1 秒在 CI runner 上不夠:一頁可能串好幾個查詢(樹 → 單筆 → 清單),
+// 每一段都要等 MSW 回來再重新渲染。放寬到 5 秒,理由同 preset 把 testTimeout 放寬到 15 秒(TEST-08);
+// 逾時只影響「失敗要等多久」,成功的測試不會因此變慢。
+configure({ asyncUtilTimeout: 5000 });
 
 // TEST-03:前端 mock 在網路層 — 每個測試檔都掛 MSW,未被 handler 接住的請求直接視為錯誤
 beforeAll(() => {
