@@ -22,6 +22,14 @@ input CreateChildOrgInput {
   parentId: ID!
 }
 
+input CreateFieldInput {
+  categoryId: ID!
+  description: String
+  label: String!
+  order: Int
+  value: String!
+}
+
 input CreateRecipeInput {
   cookMinutes: Int
   description: String
@@ -147,6 +155,34 @@ type DeletePayload {
   success: Boolean!
 }
 
+type Field {
+  categoryId: ID!
+  description: String
+  enabled: Boolean!
+  id: ID!
+  label: String!
+  order: Int!
+  source: FieldSource!
+  value: String!
+}
+
+type FieldCategory {
+  description: String
+  id: ID!
+  key: String!
+  name: String!
+}
+
+type FieldPayload {
+  field: Field!
+}
+
+"""欄位選項的來源:全域種子 / 當前組織自訂(field-manager.md)"""
+enum FieldSource {
+  GLOBAL
+  OWN
+}
+
 type Ingredient {
   amount: String!
   name: String!
@@ -251,6 +287,7 @@ type Mutation {
   assignUserRoles(input: AssignUserRolesInput!): UserPayload!
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
+  createField(input: CreateFieldInput!): FieldPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   createUser(input: CreateUserInput!): UserPayload!
@@ -263,6 +300,7 @@ type Mutation {
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
   saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!
+  setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
@@ -272,6 +310,7 @@ type Mutation {
   setUserOrgs(input: SetUserOrgsInput!): SetUserOrgsPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
   transferOrgOwner(input: TransferOrgOwnerInput!): OrgPayload!
+  updateField(input: UpdateFieldInput!): FieldPayload!
   updateOrg(input: UpdateOrgInput!): OrgPayload!
   updateUser(input: UpdateUserInput!): UserPayload!
 }
@@ -338,6 +377,8 @@ type ProvisionTenantPayload {
 type Query {
   dataScopeRule(collection: String!): DataScopeRulePayload!
   dataScopeTargets: DataScopeTargetsPayload!
+  fieldCategories: [FieldCategory!]!
+  fields(categoryId: ID!): [Field!]!
   me: Me!
   moduleTree: [ModuleAdminNode!]!
   org(id: ID!): Org!
@@ -389,6 +430,11 @@ input SaveDataScopeRuleInput {
 
 type SaveDataScopeRulePayload {
   rule: DataScopeRule!
+}
+
+input SetFieldEnabledInput {
+  enabled: Boolean!
+  id: ID!
 }
 
 input SetModuleEnabledInput {
@@ -459,6 +505,13 @@ type UnqualifiedRole {
   reasons: [RoleUnqualifiedReason!]!
   roleId: ID!
   roleName: String!
+}
+
+input UpdateFieldInput {
+  description: String
+  id: ID!
+  label: String
+  order: Int
 }
 
 input UpdateOrgInput {
