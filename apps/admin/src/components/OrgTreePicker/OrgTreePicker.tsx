@@ -7,7 +7,7 @@ import {
   allOrgIds,
   filterOrgTree,
   toTreeNodes,
-} from "../../lib/org-tree";
+} from "@/lib/org-tree";
 
 export interface OrgTreePickerProps {
   /** `orgTree` 查詢的結果(範圍外節點已標 `outOfScope`,本元件轉成 disabled) */

@@ -5,8 +5,8 @@ import { Card } from "@repo/ui/card";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { OrgTreePicker } from "../../../components/OrgTreePicker/OrgTreePicker";
-import type { OrgNodeLike } from "../../../lib/org-tree";
+import { OrgTreePicker } from "@/components/OrgTreePicker/OrgTreePicker";
+import type { OrgNodeLike } from "@/lib/org-tree";
 
 export interface OrgTreePanelProps {
   nodes: readonly OrgNodeLike[];

@@ -5,9 +5,9 @@ import { getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { AppProviders } from "../../components/AppProviders";
-import { routing } from "../../i18n/routing";
-import { enableStaticRendering } from "../../i18n/set-request-locale";
+import { AppProviders } from "@/components/AppProviders";
+import { routing } from "@/i18n/routing";
+import { enableStaticRendering } from "@/i18n/set-request-locale";
 
 export interface RootLayoutProps {
   children: ReactNode;

@@ -9,7 +9,8 @@ import {
   buildNavTree,
   enterableRouteMap,
   normalizePathname,
-} from "../../lib/module-tree";
+} from "@/lib/module-tree";
+
 import { AppBar } from "./AppBar/AppBar";
 import { RouteTabs } from "./RouteTabs/RouteTabs";
 import { useRouteTabs } from "./RouteTabs/useRouteTabs";

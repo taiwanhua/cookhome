@@ -3,12 +3,12 @@ import { screen, waitFor } from "@testing-library/react";
 
 import { useMeQuery } from "@repo/graphql";
 
-import { createAuthSession } from "../../lib/auth/session";
-import { SESSION_CHANNEL_NAME } from "../../lib/auth/session-channel";
-import { useSessionStore } from "../../stores/useSessionStore";
-import { authWorld } from "../../test/msw/auth-handlers";
-import { TEST_GRAPHQL_ENDPOINT, server } from "../../test/msw/server";
-import { renderApp } from "../../test/render";
+import { createAuthSession } from "@/lib/auth/session";
+import { SESSION_CHANNEL_NAME } from "@/lib/auth/session-channel";
+import { useSessionStore } from "@/stores/useSessionStore";
+import { authWorld } from "@/test/msw/auth-handlers";
+import { TEST_GRAPHQL_ENDPOINT, server } from "@/test/msw/server";
+import { renderApp } from "@/test/render";
 
 describe("登入狀態(access token 記憶體 / 靜默 refresh / 導回 login?next)", () => {
   it("重新整理後(記憶體無 token)以 refresh cookie 自動恢復登入狀態", async () => {

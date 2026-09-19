@@ -5,7 +5,7 @@ import { type MeQuery, useMeQuery, useSwitchOrgMutation } from "@repo/graphql";
 import { MenuItem } from "@repo/ui/menu";
 import { Select } from "@repo/ui/select";
 
-import { useSession } from "../../../hooks/useSession";
+import { useSession } from "@/hooks/useSession";
 
 export interface OrgSwitcherProps {
   me: MeQuery["me"];
