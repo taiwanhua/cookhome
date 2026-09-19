@@ -91,3 +91,22 @@ REACT-06 禁止 effect 內 setState,所以「開彈窗時把資料塞進表單�
 - 彈窗**關閉就卸載**(`open && <Dialog …/>`),每次開啟都是新的元件;
 - 初始值由 props 帶入 `useState` 的初始化器(`useState(() => toForm(org))`);
 - 需要先取單筆的編輯彈窗,在外層 gate:資料到了才掛載表單元件(`org.data ? <EditOrgForm org={org.data} /> : <Loading />`)。
+
+## REACT-09 槽位(slot)元件一律是模組層常數;逐列資料走 context
+
+(2026-09-20,#207 包 `RichTreeView` 時定;適用所有吃 `slots` / `components` 的外部庫)
+
+MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是元素。把槽位元件定義在 render 內(或用閉包把該列的資料綁進去),每次 render 都是一個新的函式身分 → 整棵樹重新掛載,狀態、焦點與展開都會掉。
+
+- 槽位元件**寫在模組層**(自己的檔案,PascalCase;REACT-07),`slots={{ item: TreeItemRow }}` 傳的是常數;
+- 逐列要用的資料由**容器先攤平成一份 `ReadonlyMap<id, RowState>`,經 context 交給槽位元件**,槽位元件用 `useContext` 自取,不靠 props 閉包;
+- context 只當注入通道(REACT-02 第 5 點),值本身是 `useMemo` 出來的唯讀快照。
+
+```tsx
+✅ // Tree/tree-rows.ts:型別 + context(kebab,非元件)
+   // Tree/TreeItemRow.tsx:槽位元件,useTreeRow(itemId) 取自己那一列
+   <RichTreeView slots={{ item: TreeItemRow }} />
+❌ <RichTreeView slots={{ item: (props) => <Row {...props} state={rows.get(props.itemId)} /> }} />
+```
+
+**ui 包裝層的 props 分工**(同一個 PR 定的配套規則):**內容類**的 props(`labelSuffix`、`actions`、`disabled` — 這一列長什麼樣)跟著**節點資料**走;**狀態類**的 props(`selectedIds`、`expandedIds`、`indeterminateIds`、`disabledCheckIds`)是**扁平的 id 陣列**。理由是後者每勾一次就變,若塞回節點資料就得重建整棵 `items`,而重建 `items` 會讓底層元件重建內部 store —— 權限矩陣每點一下都要付那個代價。

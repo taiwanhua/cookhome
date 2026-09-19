@@ -143,7 +143,9 @@ input SaveDataScopeRuleInput {
 - 新群組**一定帶一條條件列**(空群組會被 `EMPTY_GROUP` 拒絕,不讓它先出現在畫面上)。
 - 動態值與靜態值在同一個「值」下拉裡(動態值排在最前面):選了動態值就取代整份靜態值,反之亦然。
 - **「有沒有規則」沒有現成欄位**:左清單的「已設規則」目前是對每個目標各查一次 `dataScopeRule`
-  (目標是 seed 宣告的小清單,成本可接受)。目標變多時的正解是 `DataScopeTarget` 上補 `hasRule`。
+  (目標是 seed 宣告的小清單,成本可接受)。目標變多時的正解是 `DataScopeTarget` 上補 `hasRule`(待 #246)。
+- **`demo_items_one` 的 seed 目前宣告 `fields: []`**,所以 enum 型別的條件在 dev 上驗不到
+  (只有底座自動掛入的 org / user / date 基礎欄位);seed 補一個 enum 欄位待 #246。
 - 未儲存就切換資料目標 → 放棄變更確認;`saveDataScopeRule` 成功後失效該 collection 的 `dataScopeRule`
   與 `dataScopeTargets`。動作按鈕依 `system.data-scope.edit`,只有 `.view` 時整個編輯器唯讀。
 
@@ -151,6 +153,10 @@ input SaveDataScopeRuleInput {
 
 - **沒有規則命中操作者 = 不過濾**(只剩租戶保底),不是「什麼都看不到」
 - 規則永遠以 `$and` 疊在租戶保底之內 — 規則只會讓看到的**變少**,保底不可關
+- 規則套在 `SCOPED_QUERY_MIDDLEWARE` **整組**(與租戶保底同一組),**含寫入與刪除的查詢** — 看不到的資料也改不到 / 刪不到
+- **`combineOp` 只作用在「命中同一個人的那幾條規則」之間**:`OR` = 聯集、`AND` = 交集;**只命中一條的人就只受那一條限制**,沒命中的規則不參與合成
+- 套用對象比對的兩份事實:「指定組織」比 `memberOrgIds`(`org_user` 直接關聯)、「指定角色」比 `roleIds`(**啟用中**的角色 — 停用角色後規則立刻不再命中,與管理範圍同一條規則)
+- **`rules: []` 不等於「從來沒設定過」**:整份覆蓋成空陣列 = 這個目標沒有規則(執行面只剩租戶保底),但 `dataScopeRule` 仍回一份 `rules: []` 的文件;`rule = null` 專指從來沒設定過
 - 動態值在**查詢當下**代入正在查的人:`current-user` → 操作者 id、`current-user-orgs` → 操作者的**所屬組織**
   (`org_user` 的直接關聯,**不含**可見性開關展開的下層);代入後若是空集合,該條件命中不到任何資料(fail-closed)
 - 規則只套**業務類** collection(`tenantScopePlugin({ kind: "business" })`);治理類(`orgs`)完全不受影響

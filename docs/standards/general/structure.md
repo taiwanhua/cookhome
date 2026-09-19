@@ -75,6 +75,12 @@ packages/domain/src/permission/   → import { ownerModuleKey } from "@repo/doma
 
 入包門檻(三個都要符合):①純函式 / 純型別,不碰 React、Nest、Mongoose ②api 與 admin(或 front)都會用 ③規則只能有一份、兩邊漂移會出事。不符合的留在各自 app;只有一邊用的不進來。
 
+**同一個主題長到第二個檔時,`index.ts` 只當出口,實作檔不可回指 index**(2026-09-20,#202):
+`permission/` 從一個檔變成 `keys.ts` + `matrix.ts` 時,`matrix.ts` 要用 key 工具、`index.ts` 又要
+re-export `matrix.ts`,若 `matrix.ts` 寫 `from "./index"` 就是 `import-x/no-cycle`。規則:
+實作檔之間**互相直接引用檔名**(`from "./keys"`),`index.ts` 只有 `export * from "./…"` 幾行。
+這樣拆檔不動對外 API,**子路徑與 `package.json` 都不必改**。
+
 **api 怎麼吃到它**(踩過的坑,一次講清楚):api 是 CommonJS + `moduleResolution: node`,**看不到 `package.json` 的 `exports`**,子路徑的型別要靠 `typesVersions` 指到 `dist/es/<主題>.d.ts`;套件用 bunchee 出雙格式(`dist/es` 給 admin / front,`dist/cjs` 給 api)。api 測試在執行期 `require` 的是 dist,所以根 `turbo.json` 的 `test` 依賴 `^build`(先建依賴套件再跑測試);本地直接跑 `jest` 前要先 `pnpm --filter @repo/domain build`。
 
 ## STRUCT-08 新增 workspace 套件的清單
@@ -86,9 +92,19 @@ packages/domain/src/permission/   → import { ownerModuleKey } from "@repo/doma
 3. 消費端:api 加 devDependency `workspace:*` 後直接 `import "@repo/<name>/<主題>"`;admin / front 同
 4. 登記:`docs/architecture.md` 的 packages 表加一列,寫「誰用、怎麼用」
 
+**既有套件新增一個子路徑匯出(最常見:往 `@repo/ui` 加一個元件)要動四處**
+(2026-09-20,#197 / #207;GEN-01 只提到出口檔,實際不只一處):
+
+1. 元件三件套:`src/<元件>/<元件>.tsx` + `<元件>.test.tsx` + story(GEN-01 / TEST-09)
+2. `src/<主題>.ts` 出口檔(對外 API 的那一行 `export`)
+3. `package.json` 的 `exports` **與** `typesVersions` 各加一組(兩份都要,api 那種 node10 解析只看後者)
+4. `package.json` 的 `dependencies`(包了新的外部庫時)+ 用到新版外部庫時先 `npm view <pkg> version` 查最新
+
+漏第 3 點的症狀是「本地 import 得到、`check-types` 在別的包紅」。
+
 ## STRUCT-09 Markdown 也走 prettier:表格由它排版,不手排
 
-全 repo 的 `.md`(`docs/`、各模組 `help.md`、README、規範檔)都受 CI 的 `prettier --check` 檢查(`pnpm run format:check`,與 `pnpm format` 同一套設定,2026-09-19 起)。表格的分隔列與欄寬對齊一律交給 prettier:寫完跑 `pnpm format`,不要手動對齊、也不要為了省寬度刻意寫緊湊式 `|---|---|`(prettier 會展開,產生與內容無關的大 diff)。
+全 repo 的 `.md`(`docs/`、各模組 `help.md`、README、規範檔)都受 CI 的 `prettier --check` 檢查(`pnpm run format:check`,與 `pnpm format` 同一套設定,2026-09-19 起)。**`.ts` / `.tsx` 目前不在 CI 的檢查範圍內,所以 `main` 上存在格式漂移**:跑 `pnpm format` 會順手重排全 repo 的 import,交件時只留 `.md` 的 diff(收斂方案待 #241 / #195)。表格的分隔列與欄寬對齊一律交給 prettier:寫完跑 `pnpm format`,不要手動對齊、也不要為了省寬度刻意寫緊湊式 `|---|---|`(prettier 會展開,產生與內容無關的大 diff)。
 
 只有兩種例外,都要附原因:
 
