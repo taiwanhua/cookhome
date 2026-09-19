@@ -3,6 +3,8 @@ import { ModuleManagerPage } from "../pages/system/ModuleManagerPage/ModuleManag
 import { MODULE_MANAGER_MODULE_KEY } from "../pages/system/ModuleManagerPage/module-manager-permissions";
 import { OrgManagerPage } from "../pages/system/OrgManagerPage/OrgManagerPage";
 import { ORG_MANAGER_MODULE_KEY } from "../pages/system/OrgManagerPage/org-manager-permissions";
+import { RoleManagerPage } from "../pages/system/RoleManagerPage/RoleManagerPage";
+import { ROLE_MANAGER_MODULE_KEY } from "../pages/system/RoleManagerPage/role-manager-permissions";
 import { UserManagerPage } from "../pages/system/UserManagerPage/UserManagerPage";
 import { USER_MANAGER_MODULE_KEY } from "../pages/system/UserManagerPage/user-manager-permissions";
 import type { ModulePageRegistry } from "./guards/ModuleRoute/ModuleRoute";
@@ -19,4 +21,5 @@ export const modulePages: ModulePageRegistry = {
   [ORG_MANAGER_MODULE_KEY]: OrgManagerPage,
   [MODULE_MANAGER_MODULE_KEY]: ModuleManagerPage,
   [USER_MANAGER_MODULE_KEY]: UserManagerPage,
+  [ROLE_MANAGER_MODULE_KEY]: RoleManagerPage,
 };

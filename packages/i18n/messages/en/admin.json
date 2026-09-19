@@ -401,5 +401,133 @@
       "NOT_FOUND": "This module or permission no longer exists. Refresh the page.",
       "UNEXPECTED": "The action failed. Please try again later."
     }
+  },
+  "roleManager": {
+    "listTitle": "Roles",
+    "listLabel": "Role list",
+    "loading": "Loading",
+    "empty": "No roles within your scope yet",
+    "noSelection": "Pick a role and its permissions and holders show up on the right.",
+    "noViewPermission": "You cannot view roles, so the role list is hidden.",
+    "none": "—",
+    "total": "{total} in total, {pageSize} per page",
+    "rowSummary": "{org} · held by {count}",
+    "tags": {
+      "system": "Built-in",
+      "templateCopy": "Preset role"
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "toolbar": {
+      "search": "Search",
+      "searchPlaceholder": "Role name or description"
+    },
+    "actions": {
+      "create": "+ Add",
+      "edit": "Edit",
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete"
+    },
+    "tabs": {
+      "matrix": "Permissions",
+      "users": "Assigned users"
+    },
+    "matrix": {
+      "title": "{name} — permissions",
+      "subtitle": "You can only pass on permissions you hold; \"All (*)\" covers this module's own level, now and in the future.",
+      "legend": "Bold = module (checked = this role can open that page); indented = that module's permissions. \"All (*)\" and the individual permissions of the same level are linked: checking * brings in the whole level (including future ones); unchecking any one of them releases *.",
+      "wildcard": "All (*)",
+      "selectGroup": "Select whole group",
+      "clearGroup": "Clear whole group",
+      "treeLabel": "Permission matrix",
+      "unsaved": "Unsaved changes",
+      "save": "Save changes",
+      "shrinkOnly": "This role was prepared for you during setup, so its permissions can only shrink — anything it does not already hold cannot be checked."
+    },
+    "users": {
+      "title": "{name} — assigned users",
+      "outOfScopeHint": "\"Outside org\" means the user is not inside the organization that owns this role, or below it; the permissions still apply.",
+      "add": "Add users",
+      "remove": "Remove",
+      "ownerProtected": "Protected owner",
+      "outOfScope": "Outside org",
+      "none": "—",
+      "empty": "Nobody holds this role yet",
+      "total": "{total} in total, {pageSize} per page",
+      "tableLabel": "Role holders",
+      "columns": {
+        "account": "Account",
+        "name": "Name",
+        "orgs": "Organizations",
+        "email": "Email",
+        "actions": "Actions"
+      }
+    },
+    "addUsers": {
+      "title": "Add users — {name} ({org})",
+      "search": "Search",
+      "searchPlaceholder": "Name or email",
+      "candidate": "{account} · {name} ({orgs})",
+      "hint": "Only users inside \"{org}\" or below it, and within your visible scope, are listed. Cannot find someone? Add them to the organization in user management first.",
+      "picked": "{count} selected",
+      "empty": "No matching users",
+      "noOrg": "—",
+      "noUserPermission": "You cannot view users, so you cannot pick them here; ask someone with that permission to add them.",
+      "confirm": "Add",
+      "cancel": "Cancel"
+    },
+    "form": {
+      "createTitle": "Add role",
+      "editTitle": "Edit role — {name}",
+      "ownerOrg": "Owning organization",
+      "ownerOrgHint": "Holders of this role can manage this organization and every organization below it",
+      "name": "Name",
+      "description": "Description",
+      "noOrg": "—",
+      "submitCreate": "Add",
+      "submitEdit": "Save",
+      "cancel": "Cancel"
+    },
+    "delete": {
+      "title": "Delete {name}?",
+      "body": "Once deleted the role disappears from the list and from the role assignment options.",
+      "blocked": "This role cannot be deleted right now:",
+      "reasons": {
+        "HAS_GRANTS": "Users still hold this role; remove them first.",
+        "SYSTEM_ROLE": "This is a built-in role.",
+        "TEMPLATE_COPY": "This role was prepared for you during setup."
+      },
+      "useDisableInstead": "When it cannot be deleted you can disable it instead: holders lose it immediately and you can enable it again at any time.",
+      "confirm": "Delete",
+      "close": "Close"
+    },
+    "toggle": {
+      "disableTitle": "Disable {name}?",
+      "disableBody": "Holders lose everything this role grants immediately; the assignment stays, so you can enable it again later.",
+      "enableTitle": "Enable {name}?",
+      "enableBody": "Holders get the features and scope of this role back.",
+      "confirmDisable": "Disable",
+      "confirmEnable": "Enable",
+      "cancel": "Cancel"
+    },
+    "discard": {
+      "title": "Discard unsaved changes?",
+      "body": "The permission changes are not saved yet; leaving here throws them away.",
+      "keepEditing": "Keep editing",
+      "confirm": "Discard"
+    },
+    "errors": {
+      "ROLE_NOT_DELETABLE": "This role cannot be deleted right now.",
+      "ROLE_OUT_OF_REACH": "You can only pass on permissions you hold yourself.",
+      "USER_NOT_ELIGIBLE": "Only users inside the organization that owns this role, or below it, can be added.",
+      "OWNER_PROTECTED": "The owner of the top-level organization is protected; the action was rejected.",
+      "NOT_FOUND": "This role no longer exists.",
+      "FORBIDDEN": "You do not have permission for this action.",
+      "VALIDATION_FAILED": "The data did not pass validation, please check and submit again.",
+      "UNEXPECTED": "The action failed, please try again later."
+    }
   }
 }

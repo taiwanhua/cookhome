@@ -1,0 +1,218 @@
+import { useState } from "react";
+import { useTranslations } from "use-intl";
+
+import {
+  useDeleteRoleMutation,
+  useSetRoleEnabledMutation,
+} from "@repo/graphql";
+import { Alert } from "@repo/ui/alert";
+import { Stack } from "@repo/ui/stack";
+
+import { useSession } from "@/hooks/useSession";
+
+import { DeleteRoleDialog } from "./DeleteRoleDialog";
+import { DiscardChangesDialog } from "./DiscardChangesDialog";
+import { RoleDetailPanel } from "./RoleDetailPanel/RoleDetailPanel";
+import { RoleFormDialog } from "./RoleFormDialog/RoleFormDialog";
+import { RoleListPanel } from "./RoleListPanel/RoleListPanel";
+import { ToggleRoleEnabledDialog } from "./ToggleRoleEnabledDialog";
+import {
+  type RoleManagerError,
+  roleManagerErrorOf,
+} from "./role-manager-error";
+import type { RoleDetailTab, RoleRow } from "./role-manager-types";
+import { useRoleManagerData } from "./useRoleManagerData";
+import { useRoleMatrix } from "./useRoleMatrix";
+import { useUnsavedGuard } from "./useUnsavedGuard";
+
+/** 未儲存時被攔下的動作:確認放棄後才執行。 */
+type PendingNav =
+  { kind: "tab"; tab: RoleDetailTab } | { kind: "role"; roleId: string };
+
+/**
+ * 角色管理(模組 key `system.role-manager`,正本 `docs/modules/role-manager.md`;
+ * Figma「Screen / Admin 角色管理」44:44)。
+ * 左清單選角色 → 右兩個頁籤(權限矩陣、分配使用者);動作都是彈窗,顯示與否依權限(ADR-0011)。
+ */
+export const RoleManagerPage = () => {
+  const t = useTranslations("admin.roleManager");
+  const tErrors = useTranslations("admin.roleManager.errors");
+  const { session } = useSession();
+  const data = useRoleManagerData();
+
+  const [activeTab, setActiveTab] = useState<RoleDetailTab>("matrix");
+  /** null = 沒開;`{ role: null }` = 新增;`{ role }` = 編輯 */
+  const [formTarget, setFormTarget] = useState<{ role: RoleRow | null } | null>(
+    null,
+  );
+  const [toggleRole, setToggleRole] = useState<RoleRow | null>(null);
+  const [deleteRole, setDeleteRole] = useState<RoleRow | null>(null);
+  const [actionError, setActionError] = useState<RoleManagerError | null>(null);
+  const [pendingNav, setPendingNav] = useState<PendingNav | null>(null);
+
+  const matrix = useRoleMatrix(data.selectedRole?.id ?? null, {
+    canEdit: data.ability.canEditMatrix,
+    onSaved: (roleId) => {
+      void data.invalidate(roleId);
+    },
+  });
+  useUnsavedGuard(matrix.isDirty);
+
+  const onActionError = (error: unknown) => {
+    setActionError(roleManagerErrorOf(error));
+  };
+
+  const setRoleEnabled = useSetRoleEnabledMutation(session.client, {
+    onSuccess: (payload) => {
+      setToggleRole(null);
+      void data.invalidate(payload.setRoleEnabled.role.id);
+    },
+    onError: onActionError,
+  });
+  const removeRole = useDeleteRoleMutation(session.client, {
+    onSuccess: () => {
+      setDeleteRole(null);
+      void data.invalidate();
+    },
+    onError: onActionError,
+  });
+
+  /** 未儲存的矩陣變更會攔下「切頁籤」與「換角色」(Figma 70:209)。 */
+  const guard = (nav: PendingNav) => {
+    if (matrix.isDirty) {
+      setPendingNav(nav);
+      return;
+    }
+    applyNav(nav);
+  };
+  const applyNav = (nav: PendingNav) => {
+    if (nav.kind === "tab") {
+      setActiveTab(nav.tab);
+      return;
+    }
+    data.selectRole(nav.roleId);
+  };
+
+  if (!data.ability.canView) {
+    return <Alert severity="info">{t("noViewPermission")}</Alert>;
+  }
+
+  return (
+    // 撐滿殼給的內容區高度(STYLE-08 / Figma 44:188:左右兩塊等高、各自內部捲動)
+    <Stack direction="row" spacing={3} sx={{ flex: 1, minHeight: 0 }}>
+      <RoleListPanel
+        rows={data.rows}
+        isLoading={data.isLoading}
+        totalCount={data.totalCount}
+        keyword={data.keyword}
+        onKeywordChange={data.setKeyword}
+        page={data.page}
+        onPageChange={data.setPage}
+        selectedRoleId={data.selectedRole?.id ?? null}
+        onSelectRole={(roleId) => {
+          guard({ kind: "role", roleId });
+        }}
+        ability={data.ability}
+        onCreate={() => {
+          setActionError(null);
+          setFormTarget({ role: null });
+        }}
+        onEdit={(role) => {
+          setActionError(null);
+          setFormTarget({ role });
+        }}
+        onToggleEnabled={(role) => {
+          setActionError(null);
+          setToggleRole(role);
+        }}
+        onDelete={(role) => {
+          setActionError(null);
+          setDeleteRole(role);
+        }}
+      />
+
+      <Stack spacing={1.5} sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+        {actionError !== null &&
+          toggleRole === null &&
+          deleteRole === null &&
+          formTarget === null && (
+            <Alert severity="error">{tErrors(actionError.code)}</Alert>
+          )}
+        <RoleDetailPanel
+          role={data.selectedRole}
+          ability={data.ability}
+          activeTab={activeTab}
+          onChangeTab={(tab) => {
+            guard({ kind: "tab", tab });
+          }}
+          matrix={matrix}
+          onUsersChanged={() => {
+            void data.invalidate(data.selectedRole?.id);
+          }}
+        />
+      </Stack>
+
+      {formTarget !== null && (
+        <RoleFormDialog
+          role={formTarget.role}
+          onCancel={() => {
+            setFormTarget(null);
+          }}
+          onSaved={(roleId) => {
+            setFormTarget(null);
+            data.selectRole(roleId);
+            void data.invalidate(roleId);
+          }}
+        />
+      )}
+
+      {toggleRole !== null && (
+        <ToggleRoleEnabledDialog
+          role={toggleRole}
+          isSubmitting={setRoleEnabled.isPending}
+          errorCode={actionError?.code ?? null}
+          onCancel={() => {
+            setActionError(null);
+            setToggleRole(null);
+          }}
+          onConfirm={() => {
+            setActionError(null);
+            setRoleEnabled.mutate({
+              input: { id: toggleRole.id, enabled: !toggleRole.enabled },
+            });
+          }}
+        />
+      )}
+
+      {deleteRole !== null && (
+        <DeleteRoleDialog
+          role={deleteRole}
+          isSubmitting={removeRole.isPending}
+          errorCode={actionError?.code ?? null}
+          reasons={actionError?.reasons ?? []}
+          onCancel={() => {
+            setActionError(null);
+            setDeleteRole(null);
+          }}
+          onConfirm={() => {
+            setActionError(null);
+            removeRole.mutate({ input: { id: deleteRole.id } });
+          }}
+        />
+      )}
+
+      {pendingNav !== null && (
+        <DiscardChangesDialog
+          onCancel={() => {
+            setPendingNav(null);
+          }}
+          onConfirm={() => {
+            matrix.reset();
+            applyNav(pendingNav);
+            setPendingNav(null);
+          }}
+        />
+      )}
+    </Stack>
+  );
+};
