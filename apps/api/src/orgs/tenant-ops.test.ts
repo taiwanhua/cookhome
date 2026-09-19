@@ -844,6 +844,32 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
       expect(await userRowByAccount(account)).toBeNull();
     });
 
+    it("站在根組織、但管理範圍只到某個租戶:FORBIDDEN(#187:不讓 ownerUserId 靜默漏寫)", async () => {
+      // 刻意造一個怪設定:人在根組織,卻只持有擁有組織 = 既有租戶的角色 →
+      // 管理範圍不是整個平台,租戶作業當場拒絕,而不是建完租戶卻寫不進擁有者
+      const account = nextAccount("root-narrow-scope");
+      const userId = await createUser(api.connection, {
+        account,
+        password: PASSWORD,
+        orgIds: [rootOrgId],
+      });
+      await createRole(api.app, api.connection, {
+        name: "站在根組織但擁有組織是租戶",
+        ownerOrgId: legacyTenantId,
+        moduleKeys: [ORG_MANAGER_MODULE, TENANT_OPS_MODULE],
+        permissionKeys: [`${ORG_MANAGER_MODULE}.*`, ...TENANT_OPS_PERMISSIONS],
+        assignTo: [userId],
+      });
+      const token = await login(account);
+
+      const before = await api.connection.collection("orgs").countDocuments();
+      const result = await provision({}, token);
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      const after = await api.connection.collection("orgs").countDocuments();
+      expect(after).toBe(before);
+    });
+
     it("根組織但沒有 provision 權限:FORBIDDEN(@RequirePermission 守門)", async () => {
       const result = await provision({}, rootViewToken);
 

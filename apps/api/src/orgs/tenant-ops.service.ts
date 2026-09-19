@@ -356,12 +356,22 @@ export class TenantOpsService {
   /**
    * 租戶作業一律只在根組織執行(docs/modules/org-manager.md):持有權限還不夠 —
    * 權限可能經角色被帶到別的組織,站在哪裡才是判準(與擁有者保護的根組織例外同一個函式)。
+   *
+   * 另要求**管理範圍是整個平台**(`"all"`,#187):租戶作業跨全平台寫入(在根組織底下建租戶、
+   * 回頭寫它的 `ownerUserId`),而 `orgs` 是治理類 collection、寫入吃管理範圍。
+   * 若操作者站在根組織、卻只持有某個租戶的角色(管理範圍 = 那個租戶),
+   * 建得出租戶、`ownerUserId` 那一步卻會被過濾掉而**靜默不寫入** — 與其半套成功,不如當場拒絕。
+   * 正常設定不會走到這裡:根組織的操作者持有的是擁有組織 = 根組織的角色(或超級管理員),
+   * 兩者的管理範圍都是 `"all"`。
    */
   private async assertRootOperator(
     operator: OperatorContext,
     action: string,
   ): Promise<void> {
-    if (!(await this.ownerProtection.isRootOperator(operator))) {
+    if (
+      !(await this.ownerProtection.isRootOperator(operator)) ||
+      operator.managedOrgIds !== "all"
+    ) {
       throw orgError(
         "FORBIDDEN",
         `${action} is only available from the root org`,
