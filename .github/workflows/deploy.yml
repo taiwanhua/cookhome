@@ -102,6 +102,8 @@ jobs:
             base=${img##*:}; base=${base%-*}
             if [ "${{ inputs.force }}" = "true" ] || [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then echo true; return; fi
             if [ "$base" = "$(git rev-parse --short HEAD)" ]; then echo false; return; fi
+            # 部署設定不屬於任何 package,turbo 看不到:env 檔或本 workflow 有變 → api 視為受影響(admin 的設定烘在 image,不受 env 檔影響)
+            if [ "$2" = "@repo/api" ] && git diff --name-only "$base...HEAD" | grep -qE '^(deploy/env/|\.github/workflows/deploy\.yml)'; then echo true; return; fi
             local list
             list=$(TURBO_SCM_BASE="$base" npx --yes turbo@$(node -p "require('./package.json').devDependencies.turbo.replace(/[^0-9.]/g,'')") ls --affected --output json | jq -r '.packages.items[].name' | tr '\n' ' ')
             case " $list " in *" $2 "*) echo true ;; *) echo false ;; esac
