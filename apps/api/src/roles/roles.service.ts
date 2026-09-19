@@ -1,0 +1,289 @@
+import { Injectable } from "@nestjs/common";
+
+import { AuditService } from "../audit/audit.service";
+import { RolesRepository } from "../database/database.module";
+import type { OperatorContext } from "../database/operator-context";
+import { RelationService } from "../database/relation.service";
+import type { DeletePayload } from "../orgs/models/org-payloads.model";
+import type { CreateRoleInput } from "./dto/create-role.input";
+import type { DeleteRoleInput } from "./dto/delete-role.input";
+import {
+  DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE,
+  type RolesInput,
+} from "./dto/roles.input";
+import type { SetRoleEnabledInput } from "./dto/set-role-enabled.input";
+import type { UpdateRoleInput } from "./dto/update-role.input";
+import type { RolesPayload } from "./models/role-payloads.model";
+import type { RoleModel } from "./models/role.model";
+import {
+  type RoleRecord,
+  RoleScopeService,
+  isTemplateCopy,
+  toObjectId,
+} from "./role-scope.service";
+import {
+  type RoleNotDeletableReason,
+  forbiddenError,
+  roleNotDeletableError,
+  validationError,
+} from "./roles-error";
+
+/** 審計動作名(docs/modules/role-manager.md「審計動作」;`targetType` 一律 role)。 */
+export const AUDIT_TARGET_TYPE = "role";
+export const AUDIT_ACTIONS = {
+  create: "role.create",
+  edit: "role.edit",
+  editMatrix: "role.edit-matrix",
+  grantUser: "role.grant-user",
+  revokeUser: "role.revoke-user",
+  toggleEnabled: "role.toggle-enabled",
+  delete: "role.delete",
+} as const;
+
+/** 關鍵字做部分比對,使用者輸入的 regex 特殊字元一律當字面值。 */
+function escapeRegex(value: string): string {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+function requireText(value: string, field: string): string {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw validationError(`${field} is required`, [field]);
+  }
+  return trimmed;
+}
+
+/**
+ * 角色管理的 CRUD(`system.role-manager`)。resolver 薄、service 厚(STRUCT-01):
+ * **管理範圍**(治理模組吃它,不吃可見範圍;ADR-0005 的分工表)、刪除前置與稽核都在這裡,
+ * 寫入一律經 BaseRepository / RelationService。
+ *
+ * 權限矩陣見 `role-matrix.service.ts`、分配使用者見 `role-users.service.ts`;
+ * 「角色在不在我的管理範圍內」三支共用 `RoleScopeService`,不各寫一套。
+ */
+@Injectable()
+export class RolesService {
+  constructor(
+    private readonly roles: RolesRepository,
+    private readonly relations: RelationService,
+    private readonly audit: AuditService,
+    private readonly scope: RoleScopeService,
+  ) {}
+
+  // ---- 讀 ----
+
+  /** 清單:擁有組織在操作者**管理範圍**內的角色(ADR-0003 / ADR-0005)。 */
+  async list(
+    operator: OperatorContext,
+    input: RolesInput,
+  ): Promise<RolesPayload> {
+    const page = Math.max(1, input.page ?? 1);
+    const pageSize = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, input.pageSize ?? DEFAULT_PAGE_SIZE),
+    );
+    const managed = await this.scope.managedRoleFilter(operator);
+    if (managed === null) {
+      return { items: [], totalCount: 0, page, pageSize };
+    }
+    const keyword = input.keyword?.trim();
+    const filter = {
+      ...managed,
+      ...(keyword
+        ? {
+            $or: [
+              { name: { $regex: escapeRegex(keyword), $options: "i" } },
+              { description: { $regex: escapeRegex(keyword), $options: "i" } },
+            ],
+          }
+        : {}),
+    };
+    const totalCount = await this.roles.count(operator, filter);
+    const documents = await this.roles.findMany(operator, filter, {
+      sort: { createdAt: -1, _id: -1 },
+      skip: (page - 1) * pageSize,
+      limit: pageSize,
+    });
+    return {
+      items: await this.scope.decorate(operator, documents),
+      totalCount,
+      page,
+      pageSize,
+    };
+  }
+
+  /** 單筆;管理範圍外視同不存在(`NOT_FOUND`)。 */
+  async findOne(operator: OperatorContext, id: string): Promise<RoleModel> {
+    const role = await this.scope.loadManagedRole(operator, id);
+    return this.scope.decorateOne(operator, role);
+  }
+
+  // ---- 寫 ----
+
+  /**
+   * 新增角色:擁有組織 = 這個角色的管轄邊界(ADR-0003),限操作者管理範圍內,
+   * 不給則預設當前組織。新角色不綁任何模組 / 權限 — 矩陣是另一個動作(另一個權限 key)。
+   */
+  async create(
+    operator: OperatorContext,
+    input: CreateRoleInput,
+  ): Promise<RoleModel> {
+    const name = requireText(input.name, "name");
+    const description = input.description?.trim();
+    const ownerOrgId =
+      input.ownerOrgId === undefined || input.ownerOrgId === null
+        ? operator.currentOrgId
+        : toObjectId(input.ownerOrgId, "ownerOrgId");
+    if (ownerOrgId === null) {
+      throw validationError(
+        "ownerOrgId is required when the operator has no current org",
+        ["ownerOrgId"],
+      );
+    }
+    const ownerOrg = await this.scope.findManagedOrg(operator, ownerOrgId);
+    if (ownerOrg === null) {
+      throw forbiddenError(
+        `Org ${String(ownerOrgId)} is outside the operator's managed scope`,
+      );
+    }
+
+    const role = await this.roles.create(operator, {
+      name,
+      ...(description === undefined || description === ""
+        ? {}
+        : { description }),
+      enabled: true,
+      isSystem: false,
+      settings: {},
+    });
+    await this.relations.setRoleOwnerOrg(operator, ownerOrg._id, role._id);
+    await this.audit.record(operator, {
+      action: AUDIT_ACTIONS.create,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId: role._id,
+      after: {
+        name,
+        ...(description === undefined ? {} : { description }),
+        ownerOrgId: String(ownerOrg._id),
+      },
+    });
+    return this.scope.decorateOne(operator, role);
+  }
+
+  /** 編輯名稱 / 描述(GQL-06:`description` 缺席 = 不動、null = 清空)。 */
+  async update(
+    operator: OperatorContext,
+    input: UpdateRoleInput,
+  ): Promise<RoleModel> {
+    const role = await this.scope.loadManagedRole(operator, input.id);
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+    const update: Record<string, unknown> = {};
+
+    if (input.name !== undefined && input.name !== null) {
+      const name = requireText(input.name, "name");
+      if (name !== role.name) {
+        before.name = role.name;
+        after.name = name;
+        update.name = name;
+      }
+    }
+    if (input.description !== undefined) {
+      const description = input.description?.trim() ?? "";
+      const current = role.description ?? "";
+      if (description !== current) {
+        before.description = role.description ?? null;
+        after.description = description === "" ? null : description;
+        update.description = description === "" ? null : description;
+      }
+    }
+    if (Object.keys(update).length === 0) {
+      return this.scope.decorateOne(operator, role);
+    }
+
+    const updated =
+      (await this.roles.updateById(operator, role._id, { $set: update })) ??
+      role;
+    await this.audit.record(operator, {
+      action: AUDIT_ACTIONS.edit,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId: role._id,
+      before,
+      after,
+    });
+    return this.scope.decorateOne(operator, updated);
+  }
+
+  /**
+   * 停用 / 啟用:停用後持有者的該角色立即不生效(授予仍在,PermissionResolver 排除,ADR-0011)。
+   * 種子角色與租戶副本照樣可停用 — 那是可逆的動作,「不可刪」才是保護(role-manager.md 權限表)。
+   */
+  async setEnabled(
+    operator: OperatorContext,
+    input: SetRoleEnabledInput,
+  ): Promise<RoleModel> {
+    const role = await this.scope.loadManagedRole(operator, input.id);
+    if (role.enabled === input.enabled) {
+      return this.scope.decorateOne(operator, role);
+    }
+    const updated =
+      (await this.roles.updateById(operator, role._id, {
+        $set: { enabled: input.enabled },
+      })) ?? role;
+    await this.audit.record(operator, {
+      action: AUDIT_ACTIONS.toggleEnabled,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId: role._id,
+      before: { enabled: role.enabled },
+      after: { enabled: input.enabled },
+    });
+    return this.scope.decorateOne(operator, updated);
+  }
+
+  /**
+   * 刪除:前置三項(無授予 / 非種子角色 / 非租戶副本)全過才可;
+   * 任一不過回 `ROLE_NOT_DELETABLE` 附 reasons,前端提示改用停用。刪除 = 軟刪除(ADR-0007)。
+   *
+   * 軟刪除只動 `roles` 文件:`org_role` / `role_module` / `role_permission` 留著 —
+   * 關聯是「有/沒有」的事實(RelationService 的硬刪除註解),角色一旦查不到,
+   * PermissionResolver 與清單都不再看得到它,復原時綁定也還在。
+   */
+  async remove(
+    operator: OperatorContext,
+    input: DeleteRoleInput,
+  ): Promise<DeletePayload> {
+    const role = await this.scope.loadManagedRole(operator, input.id);
+    const reasons = await this.notDeletableReasons(role);
+    if (reasons.length > 0) {
+      throw roleNotDeletableError(reasons);
+    }
+    await this.roles.softDeleteById(operator, role._id);
+    await this.audit.record(operator, {
+      action: AUDIT_ACTIONS.delete,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId: role._id,
+      before: { name: role.name, enabled: role.enabled },
+    });
+    return { success: true, deletedId: String(role._id) };
+  }
+
+  /** 刪除前置(role-manager.md 權限表「刪除」);逐項列出,前端一次顯示全部。 */
+  private async notDeletableReasons(
+    role: RoleRecord,
+  ): Promise<RoleNotDeletableReason[]> {
+    const reasons: RoleNotDeletableReason[] = [];
+    const grantedUserIds = await this.relations.listUserIdsOfRole(role._id);
+    if (grantedUserIds.length > 0) {
+      reasons.push("HAS_GRANTS");
+    }
+    // 種子角色:`isSystem` 或有 `key`(seed 以 key 冪等,role.schema.ts)
+    if (role.isSystem || (role.key !== undefined && role.key !== "")) {
+      reasons.push("SYSTEM_ROLE");
+    }
+    if (isTemplateCopy(role)) {
+      reasons.push("TEMPLATE_COPY");
+    }
+    return reasons;
+  }
+}
