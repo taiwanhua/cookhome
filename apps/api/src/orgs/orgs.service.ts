@@ -11,7 +11,7 @@ import {
 } from "../database/database.module";
 import {
   type OperatorContext,
-  isOrgVisible,
+  isOrgManaged,
 } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
 import { isOwnedUploadPath } from "../storage/storage.service";
@@ -19,6 +19,7 @@ import type { CreateChildOrgInput } from "./dto/create-child-org.input";
 import type { DeleteOrgInput } from "./dto/delete-org.input";
 import type { MoveOrgInput } from "./dto/move-org.input";
 import type { SetOrgEnabledInput } from "./dto/set-org-enabled.input";
+import type { SetOrgVisibilityInput } from "./dto/set-org-visibility.input";
 import type { UpdateOrgInput } from "./dto/update-org.input";
 import type { DeletePayload } from "./models/org-payloads.model";
 import { type Org, OrgNode } from "./models/org.model";
@@ -27,7 +28,15 @@ import {
   orgError,
   orgNotDeletableError,
 } from "./org-error";
-import { type OrgRecord, tenantTopIdOf, toOrg } from "./org-mapper";
+import {
+  type OrgRecord,
+  VISIBILITY_SETTING,
+  isTenantTop,
+  tenantTopIdOf,
+  toOrg,
+  visibilityOf,
+  visibilitySettingOf,
+} from "./org-mapper";
 import { OwnerProtectionService } from "./owner-protection.service";
 
 /** 審計動作名(docs/modules/org-manager.md「審計」;`targetType` 一律 org)。 */
@@ -38,9 +47,10 @@ const AUDIT_ACTIONS = {
   toggleEnabled: "org.toggle-enabled",
   move: "org.move",
   delete: "org.delete",
+  setVisibility: "org.set-visibility",
 } as const;
 
-/** 編輯可動的欄位(擁有者與可見範圍開關屬租戶作業 #135,不在此)。 */
+/** 編輯可動的欄位(擁有者屬租戶作業 #135、可見範圍開關另有 mutation,都不在此)。 */
 type EditablePath = "name" | "description" | "logoPath";
 
 /** 一個欄位的變動;`value` / `previous` 為 undefined 代表「沒有值 / 清空」。 */
@@ -51,15 +61,16 @@ interface OrgFieldChange {
 }
 
 /**
- * 讀 / 寫「操作者已確認可操作的組織」底下整棵子樹時用的上下文:可見範圍暫時提升為 `"all"`。
+ * 讀 / 寫「操作者已確認可操作的組織」底下整棵子樹時用的上下文:**兩個範圍**暫時提升為 `"all"`。
  *
  * **只准搭配把查詢釘在該子樹內的條件**(`ancestors: <已驗過的組織 id>`,或由那種查詢取回的 id)。
- * 理由:可見範圍決定「看得到誰的資料」(ADR-0005),但停用連動、搬移後的 `ancestors` 重算、
+ * 理由:管理範圍決定「動得了誰」(ADR-0005),但停用連動、搬移後的 `ancestors` 重算、
  * 刪除前置的「有沒有子組織」三件事的正確性以**整棵子樹**為準 —
- * 不能因為操作者的可見範圍是 own 就只改一半、或誤判成沒有子組織。
+ * 不能因為操作者的管理範圍只到某一層就只改一半、或誤判成沒有子組織。
+ * 管理範圍換掉可見範圍成為治理類的過濾依據後(#187),兩個都要放開才擋得住漏改。
  */
 function subtreeContext(operator: OperatorContext): OperatorContext {
-  return { ...operator, visibleOrgIds: "all" };
+  return { ...operator, visibleOrgIds: "all", managedOrgIds: "all" };
 }
 
 /** 名稱是必填且不可只有空白;回傳去空白後的值。 */
@@ -158,7 +169,13 @@ function byName(documents: OrgRecord[]): OrgRecord[] {
   );
 }
 
-/** 由平坦的組織清單組回樹;`rootIds` 是本樹的根(對外 `parentId` 回 null)。 */
+/**
+ * 由平坦的組織清單組回樹(森林:`rootIds` 可能有多個根,#187)。
+ *
+ * 每棵樹的樹根對外一律回 `parentId: null`(它的上層不在樹上,給了前端也查不到)。
+ * 因此**前端不能拿 `parentId` 判斷「樹根是不是平台根組織」** — 租戶視角的樹根也是 null;
+ * 那件事由 `org(樹根).isSystem` 回答(#186 ④,`useOrgManagerData.ts`)。
+ */
 function buildForest(
   operator: OperatorContext,
   documents: OrgRecord[],
@@ -186,8 +203,9 @@ function buildForest(
     // 僅租戶頂層有值(ADR-0009);樹上就給,前端不必逐筆查 org(id) 才判斷得出擁有者(#139)
     ownerUserId:
       document.ownerUserId === undefined ? null : String(document.ownerUserId),
-    // 可見範圍外:樹上照樣顯示(不然樹會斷),但前端不讓選、不讓操作(ADR-0005)
-    outOfScope: !isOrgVisible(operator, document._id),
+    // 管理範圍外的節點根本不會出現在樹上(#187),這個欄位因此恆為 false;
+    // 保留是為了與使用者列的 `roles[].outOfScope` 命名一致、且不必同步改前端(GQL-05 相容)
+    outOfScope: !isOrgManaged(operator, document._id),
     children: byName(childrenByParent.get(String(document._id)) ?? []).map(
       (child) => toNode(child),
     ),
@@ -217,24 +235,25 @@ export class OrgsService {
   ) {}
 
   /**
-   * 可見範圍內的組織樹(ADR-0005):根組織視角以根組織為根、看得到全部租戶;
-   * 租戶視角以**租戶頂層**為根。可見範圍外的節點照樣回,標 `outOfScope`。
+   * **管理範圍**的組織樹(CONTEXT.md「管理範圍」;ADR-0005 的分工表)。
+   * 根 = 管理範圍的各個頂點,**可能有多個**(持兩個沒有共同上層的角色就有兩棵樹);
+   * 根組織成員以根組織為根、看得到全部租戶。管理範圍外的組織**不出現**在樹上。
    */
   async tree(operator: OperatorContext): Promise<OrgNode[]> {
     const rootIds = await this.treeRootIds(operator);
     if (rootIds.length === 0) {
       return [];
     }
-    // 讀取範圍由 rootIds 釘死在「操作者的租戶(們)」內,再以 outOfScope 標出範圍外的節點
+    // 讀取範圍由 rootIds 釘死在「管理範圍的各頂點子樹」內 = 管理範圍本身
     const documents = await this.orgs.findMany(subtreeContext(operator), {
       $or: [{ _id: { $in: rootIds } }, { ancestors: { $in: rootIds } }],
     });
     return buildForest(operator, documents, rootIds);
   }
 
-  /** 單一組織:可見範圍外視為不存在(不透露差別)。 */
+  /** 單一組織:管理範圍外視為不存在(不透露差別)。 */
   async one(operator: OperatorContext, id: string): Promise<Org> {
-    return toOrg(await this.requireVisible(operator, id));
+    return toOrg(await this.requireManaged(operator, id));
   }
 
   async createChild(
@@ -243,7 +262,7 @@ export class OrgsService {
   ): Promise<Org> {
     const name = requireName(input.name);
     const description = optionalText(input.description);
-    const parent = await this.requireVisible(operator, input.parentId);
+    const parent = await this.requireManaged(operator, input.parentId);
     const created = await this.orgs.create(operator, {
       name,
       parentId: parent._id,
@@ -271,7 +290,7 @@ export class OrgsService {
    * (審計的 before / after 只放有變的欄位,空紀錄是雜訊)。
    */
   async update(operator: OperatorContext, input: UpdateOrgInput): Promise<Org> {
-    const current = await this.requireVisible(operator, input.id);
+    const current = await this.requireManaged(operator, input.id);
     const changes = editChangesOf(input, current);
     if (changes.length === 0) {
       return toOrg(current);
@@ -299,7 +318,7 @@ export class OrgsService {
     operator: OperatorContext,
     input: SetOrgEnabledInput,
   ): Promise<Org> {
-    const current = await this.requireVisible(operator, input.id);
+    const current = await this.requireManaged(operator, input.id);
     if (current.isSystem && !input.enabled) {
       throw orgError("VALIDATION_FAILED", "System org cannot be disabled");
     }
@@ -333,17 +352,19 @@ export class OrgsService {
   }
 
   /**
-   * 搬移:限同租戶(`CROSS_TENANT`)、不可搬進自己的子樹(`CYCLIC_MOVE`);
-   * 成功後整棵子樹的 `ancestors` 重算(物化路徑,ADR-0005)。
+   * 搬移:候選 = **管理範圍內、同租戶、不在自己這棵子樹裡**(docs/modules/org-manager.md)。
+   * 範圍外 `NOT_FOUND`、跨租戶 `CROSS_TENANT`、搬進自己的子樹 `CYCLIC_MOVE`、
+   * 租戶頂層本身 `FORBIDDEN`;成功後整棵子樹的 `ancestors` 重算(物化路徑,ADR-0005)。
    */
   async move(operator: OperatorContext, input: MoveOrgInput): Promise<Org> {
-    const org = await this.requireVisible(operator, input.id);
+    const org = await this.requireManaged(operator, input.id);
     if (org.parentId === null || org.isSystem) {
       throw orgError("VALIDATION_FAILED", "System org cannot be moved");
     }
     // 租戶頂層只有根組織能搬(跨租戶的檢查在下面另外擋,ADR-0009)
     await this.protection.assertTenantTopOperableBy(operator, org, "move");
-    const newParent = await this.requireVisible(operator, input.newParentId);
+    // 新上層也必須在管理範圍內(治理類過濾自動套用:範圍外即 NOT_FOUND)
+    const newParent = await this.requireManaged(operator, input.newParentId);
     if (
       newParent._id.equals(org._id) ||
       newParent.ancestors.some((ancestor) => ancestor.equals(org._id))
@@ -386,7 +407,7 @@ export class OrgsService {
     operator: OperatorContext,
     input: DeleteOrgInput,
   ): Promise<DeletePayload> {
-    const org = await this.requireVisible(operator, input.id);
+    const org = await this.requireManaged(operator, input.id);
     // 租戶頂層只有根組織能刪(ADR-0009);先於前置四項判斷,不透露租戶內部狀態
     await this.protection.assertTenantTopOperableBy(operator, org, "delete");
     const reasons = await this.notDeletableReasons(operator, org);
@@ -406,26 +427,78 @@ export class OrgsService {
     return { success: true, deletedId: String(org._id) };
   }
 
-  /** 本樹的根:根組織視角 = 根組織;租戶視角 = 可見組織們各自的租戶頂層。 */
+  /**
+   * 可見範圍開關(ADR-0005):只掛**租戶頂層**、套用整棵子樹,改的是租戶自己的資料政策
+   * (下層使用者看不看得到下層組織的**業務資料**),**不影響治理頁、角色資格與管理範圍**。
+   *
+   * 2026-09-19 起不再是根組織專屬(#187):權限由 `system.org-manager.tenant-ops.set-visibility`
+   * 搬到 `system.org-manager.set-visibility`,租戶管理員模板自動取得;
+   * 能設哪些則由**管理範圍**決定 — 範圍外的租戶頂層查不到(`NOT_FOUND`),
+   * 所以租戶管理員只設得了自己的租戶,根組織(範圍 = 全部)照樣設得了任何一個。
+   */
+  async setVisibility(
+    operator: OperatorContext,
+    input: SetOrgVisibilityInput,
+  ): Promise<Org> {
+    const org = await this.requireManaged(operator, input.orgId);
+    if (!isTenantTop(org)) {
+      const error = orgError(
+        "VALIDATION_FAILED",
+        `Org ${input.orgId} is not a tenant top-level org; the visibility switch only exists there`,
+      );
+      (error.extensions as Record<string, unknown>).fields = ["orgId"];
+      throw error;
+    }
+    const previous = visibilityOf(org);
+    if (previous === input.visibility) {
+      return toOrg(org);
+    }
+    const updated = await this.orgs.updateById(operator, org._id, {
+      $set: {
+        [`settings.${VISIBILITY_SETTING}`]: visibilitySettingOf(
+          input.visibility,
+        ),
+      },
+    });
+    await this.audit.record(operator, {
+      action: AUDIT_ACTIONS.setVisibility,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId: org._id,
+      before: { visibility: previous },
+      after: { visibility: input.visibility },
+    });
+    return toOrg(updated ?? org);
+  }
+
+  /**
+   * 樹根 = **管理範圍的各個頂點**(#187):管理範圍是「各擁有組織的子樹」的聯集,
+   * 頂點就是那些「祖先鏈上沒有別的管理範圍內組織」的節點 — 一個角色一個頂點,
+   * 上下包含關係的角色自動收斂成一個。`"all"`(超級管理員 / 擁有組織是根組織)= 根組織一棵。
+   */
   private async treeRootIds(
     operator: OperatorContext,
   ): Promise<Types.ObjectId[]> {
-    if (operator.visibleOrgIds === "all") {
+    if (operator.managedOrgIds === "all") {
       const root = await this.orgs.findOne(operator, { parentId: null });
       return root === null ? [] : [root._id];
     }
-    const visible = await this.orgs.findMany(operator, {
-      _id: { $in: operator.visibleOrgIds },
-    });
-    const tops = new Map<string, Types.ObjectId>();
-    for (const org of visible) {
-      const topId = tenantTopIdOf(org);
-      tops.set(String(topId), topId);
+    if (operator.managedOrgIds.length === 0) {
+      return [];
     }
-    return [...tops.values()];
+    const managed = await this.orgs.findMany(operator, {
+      _id: { $in: operator.managedOrgIds },
+    });
+    const managedKeys = new Set(managed.map((org) => String(org._id)));
+    return managed
+      .filter(
+        (org) =>
+          !org.ancestors.some((ancestor) => managedKeys.has(String(ancestor))),
+      )
+      .map((org) => org._id);
   }
 
-  private async requireVisible(
+  /** 管理範圍外(治理類過濾自動套用)視為不存在 — 不透露「存在但你動不了」。 */
+  private async requireManaged(
     operator: OperatorContext,
     id: string,
   ): Promise<OrgRecord> {
@@ -493,16 +566,22 @@ export class OrgsService {
    * 「無業務資料引用」:掛在這個組織下的租戶資料(`orgId` 指向它)。
    * 清單 = 目前有 `orgId` 的業務 collection;第 5 段示範模組長出新 collection 時在此加一項。
    * `audit_logs` 刻意不算 — 那是只增不改的歷史紀錄(ADR-0004),不是被引用的業務資料。
+   *
+   * **以 `subtreeContext` 問**(查詢已釘死在這一個已驗過的組織上):業務 collection 吃的是
+   * **可見範圍**,而刪除的資格吃**管理範圍**(ADR-0005 的分工)— 兩者不一定重疊。
+   * 若用操作者自己的可見範圍去數,管得到但看不到那個組織的人會數到 0,
+   * 把還掛著資料的組織誤判成可刪。前置檢查要問「有沒有」,不是「你看不看得到」。
    */
   private async hasBusinessData(
     operator: OperatorContext,
     orgId: Types.ObjectId,
   ): Promise<boolean> {
+    const reader = subtreeContext(operator);
     const counts = await Promise.all([
-      this.customers.count(operator, { orgId }),
-      this.demoItemsOne.count(operator, { orgId }),
-      this.demoItemsTwo.count(operator, { orgId }),
-      this.fields.count(operator, { orgId }),
+      this.customers.count(reader, { orgId }),
+      this.demoItemsOne.count(reader, { orgId }),
+      this.demoItemsTwo.count(reader, { orgId }),
+      this.fields.count(reader, { orgId }),
     ]);
     return counts.some((count) => count > 0);
   }

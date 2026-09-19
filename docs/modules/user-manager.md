@@ -33,6 +33,8 @@
 
 **清單範圍**:左側組織樹 = 操作者的**管理範圍**(CONTEXT.md;根 = 持有角色的擁有組織,2026-09-19 改,原本綁可見範圍)選一個組織 → 右側列出「該組織子樹的成員 ∩ 管理範圍」。每列:姓名、帳號、Email、所屬組織、角色、狀態;角色欄以「組織外」標示失去擁有組織子樹支撐的授予(白話文案:使用者不在該角色的所屬組織內;樣式見 Figma)。
 
+**初始狀態**(#183):進頁面預設選中**樹根**(= 操作者可見範圍的根,與組織管理頁一致),樹還沒載完之前不送 `users`(右側顯示載入中)。前端**永遠不送 `orgId: null`** — `UsersInput.orgId` 是「不給 = 整個可見範圍」,給 null 會在 API 的 `toObjectId` 擋下(`orgId is not a valid id: null`)。沒有 `system.org-manager.view`(樹不可用)時才走「不給 `orgId`」那條路。
+
 **新增使用者**(同一個彈窗,「新增」模式):姓名、帳號、Email、其他基本欄位(選填)、所屬組織(預設 = 目前選中的組織,可多選)、角色(選填)、**啟用方式二選一**:
 
 - 預設「寄啟用信」:不設密碼,寄 7 天有效的啟用連結(ADR-0009;`PasswordService.sendActivationEmail`),使用者自行在「設定新密碼」頁設定
@@ -56,7 +58,7 @@
 
 ## 資料
 
-`users` 欄位見 `account-base.schema.ts` / `user.schema.ts`(逐欄有註解);`nationalId` 欄位級加密、預設投影排除(ADR-0007)。清單查詢走 `org_user` 反查 + 可見範圍過濾,不做 populate(dis #28 的限制)。
+`users` 欄位見 `account-base.schema.ts` / `user.schema.ts`(逐欄有註解);`nationalId` 欄位級加密、預設投影排除(ADR-0007)。清單查詢走 `org_user` 反查 + 管理範圍過濾(組織經 `OrgsRepository`,治理類自動吃 `managedOrgIds`),不做 populate(dis #28 的限制)。
 
 ## API 介面(#136 已實作,程式在 `apps/api/src/users/`)
 
@@ -70,10 +72,10 @@ setUserOrgs(input: { userId, orgIds, dryRun, removalPolicy }): SetUserOrgsPayloa
 assignUserRoles(input: { userId, roleIds }): UserPayload!
 ```
 
-- **清單範圍**:不給 `orgId` 即攤開整個可見範圍(治理模組慣例,ADR-0005);給了就是該組織子樹 ∩ 可見範圍。組織子樹直接查 `orgs.ancestors`,租戶過濾由 BaseRepository 自動加上。`pageSize` 上限 100。
-- **每列的 `roles[].outOfScope`** = 「組織外」標記,與移除 dry-run 用同一份資格判斷(`OrgQualificationService`)。判斷子樹歸屬時**刻意不套可見範圍**(ADR-0005:可見性開關不影響授予資格),但顯示用的組織名稱仍只給可見範圍內的,範圍外只露 id。
+- **清單範圍**:不給 `orgId` 即攤開整個**管理範圍**(治理模組慣例,ADR-0005 的分工表;2026-09-19 改,原本是可見範圍);給了就是該組織子樹 ∩ 管理範圍。組織子樹直接查 `orgs.ancestors`,範圍過濾由 BaseRepository 自動加上(`orgs` 是治理類 collection)。`pageSize` 上限 100。
+- **每列的 `roles[].outOfScope`** = 「組織外」標記,與移除 dry-run 用同一份資格判斷(`OrgQualificationService`)。判斷子樹歸屬時**刻意不套任何範圍**(ADR-0005:可見性開關與管理範圍都不影響授予資格),但顯示用的組織名稱仍只給管理範圍內的,範圍外只露 id。
 - **`nationalId`**:`user(id)` 持 `show-national-id` 才以 `select("+nationalId")` 取回並解密,清單一律不回;寫入(新增或編輯)需 `edit-national-id`,否則 `FORBIDDEN`。
-- **全量覆蓋的邊界**:`setUserOrgs` 只覆蓋操作者**可見範圍內**的所屬組織,`assignUserRoles` 只覆蓋操作者**可觸及**(自己持有)的角色 — 彈窗列不出來的那些不會被順手移除。
+- **全量覆蓋的邊界**:`setUserOrgs` 只覆蓋操作者**管理範圍內**的所屬組織,`assignUserRoles` 只覆蓋操作者**可觸及**(自己持有)的角色 — 彈窗列不出來的那些不會被順手移除。
 - **`removalPolicy`**:`KEEP_ALL` / `REVOKE_OWNED_BY_ORG` / `REVOKE_ALL_UNQUALIFIED`(預設)。`unqualifiedRoles` 逐筆附 `reasons`(`OWNED_BY_REMOVED_ORG` / `NO_REMAINING_SUBTREE_SUPPORT`,可同時成立)與 `ownerProtected`。
 - **防越權**:`ROLE_OUT_OF_REACH` = 要授予的角色不在操作者自己持有的角色內;**超級管理員 bypass**(ADR-0004 解析時全權放行),否則根組織無法把租戶的角色授予任何人。授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹),不符回 `VALIDATION_FAILED`。
 - **錯誤碼**:`LAST_ORG`、`ROLE_OUT_OF_REACH`、`OWNER_PROTECTED`(程式正本 `apps/api/src/users/users-error.ts`,表在 GQL-04);帳號 / Email 重複與資格不符沿用 `VALIDATION_FAILED`(`extensions.fields` 指出欄位)。
@@ -86,7 +88,7 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 
 - **組織樹掛在別人的權限底下**:`orgTree` / `org` 由 api 守在 `system.org-manager.view`(`orgs.resolver.ts`),
   但本頁的左樹與「選擇所屬組織」都要它。admin 的處理是**頁內判斷**(ADR-0011):沒有那個 key 就不送查詢,
-  清單改成不給 `orgId`(= 整個可見範圍),「所屬組織」動作 disabled。**這是 api 的耦合,不是前端的設計** —
+  清單改成不給 `orgId`(= 整個管理範圍),「所屬組織」動作 disabled。**這是 api 的耦合,不是前端的設計** —
   第 4 段動權限表時應考慮讓 `orgTree` 同時接受 `system.user-manager.view`。
 - **角色清單沒有查詢端點**:第 3 段沒有 `roles` query(角色管理是第 4 段)。指派角色彈窗改查
   `user(操作者自己的 id)` 的 `roles` — 它正好就是「操作者自己持有的角色 + 擁有組織」,與 api 防越權
@@ -109,5 +111,5 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 
 - 擁有者 = 任一 `orgs.ownerUserId` 等於該使用者;**根組織操作者**(當前組織 `parentId === null`)一律放行。
 - 受保護的角色授予 = 該使用者擁有的組織所擁有、且帶租戶管理員模板標記的角色;標記為 `roles.key === "tenant-admin"`(模板本身)或 **`roles.settings.templateKey === "tenant-admin"`(開通租戶複製出來的副本)— #134 的 `provisionTenant` 建副本時必須寫入這個標記**,否則保護認不出那一筆。
-- 擁有者 / 根組織的判斷**不套可見範圍**(以 `visibleOrgIds: "all"` 讀,只取 `ownerUserId` / `parentId`):租戶頂層可能不在操作者可見範圍內,查不到就等於保護失效,安全檢查要 fail-closed。
+- 擁有者 / 根組織的判斷**不套任何範圍**(以 `visibleOrgIds` / `managedOrgIds` 皆為 `"all"` 讀,只取 `ownerUserId` / `parentId`):租戶頂層可能不在操作者的管理範圍內,查不到就等於保護失效,安全檢查要 fail-closed。
 - 本服務暫置於 `users/`;#135(租戶作業:轉移擁有者)也要同一套判斷,屆時抽成共用。

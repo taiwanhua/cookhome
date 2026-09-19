@@ -197,6 +197,9 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
   async function resetTokenFor(account: string): Promise<string> {
     const result = await requestReset(`${account}@example.com`);
     expect(result.errors).toBeUndefined();
+    // 寄信是 fire-and-forget(`void issueResetAndSend`,時間側信道 ADR-0003):
+    // mutation 回來時信可能還沒寄出,一定要等記錄用 adapter 收到才讀(漏等會 flaky)
+    await waitForSent(1);
     const sent = mail.sent.at(-1);
     if (!sent) {
       throw new Error("記錄用 adapter 沒收到重設信");

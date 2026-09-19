@@ -18,9 +18,16 @@ import {
 } from "@/test/msw/user-manager-handlers";
 import { renderApp } from "@/test/render";
 
-import { USER_MANAGER_PERMISSIONS } from "./user-manager-permissions";
+import {
+  ORG_MANAGER_VIEW_PERMISSION,
+  USER_MANAGER_PERMISSIONS,
+} from "./user-manager-permissions";
 
-const ALL_PERMISSIONS = Object.values(USER_MANAGER_PERMISSIONS);
+/** 左樹要 `system.org-manager.view`;拿掉它就是「樹不可用」那條路。 */
+const ALL_PERMISSIONS = [
+  ...Object.values(USER_MANAGER_PERMISSIONS),
+  ORG_MANAGER_VIEW_PERMISSION,
+];
 
 const modulesWith = (permissions: readonly string[]): TestModule[] => [
   overviewModule,
@@ -42,7 +49,9 @@ const modulesWith = (permissions: readonly string[]): TestModule[] => [
     sidebarType: ModuleSidebarType.Link,
     order: 1,
     route: "/system/org-manager",
-    permissions: ["system.org-manager.view"],
+    permissions: permissions.includes(ORG_MANAGER_VIEW_PERMISSION)
+      ? [ORG_MANAGER_VIEW_PERMISSION]
+      : [],
   },
   {
     id: "m-user",
@@ -195,6 +204,30 @@ describe("使用者管理頁(/system/user-manager)", () => {
     });
     expect(await screen.findByText("王小明")).toBeInTheDocument();
     expect(screen.queryByText("何家華")).not.toBeInTheDocument();
+  });
+
+  /**
+   * #183 第 4 項:以前一開始沒選組織就送 `orgId: null`,api 回
+   * `orgId is not a valid id: null`。現在預設選中樹根,樹還沒到手就先不查。
+   */
+  it("初始狀態:預設選中樹根,送出的 orgId 一律不是 null", async () => {
+    const { fake } = renderPage();
+
+    await screen.findByText("何家華");
+    // 第一次查詢就帶樹根,而且從頭到尾沒有一次 orgId 是 null
+    expect(fake.inputs.users[0]?.orgId).toBe("org-tenant");
+    expect(fake.inputs.users.every((input) => input.orgId !== null)).toBe(true);
+  });
+
+  it("沒有組織樹權限時不給 orgId(攤開整個可見範圍),清單照樣查得到", async () => {
+    const { fake } = renderPage({
+      permissions: ALL_PERMISSIONS.filter(
+        (key) => key !== ORG_MANAGER_VIEW_PERMISSION,
+      ),
+    });
+
+    await screen.findByText("何家華");
+    expect(fake.inputs.users[0]?.orgId).toBeUndefined();
   });
 
   it("角色欄以「組織外」標示失去組織支撐的授予,所屬組織多筆時收成 +N", async () => {

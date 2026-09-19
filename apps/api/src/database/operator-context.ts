@@ -1,19 +1,33 @@
 import type { Query, Types } from "mongoose";
 
 /**
- * 操作者上下文(詞彙見 CONTEXT.md:操作者 / 當前組織 / 可見範圍)。
- * 資料層只**消費**這份上下文;其計算(org_user 聯集、可見性開關)屬登入線(#23 第 2 段)。
+ * 操作者上下文(詞彙見 CONTEXT.md:操作者 / 當前組織 / 可見範圍 / 管理範圍)。
+ * 資料層只**消費**這份上下文;其計算(org_user 聯集、可見性開關、角色的擁有組織子樹)
+ * 屬登入線(#23 第 2 段,`auth/operator-context.service.ts`)。
+ *
+ * **兩個範圍各管各的**(ADR-0005「管理範圍與可見範圍的分工」):
+ * 治理類 collection 吃 `managedOrgIds`、業務類吃 `visibleOrgIds`,由 schema 上的
+ * `tenantScopePlugin({ kind })` 宣告是哪一類,個別功能不自己選。
  */
+/** 一個組織集合範圍:明列 id,或「全部」(根組織層級,避免每次請求載入全部組織 id)。 */
+export type OperatorOrgScope = Types.ObjectId[] | "all";
+
 export interface OperatorContext {
   /** 操作者(此刻登入、執行動作的使用者)id;無登入主體的流程(如會員註冊)為 null。 */
   actorId: Types.ObjectId | null;
-  /** 當前組織:新資料寫入哪個組織(ADR-0005);不參與可見範圍計算。 */
+  /** 當前組織:新資料寫入哪個組織(ADR-0005);不參與可見範圍 / 管理範圍計算。 */
   currentOrgId: Types.ObjectId | null;
   /**
-   * 可見組織集合 = 所有所屬組織的聯集(開關 ON 時含其下層,ADR-0005)。
+   * 可見組織集合 = 所有所屬組織的聯集(開關 ON 時含其下層,ADR-0005);**只管業務資料**。
    * 根組織「預設可見全部」以 `"all"` 表示(ADR-0005),避免每次請求載入全部組織 id。
    */
-  visibleOrgIds: Types.ObjectId[] | "all";
+  visibleOrgIds: OperatorOrgScope;
+  /**
+   * 管理範圍 = 持有的**啟用中角色**之**擁有組織子樹**的聯集(CONTEXT.md / ADR-0003);
+   * **只管治理模組**(組織 / 使用者 / 角色),由角色決定、不受可見性開關影響。
+   * 持超級管理員或擁有組織為根組織的角色 = `"all"`;沒有任何角色 = 空陣列。
+   */
+  managedOrgIds: OperatorOrgScope;
 }
 
 /** 掛在單一 Query 上的範圍資訊,供 plugin 的查詢中介層讀取。 */
@@ -44,14 +58,29 @@ export function getQueryScope(query: object): QueryScope | undefined {
   return queryScopes.get(query);
 }
 
-/** 判斷某組織是否落在操作者可見範圍內。 */
+function isIn(
+  scope: OperatorOrgScope,
+  orgId: Types.ObjectId | string,
+): boolean {
+  if (scope === "all") {
+    return true;
+  }
+  const target = String(orgId);
+  return scope.some((id) => String(id) === target);
+}
+
+/** 判斷某組織是否落在操作者**可見範圍**內(業務資料;ADR-0005)。 */
 export function isOrgVisible(
   operator: OperatorContext,
   orgId: Types.ObjectId | string,
 ): boolean {
-  if (operator.visibleOrgIds === "all") {
-    return true;
-  }
-  const target = String(orgId);
-  return operator.visibleOrgIds.some((id) => String(id) === target);
+  return isIn(operator.visibleOrgIds, orgId);
+}
+
+/** 判斷某組織是否落在操作者**管理範圍**內(治理模組;CONTEXT.md「管理範圍」)。 */
+export function isOrgManaged(
+  operator: OperatorContext,
+  orgId: Types.ObjectId | string,
+): boolean {
+  return isIn(operator.managedOrgIds, orgId);
 }

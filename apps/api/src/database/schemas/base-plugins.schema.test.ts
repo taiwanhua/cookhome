@@ -46,14 +46,18 @@ const ALL_SCHEMAS: Record<string, Schema> = {
 /**
  * 租戶資料 = 掛 tenantScope plugin 的 collection(ADR-0005「掛 orgId 的業務 collection」+ orgs 自身)。
  * 其餘(種子表、平台級帳號表、以關聯決定歸屬的 users/roles、token、核心關聯)不受租戶過濾。
+ *
+ * `kind` 決定過濾吃哪個範圍(ADR-0005「管理範圍與可見範圍的分工」;#187):
+ * **只有 `orgs` 是治理類**(吃 `managedOrgIds`),其餘都是業務類(吃 `visibleOrgIds`)—
+ * 這張表就是那條分界線的正本,新 collection 加進來時要在這裡決定自己屬哪一類。
  */
 const TENANT_SCOPED: Record<string, TenantScope> = {
-  orgs: { path: "_id", allowGlobal: false },
-  customers: { path: "orgId", allowGlobal: false },
-  fields: { path: "orgId", allowGlobal: true },
-  demo_items_one: { path: "orgId", allowGlobal: false },
-  demo_items_two: { path: "orgId", allowGlobal: false },
-  audit_logs: { path: "orgId", allowGlobal: false },
+  orgs: { path: "_id", allowGlobal: false, kind: "governance" },
+  customers: { path: "orgId", allowGlobal: false, kind: "business" },
+  fields: { path: "orgId", allowGlobal: true, kind: "business" },
+  demo_items_one: { path: "orgId", allowGlobal: false, kind: "business" },
+  demo_items_two: { path: "orgId", allowGlobal: false, kind: "business" },
+  audit_logs: { path: "orgId", allowGlobal: false, kind: "business" },
 };
 
 describe("底座 schema 的 plugin 掛載(ADR-0005 / ADR-0007)", () => {

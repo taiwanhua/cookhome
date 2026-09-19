@@ -82,7 +82,8 @@ export const OrgManagerPage = () => {
     selectedNode !== undefined && !selectedNode.outOfScope;
 
   return (
-    <Stack direction="row" spacing={3} sx={{ alignItems: "flex-start" }}>
+    // 撐滿殼給的內容區高度(#183 / Figma 87:214:左右兩塊等高、各自內部捲動)
+    <Stack direction="row" spacing={3} sx={{ flex: 1, minHeight: 0 }}>
       <OrgTreePanel
         nodes={data.orgNodes}
         isLoading={data.isOrgTreeLoading}

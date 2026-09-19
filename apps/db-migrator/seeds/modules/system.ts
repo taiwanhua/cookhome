@@ -133,7 +133,14 @@ export const systemModules: ModuleSeedDeclaration = {
       name: "刪除",
       description: "「刪除」按鈕 + API:前置檢查通過才可(軟刪除)",
     },
-    // 租戶作業(根組織專屬;同一份權限表的後三列)
+    {
+      key: permissionKey(ORG_MANAGER_KEY, "set-visibility"),
+      moduleKey: ORG_MANAGER_KEY,
+      name: "設定可見範圍",
+      description:
+        "編輯自己租戶頂層時的「使用者可見下層組織資料」開關 + API(settings.visibility)",
+    },
+    // 租戶作業(根組織專屬;同一份權限表的後兩列)
     {
       key: permissionKey(TENANT_OPS_KEY, "provision"),
       moduleKey: TENANT_OPS_KEY,
@@ -145,13 +152,6 @@ export const systemModules: ModuleSeedDeclaration = {
       moduleKey: TENANT_OPS_KEY,
       name: "轉移擁有者",
       description: "編輯租戶頂層時的「擁有者」欄位 + API(v1 僅根組織可轉移)",
-    },
-    {
-      key: permissionKey(TENANT_OPS_KEY, "set-visibility"),
-      moduleKey: TENANT_OPS_KEY,
-      name: "設定可見範圍",
-      description:
-        "編輯租戶頂層時的「使用者可見下層組織資料」開關 + API(settings.visibility)",
     },
     // 使用者管理(docs/modules/user-manager.md 權限表)
     {

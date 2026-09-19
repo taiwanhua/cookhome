@@ -5,7 +5,8 @@ import type { TreeNode } from "@repo/ui/tree";
 /**
  * `orgTree` 的節點形狀(codegen 把遞迴展開成五層具名型別,無法直接遞迴走訪,
  * 這裡給一個結構相容的型別當走訪介面;`children` 在最深一層不存在,故為選填)。
- * `outOfScope` = 可見範圍外(ADR-0005):樹上照樣顯示,但不可選、不可操作。
+ * `outOfScope`:#187 起管理範圍外的組織根本不回傳,這個欄位因此恆為 false;
+ * 留著是為了與使用者列的 `roles[].outOfScope` 一致、也讓舊資料(快取)不會炸。
  */
 export interface OrgNodeLike {
   id: string;
@@ -109,7 +110,11 @@ export const orgTrail = (
   return [];
 };
 
-/** 整棵樹的根節點 id;空樹回 null(租戶視角 = 租戶頂層、根組織視角 = 根組織)。 */
+/**
+ * 預設選中的節點 = **第一棵樹的根**;空樹回 null。
+ * 管理範圍可能有多個頂點(#187:持兩個沒有共同上層的角色就有兩棵樹),
+ * 所以這是「第一個根」而不是「唯一的根」;「樹根是不是平台根組織」看 `org(樹根).isSystem`(#186 ④)。
+ */
 export const rootOrgId = (nodes: readonly OrgNodeLike[]): string | null =>
   nodes[0]?.id ?? null;
 

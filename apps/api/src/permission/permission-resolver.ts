@@ -43,14 +43,19 @@ type ModuleRecord = Persisted<ModuleDocument>;
 type PermissionRecord = Persisted<PermissionDocument>;
 
 /**
- * 讀全域 / 關聯歸屬資料(modules、permissions、roles 不受租戶過濾),可見範圍在此無作用;
+ * 讀全域 / 關聯歸屬資料(modules、permissions、roles 不受租戶過濾),兩個範圍在此皆無作用;
  * 當前組織只是帶著走,不參與計算(ADR-0003)。
  */
 function readerOf(
   userId: Types.ObjectId,
   currentOrgId: Types.ObjectId | null,
 ): OperatorContext {
-  return { actorId: userId, currentOrgId, visibleOrgIds: "all" };
+  return {
+    actorId: userId,
+    currentOrgId,
+    visibleOrgIds: "all",
+    managedOrgIds: "all",
+  };
 }
 
 function idsOf(records: { _id: Types.ObjectId }[]): Types.ObjectId[] {

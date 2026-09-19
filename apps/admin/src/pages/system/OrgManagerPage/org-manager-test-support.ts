@@ -24,9 +24,12 @@ import { renderApp } from "@/test/render";
 import { ORG_MANAGER_PERMISSIONS } from "./org-manager-permissions";
 
 /**
- * 組織管理頁測試的共用場景(`OrgManagerPage.test.tsx` 與 `OrgManagerGuards.test.tsx` 共用)。
- * 兩個測試檔看同一頁、同一組夾具,場景放這裡而不是各寫一份(一份形狀,測試檔只寫行為)。
+ * 組織管理頁測試的共用場景(`OrgManagerPage.test.tsx`、`OrgManagerGuards.test.tsx`、
+ * `OrgTreeAfterMove.test.tsx`、`OrgManagerScope.test.tsx` 共用)。
+ * 這幾個測試檔看同一頁、同一組夾具,場景放這裡而不是各寫一份(一份形狀,測試檔只寫行為)。
  */
+
+/** 組織管理層的自有權限(租戶管理員靠 `system.org-manager.*` 拿到的那一組,扣掉可見範圍開關)。 */
 export const OWN_PERMISSIONS = [
   ORG_MANAGER_PERMISSIONS.view,
   ORG_MANAGER_PERMISSIONS.createChild,
@@ -36,11 +39,17 @@ export const OWN_PERMISSIONS = [
   ORG_MANAGER_PERMISSIONS.delete,
 ];
 
+/** 根組織專屬(隱藏的 `tenant-ops` 模組);租戶管理員模板永遠拿不到。 */
 export const TENANT_OPS_PERMISSIONS = [
   ORG_MANAGER_PERMISSIONS.provision,
   ORG_MANAGER_PERMISSIONS.transferOwner,
-  ORG_MANAGER_PERMISSIONS.setVisibility,
 ];
+
+/**
+ * 可見範圍開關 2026-09-19 從 tenant-ops 搬到組織管理層(#187):
+ * 租戶管理員靠 `system.org-manager.*` 自動取得,所以它不在 `TENANT_OPS_PERMISSIONS` 裡。
+ */
+export const SET_VISIBILITY_PERMISSION = ORG_MANAGER_PERMISSIONS.setVisibility;
 
 export const USER_VIEW_PERMISSION = "system.user-manager.view";
 
@@ -94,6 +103,7 @@ export const renderPage = ({
   permissions = [
     ...OWN_PERMISSIONS,
     ...TENANT_OPS_PERMISSIONS,
+    SET_VISIBILITY_PERMISSION,
     USER_VIEW_PERMISSION,
   ],
   world = {},

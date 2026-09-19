@@ -11,6 +11,10 @@ import { sign as signJwt } from "jsonwebtoken";
 import type { Types } from "mongoose";
 
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
+import {
+  createRole,
+  setRoleEnabled,
+} from "../permission/test-support/fixtures";
 import { OperatorContextService } from "./operator-context.service";
 import {
   type AuthTestApp,
@@ -133,6 +137,10 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
 }
 
 const PASSWORD = ["test", "pass", "word"].join("-");
+
+/** 商標的 GCS 物件路徑(ADR-0010;格式同 createUploadUrl 簽出來的)。 */
+const TENANT_LOGO_PATH = "org-logos/1b4e28ba-2fa1-11d2-883f-b9a761bde3fb.png";
+const OWN_LOGO_PATH = "org-logos/c9bf9e57-1685-4c89-bafb-ff5af830be8a.webp";
 
 /** 只假造 Date(節流與 token 效期讀的是時鐘),網路與計時器維持真實,否則 supertest / MongoDB 會卡住。 */
 function travelTo(timestamp: number): void {
@@ -631,7 +639,7 @@ describe("登入線1:login / refresh / logout / switchOrg / me(GraphQL 端點,�
   });
 
   describe("操作者上下文(guard 的產物;規則 ADR-0005)", () => {
-    it('根組織成員 → visibleOrgIds = "all";租戶成員 = 所屬組織聯集;租戶頂層 visibility=subtree 時含其整棵下層', async () => {
+    it('可見範圍:根組織成員 → "all";租戶成員 = 所屬組織聯集;租戶頂層 visibility=subtree 時含其整棵下層', async () => {
       const rootOrgId = await findRootOrgId(api.connection);
       const rootMember = await createUser(api.connection, {
         account: "ctx-root-member",
@@ -667,6 +675,8 @@ describe("登入線1:login / refresh / logout / switchOrg / me(GraphQL 端點,�
         actorId: rootMember,
         currentOrgId: rootOrgId,
         visibleOrgIds: "all",
+        // 這個人沒有任何角色 → 管理範圍是空的(所屬哪裡不給管理範圍,ADR-0003)
+        managedOrgIds: [],
       });
 
       const asTenant = await service.resolve(tenantMember, null);
@@ -686,6 +696,120 @@ describe("登入線1:login / refresh / logout / switchOrg / me(GraphQL 端點,�
       );
       expect(visible).not.toContain(String(ownChild));
       expect(visible).not.toContain(String(subtreeTenant));
+      // 管理範圍由角色決定,與所屬組織無關:這個人沒有角色 → 空
+      expect(asTenant.operator.managedOrgIds).toEqual([]);
+    });
+
+    it("管理範圍:持有的啟用中角色之擁有組織子樹的聯集;與所屬組織、可見性開關都無關(ADR-0003)", async () => {
+      const tenant = await createOrg(api.connection, { name: "managed 租戶" });
+      const deptOne = await createOrg(api.connection, {
+        name: "managed 部門一",
+        parentId: tenant,
+      });
+      const teamOne = await createOrg(api.connection, {
+        name: "managed 小組一",
+        parentId: deptOne,
+      });
+      const deptTwo = await createOrg(api.connection, {
+        name: "managed 部門二",
+        parentId: tenant,
+      });
+      // 所屬組織刻意只有小組一 — 管理範圍不該跟著它走
+      const userId = await createUser(api.connection, {
+        account: "ctx-managed",
+        password: PASSWORD,
+        orgIds: [teamOne],
+      });
+      const deptOneRoleId = await createRole(api.app, api.connection, {
+        name: "managed 部門一 管理員",
+        ownerOrgId: deptOne,
+        assignTo: [userId],
+      });
+      await createRole(api.app, api.connection, {
+        name: "managed 部門二 管理員",
+        ownerOrgId: deptTwo,
+        assignTo: [userId],
+      });
+
+      const service = api.app.get(OperatorContextService);
+      const managedOf = async (): Promise<string[]> => {
+        const { operator } = await service.resolve(userId, null);
+        return (operator.managedOrgIds as Types.ObjectId[]).map(String);
+      };
+
+      // 兩個角色 → 兩棵子樹的聯集;租戶頂層不是任一擁有組織,不在範圍內
+      const bothRoles = await managedOf();
+      expect(new Set(bothRoles)).toEqual(
+        new Set([String(deptOne), String(teamOne), String(deptTwo)]),
+      );
+
+      // 停用其中一個角色 → 它那棵子樹整個退出管理範圍
+      await setRoleEnabled(api.connection, deptOneRoleId, false);
+      const oneRole = await managedOf();
+      expect(oneRole).toEqual([String(deptTwo)]);
+      await setRoleEnabled(api.connection, deptOneRoleId, true);
+    });
+
+    it("擁有組織是根組織的角色 → 管理範圍是全部(不列舉 id)", async () => {
+      const rootOrgId = await findRootOrgId(api.connection);
+      const userId = await createUser(api.connection, {
+        account: "ctx-managed-root",
+        password: PASSWORD,
+        orgIds: [
+          await createOrg(api.connection, { name: "managed root 租戶" }),
+        ],
+      });
+      await createRole(api.app, api.connection, {
+        name: "根組織 管理員",
+        ownerOrgId: rootOrgId,
+        assignTo: [userId],
+      });
+
+      const { operator } = await api.app
+        .get(OperatorContextService)
+        .resolve(userId, null);
+      expect(operator.managedOrgIds).toBe("all");
+    });
+
+    it("側欄商標:自己沒設就沿 ancestors 由近到遠繼承最近有商標的上層(ADR-0010)", async () => {
+      const tenant = await createOrg(api.connection, {
+        name: "有商標的租戶",
+      });
+      const dept = await createOrg(api.connection, {
+        name: "沒商標的部門",
+        parentId: tenant,
+      });
+      const team = await createOrg(api.connection, {
+        name: "沒商標的小組",
+        parentId: dept,
+      });
+      const ownLogoOrg = await createOrg(api.connection, {
+        name: "自己有商標的部門",
+        parentId: tenant,
+      });
+      await api.connection
+        .collection("orgs")
+        .updateOne({ _id: tenant }, { $set: { logoPath: TENANT_LOGO_PATH } });
+      await api.connection
+        .collection("orgs")
+        .updateOne({ _id: ownLogoOrg }, { $set: { logoPath: OWN_LOGO_PATH } });
+
+      const userId = await createUser(api.connection, {
+        account: "ctx-logo-inherit",
+        password: PASSWORD,
+        orgIds: [team, ownLogoOrg, tenant],
+      });
+
+      const { memberOrgs } = await api.app
+        .get(OperatorContextService)
+        .resolve(userId, null);
+      const logoOf = (orgId: Types.ObjectId): string | undefined =>
+        memberOrgs.find((org) => org.id.equals(orgId))?.logoPath;
+
+      // 隔兩層也繼承得到;自己有的優先於繼承;有商標的那一層回自己的
+      expect(logoOf(team)).toBe(TENANT_LOGO_PATH);
+      expect(logoOf(ownLogoOrg)).toBe(OWN_LOGO_PATH);
+      expect(logoOf(tenant)).toBe(TENANT_LOGO_PATH);
     });
   });
 });

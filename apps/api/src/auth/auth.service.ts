@@ -30,7 +30,12 @@ export interface IssuedTokens {
  * 可見範圍在此無作用(refresh_tokens 未掛 tenantScope)。
  */
 function asAccount(userId: Types.ObjectId): OperatorContext {
-  return { actorId: userId, currentOrgId: null, visibleOrgIds: "all" };
+  return {
+    actorId: userId,
+    currentOrgId: null,
+    visibleOrgIds: "all",
+    managedOrgIds: "all",
+  };
 }
 
 /**
@@ -41,11 +46,12 @@ function asAccount(userId: Types.ObjectId): OperatorContext {
  */
 const DUMMY_PASSWORD_HASH = hashSync(randomBytes(32).toString("hex"));
 
-/** 查使用者 / 定位 refresh token 用:兩張表都不受租戶過濾,可見範圍在此無作用。 */
+/** 查使用者 / 定位 refresh token 用:兩張表都不受租戶過濾,兩個範圍在此無作用。 */
 const LOOKUP: OperatorContext = {
   actorId: null,
   currentOrgId: null,
   visibleOrgIds: "all",
+  managedOrgIds: "all",
 };
 
 @Injectable()

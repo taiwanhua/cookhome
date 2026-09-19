@@ -13,9 +13,14 @@ import {
   openTestDatabase,
 } from "./test-support/mongo-connection";
 
-/** 組一個操作者上下文(核心關聯不受租戶過濾,可見範圍在此無作用)。 */
+/** 組一個操作者上下文(核心關聯不受租戶過濾,兩個範圍在此皆無作用)。 */
 function operator(actorId = new Types.ObjectId()): OperatorContext {
-  return { actorId, currentOrgId: null, visibleOrgIds: "all" };
+  return {
+    actorId,
+    currentOrgId: null,
+    visibleOrgIds: "all",
+    managedOrgIds: "all",
+  };
 }
 
 /** 以集合比較 id(關聯讀取不保證順序)。 */

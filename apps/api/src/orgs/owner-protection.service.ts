@@ -27,7 +27,7 @@ export type TenantTopAction = "set-enabled" | "delete" | "move";
 
 /**
  * 擁有者保護與根組織例外都不該受可見範圍左右:
- * 租戶頂層可能不在操作者可見範圍內(可見性為 "own" 的下層組織管理員),
+ * 租戶頂層可能不在操作者的管理範圍 / 可見範圍內(例如擁有組織只到部門層的管理員),
  * 這時若查不到擁有者就等於保護失效 — 安全檢查要 fail-closed,所以以 "all" 讀,
  * 且只取 `ownerUserId` / `parentId` 這類判斷用欄位,不把組織內容交給呼叫端。
  */
@@ -36,6 +36,7 @@ function protectionReader(operator: OperatorContext): OperatorContext {
     actorId: operator.actorId,
     currentOrgId: operator.currentOrgId,
     visibleOrgIds: "all",
+    managedOrgIds: "all",
   };
 }
 

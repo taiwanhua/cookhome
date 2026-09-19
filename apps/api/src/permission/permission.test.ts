@@ -425,13 +425,16 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
         route: null,
         parentId: byKey(modules, "system.org-manager").id,
       });
-      // 權限仍在(彈窗開在組織管理頁上,權限由這個容器模組承載)
+      // 權限仍在(彈窗開在組織管理頁上,權限由這個容器模組承載)。
+      // 可見範圍開關 2026-09-19 搬到組織管理層(#187:它不是根組織專屬動作),不再在這裡。
       expectSameMembers(tenantOps.permissions, [
         "system.org-manager.tenant-ops.*",
         "system.org-manager.tenant-ops.provision",
         "system.org-manager.tenant-ops.transfer-owner",
-        "system.org-manager.tenant-ops.set-visibility",
       ]);
+      expect(byKey(modules, "system.org-manager").permissions).toContain(
+        "system.org-manager.set-visibility",
+      );
     });
   });
 
