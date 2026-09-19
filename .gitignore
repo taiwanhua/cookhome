@@ -25,3 +25,6 @@ storybook-static
 
 # Claude Code PostToolUse hook 的本機開關(見 scripts/claude-hooks/post-edit-check.mjs)
 .claude/hook-typecheck-off
+
+# 從 repo 根跑 api 時 NestJS 會在根目錄誤生一份 schema.gql(正本在 apps/api/schema.gql)
+/schema.gql
