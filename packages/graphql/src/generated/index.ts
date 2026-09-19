@@ -157,6 +157,25 @@ export type MeOrg = {
   name: Scalars['String']['output'];
 };
 
+export type ModuleAdminNode = {
+  __typename?: 'ModuleAdminNode';
+  children: Array<ModuleAdminNode>;
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  key: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  order: Scalars['Int']['output'];
+  parentId?: Maybe<Scalars['ID']['output']>;
+  permissions: Array<PermissionAdmin>;
+  sidebarType: ModuleSidebarType;
+};
+
+export type ModuleAdminPayload = {
+  __typename?: 'ModuleAdminPayload';
+  module: ModuleAdminNode;
+};
+
 export type ModuleOption = {
   __typename?: 'ModuleOption';
   id: Scalars['ID']['output'];
@@ -195,9 +214,11 @@ export type Mutation = {
   provisionTenant: ProvisionTenantPayload;
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
+  setModuleEnabled: ModuleAdminPayload;
   setOrgEnabled: OrgPayload;
   setOrgVisibility: OrgPayload;
   setPassword: SetPasswordPayload;
+  setPermissionEnabled: PermissionAdminPayload;
   setUserEnabled: UserPayload;
   setUserOrgs: SetUserOrgsPayload;
   switchOrg: SwitchOrgPayload;
@@ -262,6 +283,11 @@ export type MutationRequestPasswordResetArgs = {
 };
 
 
+export type MutationSetModuleEnabledArgs = {
+  input: SetModuleEnabledInput;
+};
+
+
 export type MutationSetOrgEnabledArgs = {
   input: SetOrgEnabledInput;
 };
@@ -274,6 +300,11 @@ export type MutationSetOrgVisibilityArgs = {
 
 export type MutationSetPasswordArgs = {
   input: SetPasswordInput;
+};
+
+
+export type MutationSetPermissionEnabledArgs = {
+  input: SetPermissionEnabledInput;
 };
 
 
@@ -341,6 +372,20 @@ export enum OrgVisibility {
   Subtree = 'SUBTREE'
 }
 
+export type PermissionAdmin = {
+  __typename?: 'PermissionAdmin';
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  key: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type PermissionAdminPayload = {
+  __typename?: 'PermissionAdminPayload';
+  permission: PermissionAdmin;
+};
+
 export type ProvisionTenantInput = {
   adminAccount: Scalars['String']['input'];
   adminEmail: Scalars['String']['input'];
@@ -360,6 +405,7 @@ export type ProvisionTenantPayload = {
 export type Query = {
   __typename?: 'Query';
   me: Me;
+  moduleTree: Array<ModuleAdminNode>;
   org: Org;
   orgTree: Array<OrgNode>;
   recipe: Recipe;
@@ -424,6 +470,11 @@ export enum RoleUnqualifiedReason {
   OwnedByRemovedOrg = 'OWNED_BY_REMOVED_ORG'
 }
 
+export type SetModuleEnabledInput = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
 export type SetOrgEnabledInput = {
   enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
@@ -442,6 +493,11 @@ export type SetPasswordInput = {
 export type SetPasswordPayload = {
   __typename?: 'SetPasswordPayload';
   accessToken: Scalars['String']['output'];
+};
+
+export type SetPermissionEnabledInput = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
 };
 
 export type SetUserEnabledInput = {
@@ -645,6 +701,27 @@ export type ChangePasswordMutationVariables = Exact<{
 
 export type ChangePasswordMutation = { __typename?: 'Mutation', changePassword: { __typename?: 'ChangePasswordPayload', success: boolean } };
 
+export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
+
+export type ModuleTreeQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ModuleTreeQuery = { __typename?: 'Query', moduleTree: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }> };
+
+export type SetModuleEnabledMutationVariables = Exact<{
+  input: SetModuleEnabledInput;
+}>;
+
+
+export type SetModuleEnabledMutation = { __typename?: 'Mutation', setModuleEnabled: { __typename?: 'ModuleAdminPayload', module: { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> } } };
+
+export type SetPermissionEnabledMutationVariables = Exact<{
+  input: SetPermissionEnabledInput;
+}>;
+
+
+export type SetPermissionEnabledMutation = { __typename?: 'Mutation', setPermissionEnabled: { __typename?: 'PermissionAdminPayload', permission: { __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean } } };
+
 export type OrgNodeFieldsFragment = { __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, ownerUserId?: string | null };
 
 export type OrgTreeQueryVariables = Exact<{ [key: string]: never; }>;
@@ -796,6 +873,25 @@ export type AssignUserRolesMutationVariables = Exact<{
 export type AssignUserRolesMutation = { __typename?: 'Mutation', assignUserRoles: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, ownerOrgId?: string | null, ownerOrgName?: string | null, outOfScope: boolean }> } } };
 
 
+export const ModuleAdminNodeFieldsFragmentDoc = `
+    fragment ModuleAdminNodeFields on ModuleAdminNode {
+  id
+  key
+  name
+  parentId
+  sidebarType
+  order
+  description
+  enabled
+  permissions {
+    id
+    key
+    name
+    description
+    enabled
+  }
+}
+    `;
 export const OrgNodeFieldsFragmentDoc = `
     fragment OrgNodeFields on OrgNode {
   id
@@ -1084,6 +1180,122 @@ export const useChangePasswordMutation = <
 
 
 useChangePasswordMutation.fetcher = (client: GraphQLClient, variables: ChangePasswordMutationVariables, headers?: RequestInit['headers']) => fetcher<ChangePasswordMutation, ChangePasswordMutationVariables>(client, ChangePasswordDocument, variables, headers);
+
+export const ModuleTreeDocument = `
+    query ModuleTree {
+  moduleTree {
+    ...ModuleAdminNodeFields
+    children {
+      ...ModuleAdminNodeFields
+      children {
+        ...ModuleAdminNodeFields
+        children {
+          ...ModuleAdminNodeFields
+          children {
+            ...ModuleAdminNodeFields
+          }
+        }
+      }
+    }
+  }
+}
+    ${ModuleAdminNodeFieldsFragmentDoc}`;
+
+export const useModuleTreeQuery = <
+      TData = ModuleTreeQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: ModuleTreeQueryVariables,
+      options?: Omit<UseQueryOptions<ModuleTreeQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ModuleTreeQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ModuleTreeQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ModuleTree'] : ['ModuleTree', variables],
+    queryFn: fetcher<ModuleTreeQuery, ModuleTreeQueryVariables>(client, ModuleTreeDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useModuleTreeQuery.getKey = (variables?: ModuleTreeQueryVariables) => variables === undefined ? ['ModuleTree'] : ['ModuleTree', variables];
+
+
+useModuleTreeQuery.fetcher = (client: GraphQLClient, variables?: ModuleTreeQueryVariables, headers?: RequestInit['headers']) => fetcher<ModuleTreeQuery, ModuleTreeQueryVariables>(client, ModuleTreeDocument, variables, headers);
+
+export const SetModuleEnabledDocument = `
+    mutation SetModuleEnabled($input: SetModuleEnabledInput!) {
+  setModuleEnabled(input: $input) {
+    module {
+      ...ModuleAdminNodeFields
+      children {
+        ...ModuleAdminNodeFields
+        children {
+          ...ModuleAdminNodeFields
+          children {
+            ...ModuleAdminNodeFields
+          }
+        }
+      }
+    }
+  }
+}
+    ${ModuleAdminNodeFieldsFragmentDoc}`;
+
+export const useSetModuleEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetModuleEnabledMutation, TError, SetModuleEnabledMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetModuleEnabledMutation, TError, SetModuleEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['SetModuleEnabled'],
+    mutationFn: (variables?: SetModuleEnabledMutationVariables) => fetcher<SetModuleEnabledMutation, SetModuleEnabledMutationVariables>(client, SetModuleEnabledDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetModuleEnabledMutation.fetcher = (client: GraphQLClient, variables: SetModuleEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetModuleEnabledMutation, SetModuleEnabledMutationVariables>(client, SetModuleEnabledDocument, variables, headers);
+
+export const SetPermissionEnabledDocument = `
+    mutation SetPermissionEnabled($input: SetPermissionEnabledInput!) {
+  setPermissionEnabled(input: $input) {
+    permission {
+      id
+      key
+      name
+      description
+      enabled
+    }
+  }
+}
+    `;
+
+export const useSetPermissionEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetPermissionEnabledMutation, TError, SetPermissionEnabledMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetPermissionEnabledMutation, TError, SetPermissionEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['SetPermissionEnabled'],
+    mutationFn: (variables?: SetPermissionEnabledMutationVariables) => fetcher<SetPermissionEnabledMutation, SetPermissionEnabledMutationVariables>(client, SetPermissionEnabledDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetPermissionEnabledMutation.fetcher = (client: GraphQLClient, variables: SetPermissionEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetPermissionEnabledMutation, SetPermissionEnabledMutationVariables>(client, SetPermissionEnabledDocument, variables, headers);
 
 export const OrgTreeDocument = `
     query OrgTree {

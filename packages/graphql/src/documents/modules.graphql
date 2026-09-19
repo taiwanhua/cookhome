@@ -1,0 +1,75 @@
+# 模組與權限(#204;api 正本 apps/api/src/modules/、規則正本 docs/modules/module-manager.md)。
+# 根組織專屬(ADR-0009):當前組織不是根組織 → 三個端點一律 FORBIDDEN,即使持有權限。
+# 與 me.modules 的差別:這裡是治理面的「平台宣告了什麼」— 全樹照回,含側欄看不到的 hidden
+# 節點與隱藏的 api 權限樹,也含**已停用**的模組與權限(狀態一律以 enabled 表示,不以「不回」表示)。
+
+fragment ModuleAdminNodeFields on ModuleAdminNode {
+  id
+  key
+  name
+  parentId
+  sidebarType
+  order
+  description
+  enabled
+  permissions {
+    id
+    key
+    name
+    description
+    enabled
+  }
+}
+
+# GraphQL 沒有遞迴 fragment,深度只能展開;五層夠現行模組樹
+#(最深四層:demo > demo.sub > demo.sub.sample-one > demo.sub.sample-one.view-page)
+query ModuleTree {
+  moduleTree {
+    ...ModuleAdminNodeFields
+    children {
+      ...ModuleAdminNodeFields
+      children {
+        ...ModuleAdminNodeFields
+        children {
+          ...ModuleAdminNodeFields
+          children {
+            ...ModuleAdminNodeFields
+          }
+        }
+      }
+    }
+  }
+}
+
+# 停用連動整棵子樹(子孫的 enabled 一併落庫成 false);啟用只啟用自己這一節。
+# 回傳被切換的模組**及其整棵子樹**的最新狀態,前端直接換掉樹上的這一枝。
+mutation SetModuleEnabled($input: SetModuleEnabledInput!) {
+  setModuleEnabled(input: $input) {
+    module {
+      ...ModuleAdminNodeFields
+      children {
+        ...ModuleAdminNodeFields
+        children {
+          ...ModuleAdminNodeFields
+          children {
+            ...ModuleAdminNodeFields
+          }
+        }
+      }
+    }
+  }
+}
+
+# 全域 kill switch:停用後任何人都不再持有這筆權限,連超級管理員也不給(ADR-0011 步驟 4)。
+# 不連動任何東西 — 權限沒有樹。
+mutation SetPermissionEnabled($input: SetPermissionEnabledInput!) {
+  setPermissionEnabled(input: $input) {
+    permission {
+      id
+      key
+      name
+      description
+      enabled
+    }
+  }
+}
