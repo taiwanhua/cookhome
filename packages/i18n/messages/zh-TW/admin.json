@@ -124,16 +124,18 @@
       "disable": "停用",
       "enable": "啟用",
       "delete": "刪除",
-      "systemOrgHint": "最上層組織不可停用、搬移或刪除"
+      "systemOrgHint": "最上層組織不可停用、搬移或刪除",
+      "tenantTopHint": "頂層組織不可由組織內的人停用、搬移或刪除,需要時請聯絡系統管理員"
     },
     "form": {
       "name": "名稱",
       "description": "描述",
       "parent": "上層組織(搬移)",
       "parentUnset": "不變更",
-      "parentHint": "新的上層必須在同一個頂層組織之下,而且不能是這個組織自己的下層。",
+      "parentHint": "可以搬到你管理範圍內的任何組織底下,除了它自己和它底下的組織。",
       "logo": "商標(選填)",
       "logoHint": "PNG / JPG / WebP,建議正方形,2MB 以內",
+      "logoCurrent": "目前的商標",
       "owner": "擁有者",
       "ownerUnset": "不變更",
       "ownerOption": "{name}({account})",

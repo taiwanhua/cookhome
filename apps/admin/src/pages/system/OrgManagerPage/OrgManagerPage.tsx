@@ -69,6 +69,12 @@ export const OrgManagerPage = () => {
     onError: onActionError,
   });
 
+  /**
+   * 租戶頂層對租戶內的人:停用 / 刪除 / 搬移只有根組織能做(ADR-0009)。
+   * api 也會擋(`assertTenantTopOperableBy`);這裡只是讓人先看得出來。
+   */
+  const isTenantTopProtected = isTenantTop(data.org) && !data.isRootPerspective;
+
   const trail = orgTrail(data.orgNodes, data.selectedOrgId ?? "");
   const parentName = trail.length > 1 ? (trail.at(-2)?.name ?? null) : null;
   const selectedNode = trail.at(-1);
@@ -101,6 +107,7 @@ export const OrgManagerPage = () => {
         ownerName={owner.ownerName}
         hasOwner={isTenantTop(data.org)}
         ability={data.ability}
+        isTenantTopProtected={isTenantTopProtected}
         onEdit={() => {
           setOpenDialog("edit");
         }}
@@ -131,6 +138,7 @@ export const OrgManagerPage = () => {
           org={data.org}
           parentOptions={moveTargets}
           isTenantTop={isTenantTop(data.org)}
+          isTenantTopProtected={isTenantTopProtected}
           ownerCandidates={owner.candidates}
           ability={data.ability}
           onClose={closeDialog}

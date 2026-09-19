@@ -159,3 +159,25 @@ setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
 - 本頁與使用者管理、角色管理的範圍都是**管理範圍**(CONTEXT.md),不是可見範圍;api 的 `orgTree` / `org` / 各 mutation 都以 `managedOrgIds` 守門。
 - 「租戶」標籤只標**父節點是平台根組織**的節點(`parentId` 等於根組織 id),不是「父節點是樹根」— 租戶視角的樹根是租戶頂層,它的子組織不是租戶。
 - 側欄商標:當前組織自己的,沒有就繼承最近有商標的上層(ADR-0010)。
+
+## 實作細節(#186:#140 驗收的六項修正)
+
+- **「這棵樹的根是不是平台根組織」不能看 `OrgNode.parentId`**:`buildForest`
+  把本棵樹的根一律對外回 `parentId: null`(租戶視角的租戶頂層也是),拿它判斷會把
+  租戶頂層當成平台根組織、把租戶的子組織標成「租戶」。admin 改讀 `org(樹根).isSystem`
+  (樹根沒被點掉時跟選中的那一筆同一把 query key,不多發一次請求)。
+- **租戶頂層保護的判斷點是 `OwnerProtectionService.assertTenantTopOperableBy(operator, org)`**
+  (`orgs/owner-protection.service.ts`):不是租戶頂層就放行,是的話只有根組織的操作者能做
+  (`isRootOperator`,與擁有者保護、租戶作業同一個判準),否則 `FORBIDDEN`。
+  `setOrgEnabled` / `deleteOrg` / `moveOrg` 各呼叫一次;**排在 `CYCLIC_MOVE` / `CROSS_TENANT` 與
+  刪除前置四項之前**,不透露租戶內部狀態。admin 那邊停用 / 刪除按鈕與編輯彈窗的
+  「上層組織」下拉都 `disabled` 加 `title` 提示(同根組織保護:給按鈕、停用、說明為什麼)。
+- **`updateOrg` 沒碰商標欄就不送 `logoPath`**:`UpdateOrgInput.logoPath` 給 `null` 在 api 是「清空商標」,
+  欄位缺席才是「不動它」— 前端以「使用者有沒有碰過商標欄」決定要不要送。
+  既有商標的預覽走 `@repo/ui/upload-field` 的 `initialPreviewUrl`(選新檔即取代、按移除回空狀態)。
+- **樹的葉節點在 admin 歸一化成 `children: undefined`**(`lib/org-tree.ts` 的 `toTreeNodes`):
+  api 對葉節點回 `children: []`,而 `TreeNode.children` 的語意是「有沒有下一層」—
+  不把「能不能展開」交給樹元件自己解讀。
+- **彈窗裡的表單欄位**:MUI 有一條 `.MuiDialogTitle-root + .MuiDialogContent-root { padding-top: 0 }`,
+  特異度贏過 `sx` 的單一 class,第一個 `TextField` 的浮動標籤會被標題壓住;
+  `@repo/ui/dialog` 以 `&&` 拉高特異度修好,四個彈窗一次到位。

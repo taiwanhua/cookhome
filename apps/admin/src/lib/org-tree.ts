@@ -27,7 +27,14 @@ export interface OrgOption {
 /** 節點 → 標籤右側的附加內容(停用 / 租戶標籤);不需要標籤時回 undefined。 */
 export type OrgLabelSuffix = (node: OrgNodeLike) => ReactNode;
 
-/** 樹 → `@repo/ui/tree` 的資料;範圍外節點 disabled(顯示但不可選)。 */
+/**
+ * 樹 → `@repo/ui/tree` 的資料;範圍外節點 disabled(顯示但不可選)。
+ *
+ * **葉節點一律給 `undefined`**:api 對沒有子組織的節點回 `children: []`,
+ * 而 `TreeNode.children` 的語意是「有沒有下一層」— 空陣列把「能不能展開」
+ * 交給樹元件自己解讀(比如搬走唯一的子組織後父節點還有不該有的展開箭頭,#186 ③)。
+ * 在這一層歸一化,不依賴 MUI 目前的判斷方式。
+ */
 export const toTreeNodes = (
   nodes: readonly OrgNodeLike[],
   labelSuffixOf?: OrgLabelSuffix,
@@ -38,7 +45,7 @@ export const toTreeNodes = (
     disabled: node.outOfScope,
     labelSuffix: labelSuffixOf?.(node),
     children:
-      node.children === undefined
+      node.children === undefined || node.children.length === 0
         ? undefined
         : toTreeNodes(node.children, labelSuffixOf),
   }));
