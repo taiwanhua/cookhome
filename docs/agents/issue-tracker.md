@@ -41,6 +41,10 @@ GitHub 的 issue 與 PR 共用同一組編號,所以單看 `#42` 無法確定是
 拆票時的兩條教訓(第 2 段,2026-09-19):
 
 - **同一個行為只歸一張票**:#66(殼)與 #68(密碼頁)都寫了「`mustChangePassword` → 導向改密碼頁」,兩位實作者各做一次、主流程還得對齊。導向、守衛這種橫跨畫面的行為,拆票時指定唯一的 owner 票,另一張只寫「沿用 #n」。
+- **共用函式不要指定「誰定義」,直接給簽章與所屬檔案**:#186 / #187 都寫「由 #187 定義、#186 改用」,實際 #186 先合,兩邊各寫一份同語意的函式再對齊。票上寫 `orgs/owner-protection.service.ts` 的 `assertTenantTopOperableBy(operator, org, action)`,誰先到誰寫、後到的 rebase 改用。
+- **二選一不留給實作者**:票上寫「保留但恆 false,或移除並同步 admin」這種選項,兩張並行的票會各選一邊;主流程在拆票時就選定。
+- **同一模組兩張票並行時,先約定檔案層級的分工**(誰負責拆測試檔、誰改共用 harness),規則共用反而不是問題(#186 / #187 各長出一份 `org-manager-test-support.ts`)。
+- **驗收回報附當時的 dev 部署版本(release PR 或 commit)**,否則「當下看到、事後重現不出來」的項目無從判斷是已被修掉還是條件沒對上(#186 的展開箭頭)。
 - **驗收條件要在該環境驗得到**:#69 寫「白名單外信箱在 dev 不寄」,但 dev 只有 root 一個帳號、信箱就是白名單,這條在 dev 根本驗不到。寫驗收前先問「這個環境有讓它成立的資料嗎」,沒有就改成單元測試覆蓋或註明需要的前置資料。
 
 ## 怎麼分辨一張 issue 的種類
@@ -85,6 +89,8 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 - OPTION_ID:Backlog=`2882aeb7` Ready=`e053bab2` In Progress=`5adedc57` In Review=`43e18a1a` Dev驗證中=`0eaa8179` Dev通過=`cc87d3d5` Staging驗證中=`e94980d1` Staging通過=`45c49925` Released=`e3445e43` Won't Do=`b6b968cd`
 
 **看板欄位在 UI 的位置**(重建看板時對得起來):Project「CookHome」→ 右上 … → Settings → Fields → `Status` 的選項清單,順序即上表。
+
+**改含中文的檔案**:PowerShell 的 cp950 stdout 會把繁中印成亂碼、`sed -i` 對含 CJK 的行常靜默不生效;最可靠的做法是 `python - <<'PY'` 寫精準取代腳本(worktree 守衛不擋這種 heredoc),或直接用 Write / Edit 工具。這台機器沒有外部 `jq`,只有 `gh --jq`;filter 名一律寫全名 `@repo/admin`(`--filter=admin` 找不到套件)。
 
 **Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。
 

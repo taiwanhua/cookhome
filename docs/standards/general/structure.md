@@ -32,6 +32,7 @@ apps/<app>/src/
 - **頁面一律資料夾**(路由 = 資料夾,`OverviewPage/OverviewPage.tsx`),即使目前只有一個檔;非頁面的單檔元件不開資料夾(GEN-01)。
 - **路由群組資料夾可放該群組共用的元件**:`pages/auth/AuthCard.tsx` 給四個登入線頁面用、之後 `pages/system/` 也可以放治理模組共用的東西;跨群組才上提到 `components/`。「同層頁面不互相 import」指的是頁面資料夾之間(`LoginPage/` 不 import `SetPasswordPage/` 的檔)。
 - **非 React 程式碼要碰 store**(如 `lib/auth/auth-fetch.ts` 要讀 access token、失效時 `clear()`):lib 不准 import `stores/`,改由 app 層把 store 實例注入(`createAuthSession(endpoint, useSessionStore)`),lib 只認 zustand 的 `StoreApi<T>` 介面(型別放 `lib/`)。#116 的做法就是這樣。
+- **跨路由群組要共用就上提到 `components/`**,不要複製一份:`pages/auth/NewPasswordFields/` 的密碼欄位被 `pages/system/` 的新增使用者彈窗需要時,正確做法是搬到 `components/NewPasswordFields/`(#139 當時複製了一份單欄位版,兩份「密碼規則提示」現在要合併,待重構票)。
 - **`pages/` 為什麼取代 `features/`**:admin 的業務單位是模組(側欄每一項),「一個頁面 = 一個模組」已是產品定義(ADR-0004),不需要再一層沒定義的 feature。
 
 其他包的對應:`packages/ui` 沒有分層,`src/<Component>/<Component>.tsx` 平鋪(`theme/`、`icons/` 維持);`apps/front` 的 `app/` 是 Next.js 路由目錄(框架例外),其餘 `components / hooks / lib` 同上。front 沒有 `pages/` 層,**單一路由專用的元件放 `components/<RouteView>/`**(如 `components/HomeView/HomeView.tsx` + 它的子元件),路由檔 `app/**/page.tsx` 只剩組裝;兩個路由共用的才是一般的 `components/`。
