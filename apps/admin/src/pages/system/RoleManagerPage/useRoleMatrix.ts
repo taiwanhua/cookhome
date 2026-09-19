@@ -1,0 +1,152 @@
+import { useMemo, useState } from "react";
+
+import {
+  type PermissionGrant,
+  isWholeGroupGranted,
+  toggleWholeGroup,
+} from "@repo/domain/permission";
+import { useRoleMatrixQuery, useSaveRoleMatrixMutation } from "@repo/graphql";
+
+import { useSession } from "@/hooks/useSession";
+import {
+  allMatrixRowIds,
+  isSameGrant,
+  matrixSelectionOf,
+  nextGrantFromSelection,
+  ungrantedMatrixRowIds,
+} from "@/lib/role-matrix-208";
+
+import {
+  type RoleManagerErrorCode,
+  roleManagerErrorOf,
+} from "./role-manager-error";
+import type { MatrixModuleView } from "./role-manager-types";
+
+const EMPTY_GRANT: PermissionGrant = { moduleKeys: [], permissionKeys: [] };
+const EMPTY_TREE: readonly MatrixModuleView[] = [];
+
+export interface UseRoleMatrixOptions {
+  /** 沒有 `edit-matrix` 權限時整份鎖住(看得到、動不了) */
+  canEdit: boolean;
+  /** 儲存成功後由頁面精準 invalidate(DATA-04) */
+  onSaved: (roleId: string) => void;
+}
+
+/**
+ * 權限矩陣的狀態(#208;規則正本 ADR-0004 + `docs/modules/role-manager.md`「權限矩陣規則」)。
+ *
+ * **連動一律呼叫 `@repo/domain/permission`**:本 hook 只保管「使用者改過的那份授予」,
+ * 勾選換算、`*` 收斂 / 展開、整組切換全部交給純函式(`lib/role-matrix-208.ts` 是它的薄殼)。
+ *
+ * 草稿連同 roleId 一起存,換角色時**推導**成「沒有草稿」而不是在 effect 內清空(REACT-06);
+ * 未儲存時換角色會先被放棄變更彈窗攔下,所以正常情況不會丟掉東西。
+ */
+export const useRoleMatrix = (
+  roleId: string | null,
+  { canEdit, onSaved }: UseRoleMatrixOptions,
+) => {
+  const { session } = useSession();
+  const [draft, setDraft] = useState<{
+    roleId: string;
+    grant: PermissionGrant;
+  } | null>(null);
+  const [errorCode, setErrorCode] = useState<RoleManagerErrorCode | null>(null);
+
+  const query = useRoleMatrixQuery(
+    session.client,
+    { roleId: roleId ?? "" },
+    { enabled: roleId !== null },
+  );
+  const payload = query.data?.roleMatrix;
+  /** 空樹的 fallback 每次 render 都是新陣列,包一層 memo 才不會讓下面的 memo 每次失效。 */
+  const tree = useMemo<readonly MatrixModuleView[]>(
+    () => payload?.modules ?? EMPTY_TREE,
+    [payload?.modules],
+  );
+  const saved = payload?.granted ?? EMPTY_GRANT;
+  const grant = draft !== null && draft.roleId === roleId ? draft.grant : saved;
+
+  const isDirty =
+    payload !== undefined &&
+    draft !== null &&
+    draft.roleId === roleId &&
+    !isSameGrant(tree, draft.grant, saved);
+
+  /** 租戶副本只能縮:未持有的列直接不給勾(否則送出才吃到 `ROLE_OUT_OF_REACH`)。 */
+  const lockedIds = useMemo(() => {
+    if (!canEdit) {
+      return allMatrixRowIds(tree);
+    }
+    return payload?.shrinkOnly === true
+      ? ungrantedMatrixRowIds(tree, saved)
+      : [];
+  }, [canEdit, payload?.shrinkOnly, tree, saved]);
+
+  const selection = useMemo(
+    () => matrixSelectionOf(tree, grant, { lockedIds }),
+    [tree, grant, lockedIds],
+  );
+
+  const applyGrant = (next: PermissionGrant) => {
+    if (roleId === null) {
+      return;
+    }
+    setErrorCode(null);
+    setDraft({ roleId, grant: next });
+  };
+
+  const save = useSaveRoleMatrixMutation(session.client, {
+    onSuccess: (result) => {
+      setDraft(null);
+      onSaved(result.saveRoleMatrix.role.id);
+    },
+    onError: (error: unknown) => {
+      setErrorCode(roleManagerErrorOf(error).code);
+    },
+  });
+
+  return {
+    isLoading: roleId !== null && query.isLoading,
+    tree,
+    shrinkOnly: payload?.shrinkOnly ?? false,
+    selection,
+    isDirty,
+    isSaving: save.isPending,
+    errorCode,
+    /** 勾 / 取消一列:把新的勾選集合翻成授予,再由 `normalizeGrant` 收斂 */
+    changeSelection: (nextIds: readonly string[]) => {
+      applyGrant(nextGrantFromSelection(tree, selection.checkedIds, nextIds));
+    },
+    /** 頂層群組列的「全選整組 / 清空整組」(ADR-0004:子樹每個模組各一筆 `*`) */
+    toggleGroup: (groupKey: string) => {
+      applyGrant(
+        toggleWholeGroup(
+          tree,
+          grant,
+          groupKey,
+          !isWholeGroupGranted(tree, grant, groupKey),
+        ),
+      );
+    },
+    isGroupGranted: (groupKey: string) =>
+      isWholeGroupGranted(tree, grant, groupKey),
+    /** 放棄未儲存的變更 */
+    reset: () => {
+      setDraft(null);
+      setErrorCode(null);
+    },
+    submit: () => {
+      if (roleId === null) {
+        return;
+      }
+      setErrorCode(null);
+      save.mutate({
+        input: {
+          roleId,
+          moduleKeys: [...grant.moduleKeys],
+          permissionKeys: [...grant.permissionKeys],
+        },
+      });
+    },
+  };
+};

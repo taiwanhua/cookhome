@@ -401,5 +401,133 @@
       "NOT_FOUND": "找不到這個模組或權限,可能已被移除,請重新整理。",
       "UNEXPECTED": "操作失敗,請稍後再試。"
     }
+  },
+  "roleManager": {
+    "listTitle": "角色清單",
+    "listLabel": "角色清單",
+    "loading": "載入中",
+    "empty": "你的管理範圍內還沒有角色",
+    "noSelection": "選一個角色,右邊就會出現它的權限設定與持有人。",
+    "noViewPermission": "你沒有角色管理的檢視權限,看不到角色清單。",
+    "none": "—",
+    "total": "共 {total} 筆,每頁 {pageSize} 筆",
+    "rowSummary": "{org} · 持有 {count} 人",
+    "tags": {
+      "system": "系統內建",
+      "templateCopy": "預設角色"
+    },
+    "status": {
+      "enabled": "啟用",
+      "disabled": "停用"
+    },
+    "toolbar": {
+      "search": "搜尋",
+      "searchPlaceholder": "角色名稱或描述"
+    },
+    "actions": {
+      "create": "+ 新增",
+      "edit": "編輯",
+      "enable": "啟用",
+      "disable": "停用",
+      "delete": "刪除"
+    },
+    "tabs": {
+      "matrix": "權限設定",
+      "users": "分配使用者"
+    },
+    "matrix": {
+      "title": "{name} — 權限設定",
+      "subtitle": "只能下放你擁有的權限;「全部(*)」涵蓋該模組這一層現有及未來的權限。",
+      "legend": "粗體 = 模組(勾選 = 此角色可進入該頁);縮排項 = 該模組的權限。「全部(*)」與同層權限互斥連動:勾 * 同層全帶入(含未來新增);取消任一則 * 解除。",
+      "wildcard": "全部(*)",
+      "selectGroup": "全選整組",
+      "clearGroup": "清空整組",
+      "treeLabel": "權限矩陣",
+      "unsaved": "有未儲存的變更",
+      "save": "儲存變更",
+      "shrinkOnly": "這是系統在開通時幫你準備好的角色,權限只能縮不能擴 — 目前沒有的項目不能勾選。"
+    },
+    "users": {
+      "title": "{name} — 分配使用者",
+      "outOfScopeHint": "「組織外」表示使用者不在這個角色的擁有組織或其下層組織內;權限照常有效。",
+      "add": "加入使用者",
+      "remove": "移除",
+      "ownerProtected": "擁有者保護",
+      "outOfScope": "組織外",
+      "none": "—",
+      "empty": "這個角色還沒有持有人",
+      "total": "共 {total} 筆,每頁 {pageSize} 筆",
+      "tableLabel": "角色持有人清單",
+      "columns": {
+        "account": "帳號",
+        "name": "姓名",
+        "orgs": "所屬組織",
+        "email": "Email",
+        "actions": "操作"
+      }
+    },
+    "addUsers": {
+      "title": "加入使用者 — {name}({org})",
+      "search": "搜尋",
+      "searchPlaceholder": "姓名或 Email",
+      "candidate": "{account} · {name}({orgs})",
+      "hint": "僅列出屬於「{org}」或其下層組織、且在你可見範圍內的使用者。找不到人?請先到使用者管理將他加入組織。",
+      "picked": "已選 {count} 人",
+      "empty": "沒有符合條件的使用者",
+      "noOrg": "—",
+      "noUserPermission": "你沒有使用者管理的檢視權限,無法在這裡挑選使用者;請改由有權限的人協助加入。",
+      "confirm": "加入",
+      "cancel": "取消"
+    },
+    "form": {
+      "createTitle": "新增角色",
+      "editTitle": "編輯角色 — {name}",
+      "ownerOrg": "擁有組織",
+      "ownerOrgHint": "這個角色的持有者可以管理此組織與它底下的所有組織",
+      "name": "名稱",
+      "description": "描述",
+      "noOrg": "—",
+      "submitCreate": "新增",
+      "submitEdit": "儲存",
+      "cancel": "取消"
+    },
+    "delete": {
+      "title": "刪除 {name}?",
+      "body": "刪除後這個角色就不再出現在清單與指派角色的選項裡。",
+      "blocked": "這個角色目前不能刪除:",
+      "reasons": {
+        "HAS_GRANTS": "還有使用者持有這個角色,請先把他們移除。",
+        "SYSTEM_ROLE": "這是系統內建角色。",
+        "TEMPLATE_COPY": "這是系統在開通時幫你準備好的角色。"
+      },
+      "useDisableInstead": "不能刪除時可以改用「停用」:持有者的這個角色立即失效,之後隨時可以再啟用。",
+      "confirm": "刪除",
+      "close": "關閉"
+    },
+    "toggle": {
+      "disableTitle": "停用 {name}?",
+      "disableBody": "停用後,持有這個角色的人立刻失去它帶來的功能與範圍;授予本身仍在,之後可以再啟用。",
+      "enableTitle": "啟用 {name}?",
+      "enableBody": "啟用後,持有這個角色的人會重新取得它的功能與範圍。",
+      "confirmDisable": "停用",
+      "confirmEnable": "啟用",
+      "cancel": "取消"
+    },
+    "discard": {
+      "title": "放棄未儲存的變更?",
+      "body": "權限設定還沒儲存,離開這裡就會把這次的調整丟掉。",
+      "keepEditing": "繼續編輯",
+      "confirm": "放棄變更"
+    },
+    "errors": {
+      "ROLE_NOT_DELETABLE": "這個角色目前不能刪除。",
+      "ROLE_OUT_OF_REACH": "你只能下放自己也擁有的權限。",
+      "USER_NOT_ELIGIBLE": "只能加入屬於這個角色擁有組織或其下層組織的使用者。",
+      "OWNER_PROTECTED": "頂層組織的擁有者受保護,這個動作被拒絕。",
+      "NOT_FOUND": "找不到這個角色,它可能已被刪除。",
+      "FORBIDDEN": "你沒有執行這個動作的權限。",
+      "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
+      "UNEXPECTED": "操作失敗,請稍後再試。"
+    }
   }
 }
