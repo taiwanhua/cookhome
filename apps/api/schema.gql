@@ -56,6 +56,83 @@ input CreateUserInput {
   roleIds: [ID!]
 }
 
+type DataScopeAudience {
+  ids: [ID!]!
+  type: DataScopeAudienceType!
+}
+
+input DataScopeAudienceInput {
+  ids: [ID!]
+  type: DataScopeAudienceType!
+}
+
+"""套用對象:全部人 / 指定角色 / 指定組織 / 指定使用者"""
+enum DataScopeAudienceType {
+  ALL
+  ORG
+  ROLE
+  USER
+}
+
+"""多條規則命中同一操作者時的頂層合成:OR = 聯集(命中越多看得越多)、AND = 交集"""
+enum DataScopeCombineOp {
+  AND
+  OR
+}
+
+type DataScopeFieldOption {
+  label: String!
+  value: String!
+}
+
+"""可篩欄位的型別;決定 UI 出哪些運算子與值來源(ADR-0008 的表,翻譯器不認識個別欄位)"""
+enum DataScopeFieldType {
+  DATE
+  ENUM
+  ORG
+  USER
+}
+
+type DataScopeRule {
+  collection: String!
+  combineOp: DataScopeCombineOp!
+  rules: [DataScopeRuleEntry!]!
+  updatedAt: DateTime!
+}
+
+type DataScopeRuleEntry {
+  audience: DataScopeAudience!
+  filter: JSONObject!
+}
+
+input DataScopeRuleEntryInput {
+  audience: DataScopeAudienceInput!
+  filter: JSONObject!
+}
+
+type DataScopeRulePayload {
+  rule: DataScopeRule
+}
+
+type DataScopeTarget {
+  collection: String!
+  description: String
+  fields: [DataScopeTargetField!]!
+  name: String!
+}
+
+type DataScopeTargetField {
+  isBase: Boolean!
+  label: String!
+  name: String!
+  options: [DataScopeFieldOption!]!
+  type: DataScopeFieldType!
+}
+
+type DataScopeTargetsPayload {
+  targets: [DataScopeTarget!]!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -79,6 +156,9 @@ input IngredientInput {
   amount: String!
   name: String!
 }
+
+"""任意 JSON 物件(資料範圍的條件樹;形狀見 apps/api/src/data-scope/data-scope-rule.ts)"""
+scalar JSONObject
 
 input LoginInput {
   account: String!
@@ -182,6 +262,7 @@ type Mutation {
   provisionTenant(input: ProvisionTenantInput!): ProvisionTenantPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
+  saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
@@ -255,6 +336,8 @@ type ProvisionTenantPayload {
 }
 
 type Query {
+  dataScopeRule(collection: String!): DataScopeRulePayload!
+  dataScopeTargets: DataScopeTargetsPayload!
   me: Me!
   moduleTree: [ModuleAdminNode!]!
   org(id: ID!): Org!
@@ -296,6 +379,16 @@ type RequestPasswordResetPayload {
 enum RoleUnqualifiedReason {
   NO_REMAINING_SUBTREE_SUPPORT
   OWNED_BY_REMOVED_ORG
+}
+
+input SaveDataScopeRuleInput {
+  collection: String!
+  combineOp: DataScopeCombineOp! = OR
+  rules: [DataScopeRuleEntryInput!]!
+}
+
+type SaveDataScopeRulePayload {
+  rule: DataScopeRule!
 }
 
 input SetModuleEnabledInput {

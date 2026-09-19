@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import type { Types } from "mongoose";
 
+import type { Persisted } from "../database/base.repository";
 import {
   type OrgDocument,
   OrgsRepository,
+  type RoleDocument,
   RolesRepository,
 } from "../database/database.module";
 import type {
@@ -28,6 +30,8 @@ function systemOperator(actorId: Types.ObjectId): OperatorContext {
     managedOrgIds: "all",
   };
 }
+
+type RoleRecord = Persisted<RoleDocument>;
 
 export interface MemberOrg {
   id: Types.ObjectId;
@@ -91,16 +95,20 @@ export class OperatorContextService {
         ? currentOrgId
         : (memberOrgs[0]?.id ?? null);
 
-    const [visibleOrgIds, managedOrgIds] = await Promise.all([
+    const [visibleOrgIds, enabledRoles] = await Promise.all([
       this.visibleOrgIdsOf(reader, memberOrgDocuments),
-      this.managedOrgIdsOf(reader, userId),
+      this.enabledRolesOf(reader, userId),
     ]);
+    const managedOrgIds = await this.managedOrgIdsOf(reader, enabledRoles);
     return {
       operator: {
         actorId: userId,
         currentOrgId: resolvedCurrentOrgId,
         visibleOrgIds,
         managedOrgIds,
+        // 資料範圍規則的比對來源(ADR-0008):所屬組織是 org_user 的直接關聯,不含開關展開的下層
+        memberOrgIds: memberOrgs.map((org) => org.id),
+        roleIds: enabledRoles.map((role) => role._id),
       },
       memberOrgs,
     };
@@ -161,23 +169,32 @@ export class OperatorContextService {
   }
 
   /**
+   * 操作者持有的**啟用中角色**(ADR-0011 步驟 2:停用的角色不算)。
+   * 管理範圍與資料範圍的套用對象比對都以這一份為準 — 只查一次、兩邊共用同一條規則。
+   */
+  private async enabledRolesOf(
+    reader: OperatorContext,
+    userId: Types.ObjectId,
+  ): Promise<RoleRecord[]> {
+    const grantedRoleIds = await this.relations.listRoleIdsOfUser(userId);
+    if (grantedRoleIds.length === 0) {
+      return [];
+    }
+    return this.roles.findMany(reader, {
+      _id: { $in: grantedRoleIds },
+      enabled: true,
+    });
+  }
+
+  /**
    * 管理範圍(ADR-0003 的表格最後一列):啟用中角色 → 擁有組織 → 各自的子樹聯集。
    * 超級管理員在權限解析時全權放行(ADR-0004),範圍上同樣是全部;
    * 擁有組織是根組織的角色(如租戶管理員**模板**)子樹本來就是全部,直接回 `"all"` 不列舉。
    */
   private async managedOrgIdsOf(
     reader: OperatorContext,
-    userId: Types.ObjectId,
+    roles: readonly RoleRecord[],
   ): Promise<OperatorOrgScope> {
-    const grantedRoleIds = await this.relations.listRoleIdsOfUser(userId);
-    if (grantedRoleIds.length === 0) {
-      return [];
-    }
-    // 停用的角色不算(與權限解析同一條規則,ADR-0011 步驟 2)
-    const roles = await this.roles.findMany(reader, {
-      _id: { $in: grantedRoleIds },
-      enabled: true,
-    });
     if (roles.length === 0) {
       return [];
     }

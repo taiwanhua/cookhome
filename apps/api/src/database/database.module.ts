@@ -12,6 +12,14 @@ import {
 } from "./schemas/core-relationship.schema";
 import { Customer, CustomerSchema } from "./schemas/customer.schema";
 import {
+  DataScopeRule,
+  DataScopeRuleSchema,
+} from "./schemas/data-scope-rule.schema";
+import {
+  DataScopeTarget,
+  DataScopeTargetSchema,
+} from "./schemas/data-scope-target.schema";
+import {
   DemoItemOne,
   DemoItemOneSchema,
 } from "./schemas/demo-item-one.schema";
@@ -39,6 +47,8 @@ export type ModuleDocument = HydratedDocument<ModuleEntity>;
 export type PermissionDocument = HydratedDocument<Permission>;
 export type AuditLogDocument = HydratedDocument<AuditLog>;
 export type CustomerDocument = HydratedDocument<Customer>;
+export type DataScopeRuleDocument = HydratedDocument<DataScopeRule>;
+export type DataScopeTargetDocument = HydratedDocument<DataScopeTarget>;
 export type DemoItemOneDocument = HydratedDocument<DemoItemOne>;
 export type DemoItemTwoDocument = HydratedDocument<DemoItemTwo>;
 export type FieldDocument = HydratedDocument<Field>;
@@ -161,6 +171,34 @@ export class CustomersRepository extends BaseRepository<
   }
 }
 
+/** data_scope_rules(根組織專屬設定:每個資料目標一份規則,ADR-0008;不掛 tenantScope)。 */
+@Injectable()
+export class DataScopeRulesRepository extends BaseRepository<
+  DataScopeRule,
+  DataScopeRuleDocument
+> {
+  constructor(
+    @InjectModel(DataScopeRule.name)
+    model: RepositoryModel<DataScopeRule, DataScopeRuleDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** data_scope_targets(全表種子資料:模組 seed 宣告的資料目標,ADR-0008)。 */
+@Injectable()
+export class DataScopeTargetsRepository extends BaseRepository<
+  DataScopeTarget,
+  DataScopeTargetDocument
+> {
+  constructor(
+    @InjectModel(DataScopeTarget.name)
+    model: RepositoryModel<DataScopeTarget, DataScopeTargetDocument>,
+  ) {
+    super(model);
+  }
+}
+
 /** demo_items_one(第 5 段示範模組的業務資料)。 */
 @Injectable()
 export class DemoItemsOneRepository extends BaseRepository<
@@ -217,6 +255,8 @@ export class FieldsRepository extends BaseRepository<Field, FieldDocument> {
       { name: AuditLog.name, schema: AuditLogSchema },
       { name: CoreRelationship.name, schema: CoreRelationshipSchema },
       { name: Customer.name, schema: CustomerSchema },
+      { name: DataScopeRule.name, schema: DataScopeRuleSchema },
+      { name: DataScopeTarget.name, schema: DataScopeTargetSchema },
       { name: DemoItemOne.name, schema: DemoItemOneSchema },
       { name: DemoItemTwo.name, schema: DemoItemTwoSchema },
       { name: Field.name, schema: FieldSchema },
@@ -232,6 +272,8 @@ export class FieldsRepository extends BaseRepository<Field, FieldDocument> {
     PermissionsRepository,
     AuditLogsRepository,
     CustomersRepository,
+    DataScopeRulesRepository,
+    DataScopeTargetsRepository,
     DemoItemsOneRepository,
     DemoItemsTwoRepository,
     FieldsRepository,
@@ -252,6 +294,8 @@ export class FieldsRepository extends BaseRepository<Field, FieldDocument> {
     PermissionsRepository,
     AuditLogsRepository,
     CustomersRepository,
+    DataScopeRulesRepository,
+    DataScopeTargetsRepository,
     DemoItemsOneRepository,
     DemoItemsTwoRepository,
     FieldsRepository,

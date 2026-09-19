@@ -10,6 +10,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import type { GraphqlContext } from "./auth/request-context";
+import { DataScopeModule } from "./data-scope/data-scope.module";
 import { ModuleManagerModule } from "./modules/module-manager.module";
 import { OrgsModule } from "./orgs/orgs.module";
 import { PermissionModule } from "./permission/permission.module";
@@ -57,6 +58,7 @@ const isSandboxEnabled =
     OrgsModule,
     UsersModule,
     ModuleManagerModule,
+    DataScopeModule,
     RecipesModule,
   ],
 })
