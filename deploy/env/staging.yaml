@@ -9,7 +9,7 @@ ADMIN_APP_URL: "https://erp-staging.cookhome.online"
 # refresh cookie 的 Domain(api-staging 與 erp-staging 同屬此網域)
 COOKIE_DOMAIN: ".cookhome.online"
 # 收件白名單(逗號分隔):staging 只寄給開發者,防誤寄真人
-MAIL_ALLOWLIST: "a0987837233@gmail.com"
+MAIL_ALLOWLIST: "a0987837233@gmail.com,a0987837233+tenant@gmail.com,a0987837233+user@gmail.com"
 # GRAPHQL_SANDBOX 不寫 = Sandbox 關(只有 dev 開)
 # 檔案儲存的 GCS bucket(ADR-0010;未設 GCS_BUCKET_PRIVATE = 改用記錄用 adapter,不會真的上傳)
 GCS_BUCKET_PRIVATE: "cookhome-assets-staging"
