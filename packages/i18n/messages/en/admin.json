@@ -349,5 +349,57 @@
       "VALIDATION_FAILED": "The data did not pass validation, please check and submit again.",
       "UNEXPECTED": "The action failed, please try again later."
     }
+  },
+  "moduleManager": {
+    "seedNotice": "Modules and permissions are seed data updated with each release. This page is read-only apart from the enabled switches. Contact a system administrator to add a module.",
+    "tree": {
+      "title": "Module tree",
+      "groupTag": "Group",
+      "hiddenTag": "Hidden",
+      "disabledTag": "Disabled"
+    },
+    "detail": {
+      "region": "Module details",
+      "loading": "Loading module tree",
+      "empty": "Select a module to view its permissions",
+      "enabled": "Enabled",
+      "toggleAria": "Enable {name}",
+      "stateEnabled": "Enabled",
+      "stateDisabled": "Disabled",
+      "key": "Key",
+      "sidebarType": "Sidebar type",
+      "sidebarGroup": "Group",
+      "sidebarLink": "Module link",
+      "sidebarHidden": "Hidden page",
+      "order": "Order",
+      "description": "Description",
+      "none": "—",
+      "selfLockedHint": "This module manages the modules themselves and cannot be disabled"
+    },
+    "permissions": {
+      "title": "Permissions",
+      "killSwitchHint": "Disabling a permission is a platform-wide kill switch: every holder loses it immediately, including super administrators, even if a role still has it checked.",
+      "name": "Name",
+      "key": "Key",
+      "description": "Description",
+      "enabled": "Enabled",
+      "toggleAria": "Enable permission {name}",
+      "stateEnabled": "Enabled",
+      "stateDisabled": "Disabled",
+      "selfLockedHint": "This module manages the modules themselves and cannot be disabled",
+      "empty": "This module declares no permissions at this level",
+      "none": "—"
+    },
+    "disable": {
+      "title": "Disable module “{name}”?",
+      "body": "Once disabled, no tenant sees this module in the sidebar and every submodule and permission below it is disabled too. Role assignments are kept and restored when it is re-enabled. Re-enabling only enables this module — submodules must be enabled one by one. This setting affects the whole platform.",
+      "cancel": "Cancel",
+      "confirm": "Disable"
+    },
+    "errors": {
+      "FORBIDDEN": "Only the root organization can change module and permission availability.",
+      "NOT_FOUND": "This module or permission no longer exists. Refresh the page.",
+      "UNEXPECTED": "The action failed. Please try again later."
+    }
   }
 }
