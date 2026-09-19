@@ -96,3 +96,60 @@ mutation DeleteOrg($input: DeleteOrgInput!) {
     deletedId
   }
 }
+
+# --- 租戶作業(#135;模組 system.org-manager.tenant-ops,根組織專屬) ---
+# 三個 mutation 的彈窗都開在組織管理頁上,但權限屬 tenant-ops;
+# 非根組織的操作者即使持有權限也會拿到 FORBIDDEN(ADR-0009)。
+
+# 開通彈窗的模組勾選清單 = 租戶管理員模板綁的模組(根組織專屬模組不在其中),前端預設全勾;
+# parentId 為 null 代表上層不在清單內,該節點在勾選樹上自成一棵根
+query TenantModuleOptions {
+  tenantModuleOptions {
+    id
+    key
+    name
+    parentId
+    sidebarType
+    order
+  }
+}
+
+# ADR-0009 四步 + 擁有者 + 啟用信一次完成;logoPath 只收 createUploadUrl 發出的物件路徑。
+# moduleKeys 不在 tenantModuleOptions 內(含根組織專屬模組)或一個都沒勾 → VALIDATION_FAILED,
+# errors[0].extensions.fields 指出是哪一欄。成功後組織樹要重查(多一個租戶節點)
+mutation ProvisionTenant($input: ProvisionTenantInput!) {
+  provisionTenant(input: $input) {
+    org {
+      id
+      name
+      parentId
+      enabled
+      ownerUserId
+      visibility
+      logoUrl
+    }
+    ownerUserId
+    roleId
+    moduleKeys
+  }
+}
+
+# 編輯租戶頂層時的「擁有者」欄位;轉移後擁有者保護的對象隨之換人
+mutation TransferOrgOwner($input: TransferOrgOwnerInput!) {
+  transferOrgOwner(input: $input) {
+    org {
+      id
+      ownerUserId
+    }
+  }
+}
+
+# 編輯租戶頂層時的「使用者可見下層組織資料」開關(ADR-0005);只掛租戶頂層、套用整棵子樹
+mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
+  setOrgVisibility(input: $input) {
+    org {
+      id
+      visibility
+    }
+  }
+}

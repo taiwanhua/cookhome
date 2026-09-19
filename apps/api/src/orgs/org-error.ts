@@ -15,6 +15,15 @@ export const ORG_ERROR_CODES = [
   "CYCLIC_MOVE",
   /** 刪除前置檢查未通過;`extensions.reasons` 列出原因 */
   "ORG_NOT_DELETABLE",
+  /**
+   * 擁有者保護(ADR-0009;`owner-protection.service.ts`):租戶擁有者不可被停用 / 移出租戶 /
+   * 解除其「租戶管理員」授予,根組織的操作者例外。
+   * 使用者管理(`users/users-error.ts`)也會丟同一個碼 — 兩個模組各自宣告自己丟得出的碼,
+   * 清單正本是 GQL-04 的表,不是其中任一個檔。
+   */
+  "OWNER_PROTECTED",
+  /** 有登入但做了不被允許的事:非根組織的操作者執行租戶作業(#135) */
+  "FORBIDDEN",
 ] as const;
 
 export type OrgErrorCode = (typeof ORG_ERROR_CODES)[number];

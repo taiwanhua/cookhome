@@ -157,6 +157,16 @@ export type MeOrg = {
   name: Scalars['String']['output'];
 };
 
+export type ModuleOption = {
+  __typename?: 'ModuleOption';
+  id: Scalars['ID']['output'];
+  key: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  order: Scalars['Int']['output'];
+  parentId?: Maybe<Scalars['ID']['output']>;
+  sidebarType: ModuleSidebarType;
+};
+
 /** 側欄呈現型別:GROUP=可展開群組(非連結)、LINK=模組連結、HIDDEN=隱藏頁(有路由但不出現在側欄) */
 export enum ModuleSidebarType {
   Group = 'GROUP',
@@ -182,13 +192,16 @@ export type Mutation = {
   logout: LogoutPayload;
   logoutAllDevices: LogoutAllDevicesPayload;
   moveOrg: OrgPayload;
+  provisionTenant: ProvisionTenantPayload;
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
   setOrgEnabled: OrgPayload;
+  setOrgVisibility: OrgPayload;
   setPassword: SetPasswordPayload;
   setUserEnabled: UserPayload;
   setUserOrgs: SetUserOrgsPayload;
   switchOrg: SwitchOrgPayload;
+  transferOrgOwner: OrgPayload;
   updateOrg: OrgPayload;
   updateUser: UserPayload;
 };
@@ -239,6 +252,11 @@ export type MutationMoveOrgArgs = {
 };
 
 
+export type MutationProvisionTenantArgs = {
+  input: ProvisionTenantInput;
+};
+
+
 export type MutationRequestPasswordResetArgs = {
   input: RequestPasswordResetInput;
 };
@@ -246,6 +264,11 @@ export type MutationRequestPasswordResetArgs = {
 
 export type MutationSetOrgEnabledArgs = {
   input: SetOrgEnabledInput;
+};
+
+
+export type MutationSetOrgVisibilityArgs = {
+  input: SetOrgVisibilityInput;
 };
 
 
@@ -266,6 +289,11 @@ export type MutationSetUserOrgsArgs = {
 
 export type MutationSwitchOrgArgs = {
   input: SwitchOrgInput;
+};
+
+
+export type MutationTransferOrgOwnerArgs = {
+  input: TransferOrgOwnerInput;
 };
 
 
@@ -312,6 +340,22 @@ export enum OrgVisibility {
   Subtree = 'SUBTREE'
 }
 
+export type ProvisionTenantInput = {
+  adminAccount: Scalars['String']['input'];
+  adminEmail: Scalars['String']['input'];
+  logoPath?: InputMaybe<Scalars['String']['input']>;
+  moduleKeys: Array<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+};
+
+export type ProvisionTenantPayload = {
+  __typename?: 'ProvisionTenantPayload';
+  moduleKeys: Array<Scalars['String']['output']>;
+  org: Org;
+  ownerUserId: Scalars['ID']['output'];
+  roleId: Scalars['ID']['output'];
+};
+
 export type Query = {
   __typename?: 'Query';
   me: Me;
@@ -319,6 +363,7 @@ export type Query = {
   orgTree: Array<OrgNode>;
   recipe: Recipe;
   recipes: Array<Recipe>;
+  tenantModuleOptions: Array<ModuleOption>;
   user: User;
   users: UsersPayload;
 };
@@ -383,6 +428,11 @@ export type SetOrgEnabledInput = {
   id: Scalars['ID']['input'];
 };
 
+export type SetOrgVisibilityInput = {
+  orgId: Scalars['ID']['input'];
+  visibility: OrgVisibility;
+};
+
 export type SetPasswordInput = {
   newPassword: Scalars['String']['input'];
   token: Scalars['String']['input'];
@@ -420,6 +470,11 @@ export type SwitchOrgInput = {
 export type SwitchOrgPayload = {
   __typename?: 'SwitchOrgPayload';
   accessToken: Scalars['String']['output'];
+};
+
+export type TransferOrgOwnerInput = {
+  newOwnerUserId: Scalars['ID']['input'];
+  orgId: Scalars['ID']['input'];
 };
 
 export type UnqualifiedRole = {
@@ -637,6 +692,32 @@ export type DeleteOrgMutationVariables = Exact<{
 
 
 export type DeleteOrgMutation = { __typename?: 'Mutation', deleteOrg: { __typename?: 'DeletePayload', success: boolean, deletedId: string } };
+
+export type TenantModuleOptionsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TenantModuleOptionsQuery = { __typename?: 'Query', tenantModuleOptions: Array<{ __typename?: 'ModuleOption', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number }> };
+
+export type ProvisionTenantMutationVariables = Exact<{
+  input: ProvisionTenantInput;
+}>;
+
+
+export type ProvisionTenantMutation = { __typename?: 'Mutation', provisionTenant: { __typename?: 'ProvisionTenantPayload', ownerUserId: string, roleId: string, moduleKeys: Array<string>, org: { __typename?: 'Org', id: string, name: string, parentId?: string | null, enabled: boolean, ownerUserId?: string | null, visibility?: OrgVisibility | null, logoUrl?: string | null } } };
+
+export type TransferOrgOwnerMutationVariables = Exact<{
+  input: TransferOrgOwnerInput;
+}>;
+
+
+export type TransferOrgOwnerMutation = { __typename?: 'Mutation', transferOrgOwner: { __typename?: 'OrgPayload', org: { __typename?: 'Org', id: string, ownerUserId?: string | null } } };
+
+export type SetOrgVisibilityMutationVariables = Exact<{
+  input: SetOrgVisibilityInput;
+}>;
+
+
+export type SetOrgVisibilityMutation = { __typename?: 'Mutation', setOrgVisibility: { __typename?: 'OrgPayload', org: { __typename?: 'Org', id: string, visibility?: OrgVisibility | null } } };
 
 export type RecipesQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1233,6 +1314,143 @@ export const useDeleteOrgMutation = <
 
 
 useDeleteOrgMutation.fetcher = (client: GraphQLClient, variables: DeleteOrgMutationVariables, headers?: RequestInit['headers']) => fetcher<DeleteOrgMutation, DeleteOrgMutationVariables>(client, DeleteOrgDocument, variables, headers);
+
+export const TenantModuleOptionsDocument = `
+    query TenantModuleOptions {
+  tenantModuleOptions {
+    id
+    key
+    name
+    parentId
+    sidebarType
+    order
+  }
+}
+    `;
+
+export const useTenantModuleOptionsQuery = <
+      TData = TenantModuleOptionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: TenantModuleOptionsQueryVariables,
+      options?: Omit<UseQueryOptions<TenantModuleOptionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<TenantModuleOptionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<TenantModuleOptionsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['TenantModuleOptions'] : ['TenantModuleOptions', variables],
+    queryFn: fetcher<TenantModuleOptionsQuery, TenantModuleOptionsQueryVariables>(client, TenantModuleOptionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useTenantModuleOptionsQuery.getKey = (variables?: TenantModuleOptionsQueryVariables) => variables === undefined ? ['TenantModuleOptions'] : ['TenantModuleOptions', variables];
+
+
+useTenantModuleOptionsQuery.fetcher = (client: GraphQLClient, variables?: TenantModuleOptionsQueryVariables, headers?: RequestInit['headers']) => fetcher<TenantModuleOptionsQuery, TenantModuleOptionsQueryVariables>(client, TenantModuleOptionsDocument, variables, headers);
+
+export const ProvisionTenantDocument = `
+    mutation ProvisionTenant($input: ProvisionTenantInput!) {
+  provisionTenant(input: $input) {
+    org {
+      id
+      name
+      parentId
+      enabled
+      ownerUserId
+      visibility
+      logoUrl
+    }
+    ownerUserId
+    roleId
+    moduleKeys
+  }
+}
+    `;
+
+export const useProvisionTenantMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ProvisionTenantMutation, TError, ProvisionTenantMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ProvisionTenantMutation, TError, ProvisionTenantMutationVariables, TContext>(
+      {
+    mutationKey: ['ProvisionTenant'],
+    mutationFn: (variables?: ProvisionTenantMutationVariables) => fetcher<ProvisionTenantMutation, ProvisionTenantMutationVariables>(client, ProvisionTenantDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useProvisionTenantMutation.fetcher = (client: GraphQLClient, variables: ProvisionTenantMutationVariables, headers?: RequestInit['headers']) => fetcher<ProvisionTenantMutation, ProvisionTenantMutationVariables>(client, ProvisionTenantDocument, variables, headers);
+
+export const TransferOrgOwnerDocument = `
+    mutation TransferOrgOwner($input: TransferOrgOwnerInput!) {
+  transferOrgOwner(input: $input) {
+    org {
+      id
+      ownerUserId
+    }
+  }
+}
+    `;
+
+export const useTransferOrgOwnerMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<TransferOrgOwnerMutation, TError, TransferOrgOwnerMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<TransferOrgOwnerMutation, TError, TransferOrgOwnerMutationVariables, TContext>(
+      {
+    mutationKey: ['TransferOrgOwner'],
+    mutationFn: (variables?: TransferOrgOwnerMutationVariables) => fetcher<TransferOrgOwnerMutation, TransferOrgOwnerMutationVariables>(client, TransferOrgOwnerDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useTransferOrgOwnerMutation.fetcher = (client: GraphQLClient, variables: TransferOrgOwnerMutationVariables, headers?: RequestInit['headers']) => fetcher<TransferOrgOwnerMutation, TransferOrgOwnerMutationVariables>(client, TransferOrgOwnerDocument, variables, headers);
+
+export const SetOrgVisibilityDocument = `
+    mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
+  setOrgVisibility(input: $input) {
+    org {
+      id
+      visibility
+    }
+  }
+}
+    `;
+
+export const useSetOrgVisibilityMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetOrgVisibilityMutation, TError, SetOrgVisibilityMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetOrgVisibilityMutation, TError, SetOrgVisibilityMutationVariables, TContext>(
+      {
+    mutationKey: ['SetOrgVisibility'],
+    mutationFn: (variables?: SetOrgVisibilityMutationVariables) => fetcher<SetOrgVisibilityMutation, SetOrgVisibilityMutationVariables>(client, SetOrgVisibilityDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetOrgVisibilityMutation.fetcher = (client: GraphQLClient, variables: SetOrgVisibilityMutationVariables, headers?: RequestInit['headers']) => fetcher<SetOrgVisibilityMutation, SetOrgVisibilityMutationVariables>(client, SetOrgVisibilityDocument, variables, headers);
 
 export const RecipesDocument = `
     query Recipes {

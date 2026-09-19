@@ -69,6 +69,37 @@ deleteOrg(input: { id }): DeletePayload!
 - **「無業務資料引用」的清單**= 目前有 `orgId` 的業務 collection:`customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)。`audit_logs` 不算(只增不改的歷史紀錄)。第 5 段示範模組長出新 collection 時在 `orgs.service.ts` 的 `hasBusinessData()` 加一項。
 - 錯誤碼:`ORG_NOT_DELETABLE`(`extensions.reasons`:`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG`)、`CROSS_TENANT`、`CYCLIC_MOVE`、`NOT_FOUND`、`VALIDATION_FAILED`、`FORBIDDEN`(GQL-04 表)。
 
+## api 介面:租戶作業(#135 已實作,程式在 `apps/api/src/orgs/tenant-ops.*.ts`)
+
+```graphql
+tenantModuleOptions: [ModuleOption!]!                  # 開通彈窗的模組勾選清單
+provisionTenant(input: { name, adminAccount, adminEmail, logoPath, moduleKeys }): ProvisionTenantPayload!
+transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
+setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
+```
+
+實作時定下的幾件事(spec 未寫、以本檔與 ADR-0009 / 0005 的規則推導):
+
+- **「根組織專屬」是執行期的第二道門**:三個 mutation 與 `tenantModuleOptions` 都先過 `@RequirePermission`,
+  再由 service 確認**操作者的當前組織是根組織**,否則 `FORBIDDEN`。權限可能經角色被帶到別的組織,
+  「站在哪裡」才是判準;判斷點是 `OwnerProtectionService.isRootOperator`(與擁有者保護的根組織例外同一個)。
+- **`OwnerProtectionService` 住在 `orgs/`**(#136 原本放 `users/`,#135 抽出):判斷的主體是組織
+  (`orgs.ownerUserId`、根組織例外),由 `OrgsModule` 匯出給 `UsersModule` 用,兩個模組不各寫一套。
+- **`tenantModuleOptions` 的判準是「模板有沒有綁」**,不是重算 `isRootOnly` — `isRootOnly` 只存在於 seed 宣告層、
+  不落庫(ADR-0004),種子在造模板綁定時已扣除根組織專屬模組(`seeds/role-bindings.ts`)。
+- **勾選的模組會自動補上仍在選項內的上層模組**:模組樹就是側欄的樹,只綁下層不綁群組會讓側欄斷成孤兒
+  (ADR-0004「勾下層模組必連動勾上層」)。前端矩陣本來就這樣送,API 這層不依賴前端做對。
+  選項外的 key(含根組織專屬模組)或一個都沒勾 → `VALIDATION_FAILED`(`extensions.fields` 指出欄位)。
+- **副本的權限取自模板的 `role_permission`**(每模組一筆該模組的 `*`)再與勾選的模組取交集,
+  不在這裡自己組 key — 模板日後多綁 / 少綁什麼,副本自動跟著。
+- **開通的回滾是補償刪除**:Mongo 單節點沒有 transaction,失敗時把已建立的關聯、使用者、角色副本、
+  租戶組織逐一抹掉(`BaseRepository.hardDeleteById`,**不是軟刪除** — `users` 的 account / email 唯一索引
+  含已軟刪除的文件,留殭屍會讓同一組帳號永遠再也開不了)。補償範圍不含 `audit_logs`(只增不改,ADR-0004):
+  極端情況下會留一筆 `org.provision` 但資料已回滾,寧可多一筆稽核痕跡也不漏記特權動作。寄信排在最後。
+- **首任管理員的姓名**暫用帳號字串(開通表單沒有姓名欄,ADR-0009);本人啟用後可自行在使用者管理改。
+- **擁有者與可見範圍只存在於租戶頂層**:兩個 mutation 的 `orgId` 不是租戶頂層一律 `VALIDATION_FAILED`;
+  轉移的新擁有者必須啟用中、且所屬組織落在該租戶(含下層)內。
+
 **商標上傳**(ADR-0010,本段建立 StorageService 的第一條線):前端向 API 要簽名上傳 URL → 直傳私有 bucket → 把物件路徑存進 `logoPath`;顯示時 API 發簽名讀取 URL。開通與編輯兩個彈窗共用同一個 `Draft/UploadField`。
 
 介面(#137 已實作,程式在 `apps/api/src/storage/`):`createUploadUrl(input: { purpose: ORG_LOGO, contentType, size })` 回 `{ uploadUrl, objectPath, expiresAt }` — 檔型限 png / jpg / webp、大小 ≤ 2MB(不合回 `UPLOAD_REJECTED`),上傳網址效期 10 分鐘,`objectPath` 為 `org-logos/<uuid>.<副檔名>`(簽票時組織可能還不存在,所以不含 orgId);持 `system.org-manager.edit` 或 `system.org-manager.tenant-ops.provision` 任一即可要票。**寫 `logoPath` 前必須以 `isOwnedUploadPath(path)`(`apps/api/src/storage/storage.service.ts`)驗歸屬**,不讓呼叫端塞任意路徑進 DB。讀取端:`me.currentOrg.logoUrl` 現簽短效網址(TTL `GCS_SIGNED_URL_TTL`,預設 1h),無商標或路徑不合為 null。

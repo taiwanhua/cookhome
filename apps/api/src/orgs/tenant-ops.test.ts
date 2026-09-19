@@ -1,0 +1,998 @@
+import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
+import { Types } from "mongoose";
+
+import { PasswordService } from "../auth/password/password.service";
+import {
+  type AuthTestApp,
+  startAuthTestApp,
+} from "../auth/test-support/auth-app";
+import {
+  createOrg,
+  createUser,
+  findRootOrgId,
+} from "../auth/test-support/fixtures";
+import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
+import { MailService } from "../mail/mail.service";
+import { RecordingMailService } from "../mail/recording-mail.service";
+import { createRole } from "../permission/test-support/fixtures";
+
+const LOGIN = /* GraphQL */ `
+  mutation Login($input: LoginInput!) {
+    login(input: $input) {
+      accessToken
+    }
+  }
+`;
+
+const TENANT_MODULE_OPTIONS = /* GraphQL */ `
+  query TenantModuleOptions {
+    tenantModuleOptions {
+      id
+      key
+      name
+      parentId
+      sidebarType
+      order
+    }
+  }
+`;
+
+const PROVISION_TENANT = /* GraphQL */ `
+  mutation ProvisionTenant($input: ProvisionTenantInput!) {
+    provisionTenant(input: $input) {
+      org {
+        id
+        name
+        parentId
+        enabled
+        ownerUserId
+        visibility
+        logoUrl
+      }
+      ownerUserId
+      roleId
+      moduleKeys
+    }
+  }
+`;
+
+const TRANSFER_ORG_OWNER = /* GraphQL */ `
+  mutation TransferOrgOwner($input: TransferOrgOwnerInput!) {
+    transferOrgOwner(input: $input) {
+      org {
+        id
+        ownerUserId
+      }
+    }
+  }
+`;
+
+const SET_ORG_VISIBILITY = /* GraphQL */ `
+  mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
+    setOrgVisibility(input: $input) {
+      org {
+        id
+        visibility
+      }
+    }
+  }
+`;
+
+const ORG_TREE = /* GraphQL */ `
+  fragment NodeFields on OrgNode {
+    id
+    outOfScope
+  }
+  query OrgTree {
+    orgTree {
+      ...NodeFields
+      children {
+        ...NodeFields
+        children {
+          ...NodeFields
+        }
+      }
+    }
+  }
+`;
+
+const USERS = /* GraphQL */ `
+  query Users($input: UsersInput!) {
+    users(input: $input) {
+      totalCount
+      items {
+        id
+        account
+      }
+    }
+  }
+`;
+
+const SET_USER_ENABLED = /* GraphQL */ `
+  mutation SetUserEnabled($input: SetUserEnabledInput!) {
+    setUserEnabled(input: $input) {
+      user {
+        id
+        enabled
+      }
+    }
+  }
+`;
+
+interface LoginData {
+  login: { accessToken: string };
+}
+
+interface ModuleOptionRow {
+  id: string;
+  key: string;
+  name: string;
+  parentId: string | null;
+  sidebarType: string;
+  order: number;
+}
+
+interface TenantModuleOptionsData {
+  tenantModuleOptions: ModuleOptionRow[];
+}
+
+interface ProvisionTenantData {
+  provisionTenant: {
+    org: {
+      id: string;
+      name: string;
+      parentId: string | null;
+      enabled: boolean;
+      ownerUserId: string | null;
+      visibility: string | null;
+      logoUrl: string | null;
+    };
+    ownerUserId: string;
+    roleId: string;
+    moduleKeys: string[];
+  };
+}
+
+interface TransferOrgOwnerData {
+  transferOrgOwner: { org: { id: string; ownerUserId: string | null } };
+}
+
+interface SetOrgVisibilityData {
+  setOrgVisibility: { org: { id: string; visibility: string | null } };
+}
+
+interface TreeNode {
+  id: string;
+  outOfScope: boolean;
+  children?: TreeNode[];
+}
+
+interface OrgTreeData {
+  orgTree: TreeNode[];
+}
+
+interface UsersData {
+  users: { totalCount: number; items: { id: string; account: string }[] };
+}
+
+interface OrgRow {
+  _id: Types.ObjectId;
+  name: string;
+  parentId: Types.ObjectId | null;
+  ancestors: Types.ObjectId[];
+  enabled: boolean;
+  isSystem: boolean;
+  logoPath?: string;
+  ownerUserId?: Types.ObjectId;
+  settings: Record<string, unknown>;
+}
+
+interface RoleRow {
+  _id: Types.ObjectId;
+  key?: string;
+  name: string;
+  enabled: boolean;
+  isSystem: boolean;
+  settings: Record<string, unknown>;
+}
+
+interface UserRow {
+  _id: Types.ObjectId;
+  account: string;
+  email: string;
+  name: string;
+  enabled: boolean;
+  passwordHash: string;
+  settings: Record<string, unknown>;
+}
+
+interface ModuleRow {
+  _id: Types.ObjectId;
+  key: string;
+}
+
+interface PermissionRow {
+  _id: Types.ObjectId;
+  key: string;
+}
+
+interface AuditRow {
+  action: string;
+  targetType?: string;
+  targetId?: Types.ObjectId;
+  before?: Record<string, unknown>;
+  after?: Record<string, unknown>;
+}
+
+const PASSWORD = ["tenant", "ops", "pass"].join("-");
+const LOGO_PATH = "org-logos/0c0f8f1e-2b3a-4c5d-8e9f-a0b1c2d3e4f5.png";
+const ORG_MANAGER_MODULE = "system.org-manager";
+const USER_MANAGER_MODULE = "system.user-manager";
+const TENANT_OPS_MODULE = "system.org-manager.tenant-ops";
+/** 根組織專屬模組(seed 標 isRootOnly,模板綁定時被扣除,ADR-0009 第 3 步)。 */
+const ROOT_ONLY_MODULES = [
+  TENANT_OPS_MODULE,
+  "system.module-manager",
+  "system.data-scope",
+];
+const TENANT_OPS_PERMISSIONS = [
+  `${TENANT_OPS_MODULE}.provision`,
+  `${TENANT_OPS_MODULE}.transfer-owner`,
+  `${TENANT_OPS_MODULE}.set-visibility`,
+];
+
+/** 字串排序的比較函式(`toSorted()` 不給比較函式在非 ASCII 下不可靠)。 */
+function byText(left: string, right: string): number {
+  return left.localeCompare(right);
+}
+
+function flatten(nodes: TreeNode[]): TreeNode[] {
+  return nodes.flatMap((node) => [node, ...flatten(node.children ?? [])]);
+}
+
+/**
+ * 租戶作業(#135:開通租戶 / 轉移擁有者 / 設定可見範圍),對真 Nest + 真 MongoDB(TEST-07)。
+ * 夾具沿用 auth / permission 的 test-support;開通後的最終狀態一律回資料庫查,不信回傳值。
+ *
+ * 操作者:
+ *   rootOps    根組織 + 三筆 tenant-ops 權限(正常路徑)
+ *   rootView   根組織但只有 org-manager.view(驗 @RequirePermission)
+ *   tenantOps  既有租戶 + 同樣三筆權限(驗「非根組織即使持權限也拒」)
+ */
+describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
+  let api: AuthTestApp;
+  let mail: RecordingMailService;
+
+  let rootOrgId: Types.ObjectId;
+  let rootOpsToken: string;
+  let rootViewToken: string;
+
+  /** 既有租戶(不是本檔開通出來的),用於轉移擁有者 / 可見範圍 */
+  let legacyTenantId: Types.ObjectId;
+  let legacyDeptId: Types.ObjectId;
+  let legacySubDeptId: Types.ObjectId;
+  let tenantOpsToken: string;
+  /** 租戶內的使用者管理員(部門層,用來驗擁有者保護對象換人與可見範圍) */
+  let tenantManagerToken: string;
+  let legacyOwnerId: Types.ObjectId;
+  let legacySuccessorId: Types.ObjectId;
+  let subDeptUserId: Types.ObjectId;
+
+  let accountSequence = 0;
+
+  function nextAccount(prefix: string): string {
+    accountSequence += 1;
+    return `${prefix}-${String(accountSequence)}`;
+  }
+
+  async function login(account: string, password = PASSWORD): Promise<string> {
+    const result = await api.graphql<LoginData>(LOGIN, {
+      input: { account, password },
+    });
+    expect(result.errors).toBeUndefined();
+    const token = result.data?.login.accessToken;
+    if (!token) {
+      throw new Error(`登入失敗:${account}`);
+    }
+    return token;
+  }
+
+  function orgRow(id: string | Types.ObjectId): Promise<OrgRow | null> {
+    return api.connection
+      .collection("orgs")
+      .findOne<OrgRow>({ _id: new Types.ObjectId(String(id)) });
+  }
+
+  function roleRow(id: string | Types.ObjectId): Promise<RoleRow | null> {
+    return api.connection
+      .collection("roles")
+      .findOne<RoleRow>({ _id: new Types.ObjectId(String(id)) });
+  }
+
+  function userRow(id: string | Types.ObjectId): Promise<UserRow | null> {
+    return api.connection
+      .collection("users")
+      .findOne<UserRow>({ _id: new Types.ObjectId(String(id)) });
+  }
+
+  function userRowByAccount(account: string): Promise<UserRow | null> {
+    return api.connection.collection("users").findOne<UserRow>({ account });
+  }
+
+  /** 某個角色綁到的模組 key(role_module → modules.key)。 */
+  async function boundModuleKeys(roleId: string): Promise<string[]> {
+    const links = await api.connection
+      .collection("core_relationships")
+      .find<{ secondId: Types.ObjectId }>({
+        type: "role_module",
+        firstId: new Types.ObjectId(roleId),
+      })
+      .toArray();
+    const modules = await api.connection
+      .collection("modules")
+      .find<ModuleRow>({ _id: { $in: links.map((link) => link.secondId) } })
+      .toArray();
+    return modules.map((module) => module.key).toSorted(byText);
+  }
+
+  /** 某個角色綁到的權限 key(role_permission → permissions.key)。 */
+  async function boundPermissionKeys(roleId: string): Promise<string[]> {
+    const links = await api.connection
+      .collection("core_relationships")
+      .find<{ secondId: Types.ObjectId }>({
+        type: "role_permission",
+        firstId: new Types.ObjectId(roleId),
+      })
+      .toArray();
+    const permissions = await api.connection
+      .collection("permissions")
+      .find<PermissionRow>({
+        _id: { $in: links.map((link) => link.secondId) },
+      })
+      .toArray();
+    return permissions.map((permission) => permission.key).toSorted(byText);
+  }
+
+  function countLinks(
+    type: string,
+    firstId: string | Types.ObjectId,
+    secondId: string | Types.ObjectId,
+  ): Promise<number> {
+    return api.connection.collection("core_relationships").countDocuments({
+      type,
+      firstId: new Types.ObjectId(String(firstId)),
+      secondId: new Types.ObjectId(String(secondId)),
+    });
+  }
+
+  function latestAudit(
+    action: string,
+    targetId: Types.ObjectId | string,
+  ): Promise<AuditRow | null> {
+    return api.connection
+      .collection("audit_logs")
+      .findOne<AuditRow>(
+        { action, targetId: new Types.ObjectId(String(targetId)) },
+        { sort: { createdAt: -1, _id: -1 } },
+      );
+  }
+
+  /** 開通一個租戶(預設只開兩個治理模組),回傳 payload。 */
+  async function provision(
+    overrides: Partial<{
+      name: string;
+      adminAccount: string;
+      adminEmail: string;
+      logoPath: string | null;
+      moduleKeys: string[];
+    }> = {},
+    accessToken = rootOpsToken,
+  ) {
+    const account = overrides.adminAccount ?? nextAccount("tenant-admin");
+    return api.graphql<ProvisionTenantData>(
+      PROVISION_TENANT,
+      {
+        input: {
+          name: overrides.name ?? `租戶 ${account}`,
+          adminAccount: account,
+          adminEmail: overrides.adminEmail ?? `${account}@example.com`,
+          logoPath: overrides.logoPath ?? null,
+          moduleKeys: overrides.moduleKeys ?? [
+            ORG_MANAGER_MODULE,
+            USER_MANAGER_MODULE,
+          ],
+        },
+      },
+      { accessToken },
+    );
+  }
+
+  beforeAll(async () => {
+    api = await startAuthTestApp("cookhome-test-tenant-ops");
+    const mailService = api.app.get(MailService);
+    if (!(mailService instanceof RecordingMailService)) {
+      throw new TypeError(
+        "測試環境沒設 RESEND_API_KEY,MailService 應是記錄用 adapter",
+      );
+    }
+    mail = mailService;
+
+    rootOrgId = await findRootOrgId(api.connection);
+
+    // 根組織 + 三筆租戶作業權限(不是超級管理員 — 要真的走 @RequirePermission)
+    const rootOpsAccount = nextAccount("root-ops");
+    const rootOpsId = await createUser(api.connection, {
+      account: rootOpsAccount,
+      password: PASSWORD,
+      orgIds: [rootOrgId],
+    });
+    await createRole(api.app, api.connection, {
+      name: "根組織 租戶作業員",
+      ownerOrgId: rootOrgId,
+      moduleKeys: [ORG_MANAGER_MODULE, TENANT_OPS_MODULE, USER_MANAGER_MODULE],
+      permissionKeys: [
+        `${ORG_MANAGER_MODULE}.*`,
+        `${USER_MANAGER_MODULE}.*`,
+        ...TENANT_OPS_PERMISSIONS,
+      ],
+      assignTo: [rootOpsId],
+    });
+    rootOpsToken = await login(rootOpsAccount);
+
+    // 根組織但沒有租戶作業權限
+    const rootViewAccount = nextAccount("root-view");
+    const rootViewId = await createUser(api.connection, {
+      account: rootViewAccount,
+      password: PASSWORD,
+      orgIds: [rootOrgId],
+    });
+    await createRole(api.app, api.connection, {
+      name: "根組織 唯讀",
+      ownerOrgId: rootOrgId,
+      moduleKeys: [ORG_MANAGER_MODULE],
+      permissionKeys: [`${ORG_MANAGER_MODULE}.view`],
+      assignTo: [rootViewId],
+    });
+    rootViewToken = await login(rootViewAccount);
+
+    // 既有租戶:租戶頂層 > 部門 > 子部門
+    legacyTenantId = await createOrg(api.connection, { name: "既有租戶" });
+    legacyDeptId = await createOrg(api.connection, {
+      name: "既有部門",
+      parentId: legacyTenantId,
+    });
+    legacySubDeptId = await createOrg(api.connection, {
+      name: "既有子部門",
+      parentId: legacyDeptId,
+    });
+
+    // 租戶內持有同樣三筆權限的人(驗「非根組織即使持權限也拒」)
+    const tenantOpsAccount = nextAccount("tenant-ops");
+    const tenantOpsId = await createUser(api.connection, {
+      account: tenantOpsAccount,
+      password: PASSWORD,
+      orgIds: [legacyTenantId],
+    });
+    await createRole(api.app, api.connection, {
+      name: "租戶內 租戶作業員(不該生效)",
+      ownerOrgId: legacyTenantId,
+      moduleKeys: [ORG_MANAGER_MODULE, TENANT_OPS_MODULE],
+      permissionKeys: [`${ORG_MANAGER_MODULE}.*`, ...TENANT_OPS_PERMISSIONS],
+      assignTo: [tenantOpsId],
+    });
+    tenantOpsToken = await login(tenantOpsAccount);
+
+    // 既有租戶的擁有者與接任者:都掛在部門層,讓部門管理員(可見範圍 own)看得到 —
+    // 擁有者保護要在「看得到、也有權限」的前提下才驗得出來(看不到只會得到 NOT_FOUND)
+    legacyOwnerId = await createUser(api.connection, {
+      account: nextAccount("legacy-owner"),
+      password: PASSWORD,
+      orgIds: [legacyDeptId],
+    });
+    legacySuccessorId = await createUser(api.connection, {
+      account: nextAccount("legacy-successor"),
+      password: PASSWORD,
+      orgIds: [legacyDeptId],
+    });
+    subDeptUserId = await createUser(api.connection, {
+      account: nextAccount("sub-dept-user"),
+      password: PASSWORD,
+      orgIds: [legacySubDeptId],
+    });
+    await api.connection
+      .collection("orgs")
+      .updateOne(
+        { _id: legacyTenantId },
+        { $set: { ownerUserId: legacyOwnerId } },
+      );
+
+    // 部門層的使用者管理員:驗擁有者保護對象換人,以及可見範圍開關的效果
+    const tenantManagerAccount = nextAccount("tenant-manager");
+    const tenantManagerId = await createUser(api.connection, {
+      account: tenantManagerAccount,
+      password: PASSWORD,
+      orgIds: [legacyDeptId],
+    });
+    await createRole(api.app, api.connection, {
+      name: "既有部門 使用者管理員",
+      ownerOrgId: legacyDeptId,
+      moduleKeys: [ORG_MANAGER_MODULE, USER_MANAGER_MODULE],
+      permissionKeys: [
+        `${ORG_MANAGER_MODULE}.view`,
+        `${USER_MANAGER_MODULE}.*`,
+      ],
+      assignTo: [tenantManagerId],
+    });
+    tenantManagerToken = await login(tenantManagerAccount);
+  }, HOOK_TIMEOUT_MS);
+
+  afterAll(async () => {
+    await api.close();
+  }, HOOK_TIMEOUT_MS);
+
+  describe("tenantModuleOptions:勾選清單 = 模板綁的模組", () => {
+    it("回模板綁的模組,根組織專屬模組不在其中(isRootOnly 不落庫,判準是模板有沒有綁)", async () => {
+      const result = await api.graphql<TenantModuleOptionsData>(
+        TENANT_MODULE_OPTIONS,
+        {},
+        { accessToken: rootOpsToken },
+      );
+
+      expect(result.errors).toBeUndefined();
+      const keys = (result.data?.tenantModuleOptions ?? []).map(
+        (option) => option.key,
+      );
+      expect(keys).toEqual(
+        expect.arrayContaining([
+          "system",
+          ORG_MANAGER_MODULE,
+          USER_MANAGER_MODULE,
+        ]),
+      );
+      for (const rootOnly of ROOT_ONLY_MODULES) {
+        expect(keys).not.toContain(rootOnly);
+      }
+    });
+
+    it("上層在清單內時給 parentId,前端據此組勾選樹", async () => {
+      const result = await api.graphql<TenantModuleOptionsData>(
+        TENANT_MODULE_OPTIONS,
+        {},
+        { accessToken: rootOpsToken },
+      );
+
+      const options = result.data?.tenantModuleOptions ?? [];
+      const system = options.find((option) => option.key === "system");
+      const orgManager = options.find(
+        (option) => option.key === ORG_MANAGER_MODULE,
+      );
+      expect(system?.parentId).toBeNull();
+      expect(orgManager?.parentId).toBe(system?.id);
+    });
+
+    it("非根組織的操作者即使持有權限也拒(FORBIDDEN)", async () => {
+      const result = await api.graphql(
+        TENANT_MODULE_OPTIONS,
+        {},
+        { accessToken: tenantOpsToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+  });
+
+  describe("provisionTenant:ADR-0009 四步 + 擁有者 + 啟用信", () => {
+    it("開通後資料五件齊:租戶 Org、角色副本、首任管理員、兩組關聯、ownerUserId", async () => {
+      const account = nextAccount("five-pieces");
+      const before = mail.sent.length;
+      const result = await provision({
+        name: "五件齊租戶",
+        adminAccount: account,
+        adminEmail: `${account}@example.com`,
+        logoPath: LOGO_PATH,
+      });
+
+      expect(result.errors).toBeUndefined();
+      const payload = result.data?.provisionTenant;
+      if (!payload) {
+        throw new Error("provisionTenant 沒有回 payload");
+      }
+
+      // 1. 租戶 Org = 根組織的直接子組織
+      const org = await orgRow(payload.org.id);
+      expect(org).toMatchObject({
+        name: "五件齊租戶",
+        enabled: true,
+        isSystem: false,
+        logoPath: LOGO_PATH,
+      });
+      expect(String(org?.parentId)).toBe(String(rootOrgId));
+      expect(org?.ancestors.map(String)).toEqual([String(rootOrgId)]);
+
+      // 2. 角色副本:沒有 key,以 settings.templateKey 標記來源(ADR-0009,#136 的擁有者保護靠它)
+      const role = await roleRow(payload.roleId);
+      expect(role?.key).toBeUndefined();
+      expect(role?.isSystem).toBe(false);
+      expect(role?.settings.templateKey).toBe("tenant-admin");
+      expect(await countLinks("org_role", payload.org.id, payload.roleId)).toBe(
+        1,
+      );
+
+      // 3. 首任管理員:不設可用密碼、不需首登強改(由啟用信自行設定)
+      const user = await userRow(payload.ownerUserId);
+      expect(user).toMatchObject({
+        account,
+        email: `${account}@example.com`,
+        enabled: true,
+      });
+      expect(user?.settings.mustChangePassword).toBe(false);
+
+      // 4. 兩組關聯
+      expect(
+        await countLinks("org_user", payload.org.id, payload.ownerUserId),
+      ).toBe(1);
+      expect(
+        await countLinks("user_role", payload.ownerUserId, payload.roleId),
+      ).toBe(1);
+
+      // 5. 擁有者
+      expect(String(org?.ownerUserId)).toBe(payload.ownerUserId);
+      expect(payload.org.ownerUserId).toBe(payload.ownerUserId);
+      // 可見範圍未設 ⇒ 保守預設 OWN(ADR-0005)
+      expect(payload.org.visibility).toBe("OWN");
+      expect(payload.org.logoUrl).toEqual(expect.stringContaining(LOGO_PATH));
+
+      // 啟用信寄到首任管理員的 Email,連結是「設定新密碼」頁
+      const sent = mail.sent.slice(before);
+      expect(sent).toHaveLength(1);
+      expect(sent[0]).toMatchObject({
+        kind: "activation",
+        to: `${account}@example.com`,
+      });
+      expect(sent[0]?.link).toContain("/set-password?token=");
+
+      // 審計
+      const audit = await latestAudit("org.provision", payload.org.id);
+      expect(audit?.targetType).toBe("org");
+      expect(audit?.after).toMatchObject({
+        name: "五件齊租戶",
+        adminAccount: account,
+        ownerUserId: payload.ownerUserId,
+      });
+    });
+
+    it("副本只綁勾選的模組 + 各該模組的 `*`,沒勾的模組一筆都沒有", async () => {
+      const result = await provision({
+        moduleKeys: [ORG_MANAGER_MODULE, USER_MANAGER_MODULE],
+      });
+
+      expect(result.errors).toBeUndefined();
+      const payload = result.data?.provisionTenant;
+      if (!payload) {
+        throw new Error("provisionTenant 沒有回 payload");
+      }
+      // 上層 `system` 自動補上(勾下層必連動勾上層,ADR-0004),示範家族沒勾就完全沒有
+      const expectedModules = [
+        "system",
+        ORG_MANAGER_MODULE,
+        USER_MANAGER_MODULE,
+      ].toSorted(byText);
+      expect(await boundModuleKeys(payload.roleId)).toEqual(expectedModules);
+      expect(payload.moduleKeys.toSorted(byText)).toEqual(expectedModules);
+      // role_permission 與 role_module 一一對應:每個綁定的模組各一筆該模組的 `*`(ADR-0004)
+      expect(await boundPermissionKeys(payload.roleId)).toEqual(
+        [
+          "system.*",
+          `${ORG_MANAGER_MODULE}.*`,
+          `${USER_MANAGER_MODULE}.*`,
+        ].toSorted(byText),
+      );
+    });
+
+    it("首任管理員真的能用啟用信設定密碼並登入(整條線接得起來)", async () => {
+      const account = nextAccount("activation-flow");
+      const before = mail.sent.length;
+      const result = await provision({ adminAccount: account });
+      expect(result.errors).toBeUndefined();
+
+      const link = mail.sent.slice(before)[0]?.link ?? "";
+      const token = new URL(link).searchParams.get("token");
+      expect(token).not.toBeNull();
+
+      const newPassword = ["set", "by", "owner", "7"].join("-");
+      const set = await api.graphql(
+        /* GraphQL */ `
+          mutation SetPassword($input: SetPasswordInput!) {
+            setPassword(input: $input) {
+              accessToken
+            }
+          }
+        `,
+        { input: { token, newPassword } },
+      );
+      expect(set.errors).toBeUndefined();
+      expect(await login(account, newPassword)).toEqual(expect.any(String));
+    });
+
+    it("勾到根組織專屬模組:不在選項內,VALIDATION_FAILED", async () => {
+      const result = await provision({
+        moduleKeys: [ORG_MANAGER_MODULE, TENANT_OPS_MODULE],
+      });
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        fields: ["moduleKeys"],
+      });
+    });
+
+    it("一個模組都沒勾:VALIDATION_FAILED(沒有模組的租戶管理員進不了任何頁面)", async () => {
+      const result = await provision({ moduleKeys: [] });
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+    });
+
+    it("帳號或 Email 已被使用:VALIDATION_FAILED 並指出是哪一欄", async () => {
+      const account = nextAccount("duplicate");
+      const first = await provision({ adminAccount: account });
+      expect(first.errors).toBeUndefined();
+
+      const again = await provision({ adminAccount: account });
+      expect(again.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+      expect(again.errors?.[0]?.extensions).toMatchObject({
+        fields: expect.arrayContaining(["adminAccount", "adminEmail"]),
+      });
+    });
+
+    it("logoPath 不是 createUploadUrl 簽出來的路徑:VALIDATION_FAILED", async () => {
+      const result = await provision({ logoPath: "../secrets/other.png" });
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        fields: ["logoPath"],
+      });
+    });
+
+    it("非根組織的操作者即使持有權限也拒(FORBIDDEN),且什麼都沒建起來", async () => {
+      const account = nextAccount("from-tenant");
+      const result = await provision({ adminAccount: account }, tenantOpsToken);
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await userRowByAccount(account)).toBeNull();
+    });
+
+    it("根組織但沒有 provision 權限:FORBIDDEN(@RequirePermission 守門)", async () => {
+      const result = await provision({}, rootViewToken);
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+
+    it("中途失敗全部回滾(補償刪除),同一組帳號可以重新開通", async () => {
+      const account = nextAccount("rollback");
+      const passwords = api.app.get(PasswordService);
+      const relations = api.connection.collection("core_relationships");
+      const roles = api.connection.collection("roles");
+      const relationsBefore = await relations.countDocuments({});
+      const copiesBefore = await roles.countDocuments({
+        "settings.templateKey": "tenant-admin",
+      });
+      // 寄信是整段最後一步;讓它炸一次,驗前面每一步都被補償刪除掉
+      // (TEST-07 的第二個接縫:「供應商寄信失敗」在 GraphQL 端點上沒有辦法觸發,理由寫在 PR)
+      const spy = jest
+        .spyOn(passwords, "sendActivationEmail")
+        .mockRejectedValueOnce(new Error("mail provider down"));
+
+      const failed = await provision({ adminAccount: account });
+      expect(failed.errors).toHaveLength(1);
+      // 使用者是硬刪除(不是軟刪除):account / email 唯一索引含已軟刪除的文件
+      expect(await userRowByAccount(account)).toBeNull();
+      expect(
+        await api.connection
+          .collection("orgs")
+          .countDocuments({ name: `租戶 ${account}` }),
+      ).toBe(0);
+      // 角色副本與全部關聯都不留(核心關聯本來就是硬刪除)
+      expect(
+        await roles.countDocuments({ "settings.templateKey": "tenant-admin" }),
+      ).toBe(copiesBefore);
+      expect(await relations.countDocuments({})).toBe(relationsBefore);
+
+      spy.mockRestore();
+      const retried = await provision({ adminAccount: account });
+      expect(retried.errors).toBeUndefined();
+      expect(await userRowByAccount(account)).not.toBeNull();
+    });
+  });
+
+  describe("transferOrgOwner:擁有者保護的對象隨之換人", () => {
+    it("轉移前:租戶內的管理員停用不了擁有者(OWNER_PROTECTED)", async () => {
+      const result = await api.graphql(
+        SET_USER_ENABLED,
+        { input: { id: String(legacyOwnerId), enabled: false } },
+        { accessToken: tenantManagerToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("OWNER_PROTECTED");
+    });
+
+    it("根組織轉移擁有者:資料庫換人、留審計 before / after", async () => {
+      const result = await api.graphql<TransferOrgOwnerData>(
+        TRANSFER_ORG_OWNER,
+        {
+          input: {
+            orgId: String(legacyTenantId),
+            newOwnerUserId: String(legacySuccessorId),
+          },
+        },
+        { accessToken: rootOpsToken },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.transferOrgOwner.org.ownerUserId).toBe(
+        String(legacySuccessorId),
+      );
+      const org = await orgRow(legacyTenantId);
+      expect(String(org?.ownerUserId)).toBe(String(legacySuccessorId));
+
+      const audit = await latestAudit("org.transfer-owner", legacyTenantId);
+      expect(audit?.before).toEqual({ ownerUserId: String(legacyOwnerId) });
+      expect(audit?.after).toEqual({
+        ownerUserId: String(legacySuccessorId),
+      });
+    });
+
+    it("轉移後:前任不再受保護、新任換上(保護對象真的跟著擁有者走)", async () => {
+      const former = await api.graphql(
+        SET_USER_ENABLED,
+        { input: { id: String(legacyOwnerId), enabled: false } },
+        { accessToken: tenantManagerToken },
+      );
+      expect(former.errors).toBeUndefined();
+
+      const current = await api.graphql(
+        SET_USER_ENABLED,
+        { input: { id: String(legacySuccessorId), enabled: false } },
+        { accessToken: tenantManagerToken },
+      );
+      expect(current.errors?.[0]?.extensions?.code).toBe("OWNER_PROTECTED");
+    });
+
+    it("對象不是租戶頂層:VALIDATION_FAILED(擁有者只存在於租戶頂層)", async () => {
+      const result = await api.graphql(
+        TRANSFER_ORG_OWNER,
+        {
+          input: {
+            orgId: String(legacyDeptId),
+            newOwnerUserId: String(legacySuccessorId),
+          },
+        },
+        { accessToken: rootOpsToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        fields: ["orgId"],
+      });
+    });
+
+    it("新擁有者不是這個租戶的人:VALIDATION_FAILED", async () => {
+      const outsider = await createUser(api.connection, {
+        account: nextAccount("outsider"),
+        password: PASSWORD,
+        orgIds: [rootOrgId],
+      });
+      const result = await api.graphql(
+        TRANSFER_ORG_OWNER,
+        {
+          input: {
+            orgId: String(legacyTenantId),
+            newOwnerUserId: String(outsider),
+          },
+        },
+        { accessToken: rootOpsToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        fields: ["newOwnerUserId"],
+      });
+    });
+
+    it("非根組織的操作者即使持有權限也拒(FORBIDDEN)", async () => {
+      const result = await api.graphql(
+        TRANSFER_ORG_OWNER,
+        {
+          input: {
+            orgId: String(legacyTenantId),
+            newOwnerUserId: String(legacyOwnerId),
+          },
+        },
+        { accessToken: tenantOpsToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+  });
+
+  describe("setOrgVisibility:開關改變操作者的可見範圍(ADR-0005)", () => {
+    it("開關打開前:部門管理員看不到子部門的資料(樹上 outOfScope、清單不列)", async () => {
+      const tree = await api.graphql<OrgTreeData>(
+        ORG_TREE,
+        {},
+        { accessToken: tenantManagerToken },
+      );
+      const subNode = flatten(tree.data?.orgTree ?? []).find(
+        (node) => node.id === String(legacySubDeptId),
+      );
+      expect(subNode?.outOfScope).toBe(true);
+
+      const users = await api.graphql<UsersData>(
+        USERS,
+        { input: { orgId: String(legacyDeptId) } },
+        { accessToken: tenantManagerToken },
+      );
+      expect(users.data?.users.items.map((item) => item.id)).not.toContain(
+        String(subDeptUserId),
+      );
+    });
+
+    it("根組織設 SUBTREE:資料庫寫 settings.visibility、留審計", async () => {
+      const result = await api.graphql<SetOrgVisibilityData>(
+        SET_ORG_VISIBILITY,
+        {
+          input: { orgId: String(legacyTenantId), visibility: "SUBTREE" },
+        },
+        { accessToken: rootOpsToken },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.setOrgVisibility.org.visibility).toBe("SUBTREE");
+      const org = await orgRow(legacyTenantId);
+      expect(org?.settings.visibility).toBe("subtree");
+
+      const audit = await latestAudit("org.set-visibility", legacyTenantId);
+      expect(audit?.before).toEqual({ visibility: "OWN" });
+      expect(audit?.after).toEqual({ visibility: "SUBTREE" });
+    });
+
+    it("開關打開後:同一個部門管理員看得到子部門的樹節點與使用者", async () => {
+      const tree = await api.graphql<OrgTreeData>(
+        ORG_TREE,
+        {},
+        { accessToken: tenantManagerToken },
+      );
+      const subNode = flatten(tree.data?.orgTree ?? []).find(
+        (node) => node.id === String(legacySubDeptId),
+      );
+      expect(subNode?.outOfScope).toBe(false);
+
+      const users = await api.graphql<UsersData>(
+        USERS,
+        { input: { orgId: String(legacyDeptId) } },
+        { accessToken: tenantManagerToken },
+      );
+      expect(users.data?.users.items.map((item) => item.id)).toContain(
+        String(subDeptUserId),
+      );
+    });
+
+    it("對象不是租戶頂層:VALIDATION_FAILED(開關只掛租戶頂層、套用整棵子樹)", async () => {
+      const result = await api.graphql(
+        SET_ORG_VISIBILITY,
+        { input: { orgId: String(legacyDeptId), visibility: "SUBTREE" } },
+        { accessToken: rootOpsToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+    });
+
+    it("非根組織的操作者即使持有權限也拒(FORBIDDEN)", async () => {
+      const result = await api.graphql(
+        SET_ORG_VISIBILITY,
+        { input: { orgId: String(legacyTenantId), visibility: "OWN" } },
+        { accessToken: tenantOpsToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+  });
+});

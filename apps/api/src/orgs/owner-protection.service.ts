@@ -4,15 +4,18 @@ import type { Types } from "mongoose";
 import { OrgsRepository, RolesRepository } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
-import { userError } from "./users-error";
+import { orgError } from "./org-error";
 
 /**
  * 種子「租戶管理員」模板的 key(正本 `apps/db-migrator/seeds/roles.ts`)。
  * 開通租戶時複製到租戶名下的副本另有自己的 `_id`、沒有 `key`(key 全庫唯一),
  * 因此副本以 `settings.templateKey` 標記自己複製自哪個模板 —
- * **#134 的 `provisionTenant` 建副本時要寫入這個標記**,擁有者保護才認得出那一筆授予。
+ * `provisionTenant`(tenant-ops.service.ts)建副本時寫入這個標記,擁有者保護才認得出那一筆授予。
  */
-const TENANT_ADMIN_ROLE_KEY = "tenant-admin";
+export const TENANT_ADMIN_ROLE_KEY = "tenant-admin";
+
+/** 副本標記所在的 settings 鍵(`roles.settings.templateKey`,ADR-0009)。 */
+export const TEMPLATE_KEY_SETTING = "templateKey";
 
 /** 受保護的三個動作(只影響錯誤訊息,便於除錯)。 */
 export type OwnerProtectedAction =
@@ -36,8 +39,10 @@ function protectionReader(operator: OperatorContext): OperatorContext {
  * 擁有者保護(ADR-0009):租戶擁有者不可被停用、不可被移出租戶、
  * 其「租戶管理員」授予不可被解除;**根組織的操作者可執行**(處理擁有者失聯等例外)。
  *
- * 暫置於 `users/`:#135(組織線5,租戶作業)尚未做,轉移擁有者 / 開通租戶也要同一套判斷,
- * 屆時把本服務整個抽成共用(見 PR #136 的「決定事項」)。
+ * 住在 `orgs/`(#135 定案):判斷的主體是組織(`orgs.ownerUserId`、根組織例外),
+ * 使用者管理(#136)與租戶作業(#135 的轉移擁有者 / 開通租戶)兩邊都靠它,
+ * 由 `OrgsModule` 匯出、`UsersModule` import — 單一判斷點,兩個模組不得各寫一套。
+ * `isRootOperator` 同時是租戶作業「非根組織即使持權限也拒」的唯一判準。
  */
 @Injectable()
 export class OwnerProtectionService {
@@ -117,7 +122,7 @@ export class OwnerProtectionService {
     }
     const ownedOrgIds = await this.ownedOrgIdsOf(operator, targetUser._id);
     if (ownedOrgIds.length > 0) {
-      throw userError(
+      throw orgError(
         "OWNER_PROTECTED",
         `User ${String(targetUser._id)} owns a tenant org; ${action} is only allowed from the root org`,
       );
@@ -132,6 +137,6 @@ function isTenantAdminRole(
 ): boolean {
   return (
     key === TENANT_ADMIN_ROLE_KEY ||
-    settings.templateKey === TENANT_ADMIN_ROLE_KEY
+    settings[TEMPLATE_KEY_SETTING] === TENANT_ADMIN_ROLE_KEY
   );
 }
