@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 
-import { type TableColumn, Table } from "./Table";
+import { Table, type TableColumn } from "./Table";
 
 interface DemoRow {
   id: string;
@@ -10,7 +10,12 @@ interface DemoRow {
 }
 
 const columns: TableColumn<DemoRow>[] = [
-  { key: "name", header: "姓名", render: (row) => row.name, isEmphasized: true },
+  {
+    key: "name",
+    header: "姓名",
+    render: (row) => row.name,
+    isEmphasized: true,
+  },
   { key: "account", header: "帳號", render: (row) => row.account },
 ];
 
@@ -65,5 +70,30 @@ describe("Table", () => {
     );
 
     expect(screen.queryByText("目前沒有資料")).toBeNull();
+  });
+
+  /** #183:容器比 `minWidth` 窄時要橫向捲,而不是把欄位擠成折行。 */
+  it("minWidth 給到表格上,未給時不設限", () => {
+    const { container: withMin } = render(
+      <Table
+        columns={columns}
+        rows={rows}
+        getRowKey={getRowKey}
+        minWidth={832}
+      />,
+    );
+    expect(
+      globalThis.getComputedStyle(withMin.querySelector("table") as HTMLElement)
+        .minWidth,
+    ).toBe("832px");
+
+    const { container: withoutMin } = render(
+      <Table columns={columns} rows={rows} getRowKey={getRowKey} />,
+    );
+    expect(
+      globalThis.getComputedStyle(
+        withoutMin.querySelector("table") as HTMLElement,
+      ).minWidth,
+    ).toBe("");
   });
 });

@@ -38,6 +38,11 @@ export interface TableProps<Row> {
   emptyMessage?: ReactNode;
   /** 整列可點(如開啟明細);未給則列不可互動 */
   onRowClick?: (row: Row) => void;
+  /**
+   * 表格最小寬度:容器比它窄時改成橫向捲動,而不是把欄位擠成折行
+   * (#183 第 5 項:1280 寬的使用者清單被擠到每格都折行)。未給則跟著容器縮。
+   */
+  minWidth?: number | string;
   size?: "small" | "medium";
   "aria-label"?: string;
 }
@@ -54,6 +59,7 @@ export const Table = <Row,>({
   emptyMessage = "目前沒有資料",
   onRowClick,
   size = "medium",
+  minWidth,
   "aria-label": ariaLabel,
 }: TableProps<Row>) => {
   const isEmpty = !isLoading && rows.length === 0;
@@ -61,7 +67,7 @@ export const Table = <Row,>({
 
   return (
     <MuiTableContainer>
-      <MuiTable size={size} aria-label={ariaLabel}>
+      <MuiTable size={size} sx={{ minWidth }} aria-label={ariaLabel}>
         <MuiTableHead>
           <MuiTableRow>
             {columns.map((column) => (

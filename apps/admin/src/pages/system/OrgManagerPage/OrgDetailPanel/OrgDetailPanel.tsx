@@ -49,7 +49,7 @@ export const OrgDetailPanel = ({
       <Card
         component="section"
         aria-label={t("region")}
-        sx={{ flex: 1, minWidth: 0, p: 3 }}
+        sx={{ flex: 1, minWidth: 0, minHeight: 0, p: 3, overflow: "auto" }}
       >
         <Stack sx={{ alignItems: "center", py: 4 }}>
           {isLoading ? (
@@ -68,7 +68,7 @@ export const OrgDetailPanel = ({
     <Card
       component="section"
       aria-label={t("region")}
-      sx={{ flex: 1, minWidth: 0, p: 3 }}
+      sx={{ flex: 1, minWidth: 0, minHeight: 0, p: 3, overflow: "auto" }}
     >
       <Stack spacing={0}>
         <Stack

@@ -20,7 +20,14 @@ export interface ShellLayoutProps {
   me: MeQuery["me"];
 }
 
-/** 殼的排版:側欄 + AppBar + 路由頁籤列(#67)+ 內容區(`<Outlet>`);只給 `AdminShell` 用(`me` 已載入)。 */
+/**
+ * 殼的排版:側欄 + AppBar + 路由頁籤列(#67)+ 內容區(`<Outlet>`);只給 `AdminShell` 用(`me` 已載入)。
+ *
+ * **高度是殼給的**(#183):外框釘死 `100vh`,內容區 = 視窗高 − AppBar − RouteTabs,
+ * 由 `flex: 1` + `minHeight: 0` 取得一個**確定的高度**並自己捲動。
+ * 頁面因此可以用 `flex: 1` / `height: 100%` 撐滿(組織管理、使用者管理的左右兩欄就是這樣滿版);
+ * 內容比視窗高的頁面照舊在內容區捲動,不會被裁掉。
+ */
 export const ShellLayout = ({ me }: ShellLayoutProps) => {
   const t = useTranslations("admin.shell");
   const tCommon = useTranslations("common");
@@ -40,7 +47,8 @@ export const ShellLayout = ({ me }: ShellLayoutProps) => {
     <Box
       sx={{
         display: "flex",
-        minHeight: "100vh",
+        height: "100vh",
+        overflow: "hidden",
         bgcolor: "background.default",
       }}
     >
@@ -66,7 +74,19 @@ export const ShellLayout = ({ me }: ShellLayoutProps) => {
           onClose={routeTabs.close}
           onMove={routeTabs.move}
         />
-        <Box component="main" sx={{ flex: 1, p: 4 }}>
+        {/* `flex: 1` 的 basis 是 0,所以 AppBar / RouteTabs 不會被內容擠扁;
+            `minHeight: 0` 讓這一格的高度真的等於剩下的空間(否則會被內容撐高) */}
+        <Box
+          component="main"
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "auto",
+            display: "flex",
+            flexDirection: "column",
+            p: 4,
+          }}
+        >
           <Outlet />
         </Box>
       </Box>

@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useTranslations } from "use-intl";
 
+import { Box } from "@repo/ui/box";
 import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
 import { Stack } from "@repo/ui/stack";
@@ -69,8 +70,17 @@ export const OrgTreePanel = ({
   );
 
   return (
-    <Card sx={{ p: 2, width: 360, flexShrink: 0, alignSelf: "stretch" }}>
-      <Stack spacing={1}>
+    <Card
+      sx={{
+        p: 2,
+        width: 360,
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+      }}
+    >
+      <Stack spacing={1} sx={{ flex: 1, minHeight: 0 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <Typography variant="subtitle1" sx={{ flex: 1 }}>
             {t("title")}
@@ -91,16 +101,19 @@ export const OrgTreePanel = ({
             </Button>
           )}
         </Stack>
-        <OrgTreePicker
-          nodes={nodes}
-          isLoading={isLoading}
-          selectedIds={selectedOrgId === null ? [] : [selectedOrgId]}
-          onSelectedIdsChange={(ids) => {
-            onSelectOrg(ids[0] ?? null);
-          }}
-          labelSuffixOf={labelSuffixOf}
-          aria-label={t("title")}
-        />
+        {/* 樹佔滿標題列以外的高度,超出時自己捲(#183) */}
+        <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <OrgTreePicker
+            nodes={nodes}
+            isLoading={isLoading}
+            selectedIds={selectedOrgId === null ? [] : [selectedOrgId]}
+            onSelectedIdsChange={(ids) => {
+              onSelectOrg(ids[0] ?? null);
+            }}
+            labelSuffixOf={labelSuffixOf}
+            aria-label={t("title")}
+          />
+        </Box>
       </Stack>
     </Card>
   );
