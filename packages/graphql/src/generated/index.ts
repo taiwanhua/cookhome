@@ -37,6 +37,12 @@ export type ChangePasswordPayload = {
   success: Scalars['Boolean']['output'];
 };
 
+export type CreateChildOrgInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  parentId: Scalars['ID']['input'];
+};
+
 export type CreateRecipeInput = {
   cookMinutes?: InputMaybe<Scalars['Int']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
@@ -46,6 +52,24 @@ export type CreateRecipeInput = {
   steps?: InputMaybe<Array<Scalars['String']['input']>>;
   tags?: InputMaybe<Array<Scalars['String']['input']>>;
   title: Scalars['String']['input'];
+};
+
+export type CreateUploadUrlInput = {
+  /** 允許 image/png / image/jpeg / image/webp */
+  contentType: Scalars['String']['input'];
+  purpose: UploadPurpose;
+  /** 檔案大小(bytes),上限 2097152 */
+  size: Scalars['Int']['input'];
+};
+
+export type DeleteOrgInput = {
+  id: Scalars['ID']['input'];
+};
+
+export type DeletePayload = {
+  __typename?: 'DeletePayload';
+  deletedId: Scalars['ID']['output'];
+  success: Scalars['Boolean']['output'];
 };
 
 export type Ingredient = {
@@ -110,6 +134,7 @@ export type MeModule = {
 export type MeOrg = {
   __typename?: 'MeOrg';
   id: Scalars['ID']['output'];
+  logoUrl?: Maybe<Scalars['String']['output']>;
   name: Scalars['String']['output'];
 };
 
@@ -120,17 +145,28 @@ export enum ModuleSidebarType {
   Link = 'LINK'
 }
 
+export type MoveOrgInput = {
+  id: Scalars['ID']['input'];
+  newParentId: Scalars['ID']['input'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
   changePassword: ChangePasswordPayload;
+  createChildOrg: OrgPayload;
   createRecipe: Recipe;
+  createUploadUrl: UploadUrlPayload;
+  deleteOrg: DeletePayload;
   login: LoginPayload;
   logout: LogoutPayload;
   logoutAllDevices: LogoutAllDevicesPayload;
+  moveOrg: OrgPayload;
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
+  setOrgEnabled: OrgPayload;
   setPassword: SetPasswordPayload;
   switchOrg: SwitchOrgPayload;
+  updateOrg: OrgPayload;
 };
 
 
@@ -139,8 +175,23 @@ export type MutationChangePasswordArgs = {
 };
 
 
+export type MutationCreateChildOrgArgs = {
+  input: CreateChildOrgInput;
+};
+
+
 export type MutationCreateRecipeArgs = {
   input: CreateRecipeInput;
+};
+
+
+export type MutationCreateUploadUrlArgs = {
+  input: CreateUploadUrlInput;
+};
+
+
+export type MutationDeleteOrgArgs = {
+  input: DeleteOrgInput;
 };
 
 
@@ -149,8 +200,18 @@ export type MutationLoginArgs = {
 };
 
 
+export type MutationMoveOrgArgs = {
+  input: MoveOrgInput;
+};
+
+
 export type MutationRequestPasswordResetArgs = {
   input: RequestPasswordResetInput;
+};
+
+
+export type MutationSetOrgEnabledArgs = {
+  input: SetOrgEnabledInput;
 };
 
 
@@ -163,11 +224,57 @@ export type MutationSwitchOrgArgs = {
   input: SwitchOrgInput;
 };
 
+
+export type MutationUpdateOrgArgs = {
+  input: UpdateOrgInput;
+};
+
+export type Org = {
+  __typename?: 'Org';
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  isSystem: Scalars['Boolean']['output'];
+  logoUrl?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  ownerUserId?: Maybe<Scalars['ID']['output']>;
+  parentId?: Maybe<Scalars['ID']['output']>;
+  visibility?: Maybe<OrgVisibility>;
+};
+
+export type OrgNode = {
+  __typename?: 'OrgNode';
+  children: Array<OrgNode>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  outOfScope: Scalars['Boolean']['output'];
+  parentId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type OrgPayload = {
+  __typename?: 'OrgPayload';
+  org: Org;
+};
+
+/** 租戶頂層的使用者可見範圍開關(ADR-0005;未設視為 OWN) */
+export enum OrgVisibility {
+  Own = 'OWN',
+  Subtree = 'SUBTREE'
+}
+
 export type Query = {
   __typename?: 'Query';
   me: Me;
+  org: Org;
+  orgTree: Array<OrgNode>;
   recipe: Recipe;
   recipes: Array<Recipe>;
+};
+
+
+export type QueryOrgArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -204,6 +311,11 @@ export type RequestPasswordResetPayload = {
   success: Scalars['Boolean']['output'];
 };
 
+export type SetOrgEnabledInput = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
 export type SetPasswordInput = {
   newPassword: Scalars['String']['input'];
   token: Scalars['String']['input'];
@@ -221,6 +333,25 @@ export type SwitchOrgInput = {
 export type SwitchOrgPayload = {
   __typename?: 'SwitchOrgPayload';
   accessToken: Scalars['String']['output'];
+};
+
+export type UpdateOrgInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  logoPath?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+/** 上傳用途:決定物件路徑前綴與所需權限(ADR-0010) */
+export enum UploadPurpose {
+  OrgLogo = 'ORG_LOGO'
+}
+
+export type UploadUrlPayload = {
+  __typename?: 'UploadUrlPayload';
+  expiresAt: Scalars['DateTime']['output'];
+  objectPath: Scalars['ID']['output'];
+  uploadUrl: Scalars['String']['output'];
 };
 
 export type LoginMutationVariables = Exact<{
@@ -278,6 +409,55 @@ export type ChangePasswordMutationVariables = Exact<{
 
 export type ChangePasswordMutation = { __typename?: 'Mutation', changePassword: { __typename?: 'ChangePasswordPayload', success: boolean } };
 
+export type OrgNodeFieldsFragment = { __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean };
+
+export type OrgTreeQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type OrgTreeQuery = { __typename?: 'Query', orgTree: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, children: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, children: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, children: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, children: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean }> }> }> }> }> };
+
+export type OrgQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type OrgQuery = { __typename?: 'Query', org: { __typename?: 'Org', id: string, name: string, description?: string | null, parentId?: string | null, enabled: boolean, isSystem: boolean, ownerUserId?: string | null, visibility?: OrgVisibility | null, logoUrl?: string | null } };
+
+export type CreateChildOrgMutationVariables = Exact<{
+  input: CreateChildOrgInput;
+}>;
+
+
+export type CreateChildOrgMutation = { __typename?: 'Mutation', createChildOrg: { __typename?: 'OrgPayload', org: { __typename?: 'Org', id: string, name: string, description?: string | null, parentId?: string | null, enabled: boolean } } };
+
+export type UpdateOrgMutationVariables = Exact<{
+  input: UpdateOrgInput;
+}>;
+
+
+export type UpdateOrgMutation = { __typename?: 'Mutation', updateOrg: { __typename?: 'OrgPayload', org: { __typename?: 'Org', id: string, name: string, description?: string | null, logoUrl?: string | null } } };
+
+export type SetOrgEnabledMutationVariables = Exact<{
+  input: SetOrgEnabledInput;
+}>;
+
+
+export type SetOrgEnabledMutation = { __typename?: 'Mutation', setOrgEnabled: { __typename?: 'OrgPayload', org: { __typename?: 'Org', id: string, enabled: boolean } } };
+
+export type MoveOrgMutationVariables = Exact<{
+  input: MoveOrgInput;
+}>;
+
+
+export type MoveOrgMutation = { __typename?: 'Mutation', moveOrg: { __typename?: 'OrgPayload', org: { __typename?: 'Org', id: string, parentId?: string | null } } };
+
+export type DeleteOrgMutationVariables = Exact<{
+  input: DeleteOrgInput;
+}>;
+
+
+export type DeleteOrgMutation = { __typename?: 'Mutation', deleteOrg: { __typename?: 'DeletePayload', success: boolean, deletedId: string } };
+
 export type RecipesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -298,7 +478,15 @@ export type CreateRecipeMutationVariables = Exact<{
 export type CreateRecipeMutation = { __typename?: 'Mutation', createRecipe: { __typename?: 'Recipe', id: string, title: string } };
 
 
-
+export const OrgNodeFieldsFragmentDoc = `
+    fragment OrgNodeFields on OrgNode {
+  id
+  name
+  parentId
+  enabled
+  outOfScope
+}
+    `;
 export const LoginDocument = `
     mutation Login($input: LoginInput!) {
   login(input: $input) {
@@ -576,6 +764,246 @@ export const useChangePasswordMutation = <
 
 
 useChangePasswordMutation.fetcher = (client: GraphQLClient, variables: ChangePasswordMutationVariables, headers?: RequestInit['headers']) => fetcher<ChangePasswordMutation, ChangePasswordMutationVariables>(client, ChangePasswordDocument, variables, headers);
+
+export const OrgTreeDocument = `
+    query OrgTree {
+  orgTree {
+    ...OrgNodeFields
+    children {
+      ...OrgNodeFields
+      children {
+        ...OrgNodeFields
+        children {
+          ...OrgNodeFields
+          children {
+            ...OrgNodeFields
+          }
+        }
+      }
+    }
+  }
+}
+    ${OrgNodeFieldsFragmentDoc}`;
+
+export const useOrgTreeQuery = <
+      TData = OrgTreeQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: OrgTreeQueryVariables,
+      options?: Omit<UseQueryOptions<OrgTreeQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<OrgTreeQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<OrgTreeQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['OrgTree'] : ['OrgTree', variables],
+    queryFn: fetcher<OrgTreeQuery, OrgTreeQueryVariables>(client, OrgTreeDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useOrgTreeQuery.getKey = (variables?: OrgTreeQueryVariables) => variables === undefined ? ['OrgTree'] : ['OrgTree', variables];
+
+
+useOrgTreeQuery.fetcher = (client: GraphQLClient, variables?: OrgTreeQueryVariables, headers?: RequestInit['headers']) => fetcher<OrgTreeQuery, OrgTreeQueryVariables>(client, OrgTreeDocument, variables, headers);
+
+export const OrgDocument = `
+    query Org($id: ID!) {
+  org(id: $id) {
+    id
+    name
+    description
+    parentId
+    enabled
+    isSystem
+    ownerUserId
+    visibility
+    logoUrl
+  }
+}
+    `;
+
+export const useOrgQuery = <
+      TData = OrgQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: OrgQueryVariables,
+      options?: Omit<UseQueryOptions<OrgQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<OrgQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<OrgQuery, TError, TData>(
+      {
+    queryKey: ['Org', variables],
+    queryFn: fetcher<OrgQuery, OrgQueryVariables>(client, OrgDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useOrgQuery.getKey = (variables: OrgQueryVariables) => ['Org', variables];
+
+
+useOrgQuery.fetcher = (client: GraphQLClient, variables: OrgQueryVariables, headers?: RequestInit['headers']) => fetcher<OrgQuery, OrgQueryVariables>(client, OrgDocument, variables, headers);
+
+export const CreateChildOrgDocument = `
+    mutation CreateChildOrg($input: CreateChildOrgInput!) {
+  createChildOrg(input: $input) {
+    org {
+      id
+      name
+      description
+      parentId
+      enabled
+    }
+  }
+}
+    `;
+
+export const useCreateChildOrgMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateChildOrgMutation, TError, CreateChildOrgMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateChildOrgMutation, TError, CreateChildOrgMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateChildOrg'],
+    mutationFn: (variables?: CreateChildOrgMutationVariables) => fetcher<CreateChildOrgMutation, CreateChildOrgMutationVariables>(client, CreateChildOrgDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateChildOrgMutation.fetcher = (client: GraphQLClient, variables: CreateChildOrgMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateChildOrgMutation, CreateChildOrgMutationVariables>(client, CreateChildOrgDocument, variables, headers);
+
+export const UpdateOrgDocument = `
+    mutation UpdateOrg($input: UpdateOrgInput!) {
+  updateOrg(input: $input) {
+    org {
+      id
+      name
+      description
+      logoUrl
+    }
+  }
+}
+    `;
+
+export const useUpdateOrgMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateOrgMutation, TError, UpdateOrgMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateOrgMutation, TError, UpdateOrgMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateOrg'],
+    mutationFn: (variables?: UpdateOrgMutationVariables) => fetcher<UpdateOrgMutation, UpdateOrgMutationVariables>(client, UpdateOrgDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateOrgMutation.fetcher = (client: GraphQLClient, variables: UpdateOrgMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateOrgMutation, UpdateOrgMutationVariables>(client, UpdateOrgDocument, variables, headers);
+
+export const SetOrgEnabledDocument = `
+    mutation SetOrgEnabled($input: SetOrgEnabledInput!) {
+  setOrgEnabled(input: $input) {
+    org {
+      id
+      enabled
+    }
+  }
+}
+    `;
+
+export const useSetOrgEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetOrgEnabledMutation, TError, SetOrgEnabledMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetOrgEnabledMutation, TError, SetOrgEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['SetOrgEnabled'],
+    mutationFn: (variables?: SetOrgEnabledMutationVariables) => fetcher<SetOrgEnabledMutation, SetOrgEnabledMutationVariables>(client, SetOrgEnabledDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetOrgEnabledMutation.fetcher = (client: GraphQLClient, variables: SetOrgEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetOrgEnabledMutation, SetOrgEnabledMutationVariables>(client, SetOrgEnabledDocument, variables, headers);
+
+export const MoveOrgDocument = `
+    mutation MoveOrg($input: MoveOrgInput!) {
+  moveOrg(input: $input) {
+    org {
+      id
+      parentId
+    }
+  }
+}
+    `;
+
+export const useMoveOrgMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<MoveOrgMutation, TError, MoveOrgMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<MoveOrgMutation, TError, MoveOrgMutationVariables, TContext>(
+      {
+    mutationKey: ['MoveOrg'],
+    mutationFn: (variables?: MoveOrgMutationVariables) => fetcher<MoveOrgMutation, MoveOrgMutationVariables>(client, MoveOrgDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useMoveOrgMutation.fetcher = (client: GraphQLClient, variables: MoveOrgMutationVariables, headers?: RequestInit['headers']) => fetcher<MoveOrgMutation, MoveOrgMutationVariables>(client, MoveOrgDocument, variables, headers);
+
+export const DeleteOrgDocument = `
+    mutation DeleteOrg($input: DeleteOrgInput!) {
+  deleteOrg(input: $input) {
+    success
+    deletedId
+  }
+}
+    `;
+
+export const useDeleteOrgMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteOrgMutation, TError, DeleteOrgMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteOrgMutation, TError, DeleteOrgMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteOrg'],
+    mutationFn: (variables?: DeleteOrgMutationVariables) => fetcher<DeleteOrgMutation, DeleteOrgMutationVariables>(client, DeleteOrgDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useDeleteOrgMutation.fetcher = (client: GraphQLClient, variables: DeleteOrgMutationVariables, headers?: RequestInit['headers']) => fetcher<DeleteOrgMutation, DeleteOrgMutationVariables>(client, DeleteOrgDocument, variables, headers);
 
 export const RecipesDocument = `
     query Recipes {

@@ -1,5 +1,7 @@
 {
   "extends": "./tsconfig.json",
+  // 只編譯 src:scripts/ 是開發期工具(ts-node 直跑),不進 dist,否則 dist 的目錄結構會多一層
+  "include": ["src"],
   "exclude": [
     "node_modules",
     "dist",
