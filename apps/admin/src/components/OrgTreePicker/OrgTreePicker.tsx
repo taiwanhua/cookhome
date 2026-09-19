@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Tree } from "@repo/ui/tree";
 
 import {
+  type OrgLabelSuffix,
   type OrgNodeLike,
   allOrgIds,
   filterOrgTree,
@@ -20,6 +21,8 @@ export interface OrgTreePickerProps {
   isMultiSelect?: boolean;
   /** 搜尋關鍵字:命中節點與其祖先留下,其餘隱藏 */
   keyword?: string;
+  /** 節點名稱右側的附加標籤(組織管理頁的「停用」「租戶」);預設沒有 */
+  labelSuffixOf?: OrgLabelSuffix;
   maxHeight?: number | string;
   "aria-label"?: string;
 }
@@ -36,6 +39,7 @@ export const OrgTreePicker = ({
   onSelectedIdsChange,
   isMultiSelect = false,
   keyword = "",
+  labelSuffixOf,
   maxHeight,
   "aria-label": ariaLabel,
 }: OrgTreePickerProps) => {
@@ -45,7 +49,10 @@ export const OrgTreePicker = ({
     () => filterOrgTree(nodes, keyword),
     [nodes, keyword],
   );
-  const items = useMemo(() => toTreeNodes(visibleNodes), [visibleNodes]);
+  const items = useMemo(
+    () => toTreeNodes(visibleNodes, labelSuffixOf),
+    [visibleNodes, labelSuffixOf],
+  );
   const expandedIds = useMemo(
     () => allOrgIds(visibleNodes).filter((id) => !collapsedIds.includes(id)),
     [visibleNodes, collapsedIds],

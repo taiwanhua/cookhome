@@ -739,6 +739,13 @@ export type CreateRecipeMutationVariables = Exact<{
 
 export type CreateRecipeMutation = { __typename?: 'Mutation', createRecipe: { __typename?: 'Recipe', id: string, title: string } };
 
+export type CreateUploadUrlMutationVariables = Exact<{
+  input: CreateUploadUrlInput;
+}>;
+
+
+export type CreateUploadUrlMutation = { __typename?: 'Mutation', createUploadUrl: { __typename?: 'UploadUrlPayload', uploadUrl: string, objectPath: string, expiresAt: string } };
+
 export type UsersQueryVariables = Exact<{
   input: UsersInput;
 }>;
@@ -1565,6 +1572,36 @@ export const useCreateRecipeMutation = <
 
 
 useCreateRecipeMutation.fetcher = (client: GraphQLClient, variables: CreateRecipeMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateRecipeMutation, CreateRecipeMutationVariables>(client, CreateRecipeDocument, variables, headers);
+
+export const CreateUploadUrlDocument = `
+    mutation CreateUploadUrl($input: CreateUploadUrlInput!) {
+  createUploadUrl(input: $input) {
+    uploadUrl
+    objectPath
+    expiresAt
+  }
+}
+    `;
+
+export const useCreateUploadUrlMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateUploadUrlMutation, TError, CreateUploadUrlMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateUploadUrlMutation, TError, CreateUploadUrlMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateUploadUrl'],
+    mutationFn: (variables?: CreateUploadUrlMutationVariables) => fetcher<CreateUploadUrlMutation, CreateUploadUrlMutationVariables>(client, CreateUploadUrlDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateUploadUrlMutation.fetcher = (client: GraphQLClient, variables: CreateUploadUrlMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateUploadUrlMutation, CreateUploadUrlMutationVariables>(client, CreateUploadUrlDocument, variables, headers);
 
 export const UsersDocument = `
     query Users($input: UsersInput!) {

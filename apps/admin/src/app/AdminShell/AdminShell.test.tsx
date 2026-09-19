@@ -180,11 +180,12 @@ describe("路由與導向(ADR-0011「路由與導向規則」:模組路由 / 群
         .handlers,
     );
 
-    renderApp({ path: "/system/org-manager" });
+    // 用還沒實作的模組驗佔位頁(組織管理 / 使用者管理已有真頁面,沒有這個標題)
+    renderApp({ path: "/system/role-manager" });
 
-    const heading = await screen.findByRole("heading", { name: "組織管理" });
+    const heading = await screen.findByRole("heading", { name: "角色管理" });
     expect(screen.getByRole("main")).toContainElement(heading);
-    expect(screen.getByRole("banner")).toHaveTextContent("組織管理");
+    expect(screen.getByRole("banner")).toHaveTextContent("角色管理");
   });
 
   it("隱藏頁(編輯頁)有路由可進;點側欄連結切換內容區", async () => {
