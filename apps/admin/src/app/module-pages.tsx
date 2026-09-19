@@ -1,4 +1,6 @@
 import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
+import { UserManagerPage } from "../pages/system/UserManagerPage/UserManagerPage";
+import { USER_MANAGER_MODULE_KEY } from "../pages/system/UserManagerPage/user-manager-permissions";
 import type { ModulePageRegistry } from "./guards/ModuleRoute/ModuleRoute";
 
 /** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
@@ -10,4 +12,5 @@ export const OVERVIEW_MODULE_KEY = "overview";
  */
 export const modulePages: ModulePageRegistry = {
   [OVERVIEW_MODULE_KEY]: OverviewPage,
+  [USER_MANAGER_MODULE_KEY]: UserManagerPage,
 };

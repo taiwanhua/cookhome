@@ -96,5 +96,151 @@
       "body": "Your current role does not include this page. Contact the system administrator if you need it.",
       "backHome": "Back to home"
     }
+  },
+  "userManager": {
+    "orgTree": {
+      "title": "Organizations",
+      "hint": "Pick an organization to filter users",
+      "all": "All organizations",
+      "search": "Search organizations",
+      "unavailable": "You cannot view organizations, so the list shows every user within your visible scope."
+    },
+    "toolbar": {
+      "search": "Search",
+      "searchPlaceholder": "Name or email",
+      "create": "Add user"
+    },
+    "tableLabel": "User list",
+    "outOfScopeHint": "\"Outside org\" means the user is not inside the organization that owns the role",
+    "columns": {
+      "name": "Name",
+      "account": "Account",
+      "email": "Email",
+      "orgs": "Organizations",
+      "roles": "Roles",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "roleOutOfScope": "Outside org",
+    "orgsMore": "+{count}",
+    "orgsMoreLabel": "{name} also belongs to {count} more organizations",
+    "none": "—",
+    "empty": "No users in this organization yet",
+    "total": "{total} in total, {pageSize} per page",
+    "ownerProtected": "The owner of the top-level organization is protected; this action is unavailable",
+    "actions": {
+      "edit": "Edit",
+      "orgs": "Organizations",
+      "roles": "Assign roles",
+      "enable": "Enable",
+      "disable": "Disable",
+      "rowLabel": "{action} {name}"
+    },
+    "form": {
+      "createTitle": "Add user",
+      "editTitle": "Edit user — {name}",
+      "account": "Account",
+      "name": "Name",
+      "nickname": "Nickname",
+      "gender": "Gender",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Address",
+      "nationalId": "National ID (optional)",
+      "genderOptions": {
+        "unset": "Not set",
+        "male": "Male",
+        "female": "Female",
+        "other": "Other"
+      },
+      "activation": {
+        "legend": "Activation",
+        "email": "Send an activation email so the user sets their own password (link valid for 7 days)",
+        "password": "Set an initial password (must be changed on first sign-in)",
+        "note": "An activation email is sent by default; with an initial password the user must change it on first sign-in."
+      },
+      "initialPassword": "Initial password",
+      "orgs": "Organizations",
+      "pickOrgs": "+ Pick organizations",
+      "orgsReadonly": "Use the \"Organizations\" action in the list to change them.",
+      "removeOrg": "Remove {name}",
+      "submitCreate": "Add",
+      "submitEdit": "Save",
+      "cancel": "Cancel",
+      "errors": {
+        "required": "Fill in the required fields (account, name, email, organizations)",
+        "duplicate": "Already taken: {fields}",
+        "forbidden": "You do not have permission for this action",
+        "unexpected": "Could not save, please try again later"
+      }
+    },
+    "orgPicker": {
+      "title": "Organizations — {name}",
+      "createTitle": "Pick organizations",
+      "selected": "{count} selected",
+      "hint": "Adding an organization widens the data this user can see. When you remove one, the affected role grants are listed before submitting so you can keep or revoke them.",
+      "confirm": "Confirm",
+      "cancel": "Cancel"
+    },
+    "orgChange": {
+      "title": "Confirm organization changes?",
+      "intro": "You changed the organizations of {name}:",
+      "removed": "Removed: {orgs}",
+      "affected": "Affected role grants (you decide how to handle them):",
+      "noneAffected": "No role loses its qualification.",
+      "keepAll": {
+        "label": "Keep every role grant",
+        "hint": "The roles keep working; the data they reach still follows the user's organizations and the list marks them"
+      },
+      "revokeOwned": {
+        "label": "Only revoke roles owned by this organization",
+        "hint": "Will revoke: {roles}"
+      },
+      "revokeAll": {
+        "label": "Revoke every role that loses its qualification",
+        "hint": "Will revoke: {roles}"
+      },
+      "roleWithOrg": "{role} ({org})",
+      "protected": "{role} is protected by owner protection and will not be revoked",
+      "reasons": {
+        "OWNED_BY_REMOVED_ORG": "Owned by the removed organization",
+        "NO_REMAINING_SUBTREE_SUPPORT": "None of the remaining organizations sits under the role's owning organization"
+      },
+      "confirm": "Confirm changes",
+      "cancel": "Cancel"
+    },
+    "assignRoles": {
+      "title": "Assign roles — {name}",
+      "hint": "\"Outside org\" means {name} is not inside the organization that owns the role",
+      "outOfScope": "Outside org",
+      "orgFilter": "Organization (lists that organization's roles)",
+      "allOrgs": "All organizations",
+      "empty": "You hold no role that can be assigned",
+      "outOfReach": "You do not hold this role and cannot pass it on",
+      "ownerOrg": "Owned by {org}",
+      "save": "Save assignment",
+      "cancel": "Cancel"
+    },
+    "toggle": {
+      "disableTitle": "Disable {name}?",
+      "disableBody": "They can no longer sign in and are signed out of every device immediately. Users are never deleted; a disabled user can be enabled again.",
+      "enableTitle": "Enable {name}?",
+      "enableBody": "They can sign in to the admin again.",
+      "confirmDisable": "Disable",
+      "confirmEnable": "Enable",
+      "cancel": "Cancel"
+    },
+    "errors": {
+      "OWNER_PROTECTED": "The owner of the top-level organization is protected; the action was rejected.",
+      "LAST_ORG": "Every user must keep at least one organization.",
+      "ROLE_OUT_OF_REACH": "You can only assign roles you hold yourself.",
+      "FORBIDDEN": "You do not have permission for this action.",
+      "VALIDATION_FAILED": "The data did not pass validation, please check and submit again.",
+      "UNEXPECTED": "The action failed, please try again later."
+    }
   }
 }

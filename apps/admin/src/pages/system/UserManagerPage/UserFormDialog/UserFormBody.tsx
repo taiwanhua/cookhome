@@ -1,0 +1,188 @@
+import { useState } from "react";
+import { useTranslations } from "use-intl";
+
+import {
+  UserActivationMode,
+  useCreateUserMutation,
+  useUpdateUserMutation,
+} from "@repo/graphql";
+import { Alert } from "@repo/ui/alert";
+import { Button } from "@repo/ui/button";
+import { Dialog } from "@repo/ui/dialog";
+import { Stack } from "@repo/ui/stack";
+
+import { useSession } from "../../../../hooks/useSession";
+import { type OrgNodeLike, flattenOrgs } from "../../../../lib/org-tree";
+import { OrgPickerDialog } from "../OrgPickerDialog/OrgPickerDialog";
+import { userManagerErrorOf } from "../user-manager-error";
+import type { UserActionAbility } from "../user-manager-types";
+import { ActivationFields } from "./ActivationFields";
+import { UserBasicFields } from "./UserBasicFields";
+import { UserOrgsField } from "./UserOrgsField";
+import { type UserFormValues, useUserForm } from "./useUserForm";
+
+/** 選填欄位:空字串送 null(api 以 null 代表清空)。 */
+const blank = (value: string) => (value.trim() === "" ? null : value.trim());
+
+export interface UserFormBodyProps {
+  /** 編輯模式帶使用者 id;新增模式為 null */
+  userId: string | null;
+  title: string;
+  initialValues: UserFormValues;
+  initialOrgIds: readonly string[];
+  orgNodes: readonly OrgNodeLike[];
+  isOrgTreeAvailable: boolean;
+  ability: UserActionAbility;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+/**
+ * 新增 / 編輯使用者的表單本體(Figma 202:728 / 86:162 是同一個彈窗的兩個模式)。
+ * 只在初始值備齊後才掛載(編輯模式要先取單筆),所以表單狀態用 `useState` 初始化即可。
+ */
+export const UserFormBody = ({
+  userId,
+  title,
+  initialValues,
+  initialOrgIds,
+  orgNodes,
+  isOrgTreeAvailable,
+  ability,
+  onClose,
+  onSaved,
+}: UserFormBodyProps) => {
+  const t = useTranslations("admin.userManager.form");
+  const { session } = useSession();
+  const isCreate = userId === null;
+  const form = useUserForm({
+    initialValues,
+    initialOrgIds,
+    hasActivation: isCreate,
+  });
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [isPickingOrgs, setIsPickingOrgs] = useState(false);
+
+  const onError = (error: unknown) => {
+    const { code, fields } = userManagerErrorOf(error);
+    if (code === "VALIDATION_FAILED" && fields.length > 0) {
+      setErrorText(t("errors.duplicate", { fields: fields.join("、") }));
+      return;
+    }
+    setErrorText(
+      code === "FORBIDDEN" ? t("errors.forbidden") : t("errors.unexpected"),
+    );
+  };
+
+  const createUser = useCreateUserMutation(session.client, {
+    onSuccess: onSaved,
+    onError,
+  });
+  const updateUser = useUpdateUserMutation(session.client, {
+    onSuccess: onSaved,
+    onError,
+  });
+  const isSubmitting = createUser.isPending || updateUser.isPending;
+
+  const selectedOrgs = flattenOrgs(orgNodes).filter((org) =>
+    form.orgIds.includes(org.id),
+  );
+
+  const handleSubmit = () => {
+    setErrorText(null);
+    if (!form.isValid) {
+      setErrorText(t("errors.required"));
+      return;
+    }
+    const { values } = form;
+    const base = {
+      name: values.name.trim(),
+      account: values.account.trim(),
+      email: values.email.trim(),
+      nickname: blank(values.nickname),
+      gender: blank(values.gender),
+      phone: blank(values.phone),
+      address: blank(values.address),
+      ...(ability.canEditNationalId
+        ? { nationalId: blank(values.nationalId) }
+        : {}),
+    };
+
+    if (userId === null) {
+      createUser.mutate({
+        input: {
+          ...base,
+          orgIds: [...form.orgIds],
+          activation: {
+            mode: form.activationMode,
+            initialPassword:
+              form.activationMode === UserActivationMode.Password
+                ? form.initialPassword
+                : null,
+          },
+        },
+      });
+      return;
+    }
+    updateUser.mutate({ input: { id: userId, ...base } });
+  };
+
+  return (
+    <>
+      <Dialog
+        open
+        onClose={onClose}
+        fullWidth
+        maxWidth="sm"
+        title={title}
+        actions={
+          <>
+            <Button variant="text" onClick={onClose}>
+              {t("cancel")}
+            </Button>
+            <Button disabled={isSubmitting} onClick={handleSubmit}>
+              {isCreate ? t("submitCreate") : t("submitEdit")}
+            </Button>
+          </>
+        }
+      >
+        <Stack spacing={2.25}>
+          <UserBasicFields
+            form={form}
+            canShowNationalId={ability.canShowNationalId}
+            canEditNationalId={ability.canEditNationalId}
+            isDisabled={isSubmitting}
+          />
+          {isCreate && (
+            <ActivationFields form={form} isDisabled={isSubmitting} />
+          )}
+          <UserOrgsField
+            orgs={selectedOrgs}
+            isEditable={isCreate && isOrgTreeAvailable}
+            onRemove={(orgId) => {
+              form.setOrgIds(form.orgIds.filter((id) => id !== orgId));
+            }}
+            onPick={() => {
+              setIsPickingOrgs(true);
+            }}
+          />
+          {errorText !== null && <Alert severity="error">{errorText}</Alert>}
+        </Stack>
+      </Dialog>
+      {isPickingOrgs && (
+        <OrgPickerDialog
+          title={t("orgs")}
+          nodes={orgNodes}
+          initialSelectedIds={form.orgIds}
+          onCancel={() => {
+            setIsPickingOrgs(false);
+          }}
+          onConfirm={(orgIds) => {
+            form.setOrgIds(orgIds);
+            setIsPickingOrgs(false);
+          }}
+        />
+      )}
+    </>
+  );
+};

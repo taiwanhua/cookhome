@@ -129,6 +129,15 @@ type MeOrg {
   name: String!
 }
 
+type ModuleOption {
+  id: ID!
+  key: String!
+  name: String!
+  order: Int!
+  parentId: ID
+  sidebarType: ModuleSidebarType!
+}
+
 """側欄呈現型別:GROUP=可展開群組(非連結)、LINK=模組連結、HIDDEN=隱藏頁(有路由但不出現在側欄)"""
 enum ModuleSidebarType {
   GROUP
@@ -153,13 +162,16 @@ type Mutation {
   logout: LogoutPayload!
   logoutAllDevices: LogoutAllDevicesPayload!
   moveOrg(input: MoveOrgInput!): OrgPayload!
+  provisionTenant(input: ProvisionTenantInput!): ProvisionTenantPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
+  setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
   setUserEnabled(input: SetUserEnabledInput!): UserPayload!
   setUserOrgs(input: SetUserOrgsInput!): SetUserOrgsPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
+  transferOrgOwner(input: TransferOrgOwnerInput!): OrgPayload!
   updateOrg(input: UpdateOrgInput!): OrgPayload!
   updateUser(input: UpdateUserInput!): UserPayload!
 }
@@ -182,6 +194,7 @@ type OrgNode {
   id: ID!
   name: String!
   outOfScope: Boolean!
+  ownerUserId: ID
   parentId: ID
 }
 
@@ -195,12 +208,28 @@ enum OrgVisibility {
   SUBTREE
 }
 
+input ProvisionTenantInput {
+  adminAccount: String!
+  adminEmail: String!
+  logoPath: String
+  moduleKeys: [String!]!
+  name: String!
+}
+
+type ProvisionTenantPayload {
+  moduleKeys: [String!]!
+  org: Org!
+  ownerUserId: ID!
+  roleId: ID!
+}
+
 type Query {
   me: Me!
   org(id: ID!): Org!
   orgTree: [OrgNode!]!
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
+  tenantModuleOptions: [ModuleOption!]!
   user(id: ID!): User!
   users(input: UsersInput!): UsersPayload!
 }
@@ -242,6 +271,11 @@ input SetOrgEnabledInput {
   id: ID!
 }
 
+input SetOrgVisibilityInput {
+  orgId: ID!
+  visibility: OrgVisibility!
+}
+
 input SetPasswordInput {
   newPassword: String!
   token: String!
@@ -276,6 +310,11 @@ input SwitchOrgInput {
 
 type SwitchOrgPayload {
   accessToken: String!
+}
+
+input TransferOrgOwnerInput {
+  newOwnerUserId: ID!
+  orgId: ID!
 }
 
 type UnqualifiedRole {

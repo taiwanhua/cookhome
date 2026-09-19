@@ -1,0 +1,81 @@
+import type { TreeNode } from "@repo/ui/tree";
+
+/**
+ * `orgTree` 的節點形狀(codegen 把遞迴展開成五層具名型別,無法直接遞迴走訪,
+ * 這裡給一個結構相容的型別當走訪介面;`children` 在最深一層不存在,故為選填)。
+ * `outOfScope` = 可見範圍外(ADR-0005):樹上照樣顯示,但不可選、不可操作。
+ */
+export interface OrgNodeLike {
+  id: string;
+  name: string;
+  parentId?: string | null;
+  enabled: boolean;
+  outOfScope: boolean;
+  children?: readonly OrgNodeLike[];
+}
+
+/** 扁平化後的一筆組織:`path` 是含祖先的完整名稱(「租戶 A / 內容組」),用於標籤與搜尋。 */
+export interface OrgOption {
+  id: string;
+  name: string;
+  path: string;
+  outOfScope: boolean;
+}
+
+/** 樹 → `@repo/ui/tree` 的資料;範圍外節點 disabled(顯示但不可選)。 */
+export const toTreeNodes = (nodes: readonly OrgNodeLike[]): TreeNode[] =>
+  nodes.map((node) => ({
+    id: node.id,
+    label: node.name,
+    disabled: node.outOfScope,
+    children:
+      node.children === undefined ? undefined : toTreeNodes(node.children),
+  }));
+
+/** 深度優先攤平整棵樹(含範圍外節點),順序 = 畫面上的順序。 */
+export const flattenOrgs = (
+  nodes: readonly OrgNodeLike[],
+  ancestors: readonly string[] = [],
+): OrgOption[] =>
+  nodes.flatMap((node) => {
+    const trail = [...ancestors, node.name];
+    return [
+      {
+        id: node.id,
+        name: node.name,
+        path: trail.join(" / "),
+        outOfScope: node.outOfScope,
+      },
+      ...flattenOrgs(node.children ?? [], trail),
+    ];
+  });
+
+/** 所有節點 id(展開狀態的全集)。 */
+export const allOrgIds = (nodes: readonly OrgNodeLike[]): string[] =>
+  flattenOrgs(nodes).map((org) => org.id);
+
+/** 整棵樹的根節點 id;空樹回 null(租戶視角 = 租戶頂層、根組織視角 = 根組織)。 */
+export const rootOrgId = (nodes: readonly OrgNodeLike[]): string | null =>
+  nodes[0]?.id ?? null;
+
+/**
+ * 依關鍵字過濾:節點自己命中、或子樹裡有命中的就留下(留下時子樹也一併保留,
+ * 讓使用者看得到命中節點的層級關係)。關鍵字空白時原樣回傳。
+ */
+export const filterOrgTree = (
+  nodes: readonly OrgNodeLike[],
+  keyword: string,
+): OrgNodeLike[] => {
+  const needle = keyword.trim().toLowerCase();
+  if (needle === "") {
+    return [...nodes];
+  }
+  return nodes.flatMap((node) => {
+    const children = filterOrgTree(node.children ?? [], keyword);
+    const isHit = node.name.toLowerCase().includes(needle);
+    if (!isHit && children.length === 0) {
+      return [];
+    }
+    return [{ ...node, children: isHit ? node.children : children }];
+  });
+};

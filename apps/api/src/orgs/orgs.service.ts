@@ -2,13 +2,11 @@ import { Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
 import { AuditService } from "../audit/audit.service";
-import type { Persisted } from "../database/base.repository";
 import {
   CustomersRepository,
   DemoItemsOneRepository,
   DemoItemsTwoRepository,
   FieldsRepository,
-  type OrgDocument,
   OrgsRepository,
 } from "../database/database.module";
 import {
@@ -22,19 +20,14 @@ import type { DeleteOrgInput } from "./dto/delete-org.input";
 import type { MoveOrgInput } from "./dto/move-org.input";
 import type { SetOrgEnabledInput } from "./dto/set-org-enabled.input";
 import type { UpdateOrgInput } from "./dto/update-org.input";
-import { Org, OrgNode, OrgVisibility } from "./models/org.model";
 import type { DeletePayload } from "./models/org-payloads.model";
+import { type Org, OrgNode } from "./models/org.model";
 import {
   type OrgNotDeletableReason,
   orgError,
   orgNotDeletableError,
 } from "./org-error";
-
-/** 一筆讀回來的組織(含基礎欄位,ADR-0007)。 */
-type OrgRecord = Persisted<OrgDocument>;
-
-/** `orgs.settings.visibility` 的值(ADR-0005;未設視為 "own")。 */
-const VISIBILITY_SUBTREE = "subtree";
+import { type OrgRecord, tenantTopIdOf, toOrg } from "./org-mapper";
 
 /** 審計動作名(docs/modules/org-manager.md「審計」;`targetType` 一律 org)。 */
 const AUDIT_TARGET_TYPE = "org";
@@ -66,35 +59,6 @@ interface OrgFieldChange {
  */
 function subtreeContext(operator: OperatorContext): OperatorContext {
   return { ...operator, visibleOrgIds: "all" };
-}
-
-/** 租戶頂層 id(`ancestors` = [根, 租戶頂層, …];自己就是租戶頂層 / 根組織時回自己)。 */
-function tenantTopIdOf(org: OrgRecord): Types.ObjectId {
-  return org.ancestors[1] ?? org._id;
-}
-
-/** 可見範圍開關只掛在租戶頂層(`ancestors` 只有根組織一層);其餘組織恆為 null。 */
-function visibilityOf(org: OrgRecord): OrgVisibility | null {
-  if (org.ancestors.length !== 1) {
-    return null;
-  }
-  return org.settings.visibility === VISIBILITY_SUBTREE
-    ? OrgVisibility.SUBTREE
-    : OrgVisibility.OWN;
-}
-
-function toOrg(org: OrgRecord): Org {
-  return {
-    id: String(org._id),
-    name: org.name,
-    ...(org.description === undefined ? {} : { description: org.description }),
-    parentId: org.parentId === null ? null : String(org.parentId),
-    enabled: org.enabled,
-    isSystem: org.isSystem,
-    ownerUserId: org.ownerUserId === undefined ? null : String(org.ownerUserId),
-    visibility: visibilityOf(org),
-    ...(org.logoPath === undefined ? {} : { logoPath: org.logoPath }),
-  };
 }
 
 /** 名稱是必填且不可只有空白;回傳去空白後的值。 */
@@ -218,6 +182,9 @@ function buildForest(
         ? null
         : String(document.parentId),
     enabled: document.enabled,
+    // 僅租戶頂層有值(ADR-0009);樹上就給,前端不必逐筆查 org(id) 才判斷得出擁有者(#139)
+    ownerUserId:
+      document.ownerUserId === undefined ? null : String(document.ownerUserId),
     // 可見範圍外:樹上照樣顯示(不然樹會斷),但前端不讓選、不讓操作(ADR-0005)
     outOfScope: !isOrgVisible(operator, document._id),
     children: byName(childrenByParent.get(String(document._id)) ?? []).map(
