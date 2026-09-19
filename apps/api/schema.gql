@@ -129,6 +129,23 @@ type MeOrg {
   name: String!
 }
 
+type ModuleAdminNode {
+  children: [ModuleAdminNode!]!
+  description: String
+  enabled: Boolean!
+  id: ID!
+  key: String!
+  name: String!
+  order: Int!
+  parentId: ID
+  permissions: [PermissionAdmin!]!
+  sidebarType: ModuleSidebarType!
+}
+
+type ModuleAdminPayload {
+  module: ModuleAdminNode!
+}
+
 type ModuleOption {
   id: ID!
   key: String!
@@ -165,9 +182,11 @@ type Mutation {
   provisionTenant(input: ProvisionTenantInput!): ProvisionTenantPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
+  setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
+  setPermissionEnabled(input: SetPermissionEnabledInput!): PermissionAdminPayload!
   setUserEnabled(input: SetUserEnabledInput!): UserPayload!
   setUserOrgs(input: SetUserOrgsInput!): SetUserOrgsPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
@@ -208,6 +227,18 @@ enum OrgVisibility {
   SUBTREE
 }
 
+type PermissionAdmin {
+  description: String
+  enabled: Boolean!
+  id: ID!
+  key: String!
+  name: String!
+}
+
+type PermissionAdminPayload {
+  permission: PermissionAdmin!
+}
+
 input ProvisionTenantInput {
   adminAccount: String!
   adminEmail: String!
@@ -225,6 +256,7 @@ type ProvisionTenantPayload {
 
 type Query {
   me: Me!
+  moduleTree: [ModuleAdminNode!]!
   org(id: ID!): Org!
   orgTree: [OrgNode!]!
   recipe(id: ID!): Recipe!
@@ -266,6 +298,11 @@ enum RoleUnqualifiedReason {
   OWNED_BY_REMOVED_ORG
 }
 
+input SetModuleEnabledInput {
+  enabled: Boolean!
+  id: ID!
+}
+
 input SetOrgEnabledInput {
   enabled: Boolean!
   id: ID!
@@ -283,6 +320,11 @@ input SetPasswordInput {
 
 type SetPasswordPayload {
   accessToken: String!
+}
+
+input SetPermissionEnabledInput {
+  enabled: Boolean!
+  id: ID!
 }
 
 input SetUserEnabledInput {
