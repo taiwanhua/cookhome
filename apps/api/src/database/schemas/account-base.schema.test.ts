@@ -18,6 +18,7 @@ const asRoot: OperatorContext = {
   actorId: null,
   currentOrgId: null,
   visibleOrgIds: "all",
+  managedOrgIds: "all",
 };
 
 let sequence = 0;

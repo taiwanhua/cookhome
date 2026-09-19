@@ -7,6 +7,8 @@ import { LOGO_ACCEPT, LOGO_MAX_SIZE } from "./org-manager-types";
 export interface OrgLogoFieldProps {
   file: File | null;
   onFileChange: (file: File | null) => void;
+  /** 編輯情境:組織現有的商標(`org.logoUrl`),彈窗一開就看得到(#186 ②) */
+  initialPreviewUrl?: string | null;
   isDisabled: boolean;
 }
 
@@ -18,6 +20,7 @@ export interface OrgLogoFieldProps {
 export const OrgLogoField = ({
   file,
   onFileChange,
+  initialPreviewUrl = null,
   isDisabled,
 }: OrgLogoFieldProps) => {
   const t = useTranslations("admin.orgManager.form");
@@ -27,6 +30,8 @@ export const OrgLogoField = ({
       label={t("logo")}
       hint={t("logoHint")}
       value={file}
+      initialPreviewUrl={initialPreviewUrl}
+      initialPreviewLabel={t("logoCurrent")}
       onChange={onFileChange}
       accept={LOGO_ACCEPT}
       maxSize={LOGO_MAX_SIZE}

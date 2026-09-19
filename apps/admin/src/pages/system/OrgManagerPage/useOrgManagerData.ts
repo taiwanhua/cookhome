@@ -38,9 +38,6 @@ export const useOrgManagerData = () => {
   const orgTree = useOrgTreeQuery(session.client);
   const orgNodes: readonly OrgNodeLike[] = orgTree.data?.orgTree ?? [];
   const treeRootId = rootOrgId(orgNodes);
-  /** 樹根的上層為 null = 操作者站在根組織(根組織視角);租戶視角的樹根是租戶頂層。 */
-  const isRootPerspective =
-    orgNodes.length > 0 && (orgNodes[0]?.parentId ?? null) === null;
 
   /** 還沒點過任何節點時預設選樹根(不在 effect 內 setState,REACT-06)。 */
   const selectedOrgId = pickedOrgId ?? treeRootId;
@@ -51,6 +48,19 @@ export const useOrgManagerData = () => {
     { enabled: selectedOrgId !== null },
   );
   const org = selected.data?.org;
+
+  /**
+   * 樹根到底是平台根組織還是租戶頂層,**不能看 `OrgNode.parentId`** — api 的 `buildForest`
+   * 把本棵樹的樹根一律對外回 `parentId: null`(`orgs.service.ts`),租戶視角的租戶頂層也是 null,
+   * 於是它的子組織被誤判成租戶、掛上「租戶」標籤(#186 ④)。
+   * `org(id).isSystem` 才是「這是平台根組織」的事實;樹根沒被點掉時與 `selected` 同一把 key,不多發一次請求。
+   */
+  const treeRoot = useOrgQuery(
+    session.client,
+    { id: treeRootId ?? "" },
+    { enabled: treeRootId !== null },
+  );
+  const isRootPerspective = treeRoot.data?.org.isSystem ?? false;
 
   /** 寫入成功後精準失效(DATA-02 / 04):樹、被改到的那一筆、以及 `me`(商標 / 組織名進側欄)。 */
   const invalidate = async (orgId?: string) => {

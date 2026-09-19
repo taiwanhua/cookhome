@@ -602,7 +602,7 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
     await api.close();
   }, HOOK_TIMEOUT_MS);
 
-  describe("清單:子樹 ∩ 可見範圍(user-manager.md「清單範圍」、ADR-0005)", () => {
+  describe("清單:子樹 ∩ 管理範圍(user-manager.md「清單範圍」、ADR-0005 的分工表)", () => {
     let inDeptOne: Types.ObjectId;
     let inTeamOne: Types.ObjectId;
     let inDeptTwo: Types.ObjectId;
@@ -631,7 +631,7 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
       });
     }, HOOK_TIMEOUT_MS);
 
-    it("可見範圍 subtree:選租戶頂層即列出整棵子樹的成員", async () => {
+    it("選租戶頂層即列出整棵子樹的成員", async () => {
       const page = await listAs(managerToken, {
         orgId: String(tenantA),
         pageSize: 100,
@@ -648,7 +648,7 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
       expect(ids).not.toContain(String(inDeptOfB));
     });
 
-    it("可見範圍 subtree:選中下層組織只列該子樹", async () => {
+    it("選中下層組織只列該子樹", async () => {
       const page = await listAs(managerToken, {
         orgId: String(deptOne),
         pageSize: 100,
@@ -660,17 +660,19 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
       expect(ids).not.toContain(String(inDeptTwo));
     });
 
-    it("可見範圍 own:只看得到自己所屬組織的成員,下層組織的看不到", async () => {
+    it("可見性開關為 own 也列得出下層組織的成員:清單吃管理範圍,不吃可見範圍(#187 / ADR-0005)", async () => {
+      // 這位管理員的角色擁有組織 = 租戶乙頂層 → 管理範圍 = 整個租戶乙,與開關無關
       const page = await listAs(ownScopeManagerToken, {
         orgId: String(tenantB),
         pageSize: 100,
       });
       const ids = page.items.map((item) => item.id);
-      expect(ids).not.toContain(String(inDeptOfB));
+      expect(ids).toContain(String(inDeptOfB));
+      // 別的租戶照樣進不來(管理範圍是子樹,不是全部)
       expect(ids).not.toContain(String(inDeptOne));
     });
 
-    it("可見範圍外的組織當成查無:回空清單而不是別人的資料", async () => {
+    it("管理範圍外的組織當成查無:回空清單而不是別人的資料", async () => {
       const page = await listAs(ownScopeManagerToken, {
         orgId: String(tenantA),
         pageSize: 100,

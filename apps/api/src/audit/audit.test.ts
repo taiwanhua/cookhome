@@ -24,6 +24,7 @@ const inOrgA: OperatorContext = {
   actorId,
   currentOrgId: orgA,
   visibleOrgIds: [orgA, orgB],
+  managedOrgIds: [orgA, orgB],
 };
 
 /**
@@ -95,7 +96,12 @@ describe("AuditService(ADR-0004:模組層寫稽核、只增不改;對真 MongoDB
     it("沒有操作者(無登入主體的流程)→ 拒寫,不留無主稽核", async () => {
       await expect(
         audit.record(
-          { actorId: null, currentOrgId: orgA, visibleOrgIds: [orgA] },
+          {
+            actorId: null,
+            currentOrgId: orgA,
+            visibleOrgIds: [orgA],
+            managedOrgIds: [orgA],
+          },
           { action: "org.provision" },
         ),
       ).rejects.toThrow(AuditActorMissingError);
@@ -112,6 +118,7 @@ describe("AuditService(ADR-0004:模組層寫稽核、只增不改;對真 MongoDB
         actorId: new Types.ObjectId(),
         currentOrgId: orgB,
         visibleOrgIds: [orgB],
+        managedOrgIds: [orgB],
       };
       expect(await auditLogs.findMany(asOrgB, { action: "org.move" })).toEqual(
         [],

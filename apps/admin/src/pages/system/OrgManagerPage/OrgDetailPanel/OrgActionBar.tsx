@@ -8,6 +8,11 @@ import type { OrgActionAbility, OrgDetail } from "../org-manager-types";
 export interface OrgActionBarProps {
   org: OrgDetail;
   ability: OrgActionAbility;
+  /**
+   * 這是租戶頂層、而操作者是租戶內的人：停用 / 刪除 / 搬移只有根組織能做
+   * （ADR-0009）。同根組織保護的做法：按鈕出現但停用並提示，不是藏起來。
+   */
+  isTenantTopProtected: boolean;
   onEdit: () => void;
   onToggleEnabled: () => void;
   onDelete: () => void;
@@ -21,11 +26,16 @@ export interface OrgActionBarProps {
 export const OrgActionBar = ({
   org,
   ability,
+  isTenantTopProtected,
   onEdit,
   onToggleEnabled,
   onDelete,
 }: OrgActionBarProps) => {
   const t = useTranslations("admin.orgManager.actions");
+
+  /** 組織本身不准被這樣動的兩種情況:平台根組織、租戶頂層(對租戶內的人)。 */
+  const isLocked = org.isSystem || isTenantTopProtected;
+  const lockedHint = org.isSystem ? t("systemOrgHint") : t("tenantTopHint");
 
   return (
     <Stack direction="row" spacing={1}>
@@ -39,8 +49,8 @@ export const OrgActionBar = ({
           size="small"
           variant="text"
           color={org.enabled ? "error" : "primary"}
-          disabled={org.isSystem}
-          title={org.isSystem ? t("systemOrgHint") : undefined}
+          disabled={isLocked}
+          title={isLocked ? lockedHint : undefined}
           onClick={onToggleEnabled}
         >
           {org.enabled ? t("disable") : t("enable")}
@@ -50,8 +60,8 @@ export const OrgActionBar = ({
         <Button
           size="small"
           variant="text"
-          disabled={org.isSystem}
-          title={org.isSystem ? t("systemOrgHint") : undefined}
+          disabled={isLocked}
+          title={isLocked ? lockedHint : undefined}
           onClick={onDelete}
         >
           {t("delete")}

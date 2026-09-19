@@ -130,6 +130,13 @@ export const createAppTheme = (
         styleOverrides: {
           root: {
             boxShadow: "none",
+            /*
+             * 文字垂直置中(#183):MUI 預設 `line-height: 1.75`,行框比字框高出的部分
+             * 依字型的 ascent / descent 分配 —— 中文字(整格高)因此偏離按鈕中線約 1px,
+             * 在 contained(填色)按鈕上看得很明顯。改成 `line-height: 1` 讓行框等於字框,
+             * 高度改由下面各尺寸的固定值決定(Figma Button 32 / 36 / 48),上下就完全對稱。
+             */
+            lineHeight: 1,
             "&:hover": { boxShadow: "none" },
             variants: [
               {
@@ -141,6 +148,9 @@ export const createAppTheme = (
               },
             ],
           },
+          // Figma Button:small 32(87:218)、medium 36(31:155)、large 48
+          sizeSmall: { height: 32 },
+          sizeMedium: { height: 36 },
           sizeLarge: { height: 48 },
         },
       },

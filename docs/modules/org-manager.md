@@ -27,9 +27,9 @@
 | `system.org-manager.toggle-enabled`            | 「停用 / 啟用」按鈕 + API:連動整棵子樹                                                                                                                              |
 | `system.org-manager.move`                      | 「搬移」動作 + API:改上層組織,限同一租戶(以 `ancestors` 驗證),跨租戶拒                                                                                              |
 | `system.org-manager.delete`                    | 「刪除」按鈕 + API:前置檢查通過才可(見流程)                                                                                                                         |
+| `system.org-manager.set-visibility`            | 編輯**自己租戶的頂層**時的「使用者可見下層組織資料」開關 + API(`settings.visibility`,ADR-0005);租戶管理員模板含此權限,根組織亦可(2026-09-19 從 tenant-ops 搬到這層) |
 | `system.org-manager.tenant-ops.provision`      | 根組織:「開通租戶」按鈕 + API(ADR-0009 四步 + 擁有者 + 啟用信)                                                                                                      |
 | `system.org-manager.tenant-ops.transfer-owner` | 根組織:編輯租戶頂層時的「擁有者」欄位 + API(ADR-0009:v1 僅根組織可轉移)                                                                                             |
-| `system.org-manager.set-visibility`            | 編輯**自己租戶的頂層**時的「使用者可見下層組織資料」開關 + API(`settings.visibility`,ADR-0005);租戶管理員模板含此權限,根組織亦可(2026-09-19 從 tenant-ops 搬到這層) |
 
 ## 畫面與流程
 
@@ -37,7 +37,7 @@
 
 **開通租戶**(根組織專屬):表單欄位 = 租戶名稱、首任管理員的帳號(預設帶入 Email、可改)與 Email、商標(選填)、**開放模組勾選**(清單 = 租戶管理員模板綁的模組扣除根組織專屬模組,預設全勾;勾群組連動下層、勾下層連動上層,規則同角色管理的矩陣)。送出後由 API 一次完成 ADR-0009 的四步(建租戶 Org → 複製「租戶管理員」角色副本、只綁勾選的模組 → 建首任管理員帳號並綁 `org_user` / `user_role` → 寄啟用信)並設 `ownerUserId`。首任管理員不設初始密碼,由啟用信自行設定(`docs/modules/user-manager.md` 密碼流程)。
 
-**新增子組織**:輕量入口,名稱 + 描述,掛在目前選中的組織下(限操作者可見範圍內);不觸發開通流程。
+**新增子組織**:輕量入口,名稱 + 描述,掛在目前選中的組織下(限操作者管理範圍內);不觸發開通流程。
 
 **編輯組織**:名稱、描述、商標(任何組織;既有商標要顯示預覽)、上層組織(搬移,見下);租戶頂層另有:「使用者可見下層組織資料」開關(持 `set-visibility` 者可設,租戶管理員預設有)與擁有者轉移(根組織專屬)。
 
@@ -50,18 +50,22 @@
 ## api 介面(#134 已實作,程式在 `apps/api/src/orgs/`)
 
 ```graphql
-orgTree: [OrgNode!]!              # 可見範圍內的樹;租戶視角以租戶頂層為根,範圍外節點標 outOfScope
+orgTree: [OrgNode!]!              # 管理範圍的森林;根 = 管理範圍的各頂點(可多根),範圍外不回傳
 org(id: ID!): Org!                # 範圍外視為不存在(NOT_FOUND);logoUrl 為現簽的短效網址
 createChildOrg(input: { parentId, name, description }): OrgPayload!
 updateOrg(input: { id, name, description, logoPath }): OrgPayload!
 setOrgEnabled(input: { id, enabled }): OrgPayload!
 moveOrg(input: { id, newParentId }): OrgPayload!
+setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
 deleteOrg(input: { id }): DeletePayload!
 ```
 
 實作時定下的幾件事(spec 未寫、以本檔的規則推導):
 
-- **`OrgNode.outOfScope` 與 `enabled` 是兩件事**:`enabled` 是組織自己的停用狀態,`outOfScope` 是「在操作者可見範圍外」(樹上照樣顯示、但不可選不可操作)。兩個欄位同時存在;命名與使用者列的 `outOfScope`(#136)一致。
+- **`OrgNode.outOfScope` 自 #187 起恆為 false**:管理範圍外的組織根本不回傳(不再有「顯示但不可選」的灰節點),欄位保留是為了與使用者列的 `roles[].outOfScope`(#136)命名一致、且不必同步改前端。`enabled` 仍是組織自己的停用狀態,兩者無關。
+- **每棵樹的樹根對外一律回 `parentId: null`**(它的上層不在樹上,給了前端也查不到),多根時每個根都是。因此前端**不能**拿 `parentId` 判斷「樹根是不是平台根組織」— 那件事由 `org(樹根).isSystem` 回答(#186 ④)。
+- **`setOrgVisibility` 自 #187 搬到這一組**:權限 `system.org-manager.set-visibility`(不再是 `tenant-ops`),也不再要求「站在根組織」;能設哪些租戶頂層由**管理範圍**回答 —— 範圍外的 `orgId` 查不到即 `NOT_FOUND`,非租戶頂層 `VALIDATION_FAILED`。程式在 `orgs.service.ts`(原本在 `tenant-ops.service.ts`)。
+- **`moveOrg` 的租戶頂層保護**:租戶頂層本身的停用 / 刪除 / 搬移只有根組織能做(ADR-0009),判斷點是 `OwnerProtectionService.assertTenantTopOperableBy(operator, org, action)` —— 與 #186 的停用 / 刪除共用同一個函式,不各寫一套。
 - **停用連動、搬移的 `ancestors` 重算、刪除前置的「有沒有子組織」以整棵子樹為準**,不受操作者可見範圍裁切(可見範圍決定「看得到誰的資料」,不該讓連動只做一半)。程式上是 `orgs.service.ts` 的 `subtreeContext()`,只准搭配把查詢釘在該子樹內的條件。
 - **根組織保護**:不可停用、不可搬移、不可刪除(刪除的 reasons 多一項 `SYSTEM_ORG`)。
 - **`updateOrg` 動不到擁有者與可見範圍開關**:`UpdateOrgInput` 根本沒有這兩個欄位(租戶作業 #135 另開 mutation),不是靠執行期判斷。
@@ -82,8 +86,9 @@ deleteOrg(input: { id }): DeletePayload!
 tenantModuleOptions: [ModuleOption!]!                  # 開通彈窗的模組勾選清單
 provisionTenant(input: { name, adminAccount, adminEmail, logoPath, moduleKeys }): ProvisionTenantPayload!
 transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
-setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
 ```
+
+(`setOrgVisibility` 原本也在這一組,2026-09-19 搬到上一節,#187。)
 
 實作時定下的幾件事(spec 未寫、以本檔與 ADR-0009 / 0005 的規則推導):
 
@@ -104,8 +109,9 @@ setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
   含已軟刪除的文件,留殭屍會讓同一組帳號永遠再也開不了)。補償範圍不含 `audit_logs`(只增不改,ADR-0004):
   極端情況下會留一筆 `org.provision` 但資料已回滾,寧可多一筆稽核痕跡也不漏記特權動作。寄信排在最後。
 - **首任管理員的姓名**暫用帳號字串(開通表單沒有姓名欄,ADR-0009);本人啟用後可自行在使用者管理改。
-- **擁有者與可見範圍只存在於租戶頂層**:兩個 mutation 的 `orgId` 不是租戶頂層一律 `VALIDATION_FAILED`;
-  轉移的新擁有者必須啟用中、且所屬組織落在該租戶(含下層)內。
+- **擁有者只存在於租戶頂層**:`transferOrgOwner` 的 `orgId` 不是租戶頂層一律 `VALIDATION_FAILED`;
+  新擁有者必須啟用中、且所屬組織落在該租戶(含下層)內。可見範圍開關同樣只掛租戶頂層,
+  但守門的是管理範圍而不是「站在根組織」(見上一節)。
 
 **商標上傳**(ADR-0010,本段建立 StorageService 的第一條線):前端向 API 要簽名上傳 URL → 直傳私有 bucket → 把物件路徑存進 `logoPath`;顯示時 API 發簽名讀取 URL。開通與編輯兩個彈窗共用同一個 `Draft/UploadField`。
 
@@ -120,9 +126,13 @@ setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
   不需要「我是不是超級管理員」這種旗標。Figma 87:3 / 92:694 只是同一支頁面的兩組資料。
 - **「是不是租戶頂層」讀 `org.visibility !== null`**:api 只讓租戶頂層有 `visibility` 與 `ownerUserId`
   (`orgs/org-mapper.ts`),前端不必自己數 `ancestors` 或比對樹的層數。樹上的「租戶」標籤則是另一回事 —
-  那是「根組織的直接子組織」,租戶視角看不到那一層,標籤自然不出現。
+  那是「根組織的直接子組織」,租戶視角看不到那一層,標籤自然不出現(判斷方式見 #186 ④)。
 - **搬移是編輯彈窗裡的「上層組織」下拉,不是動作列上的按鈕**(Figma 88:182、help.md 沿用此說法);
-  候選人在前端先照三條規則濾過(同租戶、不含自己的子樹、不含可見範圍外),api 仍會再驗一次。
+  候選人在前端先照三條規則濾過(管理範圍內、同租戶、不含自己的子樹),api 仍會再驗一次。
+  樹上有的就是管理範圍(#187),所以「管理範圍內」= 在樹上走得到;「同租戶」的上限是
+  **含自己的那一棵樹根**(管理範圍多根時 `orgTrail` 會找出是哪一棵),根組織視角要再往下一層
+  取租戶頂層(`useMoveTargets.ts`,視角由 `org(樹根).isSystem` 判,#186 ④)。
+  租戶頂層自己的候選是空的 = 搬不動,與 api 的租戶頂層保護一致。
 - **編輯彈窗最多打四個 mutation**,依序 `updateOrg` → `moveOrg` → `transferOrgOwner` → `setOrgVisibility`,
   **只送有變動的那幾個**(`UpdateOrgInput` 本來就沒有後三者的欄位)。任何一步失敗就停在那裡,
   前面已成功的不回滾 — 它們各自是完整的動作、各自留了審計;重新送出只會補上還沒做的那幾步。
@@ -133,7 +143,7 @@ setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
   攤成清單並提示改用停用。根組織保護(`isSystem`)則是**按鈕出現但停用** —
   「我做不到這個動作」(無權限,不給按鈕)與「這個組織不准被這樣動」(給按鈕、停用並說明)是兩回事。
 - **`@repo/ui/tree` 為此加了 `TreeNode.labelSuffix`**(Figma Draft/OrgTreeItem 的 ShowTag 槽位):
-  停用的組織掛「停用」標籤、根組織視角下的租戶頂層掛「租戶」標籤。`label` 仍是純文字,
+  停用的組織掛「停用」標籤、`parentId` 等於平台根組織的節點掛「租戶」標籤。`label` 仍是純文字,
   搜尋與無障礙名稱不受影響。`OrgTreePicker`(#139 起共用)多一個 `labelSuffixOf` 把它接出來。
 - **成功後失效三把**:`orgTree`、被改到的那一筆 `org(id)`、以及 `me` — 側欄的租戶識別讀
   `me.currentOrg.logoUrl`(有商標顯示商標圖、沒有才顯示組織名),改完商標不重取 `me` 就不會更新。
@@ -154,8 +164,30 @@ setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
 
 [system.org-manager.help.md](../../apps/admin/src/md/module-help/system.org-manager.help.md)(build 時打包進說明彈窗)讀者是租戶使用者:不得出現 根組織 / 租戶 / 開通 / 跨租戶 等平台視角詞彙;租戶眼中的根 = 自己的頂層組織。
 
-## 管理範圍與租戶標示(2026-09-19,#140 驗收後修正)
+## 管理範圍與租戶標示(2026-09-19,#140 驗收後修正;#187 實作)
 
-- 本頁與使用者管理、角色管理的範圍都是**管理範圍**(CONTEXT.md),不是可見範圍;api 的 `orgTree` / `org` / 各 mutation 都以 `managedOrgIds` 守門。
-- 「租戶」標籤只標**父節點是平台根組織**的節點(`parentId` 等於根組織 id),不是「父節點是樹根」— 租戶視角的樹根是租戶頂層,它的子組織不是租戶。
+- 本頁與使用者管理、角色管理的範圍都是**管理範圍**(CONTEXT.md),不是可見範圍;api 的 `orgTree` / `org` / 各 mutation 都以 `managedOrgIds` 守門。落實點只有一個:`orgs` 這張 collection 在 schema 上宣告成**治理類**(`tenantScopePlugin({ kind: "governance" })`),租戶過濾就自動吃管理範圍;業務 collection 維持吃可見範圍。個別 service 不自己選範圍,凡查組織就經 `OrgsRepository`,反查 `org_user` 得到的使用者清單自然也對。
+- 「租戶」標籤只標**父節點是平台根組織**的節點,不是「父節點是樹根」— 租戶視角的樹根是租戶頂層,它的子組織不是租戶。實作上不能看 `OrgNode.parentId`(樹根一律回 null),而是先以 `org(樹根).isSystem` 判斷「樹根就是平台根組織」,是的話它的直接子組織才掛標籤(#186 ④)。
 - 側欄商標:當前組織自己的,沒有就繼承最近有商標的上層(ADR-0010)。
+
+## 實作細節(#186:#140 驗收的六項修正)
+
+- **「這棵樹的根是不是平台根組織」不能看 `OrgNode.parentId`**:`buildForest`
+  把本棵樹的根一律對外回 `parentId: null`(租戶視角的租戶頂層也是),拿它判斷會把
+  租戶頂層當成平台根組織、把租戶的子組織標成「租戶」。admin 改讀 `org(樹根).isSystem`
+  (樹根沒被點掉時跟選中的那一筆同一把 query key,不多發一次請求)。
+- **租戶頂層保護的判斷點是 `OwnerProtectionService.assertTenantTopOperableBy(operator, org)`**
+  (`orgs/owner-protection.service.ts`):不是租戶頂層就放行,是的話只有根組織的操作者能做
+  (`isRootOperator`,與擁有者保護、租戶作業同一個判準),否則 `FORBIDDEN`。
+  `setOrgEnabled` / `deleteOrg` / `moveOrg` 各呼叫一次;**排在 `CYCLIC_MOVE` / `CROSS_TENANT` 與
+  刪除前置四項之前**,不透露租戶內部狀態。admin 那邊停用 / 刪除按鈕與編輯彈窗的
+  「上層組織」下拉都 `disabled` 加 `title` 提示(同根組織保護:給按鈕、停用、說明為什麼)。
+- **`updateOrg` 沒碰商標欄就不送 `logoPath`**:`UpdateOrgInput.logoPath` 給 `null` 在 api 是「清空商標」,
+  欄位缺席才是「不動它」— 前端以「使用者有沒有碰過商標欄」決定要不要送。
+  既有商標的預覽走 `@repo/ui/upload-field` 的 `initialPreviewUrl`(選新檔即取代、按移除回空狀態)。
+- **樹的葉節點在 admin 歸一化成 `children: undefined`**(`lib/org-tree.ts` 的 `toTreeNodes`):
+  api 對葉節點回 `children: []`,而 `TreeNode.children` 的語意是「有沒有下一層」—
+  不把「能不能展開」交給樹元件自己解讀。
+- **彈窗裡的表單欄位**:MUI 有一條 `.MuiDialogTitle-root + .MuiDialogContent-root { padding-top: 0 }`,
+  特異度贏過 `sx` 的單一 class,第一個 `TextField` 的浮動標籤會被標題壓住;
+  `@repo/ui/dialog` 以 `&&` 拉高特異度修好,四個彈窗一次到位。

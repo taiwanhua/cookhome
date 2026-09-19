@@ -21,6 +21,8 @@ export interface OrgDetailPanelProps {
   /** 這個組織有擁有者(= 租戶頂層),但名字看不到時仍要顯示欄位 */
   hasOwner: boolean;
   ability: OrgActionAbility;
+  /** 租戶頂層對租戶內的人:停用 / 刪除 / 搬移停用並提示(ADR-0009) */
+  isTenantTopProtected: boolean;
   onEdit: () => void;
   onToggleEnabled: () => void;
   onDelete: () => void;
@@ -38,6 +40,7 @@ export const OrgDetailPanel = ({
   ownerName,
   hasOwner,
   ability,
+  isTenantTopProtected,
   onEdit,
   onToggleEnabled,
   onDelete,
@@ -49,7 +52,7 @@ export const OrgDetailPanel = ({
       <Card
         component="section"
         aria-label={t("region")}
-        sx={{ flex: 1, minWidth: 0, p: 3 }}
+        sx={{ flex: 1, minWidth: 0, minHeight: 0, p: 3, overflow: "auto" }}
       >
         <Stack sx={{ alignItems: "center", py: 4 }}>
           {isLoading ? (
@@ -68,7 +71,7 @@ export const OrgDetailPanel = ({
     <Card
       component="section"
       aria-label={t("region")}
-      sx={{ flex: 1, minWidth: 0, p: 3 }}
+      sx={{ flex: 1, minWidth: 0, minHeight: 0, p: 3, overflow: "auto" }}
     >
       <Stack spacing={0}>
         <Stack
@@ -85,6 +88,7 @@ export const OrgDetailPanel = ({
           <OrgActionBar
             org={org}
             ability={ability}
+            isTenantTopProtected={isTenantTopProtected}
             onEdit={onEdit}
             onToggleEnabled={onToggleEnabled}
             onDelete={onDelete}

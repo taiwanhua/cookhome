@@ -54,6 +54,8 @@ export const OrgSchema = SchemaFactory.createForClass(Org);
 OrgSchema.index({ key: 1 }, { unique: true, sparse: true });
 OrgSchema.index({ parentId: 1 });
 OrgSchema.index({ ancestors: 1 });
-// 基礎欄位(ADR-0007);組織自身以 _id 判定是否在操作者可見範圍內(ADR-0005)
+// 基礎欄位(ADR-0007);組織自身以 _id 判定是否在範圍內(ADR-0005)。
+// 組織是**治理類** collection(ADR-0005「管理範圍與可見範圍的分工」):過濾吃管理範圍,
+// 不吃可見範圍 — 租戶管理員在可見性開關為 own 時照樣管得到整個租戶的組織樹。
 OrgSchema.plugin(baseFieldsPlugin);
-OrgSchema.plugin(tenantScopePlugin, { path: "_id" });
+OrgSchema.plugin(tenantScopePlugin, { path: "_id", kind: "governance" });

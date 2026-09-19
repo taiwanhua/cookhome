@@ -1,190 +1,37 @@
-import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { ModuleSidebarType } from "@repo/graphql";
-
-import {
-  type TestModule,
-  authWorld,
-  overviewModule,
-} from "@/test/msw/auth-handlers";
-import {
-  orgDetails,
-  orgUsers,
-  rootTree,
-  tenantModuleOptions,
-  tenantTree,
-} from "@/test/msw/org-fixtures";
-import {
-  type OrgWorldOptions,
-  orgWorld,
-} from "@/test/msw/org-manager-handlers";
-import { server } from "@/test/msw/server";
-import { renderApp } from "@/test/render";
+import { tenantTree } from "@/test/msw/org-fixtures";
 
 import { ORG_MANAGER_PERMISSIONS } from "./org-manager-permissions";
+import {
+  OWN_PERMISSIONS,
+  USER_VIEW_PERMISSION,
+  clickNode,
+  detail,
+  renderPage,
+  stubObjectUrl,
+  treeItem,
+  treeLabel,
+  waitForTree,
+} from "./org-manager-test-support";
 
-const OWN_PERMISSIONS = [
-  ORG_MANAGER_PERMISSIONS.view,
-  ORG_MANAGER_PERMISSIONS.createChild,
-  ORG_MANAGER_PERMISSIONS.edit,
-  ORG_MANAGER_PERMISSIONS.toggleEnabled,
-  ORG_MANAGER_PERMISSIONS.move,
-  ORG_MANAGER_PERMISSIONS.delete,
-];
-
-const TENANT_OPS_PERMISSIONS = [
-  ORG_MANAGER_PERMISSIONS.provision,
-  ORG_MANAGER_PERMISSIONS.transferOwner,
-  ORG_MANAGER_PERMISSIONS.setVisibility,
-];
-
-const USER_VIEW_PERMISSION = "system.user-manager.view";
-
-const modulesWith = (permissions: readonly string[]): TestModule[] => [
-  overviewModule,
-  {
-    id: "m-system",
-    key: "system",
-    name: "系統管理",
-    parentId: null,
-    sidebarType: ModuleSidebarType.Group,
-    order: 1,
-    route: "/system",
-    permissions: [],
-  },
-  {
-    id: "m-org",
-    key: "system.org-manager",
-    name: "組織管理",
-    parentId: "m-system",
-    sidebarType: ModuleSidebarType.Link,
-    order: 1,
-    route: "/system/org-manager",
-    permissions: permissions.filter((key) => !key.includes("tenant-ops")),
-  },
-  {
-    id: "m-tenant-ops",
-    key: "system.org-manager.tenant-ops",
-    name: "租戶作業",
-    parentId: "m-org",
-    sidebarType: ModuleSidebarType.Hidden,
-    order: 1,
-    route: null,
-    permissions: permissions.filter((key) => key.includes("tenant-ops")),
-  },
-  {
-    id: "m-user",
-    key: "system.user-manager",
-    name: "使用者管理",
-    parentId: "m-system",
-    sidebarType: ModuleSidebarType.Link,
-    order: 2,
-    route: "/system/user-manager",
-    permissions: permissions.includes(USER_VIEW_PERMISSION)
-      ? [USER_VIEW_PERMISSION]
-      : [],
-  },
-];
-
-const renderPage = ({
-  permissions = [
-    ...OWN_PERMISSIONS,
-    ...TENANT_OPS_PERMISSIONS,
-    USER_VIEW_PERMISSION,
-  ],
-  world = {},
-}: {
-  permissions?: readonly string[];
-  world?: OrgWorldOptions;
-} = {}) => {
-  const fake = orgWorld({
-    orgTree: rootTree,
-    orgs: orgDetails,
-    users: orgUsers,
-    moduleOptions: tenantModuleOptions,
-    ...world,
-  });
-  server.use(
-    ...fake.handlers,
-    ...authWorld({
-      hasRefreshCookie: true,
-      modules: modulesWith(permissions),
-    }).handlers,
-  );
-  return { ...renderApp({ path: "/system/org-manager" }), fake };
-};
-
-/** 樹與資料區都有組織名稱(側欄的組織切換器也是),查詢一律先收斂到其中一邊。 */
-const orgTree = () => screen.getByRole("tree", { name: "組織樹" });
-const detail = () => screen.getByRole("region", { name: "組織資料" });
-
-/** 節點自己的標籤(不含子孫:treeitem 的 textContent 會把整棵子樹串進來)。 */
-const labelOf = (item: Element) =>
-  item.querySelector(".MuiTreeItem-label")?.textContent ?? "";
-
-const treeItem = (name: string) =>
-  within(orgTree())
-    .getAllByRole("treeitem")
-    .find((item) => labelOf(item).startsWith(name));
-
-const treeLabel = (name: string) => {
-  const item = treeItem(name);
-  return item === undefined ? undefined : labelOf(item);
-};
-
-/**
- * 樹是先渲染骨架、資料後到的;載入完成時 MUI 會換掉整個樹根元素,
- * 所以每次輪詢都要重新查(抓住舊的那顆會永遠等不到)。
- */
-const waitForTree = async () => {
-  await waitFor(() => {
-    expect(within(orgTree()).getByText("A-1 內容組")).toBeInTheDocument();
-  });
-};
-
-/**
- * 點一個節點。MUI 的樹**點內容區等於同時選取與展開 / 收合**(預設的 expansionTrigger),
- * 所以點過的節點會收起來 — 測試不要在點完某個節點之後再去找它的子節點。
- */
-const clickNode = async (
-  actor: { click: (element: Element) => Promise<void> },
-  name: string,
-) => {
-  await actor.click(await within(orgTree()).findByText(name));
-};
-
-/**
- * `jest-fixed-jsdom` 補回來的 `URL` 是 Node 的:`createObjectURL` 只收 Node 的 Blob,
- * 餵 jsdom 的 File 會丟型別錯,讓 `UploadField` 的預覽在 render 期整個炸掉。
- * 預覽不是這一頁要驗的行為,測試期間給一個固定網址即可。
- */
-const realUrlMethods = {
-  createObjectURL: URL.createObjectURL.bind(URL),
-  revokeObjectURL: URL.revokeObjectURL.bind(URL),
-};
-
-beforeAll(() => {
-  URL.createObjectURL = () => "blob:logo-preview";
-  URL.revokeObjectURL = () => {
-    // 預覽網址是假的,不用釋放
-  };
-});
-
-afterAll(() => {
-  URL.createObjectURL = realUrlMethods.createObjectURL;
-  URL.revokeObjectURL = realUrlMethods.revokeObjectURL;
-});
+stubObjectUrl();
 
 describe("組織管理頁(/system/org-manager)", () => {
   it("根組織視角:樹以根組織為根、租戶與停用各自帶標籤,預設選中樹根", async () => {
     renderPage();
 
     await waitForTree();
-    expect(treeLabel("租戶 A")).toBe("租戶 A租戶");
+    // 「租戶」標籤要等 `org(樹根)` 回來才確定(樹根是不是平台根組織看 `isSystem`,#186 ④)
+    await waitFor(() => {
+      expect(treeLabel("租戶 A")).toBe("租戶 A租戶");
+    });
     expect(treeLabel("A-2 台北分店")).toBe("A-2 台北分店停用");
-    // 可見範圍外的節點顯示但不可選(ADR-0005)
-    expect(treeItem("租戶 B")?.getAttribute("aria-disabled")).toBe("true");
+    // 「租戶」標籤標的是**父節點是平台根組織**的節點,所以兩個租戶都有、下層組織沒有
+    expect(treeLabel("租戶 B")).toBe("租戶 B租戶");
+    // #187 起管理範圍外的組織根本不回傳,樹上不再有「顯示但不可選」的灰節點
+    expect(treeItem("租戶 B")?.getAttribute("aria-disabled")).toBeNull();
     // 預設選中的樹根是根組織 → 它是系統組織,停用與刪除都停用
     expect(await within(detail()).findByText("啟用中")).toBeInTheDocument();
     expect(
@@ -240,7 +87,7 @@ describe("組織管理頁(/system/org-manager)", () => {
     expect(screen.getByAltText("租戶 A 的商標")).toBeInTheDocument();
   });
 
-  it("編輯彈窗:租戶頂層 + 持 tenant-ops 才有擁有者與可見範圍兩欄", async () => {
+  it("編輯彈窗:租戶頂層 + 持對應權限才有擁有者與可見範圍兩欄", async () => {
     const { user: actor, fake } = renderPage();
 
     await waitForTree();
@@ -278,7 +125,7 @@ describe("組織管理頁(/system/org-manager)", () => {
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
-  it("編輯彈窗:沒有 tenant-ops 權限時,租戶頂層也看不到那兩欄", async () => {
+  it("編輯彈窗:兩邊的權限都沒有時,租戶頂層也看不到那兩欄", async () => {
     const { user: actor } = renderPage({
       permissions: [...OWN_PERMISSIONS, USER_VIEW_PERMISSION],
     });
@@ -465,5 +312,30 @@ describe("組織管理頁(/system/org-manager)", () => {
     // 帳號沒動過 → 預設帶入 Email
     expect(input.adminAccount).toBe("admin@tenant-c.tw");
     expect(input.adminEmail).toBe("admin@tenant-c.tw");
+  });
+
+  /** #183 第 3 項:Figma 202:351 的每層 28px 縮排(= theme.spacing(3.5))。 */
+  it("開通彈窗:模組清單依層級縮排,每層 28px", async () => {
+    const { user: actor } = renderPage();
+
+    await waitForTree();
+    await actor.click(await screen.findByRole("button", { name: "開通租戶" }));
+    await screen.findByRole("checkbox", { name: "系統管理" });
+
+    // 縮排掛在列上:`data-depth` 是層級、`padding-left` 是實際縮排
+    const rows = [...document.querySelectorAll<HTMLElement>("[data-depth]")];
+
+    expect(
+      rows.map(
+        (row) =>
+          `${row.textContent} ${row.dataset.depth ?? ""} ${globalThis.getComputedStyle(row).paddingLeft}`,
+      ),
+    ).toEqual([
+      // jsdom 不算 CSS 變數,所以下層那兩列的值是 spacing(3.5) 的算式 = 28px
+      "總覽 0 0px",
+      "系統管理 0 0px",
+      "組織管理 1 calc(3.5 * var(--mui-spacing))",
+      "使用者管理 1 calc(3.5 * var(--mui-spacing))",
+    ]);
   });
 });

@@ -31,10 +31,12 @@ import { useEditOrgForm } from "./useEditOrgForm";
 
 export interface EditOrgDialogProps {
   org: OrgDetail;
-  /** 可當新上層的組織(同租戶、可見範圍內、不含自己與自己的子樹) */
+  /** 可當新上層的組織(管理範圍內、同租戶、不含自己與自己的子樹;租戶頂層本身候選為空) */
   parentOptions: readonly OrgOption[];
   /** 這個組織是租戶頂層(api 只讓這一層有擁有者與可見範圍) */
   isTenantTop: boolean;
+  /** 租戶頂層 + 操作者是租戶內的人:搬移不給改(ADR-0009) */
+  isTenantTopProtected: boolean;
   ownerCandidates: readonly OwnerCandidate[];
   ability: OrgActionAbility;
   onClose: () => void;
@@ -52,6 +54,7 @@ export const EditOrgDialog = ({
   org,
   parentOptions,
   isTenantTop,
+  isTenantTopProtected,
   ownerCandidates,
   ability,
   onClose,
@@ -59,6 +62,7 @@ export const EditOrgDialog = ({
 }: EditOrgDialogProps) => {
   const t = useTranslations("admin.orgManager.form");
   const tEdit = useTranslations("admin.orgManager.edit");
+  const tActions = useTranslations("admin.orgManager.actions");
   const tErrors = useTranslations("admin.orgManager.errors");
   const { session } = useSession();
   const form = useEditOrgForm(org);
@@ -80,14 +84,18 @@ export const EditOrgDialog = ({
     try {
       const { changes } = form;
       if (changes.hasProfileChange) {
-        const logoPath = await uploadLogo(form.logoFile);
+        // 沒碰過商標欄就不送 `logoPath`:api 把 `null` 當成「清空商標」,
+        // 欄位缺席才是「不動它」(#186 ②)
+        const logoPath = form.isLogoTouched
+          ? await uploadLogo(form.logoFile)
+          : undefined;
         await updateOrg.mutateAsync({
           input: {
             id: org.id,
             name: form.name.trim(),
             description:
               form.description.trim() === "" ? null : form.description.trim(),
-            logoPath,
+            ...(logoPath === undefined ? {} : { logoPath }),
           },
         });
       }
@@ -168,7 +176,7 @@ export const EditOrgDialog = ({
               value={form.parentId}
               displayEmpty
               fullWidth
-              disabled={isBusy}
+              disabled={isBusy || isTenantTopProtected}
               aria-label={t("parent")}
               onChange={(event) => {
                 form.setParentId(event.target.value);
@@ -182,13 +190,16 @@ export const EditOrgDialog = ({
               ))}
             </Select>
             <Typography variant="caption" color="text.secondary">
-              {t("parentHint")}
+              {isTenantTopProtected
+                ? tActions("tenantTopHint")
+                : t("parentHint")}
             </Typography>
           </Stack>
         )}
         <OrgLogoField
           file={form.logoFile}
           onFileChange={form.setLogoFile}
+          initialPreviewUrl={org.logoUrl}
           isDisabled={isBusy}
         />
         {isTenantTop && (

@@ -306,9 +306,10 @@ describe("seeds/registry.ts 靜態檢查", () => {
         "system.org-manager.toggle-enabled",
         "system.org-manager.move",
         "system.org-manager.delete",
+        // 2026-09-19 從 tenant-ops 搬到組織管理層(#187 / ADR-0005:租戶自己的資料政策)
+        "system.org-manager.set-visibility",
         "system.org-manager.tenant-ops.provision",
         "system.org-manager.tenant-ops.transfer-owner",
-        "system.org-manager.tenant-ops.set-visibility",
         "system.user-manager.view",
         "system.user-manager.create",
         "system.user-manager.edit",

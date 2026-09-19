@@ -92,7 +92,11 @@ function mustChangePasswordOf(user: UserRecord): boolean {
 
 /**
  * 使用者管理(`system.user-manager`)。resolver 薄、service 厚(STRUCT-01):
- * 可見範圍、欄位級權限、防越權、擁有者保護與稽核都在這裡,寫入一律經 BaseRepository / RelationService。
+ * **管理範圍**(治理模組吃它,不吃可見範圍;ADR-0005 的分工表)、欄位級權限、防越權、
+ * 擁有者保護與稽核都在這裡,寫入一律經 BaseRepository / RelationService。
+ *
+ * 範圍的落實點只有一個:凡查組織都經 `this.orgs`(治理類 collection,過濾自動吃 `managedOrgIds`),
+ * 再由組織反查 `org_user` — 本檔不自己比對任何組織集合。
  */
 @Injectable()
 export class UsersService {
@@ -111,7 +115,7 @@ export class UsersService {
 
   // ---- 讀 ----
 
-  /** 清單:選中組織的子樹成員 ∩ 操作者可見組織集(user-manager.md「清單範圍」、ADR-0005)。 */
+  /** 清單:選中組織的子樹成員 ∩ 操作者**管理範圍**(user-manager.md「清單範圍」、ADR-0005)。 */
   async list(
     operator: OperatorContext,
     input: UsersInput,
@@ -154,7 +158,7 @@ export class UsersService {
 
   /** 單筆;`nationalId` 只在持 `show-national-id` 時回傳(ADR-0007)。 */
   async findOne(operator: OperatorContext, id: string): Promise<UserModel> {
-    const user = await this.loadVisibleUser(operator, id);
+    const user = await this.loadManagedUser(operator, id);
     const canShow = await this.hasPermission(operator, SHOW_NATIONAL_ID);
     const withNationalId = canShow
       ? ((await this.users.findById(operator, user._id, {
@@ -182,7 +186,7 @@ export class UsersService {
     if (orgIds.length === 0) {
       throw validationError("At least one member org is required", ["orgIds"]);
     }
-    await this.assertOrgsVisible(operator, orgIds);
+    await this.assertOrgsManaged(operator, orgIds);
     if (input.nationalId !== undefined) {
       await this.assertCanEditNationalId(operator);
     }
@@ -248,7 +252,7 @@ export class UsersService {
     operator: OperatorContext,
     input: UpdateUserInput,
   ): Promise<UserModel> {
-    const user = await this.loadVisibleUser(operator, input.id);
+    const user = await this.loadManagedUser(operator, input.id);
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
     const update: Record<string, unknown> = {};
@@ -306,7 +310,7 @@ export class UsersService {
     operator: OperatorContext,
     input: SetUserEnabledInput,
   ): Promise<UserModel> {
-    const user = await this.loadVisibleUser(operator, input.id);
+    const user = await this.loadManagedUser(operator, input.id);
     if (!input.enabled) {
       await this.ownerProtection.assertNotProtectedOwner(
         operator,
@@ -340,15 +344,15 @@ export class UsersService {
     operator: OperatorContext,
     input: SetUserOrgsInput,
   ): Promise<SetUserOrgsPayload> {
-    const user = await this.loadVisibleUser(operator, input.userId);
+    const user = await this.loadManagedUser(operator, input.userId);
     const desired = uniqueIds(input.orgIds).map((id) =>
       toObjectId(id, "orgIds"),
     );
-    await this.assertOrgsVisible(operator, desired);
+    await this.assertOrgsManaged(operator, desired);
     const currentIds = await this.relations.listOrgIdsOfUser(user._id);
     const currentKeys = new Set(currentIds.map(String));
     const desiredKeys = new Set(desired.map(String));
-    // 可見範圍外的既有所屬組織不受全量覆蓋影響(彈窗根本勾不到,ADR-0003)
+    // 管理範圍外的既有所屬組織不受全量覆蓋影響(彈窗根本勾不到,ADR-0003)
     const managedCurrent = await this.orgs.findMany(operator, {
       _id: { $in: currentIds },
     });
@@ -456,7 +460,7 @@ export class UsersService {
     operator: OperatorContext,
     input: AssignUserRolesInput,
   ): Promise<UserModel> {
-    const user = await this.loadVisibleUser(operator, input.userId);
+    const user = await this.loadManagedUser(operator, input.userId);
     const desired = uniqueIds(input.roleIds).map((id) =>
       toObjectId(id, "roleIds"),
     );
@@ -527,13 +531,17 @@ export class UsersService {
 
   // ---- 內部 ----
 
-  /** 清單的使用者過濾條件;選中的組織不可見(或子樹內沒有可見組織)回 null = 空清單。 */
+  /**
+   * 清單的使用者過濾條件:**管理範圍**內的組織的成員(ADR-0005 的分工表;#187 起不看可見範圍)。
+   * 選中的組織不在管理範圍(或子樹內沒有管理範圍內的組織)回 null = 空清單。
+   * 組織一律經 `this.orgs`(治理類 collection,過濾自動吃 `managedOrgIds`),此處不自己比對範圍。
+   */
   private async scopeFilter(
     operator: OperatorContext,
     orgId: string | undefined,
   ): Promise<Record<string, unknown> | null> {
-    if (orgId === undefined && operator.visibleOrgIds === "all") {
-      // 根組織:可見範圍是全部,不必先攤開組織樹再反查
+    if (orgId === undefined && operator.managedOrgIds === "all") {
+      // 管理範圍是全部(超級管理員 / 擁有組織是根組織):不必先攤開組織樹再反查
       return {};
     }
     const scopeOrgs = await (orgId === undefined
@@ -556,8 +564,8 @@ export class UsersService {
     return { _id: { $in: links.map((link) => link.secondId) } };
   }
 
-  /** 使用者是否在操作者可見範圍內 = 其所屬組織至少一個可見(ADR-0005);否則視為不存在。 */
-  private async loadVisibleUser(
+  /** 使用者是否在操作者**管理範圍**內 = 其所屬組織至少一個在管理範圍(ADR-0005);否則視為不存在。 */
+  private async loadManagedUser(
     operator: OperatorContext,
     id: string,
   ): Promise<UserRecord> {
@@ -565,20 +573,20 @@ export class UsersService {
     if (!user) {
       throw notFoundError(`User ${id} not found`);
     }
-    if (operator.visibleOrgIds === "all") {
+    if (operator.managedOrgIds === "all") {
       return user;
     }
     const memberOrgIds = await this.relations.listOrgIdsOfUser(user._id);
-    const visible = await this.orgs.findMany(operator, {
+    const managed = await this.orgs.findMany(operator, {
       _id: { $in: memberOrgIds },
     });
-    if (visible.length === 0) {
+    if (managed.length === 0) {
       throw notFoundError(`User ${id} not found`);
     }
     return user;
   }
 
-  /** 把使用者文件組成 GraphQL 形狀:所屬組織(只列可見的)+ 角色授予(含「組織外」標記)。 */
+  /** 把使用者文件組成 GraphQL 形狀:所屬組織(只列管理範圍內的)+ 角色授予(含「組織外」標記)。 */
   private async decorate(
     operator: OperatorContext,
     documents: UserRecord[],
@@ -610,14 +618,14 @@ export class UsersService {
       ...orgLinks.map((link) => link.firstId),
       ...ownerLinks.map((link) => link.firstId),
     ]);
-    const [ancestry, visibleOrgs] = await Promise.all([
+    const [ancestry, managedOrgs] = await Promise.all([
       this.qualification.loadAncestry(operator, allOrgIds),
       allOrgIds.length === 0
         ? Promise.resolve([])
         : this.orgs.findMany(operator, { _id: { $in: allOrgIds } }),
     ]);
     const orgNameById = new Map(
-      visibleOrgs.map((org) => [String(org._id), org.name]),
+      managedOrgs.map((org) => [String(org._id), org.name]),
     );
 
     const memberOrgIdsByUser = new Map<string, string[]>();
@@ -722,7 +730,7 @@ export class UsersService {
       ownerLinks.map((link) => [String(link.secondId), String(link.firstId)]),
     );
     const ownerOrgIds = uniqueObjectIds(ownerLinks.map((link) => link.firstId));
-    const [ancestry, visibleOrgs] = await Promise.all([
+    const [ancestry, managedOrgs] = await Promise.all([
       this.qualification.loadAncestry(operator, [
         ...remainingOrgIds,
         ...ownerOrgIds,
@@ -730,7 +738,7 @@ export class UsersService {
       this.orgs.findMany(operator, { _id: { $in: ownerOrgIds } }),
     ]);
     const orgNameById = new Map(
-      visibleOrgs.map((org) => [String(org._id), org.name]),
+      managedOrgs.map((org) => [String(org._id), org.name]),
     );
     const remainingKeys = remainingOrgIds.map(String);
 
@@ -853,8 +861,8 @@ export class UsersService {
     }
   }
 
-  /** 組織必須在操作者可見範圍內(ADR-0005);回傳查到的組織文件供取名稱。 */
-  private async assertOrgsVisible(
+  /** 組織必須在操作者**管理範圍**內(ADR-0005 的分工表);回傳查到的組織文件供取名稱。 */
+  private async assertOrgsManaged(
     operator: OperatorContext,
     orgIds: Types.ObjectId[],
   ): Promise<Persisted<import("../database/database.module").OrgDocument>[]> {
@@ -864,7 +872,7 @@ export class UsersService {
     const found = await this.orgs.findMany(operator, { _id: { $in: orgIds } });
     if (found.length !== orgIds.length) {
       throw forbiddenError(
-        "One or more orgs are outside the operator's visible scope",
+        "One or more orgs are outside the operator's managed scope",
       );
     }
     return found;

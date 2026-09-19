@@ -6,13 +6,28 @@ import type {
   Schema,
 } from "mongoose";
 
+import type { OperatorOrgScope } from "../operator-context";
 import { getQueryScope } from "../operator-context";
+
+/**
+ * 這個 collection 屬哪一類(ADR-0005「管理範圍與可見範圍的分工」),決定過濾吃哪個集合:
+ * - `business`(預設):業務資料,吃**可見範圍** `visibleOrgIds`
+ * - `governance`:治理資料(組織本身),吃**管理範圍** `managedOrgIds`
+ *
+ * 判準寫在 schema 上、不寫在呼叫端:同一張表在不同功能裡不該換範圍,
+ * 否則「治理頁看得到、業務頁看不到」這種差異會散落在各 service 裡(CONTEXT.md「租戶過濾」)。
+ * 沒有 `orgId`、走核心關聯歸屬的 users / roles 不掛本 plugin,由模組先查關聯再查本表 —
+ * 它們查關聯時用的組織清單也一律來自 orgs(已是治理類),範圍自然跟著對。
+ */
+export type TenantScopeKind = "business" | "governance";
 
 export interface TenantScopeOptions {
   /** 承載組織 id 的欄位:一般租戶資料為 `orgId`;orgs 自身以 `_id` 判定可見(ADR-0005)。 */
   path?: "orgId" | "_id";
   /** 該欄位為 null 的資料視為全域(如 fields 的全域種子,ADR-0005 `$or`),對所有操作者可見。 */
   allowGlobal?: boolean;
+  /** 治理類 / 業務類(見 `TenantScopeKind`);預設 `business`。 */
+  kind?: TenantScopeKind;
 }
 
 export type TenantScope = Required<TenantScopeOptions>;
@@ -56,6 +71,7 @@ export function tenantScopePlugin(
   const scope: TenantScope = {
     path: options.path ?? "orgId",
     allowGlobal: options.allowGlobal ?? false,
+    kind: options.kind ?? "business",
   };
   tenantScopes.set(schema, scope);
   schema.pre([...SCOPED_QUERY_MIDDLEWARE], function () {
@@ -77,15 +93,28 @@ function applyTenantScope(query: AnyQuery, scope: TenantScope): void {
       `${query.model.modelName} 是租戶資料,查詢必須攜帶操作者上下文(請經 BaseRepository)`,
     );
   }
-  const { visibleOrgIds } = queryScope.operator;
-  if (visibleOrgIds === "all") {
+  const orgIds = scopeOrgIdsOf(queryScope.operator, scope.kind);
+  if (orgIds === "all") {
     return;
   }
-  const inVisibleOrgs: QueryFilter<Record<string, unknown>> = {
-    [scope.path]: { $in: visibleOrgIds },
+  const inScopeOrgs: QueryFilter<Record<string, unknown>> = {
+    [scope.path]: { $in: orgIds },
   };
   const condition: QueryFilter<Record<string, unknown>> = scope.allowGlobal
-    ? { $or: [inVisibleOrgs, { [scope.path]: null }] }
-    : inVisibleOrgs;
+    ? { $or: [inScopeOrgs, { [scope.path]: null }] }
+    : inScopeOrgs;
   query.and([condition]);
+}
+
+/** 治理類吃管理範圍、業務類吃可見範圍(ADR-0005 的分工表;此處是唯一的選擇點)。 */
+export function scopeOrgIdsOf(
+  operator: {
+    visibleOrgIds: OperatorOrgScope;
+    managedOrgIds: OperatorOrgScope;
+  },
+  kind: TenantScopeKind,
+): OperatorOrgScope {
+  return kind === "governance"
+    ? operator.managedOrgIds
+    : operator.visibleOrgIds;
 }
