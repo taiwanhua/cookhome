@@ -23,9 +23,12 @@ const LOGIN = /* GraphQL */ `
 const FIELD_CATEGORIES = /* GraphQL */ `
   query FieldCategories {
     fieldCategories {
-      id
-      key
-      name
+      items {
+        id
+        key
+        name
+      }
+      totalCount
     }
   }
 `;
@@ -33,14 +36,17 @@ const FIELD_CATEGORIES = /* GraphQL */ `
 const FIELDS = /* GraphQL */ `
   query Fields($categoryId: ID!) {
     fields(categoryId: $categoryId) {
-      id
-      categoryId
-      label
-      value
-      order
-      enabled
-      description
-      source
+      items {
+        id
+        categoryId
+        label
+        value
+        order
+        enabled
+        description
+        source
+      }
+      totalCount
     }
   }
 `;
@@ -102,11 +108,14 @@ interface FieldRow {
 }
 
 interface FieldsData {
-  fields: FieldRow[];
+  fields: { items: FieldRow[]; totalCount: number };
 }
 
 interface FieldCategoriesData {
-  fieldCategories: { id: string; key: string; name: string }[];
+  fieldCategories: {
+    items: { id: string; key: string; name: string }[];
+    totalCount: number;
+  };
 }
 
 interface CreateFieldData {
@@ -225,7 +234,8 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
     if (!result.data) {
       throw new Error("fields 沒有回資料");
     }
-    return result.data.fields;
+    expect(result.data.fields.totalCount).toBe(result.data.fields.items.length);
+    return result.data.fields.items;
   }
 
   /** 取合併清單裡符合條件的第一筆(找不到即測試前提壞了,直接拋)。 */
@@ -296,8 +306,9 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
         { accessToken: managerAToken },
       );
       expect(result.errors).toBeUndefined();
-      const keys = result.data?.fieldCategories.map((row) => row.key);
+      const keys = result.data?.fieldCategories.items.map((row) => row.key);
       expect(keys).toEqual(["gender", "demo-category"]);
+      expect(result.data?.fieldCategories.totalCount).toBe(2);
     });
 
     it("fields 回全域種子,依 order 排序、每筆 source=GLOBAL", async () => {

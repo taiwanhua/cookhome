@@ -166,6 +166,11 @@ type Field {
   value: String!
 }
 
+type FieldCategoriesPayload {
+  items: [FieldCategory!]!
+  totalCount: Int!
+}
+
 type FieldCategory {
   description: String
   id: ID!
@@ -181,6 +186,11 @@ type FieldPayload {
 enum FieldSource {
   GLOBAL
   OWN
+}
+
+type FieldsPayload {
+  items: [Field!]!
+  totalCount: Int!
 }
 
 type Ingredient {
@@ -377,8 +387,8 @@ type ProvisionTenantPayload {
 type Query {
   dataScopeRule(collection: String!): DataScopeRulePayload!
   dataScopeTargets: DataScopeTargetsPayload!
-  fieldCategories: [FieldCategory!]!
-  fields(categoryId: ID!): [Field!]!
+  fieldCategories: FieldCategoriesPayload!
+  fields(categoryId: ID!): FieldsPayload!
   me: Me!
   moduleTree: [ModuleAdminNode!]!
   org(id: ID!): Org!

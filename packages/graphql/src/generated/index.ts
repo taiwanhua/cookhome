@@ -198,6 +198,12 @@ export type Field = {
   value: Scalars['String']['output'];
 };
 
+export type FieldCategoriesPayload = {
+  __typename?: 'FieldCategoriesPayload';
+  items: Array<FieldCategory>;
+  totalCount: Scalars['Int']['output'];
+};
+
 export type FieldCategory = {
   __typename?: 'FieldCategory';
   description?: Maybe<Scalars['String']['output']>;
@@ -216,6 +222,12 @@ export enum FieldSource {
   Global = 'GLOBAL',
   Own = 'OWN'
 }
+
+export type FieldsPayload = {
+  __typename?: 'FieldsPayload';
+  items: Array<Field>;
+  totalCount: Scalars['Int']['output'];
+};
 
 export type Ingredient = {
   __typename?: 'Ingredient';
@@ -556,8 +568,8 @@ export type Query = {
   __typename?: 'Query';
   dataScopeRule: DataScopeRulePayload;
   dataScopeTargets: DataScopeTargetsPayload;
-  fieldCategories: Array<FieldCategory>;
-  fields: Array<Field>;
+  fieldCategories: FieldCategoriesPayload;
+  fields: FieldsPayload;
   me: Me;
   moduleTree: Array<ModuleAdminNode>;
   org: Org;
@@ -912,14 +924,14 @@ export type FieldFieldsFragment = { __typename?: 'Field', id: string, categoryId
 export type FieldCategoriesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type FieldCategoriesQuery = { __typename?: 'Query', fieldCategories: Array<{ __typename?: 'FieldCategory', id: string, key: string, name: string, description?: string | null }> };
+export type FieldCategoriesQuery = { __typename?: 'Query', fieldCategories: { __typename?: 'FieldCategoriesPayload', totalCount: number, items: Array<{ __typename?: 'FieldCategory', id: string, key: string, name: string, description?: string | null }> } };
 
 export type FieldsQueryVariables = Exact<{
   categoryId: Scalars['ID']['input'];
 }>;
 
 
-export type FieldsQuery = { __typename?: 'Query', fields: Array<{ __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource }> };
+export type FieldsQuery = { __typename?: 'Query', fields: { __typename?: 'FieldsPayload', totalCount: number, items: Array<{ __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource }> } };
 
 export type CreateFieldMutationVariables = Exact<{
   input: CreateFieldInput;
@@ -1563,10 +1575,13 @@ useSaveDataScopeRuleMutation.fetcher = (client: GraphQLClient, variables: SaveDa
 export const FieldCategoriesDocument = `
     query FieldCategories {
   fieldCategories {
-    id
-    key
-    name
-    description
+    items {
+      id
+      key
+      name
+      description
+    }
+    totalCount
   }
 }
     `;
@@ -1597,7 +1612,10 @@ useFieldCategoriesQuery.fetcher = (client: GraphQLClient, variables?: FieldCateg
 export const FieldsDocument = `
     query Fields($categoryId: ID!) {
   fields(categoryId: $categoryId) {
-    ...FieldFields
+    items {
+      ...FieldFields
+    }
+    totalCount
   }
 }
     ${FieldFieldsFragmentDoc}`;

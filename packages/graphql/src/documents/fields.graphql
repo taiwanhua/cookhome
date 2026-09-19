@@ -17,17 +17,23 @@ fragment FieldFields on Field {
 # 左側類別清單(全域種子,租戶不可自訂;新增類別走 code + PR)
 query FieldCategories {
   fieldCategories {
-    id
-    key
-    name
-    description
+    items {
+      id
+      key
+      name
+      description
+    }
+    totalCount
   }
 }
 
 # 右側選項表格;已依 order 排好
 query Fields($categoryId: ID!) {
   fields(categoryId: $categoryId) {
-    ...FieldFields
+    items {
+      ...FieldFields
+    }
+    totalCount
   }
 }
 

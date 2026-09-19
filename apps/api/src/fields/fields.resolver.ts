@@ -7,8 +7,12 @@ import { CreateFieldInput } from "./dto/create-field.input";
 import { SetFieldEnabledInput } from "./dto/set-field-enabled.input";
 import { UpdateFieldInput } from "./dto/update-field.input";
 import { FieldsService } from "./fields.service";
-import { FieldPayload } from "./models/field-payloads.model";
-import { FieldCategoryModel, FieldModel } from "./models/field.model";
+import {
+  FieldCategoriesPayload,
+  FieldPayload,
+  FieldsPayload,
+} from "./models/field-payloads.model";
+import { FieldModel } from "./models/field.model";
 
 /**
  * 欄位管理的 GraphQL 端點(#206;形式 GQL-02 / GQL-03、錯誤 GQL-04)。
@@ -20,19 +24,19 @@ export class FieldsResolver {
   constructor(private readonly service: FieldsService) {}
 
   @RequirePermission("system.field-manager.view")
-  @Query(() => [FieldCategoryModel], { name: "fieldCategories" })
+  @Query(() => FieldCategoriesPayload, { name: "fieldCategories" })
   fieldCategories(
     @CurrentOperator() operator: OperatorContext,
-  ): Promise<FieldCategoryModel[]> {
+  ): Promise<FieldCategoriesPayload> {
     return this.service.listCategories(operator);
   }
 
   @RequirePermission("system.field-manager.view")
-  @Query(() => [FieldModel], { name: "fields" })
+  @Query(() => FieldsPayload, { name: "fields" })
   fields(
     @Args("categoryId", { type: () => ID }) categoryId: string,
     @CurrentOperator() operator: OperatorContext,
-  ): Promise<FieldModel[]> {
+  ): Promise<FieldsPayload> {
     return this.service.listFields(operator, categoryId);
   }
 

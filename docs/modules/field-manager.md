@@ -43,14 +43,14 @@
 ## api 介面(#206;正本,前端引用不另寫解釋 — GQL-07)
 
 ```graphql
-fieldCategories: [FieldCategory!]!                 # 全域種子類別,依 seed 宣告順序
-fields(categoryId: ID!): [Field!]!                 # 合併清單,依 order 再依建立順序
+fieldCategories: FieldCategoriesPayload!           # 全域種子類別,依 seed 宣告順序
+fields(categoryId: ID!): FieldsPayload!            # 合併清單,依 order 再依建立順序
 createField(input: CreateFieldInput!): FieldPayload!
 updateField(input: UpdateFieldInput!): FieldPayload!
 setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
 ```
 
-三個 mutation 回 `FieldPayload { field: Field! }`(GQL-02;#201 Interface design 寫的是直接回 `Field!`,實作依 GQL-02 收斂)。
+兩個 query 回 GQL-03 的列表形狀 `{ items, totalCount }`(不分頁,`totalCount` 即 `items` 長度);三個 mutation 回 `FieldPayload { field: Field! }`(GQL-02)。#201 Interface design 寫的裸回 `[Field!]!` / `Field!` 是簡寫,主流程 2026-09-20 裁決:第 4 段四票一律照 GQL-02 / GQL-03 用 payload type。
 
 **欄位語意**
 

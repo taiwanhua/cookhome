@@ -19,8 +19,12 @@ import {
   notFoundError,
   validationError,
 } from "./fields-error";
-import type { FieldCategoryModel } from "./models/field.model";
+import type {
+  FieldCategoriesPayload,
+  FieldsPayload,
+} from "./models/field-payloads.model";
 import { FieldModel, FieldSource } from "./models/field.model";
+import type { FieldCategoryModel } from "./models/field.model";
 
 type FieldRecord = Persisted<FieldDocument>;
 type CategoryRecord = Persisted<FieldCategoryDocument>;
@@ -82,27 +86,29 @@ export class FieldsService {
   /** 類別清單(全域種子,租戶不可自訂);依建立順序 = seed 宣告順序。 */
   async listCategories(
     operator: OperatorContext,
-  ): Promise<FieldCategoryModel[]> {
+  ): Promise<FieldCategoriesPayload> {
     const categories = await this.categories.findMany(
       operator,
       {},
       { sort: { createdAt: 1 } },
     );
-    return categories.map((category) => toCategoryModel(category));
+    const items = categories.map((category) => toCategoryModel(category));
+    return { items, totalCount: items.length };
   }
 
   /** 一個類別下的合併清單:全域種子 + 當前組織自訂,依 `order` 再依建立順序。 */
   async listFields(
     operator: OperatorContext,
     categoryId: string,
-  ): Promise<FieldModel[]> {
+  ): Promise<FieldsPayload> {
     const category = await this.mustFindCategory(operator, categoryId);
-    const items = await this.fields.findMany(
+    const found = await this.fields.findMany(
       operator,
       { categoryId: category._id, orgId: { $in: mergedOrgIds(operator) } },
       { sort: { order: 1, createdAt: 1 } },
     );
-    return items.map((item) => toFieldModel(item));
+    const items = found.map((item) => toFieldModel(item));
+    return { items, totalCount: items.length };
   }
 
   // ---- 寫 ----
