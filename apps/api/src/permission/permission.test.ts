@@ -376,11 +376,16 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
         `${SAMPLE_ONE}.edit-page.*`,
         `${SAMPLE_ONE}.edit-page.show-history`,
       ]);
-      expect(byKey(modules, "system.module-manager").permissions).toEqual([
+      // 根組織專屬模組的同層權限(正本:docs/modules/module-manager.md、data-scope.md 權限表)
+      expectSameMembers(byKey(modules, "system.module-manager").permissions, [
         "system.module-manager.*",
+        "system.module-manager.view",
+        "system.module-manager.toggle-enabled",
       ]);
-      expect(byKey(modules, "system.data-scope").permissions).toEqual([
+      expectSameMembers(byKey(modules, "system.data-scope").permissions, [
         "system.data-scope.*",
+        "system.data-scope.view",
+        "system.data-scope.edit",
       ]);
     });
   });
