@@ -142,11 +142,15 @@ const waitForTree = async () => {
   });
 };
 
+/**
+ * 點一個節點。MUI 的樹**點內容區等於同時選取與展開 / 收合**(預設的 expansionTrigger),
+ * 所以點過的節點會收起來 — 測試不要在點完某個節點之後再去找它的子節點。
+ */
 const clickNode = async (
   actor: { click: (element: Element) => Promise<void> },
   name: string,
 ) => {
-  await actor.click(within(orgTree()).getByText(name));
+  await actor.click(await within(orgTree()).findByText(name));
 };
 
 /**
@@ -219,11 +223,8 @@ describe("組織管理頁(/system/org-manager)", () => {
     const { user: actor } = renderPage();
 
     await waitForTree();
-    await clickNode(actor, "租戶 A");
 
-    expect(await within(detail()).findByText("何家華")).toBeInTheDocument();
-    expect(screen.getByAltText("租戶 A 的商標")).toBeInTheDocument();
-
+    // 先看一般組織:沒有商標、也沒有擁有者
     await clickNode(actor, "A-1 內容組");
     await waitFor(() => {
       expect(
@@ -231,6 +232,11 @@ describe("組織管理頁(/system/org-manager)", () => {
       ).toBeInTheDocument();
     });
     expect(within(detail()).queryByText("擁有者")).not.toBeInTheDocument();
+
+    // 再看租戶頂層:兩者都有
+    await clickNode(actor, "租戶 A");
+    expect(await within(detail()).findByText("何家華")).toBeInTheDocument();
+    expect(screen.getByAltText("租戶 A 的商標")).toBeInTheDocument();
   });
 
   it("編輯彈窗:租戶頂層 + 持 tenant-ops 才有擁有者與可見範圍兩欄", async () => {
