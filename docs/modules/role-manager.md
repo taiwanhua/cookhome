@@ -12,6 +12,31 @@
 - **詞彙對應**:文件的「租戶副本」(`Role.isTemplateCopy`,開通租戶時複製的租戶管理員副本)在 **UI 與 help.md 一律稱「預設角色」**(租戶使用者看得到的畫面不出現平台視角詞彙,FIGMA-04);技術文件與模型一律用「租戶副本」
 - **使用者說明**:[system.role-manager.help.md](../../apps/admin/src/md/module-help/system.role-manager.help.md)
 
+## 角色種類與可改動範圍(2026-09-21 / #261)
+
+規則正本 [ADR-0004「角色種類與可改動範圍」](../adr/0004-permission-model.md);本節補模組側的錯誤碼與落點。
+三種判準互斥,由上往下取第一個成立者。api 依**操作者**算好 `Role.kind`(`SYSTEM` / `TEMPLATE_COPY` / `CUSTOM`)與 `Role.abilities`(`canEdit` / `canEditMatrix` / `canToggleEnabled` / `canDelete`),**前端只讀、不重算**。
+
+| 角色種類                             | 判準                           | 改名 / 描述 | 權限矩陣                           | 停用                                | 刪除       | 分配使用者 |
+| ------------------------------------ | ------------------------------ | ----------- | ---------------------------------- | ----------------------------------- | ---------- | ---------- |
+| **種子**(超級管理員、租戶管理員模板) | `isSystem`(seed 一併補齊,#246) | 不可        | 唯讀                               | 不可                                | 不可       | 可         |
+| **預設角色**(租戶副本)               | `settings.templateKey`         | 租戶可      | root 可放寬與收窄;非 root 只能收窄 | 只有 root(自鎖保護)                 | 不可       | 可         |
+| **自建角色**                         | 其餘                           | 可          | 依 subset-only                     | 可,但不可停用操作者自己正持有的角色 | 無授予時可 | 可         |
+
+被擋下時的錯誤碼(GQL-04 的表由 #261 同步):
+
+| 情境                                    | 回應                                         |
+| --------------------------------------- | -------------------------------------------- |
+| 動到種子角色(改名 / 矩陣 / 停用 / 刪除) | `FORBIDDEN`,reason `SYSTEM_ROLE`             |
+| 非 root 停用預設角色                    | `FORBIDDEN`,reason `TEMPLATE_COPY_ROOT_ONLY` |
+| 停用操作者自己正持有的角色              | `FORBIDDEN`,reason `SELF_LOCK`               |
+| 自建角色仍有授予時刪除                  | `ROLE_NOT_DELETABLE` + `extensions.reasons`  |
+
+- `saveRoleMatrix` 的 `shrinkOnly` 判準是「**非 root 且是預設角色**」— root 對預設角色可以放寬。
+- 模組側是同一條自鎖原則:`setModuleEnabled` / `setPermissionEnabled` 打到 `system.module-manager` 子樹或其權限 → `FORBIDDEN`(reason `SELF_LOCK`),見 [module-manager.md](./module-manager.md)。
+- UI 落點:清單列的編輯 / 停用 / 刪除按鈕讀 `abilities`;種子角色的矩陣唯讀並說明「系統內建角色,內容隨版本更新」。
+- 本節取代下方「api 介面」節 `setRoleEnabled` 原本「種子角色與租戶副本照樣可停用」的說法(該節由 #261 同步)。
+
 ## 權限矩陣規則(逐條)
 
 原本是一長行,2026-09-20(#212)依 #202 / #203 / #208 的實作與測試拆成編號小節;
@@ -90,3 +115,40 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
   矩陣上沒出現的就是勾不到的,前端不必自己再算一次防越權。
 - `saveRoleMatrix` 的整份覆蓋**只作用在顯示樹的範圍**:操作者搆不到的既有綁定不被清掉
   (與 `assignUserRoles`「操作者觸及不到的既有授予不動」同一條原則)。
+
+## admin 頁面(#208;程式正本 `apps/admin/src/pages/system/RoleManagerPage/`)
+
+左清單(搜尋 + 分頁)+ 右頁籤(權限矩陣 / 分配使用者),Figma「角色管理」44:44。
+勾選連動一律呼叫 `@repo/domain/permission`,顯示與計算餵同一棵 `roleMatrix.modules`;
+前端不自己拼樹、不自己算防越權。換算的薄殼在 `apps/admin/src/lib/role-matrix-208.ts`。
+與 Figma 的逐條差異記在 PR #243,不重複於此。
+
+### 未儲存離開
+
+矩陣有未送出的勾選時,離開前要問。「離開」有兩類,分兩路接:
+
+- **切頁籤、換選角色**:頁面自己攔,跳「放棄變更」確認彈窗。
+- **關分頁、重新整理、上一頁**:交給 `beforeunload`,用瀏覽器自己的提示(文案不可控,只求不靜默丟失)。
+
+儲存成功後只精準 invalidate 該角色的 `RoleMatrix` 與 `Roles`(DATA-02 / 04),不整頁重抓。
+
+### `shrinkOnly` 的前端鎖
+
+`RoleMatrixPayload.shrinkOnly` 為 true 時,頁面顯示「只能縮不能擴」提示,並把**目前沒有勾的列直接 `disabled`**,不等送出才吃 `ROLE_OUT_OF_REACH`。
+這是防呆不是把關 — 判準(非 root 且是預設角色)仍以 api 為準,見「角色種類與可改動範圍」。
+
+### 自組頁籤
+
+`@repo/ui` 沒有 Tabs 元件,本頁以 `role="tablist"` + text `Button` 自組(Figma 69:655 的 Draft/Tab 沒有對應的現成元件),本票不動 `packages/ui`。
+第二個頁面要用同一組頁籤時再抽進 `@repo/ui`。
+
+### 三態 indeterminate 的來源
+
+mixed 的定義是 M-08(本文「權限矩陣規則(逐條)」):**模組已勾、且直接子列只勾了一部分**。
+`@repo/ui/tree` 只負責呈現,`indeterminateIds` 由本頁算好傳入;語意與 #207 的 story 一致。
+
+### 其他
+
+- 清單列的動作(編輯 / 停用 / 刪除)依 `system.role-manager.*` 七筆權限顯示,能不能動則讀 `Role.abilities`。
+- 「加入使用者」彈窗借 `users(input: { orgId: 角色的擁有組織 })` 取候選(ADR-0005),所以這個彈窗**額外需要 `system.user-manager.view`**;沒有時畫面顯示提示。
+- 刪除送出後收到 `ROLE_NOT_DELETABLE` 才攤開 `extensions.reasons` 三項,並提示改用停用。
