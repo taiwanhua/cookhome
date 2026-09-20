@@ -38,6 +38,25 @@ export const ROLE_NOT_DELETABLE_REASONS = [
 export type RoleNotDeletableReason =
   (typeof ROLE_NOT_DELETABLE_REASONS)[number];
 
+/**
+ * `FORBIDDEN` 的 `extensions.reason`(#261 的角色種類規則;正本
+ * `docs/modules/role-manager.md` 的規則表與 `role-rules.ts`)。
+ * `FORBIDDEN` 是通用碼,光看碼分不出「為什麼不行」— 前端要據此顯示不同的一句話。
+ */
+export const ROLE_FORBIDDEN_REASONS = [
+  /** 種子角色:不可改名 / 矩陣唯讀 / 不可停用(隨底座出貨,內容隨版本更新) */
+  "SYSTEM_ROLE",
+  /** 預設角色(租戶副本)的停用只有根組織的操作者能做 */
+  "TEMPLATE_COPY_ROOT_ONLY",
+  /**
+   * 自鎖保護:停用操作者自己正持有的角色 / 停用「模組與權限」自己那棵子樹。
+   * 做得成就把自己鎖在門外,而且沒有別的入口能開回來。
+   */
+  "SELF_LOCK",
+] as const;
+
+export type RoleForbiddenReason = (typeof ROLE_FORBIDDEN_REASONS)[number];
+
 export function roleError(code: RoleErrorCode, message: string): GraphQLError {
   return new GraphQLError(message, { extensions: { code } });
 }
@@ -56,9 +75,20 @@ export function notFoundError(message: string): GraphQLError {
   return new GraphQLError(message, { extensions: { code: "NOT_FOUND" } });
 }
 
-/** 有登入但做了不被允許的事(GQL-04 `FORBIDDEN`):碰管理範圍外的組織。 */
-export function forbiddenError(message: string): GraphQLError {
-  return new GraphQLError(message, { extensions: { code: "FORBIDDEN" } });
+/**
+ * 有登入但做了不被允許的事(GQL-04 `FORBIDDEN`):碰管理範圍外的組織,
+ * 或動了角色種類規則不許動的東西 — 後者附 `extensions.reason`(`ROLE_FORBIDDEN_REASONS`)。
+ */
+export function forbiddenError(
+  message: string,
+  reason?: RoleForbiddenReason,
+): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: {
+      code: "FORBIDDEN",
+      ...(reason === undefined ? {} : { reason }),
+    },
+  });
 }
 
 /**

@@ -536,6 +536,31 @@ describe("模組與權限(#204:moduleTree / setModuleEnabled / setPermissionEnab
     });
   });
 
+  describe("自鎖保護：system.module-manager 子樹不可切（#261 / #233）", () => {
+    it("setModuleEnabled 對這一頁本身 → FORBIDDEN + reason SELF_LOCK，且沒有真的停用", async () => {
+      const result = await setModuleEnabled(MODULE_MANAGER, false);
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "FORBIDDEN",
+        reason: "SELF_LOCK",
+      });
+      expect(await storedEnabled(MODULE_MANAGER)).toBe(true);
+    });
+
+    it("setPermissionEnabled 對這一頁的權限 → FORBIDDEN + reason SELF_LOCK", async () => {
+      const result = await setPermissionEnabled(`${MODULE_MANAGER}.view`, false);
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "FORBIDDEN",
+        reason: "SELF_LOCK",
+      });
+    });
+
+    it("子樹判定走物化路徑：別的模組不受影響", async () => {
+      const result = await setModuleEnabled(SAMPLE_TWO, false);
+      expect(result.errors).toBeUndefined();
+      await setModuleEnabled(SAMPLE_TWO, true);
+    });
+  });
+
   describe("找不到的目標", () => {
     it("不存在的模組 id 與格式不合法的 id 都回 NOT_FOUND", async () => {
       const notFound = await api.graphql(

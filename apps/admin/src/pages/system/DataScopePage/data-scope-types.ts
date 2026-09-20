@@ -13,10 +13,22 @@ export type DataScopeRuleData = NonNullable<
   DataScopeRuleQuery["dataScopeRule"]["rule"]
 >;
 
-/** 套用對象與條件值共用的清單選項(角色 / 使用者)。 */
+/**
+ * 套用對象與條件值共用的清單選項(角色 / 使用者)。
+ * 角色的選項另外帶分辨同名角色用的欄位(#261 的 8;`lib/role-options.ts` 產生),
+ * 使用者的選項只填 `id` / `label`。
+ */
 export interface PickerOption {
   id: string;
+  /** 顯示字串;角色是「角色名稱 — 擁有組織」 */
   label: string;
+  /** 角色名稱(搜尋用);使用者的選項不填 */
+  name?: string;
+  /** 擁有組織名稱(搜尋用);使用者的選項不填 */
+  ownerOrgName?: string | null;
+  /** 分組用的租戶頂層;跨兩個以上租戶時才分組 */
+  tenantTopId?: string | null;
+  tenantTopName?: string | null;
 }
 
 /**

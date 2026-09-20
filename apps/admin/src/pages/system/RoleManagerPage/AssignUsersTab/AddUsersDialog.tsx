@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { useUsersQuery } from "@repo/graphql";
+import { useOrgTreeQuery, useUsersQuery } from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Box } from "@repo/ui/box";
 import { Button } from "@repo/ui/button";
@@ -14,6 +14,7 @@ import { Typography } from "@repo/ui/typography";
 
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
+import { isEligibleForRole, orgTrailIndex } from "@/lib/role-eligibility";
 
 import type { RoleManagerErrorCode } from "../role-manager-error";
 import { USER_MANAGER_VIEW_PERMISSION } from "../role-manager-permissions";
@@ -31,9 +32,14 @@ export interface AddUsersDialogProps {
 }
 
 /**
- * 加入使用者(Figma 69:697)。候選 = 所屬組織落在角色擁有組織子樹內的使用者;
- * api 沒有專門的候選端點,借 `users` query 帶 `orgId = 角色的擁有組織`(ADR-0005:
- * 給 orgId 就是該組織的子樹)。最終資格仍由 api 判斷,候選外會回 `USER_NOT_ELIGIBLE`。
+ * 加入使用者(Figma 69:697)。候選 = 所屬組織落在角色擁有組織子樹內的使用者。
+ *
+ * **範圍外的人也列出來,只是勾不動**(#261 的 7):在此之前這裡對 `users` 帶
+ * `orgId = 角色的擁有組織` 過濾,範圍外的人直接不出現 —— 找不到人的人只會覺得
+ * 「這個人不見了」,而不知道是資格不符。現在改成問管理範圍內的全部使用者,
+ * 逐列以組織樹判斷資格,不合格的列 disabled 並就地說明原因。
+ *
+ * 判定權仍在 api:送出時 `grantRoleUsers` 會回 `USER_NOT_ELIGIBLE`(`lib/role-eligibility.ts`)。
  */
 export const AddUsersDialog = ({
   role,
@@ -51,12 +57,12 @@ export const AddUsersDialog = ({
 
   const canListUsers = hasPermission(USER_MANAGER_VIEW_PERMISSION);
   const ownerOrgId = role.ownerOrg?.id ?? null;
+  const ownerOrgName = role.ownerOrg?.name ?? t("noOrg");
 
   const users = useUsersQuery(
     session.client,
     {
       input: {
-        ...(ownerOrgId === null ? {} : { orgId: ownerOrgId }),
         page: 1,
         pageSize: ROLE_USER_CANDIDATES_PAGE_SIZE,
         keyword: keyword.trim() === "" ? null : keyword.trim(),
@@ -64,9 +70,24 @@ export const AddUsersDialog = ({
     },
     { enabled: canListUsers },
   );
+  const orgTree = useOrgTreeQuery(session.client, undefined, {
+    enabled: canListUsers,
+  });
+  const trails = useMemo(
+    () => orgTrailIndex(orgTree.data?.orgTree ?? []),
+    [orgTree.data?.orgTree],
+  );
   const candidates = useMemo(
-    () => users.data?.users.items ?? [],
-    [users.data?.users.items],
+    () =>
+      (users.data?.users.items ?? []).map((user) => ({
+        ...user,
+        isEligible: isEligibleForRole(
+          user.orgs.map((org) => org.id),
+          ownerOrgId,
+          trails,
+        ),
+      })),
+    [users.data?.users.items, ownerOrgId, trails],
   );
 
   const toggle = (userId: string) => {
@@ -83,10 +104,7 @@ export const AddUsersDialog = ({
       onClose={onCancel}
       fullWidth
       maxWidth="sm"
-      title={t("title", {
-        name: role.name,
-        org: role.ownerOrg?.name ?? t("noOrg"),
-      })}
+      title={t("title", { name: role.name, org: ownerOrgName })}
       actions={
         <>
           <Button variant="text" onClick={onCancel}>
@@ -124,9 +142,11 @@ export const AddUsersDialog = ({
               {candidates.map((candidate) => (
                 <Box key={candidate.id}>
                   <FormControlLabel
+                    disabled={!candidate.isEligible}
                     control={
                       <Checkbox
                         checked={pickedIds.includes(candidate.id)}
+                        disabled={!candidate.isEligible}
                         onChange={() => {
                           toggle(candidate.id);
                         }}
@@ -141,11 +161,21 @@ export const AddUsersDialog = ({
                           : candidate.orgs.map((org) => org.name).join("、"),
                     })}
                   />
+                  {!candidate.isEligible && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      component="p"
+                      sx={{ pl: 4, pb: 0.5 }}
+                    >
+                      {t("notEligible", { org: ownerOrgName })}
+                    </Typography>
+                  )}
                 </Box>
               ))}
             </Box>
             <Typography variant="caption" color="text.secondary">
-              {t("hint", { org: role.ownerOrg?.name ?? t("noOrg") })}
+              {t("hint", { org: ownerOrgName })}
             </Typography>
             <Typography variant="body2">
               {t("picked", { count: pickedIds.length })}
