@@ -110,3 +110,21 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 ```
 
 **ui 包裝層的 props 分工**(同一個 PR 定的配套規則):**內容類**的 props(`labelSuffix`、`actions`、`disabled` — 這一列長什麼樣)跟著**節點資料**走;**狀態類**的 props(`selectedIds`、`expandedIds`、`indeterminateIds`、`disabledCheckIds`)是**扁平的 id 陣列**。理由是後者每勾一次就變,若塞回節點資料就得重建整棵 `items`,而重建 `items` 會讓底層元件重建內部 store —— 權限矩陣每點一下都要付那個代價。
+
+## REACT-10 提示文字一律用 `@repo/ui/tooltip`,不寫原生 `title`;預設 `describeChild`
+
+(2026-09-21,#240 / #260 定)
+
+`@repo/ui/tooltip` 的 `Tooltip` **與 MUI 的預設不同,`describeChild` 預設是 `true`**,理由是提示在 CookHome 一律是「補充說明」而不是「這顆按鈕叫什麼」:
+
+- `describeChild` 為 `true` → 掛 `aria-describedby`,**元素原本的無障礙名稱留著**;
+- MUI 的預設(`false`)會掛 `aria-label`,**把名稱整個蓋掉** ——「停用」按鈕會變成叫「平台根組織不可停用」。
+
+規則與呼叫端要知道的四件事:
+
+- **app 裡不要再寫原生 `title`**(STYLE-05 的元件牆同理):原生 `title` 的外觀不受 theme 控制、延遲不可調、觸控裝置看不到。
+- 真的需要提示**當名稱**時(圖示按鈕沒有可見文字)才明示 `describeChild={false}`,並在 PR 說明為什麼。
+- **disabled 子元素由元件內部包 `span`**(disabled 元素不發 hover 事件),呼叫端不要自己再包一層;可用的元素則直接掛在 child 上,`aria-describedby` 仍指向它本身。
+- `title` 傳 `""` / `undefined` 就不提示,所以條件式提示直接寫 `title={isLocked ? hint : ""}`,不要條件式地換掉整棵子樹。
+
+**測試怎麼斷言**(配 TEST-08 / TEST-09):提示是 portal 出去、hover 後才出現的節點,用 `await userEvent.hover(trigger)` + `await screen.findByRole("tooltip")` 取它的文字。**不要驗 `toHaveAttribute("title", …)`** —— 改用 `Tooltip` 之後 DOM 上根本沒有 `title`,舊斷言會紅。
