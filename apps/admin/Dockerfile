@@ -23,6 +23,10 @@ COPY --from=pruner /app/out/full/ .
 ARG VITE_GRAPHQL_ENDPOINT=http://localhost:5001/graphql
 ENV VITE_GRAPHQL_ENDPOINT=$VITE_GRAPHQL_ENDPOINT
 RUN pnpm exec turbo run build --filter=@repo/admin
+# 防回歸(#259):模組說明 src/md/module-help/*.help.md 是被 Vite 內嵌進 bundle 的程式資產。
+# 根目錄 .dockerignore 的 `**/*.md` 曾把它們整包擋在 build context 外,本機 build 卻正常 ——
+# 這一步讓那種情況在建 image 時就失敗,而不是部署後才發現每頁的「?」都打不開。
+RUN pnpm --filter @repo/admin check:help-bundle
 
 # ---- runner:nginx 服務靜態檔 ----
 FROM nginx:1.29-alpine AS runner

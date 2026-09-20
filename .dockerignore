@@ -15,6 +15,9 @@ node_modules
 docs
 scripts
 **/*.md
+# 例外:admin 的模組說明是程式資產(Vite 在 build 時以 import.meta.glob 內嵌進 bundle),
+# 不是文件 —— 排在 `**/*.md` 之後才生效(dockerignore 後出現的規則覆蓋先前的)。
+!apps/admin/src/md/**/*.md
 
 # 機密
 .env
