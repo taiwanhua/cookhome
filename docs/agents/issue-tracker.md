@@ -46,6 +46,7 @@ GitHub 的 issue 與 PR 共用同一組編號,所以單看 `#42` 無法確定是
 - **同一模組兩張票並行時,先約定檔案層級的分工**(誰負責拆測試檔、誰改共用 harness),規則共用反而不是問題(#186 / #187 各長出一份 `org-manager-test-support.ts`)。
 - **驗收回報附當時的 dev 部署版本(release PR 或 commit)**,否則「當下看到、事後重現不出來」的項目無從判斷是已被修掉還是條件沒對上(#186 的展開箭頭)。
 - **驗收條件要在該環境驗得到**:#69 寫「白名單外信箱在 dev 不寄」,但 dev 只有 root 一個帳號、信箱就是白名單,這條在 dev 根本驗不到。寫驗收前先問「這個環境有讓它成立的資料嗎」,沒有就改成單元測試覆蓋或註明需要的前置資料。
+- **部署後抓一次 bundle 驗「打包資產」**(#259,2026-09-21):凡是**跟著 build 烘進產物的非程式檔**(admin 的 `src/md/module-help/*.help.md` 模組說明、i18n 字典、範本…),部署完要直接抓該環境的 bundle 確認內容真的在裡面 —— 本機 `pnpm build` 正常不代表 image 正常(`.dockerignore` 的 `**/*.md` 曾把整包說明擋在 build context 外,三環境「?」全部 disabled 卻沒有任何一步失敗)。做法:瀏覽器開該環境 admin → DevTools Network 抓 `assets/index-*.js` → 搜一個一定會出現的字串(說明用「這個模組做什麼」),命中 0 次就是沒打包進去。Dockerfile 的 `check:help-bundle` 已擋住 help.md 這一類,新增別種打包資產時要同步補一條檢查(見 `docs/deployment.md` 第二節)。
 
 ## 怎麼分辨一張 issue 的種類
 
