@@ -166,13 +166,16 @@ input DeleteRoleInput {
 }
 
 type Field {
+  canEdit: Boolean!
+  canToggleEnabled: Boolean!
   categoryId: ID!
   description: String
   enabled: Boolean!
   id: ID!
+  isOwn: Boolean!
   label: String!
   order: Int!
-  source: FieldSource!
+  ownerOrg: FieldOwnerOrg
   value: String!
 }
 
@@ -188,14 +191,13 @@ type FieldCategory {
   name: String!
 }
 
-type FieldPayload {
-  field: Field!
+type FieldOwnerOrg {
+  id: ID!
+  name: String!
 }
 
-"""欄位選項的來源:全域種子 / 當前組織自訂(field-manager.md)"""
-enum FieldSource {
-  GLOBAL
-  OWN
+type FieldPayload {
+  field: Field!
 }
 
 type FieldsPayload {

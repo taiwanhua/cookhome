@@ -645,6 +645,8 @@
       "edit": "編輯",
       "seedManaged": "由系統管理員維護",
       "seedManagedHint": "全域選項由系統管理員統一維護,需要停用請聯絡系統管理員。",
+      "managedByOrg": "由 {org} 管理",
+      "managedByOrgHint": "這個選項是 {org} 加的,你看得到但不能修改或停用。",
       "none": "—"
     },
     "form": {
@@ -663,6 +665,7 @@
     "errors": {
       "FIELD_VALUE_DUPLICATE": "這個值在這個類別已經有人用了,請換一個。",
       "FORBIDDEN": "全域選項由系統管理員統一維護,你的組織不能變更它。",
+      "NOT_OWNER": "這個選項是別的組織加的,只有加它的組織改得動。",
       "NOT_FOUND": "找不到這個類別或選項,可能已被移除,請重新整理。",
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
       "UNEXPECTED": "操作失敗,請稍後再試。"

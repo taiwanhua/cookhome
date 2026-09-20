@@ -3,7 +3,6 @@ import { HttpResponse } from "msw";
 import {
   type CreateFieldMutationVariables,
   type FieldCategoriesQuery,
-  FieldSource,
   type FieldsQuery,
   type FieldsQueryVariables,
   type SetFieldEnabledMutationVariables,
@@ -22,13 +21,15 @@ export type FieldOperation = "CreateField" | "UpdateField" | "SetFieldEnabled";
 
 export interface FieldWorldOptions {
   categories?: TestFieldCategory[];
-  /** 類別 id → 合併清單(全域種子 + 當前組織自訂) */
+  /** 類別 id → 合併清單(全域 + 上層 + 本組織 + 可見範圍內的下層) */
   fieldsByCategory?: Record<string, TestField[]>;
+  /** 新增選項時寫進 `ownerOrg` 的組織(= 當前組織);預設不帶名稱 */
+  currentOrg?: { id: string; name: string };
   /**
-   * 操作者站在**根組織**:種子選項的 `enabled` 是全域開關,只有根組織切得動
-   * (field-manager.md;租戶切種子選項回 `FORBIDDEN`)。預設是租戶視角。
+   * **上層**組織的 id:`value` 不可與全域 / 上層 / 自己重複(#264 的繼承鏈),
+   * 但可以與旁支 / 下層重複 —— 假伺服器要跟 api 同一條規則,不然測試會比 api 寬鬆。
    */
-  isRootOperator?: boolean;
+  upperOrgIds?: string[];
   failures?: Partial<Record<FieldOperation, string>>;
 }
 
@@ -45,22 +46,25 @@ export interface FieldWorld {
 }
 
 /**
- * 欄位管理頁的假 api(#206 的兩個 query + 三個 mutation)。
+ * 欄位管理頁的假 api(#206 的兩個 query + 三個 mutation;#264 的規則)。
  *
  * 清單是**有狀態的**:新增 / 編輯 / 切換寫回同一份資料,所以「mutation → invalidate →
  * 重新查 `fields`」在測試裡看得到新的值 —— 只回固定清單的 handler 驗不出失效有沒有發生。
  * 規則照 `docs/modules/field-manager.md`「api 介面」實作,前端才不會對著一個比 api
  * 寬鬆的假伺服器寫測試:
  *
- * - `createField` 的 `value` 與同類別下**任一筆**(全域或自訂)重複 → `FIELD_VALUE_DUPLICATE`
- * - `updateField` 碰種子選項 → `FORBIDDEN`(種子只能 `setFieldEnabled`,`value` 不在 input 內)
- * - `setFieldEnabled` 碰種子選項而操作者不是根組織 → `FORBIDDEN`
+ * - **可不可以動由每一列自己的 `canEdit` / `canToggleEnabled` 決定**(api 依操作者算好),
+ *   假伺服器不重算組織關係 —— 這正是前端該相信的那一份
+ * - `updateField` / `setFieldEnabled` 被擋時:種子 → `FORBIDDEN` + reason
+ *   `SEED_READ_ONLY` / `SEED_GLOBAL_SWITCH`;別的組織加的 → reason `NOT_OWNER`
+ * - `createField` 的 `value` 與同類別的**繼承鏈**(全域 / 上層 / 自己)重複 → `FIELD_VALUE_DUPLICATE`
  */
 export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
   const {
     categories = [],
     fieldsByCategory = {},
-    isRootOperator = false,
+    currentOrg,
+    upperOrgIds = [],
     failures = {},
   } = options;
 
@@ -85,6 +89,18 @@ export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
       .flat()
       .find((item) => item.id === id);
 
+  /** 擋下來時的 reason:全域種子 vs 別的組織加的(前端據此換文案)。 */
+  const forbidden = (field: TestField, seedReason: string) =>
+    graphqlError("FORBIDDEN", "FORBIDDEN", {
+      reason: field.ownerOrg ? "NOT_OWNER" : seedReason,
+    });
+
+  /** 繼承鏈 = 全域 + 上層組織 + 自己這一層;旁支 / 下層不算(#264)。 */
+  const isInherited = (field: TestField): boolean => {
+    const owner = field.ownerOrg ?? null;
+    return owner === null || field.isOwn || upperOrgIds.includes(owner.id);
+  };
+
   const handlers = [
     api.query("FieldCategories", () =>
       HttpResponse.json({
@@ -99,9 +115,7 @@ export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
     api.query("Fields", ({ variables }) => {
       const { categoryId } = variables as FieldsQueryVariables;
       calls.fields += 1;
-      const items = (state[categoryId] ?? []).toSorted(
-        (left, right) => left.order - right.order,
-      );
+      const items = state[categoryId] ?? [];
       return HttpResponse.json({
         data: { fields: { items, totalCount: items.length } },
       });
@@ -114,7 +128,9 @@ export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
         return failure;
       }
       const siblings = state[input.categoryId] ?? [];
-      if (siblings.some((item) => item.value === input.value)) {
+      if (
+        siblings.some((item) => item.value === input.value && isInherited(item))
+      ) {
         return graphqlError(
           "FIELD_VALUE_DUPLICATE" as AuthErrorCode,
           "FIELD_VALUE_DUPLICATE",
@@ -129,7 +145,10 @@ export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
         order: input.order ?? 0,
         enabled: true,
         description: input.description ?? null,
-        source: FieldSource.Own,
+        ownerOrg: currentOrg ?? null,
+        isOwn: true,
+        canEdit: true,
+        canToggleEnabled: true,
       };
       state[input.categoryId] = [...siblings, field];
       return HttpResponse.json({ data: { createField: { field } } });
@@ -145,9 +164,9 @@ export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
       if (target === undefined) {
         return graphqlError("FORBIDDEN", "NOT_FOUND");
       }
-      // 種子選項唯讀(只能切 enabled);api 回 FORBIDDEN 而不是靜默忽略
-      if (target.source === FieldSource.Global) {
-        return graphqlError("FORBIDDEN", "FORBIDDEN");
+      // 改不動的列(種子或別的組織加的)在 api 就被擋下,不是靜默忽略
+      if (!target.canEdit) {
+        return forbidden(target, "SEED_READ_ONLY");
       }
       if (input.label !== undefined && input.label !== null) {
         target.label = input.label;
@@ -171,9 +190,9 @@ export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
       if (target === undefined) {
         return graphqlError("FORBIDDEN", "NOT_FOUND");
       }
-      // 種子選項的 enabled 是全域開關:非根組織操作者一律 FORBIDDEN
-      if (target.source === FieldSource.Global && !isRootOperator) {
-        return graphqlError("FORBIDDEN", "FORBIDDEN");
+      // 種子的 enabled 是全域開關(限根組織);自訂的只有加它的組織切得動
+      if (!target.canToggleEnabled) {
+        return forbidden(target, "SEED_GLOBAL_SWITCH");
       }
       target.enabled = input.enabled;
       return HttpResponse.json({

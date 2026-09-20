@@ -645,6 +645,8 @@
       "edit": "Edit",
       "seedManaged": "Maintained by the system administrator",
       "seedManagedHint": "Global options are maintained by the system administrator; contact them if one needs to be disabled.",
+      "managedByOrg": "Managed by {org}",
+      "managedByOrgHint": "This option was added by {org}. You can see it, but you cannot edit or disable it.",
       "none": "—"
     },
     "form": {
@@ -663,6 +665,7 @@
     "errors": {
       "FIELD_VALUE_DUPLICATE": "This value is already used in this category. Pick another one.",
       "FORBIDDEN": "Global options are maintained by the system administrator and cannot be changed by your organisation.",
+      "NOT_OWNER": "This option was added by another organisation. Only that organisation can change it.",
       "NOT_FOUND": "This category or option no longer exists. Refresh the page.",
       "VALIDATION_FAILED": "The form did not pass validation. Check it and try again.",
       "UNEXPECTED": "The action failed. Please try again later."
