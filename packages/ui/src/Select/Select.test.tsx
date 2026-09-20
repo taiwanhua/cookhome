@@ -1,27 +1,53 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { createRoot } from "react-dom/client";
 
 import { Checkbox } from "../Checkbox/Checkbox";
 import { MenuItem } from "../Menu/MenuItem";
 import { Select } from "./Select";
 
 describe("Select", () => {
-  it("renders without crashing", () => {
-    expect(() => {
-      const div = document.createElement("div");
-      const root = createRoot(div);
-      root.render(
-        <Select
-          variant="standard"
-          value="org-1"
-          slotProps={{ input: { "aria-label": "當前組織" } }}
-        >
-          <MenuItem value="org-1">CookHome</MenuItem>
-        </Select>,
-      );
-      root.unmount();
-    }).not.toThrow();
+  it("顯示目前選到的選項,展開後選另一個會回報", () => {
+    const handleChange = jest.fn();
+    render(
+      <Select
+        variant="standard"
+        value="org-1"
+        onChange={(event) => handleChange(event.target.value)}
+        slotProps={{ input: { "aria-label": "當前組織" } }}
+      >
+        <MenuItem value="org-1">CookHome</MenuItem>
+        <MenuItem value="org-2">高雄分店</MenuItem>
+      </Select>,
+    );
+
+    expect(screen.getByRole("combobox").textContent).toBe("CookHome");
+
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    fireEvent.click(screen.getByRole("option", { name: "高雄分店" }));
+
+    expect(handleChange).toHaveBeenCalledTimes(1);
+    expect(handleChange.mock.calls[0]?.[0]).toBe("org-2");
+  });
+
+  /** #260 的 disabled 盤點:停用的下拉要標成 disabled,而且點不開。 */
+  it("disabled 時標記為停用,點了也不會展開選單", () => {
+    render(
+      <Select
+        disabled
+        value="org-1"
+        slotProps={{ input: { "aria-label": "組織" } }}
+      >
+        <MenuItem value="org-1">CookHome</MenuItem>
+        <MenuItem value="org-2">高雄分店</MenuItem>
+      </Select>,
+    );
+
+    const combobox = screen.getByRole("combobox");
+    expect(combobox.getAttribute("aria-disabled")).toBe("true");
+
+    fireEvent.mouseDown(combobox);
+
+    expect(screen.queryByRole("option")).toBeNull();
   });
 
   /**

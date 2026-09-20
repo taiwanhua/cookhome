@@ -32,6 +32,37 @@ const rowOf = (label: string): HTMLElement => {
   return row;
 };
 
+/**
+ * 一列的左縮排(px)。MUI X v9 把縮排做成內容列的
+ * `paddingLeft: calc(<基底> + var(--TreeView-itemChildrenIndentation) * var(--TreeView-itemDepth))`,
+ * jsdom 不解析 `calc()` 與 CSS 變數,所以這裡把算式拆開自行代入:
+ * 對不上這個形狀就直接失敗 —— 那正是 #260 的症狀(`padding` 簡寫把 `paddingLeft` 蓋掉)。
+ */
+const INDENT_PATTERN =
+  /^calc\((?<base>[\d.]+)px \+ var\(--TreeView-itemChildrenIndentation\) \* var\(--TreeView-itemDepth\)\)$/;
+
+const indentOf = (label: string): number => {
+  const row = rowOf(label);
+  const content = row.querySelector<HTMLElement>(".MuiTreeItem-content");
+  if (content === null) {
+    throw new Error(`「${label}」這一列沒有內容區`);
+  }
+  const paddingLeft = globalThis.getComputedStyle(content).paddingLeft;
+  const base = INDENT_PATTERN.exec(paddingLeft)?.groups?.base;
+  if (base === undefined) {
+    throw new Error(
+      `「${label}」的 paddingLeft 沒有依深度縮排的算式:${paddingLeft}`,
+    );
+  }
+  const step = Number.parseFloat(
+    screen
+      .getByRole("tree")
+      .style.getPropertyValue("--TreeView-itemChildrenIndentation"),
+  );
+  const depth = Number(row.style.getPropertyValue("--TreeView-itemDepth"));
+  return Number(base) + step * depth;
+};
+
 /** 某一列自己的核取方塊(DOM 上是該列的第一個 input)。 */
 const checkboxOf = (label: string): HTMLInputElement => {
   const checkbox = rowOf(label).querySelector<HTMLInputElement>(
@@ -50,6 +81,56 @@ describe("Tree", () => {
     expect(screen.getByText("CookHome")).not.toBeNull();
     expect(screen.getByText("台北分店")).not.toBeNull();
     expect(screen.getByText("高雄分店")).not.toBeNull();
+  });
+
+  /**
+   * #260:`TreeRoot` 的 `padding` 簡寫曾把 MUI 的 `paddingLeft` 縮排算式蓋掉,
+   * 三棵樹(模組與權限、角色矩陣、OrgTreePicker)的每一層都貼齊左緣。
+   */
+  it("子節點依深度縮排,第二層大於第一層、第一層大於根", () => {
+    render(
+      <Tree
+        items={[
+          {
+            id: "root",
+            label: "CookHome",
+            children: [
+              {
+                id: "org-1",
+                label: "台北分店",
+                children: [{ id: "org-1-1", label: "信義門市" }],
+              },
+            ],
+          },
+        ]}
+        defaultExpandedIds={["root", "org-1"]}
+      />,
+    );
+
+    expect(indentOf("台北分店")).toBeGreaterThan(indentOf("CookHome"));
+    expect(indentOf("信義門市")).toBeGreaterThan(indentOf("台北分店"));
+  });
+
+  it("childrenIndentation 放大時,每一層的縮排跟著放大", () => {
+    const { unmount } = render(
+      <Tree
+        items={items}
+        defaultExpandedIds={["root"]}
+        childrenIndentation={24}
+      />,
+    );
+    const wide = indentOf("台北分店");
+    unmount();
+
+    render(
+      <Tree
+        items={items}
+        defaultExpandedIds={["root"]}
+        childrenIndentation={12}
+      />,
+    );
+
+    expect(wide).toBeGreaterThan(indentOf("台北分店"));
   });
 
   it("disabled 的節點標記為 aria-disabled,點擊不會改變選取", () => {

@@ -59,6 +59,36 @@ describe("DatePicker", () => {
     ).toBeNull();
   });
 
+  /**
+   * #260:沒有 `size` 時固定 medium,在 `size="small"` 的下拉旁邊高一截。
+   * MUI X 的日期欄不是一般的 `InputBase`,尺寸落在 `MuiPickersInputBase-inputSizeSmall`
+   * 與標籤 / 圖示的 `sizeSmall` 上。
+   */
+  it('size="small" 會把尺寸透傳給輸入格、標籤與日曆圖示', () => {
+    const { container } = render(
+      <DatePicker label="值" value="2026-01-01" size="small" />,
+    );
+
+    expect(
+      container.querySelector(".MuiPickersInputBase-inputSizeSmall"),
+    ).toBeInTheDocument();
+    expect(container.querySelector(".MuiInputLabel-sizeSmall")).not.toBeNull();
+    expect(
+      container.querySelector(".MuiInputAdornment-sizeSmall"),
+    ).not.toBeNull();
+  });
+
+  it("不給 size 時維持 medium", () => {
+    const { container } = render(<DatePicker label="值" value="2026-01-01" />);
+
+    expect(
+      container.querySelector(".MuiPickersInputBase-inputSizeSmall"),
+    ).toBeNull();
+    expect(
+      container.querySelector(".MuiInputAdornment-sizeMedium"),
+    ).not.toBeNull();
+  });
+
   it("error + helperText 會渲染成錯誤提示", () => {
     render(
       <DatePicker label="值" value="2026-01-01" error helperText="請選日期" />,

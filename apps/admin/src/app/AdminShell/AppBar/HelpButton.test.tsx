@@ -58,14 +58,23 @@ describe("模組說明「?」", () => {
         .handlers,
     );
 
-    renderApp({ path: "/demo/sample-two/edit-page" });
+    const { user } = renderApp({ path: "/demo/sample-two/edit-page" });
     const banner = await screen.findByRole("banner");
     const help = await within(banner).findByRole("button", {
       name: "模組說明",
     });
 
     expect(help).toBeDisabled();
-    expect(help.closest("span")).toHaveAttribute("title", "此頁尚無說明");
+    // 提示改用 @repo/ui 的 Tooltip(#240):停用的按鈕收不到 hover,
+    // 事件載體是 Tooltip 自己包的外層 span
+    const hintCarrier = help.parentElement;
+    if (hintCarrier === null) {
+      throw new Error("「?」按鈕沒有被 Tooltip 包起來");
+    }
+    await user.hover(hintCarrier);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "此頁尚無說明",
+    );
   });
 
   it("非模組路由(側欄一頁都進不去 → 無權限頁)不顯示「?」", async () => {

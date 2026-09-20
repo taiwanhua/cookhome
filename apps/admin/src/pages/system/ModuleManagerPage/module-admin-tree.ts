@@ -1,3 +1,5 @@
+import { ModuleSidebarType } from "@repo/graphql";
+
 import type { ModuleAdminNodeLike } from "./module-manager-types";
 
 /**
@@ -14,6 +16,25 @@ export const flattenModules = (
 /** 所有節點 id(樹的展開狀態用全集表示)。 */
 export const allModuleIds = (nodes: readonly ModuleAdminNodeLike[]): string[] =>
   flattenModules(nodes).map((node) => node.id);
+
+/** 隱藏頁的 key 慣例(`apps/db-migrator/src/seed/seed-key-convention.ts` 的 `HIDDEN_PAGE_SUFFIX`)。 */
+const HIDDEN_PAGE_SUFFIX = "-page";
+
+/**
+ * 這個節點只是**權限容器**,不是隱藏頁(#260)。
+ *
+ * 權限容器 = `sidebarType = hidden` 且**沒有 route** 的節點(`api` 權限樹、
+ * `system.org-manager.tenant-ops`):它不對應任何畫面,存在的理由是讓底下那幾條權限
+ * 可以單獨授予 / 停用。樹上把它標成「隱藏頁」會讓人一直找那個找不到的頁面。
+ *
+ * `moduleAdminTree` 沒有回 `route`(`apps/api/schema.gql` 的 `ModuleAdminNode`),
+ * 但 seed 的命名規約已經把這件事寫成硬規則並在種資料時擋下違規
+ * (`seed-key-convention.ts`:`-page` 結尾 ⇔ hidden 且有 route),
+ * 所以用 key 結尾判斷與看 route 等價 —— 不是近似,是同一條規則的另一面。
+ */
+export const isPermissionContainer = (node: ModuleAdminNodeLike): boolean =>
+  node.sidebarType === ModuleSidebarType.Hidden &&
+  !node.key.endsWith(HIDDEN_PAGE_SUFFIX);
 
 /** 依 id 找節點(含它的子樹);找不到回 null。 */
 export const findModuleNode = (

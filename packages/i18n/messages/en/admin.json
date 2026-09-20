@@ -358,6 +358,7 @@
       "title": "Module tree",
       "groupTag": "Group",
       "hiddenTag": "Hidden",
+      "containerTag": "Permission container",
       "disabledTag": "Disabled"
     },
     "detail": {
@@ -373,6 +374,8 @@
       "sidebarGroup": "Group",
       "sidebarLink": "Module link",
       "sidebarHidden": "Hidden page",
+      "sidebarContainer": "Permission container",
+      "sidebarContainerHint": "This level holds permissions only and has no screen, so those permissions can be granted or disabled on their own.",
       "order": "Order",
       "description": "Description",
       "none": "—",

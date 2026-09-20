@@ -2,6 +2,11 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import {
+  cssRulesMatching,
+  declaredValue,
+  emotionClassOf,
+} from "../test/css-rules";
 import { Checkbox } from "./Checkbox";
 
 const label = "開放此模組";
@@ -47,9 +52,45 @@ describe("Checkbox", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  /** #260 的 disabled 盤點:方框自己要換成停用灰(Figma Draft/Checkbox 44:36 / 44:40)。 */
+  it.each([
+    ["未勾選", false, "background-color"],
+    ["已勾選", true, "background-color"],
+  ])("disabled + %s 的方框換成停用色", (_name, checked, property) => {
+    const { container } = render(
+      <Checkbox
+        disabled
+        defaultChecked={checked}
+        slotProps={{ input: { "aria-label": label } }}
+      />,
+    );
+    const box = container.querySelector<HTMLElement>("[data-checkbox-box]");
+    if (box === null) {
+      throw new Error("找不到勾選框的方框");
+    }
+    const ownClass = `.${emotionClassOf(box)}`;
+
+    const normal = declaredValue(
+      cssRulesMatching(ownClass).filter(
+        (rule) => rule.selectorText === ownClass,
+      ),
+      property,
+    );
+    const disabled = declaredValue(
+      cssRulesMatching(".Mui-disabled", ownClass),
+      property,
+    );
+
+    expect(disabled).not.toBeNull();
+    expect(disabled).not.toBe(normal);
+  });
+
   it("indeterminate 會渲染半選的方框", () => {
     const { container } = render(
-      <Checkbox indeterminate slotProps={{ input: { "aria-label": "全部" } }} />,
+      <Checkbox
+        indeterminate
+        slotProps={{ input: { "aria-label": "全部" } }}
+      />,
     );
 
     expect(

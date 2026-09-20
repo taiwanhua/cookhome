@@ -2,6 +2,7 @@ import { useTranslations } from "use-intl";
 
 import { Button } from "@repo/ui/button";
 import { Stack } from "@repo/ui/stack";
+import { Tooltip } from "@repo/ui/tooltip";
 
 import type { OrgActionAbility, OrgDetail } from "../org-manager-types";
 
@@ -44,28 +45,31 @@ export const OrgActionBar = ({
           {t("edit")}
         </Button>
       )}
+      {/* 停用的按鈕收不到 hover,包 span 的事情交給 Tooltip 自己處理(#240) */}
       {ability.canToggleEnabled && (
-        <Button
-          size="small"
-          variant="text"
-          color={org.enabled ? "error" : "primary"}
-          disabled={isLocked}
-          title={isLocked ? lockedHint : undefined}
-          onClick={onToggleEnabled}
-        >
-          {org.enabled ? t("disable") : t("enable")}
-        </Button>
+        <Tooltip title={isLocked ? lockedHint : ""}>
+          <Button
+            size="small"
+            variant="text"
+            color={org.enabled ? "error" : "primary"}
+            disabled={isLocked}
+            onClick={onToggleEnabled}
+          >
+            {org.enabled ? t("disable") : t("enable")}
+          </Button>
+        </Tooltip>
       )}
       {ability.canDelete && (
-        <Button
-          size="small"
-          variant="text"
-          disabled={isLocked}
-          title={isLocked ? lockedHint : undefined}
-          onClick={onDelete}
-        >
-          {t("delete")}
-        </Button>
+        <Tooltip title={isLocked ? lockedHint : ""}>
+          <Button
+            size="small"
+            variant="text"
+            disabled={isLocked}
+            onClick={onDelete}
+          >
+            {t("delete")}
+          </Button>
+        </Tooltip>
       )}
     </Stack>
   );

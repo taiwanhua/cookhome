@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { Box } from "@repo/ui/box";
 import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
 import { IconButton } from "@repo/ui/icon-button";
 import { HelpIcon } from "@repo/ui/icons";
 import { Markdown } from "@repo/ui/markdown";
+import { Tooltip } from "@repo/ui/tooltip";
 
 import { moduleHelpMarkdown } from "@/lib/help-registry";
 
@@ -30,11 +30,8 @@ export const HelpButton = ({ moduleKey, moduleName }: HelpButtonProps) => {
 
   return (
     <>
-      {/* disabled 的按鈕不發 hover 事件,提示掛在外層 span(同使用者管理的列操作) */}
-      <Box
-        component="span"
-        title={markdown === undefined ? t("unavailable") : undefined}
-      >
+      {/* disabled 的按鈕不發 hover 事件,包 span 的事情交給 Tooltip 自己處理(#240) */}
+      <Tooltip title={markdown === undefined ? t("unavailable") : ""}>
         <IconButton
           aria-label={t("open")}
           size="small"
@@ -42,12 +39,16 @@ export const HelpButton = ({ moduleKey, moduleName }: HelpButtonProps) => {
           onClick={() => {
             setIsOpen(true);
           }}
+          /*
+           * 只給平時的顏色,不必擔心蓋掉停用色:`.Mui-disabled` 是複合選擇器
+           * (specificity 0,2,0),贏得過 `sx` 產生的單一類別(0,1,0)。
+           */
           sx={{ color: "text.secondary" }}
         >
           {/* Figma 的 18×18;MUI 的 small 是 20px,差 2px 視覺可接受(STYLE-06) */}
           <HelpIcon fontSize="small" />
         </IconButton>
-      </Box>
+      </Tooltip>
       {markdown !== undefined && (
         <Dialog
           open={isOpen}

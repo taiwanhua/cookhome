@@ -43,8 +43,14 @@ describe("組織管理頁:標籤與租戶頂層保護", () => {
       name: "停用",
     });
     expect(disableButton).toBeDisabled();
-    expect(disableButton).toHaveAttribute(
-      "title",
+    // 提示改用 @repo/ui 的 Tooltip(#240):停用的按鈕收不到 hover,
+    // 事件載體是 Tooltip 自己包的外層 span
+    const hintCarrier = disableButton.parentElement;
+    if (hintCarrier === null) {
+      throw new Error("停用按鈕沒有被 Tooltip 包起來");
+    }
+    await actor.hover(hintCarrier);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "頂層組織不可由組織內的人停用、搬移或刪除,需要時請聯絡系統管理員",
     );
     expect(
