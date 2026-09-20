@@ -22,7 +22,9 @@ describe("指派角色彈窗", () => {
     });
 
     // 每列標「角色名稱 — 擁有組織」(#261 的 8:根組織視角靠這一段分辨同名角色)
-    const editor = await screen.findByRole("checkbox", { name: "編輯 — 租戶 A" });
+    const editor = await screen.findByRole("checkbox", {
+      name: "編輯 — 租戶 A",
+    });
     expect(editor).toBeChecked();
     expect(editor).toBeEnabled();
     // 三筆候選的擁有組織是租戶 A(範圍外的那筆改顯示原因,不顯示擁有組織)

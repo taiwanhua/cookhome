@@ -172,9 +172,7 @@ describe("角色管理頁(/system/role-manager)", () => {
         screen.queryByRole("button", { name: "儲存變更" }),
       ).not.toBeInTheDocument();
       expect(
-        await screen.findByText(
-          "系統內建角色,內容隨版本更新,這裡只能檢視。",
-        ),
+        await screen.findByText("系統內建角色,內容隨版本更新,這裡只能檢視。"),
       ).toBeInTheDocument();
     });
 

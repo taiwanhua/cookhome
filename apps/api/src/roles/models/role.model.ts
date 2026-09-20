@@ -1,10 +1,4 @@
-import {
-  Field,
-  ID,
-  Int,
-  ObjectType,
-  registerEnumType,
-} from "@nestjs/graphql";
+import { Field, ID, Int, ObjectType, registerEnumType } from "@nestjs/graphql";
 
 /** 組織的最小參照(角色只需要 id 與名稱)。 */
 @ObjectType()
@@ -48,7 +42,8 @@ export enum RoleKind {
 
 registerEnumType(RoleKind, {
   name: "RoleKind",
-  description: "角色種類(種子 / 預設角色 / 自建);規則表見 docs/modules/role-manager.md",
+  description:
+    "角色種類(種子 / 預設角色 / 自建);規則表見 docs/modules/role-manager.md",
 });
 
 /**

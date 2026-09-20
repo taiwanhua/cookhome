@@ -103,7 +103,9 @@ export const groupRoleOptions = (
 };
 
 /** 關鍵字過濾:比對角色名稱與擁有組織名稱(不分大小寫);空白關鍵字原樣回傳。 */
-export const filterRoleOptions = <T extends { name: string; ownerOrgName: string | null }>(
+export const filterRoleOptions = <
+  T extends { name: string; ownerOrgName: string | null },
+>(
   options: readonly T[],
   keyword: string,
 ): T[] => {

@@ -29,9 +29,7 @@ const indexInto = (
   }
 };
 
-export const orgTrailIndex = (
-  nodes: readonly OrgNodeLike[],
-): OrgTrailIndex => {
+export const orgTrailIndex = (nodes: readonly OrgNodeLike[]): OrgTrailIndex => {
   const index = new Map<string, readonly string[]>();
   indexInto(nodes, [], index);
   return index;

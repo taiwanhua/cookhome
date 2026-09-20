@@ -179,10 +179,7 @@ const kindOf = (isSystem: boolean, isTemplateCopy: boolean): RoleKind => {
   return isTemplateCopy ? RoleKind.TemplateCopy : RoleKind.Custom;
 };
 
-const abilitiesOf = (
-  kind: RoleKind,
-  userCount: number,
-): TestRoleAbilities => ({
+const abilitiesOf = (kind: RoleKind, userCount: number): TestRoleAbilities => ({
   canEdit: kind !== RoleKind.System,
   canEditMatrix: kind !== RoleKind.System,
   canToggleEnabled: kind === RoleKind.Custom,

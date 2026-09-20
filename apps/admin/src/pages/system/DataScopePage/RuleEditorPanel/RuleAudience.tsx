@@ -96,7 +96,19 @@ export const RuleAudience = ({
           tenantTopName: option.tenantTopName ?? null,
         })),
       )
-    : [{ id: null, name: null, options: visible.map((option) => ({ ...option, ownerOrgName: null, tenantTopId: null, tenantTopName: null, name: option.label })) }];
+    : [
+        {
+          id: null,
+          name: null,
+          options: visible.map((option) => ({
+            ...option,
+            ownerOrgName: null,
+            tenantTopId: null,
+            tenantTopName: null,
+            name: option.label,
+          })),
+        },
+      ];
 
   return (
     <Stack spacing={0.75}>

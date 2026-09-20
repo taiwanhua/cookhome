@@ -73,7 +73,9 @@ export const RoleOptionRow = ({
           variant="caption"
           color={role.isOutOfReach ? "warning.main" : "text.secondary"}
         >
-          {role.isOutOfReach ? t("outOfReach") : t("ownerOrg", { org: ownerOrg })}
+          {role.isOutOfReach
+            ? t("outOfReach")
+            : t("ownerOrg", { org: ownerOrg })}
         </Typography>
         {!role.isEligible && !role.isOutOfReach && (
           <Box>

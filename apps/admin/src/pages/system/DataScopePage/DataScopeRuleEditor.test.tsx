@@ -86,10 +86,7 @@ describe("條件樹編輯器(資料範圍)", () => {
     await startRule(actor);
 
     await chooseOption(actor, comboboxAt("套用對象"), "角色");
-    await actor.type(
-      within(editor()).getByLabelText("搜尋角色"),
-      "租戶 B",
-    );
+    await actor.type(within(editor()).getByLabelText("搜尋角色"), "租戶 B");
 
     await actor.click(comboboxAt("對象"));
     // 只剩租戶 B 那一筆;單一租戶 ⇒ 不再分組(只有一組的標題是雜訊)

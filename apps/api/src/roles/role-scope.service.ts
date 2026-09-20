@@ -61,7 +61,9 @@ export class RoleScopeService {
    */
   async operatorFactsOf(
     operator: OperatorContext,
-  ): Promise<Omit<RoleOperatorFacts, "hasGrants"> & { heldRoleIds: Set<string> }> {
+  ): Promise<
+    Omit<RoleOperatorFacts, "hasGrants"> & { heldRoleIds: Set<string> }
+  > {
     const [isRootOperator, heldRoleIds] = await Promise.all([
       this.ownerProtection.isRootOperator(operator),
       operator.actorId === null
@@ -202,7 +204,8 @@ export class RoleScopeService {
         abilities: roleAbilitiesOf(role, roleFacts),
         isSystem: role.isSystem,
         isTemplateCopy: isTemplateCopy(role),
-        ownerOrg: ownerOrgId === null ? null : (ownerOrgById.get(ownerOrgId) ?? null),
+        ownerOrg:
+          ownerOrgId === null ? null : (ownerOrgById.get(ownerOrgId) ?? null),
         userCount,
       };
     });
@@ -216,7 +219,9 @@ export class RoleScopeService {
   private async ownerOrgRefs(
     operator: OperatorContext,
     ownerOrgIds: Types.ObjectId[],
-  ): Promise<Map<string, { id: string; name: string; tenantTop: RoleOrgRef | null }>> {
+  ): Promise<
+    Map<string, { id: string; name: string; tenantTop: RoleOrgRef | null }>
+  > {
     if (ownerOrgIds.length === 0) {
       return new Map();
     }
@@ -230,7 +235,9 @@ export class RoleScopeService {
       managedOrgs.map((org) => [String(org._id), org.name]),
     );
     const missingTopIds = uniqueObjectIds(
-      [...tenantTopIdByOrg.values()].filter((id) => !knownNames.has(String(id))),
+      [...tenantTopIdByOrg.values()].filter(
+        (id) => !knownNames.has(String(id)),
+      ),
     );
     const tops =
       missingTopIds.length === 0
@@ -245,13 +252,15 @@ export class RoleScopeService {
         const id = String(org._id);
         // 擁有組織是根組織時 `tenantTopIdOf` 回自己 — 那不是租戶,不給分組用
         const topId = String(tenantTopIdByOrg.get(id) ?? org._id);
-        const topName = org.ancestors.length === 0 ? undefined : knownNames.get(topId);
+        const topName =
+          org.ancestors.length === 0 ? undefined : knownNames.get(topId);
         return [
           id,
           {
             id,
             name: org.name,
-            tenantTop: topName === undefined ? null : { id: topId, name: topName },
+            tenantTop:
+              topName === undefined ? null : { id: topId, name: topName },
           },
         ];
       }),

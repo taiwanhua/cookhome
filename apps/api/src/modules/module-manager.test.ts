@@ -547,7 +547,10 @@ describe("模組與權限(#204:moduleTree / setModuleEnabled / setPermissionEnab
     });
 
     it("setPermissionEnabled 對這一頁的權限 → FORBIDDEN + reason SELF_LOCK", async () => {
-      const result = await setPermissionEnabled(`${MODULE_MANAGER}.view`, false);
+      const result = await setPermissionEnabled(
+        `${MODULE_MANAGER}.view`,
+        false,
+      );
       expect(result.errors?.[0]?.extensions).toMatchObject({
         code: "FORBIDDEN",
         reason: "SELF_LOCK",

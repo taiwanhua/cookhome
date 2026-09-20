@@ -7,8 +7,8 @@ import {
   authWorld,
   overviewModule,
 } from "@/test/msw/auth-handlers";
-import { server } from "@/test/msw/server";
 import type { TestRole } from "@/test/msw/role-fixtures";
+import { server } from "@/test/msw/server";
 import {
   type TestOrg,
   type TestOrgNode,
@@ -242,4 +242,3 @@ export const renderPage = ({
 
 export const rowOf = (name: string) =>
   screen.getByRole("row", { name: new RegExp(name) });
-

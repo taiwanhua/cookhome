@@ -30,7 +30,8 @@ setPermissionEnabled(input: { id, enabled }): PermissionAdminPayload!
 service 再守「當前組織是根組織」(判斷點 `OwnerProtectionService.isRootOperator`,
 與租戶作業同一個)— 權限可能經角色被帶到別的組織,**站在哪裡**才是判準。
 不是根組織 → `FORBIDDEN`;模組 / 權限 id 查無(含 id 格式不合法)→ `NOT_FOUND`。
-沒有本模組專屬的新錯誤碼(GQL-04 的表不必追加)。
+**目標落在 `system.module-manager` 子樹內 → `FORBIDDEN` + `extensions.reason = "SELF_LOCK"`**(#261,見下方「自鎖保護」)。
+沒有本模組專屬的新錯誤碼 —— `SELF_LOCK` 是既有 `FORBIDDEN` 的 `reason`,不是新的 `code`(GQL-04 的表只在 `FORBIDDEN` 那一列註明)。
 
 ### 回傳欄位語意(GQL-07:正本在此,前端段只引用)
 
@@ -81,6 +82,9 @@ service 再守「當前組織是根組織」(判斷點 `OwnerProtectionService.i
 判準以 seed 的 `route` 為準;api 若沒回 `route`,前端以「key 結尾不是 `-page`」近似(#260 的 PR 註明)。
 `help.md` 同步一句相同白話。
 
-**自鎖保護(前端,待 #233)**:api 目前允許停用 `system.module-manager` 自己,一旦關掉就沒有任何畫面能把它開回來。
-在 api 補上防護之前,admin 先把這一枝(模組本身、其子模組、以及它們的權限)的開關 `disabled` 並附說明
-「此模組用於管理模組本身,不可停用」。這是防呆不是把關,真正的規則仍應落在 api(#233)。
+**自鎖保護(#261 / #233,api 已擋)**:停用 `system.module-manager` 自己,一旦關掉就沒有任何畫面能把它開回來 —
+與角色的「不可停用自己正持有的角色」是同一條原則,只是主體換成模組樹。
+
+- **api(把關)**:`setModuleEnabled` / `setPermissionEnabled` 的目標落在 `system.module-manager` 子樹內(模組本身、其子模組、以及它們的權限)→ `FORBIDDEN` + `extensions.reason = "SELF_LOCK"`。
+  子樹判定走**物化路徑**(`modules.ancestors`),不切 key 字串(ADR-0004「反向歸屬不解析字串」);程式正本 `apps/api/src/modules/module-manager.service.ts` 的 `assertNotSelfLock`。
+- **admin(防呆)**:這一枝的開關 `disabled` 並附說明「此模組用於管理模組本身,不可停用」(#209),不等送出才吃錯。

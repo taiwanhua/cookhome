@@ -261,8 +261,7 @@ describe("角色種類規則 + 自鎖保護(#261,GraphQL 端點 + 真 MongoDB)",
 
   function failureOf(errors: readonly { extensions?: unknown }[]): Failure {
     const extensions = errors[0]?.extensions as
-      | { code?: string; reason?: string }
-      | undefined;
+      { code?: string; reason?: string } | undefined;
     return { code: extensions?.code, reason: extensions?.reason };
   }
 
