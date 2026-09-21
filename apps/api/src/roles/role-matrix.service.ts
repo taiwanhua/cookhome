@@ -19,13 +19,16 @@ import {
   ModulesRepository,
   type PermissionDocument,
   PermissionsRepository,
+  RolesRepository,
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
+import { TENANT_ADMIN_ROLE_KEY } from "../orgs/owner-protection.service";
 import { ModuleSidebarType } from "../permission/models/me-module.model";
 import { PermissionResolver } from "../permission/permission-resolver";
 import type { SaveRoleMatrixInput } from "./dto/save-role-matrix.input";
 import type {
+  RoleGrant,
   RoleMatrixModule,
   RoleMatrixPayload,
 } from "./models/role-matrix.model";
@@ -34,6 +37,7 @@ import {
   type RoleRecord,
   isSeedRole,
   isShrinkOnly,
+  isTemplateCopy,
 } from "./role-rules";
 import { RoleScopeService } from "./role-scope.service";
 import { forbiddenError, roleError } from "./roles-error";
@@ -80,6 +84,7 @@ export class RoleMatrixService {
   constructor(
     private readonly modules: ModulesRepository,
     private readonly permissions: PermissionsRepository,
+    private readonly roles: RolesRepository,
     private readonly relations: RelationService,
     private readonly audit: AuditService,
     private readonly scope: RoleScopeService,
@@ -96,15 +101,18 @@ export class RoleMatrixService {
       this.scope.factsOf(operator, role),
       this.buildView(operator),
     ]);
-    return this.payload(operator, role, view, facts);
+    const ceiling = await this.ceilingOf(operator, role, view);
+    return this.payload(operator, role, view, facts, ceiling);
   }
 
   /**
    * 整份覆蓋(role-manager.md 權限表「編輯權限矩陣」):
    * 1. 以**全樹**正規化送進來的授予(`normalizeGrant`:樹外丟棄、勾下層補上層、`*` 收斂)
    * 2. subset-only 防越權:正規化後要是操作者有效權限集的子集,否則 `ROLE_OUT_OF_REACH`
-   * 3. 租戶管理員副本只能縮不能擴:還要是**目前綁定**的子集,否則同樣 `ROLE_OUT_OF_REACH`
-   * 4. 差集寫入 `role_module` / `role_permission`(刪只刪操作者搆得到的)
+   * 3. 預設角色(租戶副本)的天花板:還要是**內建「租戶管理員」模板角色目前授予**的子集,
+   *    否則 `ROLE_OUT_OF_REACH` + `reason TEMPLATE_CEILING`(#283;root 也擋)
+   * 4. 租戶管理員副本只能縮不能擴:還要是**目前綁定**的子集,否則同樣 `ROLE_OUT_OF_REACH`
+   * 5. 差集寫入 `role_module` / `role_permission`(刪只刪操作者搆得到的)
    */
   async save(
     operator: OperatorContext,
@@ -131,6 +139,17 @@ export class RoleMatrixService {
       throw roleError(
         "ROLE_OUT_OF_REACH",
         "The submitted matrix is not a subset of the operator's effective modules and permissions",
+      );
+    }
+    // 預設角色的天花板(#283):矩陣上限 = 內建「租戶管理員」模板角色目前的授予
+    // (seed:所有非根組織專屬模組各一筆 `*`)。root 在此範圍內放寬與收窄,
+    // **連 root 也開不出模板沒有的東西** —— 租戶作業 / 模組與權限 / 資料範圍是根組織專屬。
+    const ceiling = await this.ceilingOf(operator, role, view);
+    if (ceiling !== null && !isSubsetOf(desired, ceiling)) {
+      throw roleError(
+        "ROLE_OUT_OF_REACH",
+        "A tenant-admin copy cannot exceed the built-in tenant-admin template's grant",
+        "TEMPLATE_CEILING",
       );
     }
     // 預設角色(租戶副本)對**非根組織**的操作者只能縮不能擴(ADR-0009;#261 放寬 root):
@@ -167,7 +186,7 @@ export class RoleMatrixService {
         },
       });
     }
-    return this.payload(operator, role, view, facts);
+    return this.payload(operator, role, view, facts, ceiling);
   }
 
   // ---- 內部 ----
@@ -177,24 +196,46 @@ export class RoleMatrixService {
     role: RoleRecord,
     view: MatrixView,
     facts: RoleOperatorFacts,
+    ceiling: PermissionGrant | null,
   ): Promise<RoleMatrixPayload> {
     const currentRaw = await this.currentGrant(role._id, view);
-    // 顯示用:先展開(`X.*` → 同層各筆),再收到顯示樹內 —
-    // 操作者搆不到的 `*` 也要讓他看到底下那幾列是勾著的
-    const expanded = expandGrant(view.fullTree, currentRaw);
     return {
       role: await this.scope.decorateOne(operator, role),
       modules: view.matrixTree,
-      granted: {
-        moduleKeys: expanded.moduleKeys.filter((key) =>
-          view.visibleModuleKeys.has(key),
-        ),
-        permissionKeys: expanded.permissionKeys.filter((key) =>
-          view.visiblePermissionKeys.has(key),
-        ),
-      },
+      granted: visibleGrant(view, currentRaw),
       shrinkOnly: isShrinkOnly(role, facts),
+      ceiling: ceiling === null ? null : visibleGrant(view, ceiling),
     };
+  }
+
+  /**
+   * 預設角色(租戶副本)的天花板(#283):**內建「租戶管理員」模板角色目前的授予**,
+   * 對全樹正規化。其他種類的角色沒有天花板(回 `null`)—— 自建角色的上限是
+   * 操作者自身的有效權限集(ADR-0004 subset-only),種子角色的矩陣根本唯讀。
+   *
+   * 讀的是模板角色**現在**的 `role_module` / `role_permission`,不是 seed 宣告的副本 ——
+   * 天花板要跟著底座的模板走(新模組加進模板即自動納入),而不是複製當下的快照。
+   * 模板角色不存在(資料庫沒跑過 seed)時回 `null`:天花板判不出來就不擋,
+   * 既有的 subset-only 與 `shrinkOnly` 兩道仍在。
+   */
+  private async ceilingOf(
+    operator: OperatorContext,
+    role: RoleRecord,
+    view: MatrixView,
+  ): Promise<PermissionGrant | null> {
+    if (!isTemplateCopy(role)) {
+      return null;
+    }
+    const template = await this.roles.findOne(globalReader(operator), {
+      key: TENANT_ADMIN_ROLE_KEY,
+    });
+    if (template === null) {
+      return null;
+    }
+    return normalizeGrant(
+      view.fullTree,
+      await this.currentGrant(template._id, view),
+    );
   }
 
   private async buildView(operator: OperatorContext): Promise<MatrixView> {
@@ -381,6 +422,23 @@ interface MatrixView {
   visiblePermissionKeys: ReadonlySet<string>;
   moduleIdByKey: ReadonlyMap<string, Types.ObjectId>;
   permissionIdByKey: ReadonlyMap<string, Types.ObjectId>;
+}
+
+/**
+ * 一份授予 → 顯示用的形狀(`granted` 與 `ceiling` 同一套投影,#283):
+ * 先對**全樹**展開(`X.*` → 同層各筆;操作者搆不到的 `*` 也要讓他看到底下那幾列),
+ * 再收到顯示樹內 —— 矩陣上沒有的列,回了前端也用不到。
+ */
+function visibleGrant(view: MatrixView, grant: PermissionGrant): RoleGrant {
+  const expanded = expandGrant(view.fullTree, grant);
+  return {
+    moduleKeys: expanded.moduleKeys.filter((key) =>
+      view.visibleModuleKeys.has(key),
+    ),
+    permissionKeys: expanded.permissionKeys.filter((key) =>
+      view.visiblePermissionKeys.has(key),
+    ),
+  };
 }
 
 function invert(
