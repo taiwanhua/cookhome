@@ -101,7 +101,7 @@
 
 **路由防守**沿用示範模組1 的做法(`lib/module-tree.ts` 的 `matchModuleRoute`:精準比對落空時,只對 hidden 模組再試一次「去掉最後一段」)。列表頁後面多接一段仍然是無權限頁。
 
-**`enabled` 不在表單上**:它由 `setDemoItemTwoEnabled` 單獨切換(守 `.edit`),表單只有 name / note。列表與詳情頁以標籤顯示啟用狀態。
+**`enabled` 不在表單上**:它由 `setDemoItemTwoEnabled` 單獨切換(守 `.edit`),表單只有 name / note。列表與詳情頁以標籤顯示啟用狀態。**admin 目前沒有切換的入口**(端點與 document 都在,只是沒有畫面上的按鈕)—— 停用狀態靠 seed 的那一筆停用示範資料看得到;要驗切換請走 api。兩份 help.md 已照這個現況寫。
 
 **錯誤對應**:`VALIDATION_FAILED` 依 `extensions.fields` 標在對應欄位上(只有 `name`),其餘用一條 Alert 說明;解讀集中在 `shared/demo-error.ts`(兩支示範模組共用一份)。
 
