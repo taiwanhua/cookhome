@@ -14,6 +14,9 @@ import { renderApp } from "@/test/render";
  * AppBar 的「?」模組說明(#197)。內容來自 build 時打包的 `src/md/module-help/*.help.md`;
  * jest 沒有 `import.meta.glob`,測試看到的是 `src/test/help-registry.ts` 的假 registry
  * (jest.config.mjs 的 moduleNameMapper),所以斷言針對「有 / 沒有說明」的行為,不是 md 正本的字句。
+ *
+ * 內文改成 `React.lazy(() => import("@repo/ui/markdown"))` 後(#215),彈窗開啟到 Markdown
+ * 渲染之間多一個 `Suspense` 的 tick,所以第一筆內文斷言一律用 `findBy*` 等(TEST-08)。
  */
 describe("模組說明「?」", () => {
   it("模組路由有對應的 help.md:點開彈窗,標題帶模組名,內文是渲染後的 Markdown", async () => {
@@ -35,8 +38,9 @@ describe("模組說明「?」", () => {
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent("模組說明 — 角色管理");
     // 內文是 Markdown 渲染的結果,不是原始碼:`##` 變成 heading、`-` 變成清單
+    // (Markdown 是 lazy chunk,要等它載完才有 heading)
     expect(
-      within(dialog).getByRole("heading", { name: "這個模組做什麼" }),
+      await within(dialog).findByRole("heading", { name: "這個模組做什麼" }),
     ).toBeInTheDocument();
     expect(within(dialog).getAllByRole("listitem")).toHaveLength(2);
     expect(dialog).not.toHaveTextContent("## 這個模組做什麼");
@@ -109,6 +113,9 @@ describe("模組說明「?」", () => {
 
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent("模組說明 — 示範模組2");
-    expect(dialog).toHaveTextContent("示範用的假模組。");
+    // 內文要等 lazy 的 Markdown chunk 載完(#215)
+    expect(
+      await within(dialog).findByText("示範用的假模組。"),
+    ).toBeInTheDocument();
   });
 });
