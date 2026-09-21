@@ -15,6 +15,7 @@ import {
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import {
   type GcsBucket,
+  type GcsDeleteOptions,
   type GcsSignedUrlOptions,
   GcsStorageService,
 } from "./gcs-storage.service";
@@ -70,23 +71,27 @@ function recordingWith(overrides: Partial<StorageConfig> = {}) {
   });
 }
 
-/** 假 bucket:記下 getSignedUrl 的參數、回固定網址,不打網路(寫法同 mail 的假 Resend client)。 */
+/** 假 bucket:記下 getSignedUrl / delete 的參數、回固定網址,不打網路(寫法同 mail 的假 Resend client)。 */
 function fakeBucket(): {
   bucket: GcsBucket;
   getSignedUrl: jest.Mock<(options: GcsSignedUrlOptions) => Promise<[string]>>;
+  deleteFile: jest.Mock<(options?: GcsDeleteOptions) => Promise<unknown>>;
   files: string[];
 } {
   const files: string[] = [];
   const getSignedUrl = jest.fn<
     (options: GcsSignedUrlOptions) => Promise<[string]>
   >(() => Promise.resolve(["https://storage.googleapis.com/signed"]));
+  const deleteFile = jest.fn<(options?: GcsDeleteOptions) => Promise<unknown>>(
+    () => Promise.resolve([]),
+  );
   const bucket: GcsBucket = {
     file: (name: string) => {
       files.push(name);
-      return { getSignedUrl };
+      return { getSignedUrl, delete: deleteFile };
     },
   };
-  return { bucket, getSignedUrl, files };
+  return { bucket, getSignedUrl, deleteFile, files };
 }
 
 /** GCS adapter + 假 bucket 的組合(單元測試用)。 */
@@ -296,6 +301,28 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
     });
   });
 
+  describe("刪物件 deleteObject(#161:換商標後清掉舊物件)", () => {
+    const OWNED = "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.png";
+
+    it("合法路徑:真的交給 adapter 刪,回 true", async () => {
+      const storage = recordingWith();
+      await expect(storage.deleteObject(OWNED)).resolves.toBe(true);
+      expect(storage.deleted).toEqual([OWNED]);
+    });
+
+    it.each([
+      ["沒有路徑(undefined)", undefined],
+      ["沒有路徑(null)", null],
+      ["只有空白", " "],
+      ["不是本 API 簽出來的路徑", "secrets/passwords.png"],
+      ["跳出前綴", "org-logos/../secrets/x.png"],
+    ])("%s 回 false,不刪(不讓呼叫端刪到任意物件)", async (_case, path) => {
+      const storage = recordingWith();
+      await expect(storage.deleteObject(path)).resolves.toBe(false);
+      expect(storage.deleted).toEqual([]);
+    });
+  });
+
   describe("GCS adapter:V4 簽名的參數(以假 bucket 驗,不打網路)", () => {
     it("上傳:version v4、action write、綁 content type、效期 10 分鐘", async () => {
       const { storage, getSignedUrl, files } = gcsWith();
@@ -326,6 +353,33 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
       expect(options?.action).toBe("read");
       expect(options?.contentType).toBeUndefined();
       expect(options?.expires.getTime()).toBe(FIXED_NOW + ONE_HOUR_MS);
+    });
+
+    it("刪除:對該物件呼叫 delete,物件已不在不算失敗", async () => {
+      const { storage, deleteFile, files } = gcsWith();
+      const path = "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.png";
+      await expect(storage.deleteObject(path)).resolves.toBe(true);
+      expect(files).toEqual([path]);
+      expect(deleteFile).toHaveBeenCalledWith({ ignoreNotFound: true });
+    });
+
+    it("刪除:不是本 API 簽出來的路徑,連 bucket 都不碰", async () => {
+      const { storage, deleteFile, files } = gcsWith();
+      await expect(storage.deleteObject("secrets/passwords.png")).resolves.toBe(
+        false,
+      );
+      expect(files).toEqual([]);
+      expect(deleteFile).not.toHaveBeenCalled();
+    });
+
+    it("刪除:供應商端失敗時原樣拋出(要不要擋由呼叫端決定)", async () => {
+      const { storage, deleteFile } = gcsWith();
+      deleteFile.mockRejectedValueOnce(new Error("GCS 掛了"));
+      await expect(
+        storage.deleteObject(
+          "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.png",
+        ),
+      ).rejects.toThrow("GCS 掛了");
     });
 
     it("沒有 bucket 名稱就不給建(啟動即失敗,不靜默用錯 bucket)", () => {

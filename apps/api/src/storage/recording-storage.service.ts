@@ -16,6 +16,8 @@ export interface RecordedSignature {
  */
 export class RecordingStorageService extends StorageService {
   readonly signed: RecordedSignature[] = [];
+  /** 被刪掉的物件路徑(#161 的換圖清理;沒有真的 bucket,只記下來供測試斷言)。 */
+  readonly deleted: string[] = [];
 
   protected override signUploadUrl({
     objectPath,
@@ -34,6 +36,12 @@ export class RecordingStorageService extends StorageService {
     return Promise.resolve(
       this.record({ action: "read", objectPath, expiresAt }),
     );
+  }
+
+  protected override removeObject(objectPath: string): Promise<void> {
+    this.deleted.push(objectPath);
+    this.logger.log(`[記錄用 adapter,未真的刪除] delete ${objectPath}`);
+    return Promise.resolve();
   }
 
   private record(signature: Omit<RecordedSignature, "url">): string {
