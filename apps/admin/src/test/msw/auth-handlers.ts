@@ -54,6 +54,7 @@ export const overviewModule: TestModule = {
   sidebarType: ModuleSidebarType.Link,
   order: 0,
   route: "/overview",
+  icon: "dashboard",
   permissions: ["overview.*"],
 };
 

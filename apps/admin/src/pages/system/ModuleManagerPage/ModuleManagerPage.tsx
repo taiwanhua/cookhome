@@ -3,9 +3,11 @@ import { useTranslations } from "use-intl";
 
 import {
   useSetModuleEnabledMutation,
+  useSetModuleIconMutation,
   useSetPermissionEnabledMutation,
 } from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
+import type { ModuleIconKey } from "@repo/ui/icons";
 import { Stack } from "@repo/ui/stack";
 
 import { useSession } from "@/hooks/useSession";
@@ -56,6 +58,19 @@ export const ModuleManagerPage = () => {
     onError: onActionError,
   });
 
+  /**
+   * 換圖示(#288):不必確認也不連動任何東西,失敗就照一般錯誤顯示;
+   * 成功後 invalidate `ModuleTree` + `me` —— 側欄吃的是 `me.modules[].icon`,
+   * 操作者自己的側欄要立刻換圖。
+   */
+  const setModuleIcon = useSetModuleIconMutation(session.client, {
+    onSuccess: () => {
+      setActionError(null);
+      void data.invalidate();
+    },
+    onError: onActionError,
+  });
+
   const setPermissionEnabled = useSetPermissionEnabledMutation(session.client, {
     onSuccess: () => {
       setPendingPermissionId(null);
@@ -80,6 +95,14 @@ export const ModuleManagerPage = () => {
       return;
     }
     setIsDisableOpen(true);
+  };
+
+  const handleChangeIcon = (icon: ModuleIconKey) => {
+    if (data.selectedModule === null) {
+      return;
+    }
+    setActionError(null);
+    setModuleIcon.mutate({ input: { id: data.selectedModule.id, icon } });
   };
 
   const handleTogglePermission = (
@@ -113,9 +136,12 @@ export const ModuleManagerPage = () => {
           module={data.selectedModule}
           isLoading={data.isLoading}
           canToggleEnabled={data.canToggleEnabled}
+          canSetIcon={data.canSetIcon}
           isModulePending={setModuleEnabled.isPending}
+          isIconPending={setModuleIcon.isPending}
           pendingPermissionId={pendingPermissionId}
           onToggleModule={handleToggleModule}
+          onChangeIcon={handleChangeIcon}
           onTogglePermission={handleTogglePermission}
         />
       </Stack>

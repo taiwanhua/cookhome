@@ -9,6 +9,10 @@ import { INITIAL_SESSION_SNAPSHOT } from "../lib/auth/session-store";
 import { LOCALE_STORAGE_KEY } from "../lib/locale";
 import { useLocaleStore } from "../stores/useLocaleStore";
 import { useSessionStore } from "../stores/useSessionStore";
+import {
+  SIDE_NAV_STORAGE_KEY,
+  useSideNavStore,
+} from "../stores/useSideNavStore";
 import { resetHelpFiles } from "./help-registry";
 import { server } from "./msw/server";
 
@@ -31,6 +35,9 @@ afterEach(() => {
   useSessionStore.setState(INITIAL_SESSION_SNAPSHOT);
   useLocaleStore.setState({ locale: defaultLocale });
   localStorage.removeItem(LOCALE_STORAGE_KEY);
+  // 側欄收合也是模組層單例(#289):收合過的測試不能讓下一個測試一開始就是圖示列
+  useSideNavStore.setState({ isCollapsed: false });
+  localStorage.removeItem(SIDE_NAV_STORAGE_KEY);
   // 模組說明的假 registry 也是模組層單例(#197);改過的測試不影響下一個
   resetHelpFiles();
 });

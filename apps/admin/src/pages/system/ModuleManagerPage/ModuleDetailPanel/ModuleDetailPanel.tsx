@@ -3,6 +3,7 @@ import { useTranslations } from "use-intl";
 import { ModuleSidebarType } from "@repo/graphql";
 import { Card } from "@repo/ui/card";
 import { CircularProgress } from "@repo/ui/circular-progress";
+import type { ModuleIconKey } from "@repo/ui/icons";
 import { Stack } from "@repo/ui/stack";
 import { Switch } from "@repo/ui/switch";
 import { Tag } from "@repo/ui/tag";
@@ -16,15 +17,20 @@ import type {
   ModuleAdminPermissionLike,
 } from "../module-manager-types";
 import { ModuleDetailRow } from "./ModuleDetailRow";
+import { ModuleIconField } from "./ModuleIconField";
 import { ModulePermissionTable } from "./ModulePermissionTable";
 
 export interface ModuleDetailPanelProps {
   module: ModuleAdminNodeLike | null;
   isLoading: boolean;
   canToggleEnabled: boolean;
+  /** 依 `system.module-manager.set-icon`(與 `toggle-enabled` 各一把鑰匙,#288) */
+  canSetIcon: boolean;
   isModulePending: boolean;
+  isIconPending: boolean;
   pendingPermissionId: string | null;
   onToggleModule: (enabled: boolean) => void;
+  onChangeIcon: (icon: ModuleIconKey) => void;
   onTogglePermission: (
     permission: ModuleAdminPermissionLike,
     enabled: boolean,
@@ -49,9 +55,12 @@ export const ModuleDetailPanel = ({
   module,
   isLoading,
   canToggleEnabled,
+  canSetIcon,
   isModulePending,
+  isIconPending,
   pendingPermissionId,
   onToggleModule,
+  onChangeIcon,
   onTogglePermission,
 }: ModuleDetailPanelProps) => {
   const t = useTranslations("admin.moduleManager.detail");
@@ -149,6 +158,12 @@ export const ModuleDetailPanel = ({
             {module.description ?? t("none")}
           </Typography>
         </ModuleDetailRow>
+        <ModuleIconField
+          icon={module.icon}
+          canSetIcon={canSetIcon}
+          isPending={isIconPending}
+          onChange={onChangeIcon}
+        />
 
         <ModulePermissionTable
           permissions={module.permissions}
