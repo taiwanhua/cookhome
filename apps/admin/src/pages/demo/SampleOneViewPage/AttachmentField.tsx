@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
+import { useAttachmentDownloadUrlQuery } from "@repo/graphql";
 import { Button } from "@repo/ui/button";
 import { Link } from "@repo/ui/link";
 import { Stack } from "@repo/ui/stack";
@@ -8,11 +9,8 @@ import { Typography } from "@repo/ui/typography";
 
 import { useSession } from "@/hooks/useSession";
 
-import { SAMPLE_ONE_I18N, SAMPLE_ONE_QUERIES } from "../demo-sample-one-config";
+import { SAMPLE_ONE_I18N } from "../demo-sample-one-config";
 import type { DemoItemDetail } from "../demo-sample-one-types";
-
-// 模組層解構:`useDownloadUrl(...)` 是具名 hook 呼叫(設定物件見 `demo-sample-one-config.ts`)
-const { useDownloadUrl } = SAMPLE_ONE_QUERIES;
 
 export interface AttachmentFieldProps {
   itemId: string;
@@ -37,7 +35,7 @@ export const AttachmentField = ({
   const { session } = useSession();
   const [isRequested, setIsRequested] = useState(false);
 
-  const download = useDownloadUrl(
+  const download = useAttachmentDownloadUrlQuery(
     session.client,
     { id: itemId },
     { enabled: isRequested, gcTime: 0 },

@@ -790,7 +790,7 @@
       "cancel": "Cancel",
       "coverHint": "PNG / JPG / WebP, up to 2MB. Stored publicly — anyone with the URL can see it.",
       "coverCurrent": "Current cover",
-      "attachmentHint": "PNG / JPG / WebP, up to 2MB. Stored privately — a short-lived link is issued on download.",
+      "attachmentHint": "Image, PDF, Word, Excel or ZIP, up to 20MB. Stored privately — a short-lived link is issued on download.",
       "attachmentCurrent": "Current attachment: {name}",
       "internalNoteReadonly": "You can see the internal note but cannot change it.",
       "categoryUnavailable": "Viewing Field manager is required to pick a category.",
@@ -837,6 +837,69 @@
         "coverPath": "The cover file is invalid. Please upload it again.",
         "attachmentPath": "The attachment file is invalid. Please upload it again.",
         "internalNote": "You are not allowed to change the internal note."
+      }
+    }
+  },
+  "demoSampleTwo": {
+    "emptyValue": "—",
+    "emptyList": "No demo items yet",
+    "loading": "Loading",
+    "tableAria": "Demo item list",
+    "total": "{total} items, {pageSize} per page",
+    "enabled": {
+      "true": "Enabled",
+      "false": "Disabled"
+    },
+    "columns": {
+      "name": "Name",
+      "note": "Note",
+      "enabled": "Enabled",
+      "actions": "Actions"
+    },
+    "fields": {
+      "name": "Name",
+      "note": "Note",
+      "enabled": "Enabled",
+      "createdBy": "Created by"
+    },
+    "toolbar": {
+      "search": "Search",
+      "searchPlaceholder": "Name or note",
+      "create": "+ New demo item"
+    },
+    "actions": {
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete",
+      "editOf": "Edit “{name}”",
+      "deleteOf": "Delete “{name}”",
+      "backToList": "← Back to list"
+    },
+    "form": {
+      "createTitle": "New demo item",
+      "editTitle": "Edit demo item — {name}",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "discard": {
+      "title": "Discard unsaved changes?",
+      "body": "This form has unsaved changes. They will be lost if you leave.",
+      "keepEditing": "Keep editing",
+      "confirm": "Discard"
+    },
+    "delete": {
+      "title": "Delete demo item?",
+      "body": "“{name}” will be deleted. This cannot be undone.",
+      "confirm": "Delete"
+    },
+    "errors": {
+      "FIELD_FORBIDDEN": "You are not allowed to change that field, so nothing was saved.",
+      "FORBIDDEN": "You are not allowed to do that.",
+      "NOT_FOUND": "This demo item was not found — it may have been deleted or is outside the data you can see.",
+      "VALIDATION_FAILED": "Some fields are invalid. Fix them and save again.",
+      "UNEXPECTED": "The action failed. Please try again later.",
+      "fields": {
+        "name": "Please fill in the name."
       }
     }
   }

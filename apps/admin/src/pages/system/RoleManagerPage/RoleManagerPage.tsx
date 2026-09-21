@@ -8,10 +8,11 @@ import {
 import { Alert } from "@repo/ui/alert";
 import { Stack } from "@repo/ui/stack";
 
+import { DiscardChangesDialog } from "@/components/DiscardChangesDialog";
 import { useSession } from "@/hooks/useSession";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 
 import { DeleteRoleDialog } from "./DeleteRoleDialog";
-import { DiscardChangesDialog } from "./DiscardChangesDialog";
 import { RoleDetailPanel } from "./RoleDetailPanel/RoleDetailPanel";
 import { RoleFormDialog } from "./RoleFormDialog/RoleFormDialog";
 import { RoleListPanel } from "./RoleListPanel/RoleListPanel";
@@ -27,7 +28,6 @@ import {
 } from "./role-manager-types";
 import { useRoleManagerData } from "./useRoleManagerData";
 import { useRoleMatrix } from "./useRoleMatrix";
-import { useUnsavedGuard } from "./useUnsavedGuard";
 
 /** 未儲存時被攔下的動作:確認放棄後才執行。 */
 type PendingNav =
@@ -213,6 +213,7 @@ export const RoleManagerPage = () => {
 
       {pendingNav !== null && (
         <DiscardChangesDialog
+          namespace="admin.roleManager.discard"
           onCancel={() => {
             setPendingNav(null);
           }}

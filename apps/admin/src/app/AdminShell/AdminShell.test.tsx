@@ -9,6 +9,7 @@ import {
   testOrg,
 } from "@/test/msw/auth-handlers";
 import {
+  placeholderModules,
   sampleTwoModules,
   superAdminModules,
 } from "@/test/msw/module-fixtures";
@@ -140,9 +141,7 @@ describe("路由與導向(ADR-0011「路由與導向規則」:模組路由 / 群
         "/demo/sample-two",
       );
     });
-    expect(
-      await screen.findByRole("heading", { name: "示範模組2" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toHaveTextContent("示範模組2");
   });
 
   it("`/` 而側欄一個能進的頁都沒有 → 無權限頁(沒有「回首頁」按鈕)", async () => {
@@ -193,35 +192,35 @@ describe("路由與導向(ADR-0011「路由與導向規則」:模組路由 / 群
 
   it("有此模組 → 佔位頁顯示模組名,AppBar 標題同步", async () => {
     server.use(
-      ...authWorld({ hasRefreshCookie: true, modules: superAdminModules })
+      ...authWorld({ hasRefreshCookie: true, modules: placeholderModules })
         .handlers,
     );
 
-    // 用還沒實作的模組驗佔位頁(治理模組都已有真頁面;示範模組的頁面是第 5 段,#208)
-    renderApp({ path: "/demo/sample-two" });
+    // 沒登記頁面元件的模組驗佔位頁(示範家族自 #321 起全部有真頁面,改用專用夾具)
+    renderApp({ path: "/demo/not-implemented" });
 
-    const heading = await screen.findByRole("heading", { name: "示範模組2" });
+    const heading = await screen.findByRole("heading", { name: "未實作模組" });
     expect(screen.getByRole("main")).toContainElement(heading);
-    expect(screen.getByRole("banner")).toHaveTextContent("示範模組2");
+    expect(screen.getByRole("banner")).toHaveTextContent("未實作模組");
   });
 
   it("隱藏頁(編輯頁)有路由可進;點側欄連結切換內容區", async () => {
     server.use(
-      ...authWorld({ hasRefreshCookie: true, modules: sampleTwoModules })
+      ...authWorld({ hasRefreshCookie: true, modules: placeholderModules })
         .handlers,
     );
 
-    const { user } = renderApp({ path: "/demo/sample-two/edit-page" });
+    const { user } = renderApp({ path: "/demo/not-implemented/edit-page" });
     expect(
       await screen.findByRole("heading", { name: "編輯" }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("link", { name: "示範模組2" }));
+    await user.click(screen.getByRole("link", { name: "未實作模組" }));
 
-    const heading = await screen.findByRole("heading", { name: "示範模組2" });
+    const heading = await screen.findByRole("heading", { name: "未實作模組" });
     expect(screen.getByRole("main")).toContainElement(heading);
     expect(screen.getByTestId("location")).toHaveTextContent(
-      "/demo/sample-two",
+      "/demo/not-implemented",
     );
   });
 

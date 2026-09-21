@@ -1,0 +1,170 @@
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import { useTranslations } from "use-intl";
+
+import { Box } from "@repo/ui/box";
+import { Card } from "@repo/ui/card";
+import { Pagination } from "@repo/ui/pagination";
+import { Stack } from "@repo/ui/stack";
+import { Typography } from "@repo/ui/typography";
+
+import { useSession } from "@/hooks/useSession";
+
+import { DeleteItemDialog } from "./DeleteItemDialog";
+import { DemoListTable } from "./DemoListTable";
+import { DemoListToolbar } from "./DemoListToolbar";
+import { type DemoErrorCode, demoErrorOf } from "./demo-error";
+import type {
+  DemoFilterOption,
+  DemoItemLike,
+  DemoModuleConfig,
+} from "./demo-module-config";
+import { useDemoAccess } from "./useDemoAccess";
+
+export interface DemoListPageProps<
+  Row extends DemoItemLike,
+  Detail extends DemoItemLike,
+  Values,
+> {
+  config: DemoModuleConfig<Row, Detail, Values>;
+}
+
+/**
+ * 設定驅動的列表頁(Figma 175:3)。搜尋 + 模組自有篩選 + 分頁的清單;
+ * 列操作依 api 給的 `abilities` 與「有沒有綁那一頁的模組」出現 —— 檢視 / 編輯是**導向另一個頁面**
+ * (隱藏頁模組),刪除是這一頁上的確認彈窗。
+ *
+ * 換一個模組要動的只有設定物件(`config.list`:欄位、每頁筆數、清單 hook、篩選器)。
+ */
+export const DemoListPage = <
+  Row extends DemoItemLike,
+  Detail extends DemoItemLike,
+  Values,
+>({
+  config,
+}: DemoListPageProps<Row, Detail, Values>) => {
+  const { i18nNamespace, list } = config;
+  const t = useTranslations(i18nNamespace);
+  const { session } = useSession();
+  const navigate = useNavigate();
+  const access = useDemoAccess(config.moduleKeys, config.permissions);
+
+  // 篩選條件留在頁面層,不進 URL(REACT-02 第 2 點的 admin 例外:admin 有路由頁籤)
+  const [keyword, setKeywordValue] = useState("");
+  const [option, setOptionValue] = useState<DemoFilterOption | null>(null);
+  const [page, setPage] = useState(1);
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
+  const [deleteError, setDeleteError] = useState<DemoErrorCode | null>(null);
+
+  const rows = list.useRows({ page, keyword, option });
+
+  const deleteItem = config.useDelete(session.client, {
+    onSuccess: () => {
+      setDeleteTarget(null);
+      void rows.invalidate();
+    },
+    onError: (error: unknown) => {
+      setDeleteError(demoErrorOf(error).code);
+    },
+  });
+
+  const pageCount = Math.max(1, Math.ceil(rows.totalCount / list.pageSize));
+
+  const goTo = (route: string | null, id?: string) => {
+    if (route === null) {
+      return;
+    }
+    void navigate(id === undefined ? route : `${route}/${id}`);
+  };
+
+  /** 換關鍵字或換篩選都回到第一頁(否則會停在一個不存在的頁碼上看到空清單)。 */
+  const setKeyword = (value: string) => {
+    setKeywordValue(value);
+    setPage(1);
+  };
+  const setOption = (value: DemoFilterOption | null) => {
+    setOptionValue(value);
+    setPage(1);
+  };
+
+  return (
+    // 撐滿殼給的內容區高度(STYLE-08):工具列固定,表格吃掉剩下的高度並自己捲(STYLE-11)
+    <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+      <DemoListToolbar
+        i18nNamespace={i18nNamespace}
+        keyword={keyword}
+        onKeywordChange={setKeyword}
+        option={option}
+        onOptionChange={setOption}
+        Filters={list.Filters}
+        canCreate={access.canCreate}
+        onCreate={() => {
+          goTo(access.createRoute);
+        }}
+      />
+
+      <Card
+        sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
+      >
+        {/* 捲動責任在 Table 自己的容器(#299),這層只把剩下的高度傳下去 */}
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          <DemoListTable
+            i18nNamespace={i18nNamespace}
+            columns={list.columns}
+            minWidth={list.tableMinWidth}
+            rows={rows.rows}
+            isLoading={rows.isLoading}
+            canEnterView={access.viewRoute !== null}
+            canEnterEdit={access.editRoute !== null}
+            onView={(row) => {
+              goTo(access.viewRoute, row.id);
+            }}
+            onEdit={(row) => {
+              goTo(access.editRoute, row.id);
+            }}
+            onDelete={(row) => {
+              setDeleteError(null);
+              setDeleteTarget(row);
+            }}
+          />
+        </Box>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: "center", px: 3, py: 1.5 }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+            {t("total", {
+              total: rows.totalCount,
+              pageSize: list.pageSize,
+            })}
+          </Typography>
+          <Pagination
+            count={pageCount}
+            page={page}
+            onChange={(_event, nextPage) => {
+              setPage(nextPage);
+            }}
+          />
+        </Stack>
+      </Card>
+
+      {deleteTarget !== null && (
+        <DeleteItemDialog
+          i18nNamespace={i18nNamespace}
+          itemName={deleteTarget.name}
+          isSubmitting={deleteItem.isPending}
+          errorCode={deleteError}
+          onCancel={() => {
+            setDeleteError(null);
+            setDeleteTarget(null);
+          }}
+          onConfirm={() => {
+            setDeleteError(null);
+            deleteItem.mutate({ input: { id: deleteTarget.id } });
+          }}
+        />
+      )}
+    </Stack>
+  );
+};
