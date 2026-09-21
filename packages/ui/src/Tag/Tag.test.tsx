@@ -45,6 +45,8 @@ describe("Tag", () => {
   it("沒有 onDelete 就不渲染關閉鈕", () => {
     const { container } = render(<Tag label="客服" />);
 
-    expect(container.querySelector(".MuiChip-deleteIcon")).not.toBeInTheDocument();
+    expect(
+      container.querySelector(".MuiChip-deleteIcon"),
+    ).not.toBeInTheDocument();
   });
 });

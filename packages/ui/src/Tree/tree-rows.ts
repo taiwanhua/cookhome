@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, type ReactNode } from "react";
+import { type ReactNode, createContext } from "react";
 
 /**
  * 單一列的「額外內容 + 勾選框狀態」。
@@ -19,9 +19,9 @@ export interface TreeItemRowState {
 }
 
 /** 每列的額外狀態(id → 內容);沒有額外內容的列不會進這張表。 */
-export const TreeRowsContext = createContext<ReadonlyMap<string, TreeItemRowState>>(
-  new Map<string, TreeItemRowState>(),
-);
+export const TreeRowsContext = createContext<
+  ReadonlyMap<string, TreeItemRowState>
+>(new Map<string, TreeItemRowState>());
 
 /**
  * 勾選框要蓋掉的狀態,由 `TreeItemRow` 逐列提供給它自己的勾選框槽位。

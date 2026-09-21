@@ -12,7 +12,10 @@ import {
   findRootOrgId,
 } from "../auth/test-support/fixtures";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
-import { createRole, setRoleEnabled } from "../permission/test-support/fixtures";
+import {
+  createRole,
+  setRoleEnabled,
+} from "../permission/test-support/fixtures";
 
 const LOGIN = /* GraphQL */ `
   mutation Login($input: LoginInput!) {
@@ -742,7 +745,13 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       const orgId = await newOrgUnderTenantA("局部編輯");
       await api.graphql(
         UPDATE_ORG,
-        { input: { id: String(orgId), name: "局部編輯", description: "只改這個" } },
+        {
+          input: {
+            id: String(orgId),
+            name: "局部編輯",
+            description: "只改這個",
+          },
+        },
         { accessToken: tenantAdminToken },
       );
       const afterFirst = await auditRows("org.edit", orgId);
@@ -941,9 +950,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
         { accessToken: tenantAdminToken },
       );
       expect(ontoItself.errors?.[0]?.extensions?.code).toBe("CYCLIC_MOVE");
-      expect(await parentIdOf(deptOneId)).toBe(
-        String(tenantAId),
-      );
+      expect(await parentIdOf(deptOneId)).toBe(String(tenantAId));
     });
 
     it("跨租戶搬移:CROSS_TENANT(根組織看得到兩邊也不准)", async () => {
@@ -953,9 +960,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
         { accessToken: rootToken },
       );
       expect(result.errors?.[0]?.extensions?.code).toBe("CROSS_TENANT");
-      expect(await parentIdOf(deptOneId)).toBe(
-        String(tenantAId),
-      );
+      expect(await parentIdOf(deptOneId)).toBe(String(tenantAId));
     });
 
     it("租戶頂層不可搬:租戶內的人即使管得到整個租戶也拒(FORBIDDEN;只有根組織能動租戶頂層)", async () => {
@@ -978,9 +983,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
 
       // 範圍外不透露「存在但跨租戶」,一律當不存在
       expect(result.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
-      expect(await parentIdOf(deptOneId)).toBe(
-        String(tenantAId),
-      );
+      expect(await parentIdOf(deptOneId)).toBe(String(tenantAId));
     });
 
     it("把租戶頂層搬到根組織下也算跨租戶:CROSS_TENANT;根組織自己不可搬:VALIDATION_FAILED", async () => {

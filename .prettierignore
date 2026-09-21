@@ -15,3 +15,5 @@ pnpm-lock.yaml
 .claude/skills/writing-guidelines
 # Claude Code 背景 agent 的隔離 worktree(整個 repo 的副本,機器特定)
 .claude/worktrees
+# Claude Code 的本機設定(不入版控,但 prettier 不看 .gitignore,不排除會讓本機 format:check 紅)
+.claude/settings.local.json

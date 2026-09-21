@@ -3,7 +3,6 @@
  * 元件不直接使用這裡的值 — 元件只認識 theme 的語意角色(第二層),
  * 這些值經由 create-theme.ts 組裝進 MUI theme。
  */
-
 import { type BrandPalette, createPalette } from "./brand";
 
 /** 中性灰階(冷灰,Minimal 風格的底) */

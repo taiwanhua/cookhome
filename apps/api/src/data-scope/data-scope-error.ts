@@ -39,8 +39,7 @@ export function targetNotFoundError(collection: string): GraphQLError {
 
 /** 非根組織的操作者即使持有權限也不得進「資料範圍」(GQL-04 `FORBIDDEN`;模組 isRootOnly)。 */
 export function rootOnlyError(action: string): GraphQLError {
-  return new GraphQLError(
-    `${action} is only available from the root org`,
-    { extensions: { code: "FORBIDDEN" } },
-  );
+  return new GraphQLError(`${action} is only available from the root org`, {
+    extensions: { code: "FORBIDDEN" },
+  });
 }

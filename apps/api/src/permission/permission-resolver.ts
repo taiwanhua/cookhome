@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { isWildcardKey } from "@repo/domain/permission";
 import type { Types } from "mongoose";
+
+import { isWildcardKey } from "@repo/domain/permission";
 
 import type { Persisted } from "../database/base.repository";
 import {
@@ -174,7 +175,9 @@ export class PermissionResolver {
     reader: OperatorContext,
     modules: ModuleRecord[],
   ): Promise<ModuleRecord[]> {
-    const known = new Map(modules.map((module) => [String(module._id), module]));
+    const known = new Map(
+      modules.map((module) => [String(module._id), module]),
+    );
     const missingIds = new Map<string, Types.ObjectId>();
     for (const module of modules) {
       for (const ancestorId of module.ancestors) {
@@ -225,7 +228,9 @@ function assemble(
   const byId = new Map(
     knownModules.map((module) => [String(module._id), module]),
   );
-  const visibleIds = new Set(visibleModules.map((module) => String(module._id)));
+  const visibleIds = new Set(
+    visibleModules.map((module) => String(module._id)),
+  );
   const keysByModule = new Map<string, string[]>();
   for (const permission of permissions) {
     const moduleId = String(permission.moduleId);

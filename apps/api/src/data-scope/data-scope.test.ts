@@ -7,7 +7,11 @@ import {
   ROOT_ADMIN,
   startAuthTestApp,
 } from "../auth/test-support/auth-app";
-import { createOrg, createUser, findRootOrgId } from "../auth/test-support/fixtures";
+import {
+  createOrg,
+  createUser,
+  findRootOrgId,
+} from "../auth/test-support/fixtures";
 import {
   DemoItemsOneRepository,
   DemoItemsTwoRepository,
@@ -685,9 +689,7 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
   describe("劇本 4:頂層合成 OR / AND", () => {
     it("OR = 聯集:自建的 ∪ 部門二的", async () => {
       await saveRule(twoRules(String(agentRoleId), deptTwo), "OR");
-      expect(await visibleItemsOne(agentUserId, deptOne)).toEqual([
-        "甲的項目",
-      ]);
+      expect(await visibleItemsOne(agentUserId, deptOne)).toEqual(["甲的項目"]);
       // 主管的可見範圍只有部門一 / 部門二(所屬組織),兩條規則都命中「全部人」那一條
       expect(await visibleItemsOne(supervisorUserId, deptTwo)).toEqual([
         "部門二的項目",

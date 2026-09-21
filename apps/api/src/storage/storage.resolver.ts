@@ -1,4 +1,5 @@
 import { Args, Mutation, Resolver } from "@nestjs/graphql";
+
 import { hasPermission } from "@repo/domain/permission";
 
 import { authError } from "../auth/auth-error";
@@ -17,12 +18,13 @@ import { UploadPurpose } from "./upload-rules";
  * 商標同時出現在編輯組織與開通租戶兩個彈窗,任一權限即可;`@RequirePermission` 是單一 key 的守門,
  * 這裡是「多選一」所以自己查有效權限集合(判斷語意同 PermissionGuard:含同層 wildcard,ADR-0004)。
  */
-const PURPOSE_PERMISSIONS: Readonly<Record<UploadPurpose, readonly string[]>> = {
-  [UploadPurpose.ORG_LOGO]: [
-    "system.org-manager.edit",
-    "system.org-manager.tenant-ops.provision",
-  ],
-};
+const PURPOSE_PERMISSIONS: Readonly<Record<UploadPurpose, readonly string[]>> =
+  {
+    [UploadPurpose.ORG_LOGO]: [
+      "system.org-manager.edit",
+      "system.org-manager.tenant-ops.provision",
+    ],
+  };
 
 /** 簽名上傳網址(ADR-0010);檔案直傳 GCS 不經過 API。 */
 @Resolver()

@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { Logger } from "@nestjs/common";
 
-import type { StorageConfig } from "./storage.config";
 import { storageError } from "./storage-error";
+import type { StorageConfig } from "./storage.config";
 import {
   MAX_UPLOAD_BYTES,
   UPLOAD_EXTENSIONS,

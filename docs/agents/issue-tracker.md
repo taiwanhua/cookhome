@@ -115,7 +115,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 **重構型的票**(先搬檔再修 import,中途型別必紅)與**只改文件的票**,在 repo 根建空檔 `.claude/hook-typecheck-off`(已 gitignore),PostToolUse hook 就只跑 ESLint。
 
 - **開工第一件事、單獨一行指令做,做完 `ls .claude/` 確認** — 有人把它串在複合指令裡,被 worktree 守衛整條擋掉而不自知,結果每改一個檔都等一次 typecheck。
-- **交件前刪掉**,並自己跑一次 `pnpm exec turbo run check-types`(文件票則跑 `pnpm run format:check`)。
+- **交件前刪掉**,並自己跑一次 `pnpm exec turbo run check-types` 與 `pnpm run format:check`(文件票只需後者)。
 
 ### worktree 裡的 Bash 守衛與寫檔
 
@@ -135,7 +135,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 - **rebase 之後還是 `CONFLICTING`、本地 `git merge-tree --write-tree origin/dev HEAD` 卻乾淨 = 交叉 merge base**(`dev` 與 `staging` 都會發生:feat 從 `main` 切,而兩條線各自合過同一批票)。這不是實作者能單獨解的:要由主流程把該 base reset 到 `main`(`git push --force origin origin/main:refs/heads/dev`,`staging` 同;前置檢查見 `docs/deployment.md` 二、Release 步驟第 4 點),**base 更新後還要把 PR `gh pr close <n>` → `gh pr reopen <n>`** 才會觸發 CI(base 變動不算 `pull_request` 事件)。遇到就回報,不要自己去改 `dev` / `staging`。
 - **release 一批一次**:各票各自合 `dev`、各自合 `staging`,累積成一批後才走一次 release PR + 一次部署(`dev` 的部署也等該批最後一張合完才觸發),release 完由主流程把 `dev` / `staging` reset 對齊 `main`;只有產物依賴的票才單獨先 release。所以「合進 `dev` 了但還沒部署」是正常的,不必追問。
 - **剛開 PR 時 Actions 可能排隊很久**(沒有 check 不等於失敗),**force-push 之後 `mergeable` 會短暫回 `UNKNOWN`** —— 等幾秒重查,不要據此判斷有衝突(#203)。
-- **`pnpm format` 會重排全 repo 的 `.ts` import**(CI 的 `format:check` 只看 `**/*.md`,所以 main 上本來就不乾淨):跑完只保留 `.md` 的 diff,其餘 `git checkout` 還原。這是 **#241 收斂前的暫行做法**。
+- **交件前跑一次 `pnpm format`**(#195 起 `format:check` 涵蓋 md 與 ts / tsx / js / json / yaml,CI 會擋未格式化的檔)。`main` 已一次性重排過,所以跑完只會看到自己改到的檔案,不必再挑 diff。
 
 ### 拆票時要寫清楚的幾件事(第 4 段補充,2026-09-20)
 

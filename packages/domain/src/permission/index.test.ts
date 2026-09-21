@@ -59,9 +59,9 @@ describe("@repo/domain/permission:hasPermission(ADR-0011:key 在集合中,或擁
 
   it("wildcard 同層語意:父模組的 `*` 不涵蓋子模組的權限;子模組的 `*` 也不往上", () => {
     const parentWildcard = new Set(["demo.sub.*"]);
-    expect(
-      hasPermission(parentWildcard, "demo.sub.sample-one.edit"),
-    ).toBe(false);
+    expect(hasPermission(parentWildcard, "demo.sub.sample-one.edit")).toBe(
+      false,
+    );
     expect(
       hasPermission(
         new Set(["demo.sub.sample-one.*"]),
@@ -69,7 +69,10 @@ describe("@repo/domain/permission:hasPermission(ADR-0011:key 在集合中,或擁
       ),
     ).toBe(false);
     expect(
-      hasPermission(new Set(["demo.sub.sample-one.edit-page.*"]), "demo.sub.sample-one.edit"),
+      hasPermission(
+        new Set(["demo.sub.sample-one.edit-page.*"]),
+        "demo.sub.sample-one.edit",
+      ),
     ).toBe(false);
   });
 
