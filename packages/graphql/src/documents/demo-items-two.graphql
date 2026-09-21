@@ -1,0 +1,83 @@
+# 示範模組2(#319;模組 demo.sample-two,正本 docs/modules/demo.sample-two.md)。
+# 示範家族的對照組:只有 name / note / enabled + 基礎欄位 ——
+# 沒有分類、沒有狀態、沒有內部備註、沒有附件、沒有變更歷程,也沒有自己的錯誤碼。
+#
+# 兩個欄位前端只讀、不自己算(api 依操作者算好):
+#   abilities { canEdit, canDelete } — 顯示編輯 / 刪除按鈕的條件,不再與 usePermissions 相乘
+#   createdBy — 查不到使用者時為 null(示範資料的建立者是假 id,見 seeds/demo-items.ts)
+
+fragment DemoItemTwoFields on DemoItemTwo {
+  id
+  name
+  note
+  enabled
+  createdBy {
+    id
+    name
+  }
+  createdAt
+  updatedAt
+  abilities {
+    canEdit
+    canDelete
+  }
+}
+
+# 列表:可見範圍內的項目(資料範圍規則不介入 — 這個 collection 沒宣告 dataScopeTarget)。
+# keyword 比對名稱與備註;enabled 缺席 / null = 啟用與停用都列(GQL-06)
+query DemoItemsTwo($input: DemoItemsTwoInput!) {
+  demoItemsTwo(input: $input) {
+    items {
+      ...DemoItemTwoFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+
+# 詳情;可見範圍外或已刪除的一律 NOT_FOUND(不透露存在與否)
+query DemoItemTwo($id: ID!) {
+  demoItemTwo(id: $id) {
+    item {
+      ...DemoItemTwoFields
+    }
+  }
+}
+
+# 新增:orgId 不由前端給(= 操作者的當前組織);新資料一律啟用。
+# name 去頭尾空白後為空 → VALIDATION_FAILED,extensions.fields 為 ["name"]
+mutation CreateDemoItemTwo($input: CreateDemoItemTwoInput!) {
+  createDemoItemTwo(input: $input) {
+    item {
+      ...DemoItemTwoFields
+    }
+  }
+}
+
+# 編輯;缺席 / null 語意(GQL-06):name 缺席 = 不動;note 缺席 = 不動、null = 清空。
+# 前端只放使用者碰過的欄位
+mutation UpdateDemoItemTwo($input: UpdateDemoItemTwoInput!) {
+  updateDemoItemTwo(input: $input) {
+    item {
+      ...DemoItemTwoFields
+    }
+  }
+}
+
+# 刪除:軟刪除(ADR-0007),之後查不到、資料仍保留
+mutation DeleteDemoItemTwo($input: DeleteDemoItemTwoInput!) {
+  deleteDemoItemTwo(input: $input) {
+    success
+    deletedId
+  }
+}
+
+# 停用 / 啟用;守的是 demo.sample-two.edit(對照組沒有自己的 toggle-enabled 權限)
+mutation SetDemoItemTwoEnabled($input: SetDemoItemTwoEnabledInput!) {
+  setDemoItemTwoEnabled(input: $input) {
+    item {
+      ...DemoItemTwoFields
+    }
+  }
+}
