@@ -1,4 +1,8 @@
 import {
+  SAMPLE_ONE_MODULE_KEYS,
+  SAMPLE_ONE_PERMISSIONS,
+} from "@/pages/demo/demo-sample-one-config";
+import {
   DATA_SCOPE_MODULE_KEY,
   DATA_SCOPE_PERMISSIONS,
 } from "@/pages/system/DataScopePage/data-scope-permissions";
@@ -25,7 +29,11 @@ import {
 import type { TestModule, TestOrg } from "@/test/msw/auth-handlers";
 import { overviewModule } from "@/test/msw/auth-handlers";
 import { dataScopeRoles } from "@/test/msw/data-scope-fixtures";
-import { systemModules } from "@/test/msw/module-fixtures";
+import {
+  sampleOneModules,
+  sampleTwoModules,
+  systemModules,
+} from "@/test/msw/module-fixtures";
 import type { TestRole } from "@/test/msw/role-fixtures";
 import type { TestUser } from "@/test/msw/user-manager-handlers";
 
@@ -148,6 +156,15 @@ const permissionsByModuleKey: Record<string, readonly string[]> = {
   [MODULE_MANAGER_MODULE_KEY]: Object.values(MODULE_MANAGER_PERMISSIONS),
   [FIELD_MANAGER_MODULE_KEY]: Object.values(FIELD_MANAGER_PERMISSIONS),
   [DATA_SCOPE_MODULE_KEY]: Object.values(DATA_SCOPE_PERMISSIONS),
+  // 示範模組1(#320):同層的權限在列表頁那一層,兩個頁面自有權限掛在各自的隱藏頁
+  [SAMPLE_ONE_MODULE_KEYS.list]: [
+    SAMPLE_ONE_PERMISSIONS.view,
+    SAMPLE_ONE_PERMISSIONS.create,
+    SAMPLE_ONE_PERMISSIONS.showInternalNote,
+    SAMPLE_ONE_PERMISSIONS.editInternalNote,
+  ],
+  [SAMPLE_ONE_MODULE_KEYS.createPage]: [SAMPLE_ONE_PERMISSIONS.showTips],
+  [SAMPLE_ONE_MODULE_KEYS.editPage]: [SAMPLE_ONE_PERMISSIONS.showHistory],
 };
 
 /** 模組與權限、資料範圍是 `isRootOnly`:租戶管理員的 `me.modules` 裡根本沒有它們。 */
@@ -161,7 +178,12 @@ const withFullPermissions = (module: TestModule): TestModule => ({
   permissions: [...(permissionsByModuleKey[module.key] ?? module.permissions)],
 });
 
-/** 側欄與路由的來源:總覽 + 系統管理群組 + 該視角看得到的治理模組,權限給滿。 */
+/**
+ * 側欄與路由的來源:總覽 + 系統管理群組 + 該視角看得到的治理模組 + 示範家族,權限給滿。
+ *
+ * 示範家族兩支都放(seed 就是兩支都灌):示範模組1 的四頁已實作(#320),
+ * 示範模組2 目前還是佔位頁(#321 接手);兩者的隱藏頁都在,路由防守才有東西可看。
+ */
 export const modulesForView = (view: MockView): TestModule[] => [
   overviewModule,
   ...systemModules
@@ -169,6 +191,8 @@ export const modulesForView = (view: MockView): TestModule[] => [
       (module) => view === "root" || !ROOT_ONLY_MODULE_KEYS.has(module.key),
     )
     .map((module) => withFullPermissions(module)),
+  ...sampleTwoModules.map((module) => withFullPermissions(module)),
+  ...sampleOneModules.map((module) => withFullPermissions(module)),
 ];
 
 /** `me.orgs`(組織切換器);第一個即 `me.currentOrg`。 */

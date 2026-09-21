@@ -725,5 +725,119 @@
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
       "UNEXPECTED": "操作失敗,請稍後再試。"
     }
+  },
+  "demoSampleOne": {
+    "emptyValue": "—",
+    "emptyList": "目前沒有示範項目",
+    "loading": "載入中",
+    "tableAria": "示範項目清單",
+    "total": "共 {total} 筆,每頁 {pageSize} 筆",
+    "status": {
+      "DRAFT": "草稿",
+      "PUBLISHED": "已發布",
+      "ARCHIVED": "已封存"
+    },
+    "enabled": {
+      "true": "啟用",
+      "false": "停用"
+    },
+    "columns": {
+      "name": "名稱",
+      "category": "分類",
+      "note": "備註",
+      "status": "狀態",
+      "enabled": "啟用",
+      "actions": "操作"
+    },
+    "fields": {
+      "name": "名稱",
+      "category": "分類",
+      "status": "狀態",
+      "note": "備註",
+      "internalNote": "內部備註",
+      "cover": "封面",
+      "coverPath": "封面",
+      "coverAlt": "{name} 的封面",
+      "attachment": "附件",
+      "attachmentPath": "附件",
+      "enabled": "啟用",
+      "createdBy": "建立者"
+    },
+    "toolbar": {
+      "search": "搜尋",
+      "searchPlaceholder": "名稱或備註",
+      "category": "分類",
+      "categoryEmpty": "沒有可用的分類選項",
+      "create": "+ 新增示範項目"
+    },
+    "actions": {
+      "view": "檢視",
+      "edit": "編輯",
+      "delete": "刪除",
+      "editOf": "編輯「{name}」",
+      "deleteOf": "刪除「{name}」",
+      "backToList": "← 返回列表"
+    },
+    "attachment": {
+      "download": "下載",
+      "open": "開啟下載連結",
+      "hint": "私有檔案,按下下載才核發短效連結"
+    },
+    "form": {
+      "createTitle": "新增示範項目",
+      "editTitle": "編輯示範項目 — {name}",
+      "save": "儲存",
+      "cancel": "取消",
+      "coverHint": "PNG / JPG / WebP,2MB 以內;放在公開空間,拿到網址的人都看得到",
+      "coverCurrent": "目前的封面",
+      "attachmentHint": "PNG / JPG / WebP,2MB 以內;放在私有空間,要下載時才核發短效連結",
+      "attachmentCurrent": "目前的附件:{name}",
+      "internalNoteReadonly": "你看得到內部備註,但沒有修改它的權限。",
+      "categoryUnavailable": "需要「欄位管理」的檢視權限才能挑選分類。",
+      "removeAttachment": "移除附件"
+    },
+    "tips": {
+      "region": "填寫提示",
+      "body": "💡 填寫提示:名稱請使用正式菜名;分類的選項由「欄位管理」的「示範分類」維護。"
+    },
+    "history": {
+      "region": "變更歷程",
+      "title": "變更歷程",
+      "loading": "載入變更歷程…",
+      "empty": "這筆資料還沒有變更紀錄。",
+      "unknownActor": "—",
+      "entry": "{at} {actor} {action}",
+      "actions": {
+        "create": "建立",
+        "edit": "修改了內容",
+        "delete": "刪除",
+        "toggle-enabled": "切換了啟用狀態"
+      }
+    },
+    "discard": {
+      "title": "放棄未儲存的變更?",
+      "body": "這張表單有還沒儲存的修改,離開就會消失。",
+      "keepEditing": "繼續編輯",
+      "confirm": "放棄變更"
+    },
+    "delete": {
+      "title": "刪除示範項目?",
+      "body": "將刪除「{name}」。此操作無法復原;附件與封面檔案將一併移除。",
+      "confirm": "確認刪除"
+    },
+    "errors": {
+      "FIELD_FORBIDDEN": "你沒有修改內部備註的權限,這次變更沒有存檔。",
+      "FORBIDDEN": "你沒有執行這個動作的權限。",
+      "NOT_FOUND": "找不到這筆示範項目,可能已被刪除,或不在你看得到的範圍內。",
+      "VALIDATION_FAILED": "有欄位填寫不正確,請修正後再儲存。",
+      "UNEXPECTED": "操作失敗,請稍後再試。",
+      "fields": {
+        "name": "請填寫名稱。",
+        "category": "這個分類不在你可用的選項內,或已被停用。",
+        "coverPath": "封面檔案無效,請重新上傳。",
+        "attachmentPath": "附件檔案無效,請重新上傳。",
+        "internalNote": "你沒有修改內部備註的權限。"
+      }
+    }
   }
 }
