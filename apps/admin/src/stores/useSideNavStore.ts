@@ -1,12 +1,19 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 /**
  * 側欄收合狀態的 localStorage key(登記於 `docs/branding.md`)。
  * 收合是**這台瀏覽器的偏好**,不分使用者也不分組織 —— 換人登入照樣維持,
  * 所以不像路由頁籤那樣以 `:<userId>` 分把鑰匙(#289)。
+ *
+ * kebab 是 admin 所有儲存鍵的統一寫法(`cookhome-admin-locale`、
+ * `cookhome-admin-route-tabs`、`cookhome-admin-session`);#289 當初寫成點分隔,
+ * #183 第 6 項改齊。
  */
-export const SIDE_NAV_STORAGE_KEY = "cookhome.admin.sidenav";
+export const SIDE_NAV_STORAGE_KEY = "cookhome-admin-sidenav";
+
+/** #289 時用的點分隔舊 key;只為了把既存的收合狀態搬過來,搬完就刪(見 `sideNavStorage`)。 */
+export const LEGACY_SIDE_NAV_STORAGE_KEY = "cookhome.admin.sidenav";
 
 interface SideNavPersisted {
   /** 側欄是不是收成 64px 的圖示列 */
@@ -18,11 +25,53 @@ export interface SideNavState extends SideNavPersisted {
 }
 
 /**
+ * 一次性搬移:新 key 讀不到值時才看舊 key,讀到就寫進新 key 並**立刻刪掉舊的**。
+ * 所以每個瀏覽器最多只搬一次,之後這段等於不存在;localStorage 不可用(隱私模式、
+ * 被擋)時一律當成沒有值,不讓側欄因此炸掉。
+ */
+const readSideNavItem = (name: string): string | null => {
+  try {
+    const current = localStorage.getItem(name);
+    if (current !== null) {
+      return current;
+    }
+    const legacy = localStorage.getItem(LEGACY_SIDE_NAV_STORAGE_KEY);
+    if (legacy === null) {
+      return null;
+    }
+    localStorage.setItem(name, legacy);
+    localStorage.removeItem(LEGACY_SIDE_NAV_STORAGE_KEY);
+    return legacy;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * 封包格式仍是 `persist` 預設的 `{ state, version }` JSON(#289 就是這個格式),
+ * 只在讀取那一步多墊一層搬移;語言與路由頁籤那兩支是為了保住**非 JSON 的**既存格式
+ * 才自訂整個 `PersistStorage`(REACT-02 的注意①),這裡不需要。
+ */
+const sideNavStorage = createJSONStorage<SideNavPersisted>(() => ({
+  getItem: readSideNavItem,
+  setItem: (name, value) => {
+    try {
+      localStorage.setItem(name, value);
+    } catch {
+      // localStorage 不可用時不保留收合狀態,重新整理回到展開態即可
+    }
+  },
+  removeItem: (name) => {
+    try {
+      localStorage.removeItem(name);
+    } catch {
+      // 同上:沒存進去就沒東西可刪
+    }
+  },
+}));
+
+/**
  * 側欄收合狀態(#289;REACT-02 第 4 點:跨元件、跨重新整理的用戶端狀態放 zustand + `persist`)。
- *
- * 這是**新的** key,沒有既存格式要遷就,所以直接用 `persist` 預設的
- * `{ state, version }` JSON 封包與預設的 localStorage —— 語言與路由頁籤那兩支
- * 是為了保住重構前的既存值才自訂 `PersistStorage`(REACT-02 的注意①)。
  */
 export const useSideNavStore = create<SideNavState>()(
   persist(
@@ -34,6 +83,7 @@ export const useSideNavStore = create<SideNavState>()(
     }),
     {
       name: SIDE_NAV_STORAGE_KEY,
+      storage: sideNavStorage,
       partialize: (state) => ({ isCollapsed: state.isCollapsed }),
     },
   ),

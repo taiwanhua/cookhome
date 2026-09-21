@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
+import { heightChainOf } from "@/test/height-chain";
+
 import {
   ORG_MANAGER_VIEW_PERMISSION,
   USER_MANAGER_PERMISSIONS,
@@ -238,5 +240,29 @@ describe("使用者管理頁(/system/user-manager)", () => {
     expect(
       screen.queryByRole("button", { name: "新增使用者" }),
     ).not.toBeInTheDocument();
+  });
+
+  /**
+   * #183 第 1 項:左樹 / 右清單撐滿殼給的內容區高度、各自內部捲動(Figma 30:105)。
+   * jsdom 不算版面,驗的是**高度鏈的宣告**(理由見 `test/height-chain.ts`);
+   * 右邊那條同時是 #299 的「捲動只留一層」—— 表格容器外面不能再包一層 `overflow: auto`。
+   */
+  it("左樹與右清單各自一層捲動,中間每一層都 min-height: 0", async () => {
+    renderPage();
+    await screen.findByText("何家華");
+
+    const treeChain = heightChainOf(screen.getByRole("tree", { name: "組織" }));
+    const tableChain = heightChainOf(
+      screen.getByRole("table", { name: "使用者清單" }),
+    );
+
+    for (const chain of [treeChain, tableChain]) {
+      expect(chain.at(-1)?.label).toBe("MAIN.MuiBox-root");
+      expect(chain.map((link) => link.minHeight)).toEqual(chain.map(() => "0"));
+      expect(chain.slice(1, -1).filter((link) => link.scrolls)).toEqual([]);
+    }
+
+    // 清單捲的是 Table 自己的容器(#299),不是外面那層 Box 或 Card
+    expect(tableChain[0]?.label).toBe("DIV.MuiTableContainer-root");
   });
 });
