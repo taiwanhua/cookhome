@@ -1,4 +1,5 @@
 import { SetMetadata, UseGuards, applyDecorators } from "@nestjs/common";
+
 import { splitPermissionKey } from "@repo/domain/permission";
 
 import { PermissionGuard, REQUIRED_PERMISSION_KEY } from "./permission.guard";

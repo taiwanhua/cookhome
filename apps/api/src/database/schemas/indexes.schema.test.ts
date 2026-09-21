@@ -3,8 +3,8 @@ import type { Connection, Schema } from "mongoose";
 
 import {
   HOOK_TIMEOUT_MS,
-  openTestDatabase,
   type TestDatabase,
+  openTestDatabase,
 } from "../test-support/mongo-connection";
 import { ActionToken, ActionTokenSchema } from "./action-token.schema";
 import { AuditLog, AuditLogSchema } from "./audit-log.schema";
@@ -162,20 +162,16 @@ describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
 
   it("data_scope_rules / data_scope_targets:unique(collection)", () => {
     for (const name of [DataScopeRule.name, DataScopeTarget.name]) {
-      expect(findIndex(indexesOf(name), { collection: 1 })?.unique).toBe(
-        true,
-      );
+      expect(findIndex(indexesOf(name), { collection: 1 })?.unique).toBe(true);
     }
   });
 
   it("field_categories:unique(key);fields:(categoryId, orgId)+ unique(key sparse)+ unique(categoryId, orgId, value)", () => {
-    expect(
-      findIndex(indexesOf(FieldCategory.name), { key: 1 })?.unique,
-    ).toBe(true);
+    expect(findIndex(indexesOf(FieldCategory.name), { key: 1 })?.unique).toBe(
+      true,
+    );
     const fieldIndexes = indexesOf(Field.name);
-    expect(
-      findIndex(fieldIndexes, { categoryId: 1, orgId: 1 }),
-    ).toBeDefined();
+    expect(findIndex(fieldIndexes, { categoryId: 1, orgId: 1 })).toBeDefined();
     const fieldKey = findIndex(fieldIndexes, { key: 1 });
     expect(fieldKey?.unique).toBe(true);
     expect(fieldKey?.sparse).toBe(true);
@@ -195,9 +191,7 @@ describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
 
   it("refresh_tokens:(accountType, accountId)+ TTL(expiresAt)", () => {
     const indexes = indexesOf(RefreshToken.name);
-    expect(
-      findIndex(indexes, { accountType: 1, accountId: 1 }),
-    ).toBeDefined();
+    expect(findIndex(indexes, { accountType: 1, accountId: 1 })).toBeDefined();
     expect(findIndex(indexes, { expiresAt: 1 })?.expireAfterSeconds).toBe(0);
   });
 

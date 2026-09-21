@@ -29,7 +29,9 @@ const getItemAriaLabel: NonNullable<PaginationProps["getItemAriaLabel"]> = (
 ) => {
   switch (type) {
     case "page": {
-      return selected ? `第 ${String(page)} 頁,目前頁` : `前往第 ${String(page)} 頁`;
+      return selected
+        ? `第 ${String(page)} 頁,目前頁`
+        : `前往第 ${String(page)} 頁`;
     }
     case "first": {
       return "前往第一頁";

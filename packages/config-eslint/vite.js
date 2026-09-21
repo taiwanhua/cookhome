@@ -1,6 +1,7 @@
-import { defineConfig } from "eslint/config";
 import pluginReactRefresh from "eslint-plugin-react-refresh";
-import { config as reactConfig, designSystemWall } from "./react.js";
+import { defineConfig } from "eslint/config";
+
+import { designSystemWall, config as reactConfig } from "./react.js";
 
 /**
  * A custom ESLint configuration for React apps built with Vite.
@@ -18,5 +19,5 @@ export const config = defineConfig(
       ],
     },
   },
-  designSystemWall
+  designSystemWall,
 );

@@ -24,14 +24,8 @@ import {
   DataScopeTarget,
   DataScopeTargetSchema,
 } from "./schemas/data-scope-target.schema";
-import {
-  DemoItemOne,
-  DemoItemOneSchema,
-} from "./schemas/demo-item-one.schema";
-import {
-  DemoItemTwo,
-  DemoItemTwoSchema,
-} from "./schemas/demo-item-two.schema";
+import { DemoItemOne, DemoItemOneSchema } from "./schemas/demo-item-one.schema";
+import { DemoItemTwo, DemoItemTwoSchema } from "./schemas/demo-item-two.schema";
 import {
   FieldCategory,
   FieldCategorySchema,

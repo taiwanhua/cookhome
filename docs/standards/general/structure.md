@@ -103,9 +103,12 @@ re-export `matrix.ts`,若 `matrix.ts` 寫 `from "./index"` 就是 `import-x/no-c
 
 漏第 3 點的症狀是「本地 import 得到、`check-types` 在別的包紅」;漏第 5 點的症狀是 architecture.md 的子路徑列悄悄過期(`@repo/domain/module-icon` 就漏了一輪)。
 
-## STRUCT-09 Markdown 也走 prettier:表格由它排版,不手排
+## STRUCT-09 全 repo 都走 prettier,CI 守門:表格與 import 由它排版,不手排
 
-全 repo 的 `.md`(`docs/`、各模組 `help.md`、README、規範檔)都受 CI 的 `prettier --check` 檢查(`pnpm run format:check`,與 `pnpm format` 同一套設定,2026-09-19 起)。**`.ts` / `.tsx` 目前不在 CI 的檢查範圍內,所以 `main` 上存在格式漂移**:跑 `pnpm format` 會順手重排全 repo 的 import,交件時只留 `.md` 的 diff(收斂方案待 #241 / #195)。表格的分隔列與欄寬對齊一律交給 prettier:寫完跑 `pnpm format`,不要手動對齊、也不要為了省寬度刻意寫緊湊式 `|---|---|`(prettier 會展開,產生與內容無關的大 diff)。
+全 repo 的 `.md` 與 `.ts` / `.tsx` / `.js`(含 `.mjs` / `.cjs`)/ `.json` / `.yaml` 都受 CI 的 `prettier --check` 檢查(`pnpm run format:check`,與 `pnpm format` 同一組副檔名、同一套設定;md 自 2026-09-19、其餘自 #195 於 2026-09-22 起)。`ci.yml` 與 `docs.yml` 都跑同一個腳本,排除清單的正本是 `.prettierignore`(`pnpm-lock.yaml`、`dist` / `build` / `.next` / `coverage` 等產物、`**/src/generated`、`.agents` 的 skill 正本、Claude Code 的本機目錄)。
+
+- **交件前跑一次 `pnpm format`**,未格式化的檔案 CI 會擋下來;`.ts` 的 import 排序由 `@trivago` 外掛統一處理,不要手排。
+- 表格的分隔列與欄寬對齊一律交給 prettier:寫完跑 `pnpm format`,不要手動對齊、也不要為了省寬度刻意寫緊湊式 `|---|---|`(prettier 會展開,產生與內容無關的大 diff)。
 
 只有兩種例外,都要附原因:
 

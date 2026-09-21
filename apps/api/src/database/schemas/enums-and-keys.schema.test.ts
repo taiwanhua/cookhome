@@ -3,8 +3,8 @@ import { type Model, Types } from "mongoose";
 
 import {
   HOOK_TIMEOUT_MS,
-  openTestDatabase,
   type TestDatabase,
+  openTestDatabase,
 } from "../test-support/mongo-connection";
 import {
   ActionToken,
@@ -51,7 +51,11 @@ describe("封閉 enum 與種子 key 唯一性(對真 MongoDB 驗證)", () => {
       }),
     ).rejects.toThrow(/sidebarType/);
     await expect(
-      moduleModel.create({ key: "ok-group", name: "群組", sidebarType: "group" }),
+      moduleModel.create({
+        key: "ok-group",
+        name: "群組",
+        sidebarType: "group",
+      }),
     ).resolves.toBeDefined();
   });
 

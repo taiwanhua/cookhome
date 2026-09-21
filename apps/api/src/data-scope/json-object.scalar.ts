@@ -31,7 +31,10 @@ function parseLiteral(node: ValueNode): unknown {
     }
     case Kind.OBJECT: {
       return Object.fromEntries(
-        node.fields.map((field) => [field.name.value, parseLiteral(field.value)]),
+        node.fields.map((field) => [
+          field.name.value,
+          parseLiteral(field.value),
+        ]),
       );
     }
     default: {
@@ -41,11 +44,7 @@ function parseLiteral(node: ValueNode): unknown {
 }
 
 function assertObject(value: unknown): Record<string, unknown> {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    Array.isArray(value)
-  ) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new GraphQLError("JSONObject must be an object");
   }
   return value as Record<string, unknown>;

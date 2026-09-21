@@ -18,8 +18,8 @@ import {
 } from "../database/plugins/data-scope-provider";
 import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import {
-  ruleInvalidError,
   rootOnlyError,
+  ruleInvalidError,
   targetNotFoundError,
 } from "./data-scope-error";
 import {
@@ -152,7 +152,9 @@ export class DataScopeService
    * 資料目標清單(seed);每個目標的欄位目錄已附上底座的基礎欄位(ADR-0008)。
    * `hasRule` 一次取全部規則文件算出來(#246 的 1),前端不必對每個目標各查一次規則。
    */
-  async listTargets(operator: OperatorContext): Promise<DataScopeTargetModel[]> {
+  async listTargets(
+    operator: OperatorContext,
+  ): Promise<DataScopeTargetModel[]> {
     await this.assertRootOperator(operator, "dataScopeTargets");
     const [documents, rules] = await Promise.all([
       this.targets.findMany(RULE_READER, {}, { sort: { collection: 1 } }),
