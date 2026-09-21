@@ -8,6 +8,8 @@
 
 ## 程式碼
 
+**瀏覽器儲存的 key 一律 kebab-case、以品牌 slug 開頭**(2026-09-22 定,#295 的回饋):格式 `cookhome-<app>-<用途>`(需要分使用者時再加 `:<userId>`,如 `cookhome-admin-route-tabs:<userId>`),localStorage / sessionStorage / BroadcastChannel 共用這套命名。**不要用點分隔**(`cookhome.admin.sidenav`)—— 三把鑰匙兩種寫法,換品牌時 grep 一次抓不全。既有的 `cookhome.admin.sidenav` 改名由 #183 一併做。新增一把鑰匙就在下表補一列(key 帶品牌 slug,所以它是品牌元素)。
+
 | 位置                                                                    | 內容                                                                                                                                                                                                                                                                                                    | 怎麼改                                                                                                                  |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `packages/ui/src/theme/brand.ts`                                        | `cookhomeBrand`(主色來源,全 theme 由此衍生)                                                                                                                                                                                                                                                             | 換 primary hex 一行;export 名稱可 alias 保留                                                                            |
@@ -42,7 +44,7 @@
 | Draft/FrontAppBar               | 36:4(Desktop)/ 38:5(Mobile)                                                                                                | 前台 logo 文字                                                                                                                                                                                     |
 | Draft/FrontFooter               | 36:25 / 36:30(Desktop)、38:11 / 38:13(Mobile)                                                                              | 品牌名 + © 行                                                                                                                                                                                      |
 | Foundations / Cover             | —                                                                                                                          | 主色變數 `primary/*`(6:43–6:48)由主色衍生;Cover 頁標題                                                                                                                                             |
-| Icons 頁 / `Draft/ModuleIcon`   | frame id 待補(`get_metadata` 只列得出 Cover、`search_design_system` 查無,#287)                                             | 模組圖示的 29 個變體(`key=<name>`,與 `packages/ui/src/icons/module-icon-registry.ts` 同名同順序)。**通用圖示不是品牌元素** — 這裡只記位置,換品牌不動它;新增圖示要登錄表與變體一起加                |
+| Icons 頁 / `Draft/ModuleIcon`   | Icons 頁 244:2;元件 `Draft/ModuleIcon` 244:92                                                                              | 模組圖示的 29 個變體(`key=<name>`,與 `packages/ui/src/icons/module-icon-registry.ts` 同名同順序)。**通用圖示不是品牌元素** — 這裡只記位置,換品牌不動它;新增圖示要登錄表與變體一起加                |
 
 ## 資料
 

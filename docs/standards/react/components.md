@@ -123,7 +123,7 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 規則與呼叫端要知道的四件事:
 
 - **app 裡不要再寫原生 `title`**(STYLE-05 的元件牆同理):原生 `title` 的外觀不受 theme 控制、延遲不可調、觸控裝置看不到。
-- 真的需要提示**當名稱**時(圖示按鈕沒有可見文字)才明示 `describeChild={false}`,並在 PR 說明為什麼。
+- 真的需要提示**當名稱**時(圖示按鈕沒有可見文字)才明示 `describeChild={false}`,並在 PR 說明為什麼。記錄在案的例外:**側欄收合態的圖示列**(`SideNav/NavRail`,#295)—— 每一格只有圖示、提示顯示的就是模組名稱,留 `describeChild` 為 `true` 會做出一個「沒有無障礙名稱、只有描述」的按鈕。判準是**「提示的文字念出來就是這顆元件的名字」**;只要元素本身已有可見文字(按鈕上有字、旁邊有 label),提示就是補充,維持預設。
 - **disabled 子元素由元件內部包 `span`**(disabled 元素不發 hover 事件),呼叫端不要自己再包一層;可用的元素則直接掛在 child 上,`aria-describedby` 仍指向它本身。
 - `title` 傳 `""` / `undefined` 就不提示,所以條件式提示直接寫 `title={isLocked ? hint : ""}`,不要條件式地換掉整棵子樹。
 

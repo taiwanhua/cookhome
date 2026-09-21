@@ -124,7 +124,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 - **寫檔用 Write / Edit 工具**;`python - <<'PY'` 的單檔精準取代可用,但**一支腳本裡用 `pathlib` 批次寫多個檔會被判定太複雜而擋掉**,逐檔改回 Write(#203)。
 - **python 寫 `.md` 要 `newline="\n"`**:Windows 預設會寫成 CRLF,`format:check` 立刻紅。
 - **這台機器沒有外部 `jq`**:含 `jq` 的指令不是報錯而是**靜默失敗**(輸出空的),一律用 `gh --jq`。
-- **CI 輪詢用平鋪的單行 `until`**(`until gh pr checks <n> --required; do sleep 30; done` 這種寫在一行),多行 / 巢狀的迴圈會被擋。
+- **CI 輪詢用平鋪的單行 `until`**(`until gh pr checks <n>; do sleep 30; done` 這種寫在一行),多行 / 巢狀的迴圈會被擋。**不要加 `--required`**(2026-09-22,#290):免費方案沒有 branch protection、也就沒有 required checks,`gh pr checks --required` 永遠回 `no required checks`(非零退出),迴圈會一直轉到逾時,看起來像 CI 卡住。不帶旗標時它看的是 PR 上所有的 check。
 - **`git stash` 的堆疊與主 checkout、其他 worktree 共用**:不要用裸 `git stash` / `git stash pop`(會撈到別的 session 的東西),要用時 `git stash push -u -m "<票號>-<標記>"`,取回前先 `git stash list` 找到**自己那一筆當下的 `stash@{n}`**再 apply;更安全的做法是開一個 WIP commit。
 - **turbo 的快取跨 worktree 共用**:別的 worktree 先跑過同一份輸入,`pnpm exec turbo run test --filter=…` 會 `cache hit, replaying logs`(甚至 `FULL TURBO`)—— 驗收自己的改動沒問題(輸入變了就不會命中),但**取「`origin/main` 的測試數基準」時會拿到別人跑的舊結果**。取基準要進 package 目錄直接跑 jest,見 `docs/standards/testing/testing.md` TEST-08 的「測試數的基準」。
 - 暫存檔放 scratchpad 且**檔名帶票號**(多個 agent 共用同一個 scratchpad)。
@@ -143,6 +143,9 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 - **已知會超過 `max-lines` 400 的檔案,拆票時就直接指定兩個檔名**,不要讓實作者自行決定怎麼拆(#210 的 `data-scope-rule.ts`)。
 - **「二選一」不留給實作者,並指定 owner 票**:尤其是**過渡做法的退場時機**(第 3 段的指派角色過渡寫法拖到 #211 才退場,期間兩套判準並存)。
 - **規格要寫明邊界條件**:例如「停用的角色不可選」要補「**已持有 + 已停用**時仍可取消」,否則照字面實作會讓人永遠拔不掉那個角色(#211)。
+- **寫入端點要不要套自鎖,拆票時就裁決**(2026-09-22 補,#292):`SELF_LOCK` 守的是「關掉就再也開不回來」。換圖示、改顯示名這類**隨時改得回來**的寫入不套(`setModuleIcon` 連自己模組的圖示都換得了);會讓操作者失去繼續操作能力的才套。票上直接寫「套 / 不套 + 一句理由」,不要讓實作者從既有端點推。
+- **input 欄位「缺席」與 `null` 的語意要寫明**(2026-09-22 補,GQL-06):兩者同義(都是清空 / 回預設)還是要分開處理(缺席 = 不動、`null` = 清空),差一個字就是兩種實作與兩組測試。票上寫死,並指明落庫是 `$set: null` 還是 `$unset`(ADR-0002:初始 seed 值欄位一律寫 `null`)。
+- **「僅確認、不改」的項目要標出來**(2026-09-22 補,#299):驗收清單裡混著「要改的」與「只是去確認它本來就對的」時,實作者會把後者也動一遍(#299 的模組詳情面板本來就正確,差點被一起改成列表頁的版型)。票上分兩節寫:「要改的」與「確認後不動的(附為什麼不動)」。
 - **文件正本歸屬要指定到「哪張票寫」**(2026-09-21 補):同段的文件票與實作票會寫到同一份 `docs/modules/<key>.md` —— #262(文件)與 #260(實作)各寫了一版「權限容器」節,合起來就是衝突。拆票時直接分:**規則本文(模組文件的行為說明、ADR、`docs/standards/`)只由文件票寫;實作票只碰自己必然連動的兩處 —— `docs/modules/<key>.md` 的「api 介面」小節與 `apps/admin/src/md/module-help/<key>.help.md`**。實作發現規則本文寫錯,不要就地改,寫進 PR 的「規則回饋」由文件票收。
 
 ### 新套件的版本怎麼查

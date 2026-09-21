@@ -51,6 +51,18 @@ front/admin 只從 `@repo/ui` 拿元件;`@mui/*`、`@emotion/*` 由
 不在 app 端 import —— `@mui/icons-material` 只列在 `packages/ui` 的 dependencies,apps 拿不到。
 29 個圖示在 admin bundle 的成本約 8 KB(未壓縮,#287 實測)。
 
+**從登錄表取出的圖示不要在 render 內宣告成變數**(2026-09-22,#290):`react-hooks/static-components`
+會把元件內的 `const Icon = moduleIconOf(key)` 判成「render 期間產生元件」而報錯 —— 登錄表這種
+「元件是資料」的用法一定會撞到。兩種寫法擇一:
+
+```tsx
+// 1. 在元件外解構成常數(key 是靜態的時候)
+const DashboardIcon = moduleIconOf("dashboard");
+
+// 2. key 是動態的:用 createElement,不要先接成大寫變數
+return createElement(moduleIconOf(module.icon), { fontSize: "small" });
+```
+
 **目前已知缺的元件**(缺的期間用原生替代並在 PR 記一筆,不要在 app 裡直接 import MUI):
 `EditIcon` / `DeleteIcon` 與 `Tabs`(待 #254,角色管理頁先用文字按鈕與自組 `role="tablist"`)。
 `Tooltip` 已補(#240 / #260,`@repo/ui/tooltip`):原生 `title` 的三處(`OrgActionBar`、
@@ -73,9 +85,18 @@ STYLE-01 禁裸值,但 Figma 常給 theme 沒有的值(Tag 字級 11px、Checkbo
 - 呼叫端的 `sx` 一律經 `mergeSx(defaultSx, props.sx)`(`src/theme/sx.ts`)疊在預設之上;
 - **MUI 9 的 `sx` 不接受陣列**(`sx={[a, b]}` 型別錯),所以 `mergeSx` 是唯一的合併方式;`Stack` / `Box` 也不再收 `alignItems`、`minWidth`、`flex` 這類 system props,版面值一律進 `sx`。
 
+**多個 sx 槽的命名慣例**(2026-09-22,#300):一個元件有兩處以上可讓呼叫端調樣式時(`Table` 的表格本體與捲動容器),`sx` 留給**最外層 / 主體**,其餘槽命名為 **`<槽名>Sx`**(`containerSx`、`headerSx`…),槽名取自它實際套到的那個內部元素;每個槽一樣走 `mergeSx(預設, props.<槽名>Sx)` 疊加,不整包蓋掉。不要每個元件各取一個名字(`tableWrapperSx`、`scrollSx`),呼叫端才不必每次翻原始碼。
+
 ## STYLE-08 admin 頁面的高度由殼給:滿版版面用 `flex: 1` + `minHeight: 0`,捲動容器自己標 `overflow: auto`
 
 `ShellLayout` 外框 `height: 100vh` + `overflow: hidden`,`<main>` 是 column flex 且 `flex: 1; minHeight: 0; overflow: auto`,所以頁面拿到的是**確定的高度**。要做「左樹 / 右表格撐滿、各自捲動」的頁面:頁面根容器 `flex: 1; minHeight: 0`(不要 `alignItems: flex-start`),左右兩塊各自 column flex + 內層 `overflow: auto`。Figma 的 Screen frame 把等高與各自捲動畫得很清楚,但那個資訊在 frame 的 width / height 裡,不在截圖裡,實作前用 `get_metadata` 量(#183 的教訓:#138 / #139 兩頁都只撐到內容高度)。
+
+**同一條鏈只標一次 `overflow: auto`**(2026-09-22,#300):父子兩層各標一次時,平常看不出來 ——
+兩層都是「高度跟著內容長」就不會有人捲;等到內層拿到確定高度(或內容給了 `minWidth`),
+就會冒出兩條捲軸,而且橫向那條貼在最後一列下方、卡在版面中間。決定**哪一層負責捲**,
+其餘只留 `flex: 1; minHeight: 0` 把高度傳下去。連帶:`overflow-x: auto` 的元素,它的
+`overflow-y: visible` 依 CSS 規範計算為 `auto`,**一個元素同時管好兩軸**,外層不需要再開一層
+(列表頁的 `TableContainer` 就是那一層,見 STYLE-11)。
 
 ## STYLE-09 `Stack spacing` 的直接子元素不要用 margin 做位移
 
@@ -84,6 +105,11 @@ STYLE-01 禁裸值,但 Figma 常給 theme 沒有的值(Tag 字級 11px、Checkbo
 ## STYLE-10 從呼叫端看 `sx`:只疊加、不覆蓋幾何
 
 app 端給 `@repo/ui` 元件傳 `sx` 時,只放與版面位置有關的值(`cursor`、`mt`、`flex`…);元件自己的幾何(高度、圓角、tone 色)由元件內的 `styled()` / theme `components` 決定(STYLE-07),呼叫端不要重設。需要不同尺寸或 tone 用元件的 props(`size`、`tone`),沒有就到 ui 加,不在呼叫端用 `sx` 硬改。
+
+**目前記錄在案的例外一處**(2026-09-22,#295):`AdminShell` 的 `SideNavToggle` 用 `sx` 給
+`@repo/ui/icon-button` 外框與 40×40 的幾何 —— ui 的 `IconButton` 還沒有 outlined 變體、`size` 也到不了 40。
+**這是暫記的技術債,不是可以照抄的先例**:變體補上後(#297)呼叫端要改回用 props。
+再遇到同類情形照這個做法 —— 開一張 ui 的票、在本節記一行,不要默默留著。
 
 ## STYLE-11 列表頁的 `Table` 一律給 `minWidth`
 
@@ -94,8 +120,8 @@ app 端給 `@repo/ui` 元件傳 `sx` 時,只放與版面位置有關的值(`curs
 彈窗裡的小表與只有兩三個短欄位的表不在此限。
 
 **列表頁 Table 的容器撐滿父層高度,捲軸落在面板底部**(#299):`Table` 的 `TableContainer`
-預設 `height: 100%; minHeight: 0`,所以父層鏈要是 STYLE-08 的 `flex: 1; minHeight: 0` 欄;
-**捲動責任只給 TableContainer 一層** —— 外面再包一個 `overflow: auto` 的 `Box` / `Card` 會變成
-兩層捲軸,且列數少時橫向捲軸貼在最後一列下方、卡在列表中間。要限制高度或在彈窗裡用,
-傳 `containerSx` 覆寫(如 `{ height: "auto", maxHeight: 320 }`);父層高度不確定時
-`height: 100%` 自然退回 auto,詳情面板那種整塊捲動的版面不受影響。
+預設 `height: 100%; minHeight: 0`,所以父層鏈要是 STYLE-08 的 `flex: 1; minHeight: 0` 欄,
+且**捲動責任只給 TableContainer 一層**(見 STYLE-08 的「同一條鏈只標一次 `overflow: auto`」)。
+要限制高度或在彈窗裡用,傳 `containerSx` 覆寫(如 `{ height: "auto", maxHeight: 320 }`,
+命名慣例見 STYLE-07);父層高度不確定時 `height: 100%` 自然退回 auto,詳情面板那種
+整塊捲動的版面不受影響。
