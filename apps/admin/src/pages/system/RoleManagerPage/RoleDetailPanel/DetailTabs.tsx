@@ -1,10 +1,8 @@
 import { useTranslations } from "use-intl";
 
-import { Box } from "@repo/ui/box";
-import { Button } from "@repo/ui/button";
-import { Stack } from "@repo/ui/stack";
+import { Tabs } from "@repo/ui/tabs";
 
-import type { RoleDetailTab } from "../role-manager-types";
+import { type RoleDetailTab, isRoleDetailTab } from "../role-manager-types";
 
 export interface DetailTabsProps {
   active: RoleDetailTab;
@@ -15,40 +13,25 @@ export interface DetailTabsProps {
 const TABS: readonly RoleDetailTab[] = ["matrix", "users"];
 
 /**
- * 單一角色的兩個頁籤(Figma 65:189 Draft/Tab:active 底線 + primary 字色)。
+ * 單一角色的兩個頁籤(Figma `Draft/Tabs` 252:14:active 底線 + primary 字色)。
  * 頁內頁籤不進 URL(REACT-02 第 2 點的 admin 例外:殼的 `RouteTabs` 只認 pathname)。
+ *
+ * #254 / #307:原本是 `Button` 自組的 `role="tablist"`,現在用 `@repo/ui/tabs` ——
+ * 鍵盤巡覽(左右鍵、Home / End)與 `aria-controls` 都由 MUI 給,這裡只剩文案與回報。
  */
 export const DetailTabs = ({ active, onChange }: DetailTabsProps) => {
   const t = useTranslations("admin.roleManager.tabs");
 
   return (
-    <Stack
-      direction="row"
-      spacing={2}
-      role="tablist"
-      sx={{ borderBottom: 1, borderColor: "divider" }}
-    >
-      {TABS.map((tab) => (
-        <Box key={tab} sx={{ pb: 0.5 }}>
-          <Button
-            variant="text"
-            size="small"
-            role="tab"
-            aria-selected={tab === active}
-            color={tab === active ? "primary" : "inherit"}
-            sx={{
-              borderRadius: 0,
-              borderBottom: 2,
-              borderColor: tab === active ? "primary.main" : "transparent",
-            }}
-            onClick={() => {
-              onChange(tab);
-            }}
-          >
-            {t(tab)}
-          </Button>
-        </Box>
-      ))}
-    </Stack>
+    <Tabs
+      value={active}
+      aria-label={t("label")}
+      items={TABS.map((tab) => ({ value: tab, label: t(tab) }))}
+      onChange={(next) => {
+        if (isRoleDetailTab(next)) {
+          onChange(next);
+        }
+      }}
+    />
   );
 };

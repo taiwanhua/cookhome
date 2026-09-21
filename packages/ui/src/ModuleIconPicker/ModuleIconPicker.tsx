@@ -25,6 +25,13 @@ export interface ModuleIconPickerProps {
   onChange?: (value: ModuleIconKey) => void;
   /** 浮動標籤(如「圖示」);ui 不內建文案(I18N-01) */
   label?: ReactNode;
+  /**
+   * 無障礙名稱(#297)。**放進「左標籤 + 右內容」版型時不給 `label`**,
+   * 那時 combobox 沒有任何名稱可言 —— 給這個,或用 `labelId` 指向版型自己那顆標籤。
+   */
+  "aria-label"?: string;
+  /** 已存在的標籤元素 id;與 `aria-label` 二擇一,不要兩個都給 */
+  labelId?: string;
   /** 值不在白名單時顯示的文字;預設空字串(只畫預設圖示) */
   emptyLabel?: ReactNode;
   /**
@@ -53,6 +60,8 @@ export const ModuleIconPicker = ({
   value,
   onChange,
   label,
+  "aria-label": ariaLabel,
+  labelId,
   emptyLabel = "",
   labelOf,
   disabled,
@@ -97,7 +106,15 @@ export const ModuleIconPicker = ({
       name={name}
       size={size}
       sx={sx}
-      slotProps={{ select: { renderValue, displayEmpty: true } }}
+      slotProps={{
+        select: {
+          renderValue,
+          displayEmpty: true,
+          // 名稱直通到 combobox 本體(收合後那顆 `role="combobox"` 的 div)
+          "aria-label": ariaLabel,
+          labelId,
+        },
+      }}
     >
       {MODULE_ICON_KEYS.map((key) => {
         const { Icon } = MODULE_ICONS[key];

@@ -337,7 +337,10 @@
       "templateCopy": "租戶副本",
       "notEligible": "此角色只能授予 {org} 及其下層的使用者;{name} 不在角色擁有組織之下。",
       "search": "搜尋角色",
-      "searchPlaceholder": "角色名稱或擁有組織"
+      "searchPlaceholder": "角色名稱或擁有組織",
+      "label": "角色",
+      "noneSelected": "目前沒有指派任何角色",
+      "noTenant": "共用"
     },
     "toggle": {
       "disableTitle": "停用 {name}?",
@@ -478,6 +481,7 @@
       "delete": "刪除"
     },
     "tabs": {
+      "label": "角色分頁",
       "matrix": "權限設定",
       "users": "分配使用者"
     },
@@ -525,7 +529,9 @@
       "noOrg": "—",
       "confirm": "加入",
       "cancel": "取消",
-      "notEligible": "此使用者不在角色擁有組織之下({org}),無法加入。"
+      "notEligible": "此使用者不在角色擁有組織之下({org}),無法加入。",
+      "label": "使用者",
+      "loading": "搜尋中"
     },
     "form": {
       "createTitle": "新增角色",
@@ -610,7 +616,9 @@
       "audienceOrg": "組織",
       "audienceUser": "使用者",
       "remove": "刪除規則",
-      "audienceSearch": "搜尋角色"
+      "audienceSearch": "搜尋角色",
+      "audienceEmpty": "沒有符合的對象",
+      "audienceNoTenant": "共用"
     },
     "group": {
       "rootOp": "條件組合",

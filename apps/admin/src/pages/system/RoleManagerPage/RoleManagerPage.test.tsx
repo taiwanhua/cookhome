@@ -73,6 +73,49 @@ describe("角色管理頁(/system/role-manager)", () => {
     });
   });
 
+  /**
+   * #254 / #307:列操作的「編輯」「刪除」改成圖示鈕 —— 沒有可見文字,所以名稱由
+   * `aria-label` 給、提示用 `describeChild={false}`(REACT-10 的「提示就是名字」那一類)。
+   * 「啟用 / 停用」維持文字鈕(Figma Draft/ActionIcon 253:3264 沒有對應圖示)。
+   */
+  it("列操作:編輯 / 刪除是圖示鈕,hover 出現的提示就是它的名稱", async () => {
+    const { user: actor } = renderRolePage();
+
+    // 預設選中第一筆(內容編輯):有編輯與停用,沒有刪除(已有人持有)
+    await screen.findByText("內容編輯");
+
+    const edit = screen.getByRole("button", { name: "編輯" });
+    // 圖示鈕:按鈕上沒有文字,只有一個 svg
+    expect(edit).toHaveTextContent("");
+    expect(edit.querySelector("svg")).not.toBeNull();
+    // 切換鍵不是圖示鈕,字看得見
+    expect(screen.getByRole("button", { name: "停用" })).toHaveTextContent(
+      "停用",
+    );
+
+    await actor.hover(edit);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("編輯");
+
+    // 審核員(自建、無人持有)才列得出刪除鍵,它一樣是圖示鈕
+    await actor.click(screen.getByText("審核員"));
+    expect(screen.getByRole("button", { name: "刪除" })).toHaveTextContent("");
+  });
+
+  it("右面板頁籤用 @repo/ui/tabs:整列有名稱,鍵盤右鍵移到下一個", async () => {
+    const { user: actor } = renderRolePage();
+
+    await screen.findByText("內容編輯 — 權限設定");
+    const tablist = screen.getByRole("tablist", { name: "角色分頁" });
+    const [matrix, users] = within(tablist).getAllByRole("tab");
+
+    expect(matrix).toHaveAttribute("aria-selected", "true");
+
+    // MUI Tabs 自帶的鍵盤巡覽(自組的 Button 列沒有)
+    matrix.focus();
+    await actor.keyboard("{ArrowRight}");
+    expect(users).toHaveFocus();
+  });
+
   it("編輯角色:擁有組織唯讀,送出只帶名稱與描述", async () => {
     const { user: actor, fake } = renderRolePage();
 

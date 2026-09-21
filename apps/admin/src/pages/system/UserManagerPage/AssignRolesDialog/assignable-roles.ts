@@ -100,15 +100,7 @@ export const isRoleSelectable = (
 ): boolean =>
   !role.isOutOfReach && ((role.enabled && role.isEligible) || isChecked);
 
-/** 篩選器的組織選項(去重、保順序);沒有擁有組織的角色歸在 `null` 不進選單。 */
-export const ownerOrgOptions = (
-  roles: readonly RoleOption[],
-): { id: string; name: string }[] => {
-  const seen = new Map<string, string>();
-  for (const role of roles) {
-    if (role.ownerOrgId !== null && !seen.has(role.ownerOrgId)) {
-      seen.set(role.ownerOrgId, role.ownerOrgName ?? role.ownerOrgId);
-    }
-  }
-  return [...seen].map(([id, name]) => ({ id, name }));
-};
+/*
+ * `ownerOrgOptions`(依擁有組織篩選的下拉)在 #307 退場:改用 Autocomplete 後,
+ * 輸入組織名就能收斂到那一組,而分組標題已經把「哪些角色屬於誰」講清楚了。
+ */

@@ -2,9 +2,11 @@ import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
 import {
+  autocompleteOptions,
   chooseOption,
   comboboxAt,
   editor,
+  pickAutocomplete,
   renderPage,
   waitForEditor,
 } from "./data-scope-test-support";
@@ -55,24 +57,25 @@ describe("條件樹編輯器(資料範圍)", () => {
     ).toContain("【操作者本人】");
   });
 
-  it("套用對象:角色與使用者是清單多選,組織用組織樹", async () => {
+  it("套用對象:角色與使用者是 Autocomplete 多選,組織用組織樹", async () => {
     const { user: actor } = renderPage();
     await startRule(actor);
 
     await chooseOption(actor, comboboxAt("套用對象"), "角色");
     await actor.click(comboboxAt("對象"));
-    // 每列「角色名稱 — 擁有組織」,跨兩個租戶時再依租戶頂層分組(#261 的 8):
-    // 兩個租戶各有一個同名的「租戶管理員」,靠這兩層才分得出來
-    expect(
-      screen.getAllByRole("option").map((option) => option.textContent),
-    ).toEqual([
-      "租戶 A",
-      "客服 — 租戶 A",
-      "編輯 — 租戶 A",
-      "租戶管理員 — 租戶 A",
-      "租戶 B",
-      "租戶管理員 — 租戶 B",
+    // 每列主文字角色名、次文字擁有組織(Figma Draft/Autocomplete 253:39);
+    // 兩個租戶各有一個同名的「租戶管理員」,靠次文字與分組標題才分得出來(#261 的 8)
+    expect(autocompleteOptions()).toEqual([
+      "客服租戶 A",
+      "編輯租戶 A",
+      "租戶管理員租戶 A",
+      "租戶管理員租戶 B",
     ]);
+    // 分組標題是 listbox 的標題、不是可選的選項(換掉 Select 前它是一個 disabled 的 option);
+    // 連文字順序一起驗,才看得出每個標題底下掛的是哪幾列
+    expect(screen.getByRole("listbox").textContent).toBe(
+      "租戶 A客服租戶 A編輯租戶 A租戶管理員租戶 A租戶 B租戶管理員租戶 B",
+    );
     await actor.keyboard("{Escape}");
 
     await chooseOption(actor, comboboxAt("套用對象"), "組織");
@@ -81,18 +84,21 @@ describe("條件樹編輯器(資料範圍)", () => {
     ).toBeInTheDocument();
   });
 
-  it("套用對象「指定角色」:搜尋收斂選單(名稱或擁有組織)", async () => {
+  it("套用對象「指定角色」:在選單內輸入即收斂(不再有選單外的搜尋框)", async () => {
     const { user: actor } = renderPage();
     await startRule(actor);
 
     await chooseOption(actor, comboboxAt("套用對象"), "角色");
-    await actor.type(within(editor()).getByLabelText("搜尋角色"), "租戶 B");
+    // #307:搜尋回到選單內,選單外那個獨立的「搜尋角色」欄位已移除
+    expect(within(editor()).queryByLabelText("搜尋角色")).toBeNull();
 
-    await actor.click(comboboxAt("對象"));
-    // 只剩租戶 B 那一筆;單一租戶 ⇒ 不再分組(只有一組的標題是雜訊)
-    expect(
-      screen.getAllByRole("option").map((option) => option.textContent),
-    ).toEqual(["租戶管理員 — 租戶 B"]);
+    await actor.type(comboboxAt("對象"), "租戶管理員");
+
+    // 同名的兩筆都留著,靠次文字分辨
+    expect(autocompleteOptions()).toEqual([
+      "租戶管理員租戶 A",
+      "租戶管理員租戶 B",
+    ]);
   });
 
   it("動態值【操作者本人】存成佔位符,送出的 payload 與正本形狀一致", async () => {
@@ -100,7 +106,7 @@ describe("條件樹編輯器(資料範圍)", () => {
     await startRule(actor);
 
     await chooseOption(actor, comboboxAt("套用對象"), "角色");
-    await chooseOption(actor, comboboxAt("對象"), "客服 — 租戶 A");
+    await pickAutocomplete(actor, comboboxAt("對象"), "客服");
     await actor.keyboard("{Escape}");
     await chooseOption(actor, comboboxAt("欄位"), "建立者");
     await chooseOption(actor, comboboxAt("值"), "【操作者本人】");

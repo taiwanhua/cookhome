@@ -337,7 +337,10 @@
       "templateCopy": "Tenant copy",
       "notEligible": "This role can only be granted to users inside {org} or below it; {name} is not inside the organization that owns the role.",
       "search": "Search roles",
-      "searchPlaceholder": "Role name or owning organization"
+      "searchPlaceholder": "Role name or owning organization",
+      "label": "Roles",
+      "noneSelected": "No roles assigned yet",
+      "noTenant": "Shared"
     },
     "toggle": {
       "disableTitle": "Disable {name}?",
@@ -478,6 +481,7 @@
       "delete": "Delete"
     },
     "tabs": {
+      "label": "Role sections",
       "matrix": "Permissions",
       "users": "Assigned users"
     },
@@ -525,7 +529,9 @@
       "noOrg": "—",
       "confirm": "Add",
       "cancel": "Cancel",
-      "notEligible": "This user is not inside the organization that owns the role ({org}), so they cannot be added."
+      "notEligible": "This user is not inside the organization that owns the role ({org}), so they cannot be added.",
+      "label": "Users",
+      "loading": "Searching"
     },
     "form": {
       "createTitle": "Add role",
@@ -610,7 +616,9 @@
       "audienceOrg": "Organizations",
       "audienceUser": "Users",
       "remove": "Delete rule",
-      "audienceSearch": "Search roles"
+      "audienceSearch": "Search roles",
+      "audienceEmpty": "No matching targets",
+      "audienceNoTenant": "Shared"
     },
     "group": {
       "rootOp": "Combine conditions",

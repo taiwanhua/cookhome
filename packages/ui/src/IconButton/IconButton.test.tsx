@@ -43,6 +43,54 @@ describe("IconButton", () => {
   });
 
   /**
+   * #297:側欄收合開關原本在呼叫端用 `sx` 畫外框與 40×40(STYLE-10 記錄在案的例外)。
+   * 變體補上後那些幾何要由元件自己給,呼叫端只剩 `variant="outlined"`。
+   */
+  it("variant=outlined:外框與正方形幾何由元件給,不必呼叫端傳 sx", () => {
+    render(
+      <IconButton aria-label={label} variant="outlined">
+        <span>×</span>
+      </IconButton>,
+    );
+    const button = screen.getByRole("button", { name: label });
+    const rules = cssRulesMatching(`.${emotionClassOf(button)}`);
+
+    expect(declaredValue(rules, "width")).toBe("40px");
+    expect(declaredValue(rules, "height")).toBe("40px");
+    expect(declaredValue(rules, "border")).toMatch(/^1px solid /);
+    // `variant` 是本包裝層自己的 prop,不可以漏到 DOM
+    expect(button).not.toHaveAttribute("variant");
+  });
+
+  it("variant=outlined 的邊長跟著 size 走(small 32)", () => {
+    render(
+      <IconButton aria-label={label} variant="outlined" size="small">
+        <span>×</span>
+      </IconButton>,
+    );
+    const rules = cssRulesMatching(
+      `.${emotionClassOf(screen.getByRole("button", { name: label }))}`,
+    );
+
+    expect(declaredValue(rules, "width")).toBe("32px");
+  });
+
+  it("預設(plain)沒有外框,維持 MUI 原本的圖示鈕", () => {
+    render(
+      <IconButton aria-label={label}>
+        <span>×</span>
+      </IconButton>,
+    );
+    const rules = cssRulesMatching(
+      `.${emotionClassOf(screen.getByRole("button", { name: label }))}`,
+    );
+
+    // MUI 自己的 IconButton 底樣式是 `border: 0`;我們沒有再加框,也沒有固定邊長
+    expect(declaredValue(rules, "border")).toBe("0");
+    expect(declaredValue(rules, "width")).toBeNull();
+  });
+
+  /**
    * #260:呼叫端常給 `sx={{ color: … }}`(AppBar 的「?」就是),
    * 那個值不可以把停用色蓋掉 —— 停用的圖示鈕必須看得出來是灰的。
    */
