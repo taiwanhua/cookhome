@@ -32,6 +32,11 @@ input CreateDemoItemOneInput {
   status: DemoItemOneStatus
 }
 
+input CreateDemoItemTwoInput {
+  name: String!
+  note: String
+}
+
 input CreateFieldInput {
   categoryId: ID!
   description: String
@@ -172,6 +177,15 @@ type DeleteDemoItemOnePayload {
   success: Boolean!
 }
 
+input DeleteDemoItemTwoInput {
+  id: ID!
+}
+
+type DeleteDemoItemTwoPayload {
+  deletedId: ID!
+  success: Boolean!
+}
+
 input DeleteOrgInput {
   id: ID!
 }
@@ -244,6 +258,31 @@ type DemoItemOneUserRef {
   name: String!
 }
 
+type DemoItemTwo {
+  abilities: DemoItemTwoAbilities!
+  createdAt: DateTime!
+  createdBy: DemoItemTwoUser
+  enabled: Boolean!
+  id: ID!
+  name: String!
+  note: String
+  updatedAt: DateTime!
+}
+
+type DemoItemTwoAbilities {
+  canDelete: Boolean!
+  canEdit: Boolean!
+}
+
+type DemoItemTwoPayload {
+  item: DemoItemTwo!
+}
+
+type DemoItemTwoUser {
+  id: ID!
+  name: String!
+}
+
 input DemoItemsOneInput {
   category: String
   enabled: Boolean
@@ -256,6 +295,22 @@ input DemoItemsOneInput {
 
 type DemoItemsOnePayload {
   items: [DemoItemOne!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
+}
+
+input DemoItemsTwoInput {
+  enabled: Boolean
+  keyword: String
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
+type DemoItemsTwoPayload {
+  items: [DemoItemTwo!]!
   page: Int!
   pageSize: Int!
   totalCount: Int!
@@ -414,12 +469,14 @@ type Mutation {
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
   createDemoItemOne(input: CreateDemoItemOneInput!): DemoItemOnePayload!
+  createDemoItemTwo(input: CreateDemoItemTwoInput!): DemoItemTwoPayload!
   createField(input: CreateFieldInput!): FieldPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   createRole(input: CreateRoleInput!): RolePayload!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   createUser(input: CreateUserInput!): UserPayload!
   deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeleteDemoItemOnePayload!
+  deleteDemoItemTwo(input: DeleteDemoItemTwoInput!): DeleteDemoItemTwoPayload!
   deleteOrg(input: DeleteOrgInput!): DeletePayload!
   deleteRole(input: DeleteRoleInput!): DeletePayload!
   grantRoleUsers(input: GrantRoleUsersInput!): RoleUsersPayload!
@@ -434,6 +491,7 @@ type Mutation {
   saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!
   saveRoleMatrix(input: SaveRoleMatrixInput!): RoleMatrixPayload!
   setDemoItemOneEnabled(input: SetDemoItemOneEnabledInput!): DemoItemOnePayload!
+  setDemoItemTwoEnabled(input: SetDemoItemTwoEnabledInput!): DemoItemTwoPayload!
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setModuleIcon(input: SetModuleIconInput!): ModuleAdminPayload!
@@ -447,6 +505,7 @@ type Mutation {
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
   transferOrgOwner(input: TransferOrgOwnerInput!): OrgPayload!
   updateDemoItemOne(input: UpdateDemoItemOneInput!): DemoItemOnePayload!
+  updateDemoItemTwo(input: UpdateDemoItemTwoInput!): DemoItemTwoPayload!
   updateField(input: UpdateFieldInput!): FieldPayload!
   updateOrg(input: UpdateOrgInput!): OrgPayload!
   updateRole(input: UpdateRoleInput!): RolePayload!
@@ -518,7 +577,9 @@ type Query {
   dataScopeTargets: DataScopeTargetsPayload!
   demoItemOne(id: ID!): DemoItemOnePayload!
   demoItemOneHistory(id: ID!): DemoItemOneHistoryPayload!
+  demoItemTwo(id: ID!): DemoItemTwoPayload!
   demoItemsOne(input: DemoItemsOneInput!): DemoItemsOnePayload!
+  demoItemsTwo(input: DemoItemsTwoInput!): DemoItemsTwoPayload!
   fieldCategories: FieldCategoriesPayload!
   fields(categoryId: ID!): FieldsPayload!
   me: Me!
@@ -742,6 +803,11 @@ input SetDemoItemOneEnabledInput {
   id: ID!
 }
 
+input SetDemoItemTwoEnabledInput {
+  enabled: Boolean!
+  id: ID!
+}
+
 input SetFieldEnabledInput {
   enabled: Boolean!
   id: ID!
@@ -840,6 +906,12 @@ input UpdateDemoItemOneInput {
   name: String
   note: String
   status: DemoItemOneStatus
+}
+
+input UpdateDemoItemTwoInput {
+  id: ID!
+  name: String
+  note: String
 }
 
 input UpdateFieldInput {

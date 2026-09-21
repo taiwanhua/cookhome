@@ -129,6 +129,26 @@ export abstract class StorageService {
     return this.publicUrl(path);
   }
 
+  /**
+   * 刪掉一個存在資料欄位裡的物件(#161:換商標後清掉舊物件)。
+   * 與 `readUrlOf` 同一道把關:沒有路徑、或路徑不是本 API 簽出來的一律**不刪**並回 false,
+   * 不讓呼叫端刪到任意 bucket 物件;真的交給 adapter 刪才回 true。
+   * **供應商端的失敗原樣往外拋** — 要不要因此擋住主流程由呼叫端決定
+   * (`updateOrg` 只記 warn:清不掉只是留一個孤兒物件,不該讓使用者的編輯失敗)。
+   */
+  async deleteObject(objectPath: string | null | undefined): Promise<boolean> {
+    const path = nonEmptyPath(objectPath);
+    if (path === undefined) {
+      return false;
+    }
+    if (!isOwnedUploadPath(path)) {
+      this.logger.warn(`物件路徑 ${path} 不是本 API 簽出來的,不刪`);
+      return false;
+    }
+    await this.removeObject(path);
+    return true;
+  }
+
   /** 簽一個只能以該 content type PUT 一次的上傳網址。 */
   protected abstract signUploadUrl(request: SignUploadRequest): Promise<string>;
 
@@ -140,6 +160,9 @@ export abstract class StorageService {
 
   /** 公開 bucket 上該物件的穩定 URL(不簽名)。 */
   protected abstract publicUrl(objectPath: string): string;
+
+  /** 把物件從 bucket 刪掉(路徑已由 `deleteObject` 驗過歸屬)。 */
+  protected abstract removeObject(objectPath: string): Promise<void>;
 }
 
 /** 空字串 / 未設定視同沒有檔案(去空白後判斷)。 */

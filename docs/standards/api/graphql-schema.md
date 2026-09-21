@@ -106,6 +106,15 @@ type RecipeList {
 
 **重生指令**:`pnpm --filter @repo/api schema:generate`(`apps/api/scripts/generate-schema.ts`:起一次完整 AppModule 讓 GraphQLModule 寫檔,跑完自動退出;不必先啟 api、也不碰真資料庫)。改過 resolver / model / input 後跑一次,把產物一起進 commit。
 
+**api 改 schema 的票,兩個產物都要重產並進同一個 commit**(2026-09-22 / #160):`apps/api/schema.gql` 與 `packages/graphql/src/generated/index.ts` 是同一條產線的前後兩段,只跑前者會讓型別停在舊 schema。順序固定:
+
+```
+pnpm --filter @repo/api schema:generate
+pnpm --filter @repo/graphql generate
+```
+
+在此之前只有 admin 票會跑第二個指令,api-only 的票(#64、#137)改了 schema 卻沒重產,型別要等下一張 admin 票才更新。CI 的 verify job 現在有一步 `codegen 產物與 schema 一致(GQL-05)`,在 `@repo/api` 或 `@repo/graphql` 受影響時重跑這兩個指令再 `git diff --exit-code`,落後就紅。
+
 ## GQL-06 可選輸入欄位的「缺席」與 `null` 若語意不同,必須寫在模組文件的 api 介面段
 
 `updateOrg` 的 `logoPath`:缺席 = 不動、`null` = 清空。這個差異沒寫在任何地方,前端就一律送欄位,結果只改名稱會把商標清掉(#186)。規則:凡可選輸入欄位有「缺席 / null」語意差異,在 `docs/modules/<key>.md` 的「api 介面」節逐欄寫明;前端 mutation 的 input 只放使用者碰過的欄位。

@@ -11,10 +11,17 @@ export interface GcsSignedUrlOptions {
   contentType?: string;
 }
 
+/** 刪除物件的參數(只取 `@google-cloud/storage` 用到的那一個欄位)。 */
+export interface GcsDeleteOptions {
+  /** 物件已經不在時不算錯(重複刪、手動清過都當成功)。 */
+  ignoreNotFound?: boolean;
+}
+
 /** 只取 SDK 用到的那一角,單元測試以假 bucket 取代(不打真網路)。 */
 export interface GcsBucket {
   file(name: string): {
     getSignedUrl(options: GcsSignedUrlOptions): Promise<[string]>;
+    delete(options?: GcsDeleteOptions): Promise<unknown>;
   };
 }
 
@@ -89,6 +96,12 @@ export class GcsStorageService extends StorageService {
   protected override publicUrl(objectPath: string): string {
     const bucketName = this.config.publicBucket ?? this.config.privateBucket;
     return `${PUBLIC_URL_BASE}/${bucketName ?? ""}/${objectPath}`;
+  }
+
+  /** 刪除只對**私有** bucket(#161 的換商標清理);公開檔案目前沒有清理需求。 */
+  protected override async removeObject(objectPath: string): Promise<void> {
+    // ignoreNotFound:換圖的舊物件可能早就被清掉(重試、手動刪),不算失敗
+    await this.bucket.file(objectPath).delete({ ignoreNotFound: true });
   }
 }
 

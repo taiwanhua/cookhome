@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { Types } from "mongoose";
 
 import { AuditService } from "../audit/audit.service";
@@ -15,7 +15,7 @@ import {
   isOrgManaged,
 } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
-import { isOwnedUploadPath } from "../storage/storage.service";
+import { StorageService, isOwnedUploadPath } from "../storage/storage.service";
 import type { CreateChildOrgInput } from "./dto/create-child-org.input";
 import type { DeleteOrgInput } from "./dto/delete-org.input";
 import type { MoveOrgInput } from "./dto/move-org.input";
@@ -234,7 +234,10 @@ export class OrgsService {
     private readonly fields: FieldsRepository,
     private readonly roles: RolesRepository,
     private readonly protection: OwnerProtectionService,
+    private readonly storage: StorageService,
   ) {}
+
+  private readonly logger = new Logger(OrgsService.name);
 
   /**
    * **管理範圍**的組織樹(CONTEXT.md「管理範圍」;ADR-0005 的分工表)。
@@ -309,7 +312,33 @@ export class OrgsService {
       before: auditSideOf(changes, "previous"),
       after: auditSideOf(changes, "value"),
     });
+    await this.discardReplacedLogo(changes);
     return toOrg(updated ?? current);
+  }
+
+  /**
+   * 換商標 / 清空商標之後,把**舊的**物件刪掉(#161:換圖即刪舊;ADR-0010)。
+   *
+   * 只在更新已經成功之後做,而且**刪不掉只記 warn、不往外拋** — 清不掉的後果是 bucket 裡
+   * 留一個沒人引用的孤兒物件(幾百 KB),不該因此讓使用者的編輯失敗、更不該回滾已寫好的資料。
+   * `changes` 只會在新值與舊值真的不同時帶 `logoPath`,所以「送同一張圖」不會走到這裡;
+   * 舊值不是本 API 簽出來的路徑(歷史殘留 / 被塞進來的值)由 `deleteObject` 的
+   * `isOwnedUploadPath` 擋下,不會刪到任意物件。
+   */
+  private async discardReplacedLogo(changes: OrgFieldChange[]): Promise<void> {
+    const previous = changes.find(
+      (change) => change.path === "logoPath",
+    )?.previous;
+    if (previous === undefined) {
+      return;
+    }
+    try {
+      await this.storage.deleteObject(previous);
+    } catch (error) {
+      this.logger.warn(
+        `舊商標 ${previous} 刪除失敗,bucket 會留下孤兒物件:${String(error)}`,
+      );
+    }
   }
 
   /**

@@ -19,6 +19,8 @@ export interface RecordedSignature {
  */
 export class RecordingStorageService extends StorageService {
   readonly signed: RecordedSignature[] = [];
+  /** 被刪掉的物件路徑(#161 的換圖清理;沒有真的 bucket,只記下來供測試斷言)。 */
+  readonly deleted: string[] = [];
 
   protected override signUploadUrl({
     objectPath,
@@ -49,6 +51,12 @@ export class RecordingStorageService extends StorageService {
   /** 公開檔案的穩定網址;一樣一眼看得出是假的,但形狀與 GCS adapter 相同(不帶簽名參數)。 */
   protected override publicUrl(objectPath: string): string {
     return `https://recording.storage.invalid/public/${objectPath}`;
+  }
+
+  protected override removeObject(objectPath: string): Promise<void> {
+    this.deleted.push(objectPath);
+    this.logger.log(`[記錄用 adapter,未真的刪除] delete ${objectPath}`);
+    return Promise.resolve();
   }
 
   private record(signature: Omit<RecordedSignature, "url">): string {
