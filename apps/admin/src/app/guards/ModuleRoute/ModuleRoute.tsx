@@ -8,6 +8,7 @@ import {
   enterableRouteMap,
   findNavNode,
   firstLinkRoute,
+  matchModuleRoute,
   normalizePathname,
 } from "@/lib/module-tree";
 
@@ -25,7 +26,8 @@ export interface ModuleRouteProps {
 
 /**
  * 模組路由(ADR-0011「路由與導向規則」):
- * - 網址在「可進入路由集合」內 → 該模組的頁面(登記過的元件,否則佔位頁)
+ * - 網址在「可進入路由集合」內 → 該模組的頁面(登記過的元件,否則佔位頁);
+ *   隱藏頁多一段識別碼(`/…/view-page/<id>`)也算命中,那一段以 `routeParam` 傳給頁面(`matchModuleRoute`)
  * - `/` 或群組路由 → 轉到側欄(該群組)第一個能進的 link;一個都沒有 → 無權限頁
  * - 其餘 → 無權限頁(明確提示是權限問題,不是壞掉)
  */
@@ -43,10 +45,10 @@ export const ModuleRoute = ({ pages }: ModuleRouteProps) => {
   }
 
   const path = normalizePathname(pathname);
-  const module = routes.get(path);
-  if (module !== undefined) {
-    const Page = pages[module.key] ?? ModulePage;
-    return <Page module={module} />;
+  const matched = matchModuleRoute(routes, path);
+  if (matched !== undefined) {
+    const Page = pages[matched.module.key] ?? ModulePage;
+    return <Page module={matched.module} routeParam={matched.param} />;
   }
 
   const scope = path === "/" ? tree : findNavNode(tree, path)?.children;

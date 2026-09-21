@@ -1,4 +1,8 @@
 import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
+import { SampleOneFormPage } from "../pages/demo/SampleOneFormPage/SampleOneFormPage";
+import { SampleOnePage } from "../pages/demo/SampleOnePage/SampleOnePage";
+import { SampleOneViewPage } from "../pages/demo/SampleOneViewPage/SampleOneViewPage";
+import { SAMPLE_ONE_MODULE_KEYS } from "../pages/demo/demo-sample-one-config";
 import { DataScopePage } from "../pages/system/DataScopePage/DataScopePage";
 import { DATA_SCOPE_MODULE_KEY } from "../pages/system/DataScopePage/data-scope-permissions";
 import { FieldManagerPage } from "../pages/system/FieldManagerPage/FieldManagerPage";
@@ -22,6 +26,11 @@ export const OVERVIEW_MODULE_KEY = "overview";
  */
 export const modulePages: ModulePageRegistry = {
   [OVERVIEW_MODULE_KEY]: OverviewPage,
+  // 示範模組1 四個 key = 四頁(#320);新增與編輯是**同一個共版型元件**,情境由 `module.key` 判斷
+  [SAMPLE_ONE_MODULE_KEYS.list]: SampleOnePage,
+  [SAMPLE_ONE_MODULE_KEYS.viewPage]: SampleOneViewPage,
+  [SAMPLE_ONE_MODULE_KEYS.createPage]: SampleOneFormPage,
+  [SAMPLE_ONE_MODULE_KEYS.editPage]: SampleOneFormPage,
   [ORG_MANAGER_MODULE_KEY]: OrgManagerPage,
   [MODULE_MANAGER_MODULE_KEY]: ModuleManagerPage,
   [FIELD_MANAGER_MODULE_KEY]: FieldManagerPage,
