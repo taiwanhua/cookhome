@@ -4,6 +4,7 @@ import { CurrentOperator } from "../auth/decorators";
 import type { OperatorContext } from "../database/operator-context";
 import { RequirePermission } from "../permission/require-permission.decorator";
 import { SetModuleEnabledInput } from "./dto/set-module-enabled.input";
+import { SetModuleIconInput } from "./dto/set-module-icon.input";
 import { SetPermissionEnabledInput } from "./dto/set-permission-enabled.input";
 import {
   ModuleAdminNode,
@@ -19,6 +20,11 @@ import { ModuleManagerService } from "./module-manager.service";
 const PERMISSIONS = {
   view: "system.module-manager.view",
   toggleEnabled: "system.module-manager.toggle-enabled",
+  /**
+   * 換側欄圖示是獨立權限(#288 裁決):它與停用 / 啟用的後果差太遠 ——
+   * 一個只改長相、一個會讓所有租戶少掉整塊功能,不該用同一把鑰匙。
+   */
+  setIcon: "system.module-manager.set-icon",
 } as const;
 
 /**
@@ -47,6 +53,19 @@ export class ModuleManagerResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<ModuleAdminPayload> {
     return { module: await this.service.setModuleEnabled(operator, input) };
+  }
+
+  /**
+   * 模組的側欄圖示:白名單外的 key → `VALIDATION_FAILED`(`extensions.fields = ["icon"]`);
+   * `icon: null`(或不送)= 清回預設圖示。回這一枝的最新狀態,與 `setModuleEnabled` 同一個 payload。
+   */
+  @RequirePermission(PERMISSIONS.setIcon)
+  @Mutation(() => ModuleAdminPayload)
+  async setModuleIcon(
+    @Args("input") input: SetModuleIconInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<ModuleAdminPayload> {
+    return { module: await this.service.setModuleIcon(operator, input) };
   }
 
   /** 全域 kill switch:停用後連超級管理員也不再持有這筆權限(ADR-0011 步驟 4)。 */

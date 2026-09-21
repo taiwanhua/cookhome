@@ -229,6 +229,9 @@ importers:
       '@node-rs/argon2':
         specifier: ^2.2.1
         version: 2.2.1
+      '@repo/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       migrate-mongo:
         specifier: ^14.0.7
         version: 14.0.7(mongodb@7.5.0)

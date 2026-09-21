@@ -32,6 +32,7 @@
 ## 跨檔約定(語意正本不在 schema 的幾處)
 
 - **`fields` 的唯一索引是 `(categoryId, orgId, value)`**(`field.schema.ts`):全域種子那筆 `orgId = null`,所以「自訂選項與**同類別的全域選項**同 `value`」索引擋不到,由 service 的表單驗證擋(同回 `FIELD_VALUE_DUPLICATE`)。規則與種子內容的正本:`docs/modules/field-manager.md`。
+- **`modules` 執行期只有兩個可變欄位**(`module.schema.ts`):`enabled`(停用 / 啟用,連動子樹)與 `icon`(側欄圖示 key,#288)。兩者都是 ADR-0002 的**初始 seed 值的欄位** —— seed 只在建立時、或既有文件**沒有這一欄**時寫初值,有值就不覆蓋。`icon` 的白名單正本是 `@repo/domain/module-icon` 的 `MODULE_ICON_KEYS`(前後端共用,schema 刻意不寫成 mongoose `enum` 以免抄成第二份),`null` = 側欄用預設圖示;初值對照表與規則見 `docs/modules/module-manager.md`「側欄圖示」。
 - **`data_scope_rules.rules[]` 的形狀**(`audience` + `filter` 條件樹的節點種類、型別 → 運算子 → 值來源、`RULE_INVALID` 的 `path` / `reason`)正本在 `docs/modules/data-scope.md`,schema 只把 `filter` 存成自由 JSON;機制本體見 ADR-0008。
 
 ## 種子清單

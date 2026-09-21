@@ -260,7 +260,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(findSeedKeyViolations(seedRegistry)).toEqual([]);
   });
 
-  it("示範家族與六個治理模組依正本落地:個別權限 12 + 9 + 8 + 7 + 2 + 4 + 2 = 44 筆;全部 20 個模組各一筆 wildcard(共 64 筆)", () => {
+  it("示範家族與六個治理模組依正本落地:個別權限 12 + 9 + 8 + 7 + 3 + 4 + 2 = 45 筆;全部 20 個模組各一筆 wildcard(共 65 筆)", () => {
     const documentSets = seedRegistry.filter((set) => set.kind === "documents");
     const moduleKeys = documentSets
       .filter((set) => set.collection === "modules")
@@ -284,9 +284,9 @@ describe("seeds/registry.ts 靜態檢查", () => {
     ]);
 
     // 正本:示範家族兩份權限表(7 + 5)+ docs/modules/org-manager.md(9)、user-manager.md(8)、
-    // role-manager.md(7)、module-manager.md(2)、field-manager.md(4)、data-scope.md(2)
+    // role-manager.md(7)、module-manager.md(3)、field-manager.md(4)、data-scope.md(2)
     const individualKeys = permissionKeys.filter((key) => !key.endsWith(".*"));
-    expect(individualKeys).toHaveLength(44);
+    expect(individualKeys).toHaveLength(45);
     expect(new Set(individualKeys)).toEqual(
       new Set([
         "demo.sub.sample-one.view",
@@ -329,6 +329,8 @@ describe("seeds/registry.ts 靜態檢查", () => {
         // 模組與權限、資料範圍是根組織專屬(模組層 isRootOnly,租戶模板整個模組被扣除)
         "system.module-manager.view",
         "system.module-manager.toggle-enabled",
+        // #288:換側欄圖示是獨立權限(與停用 / 啟用的後果差太遠,不共用一把鑰匙)
+        "system.module-manager.set-icon",
         "system.field-manager.view",
         "system.field-manager.create",
         "system.field-manager.edit",
@@ -343,7 +345,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(new Set(permissionKeys.filter((key) => key.endsWith(".*")))).toEqual(
       new Set(moduleKeys.map((key) => `${key}.*`)),
     );
-    expect(permissionKeys).toHaveLength(64);
+    expect(permissionKeys).toHaveLength(65);
 
     // D1:治理模組 key 累加 system 群組前綴;tenant-ops 是組織管理底下的純權限容器
     expect(moduleKeys.filter((key) => key.startsWith("system"))).toEqual([

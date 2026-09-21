@@ -50,6 +50,7 @@ const MODULE_TREE = /* GraphQL */ `
     sidebarType
     order
     description
+    icon
     enabled
     permissions {
       id
@@ -81,6 +82,23 @@ const SET_MODULE_ENABLED = /* GraphQL */ `
   }
 `;
 
+const SET_MODULE_ICON = /* GraphQL */ `
+  mutation SetModuleIcon($input: SetModuleIconInput!) {
+    setModuleIcon(input: $input) {
+      module {
+        id
+        key
+        icon
+        enabled
+        children {
+          key
+          icon
+        }
+      }
+    }
+  }
+`;
+
 const SET_PERMISSION_ENABLED = /* GraphQL */ `
   mutation SetPermissionEnabled($input: SetPermissionEnabledInput!) {
     setPermissionEnabled(input: $input) {
@@ -99,6 +117,7 @@ const ME_MODULES = /* GraphQL */ `
     me {
       modules {
         key
+        icon
         permissions
       }
     }
@@ -125,6 +144,7 @@ interface ModuleAdminNode {
   sidebarType: string;
   order: number;
   description: string | null;
+  icon: string | null;
   enabled: boolean;
   permissions: PermissionAdmin[];
   children?: ModuleAdminNode[];
@@ -138,12 +158,18 @@ interface SetModuleEnabledData {
   setModuleEnabled: { module: ModuleAdminNode };
 }
 
+interface SetModuleIconData {
+  setModuleIcon: { module: ModuleAdminNode };
+}
+
 interface SetPermissionEnabledData {
   setPermissionEnabled: { permission: PermissionAdmin };
 }
 
 interface MeModulesData {
-  me: { modules: { key: string; permissions: string[] }[] };
+  me: {
+    modules: { key: string; icon: string | null; permissions: string[] }[];
+  };
 }
 
 const PASSWORD = ["test", "pass", "word"].join("-");
@@ -164,7 +190,7 @@ function byKey(nodes: ModuleAdminNode[], key: string): ModuleAdminNode {
   return found;
 }
 
-describe("模組與權限(#204:moduleTree / setModuleEnabled / setPermissionEnabled;根組織專屬,對真 Nest app + 真 MongoDB)", () => {
+describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleIcon / setPermissionEnabled;根組織專屬,對真 Nest app + 真 MongoDB)", () => {
   let api: AuthTestApp;
   let tenantId: Types.ObjectId;
   let rootToken: string;
@@ -228,7 +254,7 @@ describe("模組與權限(#204:moduleTree / setModuleEnabled / setPermissionEnab
 
   async function meModules(
     accessToken: string,
-  ): Promise<{ key: string; permissions: string[] }[]> {
+  ): Promise<MeModulesData["me"]["modules"]> {
     const result = await api.graphql<MeModulesData>(
       ME_MODULES,
       {},
@@ -252,6 +278,17 @@ describe("模組與權限(#204:moduleTree / setModuleEnabled / setPermissionEnab
       throw new Error(`測試資料庫沒有模組 ${key}`);
     }
     return module.enabled;
+  }
+
+  /** 圖示的資料庫最終狀態;`undefined` 代表欄位不存在(與「值為 null」不同,seed 補值靠這個差別)。 */
+  async function storedIcon(key: string): Promise<string | null | undefined> {
+    const module = await api.connection
+      .collection("modules")
+      .findOne<{ icon?: string | null }>({ key });
+    if (!module) {
+      throw new Error(`測試資料庫沒有模組 ${key}`);
+    }
+    return module.icon;
   }
 
   async function auditActions(action: string): Promise<
@@ -280,6 +317,19 @@ describe("模組與權限(#204:moduleTree / setModuleEnabled / setPermissionEnab
     return api.graphql<SetModuleEnabledData>(
       SET_MODULE_ENABLED,
       { input: { id, enabled } },
+      { accessToken },
+    );
+  }
+
+  async function setModuleIcon(
+    key: string,
+    icon: string | null,
+    accessToken = rootToken,
+  ) {
+    const id = String(await findModuleIdByKey(api.connection, key));
+    return api.graphql<SetModuleIconData>(
+      SET_MODULE_ICON,
+      { input: { id, icon } },
       { accessToken },
     );
   }
@@ -339,10 +389,11 @@ describe("模組與權限(#204:moduleTree / setModuleEnabled / setPermissionEnab
       const moduleManager = byKey(tree, MODULE_MANAGER);
       expect(moduleManager.permissions.map((one) => one.key)).toEqual([
         `${MODULE_MANAGER}.*`,
+        `${MODULE_MANAGER}.set-icon`,
         `${MODULE_MANAGER}.toggle-enabled`,
         `${MODULE_MANAGER}.view`,
       ]);
-      expect(moduleManager.permissions[1]).toMatchObject({
+      expect(moduleManager.permissions[2]).toMatchObject({
         key: `${MODULE_MANAGER}.toggle-enabled`,
         name: "停用 / 啟用",
         enabled: true,
@@ -444,6 +495,102 @@ describe("模組與權限(#204:moduleTree / setModuleEnabled / setPermissionEnab
     });
   });
 
+  describe("setModuleIcon:側欄圖示(#288,根組織專屬)", () => {
+    it("seed 給的初值進得了樹與 me.modules;隱藏頁沒給 → null(用預設圖示)", async () => {
+      const tree = await fetchTree();
+
+      // 初值正本:apps/db-migrator/seeds/modules/*.ts(對照表見 docs/modules/module-manager.md)
+      expect(byKey(tree, "overview").icon).toBe("dashboard");
+      expect(byKey(tree, "system").icon).toBe("settings");
+      expect(byKey(tree, MODULE_MANAGER).icon).toBe("apps");
+      expect(byKey(tree, "api").icon).toBe("tune");
+      expect(byKey(tree, `${SAMPLE_TWO}.view-page`).icon).toBeNull();
+    });
+
+    it("改成白名單內的 key:回傳、資料庫與持有者的 me.modules 都換成新值;再送 null 清回預設", async () => {
+      const holder = await tenantUser({
+        moduleKeys: ["demo", SAMPLE_TWO],
+        permissionKeys: [`${SAMPLE_TWO}.view`],
+      });
+
+      const changed = await setModuleIcon(SAMPLE_TWO, "star");
+      expect(changed.errors).toBeUndefined();
+      expect(changed.data?.setModuleIcon.module).toMatchObject({
+        key: SAMPLE_TWO,
+        icon: "star",
+      });
+      expect(await storedIcon(SAMPLE_TWO)).toBe("star");
+      const holderModules = await meModules(holder);
+      expect(holderModules.find((one) => one.key === SAMPLE_TWO)?.icon).toBe(
+        "star",
+      );
+
+      const cleared = await setModuleIcon(SAMPLE_TWO, null);
+      expect(cleared.errors).toBeUndefined();
+      expect(cleared.data?.setModuleIcon.module.icon).toBeNull();
+      // 清空寫的是 null 而不是 $unset:欄位留著才算「人改過的值」,seed 重跑不會補回初值
+      expect(await storedIcon(SAMPLE_TWO)).toBeNull();
+
+      await setModuleIcon(SAMPLE_TWO, "list");
+    });
+
+    it('白名單外的 key → VALIDATION_FAILED(fields: ["icon"]),資料不動', async () => {
+      const before = await storedIcon(SAMPLE_ONE);
+
+      const result = await setModuleIcon(SAMPLE_ONE, "not-a-real-icon");
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "VALIDATION_FAILED",
+        fields: ["icon"],
+      });
+      expect(await storedIcon(SAMPLE_ONE)).toBe(before);
+    });
+
+    it("不自鎖:模組與權限這一頁自己也換得了圖示(換圖示不會讓人進不來)", async () => {
+      const result = await setModuleIcon(MODULE_MANAGER, "category");
+      expect(result.errors).toBeUndefined();
+      expect(await storedIcon(MODULE_MANAGER)).toBe("category");
+
+      await setModuleIcon(MODULE_MANAGER, "apps");
+    });
+
+    it("租戶的操作者即使持有 set-icon 也一律 FORBIDDEN;不存在的 id → NOT_FOUND", async () => {
+      const tenantToken = await tenantUser({
+        moduleKeys: ["system", MODULE_MANAGER],
+        permissionKeys: [`${MODULE_MANAGER}.*`],
+      });
+
+      const forbidden = await setModuleIcon(SAMPLE_TWO, "star", tenantToken);
+      expect(forbidden.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+
+      const notFound = await api.graphql(
+        SET_MODULE_ICON,
+        { input: { id: "ffffffffffffffffffffffff", icon: "star" } },
+        { accessToken: rootToken },
+      );
+      expect(notFound.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+    });
+
+    it("寫一筆 module.set-icon 審計(targetType: module),before / after 都帶 key 與 icon", async () => {
+      await setModuleIcon(SAMPLE_ONE, "inventory");
+      await setModuleIcon(SAMPLE_ONE, "grid");
+
+      const records = await auditActions("module.set-icon");
+      const forSampleOne = records.filter(
+        (record) => record.before?.key === SAMPLE_ONE,
+      );
+      expect(forSampleOne).toHaveLength(2);
+      expect(forSampleOne[0]).toMatchObject({
+        targetType: "module",
+        before: { key: SAMPLE_ONE, icon: "grid" },
+        after: { key: SAMPLE_ONE, icon: "inventory" },
+      });
+      expect(forSampleOne[1]?.after).toMatchObject({
+        key: SAMPLE_ONE,
+        icon: "grid",
+      });
+    });
+  });
+
   describe("setPermissionEnabled:全域 kill switch", () => {
     it("停用一筆權限後持有者不再持有,連超級管理員(root)也不給;重新啟用即回來", async () => {
       const holder = await tenantUser({
@@ -493,7 +640,7 @@ describe("模組與權限(#204:moduleTree / setModuleEnabled / setPermissionEnab
   });
 
   describe("根組織專屬:站在哪裡才是判準", () => {
-    it("租戶的操作者即使持有 system.module-manager 的全部權限,三個端點一律 FORBIDDEN", async () => {
+    it("租戶的操作者即使持有 system.module-manager 的全部權限,查詢與兩個切換一律 FORBIDDEN(setModuleIcon 見上一節)", async () => {
       const tenantToken = await tenantUser({
         moduleKeys: ["system", MODULE_MANAGER],
         permissionKeys: [`${MODULE_MANAGER}.*`],

@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import type { Types } from "mongoose";
 
+import { MODULE_ICON_KEYS } from "@repo/domain/module-icon";
+
 import {
   type AuthTestApp,
   ROOT_ADMIN,
@@ -49,6 +51,7 @@ const ME_MODULES = /* GraphQL */ `
         sidebarType
         order
         route
+        icon
         permissions
       }
     }
@@ -67,6 +70,7 @@ interface MeModule {
   sidebarType: string;
   order: number;
   route: string | null;
+  icon: string | null;
   permissions: string[];
 }
 
@@ -381,6 +385,7 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
         "system.module-manager.*",
         "system.module-manager.view",
         "system.module-manager.toggle-enabled",
+        "system.module-manager.set-icon",
       ]);
       expectSameMembers(byKey(modules, "system.data-scope").permissions, [
         "system.data-scope.*",
@@ -440,6 +445,30 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
       expect(byKey(modules, "system.org-manager").permissions).toContain(
         "system.org-manager.set-visibility",
       );
+    });
+  });
+
+  describe("me.modules:icon 為側欄圖示 key(#288)", () => {
+    it("seed 給初值的節點回白名單 key、沒給的隱藏頁回 null;值都在 MODULE_ICON_KEYS 內", async () => {
+      const login = await api.graphql<LoginData>(LOGIN, {
+        input: { account: ROOT_ADMIN.account, password: ROOT_ADMIN.password },
+      });
+      const modules = await fetchModules(login.data?.login.accessToken ?? "");
+
+      // 初值正本:apps/db-migrator/seeds/modules/*.ts(對照表見 docs/modules/module-manager.md)
+      expect(byKey(modules, "overview").icon).toBe("dashboard");
+      expect(byKey(modules, "system").icon).toBe("settings");
+      expect(byKey(modules, "system.module-manager").icon).toBe("apps");
+      expect(byKey(modules, SAMPLE_ONE).icon).toBe("grid");
+      // 隱藏頁 seed 不給圖示 → null = 側欄用預設圖示
+      expect(byKey(modules, `${SAMPLE_ONE}.edit-page`).icon).toBeNull();
+
+      // 白名單是前後端共用的那一份,不是各寫一份字串
+      for (const module of modules) {
+        if (module.icon !== null) {
+          expect(MODULE_ICON_KEYS).toContain(module.icon);
+        }
+      }
     });
   });
 

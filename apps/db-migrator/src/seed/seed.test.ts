@@ -648,16 +648,16 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     ]);
   }, 120_000);
 
-  it("示範家族 12 筆 + 組織管理 9 筆(7 + 租戶作業 2)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 2 筆 + 欄位管理 4 筆 + 資料範圍 2 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 64 筆", async () => {
+  it("示範家族 12 筆 + 組織管理 9 筆(7 + 租戶作業 2)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 3 筆 + 欄位管理 4 筆 + 資料範圍 2 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 65 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     const firstRun = runSeedCommand(databaseUri);
     expect(firstRun.status).toBe(0);
-    expect(firstRun.stdout).toContain("permissions:新增 64 / 更新 0 / 未變 0");
+    expect(firstRun.stdout).toContain("permissions:新增 65 / 更新 0 / 未變 0");
     // 冪等:重跑 0 新增 / 0 更新 / 全部未變
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.status).toBe(0);
-    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 64");
+    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 65");
 
     const { modules, permissions } = await readSeededDocuments(databaseUri);
     const moduleIdOf = (key: string): string | undefined =>
@@ -709,9 +709,10 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "system.role-manager.assign-users": "system.role-manager",
       "system.role-manager.toggle-enabled": "system.role-manager",
       "system.role-manager.delete": "system.role-manager",
-      // 正本:docs/modules/module-manager.md 權限表(2;根組織專屬模組)
+      // 正本:docs/modules/module-manager.md 權限表(3;根組織專屬模組)
       "system.module-manager.view": "system.module-manager",
       "system.module-manager.toggle-enabled": "system.module-manager",
+      "system.module-manager.set-icon": "system.module-manager",
       // 正本:docs/modules/field-manager.md 權限表(4)
       "system.field-manager.view": "system.field-manager",
       "system.field-manager.create": "system.field-manager",
@@ -727,7 +728,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       expectedOwners[`${String(module.key)}.*`] = String(module.key);
     }
     expect(modules).toHaveLength(20);
-    expect(permissions).toHaveLength(64);
+    expect(permissions).toHaveLength(65);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
       expect(permission).toMatchObject({ isSystem: true, enabled: true });
@@ -784,6 +785,49 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     );
     // 其他模組不受影響
     expect(modules.find((module) => module.key === "demo")?.enabled).toBe(true);
+  }, 120_000);
+
+  it("icon 初值依正本落庫;人在系統內改過(含清成 null)重跑不被覆蓋,欄位缺漏才補初值(#288)", async () => {
+    const databaseUri = createTestDatabaseUri("module-icon");
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+
+    const seeded = await readSeededDocuments(databaseUri);
+    const iconOf = (key: string): unknown =>
+      seeded.modules.find((module) => module.key === key)?.icon;
+    // 初值正本:apps/db-migrator/seeds/modules/*.ts(對照表見 docs/modules/module-manager.md)
+    expect(iconOf("overview")).toBe("dashboard");
+    expect(iconOf("system")).toBe("settings");
+    expect(iconOf("system.org-manager")).toBe("business");
+    expect(iconOf("system.org-manager.tenant-ops")).toBe("key");
+    expect(iconOf("api")).toBe("tune");
+    // 沒宣告圖示的隱藏頁落庫為 null(欄位在、值為 null = 側欄用預設圖示)
+    expect(iconOf("demo.sample-two.view-page")).toBeNull();
+
+    await withDatabase(databaseUri, async (database) => {
+      // 人改過:一筆換成別的 key、一筆清成 null(setModuleIcon 寫的就是 null,不是 $unset)
+      await database
+        .collection("modules")
+        .updateOne({ key: "overview" }, { $set: { icon: "home" } });
+      await database
+        .collection("modules")
+        .updateOne({ key: "system" }, { $set: { icon: null } });
+      // 舊環境的文件根本沒有這一欄(#288 之前種下的資料):重跑要補初值,否則新功能等於沒上線
+      await database
+        .collection("modules")
+        .updateOne({ key: "api" }, { $unset: { icon: "" } });
+    });
+
+    const secondRun = runSeedCommand(databaseUri);
+    expect(secondRun.stderr).toBe("");
+    expect(secondRun.status).toBe(0);
+
+    const after = await readSeededDocuments(databaseUri);
+    const afterIconOf = (key: string): unknown =>
+      after.modules.find((module) => module.key === key)?.icon;
+    expect(afterIconOf("overview")).toBe("home");
+    expect(afterIconOf("system")).toBeNull();
+    expect(afterIconOf("api")).toBe("tune");
   }, 120_000);
 
   it("初始 seed 值的欄位改了不算變更,每次都 seed 的欄位改了仍同步(以夾具 registry 驗證)", async () => {

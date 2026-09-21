@@ -14,6 +14,7 @@ export const apiModules: ModuleSeedDeclaration = {
       sidebarType: "hidden",
       parentKey: null,
       order: 99,
+      icon: "tune",
       description: "無對應頁面的純 API 權限掛此樹(ADR-0004)",
     },
   ],

@@ -31,6 +31,7 @@ export const systemModules: ModuleSeedDeclaration = {
       parentKey: null,
       order: 1,
       route: "system",
+      icon: "settings",
       description:
         "治理模組群組:組織、使用者、角色、模組與權限、欄位管理、資料範圍",
     },
@@ -41,6 +42,7 @@ export const systemModules: ModuleSeedDeclaration = {
       parentKey: SYSTEM_GROUP_KEY,
       order: 1,
       route: "org-manager",
+      icon: "business",
     },
     {
       // 純權限容器:不在側欄、沒有路由(彈窗仍開在組織管理頁上),
@@ -51,6 +53,7 @@ export const systemModules: ModuleSeedDeclaration = {
       parentKey: ORG_MANAGER_KEY,
       order: 1,
       isRootOnly: true,
+      icon: "key",
       description:
         "根組織專屬動作的權限容器:開通租戶、轉移擁有者、設定可見範圍(無路由、不在側欄)",
     },
@@ -61,6 +64,7 @@ export const systemModules: ModuleSeedDeclaration = {
       parentKey: SYSTEM_GROUP_KEY,
       order: 2,
       route: "user-manager",
+      icon: "people",
     },
     {
       key: ROLE_MANAGER_KEY,
@@ -69,6 +73,7 @@ export const systemModules: ModuleSeedDeclaration = {
       parentKey: SYSTEM_GROUP_KEY,
       order: 3,
       route: "role-manager",
+      icon: "shield",
     },
     {
       key: MODULE_MANAGER_KEY,
@@ -77,6 +82,7 @@ export const systemModules: ModuleSeedDeclaration = {
       parentKey: SYSTEM_GROUP_KEY,
       order: 4,
       route: "module-manager",
+      icon: "apps",
       // 根組織專屬,租戶不可見(docs/modules/module-manager.md;ADR-0009)
       isRootOnly: true,
     },
@@ -87,6 +93,7 @@ export const systemModules: ModuleSeedDeclaration = {
       parentKey: SYSTEM_GROUP_KEY,
       order: 5,
       route: "field-manager",
+      icon: "label",
     },
     {
       key: DATA_SCOPE_KEY,
@@ -95,6 +102,7 @@ export const systemModules: ModuleSeedDeclaration = {
       parentKey: SYSTEM_GROUP_KEY,
       order: 6,
       route: "data-scope",
+      icon: "filter",
       // 根組織專屬,租戶不可見(docs/modules/data-scope.md;ADR-0008)
       isRootOnly: true,
     },
@@ -269,6 +277,13 @@ export const systemModules: ModuleSeedDeclaration = {
       name: "停用 / 啟用",
       description:
         "模組 / 權限的 enabled 切換 + API(停用父模組連動整棵子樹;停用權限 = 全域 kill switch)",
+    },
+    {
+      key: permissionKey(MODULE_MANAGER_KEY, "set-icon"),
+      moduleKey: MODULE_MANAGER_KEY,
+      name: "更換側欄圖示",
+      description:
+        "模組的側欄圖示選擇器 + API(白名單 key;清空回預設)。與停用 / 啟用分開:換圖示不影響任何人的權限",
     },
     // 欄位管理(docs/modules/field-manager.md 權限表)
     {
