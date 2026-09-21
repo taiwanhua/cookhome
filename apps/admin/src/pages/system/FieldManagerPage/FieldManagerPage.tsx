@@ -21,10 +21,11 @@ import { useFieldManagerData } from "./useFieldManagerData";
  * 欄位管理(模組 key `system.field-manager`,正本 `docs/modules/field-manager.md`;
  * Figma「Screen / Admin 欄位管理」90:2、新增選項 211:176)。
  *
- * 左欄是全域種子類別(唯讀),右欄是所選類別的**合併清單** = 全域種子 + 當前組織自訂。
- * 三條規則決定一列能做什麼:種子選項只能切 `enabled` 且那是全域開關(限根組織);
+ * 左欄是全域種子類別(唯讀),右欄是所選類別的**合併清單** = 全域種子 + 上層組織自訂
+ * + 本組織自訂 + 可見範圍內的下層自訂(#264 規則表,正本見上述模組文件)。
+ * 一列能做什麼由 api 逐列算好(`canEdit` / `canToggleEnabled`),前端只跟權限取交集;
  * 自訂選項可改 label / order / description,但 `value` 建立後不可改;選項一律不刪、只停用。
- * 判斷集中在 `field-source.ts`,表格與彈窗不自己解讀 `source`。
+ * 解讀集中在 `field-source.ts`,表格與彈窗不自己推組織關係。
  */
 export const FieldManagerPage = () => {
   const { session } = useSession();
@@ -88,8 +89,6 @@ export const FieldManagerPage = () => {
           category={data.selectedCategory}
           fields={data.fields}
           isLoading={data.isFieldsLoading}
-          currentOrgName={data.currentOrgName}
-          isRoot={data.isRoot}
           canCreate={data.canCreate}
           canEdit={data.canEdit}
           canToggleEnabled={data.canToggleEnabled}

@@ -67,6 +67,8 @@ type RecipeList {
 
 錯誤的 `message` 給開發者看(英文);給使用者的繁體中文文案由前端依 code 對應,不從 api 傳。
 
+**同一個 code 有多種說法時加 `extensions.reason`,不要新增 code**(2026-09-21 / #264 追加;先例 `RULE_INVALID` 的 `reason`、`ORG_NOT_DELETABLE` 的 `reasons`):通用碼(`FORBIDDEN` / `NOT_FOUND`)的語意全站一致,分歧的是「為什麼」。`reason` 的列舉值屬該模組,正本放模組自己的 error 檔(如 `apps/api/src/fields/fields-error.ts` 的 `FIELD_FORBIDDEN_REASONS`:`SEED_READ_ONLY` / `SEED_GLOBAL_SWITCH` / `NOT_OWNER`)並在模組文件的「錯誤」節逐項寫明,不進本表 — 本表只列 code。前端認不得的 `reason` 要能退回該 code 的通用文案。
+
 **多票並行時這張表的衝突解法**(2026-09-20 / 第 4 段四票各追加一列):每張票**只追加自己的列**,但
 追加一列會讓 prettier 重排整張表的欄寬(STRUCT-09),所以 diff 看起來整張表都動了。合併衝突時
 **保留兩邊的新列後重跑 `pnpm format`,不要照行比對**(照行比對必定弄丟其中一邊的欄寬或列)。

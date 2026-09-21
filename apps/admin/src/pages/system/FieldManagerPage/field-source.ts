@@ -1,42 +1,57 @@
-import { FieldSource } from "@repo/graphql";
-
 import type { FieldOptionLike } from "./field-manager-types";
 
 /**
- * 「來源」欄與種子判定集中在這裡(本票唯一一處讀 `Field.source` 的地方)。
+ * 「來源」欄與「這一列能做什麼」集中在這裡(本頁唯一一處解讀 `ownerOrg` / `isOwn` 的地方)。
  *
- * 目前的語意是「全域 + **當前組織**」兩分(`docs/modules/field-manager.md`「api 介面」)。
- * 可見範圍要不要改成「向下繼承」(看得到上層組織的自訂選項)尚未裁決 —— 真的改了,
- * 要動的只有這個檔:多一種來源、來源欄多一種文案,表格與彈窗不必改。
+ * 可見範圍的規則(全域 + 上層繼承 + 可見範圍內的下層;只能改自己這一層加的)由 **api** 算完,
+ * 逐列給 `canEdit` / `canToggleEnabled`(正本 `docs/modules/field-manager.md`「api 介面」);
+ * 前端只把它和「操作者有沒有這個權限」取交集,不自己推組織關係、也不推視角(#264 / #252)。
  */
 
-/** 種子選項(全域):`label` / `order` / `description` 唯讀,只有 `enabled` 能動。 */
-export const isSeedOption = (field: FieldOptionLike): boolean =>
-  field.source === FieldSource.Global;
+/** 加這筆的組織;`null` = 全域種子(codegen 的可空欄位會是 `undefined`,在此歸一)。 */
+const ownerOrgOf = (field: FieldOptionLike) => field.ownerOrg ?? null;
 
-/** 來源欄的文案 key 與 Tag 色調;`sourceOwn` 需要帶入當前組織名稱。 */
+/** 種子選項(全域):沒有擁有組織 —— `label` / `order` / `description` 唯讀。 */
+export const isSeedOption = (field: FieldOptionLike): boolean =>
+  ownerOrgOf(field) === null;
+
+/** 來源欄的文案 key、Tag 色調與組織名稱(`sourceOwn` 要帶組織名)。 */
 export interface FieldSourceView {
   labelKey: "sourceGlobal" | "sourceOwn";
   tone: "grey" | "primary";
+  /** 「<組織名稱> 自訂」的組織名;全域時為空字串。 */
+  org: string;
 }
 
-export const fieldSourceView = (field: FieldOptionLike): FieldSourceView =>
-  isSeedOption(field)
-    ? { labelKey: "sourceGlobal", tone: "grey" }
-    : { labelKey: "sourceOwn", tone: "primary" };
+/** 自己這一層加的才給主色 —— 上層 / 下層組織加的用灰色,和「改不動」的觀感一致。 */
+export const fieldSourceView = (field: FieldOptionLike): FieldSourceView => {
+  const owner = ownerOrgOf(field);
+  return owner === null
+    ? { labelKey: "sourceGlobal", tone: "grey", org: "" }
+    : {
+        labelKey: "sourceOwn",
+        tone: field.isOwn ? "primary" : "grey",
+        org: owner.name,
+      };
+};
 
-/**
- * 這一列的啟用開關能不能動:
- * 種子選項的 `enabled` 是**全域**開關(切下去全平台生效),api 限根組織操作者,
- * 租戶送出會吃 `FORBIDDEN` —— 所以非根視角下種子列唯讀,只有自訂選項可切。
- */
+/** 這一列的啟用開關能不能動 = 有權限 ∩ api 說這一筆可切。 */
 export const canToggleOption = (
   field: FieldOptionLike,
-  { canToggleEnabled, isRoot }: { canToggleEnabled: boolean; isRoot: boolean },
-): boolean => canToggleEnabled && (isRoot || !isSeedOption(field));
+  { canToggleEnabled }: { canToggleEnabled: boolean },
+): boolean => canToggleEnabled && field.canToggleEnabled;
 
-/** 這一列能不能編輯:自訂選項 + 有 `edit` 權限(種子選項連彈窗都不開)。 */
+/** 這一列能不能編輯 = 有權限 ∩ api 說這一筆可編輯(種子與別層組織的一律不可)。 */
 export const canEditOption = (
   field: FieldOptionLike,
   { canEdit }: { canEdit: boolean },
-): boolean => canEdit && !isSeedOption(field);
+): boolean => canEdit && field.canEdit;
+
+/**
+ * 這一列動不了是因為「別的組織在管它」時,回那個組織的名稱(提示文案用);
+ * 種子選項(由系統管理員維護)與自己加的回 null —— 那兩種各有自己的說法。
+ */
+export const managedByOrgOf = (field: FieldOptionLike): string | null => {
+  const owner = ownerOrgOf(field);
+  return owner !== null && !field.isOwn ? owner.name : null;
+};

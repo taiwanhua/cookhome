@@ -1,21 +1,4 @@
-import { Field, ID, Int, ObjectType, registerEnumType } from "@nestjs/graphql";
-
-/**
- * 一筆選項的來源(field-manager.md「UI 規格」的「來源」欄)。
- * 合併清單只含這兩種:全域種子(`orgId = null`)與**當前組織**自訂(`orgId = currentOrgId`);
- * 下層組織 / 其他組織的自訂選項不會出現在清單裡(ADR-0005)。
- */
-export enum FieldSource {
-  /** 全域種子(orgId = null,ADR-0002);只能切換 enabled。 */
-  GLOBAL = "GLOBAL",
-  /** 當前組織自訂(orgId = 當前組織);label / order / description 可編輯。 */
-  OWN = "OWN",
-}
-
-registerEnumType(FieldSource, {
-  name: "FieldSource",
-  description: "欄位選項的來源:全域種子 / 當前組織自訂(field-manager.md)",
-});
+import { Field, ID, Int, ObjectType } from "@nestjs/graphql";
 
 /** 欄位類別(全域種子,租戶不可自訂;新增類別走 code + PR)。 */
 @ObjectType("FieldCategory")
@@ -35,8 +18,25 @@ export class FieldCategoryModel {
 }
 
 /**
+ * 自訂選項的擁有組織(來源欄「<組織名稱> 自訂」的名稱來源)。
+ * 上層 / 下層組織加的選項也會出現在合併清單裡(#264),所以組織名稱由 api 給 ——
+ * 前端拿 session 的當前組織名組字串會把別的組織標成自己的。
+ */
+@ObjectType("FieldOwnerOrg")
+export class FieldOwnerOrgModel {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => String)
+  name!: string;
+}
+
+/**
  * 欄位選項(`system.field-manager` 的主要型別)。
  * `value` 建立後不可改(舊資料以它對照),所以 `updateField` 的 input 沒有這個欄位。
+ *
+ * 可見範圍與可操作性的規則正本:`docs/modules/field-manager.md`(#264 的規則表)。
+ * `ownerOrg` / `isOwn` / `canEdit` / `canToggleEnabled` 由 api 依操作者算好,前端只讀。
  */
 @ObjectType("Field")
 export class FieldModel {
@@ -62,7 +62,19 @@ export class FieldModel {
   @Field(() => String, { nullable: true })
   description!: string | null;
 
-  /** 來源:`GLOBAL` = 全域種子、`OWN` = 當前組織自訂。 */
-  @Field(() => FieldSource)
-  source!: FieldSource;
+  /** 加這筆的組織;`null` = 全域種子(`orgId = null`,ADR-0002)。 */
+  @Field(() => FieldOwnerOrgModel, { nullable: true })
+  ownerOrg!: FieldOwnerOrgModel | null;
+
+  /** 是不是**當前組織**這一層加的;上層 / 下層組織加的為 `false`。 */
+  @Field(() => Boolean)
+  isOwn!: boolean;
+
+  /** 能不能改 label / order / description:自訂選項且 `isOwn`(種子一律不可)。 */
+  @Field(() => Boolean)
+  canEdit!: boolean;
+
+  /** 能不能切 `enabled`:自訂選項看 `isOwn`;種子選項是全域開關,限根組織操作者。 */
+  @Field(() => Boolean)
+  canToggleEnabled!: boolean;
 }

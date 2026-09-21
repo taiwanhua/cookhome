@@ -198,13 +198,16 @@ export type DeleteRoleInput = {
 
 export type Field = {
   __typename?: 'Field';
+  canEdit: Scalars['Boolean']['output'];
+  canToggleEnabled: Scalars['Boolean']['output'];
   categoryId: Scalars['ID']['output'];
   description?: Maybe<Scalars['String']['output']>;
   enabled: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  isOwn: Scalars['Boolean']['output'];
   label: Scalars['String']['output'];
   order: Scalars['Int']['output'];
-  source: FieldSource;
+  ownerOrg?: Maybe<FieldOwnerOrg>;
   value: Scalars['String']['output'];
 };
 
@@ -222,16 +225,16 @@ export type FieldCategory = {
   name: Scalars['String']['output'];
 };
 
+export type FieldOwnerOrg = {
+  __typename?: 'FieldOwnerOrg';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
 export type FieldPayload = {
   __typename?: 'FieldPayload';
   field: Field;
 };
-
-/** 欄位選項的來源:全域種子 / 當前組織自訂(field-manager.md) */
-export enum FieldSource {
-  Global = 'GLOBAL',
-  Own = 'OWN'
-}
 
 export type FieldsPayload = {
   __typename?: 'FieldsPayload';
@@ -1130,7 +1133,7 @@ export type SaveDataScopeRuleMutationVariables = Exact<{
 
 export type SaveDataScopeRuleMutation = { __typename?: 'Mutation', saveDataScopeRule: { __typename?: 'SaveDataScopeRulePayload', rule: { __typename?: 'DataScopeRule', collection: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } } };
 
-export type FieldFieldsFragment = { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource };
+export type FieldFieldsFragment = { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null };
 
 export type FieldCategoriesQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -1142,28 +1145,28 @@ export type FieldsQueryVariables = Exact<{
 }>;
 
 
-export type FieldsQuery = { __typename?: 'Query', fields: { __typename?: 'FieldsPayload', totalCount: number, items: Array<{ __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource }> } };
+export type FieldsQuery = { __typename?: 'Query', fields: { __typename?: 'FieldsPayload', totalCount: number, items: Array<{ __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null }> } };
 
 export type CreateFieldMutationVariables = Exact<{
   input: CreateFieldInput;
 }>;
 
 
-export type CreateFieldMutation = { __typename?: 'Mutation', createField: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource } } };
+export type CreateFieldMutation = { __typename?: 'Mutation', createField: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null } } };
 
 export type UpdateFieldMutationVariables = Exact<{
   input: UpdateFieldInput;
 }>;
 
 
-export type UpdateFieldMutation = { __typename?: 'Mutation', updateField: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource } } };
+export type UpdateFieldMutation = { __typename?: 'Mutation', updateField: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null } } };
 
 export type SetFieldEnabledMutationVariables = Exact<{
   input: SetFieldEnabledInput;
 }>;
 
 
-export type SetFieldEnabledMutation = { __typename?: 'Mutation', setFieldEnabled: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, source: FieldSource } } };
+export type SetFieldEnabledMutation = { __typename?: 'Mutation', setFieldEnabled: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null } } };
 
 export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
 
@@ -1432,7 +1435,13 @@ export const FieldFieldsFragmentDoc = `
   order
   enabled
   description
-  source
+  ownerOrg {
+    id
+    name
+  }
+  isOwn
+  canEdit
+  canToggleEnabled
 }
     `;
 export const ModuleAdminNodeFieldsFragmentDoc = `

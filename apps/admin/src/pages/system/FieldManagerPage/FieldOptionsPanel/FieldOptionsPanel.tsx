@@ -16,8 +16,6 @@ export interface FieldOptionsPanelProps {
   category: FieldCategoryLike | null;
   fields: readonly FieldOptionLike[];
   isLoading: boolean;
-  currentOrgName: string;
-  isRoot: boolean;
   canCreate: boolean;
   canEdit: boolean;
   canToggleEnabled: boolean;
@@ -35,8 +33,6 @@ export const FieldOptionsPanel = ({
   category,
   fields,
   isLoading,
-  currentOrgName,
-  isRoot,
   canCreate,
   canEdit,
   canToggleEnabled,
@@ -53,11 +49,7 @@ export const FieldOptionsPanel = ({
       aria-label={t("region")}
       sx={{ flex: 1, minWidth: 0, minHeight: 0, p: 3, overflow: "auto" }}
     >
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: "center", pb: 1.5 }}
-      >
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", pb: 1.5 }}>
         <Typography variant="subtitle1" sx={{ flex: 1, minWidth: 0 }}>
           {category === null
             ? t("noCategory")
@@ -79,8 +71,6 @@ export const FieldOptionsPanel = ({
           <FieldOptionsTable
             fields={fields}
             isLoading={isLoading}
-            currentOrgName={currentOrgName}
-            isRoot={isRoot}
             canEdit={canEdit}
             canToggleEnabled={canToggleEnabled}
             pendingFieldId={pendingFieldId}
