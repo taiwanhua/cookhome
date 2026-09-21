@@ -128,3 +128,31 @@ input DemoItemsOneInput {
 ### 停用不套自鎖
 
 `setDemoItemOneEnabled` 不套 `SELF_LOCK`:停用一筆業務資料隨時可以再啟用回來,不會讓操作者失去繼續操作的能力(自鎖只守「關掉就再也開不回來」的寫入)。
+
+## admin 頁面(#320;程式正本 `apps/admin/src/pages/demo/`)
+
+四個模組 key = 四頁,`app/module-pages.tsx` 各登記一個元件;**新增與編輯是同一個共版型元件**,情境由 `module.key` 判斷。
+
+| 模組 key                          | 網址                                  | 元件                                      |
+| --------------------------------- | ------------------------------------- | ----------------------------------------- |
+| `demo.sub.sample-one`             | `/demo/sub/sample-one`                | `SampleOnePage/SampleOnePage.tsx`         |
+| `demo.sub.sample-one.view-page`   | `/demo/sub/sample-one/view-page/<id>` | `SampleOneViewPage/SampleOneViewPage.tsx` |
+| `demo.sub.sample-one.create-page` | `/demo/sub/sample-one/create-page`    | `SampleOneFormPage/SampleOneFormPage.tsx` |
+| `demo.sub.sample-one.edit-page`   | `/demo/sub/sample-one/edit-page/<id>` | 同上(共版型)                              |
+
+**設定集中在一份物件**:`pages/demo/demo-sample-one-config.ts` 放模組 key、權限 key、欄位定義、查詢 hooks、上傳規則與 i18n namespace;三頁只描述「怎麼畫」。換一個模組要動的就是這一份 —— 示範模組2(#321)與 module-scaffold 據此抽共版型。
+
+**路由尾端的識別碼**:詳情與編輯頁的模組路由本身不含 `<id>`(seed 的 route 是 `view-page` / `edit-page`),所以殼的路由防守多一條退路 —— 精準比對落空時,**只對 hidden 模組**再試一次「去掉最後一段」(`lib/module-tree.ts` 的 `matchModuleRoute`),解出來的那一段以 `routeParam` 傳給頁面。link 頁(列表)後面多接一段仍然是無權限頁;「可進 = 有那個模組路由」這條規則沒有放寬。
+
+**兩層判斷分開問**(ADR-0011):
+
+- **進得去哪一頁**看 `me.modules` 有沒有那個模組(`useSampleOneAccess`,路由字串也從模組陣列取,前端不寫死路徑)。沒綁詳情頁 → 列上沒有「檢視」;沒綁新增頁 → 即使有 `create` 權限也沒有新增鈕。
+- **頁內能做什麼**:整頁層級的問權限集(內部備註可見 / 可改、填寫提示、變更歷程);**逐列的編輯 / 刪除 / 內部備註可改一律讀 api 給的 `item.abilities`**,不與 `usePermissions` 相乘。
+
+**內部備註的三態**在表單上是 `hidden` / `readonly` / `editable`:沒有 `show-internal-note` 時**整欄不渲染**,而且 input 裡連這個鍵都不會出現(欄位一出現就要權限,送 `null` 也會被 `FIELD_FORBIDDEN` 擋)。
+
+**分類下拉的選項**來自 `fieldCategories` → `fields(categoryId)`,兩個端點都掛在 `system.field-manager.view` 底下。沒有那個權限時:列表不顯示分類篩選、表單的分類欄退成唯讀(保留原值並說明原因)。停用的選項不列入可選清單。
+
+**錯誤對應**:`VALIDATION_FAILED` 依 `extensions.fields` 標在對應欄位上(`name` / `category` / `coverPath` / `attachmentPath`),其餘(`FORBIDDEN` 含 `FIELD_FORBIDDEN`、`NOT_FOUND`)用一條 Alert 說明;解讀集中在 `pages/demo/demo-sample-one-error.ts`。
+
+**與設計稿的差異**(Figma 175:3 / 175:318 / 175:558 / 177:2314)見 PR #320 的差異表。

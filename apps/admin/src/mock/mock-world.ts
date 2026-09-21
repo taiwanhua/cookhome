@@ -7,6 +7,8 @@ import {
 import { authWorld } from "@/test/msw/auth-handlers";
 import { dataScopeTargets, savedRule } from "@/test/msw/data-scope-fixtures";
 import { dataScopeWorld } from "@/test/msw/data-scope-handlers";
+import { demoHistory, demoItems } from "@/test/msw/demo-fixtures";
+import { demoWorld } from "@/test/msw/demo-sample-one-handlers";
 import {
   currentOrg,
   fieldCategories,
@@ -143,5 +145,10 @@ export const mockHandlers = ({
       currentOrg,
       upperOrgIds: [upperOrg.id],
     }).handlers,
+    // 示範模組1 三頁(#320):`CreateUploadUrl` 讓給 orgWorld(共用端點,正本只留一份)
+    ...withoutOperations(
+      demoWorld({ items: demoItems, history: demoHistory }).handlers,
+      ["CreateUploadUrl"],
+    ),
   ];
 };

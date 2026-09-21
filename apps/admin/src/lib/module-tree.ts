@@ -11,6 +11,11 @@ export interface NavNode {
 /** 模組頁面元件的 props:`app/module-pages.tsx` 登記的頁面與佔位頁共用(放 lib 讓 pages 不必 import app,STRUCT-03)。 */
 export interface ModulePageProps {
   module: ShellModule;
+  /**
+   * 網址尾端的動態參數(詳情 / 編輯這類隱藏頁的 `/view-page/<id>` 的 id);
+   * 精準命中模組路由(列表頁、新增頁)時為 null。由 `matchModuleRoute` 解出來、`ModuleRoute` 傳進來。
+   */
+  routeParam?: string | null;
 }
 
 /** 同層排序:order → key(ADR-0011:陣列順序不可信,前端仍以 parentId 組樹後自行排序)。 */
@@ -113,4 +118,41 @@ export const enterableRouteMap = (
     }
   }
   return routes;
+};
+
+/** 網址對上的模組 + 尾端的動態參數。 */
+export interface MatchedModuleRoute {
+  module: ShellModule;
+  /** `/…/view-page/<id>` 的 id;精準命中模組路由時為 null */
+  param: string | null;
+}
+
+/**
+ * 網址 → 可進入路由集合裡的模組(ADR-0011「路由防守」的比對步驟)。
+ *
+ * 先精準比對;對不上時**只對隱藏頁**再試一次「去掉最後一段」——
+ * 詳情 / 編輯頁的模組路由本身不含識別碼(seed 的 route 是 `view-page` / `edit-page`),
+ * 但實際網址是 `/demo/sub/sample-one/view-page/<id>`(#320)。
+ *
+ * 退路限定 hidden 的理由:link(列表頁)後面多一段就是打錯網址,仍應被擋;
+ * 「可進 = 有那個模組路由」這條規則沒有放寬 —— 沒綁隱藏頁模組的人,父路徑查不到,一樣是無權限頁。
+ */
+export const matchModuleRoute = (
+  routes: ReadonlyMap<string, ShellModule>,
+  path: string,
+): MatchedModuleRoute | undefined => {
+  const exact = routes.get(path);
+  if (exact !== undefined) {
+    return { module: exact, param: null };
+  }
+  const lastSlash = path.lastIndexOf("/");
+  if (lastSlash <= 0) {
+    return undefined;
+  }
+  const param = path.slice(lastSlash + 1);
+  const parent = routes.get(path.slice(0, lastSlash));
+  if (param === "" || parent?.sidebarType !== ModuleSidebarType.Hidden) {
+    return undefined;
+  }
+  return { module: parent, param };
 };
