@@ -57,11 +57,13 @@ jobs:
           if [ "$all" = true ]; then
             echo "filter=" >> "$GITHUB_OUTPUT"
             echo "front=true" >> "$GITHUB_OUTPUT"
+            echo "codegen=true" >> "$GITHUB_OUTPUT"
             echo "::notice::受影響範圍:全部(base 不可用或 .github 有改)"
           else
             list=$(TURBO_SCM_BASE="$BASE" pnpm exec turbo ls --affected --output json | jq -r '.packages.items[].name' | tr '\n' ' ')
             echo "filter=--affected" >> "$GITHUB_OUTPUT"
             case " $list " in *" @repo/front "*) echo "front=true" >> "$GITHUB_OUTPUT" ;; *) echo "front=false" >> "$GITHUB_OUTPUT" ;; esac
+            case " $list " in *" @repo/api "*|*" @repo/graphql "*) echo "codegen=true" >> "$GITHUB_OUTPUT" ;; *) echo "codegen=false" >> "$GITHUB_OUTPUT" ;; esac
             echo "::notice::受影響的 package:${list:-(無)}"
           fi
           echo "TURBO_SCM_BASE=$BASE" >> "$GITHUB_ENV"
@@ -70,6 +72,22 @@ jobs:
       # 獨立一步在最前面 fail-fast。範圍是全 repo 的 md + ts/tsx/js/json/yaml(#195 起,STRUCT-09)
       - name: 格式檢查(prettier --check)
         run: pnpm run format:check
+
+      # GQL-05:`apps/api/schema.gql` 與 `packages/graphql/src/generated` 都是產物。
+      # api-only 的票改了 resolver 卻沒重產時,型別要等下一張 admin 票才更新,之前沒有任何一步抓得到(#160)。
+      # 只在 api 或 graphql 受影響時跑:這步要起一次完整 AppModule + 一台 mongod,不是免費的
+      #(mongod 二進位在 pnpm install 的 postinstall 就下載好了,見根 package.json 的 onlyBuiltDependencies)。
+      - name: codegen 產物與 schema 一致(GQL-05)
+        if: steps.affected.outputs.codegen == 'true'
+        run: |
+          # schema:generate 用 ts-node 直接載 api 原始碼,要先有 @repo/domain 的 dist 才解析得到 `@repo/domain/*`
+          pnpm exec turbo run build --filter=@repo/domain
+          pnpm --filter @repo/api schema:generate
+          pnpm --filter @repo/graphql generate
+          if ! git diff --exit-code -- apps/api/schema.gql packages/graphql/src/generated; then
+            echo "::error::api 改了 schema 但沒重產。請在本機跑 pnpm --filter @repo/api schema:generate 與 pnpm --filter @repo/graphql generate,把上面 diff 的兩份產物一起 commit(GQL-05)"
+            exit 1
+          fi
 
       # front 的 ISR 預渲染需要活的 api;front 沒被改到就不用起
       - name: 建置 api(front 的 ISR 預渲染需要活的 api)
