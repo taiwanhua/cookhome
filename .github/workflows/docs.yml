@@ -1,6 +1,8 @@
 name: Docs
 
-# 純文件改動的輕量檢查(ci.yml 對這些路徑不跑):只驗 Markdown 的 prettier 格式(STRUCT-09)。
+# 純文件改動的輕量檢查(ci.yml 對這些路徑不跑):跑與 ci.yml 同一個 `format:check`(STRUCT-09)。
+# 沿用同一個腳本而不另寫 md-only 的變體,是為了只有一份「哪些副檔名受守門」的正本;
+# 這個 workflow 的觸發路徑只有 md,多檢查到的 ts/json/yaml 在這種 PR 裡本來就沒變動,成本只有幾秒。
 on:
   pull_request:
     paths: ["docs/**", "*.md", "**/*.md"]
@@ -28,5 +30,5 @@ jobs:
       - name: 安裝依賴(只要根目錄的 prettier 與設定)
         run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Markdown 格式檢查(prettier --check)
+      - name: 格式檢查(prettier --check)
         run: pnpm run format:check

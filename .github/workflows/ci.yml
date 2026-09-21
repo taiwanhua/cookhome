@@ -66,9 +66,9 @@ jobs:
           fi
           echo "TURBO_SCM_BASE=$BASE" >> "$GITHUB_ENV"
 
-      # Markdown 不經 turbo lint(各 workspace 的 lint 只跑 eslint,且根目錄 docs/ 不屬於任何 workspace),
-      # 獨立一步在最前面 fail-fast。ts/tsx 尚未納入 prettier --check(dis.md #26 的待辦)
-      - name: Markdown 格式檢查(prettier --check)
+      # prettier 不經 turbo lint(各 workspace 的 lint 只跑 eslint,且根目錄 docs/ 不屬於任何 workspace),
+      # 獨立一步在最前面 fail-fast。範圍是全 repo 的 md + ts/tsx/js/json/yaml(#195 起,STRUCT-09)
+      - name: 格式檢查(prettier --check)
         run: pnpm run format:check
 
       # front 的 ISR 預渲染需要活的 api;front 沒被改到就不用起
