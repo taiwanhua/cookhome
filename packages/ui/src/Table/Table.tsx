@@ -8,9 +8,11 @@ import MuiTableCell, {
 import MuiTableContainer from "@mui/material/TableContainer";
 import MuiTableHead from "@mui/material/TableHead";
 import MuiTableRow from "@mui/material/TableRow";
+import type { SxProps, Theme } from "@mui/material/styles";
 import type { ReactNode } from "react";
 
 import { CircularProgress } from "../CircularProgress/CircularProgress";
+import { mergeSx } from "../theme/sx";
 import { TableStatusRow } from "./TableStatusRow";
 
 /** 一個欄位的宣告(Figma Draft/TableHeaderCell 101:3 + Draft/TableCell 101:9)。 */
@@ -44,6 +46,11 @@ export interface TableProps<Row> {
    */
   minWidth?: number | string;
   size?: "small" | "medium";
+  /**
+   * 疊加到捲動容器(`TableContainer`)上的樣式;預設是撐滿父層高度,
+   * 少數場合(彈窗裡的小表、要限制最大高度)才由呼叫端覆寫。
+   */
+  containerSx?: SxProps<Theme>;
   "aria-label"?: string;
 }
 
@@ -60,13 +67,19 @@ export const Table = <Row,>({
   onRowClick,
   size = "medium",
   minWidth,
+  containerSx,
   "aria-label": ariaLabel,
 }: TableProps<Row>) => {
   const isEmpty = !isLoading && rows.length === 0;
   const isRowClickable = onRowClick !== undefined;
 
   return (
-    <MuiTableContainer>
+    // 容器撐滿父層(STYLE-08 的 `flex: 1; minHeight: 0` 欄)而不是只包到內容高度:
+    // 列數少時橫向捲軸才落在面板底部,不會卡在最後一列下方(#299)。
+    // 父層高度不確定時 `height: 100%` 自然退回 auto,維持原本的行為。
+    <MuiTableContainer
+      sx={mergeSx({ height: "100%", minHeight: 0 }, containerSx)}
+    >
       <MuiTable size={size} sx={{ minWidth }} aria-label={ariaLabel}>
         <MuiTableHead>
           <MuiTableRow>

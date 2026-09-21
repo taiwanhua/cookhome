@@ -47,7 +47,16 @@ export const FieldOptionsPanel = ({
     <Card
       component="section"
       aria-label={t("region")}
-      sx={{ flex: 1, minWidth: 0, minHeight: 0, p: 3, overflow: "auto" }}
+      // 欄型 flex:標題列固定、選項表吃掉剩下的高度並自己捲(#299),
+      // 面板不再整塊捲,橫向捲軸才落在面板底部而不是最後一列下方
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        minHeight: 0,
+        p: 3,
+        display: "flex",
+        flexDirection: "column",
+      }}
     >
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", pb: 1.5 }}>
         <Typography variant="subtitle1" sx={{ flex: 1, minWidth: 0 }}>
@@ -67,7 +76,7 @@ export const FieldOptionsPanel = ({
           {t("noCategoryHint")}
         </Typography>
       ) : (
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
           <FieldOptionsTable
             fields={fields}
             isLoading={isLoading}
