@@ -92,3 +92,10 @@ app 端給 `@repo/ui` 元件傳 `sx` 時,只放與版面位置有關的值(`curs
 規則:**頁面上的資料列表一律傳 `minWidth`**,值取「每欄不折行時的合理寬度」
 (欄少 720 上下、七欄的使用者清單 960),窄過它就橫向捲動。
 彈窗裡的小表與只有兩三個短欄位的表不在此限。
+
+**列表頁 Table 的容器撐滿父層高度,捲軸落在面板底部**(#299):`Table` 的 `TableContainer`
+預設 `height: 100%; minHeight: 0`,所以父層鏈要是 STYLE-08 的 `flex: 1; minHeight: 0` 欄;
+**捲動責任只給 TableContainer 一層** —— 外面再包一個 `overflow: auto` 的 `Box` / `Card` 會變成
+兩層捲軸,且列數少時橫向捲軸貼在最後一列下方、卡在列表中間。要限制高度或在彈窗裡用,
+傳 `containerSx` 覆寫(如 `{ height: "auto", maxHeight: 320 }`);父層高度不確定時
+`height: 100%` 自然退回 auto,詳情面板那種整塊捲動的版面不受影響。

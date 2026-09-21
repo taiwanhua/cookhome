@@ -108,7 +108,9 @@ export const UserManagerPage = () => {
             flexDirection: "column",
           }}
         >
-          <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          {/* 捲動責任在 Table 自己的容器(#299),這層只負責把剩下的高度給它,
+              不要再開一層 overflow: auto,否則窄視窗下會出現兩條捲軸 */}
+          <Box sx={{ flex: 1, minHeight: 0 }}>
             <UserTable
               rows={data.rows}
               isLoading={data.isUsersLoading}

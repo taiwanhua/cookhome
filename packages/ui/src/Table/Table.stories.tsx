@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import { type TableColumn, Table } from "./Table";
+import { Table, type TableColumn } from "./Table";
 
 interface DemoUser {
   id: string;
@@ -10,7 +10,12 @@ interface DemoUser {
 }
 
 const columns: TableColumn<DemoUser>[] = [
-  { key: "name", header: "姓名", render: (row) => row.name, isEmphasized: true },
+  {
+    key: "name",
+    header: "姓名",
+    render: (row) => row.name,
+    isEmphasized: true,
+  },
   { key: "account", header: "帳號", render: (row) => row.account },
   { key: "org", header: "所屬組織", render: (row) => row.org },
 ];
@@ -50,3 +55,28 @@ export const EmptyWithCustomMessage: Story = {
   args: { rows: [], emptyMessage: "找不到符合條件的使用者" },
 };
 export const Loading: Story = { args: { isLoading: true } };
+
+/**
+ * 少列 + 窄寬(#299):容器撐滿外框高度,橫向捲軸落在框底而不是最後一列下方。
+ * 外框模擬頁面上的卡片區(STYLE-08 的 `flex: 1; minHeight: 0` 欄)。
+ */
+export const FewRowsInNarrowPanel: Story = {
+  args: { rows: rows.slice(0, 1), minWidth: 720 },
+  decorators: [
+    (Story) => (
+      <div
+        style={{
+          width: 420,
+          height: 320,
+          display: "flex",
+          flexDirection: "column",
+          border: "1px dashed #c4cdd5",
+        }}
+      >
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <Story />
+        </div>
+      </div>
+    ),
+  ],
+};
