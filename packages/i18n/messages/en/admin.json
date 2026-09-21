@@ -332,7 +332,10 @@
       "save": "Save assignment",
       "cancel": "Cancel",
       "roleDisabled": "Disabled",
-      "templateCopy": "Tenant copy"
+      "templateCopy": "Tenant copy",
+      "notEligible": "This role can only be granted to users inside {org} or below it; {name} is not inside the organization that owns the role.",
+      "search": "Search roles",
+      "searchPlaceholder": "Role name or owning organization"
     },
     "toggle": {
       "disableTitle": "Disable {name}?",
@@ -349,7 +352,8 @@
       "ROLE_OUT_OF_REACH": "This role's owner organisation is outside your managed scope.",
       "FORBIDDEN": "You do not have permission for this action.",
       "VALIDATION_FAILED": "The data did not pass validation, please check and submit again.",
-      "UNEXPECTED": "The action failed, please try again later."
+      "UNEXPECTED": "The action failed, please try again later.",
+      "USER_NOT_ELIGIBLE": "This role can only be granted to users inside the organization that owns it, or below it."
     }
   },
   "moduleManager": {
@@ -450,7 +454,8 @@
       "treeLabel": "Permission matrix",
       "unsaved": "Unsaved changes",
       "save": "Save changes",
-      "shrinkOnly": "This role was prepared for you during setup, so its permissions can only shrink — anything it does not already hold cannot be checked."
+      "shrinkOnly": "This role was prepared for you during setup, so its permissions can only shrink — anything it does not already hold cannot be checked.",
+      "seedReadOnly": "Built-in role: its contents follow the platform version, so this page is view-only."
     },
     "users": {
       "title": "{name} — assigned users",
@@ -482,7 +487,8 @@
       "noOrg": "—",
       "noUserPermission": "You cannot view users, so you cannot pick them here; ask someone with that permission to add them.",
       "confirm": "Add",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "notEligible": "This user is not inside the organization that owns the role ({org}), so they cannot be added."
     },
     "form": {
       "createTitle": "Add role",
@@ -566,7 +572,8 @@
       "audienceRole": "Roles",
       "audienceOrg": "Organizations",
       "audienceUser": "Users",
-      "remove": "Delete rule"
+      "remove": "Delete rule",
+      "audienceSearch": "Search roles"
     },
     "group": {
       "rootOp": "Combine conditions",

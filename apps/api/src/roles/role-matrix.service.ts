@@ -30,11 +30,13 @@ import type {
   RoleMatrixPayload,
 } from "./models/role-matrix.model";
 import {
+  type RoleOperatorFacts,
   type RoleRecord,
-  RoleScopeService,
-  isTemplateCopy,
-} from "./role-scope.service";
-import { roleError } from "./roles-error";
+  isSeedRole,
+  isShrinkOnly,
+} from "./role-rules";
+import { RoleScopeService } from "./role-scope.service";
+import { forbiddenError, roleError } from "./roles-error";
 import { AUDIT_ACTIONS, AUDIT_TARGET_TYPE } from "./roles.service";
 
 type ModuleRecord = Persisted<ModuleDocument>;
@@ -90,8 +92,11 @@ export class RoleMatrixService {
     roleId: string,
   ): Promise<RoleMatrixPayload> {
     const role = await this.scope.loadManagedRole(operator, roleId);
-    const view = await this.buildView(operator);
-    return this.payload(operator, role, view);
+    const [facts, view] = await Promise.all([
+      this.scope.factsOf(operator, role),
+      this.buildView(operator),
+    ]);
+    return this.payload(operator, role, view, facts);
   }
 
   /**
@@ -106,6 +111,14 @@ export class RoleMatrixService {
     input: SaveRoleMatrixInput,
   ): Promise<RoleMatrixPayload> {
     const role = await this.scope.loadManagedRole(operator, input.roleId);
+    // 種子角色的矩陣唯讀(#261 規則表):內容隨底座版本更新,改了會被下一次 seed 蓋回去
+    if (isSeedRole(role)) {
+      throw forbiddenError(
+        `Role ${input.roleId} is a seed role; its permission matrix is read-only`,
+        "SYSTEM_ROLE",
+      );
+    }
+    const facts = await this.scope.factsOf(operator, role);
     const view = await this.buildView(operator);
     const currentRaw = await this.currentGrant(role._id, view);
     const desired = normalizeGrant(view.fullTree, {
@@ -120,14 +133,15 @@ export class RoleMatrixService {
         "The submitted matrix is not a subset of the operator's effective modules and permissions",
       );
     }
-    // 租戶管理員副本只能縮不能擴(ADR-0009):新的授予要是目前綁定的子集
+    // 預設角色(租戶副本)對**非根組織**的操作者只能縮不能擴(ADR-0009;#261 放寬 root):
+    // 平台方本來就該能替租戶開新模組,租戶自己只能收窄
     if (
-      isTemplateCopy(role) &&
+      isShrinkOnly(role, facts) &&
       !isSubsetOf(desired, normalizeGrant(view.fullTree, currentRaw))
     ) {
       throw roleError(
         "ROLE_OUT_OF_REACH",
-        "A tenant-admin copy can only be narrowed; the submitted matrix adds modules or permissions",
+        "A tenant-admin copy can only be narrowed outside the root org; the submitted matrix adds modules or permissions",
       );
     }
 
@@ -153,7 +167,7 @@ export class RoleMatrixService {
         },
       });
     }
-    return this.payload(operator, role, view);
+    return this.payload(operator, role, view, facts);
   }
 
   // ---- 內部 ----
@@ -162,6 +176,7 @@ export class RoleMatrixService {
     operator: OperatorContext,
     role: RoleRecord,
     view: MatrixView,
+    facts: RoleOperatorFacts,
   ): Promise<RoleMatrixPayload> {
     const currentRaw = await this.currentGrant(role._id, view);
     // 顯示用:先展開(`X.*` → 同層各筆),再收到顯示樹內 —
@@ -178,7 +193,7 @@ export class RoleMatrixService {
           view.visiblePermissionKeys.has(key),
         ),
       },
-      shrinkOnly: isTemplateCopy(role),
+      shrinkOnly: isShrinkOnly(role, facts),
     };
   }
 

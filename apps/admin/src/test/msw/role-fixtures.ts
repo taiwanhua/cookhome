@@ -1,4 +1,4 @@
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleSidebarType, RoleKind } from "@repo/graphql";
 
 import type { TestOrgNode } from "./org-manager-handlers";
 
@@ -8,15 +8,29 @@ import type { TestOrgNode } from "./org-manager-handlers";
  * 可以直接餵 `@repo/domain/permission` 的連動純函式。
  */
 
+/** 角色種類規則算出來的四個動作(#261;api 依操作者算好,前端只讀)。 */
+export interface TestRoleAbilities {
+  canEdit: boolean;
+  canEditMatrix: boolean;
+  canToggleEnabled: boolean;
+  canDelete: boolean;
+}
+
 export interface TestRole {
   id: string;
   name: string;
   description: string | null;
   enabled: boolean;
+  kind: RoleKind;
+  abilities: TestRoleAbilities;
   isSystem: boolean;
   isTemplateCopy: boolean;
   userCount: number;
-  ownerOrg: { id: string; name: string } | null;
+  ownerOrg: {
+    id: string;
+    name: string;
+    tenantTop: { id: string; name: string } | null;
+  } | null;
 }
 
 export interface TestMatrixPermission {
@@ -153,21 +167,52 @@ export const grantedFixture = {
   permissionKeys: ["demo.sub.sample-one.view"],
 };
 
+/**
+ * 夾具的 `kind` / `abilities` 預設值**照 api 的規則表算**(`role-rules.ts`;
+ * 視角是「非 root、沒持有這個角色」),個別案例再以 overrides 改 ——
+ * 這樣夾具不會跟規則漂走,而要測 root 視角時只要覆寫 `abilities`。
+ */
+const kindOf = (isSystem: boolean, isTemplateCopy: boolean): RoleKind => {
+  if (isSystem) {
+    return RoleKind.System;
+  }
+  return isTemplateCopy ? RoleKind.TemplateCopy : RoleKind.Custom;
+};
+
+const abilitiesOf = (kind: RoleKind, userCount: number): TestRoleAbilities => ({
+  canEdit: kind !== RoleKind.System,
+  canEditMatrix: kind !== RoleKind.System,
+  canToggleEnabled: kind === RoleKind.Custom,
+  canDelete: kind === RoleKind.Custom && userCount === 0,
+});
+
 const role = (
   id: string,
   name: string,
   overrides: Partial<TestRole> = {},
-): TestRole => ({
-  id,
-  name,
-  description: null,
-  enabled: true,
-  isSystem: false,
-  isTemplateCopy: false,
-  userCount: 0,
-  ownerOrg: { id: "org-tenant", name: "租戶 A" },
-  ...overrides,
-});
+): TestRole => {
+  const isSystem = overrides.isSystem ?? false;
+  const isTemplateCopy = overrides.isTemplateCopy ?? false;
+  const userCount = overrides.userCount ?? 0;
+  const kind = kindOf(isSystem, isTemplateCopy);
+  return {
+    id,
+    name,
+    description: null,
+    enabled: true,
+    kind,
+    abilities: abilitiesOf(kind, userCount),
+    isSystem: false,
+    isTemplateCopy: false,
+    userCount: 0,
+    ownerOrg: {
+      id: "org-tenant",
+      name: "租戶 A",
+      tenantTop: { id: "org-tenant", name: "租戶 A" },
+    },
+    ...overrides,
+  };
+};
 
 export const roles: TestRole[] = [
   // 名稱刻意不叫「編輯」:列上的動作按鈕也叫「編輯」,測試才不必在兩者之間繞
@@ -234,6 +279,19 @@ export const candidates: TestCandidate[] = [
     email: "ming@cookhome.online",
     enabled: true,
     orgs: [{ id: "org-content", name: "內容組" }],
+    roles: [],
+  },
+  /**
+   * 所屬組織不在角色擁有組織的子樹內 —— #261 的 7:這種人**照樣列出來、但勾不動**,
+   * 並就地說明原因(在此之前直接不列,找不到人的人只會覺得「這個人不見了」)。
+   */
+  {
+    id: "user-outsider",
+    account: "outsider",
+    name: "別家同事",
+    email: "outsider@cookhome.online",
+    enabled: true,
+    orgs: [{ id: "org-other", name: "租戶 B" }],
     roles: [],
   },
 ];

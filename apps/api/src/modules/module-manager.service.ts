@@ -20,10 +20,20 @@ import {
   type ModuleAdminNode,
   type PermissionAdmin,
 } from "./models/module-admin.model";
-import { moduleManagerError } from "./module-manager-error";
+import {
+  MODULE_MANAGER_SELF_LOCK_REASON,
+  moduleManagerError,
+} from "./module-manager-error";
 
 type ModuleRecord = Persisted<ModuleDocument>;
 type PermissionRecord = Persisted<PermissionDocument>;
+
+/**
+ * 自鎖保護的那棵子樹(#261 / #233):模組與權限這一頁自己。
+ * key 的正本是 `apps/db-migrator/seeds/modules.ts`;這裡是唯一一處以 key 指名它的地方,
+ * 子樹判定仍走 `ancestors`(ADR-0004「反向歸屬不解析字串」)。
+ */
+const SELF_LOCK_MODULE_KEY = "system.module-manager";
 
 /** 審計動作名(`docs/modules/module-manager.md` 最後一段;targetType 分別為 module / permission)。 */
 const AUDIT = {
@@ -156,6 +166,7 @@ export class ModuleManagerService {
   ): Promise<ModuleAdminNode> {
     await this.assertRootOperator(operator, AUDIT.module.action);
     const module = await this.requireModule(operator, input.id);
+    await this.assertNotSelfLock(operator, module, AUDIT.module.action);
     const before = module.enabled;
     const cascadedKeys = input.enabled
       ? []
@@ -192,6 +203,11 @@ export class ModuleManagerService {
   ): Promise<PermissionAdmin> {
     await this.assertRootOperator(operator, AUDIT.permission.action);
     const permission = await this.requirePermission(operator, input.id);
+    // 擁有模組以 `moduleId` 為準,不切 key 字串(ADR-0004「反向歸屬不解析字串」)
+    const owner = await this.modules.findById(operator, permission.moduleId);
+    if (owner !== null) {
+      await this.assertNotSelfLock(operator, owner, AUDIT.permission.action);
+    }
     const before = permission.enabled;
     const updated =
       before === input.enabled
@@ -269,6 +285,39 @@ export class ModuleManagerService {
         `${action} is only available from the root org`,
       );
     }
+  }
+
+  /**
+   * 自鎖保護(#261 / #233):目標落在 `system.module-manager` 子樹內 → `FORBIDDEN`
+   * + `reason: SELF_LOCK`。停用這一頁自己就再也沒有入口把它開回來 —— 與角色的
+   * 「不可停用自己正持有的角色」是同一條原則,只是主體換成模組樹。
+   *
+   * 子樹判定走**物化路徑**(`ancestors`),不切 key 字串(ADR-0004「反向歸屬不解析字串」);
+   * 種子沒建這個模組時(理論上不會)什麼都不擋 — 沒有自己可鎖。
+   */
+  private async assertNotSelfLock(
+    operator: OperatorContext,
+    module: ModuleRecord,
+    action: string,
+  ): Promise<void> {
+    const self = await this.modules.findOne(operator, {
+      key: SELF_LOCK_MODULE_KEY,
+    });
+    if (self === null) {
+      return;
+    }
+    const selfId = String(self._id);
+    const isInSubtree =
+      String(module._id) === selfId ||
+      module.ancestors.some((ancestorId) => String(ancestorId) === selfId);
+    if (!isInSubtree) {
+      return;
+    }
+    throw moduleManagerError(
+      "FORBIDDEN",
+      `${action} targets the ${SELF_LOCK_MODULE_KEY} subtree; disabling it would remove the only way back`,
+      MODULE_MANAGER_SELF_LOCK_REASON,
+    );
   }
 
   private async requireModule(

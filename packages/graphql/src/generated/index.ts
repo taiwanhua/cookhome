@@ -732,14 +732,24 @@ export type RevokeRoleUsersInput = {
 
 export type Role = {
   __typename?: 'Role';
+  abilities: RoleAbilities;
   description?: Maybe<Scalars['String']['output']>;
   enabled: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   isSystem: Scalars['Boolean']['output'];
   isTemplateCopy: Scalars['Boolean']['output'];
+  kind: RoleKind;
   name: Scalars['String']['output'];
   ownerOrg?: Maybe<RoleOwnerOrg>;
   userCount: Scalars['Int']['output'];
+};
+
+export type RoleAbilities = {
+  __typename?: 'RoleAbilities';
+  canDelete: Scalars['Boolean']['output'];
+  canEdit: Scalars['Boolean']['output'];
+  canEditMatrix: Scalars['Boolean']['output'];
+  canToggleEnabled: Scalars['Boolean']['output'];
 };
 
 export type RoleGrant = {
@@ -747,6 +757,13 @@ export type RoleGrant = {
   moduleKeys: Array<Scalars['String']['output']>;
   permissionKeys: Array<Scalars['String']['output']>;
 };
+
+/** 角色種類(種子 / 預設角色 / 自建);規則表見 docs/modules/role-manager.md */
+export enum RoleKind {
+  Custom = 'CUSTOM',
+  System = 'SYSTEM',
+  TemplateCopy = 'TEMPLATE_COPY'
+}
 
 export type RoleMatrixModule = {
   __typename?: 'RoleMatrixModule';
@@ -778,10 +795,17 @@ export type RoleMatrixPermission = {
   name: Scalars['String']['output'];
 };
 
+export type RoleOrgRef = {
+  __typename?: 'RoleOrgRef';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
 export type RoleOwnerOrg = {
   __typename?: 'RoleOwnerOrg';
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
+  tenantTop?: Maybe<RoleOrgRef>;
 };
 
 export type RolePayload = {
@@ -1283,42 +1307,42 @@ export type CreateRecipeMutationVariables = Exact<{
 
 export type CreateRecipeMutation = { __typename?: 'Mutation', createRecipe: { __typename?: 'Recipe', id: string, title: string } };
 
-export type RoleFieldsFragment = { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null };
+export type RoleFieldsFragment = { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null };
 
 export type RolesQueryVariables = Exact<{
   input: RolesInput;
 }>;
 
 
-export type RolesQuery = { __typename?: 'Query', roles: { __typename?: 'RolesPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }> } };
+export type RolesQuery = { __typename?: 'Query', roles: { __typename?: 'RolesPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null }> } };
 
 export type RoleQueryVariables = Exact<{
   id: Scalars['ID']['input'];
 }>;
 
 
-export type RoleQuery = { __typename?: 'Query', role: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null } } };
+export type RoleQuery = { __typename?: 'Query', role: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null } } };
 
 export type CreateRoleMutationVariables = Exact<{
   input: CreateRoleInput;
 }>;
 
 
-export type CreateRoleMutation = { __typename?: 'Mutation', createRole: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null } } };
+export type CreateRoleMutation = { __typename?: 'Mutation', createRole: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null } } };
 
 export type UpdateRoleMutationVariables = Exact<{
   input: UpdateRoleInput;
 }>;
 
 
-export type UpdateRoleMutation = { __typename?: 'Mutation', updateRole: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null } } };
+export type UpdateRoleMutation = { __typename?: 'Mutation', updateRole: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null } } };
 
 export type SetRoleEnabledMutationVariables = Exact<{
   input: SetRoleEnabledInput;
 }>;
 
 
-export type SetRoleEnabledMutation = { __typename?: 'Mutation', setRoleEnabled: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null } } };
+export type SetRoleEnabledMutation = { __typename?: 'Mutation', setRoleEnabled: { __typename?: 'RolePayload', role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null } } };
 
 export type DeleteRoleMutationVariables = Exact<{
   input: DeleteRoleInput;
@@ -1329,23 +1353,23 @@ export type DeleteRoleMutation = { __typename?: 'Mutation', deleteRole: { __type
 
 export type RoleMatrixNodeFieldsFragment = { __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> };
 
-export type RoleMatrixFieldsFragment = { __typename?: 'RoleMatrixPayload', shrinkOnly: boolean, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, granted: { __typename?: 'RoleGrant', moduleKeys: Array<string>, permissionKeys: Array<string> }, modules: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }> };
+export type RoleMatrixFieldsFragment = { __typename?: 'RoleMatrixPayload', shrinkOnly: boolean, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null }, granted: { __typename?: 'RoleGrant', moduleKeys: Array<string>, permissionKeys: Array<string> }, modules: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }> };
 
 export type RoleMatrixQueryVariables = Exact<{
   roleId: Scalars['ID']['input'];
 }>;
 
 
-export type RoleMatrixQuery = { __typename?: 'Query', roleMatrix: { __typename?: 'RoleMatrixPayload', shrinkOnly: boolean, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, granted: { __typename?: 'RoleGrant', moduleKeys: Array<string>, permissionKeys: Array<string> }, modules: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }> } };
+export type RoleMatrixQuery = { __typename?: 'Query', roleMatrix: { __typename?: 'RoleMatrixPayload', shrinkOnly: boolean, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null }, granted: { __typename?: 'RoleGrant', moduleKeys: Array<string>, permissionKeys: Array<string> }, modules: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }> } };
 
 export type SaveRoleMatrixMutationVariables = Exact<{
   input: SaveRoleMatrixInput;
 }>;
 
 
-export type SaveRoleMatrixMutation = { __typename?: 'Mutation', saveRoleMatrix: { __typename?: 'RoleMatrixPayload', shrinkOnly: boolean, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, granted: { __typename?: 'RoleGrant', moduleKeys: Array<string>, permissionKeys: Array<string> }, modules: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }> } };
+export type SaveRoleMatrixMutation = { __typename?: 'Mutation', saveRoleMatrix: { __typename?: 'RoleMatrixPayload', shrinkOnly: boolean, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null }, granted: { __typename?: 'RoleGrant', moduleKeys: Array<string>, permissionKeys: Array<string> }, modules: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, children: Array<{ __typename?: 'RoleMatrixModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }>, permissions: Array<{ __typename?: 'RoleMatrixPermission', id: string, key: string, name: string, description?: string | null, action: string }> }> } };
 
-export type RoleUsersFieldsFragment = { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> };
+export type RoleUsersFieldsFragment = { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> };
 
 export type RoleUsersQueryVariables = Exact<{
   roleId: Scalars['ID']['input'];
@@ -1353,21 +1377,21 @@ export type RoleUsersQueryVariables = Exact<{
 }>;
 
 
-export type RoleUsersQuery = { __typename?: 'Query', roleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
+export type RoleUsersQuery = { __typename?: 'Query', roleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
 
 export type GrantRoleUsersMutationVariables = Exact<{
   input: GrantRoleUsersInput;
 }>;
 
 
-export type GrantRoleUsersMutation = { __typename?: 'Mutation', grantRoleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
+export type GrantRoleUsersMutation = { __typename?: 'Mutation', grantRoleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
 
 export type RevokeRoleUsersMutationVariables = Exact<{
   input: RevokeRoleUsersInput;
 }>;
 
 
-export type RevokeRoleUsersMutation = { __typename?: 'Mutation', revokeRoleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, isSystem: boolean, isTemplateCopy: boolean, userCount: number, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
+export type RevokeRoleUsersMutation = { __typename?: 'Mutation', revokeRoleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
 
 export type CreateUploadUrlMutationVariables = Exact<{
   input: CreateUploadUrlInput;
@@ -1479,12 +1503,23 @@ export const RoleFieldsFragmentDoc = `
   name
   description
   enabled
+  kind
+  abilities {
+    canEdit
+    canEditMatrix
+    canToggleEnabled
+    canDelete
+  }
   isSystem
   isTemplateCopy
   userCount
   ownerOrg {
     id
     name
+    tenantTop {
+      id
+      name
+    }
   }
 }
     `;

@@ -28,6 +28,25 @@ export interface MatrixModuleView {
 /** 單一角色的兩個頁籤。 */
 export type RoleDetailTab = "matrix" | "users";
 
+/**
+ * 某一列**實際**顯示哪些動作 = 操作者的權限 × 這個角色的種類規則(#261)。
+ *
+ * 兩層各守各的,前端不重算種類規則:`ability` 來自 `usePermissions`(有沒有那個權限 key),
+ * `role.abilities` 由 api 依角色種類與操作者算好(`docs/modules/role-manager.md` 規則表)。
+ */
+export const rowAbilityOf = (
+  ability: RoleActionAbility,
+  role: RoleRow,
+): Pick<
+  RoleActionAbility,
+  "canEdit" | "canEditMatrix" | "canToggleEnabled" | "canDelete"
+> => ({
+  canEdit: ability.canEdit && role.abilities.canEdit,
+  canEditMatrix: ability.canEditMatrix && role.abilities.canEditMatrix,
+  canToggleEnabled: ability.canToggleEnabled && role.abilities.canToggleEnabled,
+  canDelete: ability.canDelete && role.abilities.canDelete,
+});
+
 /** 頁面上可執行的動作,依權限決定是否顯示。 */
 export interface RoleActionAbility {
   /** 沒有它整頁進不去內容(role-manager.md 權限表) */

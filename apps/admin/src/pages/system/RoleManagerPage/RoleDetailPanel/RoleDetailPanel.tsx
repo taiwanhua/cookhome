@@ -1,15 +1,17 @@
 import { useTranslations } from "use-intl";
 
+import { RoleKind } from "@repo/graphql";
 import { Box } from "@repo/ui/box";
 import { Card } from "@repo/ui/card";
 import { Typography } from "@repo/ui/typography";
 
 import { AssignUsersTab } from "../AssignUsersTab/AssignUsersTab";
 import { PermissionMatrixTab } from "../PermissionMatrixTab/PermissionMatrixTab";
-import type {
-  RoleActionAbility,
-  RoleDetailTab,
-  RoleRow,
+import {
+  type RoleActionAbility,
+  type RoleDetailTab,
+  type RoleRow,
+  rowAbilityOf,
 } from "../role-manager-types";
 import type { useRoleMatrix } from "../useRoleMatrix";
 import { DetailTabs } from "./DetailTabs";
@@ -68,7 +70,10 @@ export const RoleDetailPanel = ({
             {activeTab === "matrix" ? (
               <PermissionMatrixTab
                 roleName={role.name}
-                canEdit={ability.canEditMatrix}
+                // 種子角色的矩陣唯讀(#261):權限有、但這個角色不給編 —
+                // 兩層相乘的結果由 `rowAbilityOf` 算,前端不重算種類規則
+                canEdit={rowAbilityOf(ability, role).canEditMatrix}
+                isSeedRole={role.kind === RoleKind.System}
                 matrix={matrix}
               />
             ) : (

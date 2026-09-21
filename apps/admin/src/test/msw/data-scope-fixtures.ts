@@ -2,6 +2,7 @@ import {
   DataScopeAudienceType,
   DataScopeCombineOp,
   DataScopeFieldType,
+  RoleKind,
 } from "@repo/graphql";
 
 import type {
@@ -91,27 +92,86 @@ export const dataScopeTargets: TestDataScopeTarget[] = [
   },
 ];
 
-/** 套用對象「指定角色」的清單(`roles` query;擁有組織在管理範圍內)。 */
+/** 自建角色的四個動作(#261;非 root 視角、沒人持有 → 全開)。 */
+const CUSTOM_ABILITIES = {
+  canEdit: true,
+  canEditMatrix: true,
+  canToggleEnabled: true,
+  canDelete: true,
+};
+
+/** 預設角色(租戶副本):改得動、矩陣編得動,但停用只有 root、一律不可刪。 */
+const TEMPLATE_COPY_ABILITIES = {
+  canEdit: true,
+  canEditMatrix: true,
+  canToggleEnabled: false,
+  canDelete: false,
+};
+
+const tenantA = {
+  id: "org-tenant-a",
+  name: "租戶 A",
+  tenantTop: { id: "org-tenant-a", name: "租戶 A" },
+};
+const tenantB = {
+  id: "org-tenant-b",
+  name: "租戶 B",
+  tenantTop: { id: "org-tenant-b", name: "租戶 B" },
+};
+
+/**
+ * 套用對象「指定角色」的清單(`roles` query;擁有組織在管理範圍內)。
+ * 刻意放兩個同名的「租戶管理員」分屬兩個租戶 —— 這正是 #261 的 8 要解決的情形:
+ * 根組織視角下只看角色名稱完全分不出來,要靠「名稱 — 擁有組織」與租戶分組。
+ */
 export const dataScopeRoles: TestRole[] = [
   {
     id: "role-support",
     name: "客服",
     description: null,
     enabled: true,
+    kind: RoleKind.Custom,
+    abilities: CUSTOM_ABILITIES,
     isSystem: false,
     isTemplateCopy: false,
     userCount: 2,
-    ownerOrg: { id: "org-tenant-a", name: "租戶 A" },
+    ownerOrg: tenantA,
   },
   {
     id: "role-editor",
     name: "編輯",
     description: null,
     enabled: true,
+    kind: RoleKind.Custom,
+    abilities: CUSTOM_ABILITIES,
     isSystem: false,
     isTemplateCopy: false,
     userCount: 1,
-    ownerOrg: { id: "org-tenant-a", name: "租戶 A" },
+    ownerOrg: tenantA,
+  },
+  {
+    id: "role-admin-a",
+    name: "租戶管理員",
+    description: null,
+    enabled: true,
+    kind: RoleKind.TemplateCopy,
+    abilities: TEMPLATE_COPY_ABILITIES,
+    isSystem: false,
+    isTemplateCopy: true,
+    userCount: 1,
+    ownerOrg: tenantA,
+  },
+  {
+    id: "role-admin-b",
+    name: "租戶管理員",
+    description: null,
+    enabled: true,
+    kind: RoleKind.TemplateCopy,
+    abilities: TEMPLATE_COPY_ABILITIES,
+    isSystem: false,
+    isTemplateCopy: true,
+    userCount: 1,
+    ownerOrg: tenantB,
   },
 ];
 

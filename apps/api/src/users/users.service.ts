@@ -193,7 +193,7 @@ export class UsersService {
     const roleIds = uniqueIds(input.roleIds ?? []).map((id) =>
       toObjectId(id, "roleIds"),
     );
-    await this.assertRolesGrantable(operator, roleIds, orgIds);
+    await this.assertRolesGrantable(operator, roleIds, orgIds, null);
 
     const mode = input.activation.mode;
     const passwordHash = await this.initialPasswordHash(input);
@@ -471,7 +471,13 @@ export class UsersService {
 
     const toAdd = desired.filter((roleId) => !currentKeys.has(String(roleId)));
     const memberOrgIds = await this.relations.listOrgIdsOfUser(user._id);
-    await this.assertRolesGrantable(operator, toAdd, memberOrgIds, reachable);
+    await this.assertRolesGrantable(
+      operator,
+      toAdd,
+      memberOrgIds,
+      user._id,
+      reachable,
+    );
 
     // 操作者觸及不到的既有授予不動(彈窗列不出來,不該被順手解除)
     const toRemove = currentIds.filter(
@@ -824,11 +830,15 @@ export class UsersService {
     return new Set(links.map((link) => String(link.secondId)));
   }
 
-  /** 防越權 + 授予資格(ADR-0003:只在按下授予的當下檢查一次)。 */
+  /**
+   * 防越權 + 授予資格(ADR-0003:只在按下授予的當下檢查一次)。
+   * `targetUserId` 只用於錯誤訊息 —— 建立使用者時還沒落庫,給 null。
+   */
   private async assertRolesGrantable(
     operator: OperatorContext,
     roleIds: Types.ObjectId[],
     memberOrgIds: Types.ObjectId[],
+    targetUserId: Types.ObjectId | null,
     known?: ReadonlySet<string> | "all",
   ): Promise<void> {
     if (roleIds.length === 0) {
@@ -844,31 +854,23 @@ export class UsersService {
         );
       }
     }
+    // 授予資格共用 `OrgQualificationService.assertEligible`(#261):與角色頁的
+    // `grantRoleUsers` 同一份判斷、同一個 `USER_NOT_ELIGIBLE`(在此之前回的是
+    // `VALIDATION_FAILED`,前端只講得出「資料未通過驗證」)
     const ownerLinks = await this.relations.listLinks("org_role", {
       secondIds: roleIds,
     });
     const ownerOrgIdByRole = new Map(
-      ownerLinks.map((link) => [String(link.secondId), String(link.firstId)]),
+      ownerLinks.map((link) => [String(link.secondId), link.firstId]),
     );
-    const ancestry = await this.qualification.loadAncestry(operator, [
-      ...memberOrgIds,
-      ...ownerLinks.map((link) => link.firstId),
-    ]);
-    const memberKeys = memberOrgIds.map(String);
-    const unqualified = roleIds.find(
-      (roleId) =>
-        !this.qualification.qualifies(
-          memberKeys,
-          ownerOrgIdByRole.get(String(roleId)) ?? null,
-          ancestry,
-        ),
+    await this.qualification.assertEligible(
+      operator,
+      [{ id: targetUserId, memberOrgIds }],
+      roleIds.map((roleId) => ({
+        id: roleId,
+        ownerOrgId: ownerOrgIdByRole.get(String(roleId)) ?? null,
+      })),
     );
-    if (unqualified) {
-      throw validationError(
-        `Role ${String(unqualified)} cannot be granted: none of the user's member orgs is inside the role's owner org subtree`,
-        ["roleIds"],
-      );
-    }
   }
 
   /** 組織必須在操作者**管理範圍**內(ADR-0005 的分工表);回傳查到的組織文件供取名稱。 */

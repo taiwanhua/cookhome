@@ -460,19 +460,35 @@ input RevokeRoleUsersInput {
 }
 
 type Role {
+  abilities: RoleAbilities!
   description: String
   enabled: Boolean!
   id: ID!
   isSystem: Boolean!
   isTemplateCopy: Boolean!
+  kind: RoleKind!
   name: String!
   ownerOrg: RoleOwnerOrg
   userCount: Int!
 }
 
+type RoleAbilities {
+  canDelete: Boolean!
+  canEdit: Boolean!
+  canEditMatrix: Boolean!
+  canToggleEnabled: Boolean!
+}
+
 type RoleGrant {
   moduleKeys: [String!]!
   permissionKeys: [String!]!
+}
+
+"""角色種類(種子 / 預設角色 / 自建);規則表見 docs/modules/role-manager.md"""
+enum RoleKind {
+  CUSTOM
+  SYSTEM
+  TEMPLATE_COPY
 }
 
 type RoleMatrixModule {
@@ -502,9 +518,15 @@ type RoleMatrixPermission {
   name: String!
 }
 
+type RoleOrgRef {
+  id: ID!
+  name: String!
+}
+
 type RoleOwnerOrg {
   id: ID!
   name: String!
+  tenantTop: RoleOrgRef
 }
 
 type RolePayload {

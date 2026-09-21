@@ -1,14 +1,14 @@
 import { screen } from "@testing-library/react";
 
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleSidebarType, RoleKind } from "@repo/graphql";
 
 import {
   type TestModule,
   authWorld,
   overviewModule,
 } from "@/test/msw/auth-handlers";
-import { server } from "@/test/msw/server";
 import type { TestRole } from "@/test/msw/role-fixtures";
+import { server } from "@/test/msw/server";
 import {
   type TestOrg,
   type TestOrgNode,
@@ -157,17 +157,43 @@ const assignableRole = (
   name,
   description: null,
   enabled: true,
+  kind: RoleKind.Custom,
+  abilities: {
+    canEdit: true,
+    canEditMatrix: true,
+    canToggleEnabled: true,
+    canDelete: true,
+  },
   isSystem: false,
   isTemplateCopy: false,
   userCount: 0,
-  ownerOrg: { id: "org-tenant", name: "租戶 A" },
+  ownerOrg: {
+    id: "org-tenant",
+    name: "租戶 A",
+    tenantTop: { id: "org-tenant", name: "租戶 A" },
+  },
   ...overrides,
 });
 
 export const assignableRoles: TestRole[] = [
   assignableRole("role-editor", "編輯", { description: "內容管理相關權限" }),
   assignableRole("role-viewer", "檢視者", { enabled: false }),
-  assignableRole("role-admin", "租戶管理員", { isTemplateCopy: true }),
+  assignableRole("role-admin", "租戶管理員", {
+    kind: RoleKind.TemplateCopy,
+    isTemplateCopy: true,
+  }),
+  /**
+   * 擁有組織是「租戶 B」(租戶 A 底下的另一支),而王小明屬「租戶 A / 內容組」——
+   * 所以他**沒有被授予這一筆的資格**(ADR-0003)。#261 的 6:這種列照樣顯示、
+   * 但勾不動並就地說明,不是勾得下去、送出才吃到錯。
+   */
+  assignableRole("role-branch-only", "分店專員", {
+    ownerOrg: {
+      id: "org-other",
+      name: "租戶 B",
+      tenantTop: { id: "org-tenant", name: "租戶 A" },
+    },
+  }),
 ];
 
 const operator = user("user-1", "小華", {
@@ -216,4 +242,3 @@ export const renderPage = ({
 
 export const rowOf = (name: string) =>
   screen.getByRole("row", { name: new RegExp(name) });
-

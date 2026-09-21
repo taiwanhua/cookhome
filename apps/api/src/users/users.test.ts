@@ -1315,7 +1315,7 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
       expectSameMembers(after, [...existing, String(managerRoleId)]);
     });
 
-    it("使用者的所屬組織都不在角色擁有組織的子樹內 → VALIDATION_FAILED(授予資格)", async () => {
+    it("使用者的所屬組織都不在角色擁有組織的子樹內 → USER_NOT_ELIGIBLE 附 roleId / ownerOrgName", async () => {
       const userId = await createUser(connection, {
         account: nextAccount("unqualified-grant"),
         password: PASSWORD,
@@ -1326,7 +1326,18 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
         name: "小組一專屬角色",
         ownerOrgId: teamOne,
       });
-      expect(await assignRoles(userId, [teamRoleId])).toBe("VALIDATION_FAILED");
+      // #261:與角色頁的 grantRoleUsers 同一個 helper、同一個碼(不再是 VALIDATION_FAILED);
+      // extensions 帶著角色與擁有組織名稱,前端才講得出「只能授予 <擁有組織> 及其下層的使用者」
+      const result = await api.graphql(
+        ASSIGN_USER_ROLES,
+        { input: { userId: String(userId), roleIds: [String(teamRoleId)] } },
+        { accessToken: managerToken },
+      );
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "USER_NOT_ELIGIBLE",
+        roleId: String(teamRoleId),
+        ownerOrgName: "小組一",
+      });
     });
 
     it("超級管理員(根組織)不受角色可觸及範圍限制", async () => {

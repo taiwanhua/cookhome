@@ -61,9 +61,18 @@ describe("條件樹編輯器(資料範圍)", () => {
 
     await chooseOption(actor, comboboxAt("套用對象"), "角色");
     await actor.click(comboboxAt("對象"));
+    // 每列「角色名稱 — 擁有組織」,跨兩個租戶時再依租戶頂層分組(#261 的 8):
+    // 兩個租戶各有一個同名的「租戶管理員」,靠這兩層才分得出來
     expect(
       screen.getAllByRole("option").map((option) => option.textContent),
-    ).toEqual(["客服", "編輯"]);
+    ).toEqual([
+      "租戶 A",
+      "客服 — 租戶 A",
+      "編輯 — 租戶 A",
+      "租戶管理員 — 租戶 A",
+      "租戶 B",
+      "租戶管理員 — 租戶 B",
+    ]);
     await actor.keyboard("{Escape}");
 
     await chooseOption(actor, comboboxAt("套用對象"), "組織");
@@ -72,12 +81,26 @@ describe("條件樹編輯器(資料範圍)", () => {
     ).toBeInTheDocument();
   });
 
+  it("套用對象「指定角色」:搜尋收斂選單(名稱或擁有組織)", async () => {
+    const { user: actor } = renderPage();
+    await startRule(actor);
+
+    await chooseOption(actor, comboboxAt("套用對象"), "角色");
+    await actor.type(within(editor()).getByLabelText("搜尋角色"), "租戶 B");
+
+    await actor.click(comboboxAt("對象"));
+    // 只剩租戶 B 那一筆;單一租戶 ⇒ 不再分組(只有一組的標題是雜訊)
+    expect(
+      screen.getAllByRole("option").map((option) => option.textContent),
+    ).toEqual(["租戶管理員 — 租戶 B"]);
+  });
+
   it("動態值【操作者本人】存成佔位符,送出的 payload 與正本形狀一致", async () => {
     const { user: actor, fake } = renderPage();
     await startRule(actor);
 
     await chooseOption(actor, comboboxAt("套用對象"), "角色");
-    await chooseOption(actor, comboboxAt("對象"), "客服");
+    await chooseOption(actor, comboboxAt("對象"), "客服 — 租戶 A");
     await actor.keyboard("{Escape}");
     await chooseOption(actor, comboboxAt("欄位"), "建立者");
     await chooseOption(actor, comboboxAt("值"), "【操作者本人】");

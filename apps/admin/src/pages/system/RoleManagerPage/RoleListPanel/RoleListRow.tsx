@@ -7,7 +7,11 @@ import { Stack } from "@repo/ui/stack";
 import { Tag } from "@repo/ui/tag";
 import { Typography } from "@repo/ui/typography";
 
-import type { RoleActionAbility, RoleRow } from "../role-manager-types";
+import {
+  type RoleActionAbility,
+  type RoleRow,
+  rowAbilityOf,
+} from "../role-manager-types";
 
 export interface RoleListRowProps {
   role: RoleRow;
@@ -22,18 +26,20 @@ export interface RoleListRowProps {
 /**
  * 角色清單的一列(Figma 44:630 ~ 44:648):名稱 + 狀態 / 來源標籤,第二行是擁有組織、
  * 持有人數與描述。動作只在選中的那一列出現(Figma 只在 active 列畫了圖示),
- * 並各自依權限顯示(ADR-0011「頁內功能」);動作列放在可點區塊之外,避免點動作連帶選取。
+ * 並各自依「權限 × 角色種類規則」顯示(`rowAbilityOf`;#261 起種類規則由 api 算在
+ * `role.abilities`,前端不重算);動作列放在可點區塊之外,避免點動作連帶選取。
  */
 export const RoleListRow = ({
   role,
   isSelected,
-  ability,
+  ability: pageAbility,
   onSelect,
   onEdit,
   onToggleEnabled,
   onDelete,
 }: RoleListRowProps) => {
   const t = useTranslations("admin.roleManager");
+  const ability = rowAbilityOf(pageAbility, role);
   const hasActions =
     ability.canEdit || ability.canToggleEnabled || ability.canDelete;
 

@@ -1,5 +1,6 @@
 import { HttpResponse } from "msw";
 
+import { RoleKind } from "@repo/graphql";
 import type {
   CreateRoleMutationVariables,
   DeleteRoleMutationVariables,
@@ -210,15 +211,28 @@ export const roleWorld = (options: RoleWorldOptions = {}): RoleWorld => {
     api.mutation("CreateRole", ({ variables }) => {
       const { input } = variables as CreateRoleMutationVariables;
       inputs.createRole.push(input);
+      const ownerOrgId = input.ownerOrgId ?? "org-tenant";
       const created: TestRole = {
         id: "role-new",
         name: input.name,
         description: input.description ?? null,
         enabled: true,
+        // 新建的一律是自建角色:四個動作全開(#261 的種類規則)
+        kind: RoleKind.Custom,
+        abilities: {
+          canEdit: true,
+          canEditMatrix: true,
+          canToggleEnabled: true,
+          canDelete: true,
+        },
         isSystem: false,
         isTemplateCopy: false,
         userCount: 0,
-        ownerOrg: { id: input.ownerOrgId ?? "org-tenant", name: "租戶 A" },
+        ownerOrg: {
+          id: ownerOrgId,
+          name: "租戶 A",
+          tenantTop: { id: "org-tenant", name: "租戶 A" },
+        },
       };
       if (failures.CreateRole === undefined) {
         roleList.push(created);

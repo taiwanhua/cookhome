@@ -16,12 +16,15 @@ import type { SetRoleEnabledInput } from "./dto/set-role-enabled.input";
 import type { UpdateRoleInput } from "./dto/update-role.input";
 import type { RolesPayload } from "./models/role-payloads.model";
 import type { RoleModel } from "./models/role.model";
+import { RoleKind } from "./models/role.model";
 import {
   type RoleRecord,
-  RoleScopeService,
+  canToggleEnabled,
+  isSeedRole,
   isTemplateCopy,
-  toObjectId,
-} from "./role-scope.service";
+  roleKindOf,
+} from "./role-rules";
+import { RoleScopeService, toObjectId } from "./role-scope.service";
 import {
   type RoleNotDeletableReason,
   forbiddenError,
@@ -171,12 +174,21 @@ export class RolesService {
     return this.scope.decorateOne(operator, role);
   }
 
-  /** 編輯名稱 / 描述(GQL-06:`description` 缺席 = 不動、null = 清空)。 */
+  /**
+   * 編輯名稱 / 描述(GQL-06:`description` 缺席 = 不動、null = 清空)。
+   * 種子角色不可改(#261 規則表):它隨底座出貨,改了下一次 seed 又被蓋回去。
+   */
   async update(
     operator: OperatorContext,
     input: UpdateRoleInput,
   ): Promise<RoleModel> {
     const role = await this.scope.loadManagedRole(operator, input.id);
+    if (isSeedRole(role)) {
+      throw forbiddenError(
+        `Role ${input.id} is a seed role and cannot be renamed`,
+        "SYSTEM_ROLE",
+      );
+    }
     const before: Record<string, unknown> = {};
     const after: Record<string, unknown> = {};
     const update: Record<string, unknown> = {};
@@ -217,13 +229,19 @@ export class RolesService {
 
   /**
    * 停用 / 啟用:停用後持有者的該角色立即不生效(授予仍在,PermissionResolver 排除,ADR-0011)。
-   * 種子角色與租戶副本照樣可停用 — 那是可逆的動作,「不可刪」才是保護(role-manager.md 權限表)。
+   *
+   * 三道擋(#261 規則表;判準正本 `role-rules.ts` 的 `canToggleEnabled`):
+   * 1. 種子角色一律不可切(`SYSTEM_ROLE`)
+   * 2. 預設角色(租戶副本)只有根組織的操作者可切(`TEMPLATE_COPY_ROOT_ONLY`)
+   * 3. **自鎖保護**:不可停用操作者自己正持有的角色(`SELF_LOCK`)—— 做得成就把自己
+   *    鎖在角色管理之外,沒有別的入口能開回來。啟用不受這一條限制。
    */
   async setEnabled(
     operator: OperatorContext,
     input: SetRoleEnabledInput,
   ): Promise<RoleModel> {
     const role = await this.scope.loadManagedRole(operator, input.id);
+    await this.assertToggleAllowed(operator, role, input.enabled);
     if (role.enabled === input.enabled) {
       return this.scope.decorateOne(operator, role);
     }
@@ -277,13 +295,44 @@ export class RolesService {
     if (grantedUserIds.length > 0) {
       reasons.push("HAS_GRANTS");
     }
-    // 種子角色:`isSystem` 或有 `key`(seed 以 key 冪等,role.schema.ts)
-    if (role.isSystem || (role.key !== undefined && role.key !== "")) {
+    if (isSeedRole(role)) {
       reasons.push("SYSTEM_ROLE");
     }
     if (isTemplateCopy(role)) {
       reasons.push("TEMPLATE_COPY");
     }
     return reasons;
+  }
+
+  /**
+   * 停用 / 啟用的三道擋;判準與 `Role.abilities.canToggleEnabled` 是同一個純函式,
+   * 這裡只負責把「不行」翻成哪一個 `reason`(前端據此顯示不同的一句話)。
+   */
+  private async assertToggleAllowed(
+    operator: OperatorContext,
+    role: RoleRecord,
+    nextEnabled: boolean,
+  ): Promise<void> {
+    const facts = await this.scope.factsOf(operator, role);
+    if (canToggleEnabled(role, facts)) {
+      return;
+    }
+    const kind = roleKindOf(role);
+    if (kind === RoleKind.SYSTEM) {
+      throw forbiddenError(
+        `Role ${String(role._id)} is a seed role; enabling and disabling it is not allowed`,
+        "SYSTEM_ROLE",
+      );
+    }
+    if (kind === RoleKind.TEMPLATE_COPY && !facts.isRootOperator) {
+      throw forbiddenError(
+        `Role ${String(role._id)} is a tenant-admin copy; set-enabled is only allowed from the root org`,
+        "TEMPLATE_COPY_ROOT_ONLY",
+      );
+    }
+    throw forbiddenError(
+      `Role ${String(role._id)} is held by the operator; disabling it would lock them out (enabled=${String(nextEnabled)})`,
+      "SELF_LOCK",
+    );
   }
 }

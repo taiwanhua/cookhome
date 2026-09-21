@@ -73,6 +73,32 @@ type RecipeList {
 追加一列會讓 prettier 重排整張表的欄寬(STRUCT-09),所以 diff 看起來整張表都動了。合併衝突時
 **保留兩邊的新列後重跑 `pnpm format`,不要照行比對**(照行比對必定弄丟其中一邊的欄寬或列)。
 
+**推論**(2026-09-21 / #261):**能不動上面那張表就不動**。改一列的內容一樣會重排整張表,
+對 `dev` 必衝突 —— 要補充既有 code 的語意,寫在本節下方的段落裡,表只留給「真的新增一個 code」。
+
+### `FORBIDDEN` 的 `extensions.reason`(2026-09-21 / #261)
+
+`FORBIDDEN` 是通用碼,光看碼分不出「為什麼不行」,所以**受規則保護**的那幾種情形另附 `reason`,
+前端據此顯示不同的一句話。這是 `reason` 不是新的 `code`,所以上表不增列:
+
+| `reason`                  | 什麼情況回它                                                                        | 程式正本                                 |
+| ------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------- |
+| `SYSTEM_ROLE`             | 動到種子角色(改名、編權限矩陣、停用 / 啟用);它隨底座出貨,內容隨版本更新             | `apps/api/src/roles/roles-error.ts`      |
+| `TEMPLATE_COPY_ROOT_ONLY` | 非根組織的操作者要停用**預設角色**(租戶副本)                                        | 同上                                     |
+| `SELF_LOCK`               | 自鎖保護:停用操作者**自己正持有的角色**,或停用 `system.module-manager` 子樹與其權限 | 同上 / `modules/module-manager-error.ts` |
+
+規則表正本見 ADR-0004「角色種類與可改動範圍」與 `docs/modules/role-manager.md`。
+
+### `USER_NOT_ELIGIBLE` 的兩個入口(2026-09-21 / #261)
+
+上表的 `USER_NOT_ELIGIBLE` 原本只寫角色頁的「加入使用者」。它現在是**授予資格的唯一錯誤碼**,
+兩個入口同碼:角色頁的 `grantRoleUsers` 與使用者頁的 `assignUserRoles`(後者原為
+`VALIDATION_FAILED`,前端只講得出「資料未通過驗證」)。判斷本身也只有一份
+(`apps/api/src/users/org-qualification.service.ts` 的 `assertEligible`)。
+
+`extensions` 附 `roleId` 與 `ownerOrgName`,前端據此顯示
+「此角色只能授予 <ownerOrgName> 及其下層的使用者」,並把該列設為 disabled。
+
 ## GQL-05 `schema.gql` 是產物
 
 由 api 啟動時自動生成,不手改;PR 內 schema 變更以 decorator 的 diff 為準。

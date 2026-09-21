@@ -12,16 +12,22 @@ import { MatrixTree } from "./MatrixTree";
 export interface PermissionMatrixTabProps {
   roleName: string;
   canEdit: boolean;
+  /** 種子角色:矩陣唯讀且內容隨版本更新(#261),多一句說明講清楚為什麼動不了 */
+  isSeedRole: boolean;
   matrix: ReturnType<typeof useRoleMatrix>;
 }
 
 /**
  * 權限矩陣頁籤(Figma 57:142):標題 + 未儲存提示 + 儲存變更,底下是矩陣樹。
  * 儲存整份覆蓋(`saveRoleMatrix`),成功後由頁面精準 invalidate(DATA-04)。
+ *
+ * 唯讀的兩種情形各給各的說明:**沒有 `edit-matrix` 權限**時沒有儲存鍵、
+ * **種子角色**時另外標一句「系統內建角色,內容隨版本更新」(#261 的 5)。
  */
 export const PermissionMatrixTab = ({
   roleName,
   canEdit,
+  isSeedRole,
   matrix,
 }: PermissionMatrixTabProps) => {
   const t = useTranslations("admin.roleManager.matrix");
@@ -53,6 +59,7 @@ export const PermissionMatrixTab = ({
         )}
       </Stack>
 
+      {isSeedRole && <Alert severity="info">{t("seedReadOnly")}</Alert>}
       {matrix.shrinkOnly && <Alert severity="info">{t("shrinkOnly")}</Alert>}
       {matrix.errorCode !== null && (
         <Alert severity="error">{tErrors(matrix.errorCode)}</Alert>

@@ -10,6 +10,8 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
+import { groupRoleOptions, roleMenuOptions } from "@/lib/role-options";
+
 import {
   ROLES_PAGE_SIZE,
   type RoleActionAbility,
@@ -56,6 +58,12 @@ export const RoleListPanel = ({
 }: RoleListPanelProps) => {
   const t = useTranslations("admin.roleManager");
   const pageCount = Math.max(1, Math.ceil(totalCount / ROLES_PAGE_SIZE));
+  const rowById = new Map(rows.map((role) => [role.id, role]));
+  /**
+   * 根組織視角(這一頁的角色跨兩個以上租戶)才分組;租戶視角只有一組,不加標題。
+   * 分組規則與另外兩個角色選單共用 `lib/role-options.ts`(#261 的 8)。
+   */
+  const groups = groupRoleOptions(roleMenuOptions(rows));
 
   return (
     <Card
@@ -101,17 +109,36 @@ export const RoleListPanel = ({
         )}
         <List disablePadding aria-label={t("listLabel")}>
           {!isLoading &&
-            rows.map((role) => (
-              <RoleListRow
-                key={role.id}
-                role={role}
-                isSelected={role.id === selectedRoleId}
-                ability={ability}
-                onSelect={onSelectRole}
-                onEdit={onEdit}
-                onToggleEnabled={onToggleEnabled}
-                onDelete={onDelete}
-              />
+            groups.map((group) => (
+              <Box key={group.id ?? "__all__"} component="li">
+                {group.name !== null && (
+                  <Typography
+                    variant="overline"
+                    color="text.secondary"
+                    component="p"
+                    sx={{ px: 1, pt: 1 }}
+                  >
+                    {group.name}
+                  </Typography>
+                )}
+                {group.options.flatMap((option) => {
+                  const role = rowById.get(option.id);
+                  return role === undefined
+                    ? []
+                    : [
+                        <RoleListRow
+                          key={role.id}
+                          role={role}
+                          isSelected={role.id === selectedRoleId}
+                          ability={ability}
+                          onSelect={onSelectRole}
+                          onEdit={onEdit}
+                          onToggleEnabled={onToggleEnabled}
+                          onDelete={onDelete}
+                        />,
+                      ];
+                })}
+              </Box>
             ))}
         </List>
       </Box>

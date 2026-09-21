@@ -59,15 +59,15 @@
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。綁定原則:綁「按鈕 / 欄位所在的那一頁」(ADR-0004)。
 
-| 權限 key                             | 它是哪一頁的什麼                                                                                      |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `system.role-manager.view`           | 看角色清單、單筆(權限矩陣、分配使用者兩個頁籤);沒有它整頁進不去內容                                   |
-| `system.role-manager.create`         | 「新增角色」按鈕 + API(擁有組織限操作者管理範圍內,預設當前組織)                                       |
-| `system.role-manager.edit`           | 編輯名稱 / 描述 + API                                                                                 |
-| `system.role-manager.edit-matrix`    | 權限矩陣「儲存」+ API(role_module / role_permission 整份覆蓋;subset-only 防越權;租戶副本只能縮不能擴) |
-| `system.role-manager.assign-users`   | 分配使用者頁籤的「加入使用者」「移除」+ API(user_role;候選 = 所屬組織在角色擁有組織子樹內)            |
-| `system.role-manager.toggle-enabled` | 停用 / 啟用角色 + API(停用後持有者的該角色立即不生效,PermissionResolver 已排除 enabled=false)         |
-| `system.role-manager.delete`         | 刪除角色 + API(前置:無授予、非種子角色、非租戶副本;軟刪除)                                            |
+| 權限 key                             | 它是哪一頁的什麼                                                                                                                                                                                                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system.role-manager.view`           | 看角色清單、單筆(權限矩陣、分配使用者兩個頁籤);沒有它整頁進不去內容                                                                                                                                                                                                                                     |
+| `system.role-manager.create`         | 「新增角色」按鈕 + API(擁有組織限操作者管理範圍內,預設當前組織)                                                                                                                                                                                                                                         |
+| `system.role-manager.edit`           | 編輯名稱 / 描述 + API                                                                                                                                                                                                                                                                                   |
+| `system.role-manager.edit-matrix`    | 權限矩陣「儲存」+ API(role_module / role_permission 整份覆蓋;subset-only 防越權;租戶副本只能縮不能擴)                                                                                                                                                                                                   |
+| `system.role-manager.assign-users`   | 分配使用者頁籤的「加入使用者」「移除」+ API(user_role;候選 = 所屬組織在角色擁有組織子樹內)                                                                                                                                                                                                              |
+| `system.role-manager.toggle-enabled` | 停用 / 啟用角色 + API(停用後持有者的該角色立即不生效,PermissionResolver 已排除 enabled=false)。**有這個權限不代表每個角色都切得動** — 還要過角色種類規則:種子不可切、預設角色只有 root、不可停用操作者自己正持有的角色(見上方「角色種類與可改動範圍」;列上顯示與否讀 `Role.abilities.canToggleEnabled`) |
+| `system.role-manager.delete`         | 刪除角色 + API(前置:無授予、非種子角色、非租戶副本;軟刪除)                                                                                                                                                                                                                                              |
 
 審計動作:`role.create` / `role.edit` / `role.edit-matrix`(before / after 為綁定差異)/ `role.grant-user` / `role.revoke-user` / `role.toggle-enabled` / `role.delete`。
 
@@ -75,19 +75,19 @@
 
 GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語意的正本在本節,前端段只引用、不另寫解釋。
 
-| 端點                                                  | 權限 key         | 說明                                                                                       |
-| ----------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------ |
-| `roles(input: RolesInput!): RolesPayload!`            | `view`           | 範圍 = 擁有組織在操作者**管理範圍**內的角色;`keyword` 比對名稱與描述(不分大小寫的部分比對) |
-| `role(id: ID!): RolePayload!`                         | `view`           | 單筆;管理範圍外視同不存在(`NOT_FOUND`,不透露差別)                                          |
-| `createRole(input: CreateRoleInput!): RolePayload!`   | `create`         | 擁有組織限管理範圍內(範圍外 `FORBIDDEN`);新角色不綁任何模組 / 權限                         |
-| `updateRole(input: UpdateRoleInput!): RolePayload!`   | `edit`           | 只有名稱與描述;**擁有組織建立後不可改**(改管轄邊界等於換一個角色,ADR-0003)                 |
-| `setRoleEnabled(input: …): RolePayload!`              | `toggle-enabled` | 種子角色與租戶副本**照樣可停用**(可逆);「不可刪」才是保護                                  |
-| `deleteRole(input: DeleteRoleInput!): DeletePayload!` | `delete`         | 前置三項不過 → `ROLE_NOT_DELETABLE` + `extensions.reasons`;軟刪除,關聯不動                 |
-| `roleMatrix(roleId: ID!): RoleMatrixPayload!`         | `view`           | 見下方「矩陣的兩棵樹」                                                                     |
-| `saveRoleMatrix(input: …): RoleMatrixPayload!`        | `edit-matrix`    | 整份覆蓋(限矩陣回的那棵樹);`ROLE_OUT_OF_REACH`                                             |
-| `roleUsers(roleId: ID!, input: …): RoleUsersPayload!` | `view`           | 被授予這個角色的**所有人**(含管理範圍外的「組織外」持有者 — 列不出來就移不掉)              |
-| `grantRoleUsers(input: …): RoleUsersPayload!`         | `assign-users`   | **增量加入**(不是全量覆蓋);候選外 → `USER_NOT_ELIGIBLE`;已持有者重送冪等                   |
-| `revokeRoleUsers(input: …): RoleUsersPayload!`        | `assign-users`   | 擁有者保護 → `OWNER_PROTECTED`;未持有者重送冪等                                            |
+| 端點                                                  | 權限 key         | 說明                                                                                                                                                                                                                                                    |
+| ----------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `roles(input: RolesInput!): RolesPayload!`            | `view`           | 範圍 = 擁有組織在操作者**管理範圍**內的角色;`keyword` 比對名稱與描述(不分大小寫的部分比對)                                                                                                                                                              |
+| `role(id: ID!): RolePayload!`                         | `view`           | 單筆;管理範圍外視同不存在(`NOT_FOUND`,不透露差別)                                                                                                                                                                                                       |
+| `createRole(input: CreateRoleInput!): RolePayload!`   | `create`         | 擁有組織限管理範圍內(範圍外 `FORBIDDEN`);新角色不綁任何模組 / 權限                                                                                                                                                                                      |
+| `updateRole(input: UpdateRoleInput!): RolePayload!`   | `edit`           | 只有名稱與描述;**擁有組織建立後不可改**(改管轄邊界等於換一個角色,ADR-0003);種子角色 → `FORBIDDEN`(reason `SYSTEM_ROLE`)                                                                                                                                 |
+| `setRoleEnabled(input: …): RolePayload!`              | `toggle-enabled` | 依角色種類擋(上方「角色種類與可改動範圍」):種子角色一律不可切 → `FORBIDDEN`(`SYSTEM_ROLE`);預設角色(租戶副本)只有根組織的操作者可切 → `FORBIDDEN`(`TEMPLATE_COPY_ROOT_ONLY`);**不可停用操作者自己正持有的角色** → `FORBIDDEN`(`SELF_LOCK`,啟用不受此限) |
+| `deleteRole(input: DeleteRoleInput!): DeletePayload!` | `delete`         | 前置三項不過 → `ROLE_NOT_DELETABLE` + `extensions.reasons`;軟刪除,關聯不動                                                                                                                                                                              |
+| `roleMatrix(roleId: ID!): RoleMatrixPayload!`         | `view`           | 見下方「矩陣的兩棵樹」                                                                                                                                                                                                                                  |
+| `saveRoleMatrix(input: …): RoleMatrixPayload!`        | `edit-matrix`    | 整份覆蓋(限矩陣回的那棵樹);`ROLE_OUT_OF_REACH`;種子角色的矩陣唯讀 → `FORBIDDEN`(`SYSTEM_ROLE`)                                                                                                                                                          |
+| `roleUsers(roleId: ID!, input: …): RoleUsersPayload!` | `view`           | 被授予這個角色的**所有人**(含管理範圍外的「組織外」持有者 — 列不出來就移不掉)                                                                                                                                                                           |
+| `grantRoleUsers(input: …): RoleUsersPayload!`         | `assign-users`   | **增量加入**(不是全量覆蓋);候選外 → `USER_NOT_ELIGIBLE` + `extensions.roleId` / `ownerOrgName`;已持有者重送冪等。資格判斷與使用者頁的 `assignUserRoles` 共用 `OrgQualificationService.assertEligible`(#261)                                             |
+| `revokeRoleUsers(input: …): RoleUsersPayload!`        | `assign-users`   | 擁有者保護 → `OWNER_PROTECTED`;未持有者重送冪等                                                                                                                                                                                                         |
 
 **缺席 / null 的語意**(GQL-06):
 
@@ -98,12 +98,15 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 **回傳欄位的語意**(GQL-07):
 
 - `Role.ownerOrg`:擁有組織;清單只回管理範圍內的角色,所以正常恆有值,資料損毀(無 `org_role`)時為 `null`
-- `Role.isSystem`:種子角色(`super-admin` / `tenant-admin` 模板);`Role.isTemplateCopy`:開通租戶複製出來的副本(`settings.templateKey`,ADR-0009)。兩者都不可刪,後者的矩陣另外**只能縮不能擴**
+- `Role.ownerOrg.tenantTop`(#261):擁有組織所屬的**租戶頂層**(`orgs.ancestors[1]`,見 `orgs/org-mapper.ts` 的 `tenantTopIdOf`)。角色選單靠它分組 — 每個租戶都有自己的「租戶管理員」,根組織視角只看角色名稱分不出來。擁有組織本身是租戶頂層時 = 它自己;擁有組織是根組織(種子角色)、或租戶頂層落在操作者管理範圍外時為 `null`
+- `Role.kind`(#261):`SYSTEM` / `TEMPLATE_COPY` / `CUSTOM`,判準見上方「角色種類與可改動範圍」。`isSystem` / `isTemplateCopy` 是它的兩個布林投影,留著相容
+- `Role.abilities`(#261):`canEdit` / `canEditMatrix` / `canToggleEnabled` / `canDelete` — 這個角色**依種類規則**允許的四個動作,api 依操作者算好(程式正本 `apps/api/src/roles/role-rules.ts`),**前端不重算**。**不含權限 key 的判斷**:「有沒有 `system.role-manager.edit`」由 `@RequirePermission` 與前端的 `usePermissions` 各守一層,顯示按鈕的條件是兩者相乘(`rowAbilityOf`)
+- `Role.isSystem`:種子角色(`super-admin` / `tenant-admin` 模板);`Role.isTemplateCopy`:開通租戶複製出來的副本(`settings.templateKey`,ADR-0009)。兩者都不可刪,後者的矩陣對**非根組織的操作者**另外只能縮不能擴
 - `Role.userCount`:被授予的人數,**含「組織外」的授予**(ADR-0003:授予照常有效)
 - `RoleUser.orgs`:該使用者的所屬組織,只列操作者管理範圍內的(範圍外的連 id 都不露)
 - `RoleUser.outOfScope`:所屬組織皆不在角色擁有組織的子樹內 → UI 標 Warning Tag「組織外」
 - `RoleUser.ownerProtected`:移除會被 `OWNER_PROTECTED` 擋下 → UI 把「移除」設為 disabled
-- `RoleMatrixPayload.shrinkOnly`:這個角色是租戶管理員副本,矩陣只能縮不能擴
+- `RoleMatrixPayload.shrinkOnly`:**非 root 且**這個角色是租戶管理員副本,矩陣只能縮不能擴(#261 放寬 root — 平台方本來就該能替租戶開新模組)
 - `RoleMatrixPayload.granted`:**已展開 `*`**(含 `*` 本身與展開後的同層各筆),直接餵 `@repo/domain/permission` 的連動純函式
 
 **矩陣的兩棵樹**(#203 的實作決定;規則來源 ADR-0004 防越權 + ADR-0011 的 enabled 剔除):
@@ -149,6 +152,17 @@ mixed 的定義是 M-08(本文「權限矩陣規則(逐條)」):**模組已勾�
 
 ### 其他
 
-- 清單列的動作(編輯 / 停用 / 刪除)依 `system.role-manager.*` 七筆權限顯示,能不能動則讀 `Role.abilities`。
-- 「加入使用者」彈窗借 `users(input: { orgId: 角色的擁有組織 })` 取候選(ADR-0005),所以這個彈窗**額外需要 `system.user-manager.view`**;沒有時畫面顯示提示。
+- 清單列的動作(編輯 / 停用 / 刪除)= **權限 × `Role.abilities`**(`rowAbilityOf`,`role-manager-types.ts`):權限決定「這個人能不能做這件事」、`abilities` 決定「這個角色讓不讓做」,兩者相乘才顯示按鈕。
+- 「加入使用者」彈窗借 `users` query 取候選(ADR-0005),所以這個彈窗**額外需要 `system.user-manager.view`**;沒有時畫面顯示提示。**#261 起不再帶 `orgId` 只問子樹**:改問管理範圍內的全部使用者,逐列以 `orgTree` 判斷資格,子樹外的人**顯示但 disabled** 並就地說明原因(在此之前直接不列,找不到人的人只會以為那個人不見了)。判定權仍在 api(`USER_NOT_ELIGIBLE`),前端這一份只決定要不要灰掉 — 純函式在 `apps/admin/src/lib/role-eligibility.ts`。
 - 刪除送出後收到 `ROLE_NOT_DELETABLE` 才攤開 `extensions.reasons` 三項,並提示改用停用。
+
+### 角色選單怎麼分辨同名角色(#261 的 8)
+
+三個地方列角色:資料範圍頁的套用對象「指定角色」、使用者頁的「指派角色」、角色管理頁的左清單。
+每個租戶都有自己的「租戶管理員」,根組織視角只看角色名稱完全分不出來,所以兩層一起上,
+共用純函式 `apps/admin/src/lib/role-options.ts`:
+
+- 每一列標「**角色名稱 — 擁有組織**」(`roleOptionLabel`)。
+- 跨兩個以上租戶頂層時,再依 `Role.ownerOrg.tenantTop` **分組**(`groupRoleOptions`);單一租戶視角不分組 — 只有一組的標題是雜訊。
+- 選單可依角色名稱或擁有組織**搜尋**(`filterRoleOptions`)。
+- 搜尋框一律放在 `Select` **外面**:MUI 的 `Select` 會把選單裡的子元素一律 clone 成 `role="option"`,塞進去的輸入框會變成一個假的選項(a11y 與測試都亂掉)。

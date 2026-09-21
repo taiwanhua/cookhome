@@ -22,6 +22,15 @@ export interface RoleOption {
   isOutOfReach: boolean;
   /** 已授予但使用者不在該角色擁有組織的子樹內(「組織外」) */
   isOutOfScope: boolean;
+  /**
+   * 這位使用者有沒有資格被授予這個角色(ADR-0003;#261 的 6)。
+   * 不合格的列**顯示但 disabled**、就地說明原因 —— 在此之前不合格的角色勾得下去,
+   * 送出才吃到一句「資料未通過驗證」。判定正本仍在 api(`USER_NOT_ELIGIBLE`)。
+   */
+  isEligible: boolean;
+  /** 分組用的租戶頂層(`ownerOrg.tenantTop`);根組織視角靠它分辨同名角色 */
+  tenantTopId: string | null;
+  tenantTopName: string | null;
 }
 
 /**
@@ -36,6 +45,8 @@ export interface RoleOption {
 export const buildRoleOptions = (
   assignable: readonly AssignableRole[],
   targetRoles: readonly UserRoleGrant[],
+  /** 目標使用者是否有資格被授予某個角色(`lib/role-eligibility.ts` 算好的查詢函式) */
+  isEligible: (ownerOrgId: string | null) => boolean = () => true,
 ): RoleOption[] => {
   const grants = new Map(targetRoles.map((role) => [role.id, role]));
   const options = assignable.map<RoleOption>((role) => ({
@@ -49,6 +60,9 @@ export const buildRoleOptions = (
     isGranted: grants.has(role.id),
     isOutOfReach: false,
     isOutOfScope: grants.get(role.id)?.outOfScope ?? false,
+    isEligible: isEligible(role.ownerOrg?.id ?? null),
+    tenantTopId: role.ownerOrg?.tenantTop?.id ?? null,
+    tenantTopName: role.ownerOrg?.tenantTop?.name ?? null,
   }));
 
   const reachable = new Set(assignable.map((role) => role.id));
@@ -60,12 +74,16 @@ export const buildRoleOptions = (
       description: null,
       ownerOrgId: role.ownerOrgId ?? null,
       ownerOrgName: role.ownerOrgName ?? null,
-      // 搆不到的角色只從授予記錄得知,沒有 enabled / isTemplateCopy 可言
+      // 搆不到的角色只從授予記錄得知,沒有 enabled / isTemplateCopy / 租戶頂層可言
       enabled: true,
       isTemplateCopy: false,
       isGranted: true,
       isOutOfReach: true,
       isOutOfScope: role.outOfScope,
+      // 已持有的授予照常有效(ADR-0003「組織外」只標記不解除),不因資格而灰掉
+      isEligible: true,
+      tenantTopId: null,
+      tenantTopName: null,
     }));
 
   return [...options, ...outOfReach];
@@ -73,12 +91,14 @@ export const buildRoleOptions = (
 
 /**
  * 這一列能不能被勾動:管理範圍外一律唯讀;**已停用的角色不可新勾**,
- * 但已經持有的還要能取消(不然停用的角色就永遠拔不掉了)。
+ * 但已經持有的還要能取消(不然停用的角色就永遠拔不掉了);
+ * **沒有授予資格的不可新勾**(#261 的 6),同理已持有的仍可取消。
  */
 export const isRoleSelectable = (
   role: RoleOption,
   isChecked: boolean,
-): boolean => !role.isOutOfReach && (role.enabled || isChecked);
+): boolean =>
+  !role.isOutOfReach && ((role.enabled && role.isEligible) || isChecked);
 
 /** 篩選器的組織選項(去重、保順序);沒有擁有組織的角色歸在 `null` 不進選單。 */
 export const ownerOrgOptions = (

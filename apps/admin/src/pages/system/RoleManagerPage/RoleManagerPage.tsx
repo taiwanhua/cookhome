@@ -20,7 +20,11 @@ import {
   type RoleManagerError,
   roleManagerErrorOf,
 } from "./role-manager-error";
-import type { RoleDetailTab, RoleRow } from "./role-manager-types";
+import {
+  type RoleDetailTab,
+  type RoleRow,
+  rowAbilityOf,
+} from "./role-manager-types";
 import { useRoleManagerData } from "./useRoleManagerData";
 import { useRoleMatrix } from "./useRoleMatrix";
 import { useUnsavedGuard } from "./useUnsavedGuard";
@@ -51,7 +55,10 @@ export const RoleManagerPage = () => {
   const [pendingNav, setPendingNav] = useState<PendingNav | null>(null);
 
   const matrix = useRoleMatrix(data.selectedRole?.id ?? null, {
-    canEdit: data.ability.canEditMatrix,
+    // 權限 × 角色種類規則(#261):種子角色即使有 edit-matrix 權限也整棵鎖住
+    canEdit:
+      data.selectedRole !== null &&
+      rowAbilityOf(data.ability, data.selectedRole).canEditMatrix,
     onSaved: (roleId) => {
       void data.invalidate(roleId);
     },
