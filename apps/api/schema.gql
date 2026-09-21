@@ -504,6 +504,7 @@ type RoleMatrixModule {
 }
 
 type RoleMatrixPayload {
+  ceiling: RoleGrant
   granted: RoleGrant!
   modules: [RoleMatrixModule!]!
   role: Role!

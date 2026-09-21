@@ -59,6 +59,11 @@ export interface RoleWorldOptions {
   granted?: { moduleKeys: string[]; permissionKeys: string[] };
   /** 租戶副本的矩陣只能縮不能擴 */
   shrinkOnly?: boolean;
+  /**
+   * 預設角色的天花板(#283):內建「租戶管理員」模板角色目前的授予。
+   * 未給 = 不是預設角色(api 回 null),天花板那把鎖不作用。
+   */
+  ceiling?: { moduleKeys: string[]; permissionKeys: string[] } | null;
   users?: TestRoleUser[];
   /** 加入使用者彈窗的候選(`users` query) */
   candidates?: TestCandidate[];
@@ -94,6 +99,7 @@ export const roleWorld = (options: RoleWorldOptions = {}): RoleWorld => {
     modules = matrixModules,
     granted = grantedFixture,
     shrinkOnly = false,
+    ceiling = null,
     users = defaultRoleUsers,
     candidates = defaultCandidates,
     orgTree = roleOrgTree,
@@ -136,6 +142,7 @@ export const roleWorld = (options: RoleWorldOptions = {}): RoleWorld => {
   const matrixPayload = (roleId: string) => ({
     role: roleOf(roleId),
     shrinkOnly,
+    ceiling,
     granted: currentGranted,
     modules,
   });

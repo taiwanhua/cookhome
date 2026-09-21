@@ -133,7 +133,8 @@ export const AddUsersDialog = ({
                 setKeyword(event.target.value);
               }}
             />
-            <Box sx={{ maxHeight: 280, overflow: "auto" }}>
+            {/* px:1 讓 checkbox 的左框線落在捲動區內 — 貼齊左緣時會被 overflow 切掉(#283) */}
+            <Box sx={{ maxHeight: 280, overflow: "auto", px: 1 }}>
               {candidates.length === 0 && (
                 <Typography variant="body2" color="text.secondary">
                   {t("empty")}

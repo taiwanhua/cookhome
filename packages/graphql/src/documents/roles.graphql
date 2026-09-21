@@ -117,6 +117,12 @@ fragment RoleMatrixFields on RoleMatrixPayload {
     moduleKeys
     permissionKeys
   }
+  # 預設角色(租戶副本)的天花板 = 內建「租戶管理員」模板角色目前的授予(#283);
+  # 其他種類為 null。已展開 `*`、已收到顯示樹內,前端直接拿來鎖天花板外的列。
+  ceiling {
+    moduleKeys
+    permissionKeys
+  }
   modules {
     ...RoleMatrixNodeFields
     children {
@@ -141,6 +147,8 @@ query RoleMatrix($roleId: ID!) {
 
 # 整份覆蓋;後端以 normalizeGrant 正規化後落庫(`*` 收斂、勾下層補上層)。
 # 送出不是操作者有效權限集的子集 → ROLE_OUT_OF_REACH;租戶副本擴權同碼(shrinkOnly = true 時先提示)。
+# 超過預設角色的天花板(內建租戶管理員沒有的項目)→ ROLE_OUT_OF_REACH + extensions.reason
+# TEMPLATE_CEILING,root 也擋(#283);前端讀 ceiling 先把那些列鎖住。
 # 種子角色的矩陣唯讀 → FORBIDDEN + reason SYSTEM_ROLE(#261);
 # shrinkOnly 自 #261 起是「非 root 且是預設角色」— root 替租戶放寬預設角色不再被擋。
 mutation SaveRoleMatrix($input: SaveRoleMatrixInput!) {

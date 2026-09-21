@@ -181,17 +181,32 @@ export const allMatrixRowIds = (tree: MatrixModuleTree): string[] => {
 };
 
 /**
- * 目前**沒有**授予的列(租戶副本只能縮不能擴,`RoleMatrixPayload.shrinkOnly`):
- * 前端直接把這些列設成不可勾,免得送出後才吃到 `ROLE_OUT_OF_REACH`。
+ * 一份授予**涵蓋不到**的列。兩個呼叫端、同一種算法:
+ * - `ungrantedMatrixRowIds`:目前沒有勾的列(`shrinkOnly` 只能縮不能擴)
+ * - `outOfCeilingMatrixRowIds`:天花板外的列(`ceiling`,#283)
+ *
+ * 兩者都是防呆不是把關:api 仍會回 `ROLE_OUT_OF_REACH`,前端先鎖住免得送出才吃錯誤。
  */
-export const ungrantedMatrixRowIds = (
+const rowIdsOutside = (
   tree: MatrixModuleTree,
   grant: PermissionGrant,
 ): string[] => {
   const expanded = expandGrant(tree, grant);
-  const granted = new Set([...expanded.moduleKeys, ...expanded.permissionKeys]);
-  return allMatrixRowIds(tree).filter((id) => !granted.has(id));
+  const covered = new Set([...expanded.moduleKeys, ...expanded.permissionKeys]);
+  return allMatrixRowIds(tree).filter((id) => !covered.has(id));
 };
+
+/**
+ * 目前**沒有**授予的列(租戶副本只能縮不能擴,`RoleMatrixPayload.shrinkOnly`):
+ * 前端直接把這些列設成不可勾,免得送出後才吃到 `ROLE_OUT_OF_REACH`。
+ */
+export const ungrantedMatrixRowIds = rowIdsOutside;
+
+/**
+ * **天花板之外**的列(`RoleMatrixPayload.ceiling`,#283):預設角色的矩陣上限是
+ * 內建「租戶管理員」模板角色目前的授予,模板沒有的項目 root 與租戶都勾不動。
+ */
+export const outOfCeilingMatrixRowIds = rowIdsOutside;
 
 const byKey = (left: string, right: string): number =>
   left.localeCompare(right);

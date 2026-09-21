@@ -109,6 +109,8 @@ export const ModulePermissionTable = ({
         rows={sortPermissions(permissions)}
         getRowKey={(permission) => permission.id}
         size="small"
+        // 名稱 180 + 動作 96 之外還有 key 與描述兩欄要看得完整(STYLE-11,#283)
+        minWidth={720}
         emptyMessage={t("empty")}
         aria-label={t("title")}
       />

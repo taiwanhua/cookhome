@@ -57,8 +57,28 @@ export const ROLE_FORBIDDEN_REASONS = [
 
 export type RoleForbiddenReason = (typeof ROLE_FORBIDDEN_REASONS)[number];
 
-export function roleError(code: RoleErrorCode, message: string): GraphQLError {
-  return new GraphQLError(message, { extensions: { code } });
+/**
+ * `ROLE_OUT_OF_REACH` 的 `extensions.reason`(#283)。
+ * 同一個碼有兩種來源,光看碼分不出「是我自己沒有,還是這個角色本來就上不去」:
+ * 沒有 reason = 操作者自身權限集不足(ADR-0004 subset-only);
+ * `TEMPLATE_CEILING` = 預設角色的天花板 —— 送出的項目**內建「租戶管理員」模板角色沒有**,
+ * 連 root 也放寬不了(規則正本 ADR-0004「角色種類與可改動範圍」)。
+ */
+export const ROLE_OUT_OF_REACH_REASONS = ["TEMPLATE_CEILING"] as const;
+
+export type RoleOutOfReachReason = (typeof ROLE_OUT_OF_REACH_REASONS)[number];
+
+export function roleError(
+  code: RoleErrorCode,
+  message: string,
+  reason?: RoleOutOfReachReason,
+): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: {
+      code,
+      ...(reason === undefined ? {} : { reason }),
+    },
+  });
 }
 
 /** 刪除前置未過:`ROLE_NOT_DELETABLE` + `extensions.reasons`(逐項列出,前端一次顯示全部)。 */
