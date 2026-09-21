@@ -18,12 +18,20 @@ import { UploadPurpose } from "./upload-rules";
  * 商標同時出現在編輯組織與開通租戶兩個彈窗,任一權限即可;`@RequirePermission` 是單一 key 的守門,
  * 這裡是「多選一」所以自己查有效權限集合(判斷語意同 PermissionGuard:含同層 wildcard,ADR-0004)。
  */
+const SAMPLE_ONE_WRITE = [
+  "demo.sub.sample-one.create",
+  "demo.sub.sample-one.edit",
+] as const;
+
 const PURPOSE_PERMISSIONS: Readonly<Record<UploadPurpose, readonly string[]>> =
   {
     [UploadPurpose.ORG_LOGO]: [
       "system.org-manager.edit",
       "system.org-manager.tenant-ops.provision",
     ],
+    // 示範模組1 的封面 / 附件都在「新增 / 編輯」兩個表單裡上傳(#318)
+    [UploadPurpose.DEMO_COVER]: SAMPLE_ONE_WRITE,
+    [UploadPurpose.DEMO_ATTACHMENT]: SAMPLE_ONE_WRITE,
   };
 
 /** 簽名上傳網址(ADR-0010);檔案直傳 GCS 不經過 API。 */

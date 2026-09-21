@@ -1,0 +1,124 @@
+# 示範模組1(#318;模組 demo.sub.sample-one,規則正本 docs/modules/demo.sub.sample-one.md)。
+#
+# 三件事在這裡就要看得懂:
+# 1. `internalNote` 是**欄位級權限**欄:沒有 `demo.sub.sample-one.show-internal-note` 時
+#    api 不把這個欄位放進回傳物件(序列化成 null)。「沒權限」與「沒填」在值上看起來一樣,
+#    所以**前端用自己的權限集決定要不要渲染這個欄位**,不要拿值去猜。
+# 2. `abilities` 由 api 依操作者權限算好,前端只讀;顯示按鈕的條件是「頁面權限 && abilities 的旗標」。
+# 3. 封面與附件走**不同的路**(ADR-0010):`coverUrl` 是公開穩定 URL(直接放 img src),
+#    附件只給路徑與檔名,要下載時才呼叫 `AttachmentDownloadUrl` 現簽(短效,不要當成穩定連結快取)。
+
+fragment DemoItemOneFields on DemoItemOne {
+  id
+  name
+  category
+  categoryLabel
+  note
+  internalNote
+  coverPath
+  coverUrl
+  attachment {
+    path
+    name
+  }
+  status
+  enabled
+  createdBy {
+    id
+    name
+  }
+  createdAt
+  updatedAt
+  abilities {
+    canEdit
+    canDelete
+    canEditInternalNote
+  }
+}
+
+# 列表:keyword 比對名稱與備註(**不比對內部備註**)、category 是欄位管理「示範分類」的選項 value、
+# enabled 缺席 = 啟用與停用都回。範圍(可見範圍 + 資料範圍規則)由 api 自動套,前端不送組織條件。
+query DemoItemsOne($input: DemoItemsOneInput!) {
+  demoItemsOne(input: $input) {
+    items {
+      ...DemoItemOneFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+
+# 單筆(詳情頁 / 編輯頁);看不到的資料一律 NOT_FOUND,不透露它存在
+query DemoItemOne($id: ID!) {
+  demoItemOne(id: $id) {
+    item {
+      ...DemoItemOneFields
+    }
+  }
+}
+
+# 變更歷程區塊(編輯頁自有權限 demo.sub.sample-one.edit-page.show-history);
+# 與「能不能編輯」互相獨立。`before` / `after` 只有有變的欄位;
+# internalNote 一律記成 "[redacted]"(歷程不外流內部備註的內容)
+query DemoItemOneHistory($id: ID!) {
+  demoItemOneHistory(id: $id) {
+    items {
+      id
+      action
+      actor {
+        id
+        name
+      }
+      before
+      after
+      createdAt
+    }
+    totalCount
+  }
+}
+
+# 私有附件的下載網址(需 demo.sub.sample-one.view);按下下載才要,不要預先取來放著
+query AttachmentDownloadUrl($id: ID!) {
+  attachmentDownloadUrl(id: $id) {
+    url
+  }
+}
+
+# 新增:coverPath / attachmentPath 是 createUploadUrl(purpose DEMO_COVER / DEMO_ATTACHMENT)
+# 回的 objectPath;沒有 edit-internal-note 就**不要送 internalNote 這個欄位**
+# (送了、即使是 null,也會 FORBIDDEN 且 extensions.reason = FIELD_FORBIDDEN)
+mutation CreateDemoItemOne($input: CreateDemoItemOneInput!) {
+  createDemoItemOne(input: $input) {
+    item {
+      ...DemoItemOneFields
+    }
+  }
+}
+
+# 編輯:缺席 = 不動、null = 清空(GQL-06);name / status 送 null 視同缺席。
+# 封面 / 附件要「不換檔」就把原本的 coverPath / attachment.path 原樣送回,要清掉就送 null
+mutation UpdateDemoItemOne($input: UpdateDemoItemOneInput!) {
+  updateDemoItemOne(input: $input) {
+    item {
+      ...DemoItemOneFields
+    }
+  }
+}
+
+# 刪除(軟刪除);回 deletedId 讓前端把那一列從快取拿掉
+mutation DeleteDemoItemOne($input: DeleteDemoItemOneInput!) {
+  deleteDemoItemOne(input: $input) {
+    success
+    deletedId
+  }
+}
+
+# 列表的停用 / 啟用切換(需 demo.sub.sample-one.edit);隨時切得回來,不套自鎖保護
+mutation SetDemoItemOneEnabled($input: SetDemoItemOneEnabledInput!) {
+  setDemoItemOneEnabled(input: $input) {
+    item {
+      ...DemoItemOneFields
+    }
+  }
+}
