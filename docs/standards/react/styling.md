@@ -43,6 +43,14 @@ front/admin 只從 `@repo/ui` 拿元件;`@mui/*`、`@emotion/*` 由
 與 admin 其他勾選框一致(原本直接吃 MUI 內建的那顆,長得不一樣)。
 `as unknown as` 硬轉只是把錯誤推到執行期,而且下一版庫改型別就再撞一次。
 
+**MUI 圖示只經 `@repo/ui/icons` 的白名單登錄表**(2026-09-21,#287):`@mui/icons-material` 有上萬個圖示,
+`import { X } from "@mui/icons-material"` 或 app 直接相依都會把整包拖進 bundle。規則是
+`packages/ui/src/icons/module-icon-registry.ts` 的 `MODULE_ICONS`:每個圖示一行**單檔路徑**
+`import X from "@mui/icons-material/XOutlined"`(風格一律 Outlined),app 只用 `moduleIconOf(key)` 與
+`@repo/ui/module-icon-picker`。要多一個圖示就在表裡加一列(順帶在 Figma「Icons」頁加同名變體),
+不在 app 端 import —— `@mui/icons-material` 只列在 `packages/ui` 的 dependencies,apps 拿不到。
+29 個圖示在 admin bundle 的成本約 8 KB(未壓縮,#287 實測)。
+
 **目前已知缺的元件**(缺的期間用原生替代並在 PR 記一筆,不要在 app 裡直接 import MUI):
 `EditIcon` / `DeleteIcon` 與 `Tabs`(待 #254,角色管理頁先用文字按鈕與自組 `role="tablist"`)。
 `Tooltip` 已補(#240 / #260,`@repo/ui/tooltip`):原生 `title` 的三處(`OrgActionBar`、

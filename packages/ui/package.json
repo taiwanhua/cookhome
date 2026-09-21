@@ -338,6 +338,16 @@
         "types": "./dist/cjs/markdown.d.ts",
         "default": "./dist/cjs/markdown.js"
       }
+    },
+    "./module-icon-picker": {
+      "import": {
+        "types": "./dist/es/module-icon-picker.d.mts",
+        "default": "./dist/es/module-icon-picker.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/module-icon-picker.d.ts",
+        "default": "./dist/cjs/module-icon-picker.js"
+      }
     }
   },
   "scripts": {
@@ -379,6 +389,7 @@
     "react-dom": ">=18"
   },
   "dependencies": {
+    "@mui/icons-material": "^9.4.0",
     "@mui/x-date-pickers": "^9.14.0",
     "@mui/x-tree-view": "^9.14.0",
     "@swc/helpers": "^0.5.18",

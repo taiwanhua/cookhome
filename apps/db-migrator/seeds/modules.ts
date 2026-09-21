@@ -92,8 +92,10 @@ function toModuleDocument(node: ModuleNodeDeclaration): SeedDocument {
       ...(node.route === undefined ? {} : { route: node.route }),
       sidebarType: node.sidebarType,
       order: node.order,
-      // 初始 seed 值(runner 預設 initialSeedValueFields=["enabled"]):建立後由人在系統內管理
+      // 初始 seed 值(見下方 modules 的 initialSeedValueFields):建立後由人在系統內管理
       enabled: true,
+      // 沒宣告圖示的節點(多數隱藏頁)落庫為 null = 側欄用預設圖示;根組織可再用 setModuleIcon 指定
+      icon: node.icon ?? null,
       ...(node.description === undefined
         ? {}
         : { description: node.description }),
@@ -118,10 +120,16 @@ function toPermissionDocument(permission: PermissionDeclaration): SeedDocument {
   };
 }
 
-/** 模組樹(全部節點;正本:docs/modules/*.md)。 */
+/**
+ * 模組樹(全部節點;正本:docs/modules/*.md)。
+ *
+ * `icon` 與 `enabled` 同為「初始 seed 值的欄位」(ADR-0002):根組織在「模組與權限」頁換過的圖示,
+ * 下次部署重跑 seed 不會被宣告值翻回去(`setModuleIcon` 清空時寫的是 `null`,欄位仍在,所以也算人改過的值)。
+ */
 export const modules: SeedDocumentSet = {
   kind: "documents",
   collection: MODULES_COLLECTION,
+  initialSeedValueFields: ["enabled", "icon"],
   entries: moduleNodes.map((node) => toModuleDocument(node)),
 };
 

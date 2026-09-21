@@ -51,6 +51,18 @@ export class Module {
   @Prop({ type: String })
   description?: string;
 
+  /**
+   * 側欄圖示 key(白名單 `@repo/domain/module-icon` 的 `MODULE_ICON_KEYS`);
+   * `null` = 沒有指定,由側欄用預設圖示。
+   *
+   * 與 `enabled` 同屬「初始 seed 值的欄位」(ADR-0002):seed 只在欄位不存在時寫初值,
+   * 之後由根組織在「模組與權限」頁以 `setModuleIcon` 管理,重跑 seed 不覆蓋人改過的值。
+   * 白名單不寫成 mongoose `enum`:白名單的正本在 `@repo/domain`(前後端共用),
+   * 只有一處驗證(`ModuleManagerService.setModuleIcon`),不在 schema 再抄一份會漂移的清單。
+   */
+  @Prop({ type: String, default: null })
+  icon!: string | null;
+
   /** 受控 JSON 設定。 */
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   settings!: Record<string, unknown>;

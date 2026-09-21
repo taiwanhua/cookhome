@@ -3,6 +3,7 @@
  * 模組樹節點 + permissions + dataScopeTarget)。欄位形狀對照
  * apps/api/src/database/schemas/module.schema.ts、permission.schema.ts、data-scope-target.schema.ts。
  */
+import type { ModuleIconKey } from "@repo/domain/module-icon";
 
 /** 側欄呈現型別(module.schema.ts MODULE_SIDEBAR_TYPES)。 */
 export type ModuleSidebarType = "group" | "link" | "hidden";
@@ -20,6 +21,12 @@ export interface ModuleNodeDeclaration {
   /** 只有自己那段(前綴父路由由 API 組合);純 API 樹等非頁面節點不填。 */
   route?: string;
   description?: string;
+  /**
+   * 側欄圖示 key 的**初始值**(白名單 `@repo/domain/module-icon`;型別即白名單,打錯字 check-types 紅)。
+   * 不宣告 = 落庫為 `null`(側欄用預設圖示);建立後由根組織在「模組與權限」頁改,
+   * 與 `enabled` 同屬「初始 seed 值的欄位」(ADR-0002),重跑 seed 不覆蓋人改過的值。
+   */
+  icon?: ModuleIconKey;
   /** 根組織專屬(租戶不可見):租戶管理員模板扣除之(ADR-0009)。 */
   isRootOnly?: boolean;
 }

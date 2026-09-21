@@ -16,6 +16,7 @@ export const overviewModule: ModuleSeedDeclaration = {
       parentKey: null,
       order: 0,
       route: "overview",
+      icon: "dashboard",
       description: "登入後的第一頁;側欄第一列",
     },
   ],

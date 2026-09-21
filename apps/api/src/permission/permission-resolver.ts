@@ -27,6 +27,8 @@ export interface ResolvedModule {
   order: number;
   /** 完整路徑(父段累加);非頁面節點(隱藏 `api` 樹)為 null。 */
   route: string | null;
+  /** 側欄圖示 key(白名單 `@repo/domain/module-icon`);null = 用預設圖示。 */
+  icon: string | null;
   /** 有效權限 key(moduleId 等於此模組者)。 */
   permissions: string[];
 }
@@ -244,6 +246,7 @@ function assemble(
         sidebarType: module.sidebarType,
         order: module.order,
         route: fullRouteOf(module, byId),
+        icon: module.icon,
         permissions: permissionKeys.toSorted((a, b) => a.localeCompare(b)),
       };
     })

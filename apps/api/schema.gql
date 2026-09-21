@@ -256,6 +256,7 @@ type Me {
 }
 
 type MeModule {
+  icon: String
   id: ID!
   key: String!
   name: String!
@@ -276,6 +277,7 @@ type ModuleAdminNode {
   children: [ModuleAdminNode!]!
   description: String
   enabled: Boolean!
+  icon: String
   id: ID!
   key: String!
   name: String!
@@ -334,6 +336,7 @@ type Mutation {
   saveRoleMatrix(input: SaveRoleMatrixInput!): RoleMatrixPayload!
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
+  setModuleIcon(input: SetModuleIconInput!): ModuleAdminPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
@@ -609,6 +612,11 @@ input SetFieldEnabledInput {
 
 input SetModuleEnabledInput {
   enabled: Boolean!
+  id: ID!
+}
+
+input SetModuleIconInput {
+  icon: String
   id: ID!
 }
 

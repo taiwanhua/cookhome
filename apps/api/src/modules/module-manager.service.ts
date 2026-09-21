@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
+import { isModuleIconKey } from "@repo/domain/module-icon";
 import { isWildcardKey } from "@repo/domain/permission";
 
 import { AuditService } from "../audit/audit.service";
@@ -15,6 +16,7 @@ import type { OperatorContext } from "../database/operator-context";
 import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import type { ModuleSidebarType } from "../permission/models/me-module.model";
 import type { SetModuleEnabledInput } from "./dto/set-module-enabled.input";
+import type { SetModuleIconInput } from "./dto/set-module-icon.input";
 import type { SetPermissionEnabledInput } from "./dto/set-permission-enabled.input";
 import {
   type ModuleAdminNode,
@@ -23,6 +25,7 @@ import {
 import {
   MODULE_MANAGER_SELF_LOCK_REASON,
   moduleManagerError,
+  moduleManagerValidationError,
 } from "./module-manager-error";
 
 type ModuleRecord = Persisted<ModuleDocument>;
@@ -38,6 +41,7 @@ const SELF_LOCK_MODULE_KEY = "system.module-manager";
 /** 審計動作名(`docs/modules/module-manager.md` 最後一段;targetType 分別為 module / permission)。 */
 const AUDIT = {
   module: { action: "module.toggle-enabled", targetType: "module" },
+  moduleIcon: { action: "module.set-icon", targetType: "module" },
   permission: {
     action: "permission.toggle-enabled",
     targetType: "permission",
@@ -95,6 +99,7 @@ function buildTree(
       sidebarType: module.sidebarType as ModuleSidebarType,
       order: module.order,
       description: module.description ?? null,
+      icon: module.icon,
       enabled: module.enabled,
       permissions: (permissionsByModule.get(String(module._id)) ?? [])
         .toSorted(comparePermissions)
@@ -123,8 +128,9 @@ function buildTree(
  * (把 enabled 當可寫的狀態)。同一份 `modules` / `permissions` 資料,兩種讀法,
  * 刻意不共用程式 — 共用會逼其中一邊長出「要不要過濾」的旗標參數。
  *
- * 模組樹本身(新增 / 刪除節點)走 code + PR 的 seed(ADR-0002),執行期唯一可變的欄位
- * 就是 `enabled`,所以本服務只有一個查詢與兩個切換。
+ * 模組樹本身(新增 / 刪除節點)走 code + PR 的 seed(ADR-0002),執行期可變的欄位只有兩個 ——
+ * `enabled`(停用 / 啟用)與 `icon`(側欄圖示,#288),所以本服務只有一個查詢與三個寫入。
+ * 兩者都是 ADR-0002 的「初始 seed 值的欄位」:seed 給初值,之後歸人管、重跑不覆蓋。
  */
 @Injectable()
 export class ModuleManagerService {
@@ -189,6 +195,46 @@ export class ModuleManagerService {
         // 連動關掉的子孫(啟用時恆為空陣列);稽核要看得出這一次到底影響了哪些頁
         cascadedModuleKeys: cascadedKeys,
       },
+    });
+    return this.subtreeOf(operator, updated);
+  }
+
+  /**
+   * 模組的側欄圖示。**不連動、不自鎖**:圖示只影響側欄長相,換錯了照樣能再換回來,
+   * 所以不套 `assertNotSelfLock`(那條規則守的是「關掉就再也開不回來」,這裡沒有這個風險)。
+   *
+   * 值必須是白名單 `@repo/domain/module-icon` 的 key(前後端同一份,ui 的登錄表以它為型別來源),
+   * 否則 `VALIDATION_FAILED` + `extensions.fields = ["icon"]`;`null`(或不送)= 清回預設圖示。
+   * 清空寫的是 `$set: { icon: null }` 而非 `$unset` —— 欄位留著才算「人改過的值」,
+   * 下次 seed 才不會把宣告的初值補回來(`seed-runner.ts` 的初始 seed 值欄位只補「欄位不存在」的)。
+   */
+  async setModuleIcon(
+    operator: OperatorContext,
+    input: SetModuleIconInput,
+  ): Promise<ModuleAdminNode> {
+    await this.assertRootOperator(operator, AUDIT.moduleIcon.action);
+    const module = await this.requireModule(operator, input.id);
+    const icon = input.icon ?? null;
+    if (icon !== null && !isModuleIconKey(icon)) {
+      throw moduleManagerValidationError(
+        `Module icon "${icon}" is not in MODULE_ICON_KEYS`,
+        ["icon"],
+      );
+    }
+    const before = module.icon;
+    const updated =
+      before === icon
+        ? module
+        : ((await this.modules.updateById(operator, module._id, {
+            $set: { icon },
+          })) ?? module);
+
+    await this.audit.record(operator, {
+      action: AUDIT.moduleIcon.action,
+      targetType: AUDIT.moduleIcon.targetType,
+      targetId: module._id,
+      before: { key: module.key, icon: before },
+      after: { key: module.key, icon },
     });
     return this.subtreeOf(operator, updated);
   }

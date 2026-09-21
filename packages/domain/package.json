@@ -28,6 +28,16 @@
         "types": "./dist/cjs/password.d.cts",
         "default": "./dist/cjs/password.cjs"
       }
+    },
+    "./module-icon": {
+      "import": {
+        "types": "./dist/es/module-icon.d.ts",
+        "default": "./dist/es/module-icon.js"
+      },
+      "require": {
+        "types": "./dist/cjs/module-icon.d.cts",
+        "default": "./dist/cjs/module-icon.cjs"
+      }
     }
   },
   "typesVersions": {
@@ -37,6 +47,9 @@
       ],
       "password": [
         "./dist/es/password.d.ts"
+      ],
+      "module-icon": [
+        "./dist/es/module-icon.d.ts"
       ]
     }
   },
