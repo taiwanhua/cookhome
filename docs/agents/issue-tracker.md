@@ -109,6 +109,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
    **動到 api 的 GraphQL schema 時**(resolver / model / input / `*.graphql` document),交件前依序跑 `pnpm --filter @repo/api schema:generate` 與 `pnpm --filter @repo/graphql generate`,把 `apps/api/schema.gql` 與 `packages/graphql/src/generated` 兩份產物一起進 commit(GQL-05)。api-only 的票也一樣 —— CI 的 `codegen 產物與 schema 一致` 一步會擋(#160)。
 
 4. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試/lint/typecheck 全綠才開;看板移 In Review
+   - **admin 票要附 mock 模式截圖**(#194,2026-09-22):`pnpm --filter @repo/admin dev:mock` 起在 `http://localhost:3002`(自動登入 root、各頁都有假資料;`?view=tenant` 換租戶視角、`?auth=off` 看登入頁),截改動到的每一頁貼進 PR 內文,逐張寫明「哪一頁、什麼狀態」。**不必有 dev 帳號、不必等部署** —— 版面問題在 PR 階段就看得到,不要留到 dev 驗證。跑法與實作細節見 `docs/standards/testing/testing.md` TEST-08 的「mock 開發模式」
 5. **不做**:不 merge、不動 main/dev/staging 本體;**docs 只改本票必然連動的兩種**:①本票新增/異動的模組 → 同 PR 維護 `docs/modules/<key>.md` 與 help.md(dis #18)②本票新增的環境變數 / 品牌元素 → 同 PR 更新 env-registry.md / branding.md(CLAUDE.md 規定)。其他文件錯誤(ADR、CONTEXT、規範)**不改**,寫進回報由主流程處理
 6. **回報**:PR 連結、測試結果、**接手體驗報告**(找不到/矛盾/用猜的資訊 — 這是文件品質的回饋來源)
 
