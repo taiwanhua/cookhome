@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
+import { heightChainOf } from "@/test/height-chain";
 import { tenantTree } from "@/test/msw/org-fixtures";
 
 import { ORG_MANAGER_PERMISSIONS } from "./org-manager-permissions";
@@ -337,5 +338,32 @@ describe("組織管理頁(/system/org-manager)", () => {
       "組織管理 1 calc(3.5 * var(--mui-spacing))",
       "使用者管理 1 calc(3.5 * var(--mui-spacing))",
     ]);
+  });
+
+  /**
+   * #183 第 1 項:左樹 / 右區塊撐滿殼給的內容區高度、各自內部捲動(Figma 87:3)。
+   * jsdom 不算版面,所以驗的是**高度鏈的宣告**(`heightChainOf` 的註解說明為什麼這樣就夠)。
+   */
+  it("左樹與右區塊各自一層捲動,中間每一層都 min-height: 0", async () => {
+    renderPage();
+    await waitForTree();
+
+    const treeChain = heightChainOf(
+      screen.getByRole("tree", { name: "組織樹" }),
+    );
+    const detailChain = heightChainOf(detail());
+
+    for (const chain of [treeChain, detailChain]) {
+      // 鏈的最外層一定是 <main>(高度是殼給的,STYLE-08)
+      expect(chain.at(-1)?.label).toBe("MAIN.MuiBox-root");
+      // 每一層都要 min-height: 0,少一層就被內容撐高、flex: 1 等於沒作用
+      expect(chain.map((link) => link.minHeight)).toEqual(chain.map(() => "0"));
+      // 捲動只有最內層那一層(最外層的 <main> 是其他頁在捲的那一層,不算在內)
+      expect(chain.slice(1, -1).filter((link) => link.scrolls)).toEqual([]);
+    }
+
+    // 兩塊各自捲:左邊捲的是樹外面那個 Box、右邊是資料卡自己
+    expect(treeChain[0]?.label).toBe("DIV.MuiBox-root");
+    expect(detailChain[0]?.label).toBe("SECTION.MuiPaper-root");
   });
 });

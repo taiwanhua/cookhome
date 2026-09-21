@@ -10,6 +10,7 @@ import { LOCALE_STORAGE_KEY } from "../lib/locale";
 import { useLocaleStore } from "../stores/useLocaleStore";
 import { useSessionStore } from "../stores/useSessionStore";
 import {
+  LEGACY_SIDE_NAV_STORAGE_KEY,
   SIDE_NAV_STORAGE_KEY,
   useSideNavStore,
 } from "../stores/useSideNavStore";
@@ -38,6 +39,8 @@ afterEach(() => {
   // 側欄收合也是模組層單例(#289):收合過的測試不能讓下一個測試一開始就是圖示列
   useSideNavStore.setState({ isCollapsed: false });
   localStorage.removeItem(SIDE_NAV_STORAGE_KEY);
+  // 舊 key 也清:驗搬移的測試會塞它(#183 第 6 項),留著會被下一個測試搬進新 key
+  localStorage.removeItem(LEGACY_SIDE_NAV_STORAGE_KEY);
   // 模組說明的假 registry 也是模組層單例(#197);改過的測試不影響下一個
   resetHelpFiles();
 });
