@@ -33,6 +33,21 @@ export class DemoItemOnePayload {
 }
 
 /**
+ * 刪除(軟刪除,ADR-0007):資料已不在清單上,只回被刪的 id 讓前端把那一列從快取拿掉。
+ *
+ * **每個模組各有一個**,不共用 orgs 的 `DeletePayload`:code-first 的 type 名是**全域唯一**的,
+ * 共用會讓兩個模組的回傳形狀被綁在一起(其中一邊要加欄位就動到另一邊)。
+ */
+@ObjectType()
+export class DeleteDemoItemOnePayload {
+  @Field(() => Boolean)
+  success!: boolean;
+
+  @Field(() => ID)
+  deletedId!: string;
+}
+
+/**
  * 變更歷程的一筆(`audit_logs` 的投影;需 `demo.sub.sample-one.edit-page.show-history`)。
  *
  * api 介面(GQL-07):

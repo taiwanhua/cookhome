@@ -197,6 +197,12 @@ export type DeleteDemoItemOneInput = {
   id: Scalars['ID']['input'];
 };
 
+export type DeleteDemoItemOnePayload = {
+  __typename?: 'DeleteDemoItemOnePayload';
+  deletedId: Scalars['ID']['output'];
+  success: Scalars['Boolean']['output'];
+};
+
 export type DeleteOrgInput = {
   id: Scalars['ID']['input'];
 };
@@ -466,7 +472,7 @@ export type Mutation = {
   createRole: RolePayload;
   createUploadUrl: UploadUrlPayload;
   createUser: UserPayload;
-  deleteDemoItemOne: DeletePayload;
+  deleteDemoItemOne: DeleteDemoItemOnePayload;
   deleteOrg: DeletePayload;
   deleteRole: DeletePayload;
   grantRoleUsers: RoleUsersPayload;
@@ -1424,7 +1430,7 @@ export type DeleteDemoItemOneMutationVariables = Exact<{
 }>;
 
 
-export type DeleteDemoItemOneMutation = { __typename?: 'Mutation', deleteDemoItemOne: { __typename?: 'DeletePayload', success: boolean, deletedId: string } };
+export type DeleteDemoItemOneMutation = { __typename?: 'Mutation', deleteDemoItemOne: { __typename?: 'DeleteDemoItemOnePayload', success: boolean, deletedId: string } };
 
 export type SetDemoItemOneEnabledMutationVariables = Exact<{
   input: SetDemoItemOneEnabledInput;

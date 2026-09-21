@@ -54,7 +54,7 @@ attachmentDownloadUrl(id: ID!): SignedUrlPayload!                # { url };私�
 
 createDemoItemOne(input: CreateDemoItemOneInput!): DemoItemOnePayload!
 updateDemoItemOne(input: UpdateDemoItemOneInput!): DemoItemOnePayload!
-deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeletePayload!        # { success, deletedId }
+deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeleteDemoItemOnePayload!  # { success, deletedId }
 setDemoItemOneEnabled(input: SetDemoItemOneEnabledInput!): DemoItemOnePayload!
 
 type DemoItemOne {
@@ -89,10 +89,10 @@ input DemoItemsOneInput {
 **回傳欄位的語意**(GQL-07:正本在此,前端段只引用):
 
 - **`internalNote` 是欄位級權限欄(綁父模組,ADR-0004)**:沒有 `demo.sub.sample-one.show-internal-note` 時,api **不把這個欄位放進回傳物件**(GraphQL 因此序列化成 `null`),列表與單筆一致。「沒權限」與「沒填」在值上長得一樣,所以**前端依自己的權限集決定要不要渲染這個欄位**,不要拿值去猜。
-- **`abilities` 由 api 依操作者的有效權限集算好**,前端只讀不重算(與角色頁的 `RoleAbilities` 同型);顯示按鈕的條件是「頁面權限 && `abilities` 的旗標」。`canEditInternalNote` 為 false 但 `internalNote` 有值 = 看得到、改不動(唯讀)。
+- **`abilities` 由 api 依操作者的有效權限集算好,每個旗標都已含權限判斷**:前端**直接用**,不要再與 `usePermissions` 相乘(同一條規則兩邊各算一次,對不起來就是畫面與 API 不一致)。與角色頁的 `RoleAbilities` 不同 —— 那組刻意不含權限 key,因為它表達的是「角色種類規則」。`canEditInternalNote` 為 false 但 `internalNote` 有值 = 看得到、改不動(唯讀)。
 - **`coverUrl` 是公開 bucket 的穩定 URL**(不簽名、不過期,可直接放 `<img src>`、可快取);**附件只給 `attachment { path, name }`**,下載要另外呼叫 `attachmentDownloadUrl(id)` 現簽短效網址(ADR-0010 的雙路)。`attachment.name` 是物件路徑的最後一段(`<uuid>.<副檔名>`)—— 上傳票不保留使用者當初選的檔名。
 - **`categoryLabel`**:分類已被停用、或屬於操作者看不到的組織時為 `null`(`category` 仍原樣回)。
-- `createdBy` 在使用者已被刪除時為 `null`。
+- **`createdBy` 查不到那位使用者時一律回 `null`,不拋錯**:seed 的示範資料用假的 ObjectId 當建立者(#319),真實環境也會有使用者被刪掉的情形;前端顯示「—」即可。
 
 **可選輸入欄位的缺席 / `null` 語意**(GQL-06):
 

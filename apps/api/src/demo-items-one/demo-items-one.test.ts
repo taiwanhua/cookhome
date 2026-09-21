@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
-import type { Connection, Types } from "mongoose";
+import { type Connection, Types } from "mongoose";
 
 import {
   type AuthTestApp,
@@ -355,6 +355,30 @@ describe("示範模組1 CRUD(#318,GraphQL 端點 + 真 MongoDB)", () => {
       await expect(
         listNames(api, lister.token, { enabled: false }),
       ).resolves.toEqual(["停售品"]);
+    });
+
+    it("建立者查不到那位使用者時回 null,不拋錯(seed 示範資料的假 ObjectId,#319)", async () => {
+      const ghostOrg = await createOrg(connection, { name: "幽靈建立者組織" });
+      const now = new Date();
+      await connection.collection("demo_items_one").insertOne({
+        orgId: ghostOrg,
+        name: "沒有建立者的項目",
+        status: "draft",
+        enabled: true,
+        createdAt: now,
+        updatedAt: now,
+        // 不存在的使用者(seed 的示範資料就長這樣)
+        createdBy: new Types.ObjectId(),
+        updatedBy: null,
+        deletedAt: null,
+      });
+      const ghostViewer = await createSampleOneOperator(api, connection, {
+        orgId: ghostOrg,
+        permissionKeys: [P.view],
+      });
+      const payload = await listItems(api, ghostViewer.token);
+      expect(payload.items).toHaveLength(1);
+      expect(payload.items[0]?.createdBy).toBeNull();
     });
 
     it("abilities 依操作者的權限算好:只有 view 的人 canEdit / canDelete 皆 false", async () => {

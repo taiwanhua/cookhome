@@ -167,6 +167,11 @@ input DeleteDemoItemOneInput {
   id: ID!
 }
 
+type DeleteDemoItemOnePayload {
+  deletedId: ID!
+  success: Boolean!
+}
+
 input DeleteOrgInput {
   id: ID!
 }
@@ -414,7 +419,7 @@ type Mutation {
   createRole(input: CreateRoleInput!): RolePayload!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   createUser(input: CreateUserInput!): UserPayload!
-  deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeletePayload!
+  deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeleteDemoItemOnePayload!
   deleteOrg(input: DeleteOrgInput!): DeletePayload!
   deleteRole(input: DeleteRoleInput!): DeletePayload!
   grantRoleUsers(input: GrantRoleUsersInput!): RoleUsersPayload!

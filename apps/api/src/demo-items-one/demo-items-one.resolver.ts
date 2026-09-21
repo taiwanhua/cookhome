@@ -2,7 +2,6 @@ import { Args, ID, Mutation, Query, Resolver } from "@nestjs/graphql";
 
 import { CurrentOperator } from "../auth/decorators";
 import type { OperatorContext } from "../database/operator-context";
-import { DeletePayload } from "../orgs/models/org-payloads.model";
 import { RequirePermission } from "../permission/require-permission.decorator";
 import { SAMPLE_ONE_PERMISSIONS } from "./demo-item-one-mapper";
 import { DemoItemsOneService } from "./demo-items-one.service";
@@ -12,6 +11,7 @@ import { DemoItemsOneInput } from "./dto/demo-items-one.input";
 import { SetDemoItemOneEnabledInput } from "./dto/set-demo-item-one-enabled.input";
 import { UpdateDemoItemOneInput } from "./dto/update-demo-item-one.input";
 import {
+  DeleteDemoItemOnePayload,
   DemoItemOneHistoryPayload,
   DemoItemOnePayload,
   DemoItemsOnePayload,
@@ -89,11 +89,11 @@ export class DemoItemsOneResolver {
   }
 
   @RequirePermission(SAMPLE_ONE_PERMISSIONS.delete)
-  @Mutation(() => DeletePayload)
+  @Mutation(() => DeleteDemoItemOnePayload)
   deleteDemoItemOne(
     @Args("input") input: DeleteDemoItemOneInput,
     @CurrentOperator() operator: OperatorContext,
-  ): Promise<DeletePayload> {
+  ): Promise<DeleteDemoItemOnePayload> {
     return this.service.remove(operator, input);
   }
 

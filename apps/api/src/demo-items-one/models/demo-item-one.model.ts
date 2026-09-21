@@ -52,16 +52,19 @@ export class DemoItemOneAttachment {
 }
 
 /**
- * 這筆資料**對這位操作者**允許的動作,由 api 依有效權限集算好(GQL-07;寫法同角色頁的
- * `RoleAbilities`)。前端只讀、不重算:顯示按鈕的條件是「頁面權限 && 這裡的旗標」。
+ * 這筆資料**對這位操作者**允許的動作,由 api 依有效權限集算好(GQL-07)。
+ *
+ * **每個旗標都已經含權限判斷**(#319 / #320 對齊):前端**直接用**,不要再與
+ * `usePermissions` 相乘 —— 那會讓同一條規則在兩邊各算一次,對不起來就是畫面與 API 不一致。
+ * (與角色頁的 `RoleAbilities` 不同:那組刻意不含權限 key,因為它表達的是「角色種類規則」。)
  */
 @ObjectType()
 export class DemoItemOneAbilities {
-  /** 持有 `demo.sub.sample-one.edit`。 */
+  /** 持有 `demo.sub.sample-one.edit`:編輯按鈕直接依它顯示。 */
   @Field(() => Boolean)
   canEdit!: boolean;
 
-  /** 持有 `demo.sub.sample-one.delete`。 */
+  /** 持有 `demo.sub.sample-one.delete`:刪除按鈕直接依它顯示。 */
   @Field(() => Boolean)
   canDelete!: boolean;
 
@@ -85,7 +88,8 @@ export class DemoItemOneAbilities {
  * - `attachment`:私有 bucket,**只給路徑與檔名**,下載網址另呼叫 `attachmentDownloadUrl(id)`
  * - `categoryLabel`:`category`(存 value)在欄位管理「示範分類」**操作者合併範圍**內對應的
  *   顯示名稱;分類已被停用 / 屬於看不到的組織時為 null(值仍原樣回在 `category`)
- * - `createdBy`:建立者;無登入主體建立的資料(理論上不存在)或使用者已被刪除時為 null
+ * - `createdBy`:建立者;**查不到那位使用者時一律回 `null`,不拋錯** —— seed 的示範資料用假的
+ *   ObjectId 當建立者(#319),真實環境也會有使用者被刪掉的情形,前端顯示「—」即可
  */
 @ObjectType("DemoItemOne")
 export class DemoItemOneModel {

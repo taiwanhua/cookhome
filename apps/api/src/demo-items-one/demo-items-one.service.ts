@@ -10,7 +10,6 @@ import {
   UsersRepository,
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
-import type { DeletePayload } from "../orgs/models/org-payloads.model";
 import { PermissionResolver } from "../permission/permission-resolver";
 import { StorageService } from "../storage/storage.service";
 import { isOwnedUploadPath } from "../storage/upload-rules";
@@ -42,6 +41,7 @@ import {
 import type { SetDemoItemOneEnabledInput } from "./dto/set-demo-item-one-enabled.input";
 import type { UpdateDemoItemOneInput } from "./dto/update-demo-item-one.input";
 import type {
+  DeleteDemoItemOnePayload,
   DemoItemOneHistoryPayload,
   DemoItemsOnePayload,
   SignedUrlPayload,
@@ -283,7 +283,7 @@ export class DemoItemsOneService {
   async remove(
     operator: OperatorContext,
     input: DeleteDemoItemOneInput,
-  ): Promise<DeletePayload> {
+  ): Promise<DeleteDemoItemOnePayload> {
     const current = await this.mustFind(operator, input.id);
     const deleted = await this.items.softDeleteById(operator, current._id);
     if (!deleted) {

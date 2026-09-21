@@ -4,7 +4,8 @@
 # 1. `internalNote` 是**欄位級權限**欄:沒有 `demo.sub.sample-one.show-internal-note` 時
 #    api 不把這個欄位放進回傳物件(序列化成 null)。「沒權限」與「沒填」在值上看起來一樣,
 #    所以**前端用自己的權限集決定要不要渲染這個欄位**,不要拿值去猜。
-# 2. `abilities` 由 api 依操作者權限算好,前端只讀;顯示按鈕的條件是「頁面權限 && abilities 的旗標」。
+# 2. `abilities` 由 api 依操作者權限算好,而且**已經含權限判斷** —— 前端直接用,
+#    不要再與 usePermissions 相乘(同一條規則兩邊各算一次,對不起來就是畫面與 API 不一致)。
 # 3. 封面與附件走**不同的路**(ADR-0010):`coverUrl` 是公開穩定 URL(直接放 img src),
 #    附件只給路徑與檔名,要下載時才呼叫 `AttachmentDownloadUrl` 現簽(短效,不要當成穩定連結快取)。
 
@@ -23,6 +24,7 @@ fragment DemoItemOneFields on DemoItemOne {
   }
   status
   enabled
+  # 建立者查不到那位使用者時是 null(seed 示範資料用假 ObjectId;使用者也可能已被刪除)→ 顯示「—」
   createdBy {
     id
     name
