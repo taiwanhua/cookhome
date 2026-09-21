@@ -75,7 +75,7 @@ describe("示範模組1 列表(/demo/sub/sample-one)", () => {
 
     const locked = await findRowOf("古早味紅茶");
     expect(
-      within(locked).getByRole("button", { name: "檢視" }),
+      within(locked).getByRole("button", { name: /檢視/ }),
     ).toBeInTheDocument();
     expect(
       within(locked).queryByRole("button", { name: /編輯/ }),
@@ -145,7 +145,7 @@ describe("示範模組1 列表(/demo/sub/sample-one)", () => {
     const row = await findRowOf("醬燒雞腿排");
 
     expect(
-      within(row).queryByRole("button", { name: "檢視" }),
+      within(row).queryByRole("button", { name: /檢視/ }),
     ).not.toBeInTheDocument();
     expect(
       within(row).queryByRole("button", { name: /編輯/ }),
@@ -160,7 +160,7 @@ describe("示範模組1 列表(/demo/sub/sample-one)", () => {
     const { user: actor } = renderSampleOne();
     const row = await findRowOf("醬燒雞腿排");
 
-    await actor.click(within(row).getByRole("button", { name: "檢視" }));
+    await actor.click(within(row).getByRole("button", { name: /檢視/ }));
 
     expect(await screen.findByTestId("location")).toHaveTextContent(
       `${SAMPLE_ONE_ROUTES.viewPage}/demo-1`,

@@ -99,7 +99,7 @@
 
 21. ~~`apps/db-migrator` 實作~~ — **全部完成(2026-09-18)**:migrate(#24)、seed runner(#28)、欄位種子(#30)、模組樹/權限/綁定(#29);deploy.yml 接 migrate → seed + `ROOT_ADMIN_*`(PR feat/deploy-migrate-seed)。
 
-26. **CI 沒有 format 檢查(2026-09-16,agent 發現)** — #25 產出與 prettier 設定不一致,跑 `prettier --write` 會重排;CI 只 lint 不 format-check,遲早有人踩。待辦:ci.yml 加 `prettier --check`,先把既有檔案格式化一次。
+26. ~~**CI 沒有 format 檢查(2026-09-16,agent 發現)**~~ — **已完成(2026-09-22,#195)**:`ci.yml` 與 `docs.yml` 都跑 `pnpm run format:check`,涵蓋 `.md` / `.ts` / `.tsx` / `.js` / `.json` / `.yaml`,既有檔案已一次性格式化;排除清單正本 `.prettierignore`,規則見 `docs/standards/general/structure.md` STRUCT-09。
 
 27. **抽 `@repo/db-schemas` 共用型別(2026-09-16 記)** — seed 與 api 的欄位形狀存在兩處(ADR-0002 種子定案段);漂移開始咬人時把 schema 抽成 packages 套件供兩邊 import 型別。
 

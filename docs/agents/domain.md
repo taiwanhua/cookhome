@@ -51,6 +51,17 @@ engineering skills 在探索 codebase 時,應如何使用本 repo 的領域文�
 
 讀完 1–5 即有全貌。各模組的具體畫面、權限表、資料定義在 `docs/modules/<key>.md`。
 
+### 要動手長一個新模組時(底座第 5 段的產出)
+
+ADR 讀完之後,接著照這個順序看「規則長成程式之後的樣子」:
+
+1. **[示範模組1](../modules/demo.sub.sample-one.md)** — 把所有選配都打開的完整示範:三層模組樹、隱藏頁、欄位級權限、頁面自有權限、資料範圍目標、公開 / 私有雙路檔案、變更歷程
+2. **[示範模組2](../modules/demo.sample-two.md)** — 對照組:拿掉全部選配之後剩下的**最小可行模組**(它「少了什麼」那張表就是選配清單)
+3. **[module-scaffold](./module-scaffold.md)** — 從上面兩支抽出來的藍本:新增一個 CRUD 模組要動哪些檔、照什麼順序動、每一步的正本;文末有「示範模組 1 vs 2 差異對照表」
+4. **[權限測試劇本](../testing/permission-scenarios.md)** — 17 條劇本,每條標明用哪一頁、哪個帳號、什麼步驟、預期什麼;新模組做完拿它自檢
+
+前端要動手之前先讀 **ADR-0012**(程式碼風格與分層)與 `apps/admin/src/pages/demo/shared/demo-module-config.ts` 的 `DemoModuleConfig`(逐項 JSDoc 就是前端藍本的規格)。
+
 ## 使用詞彙表的用語
 
 當產出內容涉及領域概念(issue 標題、重構提案、假設、測試名稱)時,使用 `CONTEXT.md` 定義的術語,不要偏移到詞彙表明確避免的同義詞。

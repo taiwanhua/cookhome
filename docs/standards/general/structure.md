@@ -115,4 +115,9 @@ re-export `matrix.ts`,若 `matrix.ts` 寫 `from "./index"` 就是 `import-x/no-c
 1. **清單編號是跨文件引用的穩定 ID**(如 `docs/tmp/dis.md` 二.B / 二.C 以「dis.md #27」被 ADR 指路)— prettier 會把非連續編號重排成連號,在該清單前一行放 `<!-- prettier-ignore -->`。
 2. **不歸我們管的內容** — 外部安裝、由 `skills-lock.json` 以 hash 校驗的 `.agents/`,以及 Claude Code 的本機目錄,整目錄列在 `.prettierignore`。
 
+**擴大檢查範圍(加副檔名)時,會冒出兩類「本來看不到」的檔案**(2026-09-22,#195 / #194):
+
+1. **被 global gitignore 擋住、但 prettier 看得到的本機檔** —— prettier **不讀 `.gitignore`**,所以 `.claude/settings.local.json` 這種「不入版控卻真實存在於工作目錄」的檔會讓本機 `format:check` 紅、CI 卻綠(CI 的 checkout 沒有那個檔),很難自己想通。擴 glob 後在自己機器上跑一次 `pnpm run format:check`,冒出來的本機檔案加進 `.prettierignore`。
+2. **外部工具產生、由上游決定長相的檔** —— `msw init` 產的 `apps/admin/mock-public/mockServiceWorker.js` 不合我們的 prettier 設定,重排會與 msw 上游漂移(下次 `msw init` 又被改回去)。這類檔案一律進 `.prettierignore` 並註明來源,不要手動改格式。
+
 順帶:字面星號(例如 wildcard 權限「全部(\*)」)要寫成 `\*`,否則成對的 `*` 會被當成強調符號,prettier 會把它改寫成 `_` 讓問題浮現。

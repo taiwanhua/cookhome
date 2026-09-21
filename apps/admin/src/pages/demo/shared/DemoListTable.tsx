@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "use-intl";
 
-import { Button } from "@repo/ui/button";
 import { IconButton } from "@repo/ui/icon-button";
-import { DeleteIcon, EditIcon } from "@repo/ui/icons";
+import { DeleteIcon, EditIcon, ViewIcon } from "@repo/ui/icons";
 import { Stack } from "@repo/ui/stack";
 import { Table, type TableColumn } from "@repo/ui/table";
 import { Tag } from "@repo/ui/tag";
@@ -53,17 +52,19 @@ export const DemoListTable = <Row extends DemoItemLike>({
 
   const renderActions = (row: Row): ReactNode => (
     <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
-      {/* 檢視是文字鈕:`@repo/ui/icons` 還沒有「檢視」圖示(#344 補;補了再換) */}
       {canEnterView && (
-        <Button
-          variant="text"
-          size="small"
-          onClick={() => {
-            onView(row);
-          }}
-        >
-          {tActions("view")}
-        </Button>
+        // 圖示鈕要有無障礙名字;Tooltip 指定 `describeChild={false}`(REACT-10)
+        <Tooltip title={tActions("view")} describeChild={false}>
+          <IconButton
+            size="small"
+            aria-label={tActions("viewOf", { name: row.name })}
+            onClick={() => {
+              onView(row);
+            }}
+          >
+            <ViewIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
       )}
       {canEnterEdit && row.abilities.canEdit && (
         // 圖示鈕要有無障礙名字;Tooltip 指定 `describeChild={false}`(REACT-10)
