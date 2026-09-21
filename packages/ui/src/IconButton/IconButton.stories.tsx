@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
+import { ChevronDoubleLeftIcon } from "../icons/ChevronDoubleLeftIcon";
 import { CloseIcon } from "../icons/CloseIcon";
+import { EditIcon } from "../icons/EditIcon";
 import { HelpIcon } from "../icons/HelpIcon";
 import { IconButton } from "./IconButton";
 
@@ -40,5 +42,27 @@ export const Disabled: Story = {
     children: <HelpIcon fontSize="small" />,
     sx: { color: "text.secondary" },
     disabled: true,
+  },
+};
+
+/**
+ * 外框變體(#297):側欄底部的收合開關(Figma collapse-toggle 246:97,40×40)。
+ * 外框與邊長由元件自己給,呼叫端不再用 `sx` 畫框(STYLE-10 的例外因此退場)。
+ */
+export const Outlined: Story = {
+  args: {
+    "aria-label": "收合側欄",
+    variant: "outlined",
+    children: <ChevronDoubleLeftIcon fontSize="small" />,
+  },
+};
+
+/** 外框變體的 small(32×32):放在列表的列操作那種密度較高的地方。 */
+export const OutlinedSmall: Story = {
+  args: {
+    "aria-label": "編輯",
+    variant: "outlined",
+    size: "small",
+    children: <EditIcon fontSize="small" />,
   },
 };

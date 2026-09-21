@@ -44,24 +44,30 @@ Figma MCP 的 `get_design_context(nodeId)` 對「頁(canvas)」的 id 會直接�
 
 **`get_metadata` 不帶 nodeId 只列得出 Cover 頁**(這個檔如此,2026-09-20 / #207 踩到):所以各元件頁 / 畫面頁的 frame id **進不去就找不到**,一律記在這裡,新畫一頁就補一列:
 
-| 頁                   | 進得去的 frame id                                                                                                                                         |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Components / Dialog  | Draft/HelpDialog 95:235(模組說明彈窗 81:241 是它在畫面頁的實例)                                                                                           |
-| Screen / 角色管理    | 44:44(頁面主體;矩陣 57:142、頂層群組列 172:276 / 172:284、新增角色 62:169、清單列 67:180 / 67:182)                                                        |
-| Screen / 模組與權限  | 89:2(主畫面 89:214、停用確認 211:331)                                                                                                                     |
-| Screen / 資料範圍    | 166:318(註記卡 167:1901、日期條件列 167:1804 / 167:1819、捲動提示 169:277)                                                                                |
-| Screen / 欄位管理    | 90:2(新增選項 211:176)                                                                                                                                    |
-| Icons                | 244:2(頁索引);元件 Draft/ModuleIcon 244:92(29 個 `key=<name>` 變體)                                                                                       |
-| Screen / Admin Shell | Draft/NavRailItem 246:63(圖示槽 246:60、群組小點 246:62)、Draft/AdminSideNavCollapsed 246:64(logoImg 246:65、collapse-toggle 246:97)、group-flyout 246:99 |
+| 頁                     | 進得去的 frame id                                                                                                                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Components / Dialog    | Draft/HelpDialog 95:235(模組說明彈窗 81:241 是它在畫面頁的實例)                                                                                           |
+| Screen / 角色管理      | 44:44(頁面主體;矩陣 57:142、頂層群組列 172:276 / 172:284、新增角色 62:169、清單列 67:180 / 67:182)                                                        |
+| Screen / 模組與權限    | 89:2(主畫面 89:214、停用確認 211:331)                                                                                                                     |
+| Screen / 資料範圍      | 166:318(註記卡 167:1901、日期條件列 167:1804 / 167:1819、捲動提示 169:277)                                                                                |
+| Screen / 欄位管理      | 90:2(新增選項 211:176)                                                                                                                                    |
+| Components / Select    | Select 頁 70:219;Draft/Autocomplete 253:39(State=Closed / Open,含 chip、分組 listbox、灰掉的不合格選項)+ 說明卡 253:40                                    |
+| Components / Tabs      | Tabs 頁 70:220;Draft/Tabs 252:14(由 Draft/Tab 69:655 組成 + 底線)+ 說明卡 252:23                                                                          |
+| Components / Popover   | Popover 頁 73:2;Draft/Tooltip 252:10(Placement=Top / Bottom)+ 說明卡 252:11                                                                               |
+| Components / TextField | TextField 頁 11:2;Draft/DatePicker 253:61(Size=Small / Medium,TextField + 日曆圖示)+ 說明卡 253:62                                                        |
+| Icons                  | 244:2(頁索引);元件 Draft/ModuleIcon 244:92(29 個 `key=<name>` 變體)、Draft/ActionIcon 253:3264(edit / delete / chevron-double-left / right,MUI Outlined)  |
+| Screen / Admin Shell   | Draft/NavRailItem 246:63(圖示槽 246:60、群組小點 246:62)、Draft/AdminSideNavCollapsed 246:64(logoImg 246:65、collapse-toggle 246:97)、group-flyout 246:99 |
 
 表裡沒有的頁,先問使用者要 frame id,不要靠猜的 id 去讀。第 4 段實作後,上表幾頁的內容有數處已與實作 / 模組文件不一致(FIGMA-10 的處理方式:照文件做、在 PR 記差異),設計稿的收尾整理待 #255。
 
 **待補稿清單(#255;動設計檔前要先提案取得使用者同意,不要順手畫)**:
 
-| 缺什麼                             | 實作現況(補稿時以此為準)                                                                                                                                                                       |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Draft/Switch` 88:216 沒有停用變體 | 只有 On / Off 兩個變體。實作的停用態照語意 token 走:軌道 `action.disabledBackground`、把手 `action.disabled`,與 `Draft/Checkbox` 的停用稿(44:36、44:40)同一個調性(#260)                        |
-| 沒有 `Tooltip` 元件                | `search_design_system` 查無。code 端已補 `@repo/ui/tooltip`(#240 / #260),外觀 = MUI 預設 + theme 既有的 `MuiTooltip` 覆寫(`grey[800]` 底、`shape.borderRadius`);設計稿待補一頁 `Draft/Tooltip` |
+| 缺什麼                             | 實作現況(補稿時以此為準)                                                                                                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Draft/Switch` 88:216 沒有停用變體 | 只有 On / Off 兩個變體。實作的停用態照語意 token 走:軌道 `action.disabledBackground`、把手 `action.disabled`,與 `Draft/Checkbox` 的停用稿(44:36、44:40)同一個調性(#260) |
+
+`Tooltip` / `DatePicker` / `Autocomplete` / `Tabs` / `ActionIcon` 五張稿已於 2026-09-22 補齊
+(節點 id 見上表),**都是先有實作後補稿**,所以設計稿以實作為準。
 
 ## FIGMA-10 設計稿有標的幾何一律落到 theme;設計稿與模組文件衝突時以模組文件為準
 

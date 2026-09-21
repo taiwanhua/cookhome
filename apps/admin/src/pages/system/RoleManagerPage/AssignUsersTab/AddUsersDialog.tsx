@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { useRoleUserCandidatesQuery } from "@repo/graphql";
+import {
+  type RoleUserCandidatesQuery,
+  useRoleUserCandidatesQuery,
+} from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
-import { Box } from "@repo/ui/box";
+import { Autocomplete } from "@repo/ui/autocomplete";
 import { Button } from "@repo/ui/button";
-import { Checkbox } from "@repo/ui/checkbox";
 import { Dialog } from "@repo/ui/dialog";
-import { FormControlLabel } from "@repo/ui/form-control-label";
 import { Stack } from "@repo/ui/stack";
-import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import { useSession } from "@/hooks/useSession";
@@ -19,6 +19,9 @@ import {
   ROLE_USER_CANDIDATES_PAGE_SIZE,
   type RoleRow,
 } from "../role-manager-types";
+
+/** 候選清單的一筆(`roleUserCandidates` 的 item)。 */
+type Candidate = RoleUserCandidatesQuery["roleUserCandidates"]["items"][number];
 
 export interface AddUsersDialogProps {
   role: RoleRow;
@@ -35,6 +38,10 @@ export interface AddUsersDialogProps {
  * **範圍外的人也列出來,只是勾不動**(#261 的 7):直接不列的話,找不到人的人只會覺得
  * 「這個人不見了」,而不知道是資格不符。資格由 api 算(`eligible`),前端不再自己走組織樹。
  *
+ * #307:改用 `@repo/ui/autocomplete`,**關鍵字仍然丟回 api 查**(候選有分頁上限,
+ * 前端手上不會是全量),所以走 `onInputChange` 這條路 —— 給了它 Autocomplete 就不再
+ * 自己過濾一次,否則打第一個字就把「還沒換過來的那批 options」濾成空的。
+ *
  * 權限:這支 query 掛在 `system.role-manager.assign-users` 底下 —— 在 #246 之前這裡借
  * `users`,連帶逼得這個彈窗需要 `system.user-manager.view`,能分配使用者的人卻打不開。
  * 判定權仍在 api:送出時 `grantRoleUsers` 會回 `USER_NOT_ELIGIBLE`。
@@ -50,7 +57,7 @@ export const AddUsersDialog = ({
   const tErrors = useTranslations("admin.roleManager.errors");
   const { session } = useSession();
   const [keyword, setKeyword] = useState("");
-  const [pickedIds, setPickedIds] = useState<readonly string[]>([]);
+  const [picked, setPicked] = useState<Candidate[]>([]);
 
   const ownerOrgName = role.ownerOrg?.name ?? t("noOrg");
 
@@ -62,15 +69,19 @@ export const AddUsersDialog = ({
       keyword: keyword.trim() === "" ? null : keyword.trim(),
     },
   });
-  const candidates = candidatesQuery.data?.roleUserCandidates.items ?? [];
+  const candidates: readonly Candidate[] =
+    candidatesQuery.data?.roleUserCandidates.items ?? [];
 
-  const toggle = (userId: string) => {
-    setPickedIds((current) =>
-      current.includes(userId)
-        ? current.filter((id) => id !== userId)
-        : [...current, userId],
-    );
-  };
+  /**
+   * 選單只給「這一批」候選,已選但不在這批裡的(關鍵字換過)仍要留在值裡,
+   * 否則打字一次就把選好的人清光。
+   */
+  const options: Candidate[] = [
+    ...picked,
+    ...candidates.filter(
+      (candidate) => !picked.some((one) => one.id === candidate.id),
+    ),
+  ];
 
   return (
     <Dialog
@@ -85,9 +96,9 @@ export const AddUsersDialog = ({
             {t("cancel")}
           </Button>
           <Button
-            disabled={pickedIds.length === 0 || isSubmitting}
+            disabled={picked.length === 0 || isSubmitting}
             onClick={() => {
-              onConfirm(pickedIds);
+              onConfirm(picked.map((candidate) => candidate.id));
             }}
           >
             {t("confirm")}
@@ -96,62 +107,39 @@ export const AddUsersDialog = ({
       }
     >
       <Stack spacing={1.5}>
-        <TextField
-          label={t("search")}
-          placeholder={t("searchPlaceholder")}
+        <Autocomplete<Candidate, true>
+          multiple
           size="small"
-          value={keyword}
-          onChange={(event) => {
-            setKeyword(event.target.value);
-          }}
+          label={t("label")}
+          placeholder={t("searchPlaceholder")}
+          options={options}
+          value={picked}
+          loading={candidatesQuery.isFetching}
+          loadingText={t("loading")}
+          noOptionsText={t("empty")}
+          getOptionKey={(candidate) => candidate.id}
+          getOptionLabel={(candidate) =>
+            t("candidate", {
+              account: candidate.account,
+              name: candidate.name,
+              orgs:
+                candidate.orgs.length === 0
+                  ? t("noOrg")
+                  : candidate.orgs.map((org) => org.name).join("、"),
+            })
+          }
+          getOptionDisabled={(candidate) => !candidate.eligible}
+          getOptionDisabledReason={() =>
+            t("notEligible", { org: ownerOrgName })
+          }
+          onInputChange={setKeyword}
+          onChange={setPicked}
         />
-        {/* px:1 讓 checkbox 的左框線落在捲動區內 — 貼齊左緣時會被 overflow 切掉(#283) */}
-        <Box sx={{ maxHeight: 280, overflow: "auto", px: 1 }}>
-          {candidates.length === 0 && (
-            <Typography variant="body2" color="text.secondary">
-              {t("empty")}
-            </Typography>
-          )}
-          {candidates.map((candidate) => (
-            <Box key={candidate.id}>
-              <FormControlLabel
-                disabled={!candidate.eligible}
-                control={
-                  <Checkbox
-                    checked={pickedIds.includes(candidate.id)}
-                    disabled={!candidate.eligible}
-                    onChange={() => {
-                      toggle(candidate.id);
-                    }}
-                  />
-                }
-                label={t("candidate", {
-                  account: candidate.account,
-                  name: candidate.name,
-                  orgs:
-                    candidate.orgs.length === 0
-                      ? t("noOrg")
-                      : candidate.orgs.map((org) => org.name).join("、"),
-                })}
-              />
-              {!candidate.eligible && (
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  component="p"
-                  sx={{ pl: 4, pb: 0.5 }}
-                >
-                  {t("notEligible", { org: ownerOrgName })}
-                </Typography>
-              )}
-            </Box>
-          ))}
-        </Box>
         <Typography variant="caption" color="text.secondary">
           {t("hint", { org: ownerOrgName })}
         </Typography>
         <Typography variant="body2">
-          {t("picked", { count: pickedIds.length })}
+          {t("picked", { count: picked.length })}
         </Typography>
         {errorCode !== null && (
           <Alert severity="error">{tErrors(errorCode)}</Alert>

@@ -3,26 +3,24 @@ import { useTranslations } from "use-intl";
 
 import { useOrgTreeQuery, useRolesQuery } from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
-import { Box } from "@repo/ui/box";
+import { Autocomplete } from "@repo/ui/autocomplete";
 import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
-import { MenuItem } from "@repo/ui/menu";
-import { Select } from "@repo/ui/select";
 import { Stack } from "@repo/ui/stack";
-import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import { useSession } from "@/hooks/useSession";
 import { isEligibleForRole, orgTrailIndex } from "@/lib/role-eligibility";
-import { filterRoleOptions, groupRoleOptions } from "@/lib/role-options";
+import { roleGroupNameOf, shouldGroupRoles } from "@/lib/role-options";
 
 import type { UserManagerErrorCode } from "../user-manager-error";
 import type { UserRow } from "../user-manager-types";
-import { RoleOptionRow } from "./RoleOptionRow";
-import { buildRoleOptions, ownerOrgOptions } from "./assignable-roles";
-
-/** 篩選器的「全部組織」。 */
-const ALL_ORGS = "__all__";
+import { RoleOptionList } from "./RoleOptionList";
+import {
+  type RoleOption,
+  buildRoleOptions,
+  isRoleSelectable,
+} from "./assignable-roles";
 
 /**
  * 彈窗一次把候選角色抓齊(api 上限 100,`RolesInput`)。角色是治理資料、數量遠小於
@@ -47,8 +45,12 @@ export interface AssignRolesDialogProps {
  *
  * #261 的兩件事:
  * - **沒有授予資格的角色顯示但 disabled** 並就地說明(在此之前勾得下去,送出才吃到錯)
- * - 每列標「角色名稱 — 擁有組織」,跨租戶時依 `ownerOrg.tenantTop` 分組並可搜尋 ——
- *   根組織視角下每個租戶都有一個「租戶管理員」,只看名稱分不出來
+ * - 每列標角色名稱 + 擁有組織,跨租戶時依 `ownerOrg.tenantTop` 分組並可搜尋
+ *
+ * #307:選單改 `@repo/ui/autocomplete`(輸入即過濾、分組、不合格項灰掉並就地寫原因),
+ * 原本「組織篩選 Select + 選單外搜尋框 + 一長串勾選列」三件組收斂成一個選擇器;
+ * 選中的角色以 chip 顯示,下方保留一份**已選清單**講每一筆的狀態(組織外 / 已停用 /
+ * 租戶副本 / 管理範圍外)—— 那些資訊放不進一行 chip,但取消勾選前必須看得到。
  */
 export const AssignRolesDialog = ({
   user,
@@ -83,32 +85,40 @@ export const AssignRolesDialog = ({
   const [checkedIds, setCheckedIds] = useState<readonly string[]>(
     user.roles.map((role) => role.id),
   );
-  const [orgFilter, setOrgFilter] = useState<string>(ALL_ORGS);
-  const [keyword, setKeyword] = useState("");
 
-  const orgs = ownerOrgOptions(options);
-  const visible = filterRoleOptions(
-    options.filter(
-      (role) => orgFilter === ALL_ORGS || role.ownerOrgId === orgFilter,
-    ),
-    keyword,
-  );
-  const groups = groupRoleOptions(
-    visible.map((role) => ({
-      id: role.id,
-      name: role.name,
-      ownerOrgName: role.ownerOrgName,
-      label: role.name,
-      tenantTopId: role.tenantTopId,
-      tenantTopName: role.tenantTopName,
-    })),
-  );
-  const roleById = new Map(options.map((role) => [role.id, role]));
+  const selected = options.filter((role) => checkedIds.includes(role.id));
+  const groupBy = shouldGroupRoles(options)
+    ? (role: RoleOption) => roleGroupNameOf(role, t("noTenant"))
+    : undefined;
 
-  const handleToggle = (roleId: string, isChecked: boolean) => {
-    setCheckedIds((current) =>
-      isChecked ? [...current, roleId] : current.filter((id) => id !== roleId),
-    );
+  /**
+   * 選項的次文字(Figma 253:24)= 擁有組織 + 狀態標記。
+   * 標記跟著選項走而不是只放在下方的已選清單 —— 「這一筆是租戶副本 / 已停用 / 組織外」
+   * 是**決定要不要選它**時需要的資訊,選完才看到就太晚了。
+   */
+  const secondaryTextOf = (role: RoleOption) =>
+    [
+      t("ownerOrg", { org: role.ownerOrgName ?? role.ownerOrgId ?? "" }),
+      ...(role.isOutOfScope ? [t("outOfScope")] : []),
+      ...(role.enabled ? [] : [t("roleDisabled")]),
+      ...(role.isTemplateCopy ? [t("templateCopy")] : []),
+    ].join(" · ");
+
+  /**
+   * 不能選的原因。管理範圍外的既有授予**拔不掉也加不了**;已停用 / 不合格的
+   * 只擋「新勾」—— 已持有的仍要能取消,不然停用的角色就永遠拔不掉了(#211 的邊界)。
+   */
+  const disabledReasonOf = (role: RoleOption) => {
+    if (role.isOutOfReach) {
+      return t("outOfReach");
+    }
+    if (!role.enabled) {
+      return t("roleDisabled");
+    }
+    return t("notEligible", {
+      org: role.ownerOrgName ?? role.ownerOrgId ?? "",
+      name: user.name,
+    });
   };
 
   /** 只送操作者可觸及的角色(觸及不到的既有授予由 api 原樣保留)。 */
@@ -142,66 +152,28 @@ export const AssignRolesDialog = ({
           {t("hint", { name: user.name })}
         </Typography>
 
-        <Stack direction="row" spacing={1}>
-          <Select
-            value={orgFilter}
-            size="small"
-            aria-label={t("orgFilter")}
-            sx={{ flex: 1, minWidth: 0 }}
-            onChange={(event) => {
-              setOrgFilter(event.target.value);
-            }}
-          >
-            <MenuItem value={ALL_ORGS}>{t("allOrgs")}</MenuItem>
-            {orgs.map((org) => (
-              <MenuItem key={org.id} value={org.id}>
-                {org.name}
-              </MenuItem>
-            ))}
-          </Select>
-          <TextField
-            label={t("search")}
-            placeholder={t("searchPlaceholder")}
-            size="small"
-            value={keyword}
-            sx={{ flex: 1, minWidth: 0 }}
-            onChange={(event) => {
-              setKeyword(event.target.value);
-            }}
-          />
-        </Stack>
+        <Autocomplete<RoleOption, true>
+          multiple
+          size="small"
+          label={t("label")}
+          placeholder={t("searchPlaceholder")}
+          options={options}
+          value={selected}
+          noOptionsText={t("empty")}
+          groupBy={groupBy}
+          getOptionKey={(role) => role.id}
+          getOptionLabel={(role) => role.name}
+          getOptionSecondaryText={secondaryTextOf}
+          getOptionDisabled={(role) =>
+            !isRoleSelectable(role, checkedIds.includes(role.id))
+          }
+          getOptionDisabledReason={disabledReasonOf}
+          onChange={(next) => {
+            setCheckedIds(next.map((role) => role.id));
+          }}
+        />
 
-        {visible.length === 0 ? (
-          <Typography variant="body2">{t("empty")}</Typography>
-        ) : (
-          groups.map((group) => (
-            <Box key={group.id ?? ALL_ORGS}>
-              {group.name !== null && (
-                <Typography
-                  variant="overline"
-                  color="text.secondary"
-                  component="p"
-                >
-                  {group.name}
-                </Typography>
-              )}
-              {group.options.flatMap((option) => {
-                const role = roleById.get(option.id);
-                return role === undefined
-                  ? []
-                  : [
-                      <RoleOptionRow
-                        key={role.id}
-                        role={role}
-                        userName={user.name}
-                        isChecked={checkedIds.includes(role.id)}
-                        onToggle={handleToggle}
-                      />,
-                    ];
-              })}
-            </Box>
-          ))
-        )}
+        <RoleOptionList roles={selected} />
 
         {errorCode !== null && (
           <Alert severity="error">{tErrors(errorCode)}</Alert>

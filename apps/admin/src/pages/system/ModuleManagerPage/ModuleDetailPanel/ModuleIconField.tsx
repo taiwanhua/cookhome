@@ -68,6 +68,10 @@ export const ModuleIconField = ({
         value={icon ?? null}
         onChange={onChange}
         label={t("icon")}
+        /* MUI 的 Select 把 `aria-labelledby` 指到「標籤 + 目前顯示的值」兩個節點,
+           所以不給 `aria-label` 時這顆 combobox 的名稱會變成「圖示 使用者」 ——
+           會跟著選到的圖示變。明給一份穩定的名稱(#297) */
+        aria-label={t("icon")}
         emptyLabel={t("iconEmpty")}
         labelOf={labelOf}
         disabled={isPending}

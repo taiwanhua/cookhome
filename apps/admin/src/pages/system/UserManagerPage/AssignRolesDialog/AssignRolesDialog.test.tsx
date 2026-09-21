@@ -3,12 +3,39 @@ import { screen, waitFor, within } from "@testing-library/react";
 
 import { renderPage, rowOf } from "../user-manager-test-support";
 
+/** 彈窗裡的角色選擇器(`@repo/ui/autocomplete`,#307)。 */
+const rolePicker = () => screen.getByRole("combobox", { name: "角色" });
+
+/** 打開選單並取目前列出的選項(每列是「主文字 + 次文字」兩行,所以比對前綴)。 */
+const openOptions = async (actor: {
+  click: (element: Element) => Promise<void>;
+}) => {
+  await actor.click(rolePicker());
+  return screen.getAllByRole("option");
+};
+
+const optionStartingWith = (
+  options: readonly HTMLElement[],
+  primary: string,
+): HTMLElement => {
+  const found = options.find((option) =>
+    option.textContent.startsWith(primary),
+  );
+  if (found === undefined) {
+    throw new Error(`找不到主文字是「${primary}」的選項`);
+  }
+  return found;
+};
+
 /**
  * 指派角色彈窗(#211:候選改用正式的 `roles` query,擁有組織在操作者管理範圍內;
  * 第 3 段「查操作者自己持有的角色」的過渡做法退場)。
+ *
+ * #307:勾選列換成 Autocomplete —— 選項的「能不能選」從 `checkbox` 的 disabled
+ * 變成 `option` 的 `aria-disabled`,原因從整列的說明文字變成選項內的次文字。
  */
 describe("指派角色彈窗", () => {
-  it("指派角色:候選來自 roles query,停用不可勾、租戶副本標記、範圍外的既有授予唯讀", async () => {
+  it("指派角色:候選來自 roles query,停用不可選、租戶副本標記、範圍外的既有授予唯讀", async () => {
     const { user: actor, fake } = renderPage();
 
     await screen.findByText("王小明");
@@ -20,30 +47,32 @@ describe("指派角色彈窗", () => {
     await waitFor(() => {
       expect(fake.inputs.roles).toHaveLength(1);
     });
+    await screen.findByRole("combobox", { name: "角色" });
 
-    // 每列標「角色名稱 — 擁有組織」(#261 的 8:根組織視角靠這一段分辨同名角色)
-    const editor = await screen.findByRole("checkbox", {
-      name: "編輯 — 租戶 A",
-    });
-    expect(editor).toBeChecked();
-    expect(editor).toBeEnabled();
-    // 三筆候選的擁有組織是租戶 A(範圍外的那筆改顯示原因,不顯示擁有組織)
-    expect(screen.getAllByText("擁有組織:租戶 A")).toHaveLength(3);
+    // 已持有的角色以 chip 顯示,底下的清單再列一次它們的描述與狀態
     expect(screen.getByText("內容管理相關權限")).toBeInTheDocument();
 
-    // 停用的角色勾了也不生效(ADR-0011 步驟 2),所以不給新勾
-    expect(
-      screen.getByRole("checkbox", { name: "檢視者 — 租戶 A" }),
-    ).toBeDisabled();
-    expect(screen.getByText("已停用")).toBeInTheDocument();
-    // 租戶副本掛標籤
-    expect(screen.getByText("租戶副本")).toBeInTheDocument();
+    const options = await openOptions(actor);
+    // 每列主文字角色名、次文字「擁有組織:…」(#261 的 8:根組織視角靠它分辨同名角色)
+    const editor = optionStartingWith(options, "編輯");
+    expect(editor).toHaveAttribute("aria-selected", "true");
+    expect(editor).not.toHaveAttribute("aria-disabled", "true");
+    expect(editor).toHaveTextContent("擁有組織:租戶 A");
+    // 租戶副本的標記跟著選項走(決定要不要選它時就看得到)
+    expect(optionStartingWith(options, "租戶管理員")).toHaveTextContent(
+      "租戶副本",
+    );
 
-    // 已持有但擁有組織在管理範圍外:唯讀顯示,送出時也不包含
-    const auditor = screen.getByRole("checkbox", { name: "審核員 — 租戶 A" });
-    expect(auditor).toBeDisabled();
-    expect(screen.getByText("不在你的管理範圍內,無法變更")).toBeInTheDocument();
+    // 停用的角色勾了也不生效(ADR-0011 步驟 2),所以不給新選
+    const viewer = optionStartingWith(options, "檢視者");
+    expect(viewer).toHaveAttribute("aria-disabled", "true");
+    expect(viewer).toHaveTextContent("已停用");
+    // 已持有但擁有組織在管理範圍外:選不動,送出時也不包含
+    const auditor = optionStartingWith(options, "審核員");
+    expect(auditor).toHaveAttribute("aria-disabled", "true");
+    expect(auditor).toHaveTextContent("不在你的管理範圍內,無法變更");
 
+    // 取消「編輯」後送出:管理範圍外的「審核員」不在 payload 裡(api 會原樣保留)
     await actor.click(editor);
     await actor.click(screen.getByRole("button", { name: "儲存指派" }));
 
@@ -53,41 +82,45 @@ describe("指派角色彈窗", () => {
     expect(fake.inputs.assignUserRoles[0].roleIds).toEqual([]);
   });
 
-  it("沒有授予資格的角色顯示但勾不動,並就地說明只能授予哪個組織(#261 的 6)", async () => {
+  it("沒有授予資格的角色顯示但選不動,並就地說明只能授予哪個組織(#261 的 6)", async () => {
     const { user: actor } = renderPage();
 
     await screen.findByText("王小明");
     await actor.click(
       within(rowOf("王小明")).getByRole("button", { name: "指派角色" }),
     );
+    await screen.findByRole("combobox", { name: "角色" });
 
     // 「分店專員」的擁有組織是租戶 B,王小明屬租戶 A / 內容組 ⇒ 沒有資格
-    const branch = await screen.findByRole("checkbox", {
-      name: "分店專員 — 租戶 B",
-    });
-    expect(branch).toBeDisabled();
-    expect(
-      screen.getByText(
-        "此角色只能授予 租戶 B 及其下層的使用者;王小明 不在角色擁有組織之下。",
-      ),
-    ).toBeInTheDocument();
+    const options = await openOptions(actor);
+    const branch = optionStartingWith(options, "分店專員");
+
+    expect(branch).toHaveAttribute("aria-disabled", "true");
+    expect(branch).toHaveTextContent(
+      "此角色只能授予 租戶 B 及其下層的使用者;王小明 不在角色擁有組織之下。",
+    );
   });
 
-  it("搜尋收斂角色清單(名稱或擁有組織)", async () => {
+  it("在選單內輸入即收斂(選單外的搜尋框與組織篩選下拉已移除)", async () => {
     const { user: actor } = renderPage();
 
     await screen.findByText("王小明");
     await actor.click(
       within(rowOf("王小明")).getByRole("button", { name: "指派角色" }),
     );
-    await screen.findByRole("checkbox", { name: "編輯 — 租戶 A" });
+    await screen.findByRole("combobox", { name: "角色" });
 
-    await actor.type(screen.getByLabelText("搜尋角色"), "分店");
+    // #307:搜尋回到選單內,彈窗上方那兩個欄位退場
+    expect(screen.queryByLabelText("搜尋角色")).toBeNull();
     expect(
-      await screen.findByRole("checkbox", { name: "分店專員 — 租戶 B" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("combobox", { name: "組織(列出該組織的角色)" }),
+    ).toBeNull();
+
+    await actor.type(rolePicker(), "分店");
+
+    const options = screen.getAllByRole("option");
     expect(
-      screen.queryByRole("checkbox", { name: "編輯 — 租戶 A" }),
-    ).not.toBeInTheDocument();
+      options.map((option) => option.textContent.split("擁有組織", 1)[0]),
+    ).toEqual(["分店專員"]);
   });
 });

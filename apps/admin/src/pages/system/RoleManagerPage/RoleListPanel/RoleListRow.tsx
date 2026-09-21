@@ -2,9 +2,12 @@ import { useTranslations } from "use-intl";
 
 import { Box } from "@repo/ui/box";
 import { Button } from "@repo/ui/button";
+import { IconButton } from "@repo/ui/icon-button";
+import { DeleteIcon, EditIcon } from "@repo/ui/icons";
 import { ListItemButton } from "@repo/ui/list";
 import { Stack } from "@repo/ui/stack";
 import { Tag } from "@repo/ui/tag";
+import { Tooltip } from "@repo/ui/tooltip";
 import { Typography } from "@repo/ui/typography";
 
 import {
@@ -73,18 +76,41 @@ export const RoleListRow = ({
         )}
       </ListItemButton>
       {isSelected && hasActions && (
-        <Stack direction="row" spacing={0.5} sx={{ px: 0.5, pb: 0.5 }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ px: 0.5, pb: 0.5, alignItems: "center" }}
+        >
           {ability.canEdit && (
-            <Button
-              variant="text"
-              size="small"
-              onClick={() => {
-                onEdit(role);
-              }}
-            >
-              {t("actions.edit")}
-            </Button>
+            // 圖示鈕沒有可見文字 ⇒ 提示就是它的名字,`describeChild={false}`(REACT-10)
+            <Tooltip title={t("actions.edit")} describeChild={false}>
+              <IconButton
+                size="small"
+                aria-label={t("actions.edit")}
+                onClick={() => {
+                  onEdit(role);
+                }}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           )}
+          {ability.canDelete && (
+            <Tooltip title={t("actions.delete")} describeChild={false}>
+              <IconButton
+                size="small"
+                color="error"
+                aria-label={t("actions.delete")}
+                onClick={() => {
+                  onDelete(role);
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {/* 啟用 / 停用留文字鈕:Figma `Draft/ActionIcon` 253:3264 只有 edit / delete
+              兩個變體,沒有對應的圖示;而且它是兩種狀態的切換,一顆圖示表達不了 */}
           {ability.canToggleEnabled && (
             <Button
               variant="text"
@@ -94,18 +120,6 @@ export const RoleListRow = ({
               }}
             >
               {role.enabled ? t("actions.disable") : t("actions.enable")}
-            </Button>
-          )}
-          {ability.canDelete && (
-            <Button
-              variant="text"
-              size="small"
-              color="error"
-              onClick={() => {
-                onDelete(role);
-              }}
-            >
-              {t("actions.delete")}
             </Button>
           )}
         </Stack>
