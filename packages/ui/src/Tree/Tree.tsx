@@ -1,6 +1,6 @@
 "use client";
 
-import { styled, type SxProps, type Theme } from "@mui/material/styles";
+import { type SxProps, type Theme, styled } from "@mui/material/styles";
 import { RichTreeView } from "@mui/x-tree-view/RichTreeView";
 import { type ReactNode, type SyntheticEvent, useMemo } from "react";
 
@@ -62,12 +62,24 @@ export interface TreeProps {
   "aria-label"?: string;
 }
 
+/** 內容列的左內距基底;縮排量由 MUI 的兩個 CSS 變數乘出來後疊在它上面。 */
+const CONTENT_PADDING = 1;
+
 /** Figma Draft/OrgTreeItem:選取態 primary.lighter 底 + primary.dark 字、停用態 text.disabled。 */
 const TreeRoot = styled("div")(({ theme }) => ({
   "& .MuiTreeItem-content": {
     ...theme.typography.body2,
     borderRadius: theme.shape.borderRadius,
-    padding: theme.spacing(1),
+    padding: theme.spacing(CONTENT_PADDING),
+    /*
+     * 依層級縮排(#260):MUI X Tree View v9 把縮排做在**內容列的 paddingLeft** —
+     * `calc(base + var(--TreeView-itemChildrenIndentation) * var(--TreeView-itemDepth))`
+     * (`--TreeView-itemDepth` 由 `useTreeItem` 寫在該列 `li` 的 inline style,
+     *  `--TreeView-itemChildrenIndentation` 寫在 `role="tree"` 的根)。
+     * 上面那行 `padding` 簡寫會把它整個蓋掉(這一層的選擇器比 MUI 自己的類別更具體),
+     * 整棵樹因此全部貼齊左緣;把算式接回來,縮排才會隨深度增加。
+     */
+    paddingLeft: `calc(${theme.spacing(CONTENT_PADDING)} + var(--TreeView-itemChildrenIndentation) * var(--TreeView-itemDepth))`,
   },
   "& .MuiTreeItem-content.Mui-selected": {
     ...theme.typography.subtitle2,

@@ -1,9 +1,9 @@
 import { useTranslations } from "use-intl";
 
-import { Box } from "@repo/ui/box";
 import { Switch } from "@repo/ui/switch";
 import { Table, type TableColumn } from "@repo/ui/table";
 import { Tag } from "@repo/ui/tag";
+import { Tooltip } from "@repo/ui/tooltip";
 import { Typography } from "@repo/ui/typography";
 
 import { sortPermissions } from "../module-admin-tree";
@@ -72,10 +72,8 @@ export const ModulePermissionTable = ({
       width: 96,
       render: (permission) =>
         canToggleEnabled ? (
-          <Box
-            component="span"
-            title={isSelfLocked ? t("selfLockedHint") : undefined}
-          >
+          /* 停用的開關收不到 hover,包 span 的事情交給 Tooltip 自己處理(#240) */
+          <Tooltip title={isSelfLocked ? t("selfLockedHint") : ""}>
             <Switch
               checked={permission.enabled}
               disabled={isSelfLocked || pendingPermissionId === permission.id}
@@ -88,7 +86,7 @@ export const ModulePermissionTable = ({
                 },
               }}
             />
-          </Box>
+          </Tooltip>
         ) : (
           <Tag
             tone={permission.enabled ? "success" : "error"}

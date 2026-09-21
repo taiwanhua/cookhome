@@ -39,6 +39,12 @@ export interface DatePickerProps {
   helperText?: ReactNode;
   fullWidth?: boolean;
   name?: string;
+  /**
+   * 輸入格高度,與 `TextField` / `Select` 同一組名字(#260)。
+   * 預設 `medium`(MUI 的原預設);和 `size="small"` 的下拉同列時要一起給 `small`,
+   * 否則日期欄比隔壁高一截(資料範圍規則編輯器的條件列)。
+   */
+  size?: "small" | "medium";
   /** 顯示格式;預設與值格式相同 */
   format?: string;
   locale?: DatePickerLocale;
@@ -75,6 +81,7 @@ export const DatePicker = ({
   helperText,
   fullWidth,
   name,
+  size,
   format = VALUE_FORMAT,
   locale = "zh-tw",
   sx,
@@ -92,7 +99,7 @@ export const DatePicker = ({
       format={format}
       sx={sx}
       slotProps={{
-        textField: { required, error, helperText, fullWidth, name },
+        textField: { required, error, helperText, fullWidth, name, size },
       }}
     />
   </LocalizationProvider>

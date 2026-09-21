@@ -358,6 +358,7 @@
       "title": "模組樹",
       "groupTag": "群組",
       "hiddenTag": "隱藏頁",
+      "containerTag": "權限容器",
       "disabledTag": "停用"
     },
     "detail": {
@@ -373,6 +374,8 @@
       "sidebarGroup": "群組",
       "sidebarLink": "模組連結",
       "sidebarHidden": "隱藏頁",
+      "sidebarContainer": "權限容器",
+      "sidebarContainerHint": "這一層只掛權限、沒有畫面,讓這些權限可以單獨授予或停用。",
       "order": "排序",
       "description": "描述",
       "none": "—",

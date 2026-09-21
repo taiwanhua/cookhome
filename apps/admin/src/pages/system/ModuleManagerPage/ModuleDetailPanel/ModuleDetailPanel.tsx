@@ -1,14 +1,15 @@
 import { useTranslations } from "use-intl";
 
 import { ModuleSidebarType } from "@repo/graphql";
-import { Box } from "@repo/ui/box";
 import { Card } from "@repo/ui/card";
 import { CircularProgress } from "@repo/ui/circular-progress";
 import { Stack } from "@repo/ui/stack";
 import { Switch } from "@repo/ui/switch";
 import { Tag } from "@repo/ui/tag";
+import { Tooltip } from "@repo/ui/tooltip";
 import { Typography } from "@repo/ui/typography";
 
+import { isPermissionContainer } from "../module-admin-tree";
 import { isSelfLockedModuleKey } from "../module-manager-permissions";
 import type {
   ModuleAdminNodeLike,
@@ -76,6 +77,7 @@ export const ModuleDetailPanel = ({
   }
 
   const isSelfLocked = isSelfLockedModuleKey(module.key);
+  const isContainer = isPermissionContainer(module);
 
   return (
     <Card
@@ -97,10 +99,8 @@ export const ModuleDetailPanel = ({
               <Typography variant="body2" color="text.secondary">
                 {t("enabled")}
               </Typography>
-              <Box
-                component="span"
-                title={isSelfLocked ? t("selfLockedHint") : undefined}
-              >
+              {/* 停用的開關收不到 hover,包 span 的事情交給 Tooltip 自己處理(#240) */}
+              <Tooltip title={isSelfLocked ? t("selfLockedHint") : ""}>
                 <Switch
                   checked={module.enabled}
                   disabled={isSelfLocked || isModulePending}
@@ -113,7 +113,7 @@ export const ModuleDetailPanel = ({
                     },
                   }}
                 />
-              </Box>
+              </Tooltip>
             </>
           ) : (
             <Tag
@@ -127,9 +127,19 @@ export const ModuleDetailPanel = ({
           <Typography variant="body2">{module.key}</Typography>
         </ModuleDetailRow>
         <ModuleDetailRow label={t("sidebarType")}>
-          <Typography variant="body2">
-            {t(SIDEBAR_TYPE_KEY[module.sidebarType])}
-          </Typography>
+          {isContainer ? (
+            /* 權限容器沒有畫面,只講「隱藏」不夠 —— 同一列補上它存在的理由(#260) */
+            <Stack spacing={0.25}>
+              <Typography variant="body2">{t("sidebarContainer")}</Typography>
+              <Typography variant="caption" color="text.secondary">
+                {t("sidebarContainerHint")}
+              </Typography>
+            </Stack>
+          ) : (
+            <Typography variant="body2">
+              {t(SIDEBAR_TYPE_KEY[module.sidebarType])}
+            </Typography>
+          )}
         </ModuleDetailRow>
         <ModuleDetailRow label={t("order")}>
           <Typography variant="body2">{module.order}</Typography>

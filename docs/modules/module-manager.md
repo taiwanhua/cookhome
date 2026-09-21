@@ -78,7 +78,10 @@ service 再守「當前組織是根組織」(判斷點 `OwnerProtectionService.i
 | 樹上的類型 `Tag` | 「權限容器」(不是「隱藏頁」)                              |
 | 右面板的描述     | 「這一層只掛權限、沒有畫面,讓這些權限可以單獨授予或停用」 |
 
-判準以 seed 的 `route` 為準;api 若沒回 `route`,前端以「key 結尾不是 `-page`」近似(#260 的 PR 註明)。
+判準以 seed 的 `route` 為準。`moduleAdminTree` 沒有回 `route`(`apps/api/schema.gql` 的 `ModuleAdminNode`),
+所以前端改看 key 結尾 —— 這與看 `route` **等價,不是近似**:seed 的命名規約
+(`apps/db-migrator/src/seed/seed-key-convention.ts`)把「`-page` 結尾 ⇔ hidden 且有 route」寫成硬規則,
+違規在種資料時就被擋下。判斷函式:`ModuleManagerPage/module-admin-tree.ts` 的 `isPermissionContainer`(#260)。
 `help.md` 同步一句相同白話。
 
 **自鎖保護(前端,待 #233)**:api 目前允許停用 `system.module-manager` 自己,一旦關掉就沒有任何畫面能把它開回來。
