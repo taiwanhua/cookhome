@@ -2,7 +2,11 @@ import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
 import { SampleOneFormPage } from "../pages/demo/SampleOneFormPage/SampleOneFormPage";
 import { SampleOnePage } from "../pages/demo/SampleOnePage/SampleOnePage";
 import { SampleOneViewPage } from "../pages/demo/SampleOneViewPage/SampleOneViewPage";
+import { SampleTwoFormPage } from "../pages/demo/SampleTwoPage/SampleTwoFormPage";
+import { SampleTwoPage } from "../pages/demo/SampleTwoPage/SampleTwoPage";
+import { SampleTwoViewPage } from "../pages/demo/SampleTwoPage/SampleTwoViewPage";
 import { SAMPLE_ONE_MODULE_KEYS } from "../pages/demo/demo-sample-one-config";
+import { SAMPLE_TWO_MODULE_KEYS } from "../pages/demo/demo-sample-two-config";
 import { DataScopePage } from "../pages/system/DataScopePage/DataScopePage";
 import { DATA_SCOPE_MODULE_KEY } from "../pages/system/DataScopePage/data-scope-permissions";
 import { FieldManagerPage } from "../pages/system/FieldManagerPage/FieldManagerPage";
@@ -31,6 +35,11 @@ export const modulePages: ModulePageRegistry = {
   [SAMPLE_ONE_MODULE_KEYS.viewPage]: SampleOneViewPage,
   [SAMPLE_ONE_MODULE_KEYS.createPage]: SampleOneFormPage,
   [SAMPLE_ONE_MODULE_KEYS.editPage]: SampleOneFormPage,
+  // 示範模組2 四個 key = 四頁(#321);與示範模組1 同一組共用元件,差別只在設定物件
+  [SAMPLE_TWO_MODULE_KEYS.list]: SampleTwoPage,
+  [SAMPLE_TWO_MODULE_KEYS.viewPage]: SampleTwoViewPage,
+  [SAMPLE_TWO_MODULE_KEYS.createPage]: SampleTwoFormPage,
+  [SAMPLE_TWO_MODULE_KEYS.editPage]: SampleTwoFormPage,
   [ORG_MANAGER_MODULE_KEY]: OrgManagerPage,
   [MODULE_MANAGER_MODULE_KEY]: ModuleManagerPage,
   [FIELD_MANAGER_MODULE_KEY]: FieldManagerPage,

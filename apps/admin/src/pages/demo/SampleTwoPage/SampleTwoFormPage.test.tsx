@@ -1,0 +1,143 @@
+import { describe, expect, it } from "@jest/globals";
+import { screen, waitFor, within } from "@testing-library/react";
+
+import {
+  SAMPLE_TWO_ROUTES,
+  renderSampleTwo,
+} from "../demo-sample-two-test-support";
+
+const editPath = (id: string) => `${SAMPLE_TWO_ROUTES.editPage}/${id}`;
+
+/**
+ * 示範模組2 的新增 / 編輯共版型(#321)。兩個隱藏頁模組共用同一個元件,
+ * 情境由 `module.key` 決定 —— 與示範模組1 是同一份共用元件,只是設定物件不同。
+ */
+describe("示範模組2 的新增 / 編輯(共版型)", () => {
+  it("新增頁:只有名稱與備註,沒有提示區塊與上傳欄(對照組沒有那些)", async () => {
+    renderSampleTwo({ path: SAMPLE_TWO_ROUTES.createPage });
+
+    expect(
+      await screen.findByRole("heading", { name: "新增示範項目" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("名稱 *")).toHaveValue("");
+    expect(screen.getByLabelText("備註")).toHaveValue("");
+
+    expect(screen.queryByLabelText("內部備註")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("分類")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("狀態")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("封面")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "填寫提示" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("新增:送出的 input 只有名稱與備註,沒填的備註送 null", async () => {
+    const { user: actor, fake } = renderSampleTwo({
+      path: SAMPLE_TWO_ROUTES.createPage,
+    });
+    await screen.findByRole("heading", { name: "新增示範項目" });
+
+    await actor.type(screen.getByLabelText("名稱 *"), "對照組新項目");
+    await actor.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() => {
+      expect(fake.inputs.createDemoItemTwo).toEqual([
+        { name: "對照組新項目", note: null },
+      ]);
+    });
+    // 儲存成功後回列表
+    expect(await screen.findByTestId("location")).toHaveTextContent(
+      SAMPLE_TWO_ROUTES.list,
+    );
+  });
+
+  it("編輯頁:帶入既有值,沒有變更歷程區塊(對照組沒有歷程)", async () => {
+    renderSampleTwo({ path: editPath("demo-two-1") });
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "編輯示範項目 — 對照組項目A",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("名稱 *")).toHaveValue("對照組項目A");
+    expect(screen.getByLabelText("備註")).toHaveValue(
+      "沒有分類、沒有狀態的對照資料",
+    );
+    expect(
+      screen.queryByRole("region", { name: "變更歷程" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("編輯:送出帶 id 與兩個欄位", async () => {
+    const { user: actor, fake } = renderSampleTwo({
+      path: editPath("demo-two-1"),
+    });
+    await screen.findByLabelText("名稱 *");
+
+    await actor.clear(screen.getByLabelText("名稱 *"));
+    await actor.type(screen.getByLabelText("名稱 *"), "對照組項目A(改)");
+    await actor.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() => {
+      expect(fake.inputs.updateDemoItemTwo).toHaveLength(1);
+    });
+    expect(fake.inputs.updateDemoItemTwo[0]).toEqual({
+      id: "demo-two-1",
+      name: "對照組項目A(改)",
+      note: "沒有分類、沒有狀態的對照資料",
+    });
+  });
+
+  it("取消:改過就先問一次放棄變更,確認後才離開", async () => {
+    const { user: actor } = renderSampleTwo({ path: editPath("demo-two-1") });
+    await screen.findByLabelText("名稱 *");
+
+    await actor.type(screen.getByLabelText("備註"), "再加一句");
+    await actor.click(screen.getByRole("button", { name: "取消" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", { name: "放棄未儲存的變更？" }),
+    ).toBeInTheDocument();
+
+    await actor.click(within(dialog).getByRole("button", { name: "放棄變更" }));
+    expect(await screen.findByTestId("location")).toHaveTextContent(
+      SAMPLE_TWO_ROUTES.list,
+    );
+  });
+
+  it("沒改過就按取消:直接回列表,不問", async () => {
+    const { user: actor } = renderSampleTwo({ path: editPath("demo-two-1") });
+    await screen.findByLabelText("名稱 *");
+
+    await actor.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(await screen.findByTestId("location")).toHaveTextContent(
+      SAMPLE_TWO_ROUTES.list,
+    );
+  });
+
+  it("VALIDATION_FAILED fields:[name] 標在名稱欄上,不是一條看不懂的橫幅", async () => {
+    const { user: actor } = renderSampleTwo({
+      path: editPath("demo-two-1"),
+      world: {
+        failures: {
+          UpdateDemoItemTwo: {
+            code: "VALIDATION_FAILED",
+            extensions: { fields: ["name"] },
+          },
+        },
+      },
+    });
+    await screen.findByLabelText("名稱 *");
+
+    await actor.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("名稱 *")).toHaveAccessibleDescription(
+        "請填寫名稱。",
+      );
+    });
+  });
+});

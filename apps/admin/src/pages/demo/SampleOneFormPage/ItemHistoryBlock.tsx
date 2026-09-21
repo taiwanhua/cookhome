@@ -1,20 +1,18 @@
 import { useTranslations } from "use-intl";
 
+import { useDemoItemOneHistoryQuery } from "@repo/graphql";
 import { Box } from "@repo/ui/box";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import { useSession } from "@/hooks/useSession";
 
-import { SAMPLE_ONE_I18N, SAMPLE_ONE_QUERIES } from "../demo-sample-one-config";
+import { SAMPLE_ONE_I18N } from "../demo-sample-one-config";
 import {
   changedFieldsOf,
   formatDateTime,
   historyActionKeyOf,
 } from "../demo-sample-one-view";
-
-// 模組層解構:具名 hook 呼叫(設定物件見 `demo-sample-one-config.ts`)
-const { useHistory } = SAMPLE_ONE_QUERIES;
 
 export interface ItemHistoryBlockProps {
   itemId: string;
@@ -33,7 +31,7 @@ export const ItemHistoryBlock = ({ itemId }: ItemHistoryBlockProps) => {
   const tFields = useTranslations(`${SAMPLE_ONE_I18N}.fields`);
   const { session } = useSession();
 
-  const history = useHistory(session.client, { id: itemId });
+  const history = useDemoItemOneHistoryQuery(session.client, { id: itemId });
   const entries = history.data?.demoItemOneHistory.items ?? [];
 
   return (

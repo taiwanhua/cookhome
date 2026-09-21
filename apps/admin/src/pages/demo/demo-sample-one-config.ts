@@ -1,21 +1,11 @@
-import {
-  DemoItemOneStatus,
-  UploadPurpose,
-  useAttachmentDownloadUrlQuery,
-  useCreateDemoItemOneMutation,
-  useDeleteDemoItemOneMutation,
-  useDemoItemOneHistoryQuery,
-  useDemoItemOneQuery,
-  useDemoItemsOneQuery,
-  useUpdateDemoItemOneMutation,
-} from "@repo/graphql";
+import { DemoItemOneStatus, UploadPurpose } from "@repo/graphql";
 
 /**
- * 示範模組1 三頁的**單一設定物件**(#320)。
+ * 示範模組1 的**常數**(模組 key、權限 key、i18n namespace、欄位定義、上傳規則)。
  *
- * 三頁(列表 / 詳情 / 新增 + 編輯共版型)要用到的東西一律集中在這裡:模組 key、權限 key、
- * 欄位定義、查詢 hooks、上傳規則、i18n namespace。頁面本身只描述「怎麼畫」,
- * 換一個模組要動的就只有這一份 —— #321 的示範模組2 與之後的 module-scaffold 據此抽共版型。
+ * 組成共用元件吃的設定物件那一步在 `demo-sample-one-module.tsx`
+ * (`DemoModuleConfig`,介面與 JSDoc 見 `shared/demo-module-config.ts`);
+ * 常數單獨一份是因為 mock 模式的夾具與測試也要用,那兩邊不該把整個設定物件(含 React 元件)拉進去。
  *
  * 規則正本:`docs/modules/demo.sub.sample-one.md`(模組樹 / 權限表 / api 介面);
  * seed 正本:`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`。
@@ -65,19 +55,6 @@ export const SAMPLE_ONE_I18N = "admin.demoSampleOne";
 /** 列表每頁筆數(api `DemoItemsOneInput.pageSize` 上限 100)。 */
 export const SAMPLE_ONE_PAGE_SIZE = 10;
 
-/**
- * 列表的欄位定義(Figma 175:3 的表頭寬度)。`key` 同時是 i18n 的欄名 key 與 `TableColumn.key`;
- * 畫法在 `SampleOneTable.tsx` 逐欄實作,這裡只定「有哪些欄、多寬、哪一欄是主要識別欄」。
- */
-export const SAMPLE_ONE_COLUMNS = [
-  { key: "name", width: 150, isEmphasized: true },
-  { key: "category", width: 110 },
-  { key: "note" },
-  { key: "status", width: 90 },
-  { key: "enabled", width: 80 },
-  { key: "actions", width: 150 },
-] as const;
-
 /** 表格最小寬度(STYLE-11:六欄不折行的合理寬度)。 */
 export const SAMPLE_ONE_TABLE_MIN_WIDTH = 960;
 
@@ -89,11 +66,13 @@ export const SAMPLE_ONE_STATUSES = [
 ] as const;
 
 /**
- * 上傳規則(ADR-0010;api 正本 `apps/api/src/storage/upload-rules.ts`)。
+ * 上傳規則(ADR-0010;**api 正本** `apps/api/src/storage/upload-rules.ts` 的 `UPLOAD_RULES`)。
  * 封面走公開 bucket(回穩定 URL,可直接放 `<img src>`),附件走私有 bucket(下載時才現簽)。
  *
- * 兩者的 `accept` 目前都只有圖片:api 的 `UPLOAD_EXTENSIONS` 只收 png / jpg / webp,
- * 送別種 content type 在 `createUploadUrl` 那一步就會被拒(設計稿畫的 pdf 附件現在上傳不了,PR 有記)。
+ * 兩者的規則不同,而且要跟著 api 那一份走 —— 前端的 `accept` / `maxSize` 只是先擋一手,
+ * 真正把關的是 `createUploadUrl`(不合就在那一步回 `UPLOAD_REJECTED`):
+ * - **封面**:圖片 + 2MB(公開的東西刻意收得緊)
+ * - **附件**:圖片 + pdf / doc(x) / xls(x) / zip + 20MB(#344 放寬;設計稿畫的 pdf 附件現在收得了)
  */
 export const SAMPLE_ONE_UPLOAD = {
   cover: {
@@ -103,22 +82,19 @@ export const SAMPLE_ONE_UPLOAD = {
   },
   attachment: {
     purpose: UploadPurpose.DemoAttachment,
-    accept: ["image/png", "image/jpeg", "image/webp"] as readonly string[],
-    maxSize: 2 * 1024 * 1024,
+    accept: [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/zip",
+      // Windows 的檔案總管壓出來的 zip 走這個 content type,不收就等於 Windows 使用者傳不了
+      "application/x-zip-compressed",
+    ] as readonly string[],
+    maxSize: 20 * 1024 * 1024,
   },
-} as const;
-
-/**
- * 三頁用到的 codegen hooks(STRUCT-04:只走 `@repo/graphql` 的出口)。
- * 集中在這裡,換模組時只換這一塊;頁面在**模組層**解構成具名 hook 再呼叫
- * (`const { useList } = SAMPLE_ONE_QUERIES;`),react-hooks 的規則才認得出那是 hook。
- */
-export const SAMPLE_ONE_QUERIES = {
-  useList: useDemoItemsOneQuery,
-  useItem: useDemoItemOneQuery,
-  useHistory: useDemoItemOneHistoryQuery,
-  useDownloadUrl: useAttachmentDownloadUrlQuery,
-  useCreate: useCreateDemoItemOneMutation,
-  useUpdate: useUpdateDemoItemOneMutation,
-  useDelete: useDeleteDemoItemOneMutation,
 } as const;

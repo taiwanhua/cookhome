@@ -6,32 +6,35 @@ import { Dialog } from "@repo/ui/dialog";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { SAMPLE_ONE_I18N } from "./demo-sample-one-config";
-import type { SampleOneErrorCode } from "./demo-sample-one-error";
+import type { DemoErrorCode } from "./demo-error";
 
 export interface DeleteItemDialogProps {
+  i18nNamespace: string;
   itemName: string;
   isSubmitting: boolean;
-  errorCode: SampleOneErrorCode | null;
+  errorCode: DemoErrorCode | null;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
 /**
  * 刪除確認(Figma Overlay 177:2314,用 `Draft/ConfirmDialog` 57:712)。
- * 破壞性操作:確認鈕是 error 色,文案講清楚後果與不可復原。
- * 刪除是軟刪除,但對操作者而言就是拿不回來了,所以不在文案上玩「還原得回來」的字眼。
+ * 列表與詳情共用同一個彈窗。
+ *
+ * 破壞性操作:確認鈕是 error 色,文案講清楚後果與不可復原。刪除在 api 是軟刪除,
+ * 但對操作者而言就是拿不回來了,所以不在文案上玩「還原得回來」的字眼。
  */
 export const DeleteItemDialog = ({
+  i18nNamespace,
   itemName,
   isSubmitting,
   errorCode,
   onCancel,
   onConfirm,
 }: DeleteItemDialogProps) => {
-  const t = useTranslations(`${SAMPLE_ONE_I18N}.delete`);
-  const tErrors = useTranslations(`${SAMPLE_ONE_I18N}.errors`);
-  const tForm = useTranslations(`${SAMPLE_ONE_I18N}.form`);
+  const t = useTranslations(`${i18nNamespace}.delete`);
+  const tErrors = useTranslations(`${i18nNamespace}.errors`);
+  const tForm = useTranslations(`${i18nNamespace}.form`);
 
   return (
     <Dialog
