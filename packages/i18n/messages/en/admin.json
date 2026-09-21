@@ -774,6 +774,7 @@
       "view": "View",
       "edit": "Edit",
       "delete": "Delete",
+      "viewOf": "View “{name}”",
       "editOf": "Edit “{name}”",
       "deleteOf": "Delete “{name}”",
       "backToList": "← Back to list"
@@ -871,6 +872,7 @@
       "view": "View",
       "edit": "Edit",
       "delete": "Delete",
+      "viewOf": "View “{name}”",
       "editOf": "Edit “{name}”",
       "deleteOf": "Delete “{name}”",
       "backToList": "← Back to list"

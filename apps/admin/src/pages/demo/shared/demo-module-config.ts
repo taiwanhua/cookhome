@@ -17,8 +17,8 @@ import type { GraphQLClient, UploadPurpose } from "@repo/graphql";
  * `useRows` / `useItem` / `useSave` 三個 hook 交出來(型別在模組那一側對齊),
  * 只有刪除因為兩邊的 input 同形(`{ id }`)才直接收 codegen 的 mutation hook。
  *
- * 兩個實例:`pages/demo/demo-sample-one-module.tsx`(完整示範:欄位級權限、雙路儲存、
- * 頁面自有權限區塊)與 `pages/demo/demo-sample-two-module.tsx`(對照組:只有 name / note / enabled)。
+ * 兩個實例:`pages/demo/SampleOneModule.tsx`(完整示範:欄位級權限、雙路儲存、
+ * 頁面自有權限區塊)與 `pages/demo/SampleTwoModule.tsx`(對照組:只有 name / note / enabled)。
  */
 
 /** `use-intl` 的翻譯函式(共用元件只用到「取字串」這一個能力)。 */

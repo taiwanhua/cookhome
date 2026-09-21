@@ -774,6 +774,7 @@
       "view": "檢視",
       "edit": "編輯",
       "delete": "刪除",
+      "viewOf": "檢視「{name}」",
       "editOf": "編輯「{name}」",
       "deleteOf": "刪除「{name}」",
       "backToList": "← 返回列表"
@@ -871,6 +872,7 @@
       "view": "檢視",
       "edit": "編輯",
       "delete": "刪除",
+      "viewOf": "檢視「{name}」",
       "editOf": "編輯「{name}」",
       "deleteOf": "刪除「{name}」",
       "backToList": "← 返回列表"

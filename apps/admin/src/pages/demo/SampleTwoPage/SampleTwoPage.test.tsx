@@ -66,7 +66,7 @@ describe("示範模組2 列表(/demo/sample-two)", () => {
 
     const locked = await findSampleTwoRowOf("對照組項目C");
     expect(
-      within(locked).getByRole("button", { name: "檢視" }),
+      within(locked).getByRole("button", { name: /檢視/ }),
     ).toBeInTheDocument();
     expect(
       within(locked).queryByRole("button", { name: /編輯/ }),
@@ -109,7 +109,7 @@ describe("示範模組2 列表(/demo/sample-two)", () => {
     const { user: actor } = renderSampleTwo();
     const row = await findSampleTwoRowOf("對照組項目A");
 
-    await actor.click(within(row).getByRole("button", { name: "檢視" }));
+    await actor.click(within(row).getByRole("button", { name: /檢視/ }));
 
     expect(await screen.findByTestId("location")).toHaveTextContent(
       `${SAMPLE_TWO_ROUTES.viewPage}/demo-two-1`,
