@@ -1,6 +1,6 @@
 # CookHome 部署架構與操作手冊
 
-> 最後更新:2026-09-21(#270:admin nginx 的 `index.html` 回 `Cache-Control: no-cache`、`/assets/` 維持 immutable 長快取;#259:`.dockerignore` 對 admin 模組說明開例外 + Dockerfile 加打包資產檢查;2026-09-19 #69:api 非機密環境變數改由 `deploy/env/<環境>.yaml` 提供、Secret Manager 加 `jwt-secret*`、`resend-api-key*`)。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
+> 最後更新:2026-09-22(#309:release 一批一次、release 後 `dev` / `staging` 以 `reset --hard` 對齊 `main`,取代原本把 `main` 空合併回去的做法;2026-09-21 #270:admin nginx 的 `index.html` 回 `Cache-Control: no-cache`、`/assets/` 維持 immutable 長快取;#259:`.dockerignore` 對 admin 模組說明開例外 + Dockerfile 加打包資產檢查;2026-09-19 #69:api 非機密環境變數改由 `deploy/env/<環境>.yaml` 提供、Secret Manager 加 `jwt-secret*`、`resend-api-key*`)。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
 
 ## 一、架構總覽
 
@@ -73,31 +73,30 @@ release 後:進行中的 feat 分支 rebase 到最新 main
   - **只部署改到的 app**(2026-09-19):workflow 讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過(migrate → seed 也只在 api 或 db-migrator 受影響時跑);判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`(第一次部署或 Cloud Run 讀不到 tag 時會自動全部)
   - image tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(VITE 端點烘入)
   - **部署成功後自動跑 `migrate → seed`**(ADR-0002):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`;seed 摘要(新增 N / 更新 M / 未變 K)印在 Actions log — 第一次跑應全為新增,之後每次應為 0 / 0 / K。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)
+- **release 一批一次**:同一批票各自 PR 合進 `dev`、各自 PR 合進 `staging`,**累積成一批之後才走一次 release**(一個 `staging → main` 的 PR + 一次 production 部署);`dev` 的部署也等該批最後一張合完才觸發,不要一張一部署。release 完成後照下面第 4 點把 `dev` / `staging` reset 對齊 `main`。例外只有**產物依賴**(後面的票要拿前面的票已上線的產物才做得下去),這種才單獨先 release 一次
 - **Release 步驟(每次一樣;票的看板狀態見 `docs/agents/issue-tracker.md`)**:
   1. dev 的 CI 綠 → 要上線的 feat 分支**逐一** PR 合進 `staging`(PR 內文帶 `Refs #票號`,自動化才移卡);合完 `git diff --stat origin/dev origin/staging` 應為空
   2. `gh workflow run Deploy --ref staging -f environment=staging` → 對 `api-staging` 打一個 smoke(如登入 mutation 錯帳密回 `INVALID_CREDENTIALS`)
   3. PR `staging → main`、合併 → `gh workflow run Deploy --ref main -f environment=production` → 同樣 smoke
-  4. **release PR 一合進 `main`,立刻把 `main` 空合併回 `dev` 與 `staging`**(下一點的預防措施,由主流程做;不需 force,內容不變只補一個 merge commit):
+  4. **release PR 一合進 `main`,立刻把 `dev` 與 `staging` reset 到 `main`**(下一點的預防措施,由主流程做;即 CLAUDE.md「`dev` 汙染時整支重置」,現在是 release 後的常規動作)。**不要把 `main` 合併(或空合併)回 `dev` / `staging`** —— 那只會讓兩條線各自長出 merge commit、歷史繼續分岔。先做前置檢查再推:
 
      ```
      git fetch origin
-     git worktree add ../cookhome-sync origin/dev --detach
-     git -C ../cookhome-sync merge --no-ff origin/main -m "chore: sync main into dev"
-     git -C ../cookhome-sync push origin HEAD:dev
-     git -C ../cookhome-sync checkout --detach origin/staging
-     git -C ../cookhome-sync merge --no-ff origin/main -m "chore: sync main into staging"
-     git -C ../cookhome-sync push origin HEAD:staging
-     git worktree remove ../cookhome-sync
+     git diff --stat origin/main origin/dev
+     git diff --stat origin/main origin/staging
+     gh pr list --base dev --state open
+     git push --force origin origin/main:refs/heads/dev
+     git push --force origin origin/main:refs/heads/staging
      ```
 
-     做完之後,從 `main` 切出來的分支對 `dev` / `staging` 都只剩一個 merge base。2026-09-21 已各做一次(dev `a698ccb`、staging `e7dd82d`)
+     兩個 `git diff --stat` 都要是**空的**,代表該批已全部進 `main`、reset 不會丟掉東西;`gh pr list` 是確認沒有「已合進 `dev` 但不在這批 release 裡」的 feat。若真的有未 release 的 feat 在上面,**照樣 reset**,再逐一把那些 feat 合回去(`gh pr merge`,或本地 merge 後推)。reset 之後,從 `main` 切出來的分支對 `dev` / `staging` 都只剩一個 merge base
 
   5. 關票(`gh issue close <n> --comment "<release PR>"`)→ 自動化移到 Released;刪已合併的遠端分支
-  6. **交叉 merge base(dev 與 staging 都會發生)**:feat 一律從 `main` 切,而 `dev` / `staging` 各自往前走一條線,同一批票在兩條線上各合一次之後,PR 就有兩個 merge base。徵兆是 **GitHub 顯示 CONFLICTING,但本地 `git merge-tree --write-tree origin/<base> <feat>` 乾淨**。後果不只是紅字:**GitHub 不建 merge ref ⇒ 這張 PR 一個 Actions run 都不會跑**,CI 沒結果、`project-status.yml` 也不會移卡(看板停在原格不是自動化壞了)。處理:先照第 4 點把 `main` 空合併回該 base,**接著把 PR close → reopen** 才會重跑 CI(base 更新本身不觸發 `pull_request` 事件)。真的要繞過時才走舊做法:本地把 feat 合進該 base,確認樹與 `dev` 一致(diff 為空)再推,PR 關閉並註明
+  6. **交叉 merge base(dev 與 staging 都會發生)**:feat 一律從 `main` 切,而 `dev` / `staging` 各自往前走一條線,同一批票在兩條線上各合一次之後,PR 就有兩個 merge base。徵兆是 **GitHub 顯示 CONFLICTING,但本地 `git merge-tree --write-tree origin/<base> <feat>` 乾淨**。後果不只是紅字:**GitHub 不建 merge ref ⇒ 這張 PR 一個 Actions run 都不會跑**,CI 沒結果、`project-status.yml` 也不會移卡(看板停在原格不是自動化壞了)。處理:先照第 4 點把該 base reset 到 `main`(reset 後 base 與 `main` 是同一個 commit,交叉 merge base 直接消失;base 上有未 release 的 feat 就 reset 後再合回去),**接著把 PR close → reopen** 才會重跑 CI(base 更新本身不觸發 `pull_request` 事件)
 - **Docker build context 排除 `.md`,但 admin 的 help.md 是程式資產**(#259):根目錄 `.dockerignore` 有 `**/*.md`(文件不進 image),而 `apps/admin/src/md/module-help/*.help.md` 是 Vite 在 build 時用 `import.meta.glob` 內嵌進 bundle 的**程式資產** —— 被排除時本機 `pnpm build` 照樣正常、CI 建出來的 image 卻讓每頁的「?」全部 disabled,而且沒有任何一步會失敗。例外規則寫在 `.dockerignore`(`!apps/admin/src/md/**/*.md`,必須排在 `**/*.md` 之後才生效),防回歸檢查在 `apps/admin/Dockerfile` 的 builder stage:build 之後 `RUN pnpm --filter @repo/admin check:help-bundle`(腳本 `apps/admin/scripts/check-help-bundle.mjs`,比對每份說明的內容是否出現在 `dist/assets/*.js`;掃不到說明檔也算失敗)。**日後再有這類「跟著 build 烘進產物的非程式檔」**(i18n 字典、範本、憑證…),一律同時做兩件事:在 `.dockerignore` 補例外 + 在 Dockerfile 加一條驗產物的檢查
 - **admin 的靜態檔快取策略:`index.html` = `no-cache`、`/assets/` = `immutable` 一年**(#270,設定在 `apps/admin/nginx.conf`):`index.html` 是唯一指向「這次部署的 bundle 檔名」的入口,一旦被快取,部署後重新整理仍會載入舊 HTML → 舊 `assets/index-<hash>.js`;`/assets/` 底下的檔名帶 content hash,內容一變檔名就變,可以永久快取。`no-cache` 不是「不快取」,是「每次都先向伺服器驗證」(ETag 命中回 304,只花一個 round trip)。**部署後使用者正常重新整理即可拿到新版,不需要 Ctrl+F5 / 清快取**;先前沒有這個標頭時瀏覽器會用啟發式快取(依 `Last-Modified` 自行推算效期),於是出現「部署成功但畫面沒變」。注意 nginx 的 `add_header` **不會**繼承到自己也有 `add_header` 的子 block,所以 `location /`(SPA fallback)與 `location = /index.html`(`try_files` 的內部轉址會重新比對 location)各寫一份。**改了 `apps/admin/nginx.conf` 之後,驗收方式是 `curl -I https://erp-<環境>.cookhome.online/` 看 `Cache-Control`**
 - **改了 `.dockerignore` / Dockerfile 之後要用 `-f force=true` 部署**:這兩個檔不屬於任何 package,`turbo ls --affected` 看不到,不加 force 會整個 build 步驟被跳過
-- **dev 汙染重置**:`git checkout dev && git fetch && git reset --hard origin/main && git push --force origin dev`
+- **dev / staging 重置**:`git push --force origin origin/main:refs/heads/dev`(`staging` 同)。這條指令不需要切分支、不動本地工作目錄,既是 release 後的常規對齊(上面第 4 點),也是 `dev` 被汙染時的救援手段
 - **認證**:Workload Identity Federation — OIDC 短期憑證換 `github-deployer` 身分,repo 裡**零 GCP 金鑰**,provider 限定本 repo
 - **回滾**:`gcloud run services update-traffic cookhome-api --to-revisions=<舊revision>=100`,或從舊 commit 觸發部署
 
