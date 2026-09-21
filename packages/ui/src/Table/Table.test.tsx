@@ -1,6 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 
+import {
+  cssRulesMatching,
+  declaredValue,
+  emotionClassOf,
+} from "../test/css-rules";
 import { Table, type TableColumn } from "./Table";
 
 interface DemoRow {
@@ -25,6 +30,15 @@ const rows: DemoRow[] = [
 ];
 
 const getRowKey = (row: DemoRow) => row.id;
+
+/** 捲動容器(`TableContainer`)身上 emotion 實際產生的規則(TEST-09)。 */
+const containerRulesOf = (container: HTMLElement): CSSStyleRule[] => {
+  const scroller = container.querySelector(".MuiTableContainer-root");
+  if (scroller === null) {
+    throw new Error("找不到表格的捲動容器");
+  }
+  return cssRulesMatching(`.${emotionClassOf(scroller)}`);
+};
 
 describe("Table", () => {
   it("有資料時渲染表頭與每一列", () => {
@@ -95,5 +109,33 @@ describe("Table", () => {
         withoutMin.querySelector("table") as HTMLElement,
       ).minWidth,
     ).toBe("");
+  });
+
+  /** #299:容器撐滿父層高度,列數少時橫向捲軸才落在面板底部而不是最後一列下方。 */
+  it("捲動容器預設撐滿父層高度", () => {
+    const { container } = render(
+      <Table columns={columns} rows={rows} getRowKey={getRowKey} />,
+    );
+    const rules = containerRulesOf(container);
+
+    expect(declaredValue(rules, "height")).toBe("100%");
+    expect(declaredValue(rules, "min-height")).toBe("0");
+  });
+
+  it("containerSx 疊在預設之上,呼叫端可改寫容器高度", () => {
+    const { container } = render(
+      <Table
+        columns={columns}
+        rows={rows}
+        getRowKey={getRowKey}
+        containerSx={{ height: "auto", maxHeight: 240 }}
+      />,
+    );
+    const rules = containerRulesOf(container);
+
+    // 後寫的蓋前面的:呼叫端的 height 贏,沒覆寫的 min-height 仍是預設值
+    expect(declaredValue(rules, "height")).toBe("auto");
+    expect(declaredValue(rules, "max-height")).toBe("240px");
+    expect(declaredValue(rules, "min-height")).toBe("0");
   });
 });

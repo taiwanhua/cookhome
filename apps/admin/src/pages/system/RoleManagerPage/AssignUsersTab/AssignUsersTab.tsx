@@ -128,7 +128,8 @@ export const AssignUsersTab = ({
         <Alert severity="error">{tErrors(data.errorCode)}</Alert>
       )}
 
-      <Box sx={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+      {/* 捲動責任在 Table 自己的容器(#299):這層只把剩下的高度給它,不再自己捲 */}
+      <Box sx={{ flex: 1, minHeight: 0 }}>
         <Table
           columns={columns}
           rows={data.rows}
