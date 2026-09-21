@@ -1,6 +1,6 @@
 # CookHome 部署架構與操作手冊
 
-> 最後更新:2026-09-21(#259:`.dockerignore` 對 admin 模組說明開例外 + Dockerfile 加打包資產檢查;2026-09-19 #69:api 非機密環境變數改由 `deploy/env/<環境>.yaml` 提供、Secret Manager 加 `jwt-secret*`、`resend-api-key*`)。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
+> 最後更新:2026-09-21(#270:admin nginx 的 `index.html` 回 `Cache-Control: no-cache`、`/assets/` 維持 immutable 長快取;#259:`.dockerignore` 對 admin 模組說明開例外 + Dockerfile 加打包資產檢查;2026-09-19 #69:api 非機密環境變數改由 `deploy/env/<環境>.yaml` 提供、Secret Manager 加 `jwt-secret*`、`resend-api-key*`)。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
 
 ## 一、架構總覽
 
@@ -80,6 +80,7 @@ release 後:進行中的 feat 分支 rebase 到最新 main
   4. 關票(`gh issue close <n> --comment "<release PR>"`)→ 自動化移到 Released;刪已合併的遠端分支
   5. **GitHub 說 CONFLICTING 但本地 `git merge-tree --write-tree origin/staging <feat>` 乾淨** = 交叉 merge base 的誤判(feat 分支合過 dev、staging 又各自合了同一批票時會發生):本地把 feat 合進 staging,確認樹與 dev 一致(diff 為空)再推,PR 關閉並註明
 - **Docker build context 排除 `.md`,但 admin 的 help.md 是程式資產**(#259):根目錄 `.dockerignore` 有 `**/*.md`(文件不進 image),而 `apps/admin/src/md/module-help/*.help.md` 是 Vite 在 build 時用 `import.meta.glob` 內嵌進 bundle 的**程式資產** —— 被排除時本機 `pnpm build` 照樣正常、CI 建出來的 image 卻讓每頁的「?」全部 disabled,而且沒有任何一步會失敗。例外規則寫在 `.dockerignore`(`!apps/admin/src/md/**/*.md`,必須排在 `**/*.md` 之後才生效),防回歸檢查在 `apps/admin/Dockerfile` 的 builder stage:build 之後 `RUN pnpm --filter @repo/admin check:help-bundle`(腳本 `apps/admin/scripts/check-help-bundle.mjs`,比對每份說明的內容是否出現在 `dist/assets/*.js`;掃不到說明檔也算失敗)。**日後再有這類「跟著 build 烘進產物的非程式檔」**(i18n 字典、範本、憑證…),一律同時做兩件事:在 `.dockerignore` 補例外 + 在 Dockerfile 加一條驗產物的檢查
+- **admin 的靜態檔快取策略:`index.html` = `no-cache`、`/assets/` = `immutable` 一年**(#270,設定在 `apps/admin/nginx.conf`):`index.html` 是唯一指向「這次部署的 bundle 檔名」的入口,一旦被快取,部署後重新整理仍會載入舊 HTML → 舊 `assets/index-<hash>.js`;`/assets/` 底下的檔名帶 content hash,內容一變檔名就變,可以永久快取。`no-cache` 不是「不快取」,是「每次都先向伺服器驗證」(ETag 命中回 304,只花一個 round trip)。**部署後使用者正常重新整理即可拿到新版,不需要 Ctrl+F5 / 清快取**;先前沒有這個標頭時瀏覽器會用啟發式快取(依 `Last-Modified` 自行推算效期),於是出現「部署成功但畫面沒變」。注意 nginx 的 `add_header` **不會**繼承到自己也有 `add_header` 的子 block,所以 `location /`(SPA fallback)與 `location = /index.html`(`try_files` 的內部轉址會重新比對 location)各寫一份。**改了 `apps/admin/nginx.conf` 之後,驗收方式是 `curl -I https://erp-<環境>.cookhome.online/` 看 `Cache-Control`**
 - **改了 `.dockerignore` / Dockerfile 之後要用 `-f force=true` 部署**:這兩個檔不屬於任何 package,`turbo ls --affected` 看不到,不加 force 會整個 build 步驟被跳過
 - **dev 汙染重置**:`git checkout dev && git fetch && git reset --hard origin/main && git push --force origin dev`
 - **認證**:Workload Identity Federation — OIDC 短期憑證換 `github-deployer` 身分,repo 裡**零 GCP 金鑰**,provider 限定本 repo
