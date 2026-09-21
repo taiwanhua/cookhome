@@ -1,8 +1,10 @@
 import { HttpResponse } from "msw";
 
+import { MODULE_ICON_KEYS } from "@repo/domain/module-icon";
 import type {
   ModuleTreeQuery,
   SetModuleEnabledMutationVariables,
+  SetModuleIconMutationVariables,
   SetPermissionEnabledMutationVariables,
 } from "@repo/graphql";
 
@@ -13,7 +15,8 @@ export type TestModuleAdminNode = ModuleTreeQuery["moduleTree"][number];
 export type TestPermissionAdmin = TestModuleAdminNode["permissions"][number];
 
 /** 會被指定失敗的操作(值是 `errors[0].extensions.code`)。 */
-export type ModuleAdminOperation = "SetModuleEnabled" | "SetPermissionEnabled";
+export type ModuleAdminOperation =
+  "SetModuleEnabled" | "SetModuleIcon" | "SetPermissionEnabled";
 
 export interface ModuleAdminWorldOptions {
   tree?: TestModuleAdminNode[];
@@ -25,6 +28,7 @@ export interface ModuleAdminWorld {
   /** 各操作收到的輸入(依序),用來斷言「送出去的是什麼」 */
   inputs: {
     setModuleEnabled: SetModuleEnabledMutationVariables["input"][];
+    setModuleIcon: SetModuleIconMutationVariables["input"][];
     setPermissionEnabled: SetPermissionEnabledMutationVariables["input"][];
   };
   /** `moduleTree` 被打到的次數(驗 invalidate 之後真的重新查了一次) */
@@ -35,6 +39,7 @@ export interface ModuleAdminWorld {
 interface MutableNode {
   id: string;
   enabled: boolean;
+  icon?: string | null;
   permissions: { id: string; enabled: boolean }[];
   children?: MutableNode[];
 }
@@ -58,6 +63,7 @@ export const moduleAdminWorld = (
   const state = structuredClone(tree) as unknown as MutableNode[];
   const inputs: ModuleAdminWorld["inputs"] = {
     setModuleEnabled: [],
+    setModuleIcon: [],
     setPermissionEnabled: [],
   };
   const calls = { moduleTree: 0 };
@@ -93,6 +99,35 @@ export const moduleAdminWorld = (
       return HttpResponse.json({
         data: { setModuleEnabled: { module: target } },
       });
+    }),
+    /*
+     * 換圖示(#288):不連動任何東西,只把 `icon` 寫回同一份資料 —— 「換完 invalidate
+     * 再查一次 moduleTree 要拿到新值」才驗得到。白名單外的值照 api 回 VALIDATION_FAILED
+     * 並附 `extensions.fields`(正本 `docs/modules/module-manager.md`「api 介面」),
+     * 不讓前端對著比 api 寬鬆的假伺服器寫測試。
+     */
+    api.mutation("SetModuleIcon", ({ variables }) => {
+      const { input } = variables as SetModuleIconMutationVariables;
+      inputs.setModuleIcon.push(input);
+      const failure = fail("SetModuleIcon");
+      if (failure !== null) {
+        return failure;
+      }
+      const icon = input.icon ?? null;
+      if (
+        icon !== null &&
+        !(MODULE_ICON_KEYS as readonly string[]).includes(icon)
+      ) {
+        return graphqlError("VALIDATION_FAILED", "Unknown icon", {
+          fields: ["icon"],
+        });
+      }
+      const target = flatten(state).find((node) => node.id === input.id);
+      if (target === undefined) {
+        return graphqlError("FORBIDDEN", "NOT_FOUND");
+      }
+      target.icon = icon;
+      return HttpResponse.json({ data: { setModuleIcon: { module: target } } });
     }),
     api.mutation("SetPermissionEnabled", ({ variables }) => {
       const { input } = variables as SetPermissionEnabledMutationVariables;

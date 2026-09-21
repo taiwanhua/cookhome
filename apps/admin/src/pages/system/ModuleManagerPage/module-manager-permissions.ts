@@ -10,6 +10,11 @@ export const MODULE_MANAGER_MODULE_KEY = "system.module-manager";
 export const MODULE_MANAGER_PERMISSIONS = {
   view: `${MODULE_MANAGER_MODULE_KEY}.view`,
   toggleEnabled: `${MODULE_MANAGER_MODULE_KEY}.toggle-enabled`,
+  /**
+   * 側欄圖示(#288):**獨立於 `.toggle-enabled`** —— 換圖示只改側欄長相、隨時換得回來,
+   * 停用卻會讓所有租戶少掉整塊功能(正本 `docs/modules/module-manager.md` 權限表)。
+   */
+  setIcon: `${MODULE_MANAGER_MODULE_KEY}.set-icon`,
 } as const;
 
 /**

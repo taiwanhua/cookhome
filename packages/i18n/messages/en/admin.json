@@ -76,6 +76,8 @@
   },
   "shell": {
     "sideNav": "Main navigation",
+    "collapseNav": "Collapse sidebar",
+    "expandNav": "Expand sidebar",
     "currentOrg": "Current organization",
     "userMenu": "User menu",
     "placeholder": {
@@ -382,6 +384,8 @@
       "sidebarContainerHint": "This level holds permissions only and has no screen, so those permissions can be granted or disabled on their own.",
       "order": "Order",
       "description": "Description",
+      "icon": "Icon",
+      "iconEmpty": "Not set (uses the default icon)",
       "none": "—",
       "selfLockedHint": "This module manages the modules themselves and cannot be disabled"
     },
@@ -410,6 +414,37 @@
       "NOT_FOUND": "This module or permission no longer exists. Refresh the page.",
       "UNEXPECTED": "The action failed. Please try again later."
     }
+  },
+  "moduleIcons": {
+    "dashboard": "Dashboard",
+    "home": "Home",
+    "business": "Organization",
+    "account-tree": "Org tree",
+    "people": "Users",
+    "person": "Profile",
+    "shield": "Permissions",
+    "key": "Key",
+    "lock": "Lock",
+    "apps": "Apps",
+    "extension": "Modules",
+    "tune": "Tuning",
+    "settings": "Settings",
+    "filter": "Filter",
+    "label": "Label",
+    "category": "Category",
+    "grid": "Grid",
+    "list": "List",
+    "folder": "Folder",
+    "description": "Document",
+    "inventory": "Inventory",
+    "store": "Store",
+    "receipt": "Receipt",
+    "chart": "Chart",
+    "calendar": "Calendar",
+    "mail": "Mail",
+    "notifications": "Notifications",
+    "restaurant": "Menu",
+    "star": "Favorite"
   },
   "roleManager": {
     "listTitle": "Roles",

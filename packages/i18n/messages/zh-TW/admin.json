@@ -76,6 +76,8 @@
   },
   "shell": {
     "sideNav": "主選單",
+    "collapseNav": "收合側欄",
+    "expandNav": "展開側欄",
     "currentOrg": "當前組織",
     "userMenu": "使用者選單",
     "placeholder": {
@@ -382,6 +384,8 @@
       "sidebarContainerHint": "這一層只掛權限、沒有畫面,讓這些權限可以單獨授予或停用。",
       "order": "排序",
       "description": "描述",
+      "icon": "圖示",
+      "iconEmpty": "未設定(用預設圖示)",
       "none": "—",
       "selfLockedHint": "此模組用於管理模組本身,不可停用"
     },
@@ -410,6 +414,37 @@
       "NOT_FOUND": "找不到這個模組或權限,可能已被移除,請重新整理。",
       "UNEXPECTED": "操作失敗,請稍後再試。"
     }
+  },
+  "moduleIcons": {
+    "dashboard": "儀表板",
+    "home": "首頁",
+    "business": "組織",
+    "account-tree": "組織樹",
+    "people": "使用者",
+    "person": "個人",
+    "shield": "權限",
+    "key": "金鑰",
+    "lock": "鎖定",
+    "apps": "應用",
+    "extension": "模組",
+    "tune": "調整",
+    "settings": "設定",
+    "filter": "篩選",
+    "label": "標籤",
+    "category": "分類",
+    "grid": "格狀",
+    "list": "清單",
+    "folder": "資料夾",
+    "description": "文件",
+    "inventory": "庫存",
+    "store": "商店",
+    "receipt": "單據",
+    "chart": "圖表",
+    "calendar": "行事曆",
+    "mail": "信件",
+    "notifications": "通知",
+    "restaurant": "菜單",
+    "star": "收藏"
   },
   "roleManager": {
     "listTitle": "角色清單",

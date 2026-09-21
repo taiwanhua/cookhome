@@ -24,6 +24,8 @@ export const useModuleManagerData = () => {
   const canToggleEnabled = hasPermission(
     MODULE_MANAGER_PERMISSIONS.toggleEnabled,
   );
+  /** 換圖示與停用是兩把鑰匙(#288);只有這一把時仍看得到目前圖示,只是不能換 */
+  const canSetIcon = hasPermission(MODULE_MANAGER_PERMISSIONS.setIcon);
 
   const [pickedModuleId, setPickedModuleId] = useState<string | null>(null);
 
@@ -50,6 +52,7 @@ export const useModuleManagerData = () => {
 
   return {
     canToggleEnabled,
+    canSetIcon,
     nodes,
     isLoading: moduleTree.isLoading,
     selectedModuleId,

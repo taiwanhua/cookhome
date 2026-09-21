@@ -7,11 +7,15 @@ import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import type { NavNode } from "@/lib/module-tree";
+import { useSideNavStore } from "@/stores/useSideNavStore";
 
 import { NavNodes } from "./NavNodes/NavNodes";
+import { NavRail } from "./NavRail/NavRail";
+import { SideNavToggle } from "./SideNavToggle";
 
-/** 側欄寬度(theme.spacing 單位;Figma AdminSideNav 240 寬)。 */
+/** 側欄寬度(theme.spacing 單位;Figma AdminSideNav 240 寬、AdminSideNavCollapsed 246:64 為 64 寬)。 */
 const NAV_WIDTH = 30;
+const COLLAPSED_WIDTH = 8;
 
 /** 商標槽位的幾何(Figma AdminSideNav 的 logoImg 120:50:28×28、圓角 6)。 */
 const LOGO_SIZE = 28;
@@ -28,10 +32,14 @@ export interface SideNavProps {
 }
 
 /**
- * 後台側欄(Figma Draft/AdminSideNav 30:52):頂部租戶識別 + 模組樹。
+ * 後台側欄(Figma Draft/AdminSideNav 30:52 / Draft/AdminSideNavCollapsed 246:64):
+ * 頂部租戶識別 + 模組樹 + 底部收合開關,**同一個元件的兩種寬度**(240 / 64)。
  * Figma 第一列的「總覽」是模組(key `overview`,seeds/modules/overview.ts),和其他模組一樣從 `me.modules` 長出來、受權限過濾,不是固定列。
  * 頂部租戶識別照 Figma 的 ShowLogo 變體:**有商標就顯示商標圖、沒有才顯示組織名稱**(兩者佔同一個位置);
  * 商標是 api 現簽的短效網址(ADR-0010),`alt` 用組織名,讓換成圖之後名稱仍讀得到。
+ *
+ * 收合狀態在 `useSideNavStore`(zustand + localStorage,#289):AppBar / 路由頁籤 / 內容區
+ * 是 `ShellLayout` 裡的 `flex: 1` 相鄰格,側欄一改寬度它們自己跟著變(STYLE-08,不必各自知道這件事)。
  */
 export const SideNav = ({
   orgName,
@@ -41,47 +49,84 @@ export const SideNav = ({
 }: SideNavProps) => {
   const t = useTranslations("admin.shell");
   const tApp = useTranslations("admin.app");
+  const isCollapsed = useSideNavStore((state) => state.isCollapsed);
+  const toggle = useSideNavStore((state) => state.toggle);
 
   return (
     <Box
       component="nav"
       aria-label={t("sideNav")}
       sx={{
-        width: (theme) => theme.spacing(NAV_WIDTH),
+        width: (theme) =>
+          theme.spacing(isCollapsed ? COLLAPSED_WIDTH : NAV_WIDTH),
         flexShrink: 0,
-        // 殼釘死 100vh(#183),模組多到超過視窗時側欄自己捲
-        overflowY: "auto",
+        // 殼釘死 100vh(#183):側欄自己是 column flex,只有模組樹那一格捲動,底部開關永遠看得到
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
         bgcolor: "background.paper",
         borderRight: 1,
         borderColor: "divider",
-        px: 2,
+        px: isCollapsed ? 1.5 : 2,
         py: 3,
       }}
     >
-      <Stack spacing={0.5} sx={{ mb: 1.5 }}>
-        {logoUrl === null || logoUrl === undefined ? (
-          <Typography variant="h5" color="primary" noWrap>
-            {orgName}
-          </Typography>
-        ) : (
+      {isCollapsed ? (
+        /* 收合態只留商標圖(Figma 246:65);沒有商標時 Avatar 以組織名首字代替,名稱仍由 alt / title 讀得到 */
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 1.5 }}>
           <Avatar
             variant="rounded"
-            src={logoUrl}
+            src={logoUrl ?? undefined}
             alt={orgName}
             sx={{
               width: LOGO_SIZE,
               height: LOGO_SIZE,
               borderRadius: LOGO_RADIUS,
             }}
-          />
+          >
+            {orgName.slice(0, 1)}
+          </Avatar>
+        </Box>
+      ) : (
+        <Stack spacing={0.5} sx={{ mb: 1.5 }}>
+          {logoUrl === null || logoUrl === undefined ? (
+            <Typography variant="h5" color="primary" noWrap>
+              {orgName}
+            </Typography>
+          ) : (
+            <Avatar
+              variant="rounded"
+              src={logoUrl}
+              alt={orgName}
+              sx={{
+                width: LOGO_SIZE,
+                height: LOGO_SIZE,
+                borderRadius: LOGO_RADIUS,
+              }}
+            />
+          )}
+          <Typography variant="caption" color="text.secondary">
+            {tApp("subtitle")}
+          </Typography>
+        </Stack>
+      )}
+
+      {/* 模組多到超過視窗時只有這一格捲動(`minHeight: 0` 才拿得到確定的高度,STYLE-08) */}
+      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+        {isCollapsed ? (
+          <NavRail nodes={tree} currentPath={currentPath} />
+        ) : (
+          <List
+            component="div"
+            disablePadding
+            sx={{ display: "grid", gap: 0.5 }}
+          >
+            <NavNodes nodes={tree} currentPath={currentPath} />
+          </List>
         )}
-        <Typography variant="caption" color="text.secondary">
-          {tApp("subtitle")}
-        </Typography>
-      </Stack>
-      <List component="div" disablePadding sx={{ display: "grid", gap: 0.5 }}>
-        <NavNodes nodes={tree} currentPath={currentPath} />
-      </List>
+      </Box>
+
+      <SideNavToggle isCollapsed={isCollapsed} onToggle={toggle} />
     </Box>
   );
 };
