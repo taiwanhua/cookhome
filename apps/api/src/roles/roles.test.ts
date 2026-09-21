@@ -282,6 +282,71 @@ describe("角色管理:清單與 CRUD(#203,GraphQL 端點 + 真 MongoDB)", () =>
       expect(page.items[0]?.name).toBe("夜班值勤");
     });
 
+    it("ownerOrgId 只留擁有組織正好是它的角色,不含子樹(#246 的 3)", async () => {
+      const onDeptTwo = await createRole(world.api.app, connection, {
+        name: "篩選用:部門二的角色",
+        ownerOrgId: world.deptTwo,
+      });
+      const onTeamOne = await createRole(world.api.app, connection, {
+        name: "篩選用:小組一的角色",
+        ownerOrgId: world.teamOne,
+      });
+
+      const page = await listAs(manager.token, {
+        ownerOrgId: String(world.deptOne),
+        pageSize: 100,
+      });
+      const ids = page.items.map((role) => role.id);
+      expect(ids).not.toContain(String(onDeptTwo));
+      // 小組一在部門一底下,但「擁有組織」是小組一 ⇒ 篩部門一時不該出現
+      expect(ids).not.toContain(String(onTeamOne));
+      expect(
+        page.items.every((role) => role.ownerOrg?.id === String(world.deptOne)),
+      ).toBe(true);
+      expect(page.totalCount).toBe(page.items.length);
+    });
+
+    it("ownerOrgId 與 keyword 可疊加", async () => {
+      await createRole(world.api.app, connection, {
+        name: "疊加測試:早班值勤",
+        ownerOrgId: world.deptTwo,
+      });
+      await createRole(world.api.app, connection, {
+        name: "疊加測試:早班巡檢",
+        ownerOrgId: world.deptOne,
+      });
+      const page = await listAs(manager.token, {
+        ownerOrgId: String(world.deptTwo),
+        keyword: "疊加測試",
+        pageSize: 100,
+      });
+      expect(page.items.map((role) => role.name)).toEqual([
+        "疊加測試:早班值勤",
+      ]);
+    });
+
+    it("ownerOrgId 指到管理範圍外的組織 → 空清單(不透露該組織存在)", async () => {
+      await createRole(world.api.app, connection, {
+        name: "租戶乙的篩選對象",
+        ownerOrgId: world.tenantB,
+      });
+      const page = await listAs(manager.token, {
+        ownerOrgId: String(world.tenantB),
+        pageSize: 100,
+      });
+      expect(page.items).toEqual([]);
+      expect(page.totalCount).toBe(0);
+    });
+
+    it("ownerOrgId 不給 / 給 null = 不篩(整個管理範圍)", async () => {
+      const all = await listAs(manager.token, { pageSize: 100 });
+      const withNull = await listAs(manager.token, {
+        ownerOrgId: null,
+        pageSize: 100,
+      });
+      expect(withNull.totalCount).toBe(all.totalCount);
+    });
+
     it("管理範圍外的角色:單筆查詢回 NOT_FOUND(不透露存在與否的差別)", async () => {
       const outOfScope = await createRole(world.api.app, connection, {
         name: "租戶乙的另一個角色",

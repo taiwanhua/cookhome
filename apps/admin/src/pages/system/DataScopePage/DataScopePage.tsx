@@ -55,7 +55,6 @@ export const DataScopePage = () => {
         targets={data.targets}
         isLoading={data.isTargetsLoading}
         selectedCollection={data.selectedCollection}
-        collectionsWithRule={data.collectionsWithRule}
         onSelectTarget={handleSelectTarget}
       />
 

@@ -9,6 +9,8 @@ fragment ModuleAdminNodeFields on ModuleAdminNode {
   name
   parentId
   sidebarType
+  # 只有自己那一段(不是完整路徑);null = 不對應畫面 ⇒ hidden + route 為 null 就是權限容器
+  route
   order
   description
   # 側欄圖示 key(白名單 @repo/domain/module-icon);null = 用預設圖示

@@ -14,6 +14,11 @@ export interface ModuleAdminNodeLike {
   name: string;
   parentId?: string | null;
   sidebarType: ModuleSidebarType;
+  /**
+   * 路由**只有自己那一段**(不是完整路徑);`null` = 不對應任何畫面。
+   * `sidebarType = Hidden` 且 `route` 為 `null` ⇒ 權限容器(`isPermissionContainer`,#246 的 7)。
+   */
+  route?: string | null;
   order: number;
   description?: string | null;
   /** 側欄圖示 key(白名單 `@repo/domain/module-icon`,#288);`null` = 沒指定,側欄用預設圖示 */

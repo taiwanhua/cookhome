@@ -1,8 +1,13 @@
-import { Injectable, Module } from "@nestjs/common";
+import {
+  Injectable,
+  Module,
+  type OnApplicationBootstrap,
+} from "@nestjs/common";
 import { InjectModel, MongooseModule, getModelToken } from "@nestjs/mongoose";
 import type { HydratedDocument, Model } from "mongoose";
 
 import { BaseRepository, type RepositoryModel } from "./base.repository";
+import { getDataScopeRuleProvider } from "./plugins/data-scope-provider";
 import { RelationService } from "./relation.service";
 import { ActionToken, ActionTokenSchema } from "./schemas/action-token.schema";
 import { AuditLog, AuditLogSchema } from "./schemas/audit-log.schema";
@@ -324,4 +329,23 @@ export class FieldCategoriesRepository extends BaseRepository<
     RelationService,
   ],
 })
-export class DatabaseModule {}
+export class DatabaseModule implements OnApplicationBootstrap {
+  /**
+   * **資料範圍規則的提供者必須在啟動時就註冊好**(#246 的 6)。
+   *
+   * 查詢中介層找不到 provider 時只套租戶保底(`plugins/tenant-scope.plugin.ts`) ——
+   * 那是為了不起 Nest 的單元測試(`base.repository.test.ts`)留的路,但在**跑起來的 app**
+   * 裡它等於靜默擴權:規則設了卻沒有人執行,而且不會有任何錯誤。日後把 `DataScopeModule`
+   * 從 `AppModule` 拆掉、或改變 `onModuleInit` 的時機都會落進這個洞。
+   *
+   * 所以在此 fail-fast:`onApplicationBootstrap` 跑在所有 `onModuleInit` 之後
+   * (`DataScopeService` 正是在那裡註冊),沒註冊就讓 app 起不來。
+   */
+  onApplicationBootstrap(): void {
+    if (getDataScopeRuleProvider() === undefined) {
+      throw new Error(
+        "DataScopeRuleProvider 未註冊:AppModule 必須匯入 DataScopeModule,否則資料範圍規則不會被執行(ADR-0008)",
+      );
+    }
+  }
+}

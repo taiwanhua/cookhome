@@ -74,6 +74,57 @@ export class RoleUser {
   ownerProtected!: boolean;
 }
 
+/**
+ * 「加入使用者」彈窗的一位候選(#246 的 4)。
+ *
+ * api 介面(GQL-07):
+ * - 清單範圍 = 操作者**管理範圍**內、**尚未持有這個角色**的使用者
+ * - `orgs`:該使用者的所屬組織,只列操作者管理範圍內的(與 `RoleUser.orgs` 同一條)
+ * - `eligible`:所屬組織至少一個落在角色擁有組織的子樹內(ADR-0003 的授予資格)。
+ *   **不合格的人照樣列出來**,由前端 disabled 並就地說明原因(#261 的決定:
+ *   直接不列會讓找不到人的人以為「這個人不見了」,而不知道是資格不符)。
+ *   判定權仍在 api:硬送 `grantRoleUsers` 一樣回 `USER_NOT_ELIGIBLE`
+ */
+@ObjectType()
+export class RoleUserCandidate {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => String)
+  account!: string;
+
+  @Field(() => String)
+  name!: string;
+
+  @Field(() => String)
+  email!: string;
+
+  @Field(() => Boolean)
+  enabled!: boolean;
+
+  @Field(() => [RoleUserOrg])
+  orgs!: RoleUserOrg[];
+
+  @Field(() => Boolean)
+  eligible!: boolean;
+}
+
+/** 候選清單(分頁形狀同 `RolesPayload`)。 */
+@ObjectType()
+export class RoleUserCandidatesPayload {
+  @Field(() => [RoleUserCandidate])
+  items!: RoleUserCandidate[];
+
+  @Field(() => Int)
+  totalCount!: number;
+
+  @Field(() => Int)
+  page!: number;
+
+  @Field(() => Int)
+  pageSize!: number;
+}
+
 /** 分配使用者頁籤的清單(分頁形狀同 `RolesPayload`)。 */
 @ObjectType()
 export class RoleUsersPayload {

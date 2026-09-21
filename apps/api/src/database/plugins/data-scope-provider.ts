@@ -9,8 +9,10 @@ import type { OperatorContext } from "../operator-context";
  * 因此方向反過來:**資料層定義介面,`data-scope/` 在 Nest 啟動時把實作註冊進來**。
  *
  * 沒有註冊實作時(如 `base.repository.test.ts` 那種不起 Nest 的單元測試)規則不套 —
- * 租戶保底仍然在,安全性不因此打折;規則是「在保底之內再縮小」,少套只會看得比較多,
- * 而能看到的上限永遠是可見範圍。正式執行路徑由 `AppModule` 匯入 `DataScopeModule` 保證有實作。
+ * 租戶保底仍然在,但**規則設了卻沒人執行**,在跑起來的 app 裡等同靜默擴權。
+ * 所以「有沒有註冊」不再只靠 `AppModule` 的匯入清單自律:`DatabaseModule` 在
+ * `onApplicationBootstrap` 斷言它已註冊,缺了就讓 app 起不來(#246 的 6)。
+ * 中介層裡仍保留「沒有 provider 就不套」的分支 —— 那條路只剩不起 Nest 的單元測試會走到。
  */
 export interface DataScopeRuleProvider {
   /**

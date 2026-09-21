@@ -48,6 +48,7 @@ const MODULE_TREE = /* GraphQL */ `
     name
     parentId
     sidebarType
+    route
     order
     description
     icon
@@ -142,6 +143,7 @@ interface ModuleAdminNode {
   name: string;
   parentId: string | null;
   sidebarType: string;
+  route: string | null;
   order: number;
   description: string | null;
   icon: string | null;
@@ -381,6 +383,19 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
       expect(byKey(tree, `${SAMPLE_ONE}.view-page`).parentId).toBe(
         byKey(tree, SAMPLE_ONE).id,
       );
+    });
+
+    it("route 只回自己那一段;權限容器(hidden 且無 route)回 null(#246 的 7)", async () => {
+      const tree = await fetchTree();
+
+      // 有畫面的節點:route 是自己那一段,不是完整路徑
+      expect(byKey(tree, SAMPLE_ONE).route).toBe("sample-one");
+      expect(byKey(tree, "demo.sub").route).toBe("sub");
+      // 隱藏頁有 route(它對應一個畫面)
+      expect(byKey(tree, `${SAMPLE_ONE}.view-page`).route).toBe("view-page");
+      // 權限容器沒有 route:純 api 權限樹、租戶作業
+      expect(byKey(tree, "api").route).toBeNull();
+      expect(byKey(tree, "system.org-manager.tenant-ops").route).toBeNull();
     });
 
     it("每個模組附自己這一層的全部權限,`*` 排最前;群組模組只有 `*` 一筆", async () => {

@@ -2,6 +2,7 @@
 # 根組織專屬模組:站在租戶裡即使持有權限,api 也回 FORBIDDEN。
 # fields 已含底座自動掛入的基礎欄位(isBase = true:組織 / 建立者 / 更新者 / 建立、更新、刪除時間)。
 # 型別決定 UI:org / user → in、not-in(可選動態值);date → between / before / after;enum → in、not-in。
+# hasRule = 這個目標已設規則(有規則文件且 rules 非空);語意正本見 docs/modules/data-scope.md 的 api 介面節。
 
 query DataScopeTargets {
   dataScopeTargets {
@@ -9,6 +10,7 @@ query DataScopeTargets {
       collection
       name
       description
+      hasRule
       fields {
         name
         label

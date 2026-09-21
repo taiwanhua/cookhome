@@ -33,6 +33,7 @@ type DataScopeTarget {
   name: String!
   description: String
   fields: [DataScopeTargetField!]! # seed 宣告的業務欄位在前、基礎欄位殿後
+  hasRule: Boolean! # 已設規則(見下)
 }
 
 type DataScopeTargetField {
@@ -61,6 +62,13 @@ input SaveDataScopeRuleInput {
   rules: [DataScopeRuleEntryInput!]! # 整份覆蓋;[] = 刪掉這個目標的規則
 }
 ```
+
+**回傳欄位的語意**(GQL-07):
+
+- `DataScopeTarget.hasRule`(#246):這個目標**已設規則** = 有規則文件**且 `rules` 非空**。
+  整份覆蓋時送 `rules: []` 等於刪掉規則,之後留下的空文件**不算**已設 —— 判準與執行面一致
+  (`DataScopeService.load`:`rules` 為空即視為沒有規則,查詢只剩租戶保底)。
+  左清單的「已設規則」讀它,不必對每個目標各查一次 `dataScopeRule`。
 
 三者皆**根組織專屬**:`@RequirePermission` 先守權限(`.view` / `.edit`),service 再守「當前組織是根組織」
 (判斷點 `OwnerProtectionService.isRootOperator`,與租戶作業、模組與權限同一個)— 權限可能經角色被帶到別的組織,

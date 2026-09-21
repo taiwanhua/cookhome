@@ -20,6 +20,8 @@ function operator(actorId = new Types.ObjectId()): OperatorContext {
     currentOrgId: null,
     visibleOrgIds: "all",
     managedOrgIds: "all",
+    memberOrgIds: [],
+    roleIds: [],
   };
 }
 

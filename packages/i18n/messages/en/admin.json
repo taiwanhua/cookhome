@@ -466,7 +466,9 @@
     },
     "toolbar": {
       "search": "Search",
-      "searchPlaceholder": "Role name or description"
+      "searchPlaceholder": "Role name or description",
+      "ownerOrg": "Filter by owning organization",
+      "ownerOrgAll": "All organizations"
     },
     "actions": {
       "create": "+ Add",
@@ -517,11 +519,10 @@
       "search": "Search",
       "searchPlaceholder": "Name or email",
       "candidate": "{account} · {name} ({orgs})",
-      "hint": "Only users inside \"{org}\" or below it, and within your visible scope, are listed. Cannot find someone? Add them to the organization in user management first.",
+      "hint": "Only users inside \"{org}\" or below it can be added; anyone else is listed but cannot be selected. Cannot find someone? Add them to the organization in user management first.",
       "picked": "{count} selected",
       "empty": "No matching users",
       "noOrg": "—",
-      "noUserPermission": "You cannot view users, so you cannot pick them here; ask someone with that permission to add them.",
       "confirm": "Add",
       "cancel": "Cancel",
       "notEligible": "This user is not inside the organization that owns the role ({org}), so they cannot be added."

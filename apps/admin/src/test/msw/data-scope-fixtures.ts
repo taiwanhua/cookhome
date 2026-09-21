@@ -70,6 +70,8 @@ export const dataScopeTargets: TestDataScopeTarget[] = [
     collection: "demo_items_one",
     name: "示範項目",
     description: "示範模組1 的資料",
+    // `hasRule` 由 handler 依目前存著的規則算(#246 的 1),夾具給預設值即可
+    hasRule: false,
     fields: [
       {
         name: "status",
@@ -88,6 +90,7 @@ export const dataScopeTargets: TestDataScopeTarget[] = [
     collection: "demo_items_two",
     name: "示範項目2",
     description: "示範模組2 的資料",
+    hasRule: false,
     fields: baseFields,
   },
 ];

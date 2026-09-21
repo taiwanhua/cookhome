@@ -126,12 +126,26 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       description: "編輯頁自有權限示範",
     },
   ],
-  // 資料範圍目標(ADR-0008):可篩業務欄位=無,基礎欄位由程式自動附加
+  // 資料範圍目標(ADR-0008):業務欄位在此宣告,基礎欄位(組織 / 建立者 / …)由程式自動附加
   dataScopeTarget: {
     collection: "demo_items_one",
     name: "示範項目",
     description:
       "示範模組1 的資料(demo_items_one);規則示範與對照組(示範模組2 不宣告)",
-    fields: [],
+    // `status` 是唯一的業務欄位:資料範圍的四種型別裡只有 enum 需要 seed 宣告固定選項,
+    // 沒有它「enum 固定選項」在 dev 驗不到(#246 的 2)。value 對應
+    // `apps/api/src/database/schemas/demo-item-one.schema.ts` 的 `status` 存的值。
+    fields: [
+      {
+        name: "status",
+        label: "狀態",
+        type: "enum",
+        options: [
+          { value: "draft", label: "草稿" },
+          { value: "published", label: "已發布" },
+          { value: "archived", label: "已封存" },
+        ],
+      },
+    ],
   },
 };
