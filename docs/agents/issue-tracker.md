@@ -93,7 +93,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 
 **看板欄位在 UI 的位置**(重建看板時對得起來):Project「CookHome」→ 右上 … → Settings → Fields → `Status` 的選項清單,順序即上表。
 
-**改含中文的檔案**:PowerShell 的 cp950 stdout 會把繁中印成亂碼、`sed -i` 對含 CJK 的行常靜默不生效;最可靠的做法是 `python - <<'PY'` 寫精準取代腳本(worktree 守衛不擋這種 heredoc,但**寫 `.md` 要加 `newline="\n"`**,否則寫出 CRLF、`format:check` 立刻紅),或直接用 Write / Edit 工具。這台機器沒有外部 `jq`,只有 `gh --jq`;filter 名一律寫全名 `@repo/admin`(`--filter=admin` 找不到套件)。其餘守衛細節見下方「worktree 裡的 Bash 守衛與寫檔」。
+**改含中文的檔案**:PowerShell 的 cp950 stdout 會把繁中印成亂碼、`sed -i` 對含 CJK 的行常靜默不生效;最可靠的做法是 `python - <<'PY'` 寫精準取代腳本(worktree 守衛不擋這種 heredoc,但**寫 `.md` 要加 `newline="\n"`**,否則寫出 CRLF、`format:check` 立刻紅),或直接用 Write / Edit 工具。**全形 / 半形標點很容易混進去而沒有任何一關會擋**(2026-09-22,#321):用 python 寫測試文案或 `packages/i18n` 的 zh-TW 字典時,全形問號「?」、全形逗號「,」與半形版本肉眼幾乎一樣,prettier 不管、lint 也不管,只有跟斷言比對時才發現。寫完用 `grep` 對那一行原樣比對一次(或直接從既有文案複製貼上),不要憑記憶打標點。這台機器沒有外部 `jq`,只有 `gh --jq`;filter 名一律寫全名 `@repo/admin`(`--filter=admin` 找不到套件)。其餘守衛細節見下方「worktree 裡的 Bash 守衛與寫檔」。
 
 **Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。
 
@@ -108,10 +108,22 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支從 main 切,**命名含票號**:`feat/<票號>-<kebab 描述>`(如 `feat/25-base-schemas`)。**票有依賴時:從依賴票的 feat 分支切(stacked)** — main 上還沒有依賴內容,從 main 切會沒得開發;PR 一樣目標 dev,**依賴票的 PR 先合、自己後合**(合完 diff 自動只剩本票變更);依賴票被 review 改動時要 rebase 跟上。依賴票已 release 進 main 時,直接從 main 切即可(最常見)。線性依賴鏈是健康的(依序上);**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**。**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。開工的兩個環境動作見下方「`.claude/hook-typecheck-off`」與「worktree 裡的 Bash 守衛與寫檔」兩節。改檔名為 PascalCase 的重構要**先在該包啟用 `frontend-style` 再搬檔**(基礎設定的 `unicorn/filename-case` 會連目錄名一起檢查)
    **動到 api 的 GraphQL schema 時**(resolver / model / input / `*.graphql` document),交件前依序跑 `pnpm --filter @repo/api schema:generate` 與 `pnpm --filter @repo/graphql generate`,把 `apps/api/schema.gql` 與 `packages/graphql/src/generated` 兩份產物一起進 commit(GQL-05)。api-only 的票也一樣 —— CI 的 `codegen 產物與 schema 一致` 一步會擋(#160)。
 
-4. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試/lint/typecheck 全綠才開;看板移 In Review
-   - **admin 票要附 mock 模式截圖**(#194,2026-09-22):`pnpm --filter @repo/admin dev:mock` 起在 `http://localhost:3002`(自動登入 root、各頁都有假資料;`?view=tenant` 換租戶視角、`?auth=off` 看登入頁),截改動到的每一頁貼進 PR 內文,逐張寫明「哪一頁、什麼狀態」。**不必有 dev 帳號、不必等部署** —— 版面問題在 PR 階段就看得到,不要留到 dev 驗證。跑法與實作細節見 `docs/standards/testing/testing.md` TEST-08 的「mock 開發模式」
+4. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試/lint/typecheck 全綠才開;看板移 In Review。**動到 admin 的票另有交付要求**,見下方「admin 票的交付要求」一節
 5. **不做**:不 merge、不動 main/dev/staging 本體;**docs 只改本票必然連動的兩種**:①本票新增/異動的模組 → 同 PR 維護 `docs/modules/<key>.md` 與 help.md(dis #18)②本票新增的環境變數 / 品牌元素 → 同 PR 更新 env-registry.md / branding.md(CLAUDE.md 規定)。其他文件錯誤(ADR、CONTEXT、規範)**不改**,寫進回報由主流程處理
 6. **回報**:PR 連結、測試結果、**接手體驗報告**(找不到/矛盾/用猜的資訊 — 這是文件品質的回饋來源)
+
+### admin 票的交付要求(#194,2026-09-22)
+
+**凡是動到 `apps/admin` 畫面的票,PR 內文一律附 mock 模式截圖。**(位置定在這裡:它不只屬於「開 PR」那一步 —— 起 mock 模式是開發期間就該做的事,交件只是把截圖貼上。)
+
+```
+pnpm --filter @repo/admin dev:mock     # http://localhost:3002
+```
+
+- 自動登入 root、各頁都有假資料;`?view=tenant` 換租戶管理員視角、`?auth=off` 看登入頁。
+- **改動到的每一頁各截一張**貼進 PR 內文,逐張寫明「哪一頁、什麼狀態」;彈窗類的改動要各截開啟前後。
+- **不必有 dev 帳號、不必等部署** —— 版面問題在 PR 階段就看得到,不要留到 dev 驗證再回報。
+- 跑法與實作細節(入口獨立、共用端點的 handler 正本、`msw/node` 的 alias stub)見 `docs/standards/testing/testing.md` TEST-08 的「mock 開發模式」。
 
 ### `.claude/hook-typecheck-off`
 
@@ -125,20 +137,36 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 守衛對含 `$(...)`、管線、迴圈的指令會拒絕,習慣寫**平鋪的單行指令**。已知的幾個坑:
 
 - **寫檔用 Write / Edit 工具**;`python - <<'PY'` 的單檔精準取代可用,但**一支腳本裡用 `pathlib` 批次寫多個檔會被判定太複雜而擋掉**,逐檔改回 Write(#203)。
+- **把多行內容餵給指令的 heredoc 會被擋**(2026-09-22,#183 / #309):`gh pr create --body-file -` 配 heredoc、`git commit -F -` 配 heredoc、`gh issue comment --body-file -` 都一樣。做法是**先把內容用 Write 工具寫成 scratchpad 裡的檔**(檔名帶票號),再 `gh pr create --body-file <那個檔>` / `git commit -F <那個檔>`。commit 訊息只有一行時用 `-m` 即可,多行(含 `Co-Authored-By` 那兩行)就走檔案。
+- **turbo 的 global hash 不含 root `package.json` 的 `scripts`**(2026-09-22,#195):改的是根目錄的 script(`format`、`format:check` 這種)時,`turbo run …` 仍會 `cache hit` —— **快取命中不代表你的改動被驗過**。這類票要直接跑那個 script 本人(`pnpm run format:check`),或在 PR 上以 CI 的結果為準。
 - **python 寫 `.md` 要 `newline="\n"`**:Windows 預設會寫成 CRLF,`format:check` 立刻紅。
 - **這台機器沒有外部 `jq`**:含 `jq` 的指令不是報錯而是**靜默失敗**(輸出空的),一律用 `gh --jq`。
 - **CI 輪詢用平鋪的單行 `until`**(`until gh pr checks <n>; do sleep 30; done` 這種寫在一行),多行 / 巢狀的迴圈會被擋。**不要加 `--required`**(2026-09-22,#290):免費方案沒有 branch protection、也就沒有 required checks,`gh pr checks --required` 永遠回 `no required checks`(非零退出),迴圈會一直轉到逾時,看起來像 CI 卡住。不帶旗標時它看的是 PR 上所有的 check。
 - **`git stash` 的堆疊與主 checkout、其他 worktree 共用**:不要用裸 `git stash` / `git stash pop`(會撈到別的 session 的東西),要用時 `git stash push -u -m "<票號>-<標記>"`,取回前先 `git stash list` 找到**自己那一筆當下的 `stash@{n}`**再 apply;更安全的做法是開一個 WIP commit。
 - **turbo 的快取跨 worktree 共用**:別的 worktree 先跑過同一份輸入,`pnpm exec turbo run test --filter=…` 會 `cache hit, replaying logs`(甚至 `FULL TURBO`)—— 驗收自己的改動沒問題(輸入變了就不會命中),但**取「`origin/main` 的測試數基準」時會拿到別人跑的舊結果**。取基準要進 package 目錄直接跑 jest,見 `docs/standards/testing/testing.md` TEST-08 的「測試數的基準」。
+- **跑測試**:整包驗收 `pnpm exec turbo run test --filter=@repo/admin`(filter 寫全名);**只跑一個檔就進那個 package 的目錄下 `pnpm run test -- <路徑片段>`**,三個包都一樣。`pnpm --filter <pkg> test -- …` 會把 `--` 一起傳進去(`No tests found`)、`pnpm exec jest` 少了 `--experimental-vm-modules` 會直接炸;要下旗標時 **jest 30 的參數是 `--testPathPatterns`(複數)**,`apps/api` 也不例外(#344)。完整說明與取基準的做法見 `docs/standards/testing/testing.md` TEST-08。
 - 暫存檔放 scratchpad 且**檔名帶票號**(多個 agent 共用同一個 scratchpad)。
 
 ### 開 PR 之後的等待(CI 與 mergeable)
 
 - **PR 對 `dev` 是 `CONFLICTING` 時,GitHub 根本不建 merge ref、CI 一個 check 都不會跑**,`gh pr checks --watch` 會永遠等下去。開 PR 後先看 `gh pr view <n> --json mergeable`,`CONFLICTING` 就先 rebase 到最新的 `origin/main` 再說(#206)。**沒有 merge ref 連帶讓 `project-status.yml` 也不跑** —— PR 卡與票卡都不會自動移格,看到看板沒動先查 `mergeable`,不要以為自動化壞了。
-- **rebase 之後還是 `CONFLICTING`、本地 `git merge-tree --write-tree origin/dev HEAD` 卻乾淨 = 交叉 merge base**(`dev` 與 `staging` 都會發生:feat 從 `main` 切,而兩條線各自合過同一批票)。這不是實作者能單獨解的:要由主流程把該 base reset 到 `main`(`git push --force origin origin/main:refs/heads/dev`,`staging` 同;前置檢查見 `docs/deployment.md` 二、Release 步驟第 4 點),**base 更新後還要把 PR `gh pr close <n>` → `gh pr reopen <n>`** 才會觸發 CI(base 變動不算 `pull_request` 事件)。遇到就回報,不要自己去改 `dev` / `staging`。
-- **release 一批一次**:各票各自合 `dev`、各自合 `staging`,累積成一批後才走一次 release PR + 一次部署(`dev` 的部署也等該批最後一張合完才觸發),release 完由主流程把 `dev` / `staging` reset 對齊 `main`;只有產物依賴的票才單獨先 release。所以「合進 `dev` 了但還沒部署」是正常的,不必追問。
+- **rebase 之後還是 `CONFLICTING`、本地 `git merge-tree --write-tree origin/dev HEAD` 卻乾淨 = 交叉 merge base**(`dev` 與 `staging` 都會發生:feat 從 `main` 切,而兩條線各自合過同一批票)。這不是實作者能單獨解的:要由主流程把該 base reset 到 `main`(指令與前置檢查見 `docs/deployment.md` 二、Release 步驟第 4 點,那是正本),**base 更新後還要把 PR `gh pr close <n>` → `gh pr reopen <n>`** 才會觸發 CI(base 變動不算 `pull_request` 事件)。遇到就回報,**不要自己去改 `dev` / `staging`**。
+- **release 一批一次**:各票各自合 `dev`、各自合 `staging`,累積成一批後才走一次 release PR + 一次部署(`dev` 的部署也等該批最後一張合完才觸發),release 完由主流程把 `dev` / `staging` reset 對齊 `main`。所以「合進 `dev` 了但還沒部署」是正常的,不必追問。**release 與分支對齊的步驟正本是 `docs/deployment.md` 二、Release 步驟(對齊分支在第 4 點)** —— 這裡與 CLAUDE.md 只是指路,指令以那邊為準。
 - **剛開 PR 時 Actions 可能排隊很久**(沒有 check 不等於失敗),**force-push 之後 `mergeable` 會短暫回 `UNKNOWN`** —— 等幾秒重查,不要據此判斷有衝突(#203)。
 - **交件前跑一次 `pnpm format`**(#195 起 `format:check` 涵蓋 md 與 ts / tsx / js / json / yaml,CI 會擋未格式化的檔)。`main` 已一次性重排過,所以跑完只會看到自己改到的檔案,不必再挑 diff。
+
+### 拆票時的硬規則(第 5 段補充,2026-09-22;#183 / #246 / #161 / #319 / #318 / #320 / #344 / #321)
+
+下一節(第 4 段補充)是「要寫清楚」的提醒,這一節是**不照做就會出事**的幾條,拆票時逐條對過:
+
+- **重整「驗收遺留票」的範圍前,先逐項對 `git log` 確認哪些已經修掉**:遺留清單是驗收當下寫的,之後合進來的票常常順手修掉其中幾項。做法:`git log --oneline origin/main | grep <票號>`、或 `git log --oneline --grep=<票號>` 逐項搜,已修的**在票上劃掉並註明是哪個 commit / PR 修的**,不要留著讓實作者重做一次(#183)。
+- **裁決寫死在票上,不寫「建議①」**:票上出現「建議」「可考慮」「二選一」時,兩張並行的票會各選一邊,主流程還要回頭對齊。**拆票時就選定並寫一句理由**;真的還沒想清楚,就不要把那部分放進這一批。踩過的:#161 的孤兒檔清理只寫「建議①」、#246 的「候選清單回哪些人」由實作者自行決定為「管理範圍內 + eligible 旗標」、#194 的「worker 放 `public/`」(那個選項會違反「dist 不含 worker」)。
+- **同一批會碰到同一個檔案的票,票上列一張分工表**:哪張票建檔、哪張票只能追加、共用的 harness / handler 歸誰。#161 與 #318 同批動 `apps/api/src/storage/`,兩邊各自改一次同一組規則常數。分工表寫在兩張票上(只寫在其中一張等於沒寫)。
+- **spec 與設計稿「各說一半」的欄位要在票上點名**:`status` 還是 `enabled` 是狀態欄、是 `name` 還是 `title` —— 這種半句差異實作者只會看到其中一邊,做完才發現對不上(#320)。拆票時把該模組的欄位名逐一對過 schema(`apps/api/src/database/schemas/*.schema.ts`)再寫進票。
+- **「某功能還沒實作、所以被別的測試借去當反例」的耦合要在票上標出**:#321 的殼測試拿「示範模組2」當「未實作的佔位頁」,等模組2 真的實作出來,5 個殼測試同時紅,實作者一度以為自己抽壞了。票上寫明「本票會讓 X 的測試失去反例,連帶修 X 屬於本票」;更好的做法是**反例改用永不實作的夾具**(先例 `test/msw/module-fixtures.ts` 的 `placeholderModules`)。
+- **對照組模組的 i18n 與測試夾具「各自一份」要明寫**,不留給實作者裁決(#321):示範模組1 / 模組2 這種「同版型的對照組」,共用一份字典或夾具看起來省事,實際上兩邊只要有一處要分歧就得拆回去,而且拆的時候兩張票都已經合了。
+- **seed 類的票除了「連帶修既有斷言」(下一節第 1 條)還有兩件**(#319):①**加業務資料會讓 root 視角的既有測試「多出資料」** —— root 看得到全部,清單筆數、分頁、樹的節點數都會變,受影響的不只是「數字寫死」的那幾個;②**拆票前先查現有 seeds 能引用到什麼**(`apps/db-migrator/seeds/`),能沿用既有的組織 / 角色 / 欄位就不要新增,新增一筆的連帶成本是上面那一整串。
+- **要讓程式票順手改 ADR / 規範,票面要寫明例外**(#344):issue-tracker 的規則是「規則本文(ADR、`docs/standards/`、模組文件的行為說明)只由文件票寫」,但拆票時常寫「順便在 ADR-00xx 補一句」,兩條形式上相衝。做法:**票上明寫「本票例外可改 `ADR-00xx` 第 N 段,只改這一段」**;沒寫就一律留給文件票,實作票把發現寫進 PR 的「規則回饋」。
 
 ### 拆票時要寫清楚的幾件事(第 4 段補充,2026-09-20)
 

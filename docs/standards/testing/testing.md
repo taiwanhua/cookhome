@@ -78,7 +78,16 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
 - 頁面測試怎麼分檔:一頁一個 `<Page>.test.tsx` 放主流程;超過 `max-lines` 400 就依情境拆成 `<Page>Scope.test.tsx`、`<Page>Dialogs.test.tsx`…,共用的 world / 夾具 / helper 抽成同資料夾的 `<page>-test-support.ts`(kebab,非元件)
 - 跑法:**`pnpm exec turbo run test --filter=@repo/admin`**(turbo 會先 build `ui` / `graphql` / `domain`)。`pnpm --filter @repo/admin test` 不經 turbo、**不會 build 依賴**,新 checkout 或依賴改過就會炸型別(第 2 段三位實作者都撞到,2026-09-19 改正)
 - 逾時:`browser-esm` preset 已放寬 `testTimeout` 到 15 秒(CI runner 慢,jsdom + MSW + ts-jest ESM 的第一個測試要付暖機成本);個別測試不再自行加 timeout
-- **只跑一個測試檔**:`pnpm --filter @repo/admin test -- --testPathPatterns=X` 在 pnpm 底下會把 `--` 一起傳進去而 `No tests found`,要**直接在 `apps/admin` 跑** `node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPatterns=X`(#209)。整包驗收仍用上面的 turbo 指令
+- **只跑一個測試檔**(2026-09-22 整理,原本三張票各踩一次:#209 / #161 / #307 / #344):**進那個 package 的目錄,跑 `pnpm run test -- <路徑片段>`**,三個包都一樣:
+
+  ```
+  cd apps/admin && pnpm run test -- UserManagerPage
+  cd packages/ui && pnpm run test -- Switch
+  cd apps/api && pnpm run test -- src/storage/storage.test.ts
+  ```
+
+  三個坑:①**帶 `--filter` 的寫法行不通** —— `pnpm --filter @repo/admin test -- --testPathPatterns=X` 會把 `--` 一起傳進去,結果是 `No tests found`;②**不要 `pnpm exec jest`** —— 少了各包 `test` script 裡的 `--experimental-vm-modules`,ESM 測試直接炸,看起來像測試壞了;③真的要下旗標時,**jest 30 的參數是 `--testPathPatterns`(複數)**,`--testPathPattern`(單數)是 29 以前的名字,打錯會被當成未知旗標。整包驗收仍用上面的 turbo 指令
+
 - **Vite 專屬語法進不了 jest**:`import.meta.glob`(`?raw` 載入 md、圖片清單…)是 Vite 的編譯期轉換,jest 直接載入會 `(intermediate value).glob is not a function`。做法:**把 glob 包成一支只有 glob 的模組**(`lib/help-registry.ts`),測試用 `moduleNameMapper` 整支換成 `src/test/` 的假實作(介面相同,另給 `setXxx` / `resetXxx`,`setup.ts` 每個測試後歸零);判斷邏輯不要放進被換掉的那一層,抽成純函式另外測。**不要**逐檔 `jest.unstable_mockModule` — 殼的所有測試都會經過它,等於每個測試檔都要動(#197)
 - **jest 的 `moduleNameMapper` 也是先列的先贏**:`^@/lib/help-registry$` 這種精確鍵要排在通則 `^@/(.*)$` **前面**,否則被通則吃掉(#197)
 - **`React.lazy` + 動態 `import()` 不必 mock**:`browser-esm` preset 是 ESM 模式(`--experimental-vm-modules`),`import("@repo/ui/markdown")` 這種子路徑匯出在 jest 裡解得開,照常渲染。要改的只有斷言時機 —— 懶載入的內容多一個 `Suspense` tick,**該邊界底下的第一筆斷言一律用 `findBy*` / `waitFor`**(`await within(dialog).findByRole("heading", …)`),沿用 `getBy*` 會抓到 fallback 而紅;同一邊界底下後續的斷言不必再等。**不要斷言 fallback 本身**(chunk 常在同一個 tick 內就解析完,會偶發)(#215)
@@ -94,6 +103,8 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
   `pnpm run test`(= 該包 `package.json` 的 `node --experimental-vm-modules node_modules/jest/bin/jest.js`)不經 turbo、快取不會誤命中。**不要用 `pnpm exec jest`**:少了 `--experimental-vm-modules`,ESM 測試直接炸,看起來像測試壞了(2026-09-22 補)。前提是依賴已 build 過(`pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`);驗收自己的改動仍用 turbo(輸入變了不會誤命中)
 
 - **zustand `persist` 的 `setState` 會回寫 storage**(2026-09-22,#295):測「重新整理後狀態維持」時,直覺寫法 `useXStore.setState({ ... 預設值 })` + `rehydrate()` 會先把 localStorage 也覆寫成預設值,再讀回預設值 —— 看起來像「狀態沒被記住」,其實是測試自己把存檔抹掉了。正確順序是:**先把 storage 的內容存起來 → 歸零 store → 把存檔放回 storage → 才 `rehydrate()`**。另外 store 是模組層單例,`src/test/setup.ts` 要在每個測試後歸零(同語言 store 的理由)
+- **`graphqlError(code, message)` 的參數順序是「碼在前、訊息在後」**(2026-09-22,#320 反過來寫,MSW 回了一個 `code` 是人話的錯誤,前端分流不到、測試紅得莫名其妙):簽章 `graphqlError(code, message = code, extensions = {})`(`src/test/msw/auth-handlers.ts`),`message` 省略時等於 `code`,所以**大多數情況只傳第一個參數**(`graphqlError("FORBIDDEN")`)。要附 `reason` / `violations` 這類 `extensions` 才傳第三個。與 api 那側的 `GraphQLError(message, { extensions: { code } })` 順序相反,這是最容易寫反的地方
+- **Autocomplete 的兩行選項用「主文字前綴」比對,第四處出現時上提到 `apps/admin/src/test/`**(2026-09-22,#307):`getByRole("option", { name })` 對兩行選項(主文字 + 次文字)的完整比對對不上,要用主文字開頭比對並封成 helper(「打開某個 Autocomplete → 點主文字是 X 的那一列」)。目前有三份各自的實作(`DataScopePage/data-scope-test-support.ts`、`RoleManagerUsers.test.tsx`、`AssignRolesDialog/AssignRolesDialog.test.tsx`),**三份以內維持各自一份,第四處出現時才上提**成共用 helper —— 上提的成本是所有呼叫端一起改,兩三處還看不出共同的介面長什麼樣
 - 輸出雜訊:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`
 
 ### mock 開發模式:用同一批夾具把 admin 跑在瀏覽器上(#194,2026-09-22)
@@ -125,3 +136,4 @@ pnpm --filter @repo/admin dev:mock     # http://localhost:3002
 ## 已知偶發(CI 紅先對這裡)
 
 - `apps/api/src/auth/password/password.test.ts` 的 `setPassword` describe 四案偶爾整組逾時(2026-09-18 兩次,重跑即過;疑與 CI runner 慢 + argon2 雜湊有關)。重跑一次仍紅才算真的紅。
+- `apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx` 的「直接設定初始密碼」偶發紅一次(2026-09-21,#215;重跑即過)。**只出現過一次,先記在這裡當觀察名單** —— 再紅就不是偶發,要照 TEST-10 的判準查是不是斷言方向錯(等待時機、非同步接力)。

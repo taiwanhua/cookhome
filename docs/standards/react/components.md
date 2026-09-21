@@ -36,7 +36,14 @@
 ❌ const LocaleContext = createContext<{ locale; setLocale }>(…)   // 承載狀態的 context
 ```
 
-`persist` 的兩個注意:①它預設寫 `{ state, version }` 的 JSON 封包,**沿用既有 storage key 與格式時**(`docs/branding.md` 登記的那些)要給自訂的 `PersistStorage` adapter 保住舊格式,不然既存值失效、既有測試的 storage 斷言也會壞;②key 依使用者分把(如頁籤的 `…:<userId>`)的,store 提供 `bind(userId)` 以 `persist.setOptions({ name }) + rehydrate()` 換 key,不要把 userId 寫死在 `name`。
+`persist` 的兩個注意:①它預設寫 `{ state, version }` 的 JSON 封包,**沿用既有 storage key 與格式時**(`docs/branding.md` 登記的那些)要保住舊格式,不然既存值失效、既有測試的 storage 斷言也會壞;②key 依使用者分把(如頁籤的 `…:<userId>`)的,store 提供 `bind(userId)` 以 `persist.setOptions({ name }) + rehydrate()` 換 key,不要把 userId 寫死在 `name`。
+
+注意①**先分辨既存格式是哪一種再決定怎麼寫**(2026-09-22,#183:兩種都被寫成整份自訂 `PersistStorage`,多繞一圈):
+
+- **既存格式本來就是 `persist` 的 JSON 封包**(只是換了 storage 後端、換了 key、讀取時要多墊一層搬移)→ **只換 `StateStorage`**:自訂一個 `getItem` / `setItem` / `removeItem` 的三方法物件,用 `createJSONStorage(() => …)` 包起來交給 `persist`。序列化仍由 zustand 做,`version` / `migrate` 也照常運作。先例 `stores/useSideNavStore.ts`(#289)。
+- **既存格式不是 JSON 封包**(裸字串、舊版自己手寫的格式)→ 才整份自訂 `PersistStorage<S>`(`getItem` 要自己回 `{ state, version }`),因為序列化的形狀根本對不上。先例 `stores/useLocaleStore.ts`(localStorage 存的是 `"en"` 這種語言代碼字串)與 `stores/useRouteTabsStore.ts`。
+
+換句話說:`createJSONStorage` 管「存到哪」,`PersistStorage` 管「存成什麼形狀」;只有後者不對時才寫後者。
 
 ## REACT-03 業務邏輯離開 JSX
 
@@ -77,6 +84,7 @@ render 期呼叫 store action **只允許冪等的初始化**(放 `useState` 的
 
 - 一個 `.tsx` 只匯出一個元件(檔名 = 元件名,GEN-01);同檔可以有它專用的小型 helper,但不能有第二個元件。
 - 300 行是**目標不是門檻**:301 行不算違規,重點是切得合理。拆法依序:子元件(放到同名資料夾底下,GEN-01)→ 有狀態的邏輯抽 hook(`useXxx.ts`,只有這個元件用就跟元件同資料夾)→ 純函式抽到 `lib/`(REACT-03)。
+- **300 與 400 都不計註解與空行**(2026-09-22,#321 問到才定):與 lint 設定一致 —— `packages/config-eslint/frontend-style.js` 的 `max-lines` 是 `{ max: 400, skipBlankLines: true, skipComments: true }`,所以數的是**程式碼行**。純型別 + JSDoc 的介面檔(`pages/demo/shared/demo-module-config.ts` 檔案 314 行)實際程式碼遠低於 300,不算超標、也不必為了行數把註解搬走。判斷要不要拆時看 lint 報的數字,不看編輯器的行號。
 - 400 行由 lint 擋,超過就一定要拆;300 到 400 之間的在 PR 說明為何不拆。
 
 ```

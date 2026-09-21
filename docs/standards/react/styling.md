@@ -111,6 +111,22 @@ STYLE-01 禁裸值,但 Figma 常給 theme 沒有的值(Tag 字級 11px、Checkbo
 
 `ShellLayout` 外框 `height: 100vh` + `overflow: hidden`,`<main>` 是 column flex 且 `flex: 1; minHeight: 0; overflow: auto`,所以頁面拿到的是**確定的高度**。要做「左樹 / 右表格撐滿、各自捲動」的頁面:頁面根容器 `flex: 1; minHeight: 0`(不要 `alignItems: flex-start`),左右兩塊各自 column flex + 內層 `overflow: auto`。Figma 的 Screen frame 把等高與各自捲動畫得很清楚,但那個資訊在 frame 的 width / height 裡,不在截圖裡,實作前用 `get_metadata` 量(#183 的教訓:#138 / #139 兩頁都只撐到內容高度)。
 
+**怎麼守:用 `apps/admin/src/test/height-chain.ts` 驗高度鏈**(2026-09-22,#183 第 1 項反覆被回報):
+jsdom 不算版面,驗不到「有沒有真的撐滿」,但撐不滿的**原因**只有兩種,而且兩種都讀得到宣告值 ——
+鏈上某層漏了 `min-height: 0`(該層被內容撐高,`flex: 1` 等於沒作用),或鏈上多開了一層捲動。
+`heightChainOf(anchor)` 從 `anchor` 往上找到最近的捲動容器,再一路收集到 `<main>`(含),
+由內而外回傳每一層的 `minHeight` / `scrolls` / `flexGrow`。**滿版版面的頁面測試一律加一案**,
+斷言三件事(先例 `OrgManagerPage.test.tsx`、`UserManagerPage.test.tsx`):
+
+```ts
+const chain = heightChainOf(screen.getByRole("tree", { name: "組織樹" }));
+expect(chain.at(-1)?.label).toBe("MAIN.MuiBox-root"); // 最外層是 <main>:高度確實是殼給的
+expect(chain.map((l) => l.minHeight)).toEqual(chain.map(() => "0")); // 每一層都 min-height: 0
+expect(chain.slice(1, -1).filter((l) => l.scrolls)).toEqual([]); // 只有最內層那一層捲
+```
+
+實際的視覺滿版仍以 dev(或 mock 模式,TEST-08)目視為準;這個測試守的是「不再退回去」。
+
 **同一條鏈只標一次 `overflow: auto`**(2026-09-22,#300):父子兩層各標一次時,平常看不出來 ——
 兩層都是「高度跟著內容長」就不會有人捲;等到內層拿到確定高度(或內容給了 `minWidth`),
 就會冒出兩條捲軸,而且橫向那條貼在最後一列下方、卡在版面中間。決定**哪一層負責捲**,
@@ -143,6 +159,12 @@ app 端給 `@repo/ui` 元件傳 `sx` 時,只放與版面位置有關的值(`curs
 規則:**頁面上的資料列表一律傳 `minWidth`**,值取「每欄不折行時的合理寬度」
 (欄少 720 上下、七欄的使用者清單 960),窄過它就橫向捲動。
 彈窗裡的小表與只有兩三個短欄位的表不在此限。
+
+**`minWidth` 高過設計稿的欄寬時,要在票上註明**(2026-09-22,#183):使用者清單取 960,
+而 Figma 的 Screen frame 把那張表畫成 832 —— 意思是**照設計稿的視窗寬度看,這張表本來就會橫向捲**。
+這不是實作做錯(不給 `minWidth` 只會換成每格折行),但驗收的人對著設計稿看到捲軸會當成 bug。
+規則:取的值大於設計稿欄寬時,票上(或 PR 內文)寫一句「設計稿 <寬> vs 實作 `minWidth` <寬>,
+該寬度下橫向捲是預期行為」,並回報主流程決定要不要改稿(FIGMA-10)。
 
 **列表頁 Table 的容器撐滿父層高度,捲軸落在面板底部**(#299):`Table` 的 `TableContainer`
 預設 `height: 100%; minHeight: 0`,所以父層鏈要是 STYLE-08 的 `flex: 1; minHeight: 0` 欄,
