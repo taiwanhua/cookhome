@@ -18,7 +18,7 @@ import {
   roleManagerErrorOf,
 } from "../role-manager-error";
 import type { RoleRow } from "../role-manager-types";
-import { useOwnerOrgOptions } from "./useOwnerOrgOptions";
+import { useOwnerOrgOptions } from "../useOwnerOrgOptions";
 
 export interface RoleFormDialogProps {
   /** null = 新增;有值 = 編輯(擁有組織建立後不可改,ADR-0003) */

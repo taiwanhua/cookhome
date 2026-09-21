@@ -19,8 +19,8 @@ export const ROLE_MANAGER_PERMISSIONS = {
  */
 export const ORG_MANAGER_VIEW_PERMISSION = "system.org-manager.view";
 
-/**
- * 「加入使用者」的候選清單目前借用 `users` query(api 沒有專門的候選端點,見 PR 說明),
- * 而它掛在使用者管理的檢視權限底下 — 沒有就只能提示去使用者管理頁處理。
+/*
+ * 這裡曾有 `USER_MANAGER_VIEW_PERMISSION`:「加入使用者」的候選清單借用 `users` query,
+ * 連帶逼得這個彈窗需要使用者管理的檢視權限。#246 補了 `roleUserCandidates`
+ * (掛 `assign-users`)之後這個相依消失,常數一併移除。
  */
-export const USER_MANAGER_VIEW_PERMISSION = "system.user-manager.view";

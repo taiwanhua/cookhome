@@ -96,10 +96,25 @@ export class RoleScopeService {
    * 清單的角色過濾條件:擁有組織在操作者**管理範圍**內的角色。
    * 管理範圍是全部(超級管理員 / 擁有組織是根組織)→ 不必先攤開組織樹再反查。
    * 管理範圍內沒有任何組織擁有角色 → 回 null = 空清單。
+   *
+   * `ownerOrgId`(#246 的 3)在管理範圍**之內**再收窄:只留擁有組織正好是它的角色
+   * (不含子樹,見 `RolesInput.ownerOrgId`)。組織一律經 `this.orgs` 取,
+   * 所以管理範圍外的 id 查不到 → 回 null = 空清單,不必另外比對範圍。
    */
   async managedRoleFilter(
     operator: OperatorContext,
+    ownerOrgId?: string,
   ): Promise<Record<string, unknown> | null> {
+    if (ownerOrgId !== undefined) {
+      const org = await this.orgs.findById(
+        operator,
+        toObjectId(ownerOrgId, "ownerOrgId"),
+      );
+      if (org === null) {
+        return null;
+      }
+      return this.rolesOwnedBy([org._id]);
+    }
     if (operator.managedOrgIds === "all") {
       return {};
     }
@@ -107,8 +122,15 @@ export class RoleScopeService {
     if (managedOrgs.length === 0) {
       return null;
     }
+    return this.rolesOwnedBy(managedOrgs.map((org) => org._id));
+  }
+
+  /** 這些組織擁有的角色的過濾條件(`org_role`);一個都沒有 → null = 空清單。 */
+  private async rolesOwnedBy(
+    orgIds: Types.ObjectId[],
+  ): Promise<Record<string, unknown> | null> {
     const links = await this.relations.listLinks("org_role", {
-      firstIds: managedOrgs.map((org) => org._id),
+      firstIds: orgIds,
     });
     if (links.length === 0) {
       return null;

@@ -14,10 +14,13 @@ import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import { OrgQualificationService } from "../users/org-qualification.service";
 import type { GrantRoleUsersInput } from "./dto/grant-role-users.input";
 import type { RevokeRoleUsersInput } from "./dto/revoke-role-users.input";
+import type { RoleUserCandidatesInput } from "./dto/role-user-candidates.input";
 import type { RoleUsersInput } from "./dto/role-users.input";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./dto/roles.input";
 import type {
   RoleUser,
+  RoleUserCandidate,
+  RoleUserCandidatesPayload,
   RoleUserOrg,
   RoleUsersPayload,
 } from "./models/role-payloads.model";
@@ -33,6 +36,14 @@ import { AUDIT_ACTIONS, AUDIT_TARGET_TYPE } from "./roles.service";
 
 type UserRecord = Persisted<UserDocument>;
 
+/** 關鍵字做部分比對,使用者輸入的 regex 特殊字元一律當字面值(與使用者清單同一套欄位)。 */
+function keywordConditions(keyword: string): Record<string, unknown>[] {
+  const escaped = keyword.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+  return ["name", "account", "email"].map((field) => ({
+    [field]: { $regex: escaped, $options: "i" },
+  }));
+}
+
 /**
  * 分配使用者頁籤(`system.role-manager.assign-users`)。
  *
@@ -47,6 +58,9 @@ type UserRecord = Persisted<UserDocument>;
  * 清單不套管理範圍:角色本身已經在操作者的管理範圍內(`RoleScopeService`),
  * 而持有者可能因為被移出組織而落在範圍外(ADR-0003「組織外」)— 列不出來就移不掉。
  * 使用者的**所屬組織名稱**仍只露管理範圍內的(`this.orgs` 是治理類,過濾自動生效)。
+ *
+ * **候選清單(`candidates`)剛好相反,要套管理範圍**:那是「還沒授予、可以授予誰」的問題,
+ * 答案不該超出操作者管得到的人。不合格的候選照列但標 `eligible: false`(#261 的決定)。
  */
 @Injectable()
 export class RoleUsersService {
@@ -68,6 +82,61 @@ export class RoleUsersService {
   ): Promise<RoleUsersPayload> {
     const role = await this.scope.loadManagedRole(operator, roleId);
     return this.payload(operator, role, input);
+  }
+
+  /**
+   * 「加入使用者」彈窗的候選清單(#246 的 4):操作者**管理範圍**內、**尚未持有**這個角色的
+   * 使用者,每筆附 `eligible`(所屬組織是否落在角色擁有組織的子樹內,ADR-0003)。
+   *
+   * 掛在 `system.role-manager.assign-users` 底下:在此之前前端借 `users(input:{orgId})`,
+   * 逼得分配使用者彈窗連帶需要 `system.user-manager.view`,而且排不掉已持有者(#246)。
+   *
+   * 管理範圍的落實點只有一個:成員清單經 `this.orgs`(治理類 collection,過濾自動吃
+   * `managedOrgIds`)反查 `org_user`,本方法不自己比對任何組織集合。
+   * 資格判斷共用 `OrgQualificationService`(與 `grantRoleUsers` 同一份),不另寫一套。
+   */
+  async candidates(
+    operator: OperatorContext,
+    roleId: string,
+    input: RoleUserCandidatesInput,
+  ): Promise<RoleUserCandidatesPayload> {
+    const page = Math.max(1, input.page ?? 1);
+    const pageSize = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, input.pageSize ?? DEFAULT_PAGE_SIZE),
+    );
+    const empty = { items: [], totalCount: 0, page, pageSize };
+    const role = await this.scope.loadManagedRole(operator, roleId);
+    const managedUserIds = await this.managedUserIds(operator);
+    if (managedUserIds.length === 0) {
+      return empty;
+    }
+    const holderIds = await this.relations.listUserIdsOfRole(role._id);
+    const holders = new Set(holderIds.map(String));
+    const candidateIds = managedUserIds.filter(
+      (userId) => !holders.has(String(userId)),
+    );
+    if (candidateIds.length === 0) {
+      return empty;
+    }
+
+    const keyword = input.keyword?.trim();
+    const filter = {
+      _id: { $in: candidateIds },
+      ...(keyword ? { $or: keywordConditions(keyword) } : {}),
+    };
+    const totalCount = await this.users.count(operator, filter);
+    const documents = await this.users.findMany(operator, filter, {
+      sort: { createdAt: -1, _id: -1 },
+      skip: (page - 1) * pageSize,
+      limit: pageSize,
+    });
+    return {
+      items: await this.decorateCandidates(operator, role, documents),
+      totalCount,
+      page,
+      pageSize,
+    };
   }
 
   /**
@@ -142,6 +211,78 @@ export class RoleUsersService {
   }
 
   // ---- 內部 ----
+
+  /**
+   * 操作者**管理範圍**內的使用者 id(治理模組的範圍,ADR-0005 的分工表):
+   * 組織一律經 `this.orgs`(治理類,過濾自動生效)再反查 `org_user` —— 所以
+   * 「沒有所屬組織的人」不在候選內,他本來就不可能有資格(ADR-0003)。
+   */
+  private async managedUserIds(
+    operator: OperatorContext,
+  ): Promise<Types.ObjectId[]> {
+    const managedOrgs = await this.orgs.findMany(operator, {});
+    if (managedOrgs.length === 0) {
+      return [];
+    }
+    const links = await this.relations.listLinks("org_user", {
+      firstIds: managedOrgs.map((org) => org._id),
+    });
+    return uniqueObjectIds(links.map((link) => link.secondId));
+  }
+
+  /** 候選列:所屬組織(只列管理範圍內的)+ `eligible`(資格判斷共用 `OrgQualificationService`)。 */
+  private async decorateCandidates(
+    operator: OperatorContext,
+    role: RoleRecord,
+    documents: UserRecord[],
+  ): Promise<RoleUserCandidate[]> {
+    if (documents.length === 0) {
+      return [];
+    }
+    const ownerOrgId = await this.scope.ownerOrgIdOf(role);
+    const orgLinks = await this.relations.listLinks("org_user", {
+      secondIds: documents.map((user) => user._id),
+    });
+    const allOrgIds = uniqueObjectIds([
+      ...orgLinks.map((link) => link.firstId),
+      ...(ownerOrgId === null ? [] : [ownerOrgId]),
+    ]);
+    const [ancestry, managedOrgs] = await Promise.all([
+      this.qualification.loadAncestry(operator, allOrgIds),
+      this.orgs.findMany(operator, { _id: { $in: allOrgIds } }),
+    ]);
+    const orgNameById = new Map(
+      managedOrgs.map((org) => [String(org._id), org.name]),
+    );
+    const memberOrgIdsByUser = new Map<string, string[]>();
+    for (const link of orgLinks) {
+      const key = String(link.secondId);
+      memberOrgIdsByUser.set(key, [
+        ...(memberOrgIdsByUser.get(key) ?? []),
+        String(link.firstId),
+      ]);
+    }
+
+    return documents.map((user) => {
+      const memberOrgIds = memberOrgIdsByUser.get(String(user._id)) ?? [];
+      return {
+        id: String(user._id),
+        account: user.account,
+        name: user.name,
+        email: user.email,
+        enabled: user.enabled,
+        orgs: memberOrgIds.flatMap((orgId): RoleUserOrg[] => {
+          const name = orgNameById.get(orgId);
+          return name === undefined ? [] : [{ id: orgId, name }];
+        }),
+        eligible: this.qualification.qualifies(
+          memberOrgIds,
+          ownerOrgId === null ? null : String(ownerOrgId),
+          ancestry,
+        ),
+      };
+    });
+  }
 
   private async payload(
     operator: OperatorContext,

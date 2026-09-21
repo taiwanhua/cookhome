@@ -132,6 +132,7 @@ type DataScopeTarget {
   collection: String!
   description: String
   fields: [DataScopeTargetField!]!
+  hasRule: Boolean!
   name: String!
 }
 
@@ -284,6 +285,7 @@ type ModuleAdminNode {
   order: Int!
   parentId: ID
   permissions: [PermissionAdmin!]!
+  route: String
   sidebarType: ModuleSidebarType!
 }
 
@@ -424,6 +426,7 @@ type Query {
   recipes: [Recipe!]!
   role(id: ID!): RolePayload!
   roleMatrix(roleId: ID!): RoleMatrixPayload!
+  roleUserCandidates(input: RoleUserCandidatesInput!, roleId: ID!): RoleUserCandidatesPayload!
   roleUsers(input: RoleUsersInput!, roleId: ID!): RoleUsersPayload!
   roles(input: RolesInput!): RolesPayload!
   tenantModuleOptions: [ModuleOption!]!
@@ -554,6 +557,31 @@ type RoleUser {
   ownerProtected: Boolean!
 }
 
+type RoleUserCandidate {
+  account: String!
+  eligible: Boolean!
+  email: String!
+  enabled: Boolean!
+  id: ID!
+  name: String!
+  orgs: [RoleUserOrg!]!
+}
+
+input RoleUserCandidatesInput {
+  keyword: String
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
+type RoleUserCandidatesPayload {
+  items: [RoleUserCandidate!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
+}
+
 type RoleUserOrg {
   id: ID!
   name: String!
@@ -576,6 +604,7 @@ type RoleUsersPayload {
 
 input RolesInput {
   keyword: String
+  ownerOrgId: ID
   page: Int = 1
 
   """每頁筆數,上限 100"""

@@ -23,6 +23,34 @@ describe("角色管理頁(/system/role-manager)", () => {
     });
   });
 
+  it("擁有組織下拉與搜尋框並存,兩個條件一起送給 api(#246 的 3)", async () => {
+    const { user: actor, fake } = renderRolePage();
+
+    await screen.findByText("內容編輯");
+    // 預設是「全部組織」= 不帶 ownerOrgId
+    await waitFor(() => {
+      expect(fake.inputs.roles.at(-1)?.ownerOrgId).toBeNull();
+    });
+
+    const filter = screen.getByLabelText("依擁有組織篩選");
+    await actor.click(filter);
+    await actor.click(
+      await screen.findByRole("option", { name: "租戶 A / 內容組" }),
+    );
+    await waitFor(() => {
+      expect(fake.inputs.roles.at(-1)?.ownerOrgId).toBe("org-content");
+    });
+
+    await actor.type(screen.getByLabelText("搜尋"), "審核");
+    await waitFor(() => {
+      expect(fake.inputs.roles.at(-1)).toMatchObject({
+        ownerOrgId: "org-content",
+        keyword: "審核",
+        page: 1,
+      });
+    });
+  });
+
   it("新增角色:擁有組織預設當前組織、欄位下有固定提示,送出帶擁有組織", async () => {
     const { user: actor, fake } = renderRolePage();
 

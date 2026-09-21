@@ -19,6 +19,8 @@ const asRoot: OperatorContext = {
   currentOrgId: null,
   visibleOrgIds: "all",
   managedOrgIds: "all",
+  memberOrgIds: [],
+  roleIds: [],
 };
 
 let sequence = 0;

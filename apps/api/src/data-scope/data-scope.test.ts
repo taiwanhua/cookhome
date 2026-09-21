@@ -34,6 +34,7 @@ const DATA_SCOPE_TARGETS = /* GraphQL */ `
         collection
         name
         description
+        hasRule
         fields {
           name
           label
@@ -102,6 +103,7 @@ interface TargetsData {
       collection: string;
       name: string;
       description: string | null;
+      hasRule: boolean;
       fields: TargetField[];
     }[];
   };
@@ -273,6 +275,17 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     );
   }
 
+  /** 示範模組1 這個目標目前的 `hasRule`(#246 的 1)。 */
+  async function hasRule(): Promise<boolean | undefined> {
+    const result = await api.graphql<TargetsData>(
+      DATA_SCOPE_TARGETS,
+      {},
+      { accessToken: rootToken },
+    );
+    expect(result.errors).toBeUndefined();
+    return result.data?.dataScopeTargets.targets[0]?.hasRule;
+  }
+
   /** 送一條必定驗不過的規則,回傳 `RULE_INVALID` 的 extensions。 */
   async function saveInvalid(
     filter: unknown,
@@ -398,6 +411,35 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
         "DATE",
         "DATE",
       ]);
+    });
+
+    it("seed 宣告的 enum 業務欄位排在基礎欄位之前,並帶固定選項(#246 的 2)", async () => {
+      const result = await api.graphql<TargetsData>(
+        DATA_SCOPE_TARGETS,
+        {},
+        { accessToken: rootToken },
+      );
+      const fields = result.data?.dataScopeTargets.targets[0]?.fields ?? [];
+      expect(fields[0]).toMatchObject({
+        name: "status",
+        label: "狀態",
+        type: "ENUM",
+        isBase: false,
+      });
+      expect(fields[0]?.options.map((option) => option.value)).toEqual([
+        "draft",
+        "published",
+        "archived",
+      ]);
+    });
+
+    it("尚未設規則的目標 hasRule = false(#246 的 1)", async () => {
+      const result = await api.graphql<TargetsData>(
+        DATA_SCOPE_TARGETS,
+        {},
+        { accessToken: rootToken },
+      );
+      expect(result.data?.dataScopeTargets.targets[0]?.hasRule).toBe(false);
     });
 
     it("根組織專屬:站在租戶裡即使持有權限也回 FORBIDDEN", async () => {
@@ -527,6 +569,29 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
         tenantViewerToken,
       );
       expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+  });
+
+  describe("已設規則的旗標(DataScopeTarget.hasRule,#246 的 1)", () => {
+    it("存了規則之後 → true", async () => {
+      const result = await saveRule([
+        { audience: { type: "ALL" }, filter: ONLY_MINE },
+      ]);
+      expect(result.errors).toBeUndefined();
+      expect(await hasRule()).toBe(true);
+    });
+
+    it("整份覆蓋成空陣列(= 刪掉規則)→ 回到 false,與執行面同一條判準", async () => {
+      const result = await saveRule([]);
+      expect(result.errors).toBeUndefined();
+      // 規則文件還在(dataScopeRule 回得到),但沒有任何規則 ⇒ 不算已設
+      const rule = await api.graphql<RuleData>(
+        DATA_SCOPE_RULE,
+        { collection: "demo_items_one" },
+        { accessToken: rootToken },
+      );
+      expect(rule.data?.dataScopeRule.rule?.rules).toEqual([]);
+      expect(await hasRule()).toBe(false);
     });
   });
 

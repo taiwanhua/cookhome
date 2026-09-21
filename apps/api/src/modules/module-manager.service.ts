@@ -97,6 +97,8 @@ function buildTree(
       parentId: module.parentId === null ? null : String(module.parentId),
       // schema 的字串值與 GraphQL enum 的內部值相同(group / link / hidden)
       sidebarType: module.sidebarType as ModuleSidebarType,
+      // 只有自己那段;沒宣告 route 的節點回 null(= 權限容器的判準之一,#246 的 7)
+      route: module.route ?? null,
       order: module.order,
       description: module.description ?? null,
       icon: module.icon,

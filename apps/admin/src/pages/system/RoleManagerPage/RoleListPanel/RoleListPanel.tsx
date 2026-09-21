@@ -5,11 +5,14 @@ import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
 import { CircularProgress } from "@repo/ui/circular-progress";
 import { List } from "@repo/ui/list";
+import { MenuItem } from "@repo/ui/menu";
 import { Pagination } from "@repo/ui/pagination";
+import { Select } from "@repo/ui/select";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
+import type { OrgOption } from "@/lib/org-tree";
 import { groupRoleOptions, roleMenuOptions } from "@/lib/role-options";
 
 import {
@@ -25,6 +28,11 @@ export interface RoleListPanelProps {
   totalCount: number;
   keyword: string;
   onKeywordChange: (keyword: string) => void;
+  /** 擁有組織篩選;`""` = 全部(Figma 65:174 的「組織」下拉) */
+  ownerOrgId: string;
+  onOwnerOrgChange: (ownerOrgId: string) => void;
+  /** 下拉的候選 = 操作者的管理範圍 */
+  ownerOrgOptions: readonly OrgOption[];
   page: number;
   onPageChange: (page: number) => void;
   selectedRoleId: string | null;
@@ -46,6 +54,9 @@ export const RoleListPanel = ({
   totalCount,
   keyword,
   onKeywordChange,
+  ownerOrgId,
+  onOwnerOrgChange,
+  ownerOrgOptions,
   page,
   onPageChange,
   selectedRoleId,
@@ -86,12 +97,34 @@ export const RoleListPanel = ({
           </Button>
         )}
       </Stack>
+      {/* 擁有組織下拉與搜尋框並存,兩個條件疊加(api 的 RolesInput.ownerOrgId + keyword) */}
+      <Select
+        displayEmpty
+        size="small"
+        value={ownerOrgId}
+        sx={{ mt: 1.5 }}
+        inputProps={{ "aria-label": t("toolbar.ownerOrg") }}
+        onChange={(event) => {
+          onOwnerOrgChange(event.target.value);
+        }}
+      >
+        <MenuItem value="">{t("toolbar.ownerOrgAll")}</MenuItem>
+        {ownerOrgOptions.map((option) => (
+          <MenuItem
+            key={option.id}
+            value={option.id}
+            disabled={option.outOfScope}
+          >
+            {option.path}
+          </MenuItem>
+        ))}
+      </Select>
       <TextField
         label={t("toolbar.search")}
         placeholder={t("toolbar.searchPlaceholder")}
         size="small"
         value={keyword}
-        sx={{ mt: 1.5 }}
+        sx={{ mt: 1 }}
         onChange={(event) => {
           onKeywordChange(event.target.value);
         }}

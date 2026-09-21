@@ -28,6 +28,9 @@ function systemOperator(actorId: Types.ObjectId): OperatorContext {
     currentOrgId: null,
     visibleOrgIds: "all",
     managedOrgIds: "all",
+    // 這份上下文就是在「算出 memberOrgIds / roleIds」的過程中用的,當下還沒有值(#246 的 6)
+    memberOrgIds: [],
+    roleIds: [],
   };
 }
 

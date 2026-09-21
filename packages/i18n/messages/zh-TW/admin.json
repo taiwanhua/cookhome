@@ -466,7 +466,9 @@
     },
     "toolbar": {
       "search": "搜尋",
-      "searchPlaceholder": "角色名稱或描述"
+      "searchPlaceholder": "角色名稱或描述",
+      "ownerOrg": "依擁有組織篩選",
+      "ownerOrgAll": "全部組織"
     },
     "actions": {
       "create": "+ 新增",
@@ -517,11 +519,10 @@
       "search": "搜尋",
       "searchPlaceholder": "姓名或 Email",
       "candidate": "{account} · {name}({orgs})",
-      "hint": "僅列出屬於「{org}」或其下層組織、且在你可見範圍內的使用者。找不到人?請先到使用者管理將他加入組織。",
+      "hint": "可加入的是屬於「{org}」或其下層組織的使用者;不在範圍內的人會列出來但不能勾選。找不到人?請先到使用者管理將他加入組織。",
       "picked": "已選 {count} 人",
       "empty": "沒有符合條件的使用者",
       "noOrg": "—",
-      "noUserPermission": "你沒有使用者管理的檢視權限,無法在這裡挑選使用者;請改由有權限的人協助加入。",
       "confirm": "加入",
       "cancel": "取消",
       "notEligible": "此使用者不在角色擁有組織之下({org}),無法加入。"

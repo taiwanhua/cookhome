@@ -73,7 +73,18 @@ export const dataScopeWorld = (
 
   const handlers = [
     api.query("DataScopeTargets", () =>
-      HttpResponse.json({ data: { dataScopeTargets: { targets } } }),
+      // `hasRule` 由目前存著的規則算出來(#246 的 1;有規則文件且 rules 非空才算),
+      // 不是夾具寫死的 —— 儲存後重查才會亮,與 api 同一條判準(TEST-08 的有狀態假伺服器)
+      HttpResponse.json({
+        data: {
+          dataScopeTargets: {
+            targets: targets.map((target) => ({
+              ...target,
+              hasRule: (stored.get(target.collection)?.rules ?? []).length > 0,
+            })),
+          },
+        },
+      }),
     ),
     api.query("DataScopeRule", ({ variables }) => {
       const { collection } = variables as DataScopeRuleQueryVariables;

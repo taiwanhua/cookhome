@@ -1,4 +1,4 @@
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import {
@@ -25,13 +25,11 @@ import type { PickerOption } from "./data-scope-types";
 const PICKER_PAGE = { page: 1, pageSize: 100 };
 
 /**
- * 資料範圍頁的資料層:資料目標清單、每個目標「有沒有規則」、選中目標的規則,
+ * 資料範圍頁的資料層:資料目標清單(每筆自帶 `hasRule`)、選中目標的規則,
  * 以及套用對象 / 條件值選擇器要用的角色、使用者、組織樹。
  *
- * **「有沒有規則」沒有現成欄位**:`dataScopeTargets` 只回目標與欄位目錄,所以這裡對每個目標
- * 各發一次 `dataScopeRule`(以 codegen 的 `getKey` / `fetcher` 併進 `useQueries`,與編輯器
- * 共用同一份快取,DATA-01 / 02)。資料目標是 seed 宣告的小清單,成本可接受;
- * 若日後目標變多,正解是 api 在 `DataScopeTarget` 上補一個 `hasRule`。
+ * 左清單的「已設規則」讀 `DataScopeTarget.hasRule`(#246 的 1)。在那之前這裡對每個目標
+ * 各發一次 `dataScopeRule` 併進 `useQueries`,目標一多就是 N+1;現在只查選中的那一個。
  */
 export const useDataScopeData = () => {
   const { session } = useSession();
@@ -54,23 +52,12 @@ export const useDataScopeData = () => {
   );
   const target = selectedIndex === -1 ? undefined : targetList[selectedIndex];
 
-  const ruleQueries = useQueries({
-    queries: targetList.map((item) => ({
-      queryKey: useDataScopeRuleQuery.getKey({ collection: item.collection }),
-      queryFn: useDataScopeRuleQuery.fetcher(session.client, {
-        collection: item.collection,
-      }),
-    })),
-  });
-
-  /** 規則本身帶著 `collection`,不必再跟目標清單對索引。 */
-  const collectionsWithRule = new Set(
-    ruleQueries
-      .map((query) => query.data?.dataScopeRule.rule?.collection)
-      .filter((collection): collection is string => collection !== undefined),
+  /** 只查選中的那一個目標的規則;「有沒有規則」由目標清單自己的 `hasRule` 回答。 */
+  const selectedRule = useDataScopeRuleQuery(
+    session.client,
+    { collection: selectedCollection ?? "" },
+    { enabled: selectedCollection !== null },
   );
-  const selectedRule =
-    selectedIndex === -1 ? undefined : ruleQueries[selectedIndex];
 
   const roles = useRolesQuery(
     session.client,
@@ -122,12 +109,11 @@ export const useDataScopeData = () => {
     canEdit: hasPermission(DATA_SCOPE_PERMISSIONS.edit),
     targets: targetList,
     isTargetsLoading: targets.isLoading,
-    collectionsWithRule,
     selectedCollection,
     selectTarget: setPickedCollection,
     target,
-    rule: selectedRule?.data?.dataScopeRule.rule ?? null,
-    isRuleLoading: selectedRule === undefined || selectedRule.isPending,
+    rule: selectedRule.data?.dataScopeRule.rule ?? null,
+    isRuleLoading: selectedRule.isPending,
     roleOptions,
     userOptions,
     orgNodes,

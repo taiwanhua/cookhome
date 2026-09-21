@@ -8,6 +8,7 @@ import { CreateRoleInput } from "./dto/create-role.input";
 import { DeleteRoleInput } from "./dto/delete-role.input";
 import { GrantRoleUsersInput } from "./dto/grant-role-users.input";
 import { RevokeRoleUsersInput } from "./dto/revoke-role-users.input";
+import { RoleUserCandidatesInput } from "./dto/role-user-candidates.input";
 import { RoleUsersInput } from "./dto/role-users.input";
 import { RolesInput } from "./dto/roles.input";
 import { SaveRoleMatrixInput } from "./dto/save-role-matrix.input";
@@ -16,6 +17,7 @@ import { UpdateRoleInput } from "./dto/update-role.input";
 import { RoleMatrixPayload } from "./models/role-matrix.model";
 import {
   RolePayload,
+  RoleUserCandidatesPayload,
   RoleUsersPayload,
   RolesPayload,
 } from "./models/role-payloads.model";
@@ -75,6 +77,21 @@ export class RolesResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<RoleUsersPayload> {
     return this.usersService.list(operator, roleId, input);
+  }
+
+  /**
+   * 「加入使用者」彈窗的候選(#246 的 4):管理範圍內、尚未持有這個角色的人,每筆附 `eligible`。
+   * 掛 `assign-users`(不是 `view`):在此之前前端借 `users`,連帶要求
+   * `system.user-manager.view` —— 能分配使用者的人不該被迫再要一個使用者管理的權限。
+   */
+  @RequirePermission("system.role-manager.assign-users")
+  @Query(() => RoleUserCandidatesPayload, { name: "roleUserCandidates" })
+  roleUserCandidates(
+    @Args("roleId", { type: () => ID }) roleId: string,
+    @Args("input") input: RoleUserCandidatesInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<RoleUserCandidatesPayload> {
+    return this.usersService.candidates(operator, roleId, input);
   }
 
   @RequirePermission("system.role-manager.create")

@@ -165,6 +165,7 @@ export type DataScopeTarget = {
   collection: Scalars['String']['output'];
   description?: Maybe<Scalars['String']['output']>;
   fields: Array<DataScopeTargetField>;
+  hasRule: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
 };
 
@@ -326,6 +327,7 @@ export type ModuleAdminNode = {
   order: Scalars['Int']['output'];
   parentId?: Maybe<Scalars['ID']['output']>;
   permissions: Array<PermissionAdmin>;
+  route?: Maybe<Scalars['String']['output']>;
   sidebarType: ModuleSidebarType;
 };
 
@@ -646,6 +648,7 @@ export type Query = {
   recipes: Array<Recipe>;
   role: RolePayload;
   roleMatrix: RoleMatrixPayload;
+  roleUserCandidates: RoleUserCandidatesPayload;
   roleUsers: RoleUsersPayload;
   roles: RolesPayload;
   tenantModuleOptions: Array<ModuleOption>;
@@ -680,6 +683,12 @@ export type QueryRoleArgs = {
 
 
 export type QueryRoleMatrixArgs = {
+  roleId: Scalars['ID']['input'];
+};
+
+
+export type QueryRoleUserCandidatesArgs = {
+  input: RoleUserCandidatesInput;
   roleId: Scalars['ID']['input'];
 };
 
@@ -840,6 +849,32 @@ export type RoleUser = {
   ownerProtected: Scalars['Boolean']['output'];
 };
 
+export type RoleUserCandidate = {
+  __typename?: 'RoleUserCandidate';
+  account: Scalars['String']['output'];
+  eligible: Scalars['Boolean']['output'];
+  email: Scalars['String']['output'];
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  orgs: Array<RoleUserOrg>;
+};
+
+export type RoleUserCandidatesInput = {
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type RoleUserCandidatesPayload = {
+  __typename?: 'RoleUserCandidatesPayload';
+  items: Array<RoleUserCandidate>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
 export type RoleUserOrg = {
   __typename?: 'RoleUserOrg';
   id: Scalars['ID']['output'];
@@ -863,6 +898,7 @@ export type RoleUsersPayload = {
 
 export type RolesInput = {
   keyword?: InputMaybe<Scalars['String']['input']>;
+  ownerOrgId?: InputMaybe<Scalars['ID']['input']>;
   page?: InputMaybe<Scalars['Int']['input']>;
   /** 每頁筆數,上限 100 */
   pageSize?: InputMaybe<Scalars['Int']['input']>;
@@ -1155,7 +1191,7 @@ export type ChangePasswordMutation = { __typename?: 'Mutation', changePassword: 
 export type DataScopeTargetsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type DataScopeTargetsQuery = { __typename?: 'Query', dataScopeTargets: { __typename?: 'DataScopeTargetsPayload', targets: Array<{ __typename?: 'DataScopeTarget', collection: string, name: string, description?: string | null, fields: Array<{ __typename?: 'DataScopeTargetField', name: string, label: string, type: DataScopeFieldType, isBase: boolean, options: Array<{ __typename?: 'DataScopeFieldOption', value: string, label: string }> }> }> } };
+export type DataScopeTargetsQuery = { __typename?: 'Query', dataScopeTargets: { __typename?: 'DataScopeTargetsPayload', targets: Array<{ __typename?: 'DataScopeTarget', collection: string, name: string, description?: string | null, hasRule: boolean, fields: Array<{ __typename?: 'DataScopeTargetField', name: string, label: string, type: DataScopeFieldType, isBase: boolean, options: Array<{ __typename?: 'DataScopeFieldOption', value: string, label: string }> }> }> } };
 
 export type DataScopeRuleQueryVariables = Exact<{
   collection: Scalars['String']['input'];
@@ -1206,26 +1242,26 @@ export type SetFieldEnabledMutationVariables = Exact<{
 
 export type SetFieldEnabledMutation = { __typename?: 'Mutation', setFieldEnabled: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null } } };
 
-export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
+export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
 
 export type ModuleTreeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ModuleTreeQuery = { __typename?: 'Query', moduleTree: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }> };
+export type ModuleTreeQuery = { __typename?: 'Query', moduleTree: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }> };
 
 export type SetModuleEnabledMutationVariables = Exact<{
   input: SetModuleEnabledInput;
 }>;
 
 
-export type SetModuleEnabledMutation = { __typename?: 'Mutation', setModuleEnabled: { __typename?: 'ModuleAdminPayload', module: { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> } } };
+export type SetModuleEnabledMutation = { __typename?: 'Mutation', setModuleEnabled: { __typename?: 'ModuleAdminPayload', module: { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> } } };
 
 export type SetModuleIconMutationVariables = Exact<{
   input: SetModuleIconInput;
 }>;
 
 
-export type SetModuleIconMutation = { __typename?: 'Mutation', setModuleIcon: { __typename?: 'ModuleAdminPayload', module: { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> } } };
+export type SetModuleIconMutation = { __typename?: 'Mutation', setModuleIcon: { __typename?: 'ModuleAdminPayload', module: { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> } } };
 
 export type SetPermissionEnabledMutationVariables = Exact<{
   input: SetPermissionEnabledInput;
@@ -1400,6 +1436,14 @@ export type RoleUsersQueryVariables = Exact<{
 
 export type RoleUsersQuery = { __typename?: 'Query', roleUsers: { __typename?: 'RoleUsersPayload', totalCount: number, page: number, pageSize: number, role: { __typename?: 'Role', id: string, name: string, description?: string | null, enabled: boolean, kind: RoleKind, isSystem: boolean, isTemplateCopy: boolean, userCount: number, abilities: { __typename?: 'RoleAbilities', canEdit: boolean, canEditMatrix: boolean, canToggleEnabled: boolean, canDelete: boolean }, ownerOrg?: { __typename?: 'RoleOwnerOrg', id: string, name: string, tenantTop?: { __typename?: 'RoleOrgRef', id: string, name: string } | null } | null }, items: Array<{ __typename?: 'RoleUser', id: string, account: string, name: string, email: string, enabled: boolean, outOfScope: boolean, ownerProtected: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
 
+export type RoleUserCandidatesQueryVariables = Exact<{
+  roleId: Scalars['ID']['input'];
+  input: RoleUserCandidatesInput;
+}>;
+
+
+export type RoleUserCandidatesQuery = { __typename?: 'Query', roleUserCandidates: { __typename?: 'RoleUserCandidatesPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'RoleUserCandidate', id: string, account: string, name: string, email: string, enabled: boolean, eligible: boolean, orgs: Array<{ __typename?: 'RoleUserOrg', id: string, name: string }> }> } };
+
 export type GrantRoleUsersMutationVariables = Exact<{
   input: GrantRoleUsersInput;
 }>;
@@ -1496,6 +1540,7 @@ export const ModuleAdminNodeFieldsFragmentDoc = `
   name
   parentId
   sidebarType
+  route
   order
   description
   icon
@@ -1902,6 +1947,7 @@ export const DataScopeTargetsDocument = `
       collection
       name
       description
+      hasRule
       fields {
         name
         label
@@ -3103,6 +3149,51 @@ useRoleUsersQuery.getKey = (variables: RoleUsersQueryVariables) => ['RoleUsers',
 
 
 useRoleUsersQuery.fetcher = (client: GraphQLClient, variables: RoleUsersQueryVariables, headers?: RequestInit['headers']) => fetcher<RoleUsersQuery, RoleUsersQueryVariables>(client, RoleUsersDocument, variables, headers);
+
+export const RoleUserCandidatesDocument = `
+    query RoleUserCandidates($roleId: ID!, $input: RoleUserCandidatesInput!) {
+  roleUserCandidates(roleId: $roleId, input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      id
+      account
+      name
+      email
+      enabled
+      eligible
+      orgs {
+        id
+        name
+      }
+    }
+  }
+}
+    `;
+
+export const useRoleUserCandidatesQuery = <
+      TData = RoleUserCandidatesQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: RoleUserCandidatesQueryVariables,
+      options?: Omit<UseQueryOptions<RoleUserCandidatesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<RoleUserCandidatesQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<RoleUserCandidatesQuery, TError, TData>(
+      {
+    queryKey: ['RoleUserCandidates', variables],
+    queryFn: fetcher<RoleUserCandidatesQuery, RoleUserCandidatesQueryVariables>(client, RoleUserCandidatesDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useRoleUserCandidatesQuery.getKey = (variables: RoleUserCandidatesQueryVariables) => ['RoleUserCandidates', variables];
+
+
+useRoleUserCandidatesQuery.fetcher = (client: GraphQLClient, variables: RoleUserCandidatesQueryVariables, headers?: RequestInit['headers']) => fetcher<RoleUserCandidatesQuery, RoleUserCandidatesQueryVariables>(client, RoleUserCandidatesDocument, variables, headers);
 
 export const GrantRoleUsersDocument = `
     mutation GrantRoleUsers($input: GrantRoleUsersInput!) {

@@ -5,12 +5,12 @@ import type {
   CreateRoleMutationVariables,
   DeleteRoleMutationVariables,
   GrantRoleUsersMutationVariables,
+  RoleUserCandidatesQueryVariables,
   RoleUsersQueryVariables,
   RolesQueryVariables,
   SaveRoleMatrixMutationVariables,
   SetRoleEnabledMutationVariables,
   UpdateRoleMutationVariables,
-  UsersQueryVariables,
 } from "@repo/graphql";
 
 import { type AuthErrorCode, graphqlError } from "./auth-handlers";
@@ -65,7 +65,7 @@ export interface RoleWorldOptions {
    */
   ceiling?: { moduleKeys: string[]; permissionKeys: string[] } | null;
   users?: TestRoleUser[];
-  /** 加入使用者彈窗的候選(`users` query) */
+  /** 加入使用者彈窗的候選(`roleUserCandidates`;已持有的人由 handler 自動排除) */
   candidates?: TestCandidate[];
   orgTree?: TestOrgNode[];
   pageSize?: number;
@@ -84,14 +84,15 @@ export interface RoleWorld {
     saveRoleMatrix: SaveRoleMatrixMutationVariables["input"][];
     grantRoleUsers: GrantRoleUsersMutationVariables["input"][];
     revokeRoleUsers: GrantRoleUsersMutationVariables["input"][];
-    users: UsersQueryVariables["input"][];
+    roleUserCandidates: RoleUserCandidatesQueryVariables["input"][];
   };
 }
 
 /**
- * 角色管理頁的假 api(#203 的十一個端點 + 下拉與候選用的 `orgTree` / `users`)。
+ * 角色管理頁的假 api(#203 的端點 + 擁有組織下拉的 `orgTree` + 候選的 `roleUserCandidates`)。
  * 清單範圍照 api 的規則由伺服器決定,這裡只做關鍵字比對與分頁;
- * `grantRoleUsers` / `revokeRoleUsers` 會真的改動持有人清單,讓畫面測得到結果。
+ * `grantRoleUsers` / `revokeRoleUsers` 會真的改動持有人清單,
+ * 候選清單也跟著排除已持有的人(有狀態的假伺服器,TEST-08),讓畫面測得到結果。
  */
 export const roleWorld = (options: RoleWorldOptions = {}): RoleWorld => {
   const {
@@ -121,7 +122,7 @@ export const roleWorld = (options: RoleWorldOptions = {}): RoleWorld => {
     saveRoleMatrix: [],
     grantRoleUsers: [],
     revokeRoleUsers: [],
-    users: [],
+    roleUserCandidates: [],
   };
 
   const fail = (operation: RoleOperation) => {
@@ -157,19 +158,22 @@ export const roleWorld = (options: RoleWorldOptions = {}): RoleWorld => {
 
   const handlers = [
     api.query("OrgTree", () => HttpResponse.json({ data: { orgTree } })),
-    api.query("Users", ({ variables }) => {
-      const { input } = variables as UsersQueryVariables;
-      inputs.users.push(input);
+    api.query("RoleUserCandidates", ({ variables }) => {
+      const { input } = variables as RoleUserCandidatesQueryVariables;
+      inputs.roleUserCandidates.push(input);
       const needle = (input.keyword ?? "").toLowerCase();
       const matched = candidates.filter(
         (candidate) =>
-          needle === "" ||
-          candidate.name.toLowerCase().includes(needle) ||
-          candidate.email.toLowerCase().includes(needle),
+          // 已持有這個角色的人不在候選裡(api 的規則,這裡照做才測得到加入後的變化)
+          !holders.some((holder) => holder.id === candidate.id) &&
+          (needle === "" ||
+            candidate.name.toLowerCase().includes(needle) ||
+            candidate.account.toLowerCase().includes(needle) ||
+            candidate.email.toLowerCase().includes(needle)),
       );
       return HttpResponse.json({
         data: {
-          users: {
+          roleUserCandidates: {
             totalCount: matched.length,
             page: 1,
             pageSize: input.pageSize ?? pageSize,

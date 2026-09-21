@@ -50,6 +50,8 @@ const node = (
   name,
   parentId,
   sidebarType: ModuleSidebarType.Link,
+  /** 路由只有自己那一段(#246 的 7);權限容器以 `overrides` 設回 null */
+  route: key.split(".").at(-1) ?? null,
   order,
   description: null,
   /** 側欄圖示(#288):預設不給,要對照初值表的節點各自用 `overrides` 指定 */
@@ -78,7 +80,9 @@ const systemChildren: TestModuleAdminNode[] = [
         "m-org",
         1,
         {
+          // 權限容器:hidden 且沒有 route(不對應任何畫面)
           sidebarType: ModuleSidebarType.Hidden,
+          route: null,
           icon: "key",
           permissions: [
             allPermission("system.org-manager.tenant-ops"),
@@ -159,7 +163,9 @@ export const moduleAdminTree: TestModuleAdminNode[] = [
     children: demoChildren,
   }),
   node("m-api", "api", "API 能力", null, 99, {
+    // 權限容器:hidden 且沒有 route
     sidebarType: ModuleSidebarType.Hidden,
+    route: null,
     icon: "tune",
     permissions: [
       allPermission("api"),

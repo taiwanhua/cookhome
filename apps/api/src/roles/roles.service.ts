@@ -76,7 +76,10 @@ export class RolesService {
 
   // ---- 讀 ----
 
-  /** 清單:擁有組織在操作者**管理範圍**內的角色(ADR-0003 / ADR-0005)。 */
+  /**
+   * 清單:擁有組織在操作者**管理範圍**內的角色(ADR-0003 / ADR-0005);
+   * `ownerOrgId` 在那之內再篩一個擁有組織(#246 的 3),`keyword` 比對名稱與描述。
+   */
   async list(
     operator: OperatorContext,
     input: RolesInput,
@@ -86,7 +89,10 @@ export class RolesService {
       MAX_PAGE_SIZE,
       Math.max(1, input.pageSize ?? DEFAULT_PAGE_SIZE),
     );
-    const managed = await this.scope.managedRoleFilter(operator);
+    const managed = await this.scope.managedRoleFilter(
+      operator,
+      input.ownerOrgId ?? undefined,
+    );
     if (managed === null) {
       return { items: [], totalCount: 0, page, pageSize };
     }

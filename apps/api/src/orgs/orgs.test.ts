@@ -978,7 +978,9 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
 
       // 範圍外不透露「存在但跨租戶」,一律當不存在
       expect(result.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
-      expect(await parentIdOf(deptOneId)).toBe(String(tenantAId));
+      expect(await parentIdOf(deptOneId)).toBe(
+        String(tenantAId),
+      );
     });
 
     it("把租戶頂層搬到根組織下也算跨租戶:CROSS_TENANT;根組織自己不可搬:VALIDATION_FAILED", async () => {
@@ -1105,6 +1107,26 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
         code: "ORG_NOT_DELETABLE",
         reasons: ["OWNS_ROLES"],
       });
+    });
+
+    it("角色被軟刪除後不再算 OWNS_ROLES,組織就刪得掉(#246 的 5)", async () => {
+      const orgId = await newOrgUnderTenantA("角色已刪除");
+      const roleId = await createRole(api.app, api.connection, {
+        name: "等一下會被軟刪的角色",
+        ownerOrgId: orgId,
+      });
+      // 軟刪除角色(ADR-0007);`org_role` 關聯刻意不動,所以只看關聯會永遠擋著
+      await api.connection
+        .collection("roles")
+        .updateOne({ _id: roleId }, { $set: { deletedAt: new Date() } });
+
+      const result = await api.graphql<DeleteOrgData>(
+        DELETE_ORG,
+        { input: { id: String(orgId) } },
+        { accessToken: tenantAdminToken },
+      );
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.deleteOrg.success).toBe(true);
     });
 
     it("還有業務資料掛著:reasons 含 HAS_BUSINESS_DATA", async () => {

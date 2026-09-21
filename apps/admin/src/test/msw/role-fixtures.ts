@@ -64,21 +64,19 @@ export interface TestRoleUser {
   orgs: { id: string; name: string }[];
 }
 
-/** `users` 清單的一筆(加入使用者彈窗的候選來源)。 */
+/**
+ * `roleUserCandidates` 的一筆(加入使用者彈窗的候選;#246 的 4)。
+ * `eligible` 由 api 算好 —— 所屬組織落在角色擁有組織子樹內才是 true;
+ * false 的人**照樣回**,由前端 disabled 並說明原因(#261 的 7)。
+ */
 export interface TestCandidate {
   id: string;
   account: string;
   name: string;
   email: string;
   enabled: boolean;
+  eligible: boolean;
   orgs: { id: string; name: string }[];
-  roles: {
-    id: string;
-    name: string;
-    ownerOrgId: string | null;
-    ownerOrgName: string | null;
-    outOfScope: boolean;
-  }[];
 }
 
 const permission = (
@@ -270,7 +268,7 @@ export const candidates: TestCandidate[] = [
     email: "newbie@cookhome.online",
     enabled: true,
     orgs: [{ id: "org-content", name: "內容組" }],
-    roles: [],
+    eligible: true,
   },
   {
     id: "user-ming",
@@ -279,7 +277,7 @@ export const candidates: TestCandidate[] = [
     email: "ming@cookhome.online",
     enabled: true,
     orgs: [{ id: "org-content", name: "內容組" }],
-    roles: [],
+    eligible: true,
   },
   /**
    * 所屬組織不在角色擁有組織的子樹內 —— #261 的 7:這種人**照樣列出來、但勾不動**,
@@ -292,7 +290,7 @@ export const candidates: TestCandidate[] = [
     email: "outsider@cookhome.online",
     enabled: true,
     orgs: [{ id: "org-other", name: "租戶 B" }],
-    roles: [],
+    eligible: false,
   },
 ];
 

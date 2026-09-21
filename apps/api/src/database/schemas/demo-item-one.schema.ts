@@ -4,6 +4,18 @@ import { Types } from "mongoose";
 import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
 
+/**
+ * 狀態的固定選項:與 `apps/db-migrator/seeds/modules/demo.sub.sample-one.ts` 的
+ * `dataScopeTarget.fields[status].options` 的 value 一一對應(ADR-0008 的 enum 欄位)。
+ */
+export const DEMO_ITEM_ONE_STATUSES = [
+  "draft",
+  "published",
+  "archived",
+] as const;
+
+export type DemoItemOneStatus = (typeof DEMO_ITEM_ONE_STATUSES)[number];
+
 /** 示範模組1(docs/modules/demo.sub.sample-one.md):宣告資料範圍目標的對象。 */
 @Schema({ collection: "demo_items_one", timestamps: true })
 export class DemoItemOne {
@@ -18,6 +30,14 @@ export class DemoItemOne {
   /** 分類;欄位管理「示範分類」選項(存 value)。 */
   @Prop({ type: String })
   category?: string;
+
+  /**
+   * 狀態;資料範圍目標的 enum 欄位(ADR-0008,正本宣告在
+   * `apps/db-migrator/seeds/modules/demo.sub.sample-one.ts` 的 `dataScopeTarget.fields`)。
+   * 新資料預設「草稿」(`draft`),選項與 seed 宣告的 value 一一對應。
+   */
+  @Prop({ type: String, enum: DEMO_ITEM_ONE_STATUSES, default: "draft" })
+  status!: DemoItemOneStatus;
 
   /** 備註(選填)。 */
   @Prop({ type: String })

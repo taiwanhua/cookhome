@@ -95,6 +95,17 @@ export class DataScopeTargetModel {
   /** 欄位目錄 = seed 宣告的業務欄位 + 自動掛入的基礎欄位。 */
   @Field(() => [DataScopeTargetFieldModel])
   fields!: DataScopeTargetFieldModel[];
+
+  /**
+   * 這個目標**已設規則**(#246 的 1):有規則文件且 `rules` 非空。
+   *
+   * 與 `dataScopeRule` 的關係:整份覆蓋時送 `rules: []` 等於「刪掉這個目標的規則」
+   * (ADR-0008),那之後留下的空文件不算已設規則 —— 判準與執行面一致
+   * (`DataScopeService.load`:`rules` 為空即視為沒有規則,查詢只剩租戶保底)。
+   * 左清單靠它標「已設規則」,不必對每個目標各查一次 `dataScopeRule`。
+   */
+  @Field(() => Boolean)
+  hasRule!: boolean;
 }
 
 @ObjectType("DataScopeAudience")
