@@ -116,6 +116,19 @@ interface FieldDocument {
   [field: string]: unknown;
 }
 
+/** 示範資料的觀察欄位(#319;正本:apps/db-migrator/seeds/demo-items.ts)。 */
+interface DemoItemDocument {
+  key?: string;
+  orgId?: ObjectId;
+  name?: string;
+  category?: string;
+  status?: string;
+  enabled?: boolean;
+  createdBy?: ObjectId;
+  isSystem?: boolean;
+  [field: string]: unknown;
+}
+
 /** 讀出全部種子文件(含 _id 與時間戳),供前後比對。 */
 async function readSeededDocuments(databaseUri: string) {
   return withDatabase(databaseUri, async (database) => ({
@@ -768,6 +781,76 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     });
     expect(typeof dataScopeTargets[0]?.name).toBe("string");
     expect(dataScopeTargets[0]).not.toHaveProperty("key");
+  }, 120_000);
+
+  it("示範資料兩表各 5 筆(#319):以 key 冪等、掛根組織、各有一筆初始停用,重跑 0 / 0 / 5", async () => {
+    const databaseUri = createTestDatabaseUri("demo-items");
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+    const secondRun = runSeedCommand(databaseUri);
+    expect(secondRun.stderr).toBe("");
+    expect(secondRun.status).toBe(0);
+    expect(secondRun.stdout).toContain(
+      "demo_items_one:新增 0 / 更新 0 / 未變 5",
+    );
+    expect(secondRun.stdout).toContain(
+      "demo_items_two:新增 0 / 更新 0 / 未變 5",
+    );
+
+    const { itemsOne, itemsTwo, rootOrg, demoOptionValues } =
+      await withDatabase(databaseUri, async (database) => ({
+        itemsOne: await database
+          .collection<DemoItemDocument>("demo_items_one")
+          .find()
+          .sort({ key: 1 })
+          .toArray(),
+        itemsTwo: await database
+          .collection<DemoItemDocument>("demo_items_two")
+          .find()
+          .sort({ key: 1 })
+          .toArray(),
+        rootOrg: await database
+          .collection<SeededDocument>("orgs")
+          .findOne({ key: "root" }),
+        demoOptionValues: await database
+          .collection<FieldDocument>("fields")
+          .find({ key: { $regex: String.raw`^demo-category\.` } })
+          .map((field) => field.value)
+          .toArray(),
+      }));
+
+    expect(itemsOne).toHaveLength(5);
+    expect(itemsTwo).toHaveLength(5);
+
+    for (const item of [...itemsOne, ...itemsTwo]) {
+      // key 不是 schema 欄位,與 isSystem 一樣由 runner 掛上(冪等的識別鍵,ADR-0002)
+      expect(typeof item.key).toBe("string");
+      expect(item.isSystem).toBe(true);
+      // orgId / createdBy 皆為 ObjectId:前者由 seedRef 解析成該環境的根組織 id
+      expect(item.orgId?.toHexString()).toBe(rootOrg?._id.toHexString());
+      expect(item.createdBy?.toHexString()).toMatch(/^[\da-f]{24}$/);
+    }
+
+    // 一筆初始停用(列表的狀態欄與篩選在畫面上看得出差異)
+    expect(itemsOne.filter((item) => item.enabled === false)).toHaveLength(1);
+    expect(itemsTwo.filter((item) => item.enabled === false)).toHaveLength(1);
+
+    // 示範模組1:三種 status、三個分類值都出現過,且分類值都是欄位管理「示範分類」的種子選項
+    expect(new Set(itemsOne.map((item) => item.status))).toEqual(
+      new Set(["draft", "published", "archived"]),
+    );
+    const usedCategories = new Set(itemsOne.map((item) => item.category));
+    expect(usedCategories).toEqual(new Set(demoOptionValues));
+    // 不同建立者(假 id,seed 沒有可引用的使用者 — 見 seeds/demo-items.ts 的註解)
+    expect(
+      new Set(itemsOne.map((item) => item.createdBy?.toHexString())).size,
+    ).toBeGreaterThan(1);
+
+    // 示範模組2 是對照組:沒有分類、沒有狀態
+    for (const item of itemsTwo) {
+      expect(item).not.toHaveProperty("category");
+      expect(item).not.toHaveProperty("status");
+    }
   }, 120_000);
 
   it("enabled 是「初始 seed 值的欄位」:建立後在系統內改為 false,重跑 seed 為未變、值仍為 false;宣告的其他欄位改了仍同步", async () => {
