@@ -9,7 +9,9 @@ import {
   UPLOAD_EXTENSIONS,
   UPLOAD_PATH_PREFIXES,
   UPLOAD_URL_TTL_MS,
+  UPLOAD_VISIBILITIES,
   type UploadPurpose,
+  type UploadVisibility,
   isOwnedUploadPath,
 } from "./upload-rules";
 
@@ -32,6 +34,8 @@ export interface SignUploadRequest {
   objectPath: string;
   contentType: string;
   expiresAt: Date;
+  /** 檔案要落在哪一顆 bucket(由 `purpose` 衍生,ADR-0010)。 */
+  visibility: UploadVisibility;
 }
 
 /**
@@ -80,6 +84,7 @@ export abstract class StorageService {
       objectPath,
       contentType: input.contentType.trim().toLowerCase(),
       expiresAt,
+      visibility: UPLOAD_VISIBILITIES[input.purpose],
     });
     return { uploadUrl, objectPath, expiresAt };
   }
@@ -104,6 +109,24 @@ export abstract class StorageService {
       path,
       new Date(Date.now() + this.config.signedUrlTtlMs),
     );
+  }
+
+  /**
+   * 公開檔案的**穩定** URL(ADR-0010「公開:穩定公開 URL,供 CDN 快取、SEO、og:image」):
+   * 不簽名、不過期,所以可以直接放進 `<img src>`。與 `readUrlOf` 同樣先驗路徑是不是本 API
+   * 簽出來的;**呼叫端仍要先驗「這個人看得到這筆資料嗎」** —— 公開 bucket 的物件本來就人人可讀,
+   * 所以只有「公開用途」(`UPLOAD_VISIBILITIES` 為 `public`)的欄位才該走這裡。
+   */
+  publicUrlOf(objectPath: string | null | undefined): string | null {
+    const path = nonEmptyPath(objectPath);
+    if (path === undefined) {
+      return null;
+    }
+    if (!isOwnedUploadPath(path)) {
+      this.logger.warn(`物件路徑 ${path} 不是本 API 簽出來的,不回公開網址`);
+      return null;
+    }
+    return this.publicUrl(path);
   }
 
   /**
@@ -134,6 +157,9 @@ export abstract class StorageService {
     objectPath: string,
     expiresAt: Date,
   ): Promise<string>;
+
+  /** 公開 bucket 上該物件的穩定 URL(不簽名)。 */
+  protected abstract publicUrl(objectPath: string): string;
 
   /** 把物件從 bucket 刪掉(路徑已由 `deleteObject` 驗過歸屬)。 */
   protected abstract removeObject(objectPath: string): Promise<void>;

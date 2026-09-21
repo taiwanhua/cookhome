@@ -50,6 +50,16 @@ export type CreateChildOrgInput = {
   parentId: Scalars['ID']['input'];
 };
 
+export type CreateDemoItemOneInput = {
+  attachmentPath?: InputMaybe<Scalars['ID']['input']>;
+  category?: InputMaybe<Scalars['String']['input']>;
+  coverPath?: InputMaybe<Scalars['ID']['input']>;
+  internalNote?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  note?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<DemoItemOneStatus>;
+};
+
 export type CreateDemoItemTwoInput = {
   name: Scalars['String']['input'];
   note?: InputMaybe<Scalars['String']['input']>;
@@ -188,6 +198,16 @@ export type DataScopeTargetsPayload = {
   targets: Array<DataScopeTarget>;
 };
 
+export type DeleteDemoItemOneInput = {
+  id: Scalars['ID']['input'];
+};
+
+export type DeleteDemoItemOnePayload = {
+  __typename?: 'DeleteDemoItemOnePayload';
+  deletedId: Scalars['ID']['output'];
+  success: Scalars['Boolean']['output'];
+};
+
 export type DeleteDemoItemTwoInput = {
   id: Scalars['ID']['input'];
 };
@@ -210,6 +230,72 @@ export type DeletePayload = {
 
 export type DeleteRoleInput = {
   id: Scalars['ID']['input'];
+};
+
+export type DemoItemOne = {
+  __typename?: 'DemoItemOne';
+  abilities: DemoItemOneAbilities;
+  attachment?: Maybe<DemoItemOneAttachment>;
+  category?: Maybe<Scalars['String']['output']>;
+  categoryLabel?: Maybe<Scalars['String']['output']>;
+  coverPath?: Maybe<Scalars['ID']['output']>;
+  coverUrl?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  createdBy?: Maybe<DemoItemOneUserRef>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  internalNote?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  note?: Maybe<Scalars['String']['output']>;
+  status: DemoItemOneStatus;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type DemoItemOneAbilities = {
+  __typename?: 'DemoItemOneAbilities';
+  canDelete: Scalars['Boolean']['output'];
+  canEdit: Scalars['Boolean']['output'];
+  canEditInternalNote: Scalars['Boolean']['output'];
+};
+
+export type DemoItemOneAttachment = {
+  __typename?: 'DemoItemOneAttachment';
+  name: Scalars['String']['output'];
+  path: Scalars['ID']['output'];
+};
+
+export type DemoItemOneHistoryEntry = {
+  __typename?: 'DemoItemOneHistoryEntry';
+  action: Scalars['String']['output'];
+  actor?: Maybe<DemoItemOneUserRef>;
+  after?: Maybe<Scalars['JSONObject']['output']>;
+  before?: Maybe<Scalars['JSONObject']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  id: Scalars['ID']['output'];
+};
+
+export type DemoItemOneHistoryPayload = {
+  __typename?: 'DemoItemOneHistoryPayload';
+  items: Array<DemoItemOneHistoryEntry>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type DemoItemOnePayload = {
+  __typename?: 'DemoItemOnePayload';
+  item: DemoItemOne;
+};
+
+/** 示範項目狀態(草稿 / 已發布 / 已封存);資料範圍規則的 enum 欄位,選項正本在模組 seed */
+export enum DemoItemOneStatus {
+  Archived = 'ARCHIVED',
+  Draft = 'DRAFT',
+  Published = 'PUBLISHED'
+}
+
+export type DemoItemOneUserRef = {
+  __typename?: 'DemoItemOneUserRef';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
 };
 
 export type DemoItemTwo = {
@@ -239,6 +325,23 @@ export type DemoItemTwoUser = {
   __typename?: 'DemoItemTwoUser';
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
+};
+
+export type DemoItemsOneInput = {
+  category?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type DemoItemsOnePayload = {
+  __typename?: 'DemoItemsOnePayload';
+  items: Array<DemoItemOne>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
 };
 
 export type DemoItemsTwoInput = {
@@ -423,12 +526,14 @@ export type Mutation = {
   assignUserRoles: UserPayload;
   changePassword: ChangePasswordPayload;
   createChildOrg: OrgPayload;
+  createDemoItemOne: DemoItemOnePayload;
   createDemoItemTwo: DemoItemTwoPayload;
   createField: FieldPayload;
   createRecipe: Recipe;
   createRole: RolePayload;
   createUploadUrl: UploadUrlPayload;
   createUser: UserPayload;
+  deleteDemoItemOne: DeleteDemoItemOnePayload;
   deleteDemoItemTwo: DeleteDemoItemTwoPayload;
   deleteOrg: DeletePayload;
   deleteRole: DeletePayload;
@@ -443,6 +548,7 @@ export type Mutation = {
   revokeRoleUsers: RoleUsersPayload;
   saveDataScopeRule: SaveDataScopeRulePayload;
   saveRoleMatrix: RoleMatrixPayload;
+  setDemoItemOneEnabled: DemoItemOnePayload;
   setDemoItemTwoEnabled: DemoItemTwoPayload;
   setFieldEnabled: FieldPayload;
   setModuleEnabled: ModuleAdminPayload;
@@ -456,6 +562,7 @@ export type Mutation = {
   setUserOrgs: SetUserOrgsPayload;
   switchOrg: SwitchOrgPayload;
   transferOrgOwner: OrgPayload;
+  updateDemoItemOne: DemoItemOnePayload;
   updateDemoItemTwo: DemoItemTwoPayload;
   updateField: FieldPayload;
   updateOrg: OrgPayload;
@@ -476,6 +583,11 @@ export type MutationChangePasswordArgs = {
 
 export type MutationCreateChildOrgArgs = {
   input: CreateChildOrgInput;
+};
+
+
+export type MutationCreateDemoItemOneArgs = {
+  input: CreateDemoItemOneInput;
 };
 
 
@@ -506,6 +618,11 @@ export type MutationCreateUploadUrlArgs = {
 
 export type MutationCreateUserArgs = {
   input: CreateUserInput;
+};
+
+
+export type MutationDeleteDemoItemOneArgs = {
+  input: DeleteDemoItemOneInput;
 };
 
 
@@ -561,6 +678,11 @@ export type MutationSaveDataScopeRuleArgs = {
 
 export type MutationSaveRoleMatrixArgs = {
   input: SaveRoleMatrixInput;
+};
+
+
+export type MutationSetDemoItemOneEnabledArgs = {
+  input: SetDemoItemOneEnabledInput;
 };
 
 
@@ -626,6 +748,11 @@ export type MutationSwitchOrgArgs = {
 
 export type MutationTransferOrgOwnerArgs = {
   input: TransferOrgOwnerInput;
+};
+
+
+export type MutationUpdateDemoItemOneArgs = {
+  input: UpdateDemoItemOneInput;
 };
 
 
@@ -720,9 +847,13 @@ export type ProvisionTenantPayload = {
 
 export type Query = {
   __typename?: 'Query';
+  attachmentDownloadUrl: SignedUrlPayload;
   dataScopeRule: DataScopeRulePayload;
   dataScopeTargets: DataScopeTargetsPayload;
+  demoItemOne: DemoItemOnePayload;
+  demoItemOneHistory: DemoItemOneHistoryPayload;
   demoItemTwo: DemoItemTwoPayload;
+  demoItemsOne: DemoItemsOnePayload;
   demoItemsTwo: DemoItemsTwoPayload;
   fieldCategories: FieldCategoriesPayload;
   fields: FieldsPayload;
@@ -743,13 +874,33 @@ export type Query = {
 };
 
 
+export type QueryAttachmentDownloadUrlArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type QueryDataScopeRuleArgs = {
   collection: Scalars['String']['input'];
 };
 
 
+export type QueryDemoItemOneArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryDemoItemOneHistoryArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type QueryDemoItemTwoArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type QueryDemoItemsOneArgs = {
+  input: DemoItemsOneInput;
 };
 
 
@@ -1025,6 +1176,11 @@ export type SaveRoleMatrixInput = {
   roleId: Scalars['ID']['input'];
 };
 
+export type SetDemoItemOneEnabledInput = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
 export type SetDemoItemTwoEnabledInput = {
   enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
@@ -1095,6 +1251,11 @@ export type SetUserOrgsPayload = {
   user: User;
 };
 
+export type SignedUrlPayload = {
+  __typename?: 'SignedUrlPayload';
+  url: Scalars['String']['output'];
+};
+
 export type SwitchOrgInput = {
   orgId: Scalars['ID']['input'];
 };
@@ -1117,6 +1278,17 @@ export type UnqualifiedRole = {
   reasons: Array<RoleUnqualifiedReason>;
   roleId: Scalars['ID']['output'];
   roleName: Scalars['String']['output'];
+};
+
+export type UpdateDemoItemOneInput = {
+  attachmentPath?: InputMaybe<Scalars['ID']['input']>;
+  category?: InputMaybe<Scalars['String']['input']>;
+  coverPath?: InputMaybe<Scalars['ID']['input']>;
+  id: Scalars['ID']['input'];
+  internalNote?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  note?: InputMaybe<Scalars['String']['input']>;
+  status?: InputMaybe<DemoItemOneStatus>;
 };
 
 export type UpdateDemoItemTwoInput = {
@@ -1159,6 +1331,8 @@ export type UpdateUserInput = {
 
 /** 上傳用途:決定物件路徑前綴與所需權限(ADR-0010) */
 export enum UploadPurpose {
+  DemoAttachment = 'DEMO_ATTACHMENT',
+  DemoCover = 'DEMO_COVER',
   OrgLogo = 'ORG_LOGO'
 }
 
@@ -1313,6 +1487,64 @@ export type SaveDataScopeRuleMutationVariables = Exact<{
 
 
 export type SaveDataScopeRuleMutation = { __typename?: 'Mutation', saveDataScopeRule: { __typename?: 'SaveDataScopeRulePayload', rule: { __typename?: 'DataScopeRule', collection: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } } };
+
+export type DemoItemOneFieldsFragment = { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } };
+
+export type DemoItemsOneQueryVariables = Exact<{
+  input: DemoItemsOneInput;
+}>;
+
+
+export type DemoItemsOneQuery = { __typename?: 'Query', demoItemsOne: { __typename?: 'DemoItemsOnePayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } }> } };
+
+export type DemoItemOneQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DemoItemOneQuery = { __typename?: 'Query', demoItemOne: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
+
+export type DemoItemOneHistoryQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DemoItemOneHistoryQuery = { __typename?: 'Query', demoItemOneHistory: { __typename?: 'DemoItemOneHistoryPayload', totalCount: number, items: Array<{ __typename?: 'DemoItemOneHistoryEntry', id: string, action: string, before?: Record<string, unknown> | null, after?: Record<string, unknown> | null, createdAt: string, actor?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null }> } };
+
+export type AttachmentDownloadUrlQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AttachmentDownloadUrlQuery = { __typename?: 'Query', attachmentDownloadUrl: { __typename?: 'SignedUrlPayload', url: string } };
+
+export type CreateDemoItemOneMutationVariables = Exact<{
+  input: CreateDemoItemOneInput;
+}>;
+
+
+export type CreateDemoItemOneMutation = { __typename?: 'Mutation', createDemoItemOne: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
+
+export type UpdateDemoItemOneMutationVariables = Exact<{
+  input: UpdateDemoItemOneInput;
+}>;
+
+
+export type UpdateDemoItemOneMutation = { __typename?: 'Mutation', updateDemoItemOne: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
+
+export type DeleteDemoItemOneMutationVariables = Exact<{
+  input: DeleteDemoItemOneInput;
+}>;
+
+
+export type DeleteDemoItemOneMutation = { __typename?: 'Mutation', deleteDemoItemOne: { __typename?: 'DeleteDemoItemOnePayload', success: boolean, deletedId: string } };
+
+export type SetDemoItemOneEnabledMutationVariables = Exact<{
+  input: SetDemoItemOneEnabledInput;
+}>;
+
+
+export type SetDemoItemOneEnabledMutation = { __typename?: 'Mutation', setDemoItemOneEnabled: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
 
 export type DemoItemTwoFieldsFragment = { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean } };
 
@@ -1666,6 +1898,35 @@ export type AssignUserRolesMutationVariables = Exact<{
 export type AssignUserRolesMutation = { __typename?: 'Mutation', assignUserRoles: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, ownerOrgId?: string | null, ownerOrgName?: string | null, outOfScope: boolean }> } } };
 
 
+export const DemoItemOneFieldsFragmentDoc = `
+    fragment DemoItemOneFields on DemoItemOne {
+  id
+  name
+  category
+  categoryLabel
+  note
+  internalNote
+  coverPath
+  coverUrl
+  attachment {
+    path
+    name
+  }
+  status
+  enabled
+  createdBy {
+    id
+    name
+  }
+  createdAt
+  updatedAt
+  abilities {
+    canEdit
+    canDelete
+    canEditInternalNote
+  }
+}
+    `;
 export const DemoItemTwoFieldsFragmentDoc = `
     fragment DemoItemTwoFields on DemoItemTwo {
   id
@@ -2235,6 +2496,267 @@ export const useSaveDataScopeRuleMutation = <
 
 
 useSaveDataScopeRuleMutation.fetcher = (client: GraphQLClient, variables: SaveDataScopeRuleMutationVariables, headers?: RequestInit['headers']) => fetcher<SaveDataScopeRuleMutation, SaveDataScopeRuleMutationVariables>(client, SaveDataScopeRuleDocument, variables, headers);
+
+export const DemoItemsOneDocument = `
+    query DemoItemsOne($input: DemoItemsOneInput!) {
+  demoItemsOne(input: $input) {
+    items {
+      ...DemoItemOneFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    ${DemoItemOneFieldsFragmentDoc}`;
+
+export const useDemoItemsOneQuery = <
+      TData = DemoItemsOneQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: DemoItemsOneQueryVariables,
+      options?: Omit<UseQueryOptions<DemoItemsOneQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DemoItemsOneQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<DemoItemsOneQuery, TError, TData>(
+      {
+    queryKey: ['DemoItemsOne', variables],
+    queryFn: fetcher<DemoItemsOneQuery, DemoItemsOneQueryVariables>(client, DemoItemsOneDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useDemoItemsOneQuery.getKey = (variables: DemoItemsOneQueryVariables) => ['DemoItemsOne', variables];
+
+
+useDemoItemsOneQuery.fetcher = (client: GraphQLClient, variables: DemoItemsOneQueryVariables, headers?: RequestInit['headers']) => fetcher<DemoItemsOneQuery, DemoItemsOneQueryVariables>(client, DemoItemsOneDocument, variables, headers);
+
+export const DemoItemOneDocument = `
+    query DemoItemOne($id: ID!) {
+  demoItemOne(id: $id) {
+    item {
+      ...DemoItemOneFields
+    }
+  }
+}
+    ${DemoItemOneFieldsFragmentDoc}`;
+
+export const useDemoItemOneQuery = <
+      TData = DemoItemOneQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: DemoItemOneQueryVariables,
+      options?: Omit<UseQueryOptions<DemoItemOneQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DemoItemOneQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<DemoItemOneQuery, TError, TData>(
+      {
+    queryKey: ['DemoItemOne', variables],
+    queryFn: fetcher<DemoItemOneQuery, DemoItemOneQueryVariables>(client, DemoItemOneDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useDemoItemOneQuery.getKey = (variables: DemoItemOneQueryVariables) => ['DemoItemOne', variables];
+
+
+useDemoItemOneQuery.fetcher = (client: GraphQLClient, variables: DemoItemOneQueryVariables, headers?: RequestInit['headers']) => fetcher<DemoItemOneQuery, DemoItemOneQueryVariables>(client, DemoItemOneDocument, variables, headers);
+
+export const DemoItemOneHistoryDocument = `
+    query DemoItemOneHistory($id: ID!) {
+  demoItemOneHistory(id: $id) {
+    items {
+      id
+      action
+      actor {
+        id
+        name
+      }
+      before
+      after
+      createdAt
+    }
+    totalCount
+  }
+}
+    `;
+
+export const useDemoItemOneHistoryQuery = <
+      TData = DemoItemOneHistoryQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: DemoItemOneHistoryQueryVariables,
+      options?: Omit<UseQueryOptions<DemoItemOneHistoryQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DemoItemOneHistoryQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<DemoItemOneHistoryQuery, TError, TData>(
+      {
+    queryKey: ['DemoItemOneHistory', variables],
+    queryFn: fetcher<DemoItemOneHistoryQuery, DemoItemOneHistoryQueryVariables>(client, DemoItemOneHistoryDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useDemoItemOneHistoryQuery.getKey = (variables: DemoItemOneHistoryQueryVariables) => ['DemoItemOneHistory', variables];
+
+
+useDemoItemOneHistoryQuery.fetcher = (client: GraphQLClient, variables: DemoItemOneHistoryQueryVariables, headers?: RequestInit['headers']) => fetcher<DemoItemOneHistoryQuery, DemoItemOneHistoryQueryVariables>(client, DemoItemOneHistoryDocument, variables, headers);
+
+export const AttachmentDownloadUrlDocument = `
+    query AttachmentDownloadUrl($id: ID!) {
+  attachmentDownloadUrl(id: $id) {
+    url
+  }
+}
+    `;
+
+export const useAttachmentDownloadUrlQuery = <
+      TData = AttachmentDownloadUrlQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: AttachmentDownloadUrlQueryVariables,
+      options?: Omit<UseQueryOptions<AttachmentDownloadUrlQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AttachmentDownloadUrlQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<AttachmentDownloadUrlQuery, TError, TData>(
+      {
+    queryKey: ['AttachmentDownloadUrl', variables],
+    queryFn: fetcher<AttachmentDownloadUrlQuery, AttachmentDownloadUrlQueryVariables>(client, AttachmentDownloadUrlDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useAttachmentDownloadUrlQuery.getKey = (variables: AttachmentDownloadUrlQueryVariables) => ['AttachmentDownloadUrl', variables];
+
+
+useAttachmentDownloadUrlQuery.fetcher = (client: GraphQLClient, variables: AttachmentDownloadUrlQueryVariables, headers?: RequestInit['headers']) => fetcher<AttachmentDownloadUrlQuery, AttachmentDownloadUrlQueryVariables>(client, AttachmentDownloadUrlDocument, variables, headers);
+
+export const CreateDemoItemOneDocument = `
+    mutation CreateDemoItemOne($input: CreateDemoItemOneInput!) {
+  createDemoItemOne(input: $input) {
+    item {
+      ...DemoItemOneFields
+    }
+  }
+}
+    ${DemoItemOneFieldsFragmentDoc}`;
+
+export const useCreateDemoItemOneMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateDemoItemOneMutation, TError, CreateDemoItemOneMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateDemoItemOneMutation, TError, CreateDemoItemOneMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateDemoItemOne'],
+    mutationFn: (variables?: CreateDemoItemOneMutationVariables) => fetcher<CreateDemoItemOneMutation, CreateDemoItemOneMutationVariables>(client, CreateDemoItemOneDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateDemoItemOneMutation.fetcher = (client: GraphQLClient, variables: CreateDemoItemOneMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateDemoItemOneMutation, CreateDemoItemOneMutationVariables>(client, CreateDemoItemOneDocument, variables, headers);
+
+export const UpdateDemoItemOneDocument = `
+    mutation UpdateDemoItemOne($input: UpdateDemoItemOneInput!) {
+  updateDemoItemOne(input: $input) {
+    item {
+      ...DemoItemOneFields
+    }
+  }
+}
+    ${DemoItemOneFieldsFragmentDoc}`;
+
+export const useUpdateDemoItemOneMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateDemoItemOneMutation, TError, UpdateDemoItemOneMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateDemoItemOneMutation, TError, UpdateDemoItemOneMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateDemoItemOne'],
+    mutationFn: (variables?: UpdateDemoItemOneMutationVariables) => fetcher<UpdateDemoItemOneMutation, UpdateDemoItemOneMutationVariables>(client, UpdateDemoItemOneDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateDemoItemOneMutation.fetcher = (client: GraphQLClient, variables: UpdateDemoItemOneMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateDemoItemOneMutation, UpdateDemoItemOneMutationVariables>(client, UpdateDemoItemOneDocument, variables, headers);
+
+export const DeleteDemoItemOneDocument = `
+    mutation DeleteDemoItemOne($input: DeleteDemoItemOneInput!) {
+  deleteDemoItemOne(input: $input) {
+    success
+    deletedId
+  }
+}
+    `;
+
+export const useDeleteDemoItemOneMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteDemoItemOneMutation, TError, DeleteDemoItemOneMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteDemoItemOneMutation, TError, DeleteDemoItemOneMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteDemoItemOne'],
+    mutationFn: (variables?: DeleteDemoItemOneMutationVariables) => fetcher<DeleteDemoItemOneMutation, DeleteDemoItemOneMutationVariables>(client, DeleteDemoItemOneDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useDeleteDemoItemOneMutation.fetcher = (client: GraphQLClient, variables: DeleteDemoItemOneMutationVariables, headers?: RequestInit['headers']) => fetcher<DeleteDemoItemOneMutation, DeleteDemoItemOneMutationVariables>(client, DeleteDemoItemOneDocument, variables, headers);
+
+export const SetDemoItemOneEnabledDocument = `
+    mutation SetDemoItemOneEnabled($input: SetDemoItemOneEnabledInput!) {
+  setDemoItemOneEnabled(input: $input) {
+    item {
+      ...DemoItemOneFields
+    }
+  }
+}
+    ${DemoItemOneFieldsFragmentDoc}`;
+
+export const useSetDemoItemOneEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetDemoItemOneEnabledMutation, TError, SetDemoItemOneEnabledMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetDemoItemOneEnabledMutation, TError, SetDemoItemOneEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['SetDemoItemOneEnabled'],
+    mutationFn: (variables?: SetDemoItemOneEnabledMutationVariables) => fetcher<SetDemoItemOneEnabledMutation, SetDemoItemOneEnabledMutationVariables>(client, SetDemoItemOneEnabledDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetDemoItemOneEnabledMutation.fetcher = (client: GraphQLClient, variables: SetDemoItemOneEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetDemoItemOneEnabledMutation, SetDemoItemOneEnabledMutationVariables>(client, SetDemoItemOneEnabledDocument, variables, headers);
 
 export const DemoItemsTwoDocument = `
     query DemoItemsTwo($input: DemoItemsTwoInput!) {

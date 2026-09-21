@@ -22,6 +22,16 @@ input CreateChildOrgInput {
   parentId: ID!
 }
 
+input CreateDemoItemOneInput {
+  attachmentPath: ID
+  category: String
+  coverPath: ID
+  internalNote: String
+  name: String!
+  note: String
+  status: DemoItemOneStatus
+}
+
 input CreateDemoItemTwoInput {
   name: String!
   note: String
@@ -158,6 +168,15 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+input DeleteDemoItemOneInput {
+  id: ID!
+}
+
+type DeleteDemoItemOnePayload {
+  deletedId: ID!
+  success: Boolean!
+}
+
 input DeleteDemoItemTwoInput {
   id: ID!
 }
@@ -178,6 +197,65 @@ type DeletePayload {
 
 input DeleteRoleInput {
   id: ID!
+}
+
+type DemoItemOne {
+  abilities: DemoItemOneAbilities!
+  attachment: DemoItemOneAttachment
+  category: String
+  categoryLabel: String
+  coverPath: ID
+  coverUrl: String
+  createdAt: DateTime!
+  createdBy: DemoItemOneUserRef
+  enabled: Boolean!
+  id: ID!
+  internalNote: String
+  name: String!
+  note: String
+  status: DemoItemOneStatus!
+  updatedAt: DateTime!
+}
+
+type DemoItemOneAbilities {
+  canDelete: Boolean!
+  canEdit: Boolean!
+  canEditInternalNote: Boolean!
+}
+
+type DemoItemOneAttachment {
+  name: String!
+  path: ID!
+}
+
+type DemoItemOneHistoryEntry {
+  action: String!
+  actor: DemoItemOneUserRef
+  after: JSONObject
+  before: JSONObject
+  createdAt: DateTime!
+  id: ID!
+}
+
+type DemoItemOneHistoryPayload {
+  items: [DemoItemOneHistoryEntry!]!
+  totalCount: Int!
+}
+
+type DemoItemOnePayload {
+  item: DemoItemOne!
+}
+
+"""示範項目狀態(草稿 / 已發布 / 已封存);資料範圍規則的 enum 欄位,選項正本在模組 seed"""
+enum DemoItemOneStatus {
+  ARCHIVED
+  DRAFT
+  PUBLISHED
+}
+
+type DemoItemOneUserRef {
+  id: ID!
+  name: String!
 }
 
 type DemoItemTwo {
@@ -203,6 +281,23 @@ type DemoItemTwoPayload {
 type DemoItemTwoUser {
   id: ID!
   name: String!
+}
+
+input DemoItemsOneInput {
+  category: String
+  enabled: Boolean
+  keyword: String
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
+type DemoItemsOnePayload {
+  items: [DemoItemOne!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
 }
 
 input DemoItemsTwoInput {
@@ -373,12 +468,14 @@ type Mutation {
   assignUserRoles(input: AssignUserRolesInput!): UserPayload!
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
+  createDemoItemOne(input: CreateDemoItemOneInput!): DemoItemOnePayload!
   createDemoItemTwo(input: CreateDemoItemTwoInput!): DemoItemTwoPayload!
   createField(input: CreateFieldInput!): FieldPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   createRole(input: CreateRoleInput!): RolePayload!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   createUser(input: CreateUserInput!): UserPayload!
+  deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeleteDemoItemOnePayload!
   deleteDemoItemTwo(input: DeleteDemoItemTwoInput!): DeleteDemoItemTwoPayload!
   deleteOrg(input: DeleteOrgInput!): DeletePayload!
   deleteRole(input: DeleteRoleInput!): DeletePayload!
@@ -393,6 +490,7 @@ type Mutation {
   revokeRoleUsers(input: RevokeRoleUsersInput!): RoleUsersPayload!
   saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!
   saveRoleMatrix(input: SaveRoleMatrixInput!): RoleMatrixPayload!
+  setDemoItemOneEnabled(input: SetDemoItemOneEnabledInput!): DemoItemOnePayload!
   setDemoItemTwoEnabled(input: SetDemoItemTwoEnabledInput!): DemoItemTwoPayload!
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
@@ -406,6 +504,7 @@ type Mutation {
   setUserOrgs(input: SetUserOrgsInput!): SetUserOrgsPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
   transferOrgOwner(input: TransferOrgOwnerInput!): OrgPayload!
+  updateDemoItemOne(input: UpdateDemoItemOneInput!): DemoItemOnePayload!
   updateDemoItemTwo(input: UpdateDemoItemTwoInput!): DemoItemTwoPayload!
   updateField(input: UpdateFieldInput!): FieldPayload!
   updateOrg(input: UpdateOrgInput!): OrgPayload!
@@ -473,9 +572,13 @@ type ProvisionTenantPayload {
 }
 
 type Query {
+  attachmentDownloadUrl(id: ID!): SignedUrlPayload!
   dataScopeRule(collection: String!): DataScopeRulePayload!
   dataScopeTargets: DataScopeTargetsPayload!
+  demoItemOne(id: ID!): DemoItemOnePayload!
+  demoItemOneHistory(id: ID!): DemoItemOneHistoryPayload!
   demoItemTwo(id: ID!): DemoItemTwoPayload!
+  demoItemsOne(input: DemoItemsOneInput!): DemoItemsOnePayload!
   demoItemsTwo(input: DemoItemsTwoInput!): DemoItemsTwoPayload!
   fieldCategories: FieldCategoriesPayload!
   fields(categoryId: ID!): FieldsPayload!
@@ -695,6 +798,11 @@ input SaveRoleMatrixInput {
   roleId: ID!
 }
 
+input SetDemoItemOneEnabledInput {
+  enabled: Boolean!
+  id: ID!
+}
+
 input SetDemoItemTwoEnabledInput {
   enabled: Boolean!
   id: ID!
@@ -763,6 +871,10 @@ type SetUserOrgsPayload {
   user: User!
 }
 
+type SignedUrlPayload {
+  url: String!
+}
+
 input SwitchOrgInput {
   orgId: ID!
 }
@@ -783,6 +895,17 @@ type UnqualifiedRole {
   reasons: [RoleUnqualifiedReason!]!
   roleId: ID!
   roleName: String!
+}
+
+input UpdateDemoItemOneInput {
+  attachmentPath: ID
+  category: String
+  coverPath: ID
+  id: ID!
+  internalNote: String
+  name: String
+  note: String
+  status: DemoItemOneStatus
 }
 
 input UpdateDemoItemTwoInput {
@@ -825,6 +948,8 @@ input UpdateUserInput {
 
 """上傳用途:決定物件路徑前綴與所需權限(ADR-0010)"""
 enum UploadPurpose {
+  DEMO_ATTACHMENT
+  DEMO_COVER
   ORG_LOGO
 }
 

@@ -1,4 +1,5 @@
 import { type SignUploadRequest, StorageService } from "./storage.service";
+import type { UploadVisibility } from "./upload-rules";
 
 export interface RecordedSignature {
   action: "read" | "write";
@@ -6,6 +7,8 @@ export interface RecordedSignature {
   contentType?: string;
   expiresAt: Date;
   url: string;
+  /** 只有上傳票有:這張票要把檔案放進哪一顆 bucket(ADR-0010)。 */
+  visibility?: UploadVisibility;
 }
 
 /**
@@ -23,9 +26,16 @@ export class RecordingStorageService extends StorageService {
     objectPath,
     contentType,
     expiresAt,
+    visibility,
   }: SignUploadRequest): Promise<string> {
     return Promise.resolve(
-      this.record({ action: "write", objectPath, contentType, expiresAt }),
+      this.record({
+        action: "write",
+        objectPath,
+        contentType,
+        expiresAt,
+        visibility,
+      }),
     );
   }
 
@@ -36,6 +46,11 @@ export class RecordingStorageService extends StorageService {
     return Promise.resolve(
       this.record({ action: "read", objectPath, expiresAt }),
     );
+  }
+
+  /** 公開檔案的穩定網址;一樣一眼看得出是假的,但形狀與 GCS adapter 相同(不帶簽名參數)。 */
+  protected override publicUrl(objectPath: string): string {
+    return `https://recording.storage.invalid/public/${objectPath}`;
   }
 
   protected override removeObject(objectPath: string): Promise<void> {
