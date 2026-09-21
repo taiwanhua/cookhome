@@ -67,17 +67,19 @@ export async function createRole(
   options: CreateRoleOptions,
 ): Promise<Types.ObjectId> {
   const now = new Date();
-  const { insertedId: roleId } = await connection.collection("roles").insertOne({
-    name: options.name,
-    enabled: true,
-    isSystem: false,
-    settings: {},
-    createdAt: now,
-    updatedAt: now,
-    createdBy: null,
-    updatedBy: null,
-    deletedAt: null,
-  });
+  const { insertedId: roleId } = await connection
+    .collection("roles")
+    .insertOne({
+      name: options.name,
+      enabled: true,
+      isSystem: false,
+      settings: {},
+      createdAt: now,
+      updatedAt: now,
+      createdBy: null,
+      updatedBy: null,
+      deletedAt: null,
+    });
   const relations = app.get(RelationService);
   await relations.setRoleOwnerOrg(SYSTEM, options.ownerOrgId, roleId);
   for (const moduleKey of options.moduleKeys ?? []) {

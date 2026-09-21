@@ -3,8 +3,8 @@ import { type Model, Types } from "mongoose";
 
 import {
   HOOK_TIMEOUT_MS,
-  openTestDatabase,
   type TestDatabase,
+  openTestDatabase,
 } from "../test-support/mongo-connection";
 import {
   CORE_RELATIONSHIP_TYPES,

@@ -7,8 +7,8 @@ import { BaseRepository } from "../base.repository";
 import type { OperatorContext } from "../operator-context";
 import {
   HOOK_TIMEOUT_MS,
-  openTestDatabase,
   type TestDatabase,
+  openTestDatabase,
 } from "../test-support/mongo-connection";
 import { Customer, CustomerSchema } from "./customer.schema";
 import { User, UserSchema } from "./user.schema";

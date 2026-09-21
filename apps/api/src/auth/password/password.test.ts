@@ -335,7 +335,9 @@ describe("登入線3:requestPasswordReset / setPassword / changePassword(GraphQL
 
       travelTo(start + 31 * MINUTE_MS);
       const expired = await setPassword(token, NEW_PASSWORD);
-      expect(expired.errors?.[0]?.extensions?.code).toBe("ACTION_TOKEN_INVALID");
+      expect(expired.errors?.[0]?.extensions?.code).toBe(
+        "ACTION_TOKEN_INVALID",
+      );
 
       const bogus = await setPassword("not-a-real-token", NEW_PASSWORD);
       expect(bogus.errors?.[0]?.extensions?.code).toBe("ACTION_TOKEN_INVALID");

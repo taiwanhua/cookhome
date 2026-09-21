@@ -1,5 +1,6 @@
-import { defaultLocale, locales } from "@repo/i18n";
 import { defineRouting } from "next-intl/routing";
+
+import { defaultLocale, locales } from "@repo/i18n";
 
 export const routing = defineRouting({
   locales,

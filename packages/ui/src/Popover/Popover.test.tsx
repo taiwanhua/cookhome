@@ -32,7 +32,9 @@ describe("Popover", () => {
       </Popover>,
     );
 
-    expect(screen.queryByRole("button", { name: "項目 1" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "項目 1" }),
+    ).not.toBeInTheDocument();
   });
 
   it("點浮層內的項目會觸發它的 onClick", async () => {

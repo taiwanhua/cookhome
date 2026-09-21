@@ -5,6 +5,7 @@ import {
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { GqlExecutionContext } from "@nestjs/graphql";
+
 import { hasPermission } from "@repo/domain/permission";
 
 import { authError } from "../auth/auth-error";

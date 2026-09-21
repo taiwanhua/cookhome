@@ -226,7 +226,11 @@ export function validateRules(
   }
   const byName = new Map(catalog.map((field) => [field.name, field]));
   for (const [index, entry] of rules.entries()) {
-    const violation = validateRuleEntry(entry, byName, `rules[${String(index)}]`);
+    const violation = validateRuleEntry(
+      entry,
+      byName,
+      `rules[${String(index)}]`,
+    );
     if (violation) {
       return violation;
     }
@@ -402,7 +406,12 @@ function validateLeaf(
       detail: `field ${name} is ${field.type}; allowed conditions are ${CONDITIONS_BY_TYPE[field.type].join(" / ")}`,
     };
   }
-  return validateValue(node.value, field, cond as DataScopeCondition, `${path}.value`);
+  return validateValue(
+    node.value,
+    field,
+    cond as DataScopeCondition,
+    `${path}.value`,
+  );
 }
 
 function validateValue(
@@ -540,8 +549,7 @@ export function matchesAudience(
   if (audience.type === "user") {
     return facts.actorId !== null && ids.has(String(facts.actorId));
   }
-  const mine =
-    audience.type === "role" ? facts.roleIds : facts.memberOrgIds;
+  const mine = audience.type === "role" ? facts.roleIds : facts.memberOrgIds;
   return mine.some((id) => ids.has(String(id)));
 }
 
