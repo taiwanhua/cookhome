@@ -53,6 +53,8 @@ function globalReader(operator: OperatorContext): OperatorContext {
     currentOrgId: operator.currentOrgId,
     visibleOrgIds: "all",
     managedOrgIds: "all",
+    memberOrgIds: operator.memberOrgIds,
+    roleIds: operator.roleIds,
   };
 }
 

@@ -14,6 +14,9 @@ export function asAccount(userId: Types.ObjectId): OperatorContext {
     currentOrgId: null,
     visibleOrgIds: "all",
     managedOrgIds: "all",
+    // 密碼流程走不到資料範圍規則(ADR-0008);明寫空集合而非省略(#246 的 6)
+    memberOrgIds: [],
+    roleIds: [],
   };
 }
 
@@ -23,4 +26,6 @@ export const LOOKUP: OperatorContext = {
   currentOrgId: null,
   visibleOrgIds: "all",
   managedOrgIds: "all",
+  memberOrgIds: [],
+  roleIds: [],
 };

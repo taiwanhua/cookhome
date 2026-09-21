@@ -34,16 +34,19 @@ export interface OperatorContext {
    * 與 `visibleOrgIds` 不同 — 後者含可見性開關展開的下層(ADR-0005)。
    *
    * 由登入線的 `OperatorContextService` 填寫;**沒有經登入線解析的內部上下文**
-   * (密碼流程的 `LOOKUP` / `asAccount`、夾具的系統上下文)留空 —
-   * 那些流程只碰非租戶資料,永遠走不到資料範圍規則。留空時規則算出的對象是空集合,
+   * (密碼流程的 `LOOKUP` / `asAccount`、夾具的系統上下文)一律明寫 `[]` —
+   * 那些流程只碰非租戶資料,永遠走不到資料範圍規則。空集合時規則算出的對象是空集合,
    * `$in: []` 命中不到任何資料(fail-closed,不會放寬)。
+   *
+   * **必填**(#246 的 6):原本可選,漏填與「刻意給空」在型別上長得一模一樣,
+   * 新增一個上下文時少寫一欄會靜默變成「不屬於任何組織」而不是編譯錯誤。
    */
-  memberOrgIds?: Types.ObjectId[];
+  memberOrgIds: Types.ObjectId[];
   /**
    * 持有的**啟用中角色** id:資料範圍規則的套用對象「指定角色」以它比對(ADR-0008)。
-   * 與 `managedOrgIds` 同一批角色(停用的不算,ADR-0011 步驟 2);留空的語意同 `memberOrgIds`。
+   * 與 `managedOrgIds` 同一批角色(停用的不算,ADR-0011 步驟 2);同樣**必填**,語意同上。
    */
-  roleIds?: Types.ObjectId[];
+  roleIds: Types.ObjectId[];
 }
 
 /** 掛在單一 Query 上的範圍資訊,供 plugin 的查詢中介層讀取。 */

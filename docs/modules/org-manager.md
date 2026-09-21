@@ -78,6 +78,7 @@ deleteOrg(input: { id }): DeletePayload!
 - **`OrgNode` 也帶 `ownerUserId`**(僅租戶頂層有值,其餘 null;同 `Org`):使用者管理頁靠它標出
   受擁有者保護的列,不必為了一個欄位再逐筆查 `org(id)`(#139 回饋)。
 - **「無業務資料引用」的清單**= 目前有 `orgId` 的業務 collection:`customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)。`audit_logs` 不算(只增不改的歷史紀錄)。第 5 段示範模組長出新 collection 時在 `orgs.service.ts` 的 `hasBusinessData()` 加一項。
+- **`OWNS_ROLES` 只算存活的角色**(#246):角色被軟刪除時 `org_role` 關聯刻意不動(ADR-0007 / ADR-0001),所以只看關聯會把「角色都刪光了」的組織永遠判成不可刪。前置檢查改以 `roles` 文件為準(軟刪除的預設查不到),程式正本 `orgs.service.ts` 的 `ownsAliveRole()`。
 - 錯誤碼:`ORG_NOT_DELETABLE`(`extensions.reasons`:`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG`)、`CROSS_TENANT`、`CYCLIC_MOVE`、`NOT_FOUND`、`VALIDATION_FAILED`、`FORBIDDEN`(GQL-04 表)。
 
 ## api 介面:租戶作業(#135 已實作,程式在 `apps/api/src/orgs/tenant-ops.*.ts`)

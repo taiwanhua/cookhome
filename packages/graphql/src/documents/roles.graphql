@@ -30,6 +30,8 @@ fragment RoleFields on Role {
   }
 }
 
+# input.ownerOrgId:只留擁有組織**正好是它**的角色(不含子樹);缺席 / null = 整個管理範圍。
+# 範圍外的組織 id 回空清單(不透露該組織存在)。可與 keyword 疊加。
 query Roles($input: RolesInput!) {
   roles(input: $input) {
     totalCount
@@ -184,6 +186,30 @@ fragment RoleUsersFields on RoleUsersPayload {
 query RoleUsers($roleId: ID!, $input: RoleUsersInput!) {
   roleUsers(roleId: $roleId, input: $input) {
     ...RoleUsersFields
+  }
+}
+
+# 「加入使用者」彈窗的候選清單(#246):操作者**管理範圍**內、**尚未持有**這個角色的人。
+# 掛在 system.role-manager.assign-users 底下,不再需要 system.user-manager.view。
+# eligible = 所屬組織落在角色擁有組織子樹內(ADR-0003);**不合格的人照樣列出來**,
+# 由前端 disabled 並就地說明原因(#261 的決定:直接不列會讓人以為「這個人不見了」)。
+query RoleUserCandidates($roleId: ID!, $input: RoleUserCandidatesInput!) {
+  roleUserCandidates(roleId: $roleId, input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      id
+      account
+      name
+      email
+      enabled
+      eligible
+      orgs {
+        id
+        name
+      }
+    }
   }
 }
 

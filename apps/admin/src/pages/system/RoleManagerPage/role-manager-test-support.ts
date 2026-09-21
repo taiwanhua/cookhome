@@ -17,7 +17,6 @@ import { renderApp } from "@/test/render";
 import {
   ORG_MANAGER_VIEW_PERMISSION,
   ROLE_MANAGER_PERMISSIONS,
-  USER_MANAGER_VIEW_PERMISSION,
 } from "./role-manager-permissions";
 
 /**
@@ -25,11 +24,14 @@ import {
  * `<page>-test-support.ts`」)。
  */
 
-/** 擁有組織下拉要 `system.org-manager.view`、加入使用者的候選要 `system.user-manager.view`。 */
+/**
+ * 擁有組織下拉(新增角色、清單上方的篩選)要 `system.org-manager.view`;
+ * 加入使用者的候選自 #246 起掛在 `system.role-manager.assign-users` 底下,
+ * 不再需要 `system.user-manager.view`。
+ */
 export const ALL_PERMISSIONS = [
   ...Object.values(ROLE_MANAGER_PERMISSIONS),
   ORG_MANAGER_VIEW_PERMISSION,
-  USER_MANAGER_VIEW_PERMISSION,
 ];
 
 const ROLE_PREFIX = "system.role-manager.";
@@ -66,9 +68,7 @@ const modulesWith = (permissions: readonly string[]): TestModule[] => [
     sidebarType: ModuleSidebarType.Link,
     order: 2,
     route: "/system/user-manager",
-    permissions: permissions.includes(USER_MANAGER_VIEW_PERMISSION)
-      ? [USER_MANAGER_VIEW_PERMISSION]
-      : [],
+    permissions: [],
   },
   {
     id: "m-role",

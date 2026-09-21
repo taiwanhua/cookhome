@@ -749,10 +749,22 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
 
     const { dataScopeTargets } = await readSeededDocuments(databaseUri);
     expect(dataScopeTargets).toHaveLength(1);
+    // 業務欄位目錄照宣告落庫(#246 的 2:enum 的固定選項);基礎欄位不入庫,由 api 查詢時附加
     expect(dataScopeTargets[0]).toMatchObject({
       collection: "demo_items_one",
       isSystem: true,
-      fields: [],
+      fields: [
+        {
+          name: "status",
+          label: "狀態",
+          type: "enum",
+          options: [
+            { value: "draft", label: "草稿" },
+            { value: "published", label: "已發布" },
+            { value: "archived", label: "已封存" },
+          ],
+        },
+      ],
     });
     expect(typeof dataScopeTargets[0]?.name).toBe("string");
     expect(dataScopeTargets[0]).not.toHaveProperty("key");

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   type RolesQueryVariables,
   useRoleMatrixQuery,
+  useRoleUserCandidatesQuery,
   useRoleUsersQuery,
   useRolesQuery,
 } from "@repo/graphql";
@@ -15,9 +16,11 @@ import { ROLE_MANAGER_PERMISSIONS } from "./role-manager-permissions";
 import {
   ROLES_PAGE_SIZE,
   ROLE_USERS_PAGE_SIZE,
+  ROLE_USER_CANDIDATES_PAGE_SIZE,
   type RoleActionAbility,
   type RoleRow,
 } from "./role-manager-types";
+import { useOwnerOrgOptions } from "./useOwnerOrgOptions";
 
 /**
  * 角色管理頁的資料層:清單、搜尋、分頁、選中的角色與權限判斷(ADR-0011「頁內功能」)。
@@ -42,8 +45,13 @@ export const useRoleManagerData = () => {
   };
 
   const [keyword, setKeywordValue] = useState("");
+  /** 擁有組織篩選;`""` = 全部(不送 `ownerOrgId`)。與搜尋框並存、兩者疊加。 */
+  const [ownerOrgId, setOwnerOrgIdValue] = useState("");
   const [page, setPage] = useState(1);
   const [pickedRoleId, setPickedRoleId] = useState<string | null>(null);
+
+  /** 下拉的候選 = 操作者的管理範圍(與新增角色的「擁有組織」同一份,#246 的 3)。 */
+  const ownerOrgs = useOwnerOrgOptions();
 
   const rolesVariables = useMemo<RolesQueryVariables>(
     () => ({
@@ -51,9 +59,10 @@ export const useRoleManagerData = () => {
         page,
         pageSize: ROLES_PAGE_SIZE,
         keyword: keyword.trim() === "" ? null : keyword.trim(),
+        ownerOrgId: ownerOrgId === "" ? null : ownerOrgId,
       },
     }),
-    [page, keyword],
+    [page, keyword, ownerOrgId],
   );
   const roles = useRolesQuery(session.client, rolesVariables, {
     enabled: ability.canView,
@@ -67,6 +76,12 @@ export const useRoleManagerData = () => {
   /** 換關鍵字回到第一頁(否則會停在一個不存在的頁碼上看到空清單)。 */
   const setKeyword = (value: string) => {
     setKeywordValue(value);
+    setPage(1);
+  };
+
+  /** 換擁有組織同理回到第一頁。 */
+  const setOwnerOrgId = (value: string) => {
+    setOwnerOrgIdValue(value);
     setPage(1);
   };
 
@@ -89,6 +104,16 @@ export const useRoleManagerData = () => {
           .slice(0, 1),
         exact: false,
       });
+      // 候選清單要排除剛加進去的人(#246 的 4);key 帶關鍵字,同樣以第一段當前綴
+      await queryClient.invalidateQueries({
+        queryKey: useRoleUserCandidatesQuery
+          .getKey({
+            roleId,
+            input: { page: 1, pageSize: ROLE_USER_CANDIDATES_PAGE_SIZE },
+          })
+          .slice(0, 1),
+        exact: false,
+      });
     }
   };
 
@@ -99,6 +124,9 @@ export const useRoleManagerData = () => {
     isLoading: roles.isLoading,
     keyword,
     setKeyword,
+    ownerOrgId,
+    setOwnerOrgId,
+    ownerOrgOptions: ownerOrgs.options,
     page,
     setPage,
     selectedRole,

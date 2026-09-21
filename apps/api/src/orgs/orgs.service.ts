@@ -8,6 +8,7 @@ import {
   DemoItemsTwoRepository,
   FieldsRepository,
   OrgsRepository,
+  RolesRepository,
 } from "../database/database.module";
 import {
   type OperatorContext,
@@ -231,6 +232,7 @@ export class OrgsService {
     private readonly demoItemsOne: DemoItemsOneRepository,
     private readonly demoItemsTwo: DemoItemsTwoRepository,
     private readonly fields: FieldsRepository,
+    private readonly roles: RolesRepository,
     private readonly protection: OwnerProtectionService,
   ) {}
 
@@ -402,6 +404,7 @@ export class OrgsService {
   /**
    * 刪除:前置四項(無子組織 / 無成員 / 非角色擁有組織 / 無業務資料引用)全過才可;
    * 任一不過回 `ORG_NOT_DELETABLE` 附 reasons,前端提示改用停用。刪除 = 軟刪除(ADR-0007)。
+   * 「非角色擁有組織」**只算存活的角色**(#246 的 5,見 `ownsAliveRole`)。
    */
   async remove(
     operator: OperatorContext,
@@ -552,14 +555,36 @@ export class OrgsService {
     if (memberIds.length > 0) {
       reasons.push("HAS_MEMBERS");
     }
-    const ownedRoleIds = await this.relations.listRoleIdsOfOrg(org._id);
-    if (ownedRoleIds.length > 0) {
+    if (await this.ownsAliveRole(operator, org._id)) {
       reasons.push("OWNS_ROLES");
     }
     if (await this.hasBusinessData(operator, org._id)) {
       reasons.push("HAS_BUSINESS_DATA");
     }
     return reasons;
+  }
+
+  /**
+   * 「非角色擁有組織」前置:**只算存活的角色**(#246 的 5)。
+   *
+   * `org_role` 關聯在角色被軟刪除時刻意不動(ADR-0007 軟刪除、ADR-0001 關聯不連動),
+   * 所以光看關聯會把「角色都刪光了」的組織永遠判成不可刪。角色文件經 `this.roles` 讀,
+   * `deletedAt` 有值的預設就查不到(ADR-0007),過濾因此不必寫在這裡。
+   * 上下文用 `subtreeContext`:`roles` 沒掛租戶過濾,但前置檢查問的是「有沒有」,
+   * 不是「你看不看得到」— 與 `hasBusinessData` 同一條理由。
+   */
+  private async ownsAliveRole(
+    operator: OperatorContext,
+    orgId: Types.ObjectId,
+  ): Promise<boolean> {
+    const ownedRoleIds = await this.relations.listRoleIdsOfOrg(orgId);
+    if (ownedRoleIds.length === 0) {
+      return false;
+    }
+    const alive = await this.roles.count(subtreeContext(operator), {
+      _id: { $in: ownedRoleIds },
+    });
+    return alive > 0;
   }
 
   /**

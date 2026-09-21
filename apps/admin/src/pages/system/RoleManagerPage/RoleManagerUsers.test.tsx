@@ -26,17 +26,17 @@ describe("角色管理:分配使用者頁籤", () => {
     expect(within(owner).getByRole("button", { name: "移除" })).toBeDisabled();
   });
 
-  it("加入使用者:候選來自角色擁有組織的子樹,送出帶勾選的人", async () => {
+  it("加入使用者:候選來自 roleUserCandidates,送出帶勾選的人(#246 的 4)", async () => {
     const { user: actor, fake } = await openUsersTab();
 
     await actor.click(screen.getByRole("button", { name: "加入使用者" }));
-    // #261 的 7:候選改問「管理範圍內的全部使用者」(不再帶 orgId 只問子樹),
-    // 資格由前端依組織樹逐列判斷、不合格的顯示但 disabled
+    // #246 的 4:改問專屬的候選端點(掛 assign-users),不再借 users query;
+    // 資格由 api 逐列算好(eligible),不合格的顯示但 disabled(#261 的 7)
     await waitFor(() => {
-      expect(fake.inputs.users.at(-1)?.orgId).toBeUndefined();
+      expect(fake.inputs.roleUserCandidates).toHaveLength(1);
     });
     expect(
-      screen.getByText(/僅列出屬於「租戶 A」或其下層組織/),
+      screen.getByText(/可加入的是屬於「租戶 A」或其下層組織/),
     ).toBeInTheDocument();
 
     const dialog = screen.getByRole("dialog");
@@ -53,7 +53,7 @@ describe("角色管理:分配使用者頁籤", () => {
     expect(await screen.findByText("新同事")).toBeInTheDocument();
   });
 
-  it("加入使用者:角色擁有組織子樹外的人顯示但勾不動,並就地說明原因(#261 的 7)", async () => {
+  it("加入使用者:eligible = false 的人顯示但勾不動,並就地說明原因(#261 的 7)", async () => {
     const { user: actor } = await openUsersTab();
 
     await actor.click(screen.getByRole("button", { name: "加入使用者" }));

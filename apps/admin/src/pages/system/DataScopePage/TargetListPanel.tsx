@@ -16,8 +16,6 @@ export interface TargetListPanelProps {
   selectedCollection: string | null;
   /** 有未儲存變更時由頁面攔下來先問(放棄變更確認),不是直接切 */
   onSelectTarget: (collection: string) => void;
-  /** 已經有規則的 collection(左清單的「已設規則」標籤) */
-  collectionsWithRule: ReadonlySet<string>;
 }
 
 /**
@@ -29,7 +27,6 @@ export const TargetListPanel = ({
   isLoading,
   selectedCollection,
   onSelectTarget,
-  collectionsWithRule,
 }: TargetListPanelProps) => {
   const t = useTranslations("admin.dataScope.targets");
 
@@ -76,7 +73,8 @@ export const TargetListPanel = ({
                     sx={{ alignItems: "center" }}
                   >
                     <Typography variant="subtitle2">{target.name}</Typography>
-                    {collectionsWithRule.has(target.collection) && (
+                    {/* 「已設規則」直接讀 api 的 hasRule(#246 的 1) */}
+                    {target.hasRule && (
                       <Tag tone="primary" label={t("hasRule")} />
                     )}
                   </Stack>

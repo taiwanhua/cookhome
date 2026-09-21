@@ -113,6 +113,9 @@ export const RoleManagerPage = () => {
         totalCount={data.totalCount}
         keyword={data.keyword}
         onKeywordChange={data.setKeyword}
+        ownerOrgId={data.ownerOrgId}
+        onOwnerOrgChange={data.setOwnerOrgId}
+        ownerOrgOptions={data.ownerOrgOptions}
         page={data.page}
         onPageChange={data.setPage}
         selectedRoleId={data.selectedRole?.id ?? null}

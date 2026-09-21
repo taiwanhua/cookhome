@@ -53,6 +53,8 @@ const RULE_READER: OperatorContext = {
   currentOrgId: null,
   visibleOrgIds: "all",
   managedOrgIds: "all",
+  memberOrgIds: [],
+  roleIds: [],
 };
 
 /** 快取中的一份規則:沒有規則的 collection 也要記(`null`),否則每次查詢都打一次資料庫。 */
@@ -146,15 +148,25 @@ export class DataScopeService
 
   // ---- 設定面(「資料範圍」頁) ----
 
-  /** 資料目標清單(seed);每個目標的欄位目錄已附上底座的基礎欄位(ADR-0008)。 */
+  /**
+   * 資料目標清單(seed);每個目標的欄位目錄已附上底座的基礎欄位(ADR-0008)。
+   * `hasRule` 一次取全部規則文件算出來(#246 的 1),前端不必對每個目標各查一次規則。
+   */
   async listTargets(operator: OperatorContext): Promise<DataScopeTargetModel[]> {
     await this.assertRootOperator(operator, "dataScopeTargets");
-    const documents = await this.targets.findMany(
-      RULE_READER,
-      {},
-      { sort: { collection: 1 } },
+    const [documents, rules] = await Promise.all([
+      this.targets.findMany(RULE_READER, {}, { sort: { collection: 1 } }),
+      this.rules.findMany(RULE_READER, {}),
+    ]);
+    // 空 `rules` = 已被清掉的規則(ADR-0008),不算已設 — 與執行面的 `load` 同一條判準
+    const withRule = new Set(
+      rules
+        .filter((rule) => rule.rules.length > 0)
+        .map((rule) => rule.collection),
     );
-    return documents.map((target) => toTargetModel(target));
+    return documents.map((target) =>
+      toTargetModel(target, withRule.has(target.collection)),
+    );
   }
 
   /** 某目標目前的規則;尚未設定過 → `null`(ADR-0008:沒有規則 = 只有租戶保底)。 */
@@ -260,8 +272,8 @@ export class DataScopeService
 function factsOf(operator: OperatorContext): DataScopeOperatorFacts {
   return {
     actorId: operator.actorId,
-    memberOrgIds: operator.memberOrgIds ?? [],
-    roleIds: operator.roleIds ?? [],
+    memberOrgIds: operator.memberOrgIds,
+    roleIds: operator.roleIds,
   };
 }
 
@@ -270,11 +282,15 @@ function declaredFieldsOf(target: TargetRecord | null): DataScopeField[] {
   return (target?.fields ?? []) as unknown as DataScopeField[];
 }
 
-function toTargetModel(target: TargetRecord): DataScopeTargetModel {
+function toTargetModel(
+  target: TargetRecord,
+  hasRule: boolean,
+): DataScopeTargetModel {
   return {
     collection: target.collection,
     name: target.name,
     description: target.description ?? null,
+    hasRule,
     fields: fieldCatalogOf(declaredFieldsOf(target)).map((field) => ({
       name: field.name,
       label: field.label,

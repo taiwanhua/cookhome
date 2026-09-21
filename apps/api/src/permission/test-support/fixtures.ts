@@ -16,6 +16,8 @@ const SYSTEM: OperatorContext = {
   currentOrgId: null,
   visibleOrgIds: "all",
   managedOrgIds: "all",
+  memberOrgIds: [],
+  roleIds: [],
 };
 
 export interface CreateRoleOptions {

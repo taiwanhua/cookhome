@@ -43,6 +43,28 @@ const ROLE_USERS = /* GraphQL */ `
   }
 `;
 
+const ROLE_USER_CANDIDATES = /* GraphQL */ `
+  query RoleUserCandidates($roleId: ID!, $input: RoleUserCandidatesInput!) {
+    roleUserCandidates(roleId: $roleId, input: $input) {
+      totalCount
+      page
+      pageSize
+      items {
+        id
+        account
+        name
+        email
+        enabled
+        eligible
+        orgs {
+          id
+          name
+        }
+      }
+    }
+  }
+`;
+
 const GRANT_ROLE_USERS = /* GraphQL */ `
   mutation GrantRoleUsers($input: GrantRoleUsersInput!) {
     grantRoleUsers(input: $input) {
@@ -98,6 +120,25 @@ interface RevokeData {
   revokeRoleUsers: { totalCount: number; items: { id: string }[] };
 }
 
+interface CandidateRow {
+  id: string;
+  account: string;
+  name: string;
+  email: string;
+  enabled: boolean;
+  eligible: boolean;
+  orgs: { id: string; name: string }[];
+}
+
+interface CandidatesData {
+  roleUserCandidates: {
+    totalCount: number;
+    page: number;
+    pageSize: number;
+    items: CandidateRow[];
+  };
+}
+
 /**
  * 分配使用者(#203):候選規則、「組織外」標記、擁有者保護(TEST-07,對真 MongoDB)。
  * 規則正本:ADR-0003「被授予角色的資格」/「從組織移除使用者」、ADR-0009 擁有者保護。
@@ -135,6 +176,25 @@ describe("角色管理:分配使用者(#203,GraphQL 端點 + 真 MongoDB)", () =
       throw new Error("roleUsers 沒有回資料");
     }
     return result.data.roleUsers;
+  }
+
+  async function candidatesOf(
+    roleId: Types.ObjectId,
+    input: Record<string, unknown> = {},
+    token = manager.token,
+  ): Promise<{
+    data: CandidatesData["roleUserCandidates"] | undefined;
+    code: string | undefined;
+  }> {
+    const result = await world.api.graphql<CandidatesData>(
+      ROLE_USER_CANDIDATES,
+      { roleId: String(roleId), input },
+      { accessToken: token },
+    );
+    return {
+      data: result.data?.roleUserCandidates,
+      code: result.errors?.[0]?.extensions?.code,
+    };
   }
 
   async function grant(
@@ -296,6 +356,129 @@ describe("角色管理:分配使用者(#203,GraphQL 端點 + 真 MongoDB)", () =
       expect(page.page).toBe(2);
       expect(page.pageSize).toBe(2);
       expect(page.items).toHaveLength(1);
+    });
+  });
+
+  describe("候選清單(roleUserCandidates,#246 的 4)", () => {
+    it("列管理範圍內的人:子樹內 eligible = true、子樹外 eligible = false(照列不隱藏)", async () => {
+      const roleId = await createRole(world.api.app, connection, {
+        name: nextAccount("候選:部門一的角色"),
+        ownerOrgId: world.deptOne,
+      });
+      const inSubtree = await createMember(world, [world.teamOne], "cand-in");
+      const outOfSubtree = await createMember(
+        world,
+        [world.deptTwo],
+        "cand-out",
+      );
+
+      const { data, code } = await candidatesOf(roleId, { pageSize: 100 });
+      expect(code).toBeUndefined();
+      const byId = new Map(data?.items.map((row) => [row.id, row]));
+      expect(byId.get(String(inSubtree))?.eligible).toBe(true);
+      expect(byId.get(String(outOfSubtree))?.eligible).toBe(false);
+      // 所屬組織名稱照樣附上(管理範圍內的才露,與 roleUsers 同一條)
+      expect(byId.get(String(inSubtree))?.orgs).toEqual([
+        { id: String(world.teamOne), name: "小組一" },
+      ]);
+    });
+
+    it("已持有這個角色的人不在候選裡(排除已持有)", async () => {
+      const roleId = await createRole(world.api.app, connection, {
+        name: nextAccount("候選:排除已持有"),
+        ownerOrgId: world.deptOne,
+      });
+      const member = await createMember(world, [world.deptOne], "cand-holder");
+      const before = await candidatesOf(roleId, { pageSize: 100 });
+      expect(before.data?.items.map((row) => row.id)).toContain(String(member));
+
+      await grant(roleId, [member]);
+      const after = await candidatesOf(roleId, { pageSize: 100 });
+      expect(after.data?.items.map((row) => row.id)).not.toContain(
+        String(member),
+      );
+    });
+
+    it("操作者管理範圍外的人不在候選裡(即使資格上說得通)", async () => {
+      const roleId = await createRole(world.api.app, connection, {
+        name: nextAccount("候選:範圍外"),
+        ownerOrgId: world.deptOne,
+      });
+      const outsider = await createMember(world, [world.deptOfB], "cand-b");
+      const { data } = await candidatesOf(roleId, { pageSize: 100 });
+      expect(data?.items.map((row) => row.id)).not.toContain(String(outsider));
+    });
+
+    it("keyword 比對姓名 / 帳號 / Email,並回 page / pageSize / totalCount", async () => {
+      const roleId = await createRole(world.api.app, connection, {
+        name: nextAccount("候選:關鍵字"),
+        ownerOrgId: world.deptOne,
+      });
+      const account = nextAccount("needle-cand");
+      const needle = await createUser(connection, {
+        account,
+        password: PASSWORD,
+        orgIds: [world.deptOne],
+      });
+
+      const { data } = await candidatesOf(roleId, {
+        keyword: account,
+        page: 1,
+        pageSize: 5,
+      });
+      expect(data?.page).toBe(1);
+      expect(data?.pageSize).toBe(5);
+      expect(data?.totalCount).toBe(1);
+      expect(data?.items.map((row) => row.id)).toEqual([String(needle)]);
+    });
+
+    it("角色在管理範圍外 → NOT_FOUND(不透露存在與否)", async () => {
+      const roleId = await createRole(world.api.app, connection, {
+        name: nextAccount("候選:租戶乙的角色"),
+        ownerOrgId: world.tenantB,
+      });
+      const { code } = await candidatesOf(roleId, {});
+      expect(code).toBe("NOT_FOUND");
+    });
+
+    it("只需要 assign-users,不必 system.user-manager.view(#246 的 4)", async () => {
+      const assigner = await createManager(world, {
+        orgIds: [world.tenantA],
+        ownerOrgId: world.tenantA,
+        moduleKeys: ["system", "system.role-manager"],
+        permissionKeys: [
+          "system.role-manager.view",
+          "system.role-manager.assign-users",
+        ],
+      });
+      const roleId = await createRole(world.api.app, connection, {
+        name: nextAccount("候選:權限測試"),
+        ownerOrgId: world.deptOne,
+      });
+      const member = await createMember(world, [world.deptOne], "cand-perm");
+
+      const { data, code } = await candidatesOf(
+        roleId,
+        { pageSize: 100 },
+        assigner.token,
+      );
+      expect(code).toBeUndefined();
+      expect(data?.items.map((row) => row.id)).toContain(String(member));
+    });
+
+    it("缺 assign-users 權限 → FORBIDDEN(只有 view 不夠)", async () => {
+      const viewer = await createManager(world, {
+        orgIds: [world.tenantA],
+        ownerOrgId: world.tenantA,
+        moduleKeys: ["system", "system.role-manager"],
+        permissionKeys: ["system.role-manager.view"],
+      });
+      const roleId = await createRole(world.api.app, connection, {
+        name: nextAccount("候選:守門"),
+        ownerOrgId: world.deptOne,
+      });
+      const { code } = await candidatesOf(roleId, {}, viewer.token);
+      expect(code).toBe("FORBIDDEN");
     });
   });
 
