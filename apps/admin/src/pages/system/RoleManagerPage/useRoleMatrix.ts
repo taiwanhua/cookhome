@@ -13,6 +13,7 @@ import {
   isSameGrant,
   matrixSelectionOf,
   nextGrantFromSelection,
+  outOfCeilingMatrixRowIds,
   ungrantedMatrixRowIds,
 } from "@/lib/role-matrix-208";
 
@@ -72,15 +73,25 @@ export const useRoleMatrix = (
     draft.roleId === roleId &&
     !isSameGrant(tree, draft.grant, saved);
 
-  /** 租戶副本只能縮:未持有的列直接不給勾(否則送出才吃到 `ROLE_OUT_OF_REACH`)。 */
+  const ceiling = payload?.ceiling ?? null;
+
+  /**
+   * 不給勾的列(都是防呆,判準仍在 api):
+   * - 沒有 `edit-matrix` 權限 → 整份鎖住
+   * - 預設角色的**天花板外**(`ceiling`,#283)→ root 與租戶都鎖
+   * - `shrinkOnly`(非 root 的預設角色)→ 目前沒勾的列再多鎖一層
+   */
   const lockedIds = useMemo(() => {
     if (!canEdit) {
       return allMatrixRowIds(tree);
     }
-    return payload?.shrinkOnly === true
-      ? ungrantedMatrixRowIds(tree, saved)
-      : [];
-  }, [canEdit, payload?.shrinkOnly, tree, saved]);
+    return [
+      ...(ceiling === null ? [] : outOfCeilingMatrixRowIds(tree, ceiling)),
+      ...(payload?.shrinkOnly === true
+        ? ungrantedMatrixRowIds(tree, saved)
+        : []),
+    ];
+  }, [canEdit, ceiling, payload?.shrinkOnly, tree, saved]);
 
   const selection = useMemo(
     () => matrixSelectionOf(tree, grant, { lockedIds }),
@@ -109,6 +120,8 @@ export const useRoleMatrix = (
     isLoading: roleId !== null && query.isLoading,
     tree,
     shrinkOnly: payload?.shrinkOnly ?? false,
+    /** 預設角色才有天花板(#283):頁面據此多顯示一句「模板沒有的項目勾不動」 */
+    hasCeiling: ceiling !== null,
     selection,
     isDirty,
     isSaving: save.isPending,

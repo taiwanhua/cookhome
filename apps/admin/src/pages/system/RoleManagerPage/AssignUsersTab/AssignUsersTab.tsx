@@ -135,6 +135,8 @@ export const AssignUsersTab = ({
           getRowKey={(row) => row.id}
           isLoading={data.isLoading}
           emptyMessage={t("empty")}
+          // 四個欄位,組織欄要放得下「組織外」Tag + 多個組織名(STYLE-11,#283)
+          minWidth={720}
           aria-label={t("tableLabel")}
         />
       </Box>

@@ -108,8 +108,9 @@ export const UserTable = ({
       isLoading={isLoading}
       emptyMessage={t("empty")}
       size="small"
-      // Figma 31:82 的 832;窄過這個寬度就橫向捲,不要把七個欄位擠成折行(#183)
-      minWidth={832}
+      // 七個欄位(#283 把 Figma 31:82 的 832 提到 960):組織 / 角色兩欄放得下兩三個 Tag
+      // 才不會每列都折行;窄過這個寬度就橫向捲(STYLE-11)
+      minWidth={960}
       aria-label={t("tableLabel")}
     />
   );

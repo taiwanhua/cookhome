@@ -17,22 +17,24 @@
 規則正本 [ADR-0004「角色種類與可改動範圍」](../adr/0004-permission-model.md);本節補模組側的錯誤碼與落點。
 三種判準互斥,由上往下取第一個成立者。api 依**操作者**算好 `Role.kind`(`SYSTEM` / `TEMPLATE_COPY` / `CUSTOM`)與 `Role.abilities`(`canEdit` / `canEditMatrix` / `canToggleEnabled` / `canDelete`),**前端只讀、不重算**。
 
-| 角色種類                             | 判準                           | 改名 / 描述 | 權限矩陣                           | 停用                                | 刪除       | 分配使用者 |
-| ------------------------------------ | ------------------------------ | ----------- | ---------------------------------- | ----------------------------------- | ---------- | ---------- |
-| **種子**(超級管理員、租戶管理員模板) | `isSystem`(seed 一併補齊,#246) | 不可        | 唯讀                               | 不可                                | 不可       | 可         |
-| **預設角色**(租戶副本)               | `settings.templateKey`         | 租戶可      | root 可放寬與收窄;非 root 只能收窄 | 只有 root(自鎖保護)                 | 不可       | 可         |
-| **自建角色**                         | 其餘                           | 可          | 依 subset-only                     | 可,但不可停用操作者自己正持有的角色 | 無授予時可 | 可         |
+| 角色種類                             | 判準                           | 改名 / 描述 | 權限矩陣                                                             | 停用                                | 刪除       | 分配使用者 |
+| ------------------------------------ | ------------------------------ | ----------- | -------------------------------------------------------------------- | ----------------------------------- | ---------- | ---------- |
+| **種子**(超級管理員、租戶管理員模板) | `isSystem`(seed 一併補齊,#246) | 不可        | 唯讀                                                                 | 不可                                | 不可       | 可         |
+| **預設角色**(租戶副本)               | `settings.templateKey`         | 租戶可      | **上限 = 內建租戶管理員模板** — root:模板範圍內放寬 / 收窄;租戶:收窄 | 只有 root(自鎖保護)                 | 不可       | 可         |
+| **自建角色**                         | 其餘                           | 可          | 依 subset-only                                                       | 可,但不可停用操作者自己正持有的角色 | 無授予時可 | 可         |
 
 被擋下時的錯誤碼(GQL-04 的表由 #261 同步):
 
-| 情境                                    | 回應                                         |
-| --------------------------------------- | -------------------------------------------- |
-| 動到種子角色(改名 / 矩陣 / 停用 / 刪除) | `FORBIDDEN`,reason `SYSTEM_ROLE`             |
-| 非 root 停用預設角色                    | `FORBIDDEN`,reason `TEMPLATE_COPY_ROOT_ONLY` |
-| 停用操作者自己正持有的角色              | `FORBIDDEN`,reason `SELF_LOCK`               |
-| 自建角色仍有授予時刪除                  | `ROLE_NOT_DELETABLE` + `extensions.reasons`  |
+| 情境                                    | 回應                                          |
+| --------------------------------------- | --------------------------------------------- |
+| 動到種子角色(改名 / 矩陣 / 停用 / 刪除) | `FORBIDDEN`,reason `SYSTEM_ROLE`              |
+| 非 root 停用預設角色                    | `FORBIDDEN`,reason `TEMPLATE_COPY_ROOT_ONLY`  |
+| 停用操作者自己正持有的角色              | `FORBIDDEN`,reason `SELF_LOCK`                |
+| 自建角色仍有授予時刪除                  | `ROLE_NOT_DELETABLE` + `extensions.reasons`   |
+| 預設角色勾到模板沒有的項目(root 也擋)   | `ROLE_OUT_OF_REACH`,reason `TEMPLATE_CEILING` |
 
-- `saveRoleMatrix` 的 `shrinkOnly` 判準是「**非 root 且是預設角色**」— root 對預設角色可以放寬。
+- `saveRoleMatrix` 的 `shrinkOnly` 判準是「**非 root 且是預設角色**」— root 對預設角色可以放寬,但放寬不出模板的範圍(下一條)。
+- **預設角色的天花板**(#283,規則正本 ADR-0004):上限 = 內建「租戶管理員」模板角色**目前**的 `role_module` / `role_permission`,讀出後 `normalizeGrant` 到全樹。`saveRoleMatrix` 對 `TEMPLATE_COPY` 多一道 `isSubsetOf(desired, templateGrant)`,不符 → `ROLE_OUT_OF_REACH` + `reason TEMPLATE_CEILING`。判斷順序是 subset-only → 天花板 → `shrinkOnly`,所以「自己也沒有」與「模板沒有」分得出來。要替租戶開模板外的模組,改 `apps/db-migrator/seeds/role-bindings.ts` 的模板綁定,不是逐個租戶放寬。
 - 模組側是同一條自鎖原則:`setModuleEnabled` / `setPermissionEnabled` 打到 `system.module-manager` 子樹或其權限 → `FORBIDDEN`(reason `SELF_LOCK`),見 [module-manager.md](./module-manager.md)。
 - UI 落點:清單列的編輯 / 停用 / 刪除按鈕讀 `abilities`;種子角色的矩陣唯讀並說明「系統內建角色,內容隨版本更新」。
 - 本節取代下方「api 介面」節 `setRoleEnabled` 原本「種子角色與租戶副本照樣可停用」的說法(該節由 #261 同步)。
@@ -84,7 +86,7 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 | `setRoleEnabled(input: …): RolePayload!`              | `toggle-enabled` | 依角色種類擋(上方「角色種類與可改動範圍」):種子角色一律不可切 → `FORBIDDEN`(`SYSTEM_ROLE`);預設角色(租戶副本)只有根組織的操作者可切 → `FORBIDDEN`(`TEMPLATE_COPY_ROOT_ONLY`);**不可停用操作者自己正持有的角色** → `FORBIDDEN`(`SELF_LOCK`,啟用不受此限) |
 | `deleteRole(input: DeleteRoleInput!): DeletePayload!` | `delete`         | 前置三項不過 → `ROLE_NOT_DELETABLE` + `extensions.reasons`;軟刪除,關聯不動                                                                                                                                                                              |
 | `roleMatrix(roleId: ID!): RoleMatrixPayload!`         | `view`           | 見下方「矩陣的兩棵樹」                                                                                                                                                                                                                                  |
-| `saveRoleMatrix(input: …): RoleMatrixPayload!`        | `edit-matrix`    | 整份覆蓋(限矩陣回的那棵樹);`ROLE_OUT_OF_REACH`;種子角色的矩陣唯讀 → `FORBIDDEN`(`SYSTEM_ROLE`)                                                                                                                                                          |
+| `saveRoleMatrix(input: …): RoleMatrixPayload!`        | `edit-matrix`    | 整份覆蓋(限矩陣回的那棵樹);`ROLE_OUT_OF_REACH`(預設角色超過模板天花板時附 `reason TEMPLATE_CEILING`,#283);種子角色的矩陣唯讀 → `FORBIDDEN`(`SYSTEM_ROLE`)                                                                                               |
 | `roleUsers(roleId: ID!, input: …): RoleUsersPayload!` | `view`           | 被授予這個角色的**所有人**(含管理範圍外的「組織外」持有者 — 列不出來就移不掉)                                                                                                                                                                           |
 | `grantRoleUsers(input: …): RoleUsersPayload!`         | `assign-users`   | **增量加入**(不是全量覆蓋);候選外 → `USER_NOT_ELIGIBLE` + `extensions.roleId` / `ownerOrgName`;已持有者重送冪等。資格判斷與使用者頁的 `assignUserRoles` 共用 `OrgQualificationService.assertEligible`(#261)                                             |
 | `revokeRoleUsers(input: …): RoleUsersPayload!`        | `assign-users`   | 擁有者保護 → `OWNER_PROTECTED`;未持有者重送冪等                                                                                                                                                                                                         |
@@ -107,6 +109,7 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 - `RoleUser.outOfScope`:所屬組織皆不在角色擁有組織的子樹內 → UI 標 Warning Tag「組織外」
 - `RoleUser.ownerProtected`:移除會被 `OWNER_PROTECTED` 擋下 → UI 把「移除」設為 disabled
 - `RoleMatrixPayload.shrinkOnly`:**非 root 且**這個角色是租戶管理員副本,矩陣只能縮不能擴(#261 放寬 root — 平台方本來就該能替租戶開新模組)
+- `RoleMatrixPayload.ceiling`(#283):預設角色(租戶副本)的**矩陣上限** = 內建「租戶管理員」模板角色目前的授予,**已展開 `*`、已收到顯示樹內**(與 `granted` 同一套投影);其他種類的角色為 `null`。前端把天花板外的列設成不可勾 —— root 與租戶都套(租戶另受 `shrinkOnly`)
 - `RoleMatrixPayload.granted`:**已展開 `*`**(含 `*` 本身與展開後的同層各筆),直接餵 `@repo/domain/permission` 的連動純函式
 
 **矩陣的兩棵樹**(#203 的實作決定;規則來源 ADR-0004 防越權 + ADR-0011 的 enabled 剔除):
@@ -135,10 +138,15 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 
 儲存成功後只精準 invalidate 該角色的 `RoleMatrix` 與 `Roles`(DATA-02 / 04),不整頁重抓。
 
-### `shrinkOnly` 的前端鎖
+### `shrinkOnly` 與 `ceiling` 的前端鎖
 
-`RoleMatrixPayload.shrinkOnly` 為 true 時,頁面顯示「只能縮不能擴」提示,並把**目前沒有勾的列直接 `disabled`**,不等送出才吃 `ROLE_OUT_OF_REACH`。
-這是防呆不是把關 — 判準(非 root 且是預設角色)仍以 api 為準,見「角色種類與可改動範圍」。
+兩把鎖疊在同一組 `disabledCheckIds` 上(`useRoleMatrix` 的 `lockedIds`),算法同一支
+(`lib/role-matrix-208.ts` 的 `rowIdsOutside`:一份授予展開後涵蓋不到的列):
+
+- `RoleMatrixPayload.ceiling` 非 null(= 預設角色,#283)→ 鎖**天花板外的列**並顯示「以系統內建的角色範本為上限」;**root 也鎖**。
+- `RoleMatrixPayload.shrinkOnly` 為 true(= 非 root 的預設角色)→ 再鎖**目前沒有勾的列**並顯示「只能縮不能擴」。
+
+兩者都是防呆不是把關 — 判準仍以 api 為準(subset-only → 天花板 → shrinkOnly),見「角色種類與可改動範圍」。
 
 ### 自組頁籤
 

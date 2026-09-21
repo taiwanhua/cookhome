@@ -62,6 +62,24 @@ export const TENANT_MODULE_KEYS = [
 /** 模板的權限綁定:每個模組各一筆 wildcard(ADR-0004「每層只存 `*` 一筆」)。 */
 export const TENANT_WILDCARD_KEYS = TENANT_MODULE_KEYS.map((key) => `${key}.*`);
 
+/**
+ * 根組織專屬模組(`isRootOnly`,ADR-0009):模板扣掉的就是這三個,
+ * 所以它們正好是「預設角色天花板之外」的例子(#283)。
+ */
+export const ROOT_ONLY_MODULE_KEYS = [
+  "system.org-manager.tenant-ops",
+  "system.module-manager",
+  "system.data-scope",
+];
+
+/** 持有全部模組的操作者用的授予(天花板測試要的是「操作者搆得到、但模板沒有」)。 */
+export const ALL_MODULE_KEYS = [
+  ...TENANT_MODULE_KEYS,
+  ...ROOT_ONLY_MODULE_KEYS,
+];
+
+export const ALL_WILDCARD_KEYS = ALL_MODULE_KEYS.map((key) => `${key}.*`);
+
 /** 示範模組2 這一層的四筆個別權限(wildcard 收斂 / 展開的驗證對象)。 */
 export const SAMPLE_TWO_INDIVIDUAL_KEYS = [
   "demo.sample-two.create",

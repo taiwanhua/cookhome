@@ -150,4 +150,33 @@ describe("角色管理:權限矩陣頁籤", () => {
     expect(matrixCheckbox(`新增${SAMPLE_ONE}.create`)).toBeDisabled();
     expect(matrixCheckbox(`檢視${SAMPLE_ONE}.view`)).toBeEnabled();
   });
+
+  it("預設角色的天花板:模板沒有的列不可勾,模板有的列(尚未授予)仍可勾", async () => {
+    // 天花板含示範模組1整層,但不含示範模組2 —— root 視角(shrinkOnly = false)也照鎖
+    renderRolePage({
+      world: {
+        ceiling: {
+          moduleKeys: ["demo", "demo.sub", SAMPLE_ONE],
+          permissionKeys: [
+            `${SAMPLE_ONE}.*`,
+            `${SAMPLE_ONE}.view`,
+            `${SAMPLE_ONE}.create`,
+            `${SAMPLE_ONE}.edit`,
+          ],
+        },
+      },
+    });
+
+    await screen.findByText("示範模組1");
+    expect(
+      screen.getByText(
+        "這個角色的可勾選範圍以系統內建的角色範本為上限 — 範本未包含的項目是灰色的,不能勾選。",
+      ),
+    ).toBeInTheDocument();
+    // 天花板內、目前沒勾的列照樣勾得動(這正是 shrinkOnly 與天花板的差別)
+    expect(matrixCheckbox(`新增${SAMPLE_ONE}.create`)).toBeEnabled();
+    // 天花板外
+    expect(matrixCheckbox("示範模組2demo.sample-two")).toBeDisabled();
+    expect(matrixCheckbox("檢視demo.sample-two.view")).toBeDisabled();
+  });
 });

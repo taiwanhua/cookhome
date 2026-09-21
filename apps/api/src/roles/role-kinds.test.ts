@@ -4,10 +4,11 @@ import { type Connection, Types } from "mongoose";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import { createRole } from "../permission/test-support/fixtures";
 import {
+  ALL_MODULE_KEYS,
+  ALL_WILDCARD_KEYS,
   type Manager,
+  ROOT_ONLY_MODULE_KEYS,
   type RolesWorld,
-  TENANT_MODULE_KEYS,
-  TENANT_WILDCARD_KEYS,
   createManager,
   createMember,
   login,
@@ -106,6 +107,10 @@ const ROLE_MATRIX = /* GraphQL */ `
   query RoleMatrix($roleId: ID!) {
     roleMatrix(roleId: $roleId) {
       shrinkOnly
+      ceiling {
+        moduleKeys
+        permissionKeys
+      }
     }
   }
 `;
@@ -120,6 +125,13 @@ interface Abilities {
 interface OrgRef {
   id: string;
   name: string;
+}
+
+/** `roleMatrix` 的回傳,本檔只看種類規則相關的兩欄(樹與 granted 由 role-matrix.test.ts 顧)。 */
+interface MatrixRow {
+  shrinkOnly: boolean;
+  /** 預設角色的天花板(#283);其他種類為 null */
+  ceiling: { moduleKeys: string[]; permissionKeys: string[] } | null;
 }
 
 interface RoleRow {
@@ -157,11 +169,13 @@ describe("角色種類規則 + 自鎖保護(#261,GraphQL 端點 + 真 MongoDB)",
     await connection
       .collection("users")
       .updateOne({ _id: userId }, { $set: { account } });
+    // 根組織專屬模組也給:天花板要測的是「操作者搆得到、但模板沒有」(#283),
+    // 操作者自己就沒有的話會先被 subset-only 那一道擋掉,測不到天花板
     const roleId = await createRole(world.api.app, connection, {
       name: `根組織操作者-${account}`,
       ownerOrgId: world.rootOrgId,
-      moduleKeys: TENANT_MODULE_KEYS,
-      permissionKeys: TENANT_WILDCARD_KEYS,
+      moduleKeys: ALL_MODULE_KEYS,
+      permissionKeys: ALL_WILDCARD_KEYS,
       assignTo: [userId],
     });
     root = { token: await login(world, account), roleId };
@@ -292,15 +306,28 @@ describe("角色種類規則 + 自鎖保護(#261,GraphQL 端點 + 真 MongoDB)",
     return failureOf(result.errors ?? []);
   }
 
+  async function matrixAs(
+    token: string,
+    roleId: Types.ObjectId,
+  ): Promise<MatrixRow> {
+    const result = await world.api.graphql<{ roleMatrix: MatrixRow }>(
+      ROLE_MATRIX,
+      { roleId: String(roleId) },
+      { accessToken: token },
+    );
+    expect(result.errors).toBeUndefined();
+    if (!result.data) {
+      throw new Error("roleMatrix 沒有回資料");
+    }
+    return result.data.roleMatrix;
+  }
+
   async function shrinkOnlyAs(
     token: string,
     roleId: Types.ObjectId,
   ): Promise<boolean | undefined> {
-    const result = await world.api.graphql<{
-      roleMatrix: { shrinkOnly: boolean };
-    }>(ROLE_MATRIX, { roleId: String(roleId) }, { accessToken: token });
-    expect(result.errors).toBeUndefined();
-    return result.data?.roleMatrix.shrinkOnly;
+    const row = await matrixAs(token, roleId);
+    return row.shrinkOnly;
   }
 
   describe("kind 與 abilities:api 依操作者算好,前端不重算", () => {
@@ -555,6 +582,84 @@ describe("角色種類規則 + 自鎖保護(#261,GraphQL 端點 + 真 MongoDB)",
         [],
       );
       expect(narrowed.code).toBeUndefined();
+    });
+  });
+
+  /**
+   * 預設角色的天花板(#283):上限 = 內建「租戶管理員」模板角色目前的授予
+   * (seed = 所有非根組織專屬模組各一筆 `*`)。root 在此範圍內放寬與收窄,**連 root 也開不出模板沒有的**。
+   */
+  describe("預設角色的天花板 = 內建租戶管理員模板(#283)", () => {
+    it("root 勾模板外的「模組與權限」→ ROLE_OUT_OF_REACH + TEMPLATE_CEILING,且沒有寫進去", async () => {
+      const roleId = await newTemplateCopy("預設角色(天花板外)");
+
+      expect(
+        await saveMatrixAs(
+          root.token,
+          roleId,
+          ["demo", "demo.sample-two", "system", "system.module-manager"],
+          ["demo.sample-two.*", "system.module-manager.view"],
+        ),
+      ).toEqual({
+        code: "ROLE_OUT_OF_REACH",
+        reason: "TEMPLATE_CEILING",
+      });
+      expect(await storedModuleKeys(world, roleId)).not.toContain(
+        "system.module-manager",
+      );
+    });
+
+    it("root 勾模板內的「欄位管理」→ 成功寫入(天花板內照樣放寬得了)", async () => {
+      const roleId = await newTemplateCopy("預設角色(天花板內)");
+
+      expect(
+        await saveMatrixAs(
+          root.token,
+          roleId,
+          ["demo", "demo.sample-two", "system", "system.field-manager"],
+          ["demo.sample-two.*", "system.field-manager.view"],
+        ),
+      ).toEqual({ code: undefined, reason: undefined });
+      expect(await storedModuleKeys(world, roleId)).toContain(
+        "system.field-manager",
+      );
+    });
+
+    it("ceiling 回模板的授予:含示範模組2、不含根組織專屬模組", async () => {
+      const roleId = await newTemplateCopy("預設角色(ceiling 欄位)");
+      const { ceiling } = await matrixAs(root.token, roleId);
+
+      expect(ceiling).not.toBeNull();
+      expect(ceiling?.moduleKeys).toContain("demo.sample-two");
+      expect(ceiling?.moduleKeys).toContain("system.field-manager");
+      for (const key of ROOT_ONLY_MODULE_KEYS) {
+        expect(ceiling?.moduleKeys).not.toContain(key);
+      }
+      // 已展開 `*`:同層各筆與 `*` 本身都在(前端直接拿來鎖列)
+      expect(ceiling?.permissionKeys).toContain("demo.sample-two.*");
+      expect(ceiling?.permissionKeys).toContain("demo.sample-two.view");
+      expect(ceiling?.permissionKeys).not.toContain("system.module-manager.*");
+    });
+
+    it("自建角色沒有天花板:ceiling 為 null,且擋它的仍是 subset-only(無 reason)", async () => {
+      const roleId = await createRole(world.api.app, connection, {
+        name: nextAccount("自建角色(無天花板)"),
+        ownerOrgId: world.deptOne,
+        moduleKeys: ["demo", "demo.sample-two"],
+        permissionKeys: ["demo.sample-two.*"],
+      });
+      const custom = await matrixAs(root.token, roleId);
+      expect(custom.ceiling).toBeNull();
+
+      // root 自己有「模組與權限」→ 自建角色開得出去(天花板只管預設角色)
+      expect(
+        await saveMatrixAs(
+          root.token,
+          roleId,
+          ["system", "system.module-manager"],
+          ["system.module-manager.view"],
+        ),
+      ).toEqual({ code: undefined, reason: undefined });
     });
   });
 });

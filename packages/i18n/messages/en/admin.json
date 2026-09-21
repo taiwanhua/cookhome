@@ -455,6 +455,7 @@
       "unsaved": "Unsaved changes",
       "save": "Save changes",
       "shrinkOnly": "This role was prepared for you during setup, so its permissions can only shrink — anything it does not already hold cannot be checked.",
+      "ceiling": "What this role can be given is capped by the built-in role template — anything the template does not include is greyed out and cannot be checked.",
       "seedReadOnly": "Built-in role: its contents follow the platform version, so this page is view-only."
     },
     "users": {

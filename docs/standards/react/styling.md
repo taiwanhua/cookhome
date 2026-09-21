@@ -76,3 +76,11 @@ STYLE-01 禁裸值,但 Figma 常給 theme 沒有的值(Tag 字級 11px、Checkbo
 ## STYLE-10 從呼叫端看 `sx`:只疊加、不覆蓋幾何
 
 app 端給 `@repo/ui` 元件傳 `sx` 時,只放與版面位置有關的值(`cursor`、`mt`、`flex`…);元件自己的幾何(高度、圓角、tone 色)由元件內的 `styled()` / theme `components` 決定(STYLE-07),呼叫端不要重設。需要不同尺寸或 tone 用元件的 props(`size`、`tone`),沒有就到 ui 加,不在呼叫端用 `sx` 硬改。
+
+## STYLE-11 列表頁的 `Table` 一律給 `minWidth`
+
+`@repo/ui/table` 的容器本來就 `overflow-x: auto`,但不給 `minWidth` 時表格會跟著容器縮 ——
+窄視窗下每一格折行、Tag 與按鈕擠成兩三層(#183 的使用者清單、#283 的三個列表)。
+規則:**頁面上的資料列表一律傳 `minWidth`**,值取「每欄不折行時的合理寬度」
+(欄少 720 上下、七欄的使用者清單 960),窄過它就橫向捲動。
+彈窗裡的小表與只有兩三個短欄位的表不在此限。

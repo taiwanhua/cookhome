@@ -60,6 +60,8 @@ export const PermissionMatrixTab = ({
       </Stack>
 
       {isSeedRole && <Alert severity="info">{t("seedReadOnly")}</Alert>}
+      {/* 天花板的一句話 root 與租戶都看得到(#283);租戶再疊一句「只能縮不能擴」 */}
+      {matrix.hasCeiling && <Alert severity="info">{t("ceiling")}</Alert>}
       {matrix.shrinkOnly && <Alert severity="info">{t("shrinkOnly")}</Alert>}
       {matrix.errorCode !== null && (
         <Alert severity="error">{tErrors(matrix.errorCode)}</Alert>
