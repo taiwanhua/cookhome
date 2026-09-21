@@ -5,9 +5,8 @@ import { Logger } from "@nestjs/common";
 import { storageError } from "./storage-error";
 import type { StorageConfig } from "./storage.config";
 import {
-  MAX_UPLOAD_BYTES,
-  UPLOAD_EXTENSIONS,
   UPLOAD_PATH_PREFIXES,
+  UPLOAD_RULES,
   UPLOAD_URL_TTL_MS,
   UPLOAD_VISIBILITIES,
   type UploadPurpose,
@@ -54,16 +53,19 @@ export abstract class StorageService {
   }
 
   /**
-   * 簽一張上傳票:先驗檔型與大小(不合即 `UPLOAD_REJECTED`),再產 `<前綴>/<uuid>.<副檔名>`。
+   * 簽一張上傳票:先依 `purpose` 的規則(`UPLOAD_RULES`:允許的檔型與大小上限,#344 起兩者都依用途)
+   * 驗檔型與大小(不合即 `UPLOAD_REJECTED`),再產 `<前綴>/<uuid>.<副檔名>`。
    * 路徑帶 uuid 而非組織 id — 簽票時資料可能還不存在(開通租戶的商標在租戶建立之前就上傳),
    * 歸屬改由 `isOwnedUploadPath` + 寫入端的權限把關。
    */
   async createUploadUrl(input: CreateUploadInput): Promise<UploadTicket> {
-    const extension = UPLOAD_EXTENSIONS[input.contentType.trim().toLowerCase()];
+    const rule = UPLOAD_RULES[input.purpose];
+    const contentType = input.contentType.trim().toLowerCase();
+    const extension = rule.extensions[contentType];
     if (extension === undefined) {
       throw storageError(
         "UPLOAD_REJECTED",
-        `Unsupported content type: ${input.contentType}`,
+        `Unsupported content type for ${input.purpose}: ${input.contentType}`,
       );
     }
     if (!Number.isInteger(input.size) || input.size <= 0) {
@@ -72,17 +74,17 @@ export abstract class StorageService {
         `Invalid file size: ${String(input.size)}`,
       );
     }
-    if (input.size > MAX_UPLOAD_BYTES) {
+    if (input.size > rule.maxBytes) {
       throw storageError(
         "UPLOAD_REJECTED",
-        `File too large: ${String(input.size)} bytes (max ${String(MAX_UPLOAD_BYTES)})`,
+        `File too large for ${input.purpose}: ${String(input.size)} bytes (max ${String(rule.maxBytes)})`,
       );
     }
     const objectPath = `${UPLOAD_PATH_PREFIXES[input.purpose]}/${randomUUID()}.${extension}`;
     const expiresAt = new Date(Date.now() + UPLOAD_URL_TTL_MS);
     const uploadUrl = await this.signUploadUrl({
       objectPath,
-      contentType: input.contentType.trim().toLowerCase(),
+      contentType,
       expiresAt,
       visibility: UPLOAD_VISIBILITIES[input.purpose],
     });

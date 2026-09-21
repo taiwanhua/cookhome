@@ -11,6 +11,7 @@ import { DeleteIcon } from "./DeleteIcon";
 import { DotIcon } from "./DotIcon";
 import { EditIcon } from "./EditIcon";
 import { HelpIcon } from "./HelpIcon";
+import { ViewIcon } from "./ViewIcon";
 
 /** 手繪的殼圖示:path 取自 Figma 匯出的 SVG,每一筆顏色都明寫 `currentColor`。 */
 const icons = [
@@ -28,6 +29,7 @@ const icons = [
  * `fill: currentColor`。斷言因此改成「畫得出向量,且沒有任何寫死的色值」。
  */
 const actionIcons = [
+  { name: "ViewIcon", Icon: ViewIcon },
   { name: "EditIcon", Icon: EditIcon },
   { name: "DeleteIcon", Icon: DeleteIcon },
   { name: "ChevronDoubleLeftIcon", Icon: ChevronDoubleLeftIcon },

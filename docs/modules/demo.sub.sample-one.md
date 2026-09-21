@@ -105,6 +105,15 @@ input DemoItemsOneInput {
 
 **上傳**(ADR-0010):`createUploadUrl` 的 purpose 新增 `DEMO_COVER`(公開 bucket)與 `DEMO_ATTACHMENT`(私有 bucket),路徑一律 `demo/<uuid>.<副檔名>`;兩者都要 `demo.sub.sample-one.create` 或 `.edit`。寫入 `coverPath` / `attachmentPath` 時 api 會驗「是不是本 API 簽出來的路徑」(`isOwnedUploadPath`),不是就 `VALIDATION_FAILED`。
 
+**可上傳的檔型與大小依 purpose**(#344;正本 `apps/api/src/storage/upload-rules.ts` 的 `UPLOAD_RULES`):
+
+| purpose           | content type                                                                                                                                                                                                  | 大小上限 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `DEMO_COVER`      | `image/png`、`image/jpeg`、`image/webp`                                                                                                                                                                       | 2 MB     |
+| `DEMO_ATTACHMENT` | 同上,加 `application/pdf`、`application/msword`(doc)、`…wordprocessingml.document`(docx)、`application/vnd.ms-excel`(xls)、`…spreadsheetml.sheet`(xlsx)、`application/zip`(含 `application/x-zip-compressed`) | 20 MB    |
+
+不合的檔型或超過上限都回 `UPLOAD_REJECTED`(錯誤訊息含 purpose)。`attachment.name` 的副檔名即由申報的 content type 決定 —— 同一份 zip 在 Windows 上申報成 `application/x-zip-compressed` 也一樣存成 `.zip`。
+
 **範圍**:`demo_items_one` 掛 `tenantScopePlugin`(業務類),所以每一條查詢(含寫入與刪除)都先吃**可見範圍**(ADR-0005)再套**資料範圍規則**(ADR-0008);service 不自己寫範圍。看不到的資料一律 `NOT_FOUND`,列表與單筆同一個答案。
 
 ### 錯誤(沿用 GQL-04 的通用碼,不新增 code)

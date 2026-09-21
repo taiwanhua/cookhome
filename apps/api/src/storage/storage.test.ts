@@ -28,7 +28,8 @@ import {
 import { createStorageService } from "./storage.module";
 import { StorageService } from "./storage.service";
 import {
-  MAX_UPLOAD_BYTES,
+  MAX_ATTACHMENT_UPLOAD_BYTES,
+  MAX_IMAGE_UPLOAD_BYTES,
   UPLOAD_URL_TTL_MS,
   UploadPurpose,
   isOwnedUploadPath,
@@ -170,7 +171,7 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
     });
   });
 
-  describe("簽上傳票:驗檔型與大小,產 org-logos/<uuid>.<副檔名>", () => {
+  describe("簽上傳票:依 purpose 驗檔型與大小,產 <前綴>/<uuid>.<副檔名>", () => {
     it.each([
       ["image/png", "png"],
       ["image/jpeg", "jpg"],
@@ -189,6 +190,74 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
       expect(ticket.uploadUrl).toContain(ticket.objectPath);
       expect(isOwnedUploadPath(ticket.objectPath)).toBe(true);
     });
+
+    /**
+     * 附件(#344):除了圖片還收 pdf / doc / docx / xls / xlsx / zip。
+     * `application/x-zip-compressed` 是 Windows 瀏覽器對 `.zip` 的申報值,與 `application/zip` 同副檔名。
+     */
+    it.each([
+      ["application/pdf", "pdf"],
+      ["application/msword", "doc"],
+      [
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "docx",
+      ],
+      ["application/vnd.ms-excel", "xls"],
+      [
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "xlsx",
+      ],
+      ["application/zip", "zip"],
+      ["application/x-zip-compressed", "zip"],
+      ["APPLICATION/PDF", "pdf"],
+      ["image/png", "png"],
+    ])(
+      "DEMO_ATTACHMENT:%s 可上傳,副檔名 %s",
+      async (contentType, extension) => {
+        const storage = recordingWith();
+        const ticket = await storage.createUploadUrl({
+          purpose: UploadPurpose.DEMO_ATTACHMENT,
+          contentType,
+          size: 1024,
+        });
+        expect(ticket.objectPath).toMatch(
+          new RegExp(String.raw`^demo/[0-9a-f-]{36}\.${extension}$`),
+        );
+        expect(isOwnedUploadPath(ticket.objectPath)).toBe(true);
+      },
+    );
+
+    it.each([
+      ["application/pdf", UploadPurpose.ORG_LOGO],
+      ["application/pdf", UploadPurpose.DEMO_COVER],
+      ["application/zip", UploadPurpose.DEMO_COVER],
+    ])(
+      "圖片類用途不收文件檔:%s + %s → UPLOAD_REJECTED",
+      async (contentType, purpose) => {
+        const storage = recordingWith();
+        await expectUploadRejected(() =>
+          storage.createUploadUrl({ purpose, contentType, size: 1024 }),
+        );
+      },
+    );
+
+    it.each([
+      ["image/png", "png"],
+      ["image/webp", "webp"],
+    ])(
+      "DEMO_COVER:%s 可上傳,落在 demo/ 前綴",
+      async (contentType, extension) => {
+        const storage = recordingWith();
+        const ticket = await storage.createUploadUrl({
+          purpose: UploadPurpose.DEMO_COVER,
+          contentType,
+          size: 1024,
+        });
+        expect(ticket.objectPath).toMatch(
+          new RegExp(String.raw`^demo/[0-9a-f-]{36}\.${extension}$`),
+        );
+      },
+    );
 
     it("上傳網址效期 10 分鐘(ADR-0010),與讀取網址的 TTL 無關", async () => {
       const storage = recordingWith({ signedUrlTtlMs: ONE_HOUR_MS });
@@ -229,7 +298,7 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
     );
 
     it.each([
-      ["超過 2MB", MAX_UPLOAD_BYTES + 1],
+      ["超過 2MB", MAX_IMAGE_UPLOAD_BYTES + 1],
       ["空檔", 0],
       ["負數", -1],
       ["非整數", 1.5],
@@ -244,15 +313,44 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
       );
     });
 
-    it("剛好 2MB 可以過", async () => {
+    /** 大小上限也依 purpose(#344):圖片類 2MB、附件 20MB,各自的邊界都要剛好過 / 剛好被拒。 */
+    it.each([
+      ["ORG_LOGO", UploadPurpose.ORG_LOGO, MAX_IMAGE_UPLOAD_BYTES],
+      ["DEMO_COVER", UploadPurpose.DEMO_COVER, MAX_IMAGE_UPLOAD_BYTES],
+      [
+        "DEMO_ATTACHMENT",
+        UploadPurpose.DEMO_ATTACHMENT,
+        MAX_ATTACHMENT_UPLOAD_BYTES,
+      ],
+    ])("%s:剛好上限可以過,多 1 byte 被拒", async (_case, purpose, maxBytes) => {
       const storage = recordingWith();
       await expect(
         storage.createUploadUrl({
-          purpose: UploadPurpose.ORG_LOGO,
+          purpose,
           contentType: "image/png",
-          size: MAX_UPLOAD_BYTES,
+          size: maxBytes,
         }),
       ).resolves.toMatchObject({ objectPath: expect.any(String) });
+      await expectUploadRejected(() =>
+        storage.createUploadUrl({
+          purpose,
+          contentType: "image/png",
+          size: maxBytes + 1,
+        }),
+      );
+    });
+
+    it("圖片類的上限是 2MB、附件是 20MB(附件的上限對圖片類無效)", async () => {
+      expect(MAX_IMAGE_UPLOAD_BYTES).toBe(2 * 1024 * 1024);
+      expect(MAX_ATTACHMENT_UPLOAD_BYTES).toBe(20 * 1024 * 1024);
+      const storage = recordingWith();
+      await expectUploadRejected(() =>
+        storage.createUploadUrl({
+          purpose: UploadPurpose.DEMO_COVER,
+          contentType: "image/png",
+          size: MAX_ATTACHMENT_UPLOAD_BYTES,
+        }),
+      );
     });
   });
 
@@ -261,6 +359,10 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
       "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.png",
       "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.jpg",
       "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.webp",
+      "demo/3f2504e0-4f89-41d3-9a0c-0305e82c3301.png",
+      "demo/3f2504e0-4f89-41d3-9a0c-0305e82c3301.pdf",
+      "demo/3f2504e0-4f89-41d3-9a0c-0305e82c3301.xlsx",
+      "demo/3f2504e0-4f89-41d3-9a0c-0305e82c3301.zip",
     ])("%s 是本 API 簽出來的", (path) => {
       expect(isOwnedUploadPath(path)).toBe(true);
     });
@@ -270,6 +372,19 @@ describe("檔案儲存(ADR-0010:StorageService 介面 + GCS adapter + 記錄用 
       ["跳出前綴", "org-logos/../secrets/x.png"],
       ["不是 uuid", "org-logos/logo.png"],
       ["副檔名不合", "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.exe"],
+      // 放寬的是附件用途,不是全站(#344):org-logos 底下仍然只收圖片
+      [
+        "附件副檔名用在商標前綴",
+        "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.pdf",
+      ],
+      [
+        "附件副檔名用在商標前綴",
+        "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.zip",
+      ],
+      [
+        "demo 前綴的不合副檔名",
+        "demo/3f2504e0-4f89-41d3-9a0c-0305e82c3301.exe",
+      ],
       ["帶查詢字串", "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.png?x=1"],
       ["絕對網址", "https://storage.googleapis.com/bucket/a.png"],
       ["空字串", ""],
@@ -498,11 +613,47 @@ describe("商標上傳線(GraphQL 端點,對真 Nest app + 真 MongoDB;未設 GC
 
   it.each([
     ["檔型不合", { contentType: "image/gif", size: 1024 }],
-    ["超過 2MB", { contentType: "image/png", size: MAX_UPLOAD_BYTES + 1 }],
+    [
+      "超過 2MB",
+      { contentType: "image/png", size: MAX_IMAGE_UPLOAD_BYTES + 1 },
+    ],
+    ["商標不收 pdf", { contentType: "application/pdf", size: 1024 }],
   ])("%s → UPLOAD_REJECTED", async (_case, overrides) => {
     const result = await api.graphql(
       CREATE_UPLOAD_URL,
       { input: { purpose: "ORG_LOGO", ...overrides } },
+      { accessToken: rootToken },
+    );
+    expect(result.errors?.[0]?.extensions?.code).toBe("UPLOAD_REJECTED");
+  });
+
+  it("DEMO_ATTACHMENT:pdf 與 20MB 內的檔要得到票(#344 放寬)", async () => {
+    const result = await api.graphql<CreateUploadUrlData>(
+      CREATE_UPLOAD_URL,
+      {
+        input: {
+          purpose: "DEMO_ATTACHMENT",
+          contentType: "application/pdf",
+          size: MAX_ATTACHMENT_UPLOAD_BYTES,
+        },
+      },
+      { accessToken: rootToken },
+    );
+
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.createUploadUrl.objectPath).toMatch(/^demo\/.+\.pdf$/);
+  });
+
+  it("DEMO_ATTACHMENT:超過 20MB → UPLOAD_REJECTED", async () => {
+    const result = await api.graphql(
+      CREATE_UPLOAD_URL,
+      {
+        input: {
+          purpose: "DEMO_ATTACHMENT",
+          contentType: "application/pdf",
+          size: MAX_ATTACHMENT_UPLOAD_BYTES + 1,
+        },
+      },
       { accessToken: rootToken },
     );
     expect(result.errors?.[0]?.extensions?.code).toBe("UPLOAD_REJECTED");
