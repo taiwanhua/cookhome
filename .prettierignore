@@ -17,3 +17,5 @@ pnpm-lock.yaml
 .claude/worktrees
 # Claude Code 的本機設定(不入版控,但 prettier 不看 .gitignore,不排除會讓本機 format:check 紅)
 .claude/settings.local.json
+# `msw init` 產生的 service worker 正本(admin mock 模式用;重排會與 msw 上游漂移)
+apps/admin/mock-public/mockServiceWorker.js

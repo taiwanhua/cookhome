@@ -1,0 +1,184 @@
+import {
+  DATA_SCOPE_MODULE_KEY,
+  DATA_SCOPE_PERMISSIONS,
+} from "@/pages/system/DataScopePage/data-scope-permissions";
+import {
+  FIELD_MANAGER_MODULE_KEY,
+  FIELD_MANAGER_PERMISSIONS,
+} from "@/pages/system/FieldManagerPage/field-manager-permissions";
+import {
+  MODULE_MANAGER_MODULE_KEY,
+  MODULE_MANAGER_PERMISSIONS,
+} from "@/pages/system/ModuleManagerPage/module-manager-permissions";
+import {
+  ORG_MANAGER_MODULE_KEY,
+  ORG_MANAGER_PERMISSIONS,
+} from "@/pages/system/OrgManagerPage/org-manager-permissions";
+import {
+  ROLE_MANAGER_MODULE_KEY,
+  ROLE_MANAGER_PERMISSIONS,
+} from "@/pages/system/RoleManagerPage/role-manager-permissions";
+import {
+  USER_MANAGER_MODULE_KEY,
+  USER_MANAGER_PERMISSIONS,
+} from "@/pages/system/UserManagerPage/user-manager-permissions";
+import type { TestModule, TestOrg } from "@/test/msw/auth-handlers";
+import { overviewModule } from "@/test/msw/auth-handlers";
+import { dataScopeRoles } from "@/test/msw/data-scope-fixtures";
+import { systemModules } from "@/test/msw/module-fixtures";
+import type { TestRole } from "@/test/msw/role-fixtures";
+import type { TestUser } from "@/test/msw/user-manager-handlers";
+
+/**
+ * mock 開發模式**自己的**夾具:`src/test/msw/` 沒有正本的那幾份。
+ *
+ * 規矩:凡是 `src/test/msw/` 已經有的(組織樹、角色、模組樹、資料範圍、欄位)一律直接用,
+ * 不在這裡複製一份 —— 兩份會漂走,而測試那一份才是對著 api 斷言校準過的(TEST-08)。
+ * 這裡只補三樣:①使用者清單(測試的正本在 `UserManagerPage/user-manager-test-support.ts`,
+ * 那是頁面自己的檔案,mock 模式不該反向依賴)②角色清單的型別補齊 ③「視角」= 模組與權限的組合。
+ */
+
+/**
+ * 全 mock 世界共用的角色清單。取 `data-scope-fixtures.ts` 的 `dataScopeRoles` 而不是
+ * `role-fixtures.ts` 的 `roles`:資料範圍頁的 `savedRule` 指名 `role-support`,
+ * 兩邊不同份的話那一頁的「指定角色」會顯示成生的 id。它同時含兩個租戶的同名「租戶管理員」,
+ * 正是角色管理頁要看的分組畫面(#261 第 8 項)。
+ *
+ * `map` 只做一件事:codegen 的型別把欄位標成 optional,補成角色管理頁夾具的 `TestRole` 形狀。
+ */
+export const mockRoles: TestRole[] = dataScopeRoles.map((role) => ({
+  ...role,
+  description: role.description ?? null,
+  ownerOrg:
+    role.ownerOrg == null
+      ? null
+      : { ...role.ownerOrg, tenantTop: role.ownerOrg.tenantTop ?? null },
+}));
+
+/** 可切換的視角(query string `?view=`)。 */
+export type MockView = "root" | "tenant";
+
+/** 使用者管理的清單與細節(`users` / `user`);組織 id 對齊 `org-fixtures.ts` 的 `rootTree`。 */
+const user = (
+  id: string,
+  account: string,
+  name: string,
+  overrides: Partial<TestUser> = {},
+): TestUser => ({
+  id,
+  account,
+  name,
+  email: `${account}@cookhome.online`,
+  nickname: null,
+  gender: null,
+  phone: null,
+  address: null,
+  nationalId: null,
+  enabled: true,
+  mustChangePassword: false,
+  orgs: [{ id: "org-tenant-a", name: "租戶 A" }],
+  roles: [],
+  ...overrides,
+});
+
+const grant = (
+  id: string,
+  name: string,
+  outOfScope = false,
+): TestUser["roles"][number] => ({
+  id,
+  name,
+  ownerOrgId: "org-tenant-a",
+  ownerOrgName: "租戶 A",
+  outOfScope,
+});
+
+/**
+ * 十二筆 —— `userWorld` 的預設 `pageSize` 是 10,故意超過一頁,分頁列才有東西可截圖。
+ * `user-owner` 是 `org-fixtures.ts` 的 `orgDetails` 指定的租戶擁有者(轉移擁有者彈窗的候選人),
+ * id 對不上的話組織管理頁的擁有者欄會是空的。
+ */
+export const mockUsers: TestUser[] = [
+  user("user-1", "root", "小華", {
+    orgs: [{ id: "org-root", name: "CookHome" }],
+  }),
+  user("user-owner", "owner", "何家華", {
+    roles: [grant("role-admin", "租戶管理員")],
+  }),
+  user("user-ming", "ming", "王小明", {
+    orgs: [
+      { id: "org-tenant-a", name: "租戶 A" },
+      { id: "org-content", name: "A-1 內容組" },
+    ],
+    roles: [
+      grant("role-editor", "內容編輯"),
+      grant("role-audit", "審核員", true),
+    ],
+    nationalId: "A123456789",
+    phone: "0912-345-678",
+  }),
+  user("user-new", "newbie", "新同事", {
+    orgs: [{ id: "org-content", name: "A-1 內容組" }],
+    mustChangePassword: true,
+  }),
+  user("user-off", "off", "離職者", {
+    enabled: false,
+    orgs: [{ id: "org-store", name: "A-2 台北分店" }],
+  }),
+  user("user-b", "tenant-b", "租戶 B 管理員", {
+    orgs: [{ id: "org-tenant-b", name: "租戶 B" }],
+  }),
+  ...Array.from({ length: 6 }, (_, index) =>
+    user(
+      `user-f${String(index)}`,
+      `staff${String(index)}`,
+      `路人${String(index)}`,
+      {
+        orgs: [{ id: "org-editors", name: "A-1-1 編輯組" }],
+      },
+    ),
+  ),
+];
+
+/** 每個模組**展開後**的完整權限(`me.modules[].permissions`;`<模組>.*` 只涵蓋同層,ADR-0004)。 */
+const permissionsByModuleKey: Record<string, readonly string[]> = {
+  [ORG_MANAGER_MODULE_KEY]: Object.values(ORG_MANAGER_PERMISSIONS),
+  [USER_MANAGER_MODULE_KEY]: Object.values(USER_MANAGER_PERMISSIONS),
+  [ROLE_MANAGER_MODULE_KEY]: Object.values(ROLE_MANAGER_PERMISSIONS),
+  [MODULE_MANAGER_MODULE_KEY]: Object.values(MODULE_MANAGER_PERMISSIONS),
+  [FIELD_MANAGER_MODULE_KEY]: Object.values(FIELD_MANAGER_PERMISSIONS),
+  [DATA_SCOPE_MODULE_KEY]: Object.values(DATA_SCOPE_PERMISSIONS),
+};
+
+/** 模組與權限、資料範圍是 `isRootOnly`:租戶管理員的 `me.modules` 裡根本沒有它們。 */
+const ROOT_ONLY_MODULE_KEYS = new Set<string>([
+  MODULE_MANAGER_MODULE_KEY,
+  DATA_SCOPE_MODULE_KEY,
+]);
+
+const withFullPermissions = (module: TestModule): TestModule => ({
+  ...module,
+  permissions: [...(permissionsByModuleKey[module.key] ?? module.permissions)],
+});
+
+/** 側欄與路由的來源:總覽 + 系統管理群組 + 該視角看得到的治理模組,權限給滿。 */
+export const modulesForView = (view: MockView): TestModule[] => [
+  overviewModule,
+  ...systemModules
+    .filter(
+      (module) => view === "root" || !ROOT_ONLY_MODULE_KEYS.has(module.key),
+    )
+    .map((module) => withFullPermissions(module)),
+];
+
+/** `me.orgs`(組織切換器);第一個即 `me.currentOrg`。 */
+export const orgsForView = (view: MockView): TestOrg[] =>
+  view === "root"
+    ? [
+        { id: "org-root", name: "CookHome" },
+        { id: "org-tenant-a", name: "租戶 A" },
+      ]
+    : [
+        { id: "org-tenant-a", name: "租戶 A" },
+        { id: "org-content", name: "A-1 內容組" },
+      ];

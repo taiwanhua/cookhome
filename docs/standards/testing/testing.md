@@ -95,6 +95,25 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
 - **zustand `persist` 的 `setState` 會回寫 storage**(2026-09-22,#295):測「重新整理後狀態維持」時,直覺寫法 `useXStore.setState({ ... 預設值 })` + `rehydrate()` 會先把 localStorage 也覆寫成預設值,再讀回預設值 —— 看起來像「狀態沒被記住」,其實是測試自己把存檔抹掉了。正確順序是:**先把 storage 的內容存起來 → 歸零 store → 把存檔放回 storage → 才 `rehydrate()`**。另外 store 是模組層單例,`src/test/setup.ts` 要在每個測試後歸零(同語言 store 的理由)
 - 輸出雜訊:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`
 
+### mock 開發模式:用同一批夾具把 admin 跑在瀏覽器上(#194,2026-09-22)
+
+沒有 dev 帳號、也不想連真 api 時,用**同一批 MSW 夾具**把整個 admin 跑起來,拿來截圖驗版面(admin 票的 PR 要附圖,見 `docs/agents/issue-tracker.md`)。跑的是**真的 `App`**(同一組 providers、路由與頁面),只有網路層被 service worker 接管。
+
+```
+pnpm --filter @repo/admin dev:mock     # http://localhost:3002
+```
+
+- 預設**自動登入 root**、落在總覽;側欄的組織 / 使用者 / 角色 / 模組與權限 / 欄位 / 資料範圍都有假資料
+- 網址參數:`?view=tenant` 切租戶管理員視角(少掉兩個 `isRootOnly` 模組、組織樹換成租戶那一棵)、`?auth=off` 停在登入頁(任何帳密都能登入)
+- 深層網址與重新整理都可用(`vite.mock.config.ts` 把 HTML fallback 指到 `mock.html`)
+- **截圖**:瀏覽器開上面的網址 → 走到要驗的頁 → 截整個視窗(側欄 + 內容),PR 內文逐張寫明「哪一頁、什麼狀態」;彈窗類的改動要各截一張開啟前後
+
+實作面三件事,改動前先看懂再動:
+
+- **入口完全獨立**:`mock.html` + `src/mock/` + `mock-public/mockServiceWorker.js` + `vite.mock.config.ts`,正式 build 只讀 `vite.config.ts` 與 `index.html`,所以產物不含 msw(驗收:`pnpm --filter @repo/admin build` 後 `grep -c msw dist/assets/*.js` 為 0)
+- **共用端點只留一份 handler**:`orgTree` / `org` / `users` / `roles` 有多個 world 各自實作,MSW 先列的先贏 —— `src/mock/mock-world.ts` 替每個共用端點指定正本、濾掉其餘同名 handler,不要改成單純串接
+- **`msw/node` 在瀏覽器載不進去**:`src/test/msw/server.ts` 在模組層呼叫 `setupServer()`,mock 模式以 alias 換成 `src/mock/msw-node-stub.ts`(夾具只用到同檔的 `api`,`server` 僅出現在型別位置)。**不要為了 mock 模式去改 `src/test/msw/server.ts`** —— 那支是 jest 測試的正本
+
 ## TEST-10 時間相關的斷言:不可用呼叫「前」的 `Date.now()` 當上界
 
 效期 / 到期時間通常是受測程式在呼叫**當下**(較晚)以 `Date.now() + TTL` 算出來的,所以拿呼叫**前**取的 `before` 去斷言 `expiresAt - before <= TTL`,只要呼叫過程經過 ≥ 1 ms 就必然失敗 —— 本機快、幾乎同毫秒完成而僥倖綠,CI runner 慢一點就紅。**這類斷言不是偶發,是方向錯**(#227:`storage.test.ts` 三案在 CI 三次命中)。改法二選一,並在測試註解寫選哪個與理由:
