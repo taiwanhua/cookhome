@@ -10,7 +10,9 @@
 
 ### 上傳(私有/公開共用同一條路)
 
-前端向 API 要 **V4 上傳簽名網址**(API 先驗:該 purpose 對應的操作者權限、檔型 PNG/JPG/WebP、大小 ≤2MB;網址效期 10 分鐘,程式常數)→ 瀏覽器**直傳 GCS** → API 寫回物件路徑。檔案不經過 API server。
+前端向 API 要 **V4 上傳簽名網址**(API 先驗:該 purpose 對應的操作者權限、檔型、大小;網址效期 10 分鐘,程式常數)→ 瀏覽器**直傳 GCS** → API 寫回物件路徑。檔案不經過 API server。
+
+**檔型與大小上限依 purpose**(2026-09-22 / #344 起;在那之前全站一套 PNG/JPG/WebP + 2MB):圖片類用途(`ORG_LOGO`、`DEMO_COVER`)維持 PNG/JPG/WebP、≤2MB;附件類用途(`DEMO_ATTACHMENT`)另收 pdf / doc / docx / xls / xlsx / zip,≤20MB。白名單與上限的正本是 `apps/api/src/storage/upload-rules.ts` 的 `UPLOAD_RULES`,新用途在那裡登記一列即可。**放寬只放寬該用途**:`isOwnedUploadPath` 依路徑前綴各自比對自己的副檔名白名單,`org-logos/<uuid>.zip` 仍然不算本 API 簽出來的路徑。
 
 ### 讀取(私有與公開唯一的分岔)
 
