@@ -126,11 +126,13 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 - **這台機器沒有外部 `jq`**:含 `jq` 的指令不是報錯而是**靜默失敗**(輸出空的),一律用 `gh --jq`。
 - **CI 輪詢用平鋪的單行 `until`**(`until gh pr checks <n> --required; do sleep 30; done` 這種寫在一行),多行 / 巢狀的迴圈會被擋。
 - **`git stash` 的堆疊與主 checkout、其他 worktree 共用**:不要用裸 `git stash` / `git stash pop`(會撈到別的 session 的東西),要用時 `git stash push -u -m "<票號>-<標記>"`,取回前先 `git stash list` 找到**自己那一筆當下的 `stash@{n}`**再 apply;更安全的做法是開一個 WIP commit。
+- **turbo 的快取跨 worktree 共用**:別的 worktree 先跑過同一份輸入,`pnpm exec turbo run test --filter=…` 會 `cache hit, replaying logs`(甚至 `FULL TURBO`)—— 驗收自己的改動沒問題(輸入變了就不會命中),但**取「`origin/main` 的測試數基準」時會拿到別人跑的舊結果**。取基準要進 package 目錄直接跑 jest,見 `docs/standards/testing/testing.md` TEST-08 的「測試數的基準」。
 - 暫存檔放 scratchpad 且**檔名帶票號**(多個 agent 共用同一個 scratchpad)。
 
 ### 開 PR 之後的等待(CI 與 mergeable)
 
-- **PR 對 `dev` 是 `CONFLICTING` 時,GitHub 根本不建 merge ref、CI 一個 check 都不會跑**,`gh pr checks --watch` 會永遠等下去。開 PR 後先看 `gh pr view <n> --json mergeable`,`CONFLICTING` 就先 rebase 到最新的 `origin/main` 再說(#206)。
+- **PR 對 `dev` 是 `CONFLICTING` 時,GitHub 根本不建 merge ref、CI 一個 check 都不會跑**,`gh pr checks --watch` 會永遠等下去。開 PR 後先看 `gh pr view <n> --json mergeable`,`CONFLICTING` 就先 rebase 到最新的 `origin/main` 再說(#206)。**沒有 merge ref 連帶讓 `project-status.yml` 也不跑** —— PR 卡與票卡都不會自動移格,看到看板沒動先查 `mergeable`,不要以為自動化壞了。
+- **rebase 之後還是 `CONFLICTING`、本地 `git merge-tree --write-tree origin/dev HEAD` 卻乾淨 = 交叉 merge base**(`dev` 與 `staging` 都會發生:feat 從 `main` 切,而兩條線各自合過同一批票)。這不是實作者能單獨解的:要由主流程把 `main` 空合併回該 base(`docs/deployment.md` 二、Release 步驟第 4 點),**base 更新後還要把 PR `gh pr close <n>` → `gh pr reopen <n>`** 才會觸發 CI(base 變動不算 `pull_request` 事件)。遇到就回報,不要自己去改 `dev` / `staging`。
 - **剛開 PR 時 Actions 可能排隊很久**(沒有 check 不等於失敗),**force-push 之後 `mergeable` 會短暫回 `UNKNOWN`** —— 等幾秒重查,不要據此判斷有衝突(#203)。
 - **`pnpm format` 會重排全 repo 的 `.ts` import**(CI 的 `format:check` 只看 `**/*.md`,所以 main 上本來就不乾淨):跑完只保留 `.md` 的 diff,其餘 `git checkout` 還原。這是 **#241 收斂前的暫行做法**。
 
@@ -141,6 +143,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 - **已知會超過 `max-lines` 400 的檔案,拆票時就直接指定兩個檔名**,不要讓實作者自行決定怎麼拆(#210 的 `data-scope-rule.ts`)。
 - **「二選一」不留給實作者,並指定 owner 票**:尤其是**過渡做法的退場時機**(第 3 段的指派角色過渡寫法拖到 #211 才退場,期間兩套判準並存)。
 - **規格要寫明邊界條件**:例如「停用的角色不可選」要補「**已持有 + 已停用**時仍可取消」,否則照字面實作會讓人永遠拔不掉那個角色(#211)。
+- **文件正本歸屬要指定到「哪張票寫」**(2026-09-21 補):同段的文件票與實作票會寫到同一份 `docs/modules/<key>.md` —— #262(文件)與 #260(實作)各寫了一版「權限容器」節,合起來就是衝突。拆票時直接分:**規則本文(模組文件的行為說明、ADR、`docs/standards/`)只由文件票寫;實作票只碰自己必然連動的兩處 —— `docs/modules/<key>.md` 的「api 介面」小節與 `apps/admin/src/md/module-help/<key>.help.md`**。實作發現規則本文寫錯,不要就地改,寫進 PR 的「規則回饋」由文件票收。
 
 ### 新套件的版本怎麼查
 

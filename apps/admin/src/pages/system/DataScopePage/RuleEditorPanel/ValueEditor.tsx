@@ -90,6 +90,7 @@ export const ValueEditor = ({
           value={values[0] ?? null}
           error={hasError}
           disabled={env.isReadOnly}
+          size="small"
           sx={{ width: 170 }}
           onChange={(next) => {
             setDate(0, next);
@@ -101,6 +102,7 @@ export const ValueEditor = ({
             value={values[1] ?? null}
             error={hasError}
             disabled={env.isReadOnly}
+            size="small"
             sx={{ width: 170 }}
             onChange={(next) => {
               setDate(1, next);

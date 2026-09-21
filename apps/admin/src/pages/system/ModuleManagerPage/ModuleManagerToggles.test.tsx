@@ -105,9 +105,19 @@ describe("模組與權限頁:enabled 切換", () => {
 
     expect(moduleSwitch("模組與權限")).toBeDisabled();
     expect(permissionSwitch("切換模組 / 權限啟用")).toBeDisabled();
-    expect(
-      within(detail()).getAllByTitle("此模組用於管理模組本身,不可停用").length,
-    ).toBeGreaterThan(1);
+
+    // 提示改用 @repo/ui 的 Tooltip(#240):停用的開關收不到 hover,
+    // 事件載體是 Tooltip 自己包的外層 span
+    const hintCarrier = moduleSwitch("模組與權限").closest(
+      "span.MuiSwitch-root",
+    )?.parentElement;
+    if (hintCarrier === undefined || hintCarrier === null) {
+      throw new Error("自鎖的開關沒有被 Tooltip 包起來");
+    }
+    await actor.hover(hintCarrier);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "此模組用於管理模組本身,不可停用",
+    );
   });
 
   it("mutation 失敗時顯示錯誤,彈窗留著讓人重試", async () => {

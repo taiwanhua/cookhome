@@ -1,7 +1,7 @@
-# 欄位管理(#206;模組 system.field-manager,規則正本 docs/modules/field-manager.md)。
-# 清單是「全域種子 + 當前組織自訂」的合併結果,每筆帶 source:
-# GLOBAL = 全域種子(只能切 enabled)、OWN = 當前組織自訂(可編輯 label / order / description)。
-# 「來源」欄的文案由前端依 source 組(全域 / <組織名稱> 自訂),不從 api 傳組織名(GQL-07)。
+# 欄位管理(#206 / #264;模組 system.field-manager,規則正本 docs/modules/field-manager.md)。
+# 合併清單 = 全域種子 + 上層組織自訂 + 當前組織自訂 + 可見範圍內的下層自訂,每筆帶:
+# ownerOrg(null = 全域種子,有值 = 加這筆的組織)、isOwn(是不是自己這一層加的)、
+# canEdit / canToggleEnabled(api 依操作者算好,前端只讀、不再自己推視角)。
 
 fragment FieldFields on Field {
   id
@@ -11,7 +11,13 @@ fragment FieldFields on Field {
   order
   enabled
   description
-  source
+  ownerOrg {
+    id
+    name
+  }
+  isOwn
+  canEdit
+  canToggleEnabled
 }
 
 # 左側類別清單(全域種子,租戶不可自訂;新增類別走 code + PR)
@@ -27,7 +33,7 @@ query FieldCategories {
   }
 }
 
-# 右側選項表格;已依 order 排好
+# 右側選項表格;已依 order 再依組織深度排好
 query Fields($categoryId: ID!) {
   fields(categoryId: $categoryId) {
     items {
@@ -38,7 +44,7 @@ query Fields($categoryId: ID!) {
 }
 
 # 新增自訂選項:orgId 不由前端給(= 當前組織);
-# value 與同類別下的既有選項(本組織自訂或全域)重複 → FIELD_VALUE_DUPLICATE,標在「值」欄位
+# value 與同類別的上層繼承鏈(全域 / 上層組織自訂 / 自己)重複 → FIELD_VALUE_DUPLICATE,標在「值」欄位
 mutation CreateField($input: CreateFieldInput!) {
   createField(input: $input) {
     field {
@@ -47,7 +53,8 @@ mutation CreateField($input: CreateFieldInput!) {
   }
 }
 
-# 編輯自訂選項;value 不可改(不在 input 內),種子選項送進來一律 FORBIDDEN。
+# 編輯自訂選項;value 不可改(不在 input 內)。
+# 種子選項 → FORBIDDEN(reason SEED_READ_ONLY);別層組織加的 → FORBIDDEN(reason NOT_OWNER)。
 # 缺席 / null 語意(GQL-06):label / order 缺席 = 不動;description 缺席 = 不動、null = 清空
 mutation UpdateField($input: UpdateFieldInput!) {
   updateField(input: $input) {
@@ -57,7 +64,8 @@ mutation UpdateField($input: UpdateFieldInput!) {
   }
 }
 
-# 停用 / 啟用;種子選項的 enabled 是全域開關,只有根組織操作者切得動(否則 FORBIDDEN)
+# 停用 / 啟用;種子選項的 enabled 是全域開關,只有根組織操作者切得動
+# (否則 FORBIDDEN,reason SEED_GLOBAL_SWITCH);別層組織加的 → reason NOT_OWNER
 mutation SetFieldEnabled($input: SetFieldEnabledInput!) {
   setFieldEnabled(input: $input) {
     field {

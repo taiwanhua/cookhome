@@ -24,9 +24,29 @@ export function notFoundError(message: string): GraphQLError {
   return new GraphQLError(message, { extensions: { code: "NOT_FOUND" } });
 }
 
+/**
+ * `FORBIDDEN` 的細分原因(`extensions.reason`;先例 `RULE_INVALID` 的 reason)。
+ * 三種擋法對使用者的說法完全不同,只回 `FORBIDDEN` 的話前端只講得出最常見的那一種(#264)。
+ */
+export const FIELD_FORBIDDEN_REASONS = [
+  /** 種子選項的 label / order / description 唯讀(只能 `setFieldEnabled`)。 */
+  "SEED_READ_ONLY",
+  /** 種子選項的 `enabled` 是全域開關,限根組織操作者(#206)。 */
+  "SEED_GLOBAL_SWITCH",
+  /** 看得到、但不是自己這一層加的自訂選項(上層或下層組織加的,#264)。 */
+  "NOT_OWNER",
+] as const;
+
+export type FieldForbiddenReason = (typeof FIELD_FORBIDDEN_REASONS)[number];
+
 /** 有登入但做了不被允許的事(GQL-04 `FORBIDDEN`):改種子選項、碰別的組織的自訂選項。 */
-export function forbiddenError(message: string): GraphQLError {
-  return new GraphQLError(message, { extensions: { code: "FORBIDDEN" } });
+export function forbiddenError(
+  message: string,
+  reason: FieldForbiddenReason,
+): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: { code: "FORBIDDEN", reason },
+  });
 }
 
 /** 輸入不合法(GQL-04 `VALIDATION_FAILED`):`extensions.fields` 列出有問題的欄位。 */

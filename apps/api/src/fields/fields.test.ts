@@ -6,110 +6,22 @@ import {
   ROOT_ADMIN,
   startAuthTestApp,
 } from "../auth/test-support/auth-app";
-import { createOrg, createUser } from "../auth/test-support/fixtures";
+import { createOrg } from "../auth/test-support/fixtures";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
-import { createRole } from "../permission/test-support/fixtures";
-
-const PASSWORD = ["test", "pass", "word"].join("-");
-
-const LOGIN = /* GraphQL */ `
-  mutation Login($input: LoginInput!) {
-    login(input: $input) {
-      accessToken
-    }
-  }
-`;
-
-const FIELD_CATEGORIES = /* GraphQL */ `
-  query FieldCategories {
-    fieldCategories {
-      items {
-        id
-        key
-        name
-      }
-      totalCount
-    }
-  }
-`;
-
-const FIELDS = /* GraphQL */ `
-  query Fields($categoryId: ID!) {
-    fields(categoryId: $categoryId) {
-      items {
-        id
-        categoryId
-        label
-        value
-        order
-        enabled
-        description
-        source
-      }
-      totalCount
-    }
-  }
-`;
-
-const CREATE_FIELD = /* GraphQL */ `
-  mutation CreateField($input: CreateFieldInput!) {
-    createField(input: $input) {
-      field {
-        id
-        label
-        value
-        order
-        enabled
-        description
-        source
-      }
-    }
-  }
-`;
-
-const UPDATE_FIELD = /* GraphQL */ `
-  mutation UpdateField($input: UpdateFieldInput!) {
-    updateField(input: $input) {
-      field {
-        id
-        label
-        order
-        description
-      }
-    }
-  }
-`;
-
-const SET_FIELD_ENABLED = /* GraphQL */ `
-  mutation SetFieldEnabled($input: SetFieldEnabledInput!) {
-    setFieldEnabled(input: $input) {
-      field {
-        id
-        enabled
-        source
-      }
-    }
-  }
-`;
-
-interface LoginData {
-  login: { accessToken: string };
-}
-
-interface FieldRow {
-  id: string;
-  categoryId: string;
-  label: string;
-  value: string;
-  order: number;
-  enabled: boolean;
-  description: string | null;
-  source: "GLOBAL" | "OWN";
-}
-
-interface FieldsData {
-  fields: { items: FieldRow[]; totalCount: number };
-}
+import {
+  type CreateFieldData,
+  FIELD_CATEGORIES,
+  type FieldRow,
+  SET_FIELD_ENABLED,
+  type SetFieldEnabledData,
+  UPDATE_FIELD,
+  createField,
+  createFieldManager,
+  customOf,
+  findCategoryId,
+  listFields,
+  login,
+} from "./test-support/fixtures";
 
 interface FieldCategoriesData {
   fieldCategories: {
@@ -118,18 +30,15 @@ interface FieldCategoriesData {
   };
 }
 
-interface CreateFieldData {
-  createField: { field: FieldRow };
-}
-
 interface UpdateFieldData {
   updateField: {
-    field: { id: string; label: string; order: number; description: string | null };
+    field: {
+      id: string;
+      label: string;
+      order: number;
+      description: string | null;
+    };
   };
-}
-
-interface SetFieldEnabledData {
-  setFieldEnabled: { field: { id: string; enabled: boolean; source: string } };
 }
 
 /** `audit_logs` 的一筆(欄位正本 `database/schemas/audit-log.schema.ts`)。 */
@@ -141,21 +50,13 @@ interface AuditRecord {
   after?: Record<string, unknown>;
 }
 
-/** 欄位管理權限表(field-manager.md)的四個 key。 */
-const FIELD_PERMISSIONS = [
-  "system.field-manager.view",
-  "system.field-manager.create",
-  "system.field-manager.edit",
-  "system.field-manager.toggle-enabled",
-];
-/** 模組樹要給完整(綁下層必綁上層,ADR-0011 步驟 3)。 */
-const FIELD_MODULES = ["system", "system.field-manager"];
-
 /**
  * 欄位管理(#206:類別 / 合併清單 / 新增 / 編輯 / 停用 / 唯一索引 / 租戶隔離)。
  * 打真的 GraphQL 端點、對真 MongoDB(TEST-07);夾具沿用 auth / permission 的 test-support。
  *
- * 組織樹(root 為 seed 建的根組織):root ─┬─ 租戶甲  └─ 租戶乙
+ * 組織樹(root 為 seed 建的根組織):root ─┬─ 租戶甲  └─ 租戶乙 — 兩者互為兄弟,
+ * 誰都不是誰的上層,所以看不到對方的自訂選項(#264 規則表:看得到的是上層與可見範圍內的下層)。
+ * **上層繼承 / 下層可見的六列規則表在 `field-visibility.test.ts`**。
  * 種子內容(field-manager.md「種子內容」):`gender` 4 個選項、`demo-category` 3 個。
  */
 describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
@@ -171,96 +72,18 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
   let managerBToken: string;
   let rootToken: string;
 
-  let accountSequence = 0;
-
-  function nextAccount(prefix: string): string {
-    accountSequence += 1;
-    return `${prefix}-${String(accountSequence)}`;
-  }
-
-  async function login(account: string, password = PASSWORD): Promise<string> {
-    const result = await api.graphql<LoginData>(LOGIN, {
-      input: { account, password },
-    });
-    expect(result.errors).toBeUndefined();
-    const token = result.data?.login.accessToken;
-    if (!token) {
-      throw new Error(`登入失敗:${account}`);
-    }
-    return token;
-  }
-
-  /** 建一個持有欄位管理權限的操作者並登入(當前組織 = 第一個所屬組織)。 */
-  async function createFieldManager(
-    orgId: Types.ObjectId,
-    permissionKeys: string[] = FIELD_PERMISSIONS,
-  ): Promise<string> {
-    const account = nextAccount("field-manager");
-    const userId = await createUser(connection, {
-      account,
-      password: PASSWORD,
-      orgIds: [orgId],
-    });
-    await createRole(api.app, connection, {
-      name: `欄位管理角色:${account}`,
-      ownerOrgId: orgId,
-      moduleKeys: FIELD_MODULES,
-      permissionKeys,
-      assignTo: [userId],
-    });
-    return login(account);
-  }
-
-  async function findCategoryId(key: string): Promise<Types.ObjectId> {
-    const category = await connection
-      .collection("field_categories")
-      .findOne<{ _id: Types.ObjectId }>({ key });
-    if (!category) {
-      throw new Error(`測試資料庫沒有欄位類別 key=${key}(seed 未跑?)`);
-    }
-    return category._id;
-  }
-
-  async function listFields(
-    token: string,
-    categoryId: Types.ObjectId,
-  ): Promise<FieldRow[]> {
-    const result = await api.graphql<FieldsData>(
-      FIELDS,
-      { categoryId: String(categoryId) },
-      { accessToken: token },
-    );
-    expect(result.errors).toBeUndefined();
-    if (!result.data) {
-      throw new Error("fields 沒有回資料");
-    }
-    expect(result.data.fields.totalCount).toBe(result.data.fields.items.length);
-    return result.data.fields.items;
-  }
-
   /** 取合併清單裡符合條件的第一筆(找不到即測試前提壞了,直接拋)。 */
   async function findRow(
     token: string,
     categoryId: Types.ObjectId,
     predicate: (row: FieldRow) => boolean,
   ): Promise<FieldRow> {
-    const rows = await listFields(token, categoryId);
+    const rows = await listFields(api, token, categoryId);
     const found = rows.find((row) => predicate(row));
     if (!found) {
       throw new Error("合併清單裡找不到預期的選項");
     }
     return found;
-  }
-
-  async function createField(
-    token: string,
-    input: Record<string, unknown>,
-  ): Promise<Awaited<ReturnType<AuthTestApp["graphql"]>>> {
-    return api.graphql<CreateFieldData>(
-      CREATE_FIELD,
-      { input },
-      { accessToken: token },
-    );
   }
 
   function latestAudit(
@@ -286,12 +109,12 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
 
     tenantA = await createOrg(connection, { name: "租戶甲" });
     tenantB = await createOrg(connection, { name: "租戶乙" });
-    genderCategoryId = await findCategoryId("gender");
-    demoCategoryId = await findCategoryId("demo-category");
+    genderCategoryId = await findCategoryId(connection, "gender");
+    demoCategoryId = await findCategoryId(connection, "demo-category");
 
-    managerAToken = await createFieldManager(tenantA);
-    managerBToken = await createFieldManager(tenantB);
-    rootToken = await login(ROOT_ADMIN.account, ROOT_ADMIN.password);
+    managerAToken = await createFieldManager(api, connection, tenantA);
+    managerBToken = await createFieldManager(api, connection, tenantB);
+    rootToken = await login(api, ROOT_ADMIN.account, ROOT_ADMIN.password);
   }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -311,39 +134,37 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
       expect(result.data?.fieldCategories.totalCount).toBe(2);
     });
 
-    it("fields 回全域種子,依 order 排序、每筆 source=GLOBAL", async () => {
-      const rows = await listFields(managerAToken, genderCategoryId);
+    it("fields 回全域種子,依 order 排序、每筆 ownerOrg=null 且不可編輯", async () => {
+      const rows = await listFields(api, managerAToken, genderCategoryId);
       expect(rows.map((row) => row.value)).toEqual([
         "male",
         "female",
         "other",
         "undisclosed",
       ]);
-      expect(rows.map((row) => row.source)).toEqual([
-        "GLOBAL",
-        "GLOBAL",
-        "GLOBAL",
-        "GLOBAL",
-      ]);
+      expect(rows.every((row) => row.ownerOrg === null)).toBe(true);
+      expect(rows.every((row) => !row.isOwn && !row.canEdit)).toBe(true);
+      // 種子的 enabled 是全域開關:租戶視角一律不可切
+      expect(rows.every((row) => !row.canToggleEnabled)).toBe(true);
       expect(rows.every((row) => row.enabled)).toBe(true);
     });
 
     it("沒有 view 權限 → FORBIDDEN", async () => {
-      const token = await createFieldManager(tenantA, [
+      const token = await createFieldManager(api, connection, tenantA, [
         "system.field-manager.create",
       ]);
-      const result = await api.graphql(
-        FIELDS,
+      const rows = await api.graphql(
+        "query Fields($categoryId: ID!) { fields(categoryId: $categoryId) { totalCount } }",
         { categoryId: String(genderCategoryId) },
         { accessToken: token },
       );
-      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(rows.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
     });
   });
 
   describe("新增自訂選項", () => {
-    it("建立後出現在合併清單、source=OWN、orgId = 當前組織,並寫審計 field.create", async () => {
-      const result = await createField(managerAToken, {
+    it("建立後出現在合併清單、ownerOrg = 當前組織、isOwn/canEdit 為真,並寫審計 field.create", async () => {
+      const result = await createField(api, managerAToken, {
         categoryId: String(demoCategoryId),
         label: "甜點",
         value: "dessert",
@@ -359,17 +180,20 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
         order: 4,
         enabled: true,
         description: "租戶甲自訂",
-        source: "OWN",
+        ownerOrg: { id: String(tenantA), name: "租戶甲" },
+        isOwn: true,
+        canEdit: true,
+        canToggleEnabled: true,
       });
 
-      const rows = await listFields(managerAToken, demoCategoryId);
+      const rows = await listFields(api, managerAToken, demoCategoryId);
       expect(rows.map((row) => row.value)).toEqual([
         "staple",
         "side-dish",
         "drink",
         "dessert",
       ]);
-      expect(rows.at(-1)?.source).toBe("OWN");
+      expect(rows.at(-1)?.isOwn).toBe(true);
 
       const stored = await connection
         .collection("fields")
@@ -390,7 +214,7 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
     });
 
     it("同類別同組織重複 value → FIELD_VALUE_DUPLICATE", async () => {
-      const result = await createField(managerAToken, {
+      const result = await createField(api, managerAToken, {
         categoryId: String(demoCategoryId),
         label: "甜點(重複)",
         value: "dessert",
@@ -401,7 +225,7 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
     });
 
     it("與同類別的全域選項同 value → FIELD_VALUE_DUPLICATE(唯一索引擋不到,由表單驗證擋)", async () => {
-      const result = await createField(managerAToken, {
+      const result = await createField(api, managerAToken, {
         categoryId: String(demoCategoryId),
         label: "主食(自訂)",
         value: "staple",
@@ -411,16 +235,16 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
       );
     });
 
-    it("不同組織可以有同一個 value", async () => {
-      const result = await createField(managerBToken, {
+    it("互不相干的兩個組織可以有同一個 value", async () => {
+      const result = await createField(api, managerBToken, {
         categoryId: String(demoCategoryId),
         label: "甜點",
         value: "dessert",
       });
       expect(result.errors).toBeUndefined();
       expect(
-        (result.data as CreateFieldData | null)?.createField.field.source,
-      ).toBe("OWN");
+        (result.data as CreateFieldData | null)?.createField.field.isOwn,
+      ).toBe(true);
     });
 
     it("唯一索引擋下繞過表單驗證的重複(同 categoryId + orgId + value)", async () => {
@@ -444,14 +268,14 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
     });
 
     it("查無類別 → NOT_FOUND;value 空白 → VALIDATION_FAILED", async () => {
-      const missing = await createField(managerAToken, {
+      const missing = await createField(api, managerAToken, {
         categoryId: String(new Types.ObjectId()),
         label: "x",
         value: "x",
       });
       expect(missing.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
 
-      const blank = await createField(managerAToken, {
+      const blank = await createField(api, managerAToken, {
         categoryId: String(demoCategoryId),
         label: "x",
         value: " ".repeat(3),
@@ -461,7 +285,7 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
   });
 
   describe("編輯", () => {
-    it("種子選項 → FORBIDDEN(只能 setFieldEnabled)", async () => {
+    it("種子選項 → FORBIDDEN(reason SEED_READ_ONLY,只能 setFieldEnabled)", async () => {
       const seed = await findRow(
         managerAToken,
         genderCategoryId,
@@ -472,14 +296,17 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
         { input: { id: seed.id, label: "先生" } },
         { accessToken: managerAToken },
       );
-      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "FORBIDDEN",
+        reason: "SEED_READ_ONLY",
+      });
     });
 
     it("自訂選項改得動 label / order / description,並寫審計 field.edit", async () => {
       const own = await findRow(
         managerAToken,
         demoCategoryId,
-        (row) => row.source === "OWN",
+        (row) => row.isOwn,
       );
       const result = await api.graphql<UpdateFieldData>(
         UPDATE_FIELD,
@@ -498,11 +325,11 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
       expect(audit?.after).toMatchObject({ label: "點心", order: 7 });
     });
 
-    it("別的組織的自訂選項 → NOT_FOUND(不在合併清單內)", async () => {
+    it("互不相干的組織的自訂選項 → NOT_FOUND(不在合併清單內)", async () => {
       const ownOfB = await findRow(
         managerBToken,
         demoCategoryId,
-        (row) => row.source === "OWN",
+        (row) => row.isOwn,
       );
       const result = await api.graphql(
         UPDATE_FIELD,
@@ -514,11 +341,11 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
   });
 
   describe("停用 / 啟用", () => {
-    it("自訂選項:租戶自己切得動,並寫審計 field.toggle-enabled", async () => {
+    it("自訂選項:自己這一層切得動,並寫審計 field.toggle-enabled", async () => {
       const own = await findRow(
         managerAToken,
         demoCategoryId,
-        (row) => row.source === "OWN",
+        (row) => row.isOwn,
       );
       const result = await api.graphql<SetFieldEnabledData>(
         SET_FIELD_ENABLED,
@@ -536,7 +363,7 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
       expect(audit?.after).toMatchObject({ enabled: false });
     });
 
-    it("種子選項:租戶操作者 → FORBIDDEN(enabled 是全域開關)", async () => {
+    it("種子選項:租戶操作者 → FORBIDDEN(reason SEED_GLOBAL_SWITCH)", async () => {
       const seed = await findRow(
         managerAToken,
         genderCategoryId,
@@ -547,7 +374,10 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
         { input: { id: seed.id, enabled: false } },
         { accessToken: managerAToken },
       );
-      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "FORBIDDEN",
+        reason: "SEED_GLOBAL_SWITCH",
+      });
     });
 
     it("種子選項:根組織操作者切得動,全域生效", async () => {
@@ -556,6 +386,7 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
         genderCategoryId,
         (row) => row.value === "undisclosed",
       );
+      expect(seed.canToggleEnabled).toBe(true);
       const result = await api.graphql<SetFieldEnabledData>(
         SET_FIELD_ENABLED,
         { input: { id: seed.id, enabled: false } },
@@ -564,7 +395,7 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
       expect(result.errors).toBeUndefined();
       expect(result.data?.setFieldEnabled.field).toMatchObject({
         enabled: false,
-        source: "GLOBAL",
+        ownerOrg: null,
       });
 
       const seenByTenant = await findRow(
@@ -577,27 +408,26 @@ describe("欄位管理(#206,GraphQL 端點 + 真 MongoDB)", () => {
   });
 
   describe("租戶隔離", () => {
-    it("租戶甲看不到租戶乙的自訂選項(反之亦然)", async () => {
-      const seenByA = await listFields(managerAToken, demoCategoryId);
-      const seenByB = await listFields(managerBToken, demoCategoryId);
-      // 兩邊各自只有一筆 OWN,且 id 不同(同 value、不同組織)
-      const ownOfA = seenByA.filter((row) => row.source === "OWN");
-      const ownOfB = seenByB.filter((row) => row.source === "OWN");
+    it("租戶甲看不到租戶乙的自訂選項(互為兄弟,誰都不是誰的上層)", async () => {
+      const seenByA = await listFields(api, managerAToken, demoCategoryId);
+      const seenByB = await listFields(api, managerBToken, demoCategoryId);
+      // 兩邊各自只有一筆自訂,且 id 不同(同 value、不同組織)
+      const ownOfA = customOf(seenByA);
+      const ownOfB = customOf(seenByB);
       expect(ownOfA).toHaveLength(1);
       expect(ownOfB).toHaveLength(1);
       expect(ownOfA[0]?.id).not.toBe(ownOfB[0]?.id);
-      expect(
-        seenByA.some((row) => row.id === ownOfB[0]?.id),
-      ).toBe(false);
-      expect(
-        seenByB.some((row) => row.id === ownOfA[0]?.id),
-      ).toBe(false);
+      expect(seenByA.some((row) => row.id === ownOfB[0]?.id)).toBe(false);
+      expect(seenByB.some((row) => row.id === ownOfA[0]?.id)).toBe(false);
     });
 
-    it("根組織操作者的清單只含全域 + 根組織自己的自訂,不含租戶的", async () => {
-      const rows = await listFields(rootToken, demoCategoryId);
-      expect(rows.every((row) => row.source === "GLOBAL")).toBe(true);
-      expect(rows).toHaveLength(3);
+    it("根組織操作者看得到全部租戶的自訂選項,但一筆都不是自己的(#264)", async () => {
+      const rows = await listFields(api, rootToken, demoCategoryId);
+      const custom = customOf(rows);
+      const owners = new Set(custom.map((row) => row.ownerOrg?.name));
+      expect(custom).toHaveLength(2);
+      expect(owners).toEqual(new Set(["租戶甲", "租戶乙"]));
+      expect(custom.every((row) => !row.isOwn && !row.canEdit)).toBe(true);
     });
   });
 });

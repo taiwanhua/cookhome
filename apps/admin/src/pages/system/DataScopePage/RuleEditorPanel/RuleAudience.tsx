@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslations } from "use-intl";
 
 import { DataScopeAudienceType } from "@repo/graphql";
@@ -12,6 +12,7 @@ import { Typography } from "@repo/ui/typography";
 import { OrgTreePicker } from "@/components/OrgTreePicker/OrgTreePicker";
 import { issueKey } from "@/lib/data-scope-issues";
 import type { AudienceDraft } from "@/lib/data-scope-rule";
+import { filterRoleOptions, groupRoleOptions } from "@/lib/role-options";
 
 import type { DataScopeEditorEnv, PickerOption } from "../data-scope-types";
 
@@ -44,6 +45,8 @@ export const RuleAudience = ({
 }: RuleAudienceProps) => {
   const t = useTranslations("admin.dataScope.rule");
   const tReasons = useTranslations("admin.dataScope.reasons");
+  /** 選單內的搜尋字串;角色清單在根組織視角會跨很多租戶(#261 的 8) */
+  const [keyword, setKeyword] = useState("");
 
   const issue = env.issues.get(issueKey(ruleIndex, [], "audience"));
   const labelOf = (type: DataScopeAudienceType) =>
@@ -67,6 +70,45 @@ export const RuleAudience = ({
   const isList =
     audience.type === DataScopeAudienceType.Role ||
     audience.type === DataScopeAudienceType.User;
+  const isRoleList = audience.type === DataScopeAudienceType.Role;
+  /**
+   * 角色清單:先依關鍵字收斂,再依租戶頂層分組(跨兩個以上租戶才分,`lib/role-options.ts`)。
+   * 使用者清單維持原樣 — 它的 label 已含帳號,不會同名難辨。
+   */
+  const visible = isRoleList
+    ? filterRoleOptions(
+        options.map((option) => ({
+          ...option,
+          name: option.name ?? option.label,
+          ownerOrgName: option.ownerOrgName ?? null,
+        })),
+        keyword,
+      )
+    : options;
+  const groups = isRoleList
+    ? groupRoleOptions(
+        visible.map((option) => ({
+          id: option.id,
+          name: option.name ?? option.label,
+          ownerOrgName: option.ownerOrgName ?? null,
+          label: option.label,
+          tenantTopId: option.tenantTopId ?? null,
+          tenantTopName: option.tenantTopName ?? null,
+        })),
+      )
+    : [
+        {
+          id: null,
+          name: null,
+          options: visible.map((option) => ({
+            ...option,
+            ownerOrgName: null,
+            tenantTopId: null,
+            tenantTopName: null,
+            name: option.label,
+          })),
+        },
+      ];
 
   return (
     <Stack spacing={0.75}>
@@ -110,13 +152,44 @@ export const RuleAudience = ({
               });
             }}
           >
-            {options.map((option) => (
-              <MenuItem key={option.id} value={option.id}>
-                <Checkbox checked={audience.ids.includes(option.id)} />
-                {option.label}
-              </MenuItem>
-            ))}
+            {groups.flatMap((group) => [
+              ...(group.name === null
+                ? []
+                : [
+                    <MenuItem
+                      key={`group-${group.id ?? ""}`}
+                      disabled
+                      value=""
+                      sx={{ opacity: 1 }}
+                    >
+                      <Typography variant="overline" color="text.secondary">
+                        {group.name}
+                      </Typography>
+                    </MenuItem>,
+                  ]),
+              ...group.options.map((option) => (
+                <MenuItem key={option.id} value={option.id}>
+                  <Checkbox checked={audience.ids.includes(option.id)} />
+                  {option.label}
+                </MenuItem>
+              )),
+            ])}
           </TextField>
+        )}
+
+        {isRoleList && (
+          // 搜尋放在選單**外面**:MUI 的 Select 會把選單裡的子元素一律 clone 成
+          // `role="option"`,塞進去的輸入框會變成一個假的選項(a11y 與測試都亂掉)
+          <TextField
+            size="small"
+            label={t("audienceSearch")}
+            value={keyword}
+            disabled={env.isReadOnly}
+            sx={{ width: 160 }}
+            onChange={(event) => {
+              setKeyword(event.target.value);
+            }}
+          />
         )}
       </Stack>
 

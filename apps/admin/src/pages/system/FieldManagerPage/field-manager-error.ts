@@ -5,6 +5,9 @@ import type { FieldManagerErrorCode } from "./field-manager-types";
 /**
  * 本頁會收到的業務錯誤碼(GQL-04;正本 `docs/modules/field-manager.md`「api 介面」)。
  * 認不出來的一律當 `UNEXPECTED`,文案在 `admin.fieldManager.errors.*`。
+ *
+ * `FORBIDDEN` 依 `extensions.reason` 再分一層(#264):`NOT_OWNER` 是「別的組織加的選項」,
+ * 與種子選項的全域開關是兩回事,文案不同 —— 所以它在本頁被當成獨立的一碼。
  */
 const FIELD_MANAGER_ERROR_CODES = [
   "FIELD_VALUE_DUPLICATE",
@@ -14,7 +17,7 @@ const FIELD_MANAGER_ERROR_CODES = [
 ] as const;
 
 interface GraphqlErrorShape {
-  extensions?: { code?: unknown };
+  extensions?: { code?: unknown; reason?: unknown };
 }
 
 const errorsOf = (error: unknown): GraphqlErrorShape[] => {
@@ -25,15 +28,16 @@ const errorsOf = (error: unknown): GraphqlErrorShape[] => {
   return Array.isArray(errors) ? (errors as GraphqlErrorShape[]) : [];
 };
 
-export const fieldManagerErrorOf = (
-  error: unknown,
-): FieldManagerErrorCode => {
+export const fieldManagerErrorOf = (error: unknown): FieldManagerErrorCode => {
   for (const item of errorsOf(error)) {
-    const { code } = item.extensions ?? {};
-    if (
-      typeof code === "string" &&
-      (FIELD_MANAGER_ERROR_CODES as readonly string[]).includes(code)
-    ) {
+    const { code, reason } = item.extensions ?? {};
+    if (typeof code !== "string") {
+      continue;
+    }
+    if (code === "FORBIDDEN" && reason === "NOT_OWNER") {
+      return "NOT_OWNER";
+    }
+    if ((FIELD_MANAGER_ERROR_CODES as readonly string[]).includes(code)) {
       return code as FieldManagerErrorCode;
     }
   }

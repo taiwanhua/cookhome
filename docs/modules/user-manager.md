@@ -77,8 +77,9 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 - **`nationalId`**:`user(id)` 持 `show-national-id` 才以 `select("+nationalId")` 取回並解密,清單一律不回;寫入(新增或編輯)需 `edit-national-id`,否則 `FORBIDDEN`。
 - **全量覆蓋的邊界**:`setUserOrgs` 只覆蓋操作者**管理範圍內**的所屬組織,`assignUserRoles` 只覆蓋操作者**可觸及**(擁有組織在管理範圍內)的角色 — 彈窗列不出來的那些不會被順手移除。
 - **`removalPolicy`**:`KEEP_ALL` / `REVOKE_OWNED_BY_ORG` / `REVOKE_ALL_UNQUALIFIED`(預設)。`unqualifiedRoles` 逐筆附 `reasons`(`OWNED_BY_REMOVED_ORG` / `NO_REMAINING_SUBTREE_SUPPORT`,可同時成立)與 `ownerProtected`。
-- **防越權**:`ROLE_OUT_OF_REACH` = 要授予的角色其**擁有組織不在操作者的管理範圍內**(2026-09-20 / #211 改;原判準「操作者自己持有」是第 3 段沒有 `roles` query 時的過渡做法,與 `grantRoleUsers` 兩套判準會讓同一個授予從角色頁做得到、從使用者頁做不到)。管理範圍是 `"all"`(超級管理員 / 擁有組織為根組織)時全權放行,否則根組織無法把租戶的角色授予任何人。授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹),不符回 `VALIDATION_FAILED`。
-- **錯誤碼**:`LAST_ORG`、`ROLE_OUT_OF_REACH`、`OWNER_PROTECTED`(程式正本 `apps/api/src/users/users-error.ts`,表在 GQL-04);帳號 / Email 重複與資格不符沿用 `VALIDATION_FAILED`(`extensions.fields` 指出欄位)。
+- **防越權**:`ROLE_OUT_OF_REACH` = 要授予的角色其**擁有組織不在操作者的管理範圍內**(2026-09-20 / #211 改;原判準「操作者自己持有」是第 3 段沒有 `roles` query 時的過渡做法,與 `grantRoleUsers` 兩套判準會讓同一個授予從角色頁做得到、從使用者頁做不到)。管理範圍是 `"all"`(超級管理員 / 擁有組織為根組織)時全權放行,否則根組織無法把租戶的角色授予任何人。
+- **授予資格(2026-09-21 / #261)**:授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹),不符回 **`USER_NOT_ELIGIBLE`** 附 `extensions.roleId` / `ownerOrgName`(在此之前回 `VALIDATION_FAILED`,前端只講得出「資料未通過驗證」)。判斷本身是**唯一的檢查點** `OrgQualificationService.assertEligible`,與角色頁的 `grantRoleUsers` 共用 —— 同一件事不該因為入口不同而回不同的碼。
+- **錯誤碼**:`LAST_ORG`、`ROLE_OUT_OF_REACH`、`USER_NOT_ELIGIBLE`、`OWNER_PROTECTED`(程式正本 `apps/api/src/users/users-error.ts`,表在 GQL-04);帳號 / Email 重複沿用 `VALIDATION_FAILED`(`extensions.fields` 指出欄位)。
 
 ## admin 實作(#139,程式在 `apps/admin/src/pages/system/UserManagerPage/`)
 
@@ -94,6 +95,10 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
   (`ROLE_OUT_OF_REACH`)同一條 —— 擁有組織在操作者管理範圍內。第 3 段那個「查 `user(操作者自己的 id)`
   的 `roles`」的過渡做法已退場,角色的**描述文字**(Figma 86:245)也因此拿得到了。已授予但操作者
   觸及不到的角色仍唯讀顯示,送出時不包含(api 也不會動它)。
+  **#261 再加兩件事**:①每一列標「角色名稱 — 擁有組織」,跨租戶時依 `ownerOrg.tenantTop` 分組並可搜尋
+  (共用 `apps/admin/src/lib/role-options.ts`,規則見 role-manager.md「角色選單怎麼分辨同名角色」);
+  ②**沒有授予資格的角色顯示但 disabled** 並就地說明「此角色只能授予 <擁有組織> 及其下層的使用者」——
+  在此之前勾得下去、送出才吃到錯。資格以 `orgTree` 算(`lib/role-eligibility.ts`),判定權仍在 api。
 - **擁有者保護只需要一個 id**:前端不重做 `owner-protection.service.ts` 的判斷,只取
   `org(樹根 id)`:`parentId === null` 代表操作者站在根組織 → 一律放行不標保護;否則樹根就是租戶頂層,
   它的 `ownerUserId` 就是受保護的那一位,該列的「停用」「所屬組織」disabled 並提示。

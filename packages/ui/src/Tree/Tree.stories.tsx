@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Button } from "../Button/Button";
 import { Tag } from "../Tag/Tag";
 import { Typography } from "../Typography/Typography";
-import { type TreeNode, Tree } from "./Tree";
+import { Tree, type TreeNode } from "./Tree";
 
 /** 權限矩陣列在名稱右邊的權限 key(Figma 172:281:12px、text.disabled)。 */
 const MatrixKey = ({ value }: { value: string }) => (
@@ -158,6 +158,36 @@ export const PermissionMatrix: Story = {
     indeterminateIds: ["demo.sample-one"],
     disabledCheckIds: ["demo", "demo.sample-one"],
     "aria-label": "權限矩陣",
+  },
+};
+
+/**
+ * 依深度縮排(#260):每一層的縮排 = `childrenIndentation` × 深度,做在內容列的
+ * `paddingLeft` 上。四層一起看最容易發現縮排又被蓋掉。
+ */
+export const DeepIndentation: Story = {
+  args: {
+    items: [
+      {
+        id: "L0",
+        label: "第 0 層",
+        children: [
+          {
+            id: "L1",
+            label: "第 1 層",
+            children: [
+              {
+                id: "L2",
+                label: "第 2 層",
+                children: [{ id: "L3", label: "第 3 層" }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    childrenIndentation: 24,
+    defaultExpandedIds: ["L0", "L1", "L2"],
   },
 };
 

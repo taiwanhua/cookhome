@@ -12,6 +12,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
 import { type OrgNodeLike, flattenOrgs } from "@/lib/org-tree";
+import { roleMenuOptions } from "@/lib/role-options";
 
 import {
   DATA_SCOPE_PERMISSIONS,
@@ -84,9 +85,20 @@ export const useDataScopeData = () => {
   /** `orgTree` 只受管理範圍限制、沒有權限守門,所以不必 gate。 */
   const orgTree = useOrgTreeQuery(session.client);
 
-  const roleOptions: PickerOption[] = (roles.data?.roles.items ?? []).map(
-    (role) => ({ id: role.id, label: role.name }),
-  );
+  /**
+   * 套用對象「指定角色」的選項:每列「角色名稱 — 擁有組織」,並帶租戶頂層供分組(#261 的 8)。
+   * 每個租戶都有自己的「租戶管理員」,根組織視角只看角色名稱完全分不出來。
+   */
+  const roleOptions: PickerOption[] = roleMenuOptions(
+    roles.data?.roles.items ?? [],
+  ).map((role) => ({
+    id: role.id,
+    label: role.label,
+    name: role.name,
+    ownerOrgName: role.ownerOrgName,
+    tenantTopId: role.tenantTopId,
+    tenantTopName: role.tenantTopName,
+  }));
   const userOptions: PickerOption[] = (users.data?.users.items ?? []).map(
     (user) => ({ id: user.id, label: `${user.name}(${user.account})` }),
   );

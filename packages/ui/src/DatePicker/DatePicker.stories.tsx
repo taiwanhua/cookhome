@@ -35,6 +35,14 @@ export const Disabled: Story = {
   args: { value: "2026-01-01", disabled: true },
 };
 
+/**
+ * 與同列的 `TextField select` / `Select` 對齊(#260):
+ * 條件列整列都用 `small`,不給的話日期欄會高一截。
+ */
+export const Small: Story = {
+  args: { value: "2026-01-01", size: "small" },
+};
+
 /** 日曆語系可切(語系資料,不是 UI 文案 — 文字一律由呼叫端傳入,I18N-01)。 */
 export const EnglishCalendar: Story = {
   args: { label: "Value", value: "2026-01-01", locale: "en" },

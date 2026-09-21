@@ -87,7 +87,7 @@ export class RoleUsersService {
     const holders = new Set(holderIds.map(String));
     const toAdd = userIds.filter((userId) => !holders.has(String(userId)));
     if (toAdd.length > 0) {
-      await this.assertEligible(operator, toAdd, ownerOrgId);
+      await this.assertEligible(operator, toAdd, role._id, ownerOrgId);
       await this.relations.linkMany(
         operator,
         toAdd.map((userId) => ({
@@ -263,11 +263,14 @@ export class RoleUsersService {
 
   /**
    * 候選規則(ADR-0003):所屬組織至少一個落在角色擁有組織的子樹內。
-   * 查不到的使用者一律 `NOT_FOUND`(不透露差別);不合資格 `USER_NOT_ELIGIBLE`。
+   * 查不到的使用者一律 `NOT_FOUND`(不透露差別);資格判斷本身共用
+   * `OrgQualificationService.assertEligible`(#261:與使用者頁的 `assignUserRoles`
+   * 同一份判斷、同一個 `USER_NOT_ELIGIBLE`),本檔不自己再算一次。
    */
   private async assertEligible(
     operator: OperatorContext,
     userIds: Types.ObjectId[],
+    roleId: Types.ObjectId,
     ownerOrgId: Types.ObjectId | null,
   ): Promise<void> {
     const found = await this.users.findMany(operator, {
@@ -276,41 +279,11 @@ export class RoleUsersService {
     if (found.length !== userIds.length) {
       throw notFoundError("One or more users not found");
     }
-    if (ownerOrgId === null) {
-      throw roleError(
-        "USER_NOT_ELIGIBLE",
-        "The role has no owner org; nobody is eligible for it",
-      );
-    }
-    const memberLinks = await this.relations.listLinks("org_user", {
-      secondIds: userIds,
-    });
-    const ancestry = await this.qualification.loadAncestry(operator, [
-      ...uniqueObjectIds(memberLinks.map((link) => link.firstId)),
-      ownerOrgId,
-    ]);
-    const memberOrgIdsByUser = new Map<string, string[]>();
-    for (const link of memberLinks) {
-      const key = String(link.secondId);
-      memberOrgIdsByUser.set(key, [
-        ...(memberOrgIdsByUser.get(key) ?? []),
-        String(link.firstId),
-      ]);
-    }
-    const blocked = userIds.find(
-      (userId) =>
-        !this.qualification.qualifies(
-          memberOrgIdsByUser.get(String(userId)) ?? [],
-          String(ownerOrgId),
-          ancestry,
-        ),
+    await this.qualification.assertEligible(
+      operator,
+      await this.qualification.loadMembers(userIds),
+      [{ id: roleId, ownerOrgId }],
     );
-    if (blocked) {
-      throw roleError(
-        "USER_NOT_ELIGIBLE",
-        `User ${String(blocked)} has no member org inside the role's owner org subtree`,
-      );
-    }
   }
 
   /** 擁有者保護(ADR-0009):租戶擁有者的「租戶管理員」授予不可解除;根組織操作者放行。 */

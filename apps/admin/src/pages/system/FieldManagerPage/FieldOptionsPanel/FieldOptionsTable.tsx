@@ -13,15 +13,12 @@ import {
   canToggleOption,
   fieldSourceView,
   isSeedOption,
+  managedByOrgOf,
 } from "../field-source";
 
 export interface FieldOptionsTableProps {
   fields: readonly FieldOptionLike[];
   isLoading: boolean;
-  /** 來源欄的「<組織名稱> 自訂」;api 不傳組織名,取 session 的當前組織(GQL-07) */
-  currentOrgName: string;
-  /** 站在根組織:種子選項的全域開關只有根組織切得動 */
-  isRoot: boolean;
   canEdit: boolean;
   canToggleEnabled: boolean;
   /** 正在送出的那一筆(同時只會有一筆) */
@@ -33,16 +30,20 @@ export interface FieldOptionsTableProps {
 /**
  * 選項表格(Figma 90:232 起):顯示名稱、值、排序、來源、啟用、操作。
  *
+ * 合併清單含**上層組織**加的選項與**可見範圍內的下層**加的(#264):兩種都看得到、
+ * 都改不動,整列以淡色呈現 + 提示「由 <組織名> 管理」。一列能做什麼一律讀 api 給的
+ * `canEdit` / `canToggleEnabled`,解讀集中在 `field-source.ts`,這裡不推組織關係。
+ *
  * 與 Figma 的兩處差異(PR 差異表有列):設計稿把「狀態」畫成唯讀 Tag、開關另計,
  * 這裡依票直接用 `Switch`(停用 / 啟用直接送,不另開確認);沒有 `toggle-enabled`
- * 權限時才退回 Tag。種子列在非根組織視角是**唯讀**的開關 + 一句說明,
- * 不是把它藏起來 —— 看得到但動不了,跟「這個動作我沒有權限」是兩回事。
+ * 權限時才退回 Tag。改不動的列是**唯讀**的開關 + 一句說明,不是把它藏起來 ——
+ * 看得到但動不了,跟「這個動作我沒有權限」是兩回事。
+ *
+ * 提示用原生 `title`:`@repo/ui` 目前沒有 Tooltip 元件(#260 進 main 後換掉)。
  */
 export const FieldOptionsTable = ({
   fields,
   isLoading,
-  currentOrgName,
-  isRoot,
   canEdit,
   canToggleEnabled,
   pendingFieldId,
@@ -51,13 +52,40 @@ export const FieldOptionsTable = ({
 }: FieldOptionsTableProps) => {
   const t = useTranslations("admin.fieldManager.options");
 
+  /** 動不了的理由:別的組織在管 → 帶組織名;種子 → 由系統管理員維護。 */
+  const lockedHintOf = (field: FieldOptionLike): string => {
+    const org = managedByOrgOf(field);
+    return org === null ? t("seedManagedHint") : t("managedByOrgHint", { org });
+  };
+
+  /** 操作欄在改不動時顯示的短句。 */
+  const lockedLabelOf = (field: FieldOptionLike): string => {
+    const org = managedByOrgOf(field);
+    if (org !== null) {
+      return t("managedByOrg", { org });
+    }
+    return isSeedOption(field) ? t("seedManaged") : t("none");
+  };
+
+  /** 別的組織加的選項整列淡色(反灰):看得到,但這一頁的人碰不到它。 */
+  const textColorOf = (field: FieldOptionLike): string =>
+    managedByOrgOf(field) === null ? "text.primary" : "text.disabled";
+
   const columns: TableColumn<FieldOptionLike>[] = [
     {
       key: "label",
       header: t("label"),
       width: 180,
       isEmphasized: true,
-      render: (field) => field.label,
+      render: (field) => (
+        <Typography
+          component="span"
+          variant="subtitle2"
+          color={textColorOf(field)}
+        >
+          {field.label}
+        </Typography>
+      ),
     },
     {
       key: "value",
@@ -73,12 +101,16 @@ export const FieldOptionsTable = ({
       key: "order",
       header: t("order"),
       width: 64,
-      render: (field) => field.order,
+      render: (field) => (
+        <Typography component="span" variant="body2" color={textColorOf(field)}>
+          {field.order}
+        </Typography>
+      ),
     },
     {
       key: "source",
       header: t("source"),
-      width: 140,
+      width: 160,
       render: (field) => {
         const view = fieldSourceView(field);
         return (
@@ -87,7 +119,7 @@ export const FieldOptionsTable = ({
             label={
               view.labelKey === "sourceGlobal"
                 ? t("sourceGlobal")
-                : t("sourceOwn", { org: currentOrgName })
+                : t("sourceOwn", { org: view.org })
             }
           />
         );
@@ -98,10 +130,7 @@ export const FieldOptionsTable = ({
       header: t("enabled"),
       width: 96,
       render: (field) => {
-        const isToggleable = canToggleOption(field, {
-          canToggleEnabled,
-          isRoot,
-        });
+        const isToggleable = canToggleOption(field, { canToggleEnabled });
         if (!canToggleEnabled) {
           return (
             <Tag
@@ -113,7 +142,7 @@ export const FieldOptionsTable = ({
         return (
           <Box
             component="span"
-            title={isToggleable ? undefined : t("seedManagedHint")}
+            title={isToggleable ? undefined : lockedHintOf(field)}
           >
             <Switch
               checked={field.enabled}
@@ -146,10 +175,15 @@ export const FieldOptionsTable = ({
             </Button>
           );
         }
-        // 種子列講明「為什麼不能編輯」;自訂列只是沒有 edit 權限,不需要解釋
+        // 改不動的列講明「誰在管它」;只是沒有 edit 權限的自己人列不需要解釋
         return (
-          <Typography variant="body2" color="text.disabled">
-            {isSeedOption(field) ? t("seedManaged") : t("none")}
+          <Typography
+            component="span"
+            variant="body2"
+            color="text.disabled"
+            title={field.canEdit ? undefined : lockedHintOf(field)}
+          >
+            {lockedLabelOf(field)}
           </Typography>
         );
       },

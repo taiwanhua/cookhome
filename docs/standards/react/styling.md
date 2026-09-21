@@ -44,8 +44,10 @@ front/admin 只從 `@repo/ui` 拿元件;`@mui/*`、`@emotion/*` 由
 `as unknown as` 硬轉只是把錯誤推到執行期,而且下一版庫改型別就再撞一次。
 
 **目前已知缺的元件**(缺的期間用原生替代並在 PR 記一筆,不要在 app 裡直接 import MUI):
-`Tooltip`(待 #240,`OrgActionBar` 與模組與權限頁各用一次原生 `title` 代替)、
 `EditIcon` / `DeleteIcon` 與 `Tabs`(待 #254,角色管理頁先用文字按鈕與自組 `role="tablist"`)。
+`Tooltip` 已補(#240 / #260,`@repo/ui/tooltip`):原生 `title` 的三處(`OrgActionBar`、
+模組與權限頁的 self-lock 開關、AppBar 的「?」)都已改用它,**disabled 元素要包 `span`
+才收得到 hover 這件事由元件內部處理**,呼叫端不要再自己包一層。
 
 ## STYLE-06 設計稿的值不在 token 裡時:一次性直寫並註記,重複兩處以上補 token
 

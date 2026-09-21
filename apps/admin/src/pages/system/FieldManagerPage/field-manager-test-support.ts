@@ -9,8 +9,10 @@ import {
   overviewModule,
 } from "@/test/msw/auth-handlers";
 import {
+  currentOrg as currentOrgFixture,
   fieldCategories,
   fieldsByCategory,
+  upperOrg,
 } from "@/test/msw/field-fixtures";
 import {
   type FieldWorldOptions,
@@ -22,15 +24,18 @@ import { renderApp } from "@/test/render";
 import { FIELD_MANAGER_PERMISSIONS } from "./field-manager-permissions";
 
 /**
- * 欄位管理頁測試的共用場景(`FieldManagerPage.test.tsx` 與 `FieldManagerSeed.test.tsx`
- * 共用):一份形狀,測試檔只寫行為(TEST-08)。
+ * 欄位管理頁測試的共用場景(`FieldManagerPage.test.tsx`、`FieldManagerSeed.test.tsx`
+ * 與 `FieldManagerVisibility.test.tsx` 共用):一份形狀,測試檔只寫行為(TEST-08)。
+ *
+ * 組織樹與 api 的 `field-visibility.test.ts` 同一組:
+ * 好食公司(上層)─ **南港店(當前組織)** ─ 子南港店。
  */
 
 export const VIEW_ONLY = [FIELD_MANAGER_PERMISSIONS.view];
 export const FULL_PERMISSIONS = Object.values(FIELD_MANAGER_PERMISSIONS);
 
-/** 當前組織 = 來源欄「<組織名稱> 自訂」的名稱來源(`me.currentOrg`)。 */
-export const currentOrg: TestOrg = { id: "org-tenant", name: "租戶 A" };
+/** 當前組織(`me.currentOrg`);來源欄的組織名稱改由 api 逐列帶回,不取自這裡(#264)。 */
+export const currentOrg: TestOrg = currentOrgFixture;
 
 const systemGroup: TestModule = {
   id: "m-system",
@@ -43,25 +48,9 @@ const systemGroup: TestModule = {
   permissions: [],
 };
 
-/** 根組織專屬模組:`me.modules` 裡有它 = 站在根組織(見 `field-manager-permissions.ts`)。 */
-const moduleManagerModule: TestModule = {
-  id: "m-module",
-  key: "system.module-manager",
-  name: "模組與權限",
-  parentId: "m-system",
-  sidebarType: ModuleSidebarType.Link,
-  order: 4,
-  route: "/system/module-manager",
-  permissions: ["system.module-manager.view"],
-};
-
-export const modulesWith = (
-  permissions: readonly string[],
-  { isRoot = false }: { isRoot?: boolean } = {},
-): TestModule[] => [
+export const modulesWith = (permissions: readonly string[]): TestModule[] => [
   overviewModule,
   systemGroup,
-  ...(isRoot ? [moduleManagerModule] : []),
   {
     id: "m-field",
     key: "system.field-manager",
@@ -76,18 +65,16 @@ export const modulesWith = (
 
 export const renderPage = ({
   permissions = FULL_PERMISSIONS,
-  isRoot = false,
   world = {},
 }: {
   permissions?: readonly string[];
-  /** 操作者站在根組織:`me.modules` 多一個根組織專屬模組,假 api 也放行種子開關 */
-  isRoot?: boolean;
   world?: FieldWorldOptions;
 } = {}) => {
   const fake = fieldWorld({
     categories: fieldCategories,
     fieldsByCategory,
-    isRootOperator: isRoot,
+    currentOrg: currentOrgFixture,
+    upperOrgIds: [upperOrg.id],
     ...world,
   });
   server.use(
@@ -95,7 +82,7 @@ export const renderPage = ({
     ...authWorld({
       hasRefreshCookie: true,
       orgs: [currentOrg],
-      modules: modulesWith(permissions, { isRoot }),
+      modules: modulesWith(permissions),
     }).handlers,
   );
   return { ...renderApp({ path: "/system/field-manager" }), fake };

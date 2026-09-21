@@ -8,11 +8,23 @@ import {
   type FieldCategoryDocument,
   type FieldDocument,
   FieldsRepository,
+  OrgsRepository,
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import type { CreateFieldInput } from "./dto/create-field.input";
 import type { SetFieldEnabledInput } from "./dto/set-field-enabled.input";
 import type { UpdateFieldInput } from "./dto/update-field.input";
+import {
+  type FieldVisibility,
+  canEditField,
+  canToggleFieldEnabled,
+  compareFields,
+  fieldReadContext,
+  loadOwnerOrgs,
+  resolveFieldVisibility,
+  scopeFilterOf,
+  toFieldModel,
+} from "./field-visibility";
 import {
   fieldValueDuplicateError,
   forbiddenError,
@@ -23,8 +35,7 @@ import type {
   FieldCategoriesPayload,
   FieldsPayload,
 } from "./models/field-payloads.model";
-import { FieldModel, FieldSource } from "./models/field.model";
-import type { FieldCategoryModel } from "./models/field.model";
+import type { FieldCategoryModel, FieldModel } from "./models/field.model";
 
 type FieldRecord = Persisted<FieldDocument>;
 type CategoryRecord = Persisted<FieldCategoryDocument>;
@@ -64,10 +75,10 @@ function requireText(value: string, field: string): string {
 /**
  * 欄位管理(`system.field-manager`)。resolver 薄、service 厚(STRUCT-01)。
  *
- * **合併清單的定義**(field-manager.md「api 介面」):一個類別下看得到的選項 =
- * 全域種子(`orgId = null`)+ **當前組織**自訂(`orgId = currentOrgId`)。
- * 只吃當前組織、不吃整個可見範圍 — 否則根組織操作者會看到全部租戶的自訂選項,
- * 而畫面上的「來源」欄只分得出「全域 / 本組織自訂」兩種(ADR-0005)。
+ * **合併清單的定義**(規則表正本 field-manager.md,#264):一個類別下看得到的選項 =
+ * 全域種子(`orgId = null`)+ **上層組織**自訂(祖先,不受可見性開關影響)+ 當前組織自訂
+ * + **可見範圍內的下層**自訂;**只能編輯 / 停用自己這一層加的**。
+ * 範圍怎麼算、一列能做什麼都在 `field-visibility.ts`,本檔只負責規則、審計與錯誤碼。
  *
  * **種子選項**(`isSystem`)只有 `enabled` 可改,且那是**全域**開關(ADR-0002:
  * `enabled` 是初始 seed 值欄位、由人在系統內管理),所以限根組織操作者 —
@@ -78,6 +89,7 @@ export class FieldsService {
   constructor(
     private readonly fields: FieldsRepository,
     private readonly categories: FieldCategoriesRepository,
+    private readonly orgs: OrgsRepository,
     private readonly audit: AuditService,
   ) {}
 
@@ -96,18 +108,23 @@ export class FieldsService {
     return { items, totalCount: items.length };
   }
 
-  /** 一個類別下的合併清單:全域種子 + 當前組織自訂,依 `order` 再依建立順序。 */
+  /** 一個類別下的合併清單,依 `order` 再依**組織深度**(全域最前、下層最後)。 */
   async listFields(
     operator: OperatorContext,
     categoryId: string,
   ): Promise<FieldsPayload> {
     const category = await this.mustFindCategory(operator, categoryId);
+    const visibility = await resolveFieldVisibility(operator, this.orgs);
     const found = await this.fields.findMany(
-      operator,
-      { categoryId: category._id, orgId: { $in: mergedOrgIds(operator) } },
+      fieldReadContext(operator),
+      { categoryId: category._id, ...scopeFilterOf(visibility) },
       { sort: { order: 1, createdAt: 1 } },
     );
-    const items = found.map((item) => toFieldModel(item));
+    const owners = await loadOwnerOrgs(operator, this.orgs, found);
+    // 上面已依 order / createdAt 排好,sort 是穩定的 → 同 order 同深度者維持建立順序
+    const items = found
+      .toSorted((left, right) => compareFields(left, right, owners))
+      .map((item) => toFieldModel(item, visibility, owners));
     return { items, totalCount: items.length };
   }
 
@@ -119,9 +136,10 @@ export class FieldsService {
     input: CreateFieldInput,
   ): Promise<FieldModel> {
     const category = await this.mustFindCategory(operator, input.categoryId);
+    const visibility = await resolveFieldVisibility(operator, this.orgs);
     const label = requireText(input.label, "label");
     const value = requireText(input.value, "value");
-    await this.assertValueAvailable(operator, category._id, value);
+    await this.assertValueAvailable(operator, visibility, category._id, value);
     let created: FieldRecord;
     try {
       created = await this.fields.create(operator, {
@@ -150,15 +168,16 @@ export class FieldsService {
       targetId: created._id,
       after: { categoryId: String(category._id), value, label },
     });
-    return toFieldModel(created);
+    return this.toModel(operator, created, visibility);
   }
 
-  /** 編輯自訂選項的 label / order / description;種子選項 → `FORBIDDEN`(`value` 不在 input 內)。 */
+  /** 編輯自訂選項的 label / order / description;種子與別層的選項 → `FORBIDDEN`。 */
   async update(
     operator: OperatorContext,
     input: UpdateFieldInput,
   ): Promise<FieldModel> {
-    const current = await this.mustFindOwnField(operator, input.id);
+    const visibility = await resolveFieldVisibility(operator, this.orgs);
+    const current = await this.mustFindOwnField(operator, visibility, input.id);
     const set: Record<string, unknown> = {};
     const before: Record<string, unknown> = {};
     if (input.label !== undefined) {
@@ -195,28 +214,33 @@ export class FieldsService {
         ...(unset.description === undefined ? {} : { description: null }),
       },
     });
-    return toFieldModel(updated);
+    return this.toModel(operator, updated, visibility);
   }
 
   /**
-   * 停用 / 啟用:自訂選項 = 當前組織自己的那筆;
+   * 停用 / 啟用:自訂選項 = **自己這一層**加的那筆(上層 / 下層的回 `NOT_OWNER`);
    * 種子選項的 `enabled` 是全域開關,限根組織操作者(見本檔開頭)。
    */
   async setEnabled(
     operator: OperatorContext,
     input: SetFieldEnabledInput,
   ): Promise<FieldModel> {
-    const current = await this.mustFindVisibleField(operator, input.id);
-    if (current.isSystem || current.orgId === null) {
-      if (operator.visibleOrgIds !== "all") {
-        throw forbiddenError(
-          `seed field option is a global switch; only the root org can toggle it: ${input.id}`,
-        );
-      }
-    } else if (!isOwnedByCurrentOrg(operator, current)) {
-      throw forbiddenError(
-        `field option belongs to another org: ${input.id}`,
-      );
+    const visibility = await resolveFieldVisibility(operator, this.orgs);
+    const current = await this.mustFindVisibleField(
+      operator,
+      visibility,
+      input.id,
+    );
+    if (!canToggleFieldEnabled(current, visibility)) {
+      throw current.orgId === null || current.isSystem
+        ? forbiddenError(
+            `seed field option is a global switch; only the root org can toggle it: ${input.id}`,
+            "SEED_GLOBAL_SWITCH",
+          )
+        : forbiddenError(
+            `field option belongs to another org: ${input.id}`,
+            "NOT_OWNER",
+          );
     }
     const updated = await this.fields.updateById(operator, current._id, {
       $set: { enabled: input.enabled },
@@ -231,10 +255,20 @@ export class FieldsService {
       before: { enabled: current.enabled },
       after: { enabled: updated.enabled },
     });
-    return toFieldModel(updated);
+    return this.toModel(operator, updated, visibility);
   }
 
   // ---- 內部 ----
+
+  /** 寫入 mutation 的回傳:只有一筆,來源組織單獨查一次(清單走 `loadOwnerOrgs`)。 */
+  private async toModel(
+    operator: OperatorContext,
+    field: FieldRecord,
+    visibility: FieldVisibility,
+  ): Promise<FieldModel> {
+    const owners = await loadOwnerOrgs(operator, this.orgs, [field]);
+    return toFieldModel(field, visibility, owners);
+  }
 
   private async mustFindCategory(
     operator: OperatorContext,
@@ -250,14 +284,15 @@ export class FieldsService {
     return category;
   }
 
-  /** 取一筆在合併清單裡看得到的選項(全域 或 當前組織自訂)。 */
+  /** 取一筆在合併清單裡看得到的選項(全域 + 上層 + 自己 + 可見範圍內的下層)。 */
   private async mustFindVisibleField(
     operator: OperatorContext,
+    visibility: FieldVisibility,
     id: string,
   ): Promise<FieldRecord> {
-    const found = await this.fields.findOne(operator, {
+    const found = await this.fields.findOne(fieldReadContext(operator), {
       _id: toObjectId(id, "id"),
-      orgId: { $in: mergedOrgIds(operator) },
+      ...scopeFilterOf(visibility),
     });
     if (!found) {
       throw notFoundError(`field not found: ${id}`);
@@ -265,36 +300,42 @@ export class FieldsService {
     return found;
   }
 
-  /** 取一筆**可編輯**的選項:當前組織自訂;種子與別的組織的一律 `FORBIDDEN`。 */
+  /** 取一筆**可編輯**的選項:自己這一層的自訂選項;種子與別層的一律 `FORBIDDEN`。 */
   private async mustFindOwnField(
     operator: OperatorContext,
+    visibility: FieldVisibility,
     id: string,
   ): Promise<FieldRecord> {
-    const found = await this.mustFindVisibleField(operator, id);
-    if (found.isSystem || found.orgId === null) {
-      throw forbiddenError(
-        `seed field option is read-only (only enabled can be changed): ${id}`,
-      );
+    const found = await this.mustFindVisibleField(operator, visibility, id);
+    if (canEditField(found, visibility)) {
+      return found;
     }
-    if (!isOwnedByCurrentOrg(operator, found)) {
-      throw forbiddenError(`field option belongs to another org: ${id}`);
-    }
-    return found;
+    throw found.orgId === null || found.isSystem
+      ? forbiddenError(
+          `seed field option is read-only (only enabled can be changed): ${id}`,
+          "SEED_READ_ONLY",
+        )
+      : forbiddenError(
+          `field option belongs to another org: ${id}`,
+          "NOT_OWNER",
+        );
   }
 
   /**
-   * 同一類別下 value 不可重複:同組織已有(唯一索引)、
-   * 或與該類別的**全域**選項相同(索引擋不到 — 全域那筆的 `orgId` 是 null)。
+   * 同一類別下 value 不可與**上層繼承鏈**上的任一筆重複:自己這一層已有(唯一索引)、
+   * 該類別的全域選項、或看得到的上層組織自訂(後兩者唯一索引擋不到 — orgId 不同)。
+   * 合併清單是給表單下拉用的,同一個 `value` 出現兩次,存進業務資料後分不出是哪一筆。
    */
   private async assertValueAvailable(
     operator: OperatorContext,
+    visibility: FieldVisibility,
     categoryId: Types.ObjectId,
     value: string,
   ): Promise<void> {
-    const clash = await this.fields.findOne(operator, {
+    const clash = await this.fields.findOne(fieldReadContext(operator), {
       categoryId,
       value,
-      orgId: { $in: mergedOrgIds(operator) },
+      orgId: { $in: visibility.inheritedOrgIds },
     });
     if (clash) {
       throw fieldValueDuplicateError(
@@ -304,41 +345,11 @@ export class FieldsService {
   }
 }
 
-/** 合併清單吃的組織集合:全域(null)+ 當前組織。 */
-function mergedOrgIds(operator: OperatorContext): (Types.ObjectId | null)[] {
-  return operator.currentOrgId === null
-    ? [null]
-    : [null, operator.currentOrgId];
-}
-
-function isOwnedByCurrentOrg(
-  operator: OperatorContext,
-  field: FieldRecord,
-): boolean {
-  return (
-    operator.currentOrgId !== null &&
-    String(field.orgId) === String(operator.currentOrgId)
-  );
-}
-
 function toCategoryModel(category: CategoryRecord): FieldCategoryModel {
   return {
     id: String(category._id),
     key: category.key,
     name: category.name,
     description: category.description ?? null,
-  };
-}
-
-function toFieldModel(field: FieldRecord): FieldModel {
-  return {
-    id: String(field._id),
-    categoryId: String(field.categoryId),
-    label: field.label,
-    value: field.value,
-    order: field.order,
-    enabled: field.enabled,
-    description: field.description ?? null,
-    source: field.orgId === null ? FieldSource.GLOBAL : FieldSource.OWN,
   };
 }

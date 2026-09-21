@@ -53,6 +53,16 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 1. preset 換成 `@repo/jest-presets/browser-esm`(ts-jest ESM 模式);
 2. **把 `testEnvironment` 覆寫回原生 `jsdom`** — `browser-esm` 為了 MSW 用的是 `jest-fixed-jsdom`,它把 `Blob` / `File` 換成 Node 的版本,`URL.createObjectURL` 那類 API 會炸(`UploadField` 一次紅四個測試)。admin 需要 MSW,所以 admin 不做這個覆寫;ui 沒有 MSW,兩邊因此設定不同。每個元件至少驗:渲染出設計稿的結構、主要互動(點擊 / 勾選 / 關閉)會回報、disabled 時不回報。舊的「`createRoot` 不炸」冒煙測試不算數,碰到就改寫。MUI 9 的兩個陷阱:`Switch` 的 input 是 `role="switch"` 不是 `checkbox`;disabled 的核取框是 `pointer-events: none`,要驗「點下去也沒事」用 `userEvent.setup({ pointerEventsCheck: 0 })`。`inputProps` 已不被 Checkbox / Radio / Switch 消化(會漏到 DOM),改 `slotProps={{ input: … }}`。
 
+**驗「某個狀態有沒有換樣式」不要用 `getComputedStyle`,直接讀 CSS 規則**(2026-09-21,#260 / PR #272 踩到):jsdom 的 `getComputedStyle` **不比對 specificity**,只照樣式表順序套最後一條相符的規則,而且對 `+` 兄弟選擇器支援不完整。`Switch` 的停用態軌道色正好寫在 `.Mui-disabled + .MuiSwitch-track`,用 `getComputedStyle` 一律讀回 MUI 自己那條 —— 元件有沒有補停用色完全驗不出來,測試會假綠。改用 `packages/ui/src/test/css-rules.ts` 讀 emotion 實際產生的規則:
+
+```ts
+const root = container.querySelector(".MuiSwitch-root")!;
+const rules = cssRulesMatching(emotionClassOf(root), "Mui-disabled", "track");
+expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
+```
+
+`emotionClassOf(element)` 取該元素的 `css-…` 類別(用來把範圍收斂到自家元件),`cssRulesMatching(...needles)` 取選擇器同時含這幾段字串的規則,`declaredValue(rules, prop)` 取最後一條宣告的值(沒有任何規則宣告時回 `null`,正好拿來斷言「這個狀態沒有自己的樣式」)。**單純的後代選擇器**(如 Tree 依深度的縮排)`getComputedStyle` 讀得到,照常用即可。
+
 ## TEST-08 admin 的元件測試:MSW 攔網路層 + React Testing Library
 
 先例:`apps/admin/src/test/`(`setup.ts` MSW 生命週期、`msw/server.ts`、`msw/auth-handlers.ts`、`render.tsx` 的 `renderApp()`),測試檔與元件同資料夾、同名 `.test.tsx`(GEN-01)。
@@ -71,7 +81,15 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 - **jest 的 `moduleNameMapper` 也是先列的先贏**:`^@/lib/help-registry$` 這種精確鍵要排在通則 `^@/(.*)$` **前面**,否則被通則吃掉(#197)
 - **MSW 的假伺服器若有「連動 / 狀態」語意就實作進 handler**,不要回固定資料:停用模組連動子樹、儲存後重查要拿到新值這類驗收條件,對著無狀態的假伺服器根本驗不到,還容易寫出「對著比 api 寬鬆的假伺服器才會過」的測試。先例 `test/msw/module-manager-handlers.ts`(#209)
 - **多段接力載入的頁面**(先查清單 → 選中第一筆 → 再查它的細節)在測試裡要等兩段以上:把「等到第 n 段畫面就緒」抽成同資料夾 `<page>-test-support.ts` 的 async helper 共用,不要每個案子各寫一串 `findBy*`(#210 / #211)
-- **測試數的基準用「在 `origin/main` 跑一次」取得,不要沿用別的 PR 寫死的數字**:同一段多票並行時,別人先合的票會墊高基準,照抄舊數字會讓 PR 的「+N」對不上(#207 起四段並行都踩過)
+- **測試數的基準用「在 `origin/main` 跑一次」取得,不要沿用別的 PR 寫死的數字**:同一段多票並行時,別人先合的票會墊高基準,照抄舊數字會讓 PR 的「+N」對不上(#207 起四段並行都踩過)。**取基準時不要用 turbo**:快取跨 worktree 共用,同一份輸入別人跑過就 `cache hit, replaying logs`,結果可能根本沒印出來或印的是別人的。進 package 目錄直接跑 jest(2026-09-21 補):
+
+  ```
+  cd packages/ui && node --experimental-vm-modules node_modules/jest/bin/jest.js
+  cd apps/admin && node --experimental-vm-modules node_modules/jest/bin/jest.js
+  ```
+
+  前提是依賴已 build 過(`pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`);驗收自己的改動仍用 turbo(輸入變了不會誤命中)
+
 - 輸出雜訊:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`
 
 ## TEST-10 時間相關的斷言:不可用呼叫「前」的 `Date.now()` 當上界

@@ -37,6 +37,23 @@ export const Switch = ({ sx, ...rest }: SwitchProps) => (
               opacity: 1,
             },
           },
+          /*
+           * 停用態(#260):上面把軌道顏色與 `opacity: 1` 寫死是為了對 Figma 的幾何,
+           * 但那也蓋掉了 MUI 自己的 `.Mui-disabled` 灰化 —— 開關按不動卻還是彩色的,
+           * 使用者看不出「不是壞了,是不准改」。這裡把灰化補回來,而且要排在
+           * `.Mui-checked` 之後,checked + disabled 才不會又被上面那條吃回去。
+           * Figma Draft/Switch 88:216 只有 On / Off 兩個變體、沒有停用稿,
+           * 顏色照語意 token 走(`action.disabledBackground` / `action.disabled`),
+           * 與 Checkbox 的停用灰(grey.200 / grey.400)同一個調性。
+           */
+          "&.Mui-disabled": {
+            color: "action.disabled",
+            "& + .MuiSwitch-track": {
+              backgroundColor: "action.disabledBackground",
+              opacity: 1,
+            },
+            "& .MuiSwitch-thumb": { color: "action.disabled" },
+          },
         },
         "& .MuiSwitch-thumb": {
           width: THUMB_SIZE,
@@ -49,6 +66,11 @@ export const Switch = ({ sx, ...rest }: SwitchProps) => (
           backgroundColor: "grey.400",
           opacity: 1,
         },
+        /*
+         * 游標:MUI 對停用的 `switchBase`(ButtonBase)下 `pointer-events: none`,
+         * 所以滑鼠實際碰到的是 root —— 游標要掛在 root 上才看得到。
+         */
+        "&:has(.Mui-disabled)": { cursor: "not-allowed" },
       },
       sx,
     )}

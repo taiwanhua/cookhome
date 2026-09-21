@@ -332,7 +332,10 @@
       "save": "儲存指派",
       "cancel": "取消",
       "roleDisabled": "已停用",
-      "templateCopy": "租戶副本"
+      "templateCopy": "租戶副本",
+      "notEligible": "此角色只能授予 {org} 及其下層的使用者;{name} 不在角色擁有組織之下。",
+      "search": "搜尋角色",
+      "searchPlaceholder": "角色名稱或擁有組織"
     },
     "toggle": {
       "disableTitle": "停用 {name}?",
@@ -349,7 +352,8 @@
       "ROLE_OUT_OF_REACH": "這個角色的擁有組織不在你的管理範圍內。",
       "FORBIDDEN": "你沒有執行這個動作的權限。",
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
-      "UNEXPECTED": "操作失敗,請稍後再試。"
+      "UNEXPECTED": "操作失敗,請稍後再試。",
+      "USER_NOT_ELIGIBLE": "此角色只能授予角色擁有組織及其下層的使用者。"
     }
   },
   "moduleManager": {
@@ -358,6 +362,7 @@
       "title": "模組樹",
       "groupTag": "群組",
       "hiddenTag": "隱藏頁",
+      "containerTag": "權限容器",
       "disabledTag": "停用"
     },
     "detail": {
@@ -373,6 +378,8 @@
       "sidebarGroup": "群組",
       "sidebarLink": "模組連結",
       "sidebarHidden": "隱藏頁",
+      "sidebarContainer": "權限容器",
+      "sidebarContainerHint": "這一層只掛權限、沒有畫面,讓這些權限可以單獨授予或停用。",
       "order": "排序",
       "description": "描述",
       "none": "—",
@@ -447,7 +454,8 @@
       "treeLabel": "權限矩陣",
       "unsaved": "有未儲存的變更",
       "save": "儲存變更",
-      "shrinkOnly": "這是系統在開通時幫你準備好的角色,權限只能縮不能擴 — 目前沒有的項目不能勾選。"
+      "shrinkOnly": "這是系統在開通時幫你準備好的角色,權限只能縮不能擴 — 目前沒有的項目不能勾選。",
+      "seedReadOnly": "系統內建角色,內容隨版本更新,這裡只能檢視。"
     },
     "users": {
       "title": "{name} — 分配使用者",
@@ -479,7 +487,8 @@
       "noOrg": "—",
       "noUserPermission": "你沒有使用者管理的檢視權限,無法在這裡挑選使用者;請改由有權限的人協助加入。",
       "confirm": "加入",
-      "cancel": "取消"
+      "cancel": "取消",
+      "notEligible": "此使用者不在角色擁有組織之下({org}),無法加入。"
     },
     "form": {
       "createTitle": "新增角色",
@@ -563,7 +572,8 @@
       "audienceRole": "角色",
       "audienceOrg": "組織",
       "audienceUser": "使用者",
-      "remove": "刪除規則"
+      "remove": "刪除規則",
+      "audienceSearch": "搜尋角色"
     },
     "group": {
       "rootOp": "條件組合",
@@ -645,6 +655,8 @@
       "edit": "編輯",
       "seedManaged": "由系統管理員維護",
       "seedManagedHint": "全域選項由系統管理員統一維護,需要停用請聯絡系統管理員。",
+      "managedByOrg": "由 {org} 管理",
+      "managedByOrgHint": "這個選項是 {org} 加的,你看得到但不能修改或停用。",
       "none": "—"
     },
     "form": {
@@ -663,6 +675,7 @@
     "errors": {
       "FIELD_VALUE_DUPLICATE": "這個值在這個類別已經有人用了,請換一個。",
       "FORBIDDEN": "全域選項由系統管理員統一維護,你的組織不能變更它。",
+      "NOT_OWNER": "這個選項是別的組織加的,只有加它的組織改得動。",
       "NOT_FOUND": "找不到這個類別或選項,可能已被移除,請重新整理。",
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
       "UNEXPECTED": "操作失敗,請稍後再試。"
