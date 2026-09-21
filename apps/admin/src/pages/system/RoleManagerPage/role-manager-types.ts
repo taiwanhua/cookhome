@@ -28,6 +28,10 @@ export interface MatrixModuleView {
 /** 單一角色的兩個頁籤。 */
 export type RoleDetailTab = "matrix" | "users";
 
+/** `@repo/ui/tabs` 回報的是字串(它不認得這一頁的頁籤有哪些),收窄回型別。 */
+export const isRoleDetailTab = (value: string): value is RoleDetailTab =>
+  value === "matrix" || value === "users";
+
 /**
  * 某一列**實際**顯示哪些動作 = 操作者的權限 × 這個角色的種類規則(#261)。
  *

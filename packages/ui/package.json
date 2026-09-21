@@ -348,6 +348,26 @@
         "types": "./dist/cjs/module-icon-picker.d.ts",
         "default": "./dist/cjs/module-icon-picker.js"
       }
+    },
+    "./autocomplete": {
+      "import": {
+        "types": "./dist/es/autocomplete.d.mts",
+        "default": "./dist/es/autocomplete.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/autocomplete.d.ts",
+        "default": "./dist/cjs/autocomplete.js"
+      }
+    },
+    "./tabs": {
+      "import": {
+        "types": "./dist/es/tabs.d.mts",
+        "default": "./dist/es/tabs.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/tabs.d.ts",
+        "default": "./dist/cjs/tabs.js"
+      }
     }
   },
   "scripts": {

@@ -1,9 +1,8 @@
-import { type ReactNode, useState } from "react";
 import { useTranslations } from "use-intl";
 
 import { DataScopeAudienceType } from "@repo/graphql";
+import { Autocomplete } from "@repo/ui/autocomplete";
 import { Box } from "@repo/ui/box";
-import { Checkbox } from "@repo/ui/checkbox";
 import { MenuItem } from "@repo/ui/menu";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
@@ -12,7 +11,7 @@ import { Typography } from "@repo/ui/typography";
 import { OrgTreePicker } from "@/components/OrgTreePicker/OrgTreePicker";
 import { issueKey } from "@/lib/data-scope-issues";
 import type { AudienceDraft } from "@/lib/data-scope-rule";
-import { filterRoleOptions, groupRoleOptions } from "@/lib/role-options";
+import { roleGroupNameOf, shouldGroupRoles } from "@/lib/role-options";
 
 import type { DataScopeEditorEnv, PickerOption } from "../data-scope-types";
 
@@ -33,7 +32,12 @@ export interface RuleAudienceProps {
 /**
  * 一條規則的套用對象(Figma 167:1719 的前兩個下拉):全部 / 角色 / 組織 / 使用者。
  *
- * 角色與使用者是清單多選;**組織用組織樹**(`OrgTreePicker`,與使用者管理的「選擇所屬組織」同一個)—
+ * 角色與使用者是 **Autocomplete 多選**(Figma `Draft/Autocomplete` 253:39):輸入即過濾、
+ * 角色依租戶頂層分組、每列主文字角色名 + 次文字擁有組織。在此之前是 MUI Select 多選 +
+ * **選單外**一個搜尋框(Select 會把選單裡的子元素一律 clone 成 `role="option"`,
+ * 搜尋框塞不進選單),#307 起那個外掛的搜尋框退場。
+ *
+ * **組織用組織樹**(`OrgTreePicker`,與使用者管理的「選擇所屬組織」同一個)—
  * 對象常常是「某個租戶頂層」,在樹上一眼看得出層級,攤平的清單看不出來。
  * 三種選擇器的清單都由 api 依**管理範圍**回,前端不另外過濾(ADR-0005)。
  */
@@ -45,8 +49,6 @@ export const RuleAudience = ({
 }: RuleAudienceProps) => {
   const t = useTranslations("admin.dataScope.rule");
   const tReasons = useTranslations("admin.dataScope.reasons");
-  /** 選單內的搜尋字串;角色清單在根組織視角會跨很多租戶(#261 的 8) */
-  const [keyword, setKeyword] = useState("");
 
   const issue = env.issues.get(issueKey(ruleIndex, [], "audience"));
   const labelOf = (type: DataScopeAudienceType) =>
@@ -62,53 +64,38 @@ export const RuleAudience = ({
       ? env.roleOptions
       : env.userOptions;
 
-  const renderValue = (value: unknown): ReactNode =>
-    (value as string[])
-      .map((id) => options.find((option) => option.id === id)?.label ?? id)
-      .join("、");
-
   const isList =
     audience.type === DataScopeAudienceType.Role ||
     audience.type === DataScopeAudienceType.User;
   const isRoleList = audience.type === DataScopeAudienceType.Role;
+
+  /** 受控值是 id 陣列,Autocomplete 收的是選項物件 —— 在這裡對照回來。 */
+  const selected = audience.ids.flatMap((id) => {
+    const found = options.find((option) => option.id === id);
+    return found === undefined ? [] : [found];
+  });
+
   /**
-   * 角色清單:先依關鍵字收斂,再依租戶頂層分組(跨兩個以上租戶才分,`lib/role-options.ts`)。
-   * 使用者清單維持原樣 — 它的 label 已含帳號,不會同名難辨。
+   * 角色清單才分組,而且只在跨兩個以上租戶時分(`lib/role-options.ts`)。
+   * 使用者清單維持不分組 —— 它的 label 已含帳號,不會同名難辨。
    */
-  const visible = isRoleList
-    ? filterRoleOptions(
-        options.map((option) => ({
-          ...option,
-          name: option.name ?? option.label,
-          ownerOrgName: option.ownerOrgName ?? null,
-        })),
-        keyword,
-      )
-    : options;
-  const groups = isRoleList
-    ? groupRoleOptions(
-        visible.map((option) => ({
-          id: option.id,
-          name: option.name ?? option.label,
-          ownerOrgName: option.ownerOrgName ?? null,
-          label: option.label,
-          tenantTopId: option.tenantTopId ?? null,
-          tenantTopName: option.tenantTopName ?? null,
-        })),
-      )
-    : [
-        {
-          id: null,
-          name: null,
-          options: visible.map((option) => ({
-            ...option,
-            ownerOrgName: null,
-            tenantTopId: null,
-            tenantTopName: null,
-            name: option.label,
-          })),
-        },
-      ];
+  const groupBy =
+    isRoleList &&
+    shouldGroupRoles(
+      options.map((option) => ({
+        tenantTopId: option.tenantTopId ?? null,
+        tenantTopName: option.tenantTopName ?? null,
+      })),
+    )
+      ? (option: PickerOption) =>
+          roleGroupNameOf(
+            {
+              tenantTopId: option.tenantTopId ?? null,
+              tenantTopName: option.tenantTopName ?? null,
+            },
+            t("audienceNoTenant"),
+          )
+      : undefined;
 
   return (
     <Stack spacing={0.75}>
@@ -136,58 +123,27 @@ export const RuleAudience = ({
         </TextField>
 
         {isList && (
-          <TextField
-            select
+          <Autocomplete<PickerOption, true>
+            multiple
             size="small"
             label={t("audienceTargets")}
-            value={audience.ids}
+            options={options}
+            value={selected}
             error={issue !== undefined}
             disabled={env.isReadOnly}
-            sx={{ width: 240 }}
-            slotProps={{ select: { multiple: true, renderValue } }}
-            onChange={(event) => {
-              onChange({
-                ...audience,
-                ids: event.target.value as unknown as string[],
-              });
-            }}
-          >
-            {groups.flatMap((group) => [
-              ...(group.name === null
-                ? []
-                : [
-                    <MenuItem
-                      key={`group-${group.id ?? ""}`}
-                      disabled
-                      value=""
-                      sx={{ opacity: 1 }}
-                    >
-                      <Typography variant="overline" color="text.secondary">
-                        {group.name}
-                      </Typography>
-                    </MenuItem>,
-                  ]),
-              ...group.options.map((option) => (
-                <MenuItem key={option.id} value={option.id}>
-                  <Checkbox checked={audience.ids.includes(option.id)} />
-                  {option.label}
-                </MenuItem>
-              )),
-            ])}
-          </TextField>
-        )}
-
-        {isRoleList && (
-          // 搜尋放在選單**外面**:MUI 的 Select 會把選單裡的子元素一律 clone 成
-          // `role="option"`,塞進去的輸入框會變成一個假的選項(a11y 與測試都亂掉)
-          <TextField
-            size="small"
-            label={t("audienceSearch")}
-            value={keyword}
-            disabled={env.isReadOnly}
-            sx={{ width: 160 }}
-            onChange={(event) => {
-              setKeyword(event.target.value);
+            noOptionsText={t("audienceEmpty")}
+            sx={{ width: 320 }}
+            groupBy={groupBy}
+            getOptionKey={(option) => option.id}
+            // 角色的主文字是角色名、次文字是擁有組織;使用者的 label 已含帳號,沒有次文字
+            getOptionLabel={(option) =>
+              isRoleList ? (option.name ?? option.label) : option.label
+            }
+            getOptionSecondaryText={(option) =>
+              isRoleList ? option.ownerOrgName : null
+            }
+            onChange={(next) => {
+              onChange({ ...audience, ids: next.map((option) => option.id) });
             }}
           />
         )}

@@ -173,7 +173,7 @@ mixed 的定義是 M-08(本文「權限矩陣規則(逐條)」):**模組已勾�
 每個租戶都有自己的「租戶管理員」,根組織視角只看角色名稱完全分不出來,所以兩層一起上,
 共用純函式 `apps/admin/src/lib/role-options.ts`:
 
-- 每一列標「**角色名稱 — 擁有組織**」(`roleOptionLabel`)。
-- 跨兩個以上租戶頂層時,再依 `Role.ownerOrg.tenantTop` **分組**(`groupRoleOptions`);單一租戶視角不分組 — 只有一組的標題是雜訊。
-- 選單可依角色名稱或擁有組織**搜尋**(`filterRoleOptions`)。
-- 搜尋框一律放在 `Select` **外面**:MUI 的 `Select` 會把選單裡的子元素一律 clone 成 `role="option"`,塞進去的輸入框會變成一個假的選項(a11y 與測試都亂掉)。
+- 每一列「**角色名稱**」為主文字、「**擁有組織**」為次文字(選單裡是兩行;角色管理頁的左清單是單行,用 `roleOptionLabel` 接成「名稱 — 擁有組織」)。
+- 跨兩個以上租戶頂層時,再依 `Role.ownerOrg.tenantTop` **分組**;單一租戶視角不分組 — 只有一組的標題是雜訊。判斷與取值是兩個函式(`shouldGroupRoles` / `roleGroupNameOf`),因為 MUI 的 `groupBy` 只要給了就一定畫標題;角色管理頁的左清單自己畫分段,另用 `groupRoleOptions` 取巢狀結構。
+- **搜尋在選單裡**(#307):三個選單都是 `@repo/ui/autocomplete`,輸入即過濾(比對主文字)。在此之前是 MUI `Select` + **選單外**一個搜尋框 —— `Select` 會把選單裡的子元素一律 clone 成 `role="option"`,搜尋框塞進去會變成一個假選項,所以當時只能外掛。`Autocomplete` 的輸入框就是選單的觸發器,那個取捨消失,選單外的搜尋框與「依擁有組織篩選」下拉一併退場(角色管理頁**左清單**上方的那兩個是另一回事,它們是送給 api 的查詢條件,留著)。
+- 不合格 / 停用 / 管理範圍外的選項**列出來但灰掉**,原因寫在該列的次文字 —— 不能用 Tooltip(MUI 對停用的選項關掉 pointer-events,詳見 STYLE-05)。

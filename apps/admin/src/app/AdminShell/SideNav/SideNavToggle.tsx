@@ -2,10 +2,7 @@ import { useTranslations } from "use-intl";
 
 import { Box } from "@repo/ui/box";
 import { IconButton } from "@repo/ui/icon-button";
-import { Typography } from "@repo/ui/typography";
-
-/** 開關的邊長(theme.spacing 單位;Figma collapse-toggle 246:97 為 40×40)。 */
-const TOGGLE_SIZE = 5;
+import { ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from "@repo/ui/icons";
 
 export interface SideNavToggleProps {
   isCollapsed: boolean;
@@ -14,9 +11,12 @@ export interface SideNavToggleProps {
 
 /**
  * 側欄底部的收合開關(Figma `Draft/AdminSideNavCollapsed` 246:97)。
- * 同一顆按鈕兩種對齊:**展開態靠右、字符「«」**(Figma `Draft/AdminSideNav` 30:52 底部),
- * **收合態置中、字符「»」**。字符沿用 Figma 的文字(`@repo/ui/icons` 沒有對應的雙箭頭圖示),
- * 對輔助科技隱藏,名稱由按鈕的 `aria-label` 給。
+ * 同一顆按鈕兩種對齊:**展開態靠右、雙左箭頭**(Figma `Draft/AdminSideNav` 30:52 底部),
+ * **收合態置中、雙右箭頭**。
+ *
+ * #297:圖示由 `@repo/ui/icons` 的 `ChevronDoubleLeft/Right` 供給(在此之前是文字字符
+ * 「«」「»」),外框與 40×40 由 `IconButton` 的 `variant="outlined"` 供給 ——
+ * 這兩件事一起讓 STYLE-10 記錄在案的那一處例外(呼叫端用 `sx` 畫幾何)退場。
  */
 export const SideNavToggle = ({
   isCollapsed,
@@ -33,20 +33,15 @@ export const SideNavToggle = ({
       }}
     >
       <IconButton
+        variant="outlined"
         aria-label={t(isCollapsed ? "expandNav" : "collapseNav")}
         onClick={onToggle}
-        sx={{
-          width: (theme) => theme.spacing(TOGGLE_SIZE),
-          height: (theme) => theme.spacing(TOGGLE_SIZE),
-          border: 1,
-          borderColor: "divider",
-          borderRadius: 1,
-          color: "text.secondary",
-        }}
       >
-        <Typography component="span" variant="body1" aria-hidden>
-          {isCollapsed ? "»" : "«"}
-        </Typography>
+        {isCollapsed ? (
+          <ChevronDoubleRightIcon fontSize="small" />
+        ) : (
+          <ChevronDoubleLeftIcon fontSize="small" />
+        )}
       </IconButton>
     </Box>
   );

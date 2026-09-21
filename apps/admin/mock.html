@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  mock 模式的 HTML 入口(`pnpm --filter @repo/admin dev:mock`)。
+  只被 `vite.mock.config.ts` 讀到:正式 build 的入口恆為 `index.html`,
+  所以這一頁與 `src/mock/` 底下的東西不會進 dist(TEST-08「mock 開發模式」)。
+-->
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 空 data URI:mock 模式不服務 public/,省掉一次 favicon 404 -->
+    <link rel="icon" href="data:," />
+    <title>CookHome 後台管理(mock)</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/mock/main.tsx"></script>
+  </body>
+</html>

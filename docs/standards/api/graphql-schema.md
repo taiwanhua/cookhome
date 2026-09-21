@@ -81,11 +81,12 @@ type RecipeList {
 `FORBIDDEN` 是通用碼,光看碼分不出「為什麼不行」,所以**受規則保護**的那幾種情形另附 `reason`,
 前端據此顯示不同的一句話。這是 `reason` 不是新的 `code`,所以上表不增列:
 
-| `reason`                  | 什麼情況回它                                                                        | 程式正本                                 |
-| ------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------- |
-| `SYSTEM_ROLE`             | 動到種子角色(改名、編權限矩陣、停用 / 啟用);它隨底座出貨,內容隨版本更新             | `apps/api/src/roles/roles-error.ts`      |
-| `TEMPLATE_COPY_ROOT_ONLY` | 非根組織的操作者要停用**預設角色**(租戶副本)                                        | 同上                                     |
-| `SELF_LOCK`               | 自鎖保護:停用操作者**自己正持有的角色**,或停用 `system.module-manager` 子樹與其權限 | 同上 / `modules/module-manager-error.ts` |
+| `reason`                  | 什麼情況回它                                                                                               | 程式正本                                              |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `SYSTEM_ROLE`             | 動到種子角色(改名、編權限矩陣、停用 / 啟用);它隨底座出貨,內容隨版本更新                                    | `apps/api/src/roles/roles-error.ts`                   |
+| `TEMPLATE_COPY_ROOT_ONLY` | 非根組織的操作者要停用**預設角色**(租戶副本)                                                               | 同上                                                  |
+| `SELF_LOCK`               | 自鎖保護:停用操作者**自己正持有的角色**,或停用 `system.module-manager` 子樹與其權限                        | 同上 / `modules/module-manager-error.ts`              |
+| `FIELD_FORBIDDEN`         | **欄位級權限**(ADR-0004):input 裡出現一個操作者不能寫的欄位(含送 `null` 清空)。端點本身可以用,擋的是那一欄 | `apps/api/src/demo-items-one/demo-items-one-error.ts` |
 
 規則表正本見 ADR-0004「角色種類與可改動範圍」與 `docs/modules/role-manager.md`。
 
@@ -104,6 +105,15 @@ type RecipeList {
 由 api 啟動時自動生成,不手改;PR 內 schema 變更以 decorator 的 diff 為準。
 
 **重生指令**:`pnpm --filter @repo/api schema:generate`(`apps/api/scripts/generate-schema.ts`:起一次完整 AppModule 讓 GraphQLModule 寫檔,跑完自動退出;不必先啟 api、也不碰真資料庫)。改過 resolver / model / input 後跑一次,把產物一起進 commit。
+
+**api 改 schema 的票,兩個產物都要重產並進同一個 commit**(2026-09-22 / #160):`apps/api/schema.gql` 與 `packages/graphql/src/generated/index.ts` 是同一條產線的前後兩段,只跑前者會讓型別停在舊 schema。順序固定:
+
+```
+pnpm --filter @repo/api schema:generate
+pnpm --filter @repo/graphql generate
+```
+
+在此之前只有 admin 票會跑第二個指令,api-only 的票(#64、#137)改了 schema 卻沒重產,型別要等下一張 admin 票才更新。CI 的 verify job 現在有一步 `codegen 產物與 schema 一致(GQL-05)`,在 `@repo/api` 或 `@repo/graphql` 受影響時重跑這兩個指令再 `git diff --exit-code`,落後就紅。
 
 ## GQL-06 可選輸入欄位的「缺席」與 `null` 若語意不同,必須寫在模組文件的 api 介面段
 

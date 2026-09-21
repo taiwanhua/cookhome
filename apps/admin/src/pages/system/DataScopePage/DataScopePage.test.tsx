@@ -51,9 +51,11 @@ describe("資料範圍頁(/system/data-scope)", () => {
     expect(
       within(editor()).getByRole("combobox", { name: "套用對象" }),
     ).toHaveTextContent("角色");
+    // 改用 Autocomplete 後,選中的對象是輸入框**外**的 chip,不在 combobox 的文字裡(#307)
     expect(
       within(editor()).getByRole("combobox", { name: "對象" }),
-    ).toHaveTextContent("客服");
+    ).toBeInTheDocument();
+    expect(within(editor()).getByText("客服")).toBeInTheDocument();
     // 規則 1 的條件樹:根群組 AND + 一個 OR 子群組
     expect(
       within(editor()).getByRole("combobox", { name: "條件組合" }),

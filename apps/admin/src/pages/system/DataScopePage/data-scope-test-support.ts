@@ -139,6 +139,28 @@ export const chooseOption = async (
   await actor.click(await screen.findByRole("option", { name: option }));
 };
 
+/**
+ * Autocomplete 的選項是**兩行文字**(主文字 + 次文字),所以 `getByRole("option", { name })`
+ * 的完整比對對不上(名稱會是「客服租戶 A」)。一律用主文字開頭比對。
+ */
+export const autocompleteOptions = () =>
+  screen.getAllByRole("option").map((option) => option.textContent);
+
+/** 打開一個 Autocomplete 並點主文字是 `primary` 的那一列(多選時選單會留著)。 */
+export const pickAutocomplete = async (
+  actor: { click: (element: Element) => Promise<void> },
+  combobox: Element,
+  primary: string,
+) => {
+  await actor.click(combobox);
+  const options = await screen.findAllByRole("option");
+  const found = options.find((option) =>
+    option.textContent.startsWith(primary),
+  );
+  expect(found).toBeDefined();
+  await actor.click(found as Element);
+};
+
 /** 依浮動標籤取編輯器裡的下拉(同一頁會有很多個,依序取用)。 */
 export const comboboxes = (label: string) =>
   within(editor()).getAllByRole("combobox", { name: label });

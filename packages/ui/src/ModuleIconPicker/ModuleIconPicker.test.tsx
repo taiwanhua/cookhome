@@ -113,6 +113,27 @@ describe("ModuleIconPicker", () => {
     expect(handleChange).not.toHaveBeenCalled();
   });
 
+  /**
+   * #297:放進「左標籤 + 右內容」版型時不會給 `label`,combobox 於是沒有無障礙名稱。
+   * 兩條直通管道各驗一次。
+   */
+  it("沒有 label 時,aria-label 就是 combobox 的無障礙名稱", () => {
+    render(<ModuleIconPicker value="people" aria-label="圖示" />);
+
+    expect(screen.getByRole("combobox", { name: "圖示" })).not.toBeNull();
+  });
+
+  it("labelId 指向版型自己那顆標籤時,名稱取自該標籤", () => {
+    render(
+      <>
+        <span id="icon-field-label">圖示</span>
+        <ModuleIconPicker value="people" labelId="icon-field-label" />
+      </>,
+    );
+
+    expect(screen.getByRole("combobox", { name: "圖示" })).not.toBeNull();
+  });
+
   it("error + helperText 會渲染成錯誤提示", () => {
     render(
       <ModuleIconPicker

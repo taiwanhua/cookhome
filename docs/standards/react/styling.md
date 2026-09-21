@@ -63,11 +63,31 @@ const DashboardIcon = moduleIconOf("dashboard");
 return createElement(moduleIconOf(module.icon), { fontSize: "small" });
 ```
 
-**目前已知缺的元件**(缺的期間用原生替代並在 PR 記一筆,不要在 app 裡直接 import MUI):
-`EditIcon` / `DeleteIcon` 與 `Tabs`(待 #254,角色管理頁先用文字按鈕與自組 `role="tablist"`)。
-`Tooltip` 已補(#240 / #260,`@repo/ui/tooltip`):原生 `title` 的三處(`OrgActionBar`、
-模組與權限頁的 self-lock 開關、AppBar 的「?」)都已改用它,**disabled 元素要包 `span`
-才收得到 hover 這件事由元件內部處理**,呼叫端不要再自己包一層。
+**目前已知缺的元件:沒有**(缺的期間用原生替代並在 PR 記一筆,不要在 app 裡直接 import MUI)。
+近期補齊的與它們的入口:
+
+| 元件                                                       | 入口                    | 補上的票    |
+| ---------------------------------------------------------- | ----------------------- | ----------- |
+| `Tooltip`                                                  | `@repo/ui/tooltip`      | #240 / #260 |
+| `Tabs`(頁內頁籤;殼的路由頁籤是另一個東西 `RouteTabs`)      | `@repo/ui/tabs`         | #254 / #307 |
+| `Autocomplete`(輸入即搜尋、多選、分組、主 / 次文字)        | `@repo/ui/autocomplete` | #307        |
+| `EditIcon` / `DeleteIcon` / `ChevronDoubleLeft` / `…Right` | `@repo/ui/icons`        | #254 / #297 |
+
+`Tooltip` 的兩件事:原生 `title` 的三處(`OrgActionBar`、模組與權限頁的 self-lock 開關、
+AppBar 的「?」)都已改用它;**disabled 元素要包 `span` 才收得到 hover 這件事由元件內部處理**,
+呼叫端不要再自己包一層。
+
+**「停用的選項」不能靠 Tooltip 說明原因**(2026-09-22,#307):MUI 對 `aria-disabled` 的
+Autocomplete 選項下 `pointer-events: none`,hover 根本不會觸發;把它改回 `auto` 又會讓停用的
+選項點得下去(`useAutocomplete` 的 `handleOptionClick` 不重驗 `getOptionDisabled`)。
+原因一律**就地寫在選項的次文字**(`getOptionDisabledReason`),設計稿(`Draft/Autocomplete`
+253:38)畫的也是這樣。同理適用於任何「整列 pointer-events 被關掉」的清單項。
+
+**選單裡要搜尋就用 `Autocomplete`,不要在選單外掛一個搜尋框**(2026-09-22,#307):
+MUI 的 `Select` 會把選單裡的子元素一律 clone 成 `role="option"`,搜尋框塞進去會變成一個
+假選項(a11y 與測試都亂掉),所以 #261 當時把搜尋框放在選單外面 —— 使用者要在兩個控制項
+之間來回。`Autocomplete` 的輸入框就是選單的觸發器,這個取捨消失了。
+關鍵字要丟回 api 查的情境(候選有分頁上限)走 `onInputChange`,那會關掉內建的前端過濾。
 
 ## STYLE-06 設計稿的值不在 token 裡時:一次性直寫並註記,重複兩處以上補 token
 
@@ -106,10 +126,15 @@ STYLE-01 禁裸值,但 Figma 常給 theme 沒有的值(Tag 字級 11px、Checkbo
 
 app 端給 `@repo/ui` 元件傳 `sx` 時,只放與版面位置有關的值(`cursor`、`mt`、`flex`…);元件自己的幾何(高度、圓角、tone 色)由元件內的 `styled()` / theme `components` 決定(STYLE-07),呼叫端不要重設。需要不同尺寸或 tone 用元件的 props(`size`、`tone`),沒有就到 ui 加,不在呼叫端用 `sx` 硬改。
 
-**目前記錄在案的例外一處**(2026-09-22,#295):`AdminShell` 的 `SideNavToggle` 用 `sx` 給
-`@repo/ui/icon-button` 外框與 40×40 的幾何 —— ui 的 `IconButton` 還沒有 outlined 變體、`size` 也到不了 40。
-**這是暫記的技術債,不是可以照抄的先例**:變體補上後(#297)呼叫端要改回用 props。
-再遇到同類情形照這個做法 —— 開一張 ui 的票、在本節記一行,不要默默留著。
+**目前記錄在案的例外:沒有。**
+
+曾經有一處(2026-09-22,#295):`AdminShell` 的 `SideNavToggle` 用 `sx` 給
+`@repo/ui/icon-button` 外框與 40×40 的幾何 —— 當時 ui 的 `IconButton` 還沒有 outlined 變體、
+`size` 也到不了 40。**已於 #307 退場**:`IconButton` 補了 `variant="outlined"`(外框與
+32 / 40 / 48 的正方形由元件內的 `styled()` 給),呼叫端只剩 `variant="outlined"`。
+
+這個流程本身是規則:呼叫端非得用 `sx` 改幾何時 —— 開一張 ui 的票、在本節記一行
+(寫明「暫記的技術債,不是可以照抄的先例」),票完成時把那一行改成退場紀錄,不要默默留著。
 
 ## STYLE-11 列表頁的 `Table` 一律給 `minWidth`
 

@@ -6,6 +6,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite --host 0.0.0.0 --port 3001 --clearScreen false",
+    "dev:mock": "vite --config vite.mock.config.ts",
     "check-types": "tsc --noEmit",
     "check:help-bundle": "node scripts/check-help-bundle.mjs",
     "lint": "eslint src/ --max-warnings 0",

@@ -11,6 +11,8 @@ import { AuditModule } from "./audit/audit.module";
 import { AuthModule } from "./auth/auth.module";
 import type { GraphqlContext } from "./auth/request-context";
 import { DataScopeModule } from "./data-scope/data-scope.module";
+import { DemoItemsOneModule } from "./demo-items-one/demo-items-one.module";
+import { DemoItemsTwoModule } from "./demo-items-two/demo-items-two.module";
 import { FieldsModule } from "./fields/fields.module";
 import { ModuleManagerModule } from "./modules/module-manager.module";
 import { OrgsModule } from "./orgs/orgs.module";
@@ -63,6 +65,8 @@ const isSandboxEnabled =
     ModuleManagerModule,
     DataScopeModule,
     FieldsModule,
+    DemoItemsOneModule,
+    DemoItemsTwoModule,
     RecipesModule,
   ],
 })

@@ -15,18 +15,23 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 
 async function generateSchema(): Promise<void> {
   const mongo = await MongoMemoryServer.create();
-  process.env.MONGODB_URI = mongo.getUri();
-  process.env.JWT_SECRET = "schema-generation-only";
-  process.env.NODE_ENV = "development";
+  try {
+    process.env.MONGODB_URI = mongo.getUri();
+    process.env.JWT_SECRET = "schema-generation-only";
+    process.env.NODE_ENV = "development";
 
-  const { AppModule } = await import("../src/app.module");
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule],
-  }).compile();
-  const app = moduleRef.createNestApplication();
-  await app.init();
-  await app.close();
-  await mongo.stop();
+    const { AppModule } = await import("../src/app.module");
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    const app = moduleRef.createNestApplication();
+    await app.init();
+    await app.close();
+  } finally {
+    // finally 不可省:失敗時(例如 ts-node 編譯不過)沒關掉 mongod,process.exitCode 也退不出去,
+    // 本機與 CI 都會卡住直到逾時(#160 接 CI 時踩到)
+    await mongo.stop();
+  }
 }
 
 // api 編譯成 CommonJS,沒有 top-level await 可用;結束碼的寫法與 db-migrator 的 seed 一致
