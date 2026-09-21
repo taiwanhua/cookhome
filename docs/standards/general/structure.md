@@ -92,15 +92,16 @@ re-export `matrix.ts`,若 `matrix.ts` 寫 `from "./index"` 就是 `import-x/no-c
 3. 消費端:api 加 devDependency `workspace:*` 後直接 `import "@repo/<name>/<主題>"`;admin / front 同
 4. 登記:`docs/architecture.md` 的 packages 表加一列,寫「誰用、怎麼用」
 
-**既有套件新增一個子路徑匯出(最常見:往 `@repo/ui` 加一個元件)要動四處**
-(2026-09-20,#197 / #207;GEN-01 只提到出口檔,實際不只一處):
+**既有套件新增一個子路徑匯出(最常見:往 `@repo/ui` 加一個元件)要動五處**
+(2026-09-20,#197 / #207;第 5 點 2026-09-22 補,#292):
 
 1. 元件三件套:`src/<元件>/<元件>.tsx` + `<元件>.test.tsx` + story(GEN-01 / TEST-09)
 2. `src/<主題>.ts` 出口檔(對外 API 的那一行 `export`)
-3. `package.json` 的 `exports` **與** `typesVersions` 各加一組(兩份都要,api 那種 node10 解析只看後者)
+3. `package.json` 的 `exports`;**被 api 消費的套件(目前只有 `@repo/domain`)再加一份同名的 `typesVersions`** — 它只為 api 那種 node10 / CommonJS 解析服務。`@repo/ui` **免除**(只被 admin / front 以 bundler 解析消費,`package.json` 裡本來就沒有 `typesVersions`,不要為了對稱補上)
 4. `package.json` 的 `dependencies`(包了新的外部庫時)+ 用到新版外部庫時先 `npm view <pkg> version` 查最新
+5. 登記 `docs/architecture.md` 的 packages 表:**`@repo/domain` 那列逐一列出子路徑,新增時要補上**;`@repo/ui` 那列**不列舉**子路徑(三十餘個,正本是 `package.json` 的 `exports`),只維持用途概述
 
-漏第 3 點的症狀是「本地 import 得到、`check-types` 在別的包紅」。
+漏第 3 點的症狀是「本地 import 得到、`check-types` 在別的包紅」;漏第 5 點的症狀是 architecture.md 的子路徑列悄悄過期(`@repo/domain/module-icon` 就漏了一輪)。
 
 ## STRUCT-09 Markdown 也走 prettier:表格由它排版,不手排
 

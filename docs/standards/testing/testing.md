@@ -63,6 +63,8 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
 
 `emotionClassOf(element)` 取該元素的 `css-…` 類別(用來把範圍收斂到自家元件),`cssRulesMatching(...needles)` 取選擇器同時含這幾段字串的規則,`declaredValue(rules, prop)` 取最後一條宣告的值(沒有任何規則宣告時回 `null`,正好拿來斷言「這個狀態沒有自己的樣式」)。**單純的後代選擇器**(如 Tree 依深度的縮排)`getComputedStyle` 讀得到,照常用即可。
 
+**數值型樣式值的斷言要照 emotion 實際寫出的字串**(2026-09-22,#300):MUI / emotion 只對**非零**數值補 `px`,`minHeight: 0` 寫出來是 `min-height: 0`,不是 `"0px"`。`expect(declaredValue(rules, "min-height")).toBe("0px")` 會紅得莫名其妙 —— 斷 `"0"`。同理 `lineHeight`、`flex`、`zIndex` 這類無單位屬性也不要自行加單位。
+
 ## TEST-08 admin 的元件測試:MSW 攔網路層 + React Testing Library
 
 先例:`apps/admin/src/test/`(`setup.ts` MSW 生命週期、`msw/server.ts`、`msw/auth-handlers.ts`、`render.tsx` 的 `renderApp()`),測試檔與元件同資料夾、同名 `.test.tsx`(GEN-01)。
@@ -84,12 +86,13 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
 - **測試數的基準用「在 `origin/main` 跑一次」取得,不要沿用別的 PR 寫死的數字**:同一段多票並行時,別人先合的票會墊高基準,照抄舊數字會讓 PR 的「+N」對不上(#207 起四段並行都踩過)。**取基準時不要用 turbo**:快取跨 worktree 共用,同一份輸入別人跑過就 `cache hit, replaying logs`,結果可能根本沒印出來或印的是別人的。進 package 目錄直接跑 jest(2026-09-21 補):
 
   ```
-  cd packages/ui && node --experimental-vm-modules node_modules/jest/bin/jest.js
-  cd apps/admin && node --experimental-vm-modules node_modules/jest/bin/jest.js
+  cd packages/ui && pnpm run test
+  cd apps/admin && pnpm run test
   ```
 
-  前提是依賴已 build 過(`pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`);驗收自己的改動仍用 turbo(輸入變了不會誤命中)
+  `pnpm run test`(= 該包 `package.json` 的 `node --experimental-vm-modules node_modules/jest/bin/jest.js`)不經 turbo、快取不會誤命中。**不要用 `pnpm exec jest`**:少了 `--experimental-vm-modules`,ESM 測試直接炸,看起來像測試壞了(2026-09-22 補)。前提是依賴已 build 過(`pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`);驗收自己的改動仍用 turbo(輸入變了不會誤命中)
 
+- **zustand `persist` 的 `setState` 會回寫 storage**(2026-09-22,#295):測「重新整理後狀態維持」時,直覺寫法 `useXStore.setState({ ... 預設值 })` + `rehydrate()` 會先把 localStorage 也覆寫成預設值,再讀回預設值 —— 看起來像「狀態沒被記住」,其實是測試自己把存檔抹掉了。正確順序是:**先把 storage 的內容存起來 → 歸零 store → 把存檔放回 storage → 才 `rehydrate()`**。另外 store 是模組層單例,`src/test/setup.ts` 要在每個測試後歸零(同語言 store 的理由)
 - 輸出雜訊:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`
 
 ## TEST-10 時間相關的斷言:不可用呼叫「前」的 `Date.now()` 當上界
