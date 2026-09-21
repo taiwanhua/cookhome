@@ -52,6 +52,8 @@ const node = (
   sidebarType: ModuleSidebarType.Link,
   order,
   description: null,
+  /** 側欄圖示(#288):預設不給,要對照初值表的節點各自用 `overrides` 指定 */
+  icon: null,
   enabled: true,
   permissions: [allPermission(key)],
   children: [],
@@ -62,6 +64,7 @@ const node = (
 const systemChildren: TestModuleAdminNode[] = [
   node("m-org", "system.org-manager", "組織管理", "m-system", 1, {
     description: "維護組織樹與租戶",
+    icon: "business",
     permissions: [
       allPermission("system.org-manager"),
       permission("system.org-manager", "view", "檢視組織"),
@@ -76,6 +79,7 @@ const systemChildren: TestModuleAdminNode[] = [
         1,
         {
           sidebarType: ModuleSidebarType.Hidden,
+          icon: "key",
           permissions: [
             allPermission("system.org-manager.tenant-ops"),
             permission(
@@ -88,10 +92,15 @@ const systemChildren: TestModuleAdminNode[] = [
       ),
     ],
   }),
-  node("m-user", "system.user-manager", "使用者管理", "m-system", 2),
-  node("m-role", "system.role-manager", "角色管理", "m-system", 3),
+  node("m-user", "system.user-manager", "使用者管理", "m-system", 2, {
+    icon: "people",
+  }),
+  node("m-role", "system.role-manager", "角色管理", "m-system", 3, {
+    icon: "shield",
+  }),
   node("m-module", "system.module-manager", "模組與權限", "m-system", 4, {
     description: "檢視模組樹與各模組的權限清單",
+    icon: "apps",
     permissions: [
       allPermission("system.module-manager"),
       permission("system.module-manager", "view", "檢視模組樹"),
@@ -100,10 +109,15 @@ const systemChildren: TestModuleAdminNode[] = [
         "toggle-enabled",
         "切換模組 / 權限啟用",
       ),
+      permission("system.module-manager", "set-icon", "設定模組側欄圖示"),
     ],
   }),
-  node("m-field", "system.field-manager", "欄位管理", "m-system", 5),
-  node("m-data-scope", "system.data-scope", "資料範圍", "m-system", 6),
+  node("m-field", "system.field-manager", "欄位管理", "m-system", 5, {
+    icon: "label",
+  }),
+  node("m-data-scope", "system.data-scope", "資料範圍", "m-system", 6, {
+    icon: "filter",
+  }),
 ];
 
 /**
@@ -113,6 +127,7 @@ const systemChildren: TestModuleAdminNode[] = [
 const demoChildren: TestModuleAdminNode[] = [
   node("m-two", "demo.sample-two", "示範模組2", "m-demo", 2, {
     enabled: false,
+    icon: "list",
     permissions: [
       allPermission("demo.sample-two"),
       permission("demo.sample-two", "view", "檢視示範項目", {
@@ -130,19 +145,22 @@ const demoChildren: TestModuleAdminNode[] = [
 
 /** 全樹(樹根陣列):總覽、系統管理、示範群組,以及沒有路由的隱藏 api 樹。 */
 export const moduleAdminTree: TestModuleAdminNode[] = [
-  node("m-overview", "overview", "總覽", null, 0),
+  node("m-overview", "overview", "總覽", null, 0, { icon: "dashboard" }),
   node("m-system", "system", "系統管理", null, 1, {
     sidebarType: ModuleSidebarType.Group,
+    icon: "settings",
     permissions: [],
     children: systemChildren,
   }),
   node("m-demo", "demo", "示範群組", null, 2, {
     sidebarType: ModuleSidebarType.Group,
+    icon: "extension",
     permissions: [],
     children: demoChildren,
   }),
   node("m-api", "api", "API 能力", null, 99, {
     sidebarType: ModuleSidebarType.Hidden,
+    icon: "tune",
     permissions: [
       allPermission("api"),
       permission("api", "export", "匯出資料", { enabled: false }),

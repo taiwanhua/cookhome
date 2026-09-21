@@ -6,6 +6,7 @@ import { type TestModule, overviewModule } from "./auth-handlers";
  * 與 `apps/db-migrator/seeds/modules/*` 同形的模組陣列(ADR-0011 步驟 7 的輸出形狀:
  * route 為完整路徑、api 樹 route 為 null),供殼的測試當 `me.modules` 夾具。
  * 順序刻意不照 order 排,驗證前端自行排序。
+ * `icon` 照 `docs/modules/module-manager.md`「側欄圖示」的初值對照表(隱藏頁一律 null)。
  */
 const link = (
   id: string,
@@ -14,6 +15,7 @@ const link = (
   parentId: string | null,
   order: number,
   route: string,
+  icon: string | null = null,
 ): TestModule => ({
   id,
   key,
@@ -22,6 +24,7 @@ const link = (
   sidebarType: ModuleSidebarType.Link,
   order,
   route,
+  icon,
   permissions: [`${key}.*`],
 });
 
@@ -32,8 +35,9 @@ const group = (
   parentId: string | null,
   order: number,
   route: string,
+  icon: string | null = null,
 ): TestModule => ({
-  ...link(id, key, name, parentId, order, route),
+  ...link(id, key, name, parentId, order, route, icon),
   sidebarType: ModuleSidebarType.Group,
 });
 
@@ -44,8 +48,9 @@ const hidden = (
   parentId: string | null,
   order: number,
   route: string | null,
+  icon: string | null = null,
 ): TestModule => ({
-  ...link(id, key, name, parentId, order, route ?? ""),
+  ...link(id, key, name, parentId, order, route ?? "", icon),
   sidebarType: ModuleSidebarType.Hidden,
   route,
 });
@@ -59,8 +64,9 @@ export const systemModules: TestModule[] = [
     "m-system",
     2,
     "/system/user-manager",
+    "people",
   ),
-  group("m-system", "system", "系統管理", null, 1, "/system"),
+  group("m-system", "system", "系統管理", null, 1, "/system", "settings"),
   link(
     "m-data-scope",
     "system.data-scope",
@@ -68,6 +74,7 @@ export const systemModules: TestModule[] = [
     "m-system",
     6,
     "/system/data-scope",
+    "filter",
   ),
   link(
     "m-org",
@@ -76,6 +83,7 @@ export const systemModules: TestModule[] = [
     "m-system",
     1,
     "/system/org-manager",
+    "business",
   ),
   link(
     "m-field",
@@ -84,6 +92,7 @@ export const systemModules: TestModule[] = [
     "m-system",
     5,
     "/system/field-manager",
+    "label",
   ),
   link(
     "m-role",
@@ -92,6 +101,7 @@ export const systemModules: TestModule[] = [
     "m-system",
     3,
     "/system/role-manager",
+    "shield",
   ),
   link(
     "m-module",
@@ -100,6 +110,7 @@ export const systemModules: TestModule[] = [
     "m-system",
     4,
     "/system/module-manager",
+    "apps",
   ),
 ];
 
@@ -113,7 +124,7 @@ export const sampleTwoModules: TestModule[] = [
     3,
     "/demo/sample-two/edit-page",
   ),
-  group("m-demo", "demo", "示範群組", null, 2, "/demo"),
+  group("m-demo", "demo", "示範群組", null, 2, "/demo", "extension"),
   link(
     "m-two",
     "demo.sample-two",
@@ -121,6 +132,7 @@ export const sampleTwoModules: TestModule[] = [
     "m-demo",
     2,
     "/demo/sample-two",
+    "list",
   ),
   hidden(
     "m-two-view",
@@ -142,7 +154,15 @@ export const sampleTwoModules: TestModule[] = [
 
 /** 示範模組1 家族:示範次群組 → 示範模組1 + 三個隱藏頁(seeds/modules/demo.sub.sample-one.ts)。 */
 export const sampleOneModules: TestModule[] = [
-  group("m-demo-sub", "demo.sub", "示範次群組", "m-demo", 1, "/demo/sub"),
+  group(
+    "m-demo-sub",
+    "demo.sub",
+    "示範次群組",
+    "m-demo",
+    1,
+    "/demo/sub",
+    "folder",
+  ),
   hidden(
     "m-one-edit",
     "demo.sub.sample-one.edit-page",
@@ -158,6 +178,7 @@ export const sampleOneModules: TestModule[] = [
     "m-demo-sub",
     1,
     "/demo/sub/sample-one",
+    "grid",
   ),
   hidden(
     "m-one-view",
@@ -179,7 +200,7 @@ export const sampleOneModules: TestModule[] = [
 
 /** 隱藏的純 API 樹:在陣列裡但 route 為 null(seeds/modules/api.ts)。 */
 export const apiModules: TestModule[] = [
-  hidden("m-api", "api", "API 能力", null, 99, null),
+  hidden("m-api", "api", "API 能力", null, 99, null, "tune"),
 ];
 
 /** 超級管理員看到的全部:總覽 + 系統管理六項 + 示範家族 + api 樹。 */

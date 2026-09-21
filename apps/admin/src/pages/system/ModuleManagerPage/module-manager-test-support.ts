@@ -27,6 +27,12 @@ export const VIEW_ONLY = [MODULE_MANAGER_PERMISSIONS.view];
 export const FULL_PERMISSIONS = [
   MODULE_MANAGER_PERMISSIONS.view,
   MODULE_MANAGER_PERMISSIONS.toggleEnabled,
+  MODULE_MANAGER_PERMISSIONS.setIcon,
+];
+/** 換圖示與停用是兩把鑰匙(#288):只有 `.toggle-enabled` 時圖示欄位仍是唯讀的 */
+export const WITHOUT_SET_ICON = [
+  MODULE_MANAGER_PERMISSIONS.view,
+  MODULE_MANAGER_PERMISSIONS.toggleEnabled,
 ];
 
 /**
