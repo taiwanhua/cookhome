@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
 import { Types } from "mongoose";
 
 import {
@@ -16,6 +16,8 @@ import {
   createRole,
   setRoleEnabled,
 } from "../permission/test-support/fixtures";
+import { RecordingStorageService } from "../storage/recording-storage.service";
+import { StorageService } from "../storage/storage.service";
 
 const LOGIN = /* GraphQL */ `
   mutation Login($input: LoginInput!) {
@@ -306,6 +308,34 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
   async function logoPathOf(id: Types.ObjectId): Promise<string | undefined> {
     const row = await orgRow(id);
     return row?.logoPath;
+  }
+
+  /**
+   * 從 DI 取出記錄用的儲存 adapter(未設 `GCS_BUCKET_PRIVATE` 時被選中)。
+   * TEST-07 的例外:「舊商標物件有沒有被刪掉」在 GraphQL 端點上看不到 —— 回傳值只有簽名網址,
+   * DB 也只剩新路徑,唯一觀察得到的地方就是 adapter 自己記下的刪除清單。
+   */
+  function recordingStorage(): RecordingStorageService {
+    const storage = api.app.get(StorageService);
+    if (!(storage instanceof RecordingStorageService)) {
+      throw new TypeError(
+        "測試環境未選中記錄用 adapter(不該設 GCS_BUCKET_PRIVATE)",
+      );
+    }
+    return storage;
+  }
+
+  /** 以租戶管理員的身分改商標(#161 的清理案子共用;每次都確認 mutation 本身沒有錯)。 */
+  async function setLogo(
+    orgId: Types.ObjectId,
+    logoPath: string | null,
+  ): Promise<void> {
+    const result = await api.graphql(
+      UPDATE_ORG,
+      { input: { id: String(orgId), logoPath } },
+      { accessToken: tenantAdminToken },
+    );
+    expect(result.errors).toBeUndefined();
   }
 
   async function auditRows(
@@ -802,6 +832,73 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
 
       expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
       expect(await logoPathOf(orgId)).toBeUndefined();
+    });
+
+    describe("換商標後的舊物件清理(#161:換圖即刪舊)", () => {
+      /** 每個案子各用一組路徑 —— 刪除清單在整個測試檔裡是累積的,共用常數會互相干擾。 */
+      const FIRST = "org-logos/aaaaaaaa-1111-1111-1111-111111111111.png";
+      const SECOND = "org-logos/bbbbbbbb-2222-2222-2222-222222222222.webp";
+      const CLEARED = "org-logos/cccccccc-3333-3333-3333-333333333333.png";
+      const SAME = "org-logos/dddddddd-4444-4444-4444-444444444444.png";
+      const BROKEN_OLD = "org-logos/eeeeeeee-5555-5555-5555-555555555555.png";
+      const BROKEN_NEW = "org-logos/ffffffff-6666-6666-6666-666666666666.png";
+
+      it("換成新商標:舊物件被刪掉,新的留著", async () => {
+        const orgId = await newOrgUnderTenantA("換商標");
+        const storage = recordingStorage();
+
+        await setLogo(orgId, FIRST);
+        expect(storage.deleted).not.toContain(FIRST);
+
+        await setLogo(orgId, SECOND);
+        expect(await logoPathOf(orgId)).toBe(SECOND);
+        expect(storage.deleted).toContain(FIRST);
+        expect(storage.deleted).not.toContain(SECOND);
+      });
+
+      it("清空商標(null):舊物件一樣被刪掉", async () => {
+        const orgId = await newOrgUnderTenantA("清空商標");
+        const storage = recordingStorage();
+
+        await setLogo(orgId, CLEARED);
+        await setLogo(orgId, null);
+
+        expect(await logoPathOf(orgId)).toBeUndefined();
+        expect(storage.deleted).toContain(CLEARED);
+      });
+
+      it("送同一張圖:沒有變動就不刪(不會把還在用的物件刪掉)", async () => {
+        const orgId = await newOrgUnderTenantA("同一張圖");
+        const storage = recordingStorage();
+
+        await setLogo(orgId, SAME);
+        const before = storage.deleted.length;
+        await setLogo(orgId, SAME);
+
+        expect(storage.deleted).toHaveLength(before);
+        expect(storage.deleted).not.toContain(SAME);
+        expect(await logoPathOf(orgId)).toBe(SAME);
+      });
+
+      it("刪不掉舊物件時只記 log,更新照常成功", async () => {
+        const orgId = await newOrgUnderTenantA("刪除失敗");
+        const storage = recordingStorage();
+        await setLogo(orgId, BROKEN_OLD);
+
+        const failing = jest
+          .spyOn(storage, "deleteObject")
+          .mockRejectedValueOnce(new Error("bucket 暫時不可用"));
+        try {
+          // 更新本身要成功(錯誤被吞掉、只記 log)
+          await setLogo(orgId, BROKEN_NEW);
+          // 斷言要在 restore 之前:`mockRestore()` 會一併清掉呼叫紀錄
+          expect(failing).toHaveBeenCalledWith(BROKEN_OLD);
+        } finally {
+          failing.mockRestore();
+        }
+
+        expect(await logoPathOf(orgId)).toBe(BROKEN_NEW);
+      });
     });
 
     it("動不到擁有者與可見範圍開關(那是租戶作業 #135:input 根本沒有這兩個欄位)", async () => {
