@@ -91,10 +91,10 @@ export type CreateRoleInput = {
 };
 
 export type CreateUploadUrlInput = {
-  /** 允許 image/png / image/jpeg / image/webp */
+  /** 允許的檔型依 purpose:ORG_LOGO / DEMO_COVER image/png / image/jpeg / image/webp;DEMO_ATTACHMENT image/png / image/jpeg / image/webp / application/pdf / application/msword / application/vnd.openxmlformats-officedocument.wordprocessingml.document / application/vnd.ms-excel / application/vnd.openxmlformats-officedocument.spreadsheetml.sheet / application/zip / application/x-zip-compressed */
   contentType: Scalars['String']['input'];
   purpose: UploadPurpose;
-  /** 檔案大小(bytes),上限 2097152 */
+  /** 檔案大小(bytes),上限依 purpose:ORG_LOGO / DEMO_COVER 2097152;DEMO_ATTACHMENT 20971520 */
   size: Scalars['Int']['input'];
 };
 

@@ -91,11 +91,11 @@ describe("RouteTabs:生成與去重(dis #15:開過的路由生成 tab、以路�
     useSuperAdmin();
     const { user } = renderApp({ path: "/overview" });
     const list = await findTabList();
-    // 用還沒實作的模組(佔位頁顯示模組名)驗「內容區換了」— 已實作的頁沒有這個標題
+    // 「內容區換了」以殼的 AppBar 標題為準(各頁的版型不一,不是每一頁都有同名標題)
     await user.click(sideNavLink("示範模組2"));
-    expect(
-      await screen.findByRole("heading", { name: "示範模組2" }),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("banner")).toHaveTextContent("示範模組2");
+    });
 
     await user.click(within(list).getByRole("tab", { name: "總覽" }));
 
@@ -125,9 +125,7 @@ describe("RouteTabs:關閉", () => {
     expect(screen.getByTestId("location")).toHaveTextContent(
       "/demo/sample-two",
     );
-    expect(
-      screen.getByRole("heading", { name: "示範模組2" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toHaveTextContent("示範模組2");
   });
 
   it("關閉當前 tab → 切到相鄰:右邊優先,最右邊則切左邊", async () => {

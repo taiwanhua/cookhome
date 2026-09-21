@@ -9,6 +9,8 @@ import { dataScopeTargets, savedRule } from "@/test/msw/data-scope-fixtures";
 import { dataScopeWorld } from "@/test/msw/data-scope-handlers";
 import { demoHistory, demoItems } from "@/test/msw/demo-fixtures";
 import { demoWorld } from "@/test/msw/demo-sample-one-handlers";
+import { demoTwoWorld } from "@/test/msw/demo-sample-two-handlers";
+import { demoTwoItems } from "@/test/msw/demo-two-fixtures";
 import {
   currentOrg,
   fieldCategories,
@@ -150,5 +152,7 @@ export const mockHandlers = ({
       demoWorld({ items: demoItems, history: demoHistory }).handlers,
       ["CreateUploadUrl"],
     ),
+    // 示範模組2 三頁(#321):兩支示範模組的端點各自獨立,沒有共用端點要去重
+    ...demoTwoWorld({ items: demoTwoItems }).handlers,
   ];
 };

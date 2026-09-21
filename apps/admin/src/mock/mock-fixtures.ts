@@ -3,6 +3,10 @@ import {
   SAMPLE_ONE_PERMISSIONS,
 } from "@/pages/demo/demo-sample-one-config";
 import {
+  SAMPLE_TWO_MODULE_KEYS,
+  SAMPLE_TWO_PERMISSIONS,
+} from "@/pages/demo/demo-sample-two-config";
+import {
   DATA_SCOPE_MODULE_KEY,
   DATA_SCOPE_PERMISSIONS,
 } from "@/pages/system/DataScopePage/data-scope-permissions";
@@ -165,6 +169,13 @@ const permissionsByModuleKey: Record<string, readonly string[]> = {
   ],
   [SAMPLE_ONE_MODULE_KEYS.createPage]: [SAMPLE_ONE_PERMISSIONS.showTips],
   [SAMPLE_ONE_MODULE_KEYS.editPage]: [SAMPLE_ONE_PERMISSIONS.showHistory],
+  // 示範模組2(#321):對照組的四筆全掛在列表頁那一層(沒有頁面自有權限)
+  [SAMPLE_TWO_MODULE_KEYS.list]: [
+    SAMPLE_TWO_PERMISSIONS.view,
+    SAMPLE_TWO_PERMISSIONS.create,
+    `${SAMPLE_TWO_MODULE_KEYS.list}.edit`,
+    `${SAMPLE_TWO_MODULE_KEYS.list}.delete`,
+  ],
 };
 
 /** 模組與權限、資料範圍是 `isRootOnly`:租戶管理員的 `me.modules` 裡根本沒有它們。 */
@@ -181,8 +192,8 @@ const withFullPermissions = (module: TestModule): TestModule => ({
 /**
  * 側欄與路由的來源:總覽 + 系統管理群組 + 該視角看得到的治理模組 + 示範家族,權限給滿。
  *
- * 示範家族兩支都放(seed 就是兩支都灌):示範模組1 的四頁已實作(#320),
- * 示範模組2 目前還是佔位頁(#321 接手);兩者的隱藏頁都在,路由防守才有東西可看。
+ * 示範家族兩支都放(seed 就是兩支都灌):示範模組1(#320)與示範模組2(#321)的四頁都已實作,
+ * 兩者的隱藏頁都在,路由防守才有東西可看。
  */
 export const modulesForView = (view: MockView): TestModule[] => [
   overviewModule,

@@ -198,6 +198,34 @@ export const sampleOneModules: TestModule[] = [
   ),
 ];
 
+/**
+ * **沒有登記頁面元件的模組**(`app/module-pages.tsx` 裡查不到這個 key)。
+ *
+ * 殼對這種模組會顯示佔位頁(內容區就是模組名的標題),那是殼自己的行為、要一直測得到 ——
+ * #321 之前是拿「還沒實作的示範模組2」來驗,示範家族全部實作完之後就沒有這種模組了,
+ * 所以改成一支**永遠不會被實作**的夾具模組。新增真頁面時不要順手把它登記掉。
+ */
+export const placeholderModules: TestModule[] = [
+  group("m-demo", "demo", "示範群組", null, 2, "/demo", "extension"),
+  link(
+    "m-placeholder",
+    "demo.not-implemented",
+    "未實作模組",
+    "m-demo",
+    9,
+    "/demo/not-implemented",
+    "list",
+  ),
+  hidden(
+    "m-placeholder-edit",
+    "demo.not-implemented.edit-page",
+    "編輯",
+    "m-placeholder",
+    1,
+    "/demo/not-implemented/edit-page",
+  ),
+];
+
 /** 隱藏的純 API 樹:在陣列裡但 route 為 null(seeds/modules/api.ts)。 */
 export const apiModules: TestModule[] = [
   hidden("m-api", "api", "API 能力", null, 99, null, "tune"),

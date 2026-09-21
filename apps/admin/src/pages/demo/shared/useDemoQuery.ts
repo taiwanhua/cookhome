@@ -1,0 +1,73 @@
+import { useQueryClient } from "@tanstack/react-query";
+
+import type { GraphQLClient } from "@repo/graphql";
+
+import { useSession } from "@/hooks/useSession";
+
+import type { DemoItemResult, DemoRows } from "./demo-module-config";
+
+/**
+ * codegen 產的 query hook 的**最小形狀**(共用元件只用到這三件事:呼叫、`enabled`、`getKey`)。
+ * 設定物件把自己的 `useDemoItemsOneQuery` 這類 hook 原樣傳進來,型別由呼叫端的泛型對齊。
+ */
+export interface DemoQueryHook<Variables, Data> {
+  (
+    client: GraphQLClient,
+    variables: Variables,
+    options?: { enabled?: boolean; retry?: boolean; gcTime?: number },
+  ): { data?: Data; isLoading: boolean; error: unknown };
+  getKey: (variables: Variables) => unknown[];
+}
+
+/**
+ * 清單:呼叫 codegen 的 query hook,取出 `items` / `totalCount`,並附上只失效這一份清單的
+ * `invalidate`(DATA-02 / 04)。設定物件的 `useRows` 就是包這一個。
+ *
+ * 範圍(可見範圍 + 資料範圍規則)由 api 自動套,前端不送任何組織條件。
+ */
+export const useDemoRows = <Variables, Data, Row>(
+  useQuery: DemoQueryHook<Variables, Data>,
+  variables: Variables,
+  select: (data: Data) => { items: readonly Row[]; totalCount: number },
+): DemoRows<Row> => {
+  const { session } = useSession();
+  const queryClient = useQueryClient();
+  const query = useQuery(session.client, variables);
+  const page = query.data === undefined ? null : select(query.data);
+
+  return {
+    rows: page?.items ?? [],
+    totalCount: page?.totalCount ?? 0,
+    isLoading: query.isLoading,
+    invalidate: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: useQuery.getKey(variables),
+      });
+    },
+  };
+};
+
+/**
+ * 單筆(詳情頁與編輯頁共用)。`retry: false` —— 看不到的資料一律 `NOT_FOUND`,
+ * 重試三次只是讓「找不到」晚三秒出現。
+ *
+ * 新增情境不查(`isEnabled` 為 false),也就不會拿一個空字串的 id 去打 api。
+ */
+export const useDemoItem = <Variables, Data, Detail>(
+  useQuery: DemoQueryHook<Variables, Data>,
+  variables: Variables,
+  select: (data: Data) => Detail | null,
+  isEnabled: boolean,
+): DemoItemResult<Detail> => {
+  const { session } = useSession();
+  const query = useQuery(session.client, variables, {
+    enabled: isEnabled,
+    retry: false,
+  });
+
+  return {
+    item: query.data === undefined ? null : select(query.data),
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+};

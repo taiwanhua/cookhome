@@ -1,8 +1,11 @@
 import type {
   DemoItemOneHistoryQuery,
   DemoItemOneQuery,
+  DemoItemOneStatus,
   DemoItemsOneQuery,
 } from "@repo/graphql";
+
+import type { DemoFilterOption } from "./shared/demo-module-config";
 
 /** 列表的一列(`demoItemsOne.items[]`)。 */
 export type DemoItemRow = DemoItemsOneQuery["demoItemsOne"]["items"][number];
@@ -18,15 +21,13 @@ export type DemoItemHistoryEntry =
   DemoItemOneHistoryQuery["demoItemOneHistory"]["items"][number];
 
 /** 分類下拉的一個選項(由欄位管理的 `fields(categoryId)` 轉來)。 */
-export interface DemoCategoryOption {
-  value: string;
-  label: string;
-}
+export type DemoCategoryOption = DemoFilterOption;
 
-/**
- * 內部備註欄在表單上的三態(模組文件「權限表」的欄位級權限示範)。
- * - `hidden`:沒有 `show-internal-note` → **整欄不顯示**,也絕不把這個欄位放進 input
- * - `readonly`:看得到、改不動(api 的 `abilities.canEditInternalNote` 為 false)
- * - `editable`:可改
- */
-export type InternalNoteMode = "hidden" | "readonly" | "editable";
+/** 示範模組1 表單的文字 / 選擇類欄位(檔案欄由共用表單的 `FileSlot` 管)。 */
+export interface SampleOneFormValues {
+  name: string;
+  category: DemoCategoryOption | null;
+  status: DemoItemOneStatus;
+  note: string;
+  internalNote: string;
+}

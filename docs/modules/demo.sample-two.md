@@ -74,6 +74,39 @@
 
 `demo-item-two.create` / `.edit` / `.delete` / `.toggle-enabled`,`targetType` 一律 `demo_item_two`。
 
+## admin 頁面(#321;程式正本 `apps/admin/src/pages/demo/`)
+
+四個模組 key = 四頁,`app/module-pages.tsx` 各登記一個元件;**新增與編輯是同一個共版型元件**,情境由 `module.key` 判斷。
+
+| 模組 key                      | 網址                              | 元件                                  |
+| ----------------------------- | --------------------------------- | ------------------------------------- |
+| `demo.sample-two`             | `/demo/sample-two`                | `SampleTwoPage/SampleTwoPage.tsx`     |
+| `demo.sample-two.view-page`   | `/demo/sample-two/view-page/<id>` | `SampleTwoPage/SampleTwoViewPage.tsx` |
+| `demo.sample-two.create-page` | `/demo/sample-two/create-page`    | `SampleTwoPage/SampleTwoFormPage.tsx` |
+| `demo.sample-two.edit-page`   | `/demo/sample-two/edit-page/<id>` | 同上(共版型)                          |
+
+**三頁本體是共用的**:`pages/demo/shared/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`,設定驅動(介面與逐項 JSDoc 在 `shared/demo-module-config.ts` 的 `DemoModuleConfig`)。本模組的設定物件是 `pages/demo/SampleTwoModule.tsx`,常數在 `demo-sample-two-config.ts`。**頁面程式碼與示範模組1 一模一樣,差別全在設定物件** —— 這組共用元件就是 module-scaffold 的前端藍本(`docs/agents/module-scaffold.md`)。
+
+**對照組在畫面上少了什麼**(這正是它存在的理由):
+
+| 示範模組1 有                   | 示範模組2 | 為什麼                                            |
+| ------------------------------ | --------- | ------------------------------------------------- |
+| 分類篩選與分類欄位             | 無        | 沒有欄位管理選項來源(設定物件沒給 `list.Filters`) |
+| 狀態欄(草稿 / 已發布 / 已封存) | 無        | 資料範圍的 enum 欄位只在示範模組1                 |
+| 內部備註(三態)                 | 無        | 沒有欄位級權限                                    |
+| 封面 / 附件上傳                | 無        | 沒有雙路儲存(設定物件的 `form.uploads` 是空陣列)  |
+| 填寫提示 / 變更歷程區塊        | 無        | 沒有頁面自有權限(設定物件沒給 `form.slots`)       |
+
+**兩層判斷分開問**(ADR-0011,與示範模組1 同一套 `useDemoAccess`):進得去哪一頁看 `me.modules` 有沒有那個模組(路由字串也從模組陣列取,前端不寫死路徑);頁內能做什麼看權限集。**逐列的編輯 / 刪除一律讀 api 給的 `item.abilities`**,不與 `usePermissions` 相乘。
+
+**路由防守**沿用示範模組1 的做法(`lib/module-tree.ts` 的 `matchModuleRoute`:精準比對落空時,只對 hidden 模組再試一次「去掉最後一段」)。列表頁後面多接一段仍然是無權限頁。
+
+**`enabled` 不在表單上**:它由 `setDemoItemTwoEnabled` 單獨切換(守 `.edit`),表單只有 name / note。列表與詳情頁以標籤顯示啟用狀態。
+
+**錯誤對應**:`VALIDATION_FAILED` 依 `extensions.fields` 標在對應欄位上(只有 `name`),其餘用一條 Alert 說明;解讀集中在 `shared/demo-error.ts`(兩支示範模組共用一份)。
+
+**設計稿**:同版型不畫(Figma 的註記卡)—— 版型就是示範模組1 的 175:3 / 175:318 / 175:558 / 177:2314。
+
 ## Seed 與環境
 
 模組與權限同示範模組1。help:`apps/admin/src/md/module-help/demo.sample-two.help.md`。

@@ -28,17 +28,64 @@ export const UPLOAD_VISIBILITIES: Readonly<
   [UploadPurpose.DEMO_ATTACHMENT]: "private",
 };
 
-/** 大小上限 2MB(ADR-0010)。 */
-export const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+/** 圖片類用途(商標、封面)的大小上限 2MB(ADR-0010)。 */
+export const MAX_IMAGE_UPLOAD_BYTES = 2 * 1024 * 1024;
+
+/** 附件類用途的大小上限 20MB(#344:文件與壓縮檔本來就比圖片大)。 */
+export const MAX_ATTACHMENT_UPLOAD_BYTES = 20 * 1024 * 1024;
 
 /** 上傳網址效期 10 分鐘(ADR-0010);讀取網址效期另由 `GCS_SIGNED_URL_TTL` 決定。 */
 export const UPLOAD_URL_TTL_MS = 10 * 60 * 1000;
 
-/** 允許的 content type → 副檔名(ADR-0010 的 PNG / JPG,加上 webp)。 */
-export const UPLOAD_EXTENSIONS: Readonly<Record<string, string>> = {
+/** 圖片檔型 → 副檔名(ADR-0010 的 PNG / JPG,加上 webp)。 */
+const IMAGE_EXTENSIONS: Readonly<Record<string, string>> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/webp": "webp",
+};
+
+/**
+ * 附件的文件檔型 → 副檔名(#344:pdf / doc / docx / xls / xlsx / zip)。
+ * `application/x-zip-compressed` 是 Windows 上的瀏覽器對 `.zip` 申報的 content type,
+ * 與 `application/zip` 同一種檔,一起收(副檔名相同)。
+ */
+const DOCUMENT_EXTENSIONS: Readonly<Record<string, string>> = {
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+    "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/zip": "zip",
+  "application/x-zip-compressed": "zip",
+};
+
+/** 一個用途的上傳規則:允許的檔型與大小上限(兩者都是**依用途**,不是全站一套)。 */
+export interface UploadRule {
+  /** 允許的 content type(小寫)→ 存檔用的副檔名。 */
+  extensions: Readonly<Record<string, string>>;
+  /** 大小上限(bytes)。 */
+  maxBytes: number;
+}
+
+/**
+ * 用途 → 上傳規則(#344 起依用途分開;在那之前全站共用一份圖片白名單 + 2MB)。
+ * 圖片類(`ORG_LOGO` / `DEMO_COVER`)維持 png / jpg / webp 與 2MB;
+ * `DEMO_ATTACHMENT` 是「附件」,除了圖片再收 pdf / doc / docx / xls / xlsx / zip,上限 20MB。
+ */
+export const UPLOAD_RULES: Readonly<Record<UploadPurpose, UploadRule>> = {
+  [UploadPurpose.ORG_LOGO]: {
+    extensions: IMAGE_EXTENSIONS,
+    maxBytes: MAX_IMAGE_UPLOAD_BYTES,
+  },
+  [UploadPurpose.DEMO_COVER]: {
+    extensions: IMAGE_EXTENSIONS,
+    maxBytes: MAX_IMAGE_UPLOAD_BYTES,
+  },
+  [UploadPurpose.DEMO_ATTACHMENT]: {
+    extensions: { ...IMAGE_EXTENSIONS, ...DOCUMENT_EXTENSIONS },
+    maxBytes: MAX_ATTACHMENT_UPLOAD_BYTES,
+  },
 };
 
 /**
@@ -52,20 +99,37 @@ export const UPLOAD_PATH_PREFIXES: Readonly<Record<UploadPurpose, string>> = {
   [UploadPurpose.DEMO_ATTACHMENT]: "demo",
 };
 
-const PREFIX_PATTERN = [...new Set(Object.values(UPLOAD_PATH_PREFIXES))].join(
-  "|",
-);
-const EXTENSION_PATTERN = [...new Set(Object.values(UPLOAD_EXTENSIONS))].join(
-  "|",
-);
 const UUID_PATTERN =
   "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
+/**
+ * 每個前綴各自的副檔名白名單(共用同一個前綴的用途取聯集,如 `demo` = 封面 + 附件)。
+ * 不取全站聯集 —— 否則放寬附件的副檔名會連帶讓 `org-logos/<uuid>.zip` 通過歸屬驗證(#344)。
+ */
+function extensionsByPrefix(): Map<string, Set<string>> {
+  const byPrefix = new Map<string, Set<string>>();
+  for (const purpose of Object.values(UploadPurpose)) {
+    const prefix = UPLOAD_PATH_PREFIXES[purpose];
+    const extensions = byPrefix.get(prefix) ?? new Set<string>();
+    for (const extension of Object.values(UPLOAD_RULES[purpose].extensions)) {
+      extensions.add(extension);
+    }
+    byPrefix.set(prefix, extensions);
+  }
+  return byPrefix;
+}
+
 const OWNED_UPLOAD_PATH = new RegExp(
-  String.raw`^(${PREFIX_PATTERN})/${UUID_PATTERN}\.(${EXTENSION_PATTERN})$`,
+  [...extensionsByPrefix()]
+    .map(
+      ([prefix, extensions]) =>
+        String.raw`^${prefix}/${UUID_PATTERN}\.(${[...extensions].join("|")})$`,
+    )
+    .join("|"),
 );
 
 /**
- * 這個物件路徑是不是本 API 自己簽出來的(前綴 + uuid + 允許的副檔名)。
+ * 這個物件路徑是不是本 API 自己簽出來的(前綴 + uuid + 該前綴允許的副檔名)。
  * 用途:寫入 `orgs.logoPath`、`demo_items_one.coverPath` / `attachmentPath` 這類
  * 「由前端回傳路徑」的欄位前先驗,不讓呼叫端把任意 bucket 物件塞進 DB
  * (#134 updateOrg / provisionTenant、#318 示範模組1)。
