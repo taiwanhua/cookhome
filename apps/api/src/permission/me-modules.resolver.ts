@@ -17,6 +17,7 @@ function toMeModule(module: ResolvedModule): MeModule {
     sidebarType: module.sidebarType as ModuleSidebarType,
     order: module.order,
     route: module.route,
+    icon: module.icon,
     permissions: module.permissions,
   };
 }

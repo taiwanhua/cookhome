@@ -28,6 +28,7 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       parentKey: null,
       order: 2,
       route: "demo",
+      icon: "extension",
     },
     {
       key: DEMO_SUB_GROUP_KEY,
@@ -36,6 +37,7 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       parentKey: DEMO_GROUP_KEY,
       order: 1,
       route: "sub",
+      icon: "folder",
     },
     {
       key: SAMPLE_ONE_KEY,
@@ -44,6 +46,7 @@ export const sampleOneModule: ModuleSeedDeclaration = {
       parentKey: DEMO_SUB_GROUP_KEY,
       order: 1,
       route: "sample-one",
+      icon: "grid",
       description:
         "示範家族的完整示範:三層樹、隱藏頁、CRUD + wildcard、欄位級與頁面自有權限、資料範圍目標",
     },

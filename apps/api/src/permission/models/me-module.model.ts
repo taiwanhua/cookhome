@@ -47,6 +47,14 @@ export class MeModule {
   @Field(() => String, { nullable: true })
   route!: string | null;
 
+  /**
+   * 側欄圖示 key(白名單 `@repo/domain/module-icon`);`null` = 用預設圖示。
+   * 值由根組織在「模組與權限」頁管理(`setModuleIcon`),seed 只給初值;
+   * 前端以 key 查自己的登錄表(`@repo/ui`),認不得的 key 一律退回預設圖示。
+   */
+  @Field(() => String, { nullable: true })
+  icon!: string | null;
+
   /** 此模組的有效權限 key(含 wildcard 展開後同層全部;含 `<key>.*` 本身)。 */
   @Field(() => [String])
   permissions!: string[];

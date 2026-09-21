@@ -68,6 +68,13 @@ export class ModuleAdminNode {
   description!: string | null;
 
   /**
+   * 側欄圖示 key(白名單 `@repo/domain/module-icon`);`null` = 沒指定,側欄用預設圖示。
+   * seed 只給初值,執行期由 `setModuleIcon` 改(`enabled` 之外的第二個可變欄位)。
+   */
+  @Field(() => String, { nullable: true })
+  icon!: string | null;
+
+  /**
    * 模組自己的停用狀態。**停用連動整棵子樹**(`setModuleEnabled(enabled: false)` 會把子孫
    * 一起寫成 false),所以樹上每個節點的 `enabled` 都是它自己的真實值,不必再看祖先。
    */
@@ -83,7 +90,10 @@ export class ModuleAdminNode {
   children!: ModuleAdminNode[];
 }
 
-/** `setModuleEnabled` 的回傳(GQL-02:mutation 一律回 payload type)。 */
+/**
+ * `setModuleEnabled` / `setModuleIcon` 的回傳(GQL-02:mutation 一律回 payload type)。
+ * 兩個 mutation 共用同一個 payload —— 回的都是「這個模組這一枝的最新狀態」,沒有形狀差異。
+ */
 @ObjectType()
 export class ModuleAdminPayload {
   /** 被切換的模組**及其整棵子樹**(停用時子孫的 `enabled` 已一併更新,前端直接換掉這一枝)。 */

@@ -19,6 +19,7 @@ export const sampleTwoModule: ModuleSeedDeclaration = {
       parentKey: DEMO_GROUP_KEY,
       order: 2,
       route: "sample-two",
+      icon: "list",
       description: "示範家族的對照組:兩層結構、無資料範圍目標、只有基本權限",
     },
     {
