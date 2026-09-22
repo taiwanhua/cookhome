@@ -170,6 +170,39 @@ describe("Tree", () => {
     expect(handleChange.mock.calls[0]?.[0]).toEqual(["org-1"]);
   });
 
+  /**
+   * #373:MUI 預設「點內容區 = 選取 + 展開 / 收合」,於是選一個組織會順手把它收起來。
+   * `expansionTrigger="iconContainer"` 把兩件事分開,這個測試釘住分工。
+   */
+  it("點文字只選取、不改變展開狀態,點展開箭頭才展開", () => {
+    const handleSelectedIdsChange = jest.fn();
+    const handleExpandedIdsChange = jest.fn();
+    render(
+      <Tree
+        items={items}
+        onSelectedIdsChange={handleSelectedIdsChange}
+        onExpandedIdsChange={handleExpandedIdsChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("CookHome"));
+
+    expect(handleSelectedIdsChange.mock.calls[0]?.[0]).toEqual(["root"]);
+    expect(handleExpandedIdsChange).not.toHaveBeenCalled();
+    expect(screen.queryByText("台北分店")).toBeNull();
+
+    const arrow = arrowOf("CookHome");
+    if (arrow === null) {
+      throw new Error("找不到展開箭頭");
+    }
+    fireEvent.click(arrow);
+
+    expect(handleExpandedIdsChange.mock.calls[0]?.[0]).toEqual(["root"]);
+    expect(screen.getByText("台北分店")).not.toBeNull();
+    // 反過來不對稱:MUI 的選取仍掛在整列上,點箭頭會再回報一次同樣的選取(不是換選別人)
+    expect(handleSelectedIdsChange.mock.calls.at(-1)?.[0]).toEqual(["root"]);
+  });
+
   it("勾選模式每個節點都有核取方塊,勾選後回報 id", () => {
     const handleChange = jest.fn();
     render(

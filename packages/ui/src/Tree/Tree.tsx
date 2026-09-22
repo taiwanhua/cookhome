@@ -140,6 +140,10 @@ const EMPTY_IDS: readonly string[] = [];
  * 兩類 props 的分工:**內容**(`labelSuffix`、`actions`、`disabled`)跟著節點資料走;
  * **狀態**(`selectedIds`、`expandedIds`、`indeterminateIds`、`disabledCheckIds`)是 id 陣列,
  * 隨勾選即時變動而不必重建整棵 `items`。
+ *
+ * **展開 / 收合只由最前面的箭頭觸發**(`expansionTrigger="iconContainer"`,#373):
+ * MUI 預設是點整個內容區,於是「選一個組織」順手把它收起來,選完要再點一次箭頭展開;
+ * 這裡把兩件事分開 —— 點文字只選取,點箭頭只展開 / 收合。
  */
 export const Tree = ({
   items,
@@ -215,6 +219,8 @@ export const Tree = ({
           selectedItems={toSelectionValue(selectedIds)}
           defaultSelectedItems={toSelectionValue(defaultSelectedIds)}
           onSelectedItemsChange={handleSelectedItemsChange}
+          // 展開 / 收合只認最前面的箭頭,點文字是「選這一列」而已(#373)
+          expansionTrigger="iconContainer"
           expandedItems={expandedIds}
           defaultExpandedItems={defaultExpandedIds}
           onExpandedItemsChange={handleExpandedItemsChange}

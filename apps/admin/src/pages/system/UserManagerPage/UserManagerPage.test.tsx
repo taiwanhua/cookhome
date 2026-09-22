@@ -188,6 +188,31 @@ describe("使用者管理頁(/system/user-manager)", () => {
     );
   });
 
+  /**
+   * #373:性別欄原本是裸 `Select`,只掛 `aria-label` —— 畫面上那一格沒有欄位名,
+   * 和同列的「暱稱」對不起來(Figma 202:734 是有浮動標籤的下拉)。
+   */
+  it("性別欄比照其他欄位有看得見的標籤,選項選得動", async () => {
+    const { user: actor } = renderPage();
+
+    await screen.findByText("王小明");
+    await actor.click(
+      within(rowOf("王小明")).getByRole("button", { name: "編輯" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    /*
+     * 「性別」要在畫面上看得到 —— 改之前只有 `aria-label`,這裡一個都找不到。
+     * 外框式欄位的標籤文字會出現兩份(浮動標籤 + 外框缺口的 legend),所以用 getAllByText。
+     */
+    expect(within(dialog).getAllByText("性別").length).toBeGreaterThan(0);
+
+    await actor.click(within(dialog).getByLabelText("性別"));
+    await actor.click(await screen.findByRole("option", { name: "女" }));
+
+    expect(within(dialog).getByLabelText("性別")).toHaveTextContent("女");
+  });
+
   it("沒有 show-national-id 時編輯彈窗不渲染身分證欄", async () => {
     const { user: actor } = renderPage({
       permissions: ALL_PERMISSIONS.filter(
