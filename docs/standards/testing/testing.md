@@ -186,6 +186,16 @@ pnpm --filter @repo/admin dev:mock -- --port <自選埠> --strictPort
   後者等於每條劇本各起一座 api。
 - **定位優先用畫面上唯一的字串**。權限矩陣每一列列尾都印著權限 key(全樹唯一),
   拿它定位比拿中文名稱穩;`.MuiTreeItem-content` 只含自己那一列(子列在自己的 `ul` 裡)。
+- **Snackbar 不是同步點**(2026-09-23,#395):操作結果提示 4 秒就自動關閉(DATA-06),
+  拿「看到提示」當「這一步做完了」會在 CI 慢的時候抓不到、在快的時候又提早往下走。
+  **連續操作之間等的是那一次 GraphQL 回應**(`page.waitForResponse` 比對 operationName),
+  共用 helper 放 `apps/e2e/src/fixtures/ui.ts`(`clickAndWaitFor`)。提示的**內容**要驗當然可以驗,
+  但把它當時序的柵欄不行。
+- **`data_scope_rules` 是全域設定,租戶隔離救不了它**(2026-09-23,#395):那張表沒有掛
+  `tenantScopePlugin`、`collection` 上是 unique 索引,所以**一個資料目標全站只有一份規則**
+  (正本 `docs/modules/data-scope.md`「執行面的回傳語意」)。動到它的劇本**結尾一定要清乾淨**
+  (`saveDataScopeRule` 整份覆蓋成 `rules: []`),放在 fixture 的收尾而不是測試本體的最後一行 ——
+  中途失敗時也要清掉,否則會污染同一個資料庫上的其他劇本。
 - **改完權限之後要整頁重載**。`me`(模組與權限)是 App 掛載時查的,react-query 會快取;
   `page.goto(...)` 是完整導覽,會重查 —— 不必重新登入(refresh cookie 還在)。
   **admin 與 api 要用同一個主機名**:cookie 是 `SameSite=Lax`,`localhost` 與 `127.0.0.1`

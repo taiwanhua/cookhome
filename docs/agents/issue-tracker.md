@@ -133,9 +133,14 @@ pnpm --filter @repo/admin dev:mock -- --port <自選埠> --strictPort
 
 ### 權限 / 示範模組的票:交件前手動觸發一次劇本 E2E(#378,2026-09-23)
 
-改到**權限解析、模組樹 / 路由防守、示範模組、角色矩陣**的票,交件前手動觸發一次
-`gh workflow run e2e.yml --ref <你的分支>`(只有 `workflow_dispatch`、**不在 ci.yml 內**,所以 PR 的 CI 不會跑它),
-把 run 連結與結果附在 PR 上。`-f grep="劇本 7"` 可只跑其中一條。
+改到**權限解析、模組樹 / 路由防守、示範模組、角色矩陣**的票,交件前手動觸發一次劇本 E2E,
+把 run 連結與結果附在 PR 上。`e2e.yml` 只有 `workflow_dispatch`、**不在 ci.yml 內**,所以 PR 的 CI 不會跑它。
+
+**先看 `e2e.yml` 在不在 `main` 上,兩種情況做法不同**(2026-09-23 釐清,#395;`workflow_dispatch` 要求 workflow 檔已在預設分支才叫得動):
+
+- **已在 `main`(目前就是)** → 直接 `gh workflow run e2e.yml --ref <你的分支>`,**跑的是你分支上的那一版** spec 與 harness(`--ref` 決定 checkout 哪一版,`main` 上那份只是「這個 workflow 存在」的登記)。`-f grep="劇本 7"` 只跑其中一條。
+- **還沒在 `main`**(新開一個手動 workflow 的那張票) → 叫不動,改用下方「新增一個『只手動觸發』的 workflow 時怎麼驗」那一節的暫加 `push:` trigger 做法。
+
 跑法與目前覆蓋到哪幾條見 `docs/standards/testing/testing.md` 的 TEST-05 / TEST-11 與
 `docs/testing/permission-scenarios.md` 的「E2E」欄。
 
@@ -174,6 +179,8 @@ pnpm --filter @repo/admin dev:mock -- --port <自選埠> --strictPort
 ### 新增一個「只手動觸發」的 workflow 時怎麼驗(2026-09-23,#378)
 
 `workflow_dispatch` 有一條 GitHub 的硬限制:**workflow 檔必須已經在預設分支(`main`)上,`gh workflow run` 才叫得動它**。新開的 workflow 還在 feat 分支上,所以「交件前手動跑一次」對它自己是做不到的(`e2e.yml` 就是這樣 —— 建立它的那張票沒辦法先跑一次 e2e,只能等 release 進 `main` 之後)。
+
+**限制只在「叫不叫得動」,不在「跑哪一版」**:檔案一旦進了 `main`,之後 `--ref <feat 分支>` 跑的就是**該分支上的那一版**(包含你這次改的 spec 與 harness),不必再為了驗自己的改動做任何額外動作。
 
 交件前想真的驗它跑得起來:**暫時加一段 `push: branches: [<你的 feat 分支>]`** → push 一次讓它跑 → 綠了之後**把那段移除**再開 PR / 合併。PR 內文附那次 run 的連結並註明「驗證用的 push trigger 已移除」。
 

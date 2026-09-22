@@ -152,10 +152,13 @@ input SaveDataScopeRuleInput {
   更深的規則若由 api 回來仍讀得回、顯示得出來,只是不能再往下加。
 - 新群組**一定帶一條條件列**(空群組會被 `EMPTY_GROUP` 拒絕,不讓它先出現在畫面上)。
 - 動態值與靜態值在同一個「值」下拉裡(動態值排在最前面):選了動態值就取代整份靜態值,反之亦然。
-- **「有沒有規則」沒有現成欄位**:左清單的「已設規則」目前是對每個目標各查一次 `dataScopeRule`
-  (目標是 seed 宣告的小清單,成本可接受)。目標變多時的正解是 `DataScopeTarget` 上補 `hasRule`(待 #246)。
-- **`demo_items_one` 的 seed 目前宣告 `fields: []`**,所以 enum 型別的條件在 dev 上驗不到
-  (只有底座自動掛入的 org / user / date 基礎欄位);seed 補一個 enum 欄位待 #246。
+- **左清單的「已設規則」讀 `DataScopeTarget.hasRule`**(#246 已做;2026-09-23 更新,原條文寫的是
+  「沒有現成欄位、對每個目標各查一次 `dataScopeRule`」)。判準見上方「回傳欄位的語意」——
+  有文件**且 `rules` 非空**才算已設。
+- **`demo_items_one` 的 seed 宣告了一個 enum 欄位 `status`**(草稿 / 已發布 / 已封存;#246 已做,
+  2026-09-23 更新,原條文寫的是 `fields: []`、enum 條件驗不到)。正本
+  `apps/db-migrator/seeds/modules/demo.sub.sample-one.ts` 的 `dataScopeTarget.fields`,
+  `value` 與 `demo-item-one.schema.ts` 的 `status` 一一對應;示範模組2 仍不宣告,是對照組。
 - 未儲存就切換資料目標 → 放棄變更確認;`saveDataScopeRule` 成功後失效該 collection 的 `dataScopeRule`
   與 `dataScopeTargets`。動作按鈕依 `system.data-scope.edit`,只有 `.view` 時整個編輯器唯讀。
 
@@ -170,3 +173,4 @@ input SaveDataScopeRuleInput {
 - 動態值在**查詢當下**代入正在查的人:`current-user` → 操作者 id、`current-user-orgs` → 操作者的**所屬組織**
   (`org_user` 的直接關聯,**不含**可見性開關展開的下層);代入後若是空集合,該條件命中不到任何資料(fail-closed)
 - 規則只套**業務類** collection(`tenantScopePlugin({ kind: "business" })`);治理類(`orgs`)完全不受影響
+- **規則本身是全域設定,不隨租戶隔離**(2026-09-23 明寫,#395):`data_scope_rules` **沒有掛 `tenantScopePlugin`**、`collection` 上是 **unique 索引**(程式正本 `apps/api/src/database/schemas/data-scope-rule.schema.ts`),所以**一個資料目標全站只有一份規則文件**,由 root 維護、對所有租戶同時生效(套用對象才是決定「命中誰」的那一層)。**寫自動化測試時這是共用狀態**:動到規則的劇本結尾一定要把它清乾淨(整份覆蓋成 `rules: []`),否則會污染同一個資料庫上跑的其他劇本 —— 租戶隔離救不了它,見 TEST-11
