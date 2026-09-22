@@ -125,6 +125,14 @@ pnpm --filter @repo/admin dev:mock     # http://localhost:3002
 - **不必有 dev 帳號、不必等部署** —— 版面問題在 PR 階段就看得到,不要留到 dev 驗證再回報。
 - 跑法與實作細節(入口獨立、共用端點的 handler 正本、`msw/node` 的 alias stub)見 `docs/standards/testing/testing.md` TEST-08 的「mock 開發模式」。
 
+### 權限 / 示範模組的票:交件前手動觸發一次劇本 E2E(#378,2026-09-23)
+
+改到**權限解析、模組樹 / 路由防守、示範模組、角色矩陣**的票,交件前手動觸發一次
+`gh workflow run e2e.yml --ref <你的分支>`(只有 `workflow_dispatch`、**不在 ci.yml 內**,所以 PR 的 CI 不會跑它),
+把 run 連結與結果附在 PR 上。`-f grep="劇本 7"` 可只跑其中一條。
+跑法與目前覆蓋到哪幾條見 `docs/standards/testing/testing.md` 的 TEST-05 / TEST-11 與
+`docs/testing/permission-scenarios.md` 的「E2E」欄。
+
 ### `.claude/hook-typecheck-off`
 
 **重構型的票**(先搬檔再修 import,中途型別必紅)與**只改文件的票**,在 repo 根建空檔 `.claude/hook-typecheck-off`(已 gitignore),PostToolUse hook 就只跑 ESLint。

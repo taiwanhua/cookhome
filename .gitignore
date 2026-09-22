@@ -32,3 +32,8 @@ storybook-static
 
 # 從 repo 根跑 api 時 NestJS 會在根目錄誤生一份 schema.gql(正本在 apps/api/schema.gql)
 /schema.gql
+
+# e2e(apps/e2e)的執行期產物:harness 起 stack 用的暫存(api log、記憶體 Mongo)與 Playwright 報告
+apps/e2e/.tmp
+apps/e2e/playwright-report
+apps/e2e/test-results

@@ -44,6 +44,13 @@ Secret 命名:三環境各一份 `<名稱>-dev` / `<名稱>-staging` / `<名稱>
 | `GH_PROJECT_TOKEN` | 看板移卡自動化(PAT classic,`repo`+`project` scope) | GitHub repo Secrets                       |
 | WIF 相關           | deploy.yml 免金鑰認證                              | GitHub + GCP Workload Identity Federation |
 
+## 只在測試用的(不進任何環境)
+
+| 變數       | 用途                                                                                                                                                                                                    | 用於                        | 放哪                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `E2E_*`    | 劇本 E2E 的埠 / 主機 / 測試帳密 / 開關(`E2E_HOST`、`E2E_API_PORT`、`E2E_ADMIN_PORT`、`E2E_MONGODB_URI`、`E2E_DB_NAME`、`E2E_ROOT_*`、`E2E_MEMBER_PASSWORD`、`E2E_JWT_SECRET`、`E2E_GREP`、`E2E_SKIP_*`) | `apps/e2e` 的 harness(#378) | **不上雲、不進 Secret Manager**:全部有測試用預設值,清單與說明在 `apps/e2e/.env.example`(本機覆寫放 `apps/e2e/.env`,已 gitignore);CI 只在 `e2e.yml` 內給 `E2E_MONGODB_URI` / `E2E_GREP` |
+| 前置的假值 | harness 起 api / db-migrator 時用的 `MONGODB_URI`、`JWT_SECRET`、`ROOT_ADMIN_*`                                                                                                                         | `apps/e2e` 起的子行程       | 由上面的 `E2E_*` 推導出來後傳給子行程;指向的是拋棄式資料庫(記憶體 Mongo 或 CI 的 service container)                                                                                    |
+
 ## 相關
 
 - 部署與 Secret Manager 設定流程:`docs/deployment.md`
