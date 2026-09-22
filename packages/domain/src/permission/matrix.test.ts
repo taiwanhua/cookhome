@@ -17,6 +17,7 @@ import {
 const tree: MatrixModuleTree = [
   {
     key: "system",
+    permissions: [{ key: "system.*" }],
     children: [
       {
         key: "system.org-manager",
@@ -47,9 +48,11 @@ const tree: MatrixModuleTree = [
   },
   {
     key: "demo",
+    permissions: [{ key: "demo.*" }],
     children: [
       {
         key: "demo.sub",
+        permissions: [{ key: "demo.sub.*" }],
         children: [
           {
             key: "demo.sub.sample-one",
@@ -320,6 +323,62 @@ describe("toggleWholeGroup:「全選整組 / 清空整組 = 對子樹每個模�
     const twice = toggleWholeGroup(tree, once, "demo", true);
 
     expect(twice).toEqual(once);
+  });
+});
+
+/**
+ * #363:顯示樹(`roleMatrix.modules`)會把操作者搆不到的 `*` 列剪掉,群組節點因此可能
+ * **一列權限都沒有**。整組開關若照樣寫一筆 `<群組>.*`,使用者在矩陣上看不到那一列、
+ * 也就取消不掉,送出只會換來 `ROLE_OUT_OF_REACH`。
+ */
+describe("整層沒有權限的模組不推導 `*`(#363:顯示樹剪掉 `*` 列的群組)", () => {
+  /** `demo` / `demo.sub` 這兩個群組的 `*` 列被剪掉(操作者只搆得到底下的葉模組)。 */
+  const prunedTree: MatrixModuleTree = [
+    {
+      key: "demo",
+      children: [
+        {
+          key: "demo.sub",
+          children: [
+            {
+              key: "demo.sub.sample-one",
+              permissions: [
+                { key: "demo.sub.sample-one.*" },
+                { key: "demo.sub.sample-one.view" },
+                { key: "demo.sub.sample-one.edit" },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it("全選整組:只給搆得到的那幾層 `*`,不生群組自己的 `<群組>.*`", () => {
+    const result = toggleWholeGroup(prunedTree, grantOf([], []), "demo", true);
+
+    expect(result.moduleKeys).toEqual([
+      "demo",
+      "demo.sub",
+      "demo.sub.sample-one",
+    ]);
+    expect(result.permissionKeys).toEqual(["demo.sub.sample-one.*"]);
+  });
+
+  it("整組開關的勾選狀態仍衍生得出來(不要求不存在的 `<群組>.*`)", () => {
+    const granted = toggleWholeGroup(prunedTree, grantOf([], []), "demo", true);
+
+    expect(isWholeGroupGranted(prunedTree, granted, "demo")).toBe(true);
+  });
+
+  it("硬送 `<群組>.*` 也會被當成樹外的 key 丟掉(規則 1)", () => {
+    const result = normalizeGrant(
+      prunedTree,
+      grantOf(["demo"], ["demo.*", "demo.sub.*"]),
+    );
+
+    expect(result.permissionKeys).toEqual([]);
+    expect(result.moduleKeys).toEqual(["demo"]);
   });
 });
 
