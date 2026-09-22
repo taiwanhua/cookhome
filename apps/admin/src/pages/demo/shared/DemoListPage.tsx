@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslations } from "use-intl";
 
+import { Alert } from "@repo/ui/alert";
 import { Box } from "@repo/ui/box";
 import { Card } from "@repo/ui/card";
 import { Pagination } from "@repo/ui/pagination";
@@ -20,6 +21,7 @@ import type {
   DemoModuleConfig,
 } from "./demo-module-config";
 import { useDemoAccess } from "./useDemoAccess";
+import { useDemoSetEnabled } from "./useDemoQuery";
 
 export interface DemoListPageProps<
   Row extends DemoItemLike,
@@ -45,6 +47,7 @@ export const DemoListPage = <
 }: DemoListPageProps<Row, Detail, Values>) => {
   const { i18nNamespace, list } = config;
   const t = useTranslations(i18nNamespace);
+  const tErrors = useTranslations(`${i18nNamespace}.errors`);
   const { session } = useSession();
   const navigate = useNavigate();
   const access = useDemoAccess(config.moduleKeys, config.permissions);
@@ -55,6 +58,8 @@ export const DemoListPage = <
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [deleteError, setDeleteError] = useState<DemoErrorCode | null>(null);
+  const [toggleError, setToggleError] = useState<DemoErrorCode | null>(null);
+  const [togglingRowId, setTogglingRowId] = useState<string | null>(null);
 
   const rows = list.useRows({ page, keyword, option });
 
@@ -65,6 +70,21 @@ export const DemoListPage = <
     },
     onError: (error: unknown) => {
       setDeleteError(demoErrorOf(error).code);
+    },
+  });
+
+  /**
+   * 啟用 / 停用是**選配**(`config.useSetEnabled`):沒給的模組沒有開關,這一支就是替身。
+   * 成功後只失效當前這份清單(DATA-02 / 04),讓那一列拿到 api 回的新狀態。
+   */
+  const setEnabled = useDemoSetEnabled(config.useSetEnabled, {
+    onSuccess: () => {
+      setTogglingRowId(null);
+      void rows.invalidate();
+    },
+    onError: (error: unknown) => {
+      setTogglingRowId(null);
+      setToggleError(demoErrorOf(error).code);
     },
   });
 
@@ -103,6 +123,11 @@ export const DemoListPage = <
         }}
       />
 
+      {/* 切換啟用失敗的說明(刪除的錯誤在確認彈窗裡,這裡是列表上直接送出的那一種) */}
+      {toggleError !== null && (
+        <Alert severity="error">{tErrors(toggleError)}</Alert>
+      )}
+
       <Card
         sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}
       >
@@ -116,6 +141,8 @@ export const DemoListPage = <
             isLoading={rows.isLoading}
             canEnterView={access.viewRoute !== null}
             canEnterEdit={access.editRoute !== null}
+            canToggleEnabled={config.useSetEnabled !== undefined}
+            togglingRowId={togglingRowId}
             onView={(row) => {
               goTo(access.viewRoute, row.id);
             }}
@@ -125,6 +152,11 @@ export const DemoListPage = <
             onDelete={(row) => {
               setDeleteError(null);
               setDeleteTarget(row);
+            }}
+            onToggleEnabled={(row, enabled) => {
+              setToggleError(null);
+              setTogglingRowId(row.id);
+              setEnabled.mutate({ input: { id: row.id, enabled } });
             }}
           />
         </Box>

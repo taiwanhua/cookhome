@@ -173,19 +173,20 @@ pnpm --filter @repo/graphql generate
 
 示範模組2 = 最小可行模組。下表每一列都是**可以不做**的東西;要做時照「示範模組1 怎麼做」那一欄找正本。
 
-| 選配項目               | 示範模組1                                                | 示範模組2 | 不做的代價 / 怎麼做                                                                                                        |
-| ---------------------- | -------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **資料範圍目標**       | seed 宣告 `dataScopeTarget`(`demo_items_one`)            | 不宣告    | 不宣告 = 查詢只受**可見範圍**保底,「資料範圍」頁左側列不到它,規則機制不介入(ADR-0008)                                      |
-| **enum 可篩欄位**      | `status`(草稿 / 已發布 / 已封存)                         | 無        | `dataScopeTarget.fields` 裡列 `type: "enum"` + 固定 `options`;value 與 schema 的欄位一一對應                               |
-| **欄位級權限**         | `internalNote` + `show-` / `edit-internal-note` 兩筆權限 | 無        | 要做就是上面「欄位級權限欄的四件事」全做(投影 / 寫入守門 / 歷程 redact / keyword 不比對);前端以 `isVisible` 與 `mode` 表達 |
-| **頁面自有權限(slot)** | 新增頁 `show-tips`、編輯頁 `show-history`                | 無        | 權限綁在那一頁的模組上;前端用設定物件的 `form.slots`(回 `null` 即不顯示)                                                   |
-| **變更歷程**           | `demoItemOneHistory(id)` 讀 `audit_logs`                 | 無        | 歷程查詢要先驗這筆看不看得到;受權限欄在歷程裡一律 `[redacted]`                                                             |
-| **雙路檔案儲存**       | 封面(公開 bucket)+ 附件(私有 bucket)                     | 無        | `upload-rules.ts` 加 purpose;前端用設定物件的 `form.uploads`(空陣列 = 沒有上傳欄)                                          |
-| **模組自有篩選器**     | 分類 `Autocomplete`(選項來自欄位管理)                    | 無        | 設定物件的 `list.Filters`;不給就只有搜尋框                                                                                 |
-| **外部選項來源**       | 分類選項來自欄位管理「示範分類」                         | 無        | 選項端點掛在**別的模組的權限**底下(`system.field-manager.view`)—— 沒有它的人:列表無該篩選、表單該欄唯讀並說明原因          |
-| **模組專屬錯誤解讀**   | `demo-sample-one-error.ts`                               | 共用一份  | 錯誤碼一律沿用 GQL-04 通用碼,不新增 code                                                                                   |
-| **三層模組樹**         | `demo > demo.sub > sample-one`                           | 兩層      | 純粹是樹的深度;`route` 各寫自己那一段,完整路徑由 api 累加                                                                  |
-| **多筆個別權限**       | 8 筆(含欄位級與頁面自有)                                 | 4 筆      | 最小就是 view / create / edit / delete;wildcard 每個節點自動一筆                                                           |
+| 選配項目                                  | 示範模組1                                                | 示範模組2                       | 不做的代價 / 怎麼做                                                                                                        |
+| ----------------------------------------- | -------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **資料範圍目標**                          | seed 宣告 `dataScopeTarget`(`demo_items_one`)            | 不宣告                          | 不宣告 = 查詢只受**可見範圍**保底,「資料範圍」頁左側列不到它,規則機制不介入(ADR-0008)                                      |
+| **enum 可篩欄位**                         | `status`(草稿 / 已發布 / 已封存)                         | 無                              | `dataScopeTarget.fields` 裡列 `type: "enum"` + 固定 `options`;value 與 schema 的欄位一一對應                               |
+| **欄位級權限**                            | `internalNote` + `show-` / `edit-internal-note` 兩筆權限 | 無                              | 要做就是上面「欄位級權限欄的四件事」全做(投影 / 寫入守門 / 歷程 redact / keyword 不比對);前端以 `isVisible` 與 `mode` 表達 |
+| **頁面自有權限(slot)**                    | 新增頁 `show-tips`、編輯頁 `show-history`                | 無                              | 權限綁在那一頁的模組上;前端用設定物件的 `form.slots`(回 `null` 即不顯示)                                                   |
+| **變更歷程**                              | `demoItemOneHistory(id)` 讀 `audit_logs`                 | 無                              | 歷程查詢要先驗這筆看不看得到;受權限欄在歷程裡一律 `[redacted]`                                                             |
+| **雙路檔案儲存**                          | 封面(公開 bucket)+ 附件(私有 bucket)                     | 無                              | `upload-rules.ts` 加 purpose;前端用設定物件的 `form.uploads`(空陣列 = 沒有上傳欄)                                          |
+| **模組自有篩選器**                        | 分類 `Autocomplete`(選項來自欄位管理)                    | 無                              | 設定物件的 `list.Filters`;不給就只有搜尋框                                                                                 |
+| **外部選項來源**                          | 分類選項來自欄位管理「示範分類」                         | 無                              | 選項端點掛在**別的模組的權限**底下(`system.field-manager.view`)—— 沒有它的人:列表無該篩選、表單該欄唯讀並說明原因          |
+| **模組專屬錯誤解讀**                      | `demo-sample-one-error.ts`                               | 共用一份                        | 錯誤碼一律沿用 GQL-04 通用碼,不新增 code                                                                                   |
+| **三層模組樹**                            | `demo > demo.sub > sample-one`                           | 兩層                            | 純粹是樹的深度;`route` 各寫自己那一段,完整路徑由 api 累加                                                                  |
+| **多筆個別權限**                          | 8 筆(含欄位級與頁面自有)                                 | 4 筆                            | 最小就是 view / create / edit / delete;wildcard 每個節點自動一筆                                                           |
+| **啟用 / 停用切換(選配:`useSetEnabled`)** | 列表「啟用」欄是開關(`setDemoItemOneEnabled`)            | 同樣有(`setDemoItemTwoEnabled`) | 設定物件不給 `useSetEnabled` = 這個模組沒有啟用 / 停用,列表維持唯讀 Tag;給了也只有 `abilities.canEdit` 為真的列才是開關    |
 
 **兩邊一樣、沒得選的**:四個模組 key = 四頁、共用的三個頁面元件、兩層判斷分開問、`abilities` 由 api 算好、`tenantScopePlugin` + `baseFieldsPlugin`、軟刪除、payload 形狀、審計四個動作、help.md、i18n 兩份字典。
 

@@ -167,7 +167,7 @@ input DemoItemsOneInput {
 - **進得去哪一頁**看 `me.modules` 有沒有那個模組(`shared/useDemoAccess.ts`,#321 起兩支示範模組共用;路由字串也從模組陣列取,前端不寫死路徑)。沒綁詳情頁 → 列上沒有「檢視」;沒綁新增頁 → 即使有 `create` 權限也沒有新增鈕。
 - **頁內能做什麼**:整頁層級的問權限集(內部備註可見 / 可改、填寫提示、變更歷程);**逐列的編輯 / 刪除 / 內部備註可改一律讀 api 給的 `item.abilities`**,不與 `usePermissions` 相乘。
 
-**表單欄位**:名稱、分類、狀態、備註、內部備註,加上封面與附件兩個上傳欄;**`enabled` 不在表單上**,列表與詳情只以標籤顯示,**admin 目前沒有切換的入口**(`setDemoItemOneEnabled` 端點與 document 都在,只是沒有畫面上的按鈕;示範模組2 同)。
+**表單欄位**:名稱、分類、狀態、備註、內部備註,加上封面與附件兩個上傳欄;**`enabled` 不在表單上**,它由 `setDemoItemOneEnabled` 單獨切換 —— **列表的「啟用」欄是開關**(#359),改得動的那一列(`abilities.canEdit`)直接切、不另開確認,切完只重查當前這頁清單;改不動的列與詳情頁仍是唯讀標籤。開關是共版型的**選配**(設定物件的 `useSetEnabled`,示範模組2 同),不給的模組列表就維持標籤。
 
 **內部備註的三態**在表單上是 `hidden` / `readonly` / `editable`:沒有 `show-internal-note` 時**整欄不渲染**,而且 input 裡連這個鍵都不會出現(欄位一出現就要權限,送 `null` 也會被 `FIELD_FORBIDDEN` 擋)。
 
