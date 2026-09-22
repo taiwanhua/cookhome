@@ -242,3 +242,25 @@ export const renderPage = ({
 
 export const rowOf = (name: string) =>
   screen.getByRole("row", { name: new RegExp(name) });
+
+/**
+ * 「選擇所屬組織」彈窗裡某個組織的核取方塊。
+ * 以標籤**開頭**比對那一列(上層節點的 `textContent` 含子孫的文字),
+ * 取它自己的核取方塊 = 該列 DOM 上的第一個(與 `@repo/ui` 的 Tree 測試同一招)。
+ */
+export const orgCheckboxOf = async (
+  name: string,
+): Promise<HTMLInputElement> => {
+  const items = await screen.findAllByRole("treeitem");
+  const row = items.find((item) => item.textContent?.startsWith(name) === true);
+  if (row === undefined) {
+    throw new Error(`找不到「${name}」這一列`);
+  }
+  const checkbox = row.querySelector<HTMLInputElement>(
+    "input[type='checkbox']",
+  );
+  if (checkbox === null) {
+    throw new Error(`「${name}」這一列沒有核取方塊`);
+  }
+  return checkbox;
+};
