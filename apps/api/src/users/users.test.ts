@@ -113,6 +113,9 @@ const UPDATE_USER = /* GraphQL */ `
         id
         name
         email
+        nickname
+        gender
+        phone
         nationalId
       }
     }
@@ -208,6 +211,20 @@ interface UserData {
     mustChangePassword: boolean;
     orgs: { id: string }[];
     roles: { id: string; outOfScope: boolean }[];
+  };
+}
+
+interface UpdateUserData {
+  updateUser: {
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      nickname: string | null;
+      gender: string | null;
+      phone: string | null;
+      nationalId: string | null;
+    };
   };
 }
 
@@ -355,6 +372,33 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
         { action, ...(targetId ? { targetId } : {}) },
         { sort: { createdAt: -1, _id: -1 } },
       );
+  }
+
+  /** 直接讀 `users` 的那一筆(要看欄位是寫成 `null` 還是根本不存在,#372)。 */
+  function rawUser(
+    userId: Types.ObjectId,
+  ): Promise<Record<string, unknown> | null> {
+    return connection
+      .collection("users")
+      .findOne<Record<string, unknown>>({ _id: userId });
+  }
+
+  /** 建一個性別與電話都有值的使用者(清空測試的起點)。 */
+  async function createUserWithProfile(
+    prefix: string,
+  ): Promise<Types.ObjectId> {
+    const userId = await createUser(connection, {
+      account: nextAccount(prefix),
+      password: PASSWORD,
+      orgIds: [deptOne],
+    });
+    const filled = await api.graphql<UpdateUserData>(
+      UPDATE_USER,
+      { input: { id: String(userId), gender: "male", phone: "0912345678" } },
+      { accessToken: managerToken },
+    );
+    expect(filled.errors).toBeUndefined();
+    return userId;
   }
 
   function countAudit(action: string): Promise<number> {
@@ -1073,6 +1117,102 @@ describe("使用者管理(#136,GraphQL 端點 + 真 MongoDB)", () => {
       const record = await latestAudit("user.edit", userId);
       expect(record?.after).toMatchObject({ nationalId: "(已變更)" });
       expect(JSON.stringify(record)).not.toContain("C123456789");
+    });
+
+    // #372:前端「沒填」送的是 null,原本的 `given.trim()` 直接炸
+    // `Cannot read properties of null (reading 'trim')`。
+    // 語意照 GQL-06:缺席 = 不動、null = 清空;落庫寫 null 而不是 $unset(ADR-0002)。
+    describe("選填欄位的 null(GQL-06:缺席 = 不動、null = 清空)", () => {
+      it("送 null 清空選填欄位,落庫寫 null(不是 $unset)", async () => {
+        const userId = await createUserWithProfile("null-clear");
+        const result = await api.graphql<UpdateUserData>(
+          UPDATE_USER,
+          { input: { id: String(userId), gender: null } },
+          { accessToken: managerToken },
+        );
+
+        expect(result.errors).toBeUndefined();
+        expect(result.data?.updateUser.user.gender).toBeNull();
+        // 同一次沒送的 phone 不受影響(缺席 = 不動)
+        expect(result.data?.updateUser.user.phone).toBe("0912345678");
+
+        const stored = await rawUser(userId);
+        expect(stored).toHaveProperty("gender", null);
+        expect(stored?.phone).toBe("0912345678");
+
+        const record = await latestAudit("user.edit", userId);
+        expect(record?.after).toMatchObject({ gender: null });
+      });
+
+      it("本來就沒值的選填欄位送 null 是 no-op(不留稽核)", async () => {
+        const userId = await createUser(connection, {
+          account: nextAccount("null-noop"),
+          password: PASSWORD,
+          orgIds: [deptOne],
+        });
+        const before = await countAudit("user.edit");
+
+        const result = await api.graphql<UpdateUserData>(
+          UPDATE_USER,
+          { input: { id: String(userId), nickname: null, address: null } },
+          { accessToken: managerToken },
+        );
+
+        expect(result.errors).toBeUndefined();
+        expect(result.data?.updateUser.user.nickname).toBeNull();
+        expect(await countAudit("user.edit")).toBe(before);
+      });
+
+      it("必填欄位送 null → VALIDATION_FAILED(與送空字串同義)", async () => {
+        const userId = await createUserWithProfile("null-required");
+        const result = await api.graphql(
+          UPDATE_USER,
+          { input: { id: String(userId), name: null } },
+          { accessToken: managerToken },
+        );
+
+        expect(result.errors?.[0]?.extensions).toMatchObject({
+          code: "VALIDATION_FAILED",
+          fields: ["name"],
+        });
+        // 擋下來的那一次什麼都沒寫
+        const stored = await rawUser(userId);
+        expect(stored?.gender).toBe("male");
+      });
+
+      it("新增時選填欄位送 null 與缺席同義:不落庫,也不要求身分證權限", async () => {
+        const account = nextAccount("null-create");
+        const result = await api.graphql<CreateUserData>(
+          CREATE_USER,
+          {
+            input: {
+              name: "選填全空",
+              account,
+              email: `${account}@example.com`,
+              nickname: null,
+              gender: null,
+              phone: null,
+              address: null,
+              // 沒有 edit-national-id 的操作者送 null 不算「帶值」,不該 FORBIDDEN
+              nationalId: null,
+              orgIds: [String(deptOne)],
+              activation: { mode: "EMAIL" },
+            },
+          },
+          { accessToken: managerToken },
+        );
+
+        expect(result.errors).toBeUndefined();
+        const created = result.data?.createUser.user.id;
+        expect(created).toBeDefined();
+        const stored = await connection
+          .collection("users")
+          .findOne<Record<string, unknown>>({
+            _id: new Types.ObjectId(created),
+          });
+        expect(stored).not.toHaveProperty("gender");
+        expect(stored).not.toHaveProperty("nationalId");
+      });
     });
   });
 

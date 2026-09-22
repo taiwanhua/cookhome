@@ -51,7 +51,11 @@ import type {
   DemoSave,
   DemoSaveOptions,
 } from "./shared/demo-module-config";
-import { useDemoItem, useDemoRows } from "./shared/useDemoQuery";
+import {
+  useDemoItem,
+  useDemoItemCache,
+  useDemoRows,
+} from "./shared/useDemoQuery";
 
 /**
  * 示範模組1 的設定物件 —— **完整示範**那一支(介面與逐項說明見
@@ -108,11 +112,18 @@ const useSampleOneItem = (id: string, isEnabled: boolean) => {
   >(useDemoItemOneQuery, variables, (data) => data.demoItemOne.item, isEnabled);
 };
 
+/** 清單快取的前綴(各頁各篩選一次掃掉);分頁參數只是為了湊出 key,取第一段後就不影響。 */
+const SAMPLE_ONE_LIST_KEY_PREFIX = useDemoItemsOneQuery
+  .getKey({ input: { page: 1, pageSize: SAMPLE_ONE_PAGE_SIZE } })
+  .slice(0, 1);
+
 /**
  * 送出:把表單值 + 上傳完成的路徑轉成 `createDemoItemOne` / `updateDemoItemOne` 的 input。
  *
  * **內部備註的可改與否在這裡再判斷一次**,因為 input 要不要帶這個鍵是這一層的決定
  * (欄位一出現就要權限;新增看自己的權限、編輯看 api 逐筆算好的 `abilities`)。
+ *
+ * 成功後先把回傳的那一筆寫進單筆查詢的快取、再失效清單與單筆(DATA-04;`useDemoItemCache`)。
  */
 const useSampleOneSave = ({
   item,
@@ -121,12 +132,29 @@ const useSampleOneSave = ({
 }: DemoSaveOptions<DemoItemDetail>): DemoSave<SampleOneFormValues> => {
   const { session } = useSession();
   const { hasPermission } = usePermissions();
+  const writeItem = useDemoItemCache<
+    DemoItemOneQueryVariables,
+    DemoItemOneQuery
+  >(useDemoItemOneQuery, SAMPLE_ONE_LIST_KEY_PREFIX);
+
   const create = useCreateDemoItemOneMutation(session.client, {
-    onSuccess,
+    onSuccess: (data) => {
+      writeItem(
+        { id: data.createDemoItemOne.item.id },
+        { demoItemOne: data.createDemoItemOne },
+      );
+      onSuccess();
+    },
     onError,
   });
   const update = useUpdateDemoItemOneMutation(session.client, {
-    onSuccess,
+    onSuccess: (data) => {
+      writeItem(
+        { id: data.updateDemoItemOne.item.id },
+        { demoItemOne: data.updateDemoItemOne },
+      );
+      onSuccess();
+    },
     onError,
   });
 

@@ -11,7 +11,10 @@ import { Typography } from "@repo/ui/typography";
 import { OrgTreePicker } from "@/components/OrgTreePicker/OrgTreePicker";
 import { issueKey } from "@/lib/data-scope-issues";
 import type { AudienceDraft } from "@/lib/data-scope-rule";
-import { roleGroupNameOf, shouldGroupRoles } from "@/lib/role-options";
+import {
+  roleOwnerOrgGroupNameOf,
+  shouldGroupRolesByOwnerOrg,
+} from "@/lib/role-options";
 
 import type { DataScopeEditorEnv, PickerOption } from "../data-scope-types";
 
@@ -33,7 +36,7 @@ export interface RuleAudienceProps {
  * 一條規則的套用對象(Figma 167:1719 的前兩個下拉):全部 / 角色 / 組織 / 使用者。
  *
  * 角色與使用者是 **Autocomplete 多選**(Figma `Draft/Autocomplete` 253:39):輸入即過濾、
- * 角色依租戶頂層分組、每列主文字角色名 + 次文字擁有組織。在此之前是 MUI Select 多選 +
+ * 角色依**擁有組織**分組(#372)、每列主文字角色名 + 次文字擁有組織。在此之前是 MUI Select 多選 +
  * **選單外**一個搜尋框(Select 會把選單裡的子元素一律 clone 成 `role="option"`,
  * 搜尋框塞不進選單),#307 起那個外掛的搜尋框退場。
  *
@@ -76,25 +79,18 @@ export const RuleAudience = ({
   });
 
   /**
-   * 角色清單才分組,而且只在跨兩個以上租戶時分(`lib/role-options.ts`)。
+   * 角色清單才分組,而且只在跨兩個以上**擁有組織**時分(`lib/role-options.ts`)。
    * 使用者清單維持不分組 —— 它的 label 已含帳號,不會同名難辨。
+   *
+   * **以擁有組織為組、不是租戶頂層**(#372):同一個租戶底下可以有很多個擁有組織,
+   * 用租戶頂層當組標題時,同一個標題底下混著好幾個組織的角色;而 MUI 的 `groupBy`
+   * 只合併**相鄰**的同值,所以同一個租戶的標題還會重複出現。清單的排序在
+   * `useDataScopeData`(`sortRolesByOwnerOrg`),這裡只負責取組標題。
    */
   const groupBy =
-    isRoleList &&
-    shouldGroupRoles(
-      options.map((option) => ({
-        tenantTopId: option.tenantTopId ?? null,
-        tenantTopName: option.tenantTopName ?? null,
-      })),
-    )
+    isRoleList && shouldGroupRolesByOwnerOrg(options)
       ? (option: PickerOption) =>
-          roleGroupNameOf(
-            {
-              tenantTopId: option.tenantTopId ?? null,
-              tenantTopName: option.tenantTopName ?? null,
-            },
-            t("audienceNoTenant"),
-          )
+          roleOwnerOrgGroupNameOf(option, t("audienceNoOwnerOrg"))
       : undefined;
 
   return (

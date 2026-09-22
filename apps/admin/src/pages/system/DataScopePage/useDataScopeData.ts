@@ -12,7 +12,7 @@ import {
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
 import { type OrgNodeLike, flattenOrgs } from "@/lib/org-tree";
-import { roleMenuOptions } from "@/lib/role-options";
+import { roleMenuOptions, sortRolesByOwnerOrg } from "@/lib/role-options";
 
 import {
   DATA_SCOPE_PERMISSIONS,
@@ -73,19 +73,23 @@ export const useDataScopeData = () => {
   const orgTree = useOrgTreeQuery(session.client);
 
   /**
-   * 套用對象「指定角色」的選項:每列「角色名稱 — 擁有組織」,並帶租戶頂層供分組(#261 的 8)。
+   * 套用對象「指定角色」的選項:每列「角色名稱 — 擁有組織」(#261 的 8)——
    * 每個租戶都有自己的「租戶管理員」,根組織視角只看角色名稱完全分不出來。
+   *
+   * **依擁有組織排序**(#372):選單以擁有組織分組,而 MUI 的 `groupBy` 只合併相鄰的同值,
+   * api 回的順序裡同組織的角色被隔開時,同一個組織的標題會出現兩次。
    */
-  const roleOptions: PickerOption[] = roleMenuOptions(
-    roles.data?.roles.items ?? [],
-  ).map((role) => ({
-    id: role.id,
-    label: role.label,
-    name: role.name,
-    ownerOrgName: role.ownerOrgName,
-    tenantTopId: role.tenantTopId,
-    tenantTopName: role.tenantTopName,
-  }));
+  const roleOptions: PickerOption[] = sortRolesByOwnerOrg(
+    roleMenuOptions(roles.data?.roles.items ?? []).map((role) => ({
+      id: role.id,
+      label: role.label,
+      name: role.name,
+      ownerOrgId: role.ownerOrgId,
+      ownerOrgName: role.ownerOrgName,
+      tenantTopId: role.tenantTopId,
+      tenantTopName: role.tenantTopName,
+    })),
+  );
   const userOptions: PickerOption[] = (users.data?.users.items ?? []).map(
     (user) => ({ id: user.id, label: `${user.name}(${user.account})` }),
   );

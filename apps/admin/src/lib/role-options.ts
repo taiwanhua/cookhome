@@ -29,6 +29,8 @@ export interface RoleOptionSource {
 export interface RoleMenuOption {
   id: string;
   name: string;
+  /** 擁有組織 id;資料損毀(無 `org_role`)或範圍外時為 null */
+  ownerOrgId: string | null;
   /** 擁有組織名稱;資料損毀(無 `org_role`)或範圍外時為 null */
   ownerOrgName: string | null;
   /** 「角色名稱 — 擁有組織」;沒有擁有組織時只有角色名稱(單行顯示的場合用) */
@@ -50,6 +52,7 @@ export const roleMenuOptionOf = (role: RoleOptionSource): RoleMenuOption => {
   return {
     id: role.id,
     name: role.name,
+    ownerOrgId: role.ownerOrg?.id ?? null,
     ownerOrgName,
     label: roleOptionLabel(role.name, ownerOrgName),
     tenantTopId: tenantTop?.id ?? null,
@@ -60,6 +63,73 @@ export const roleMenuOptionOf = (role: RoleOptionSource): RoleMenuOption => {
 export const roleMenuOptions = (
   roles: readonly RoleOptionSource[],
 ): RoleMenuOption[] => roles.map((role) => roleMenuOptionOf(role));
+
+/**
+ * 以**擁有組織**分組 / 排序用的最小形狀(#372)。與上面的租戶頂層分組是兩件事:
+ * 租戶頂層底下可以有很多個擁有組織,所以同一個標題底下還是會混著好幾個組織的角色。
+ */
+export interface RoleOwnerOrgGroupable {
+  name?: string;
+  label: string;
+  ownerOrgId?: string | null;
+  ownerOrgName?: string | null;
+}
+
+/**
+ * 排序一律**明講 `zh-Hant`**:`localeCompare` 不給語言時吃執行環境的預設語言,
+ * 中文字的先後在開發機(zh-TW)與 CI(通常退回 en-US)會不一樣,斷言跟著飄。
+ */
+const COLLATION_LOCALE = "zh-Hant";
+
+/**
+ * 依「擁有組織 → 角色名」排序,讓同一個擁有組織的角色**相鄰**(#372)。
+ *
+ * MUI 的 `groupBy` 只是「相鄰且同值就合成一組」,**它自己不排序** —— api 回的順序裡
+ * 同組織的角色被別的組織隔開時,同一個標題就會出現兩次以上。沒有擁有組織的那幾筆殿後。
+ */
+export const sortRolesByOwnerOrg = <T extends RoleOwnerOrgGroupable>(
+  options: readonly T[],
+): T[] =>
+  options.toSorted((left, right) => {
+    const leftOrg = left.ownerOrgName ?? null;
+    const rightOrg = right.ownerOrgName ?? null;
+    if (leftOrg !== rightOrg) {
+      if (leftOrg === null) {
+        return 1;
+      }
+      if (rightOrg === null) {
+        return -1;
+      }
+      return leftOrg.localeCompare(rightOrg, COLLATION_LOCALE);
+    }
+    return (left.name ?? left.label).localeCompare(
+      right.name ?? right.label,
+      COLLATION_LOCALE,
+    );
+  });
+
+/**
+ * 這批選項該不該依擁有組織分組:**跨兩個以上擁有組織才分**(理由同
+ * `shouldGroupRoles` —— 只有一組的標題是雜訊)。
+ */
+export const shouldGroupRolesByOwnerOrg = (
+  options: readonly RoleOwnerOrgGroupable[],
+): boolean => {
+  const ownerOrgIds = new Set(
+    options.flatMap((option) =>
+      option.ownerOrgId === undefined || option.ownerOrgId === null
+        ? []
+        : [option.ownerOrgId],
+    ),
+  );
+  return ownerOrgIds.size >= 2;
+};
+
+/** 一筆選項的擁有組織組標題;沒有擁有組織的歸 `fallback` 那一組(i18n 由呼叫端負責)。 */
+export const roleOwnerOrgGroupNameOf = (
+  option: RoleOwnerOrgGroupable,
+  fallback: string,
+): string => option.ownerOrgName ?? fallback;
 
 /** 分組用的最小形狀:只要這兩個欄位,各頁自己的選項型別結構上相容即可。 */
 export interface RoleGroupable {

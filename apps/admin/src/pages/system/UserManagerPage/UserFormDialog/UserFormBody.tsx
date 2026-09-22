@@ -1,10 +1,13 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
   UserActivationMode,
+  type UserQuery,
   useCreateUserMutation,
   useUpdateUserMutation,
+  useUserQuery,
 } from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
@@ -55,6 +58,7 @@ export const UserFormBody = ({
 }: UserFormBodyProps) => {
   const t = useTranslations("admin.userManager.form");
   const { session } = useSession();
+  const queryClient = useQueryClient();
   const isCreate = userId === null;
   const form = useUserForm({
     initialValues,
@@ -80,7 +84,23 @@ export const UserFormBody = ({
     onError,
   });
   const updateUser = useUpdateUserMutation(session.client, {
-    onSuccess: onSaved,
+    onSuccess: (payload) => {
+      /**
+       * DATA-04 的 (a) 步:把回傳的欄位併進 `user(id)` 的快取,再由 `onSaved` 失效清單與單筆。
+       * 不寫的話,關掉彈窗馬上再按一次「編輯」看到的是舊值(#372)——
+       * `UserFormDialog` 的初始值只取一次,重取回來時表單早就掛好了。
+       * `updateUser` 的 payload 只有基本欄位(沒有 orgs / roles / enabled),所以是**併進**
+       * 既有那一筆而不是整份覆寫;快取裡還沒有那一筆就什麼都不做(回 undefined)。
+       */
+      queryClient.setQueryData<UserQuery>(
+        useUserQuery.getKey({ id: payload.updateUser.user.id }),
+        (current) =>
+          current === undefined
+            ? undefined
+            : { user: { ...current.user, ...payload.updateUser.user } },
+      );
+      onSaved();
+    },
     onError,
   });
   const isSubmitting = createUser.isPending || updateUser.isPending;

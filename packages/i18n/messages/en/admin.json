@@ -620,7 +620,7 @@
       "remove": "Delete rule",
       "audienceSearch": "Search roles",
       "audienceEmpty": "No matching targets",
-      "audienceNoTenant": "Shared"
+      "audienceNoOwnerOrg": "No owning organization"
     },
     "group": {
       "rootOp": "Combine conditions",

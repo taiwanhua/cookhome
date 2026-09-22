@@ -620,7 +620,7 @@
       "remove": "刪除規則",
       "audienceSearch": "搜尋角色",
       "audienceEmpty": "沒有符合的對象",
-      "audienceNoTenant": "共用"
+      "audienceNoOwnerOrg": "無擁有組織"
     },
     "group": {
       "rootOp": "條件組合",

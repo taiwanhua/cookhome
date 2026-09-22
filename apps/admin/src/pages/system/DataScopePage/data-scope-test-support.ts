@@ -146,6 +146,17 @@ export const chooseOption = async (
 export const autocompleteOptions = () =>
   screen.getAllByRole("option").map((option) => option.textContent);
 
+/**
+ * Autocomplete 的分組標題(`groupBy` 產生的那幾行)。它們是 listbox 裡的標題、不是
+ * `role="option"`,所以查不到角色,只能取 MUI 的 groupLabel(#372 要驗「每個組織只一行」)。
+ */
+export const autocompleteGroupLabels = () =>
+  [
+    ...screen
+      .getByRole("listbox")
+      .querySelectorAll(".MuiAutocomplete-groupLabel"),
+  ].map((label) => label.textContent);
+
 /** 打開一個 Autocomplete 並點主文字是 `primary` 的那一列(多選時選單會留著)。 */
 export const pickAutocomplete = async (
   actor: { click: (element: Element) => Promise<void> },

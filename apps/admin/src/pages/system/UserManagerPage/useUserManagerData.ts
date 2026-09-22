@@ -3,12 +3,14 @@ import { useMemo, useState } from "react";
 
 import {
   type UsersQueryVariables,
+  useMeQuery,
   useOrgQuery,
   useOrgTreeQuery,
   useUserQuery,
   useUsersQuery,
 } from "@repo/graphql";
 
+import { useMe } from "@/hooks/useMe";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
 import { type OrgNodeLike, rootOrgId } from "@/lib/org-tree";
@@ -41,6 +43,7 @@ export const useUserManagerData = () => {
   const { session } = useSession();
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
+  const me = useMe();
 
   const ability: UserActionAbility = {
     canCreate: hasPermission(USER_MANAGER_PERMISSIONS.create),
@@ -120,7 +123,14 @@ export const useUserManagerData = () => {
     setPage(1);
   };
 
-  /** 寫入成功後精準失效(DATA-02 / 04):目前這份清單 + 被改到的那一筆單筆。 */
+  /**
+   * 寫入成功後精準失效(DATA-02 / 04):目前這份清單 + 被改到的那一筆單筆。
+   *
+   * **改到的是登入者本人時連 `me` 一起失效**(#372):所屬組織是 `me.orgs` 的來源,
+   * AppBar 的「當前組織」可切換清單直接讀它 —— 不失效的話,剛把自己加進一個組織,
+   * 選單裡還是沒有那一個(`me` 的 `staleTime` 是 Infinity,不會自己過期)。
+   * 角色授予(權限)、停用與改名同理都是操作者立刻看得到的變化,所以不分 mutation 一起處理。
+   */
   const invalidate = async (userId?: string) => {
     await queryClient.invalidateQueries({
       queryKey: useUsersQuery.getKey(usersVariables),
@@ -129,6 +139,9 @@ export const useUserManagerData = () => {
       await queryClient.invalidateQueries({
         queryKey: useUserQuery.getKey({ id: userId }),
       });
+    }
+    if (userId !== undefined && userId === me.data?.me.id) {
+      await queryClient.invalidateQueries({ queryKey: useMeQuery.getKey() });
     }
   };
 

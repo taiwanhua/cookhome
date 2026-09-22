@@ -24,9 +24,11 @@ export interface PickerOption {
   label: string;
   /** 角色名稱(搜尋用);使用者的選項不填 */
   name?: string;
-  /** 擁有組織名稱(搜尋用);使用者的選項不填 */
+  /** 擁有組織 id(分組用);使用者的選項不填 */
+  ownerOrgId?: string | null;
+  /** 擁有組織名稱(次文字 + 組標題);使用者的選項不填 */
   ownerOrgName?: string | null;
-  /** 分組用的租戶頂層;跨兩個以上租戶時才分組 */
+  /** 租戶頂層(角色管理頁的清單面板用同一份形狀;套用對象改以擁有組織分組,#372) */
   tenantTopId?: string | null;
   tenantTopName?: string | null;
 }

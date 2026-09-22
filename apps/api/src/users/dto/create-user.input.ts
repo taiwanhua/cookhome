@@ -26,20 +26,20 @@ export class CreateUserInput {
   email!: string;
 
   @Field(() => String, { nullable: true })
-  nickname?: string;
+  nickname?: string | null;
 
   @Field(() => String, { nullable: true })
-  gender?: string;
+  gender?: string | null;
 
   @Field(() => String, { nullable: true })
-  phone?: string;
+  phone?: string | null;
 
   @Field(() => String, { nullable: true })
-  address?: string;
+  address?: string | null;
 
   /** 身分證字號:要帶值須持 `system.user-manager.edit-national-id`(ADR-0007)。 */
   @Field(() => String, { nullable: true })
-  nationalId?: string;
+  nationalId?: string | null;
 
   /** 所屬組織(至少一個,且都要在操作者可見範圍內)。 */
   @Field(() => [ID])
