@@ -9,10 +9,6 @@ name: E2E
 # 這個 workflow **不碰任何真實環境**:資料庫是 job 自己的 service container(拋棄式),
 # 帳密用 apps/e2e/.env.example 的測試值,一個 Secret 都不讀。
 on:
-  # TEMP(#378):workflow_dispatch 只有在**預設分支**上有這個檔案時才叫得動,
-  # 所以交件前先靠 push 在本分支跑一次驗證;合併前這段會被移除,只留 workflow_dispatch。
-  push:
-    branches: [feat/378-e2e-harness]
   workflow_dispatch:
     inputs:
       grep:
