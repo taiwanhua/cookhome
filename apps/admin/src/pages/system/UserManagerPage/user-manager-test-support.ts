@@ -252,7 +252,7 @@ export const orgCheckboxOf = async (
   name: string,
 ): Promise<HTMLInputElement> => {
   const items = await screen.findAllByRole("treeitem");
-  const row = items.find((item) => item.textContent?.startsWith(name) === true);
+  const row = items.find((item) => item.textContent.startsWith(name));
   if (row === undefined) {
     throw new Error(`找不到「${name}」這一列`);
   }
