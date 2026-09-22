@@ -44,3 +44,31 @@ apps/db-migrator/
 - key 一旦對 production 跑過 seed 就不可再改(改 key = 視為新資料多種一筆)。
 
 **執行時機與順序**:build 不碰 DB(build once, deploy many)。deploy.yml 部署 api 成功後,對該環境依序跑 `pnpm --filter db-migrator migrate` → `pnpm --filter db-migrator seed`(CI runner 直連;filter 不帶 scope 亦可匹配 `@repo/db-migrator`,執行的是該套件 package.json 的同名 script)。本地開發同兩條指令。不放在 server 啟動時自動執行(Cloud Run 冷啟要快,且避免多實例併發寫)。
+
+## 還原(reset):驗收重測用,只給 dev / staging
+
+`apps/db-migrator` 的第三支指令(程式正本 `src/reset/`;用法與 workflow 見 `docs/deployment.md`「資料庫還原(reset)」):
+
+```
+pnpm --filter @repo/db-migrator reset --mode=<full|data> --confirm=<資料庫名>
+```
+
+- **`full`(整庫重建)**:`dropDatabase` → `migrate` → `seed`,等同全新安裝 —— **連「初始 seed 值的欄位」也回到宣告值**(人在模組頁調過的 `enabled` / `icon` 一併消失)。
+- **`data`(只清人建的資料)**:刪掉人建的資料,再跑一次 `seed` 把宣告的內容補回來。**seed 管的文件與其現值留著**,所以調過的 `enabled` / `icon` 不變 —— 這正是上面「初始 seed 值的欄位」機制的效果,**seed 端不必為 reset 做任何事**。
+
+**`data` 模式「seed 管 / 人建」的判準只有一個來源:registry**。每個 documents 種子表都宣告了識別鍵欄位(`keyField`,預設 `key`)與全部 key,所以「識別鍵在宣告清單裡」= seed 管的,留下;不在(含根本沒有那一欄的租戶自建文件)= 人建的,刪掉。**不看 `isSystem`**(租戶副本也可能掛著它),reset 裡也不寫死「哪個 collection 有哪幾筆」。四個例外(正本 `src/reset/reset-plan.ts`):
+
+| 例外                                | 處置                                                   | 為什麼                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `changelog` / `changelog_lock`      | 完全不動                                               | migrate-mongo 的遷移紀錄;`data` 不碰 schema                                                                                       |
+| `users`                             | 只留 root 初始帳號(以 `ROOT_ADMIN_ACCOUNT` 識別)       | root 帳號不在 documents 種子表裡(`kind: "root-admin"`,文件上沒有 key 欄位)                                                        |
+| `core_relationships`                | 刪「任一端(`firstId` / `secondId`)指向被刪文件」的那些 | 關聯兩端只存 id、各 type 指向不同 collection(ADR-0001)。留下的即 root ↔ 根組織、root ↔ 超級管理員、種子角色的 org_role / 角色綁定 |
+| `demo_items_one` / `demo_items_two` | 整表清空,由同一次執行的 `seed` 依宣告補回              | 示範資料是**資料**不是設定;留著等於留下被玩壞的狀態,而 seed 本來就會把宣告的那幾筆種回來                                          |
+
+**不在 registry 的 collection 一律整表清空**(`data_scope_rules`、`audit_logs`、`action_tokens`、`refresh_tokens`、`customers`…):reset 掃的是資料庫**現有**的 collection,不是寫死的清單,所以日後長出來的業務表自動被清掉,不必回頭改 reset。
+
+**安全閥三道,依序檢查,不過即 exit 1 並印原因**(正本 `src/reset/reset-safety.ts`):
+
+1. `--confirm` 必須等於連線字串裡的資料庫名。
+2. 目標環境由資料庫名推得(`-dev` / `-staging` 結尾即該環境;**其餘一律視為 production**,含 `prod` 字樣者同)—— **production 永遠拒絕**,沒有任何旗標可以打開。
+3. `RESET_ALLOW_ENV`(逗號分隔)必須含目標環境;未設 = 空名單 = 全部拒絕。
