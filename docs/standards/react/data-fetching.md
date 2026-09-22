@@ -67,3 +67,51 @@ const { recipes } = await useRecipesQuery.fetcher(graphqlClient)();
 ## DATA-05 端點走環境變數
 
 GraphQL endpoint 一律讀環境變數(front:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`;admin:`VITE_GRAPHQL_ENDPOINT`),fallback 才是 localhost;禁止在元件或 lib 內硬編正式環境網址。
+
+## DATA-06 mutation 一律經 `useMutationFeedback`:成功或失敗都跳一則 Snackbar
+
+(2026-09-23,#376;使用者驗收裁決「成功沒有任何回饋、失敗只顯示在表單上」)
+
+admin 的每一支 mutation 都要有操作結果提示,做法固定:`apps/admin/src/hooks/useMutationFeedback.ts`
+回傳的 `{ onSuccess, onError }` 直接塞進 codegen mutation hook 的 options,**它包住呼叫端原本的
+callback、不取代**(DATA-04 的寫回與失效、關彈窗照舊在裡面)。
+
+```ts
+const setOrgEnabled = useSetOrgEnabledMutation(
+  session.client,
+  useMutationFeedback<SetOrgEnabledMutation>({
+    success: (payload) =>
+      payload.setOrgEnabled.org.enabled
+        ? t("feedback.enableSuccess")
+        : t("feedback.disableSuccess"),
+    error: (error) => tErrors(orgManagerErrorOf(error).code),
+    onSuccess: (payload) => {
+      closeDialog();
+      void data.invalidate(payload.setOrgEnabled.org.id);
+    },
+    onError: onActionError,
+  }),
+);
+```
+
+四條規則:
+
+- **成功文案的 key 一律 `<ns>.feedback.<action>Success`**(`createSuccess`、`updateSuccess`、
+  `deleteSuccess`、`enableSuccess` / `disableSuccess`…),兩語系同時補齊(I18N-02);
+  同一支端點兩種說法(啟用 / 停用)就給一個吃 payload 的函式,不要各寫一個 mutation。
+- **失敗文案用該頁既有的錯誤解讀**(`<ns>ErrorOf(error)` + `errors.<code>`),不要在提示裡另起一套;
+  **表單 / 彈窗內原本的錯誤顯示保留** —— 欄位級標示講「哪裡要改」,Snackbar 講「這次沒成功」。
+- **一次操作只跳一則**。`mutateAsync` 串多步的流程(`EditOrgDialog` 的儲存最多四支 mutation、
+  `useDemoForm` 的上傳 + 儲存)不要把 feedback 交給每一支,改成整段 try / catch 完成後自己呼叫
+  `feedback.onSuccess()` / `feedback.onError(error)`;共版型那種只收 `{ onSuccess(): void }` 的
+  設定物件介面也走這一招,不要為了回饋去改介面的形狀。
+- **只有 dry-run / 預覽這種「還沒完成操作」的步驟**可以 `success: null`(成功不跳、失敗照跳),
+  目前唯一的先例是 `useUserOrgsFlow` 的試算。
+
+排隊策略是**長度 1 的佇列:只顯示最新的一則,舊的直接被取代**(正本寫在
+`apps/admin/src/stores/useSnackbarStore.ts` 與 `@repo/ui/snackbar` 的 JSDoc)——
+這是操作回饋不是通知中心,連續送出時使用者要看的是最後那一次的結果。
+全站唯一的出口是 `AppProviders` 裡的 `SnackbarProvider`。
+
+測試:`apps/admin/src/test/snackbar.ts` 的 `findSnackbarAlert()`。**不要只用 `findByText` 斷言** ——
+失敗提示與頁面上那一條錯誤是同一份文案,只比文字同時抓到兩個節點,也證明不了提示真的跳了。

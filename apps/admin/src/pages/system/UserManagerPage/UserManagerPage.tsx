@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
+  type AssignUserRolesMutation,
+  type SetUserEnabledMutation,
   useAssignUserRolesMutation,
   useSetUserEnabledMutation,
 } from "@repo/graphql";
@@ -11,6 +13,7 @@ import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import { AssignRolesDialog } from "./AssignRolesDialog/AssignRolesDialog";
@@ -58,21 +61,38 @@ export const UserManagerPage = () => {
     setActionError(userManagerErrorOf(error).code);
   };
 
-  const setUserEnabled = useSetUserEnabledMutation(session.client, {
-    onSuccess: (payload) => {
-      setToggleUser(null);
-      void data.invalidate(payload.setUserEnabled.user.id);
-    },
-    onError: onActionError,
-  });
+  /** 失敗的 Snackbar 文案與頁面上那一行錯誤同一份解讀(#376)。 */
+  const feedbackError = (error: unknown) =>
+    tErrors(userManagerErrorOf(error).code);
 
-  const assignRoles = useAssignUserRolesMutation(session.client, {
-    onSuccess: (payload) => {
-      setRolesUser(null);
-      void data.invalidate(payload.assignUserRoles.user.id);
-    },
-    onError: onActionError,
-  });
+  const setUserEnabled = useSetUserEnabledMutation(
+    session.client,
+    useMutationFeedback<SetUserEnabledMutation>({
+      success: (payload) =>
+        payload.setUserEnabled.user.enabled
+          ? t("feedback.enableSuccess")
+          : t("feedback.disableSuccess"),
+      error: feedbackError,
+      onSuccess: (payload) => {
+        setToggleUser(null);
+        void data.invalidate(payload.setUserEnabled.user.id);
+      },
+      onError: onActionError,
+    }),
+  );
+
+  const assignRoles = useAssignUserRolesMutation(
+    session.client,
+    useMutationFeedback<AssignUserRolesMutation>({
+      success: t("feedback.assignRolesSuccess"),
+      error: feedbackError,
+      onSuccess: (payload) => {
+        setRolesUser(null);
+        void data.invalidate(payload.assignUserRoles.user.id);
+      },
+      onError: onActionError,
+    }),
+  );
 
   const pageCount = Math.max(1, Math.ceil(data.totalCount / USERS_PAGE_SIZE));
 

@@ -10,6 +10,7 @@ import type { AuthSession } from "@/lib/auth/session";
 import { useLocaleStore } from "@/stores/useLocaleStore";
 
 import { SessionProvider } from "./SessionProvider";
+import { SnackbarProvider } from "./SnackbarProvider";
 
 export interface AppProvidersProps {
   session: AuthSession;
@@ -36,7 +37,10 @@ export const AppProviders = ({
     <IntlProvider locale={locale} messages={messages[locale]}>
       <AppThemeProvider brand={cookhomeBrand}>
         <QueryClientProvider client={queryClient}>
-          <SessionProvider session={session}>{children}</SessionProvider>
+          <SessionProvider session={session}>
+            {/* 操作結果提示掛在最內層:每一頁、每個彈窗共用同一個出口(#376) */}
+            <SnackbarProvider>{children}</SnackbarProvider>
+          </SessionProvider>
         </QueryClientProvider>
       </AppThemeProvider>
     </IntlProvider>

@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useTranslations } from "use-intl";
 
 import {
   type DataScopeCombineOp,
+  type SaveDataScopeRuleMutation,
   useSaveDataScopeRuleMutation,
 } from "@repo/graphql";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import {
   type RuleIssue,
@@ -49,6 +52,8 @@ export const useRuleEditor = ({
   onSaved,
   onDirtyChange,
 }: UseRuleEditorOptions) => {
+  const t = useTranslations("admin.dataScope");
+  const tErrors = useTranslations("admin.dataScope.errors");
   const { session } = useSession();
   const [draft, setDraft] = useState<RuleEditorDraft>(() =>
     toEditorDraft(rule),
@@ -70,23 +75,29 @@ export const useRuleEditor = ({
     onDirtyChange(true);
   };
 
-  const save = useSaveDataScopeRuleMutation(session.client, {
-    onSuccess: (payload) => {
-      setDraft(toEditorDraft(payload.saveDataScopeRule.rule));
-      clearIssues();
-      onDirtyChange(false);
-      onSaved(target.collection);
-    },
-    onError: (failure: unknown) => {
-      const parsed = dataScopeErrorOf(failure);
-      setError(parsed);
-      setServerIssue(
-        parsed.path === null || parsed.reason === null
-          ? null
-          : issueFromRuleInvalid(parsed.path, parsed.reason),
-      );
-    },
-  });
+  const save = useSaveDataScopeRuleMutation(
+    session.client,
+    useMutationFeedback<SaveDataScopeRuleMutation>({
+      success: t("feedback.saveSuccess"),
+      // 失敗的 Snackbar 講「這次沒存成功」;`RULE_INVALID` 指到的那一條仍標在編輯器上(#376)
+      error: (failure) => tErrors(dataScopeErrorOf(failure).code),
+      onSuccess: (payload) => {
+        setDraft(toEditorDraft(payload.saveDataScopeRule.rule));
+        clearIssues();
+        onDirtyChange(false);
+        onSaved(target.collection);
+      },
+      onError: (failure: unknown) => {
+        const parsed = dataScopeErrorOf(failure);
+        setError(parsed);
+        setServerIssue(
+          parsed.path === null || parsed.reason === null
+            ? null
+            : issueFromRuleInvalid(parsed.path, parsed.reason),
+        );
+      },
+    }),
+  );
 
   /** 送出前先本地驗證:有問題就全部標出來、不送(api 一次只回第一個,來回修很慢)。 */
   const submit = () => {

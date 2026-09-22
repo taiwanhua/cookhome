@@ -19,6 +19,7 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import type { OrgOption } from "@/lib/org-tree";
 
@@ -67,6 +68,7 @@ export const EditOrgDialog = ({
   const tEdit = useTranslations("admin.orgManager.edit");
   const tActions = useTranslations("admin.orgManager.actions");
   const tErrors = useTranslations("admin.orgManager.errors");
+  const tFeedback = useTranslations("admin.orgManager.feedback");
   const { session } = useSession();
   const queryClient = useQueryClient();
   const form = useEditOrgForm(org);
@@ -74,6 +76,16 @@ export const EditOrgDialog = ({
 
   const [errorCode, setErrorCode] = useState<OrgManagerErrorCode | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  /**
+   * 一次「儲存」最多打四支 mutation,但對操作者而言只是一次操作 —— 所以回饋由整段
+   * try / catch 自己報一次,而不是掛在每一支 mutation 的 options 上(#376,
+   * 掛上去會一次跳四則)。
+   */
+  const feedback = useMutationFeedback({
+    success: tFeedback("updateSuccess"),
+    error: (error: unknown) => tErrors(orgManagerErrorOf(error).code),
+  });
 
   const updateOrg = useUpdateOrgMutation(session.client);
   const moveOrg = useMoveOrgMutation(session.client);
@@ -131,8 +143,10 @@ export const EditOrgDialog = ({
           input: { orgId: org.id, visibility: form.visibility },
         });
       }
+      feedback.onSuccess();
       onSaved();
     } catch (error) {
+      feedback.onError(error);
       setErrorCode(orgManagerErrorOf(error).code);
     } finally {
       setIsSaving(false);

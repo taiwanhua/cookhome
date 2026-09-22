@@ -9,6 +9,7 @@ import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import { DeleteItemDialog } from "./DeleteItemDialog";
@@ -59,16 +60,43 @@ export const DemoListPage = <
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
   const [deleteError, setDeleteError] = useState<DemoErrorCode | null>(null);
   const [toggleError, setToggleError] = useState<DemoErrorCode | null>(null);
-  const [togglingRowId, setTogglingRowId] = useState<string | null>(null);
+  /** 正在切換的那一列 + 這次要切成什麼(提示文案要分「已啟用 / 已停用」,#376)。 */
+  const [toggling, setToggling] = useState<{
+    id: string;
+    enabled: boolean;
+  } | null>(null);
 
   const rows = list.useRows({ page, keyword, option });
 
+  /**
+   * 共版型的兩個 mutation hook(`useDelete` / `useSetEnabled`)只收
+   * `{ onSuccess(): void; onError(error): void }`,所以回饋在這一層自己報一次 ——
+   * 設定物件的介面不必為了回饋改形狀(#376)。
+   */
+  const feedbackError = (error: unknown) => tErrors(demoErrorOf(error).code);
+  const deleteFeedback = useMutationFeedback({
+    success: t("feedback.deleteSuccess"),
+    error: feedbackError,
+  });
+  const enableFeedback = useMutationFeedback({
+    success: t("feedback.enableSuccess"),
+    error: feedbackError,
+  });
+  const disableFeedback = useMutationFeedback({
+    success: t("feedback.disableSuccess"),
+    error: feedbackError,
+  });
+  const toggleFeedback = () =>
+    toggling?.enabled === true ? enableFeedback : disableFeedback;
+
   const deleteItem = config.useDelete(session.client, {
     onSuccess: () => {
+      deleteFeedback.onSuccess();
       setDeleteTarget(null);
       void rows.invalidate();
     },
     onError: (error: unknown) => {
+      deleteFeedback.onError(error);
       setDeleteError(demoErrorOf(error).code);
     },
   });
@@ -79,11 +107,13 @@ export const DemoListPage = <
    */
   const setEnabled = useDemoSetEnabled(config.useSetEnabled, {
     onSuccess: () => {
-      setTogglingRowId(null);
+      toggleFeedback().onSuccess();
+      setToggling(null);
       void rows.invalidate();
     },
     onError: (error: unknown) => {
-      setTogglingRowId(null);
+      toggleFeedback().onError(error);
+      setToggling(null);
       setToggleError(demoErrorOf(error).code);
     },
   });
@@ -142,7 +172,7 @@ export const DemoListPage = <
             canEnterView={access.viewRoute !== null}
             canEnterEdit={access.editRoute !== null}
             canToggleEnabled={config.useSetEnabled !== undefined}
-            togglingRowId={togglingRowId}
+            togglingRowId={toggling?.id ?? null}
             onView={(row) => {
               goTo(access.viewRoute, row.id);
             }}
@@ -155,7 +185,7 @@ export const DemoListPage = <
             }}
             onToggleEnabled={(row, enabled) => {
               setToggleError(null);
-              setTogglingRowId(row.id);
+              setToggling({ id: row.id, enabled });
               setEnabled.mutate({ input: { id: row.id, enabled } });
             }}
           />

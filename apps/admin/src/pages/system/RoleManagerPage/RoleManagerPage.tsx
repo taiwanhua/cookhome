@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
+  type SetRoleEnabledMutation,
   useDeleteRoleMutation,
   useSetRoleEnabledMutation,
 } from "@repo/graphql";
@@ -9,6 +10,7 @@ import { Alert } from "@repo/ui/alert";
 import { Stack } from "@repo/ui/stack";
 
 import { DiscardChangesDialog } from "@/components/DiscardChangesDialog";
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 
@@ -69,20 +71,37 @@ export const RoleManagerPage = () => {
     setActionError(roleManagerErrorOf(error));
   };
 
-  const setRoleEnabled = useSetRoleEnabledMutation(session.client, {
-    onSuccess: (payload) => {
-      setToggleRole(null);
-      void data.invalidate(payload.setRoleEnabled.role.id);
-    },
-    onError: onActionError,
-  });
-  const removeRole = useDeleteRoleMutation(session.client, {
-    onSuccess: () => {
-      setDeleteRole(null);
-      void data.invalidate();
-    },
-    onError: onActionError,
-  });
+  /** 失敗的 Snackbar 文案與彈窗內那一條錯誤同一份解讀(#376)。 */
+  const feedbackError = (error: unknown) =>
+    tErrors(roleManagerErrorOf(error).code);
+
+  const setRoleEnabled = useSetRoleEnabledMutation(
+    session.client,
+    useMutationFeedback<SetRoleEnabledMutation>({
+      success: (payload) =>
+        payload.setRoleEnabled.role.enabled
+          ? t("feedback.enableSuccess")
+          : t("feedback.disableSuccess"),
+      error: feedbackError,
+      onSuccess: (payload) => {
+        setToggleRole(null);
+        void data.invalidate(payload.setRoleEnabled.role.id);
+      },
+      onError: onActionError,
+    }),
+  );
+  const removeRole = useDeleteRoleMutation(
+    session.client,
+    useMutationFeedback({
+      success: t("feedback.deleteSuccess"),
+      error: feedbackError,
+      onSuccess: () => {
+        setDeleteRole(null);
+        void data.invalidate();
+      },
+      onError: onActionError,
+    }),
+  );
 
   /** 未儲存的矩陣變更會攔下「切頁籤」與「換角色」(Figma 70:209)。 */
   const guard = (nav: PendingNav) => {
