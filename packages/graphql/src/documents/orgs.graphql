@@ -136,6 +136,18 @@ mutation ProvisionTenant($input: ProvisionTenantInput!) {
   }
 }
 
+# 撤銷開通(#374,根組織專屬):反向抹掉開通建出的租戶頂層、擁有者帳號、租戶管理員副本。
+# 租戶底下還有別的東西 → PROVISION_NOT_REVOKABLE,errors[0].extensions.reasons 逐項列出
+# (語彙同 ORG_NOT_DELETABLE)。成功後組織樹要重查(少一個租戶節點),選取要清掉
+mutation RevokeTenantProvision($input: RevokeTenantProvisionInput!) {
+  revokeTenantProvision(input: $input) {
+    success
+    revokedOrgId
+    revokedOwnerUserId
+    revokedRoleId
+  }
+}
+
 # 編輯租戶頂層時的「擁有者」欄位;轉移後擁有者保護的對象隨之換人
 mutation TransferOrgOwner($input: TransferOrgOwnerInput!) {
   transferOrgOwner(input: $input) {

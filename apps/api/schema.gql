@@ -492,6 +492,7 @@ type Mutation {
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
   revokeRoleUsers(input: RevokeRoleUsersInput!): RoleUsersPayload!
+  revokeTenantProvision(input: RevokeTenantProvisionInput!): RevokeTenantProvisionPayload!
   saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!
   saveRoleMatrix(input: SaveRoleMatrixInput!): RoleMatrixPayload!
   setDemoItemOneEnabled(input: SetDemoItemOneEnabledInput!): DemoItemOnePayload!
@@ -631,6 +632,17 @@ type RequestPasswordResetPayload {
 input RevokeRoleUsersInput {
   roleId: ID!
   userIds: [ID!]!
+}
+
+input RevokeTenantProvisionInput {
+  orgId: ID!
+}
+
+type RevokeTenantProvisionPayload {
+  revokedOrgId: ID!
+  revokedOwnerUserId: ID
+  revokedRoleId: ID
+  success: Boolean!
 }
 
 type Role {

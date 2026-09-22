@@ -38,10 +38,19 @@ export const useTenantOwner = (org: OrgDetail | undefined) => {
   );
 
   const items = users.data?.users.items ?? [];
+  const owner = items.find((item) => item.id === org?.ownerUserId);
 
   return {
     isAvailable,
-    ownerName: items.find((item) => item.id === org?.ownerUserId)?.name ?? null,
+    ownerName: owner?.name ?? null,
+    /** 擁有者帳號(撤銷開通的確認清單要列出「會被抹掉的帳號」,#374)。 */
+    ownerAccount: owner?.account ?? null,
+    /**
+     * 這個租戶的「租戶管理員」角色副本名稱:擁有者持有的角色中,擁有組織就是這個租戶頂層的那一筆
+     * (開通時建的副本,ADR-0009 第 2 步)。同樣靠 `users` 那一支查詢,不為了一個名字再開端點。
+     */
+    tenantAdminRoleName:
+      owner?.roles.find((role) => role.ownerOrgId === org?.id)?.name ?? null,
     candidates: items.filter((item) => item.enabled),
     isLoading: users.isLoading,
   };

@@ -56,6 +56,17 @@ const PROVISION_TENANT = /* GraphQL */ `
   }
 `;
 
+const REVOKE_TENANT_PROVISION = /* GraphQL */ `
+  mutation RevokeTenantProvision($input: RevokeTenantProvisionInput!) {
+    revokeTenantProvision(input: $input) {
+      success
+      revokedOrgId
+      revokedOwnerUserId
+      revokedRoleId
+    }
+  }
+`;
+
 const TRANSFER_ORG_OWNER = /* GraphQL */ `
   mutation TransferOrgOwner($input: TransferOrgOwnerInput!) {
     transferOrgOwner(input: $input) {
@@ -154,6 +165,15 @@ interface ProvisionTenantData {
   };
 }
 
+interface RevokeTenantProvisionData {
+  revokeTenantProvision: {
+    success: boolean;
+    revokedOrgId: string;
+    revokedOwnerUserId: string | null;
+    revokedRoleId: string | null;
+  };
+}
+
 interface TransferOrgOwnerData {
   transferOrgOwner: { org: { id: string; ownerUserId: string | null } };
 }
@@ -239,6 +259,7 @@ const ROOT_ONLY_MODULES = [
 ];
 const TENANT_OPS_PERMISSIONS = [
   `${TENANT_OPS_MODULE}.provision`,
+  `${TENANT_OPS_MODULE}.revoke-provision`,
   `${TENANT_OPS_MODULE}.transfer-owner`,
 ];
 
@@ -410,6 +431,34 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
       },
       { accessToken },
     );
+  }
+
+  /** 開通一個租戶並回帳號與 payload(撤銷開通的測試前置都從這裡開始,#374)。 */
+  async function provisionOne(prefix: string) {
+    const account = nextAccount(prefix);
+    const result = await provision({ adminAccount: account });
+    expect(result.errors).toBeUndefined();
+    const payload = result.data?.provisionTenant;
+    if (!payload) {
+      throw new Error("provisionTenant 沒有回 payload");
+    }
+    return { account, payload };
+  }
+
+  function revokeProvision(orgId: string, accessToken = rootOpsToken) {
+    return api.graphql<RevokeTenantProvisionData>(
+      REVOKE_TENANT_PROVISION,
+      { input: { orgId } },
+      { accessToken },
+    );
+  }
+
+  /** 這幾個 id 身上還剩幾筆核心關聯(撤銷後應為 0,不留孤兒)。 */
+  function linkCountOf(ids: string[]): Promise<number> {
+    const objectIds = ids.map((id) => new Types.ObjectId(id));
+    return api.connection.collection("core_relationships").countDocuments({
+      $or: [{ firstId: { $in: objectIds } }, { secondId: { $in: objectIds } }],
+    });
   }
 
   beforeAll(async () => {
@@ -910,6 +959,151 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
       const retried = await provision({ adminAccount: account });
       expect(retried.errors).toBeUndefined();
       expect(await userRowByAccount(account)).not.toBeNull();
+    });
+  });
+
+  describe("revokeTenantProvision:撤銷開通(#374,開通的反向動作)", () => {
+    it("撤銷後三樣都不見(硬刪除)、關聯不留孤兒,同一組帳號可以重新開通", async () => {
+      const { account, payload } = await provisionOne("revoke-happy");
+
+      const result = await revokeProvision(payload.org.id);
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.revokeTenantProvision).toMatchObject({
+        success: true,
+        revokedOrgId: payload.org.id,
+        revokedOwnerUserId: payload.ownerUserId,
+        revokedRoleId: payload.roleId,
+      });
+      // 硬刪除:三個文件在庫裡真的不存在(不是 deletedAt 有值)——
+      // `users` 的 account / email 唯一索引含已軟刪除的文件,留殭屍就再也開不了同一組帳號
+      expect(await orgRow(payload.org.id)).toBeNull();
+      expect(await userRow(payload.ownerUserId)).toBeNull();
+      expect(await roleRow(payload.roleId)).toBeNull();
+      expect(await userRowByAccount(account)).toBeNull();
+      expect(
+        await linkCountOf([
+          payload.org.id,
+          payload.ownerUserId,
+          payload.roleId,
+        ]),
+      ).toBe(0);
+
+      // 審計留著(ADR-0004 只增不改,不在抹除範圍內)
+      const audit = await latestAudit("org.revoke-provision", payload.org.id);
+      expect(audit?.targetType).toBe("org");
+      expect(audit?.before).toMatchObject({
+        ownerUserId: payload.ownerUserId,
+        roleId: payload.roleId,
+      });
+
+      // 同一組帳號 / Email 可以重新開通(撤銷的重點)
+      const again = await provision({
+        adminAccount: account,
+        adminEmail: `${account}@example.com`,
+      });
+      expect(again.errors).toBeUndefined();
+    });
+
+    it("底下還有子組織:PROVISION_NOT_REVOKABLE + HAS_CHILDREN", async () => {
+      const { payload } = await provisionOne("revoke-children");
+      await createOrg(api.connection, {
+        name: "撤銷不了的部門",
+        parentId: new Types.ObjectId(payload.org.id),
+      });
+
+      const result = await revokeProvision(payload.org.id);
+
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "PROVISION_NOT_REVOKABLE",
+        reasons: ["HAS_CHILDREN"],
+      });
+      expect(await orgRow(payload.org.id)).not.toBeNull();
+    });
+
+    it("除擁有者外還有別的成員:PROVISION_NOT_REVOKABLE + HAS_MEMBERS", async () => {
+      const { payload } = await provisionOne("revoke-members");
+      await createUser(api.connection, {
+        account: nextAccount("extra-member"),
+        password: PASSWORD,
+        orgIds: [new Types.ObjectId(payload.org.id)],
+      });
+
+      const result = await revokeProvision(payload.org.id);
+
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "PROVISION_NOT_REVOKABLE",
+        reasons: ["HAS_MEMBERS"],
+      });
+    });
+
+    it("除租戶管理員副本外還擁有別的角色:PROVISION_NOT_REVOKABLE + OWNS_ROLES", async () => {
+      const { payload } = await provisionOne("revoke-roles");
+      await createRole(api.app, api.connection, {
+        name: "租戶自建角色",
+        ownerOrgId: new Types.ObjectId(payload.org.id),
+      });
+
+      const result = await revokeProvision(payload.org.id);
+
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "PROVISION_NOT_REVOKABLE",
+        reasons: ["OWNS_ROLES"],
+      });
+    });
+
+    it("還有業務資料掛著:PROVISION_NOT_REVOKABLE + HAS_BUSINESS_DATA", async () => {
+      const { payload } = await provisionOne("revoke-business");
+      const now = new Date();
+      const customerAccount = nextAccount("revoke-customer");
+      await api.connection.collection("customers").insertOne({
+        name: "租戶會員",
+        account: customerAccount,
+        email: `${customerAccount}@example.com`,
+        orgId: new Types.ObjectId(payload.org.id),
+        enabled: true,
+        settings: {},
+        createdAt: now,
+        updatedAt: now,
+        createdBy: null,
+        updatedBy: null,
+        deletedAt: null,
+      });
+
+      const result = await revokeProvision(payload.org.id);
+
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "PROVISION_NOT_REVOKABLE",
+        reasons: ["HAS_BUSINESS_DATA"],
+      });
+    });
+
+    it("非根組織的操作者即使持有權限也拒(FORBIDDEN),租戶原封不動", async () => {
+      const { payload } = await provisionOne("revoke-from-tenant");
+
+      const result = await revokeProvision(payload.org.id, tenantOpsToken);
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await orgRow(payload.org.id)).not.toBeNull();
+      expect(await userRow(payload.ownerUserId)).not.toBeNull();
+    });
+
+    it("根組織但沒有 revoke-provision 權限:FORBIDDEN(@RequirePermission 守門)", async () => {
+      const { payload } = await provisionOne("revoke-no-permission");
+
+      const result = await revokeProvision(payload.org.id, rootViewToken);
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      expect(await orgRow(payload.org.id)).not.toBeNull();
+    });
+
+    it("目標不是租戶頂層:VALIDATION_FAILED(撤銷的對象只有租戶頂層)", async () => {
+      const result = await revokeProvision(String(legacyDeptId));
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("VALIDATION_FAILED");
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        fields: ["orgId"],
+      });
     });
   });
 

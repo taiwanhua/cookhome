@@ -16,6 +16,11 @@ export const ORG_ERROR_CODES = [
   /** 刪除前置檢查未通過;`extensions.reasons` 列出原因 */
   "ORG_NOT_DELETABLE",
   /**
+   * 撤銷開通(根組織專屬)前置檢查未通過;`extensions.reasons` 列出原因,
+   * 語彙與 `ORG_NOT_DELETABLE` 同一組(問的是同一件事:租戶底下還有沒有別的東西)。
+   */
+  "PROVISION_NOT_REVOKABLE",
+  /**
    * 擁有者保護(ADR-0009;`owner-protection.service.ts`):租戶擁有者不可被停用 / 移出租戶 /
    * 解除其「租戶管理員」授予,根組織的操作者例外。
    * 使用者管理(`users/users-error.ts`)也會丟同一個碼 — 兩個模組各自宣告自己丟得出的碼,
@@ -58,4 +63,21 @@ export function orgNotDeletableError(
   return new GraphQLError(`Org is not deletable: ${reasons.join(", ")}`, {
     extensions: { code: "ORG_NOT_DELETABLE", reasons },
   });
+}
+
+/**
+ * 撤銷開通前置未過:`PROVISION_NOT_REVOKABLE` + `extensions.reasons`。
+ *
+ * 沿用刪除前置的同一組 reasons 語彙與同一支檢查函式(`OrgsService.orgContentReasons`),
+ * 差別只在**擁有者與租戶管理員副本不算**:撤銷開通就是要把那兩樣一起抹掉(ADR-0009)。
+ * 錯誤碼另開一個是因為前端的引導不同 —— 刪除被擋是「改用停用」,
+ * 撤銷被擋是「租戶已經在用了,不該撤銷」。
+ */
+export function provisionNotRevokableError(
+  reasons: readonly OrgNotDeletableReason[],
+): GraphQLError {
+  return new GraphQLError(
+    `Tenant provision is not revokable: ${reasons.join(", ")}`,
+    { extensions: { code: "PROVISION_NOT_REVOKABLE", reasons } },
+  );
 }

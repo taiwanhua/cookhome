@@ -661,16 +661,16 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     ]);
   }, 120_000);
 
-  it("示範家族 12 筆 + 組織管理 9 筆(7 + 租戶作業 2)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 3 筆 + 欄位管理 4 筆 + 資料範圍 2 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 65 筆", async () => {
+  it("示範家族 12 筆 + 組織管理 10 筆(7 + 租戶作業 3)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 3 筆 + 欄位管理 4 筆 + 資料範圍 2 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 66 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     const firstRun = runSeedCommand(databaseUri);
     expect(firstRun.status).toBe(0);
-    expect(firstRun.stdout).toContain("permissions:新增 65 / 更新 0 / 未變 0");
+    expect(firstRun.stdout).toContain("permissions:新增 66 / 更新 0 / 未變 0");
     // 冪等:重跑 0 新增 / 0 更新 / 全部未變
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.status).toBe(0);
-    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 65");
+    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 66");
 
     const { modules, permissions } = await readSeededDocuments(databaseUri);
     const moduleIdOf = (key: string): string | undefined =>
@@ -702,6 +702,8 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "system.org-manager.delete": "system.org-manager",
       "system.org-manager.set-visibility": "system.org-manager",
       "system.org-manager.tenant-ops.provision":
+        "system.org-manager.tenant-ops",
+      "system.org-manager.tenant-ops.revoke-provision":
         "system.org-manager.tenant-ops",
       "system.org-manager.tenant-ops.transfer-owner":
         "system.org-manager.tenant-ops",
@@ -741,7 +743,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       expectedOwners[`${String(module.key)}.*`] = String(module.key);
     }
     expect(modules).toHaveLength(20);
-    expect(permissions).toHaveLength(65);
+    expect(permissions).toHaveLength(66);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
       expect(permission).toMatchObject({ isSystem: true, enabled: true });

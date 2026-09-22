@@ -42,6 +42,7 @@ export const OWN_PERMISSIONS = [
 /** 根組織專屬(隱藏的 `tenant-ops` 模組);租戶管理員模板永遠拿不到。 */
 export const TENANT_OPS_PERMISSIONS = [
   ORG_MANAGER_PERMISSIONS.provision,
+  ORG_MANAGER_PERMISSIONS.revokeProvision,
   ORG_MANAGER_PERMISSIONS.transferOwner,
 ];
 

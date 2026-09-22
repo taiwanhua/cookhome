@@ -132,6 +132,7 @@
       "disable": "停用",
       "enable": "啟用",
       "delete": "刪除",
+      "revokeProvision": "撤銷開通",
       "systemOrgHint": "最上層組織不可停用、搬移或刪除",
       "tenantTopHint": "頂層組織不可由組織內的人停用、搬移或刪除,需要時請聯絡系統管理員"
     },
@@ -184,6 +185,22 @@
         "SYSTEM_ORG": "這是最上層組織,不可刪除"
       }
     },
+    "revoke": {
+      "title": "撤銷「{name}」的開通?",
+      "body": "撤銷會把開通當時建出來的東西反向抹掉,以下三樣將永久消失:",
+      "targets": {
+        "org": "租戶組織「{name}」",
+        "owner": "擁有者帳號「{account}」",
+        "role": "角色副本「{name}」"
+      },
+      "unknownOwner": "(顯示不出來)",
+      "unknownRole": "(顯示不出來)",
+      "irreversible": "此動作無法復原。資料是真的被抹掉、不是保留起來 — 這樣同一組帳號才能重新開通。",
+      "confirmLabel": "請輸入租戶名稱「{name}」以確認",
+      "confirm": "撤銷開通",
+      "blocked": "這個租戶還不能撤銷開通,原因如下:",
+      "blockedHint": "撤銷只給「開錯了、還沒有人用」的租戶;已經有自己的資料時請改用停用。"
+    },
     "provision": {
       "title": "開通租戶",
       "tenantName": "租戶名稱",
@@ -197,6 +214,7 @@
     },
     "errors": {
       "ORG_NOT_DELETABLE": "這個組織還不能刪除,請改用停用。",
+      "PROVISION_NOT_REVOKABLE": "這個租戶已經有自己的資料,不能撤銷開通。",
       "CROSS_TENANT": "新的上層組織不在同一個頂層組織之下,無法搬移。",
       "CYCLIC_MOVE": "不能把組織搬到自己的下層組織底下。",
       "NOT_FOUND": "找不到這個組織,或它不在你的可見範圍內。",
