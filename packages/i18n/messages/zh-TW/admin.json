@@ -127,7 +127,42 @@
       "logoAlt": "{name} 的商標",
       "owner": "擁有者",
       "ownerHidden": "(你沒有使用者管理的檢視權限,看不到擁有者姓名)",
-      "none": "—"
+      "none": "—",
+      "tabs": {
+        "label": "組織分頁",
+        "detail": "組織資料",
+        "members": "成員"
+      }
+    },
+    "members": {
+      "title": "{name} — 成員",
+      "hint": "這裡只列直接屬於這個組織的人;下層組織的成員請到使用者管理查看。要把人移出組織,請到使用者管理的「選擇所屬組織」。",
+      "add": "加入成員",
+      "enabled": "啟用中",
+      "disabled": "已停用",
+      "none": "—",
+      "empty": "這個組織還沒有成員",
+      "total": "共 {total} 筆,每頁 {pageSize} 筆",
+      "tableLabel": "組織成員清單",
+      "columns": {
+        "name": "姓名",
+        "account": "帳號",
+        "status": "狀態",
+        "otherOrgs": "其他所屬組織"
+      }
+    },
+    "addMembers": {
+      "title": "加入成員 — {name}",
+      "label": "使用者",
+      "searchPlaceholder": "姓名、帳號或 Email",
+      "candidate": "{account} · {name}({orgs})",
+      "hint": "可加入的是你管理範圍內、尚未屬於這個組織的使用者;已經是成員的不會出現在清單裡。",
+      "picked": "已選 {count} 人",
+      "empty": "沒有符合條件的使用者",
+      "noOrg": "—",
+      "loading": "搜尋中",
+      "confirm": "加入",
+      "cancel": "取消"
     },
     "actions": {
       "edit": "編輯",

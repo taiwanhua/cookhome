@@ -1,4 +1,8 @@
-import type { OrgQuery, TenantModuleOptionsQuery } from "@repo/graphql";
+import type {
+  OrgMembersQuery,
+  OrgQuery,
+  TenantModuleOptionsQuery,
+} from "@repo/graphql";
 
 /** 右側資料區的一筆組織(`org(id)` 的完整形狀)。 */
 export type OrgDetail = OrgQuery["org"];
@@ -7,9 +11,26 @@ export type OrgDetail = OrgQuery["org"];
 export type TenantModuleOption =
   TenantModuleOptionsQuery["tenantModuleOptions"][number];
 
+/** 成員清單的一列(`orgMembers` 的 item;欄位語意見 `docs/modules/org-manager.md`「api 介面」)。 */
+export type OrgMemberRow = OrgMembersQuery["orgMembers"]["items"][number];
+
+/** 右側資料區的兩個頁籤(「成員」只在持有 `view-members` 時出現)。 */
+export type OrgDetailTab = "detail" | "members";
+
+/** `@repo/ui/tabs` 回報的是字串(它不認得這一頁的頁籤有哪些),收窄回型別。 */
+export const isOrgDetailTab = (value: string): value is OrgDetailTab =>
+  value === "detail" || value === "members";
+
+/** 成員清單每頁筆數。 */
+export const ORG_MEMBERS_PAGE_SIZE = 10;
+
+/** 「加入成員」彈窗的候選清單每頁筆數(彈窗不分頁,只取前 N 筆 + 搜尋收斂)。 */
+export const ORG_MEMBER_CANDIDATES_PAGE_SIZE = 20;
+
 /**
  * 頁面上可執行的動作(ADR-0011「頁內判斷」)。
- * 前三個是任何組織都可能有的;後三個屬租戶作業,只有根組織的操作者拿得到(ADR-0009)。
+ * 前三個是任何組織都可能有的;租戶作業那三個只有根組織的操作者拿得到(ADR-0009);
+ * 成員那兩個是組織管理層自己的(#377),租戶管理員靠 `system.org-manager.*` 取得。
  */
 export interface OrgActionAbility {
   canCreateChild: boolean;
@@ -17,6 +38,8 @@ export interface OrgActionAbility {
   canToggleEnabled: boolean;
   canMove: boolean;
   canDelete: boolean;
+  canViewMembers: boolean;
+  canAddMembers: boolean;
   canProvision: boolean;
   canRevokeProvision: boolean;
   canTransferOwner: boolean;

@@ -2,6 +2,16 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AddOrgMembersInput {
+  orgId: ID!
+  userIds: [ID!]!
+}
+
+type AddOrgMembersPayload {
+  addedUserIds: [ID!]!
+  skippedUserIds: [ID!]!
+}
+
 input AssignUserRolesInput {
   roleIds: [ID!]!
   userId: ID!
@@ -469,6 +479,7 @@ input MoveOrgInput {
 }
 
 type Mutation {
+  addOrgMembers(input: AddOrgMembersInput!): AddOrgMembersPayload!
   assignUserRoles(input: AssignUserRolesInput!): UserPayload!
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
@@ -527,6 +538,34 @@ type Org {
   ownerUserId: ID
   parentId: ID
   visibility: OrgVisibility
+}
+
+type OrgMember {
+  account: String!
+  enabled: Boolean!
+  id: ID!
+  name: String!
+  otherOrgs: [OrgMemberOrg!]!
+}
+
+type OrgMemberOrg {
+  id: ID!
+  name: String!
+}
+
+input OrgMembersInput {
+  keyword: String
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
+type OrgMembersPayload {
+  items: [OrgMember!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
 }
 
 type OrgNode {
@@ -590,6 +629,8 @@ type Query {
   me: Me!
   moduleTree: [ModuleAdminNode!]!
   org(id: ID!): Org!
+  orgMemberCandidates(input: OrgMembersInput!, orgId: ID!): OrgMembersPayload!
+  orgMembers(input: OrgMembersInput!, orgId: ID!): OrgMembersPayload!
   orgTree: [OrgNode!]!
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
