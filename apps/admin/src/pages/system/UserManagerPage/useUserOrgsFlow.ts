@@ -1,7 +1,14 @@
 import { useState } from "react";
+import { useTranslations } from "use-intl";
 
-import { UserOrgRemovalPolicy, useSetUserOrgsMutation } from "@repo/graphql";
+import {
+  type SetUserOrgsMutation,
+  type SetUserOrgsMutationVariables,
+  UserOrgRemovalPolicy,
+  useSetUserOrgsMutation,
+} from "@repo/graphql";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import {
@@ -27,6 +34,8 @@ export type OrgsFlow =
  * 沒有移除 → 直接送出(預設檔位,反正沒有東西會被解除)。
  */
 export const useUserOrgsFlow = (onSaved: (userId: string) => void) => {
+  const t = useTranslations("admin.userManager");
+  const tErrors = useTranslations("admin.userManager.errors");
   const { session } = useSession();
   const [flow, setFlow] = useState<OrgsFlow>(null);
   const [errorCode, setErrorCode] = useState<UserManagerErrorCode | null>(null);
@@ -34,30 +43,46 @@ export const useUserOrgsFlow = (onSaved: (userId: string) => void) => {
   const onError = (error: unknown) => {
     setErrorCode(userManagerErrorOf(error).code);
   };
+  const feedbackError = (error: unknown) =>
+    tErrors(userManagerErrorOf(error).code);
 
-  const dryRun = useSetUserOrgsMutation(session.client, {
-    onSuccess: (data, variables) => {
-      setFlow((current) =>
-        current === null
-          ? null
-          : {
-              stage: "confirm",
-              user: current.user,
-              orgIds: variables.input.orgIds,
-              preview: data.setUserOrgs,
-            },
-      );
-    },
-    onError,
-  });
+  /**
+   * 試算只是**預覽**(打開確認彈窗),成功不跳提示 —— 跳「已更新所屬組織」是騙人的,
+   * 真正的更新是下一步的 `submit`。試算失敗仍然是這次操作失敗,照跳(#376)。
+   */
+  const dryRun = useSetUserOrgsMutation(
+    session.client,
+    useMutationFeedback<SetUserOrgsMutation, SetUserOrgsMutationVariables>({
+      success: null,
+      error: feedbackError,
+      onSuccess: (data, variables) => {
+        setFlow((current) =>
+          current === null
+            ? null
+            : {
+                stage: "confirm",
+                user: current.user,
+                orgIds: variables.input.orgIds,
+                preview: data.setUserOrgs,
+              },
+        );
+      },
+      onError,
+    }),
+  );
 
-  const submit = useSetUserOrgsMutation(session.client, {
-    onSuccess: (_data, variables) => {
-      setFlow(null);
-      onSaved(variables.input.userId);
-    },
-    onError,
-  });
+  const submit = useSetUserOrgsMutation(
+    session.client,
+    useMutationFeedback<SetUserOrgsMutation, SetUserOrgsMutationVariables>({
+      success: t("feedback.setOrgsSuccess"),
+      error: feedbackError,
+      onSuccess: (_data, variables) => {
+        setFlow(null);
+        onSaved(variables.input.userId);
+      },
+      onError,
+    }),
+  );
 
   const open = (user: UserRow) => {
     setErrorCode(null);

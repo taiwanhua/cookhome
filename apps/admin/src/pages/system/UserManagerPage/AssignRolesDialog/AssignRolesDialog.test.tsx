@@ -1,31 +1,16 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
+import { autocompleteOption, openAutocomplete } from "@/test/autocomplete";
+
 import { renderPage, rowOf } from "../user-manager-test-support";
 
 /** 彈窗裡的角色選擇器(`@repo/ui/autocomplete`,#307)。 */
 const rolePicker = () => screen.getByRole("combobox", { name: "角色" });
 
-/** 打開選單並取目前列出的選項(每列是「主文字 + 次文字」兩行,所以比對前綴)。 */
-const openOptions = async (actor: {
-  click: (element: Element) => Promise<void>;
-}) => {
-  await actor.click(rolePicker());
-  return screen.getAllByRole("option");
-};
-
-const optionStartingWith = (
-  options: readonly HTMLElement[],
-  primary: string,
-): HTMLElement => {
-  const found = options.find((option) =>
-    option.textContent.startsWith(primary),
-  );
-  if (found === undefined) {
-    throw new Error(`找不到主文字是「${primary}」的選項`);
-  }
-  return found;
-};
+/** 打開選單並取目前列出的選項(#377 起共用 `@/test/autocomplete`,TEST-08)。 */
+const openOptions = (actor: { click: (element: Element) => Promise<void> }) =>
+  openAutocomplete(actor, "角色");
 
 /**
  * 指派角色彈窗(#211:候選改用正式的 `roles` query,擁有組織在操作者管理範圍內;
@@ -52,23 +37,21 @@ describe("指派角色彈窗", () => {
     // 已持有的角色以 chip 顯示,底下的清單再列一次它們的描述與狀態
     expect(screen.getByText("內容管理相關權限")).toBeInTheDocument();
 
-    const options = await openOptions(actor);
+    await openOptions(actor);
     // 每列主文字角色名、次文字「擁有組織:…」(#261 的 8:根組織視角靠它分辨同名角色)
-    const editor = optionStartingWith(options, "編輯");
+    const editor = autocompleteOption("編輯");
     expect(editor).toHaveAttribute("aria-selected", "true");
     expect(editor).not.toHaveAttribute("aria-disabled", "true");
     expect(editor).toHaveTextContent("擁有組織:租戶 A");
     // 租戶副本的標記跟著選項走(決定要不要選它時就看得到)
-    expect(optionStartingWith(options, "租戶管理員")).toHaveTextContent(
-      "租戶副本",
-    );
+    expect(autocompleteOption("租戶管理員")).toHaveTextContent("租戶副本");
 
     // 停用的角色勾了也不生效(ADR-0011 步驟 2),所以不給新選
-    const viewer = optionStartingWith(options, "檢視者");
+    const viewer = autocompleteOption("檢視者");
     expect(viewer).toHaveAttribute("aria-disabled", "true");
     expect(viewer).toHaveTextContent("已停用");
     // 已持有但擁有組織在管理範圍外:選不動,送出時也不包含
-    const auditor = optionStartingWith(options, "審核員");
+    const auditor = autocompleteOption("審核員");
     expect(auditor).toHaveAttribute("aria-disabled", "true");
     expect(auditor).toHaveTextContent("不在你的管理範圍內,無法變更");
 
@@ -92,8 +75,8 @@ describe("指派角色彈窗", () => {
     await screen.findByRole("combobox", { name: "角色" });
 
     // 「分店專員」的擁有組織是租戶 B,王小明屬租戶 A / 內容組 ⇒ 沒有資格
-    const options = await openOptions(actor);
-    const branch = optionStartingWith(options, "分店專員");
+    await openOptions(actor);
+    const branch = autocompleteOption("分店專員");
 
     expect(branch).toHaveAttribute("aria-disabled", "true");
     expect(branch).toHaveTextContent(

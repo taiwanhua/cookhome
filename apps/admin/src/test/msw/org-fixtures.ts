@@ -3,6 +3,7 @@ import { ModuleSidebarType, OrgVisibility } from "@repo/graphql";
 import type {
   TestModuleOption,
   TestOrg,
+  TestOrgMember,
   TestOrgNode,
   TestOrgUser,
 } from "./org-manager-handlers";
@@ -151,6 +152,37 @@ export const orgUsers: TestOrgUser[] = [
   user("user-owner", "何家華", true, [tenantAdminCopy]),
   user("user-new", "王小明"),
   user("user-off", "離職者", false),
+];
+
+const member = (
+  id: string,
+  name: string,
+  enabled = true,
+  otherOrgs: TestOrgMember["otherOrgs"] = [],
+): TestOrgMember => ({ id, account: id, name, enabled, otherOrgs });
+
+/**
+ * 「成員」頁籤(#377):orgId → 該組織**自己**的成員(不含下層組織的成員 —— api 的規則)。
+ * `otherOrgs` 是本組織以外、且在管理範圍內的所屬組織。
+ */
+export const orgMembersByOrg: Record<string, TestOrgMember[]> = {
+  "org-content": [
+    member("user-owner", "何家華", true, [
+      { id: "org-tenant-a", name: "租戶 A" },
+    ]),
+    member("user-off", "離職者", false),
+  ],
+  "org-tenant-a": [member("user-owner", "何家華")],
+};
+
+/** 管理範圍內的全部使用者;候選 = 這些人扣掉該組織的既有成員(api 的 `orgMemberCandidates`)。 */
+export const orgMemberCandidates: TestOrgMember[] = [
+  member("user-owner", "何家華", true, [
+    { id: "org-tenant-a", name: "租戶 A" },
+  ]),
+  member("user-new", "王小明", true, [{ id: "org-tenant-a", name: "租戶 A" }]),
+  member("user-off", "離職者", false),
+  member("user-extra", "陳大文"),
 ];
 
 const moduleOption = (

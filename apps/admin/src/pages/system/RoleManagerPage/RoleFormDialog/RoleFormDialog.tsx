@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { useCreateRoleMutation, useUpdateRoleMutation } from "@repo/graphql";
+import {
+  type CreateRoleMutation,
+  type UpdateRoleMutation,
+  useCreateRoleMutation,
+  useUpdateRoleMutation,
+} from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
@@ -11,6 +16,7 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import {
@@ -39,6 +45,7 @@ export const RoleFormDialog = ({
 }: RoleFormDialogProps) => {
   const t = useTranslations("admin.roleManager.form");
   const tErrors = useTranslations("admin.roleManager.errors");
+  const tFeedback = useTranslations("admin.roleManager.feedback");
   const { session } = useSession();
   const orgs = useOwnerOrgOptions();
 
@@ -54,18 +61,31 @@ export const RoleFormDialog = ({
   const onError = (error: unknown) => {
     setErrorCode(roleManagerErrorOf(error).code);
   };
-  const createRole = useCreateRoleMutation(session.client, {
-    onSuccess: (payload) => {
-      onSaved(payload.createRole.role.id);
-    },
-    onError,
-  });
-  const updateRole = useUpdateRoleMutation(session.client, {
-    onSuccess: (payload) => {
-      onSaved(payload.updateRole.role.id);
-    },
-    onError,
-  });
+  const feedbackError = (error: unknown) =>
+    tErrors(roleManagerErrorOf(error).code);
+
+  const createRole = useCreateRoleMutation(
+    session.client,
+    useMutationFeedback<CreateRoleMutation>({
+      success: tFeedback("createSuccess"),
+      error: feedbackError,
+      onSuccess: (payload) => {
+        onSaved(payload.createRole.role.id);
+      },
+      onError,
+    }),
+  );
+  const updateRole = useUpdateRoleMutation(
+    session.client,
+    useMutationFeedback<UpdateRoleMutation>({
+      success: tFeedback("updateSuccess"),
+      error: feedbackError,
+      onSuccess: (payload) => {
+        onSaved(payload.updateRole.role.id);
+      },
+      onError,
+    }),
+  );
 
   const isSubmitting = createRole.isPending || updateRole.isPending;
   const submit = () => {

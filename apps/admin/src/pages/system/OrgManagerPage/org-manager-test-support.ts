@@ -10,6 +10,8 @@ import {
 } from "@/test/msw/auth-handlers";
 import {
   orgDetails,
+  orgMemberCandidates,
+  orgMembersByOrg,
   orgUsers,
   rootTree,
   tenantModuleOptions,
@@ -37,6 +39,8 @@ export const OWN_PERMISSIONS = [
   ORG_MANAGER_PERMISSIONS.toggleEnabled,
   ORG_MANAGER_PERMISSIONS.move,
   ORG_MANAGER_PERMISSIONS.delete,
+  ORG_MANAGER_PERMISSIONS.viewMembers,
+  ORG_MANAGER_PERMISSIONS.addMembers,
 ];
 
 /** 根組織專屬(隱藏的 `tenant-ops` 模組);租戶管理員模板永遠拿不到。 */
@@ -116,6 +120,8 @@ export const renderPage = ({
     orgTree: rootTree,
     orgs: orgDetails,
     users: orgUsers,
+    members: orgMembersByOrg,
+    memberCandidates: orgMemberCandidates,
     moduleOptions: tenantModuleOptions,
     ...world,
   });

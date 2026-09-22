@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { useSetFieldEnabledMutation } from "@repo/graphql";
+import {
+  type SetFieldEnabledMutation,
+  useSetFieldEnabledMutation,
+} from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Stack } from "@repo/ui/stack";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import { CategoryListPanel } from "./CategoryListPanel";
@@ -39,17 +43,26 @@ export const FieldManagerPage = () => {
   );
   const [pendingFieldId, setPendingFieldId] = useState<string | null>(null);
 
-  const setFieldEnabled = useSetFieldEnabledMutation(session.client, {
-    onSuccess: () => {
-      setPendingFieldId(null);
-      setActionError(null);
-      void data.invalidate();
-    },
-    onError: (error: unknown) => {
-      setPendingFieldId(null);
-      setActionError(fieldManagerErrorOf(error));
-    },
-  });
+  const setFieldEnabled = useSetFieldEnabledMutation(
+    session.client,
+    useMutationFeedback<SetFieldEnabledMutation>({
+      success: (payload) =>
+        payload.setFieldEnabled.field.enabled
+          ? t("feedback.enableSuccess")
+          : t("feedback.disableSuccess"),
+      // 失敗的 Snackbar 文案與頁面上那一條 Alert 同一份解讀(#376)
+      error: (error) => t(`errors.${fieldManagerErrorOf(error)}`),
+      onSuccess: () => {
+        setPendingFieldId(null);
+        setActionError(null);
+        void data.invalidate();
+      },
+      onError: (error: unknown) => {
+        setPendingFieldId(null);
+        setActionError(fieldManagerErrorOf(error));
+      },
+    }),
+  );
 
   /** 停用 / 啟用不另開確認彈窗:可逆,且既有資料不受影響(只影響新填寫)。 */
   const handleToggleEnabled = (field: FieldOptionLike, enabled: boolean) => {

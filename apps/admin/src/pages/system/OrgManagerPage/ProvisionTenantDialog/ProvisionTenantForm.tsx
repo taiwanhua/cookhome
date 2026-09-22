@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { useProvisionTenantMutation } from "@repo/graphql";
+import {
+  type ProvisionTenantMutation,
+  useProvisionTenantMutation,
+} from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
@@ -9,6 +12,7 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import { OrgLogoField } from "../OrgLogoField";
@@ -42,6 +46,7 @@ export const ProvisionTenantForm = ({
   const t = useTranslations("admin.orgManager.provision");
   const tForm = useTranslations("admin.orgManager.form");
   const tErrors = useTranslations("admin.orgManager.errors");
+  const tFeedback = useTranslations("admin.orgManager.feedback");
   const { session } = useSession();
   const { uploadLogo, isUploading } = useLogoUpload();
 
@@ -55,6 +60,15 @@ export const ProvisionTenantForm = ({
   const [errorCode, setErrorCode] = useState<OrgManagerErrorCode | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /**
+   * 一次「開通」= 商標上傳 + `provisionTenant`,所以回饋由整段 try / catch 自己報一次
+   * (#376 的多步流程做法),而不是掛在 mutation 的 options 上 ——
+   * 掛上去的話上傳失敗那條路徑就沒有提示。
+   */
+  const feedback = useMutationFeedback<ProvisionTenantMutation>({
+    success: tFeedback("provisionSuccess"),
+    error: (error) => tErrors(orgManagerErrorOf(error).code),
+  });
   const provisionTenant = useProvisionTenantMutation(session.client);
 
   const adminAccount = typedAccount ?? adminEmail;
@@ -79,8 +93,10 @@ export const ProvisionTenantForm = ({
           moduleKeys: moduleKeysOf(selectedIds, rows),
         },
       });
+      feedback.onSuccess(payload);
       onProvisioned(payload.provisionTenant.org.id);
     } catch (error) {
+      feedback.onError(error);
       setErrorCode(orgManagerErrorOf(error).code);
     } finally {
       setIsSubmitting(false);

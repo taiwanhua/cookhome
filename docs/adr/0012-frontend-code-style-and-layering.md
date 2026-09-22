@@ -16,6 +16,9 @@
 
 ## 理由
 
+- **操作結果提示是「跨元件的用戶端狀態」的第四個先例**(2026-09-23,#376):mutation 的成功 /
+  失敗提示由 `stores/useSnackbarStore` 保管、`AppProviders` 的 `SnackbarProvider` 是全站唯一出口,
+  呼叫端一律經 `hooks/useMutationFeedback`(規則 DATA-06)—— 照決定 1,提示的狀態不走 context。
 - **zustand 而不是 context / 自刻 store**:第 2 段已經出現一份手刻的 `createRouteTabsStore` + `useSyncExternalStore` + sessionStorage 同步(207 行),本質上就是在重做 zustand;`LocaleContext`、session context 也各自處理訂閱與同步。統一成 zustand 後「跨元件狀態」只有一種寫法,agent 不用每次選。伺服器資料仍然只走 TanStack Query,URL 能表達的仍然放 URL,這兩條不變。
 - **PascalCase 元件檔、一檔一元件**:檔名 = 元件名,搜尋、跳轉、review 都直接;一檔多元件(`side-nav.tsx` 四個)讓 300 行很快被撐破,而且看不出哪個是對外的。
 - **不用 index.ts**:好處只有路徑短;代價是每個元件多一檔、barrel 對 Vite HMR 與 tree-shaking 不利、容易產生循環 import,而且 agent 常把子元件也順手匯出,封裝反而破掉。「子元件只給父用」改由資料夾位置與 review 表達。

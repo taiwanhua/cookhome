@@ -20,6 +20,8 @@ export const ORG_MANAGER_PERMISSIONS = {
   toggleEnabled: `${ORG_MANAGER_MODULE_KEY}.toggle-enabled`,
   move: `${ORG_MANAGER_MODULE_KEY}.move`,
   delete: `${ORG_MANAGER_MODULE_KEY}.delete`,
+  viewMembers: `${ORG_MANAGER_MODULE_KEY}.view-members`,
+  addMembers: `${ORG_MANAGER_MODULE_KEY}.add-members`,
   provision: `${TENANT_OPS_MODULE_KEY}.provision`,
   revokeProvision: `${TENANT_OPS_MODULE_KEY}.revoke-provision`,
   transferOwner: `${TENANT_OPS_MODULE_KEY}.transfer-owner`,

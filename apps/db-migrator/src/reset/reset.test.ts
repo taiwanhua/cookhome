@@ -351,7 +351,7 @@ describe("reset --mode=data(對真 MongoDB)", () => {
 
     // seed 管的設定留著(數量正本:src/seed/seed.test.ts 的模組 / 權限斷言)
     expect(state.modules).toHaveLength(20);
-    expect(state.permissions).toHaveLength(66);
+    expect(state.permissions).toHaveLength(68);
     expect(state.fieldCategories).toHaveLength(2);
     expect(state.dataScopeTargets).toHaveLength(1);
 

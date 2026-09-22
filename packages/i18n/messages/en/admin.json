@@ -3,7 +3,10 @@
     "subtitle": "Admin",
     "loading": "Loading…",
     "apiError": "Cannot reach the API. Make sure the api service is running.",
-    "language": "Language"
+    "language": "Language",
+    "snackbar": {
+      "close": "Close"
+    }
   },
   "login": {
     "subtitle": "Admin Console",
@@ -127,7 +130,42 @@
       "logoAlt": "Logo of {name}",
       "owner": "Owner",
       "ownerHidden": "(You cannot view user records, so the owner's name is hidden.)",
-      "none": "—"
+      "none": "—",
+      "tabs": {
+        "label": "Organization tabs",
+        "detail": "Details",
+        "members": "Members"
+      }
+    },
+    "members": {
+      "title": "{name} — Members",
+      "hint": "Only people who belong directly to this organization are listed; members of sub-organizations are shown in user management. To move someone out of an organization, use \"Member organizations\" in user management.",
+      "add": "Add members",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "none": "—",
+      "empty": "This organization has no members yet",
+      "total": "{total} in total, {pageSize} per page",
+      "tableLabel": "Organization member list",
+      "columns": {
+        "name": "Name",
+        "account": "Account",
+        "status": "Status",
+        "otherOrgs": "Other member organizations"
+      }
+    },
+    "addMembers": {
+      "title": "Add members — {name}",
+      "label": "Users",
+      "searchPlaceholder": "Name, account or email",
+      "candidate": "{account} · {name} ({orgs})",
+      "hint": "You can add users within your managed scope who do not belong to this organization yet; existing members are not listed.",
+      "picked": "{count} selected",
+      "empty": "No matching users",
+      "noOrg": "—",
+      "loading": "Searching",
+      "confirm": "Add",
+      "cancel": "Cancel"
     },
     "actions": {
       "edit": "Edit",
@@ -213,6 +251,15 @@
       "modulesHint": "“Modules & permissions” and “Data scope” are platform-only and not listed.",
       "note": "Provisioning creates the tenant organization, copies the “Tenant administrator” role template, creates the first administrator and wires everything up. An activation email is sent to the administrator, who sets their own password (the link is valid for 7 days).",
       "submit": "Provision"
+    },
+    "feedback": {
+      "createSuccess": "Child organization added.",
+      "updateSuccess": "Organization saved.",
+      "enableSuccess": "Organization enabled.",
+      "disableSuccess": "Organization disabled.",
+      "deleteSuccess": "Organization deleted.",
+      "provisionSuccess": "Tenant provisioned.",
+      "revokeSuccess": "Tenant provisioning revoked."
     },
     "errors": {
       "ORG_NOT_DELETABLE": "This organization cannot be deleted; disable it instead.",
@@ -371,6 +418,14 @@
       "confirmEnable": "Enable",
       "cancel": "Cancel"
     },
+    "feedback": {
+      "createSuccess": "User added.",
+      "updateSuccess": "User saved.",
+      "enableSuccess": "User enabled.",
+      "disableSuccess": "User disabled.",
+      "assignRolesSuccess": "Roles updated for this user.",
+      "setOrgsSuccess": "Organizations updated for this user."
+    },
     "errors": {
       "OWNER_PROTECTED": "The owner of the top-level organization is protected; the action was rejected.",
       "LAST_ORG": "Every user must keep at least one organization.",
@@ -431,6 +486,13 @@
       "body": "Once disabled, no tenant sees this module in the sidebar and every submodule and permission below it is disabled too. Role assignments are kept and restored when it is re-enabled. Re-enabling only enables this module — submodules must be enabled one by one. This setting affects the whole platform.",
       "cancel": "Cancel",
       "confirm": "Disable"
+    },
+    "feedback": {
+      "enableSuccess": "Module enabled.",
+      "disableSuccess": "Module disabled.",
+      "setIconSuccess": "Module icon changed.",
+      "permissionEnableSuccess": "Permission enabled.",
+      "permissionDisableSuccess": "Permission disabled."
     },
     "errors": {
       "FORBIDDEN": "Only the root organization can change module and permission availability.",
@@ -593,6 +655,16 @@
       "keepEditing": "Keep editing",
       "confirm": "Discard"
     },
+    "feedback": {
+      "createSuccess": "Role added.",
+      "updateSuccess": "Role saved.",
+      "enableSuccess": "Role enabled.",
+      "disableSuccess": "Role disabled.",
+      "deleteSuccess": "Role deleted.",
+      "saveMatrixSuccess": "Permission matrix saved.",
+      "grantUsersSuccess": "Selected users added to this role.",
+      "revokeUsersSuccess": "Role removed from this user."
+    },
     "errors": {
       "ROLE_NOT_DELETABLE": "This role cannot be deleted right now.",
       "ROLE_OUT_OF_REACH": "You can only pass on permissions you hold yourself.",
@@ -685,6 +757,9 @@
       "VALUE_INVALID": "Please provide a valid value.",
       "AUDIENCE_INVALID": "Please choose who this rule applies to."
     },
+    "feedback": {
+      "saveSuccess": "Data scope rule saved."
+    },
     "errors": {
       "RULE_INVALID": "The rules are invalid; fix the highlighted spots and save again.",
       "NOT_FOUND": "That data target does not exist.",
@@ -736,6 +811,12 @@
       "submit": "Add",
       "save": "Save",
       "cancel": "Cancel"
+    },
+    "feedback": {
+      "createSuccess": "Option added.",
+      "updateSuccess": "Option saved.",
+      "enableSuccess": "Option enabled.",
+      "disableSuccess": "Option disabled."
     },
     "errors": {
       "FIELD_VALUE_DUPLICATE": "This value is already used in this category. Pick another one.",
@@ -847,6 +928,13 @@
       "body": "“{name}” will be deleted. This cannot be undone; its cover and attachment are removed too.",
       "confirm": "Delete"
     },
+    "feedback": {
+      "createSuccess": "Item added.",
+      "updateSuccess": "Item saved.",
+      "deleteSuccess": "Item deleted.",
+      "enableSuccess": "Item enabled.",
+      "disableSuccess": "Item disabled."
+    },
     "errors": {
       "FIELD_FORBIDDEN": "You are not allowed to change the internal note, so nothing was saved.",
       "FORBIDDEN": "You are not allowed to do that.",
@@ -915,6 +1003,13 @@
       "title": "Delete demo item?",
       "body": "“{name}” will be deleted. This cannot be undone.",
       "confirm": "Delete"
+    },
+    "feedback": {
+      "createSuccess": "Item added.",
+      "updateSuccess": "Item saved.",
+      "deleteSuccess": "Item deleted.",
+      "enableSuccess": "Item enabled.",
+      "disableSuccess": "Item disabled."
     },
     "errors": {
       "FIELD_FORBIDDEN": "You are not allowed to change that field, so nothing was saved.",

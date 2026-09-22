@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
+import { autocompleteOption } from "@/test/autocomplete";
+
 import { ROLE_MANAGER_PERMISSIONS } from "./role-manager-permissions";
 import { ALL_PERMISSIONS, renderRolePage } from "./role-manager-test-support";
 
@@ -12,17 +14,6 @@ const openUsersTab = async (
   await rendered.user.click(screen.getByRole("tab", { name: "分配使用者" }));
   await screen.findByText("內容編輯 — 分配使用者");
   return rendered;
-};
-
-/** Autocomplete 的選項是兩行文字,`getByRole("option", { name })` 的完整比對對不上。 */
-const optionContaining = (text: string): HTMLElement => {
-  const found = screen
-    .getAllByRole("option")
-    .find((option) => option.textContent.includes(text));
-  if (found === undefined) {
-    throw new Error(`找不到含有「${text}」的選項`);
-  }
-  return found;
 };
 
 describe("角色管理:分配使用者頁籤", () => {
@@ -53,7 +44,7 @@ describe("角色管理:分配使用者頁籤", () => {
     const dialog = screen.getByRole("dialog");
     // #307:勾選列換成 Autocomplete,選項是「主文字 + 次文字」兩行,比對主文字前綴
     await actor.click(within(dialog).getByRole("combobox", { name: "使用者" }));
-    await actor.click(optionContaining("新同事"));
+    await actor.click(autocompleteOption("新同事"));
     expect(within(dialog).getByText("已選 1 人")).toBeInTheDocument();
     await actor.click(within(dialog).getByRole("button", { name: "加入" }));
 
@@ -76,14 +67,14 @@ describe("角色管理:分配使用者頁籤", () => {
     await actor.click(within(dialog).getByRole("combobox", { name: "使用者" }));
 
     // 不是「不列出來」,而是列出來、灰掉、就地講原因
-    const outsider = optionContaining("別家同事");
+    const outsider = autocompleteOption("別家同事");
     expect(outsider).toHaveAttribute("aria-disabled", "true");
     expect(outsider).toHaveTextContent(
       "此使用者不在角色擁有組織之下(租戶 A),無法加入。",
     );
 
     // 子樹內的人照樣選得動
-    expect(optionContaining("新同事")).not.toHaveAttribute(
+    expect(autocompleteOption("新同事")).not.toHaveAttribute(
       "aria-disabled",
       "true",
     );

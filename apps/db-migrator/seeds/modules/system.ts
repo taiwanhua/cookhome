@@ -147,6 +147,19 @@ export const systemModules: ModuleSeedDeclaration = {
       description: "「刪除」按鈕 + API:前置檢查通過才可(軟刪除)",
     },
     {
+      key: permissionKey(ORG_MANAGER_KEY, "view-members"),
+      moduleKey: ORG_MANAGER_KEY,
+      name: "檢視成員",
+      description: "組織詳情的「成員」頁籤 + API:看這個組織自己的成員",
+    },
+    {
+      key: permissionKey(ORG_MANAGER_KEY, "add-members"),
+      moduleKey: ORG_MANAGER_KEY,
+      name: "加入成員",
+      description:
+        "「加入成員」按鈕 + API:一次把多位管理範圍內的使用者加進這個組織(移除走使用者管理)",
+    },
+    {
       key: permissionKey(ORG_MANAGER_KEY, "set-visibility"),
       moduleKey: ORG_MANAGER_KEY,
       name: "設定可見範圍",

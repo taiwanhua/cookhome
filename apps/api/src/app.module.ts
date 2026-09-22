@@ -15,6 +15,7 @@ import { DemoItemsOneModule } from "./demo-items-one/demo-items-one.module";
 import { DemoItemsTwoModule } from "./demo-items-two/demo-items-two.module";
 import { FieldsModule } from "./fields/fields.module";
 import { ModuleManagerModule } from "./modules/module-manager.module";
+import { OrgMembersModule } from "./orgs/org-members.module";
 import { OrgsModule } from "./orgs/orgs.module";
 import { PermissionModule } from "./permission/permission.module";
 import { RecipesModule } from "./recipes/recipes.module";
@@ -61,6 +62,7 @@ const isSandboxEnabled =
     StorageModule,
     OrgsModule,
     UsersModule,
+    OrgMembersModule,
     RolesModule,
     ModuleManagerModule,
     DataScopeModule,

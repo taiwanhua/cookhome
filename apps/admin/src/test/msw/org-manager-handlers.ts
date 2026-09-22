@@ -1,10 +1,14 @@
 import { HttpResponse, http } from "msw";
 
 import type {
+  AddOrgMembersMutationVariables,
   CreateChildOrgMutationVariables,
   CreateUploadUrlMutationVariables,
   DeleteOrgMutationVariables,
   MoveOrgMutationVariables,
+  OrgMemberCandidatesQueryVariables,
+  OrgMembersQuery,
+  OrgMembersQueryVariables,
   OrgQuery,
   OrgQueryVariables,
   OrgTreeQuery,
@@ -27,6 +31,7 @@ export type TestOrg = OrgQuery["org"];
 export type TestModuleOption =
   TenantModuleOptionsQuery["tenantModuleOptions"][number];
 export type TestOrgUser = UsersQuery["users"]["items"][number];
+export type TestOrgMember = OrgMembersQuery["orgMembers"]["items"][number];
 
 /** 簽名上傳網址的假位址;`uploadedFiles` 記錄真的被 PUT 上去的東西。 */
 export const TEST_UPLOAD_ORIGIN = "https://storage.test";
@@ -42,6 +47,7 @@ export type OrgOperation =
   | "RevokeTenantProvision"
   | "TransferOrgOwner"
   | "SetOrgVisibility"
+  | "AddOrgMembers"
   | "CreateUploadUrl";
 
 export interface OrgFailure {
@@ -56,6 +62,10 @@ export interface OrgWorldOptions {
   orgs?: TestOrg[];
   /** `users` 的來源(擁有者姓名與轉移候選人) */
   users?: TestOrgUser[];
+  /** `orgMembers` 的來源:orgId → 該組織**自己**的成員(不含下層,#377);加入成員後即時變動 */
+  members?: Record<string, TestOrgMember[]>;
+  /** 管理範圍內的全部使用者;`orgMemberCandidates` = 這些人扣掉該組織的既有成員 */
+  memberCandidates?: TestOrgMember[];
   moduleOptions?: TestModuleOption[];
   failures?: Partial<Record<OrgOperation, OrgFailure>>;
 }
@@ -73,6 +83,7 @@ export interface OrgWorld {
     revokeTenantProvision: RevokeTenantProvisionMutationVariables["input"][];
     transferOrgOwner: TransferOrgOwnerMutationVariables["input"][];
     setOrgVisibility: SetOrgVisibilityMutationVariables["input"][];
+    addOrgMembers: AddOrgMembersMutationVariables["input"][];
     createUploadUrl: CreateUploadUrlMutationVariables["input"][];
   };
   /** 直傳到簽名網址的檔案(ADR-0010 第 2 步) */
@@ -91,9 +102,15 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
     orgTree = [],
     orgs = [],
     users = [],
+    members = {},
+    memberCandidates = [],
     moduleOptions = [],
     failures = {},
   } = options;
+  /** 加入成員會真的改到這份狀態(TEST-08:有連動語意就實作進 handler) */
+  const membersByOrg = new Map(
+    Object.entries(members).map(([orgId, rows]) => [orgId, [...rows]]),
+  );
 
   const inputs: OrgWorld["inputs"] = {
     createChildOrg: [],
@@ -105,6 +122,7 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
     revokeTenantProvision: [],
     transferOrgOwner: [],
     setOrgVisibility: [],
+    addOrgMembers: [],
     createUploadUrl: [],
   };
   const uploadedFiles: OrgWorld["uploadedFiles"] = [];
@@ -147,6 +165,73 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
     api.query("TenantModuleOptions", () =>
       HttpResponse.json({ data: { tenantModuleOptions: moduleOptions } }),
     ),
+    // 成員頁籤(#377):清單只回這個組織自己的成員,候選是「管理範圍內扣掉既有成員」,
+    // 加入成員真的改到 `membersByOrg` —— 連動語意實作進 handler(TEST-08)
+    api.query("OrgMembers", ({ variables }) => {
+      const { orgId, input } = variables as OrgMembersQueryVariables;
+      const rows = membersByOrg.get(orgId) ?? [];
+      return HttpResponse.json({
+        data: {
+          orgMembers: {
+            totalCount: rows.length,
+            page: input.page ?? 1,
+            pageSize: input.pageSize ?? 10,
+            items: rows,
+          },
+        },
+      });
+    }),
+    api.query("OrgMemberCandidates", ({ variables }) => {
+      const { orgId, input } = variables as OrgMemberCandidatesQueryVariables;
+      const taken = new Set(
+        (membersByOrg.get(orgId) ?? []).map((row) => row.id),
+      );
+      const keyword = input.keyword?.trim().toLowerCase() ?? "";
+      const rows = memberCandidates
+        .filter((row) => !taken.has(row.id))
+        .filter(
+          (row) =>
+            keyword === "" ||
+            row.name.toLowerCase().includes(keyword) ||
+            row.account.toLowerCase().includes(keyword),
+        );
+      return HttpResponse.json({
+        data: {
+          orgMemberCandidates: {
+            totalCount: rows.length,
+            page: input.page ?? 1,
+            pageSize: input.pageSize ?? 20,
+            items: rows,
+          },
+        },
+      });
+    }),
+    api.mutation("AddOrgMembers", ({ variables }) => {
+      const { input } = variables as AddOrgMembersMutationVariables;
+      inputs.addOrgMembers.push(input);
+      const failure = fail("AddOrgMembers");
+      if (failure !== null) {
+        return failure;
+      }
+      const current = membersByOrg.get(input.orgId) ?? [];
+      const taken = new Set(current.map((row) => row.id));
+      const added = input.userIds.filter((userId) => !taken.has(userId));
+      membersByOrg.set(input.orgId, [
+        ...current,
+        ...added.flatMap((userId) => {
+          const row = memberCandidates.find((one) => one.id === userId);
+          return row === undefined ? [] : [row];
+        }),
+      ]);
+      return HttpResponse.json({
+        data: {
+          addOrgMembers: {
+            addedUserIds: added,
+            skippedUserIds: input.userIds.filter((userId) => taken.has(userId)),
+          },
+        },
+      });
+    }),
     api.mutation("CreateChildOrg", ({ variables }) => {
       const { input } = variables as CreateChildOrgMutationVariables;
       inputs.createChildOrg.push(input);

@@ -3,6 +3,8 @@ import { useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
+  type CreateUserMutation,
+  type UpdateUserMutation,
   UserActivationMode,
   type UserQuery,
   useCreateUserMutation,
@@ -14,6 +16,7 @@ import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
 import { Stack } from "@repo/ui/stack";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import { type OrgNodeLike, flattenOrgs } from "@/lib/org-tree";
 
@@ -79,30 +82,54 @@ export const UserFormBody = ({
     );
   };
 
-  const createUser = useCreateUserMutation(session.client, {
-    onSuccess: onSaved,
-    onError,
-  });
-  const updateUser = useUpdateUserMutation(session.client, {
-    onSuccess: (payload) => {
-      /**
-       * DATA-04 的 (a) 步:把回傳的欄位併進 `user(id)` 的快取,再由 `onSaved` 失效清單與單筆。
-       * 不寫的話,關掉彈窗馬上再按一次「編輯」看到的是舊值(#372)——
-       * `UserFormDialog` 的初始值只取一次,重取回來時表單早就掛好了。
-       * `updateUser` 的 payload 只有基本欄位(沒有 orgs / roles / enabled),所以是**併進**
-       * 既有那一筆而不是整份覆寫;快取裡還沒有那一筆就什麼都不做(回 undefined)。
-       */
-      queryClient.setQueryData<UserQuery>(
-        useUserQuery.getKey({ id: payload.updateUser.user.id }),
-        (current) =>
-          current === undefined
-            ? undefined
-            : { user: { ...current.user, ...payload.updateUser.user } },
-      );
-      onSaved();
-    },
-    onError,
-  });
+  /**
+   * 失敗的 Snackbar 文案(#376):這裡的錯誤解讀比表單那一份粗一級 —— 欄位級的
+   * `VALIDATION_FAILED` 在表單內已經指名是哪幾欄,Snackbar 只講「這次沒存成功」。
+   */
+  const feedbackError = (error: unknown) => {
+    const { code } = userManagerErrorOf(error);
+    if (code === "FORBIDDEN") {
+      return t("errors.forbidden");
+    }
+    return code === "VALIDATION_FAILED"
+      ? t("errors.required")
+      : t("errors.unexpected");
+  };
+
+  const createUser = useCreateUserMutation(
+    session.client,
+    useMutationFeedback<CreateUserMutation>({
+      success: t("feedback.createSuccess"),
+      error: feedbackError,
+      onSuccess: onSaved,
+      onError,
+    }),
+  );
+  const updateUser = useUpdateUserMutation(
+    session.client,
+    useMutationFeedback<UpdateUserMutation>({
+      success: t("feedback.updateSuccess"),
+      error: feedbackError,
+      onSuccess: (payload) => {
+        /**
+         * DATA-04 的 (a) 步:把回傳的欄位併進 `user(id)` 的快取,再由 `onSaved` 失效清單與單筆。
+         * 不寫的話,關掉彈窗馬上再按一次「編輯」看到的是舊值(#372)——
+         * `UserFormDialog` 的初始值只取一次,重取回來時表單早就掛好了。
+         * `updateUser` 的 payload 只有基本欄位(沒有 orgs / roles / enabled),所以是**併進**
+         * 既有那一筆而不是整份覆寫;快取裡還沒有那一筆就什麼都不做(回 undefined)。
+         */
+        queryClient.setQueryData<UserQuery>(
+          useUserQuery.getKey({ id: payload.updateUser.user.id }),
+          (current) =>
+            current === undefined
+              ? undefined
+              : { user: { ...current.user, ...payload.updateUser.user } },
+        );
+        onSaved();
+      },
+      onError,
+    }),
+  );
   const isSubmitting = createUser.isPending || updateUser.isPending;
 
   const selectedOrgs = flattenOrgs(orgNodes).filter((org) =>

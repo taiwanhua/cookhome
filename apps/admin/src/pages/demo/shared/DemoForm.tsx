@@ -51,7 +51,7 @@ export const DemoForm = <Detail extends DemoItemLike, Values>({
   const tRoot = useTranslations(i18nNamespace);
 
   const [isDiscarding, setIsDiscarding] = useState(false);
-  const state = useDemoForm({ form, item, onSaved: onLeave });
+  const state = useDemoForm({ i18nNamespace, form, item, onSaved: onLeave });
   useUnsavedGuard(state.isDirty);
 
   const isEdit = item !== null;

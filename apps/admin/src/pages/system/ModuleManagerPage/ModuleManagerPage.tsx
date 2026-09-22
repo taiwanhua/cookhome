@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
+  type SetModuleEnabledMutation,
+  type SetPermissionEnabledMutation,
   useSetModuleEnabledMutation,
   useSetModuleIconMutation,
   useSetPermissionEnabledMutation,
@@ -10,6 +12,7 @@ import { Alert } from "@repo/ui/alert";
 import type { ModuleIconKey } from "@repo/ui/icons";
 import { Stack } from "@repo/ui/stack";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import { DisableModuleDialog } from "./DisableModuleDialog";
@@ -49,38 +52,63 @@ export const ModuleManagerPage = () => {
     setActionError(moduleManagerErrorOf(error));
   };
 
-  const setModuleEnabled = useSetModuleEnabledMutation(session.client, {
-    onSuccess: () => {
-      setIsDisableOpen(false);
-      setActionError(null);
-      void data.invalidate();
-    },
-    onError: onActionError,
-  });
+  /** 失敗的 Snackbar 文案與頁面上那一條 Alert 同一份解讀(#376)。 */
+  const feedbackError = (error: unknown) =>
+    t(`errors.${moduleManagerErrorOf(error)}`);
+
+  const setModuleEnabled = useSetModuleEnabledMutation(
+    session.client,
+    useMutationFeedback<SetModuleEnabledMutation>({
+      success: (payload) =>
+        payload.setModuleEnabled.module.enabled
+          ? t("feedback.enableSuccess")
+          : t("feedback.disableSuccess"),
+      error: feedbackError,
+      onSuccess: () => {
+        setIsDisableOpen(false);
+        setActionError(null);
+        void data.invalidate();
+      },
+      onError: onActionError,
+    }),
+  );
 
   /**
    * 換圖示(#288):不必確認也不連動任何東西,失敗就照一般錯誤顯示;
    * 成功後 invalidate `ModuleTree` + `me` —— 側欄吃的是 `me.modules[].icon`,
    * 操作者自己的側欄要立刻換圖。
    */
-  const setModuleIcon = useSetModuleIconMutation(session.client, {
-    onSuccess: () => {
-      setActionError(null);
-      void data.invalidate();
-    },
-    onError: onActionError,
-  });
+  const setModuleIcon = useSetModuleIconMutation(
+    session.client,
+    useMutationFeedback({
+      success: t("feedback.setIconSuccess"),
+      error: feedbackError,
+      onSuccess: () => {
+        setActionError(null);
+        void data.invalidate();
+      },
+      onError: onActionError,
+    }),
+  );
 
-  const setPermissionEnabled = useSetPermissionEnabledMutation(session.client, {
-    onSuccess: () => {
-      setPendingPermissionId(null);
-      void data.invalidate();
-    },
-    onError: (error: unknown) => {
-      setPendingPermissionId(null);
-      onActionError(error);
-    },
-  });
+  const setPermissionEnabled = useSetPermissionEnabledMutation(
+    session.client,
+    useMutationFeedback<SetPermissionEnabledMutation>({
+      success: (payload) =>
+        payload.setPermissionEnabled.permission.enabled
+          ? t("feedback.permissionEnableSuccess")
+          : t("feedback.permissionDisableSuccess"),
+      error: feedbackError,
+      onSuccess: () => {
+        setPendingPermissionId(null);
+        void data.invalidate();
+      },
+      onError: (error: unknown) => {
+        setPendingPermissionId(null);
+        onActionError(error);
+      },
+    }),
+  );
 
   /** 停用要先確認(連動整棵子樹);啟用只影響自己這一節,直接送出。 */
   const handleToggleModule = (enabled: boolean) => {

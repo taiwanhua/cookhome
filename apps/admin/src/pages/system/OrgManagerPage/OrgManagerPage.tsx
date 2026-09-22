@@ -1,12 +1,15 @@
 import { useState } from "react";
+import { useTranslations } from "use-intl";
 
 import {
+  type SetOrgEnabledMutation,
   useDeleteOrgMutation,
   useRevokeTenantProvisionMutation,
   useSetOrgEnabledMutation,
 } from "@repo/graphql";
 import { Stack } from "@repo/ui/stack";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import { orgTrail } from "@/lib/org-tree";
 
@@ -42,6 +45,8 @@ type OpenDialog =
  * 已經足以決定畫面,不需要「我是不是超級管理員」這種旗標。
  */
 export const OrgManagerPage = () => {
+  const t = useTranslations("admin.orgManager");
+  const tErrors = useTranslations("admin.orgManager.errors");
   const { session } = useSession();
   const data = useOrgManagerData();
   const owner = useTenantOwner(data.org);
@@ -63,32 +68,54 @@ export const OrgManagerPage = () => {
     setActionError(orgManagerErrorOf(error));
   };
 
-  const setOrgEnabled = useSetOrgEnabledMutation(session.client, {
-    onSuccess: (payload) => {
-      closeDialog();
-      void data.invalidate(payload.setOrgEnabled.org.id);
-    },
-    onError: onActionError,
-  });
+  /** 失敗的 Snackbar 文案與彈窗內那一條錯誤同一份解讀(#376)。 */
+  const feedbackError = (error: unknown) =>
+    tErrors(orgManagerErrorOf(error).code);
 
-  const deleteOrg = useDeleteOrgMutation(session.client, {
-    onSuccess: () => {
-      closeDialog();
-      data.selectOrg(null);
-      void data.invalidate();
-    },
-    onError: onActionError,
-  });
+  const setOrgEnabled = useSetOrgEnabledMutation(
+    session.client,
+    useMutationFeedback<SetOrgEnabledMutation>({
+      success: (payload) =>
+        payload.setOrgEnabled.org.enabled
+          ? t("feedback.enableSuccess")
+          : t("feedback.disableSuccess"),
+      error: feedbackError,
+      onSuccess: (payload) => {
+        closeDialog();
+        void data.invalidate(payload.setOrgEnabled.org.id);
+      },
+      onError: onActionError,
+    }),
+  );
+
+  const deleteOrg = useDeleteOrgMutation(
+    session.client,
+    useMutationFeedback({
+      success: t("feedback.deleteSuccess"),
+      error: feedbackError,
+      onSuccess: () => {
+        closeDialog();
+        data.selectOrg(null);
+        void data.invalidate();
+      },
+      onError: onActionError,
+    }),
+  );
 
   /** 撤銷開通後那一節整個不見了,與刪除一樣要清掉選取再重查整棵樹(#374)。 */
-  const revokeProvision = useRevokeTenantProvisionMutation(session.client, {
-    onSuccess: () => {
-      closeDialog();
-      data.selectOrg(null);
-      void data.invalidate();
-    },
-    onError: onActionError,
-  });
+  const revokeProvision = useRevokeTenantProvisionMutation(
+    session.client,
+    useMutationFeedback({
+      success: t("feedback.revokeSuccess"),
+      error: feedbackError,
+      onSuccess: () => {
+        closeDialog();
+        data.selectOrg(null);
+        void data.invalidate();
+      },
+      onError: onActionError,
+    }),
+  );
 
   /**
    * 租戶頂層對租戶內的人:停用 / 刪除 / 搬移只有根組織能做(ADR-0009)。

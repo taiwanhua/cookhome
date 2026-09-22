@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslations } from "use-intl";
 
 import {
   type RoleUsersQueryVariables,
@@ -7,6 +8,7 @@ import {
   useRoleUsersQuery,
 } from "@repo/graphql";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import {
@@ -20,6 +22,8 @@ import { ROLE_USERS_PAGE_SIZE, type RoleUserRow } from "../role-manager-types";
  * 清單含管理範圍外的「組織外」持有者(role-manager.md:列不出來就移不掉)。
  */
 export const useRoleUsers = (roleId: string, onChanged: () => void) => {
+  const t = useTranslations("admin.roleManager");
+  const tErrors = useTranslations("admin.roleManager.errors");
   const { session } = useSession();
   const [page, setPage] = useState(1);
   const [errorCode, setErrorCode] = useState<RoleManagerErrorCode | null>(null);
@@ -38,14 +42,27 @@ export const useRoleUsers = (roleId: string, onChanged: () => void) => {
     onChanged();
   };
 
-  const grant = useGrantRoleUsersMutation(session.client, {
-    onSuccess,
-    onError,
-  });
-  const revoke = useRevokeRoleUsersMutation(session.client, {
-    onSuccess,
-    onError,
-  });
+  const feedbackError = (error: unknown) =>
+    tErrors(roleManagerErrorOf(error).code);
+
+  const grant = useGrantRoleUsersMutation(
+    session.client,
+    useMutationFeedback({
+      success: t("feedback.grantUsersSuccess"),
+      error: feedbackError,
+      onSuccess,
+      onError,
+    }),
+  );
+  const revoke = useRevokeRoleUsersMutation(
+    session.client,
+    useMutationFeedback({
+      success: t("feedback.revokeUsersSuccess"),
+      error: feedbackError,
+      onSuccess,
+      onError,
+    }),
+  );
 
   const rows: readonly RoleUserRow[] = query.data?.roleUsers.items ?? [];
 
