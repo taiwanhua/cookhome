@@ -126,7 +126,7 @@
 
 - **用哪一頁**:示範模組1 的**詳情頁**與**編輯頁**
 - **帳號**:+tenant 改角色矩陣、+user 看畫面
-- **E2E**:`apps/e2e/src/specs/scenario-05-field-permission.spec.ts`(手動觸發,見下方「E2E 怎麼跑」)
+- **E2E**:`apps/e2e/src/specs/scenario-05-field-permission.spec.ts`(手動觸發,見下方「E2E 怎麼跑」);末節「順手一起看」的 `[redacted]` 也在同一個 spec 裡(#396)
 
 1. 「客服」角色**兩筆內部備註權限都不給** → +user 看任一筆的詳情頁與編輯頁。
 2. +tenant 只加 `show-internal-note` → +user 重新登入(或重整)後再看兩頁。
@@ -146,6 +146,7 @@
 
 - **用哪一頁**:示範模組1 的**新增頁**與**編輯頁**
 - **帳號**:+tenant 改矩陣、+user 看畫面
+- **E2E**:`apps/e2e/src/specs/scenario-06-page-permission.spec.ts`(手動觸發,見下方「E2E 怎麼跑」)
 
 1. 不給 `create-page.show-tips` → +user 進新增頁:**沒有填寫提示區塊**,但名稱 / 分類 / 備註照樣填得了、存得下去。
 2. 給 `show-tips` → 重進新增頁:標題下方多出提示區塊。
@@ -306,7 +307,7 @@
 | 3 未宣告對照            | 資料範圍頁左清單 + 示範模組2 列表         | root / +user         | 尚未                                   |
 | 4 頂層合成 OR / AND     | 資料範圍頁 + 示範模組1 列表               | root / +user         | 尚未                                   |
 | 5 欄位級權限            | 示範模組1 詳情頁 + 編輯頁                 | +tenant / +user      | `scenario-05-field-permission.spec.ts` |
-| 6 頁面自有權限          | 示範模組1 新增頁 + 編輯頁                 | +tenant / +user      | 尚未                                   |
+| 6 頁面自有權限          | 示範模組1 新增頁 + 編輯頁                 | +tenant / +user      | `scenario-06-page-permission.spec.ts`  |
 | 7 路由防守              | 示範模組1 列表 + 直接打網址               | +tenant / +user      | `scenario-07-route-guard.spec.ts`      |
 | 8 組織外                | 使用者管理 / 角色管理 / 示範模組1 列表    | +tenant / +user      | 尚未                                   |
 | 9 移除三檔              | 使用者管理 → 移除所屬組織彈窗             | +tenant / 多組織帳號 | 尚未                                   |
