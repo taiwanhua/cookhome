@@ -25,6 +25,11 @@ export interface RouteTabsStoreState extends RouteTabsPersisted {
   /** 關閉 tab;回傳關閉當前 tab 時要轉去的路由(非當前為 null) */
   close: (route: string, activeRoute: string | null) => string | null;
   move: (fromRoute: string, toRoute: string) => void;
+  /**
+   * 清空頁籤並刪掉目前這把 key 的存檔(#375:其他分頁登出或換了帳號時,不把上一個人的頁籤留在這個分頁)。
+   * 換帳號後由殼重新 `bind(新的 userId)`。
+   */
+  reset: () => void;
 }
 
 /**
@@ -75,6 +80,11 @@ export const useRouteTabsStore = create<RouteTabsStoreState>()(
         },
         move: (fromRoute, toRoute) => {
           commit(moveEntry(get().entries, fromRoute, toRoute));
+        },
+        reset: () => {
+          // 先清記憶體再刪存檔:`set` 會經 persist 寫回 storage,順序反過來會把剛刪掉的 key 又寫成空陣列
+          set({ entries: [] });
+          api.persist.clearStorage();
         },
       };
     },

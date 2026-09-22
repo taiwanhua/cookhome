@@ -34,4 +34,7 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     }
     set(ANONYMOUS);
   },
+  reset: () => {
+    set({ ...INITIAL_SESSION_SNAPSHOT });
+  },
 }));

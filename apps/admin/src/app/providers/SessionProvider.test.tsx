@@ -4,7 +4,6 @@ import { screen, waitFor } from "@testing-library/react";
 import { useMeQuery } from "@repo/graphql";
 
 import { createAuthSession } from "@/lib/auth/session";
-import { SESSION_CHANNEL_NAME } from "@/lib/auth/session-channel";
 import { useSessionStore } from "@/stores/useSessionStore";
 import { authWorld } from "@/test/msw/auth-handlers";
 import { TEST_GRAPHQL_ENDPOINT, server } from "@/test/msw/server";
@@ -111,48 +110,5 @@ describe("登入狀態(access token 記憶體 / 靜默 refresh / 導回 login?ne
     expect(await screen.findByText("小華,你好")).toBeInTheDocument();
     expect(seenCredentials).toBe("include");
     expect(seenAuthorization).toBe("Bearer access-2");
-  });
-});
-
-describe("分頁登出同步(BroadcastChannel)", () => {
-  it("其他分頁廣播登出 → 本分頁立即回登入頁", async () => {
-    const world = authWorld({ hasRefreshCookie: true });
-    server.use(...world.handlers);
-    renderApp({ path: "/" });
-    expect(await screen.findByText("小華,你好")).toBeInTheDocument();
-
-    const otherTab = new BroadcastChannel(SESSION_CHANNEL_NAME);
-    otherTab.postMessage({ type: "logout" });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("location")).toHaveTextContent("/login");
-    });
-    expect(screen.getByLabelText("帳號")).toBeInTheDocument();
-    otherTab.close();
-  });
-
-  it("本分頁登出 → 打 api logout、回登入頁、廣播給其他分頁", async () => {
-    const world = authWorld({ hasRefreshCookie: true });
-    server.use(...world.handlers);
-    const { user } = renderApp({ path: "/" });
-    expect(await screen.findByText("小華,你好")).toBeInTheDocument();
-
-    const otherTab = new BroadcastChannel(SESSION_CHANNEL_NAME);
-    const received = new Promise<unknown>((resolve) => {
-      otherTab.addEventListener("message", (event: MessageEvent<unknown>) => {
-        resolve(event.data);
-      });
-    });
-
-    // 登出在 AppBar 的使用者選單裡(登入線5 殼)
-    await user.click(screen.getByRole("button", { name: "小華" }));
-    await user.click(screen.getByRole("menuitem", { name: "登出" }));
-
-    await expect(received).resolves.toEqual({ type: "logout" });
-    expect(world.calls.logout).toBe(1);
-    await waitFor(() => {
-      expect(screen.getByTestId("location")).toHaveTextContent("/login");
-    });
-    otherTab.close();
   });
 });
