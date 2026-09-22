@@ -7,6 +7,7 @@ import {
   useDeleteDemoItemOneMutation,
   useDemoItemOneQuery,
   useDemoItemsOneQuery,
+  useSetDemoItemOneEnabledMutation,
   useUpdateDemoItemOneMutation,
 } from "@repo/graphql";
 import { Box } from "@repo/ui/box";
@@ -367,4 +368,6 @@ export const sampleOneModule: DemoModuleConfig<
   },
 
   useDelete: useDeleteDemoItemOneMutation,
+  // 啟用 / 停用是共版型的選配:給了它,列表的啟用欄才會是開關(改得動的列才有)
+  useSetEnabled: useSetDemoItemOneEnabledMutation,
 };

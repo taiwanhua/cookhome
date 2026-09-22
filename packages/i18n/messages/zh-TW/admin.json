@@ -777,6 +777,7 @@
       "viewOf": "檢視「{name}」",
       "editOf": "編輯「{name}」",
       "deleteOf": "刪除「{name}」",
+      "toggleEnabledOf": "切換「{name}」的啟用狀態",
       "backToList": "← 返回列表"
     },
     "attachment": {
@@ -875,6 +876,7 @@
       "viewOf": "檢視「{name}」",
       "editOf": "編輯「{name}」",
       "deleteOf": "刪除「{name}」",
+      "toggleEnabledOf": "切換「{name}」的啟用狀態",
       "backToList": "← 返回列表"
     },
     "form": {

@@ -6,6 +6,7 @@ import type {
   DemoItemTwoQueryVariables,
   DemoItemsTwoQuery,
   DemoItemsTwoQueryVariables,
+  SetDemoItemTwoEnabledMutationVariables,
   UpdateDemoItemTwoMutationVariables,
 } from "@repo/graphql";
 
@@ -16,7 +17,10 @@ export type TestDemoItemTwo =
   DemoItemsTwoQuery["demoItemsTwo"]["items"][number];
 
 export type DemoTwoOperation =
-  "CreateDemoItemTwo" | "UpdateDemoItemTwo" | "DeleteDemoItemTwo";
+  | "CreateDemoItemTwo"
+  | "UpdateDemoItemTwo"
+  | "DeleteDemoItemTwo"
+  | "SetDemoItemTwoEnabled";
 
 export interface DemoTwoFailure {
   code: string;
@@ -36,6 +40,7 @@ export interface DemoTwoWorld {
     createDemoItemTwo: CreateDemoItemTwoMutationVariables["input"][];
     updateDemoItemTwo: UpdateDemoItemTwoMutationVariables["input"][];
     deleteDemoItemTwo: DeleteDemoItemTwoMutationVariables["input"][];
+    setDemoItemTwoEnabled: SetDemoItemTwoEnabledMutationVariables["input"][];
   };
   /** 各查詢被打到的次數(驗 invalidate、驗「搜尋是送給 api 不是前端過濾」) */
   calls: { demoItemsTwo: number; demoItemTwo: number };
@@ -67,6 +72,7 @@ export const demoTwoWorld = (
     createDemoItemTwo: [],
     updateDemoItemTwo: [],
     deleteDemoItemTwo: [],
+    setDemoItemTwoEnabled: [],
   };
   const calls = { demoItemsTwo: 0, demoItemTwo: 0 };
   let created = 0;
@@ -177,6 +183,23 @@ export const demoTwoWorld = (
       }
       return HttpResponse.json({
         data: { deleteDemoItemTwo: { success: true, deletedId: input.id } },
+      });
+    }),
+    api.mutation("SetDemoItemTwoEnabled", ({ variables }) => {
+      const { input } = variables as SetDemoItemTwoEnabledMutationVariables;
+      inputs.setDemoItemTwoEnabled.push(input);
+      const failure = fail("SetDemoItemTwoEnabled");
+      if (failure !== null) {
+        return failure;
+      }
+      const target = findItem(input.id);
+      if (target === undefined) {
+        return notFound();
+      }
+      // 有狀態:寫回同一份清單,列表 invalidate 後才看得到新狀態(TEST-08)
+      target.enabled = input.enabled;
+      return HttpResponse.json({
+        data: { setDemoItemTwoEnabled: { item: target } },
       });
     }),
   ];

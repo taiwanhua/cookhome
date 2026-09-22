@@ -7,6 +7,7 @@ import {
   useDeleteDemoItemTwoMutation,
   useDemoItemTwoQuery,
   useDemoItemsTwoQuery,
+  useSetDemoItemTwoEnabledMutation,
   useUpdateDemoItemTwoMutation,
 } from "@repo/graphql";
 import { Tag } from "@repo/ui/tag";
@@ -178,4 +179,7 @@ export const sampleTwoModule: DemoModuleConfig<
   },
 
   useDelete: useDeleteDemoItemTwoMutation,
+  // 啟用 / 停用是選配,但**對照組也有** —— 它是每個 CRUD 模組都可能要的開關,
+  // 不是「完整示範」才有的花樣;沒有這個欄位的模組不給這支 hook 就好(列表維持唯讀 Tag)
+  useSetEnabled: useSetDemoItemTwoEnabledMutation,
 };
