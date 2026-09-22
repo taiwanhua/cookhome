@@ -46,6 +46,8 @@ describe("mock 開發模式的假世界", () => {
       "Me",
       "OrgTree",
       "Org",
+      "OrgMembers",
+      "OrgMemberCandidates",
       "Users",
       "User",
       "Roles",

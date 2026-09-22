@@ -127,7 +127,42 @@
       "logoAlt": "Logo of {name}",
       "owner": "Owner",
       "ownerHidden": "(You cannot view user records, so the owner's name is hidden.)",
-      "none": "—"
+      "none": "—",
+      "tabs": {
+        "label": "Organization tabs",
+        "detail": "Details",
+        "members": "Members"
+      }
+    },
+    "members": {
+      "title": "{name} — Members",
+      "hint": "Only people who belong directly to this organization are listed; members of sub-organizations are shown in user management. To move someone out of an organization, use \"Member organizations\" in user management.",
+      "add": "Add members",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "none": "—",
+      "empty": "This organization has no members yet",
+      "total": "{total} in total, {pageSize} per page",
+      "tableLabel": "Organization member list",
+      "columns": {
+        "name": "Name",
+        "account": "Account",
+        "status": "Status",
+        "otherOrgs": "Other member organizations"
+      }
+    },
+    "addMembers": {
+      "title": "Add members — {name}",
+      "label": "Users",
+      "searchPlaceholder": "Name, account or email",
+      "candidate": "{account} · {name} ({orgs})",
+      "hint": "You can add users within your managed scope who do not belong to this organization yet; existing members are not listed.",
+      "picked": "{count} selected",
+      "empty": "No matching users",
+      "noOrg": "—",
+      "loading": "Searching",
+      "confirm": "Add",
+      "cancel": "Cancel"
     },
     "actions": {
       "edit": "Edit",

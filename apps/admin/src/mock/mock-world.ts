@@ -22,6 +22,8 @@ import { moduleAdminTree } from "@/test/msw/module-admin-fixtures";
 import { moduleAdminWorld } from "@/test/msw/module-manager-handlers";
 import {
   orgDetails,
+  orgMemberCandidates,
+  orgMembersByOrg,
   rootTree,
   tenantModuleOptions,
   tenantTree,
@@ -111,6 +113,8 @@ export const mockHandlers = ({
       orgWorld({
         orgTree,
         orgs: orgDetails,
+        members: orgMembersByOrg,
+        memberCandidates: orgMemberCandidates,
         moduleOptions: tenantModuleOptions,
       }).handlers,
       ["Users"],

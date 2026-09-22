@@ -167,3 +167,52 @@ mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
     }
   }
 }
+
+# --- 成員頁籤(#377;權限 system.org-manager.view-members / .add-members) ---
+# 清單是這個組織**自己**的成員(org_user 直接關聯),不含下層組織的成員 ——
+# 「加入成員」加的就是一筆直接關聯,列表要跟它對得起來;要看整棵子樹是使用者管理的 users。
+# otherOrgs = 這位成員在本組織以外的所屬組織,只列操作者管理範圍內的(範圍外不露名稱也不露 id)。
+fragment OrgMemberFields on OrgMember {
+  id
+  account
+  name
+  enabled
+  otherOrgs {
+    id
+    name
+  }
+}
+
+query OrgMembers($orgId: ID!, $input: OrgMembersInput!) {
+  orgMembers(orgId: $orgId, input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      ...OrgMemberFields
+    }
+  }
+}
+
+# 「加入成員」彈窗的候選:管理範圍內、**尚未加入**這個組織的使用者。
+# 守在 add-members 底下,不借 users —— 借了會讓這個彈窗連帶需要 system.user-manager.view(#246)。
+query OrgMemberCandidates($orgId: ID!, $input: OrgMembersInput!) {
+  orgMemberCandidates(orgId: $orgId, input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      ...OrgMemberFields
+    }
+  }
+}
+
+# 增量加入(不是全量覆蓋);已經是成員的回在 skippedUserIds(冪等,不報錯)。
+# 寫入與稽核沿用使用者管理的所屬組織那一支(user.add-org);移除成員仍走使用者管理的「選擇所屬組織」。
+# 成功後要把 orgMembers / orgMemberCandidates 都失效重查
+mutation AddOrgMembers($input: AddOrgMembersInput!) {
+  addOrgMembers(input: $input) {
+    addedUserIds
+    skippedUserIds
+  }
+}

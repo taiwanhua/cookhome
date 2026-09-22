@@ -70,6 +70,16 @@ type EditableField = (typeof EDITABLE_FIELDS)[number];
 type UserRecord = Persisted<UserDocument>;
 type RoleRecord = Persisted<RoleDocument>;
 
+/**
+ * `addOrgs`(增量加入所屬組織)的結果:實際加進去的、與「本來就已經是成員」被略過的。
+ * 對外的 GraphQL 形狀是組織管理那一側的 `AddOrgMembersPayload`
+ * (`apps/api/src/orgs/models/org-member.model.ts`,#377)。
+ */
+export interface AddOrgsResult {
+  addedUserIds: string[];
+  skippedUserIds: string[];
+}
+
 function uniqueIds(ids: readonly string[]): string[] {
   return [...new Set(ids)];
 }
@@ -457,6 +467,61 @@ export class UsersService {
       removedOrgs,
       unqualifiedRoles,
       revokedRoleIds,
+    };
+  }
+
+  /**
+   * 所屬組織的**增量加入**:組織管理的「加入成員」(#377)走這一支,
+   * 不在組織那一側另寫一套寫入 —— 被改的是使用者的所屬組織,正本就該在這裡。
+   * 與 `setOrgs` 共用同一組資格判斷(組織經 `assertOrgsManaged`、使用者經 `loadManagedUser`,
+   * 兩邊都必須在操作者的**管理範圍**內)與同一筆稽核動作 `user.add-org`。
+   *
+   * **`setOrgs` 的三件事在這裡都不成立,所以不做**:最後一個所屬組織(`LAST_ORG`)、
+   * 擁有者保護(ADR-0009 擋的是「移出」,加入一直是允許的)、失去資格的角色 dry-run ——
+   * 只加不減,既有授予只會多拿到子樹支撐,不會失去(ADR-0003)。
+   * 已經是成員的略過(冪等),回報在 `skippedUserIds`。
+   */
+  async addOrgs(
+    operator: OperatorContext,
+    input: { orgId: string; userIds: readonly string[] },
+  ): Promise<AddOrgsResult> {
+    const orgId = toObjectId(input.orgId, "orgId");
+    await this.assertOrgsManaged(operator, [orgId]);
+    const userIds = uniqueIds(input.userIds);
+    if (userIds.length === 0) {
+      return { addedUserIds: [], skippedUserIds: [] };
+    }
+    const users = await Promise.all(
+      userIds.map((id) => this.loadManagedUser(operator, id)),
+    );
+    const existing = await this.relations.listLinks("org_user", {
+      firstIds: [orgId],
+      secondIds: users.map((user) => user._id),
+    });
+    const members = new Set(existing.map((link) => String(link.secondId)));
+    const toAdd = users.filter((user) => !members.has(String(user._id)));
+    await this.relations.linkMany(
+      operator,
+      toAdd.map((user) => ({
+        type: "org_user" as const,
+        firstId: orgId,
+        secondId: user._id,
+      })),
+    );
+    // 稽核逐人一筆(targetId = 被加入的那位使用者),與使用者管理的「加入所屬組織」同形
+    for (const user of toAdd) {
+      await this.audit.record(operator, {
+        action: "user.add-org",
+        targetType: "user",
+        targetId: user._id,
+        after: { orgIds: [String(orgId)] },
+      });
+    }
+    return {
+      addedUserIds: toAdd.map((user) => String(user._id)),
+      skippedUserIds: users
+        .filter((user) => members.has(String(user._id)))
+        .map((user) => String(user._id)),
     };
   }
 

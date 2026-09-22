@@ -283,10 +283,10 @@ describe("seeds/registry.ts 靜態檢查", () => {
       "demo.sample-two.edit-page",
     ]);
 
-    // 正本:示範家族兩份權限表(7 + 5)+ docs/modules/org-manager.md(10)、user-manager.md(8)、
+    // 正本:示範家族兩份權限表(7 + 5)+ docs/modules/org-manager.md(12)、user-manager.md(8)、
     // role-manager.md(7)、module-manager.md(3)、field-manager.md(4)、data-scope.md(2)
     const individualKeys = permissionKeys.filter((key) => !key.endsWith(".*"));
-    expect(individualKeys).toHaveLength(46);
+    expect(individualKeys).toHaveLength(48);
     expect(new Set(individualKeys)).toEqual(
       new Set([
         "demo.sub.sample-one.view",
@@ -307,6 +307,9 @@ describe("seeds/registry.ts 靜態檢查", () => {
         "system.org-manager.toggle-enabled",
         "system.org-manager.move",
         "system.org-manager.delete",
+        // 組織詳情的「成員」頁籤(#377;移除成員仍走使用者管理的「選擇所屬組織」)
+        "system.org-manager.view-members",
+        "system.org-manager.add-members",
         // 2026-09-19 從 tenant-ops 搬到組織管理層(#187 / ADR-0005:租戶自己的資料政策)
         "system.org-manager.set-visibility",
         "system.org-manager.tenant-ops.provision",
@@ -346,7 +349,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(new Set(permissionKeys.filter((key) => key.endsWith(".*")))).toEqual(
       new Set(moduleKeys.map((key) => `${key}.*`)),
     );
-    expect(permissionKeys).toHaveLength(66);
+    expect(permissionKeys).toHaveLength(68);
 
     // D1:治理模組 key 累加 system 群組前綴;tenant-ops 是組織管理底下的純權限容器
     expect(moduleKeys.filter((key) => key.startsWith("system"))).toEqual([

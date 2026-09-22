@@ -29,6 +29,17 @@ export type Scalars = {
   JSONObject: { input: Record<string, unknown>; output: Record<string, unknown>; }
 };
 
+export type AddOrgMembersInput = {
+  orgId: Scalars['ID']['input'];
+  userIds: Array<Scalars['ID']['input']>;
+};
+
+export type AddOrgMembersPayload = {
+  __typename?: 'AddOrgMembersPayload';
+  addedUserIds: Array<Scalars['ID']['output']>;
+  skippedUserIds: Array<Scalars['ID']['output']>;
+};
+
 export type AssignUserRolesInput = {
   roleIds: Array<Scalars['ID']['input']>;
   userId: Scalars['ID']['input'];
@@ -523,6 +534,7 @@ export type MoveOrgInput = {
 
 export type Mutation = {
   __typename?: 'Mutation';
+  addOrgMembers: AddOrgMembersPayload;
   assignUserRoles: UserPayload;
   changePassword: ChangePasswordPayload;
   createChildOrg: OrgPayload;
@@ -569,6 +581,11 @@ export type Mutation = {
   updateOrg: OrgPayload;
   updateRole: RolePayload;
   updateUser: UserPayload;
+};
+
+
+export type MutationAddOrgMembersArgs = {
+  input: AddOrgMembersInput;
 };
 
 
@@ -799,6 +816,36 @@ export type Org = {
   visibility?: Maybe<OrgVisibility>;
 };
 
+export type OrgMember = {
+  __typename?: 'OrgMember';
+  account: Scalars['String']['output'];
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  otherOrgs: Array<OrgMemberOrg>;
+};
+
+export type OrgMemberOrg = {
+  __typename?: 'OrgMemberOrg';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type OrgMembersInput = {
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type OrgMembersPayload = {
+  __typename?: 'OrgMembersPayload';
+  items: Array<OrgMember>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
 export type OrgNode = {
   __typename?: 'OrgNode';
   children: Array<OrgNode>;
@@ -866,6 +913,8 @@ export type Query = {
   me: Me;
   moduleTree: Array<ModuleAdminNode>;
   org: Org;
+  orgMemberCandidates: OrgMembersPayload;
+  orgMembers: OrgMembersPayload;
   orgTree: Array<OrgNode>;
   recipe: Recipe;
   recipes: Array<Recipe>;
@@ -922,6 +971,18 @@ export type QueryFieldsArgs = {
 
 export type QueryOrgArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type QueryOrgMemberCandidatesArgs = {
+  input: OrgMembersInput;
+  orgId: Scalars['ID']['input'];
+};
+
+
+export type QueryOrgMembersArgs = {
+  input: OrgMembersInput;
+  orgId: Scalars['ID']['input'];
 };
 
 
@@ -1753,6 +1814,31 @@ export type SetOrgVisibilityMutationVariables = Exact<{
 
 export type SetOrgVisibilityMutation = { __typename?: 'Mutation', setOrgVisibility: { __typename?: 'OrgPayload', org: { __typename?: 'Org', id: string, visibility?: OrgVisibility | null } } };
 
+export type OrgMemberFieldsFragment = { __typename?: 'OrgMember', id: string, account: string, name: string, enabled: boolean, otherOrgs: Array<{ __typename?: 'OrgMemberOrg', id: string, name: string }> };
+
+export type OrgMembersQueryVariables = Exact<{
+  orgId: Scalars['ID']['input'];
+  input: OrgMembersInput;
+}>;
+
+
+export type OrgMembersQuery = { __typename?: 'Query', orgMembers: { __typename?: 'OrgMembersPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'OrgMember', id: string, account: string, name: string, enabled: boolean, otherOrgs: Array<{ __typename?: 'OrgMemberOrg', id: string, name: string }> }> } };
+
+export type OrgMemberCandidatesQueryVariables = Exact<{
+  orgId: Scalars['ID']['input'];
+  input: OrgMembersInput;
+}>;
+
+
+export type OrgMemberCandidatesQuery = { __typename?: 'Query', orgMemberCandidates: { __typename?: 'OrgMembersPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'OrgMember', id: string, account: string, name: string, enabled: boolean, otherOrgs: Array<{ __typename?: 'OrgMemberOrg', id: string, name: string }> }> } };
+
+export type AddOrgMembersMutationVariables = Exact<{
+  input: AddOrgMembersInput;
+}>;
+
+
+export type AddOrgMembersMutation = { __typename?: 'Mutation', addOrgMembers: { __typename?: 'AddOrgMembersPayload', addedUserIds: Array<string>, skippedUserIds: Array<string> } };
+
 export type RecipesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -2017,6 +2103,18 @@ export const OrgNodeFieldsFragmentDoc = `
   enabled
   outOfScope
   ownerUserId
+}
+    `;
+export const OrgMemberFieldsFragmentDoc = `
+    fragment OrgMemberFields on OrgMember {
+  id
+  account
+  name
+  enabled
+  otherOrgs {
+    id
+    name
+  }
 }
     `;
 export const RoleFieldsFragmentDoc = `
@@ -3694,6 +3792,107 @@ export const useSetOrgVisibilityMutation = <
 
 
 useSetOrgVisibilityMutation.fetcher = (client: GraphQLClient, variables: SetOrgVisibilityMutationVariables, headers?: RequestInit['headers']) => fetcher<SetOrgVisibilityMutation, SetOrgVisibilityMutationVariables>(client, SetOrgVisibilityDocument, variables, headers);
+
+export const OrgMembersDocument = `
+    query OrgMembers($orgId: ID!, $input: OrgMembersInput!) {
+  orgMembers(orgId: $orgId, input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      ...OrgMemberFields
+    }
+  }
+}
+    ${OrgMemberFieldsFragmentDoc}`;
+
+export const useOrgMembersQuery = <
+      TData = OrgMembersQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: OrgMembersQueryVariables,
+      options?: Omit<UseQueryOptions<OrgMembersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<OrgMembersQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<OrgMembersQuery, TError, TData>(
+      {
+    queryKey: ['OrgMembers', variables],
+    queryFn: fetcher<OrgMembersQuery, OrgMembersQueryVariables>(client, OrgMembersDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useOrgMembersQuery.getKey = (variables: OrgMembersQueryVariables) => ['OrgMembers', variables];
+
+
+useOrgMembersQuery.fetcher = (client: GraphQLClient, variables: OrgMembersQueryVariables, headers?: RequestInit['headers']) => fetcher<OrgMembersQuery, OrgMembersQueryVariables>(client, OrgMembersDocument, variables, headers);
+
+export const OrgMemberCandidatesDocument = `
+    query OrgMemberCandidates($orgId: ID!, $input: OrgMembersInput!) {
+  orgMemberCandidates(orgId: $orgId, input: $input) {
+    totalCount
+    page
+    pageSize
+    items {
+      ...OrgMemberFields
+    }
+  }
+}
+    ${OrgMemberFieldsFragmentDoc}`;
+
+export const useOrgMemberCandidatesQuery = <
+      TData = OrgMemberCandidatesQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: OrgMemberCandidatesQueryVariables,
+      options?: Omit<UseQueryOptions<OrgMemberCandidatesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<OrgMemberCandidatesQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<OrgMemberCandidatesQuery, TError, TData>(
+      {
+    queryKey: ['OrgMemberCandidates', variables],
+    queryFn: fetcher<OrgMemberCandidatesQuery, OrgMemberCandidatesQueryVariables>(client, OrgMemberCandidatesDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useOrgMemberCandidatesQuery.getKey = (variables: OrgMemberCandidatesQueryVariables) => ['OrgMemberCandidates', variables];
+
+
+useOrgMemberCandidatesQuery.fetcher = (client: GraphQLClient, variables: OrgMemberCandidatesQueryVariables, headers?: RequestInit['headers']) => fetcher<OrgMemberCandidatesQuery, OrgMemberCandidatesQueryVariables>(client, OrgMemberCandidatesDocument, variables, headers);
+
+export const AddOrgMembersDocument = `
+    mutation AddOrgMembers($input: AddOrgMembersInput!) {
+  addOrgMembers(input: $input) {
+    addedUserIds
+    skippedUserIds
+  }
+}
+    `;
+
+export const useAddOrgMembersMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<AddOrgMembersMutation, TError, AddOrgMembersMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<AddOrgMembersMutation, TError, AddOrgMembersMutationVariables, TContext>(
+      {
+    mutationKey: ['AddOrgMembers'],
+    mutationFn: (variables?: AddOrgMembersMutationVariables) => fetcher<AddOrgMembersMutation, AddOrgMembersMutationVariables>(client, AddOrgMembersDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useAddOrgMembersMutation.fetcher = (client: GraphQLClient, variables: AddOrgMembersMutationVariables, headers?: RequestInit['headers']) => fetcher<AddOrgMembersMutation, AddOrgMembersMutationVariables>(client, AddOrgMembersDocument, variables, headers);
 
 export const RecipesDocument = `
     query Recipes {

@@ -1,7 +1,7 @@
 # 組織管理(技術)
 
 - **模組 key**:`system.org-manager`
-- **畫面**:Figma「Screen / Admin 組織管理」(根組織視角 87:3、租戶視角 92:694)+ 彈窗:開通租戶 88:146(含開放模組勾選區 202:351)、新增子組織 202:404、編輯組織 88:167、停用確認 88:200;**撤銷開通的按鈕與確認彈窗(87:2 動作列)尚未進設計稿**,由主流程補畫(#374 票面)
+- **畫面**:Figma「Screen / Admin 組織管理」(根組織視角 87:3、租戶視角 92:694)+ 彈窗:開通租戶 88:146(含開放模組勾選區 202:351)、新增子組織 202:404、編輯組織 88:167、停用確認 88:200;**撤銷開通的按鈕與確認彈窗(87:2 動作列)、詳情的「成員」頁籤(#377)尚未進設計稿**,由主流程補畫(#374 / #377 票面)
 - **相關 ADR**:[0005 多租戶隔離](../adr/0005-multi-tenant-isolation.md)、[0009 租戶開通](../adr/0009-tenant-provisioning.md)、[0010 儲存與寄信](../adr/0010-file-storage-and-email.md)、[0004 權限模型](../adr/0004-permission-model.md)
 - **資料**:`orgs`(`ancestors` 物化路徑、`settings.visibility` 可見範圍、`logoPath` 商標、`ownerUserId` 租戶擁有者)、`core_relationships`(`org_user`)、`audit_logs`
 - **使用者說明**:[system.org-manager.help.md](../../apps/admin/src/md/module-help/system.org-manager.help.md)
@@ -27,6 +27,8 @@
 | `system.org-manager.toggle-enabled`              | 「停用 / 啟用」按鈕 + API:連動整棵子樹                                                                                                                              |
 | `system.org-manager.move`                        | 「搬移」動作 + API:改上層組織,限同一租戶(以 `ancestors` 驗證),跨租戶拒                                                                                              |
 | `system.org-manager.delete`                      | 「刪除」按鈕 + API:前置檢查通過才可(見流程)                                                                                                                         |
+| `system.org-manager.view-members`                | 組織詳情的「成員」頁籤 + API(`orgMembers`):看這個組織**自己**的成員(#377)                                                                                           |
+| `system.org-manager.add-members`                 | 「加入成員」按鈕 + API(`orgMemberCandidates` / `addOrgMembers`):把管理範圍內的使用者加進這個組織;**移除不在這裡**(#377)                                             |
 | `system.org-manager.set-visibility`              | 編輯**自己租戶的頂層**時的「使用者可見下層組織資料」開關 + API(`settings.visibility`,ADR-0005);租戶管理員模板含此權限,根組織亦可(2026-09-19 從 tenant-ops 搬到這層) |
 | `system.org-manager.tenant-ops.provision`        | 根組織:「開通租戶」按鈕 + API(ADR-0009 四步 + 擁有者 + 啟用信)                                                                                                      |
 | `system.org-manager.tenant-ops.revoke-provision` | 根組織:租戶頂層的「撤銷開通」按鈕 + API(反向抹掉開通建出的三樣;與開通分開兩筆權限,風險等級不同)                                                                     |
@@ -47,6 +49,10 @@
 **搬移**:在編輯彈窗的「上層組織」下拉改上層;候選 = **管理範圍內、同租戶、且不在自己這棵子樹裡**的全部組織(租戶內的人管理範圍本來就在租戶內;根組織要另外擋跨租戶,ADR-0009);不能搬進自己的子樹是防環。租戶頂層不可搬。下拉文案用白話:「可以搬到你管理範圍內的任何組織底下,除了它自己和它底下的組織」。搬移後整棵子樹的 `ancestors` 重算。
 
 **刪除**:租戶頂層只有根組織能刪;前置檢查全部通過才可:無子組織、無成員(`org_user`)、不是任何角色的擁有組織、無業務資料引用。任一不通過 → 提示改用停用。刪除 = 軟刪除(ADR-0007)。
+
+**成員**(#377):組織詳情右側的第二個頁籤,列**這個組織自己的成員**(`org_user` 直接關聯),欄位為姓名、帳號、狀態、其他所屬組織。「加入成員」以多選的使用者選單一次把多位**管理範圍內、尚未加入**的使用者加進來;送出等同於「對每個人的所屬組織加一筆」,所以走的是使用者管理那一支寫入(資格與審計同源,見下方 api 介面)。**沒有「移除成員」**:移除所屬組織會牽動失去資格的角色與 dry-run 三檔(ADR-0003),入口維持使用者管理的「選擇所屬組織」彈窗一處 —— 同一個行為只留一個入口。頁籤只在持 `view-members` 時出現(不是「出現但停用」:頁籤不是一個動作)。
+
+> **「成員」與使用者管理的清單不是同一份**:這裡是**直接成員**(加入成員加的就是這一筆關聯),使用者管理的 `users(input:{orgId})` 是**該組織子樹的成員**。兩邊的數字對不起來是對的,不是 bug。
 
 > **開錯的租戶走「撤銷開通」,不走刪除**:租戶頂層一定有成員(擁有者)、一定是租戶管理員副本的擁有組織,所以刪除的前置永遠過不了;而要先把擁有者移出去又卡在擁有者保護(ADR-0009)與「使用者至少要有一個所屬組織」(`docs/modules/user-manager.md`「所屬組織」)。兩條規則互相咬住的結果是「開錯只能停用、清不掉」,因此另開一個根組織專屬的反向動作,見下一節。
 
@@ -85,6 +91,25 @@ deleteOrg(input: { id }): DeletePayload!
 - **「無業務資料引用」的清單**= 目前有 `orgId` 的業務 collection:`customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)。`audit_logs` 不算(只增不改的歷史紀錄)。第 5 段示範模組長出新 collection 時在 `orgs.service.ts` 的 `hasBusinessData()` 加一項。
 - **`OWNS_ROLES` 只算存活的角色**(#246):角色被軟刪除時 `org_role` 關聯刻意不動(ADR-0007 / ADR-0001),所以只看關聯會把「角色都刪光了」的組織永遠判成不可刪。前置檢查改以 `roles` 文件為準(軟刪除的預設查不到),程式正本 `orgs.service.ts` 的 `ownsAliveRole()`。
 - 錯誤碼:`ORG_NOT_DELETABLE`(`extensions.reasons`:`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG`)、`PROVISION_NOT_REVOKABLE`(撤銷開通前置未過,`extensions.reasons` 同上那組語彙,#374)、`CROSS_TENANT`、`CYCLIC_MOVE`、`NOT_FOUND`、`VALIDATION_FAILED`、`FORBIDDEN`(GQL-04 表)。
+
+## api 介面:成員頁籤(#377 已實作,程式在 `apps/api/src/orgs/org-members.*.ts`)
+
+```graphql
+orgMembers(orgId: ID!, input: { page, pageSize, keyword }): OrgMembersPayload!          # 這個組織自己的成員
+orgMemberCandidates(orgId: ID!, input: { page, pageSize, keyword }): OrgMembersPayload! # 尚未加入的可見使用者
+addOrgMembers(input: { orgId, userIds }): AddOrgMembersPayload!                         # { addedUserIds, skippedUserIds }
+```
+
+- **清單是直接成員,不含下層組織的成員**:「加入成員」加的就是一筆 `org_user`,列表要跟它對得起來;要看整棵子樹的是使用者管理的 `users(input:{orgId})`(`docs/modules/user-manager.md`「清單範圍」)。
+- **`OrgMember.otherOrgs`** = 這位成員**在本組織以外**的所屬組織,只列操作者**管理範圍**內的(範圍外不露名稱也不露 id,同 `RoleUser.orgs`)。候選清單沿用同一個型別,候選本來就不在本組織裡,所以那裡等於他全部的所屬組織 —— 語意仍是「本組織以外的」。
+- **兩個 query 共用 `OrgMembersInput` 與 `OrgMembersPayload`**:兩邊的列完全同形,差別只在「已在這個組織」還是「還沒在」,再宣告一組只是多兩個名字。`orgId` 是**獨立參數不進 input**(GQL-03:清單掛在某個實體底下時,那個實體的 id 是獨立參數;先例 `roleUsers`)—— 票面寫的 `orgMembers(input: { orgId, … })` 是 spec 簡寫,實作照 GQL-03。
+- **候選守在 `add-members` 底下,不借 `users`**:借了會讓「加入成員」彈窗連帶需要 `system.user-manager.view`,能管組織的人卻打不開它(#246 在角色那邊踩過同一個坑),而且排不掉已經是成員的人。
+- **寫入沿用使用者管理的所屬組織那一支**:`addOrgMembers` 只負責把「組織在不在管理範圍內」翻成 `NOT_FOUND`,實際寫入、資格判斷(組織與使用者都必須在管理範圍內)與稽核都在 `UsersService.addOrgs`(`apps/api/src/users/users.service.ts`)。**不另寫一套** —— 被改的是使用者的所屬組織,正本就該在那裡。
+- **`setUserOrgs` 的三件事在加入時都不成立,因此不做**:最後一個所屬組織(`LAST_ORG`)、擁有者保護(ADR-0009 擋的是「移出」,加入一直是允許的)、失去資格的角色 dry-run —— 只加不減,既有授予只會多拿到子樹支撐,不會失去(ADR-0003)。
+- **已是成員的略過(冪等)**:不報錯、不重複稽核,回在 `skippedUserIds`;`addedUserIds` 是這次真的加進去的。**`userIds` 裡有一個查不到(管理範圍外)就整批 `NOT_FOUND`、一個都不寫入**。
+- **`AddOrgMembersPayload` 不回清單**:分頁與關鍵字都在前端手上,加完本來就要把 `orgMembers` / `orgMemberCandidates` 失效重查,把一頁塞進 mutation 的回傳只會有兩份可能不一致的真相(與 `grantRoleUsers` 回整份清單的先例不同,那是早期的寫法)。
+- 錯誤碼:`NOT_FOUND`(組織或使用者不在管理範圍內,不透露差別)、`VALIDATION_FAILED`(`orgId` 不是合法 id)、`FORBIDDEN`(沒有那筆權限,由 `@RequirePermission` 擋)。沒有本節專屬的新碼。
+- **Nest 模組是獨立的一個薄模組** `OrgMembersModule`(`apps/api/src/orgs/org-members.module.ts`):寫入正本在 `UsersService`,而 `UsersModule` 已經 import `OrgsModule`(擁有者保護住在 `orgs/`),掛回 `OrgsModule` 會造出模組環。檔案照樣放在 `orgs/` —— 它是組織管理模組的一頁。
 
 ## api 介面:租戶作業(#135 已實作,程式在 `apps/api/src/orgs/tenant-ops.*.ts`)
 
@@ -163,10 +188,24 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
   搜尋與無障礙名稱不受影響。`OrgTreePicker`(#139 起共用)多一個 `labelSuffixOf` 把它接出來。
 - **成功後失效三把**:`orgTree`、被改到的那一筆 `org(id)`、以及 `me` — 側欄的租戶識別讀
   `me.currentOrg.logoUrl`(有商標顯示商標圖、沒有才顯示組織名),改完商標不重取 `me` 就不會更新。
+- **資料區自 #377 起有頁籤**(`@repo/ui/tabs`,同角色管理的頁內頁籤):「組織資料」與「成員」。
+  **頁籤只在持 `view-members` 時整列出現** —— 沒有那筆權限的人看到的就是 #377 之前的樣子
+  (直接是組織資料),不是「出現但停用」:頁籤不是一個動作,給了空頁籤只會讓人困惑。
+  頁籤狀態**不進 URL**(REACT-02 第 2 點的 admin 例外),換組織時以 `key={org.id}` 整個重來 ——
+  分頁與已選的人不該跟著跑到別的組織。動作列(編輯 / 停用 / 刪除 / 撤銷開通)維持在頁籤**之上**,
+  它們是對整個組織的動作,不屬於任一頁籤。
+- **「加入成員」的候選用 `orgMemberCandidates`,不是 `users`**(#377):彈窗的 `Autocomplete`
+  多選,**關鍵字丟回 api 查**(候選有分頁上限,前端手上不會是全量),所以走 `onInputChange` ——
+  給了它 Autocomplete 就不再自己過濾一次,否則打第一個字就把「還沒換過來的那批 options」濾成空的
+  (#307 在角色的「加入使用者」踩過)。加完之後 `orgMembers` 與 `orgMemberCandidates` 兩把都要失效。
+- **成員頁籤沒有「移除」**:規則見上方「畫面與流程」的成員段 —— 移除所屬組織牽動 dry-run 三檔,
+  入口維持使用者管理一處。
 - **設計稿差異**:Figma 的資料區有「建立時間」一列,`org(id)` 沒有這個欄位,故未做;
   可見範圍在 Figma 是核取方塊,依本檔與 ADR-0005 的說法改用開關(`Switch`)。
 
 ## 審計(ADR-0004:由模組層寫 `audit_logs`)
+
+**例外:「加入成員」寫的是 `user.add-org`**(#377):被改的是**使用者的所屬組織**,所以稽核跟著使用者走(`targetType = "user"`、`targetId` = 被加入的那位,每人一筆),與使用者管理的「選擇所屬組織」同一個 action —— 不另開 `org.add-members`,否則同一件事在稽核裡有兩種名字。
 
 本模組每個會改資料的動作都寫一筆:`action` = 權限 key 的動作段前加模組簡稱(`org.provision`、`org.revoke-provision`、`org.create-child`、`org.edit`、`org.toggle-enabled`、`org.move`、`org.delete`、`org.transfer-owner`、`org.set-visibility`),`targetType = "org"`,`targetId` = 被操作的組織,`before` / `after` 只放有變的欄位;`orgId` = 動作發生的組織脈絡(操作者的當前組織)。
 
