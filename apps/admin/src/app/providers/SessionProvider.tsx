@@ -5,6 +5,8 @@ import { SessionContext } from "@/hooks/useSession";
 import type { AuthSession } from "@/lib/auth/session";
 import { useSessionStore } from "@/stores/useSessionStore";
 
+import { MultiTabSession } from "./MultiTabSession/MultiTabSession";
+
 export interface SessionProviderProps {
   session: AuthSession;
   children: ReactNode;
@@ -13,8 +15,10 @@ export interface SessionProviderProps {
 /**
  * 登入狀態的 React 入口(注入 `AuthSession` 實例;狀態本體在 `useSessionStore`):
  * - 開機時用 refresh cookie 換票(重新整理後 30 天內不必重登)
- * - 監聽其他分頁的登出廣播
  * - 狀態變成未登入時清掉 react-query 快取(`me` 等不留給下一個人)
+ *
+ * 分頁之間的同步(其他分頁登出 / 登入了別的帳號)在 `MultiTabSession`(#375) —— 它要用到 `me` 與導向,
+ * 所以掛在 context 裡面、與頁面同層。
  */
 export const SessionProvider = ({
   session,
@@ -26,14 +30,6 @@ export const SessionProvider = ({
   useEffect(() => {
     void session.restore();
   }, [session]);
-
-  useEffect(
-    () =>
-      session.channel.onLogout(() => {
-        session.store.getState().clear();
-      }),
-    [session],
-  );
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -51,6 +47,7 @@ export const SessionProvider = ({
   return (
     <SessionContext.Provider value={session}>
       {children}
+      <MultiTabSession />
     </SessionContext.Provider>
   );
 };

@@ -30,9 +30,39 @@ front 的 RSC 不能用 hooks,用 codegen 的 fetcher(現有範例:`apps/front/s
 const { recipes } = await useRecipesQuery.fetcher(graphqlClient)();
 ```
 
-## DATA-04 mutation 成功後精準 invalidate
+## DATA-04 mutation 成功後:先寫回傳的 payload,再精準 invalidate
 
-用 DATA-02 的 getKey 逐一標明受影響的查詢;禁止整站 refetch 或重新整理頁面來「同步資料」。
+**兩步,順序固定**(2026-09-23 / #372 改寫;原條文只有第 (b) 步,結果是「儲存完畫面閃一下舊值」):
+
+- **(a) 寫**:用 mutation 回傳的 payload `setQueryData` **同 key 的單筆 / 矩陣查詢**(key 一律取
+  DATA-02 的 getKey)。payload 與該查詢同形就整份覆寫;只回部分欄位就**併進**快取裡既有那一筆
+  (`setQueryData(key, (current) => current === undefined ? undefined : { ...merge })` ——
+  回 `undefined` 代表快取裡還沒有那一筆,不要憑空造一筆半成品出來)。
+- **(b) 失效**:再用 getKey 逐一標明受影響的**清單**與**單筆**。清單的 key 帶分頁 / 篩選時,
+  取 getKey 的第一段當前綴 + `exact: false`,一次掃掉各頁各篩選。
+
+**沒有 payload 可寫**(如 `delete`、回 `{ success }` 的端點)時只做 (b),但**單筆也要失效**,
+不能只失效清單。
+
+禁止整站 refetch 或重新整理頁面來「同步資料」。
+
+### 為什麼 (a) 不能省
+
+只做 (b) 時,從 invalidate 到重取回來之間畫面還是**舊快取**,使用者看得到:
+
+- 權限矩陣儲存後「閃一下」:本地草稿一丟掉,勾選立刻退回儲存前那一份,等重取回來才變新的。
+- 編輯送出回列表、馬上再進編輯頁看到舊值(單筆查詢的元件已經掛好、初始值只取一次,
+  之後重取回來也不會再帶進表單)。
+
+所以**寫入端要負責把新值交給快取**,invalidate 只是「順便跟伺服器對一次帳」。
+
+### 順序上的兩個坑
+
+1. **先 `setQueryData` 再丟掉本地草稿**(反過來就是上面那個「閃一下」)。
+2. **改到的是登入者自己時,連 `me` 一起失效**:`me` 的 `staleTime` 是 Infinity(DATA-01),
+   不主動失效永遠不會更新 —— 所屬組織、角色、姓名、模組與權限都在它裡面,
+   側欄 / AppBar 的「當前組織」直接讀它。先例:`useUserManagerData` 的 `invalidate`、
+   `useOrgManagerData`、`useModuleManagerData`。
 
 ## DATA-05 端點走環境變數
 

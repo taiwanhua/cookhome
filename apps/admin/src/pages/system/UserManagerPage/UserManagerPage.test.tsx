@@ -130,6 +130,36 @@ describe("使用者管理頁(/system/user-manager)", () => {
     );
   });
 
+  /**
+   * #372:改的是**登入者自己**的所屬組織時,`me` 也要失效 —— AppBar 的「當前組織」
+   * 可切換清單讀的就是 `me.orgs`,而它的 `staleTime` 是 Infinity,不主動失效就不會更新。
+   */
+  it("改自己的所屬組織後,AppBar 的「當前組織」清單跟著更新", async () => {
+    const meOrgs = [{ id: "org-tenant", name: "租戶 A" }];
+    const { user: actor, fake } = renderPage({ meOrgs });
+
+    await screen.findByText("何家華");
+    // 操作者是清單上的「小華」(`me.id` 同為 user-1)
+    await actor.click(
+      within(rowOf("小華")).getByRole("button", { name: "所屬組織" }),
+    );
+    await actor.click(await orgCheckboxOf("內容組"));
+
+    // api 那邊也把自己加進去了(兩個 world 各自獨立,`me` 這份要自己補)
+    meOrgs.push({ id: "org-content", name: "內容組" });
+    await actor.click(screen.getByRole("button", { name: "確定" }));
+
+    await waitFor(() => {
+      expect(fake.inputs.setUserOrgs).toHaveLength(1);
+    });
+    expect(fake.inputs.setUserOrgs[0]?.userId).toBe("user-1");
+
+    await actor.click(screen.getByRole("combobox", { name: "當前組織" }));
+    expect(
+      await screen.findByRole("option", { name: "內容組" }),
+    ).toBeInTheDocument();
+  });
+
   it("非擁有者的所屬組織彈窗沒有鎖住的節點", async () => {
     const { user: actor } = renderPage();
 
@@ -186,6 +216,31 @@ describe("使用者管理頁(/system/user-manager)", () => {
     expect(await screen.findByLabelText("身分證(選填)")).toHaveValue(
       "A123456789",
     );
+  });
+
+  /**
+   * #373:性別欄原本是裸 `Select`,只掛 `aria-label` —— 畫面上那一格沒有欄位名,
+   * 和同列的「暱稱」對不起來(Figma 202:734 是有浮動標籤的下拉)。
+   */
+  it("性別欄比照其他欄位有看得見的標籤,選項選得動", async () => {
+    const { user: actor } = renderPage();
+
+    await screen.findByText("王小明");
+    await actor.click(
+      within(rowOf("王小明")).getByRole("button", { name: "編輯" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    /*
+     * 「性別」要在畫面上看得到 —— 改之前只有 `aria-label`,這裡一個都找不到。
+     * 外框式欄位的標籤文字會出現兩份(浮動標籤 + 外框缺口的 legend),所以用 getAllByText。
+     */
+    expect(within(dialog).getAllByText("性別").length).toBeGreaterThan(0);
+
+    await actor.click(within(dialog).getByLabelText("性別"));
+    await actor.click(await screen.findByRole("option", { name: "女" }));
+
+    expect(within(dialog).getByLabelText("性別")).toHaveTextContent("女");
   });
 
   it("沒有 show-national-id 時編輯彈窗不渲染身分證欄", async () => {

@@ -26,9 +26,21 @@
 2. 人 review 測試 = 驗收介面與行為設計
 3. 通過後才實作到綠燈
 
-## TEST-05 E2E 刻意少
+## TEST-05 劇本 E2E 只手動跑,不進每個 PR 的 CI(2026-09-23 改寫,#378)
 
-Playwright 只覆蓋關鍵流程(如:瀏覽食譜、新增食譜);其他行為交給元件/整合測試。E2E 慢且脆,數量是成本。
+Playwright 的用途收斂成一件事:把 `docs/testing/permission-scenarios.md` 的 **17 條權限劇本**從人工驗收
+改成機器裁決。**原本這條寫的是「E2E 刻意少」** —— 理由是「E2E 慢且脆,數量是成本」;那個顧慮沒有消失,
+只是解法從「少寫」換成「**寫了但不自動跑**」:
+
+- **跑的時機只有手動觸發**:本機 `pnpm e2e`、CI 是 `.github/workflows/e2e.yml`(只有 `workflow_dispatch`)。
+  `ci.yml` **不引用** e2e —— 一條劇本要 build api + admin、起 Mongo、migrate + seed 再開瀏覽器,
+  放進每個 PR 會把免費方案的 Actions 額度吃光。
+- **什麼時候該手動跑一次**:改到權限解析、模組樹 / 路由防守、示範模組、角色矩陣的票,交件前跑一次
+  (`gh workflow run e2e.yml --ref <分支>`),把 run 連結附在 PR 上。
+- **劇本以外的行為不寫 E2E**:一般頁面行為交給 admin 的元件測試(TEST-08)、api 的整合測試(TEST-07)。
+  E2E 仍然是最貴的那一層,「數量是成本」這件事沒變。
+
+寫法見 TEST-11;harness 與跑法見 `apps/e2e/README.md`。
 
 ## TEST-06 測試檔與受測物同層
 
@@ -132,6 +144,31 @@ pnpm --filter @repo/admin dev:mock     # http://localhost:3002
 
 - **優先假時鐘 + 精確相等**:`jest.useFakeTimers({ now })` 固定時間,斷言 `expiresAt.getTime()` 等於 `now + TTL`,`finally` 裡 `jest.useRealTimers()` 收尾。前提是受測路徑沒有非同步計時器(`await` 走 promise microtask,不受假時鐘影響;有真計時器才會卡住)
 - **否則用呼叫後的時間夾上界**:`expect(ttl).toBeLessThanOrEqual(TTL + (Date.now() - before))`,別用固定容差硬湊
+
+## TEST-11 劇本 E2E 的寫法:前置走 api、UI 只走要驗的那一段、一劇本一 spec(2026-09-23,#378)
+
+`apps/e2e` 的三條硬約定,新增劇本時照做:
+
+- **前置一律走 api,不要用畫面去鋪資料**。開通租戶、建組織 / 使用者 / 角色、調權限矩陣、建業務資料
+  全部用 GraphQL(`src/fixtures/api.ts`,原生 `fetch`;codegen 產物是 React Query hooks,Node 裡沒有
+  對應的執行環境)。用畫面鋪前置的代價是:**劇本會因為別條路徑的 UI 改動而紅**,而那不是它要驗的東西。
+- **UI 只跑「預期」在講的那幾步**。`permission-scenarios.md` 每條劇本都寫了「用哪一頁 / 哪個帳號 /
+  步驟 / 預期」,spec 的步驟註解照那份的步驟編號寫;文件說「這一條由 api 測試覆蓋」的(如劇本 5 的
+  硬送寫入)就在 spec 裡直接打 api 斷言錯誤碼,不要硬用畫面演。
+- **一條劇本一個 spec**,檔名 `scenario-<兩位數>-<主題>.spec.ts`,測試標題以「劇本 N:」開頭
+  (手動觸發時的 `grep` 就是比對標題)。
+
+另外三件踩過的:
+
+- **隔離靠租戶,不靠資料庫**。`tenant` fixture 每條劇本開一個新租戶(名稱帶隨機字尾),
+  租戶本來就是產品的隔離邊界(ADR-0005);這比「一劇本一個資料庫」便宜太多 ——
+  後者等於每條劇本各起一座 api。
+- **定位優先用畫面上唯一的字串**。權限矩陣每一列列尾都印著權限 key(全樹唯一),
+  拿它定位比拿中文名稱穩;`.MuiTreeItem-content` 只含自己那一列(子列在自己的 `ul` 裡)。
+- **改完權限之後要整頁重載**。`me`(模組與權限)是 App 掛載時查的,react-query 會快取;
+  `page.goto(...)` 是完整導覽,會重查 —— 不必重新登入(refresh cookie 還在)。
+  **admin 與 api 要用同一個主機名**:cookie 是 `SameSite=Lax`,`localhost` 與 `127.0.0.1`
+  對瀏覽器是兩個站台,混用會讓換票整個失效。
 
 ## 已知偶發(CI 紅先對這裡)
 

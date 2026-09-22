@@ -107,8 +107,8 @@ export const waitForTree = async () => {
 };
 
 /**
- * 點一個節點。MUI 的樹**點內容區等於同時選取與展開 / 收合**,
- * 所以點過的節點會收起來 — 不要在點完某個節點之後再去找它的子節點。
+ * 點一個節點 = **只有選取**(`Tree` 自 #373 起 `expansionTrigger="iconContainer"`,
+ * 展開 / 收合只認名稱前面的箭頭),所以點過的節點不會收起來,子節點照樣找得到。
  */
 export const clickNode = async (
   actor: { click: (element: Element) => Promise<void> },

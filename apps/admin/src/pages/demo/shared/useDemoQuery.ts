@@ -52,6 +52,32 @@ export const useDemoRows = <Variables, Data, Row>(
 };
 
 /**
+ * 寫入成功後的快取維護(DATA-04 的兩步)。設定物件的 `useSave` 在 mutation 的 `onSuccess`
+ * 呼叫這一個,把回傳的 payload 交出來:
+ *
+ * (a) 先用 payload `setQueryData` 同 key 的**單筆**查詢 —— 不做這一步的話,儲存完回列表、
+ *     馬上再進編輯頁看到的是舊值(快取還在,重取要等一個來回才回來,#372 劇本 5);
+ * (b) 再失效**清單**(各頁各篩選:取 codegen key 的第一段當前綴,DATA-02)與單筆。
+ *
+ * payload 與單筆查詢同形(兩邊同一個 fragment),所以是整份覆寫而不是合併。
+ */
+export const useDemoItemCache = <Variables, Data>(
+  useItemQuery: DemoQueryHook<Variables, Data>,
+  listKeyPrefix: readonly unknown[],
+): ((variables: Variables, data: Data) => void) => {
+  const queryClient = useQueryClient();
+  return (variables, data) => {
+    const itemKey = useItemQuery.getKey(variables);
+    queryClient.setQueryData(itemKey, data);
+    void queryClient.invalidateQueries({
+      queryKey: listKeyPrefix,
+      exact: false,
+    });
+    void queryClient.invalidateQueries({ queryKey: itemKey });
+  };
+};
+
+/**
  * 沒給 `useSetEnabled` 的模組用的替身:同形、什麼都不做。
  * hook 不能條件呼叫,所以「有沒有這個選配」不能寫成 `if`,要換成一支恆呼叫的替身。
  */

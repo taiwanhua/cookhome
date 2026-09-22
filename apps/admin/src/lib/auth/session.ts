@@ -6,7 +6,11 @@ import {
 
 import { createAuthFetch } from "./auth-fetch";
 import { authErrorCodeOf } from "./graphql-errors";
-import { type SessionChannel, createSessionChannel } from "./session-channel";
+import {
+  type SessionChannel,
+  type SessionIdentity,
+  createSessionChannel,
+} from "./session-channel";
 import type { SessionStore } from "./session-store";
 
 export interface AuthSession {
@@ -25,6 +29,11 @@ export interface AuthSession {
   refresh: () => Promise<string>;
   /** 開機:記憶體沒 token 時用 cookie 換票;成功或失敗都會把 status 從 booting 移走 */
   restore: () => Promise<void>;
+  /**
+   * 宣告「這個分頁現在是誰」(#375):`me` 查到登入者後由 `MultiTabSession` 呼叫。
+   * 與上次宣告的是同一個人就不廣播;換人(登入、或跟著別的分頁換帳號)才發 `login` 給其他分頁。
+   */
+  announce: (identity: SessionIdentity) => void;
   /** 本分頁登出:清狀態並廣播給其他分頁(api 的 logout 由呼叫端先打) */
   signOut: () => void;
   /** 釋放 BroadcastChannel(卸載時) */
@@ -42,6 +51,8 @@ export const createAuthSession = (
   });
 
   let inflightRefresh: Promise<string> | null = null;
+  /** 這個分頁最後一次對外宣告的登入者;用來去重廣播,也讓登出時帶得出 userId */
+  let identity: SessionIdentity | null = null;
 
   const refresh = (): Promise<string> => {
     inflightRefresh ??= useRefreshMutation
@@ -86,9 +97,17 @@ export const createAuthSession = (
     client,
     refresh,
     restore,
+    announce: (next) => {
+      if (identity?.id === next.id) {
+        return;
+      }
+      identity = next;
+      channel.postLogin(next);
+    },
     signOut: () => {
       store.getState().clear();
-      channel.postLogout();
+      channel.postLogout(identity?.id ?? null);
+      identity = null;
     },
     dispose: () => {
       channel.close();

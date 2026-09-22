@@ -187,7 +187,8 @@ export class UsersService {
       throw validationError("At least one member org is required", ["orgIds"]);
     }
     await this.assertOrgsManaged(operator, orgIds);
-    if (input.nationalId !== undefined) {
+    // 新增時 `null` 與缺席同義(見 `optional`),沒帶值就不必要求欄位級權限
+    if (input.nationalId !== undefined && input.nationalId !== null) {
       await this.assertCanEditNationalId(operator);
     }
     const roleIds = uniqueIds(input.roleIds ?? []).map((id) =>
@@ -262,10 +263,14 @@ export class UsersService {
       if (given === undefined) {
         continue;
       }
+      // 缺席 = 不動、`null` = 清空(GQL-06);清空落庫寫 `null` 而不是 `$unset`(ADR-0002)。
+      // 必填欄位送 `null` 與送空字串同義 —— 一律 VALIDATION_FAILED,不會把姓名清掉。
       const value = isRequiredField(field)
-        ? requireText(given, field)
-        : given.trim();
-      if (value === (user[field] ?? "")) {
+        ? requireText(given ?? "", field)
+        : (given?.trim() ?? null);
+      // 「沒填」有三種長相(欄位不存在 / `null` / 空字串),比對前一律收斂成空字串,
+      // 否則把本來就空的欄位再清一次會白寫一筆稽核
+      if ((value ?? "") === (user[field] ?? "")) {
         continue;
       }
       before[field] = user[field] ?? null;
@@ -989,11 +994,18 @@ function requireText(value: string, field: string): string {
   return trimmed;
 }
 
+/**
+ * 新增時的選填欄位。**缺席與 `null` 同義**(都是「沒填」)—— 新增沒有「既有值要清掉」
+ * 這回事,寫一個 `null` 進去只是多一個空欄位,所以兩者一律不落庫(#372;
+ * 編輯端的 `null` = 清空見 `update`)。
+ */
 function optional<TKey extends string>(
   key: TKey,
-  value: string | undefined,
+  value: string | null | undefined,
 ): Record<TKey, string> | Record<string, never> {
-  return value === undefined ? {} : ({ [key]: value } as Record<TKey, string>);
+  return value === undefined || value === null
+    ? {}
+    : ({ [key]: value } as Record<TKey, string>);
 }
 
 /** radio 三檔 → 實際要解除的授予(ADR-0003);擁有者保護的那筆永遠留著。 */

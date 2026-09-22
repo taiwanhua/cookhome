@@ -1,8 +1,11 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
+  type OrgQuery,
   useMoveOrgMutation,
+  useOrgQuery,
   useSetOrgVisibilityMutation,
   useTransferOrgOwnerMutation,
   useUpdateOrgMutation,
@@ -65,6 +68,7 @@ export const EditOrgDialog = ({
   const tActions = useTranslations("admin.orgManager.actions");
   const tErrors = useTranslations("admin.orgManager.errors");
   const { session } = useSession();
+  const queryClient = useQueryClient();
   const form = useEditOrgForm(org);
   const { uploadLogo, isUploading } = useLogoUpload();
 
@@ -89,7 +93,7 @@ export const EditOrgDialog = ({
         const logoPath = form.isLogoTouched
           ? await uploadLogo(form.logoFile)
           : undefined;
-        await updateOrg.mutateAsync({
+        const payload = await updateOrg.mutateAsync({
           input: {
             id: org.id,
             name: form.name.trim(),
@@ -98,6 +102,19 @@ export const EditOrgDialog = ({
             ...(logoPath === undefined ? {} : { logoPath }),
           },
         });
+        /**
+         * DATA-04 的 (a) 步:把回傳的欄位併進 `org(id)` 的快取,再由 `onSaved` 失效
+         * 樹 / 單筆 / `me`。不寫的話,右邊的詳情面板與「再開一次編輯」在重取回來之前
+         * 都還是舊名稱(#372)。payload 只有 `name` / `description` / `logoUrl`,
+         * 所以是**併進**既有那一筆;快取裡沒有那一筆就什麼都不做。
+         */
+        queryClient.setQueryData<OrgQuery>(
+          useOrgQuery.getKey({ id: org.id }),
+          (current) =>
+            current === undefined
+              ? undefined
+              : { org: { ...current.org, ...payload.updateOrg.org } },
+        );
       }
       if (changes.hasMove) {
         await moveOrg.mutateAsync({

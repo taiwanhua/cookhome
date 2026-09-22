@@ -2,6 +2,7 @@
   "extends": ["//"],
   "tasks": {
     "build": {
+      "env": ["VITE_GRAPHQL_ENDPOINT"],
       "outputs": ["dist/**"]
     },
     "test": {}

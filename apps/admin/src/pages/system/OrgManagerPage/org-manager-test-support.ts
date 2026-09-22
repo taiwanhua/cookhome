@@ -42,6 +42,7 @@ export const OWN_PERMISSIONS = [
 /** 根組織專屬(隱藏的 `tenant-ops` 模組);租戶管理員模板永遠拿不到。 */
 export const TENANT_OPS_PERMISSIONS = [
   ORG_MANAGER_PERMISSIONS.provision,
+  ORG_MANAGER_PERMISSIONS.revokeProvision,
   ORG_MANAGER_PERMISSIONS.transferOwner,
 ];
 
@@ -157,8 +158,8 @@ export const waitForTree = async () => {
 };
 
 /**
- * 點一個節點。MUI 的樹**點內容區等於同時選取與展開 / 收合**(預設的 expansionTrigger),
- * 所以點過的節點會收起來 — 測試不要在點完某個節點之後再去找它的子節點。
+ * 點一個節點 = **只有選取**(`Tree` 自 #373 起 `expansionTrigger="iconContainer"`,
+ * 展開 / 收合只認名稱前面的箭頭),所以點過的節點不會收起來,子節點照樣找得到。
  */
 export const clickNode = async (
   actor: { click: (element: Element) => Promise<void> },

@@ -121,11 +121,21 @@ const tenantB = {
   name: "租戶 B",
   tenantTop: { id: "org-tenant-b", name: "租戶 B" },
 };
+/** 租戶 A 底下的一個部門 —— 租戶頂層與擁有組織不同的那一種(#372)。 */
+const salesOfA = {
+  id: "org-sales-a",
+  name: "租戶 A 業務部",
+  tenantTop: { id: "org-tenant-a", name: "租戶 A" },
+};
 
 /**
  * 套用對象「指定角色」的清單(`roles` query;擁有組織在管理範圍內)。
+ *
  * 刻意放兩個同名的「租戶管理員」分屬兩個租戶 —— 這正是 #261 的 8 要解決的情形:
- * 根組織視角下只看角色名稱完全分不出來,要靠「名稱 — 擁有組織」與租戶分組。
+ * 根組織視角下只看角色名稱完全分不出來,要靠「名稱 — 擁有組織」與分組。
+ *
+ * **順序刻意是亂的、而且擁有組織不等於租戶頂層**(#372):`api` 回的順序裡同一個擁有組織
+ * 的角色被別的組織隔開,選單若不先排序,MUI 的 `groupBy` 會讓同一個標題出現兩次。
  */
 export const dataScopeRoles: TestRole[] = [
   {
@@ -139,6 +149,30 @@ export const dataScopeRoles: TestRole[] = [
     isTemplateCopy: false,
     userCount: 2,
     ownerOrg: tenantA,
+  },
+  {
+    id: "role-admin-b",
+    name: "租戶管理員",
+    description: null,
+    enabled: true,
+    kind: RoleKind.TemplateCopy,
+    abilities: TEMPLATE_COPY_ABILITIES,
+    isSystem: false,
+    isTemplateCopy: true,
+    userCount: 1,
+    ownerOrg: tenantB,
+  },
+  {
+    id: "role-auditor",
+    name: "稽核",
+    description: null,
+    enabled: true,
+    kind: RoleKind.Custom,
+    abilities: CUSTOM_ABILITIES,
+    isSystem: false,
+    isTemplateCopy: false,
+    userCount: 0,
+    ownerOrg: salesOfA,
   },
   {
     id: "role-editor",
@@ -163,18 +197,6 @@ export const dataScopeRoles: TestRole[] = [
     isTemplateCopy: true,
     userCount: 1,
     ownerOrg: tenantA,
-  },
-  {
-    id: "role-admin-b",
-    name: "租戶管理員",
-    description: null,
-    enabled: true,
-    kind: RoleKind.TemplateCopy,
-    abilities: TEMPLATE_COPY_ABILITIES,
-    isSystem: false,
-    isTemplateCopy: true,
-    userCount: 1,
-    ownerOrg: tenantB,
   },
 ];
 

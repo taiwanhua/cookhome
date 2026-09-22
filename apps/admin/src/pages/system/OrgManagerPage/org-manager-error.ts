@@ -6,6 +6,7 @@ import { ClientError } from "@repo/graphql";
  */
 export const ORG_MANAGER_ERROR_CODES = [
   "ORG_NOT_DELETABLE",
+  "PROVISION_NOT_REVOKABLE",
   "CROSS_TENANT",
   "CYCLIC_MOVE",
   "NOT_FOUND",
@@ -17,7 +18,11 @@ export const ORG_MANAGER_ERROR_CODES = [
 export type OrgManagerErrorCode =
   (typeof ORG_MANAGER_ERROR_CODES)[number] | "UNEXPECTED";
 
-/** `ORG_NOT_DELETABLE` 的前置檢查項(`extensions.reasons`,逐項顯示成清單)。 */
+/**
+ * `ORG_NOT_DELETABLE` 與 `PROVISION_NOT_REVOKABLE` 共用的前置檢查項
+ * (`extensions.reasons`,逐項顯示成清單)—— api 那邊也是同一組語彙、同一支檢查函式
+ * (`apps/api/src/orgs/org-error.ts`)。
+ */
 export const ORG_NOT_DELETABLE_REASONS = [
   "HAS_CHILDREN",
   "HAS_MEMBERS",
@@ -30,7 +35,7 @@ export type OrgNotDeletableReason = (typeof ORG_NOT_DELETABLE_REASONS)[number];
 
 export interface OrgManagerError {
   code: OrgManagerErrorCode;
-  /** `ORG_NOT_DELETABLE` 時逐項列出為什麼不能刪 */
+  /** `ORG_NOT_DELETABLE` / `PROVISION_NOT_REVOKABLE` 時逐項列出為什麼不行 */
   reasons: OrgNotDeletableReason[];
   /** `VALIDATION_FAILED` 時 api 以 `extensions.fields` 指出不合法的欄位 */
   fields: string[];

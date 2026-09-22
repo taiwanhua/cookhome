@@ -18,6 +18,7 @@ export interface OrgActionAbility {
   canMove: boolean;
   canDelete: boolean;
   canProvision: boolean;
+  canRevokeProvision: boolean;
   canTransferOwner: boolean;
   canSetVisibility: boolean;
 }

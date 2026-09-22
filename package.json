@@ -5,6 +5,7 @@
     "build": "turbo run build",
     "clean": "turbo run clean",
     "dev": "turbo run dev",
+    "e2e": "pnpm --filter @repo/e2e e2e",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,yaml,yml,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,yaml,yml,md}\"",
     "lint": "turbo run lint",

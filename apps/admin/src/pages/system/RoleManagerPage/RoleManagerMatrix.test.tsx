@@ -1,5 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor } from "@testing-library/react";
+import { delay } from "msw";
+
+import { api, server } from "@/test/msw/server";
 
 import {
   matrixCheckbox,
@@ -116,6 +119,30 @@ describe("角色管理:權限矩陣頁籤", () => {
         permissionKeys: [],
       });
     });
+  });
+
+  // #372 劇本 1:儲存後畫面「閃一下」—— 先跳回舊勾選、過一下才變新的。
+  // 這裡把儲存後的矩陣重取**擋住不回**,畫面就只剩快取可用:mutation 的 payload
+  // 沒被寫進 `roleMatrix` 的 key 的話,草稿一丟掉就退回儲存前那一份。
+  it("儲存後不閃舊勾選(矩陣重取還沒回來也一樣)", async () => {
+    const { user: actor } = await openMatrix();
+
+    await actor.click(matrixCheckbox(`新增${SAMPLE_ONE}.create`));
+    expect(matrixCheckbox(`新增${SAMPLE_ONE}.create`)).toBeChecked();
+
+    server.use(
+      api.query("RoleMatrix", async () => {
+        await delay("infinite");
+      }),
+    );
+    await save(actor);
+
+    // 草稿被丟掉(= 儲存成功)之後,勾選狀態仍然是剛存進去的那一份
+    await waitFor(() => {
+      expect(screen.queryByText("有未儲存的變更")).not.toBeInTheDocument();
+    });
+    expect(matrixCheckbox(`新增${SAMPLE_ONE}.create`)).toBeChecked();
+    expect(matrixCheckbox(`檢視${SAMPLE_ONE}.view`)).toBeChecked();
   });
 
   it("有未儲存的變更時切頁籤先問,放棄後才切過去且變更被丟掉", async () => {
