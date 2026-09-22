@@ -25,7 +25,9 @@
     "currentOrg": "當前組織:{org}",
     "noOrg": "尚未加入任何組織",
     "logout": "登出",
-    "logoutAllDevices": "登出所有裝置"
+    "logoutAllDevices": "登出所有裝置",
+    "switchedTabTitle": "帳號已變更",
+    "switchedTab": "已在其他分頁登入為 {name},此分頁將切換"
   },
   "passwordRules": {
     "tooShort": "至少 {min} 碼",

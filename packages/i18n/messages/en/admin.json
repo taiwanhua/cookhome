@@ -25,7 +25,9 @@
     "currentOrg": "Current organization: {org}",
     "noOrg": "Not a member of any organization yet",
     "logout": "Sign out",
-    "logoutAllDevices": "Sign out of all devices"
+    "logoutAllDevices": "Sign out of all devices",
+    "switchedTabTitle": "Account changed",
+    "switchedTab": "Another tab signed in as {name}; this tab will switch over"
   },
   "passwordRules": {
     "tooShort": "At least {min} characters",
