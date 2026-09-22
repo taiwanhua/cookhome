@@ -1,0 +1,76 @@
+name: E2E
+
+# 權限劇本的 E2E(正本:docs/testing/permission-scenarios.md;寫法規範 TEST-05 / TEST-11)。
+# **只有手動觸發,不進 ci.yml**:每條劇本要 build api + admin、起 Mongo、migrate + seed 再開瀏覽器,
+# 放進每個 PR 會把免費方案的 Actions 額度吃光。
+#   UI :GitHub → Actions → E2E → Run workflow → 選分支(+ 可填 grep)
+#   CLI:gh workflow run e2e.yml --ref <分支> -f grep="劇本 7"
+#
+# 這個 workflow **不碰任何真實環境**:資料庫是 job 自己的 service container(拋棄式),
+# 帳密用 apps/e2e/.env.example 的測試值,一個 Secret 都不讀。
+on:
+  workflow_dispatch:
+    inputs:
+      grep:
+        description: "只跑標題符合的劇本(Playwright --grep;留空 = 全部)。例:劇本 7"
+        required: false
+        type: string
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # 版本讀 package.json 的 packageManager 欄位
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # 資料庫走上面的 service container,所以不必下載測試用的 mongod 二進位檔
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+        env:
+          MONGOMS_DISABLE_POSTINSTALL: "1"
+
+      - name: 快取 Playwright 瀏覽器
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # 只裝 chromium(playwright.config.ts 也只宣告這一個 project)
+      - name: 安裝 chromium
+        run: pnpm --filter @repo/e2e exec playwright install --with-deps chromium
+
+      # build api / admin、migrate + seed、起 api 與 admin 都在 globalSetup 裡(apps/e2e/src/harness/stack.ts)
+      - name: 跑劇本
+        run: pnpm e2e
+        env:
+          E2E_MONGODB_URI: mongodb://127.0.0.1:27017/cookhome_e2e
+          E2E_GREP: ${{ inputs.grep }}
+
+      - name: 上傳報告(含失敗時的 trace 與截圖)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/e2e/playwright-report
+            apps/e2e/test-results
+          retention-days: 7
+          if-no-files-found: ignore

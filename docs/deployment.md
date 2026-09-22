@@ -74,6 +74,7 @@ release 後:進行中的 feat 分支 rebase 到最新 main
   - image tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(VITE 端點烘入)
   - **部署成功後自動跑 `migrate → seed`**(ADR-0002):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`;seed 摘要(新增 N / 更新 M / 未變 K)印在 Actions log — 第一次跑應全為新增,之後每次應為 0 / 0 / K。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)
 - **資料庫還原(reset-db.yml)**:同樣只能手動觸發,**只有 dev / staging**(`data` / `full` 兩模式);操作見下面「三、手動操作」的「資料庫還原(reset)」,規則正本是 ADR-0002「還原(reset)」
+- **劇本 E2E(e2e.yml)**:同樣只能手動觸發、**不在 ci.yml 內**(`gh workflow run e2e.yml --ref <分支>`);跑的是拋棄式 service container,不碰任何環境與 Secret。時機與涵蓋範圍見 `docs/standards/testing/testing.md` TEST-05
 - **release 一批一次**:同一批票各自 PR 合進 `dev`、各自 PR 合進 `staging`,**累積成一批之後才走一次 release**(一個 `staging → main` 的 PR + 一次 production 部署);`dev` 的部署也等該批最後一張合完才觸發,不要一張一部署。release 完成後照下面 Release 步驟第 4 點(對齊分支的正本)把 `dev` / `staging` reset 到 `main`。例外只有**產物依賴**(後面的票要拿前面的票已上線的產物才做得下去),這種才單獨先 release 一次
 - **Release 步驟(每次一樣;票的看板狀態見 `docs/agents/issue-tracker.md`)**:
   1. dev 的 CI 綠 → 要上線的 feat 分支**逐一** PR 合進 `staging`(PR 內文帶 `Refs #票號`,自動化才移卡);合完 `git diff --stat origin/dev origin/staging` 應為空

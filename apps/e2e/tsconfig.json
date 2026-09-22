@@ -1,0 +1,10 @@
+{
+  "extends": "@repo/typescript-config/base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    // Playwright 的 `page.evaluate` 在 TypeScript 眼裡是瀏覽器程式碼,需要 DOM 的型別
+    "lib": ["ES2024", "DOM"]
+  },
+  "include": ["src", "playwright.config.ts"],
+  "exclude": ["node_modules"]
+}

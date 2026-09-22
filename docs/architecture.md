@@ -5,13 +5,14 @@
 
 ## Apps
 
-| App                 | 技術                                                             | 用途                                                             | Port |
-| ------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------- | ---- |
-| `@repo/api`         | NestJS + GraphQL(Apollo/Express, code-first)+ Mongoose + MongoDB | 後端 API,front 與 admin 都打這個服務                             | 5001 |
-| `@repo/front`       | Next.js(App Router)                                              | 前台。SEO 頁面走 Server Component + ISR,不使用 Next API Routes   | 3002 |
-| `@repo/admin`       | Vite + React SPA                                                 | 後台管理,不需 SEO                                                | 3001 |
-| `@repo/storybook`   | Storybook(react-vite)                                            | 設計系統目錄 + Palette Lab;stories 檔案住在 `packages/ui`        | 6006 |
-| `@repo/db-migrator` | migrate-mongo + seed runner                                      | 資料庫遷移與種子工具,不部署不常駐;CI 於部署 api 後呼叫(ADR-0002) | —    |
+| App                 | 技術                                                             | 用途                                                                                                                                                                    | Port              |
+| ------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `@repo/api`         | NestJS + GraphQL(Apollo/Express, code-first)+ Mongoose + MongoDB | 後端 API,front 與 admin 都打這個服務                                                                                                                                    | 5001              |
+| `@repo/front`       | Next.js(App Router)                                              | 前台。SEO 頁面走 Server Component + ISR,不使用 Next API Routes                                                                                                          | 3002              |
+| `@repo/admin`       | Vite + React SPA                                                 | 後台管理,不需 SEO                                                                                                                                                       | 3001              |
+| `@repo/storybook`   | Storybook(react-vite)                                            | 設計系統目錄 + Palette Lab;stories 檔案住在 `packages/ui`                                                                                                               | 6006              |
+| `@repo/db-migrator` | migrate-mongo + seed runner                                      | 資料庫遷移與種子工具,不部署不常駐;CI 於部署 api 後呼叫(ADR-0002)                                                                                                        | —                 |
+| `@repo/e2e`         | Playwright(只裝 chromium)                                        | 權限劇本的 E2E(`docs/testing/permission-scenarios.md`);不部署,**只手動觸發**(`pnpm e2e` / `e2e.yml`,TEST-05);harness 自己起 Mongo → migrate + seed → api → admin 靜態檔 | 5101 / 4301(可改) |
 
 workspace 套件名一律 `@repo/` 前綴(規則 GEN-06)。
 
