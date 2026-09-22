@@ -3,6 +3,7 @@ import { screen } from "@testing-library/react";
 import { ModuleSidebarType, RoleKind } from "@repo/graphql";
 
 import {
+  type TestOrg as TestMeOrg,
   type TestModule,
   authWorld,
   overviewModule,
@@ -219,9 +220,16 @@ export const defaultUsers = [operator, owner, ming, ...fillers];
 export const renderPage = ({
   permissions = ALL_PERMISSIONS,
   world = {},
+  meOrgs,
 }: {
   permissions?: readonly string[];
   world?: UserWorldOptions;
+  /**
+   * 登入者自己的所屬組織(`me.orgs`,AppBar 的「當前組織」可切換清單)。
+   * **傳進來的陣列就是 handler 回的那一份**,測試在流程中間 `push` 一筆,
+   * 下一次重取 `me` 就看得到 —— 兩個 world 各自獨立,`setUserOrgs` 不會動到 `me`(#372)。
+   */
+  meOrgs?: TestMeOrg[];
 } = {}) => {
   const fake = userWorld({
     users: defaultUsers,
@@ -230,14 +238,13 @@ export const renderPage = ({
     rootOrg: tenantRootOrg,
     ...world,
   });
-  server.use(
-    ...fake.handlers,
-    ...authWorld({
-      hasRefreshCookie: true,
-      modules: modulesWith(permissions),
-    }).handlers,
-  );
-  return { ...renderApp({ path: "/system/user-manager" }), fake };
+  const auth = authWorld({
+    hasRefreshCookie: true,
+    modules: modulesWith(permissions),
+    ...(meOrgs === undefined ? {} : { orgs: meOrgs }),
+  });
+  server.use(...fake.handlers, ...auth.handlers);
+  return { ...renderApp({ path: "/system/user-manager" }), fake, auth };
 };
 
 export const rowOf = (name: string) =>

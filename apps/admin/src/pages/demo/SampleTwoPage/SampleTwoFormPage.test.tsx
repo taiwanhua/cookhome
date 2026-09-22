@@ -1,8 +1,12 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
+import { delay } from "msw";
+
+import { api, server } from "@/test/msw/server";
 
 import {
   SAMPLE_TWO_ROUTES,
+  findSampleTwoRowOf,
   renderSampleTwo,
 } from "../demo-sample-two-test-support";
 
@@ -86,6 +90,37 @@ describe("示範模組2 的新增 / 編輯(共版型)", () => {
       name: "對照組項目A(改)",
       note: "沒有分類、沒有狀態的對照資料",
     });
+  });
+
+  // #372 劇本 5:儲存後回列表、馬上再進編輯頁,看到的是舊值(過一陣才對)。
+  // 這裡把儲存後的單筆重取**擋住不回**,畫面就只剩快取可用 ——
+  // `useSave` 沒把回傳的 payload 寫進單筆的 key 的話,看到的會是儲存前那一份。
+  it("儲存後馬上再進編輯頁看到新值(單筆重取還沒回來也一樣)", async () => {
+    const { user: actor, fake } = renderSampleTwo({
+      path: editPath("demo-two-1"),
+    });
+    await screen.findByLabelText("名稱 *");
+
+    await actor.clear(screen.getByLabelText("名稱 *"));
+    await actor.type(screen.getByLabelText("名稱 *"), "對照組項目A(改)");
+    server.use(
+      api.query("DemoItemTwo", async () => {
+        await delay("infinite");
+      }),
+    );
+    await actor.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() => {
+      expect(fake.inputs.updateDemoItemTwo).toHaveLength(1);
+    });
+    // 儲存成功後回列表,清單重取得到新名稱
+    const row = await findSampleTwoRowOf("對照組項目A");
+
+    await actor.click(within(row).getByRole("button", { name: /^編輯/ }));
+
+    expect(await screen.findByLabelText("名稱 *")).toHaveValue(
+      "對照組項目A(改)",
+    );
   });
 
   it("取消:改過就先問一次放棄變更,確認後才離開", async () => {

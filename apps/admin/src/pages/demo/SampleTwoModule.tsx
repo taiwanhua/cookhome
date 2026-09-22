@@ -33,7 +33,11 @@ import type {
   DemoSave,
   DemoSaveOptions,
 } from "./shared/demo-module-config";
-import { useDemoItem, useDemoRows } from "./shared/useDemoQuery";
+import {
+  useDemoItem,
+  useDemoItemCache,
+  useDemoRows,
+} from "./shared/useDemoQuery";
 
 /**
  * 示範模組2 的設定物件 —— **對照組**那一支(#321;介面見 `shared/demo-module-config.ts`,
@@ -77,6 +81,11 @@ const useSampleTwoItem = (id: string, isEnabled: boolean) => {
   >(useDemoItemTwoQuery, variables, (data) => data.demoItemTwo.item, isEnabled);
 };
 
+/** 清單快取的前綴(各頁各關鍵字一次掃掉);分頁參數只是為了湊出 key,取第一段後就不影響。 */
+const SAMPLE_TWO_LIST_KEY_PREFIX = useDemoItemsTwoQuery
+  .getKey({ input: { page: 1, pageSize: SAMPLE_TWO_PAGE_SIZE } })
+  .slice(0, 1);
+
 /** 空字串 → `null`(api 的「沒填」是 null,不是空字串)。 */
 const orNull = (value: string): string | null =>
   value.trim() === "" ? null : value.trim();
@@ -84,6 +93,8 @@ const orNull = (value: string): string | null =>
 /**
  * 送出。缺席 = 不動、`null` = 清空(GQL-06);這一頁的欄位少,所以兩個欄位都明確送值。
  * 沒有檔案欄,所以 `paths` 用不到。
+ *
+ * 成功後先把回傳的那一筆寫進單筆查詢的快取、再失效清單與單筆(DATA-04;`useDemoItemCache`)。
  */
 const useSampleTwoSave = ({
   item,
@@ -91,12 +102,29 @@ const useSampleTwoSave = ({
   onError,
 }: DemoSaveOptions<DemoItemTwoDetail>): DemoSave<SampleTwoFormValues> => {
   const { session } = useSession();
+  const writeItem = useDemoItemCache<
+    DemoItemTwoQueryVariables,
+    DemoItemTwoQuery
+  >(useDemoItemTwoQuery, SAMPLE_TWO_LIST_KEY_PREFIX);
+
   const create = useCreateDemoItemTwoMutation(session.client, {
-    onSuccess,
+    onSuccess: (data) => {
+      writeItem(
+        { id: data.createDemoItemTwo.item.id },
+        { demoItemTwo: data.createDemoItemTwo },
+      );
+      onSuccess();
+    },
     onError,
   });
   const update = useUpdateDemoItemTwoMutation(session.client, {
-    onSuccess,
+    onSuccess: (data) => {
+      writeItem(
+        { id: data.updateDemoItemTwo.item.id },
+        { demoItemTwo: data.updateDemoItemTwo },
+      );
+      onSuccess();
+    },
     onError,
   });
 

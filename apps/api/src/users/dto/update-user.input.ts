@@ -2,7 +2,11 @@ import { Field, ID, InputType } from "@nestjs/graphql";
 
 /**
  * 編輯使用者的基本欄位(user-manager.md「編輯使用者」);
- * 所屬組織與角色各有專用 mutation,不在這裡改。未給的欄位不動。
+ * 所屬組織與角色各有專用 mutation,不在這裡改。
+ *
+ * **缺席 = 不動、`null` = 清空**(GQL-06):選填欄位送 `null` 落庫寫 `null`(ADR-0002);
+ * 必填欄位(`name` / `account` / `email`)送 `null` 與送空字串同義 → `VALIDATION_FAILED`。
+ * 型別要寫成 `string | null`,否則 service 會對 `null` 直接 `.trim()`(#372)。
  */
 @InputType()
 export class UpdateUserInput {
@@ -10,27 +14,27 @@ export class UpdateUserInput {
   id!: string;
 
   @Field(() => String, { nullable: true })
-  name?: string;
+  name?: string | null;
 
   @Field(() => String, { nullable: true })
-  account?: string;
+  account?: string | null;
 
   @Field(() => String, { nullable: true })
-  email?: string;
+  email?: string | null;
 
   @Field(() => String, { nullable: true })
-  nickname?: string;
+  nickname?: string | null;
 
   @Field(() => String, { nullable: true })
-  gender?: string;
+  gender?: string | null;
 
   @Field(() => String, { nullable: true })
-  phone?: string;
+  phone?: string | null;
 
   @Field(() => String, { nullable: true })
-  address?: string;
+  address?: string | null;
 
-  /** 身分證字號:要改須持 `system.user-manager.edit-national-id`(ADR-0007);空字串 = 清除。 */
+  /** 身分證字號:要改須持 `system.user-manager.edit-national-id`(ADR-0007);`null` 或空字串 = 清除。 */
   @Field(() => String, { nullable: true })
-  nationalId?: string;
+  nationalId?: string | null;
 }

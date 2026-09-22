@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
 import {
@@ -47,6 +48,7 @@ export const useRoleMatrix = (
   { canEdit, onSaved }: UseRoleMatrixOptions,
 ) => {
   const { session } = useSession();
+  const queryClient = useQueryClient();
   const [draft, setDraft] = useState<{
     roleId: string;
     grant: PermissionGrant;
@@ -108,6 +110,16 @@ export const useRoleMatrix = (
 
   const save = useSaveRoleMatrixMutation(session.client, {
     onSuccess: (result) => {
+      /**
+       * 先把回傳的矩陣寫進 `roleMatrix` 的快取,再丟掉草稿(DATA-04 的 (a) 步)。
+       * 順序反過來就是驗收看到的「閃一下」(#372):草稿一沒了,`grant` 立刻退回
+       * `saved` —— 那還是**儲存前**的快取,畫面會先跳回舊勾選,等 `onSaved` 失效
+       * 後重取回來才變新的。payload 與 `roleMatrix` 查詢同形,所以整份覆寫即可。
+       */
+      queryClient.setQueryData(
+        useRoleMatrixQuery.getKey({ roleId: result.saveRoleMatrix.role.id }),
+        { roleMatrix: result.saveRoleMatrix },
+      );
       setDraft(null);
       onSaved(result.saveRoleMatrix.role.id);
     },
