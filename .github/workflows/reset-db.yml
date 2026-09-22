@@ -1,0 +1,85 @@
+name: Reset DB
+
+# 驗收重測用的資料庫還原(正本:ADR-0002「還原(reset)」;用法與限制見 docs/deployment.md)。
+# 一律手動觸發:
+#   UI :GitHub → Actions → Reset DB → Run workflow → 選 environment 與 mode
+#   CLI:gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data
+#
+# **沒有 production 選項**:reset 永不對 production 執行。指令端另有三道安全閥
+#(apps/db-migrator/src/reset/reset-safety.ts),就算這裡被改壞也擋得住。
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "還原目標(只有 dev / staging;production 不開放)"
+        required: true
+        type: choice
+        options: [dev, staging]
+      mode:
+        description: "data=只刪人建的資料再補 seed(模組開關 / 圖示保留);full=整庫重建(dropDatabase → migrate → seed)"
+        required: true
+        type: choice
+        options: [data, full]
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation 免金鑰認證
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    # 用 GitHub environment 包起來,日後要加人工審核直接在該 environment 上設 required reviewers
+    environment: ${{ inputs.environment }}
+    steps:
+      # secret 名稱與 deploy.yml 的「環境參數」同一套(mongodb-uri-<env> / root-admin-password-<env>)
+      - name: 環境參數
+        id: cfg
+        run: |
+          case "${{ inputs.environment }}" in
+            dev)
+              echo "secret=mongodb-uri-dev" >> "$GITHUB_OUTPUT"
+              echo "root_secret=root-admin-password-dev" >> "$GITHUB_OUTPUT"
+              ;;
+            staging)
+              echo "secret=mongodb-uri-staging" >> "$GITHUB_OUTPUT"
+              echo "root_secret=root-admin-password-staging" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/728045896207/locations/global/workloadIdentityPools/github/providers/github-oidc
+          service_account: github-deployer@cookhome-online.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - uses: pnpm/action-setup@v4 # 版本讀 package.json 的 packageManager 欄位
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # 只裝 db-migrator 及其依賴;MONGOMS_DISABLE_POSTINSTALL 避免下載測試用的 mongod 二進位檔
+      - name: 安裝 db-migrator 依賴
+        run: pnpm install --frozen-lockfile --filter @repo/db-migrator...
+        env:
+          MONGOMS_DISABLE_POSTINSTALL: "1"
+
+      # --confirm 取自連線字串裡的資料庫名:指令會比對兩者,不符即拒絕(打錯環境就過不了)
+      - name: reset
+        env:
+          ROOT_ADMIN_ACCOUNT: root
+          ROOT_ADMIN_EMAIL: a0987837233@gmail.com
+          RESET_ALLOW_ENV: ${{ inputs.environment }}
+        run: |
+          MONGODB_URI=$(gcloud secrets versions access latest --secret=${{ steps.cfg.outputs.secret }})
+          ROOT_ADMIN_PASSWORD=$(gcloud secrets versions access latest --secret=${{ steps.cfg.outputs.root_secret }})
+          echo "::add-mask::$MONGODB_URI"
+          echo "::add-mask::$ROOT_ADMIN_PASSWORD"
+          export MONGODB_URI ROOT_ADMIN_PASSWORD
+          DB_NAME=$(node -p "decodeURIComponent(new URL(process.env.MONGODB_URI).pathname.slice(1))")
+          echo "::notice::reset --mode=${{ inputs.mode }} --confirm=$DB_NAME(環境:${{ inputs.environment }})"
+          pnpm --filter @repo/db-migrator reset --mode=${{ inputs.mode }} --confirm="$DB_NAME"

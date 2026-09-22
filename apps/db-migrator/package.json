@@ -8,6 +8,7 @@
     "migrate:down": "migrate-mongo down",
     "migrate:status": "migrate-mongo status",
     "seed": "tsx src/seed/run.ts",
+    "reset": "tsx src/reset/run.ts",
     "lint": "eslint src/ seeds/ test/ --max-warnings 0",
     "check-types": "tsc --noEmit",
     "test": "jest --runInBand"

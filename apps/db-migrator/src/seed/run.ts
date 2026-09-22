@@ -5,49 +5,14 @@
  * 最後輸出摘要「新增 N / 更新 M / 未變 K」;重跑第二次應為 0/0/K。
  *
  * 可選第一個參數為 registry 檔路徑(預設 seeds/registry.ts),供測試以夾具 registry 驗證同步行為。
+ * 連線、輸出與 registry 載入的共用部分見 `src/cli.ts`(reset 指令也用同一套)。
  */
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { MongoClient } from "mongodb";
 
-import type { SeedRegistry } from "./seed-declaration";
+import { DEFAULT_REGISTRY_PATH, loadRegistry, print, requireEnv } from "../cli";
 import { formatCounts, runSeeds, sumCounts } from "./seed-runner";
-
-const DEFAULT_REGISTRY_PATH = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "seeds",
-  "registry.ts",
-);
-
-// 指令介面本身就是 stdout/stderr,不經 @repo/logger(那是應用程式的 log 通道)
-const print = (line: string): void => {
-  process.stdout.write(`${line}\n`);
-};
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(
-      `缺少 ${name} 環境變數(需含資料庫名稱,例:mongodb://127.0.0.1:27017/cookhome)`,
-    );
-  }
-  return value;
-}
-
-async function loadRegistry(registryPath: string): Promise<SeedRegistry> {
-  const loaded = (await import(pathToFileURL(registryPath).href)) as {
-    seedRegistry?: unknown;
-  };
-  if (!Array.isArray(loaded.seedRegistry)) {
-    throw new TypeError(
-      `registry 檔須具名匯出 seedRegistry 陣列:${registryPath}`,
-    );
-  }
-  return loaded.seedRegistry as SeedRegistry;
-}
 
 async function main(): Promise<void> {
   const uri = requireEnv("MONGODB_URI");
