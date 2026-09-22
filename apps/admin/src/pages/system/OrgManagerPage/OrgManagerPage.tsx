@@ -1,6 +1,10 @@
 import { useState } from "react";
 
-import { useDeleteOrgMutation, useSetOrgEnabledMutation } from "@repo/graphql";
+import {
+  useDeleteOrgMutation,
+  useRevokeTenantProvisionMutation,
+  useSetOrgEnabledMutation,
+} from "@repo/graphql";
 import { Stack } from "@repo/ui/stack";
 
 import { useSession } from "@/hooks/useSession";
@@ -12,6 +16,7 @@ import { EditOrgDialog } from "./EditOrgDialog/EditOrgDialog";
 import { OrgDetailPanel } from "./OrgDetailPanel/OrgDetailPanel";
 import { OrgTreePanel } from "./OrgTreePanel";
 import { ProvisionTenantDialog } from "./ProvisionTenantDialog/ProvisionTenantDialog";
+import { RevokeProvisionDialog } from "./RevokeProvisionDialog";
 import { ToggleEnabledDialog } from "./ToggleEnabledDialog";
 import { type OrgManagerError, orgManagerErrorOf } from "./org-manager-error";
 import { useMoveTargets } from "./useMoveTargets";
@@ -20,7 +25,13 @@ import { isTenantTop, useTenantOwner } from "./useTenantOwner";
 
 /** 同時只會開一個彈窗;用一個標籤而不是五個布林,避免出現「兩個都開著」的狀態。 */
 type OpenDialog =
-  "createChild" | "edit" | "toggleEnabled" | "delete" | "provision" | null;
+  | "createChild"
+  | "edit"
+  | "toggleEnabled"
+  | "delete"
+  | "provision"
+  | "revokeProvision"
+  | null;
 
 /**
  * 組織管理(模組 key `system.org-manager`,正本 `docs/modules/org-manager.md`;
@@ -61,6 +72,16 @@ export const OrgManagerPage = () => {
   });
 
   const deleteOrg = useDeleteOrgMutation(session.client, {
+    onSuccess: () => {
+      closeDialog();
+      data.selectOrg(null);
+      void data.invalidate();
+    },
+    onError: onActionError,
+  });
+
+  /** 撤銷開通後那一節整個不見了,與刪除一樣要清掉選取再重查整棵樹(#374)。 */
+  const revokeProvision = useRevokeTenantProvisionMutation(session.client, {
     onSuccess: () => {
       closeDialog();
       data.selectOrg(null);
@@ -119,6 +140,15 @@ export const OrgManagerPage = () => {
         onDelete={() => {
           setActionError(null);
           setOpenDialog("delete");
+        }}
+        canRevokeProvision={
+          data.ability.canRevokeProvision &&
+          data.isRootPerspective &&
+          isTenantTop(data.org)
+        }
+        onRevokeProvision={() => {
+          setActionError(null);
+          setOpenDialog("revokeProvision");
         }}
       />
 
@@ -179,6 +209,24 @@ export const OrgManagerPage = () => {
           onConfirm={() => {
             setActionError(null);
             deleteOrg.mutate({ input: { id: data.org?.id ?? "" } });
+          }}
+        />
+      )}
+
+      {openDialog === "revokeProvision" && data.org !== undefined && (
+        <RevokeProvisionDialog
+          org={data.org}
+          ownerAccount={owner.ownerAccount}
+          roleName={owner.tenantAdminRoleName}
+          isSubmitting={revokeProvision.isPending}
+          errorCode={actionError?.code ?? null}
+          reasons={actionError?.reasons ?? []}
+          onCancel={closeDialog}
+          onConfirm={() => {
+            setActionError(null);
+            revokeProvision.mutate({
+              input: { orgId: data.org?.id ?? "" },
+            });
           }}
         />
       )}

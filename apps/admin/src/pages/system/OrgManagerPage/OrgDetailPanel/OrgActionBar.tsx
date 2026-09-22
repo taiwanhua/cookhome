@@ -14,9 +14,15 @@ export interface OrgActionBarProps {
    * （ADR-0009）。同根組織保護的做法：按鈕出現但停用並提示，不是藏起來。
    */
   isTenantTopProtected: boolean;
+  /**
+   * 「撤銷開通」出不出現(#374):持有 `tenant-ops.revoke-provision`、站在根組織視角、
+   * 且選中的是租戶頂層 —— 三者都成立才給按鈕(判斷在 `OrgManagerPage`,這裡只負責畫)。
+   */
+  canRevokeProvision: boolean;
   onEdit: () => void;
   onToggleEnabled: () => void;
   onDelete: () => void;
+  onRevokeProvision: () => void;
 }
 
 /**
@@ -28,9 +34,11 @@ export const OrgActionBar = ({
   org,
   ability,
   isTenantTopProtected,
+  canRevokeProvision,
   onEdit,
   onToggleEnabled,
   onDelete,
+  onRevokeProvision,
 }: OrgActionBarProps) => {
   const t = useTranslations("admin.orgManager.actions");
 
@@ -70,6 +78,18 @@ export const OrgActionBar = ({
             {t("delete")}
           </Button>
         </Tooltip>
+      )}
+      {/* 撤銷開通只在根組織視角 + 租戶頂層時出現(#374);不是「出現但停用」——
+          對非租戶頂層的組織它根本不是一個可想像的動作,給了按鈕只會讓人困惑 */}
+      {canRevokeProvision && (
+        <Button
+          size="small"
+          variant="text"
+          color="error"
+          onClick={onRevokeProvision}
+        >
+          {t("revokeProvision")}
+        </Button>
       )}
     </Stack>
   );

@@ -546,6 +546,7 @@ export type Mutation = {
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
   revokeRoleUsers: RoleUsersPayload;
+  revokeTenantProvision: RevokeTenantProvisionPayload;
   saveDataScopeRule: SaveDataScopeRulePayload;
   saveRoleMatrix: RoleMatrixPayload;
   setDemoItemOneEnabled: DemoItemOnePayload;
@@ -668,6 +669,11 @@ export type MutationRequestPasswordResetArgs = {
 
 export type MutationRevokeRoleUsersArgs = {
   input: RevokeRoleUsersInput;
+};
+
+
+export type MutationRevokeTenantProvisionArgs = {
+  input: RevokeTenantProvisionInput;
 };
 
 
@@ -992,6 +998,18 @@ export type RequestPasswordResetPayload = {
 export type RevokeRoleUsersInput = {
   roleId: Scalars['ID']['input'];
   userIds: Array<Scalars['ID']['input']>;
+};
+
+export type RevokeTenantProvisionInput = {
+  orgId: Scalars['ID']['input'];
+};
+
+export type RevokeTenantProvisionPayload = {
+  __typename?: 'RevokeTenantProvisionPayload';
+  revokedOrgId: Scalars['ID']['output'];
+  revokedOwnerUserId?: Maybe<Scalars['ID']['output']>;
+  revokedRoleId?: Maybe<Scalars['ID']['output']>;
+  success: Scalars['Boolean']['output'];
 };
 
 export type Role = {
@@ -1713,6 +1731,13 @@ export type ProvisionTenantMutationVariables = Exact<{
 
 
 export type ProvisionTenantMutation = { __typename?: 'Mutation', provisionTenant: { __typename?: 'ProvisionTenantPayload', ownerUserId: string, roleId: string, moduleKeys: Array<string>, org: { __typename?: 'Org', id: string, name: string, parentId?: string | null, enabled: boolean, ownerUserId?: string | null, visibility?: OrgVisibility | null, logoUrl?: string | null } } };
+
+export type RevokeTenantProvisionMutationVariables = Exact<{
+  input: RevokeTenantProvisionInput;
+}>;
+
+
+export type RevokeTenantProvisionMutation = { __typename?: 'Mutation', revokeTenantProvision: { __typename?: 'RevokeTenantProvisionPayload', success: boolean, revokedOrgId: string, revokedOwnerUserId?: string | null, revokedRoleId?: string | null } };
 
 export type TransferOrgOwnerMutationVariables = Exact<{
   input: TransferOrgOwnerInput;
@@ -3576,6 +3601,37 @@ export const useProvisionTenantMutation = <
 
 
 useProvisionTenantMutation.fetcher = (client: GraphQLClient, variables: ProvisionTenantMutationVariables, headers?: RequestInit['headers']) => fetcher<ProvisionTenantMutation, ProvisionTenantMutationVariables>(client, ProvisionTenantDocument, variables, headers);
+
+export const RevokeTenantProvisionDocument = `
+    mutation RevokeTenantProvision($input: RevokeTenantProvisionInput!) {
+  revokeTenantProvision(input: $input) {
+    success
+    revokedOrgId
+    revokedOwnerUserId
+    revokedRoleId
+  }
+}
+    `;
+
+export const useRevokeTenantProvisionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RevokeTenantProvisionMutation, TError, RevokeTenantProvisionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RevokeTenantProvisionMutation, TError, RevokeTenantProvisionMutationVariables, TContext>(
+      {
+    mutationKey: ['RevokeTenantProvision'],
+    mutationFn: (variables?: RevokeTenantProvisionMutationVariables) => fetcher<RevokeTenantProvisionMutation, RevokeTenantProvisionMutationVariables>(client, RevokeTenantProvisionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRevokeTenantProvisionMutation.fetcher = (client: GraphQLClient, variables: RevokeTenantProvisionMutationVariables, headers?: RequestInit['headers']) => fetcher<RevokeTenantProvisionMutation, RevokeTenantProvisionMutationVariables>(client, RevokeTenantProvisionDocument, variables, headers);
 
 export const TransferOrgOwnerDocument = `
     mutation TransferOrgOwner($input: TransferOrgOwnerInput!) {

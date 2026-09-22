@@ -24,14 +24,17 @@ import {
 import { ModuleSidebarType } from "../permission/models/me-module.model";
 import { isOwnedUploadPath } from "../storage/storage.service";
 import type { ProvisionTenantInput } from "./dto/provision-tenant.input";
+import type { RevokeTenantProvisionInput } from "./dto/revoke-tenant-provision.input";
 import type { TransferOrgOwnerInput } from "./dto/transfer-org-owner.input";
 import type { Org } from "./models/org.model";
 import type {
   ModuleOption,
   ProvisionTenantPayload,
+  RevokeTenantProvisionPayload,
 } from "./models/tenant-ops.model";
-import { orgError } from "./org-error";
+import { orgError, provisionNotRevokableError } from "./org-error";
 import { type OrgRecord, isTenantTop, toOrg } from "./org-mapper";
+import { OrgsService } from "./orgs.service";
 import {
   OwnerProtectionService,
   TEMPLATE_KEY_SETTING,
@@ -45,6 +48,7 @@ type RoleRecord = Persisted<RoleDocument>;
 const AUDIT_TARGET_TYPE = "org";
 const AUDIT_ACTIONS = {
   provision: "org.provision",
+  revokeProvision: "org.revoke-provision",
   transferOwner: "org.transfer-owner",
 } as const;
 
@@ -180,6 +184,7 @@ export class TenantOpsService {
     private readonly audit: AuditService,
     private readonly passwords: PasswordService,
     private readonly ownerProtection: OwnerProtectionService,
+    private readonly orgsService: OrgsService,
   ) {}
 
   /**
@@ -314,6 +319,70 @@ export class TenantOpsService {
       await this.rollback(operator, created);
       throw error;
     }
+  }
+
+  /**
+   * 撤銷開通(#374,根組織專屬):把 `provision` 建出來的三樣**反向抹掉** —
+   * 租戶頂層組織、擁有者使用者、租戶管理員角色副本,以及三者身上的全部核心關聯。
+   *
+   * **為什麼不是「刪除組織」**:刪除的前置要求「無成員」,而擁有者要能被移出租戶又卡在
+   * 「使用者至少要有一個所屬組織」(`docs/modules/user-manager.md`)與擁有者保護(ADR-0009)—
+   * 兩條規則互相咬住,開錯的租戶只能停用、清不掉。撤銷是**開通的反向動作**:
+   * 連同它自己建出來的擁有者與副本一起收回,所以那兩筆不算「還有別的資料」。
+   *
+   * **前置檢查沿用刪除的同一支函式**(`OrgsService.orgContentReasons`,reasons 語彙相同):
+   * 無子組織 / 除擁有者外無其他成員 / 除副本外無其他擁有角色 / 無業務資料引用;
+   * 任一不過即 `PROVISION_NOT_REVOKABLE` 附 reasons(前端逐項顯示)。
+   *
+   * **抹除沿用開通回滾的同一支函式**(`hardDeleteArtifacts`,`hardDeleteById` 不是軟刪除:
+   * `users` 的 account / email 唯一索引含已軟刪除文件,留殭屍會讓同一組帳號永遠再也開不了 —
+   * 撤銷的重點就是「同一組帳號可以重新開通」)。差別只在錯誤處理:開通回滾吞錯以免蓋掉原始錯誤,
+   * 撤銷沒有原始錯誤,抹除失敗就要讓呼叫端知道。
+   * 審計 `org.revoke-provision`(`audit_logs` 不在抹除範圍,ADR-0004 只增不改)。
+   */
+  async revokeProvision(
+    operator: OperatorContext,
+    input: RevokeTenantProvisionInput,
+  ): Promise<RevokeTenantProvisionPayload> {
+    await this.assertRootOperator(operator, AUDIT_ACTIONS.revokeProvision);
+    const org = await this.requireTenantTop(operator, input.orgId);
+    const ownerUserId = org.ownerUserId;
+    const copy = await this.tenantAdminCopyOf(operator, org);
+
+    const reasons = await this.orgsService.orgContentReasons(operator, org, {
+      ...(ownerUserId === undefined ? {} : { userIds: [ownerUserId] }),
+      ...(copy === null ? {} : { roleIds: [copy._id] }),
+    });
+    if (reasons.length > 0) {
+      throw provisionNotRevokableError(reasons);
+    }
+
+    const artifacts: ProvisionedArtifacts = {
+      links: await this.linksOfProvisionedTenant(org._id, ownerUserId, copy),
+      orgId: org._id,
+      ...(copy === null ? {} : { roleId: copy._id }),
+      ...(ownerUserId === undefined ? {} : { userId: ownerUserId }),
+    };
+    await this.hardDeleteArtifacts(operator, artifacts);
+
+    await this.audit.record(operator, {
+      action: AUDIT_ACTIONS.revokeProvision,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId: org._id,
+      before: {
+        name: org.name,
+        ownerUserId: ownerUserId === undefined ? null : String(ownerUserId),
+        roleId: copy === null ? null : String(copy._id),
+      },
+    });
+
+    return {
+      success: true,
+      revokedOrgId: String(org._id),
+      revokedOwnerUserId:
+        ownerUserId === undefined ? null : String(ownerUserId),
+      revokedRoleId: copy === null ? null : String(copy._id),
+    };
   }
 
   /** 轉移擁有者(ADR-0009:v1 僅根組織可操作);轉移後擁有者保護的對象隨之換人。 */
@@ -535,6 +604,66 @@ export class TenantOpsService {
   }
 
   /**
+   * 這個租戶頂層底下的「租戶管理員副本」(`org_role` 擁有、`settings.templateKey` 標記;
+   * 判準與擁有者保護同一條,ADR-0009 第 2 步)。找不到副本回 null —
+   * 撤銷照樣走得下去,只是少抹一樣(該租戶的副本可能早被刪掉)。
+   *
+   * 副本不只一份時取第一份:多出來的那幾份不在豁免名單內,前置檢查會以 `OWNS_ROLES` 擋下,
+   * 不會被悄悄留下成為孤兒。
+   */
+  private async tenantAdminCopyOf(
+    operator: OperatorContext,
+    org: OrgRecord,
+  ): Promise<RoleRecord | null> {
+    const ownedRoleIds = await this.relations.listRoleIdsOfOrg(org._id);
+    if (ownedRoleIds.length === 0) {
+      return null;
+    }
+    const owned = await this.roles.findMany(operator, {
+      _id: { $in: ownedRoleIds },
+    });
+    return (
+      owned.find(
+        (role) => role.settings[TEMPLATE_KEY_SETTING] === TENANT_ADMIN_ROLE_KEY,
+      ) ?? null
+    );
+  }
+
+  /**
+   * 要一起抹掉的核心關聯:**以「被刪的三樣」為端點反查**,不是照開通時的清單重建。
+   * 開通之後可能還長出別的關聯(例如擁有者又被綁了別的角色),照清單重建會留下指向
+   * 已刪除文件的孤兒關聯(ADR-0001:關聯不隨實體連動)。
+   */
+  private async linksOfProvisionedTenant(
+    orgId: Types.ObjectId,
+    ownerUserId: Types.ObjectId | undefined,
+    copy: RoleRecord | null,
+  ): Promise<Omit<RelationLink, "meta">[]> {
+    const userIds = ownerUserId === undefined ? [] : [ownerUserId];
+    const roleIds = copy === null ? [] : [copy._id];
+    const found = await Promise.all([
+      this.relations.listLinks("org_user", { firstIds: [orgId] }),
+      this.relations.listLinks("org_role", { firstIds: [orgId] }),
+      this.relations.listLinks("org_user", { secondIds: userIds }),
+      this.relations.listLinks("user_role", { firstIds: userIds }),
+      this.relations.listLinks("user_role", { secondIds: roleIds }),
+      this.relations.listLinks("org_role", { secondIds: roleIds }),
+      this.relations.listLinks("role_module", { firstIds: roleIds }),
+      this.relations.listLinks("role_permission", { firstIds: roleIds }),
+    ]);
+    const unique = new Map<string, Omit<RelationLink, "meta">>();
+    for (const link of found.flat()) {
+      const { type, firstId, secondId } = link;
+      unique.set(`${type}:${String(firstId)}:${String(secondId)}`, {
+        type,
+        firstId,
+        secondId,
+      });
+    }
+    return [...unique.values()];
+  }
+
+  /**
    * 補償刪除:反向抹掉已建立的東西。回滾自己失敗時只記 log 不蓋掉原始錯誤 —
    * 呼叫端該看到的是「為什麼開通失敗」,殘留資料由 log 交給維運處理。
    */
@@ -543,21 +672,36 @@ export class TenantOpsService {
     created: ProvisionedArtifacts,
   ): Promise<void> {
     try {
-      await this.relations.unlinkMany(operator, created.links);
-      if (created.userId) {
-        await this.users.hardDeleteById(operator, created.userId);
-      }
-      if (created.roleId) {
-        await this.roles.hardDeleteById(operator, created.roleId);
-      }
-      if (created.orgId) {
-        await this.orgs.hardDeleteById(operator, created.orgId);
-      }
+      await this.hardDeleteArtifacts(operator, created);
     } catch (error) {
       this.logger.error(
         `開通租戶回滾失敗,可能留下殘留資料:org=${String(created.orgId)} role=${String(created.roleId)} user=${String(created.userId)}`,
         error instanceof Error ? error.stack : String(error),
       );
+    }
+  }
+
+  /**
+   * 抹掉一組「開通建出來的東西」:關聯 → 使用者 → 角色 → 組織(建立順序的反向)。
+   * **硬刪除**:`users` 的 account / email 唯一索引含已軟刪除的文件,留殭屍會讓同一組帳號
+   * 永遠再也開不了(ADR-0007 的軟刪除針對「還看得到的歷史」,這裡要的是「當作沒發生過」)。
+   *
+   * 開通回滾(`rollback`)與撤銷開通(`revokeProvision`)共用這一支,錯誤處理各自決定:
+   * 回滾吞錯只記 log,撤銷讓錯誤往上丟。
+   */
+  private async hardDeleteArtifacts(
+    operator: OperatorContext,
+    artifacts: ProvisionedArtifacts,
+  ): Promise<void> {
+    await this.relations.unlinkMany(operator, artifacts.links);
+    if (artifacts.userId) {
+      await this.users.hardDeleteById(operator, artifacts.userId);
+    }
+    if (artifacts.roleId) {
+      await this.roles.hardDeleteById(operator, artifacts.roleId);
+    }
+    if (artifacts.orgId) {
+      await this.orgs.hardDeleteById(operator, artifacts.orgId);
     }
   }
 }

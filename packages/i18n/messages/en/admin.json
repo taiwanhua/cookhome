@@ -134,6 +134,7 @@
       "disable": "Disable",
       "enable": "Enable",
       "delete": "Delete",
+      "revokeProvision": "Revoke provisioning",
       "systemOrgHint": "The top-most organization cannot be disabled, moved or deleted",
       "tenantTopHint": "The top-level organization cannot be disabled, moved or deleted from inside the organization; contact your system administrator if you need this"
     },
@@ -186,6 +187,22 @@
         "SYSTEM_ORG": "This is the top-most organization and cannot be deleted"
       }
     },
+    "revoke": {
+      "title": "Revoke provisioning for “{name}”?",
+      "body": "Provisioning is undone in reverse: everything that was created for this tenant is erased for good.",
+      "targets": {
+        "org": "Tenant organization “{name}”",
+        "owner": "Owner account “{account}”",
+        "role": "Role copy “{name}”"
+      },
+      "unknownOwner": "(cannot be shown)",
+      "unknownRole": "(cannot be shown)",
+      "irreversible": "This cannot be undone. The records are erased rather than archived — that is what lets the same account be provisioned again.",
+      "confirmLabel": "Type the tenant name “{name}” to confirm",
+      "confirm": "Revoke provisioning",
+      "blocked": "Provisioning cannot be revoked for this tenant:",
+      "blockedHint": "Revoking is only for a tenant that was provisioned by mistake. Once it holds data of its own, disable it instead."
+    },
     "provision": {
       "title": "Provision tenant",
       "tenantName": "Tenant name",
@@ -199,6 +216,7 @@
     },
     "errors": {
       "ORG_NOT_DELETABLE": "This organization cannot be deleted; disable it instead.",
+      "PROVISION_NOT_REVOKABLE": "This tenant already holds data of its own, so provisioning cannot be revoked.",
       "CROSS_TENANT": "The new parent is not under the same top-level organization, so the move was rejected.",
       "CYCLIC_MOVE": "An organization cannot be moved underneath one of its own descendants.",
       "NOT_FOUND": "This organization does not exist, or is outside your scope.",

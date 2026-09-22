@@ -55,7 +55,7 @@ export const systemModules: ModuleSeedDeclaration = {
       isRootOnly: true,
       icon: "key",
       description:
-        "根組織專屬動作的權限容器:開通租戶、轉移擁有者、設定可見範圍(無路由、不在側欄)",
+        "根組織專屬動作的權限容器:開通租戶、撤銷開通、轉移擁有者(無路由、不在側欄)",
     },
     {
       key: USER_MANAGER_KEY,
@@ -159,6 +159,13 @@ export const systemModules: ModuleSeedDeclaration = {
       moduleKey: TENANT_OPS_KEY,
       name: "開通租戶",
       description: "「開通租戶」按鈕 + API(ADR-0009 四步 + 擁有者 + 啟用信)",
+    },
+    {
+      key: permissionKey(TENANT_OPS_KEY, "revoke-provision"),
+      moduleKey: TENANT_OPS_KEY,
+      name: "撤銷開通",
+      description:
+        "「撤銷開通」按鈕 + API:反向抹掉開通建出的租戶頂層、擁有者帳號、租戶管理員副本(僅限租戶底下沒有其他資料時)",
     },
     {
       key: permissionKey(TENANT_OPS_KEY, "transfer-owner"),

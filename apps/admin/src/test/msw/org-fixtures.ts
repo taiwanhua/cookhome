@@ -120,18 +120,35 @@ export const orgDetails: TestOrg[] = [
   org("org-counter", "A-2-1 門市櫃台", "org-store", { enabled: false }),
 ];
 
-const user = (id: string, name: string, enabled = true): TestOrgUser => ({
+const user = (
+  id: string,
+  name: string,
+  enabled = true,
+  roles: TestOrgUser["roles"] = [],
+): TestOrgUser => ({
   id,
   account: id,
   name,
   email: `${id}@cookhome.online`,
   enabled,
   orgs: [{ id: "org-tenant-a", name: "租戶 A" }],
-  roles: [],
+  roles,
 });
 
+/**
+ * 租戶擁有者持有的「租戶管理員」角色副本(擁有組織 = 租戶頂層,ADR-0009 第 2 步)。
+ * 撤銷開通的確認彈窗靠它列出「會被抹掉的角色名」(#374),不另開端點。
+ */
+const tenantAdminCopy: TestOrgUser["roles"][number] = {
+  id: "role-copy",
+  name: "預設角色",
+  ownerOrgId: "org-tenant-a",
+  ownerOrgName: "租戶 A",
+  outOfScope: false,
+};
+
 export const orgUsers: TestOrgUser[] = [
-  user("user-owner", "何家華"),
+  user("user-owner", "何家華", true, [tenantAdminCopy]),
   user("user-new", "王小明"),
   user("user-off", "離職者", false),
 ];

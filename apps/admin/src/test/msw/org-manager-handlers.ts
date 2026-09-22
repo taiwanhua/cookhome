@@ -9,6 +9,7 @@ import type {
   OrgQueryVariables,
   OrgTreeQuery,
   ProvisionTenantMutationVariables,
+  RevokeTenantProvisionMutationVariables,
   SetOrgEnabledMutationVariables,
   SetOrgVisibilityMutationVariables,
   TenantModuleOptionsQuery,
@@ -38,6 +39,7 @@ export type OrgOperation =
   | "MoveOrg"
   | "DeleteOrg"
   | "ProvisionTenant"
+  | "RevokeTenantProvision"
   | "TransferOrgOwner"
   | "SetOrgVisibility"
   | "CreateUploadUrl";
@@ -68,6 +70,7 @@ export interface OrgWorld {
     moveOrg: MoveOrgMutationVariables["input"][];
     deleteOrg: DeleteOrgMutationVariables["input"][];
     provisionTenant: ProvisionTenantMutationVariables["input"][];
+    revokeTenantProvision: RevokeTenantProvisionMutationVariables["input"][];
     transferOrgOwner: TransferOrgOwnerMutationVariables["input"][];
     setOrgVisibility: SetOrgVisibilityMutationVariables["input"][];
     createUploadUrl: CreateUploadUrlMutationVariables["input"][];
@@ -99,6 +102,7 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
     moveOrg: [],
     deleteOrg: [],
     provisionTenant: [],
+    revokeTenantProvision: [],
     transferOrgOwner: [],
     setOrgVisibility: [],
     createUploadUrl: [],
@@ -237,6 +241,24 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
               ownerUserId: "user-new-admin",
               roleId: "role-copy",
               moduleKeys: input.moduleKeys,
+            },
+          },
+        })
+      );
+    }),
+    api.mutation("RevokeTenantProvision", ({ variables }) => {
+      const { input } = variables as RevokeTenantProvisionMutationVariables;
+      inputs.revokeTenantProvision.push(input);
+      const org = orgOf(input.orgId);
+      return (
+        fail("RevokeTenantProvision") ??
+        HttpResponse.json({
+          data: {
+            revokeTenantProvision: {
+              success: true,
+              revokedOrgId: input.orgId,
+              revokedOwnerUserId: org?.ownerUserId ?? null,
+              revokedRoleId: "role-copy",
             },
           },
         })

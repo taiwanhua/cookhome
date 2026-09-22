@@ -23,9 +23,12 @@ export interface OrgDetailPanelProps {
   ability: OrgActionAbility;
   /** 租戶頂層對租戶內的人:停用 / 刪除 / 搬移停用並提示(ADR-0009) */
   isTenantTopProtected: boolean;
+  /** 根組織視角 + 租戶頂層 + 有 `tenant-ops.revoke-provision` 才給「撤銷開通」(#374) */
+  canRevokeProvision: boolean;
   onEdit: () => void;
   onToggleEnabled: () => void;
   onDelete: () => void;
+  onRevokeProvision: () => void;
 }
 
 /**
@@ -41,9 +44,11 @@ export const OrgDetailPanel = ({
   hasOwner,
   ability,
   isTenantTopProtected,
+  canRevokeProvision,
   onEdit,
   onToggleEnabled,
   onDelete,
+  onRevokeProvision,
 }: OrgDetailPanelProps) => {
   const t = useTranslations("admin.orgManager.detail");
 
@@ -89,9 +94,11 @@ export const OrgDetailPanel = ({
             org={org}
             ability={ability}
             isTenantTopProtected={isTenantTopProtected}
+            canRevokeProvision={canRevokeProvision}
             onEdit={onEdit}
             onToggleEnabled={onToggleEnabled}
             onDelete={onDelete}
+            onRevokeProvision={onRevokeProvision}
           />
         </Stack>
 

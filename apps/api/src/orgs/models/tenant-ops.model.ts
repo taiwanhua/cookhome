@@ -59,3 +59,27 @@ export class ProvisionTenantPayload {
   @Field(() => [String])
   moduleKeys!: string[];
 }
+
+/**
+ * 撤銷開通的回傳(#374):三樣都已硬刪除,樹上不再有這一節,前端只需要知道「哪一個沒了」。
+ *
+ * 型別名帶模組前綴(GQL-02):`DeletePayload` 是 orgs 早期留下的通用名、屬先例不是標準,
+ * 新端點不再沿用。
+ */
+@ObjectType()
+export class RevokeTenantProvisionPayload {
+  @Field(() => Boolean)
+  success!: boolean;
+
+  /** 被撤銷的租戶頂層組織 id(已硬刪除)。 */
+  @Field(() => ID)
+  revokedOrgId!: string;
+
+  /** 一併抹掉的擁有者使用者 id;組織沒有擁有者時為 null。 */
+  @Field(() => ID, { nullable: true })
+  revokedOwnerUserId!: string | null;
+
+  /** 一併抹掉的租戶管理員角色副本 id;找不到副本時為 null。 */
+  @Field(() => ID, { nullable: true })
+  revokedRoleId!: string | null;
+}

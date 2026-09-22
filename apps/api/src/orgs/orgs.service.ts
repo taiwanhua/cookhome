@@ -51,6 +51,15 @@ const AUDIT_ACTIONS = {
   setVisibility: "org.set-visibility",
 } as const;
 
+/**
+ * 前置檢查的豁免名單(`orgContentReasons`):**這次動作會一併抹掉的東西**,因此不算「還有別的資料」。
+ * 目前唯一的使用者是撤銷開通(#374):擁有者使用者 + 租戶管理員副本。
+ */
+export interface OrgContentExemptions {
+  userIds?: Types.ObjectId[];
+  roleIds?: Types.ObjectId[];
+}
+
 /** 編輯可動的欄位(擁有者屬租戶作業 #135、可見範圍開關另有 mutation,都不在此)。 */
 type EditablePath = "name" | "description" | "logoPath";
 
@@ -442,7 +451,7 @@ export class OrgsService {
     const org = await this.requireManaged(operator, input.id);
     // 租戶頂層只有根組織能刪(ADR-0009);先於前置四項判斷,不透露租戶內部狀態
     await this.protection.assertTenantTopOperableBy(operator, org, "delete");
-    const reasons = await this.notDeletableReasons(operator, org);
+    const reasons = await this.orgContentReasons(operator, org);
     if (reasons.length > 0) {
       throw orgNotDeletableError(reasons);
     }
@@ -565,10 +574,21 @@ export class OrgsService {
     return descendants.length;
   }
 
-  private async notDeletableReasons(
+  /**
+   * 「這個組織底下還有沒有別的東西」的**唯一**判斷點:刪除(`remove`)與撤銷開通
+   * (`TenantOpsService.revokeProvision`)共用,不各寫一套(#374)。
+   *
+   * `exempt` 是「這次動作會一併抹掉的東西,因此不算數」:撤銷開通會連擁有者使用者與
+   * 租戶管理員副本一起硬刪,所以那兩筆不該讓 `HAS_MEMBERS` / `OWNS_ROLES` 成立;
+   * 刪除不傳 `exempt`,行為與 #134 起完全相同。
+   */
+  async orgContentReasons(
     operator: OperatorContext,
     org: OrgRecord,
+    exempt: OrgContentExemptions = {},
   ): Promise<OrgNotDeletableReason[]> {
+    const exemptUserKeys = new Set((exempt.userIds ?? []).map(String));
+    const exemptRoleKeys = new Set((exempt.roleIds ?? []).map(String));
     const reasons: OrgNotDeletableReason[] = [];
     if (org.isSystem || org.parentId === null) {
       reasons.push("SYSTEM_ORG");
@@ -581,10 +601,10 @@ export class OrgsService {
       reasons.push("HAS_CHILDREN");
     }
     const memberIds = await this.relations.listUserIdsOfOrg(org._id);
-    if (memberIds.length > 0) {
+    if (memberIds.some((id) => !exemptUserKeys.has(String(id)))) {
       reasons.push("HAS_MEMBERS");
     }
-    if (await this.ownsAliveRole(operator, org._id)) {
+    if (await this.ownsAliveRole(operator, org._id, exemptRoleKeys)) {
       reasons.push("OWNS_ROLES");
     }
     if (await this.hasBusinessData(operator, org._id)) {
@@ -605,8 +625,12 @@ export class OrgsService {
   private async ownsAliveRole(
     operator: OperatorContext,
     orgId: Types.ObjectId,
+    exemptRoleKeys: ReadonlySet<string>,
   ): Promise<boolean> {
-    const ownedRoleIds = await this.relations.listRoleIdsOfOrg(orgId);
+    const owned = await this.relations.listRoleIdsOfOrg(orgId);
+    const ownedRoleIds = owned.filter(
+      (roleId) => !exemptRoleKeys.has(String(roleId)),
+    );
     if (ownedRoleIds.length === 0) {
       return false;
     }

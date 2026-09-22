@@ -4,11 +4,13 @@ import { CurrentOperator } from "../auth/decorators";
 import type { OperatorContext } from "../database/operator-context";
 import { RequirePermission } from "../permission/require-permission.decorator";
 import { ProvisionTenantInput } from "./dto/provision-tenant.input";
+import { RevokeTenantProvisionInput } from "./dto/revoke-tenant-provision.input";
 import { TransferOrgOwnerInput } from "./dto/transfer-org-owner.input";
 import { OrgPayload } from "./models/org-payloads.model";
 import {
   ModuleOption,
   ProvisionTenantPayload,
+  RevokeTenantProvisionPayload,
 } from "./models/tenant-ops.model";
 import { TenantOpsService } from "./tenant-ops.service";
 
@@ -21,6 +23,7 @@ import { TenantOpsService } from "./tenant-ops.service";
  */
 const PERMISSIONS = {
   provision: "system.org-manager.tenant-ops.provision",
+  revokeProvision: "system.org-manager.tenant-ops.revoke-provision",
   transferOwner: "system.org-manager.tenant-ops.transfer-owner",
 } as const;
 
@@ -49,6 +52,20 @@ export class TenantOpsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<ProvisionTenantPayload> {
     return this.tenantOps.provision(operator, input);
+  }
+
+  /**
+   * 撤銷開通(#374):反向抹掉開通建出的三樣,只在租戶底下沒有其他資料時才允許。
+   * 權限與 `provision` 同屬 `tenant-ops`(`isRootOnly` 模組),另立一筆 key —
+   * 開通與撤銷是兩個風險等級不同的動作,不共用同一筆權限。
+   */
+  @RequirePermission(PERMISSIONS.revokeProvision)
+  @Mutation(() => RevokeTenantProvisionPayload)
+  revokeTenantProvision(
+    @Args("input") input: RevokeTenantProvisionInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<RevokeTenantProvisionPayload> {
+    return this.tenantOps.revokeProvision(operator, input);
   }
 
   @RequirePermission(PERMISSIONS.transferOwner)
