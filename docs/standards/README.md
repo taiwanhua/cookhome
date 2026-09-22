@@ -11,19 +11,21 @@
 
 ## 索引
 
-| 改動範圍                                           | 必讀                                                                                                                   |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 任何程式碼                                         | `general/naming.md`、`general/structure.md`                                                                            |
-| 前端檔名 / 資料夾分層 / 元件寫法(admin、front、ui) | `general/naming.md` GEN-01、`general/structure.md` STRUCT-03、`react/components.md` REACT-01 / 02 / 07;決策見 ADR-0012 |
-| React 元件(front / admin / ui)                     | `react/components.md`、`react/styling.md`、`general/figma.md`(設計稿對照)                                              |
-| 新增 `@repo/ui` 元件 / 子路徑匯出                  | `general/structure.md` STRUCT-08 的四處清單、`general/naming.md` GEN-01、`react/styling.md` STYLE-05 / 07              |
-| 前端資料存取(query / mutation)                     | `react/data-fetching.md`                                                                                               |
-| api 的 GraphQL schema(resolver / model / input)    | `api/graphql-schema.md`                                                                                                |
-| 測試                                               | `testing/testing.md`(api 整合測試 TEST-07、admin 元件測試 TEST-08)                                                     |
-| 新增 workspace 套件                                | `general/structure.md` STRUCT-07 / STRUCT-08                                                                           |
-| UI 文案 / 多語(i18n)                               | `general/i18n.md`                                                                                                      |
-| Figma 設計稿                                       | `general/figma.md`                                                                                                     |
-| Markdown 文件(docs/、help.md、README)              | `general/structure.md` STRUCT-09                                                                                       |
+| 改動範圍                                            | 必讀                                                                                                                   |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 任何程式碼                                          | `general/naming.md`、`general/structure.md`                                                                            |
+| 前端檔名 / 資料夾分層 / 元件寫法(admin、front、ui)  | `general/naming.md` GEN-01、`general/structure.md` STRUCT-03、`react/components.md` REACT-01 / 02 / 07;決策見 ADR-0012 |
+| React 元件(front / admin / ui)                      | `react/components.md`、`react/styling.md`、`general/figma.md`(設計稿對照)                                              |
+| 新增 `@repo/ui` 元件 / 子路徑匯出                   | `general/structure.md` STRUCT-08 的四處清單、`general/naming.md` GEN-01、`react/styling.md` STYLE-05 / 07              |
+| 前端資料存取(query / mutation)                      | `react/data-fetching.md`                                                                                               |
+| api 的 GraphQL schema(resolver / model / input)     | `api/graphql-schema.md`                                                                                                |
+| 測試                                                | `testing/testing.md`(api 整合測試 TEST-07、admin 元件測試 TEST-08)                                                     |
+| 新增 workspace 套件(`packages/<name>`)              | `general/structure.md` STRUCT-07 / STRUCT-08                                                                           |
+| 新增 app workspace(`apps/<name>`)                   | `general/structure.md` STRUCT-08 的「新增一個 app workspace」與「build 時烘進產物的變數」兩節                          |
+| CLI 工具 / `apps/db-migrator`(seed、migrate、reset) | `general/structure.md` STRUCT-06(輸出用 `process.stdout.write`)/ STRUCT-05 的已知誤判 / STRUCT-10;規則本體見 ADR-0002  |
+| UI 文案 / 多語(i18n)                                | `general/i18n.md`                                                                                                      |
+| Figma 設計稿                                        | `general/figma.md`                                                                                                     |
+| Markdown 文件(docs/、help.md、README)               | `general/structure.md` STRUCT-09                                                                                       |
 
 ## 尚未定案(刻意不寫)
 

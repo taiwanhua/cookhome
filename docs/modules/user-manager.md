@@ -46,7 +46,19 @@
 
 **停用 / 啟用**:確認彈窗;停用即刻作廢全部 refresh token(下次請求 `UNAUTHENTICATED`)。**擁有者保護**(ADR-0009):租戶擁有者不可被停用、不可被移出租戶、其「租戶管理員」授予不可被解除;根組織操作者可執行(處理擁有者失聯等例外)。
 
-**所屬組織**:「選擇所屬組織」彈窗以樹勾選(勾 = 加入、取消 = 移除;只能勾操作者管理範圍內的組織)→ 有移除時必出「確認所屬組織變更」彈窗:API 先 dry-run 回「移除後失去資格的角色清單」,radio 三檔(ADR-0003):(a) 全部保留 (b) 解除該組織擁有的角色 (c) 解除所有失去資格的角色 = 該組織擁有的 + 失去全部子樹支撐的(**預設**)。「失去資格」逐筆判斷:該角色擁有組織的子樹 ∩ 使用者移除後剩餘的所屬組織 = 空集合。操作者的選擇與解除清單寫入 `audit_logs`。使用者至少要有一個所屬組織(最後一個不可移除)。**擁有者不能被移出他擁有的租戶頂層,但可以加入其他組織**(ADR-0009 的保護只針對「移出」;彈窗裡只鎖那一個節點,2026-09-22 / #362)。
+**所屬組織**:「選擇所屬組織」彈窗(`OrgPickerDialog`)以樹勾選(勾 = 加入、取消 = 移除;只能勾操作者管理範圍內的組織)→ 有移除時必出「確認所屬組織變更」彈窗(`OrgChangeDialog`,兩支名字相近,指路時寫全名):API 先 dry-run 回「移除後失去資格的角色清單」,radio 三檔(ADR-0003)。「失去資格」逐筆判斷:該角色擁有組織的子樹 ∩ 使用者移除後剩餘的所屬組織 = 空集合。操作者的選擇與解除清單寫入 `audit_logs`。
+
+**三個 radio 的畫面文案正本在這裡**(2026-09-23 補,#322;i18n 的 `admin.userManager.orgChange.*`,兩語系同步):寫劇本或票面時引用這三句,不要只寫「三選一」。
+
+| `removalPolicy`          | 選項文字                   | 底下那一行說明                                                     |
+| ------------------------ | -------------------------- | ------------------------------------------------------------------ |
+| `KEEP_ALL`               | 保留所有角色授予           | 角色功能對他繼續有效;可操作的資料範圍仍由所屬組織決定,列表會有標示 |
+| `REVOKE_OWNED_BY_ORG`    | 只解除此組織擁有的角色     | 將解除:`{roles}`(逐筆列「角色名(擁有組織)」)                       |
+| `REVOKE_ALL_UNQUALIFIED` | 解除所有因此失去資格的角色 | 將解除:`{roles}`;**這是預設選項**                                  |
+
+彈窗標題「確認所屬組織變更?」;沒有任何角色受影響時顯示「沒有角色會因此失去資格。」,擁有者保護的那一筆標「`{role}` 受擁有者保護,不會被解除」;dry-run 逐筆回的 `reasons` 在畫面上是「由被移除的組織擁有」/「剩餘的所屬組織都不在該角色的擁有組織底下」(兩者可同時成立)。
+
+**使用者至少要有一個所屬組織(最後一個不可移除,錯誤碼 `LAST_ORG`)—— 這條規則的正本就是這一行**(ADR-0003「從組織移除使用者」引用它)。它與組織刪除的前置檢查「無成員」會**互相咬住**:租戶頂層一定有擁有者這個成員,而要把擁有者移出去又同時被本條與擁有者保護(ADR-0009)擋下。**所以開錯的租戶走「撤銷開通」,不走刪除** —— 見 `docs/modules/org-manager.md`「撤銷開通」。**擁有者不能被移出他擁有的租戶頂層,但可以加入其他組織**(ADR-0009 的保護只針對「移出」;彈窗裡只鎖那一個節點,2026-09-22 / #362)。
 
 **指派角色**:清單 = `roles` query 的結果 = 擁有組織在操作者**管理範圍**內的角色(防越權,ADR-0003;2026-09-20 / #211 與 `grantRoleUsers` 統一,不再另外要求「操作者自己也持有」);已授予的顯示勾選;每列標示擁有組織與描述,已停用的角色不可新勾、租戶副本掛標籤。解除擁有者的「租戶管理員」授予被拒。
 
@@ -74,12 +86,26 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 
 - **清單範圍**:不給 `orgId` 即攤開整個**管理範圍**(治理模組慣例,ADR-0005 的分工表;2026-09-19 改,原本是可見範圍);給了就是該組織子樹 ∩ 管理範圍。組織子樹直接查 `orgs.ancestors`,範圍過濾由 BaseRepository 自動加上(`orgs` 是治理類 collection)。`pageSize` 上限 100。
 - **每列的 `roles[].outOfScope`** = 「組織外」標記,與移除 dry-run 用同一份資格判斷(`OrgQualificationService`)。判斷子樹歸屬時**刻意不套任何範圍**(ADR-0005:可見性開關與管理範圍都不影響授予資格),但顯示用的組織名稱仍只給管理範圍內的,範圍外只露 id。
-- **`nationalId`**:`user(id)` 持 `show-national-id` 才以 `select("+nationalId")` 取回並解密,清單一律不回;寫入(新增或編輯)需 `edit-national-id`,否則 `FORBIDDEN`。
+- **`nationalId`**:`user(id)` 持 `show-national-id` 才以 `select("+nationalId")` 取回並解密,清單一律不回;寫入需 `edit-national-id`,否則 `FORBIDDEN`。
 - **全量覆蓋的邊界**:`setUserOrgs` 只覆蓋操作者**管理範圍內**的所屬組織,`assignUserRoles` 只覆蓋操作者**可觸及**(擁有組織在管理範圍內)的角色 — 彈窗列不出來的那些不會被順手移除。
 - **`removalPolicy`**:`KEEP_ALL` / `REVOKE_OWNED_BY_ORG` / `REVOKE_ALL_UNQUALIFIED`(預設)。`unqualifiedRoles` 逐筆附 `reasons`(`OWNED_BY_REMOVED_ORG` / `NO_REMAINING_SUBTREE_SUPPORT`,可同時成立)與 `ownerProtected`。
 - **防越權**:`ROLE_OUT_OF_REACH` = 要授予的角色其**擁有組織不在操作者的管理範圍內**(2026-09-20 / #211 改;原判準「操作者自己持有」是第 3 段沒有 `roles` query 時的過渡做法,與 `grantRoleUsers` 兩套判準會讓同一個授予從角色頁做得到、從使用者頁做不到)。管理範圍是 `"all"`(超級管理員 / 擁有組織為根組織)時全權放行,否則根組織無法把租戶的角色授予任何人。
 - **授予資格(2026-09-21 / #261)**:授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹),不符回 **`USER_NOT_ELIGIBLE`** 附 `extensions.roleId` / `ownerOrgName`(在此之前回 `VALIDATION_FAILED`,前端只講得出「資料未通過驗證」)。判斷本身是**唯一的檢查點** `OrgQualificationService.assertEligible`,與角色頁的 `grantRoleUsers` 共用 —— 同一件事不該因為入口不同而回不同的碼。
 - **錯誤碼**:`LAST_ORG`、`ROLE_OUT_OF_REACH`、`USER_NOT_ELIGIBLE`、`OWNER_PROTECTED`(程式正本 `apps/api/src/users/users-error.ts`,表在 GQL-04);帳號 / Email 重複沿用 `VALIDATION_FAILED`(`extensions.fields` 指出欄位)。
+
+**可選輸入欄位的「缺席 / `null`」語意**(GQL-06;2026-09-23 逐欄補齊,#372):
+
+| 端點 / 欄位                                                              | 缺席                         | `null`                                                                        |
+| ------------------------------------------------------------------------ | ---------------------------- | ----------------------------------------------------------------------------- |
+| `createUser.nationalId`                                                  | 不寫                         | **視同缺席**:不寫、**不要求 `edit-national-id`**(新增時沒有東西可清,見下)     |
+| `updateUser.nationalId`                                                  | 不動                         | **清空**:是一次寫入,**要 `edit-national-id`**,沒有就 `FORBIDDEN`              |
+| `updateUser` 的必填欄位(`name` / `account` / `email`)                    | 不動                         | **不接受**:`null` 與空字串同義,一律 `VALIDATION_FAILED`(不會把姓名清掉)       |
+| `updateUser` 的選填基本欄位(`nickname` / `gender` / `phone` / `address`) | 不動                         | 清空該欄(空字串同 `null`;落庫寫 `null` 不是 `$unset`,ADR-0002)                |
+| `createUser.activation.initialPassword`                                  | 只在 `mode: PASSWORD` 時必填 | `mode: EMAIL` 時不看這欄                                                      |
+| `UsersInput.orgId`                                                       | 整個管理範圍                 | **不接受**:前端永遠不送 `null`,送了會在 `toObjectId` 擋下(見上方「初始狀態」) |
+| `UsersInput.keyword`                                                     | 不篩                         | 同缺席                                                                        |
+
+**為什麼新增與編輯的 `null` 不同調**(2026-09-23 裁決,#372):`null` 在編輯是「把既有的值清掉」= 一次寫入,在新增是「這欄我不填」= 沒有東西可清。把新增的 `null` 也擋下,只會讓沒有 `edit-national-id` 的人連「不填身分證字號的使用者」都建不了。這與示範模組1 的 `internalNote`(`null` 一律要權限)方向不同 —— 那裡只有編輯一種情境。通則寫在 GQL-06。
 
 ## admin 實作(#139,程式在 `apps/admin/src/pages/system/UserManagerPage/`)
 

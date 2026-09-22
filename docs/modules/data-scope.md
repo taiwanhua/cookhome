@@ -10,6 +10,8 @@
 - **權限備忘**:整頁根組織專屬;未來若開放租戶,套用對象與值選擇器已天然受可見範圍限制,保底不可關
 - **使用者說明**:[system.data-scope.help.md](../../apps/admin/src/md/module-help/system.data-scope.help.md)(根組織專屬模組 — help 讀者即系統管理員,可用平台詞彙)
 
+> **這一頁只有 root 進得去**(2026-09-23 明寫,#322):模組節點在 seed 宣告上標了 **`isRootOnly`**,所以租戶管理員模板複製時整個模組被扣除(ADR-0009 第 3 步),租戶的側欄根本沒有「資料範圍」這一列;api 那側另有第二道門(`OwnerProtectionService.isRootOperator`,見下方「api 介面」)。**所以凡是「建一條資料範圍規則」的步驟,帳號一律是 root** —— 驗收劇本 2 / 4 的建規則帳號因此是 root,劇本 16 驗的就是租戶看不到這一列。「模組與權限」(`system.module-manager`)與「租戶作業」(`system.org-manager.tenant-ops`)是同一種寫法。
+
 ## 權限表(第 4 段前置,2026-09-20)
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。綁定原則:綁「按鈕 / 欄位所在的那一頁」(ADR-0004)。

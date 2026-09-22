@@ -85,7 +85,9 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
 - **httpOnly cookie 在 jsdom 看不到**,用 `authWorld({ hasRefreshCookie })` 這類旗標模擬「瀏覽器有沒有帶 cookie」並計數請求;MSW `server.use()` 的 handler **先列的先贏**
 - 渲染一律用 `renderApp()`(帶 Intl / Theme / QueryClient / Session / Router 的完整 providers),不裸 render 元件
 - 逾時有兩層:preset 的 `testTimeout` 15 秒(單一測試)之外,testing-library 的 `findBy*` / `waitFor` 預設只等 1 秒;`src/test/setup.ts` 已 `configure({ asyncUtilTimeout: 5000 })`,串三段查詢的頁面在 CI runner 上才不會偶發紅
-- jsdom 陷阱:`URL.createObjectURL` 在 `jest-fixed-jsdom` 會炸(補回來的是 Node 的 `URL`,只收 Node 的 `Blob`),測到上傳預覽的頁面要在測試檔 stub;MUI 樹「點內容區 = 選取 + 展開 / 收合」,測試先點父再點子要注意順序
+- jsdom 陷阱:`URL.createObjectURL` 在 `jest-fixed-jsdom` 會炸(補回來的是 Node 的 `URL`,只收 Node 的 `Blob`),測到上傳預覽的頁面要在測試檔 stub
+- **MUI 樹:點內容區只「選取」,展開 / 收合要點最前面的箭頭**(2026-09-23 改寫,#373;原條文寫的是「點內容區 = 選取 + 展開 / 收合,先點父再點子要注意順序」,`@repo/ui/tree` 自 #373 起 `expansionTrigger="iconContainer"` 之後已不成立):選取用 `userEvent.click(螢幕上那個節點的文字)`,展開用 `.MuiTreeItem-iconContainer`(`element.closest(".MuiTreeItem-content")?.querySelector(".MuiTreeItem-iconContainer")`)。先例 `packages/ui/src/Tree/Tree.test.tsx` 與兩份 `*-test-support.ts` 的 `clickNode` / `expandNode`(`OrgManagerPage`、`ModuleManagerPage`)。**連點父子兩層不再互相干擾** —— 點父不會把它收起來,所以舊的「同一個 `it` 不要連點父子兩層」那條限制跟著退場
+- **`pointer-events: none` 的 disabled 勾選框用 `fireEvent`,不要 `userEvent.click`**(2026-09-22,#362):MUI 對 disabled 的 Checkbox / Radio 設 `pointer-events: none`,`userEvent.click` 會**擲錯**(「unable to click element as it has or inherits pointer-events set to none」),看起來像元件壞了。要驗「點下去也沒事」時改 `fireEvent.click(box)`(先例 `packages/ui/src/Tree/Tree.test.tsx`),或依 TEST-09 的寫法用 `userEvent.setup({ pointerEventsCheck: 0 })`
 - **MSW 夾具的形狀以 api 測試的斷言為準**(`apps/api/src/**/*.test.ts` 裡有現成斷言可對照):`tenantTree` 夾具曾把樹根的 `parentId` 寫成有值,而 api 對樹根一律回 `null`,讓前端拿 `parentId` 判視角的 bug 在測試裡是對的(#186)
 - 頁面測試怎麼分檔:一頁一個 `<Page>.test.tsx` 放主流程;超過 `max-lines` 400 就依情境拆成 `<Page>Scope.test.tsx`、`<Page>Dialogs.test.tsx`…,共用的 world / 夾具 / helper 抽成同資料夾的 `<page>-test-support.ts`(kebab,非元件)
 - 跑法:**`pnpm exec turbo run test --filter=@repo/admin`**(turbo 會先 build `ui` / `graphql` / `domain`)。`pnpm --filter @repo/admin test` 不經 turbo、**不會 build 依賴**,新 checkout 或依賴改過就會炸型別(第 2 段三位實作者都撞到,2026-09-19 改正)
@@ -112,11 +114,23 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
   cd apps/admin && pnpm run test
   ```
 
+  **取基準的那幾分鐘不要動工作樹**(2026-09-23,#375):jest 讀的是磁碟上當下的檔案,中途改檔會讓「基準」變成「基準 + 改到一半的自己」,而且看不出來。先把自己的改動做成一個 WIP commit 或切回乾淨的 `origin/main` 再跑。
+
   `pnpm run test`(= 該包 `package.json` 的 `node --experimental-vm-modules node_modules/jest/bin/jest.js`)不經 turbo、快取不會誤命中。**不要用 `pnpm exec jest`**:少了 `--experimental-vm-modules`,ESM 測試直接炸,看起來像測試壞了(2026-09-22 補)。前提是依賴已 build 過(`pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`);驗收自己的改動仍用 turbo(輸入變了不會誤命中)
+
+  **這條通則化:交件前的 `lint` 與 `check-types` 也要進 package 目錄直接跑**(2026-09-23,#362):turbo 的快取跨 worktree 共用,「同一份輸入別人跑過就 replay」不只影響取基準 —— **在別的 worktree 已經跑綠過的輸入,在你這裡會直接 `cache hit` 而根本沒有執行**,type-aware 的 lint 警告因此漏到 CI 才被擋下(#362 就是被 CI 擋下兩個)。交件前這樣跑一次:
+
+  ```
+  cd apps/admin && pnpm run lint && pnpm run check-types
+  cd packages/ui && pnpm run lint && pnpm run check-types
+  ```
+
+  整包驗收仍用 turbo(`pnpm exec turbo run lint check-types`);「cache hit 不代表你的改動被驗過」這句對三個指令都成立(同 `docs/agents/issue-tracker.md`「turbo 的 global hash 不含 root `package.json` 的 `scripts`」)
 
 - **zustand `persist` 的 `setState` 會回寫 storage**(2026-09-22,#295):測「重新整理後狀態維持」時,直覺寫法 `useXStore.setState({ ... 預設值 })` + `rehydrate()` 會先把 localStorage 也覆寫成預設值,再讀回預設值 —— 看起來像「狀態沒被記住」,其實是測試自己把存檔抹掉了。正確順序是:**先把 storage 的內容存起來 → 歸零 store → 把存檔放回 storage → 才 `rehydrate()`**。另外 store 是模組層單例,`src/test/setup.ts` 要在每個測試後歸零(同語言 store 的理由)
 - **`graphqlError(code, message)` 的參數順序是「碼在前、訊息在後」**(2026-09-22,#320 反過來寫,MSW 回了一個 `code` 是人話的錯誤,前端分流不到、測試紅得莫名其妙):簽章 `graphqlError(code, message = code, extensions = {})`(`src/test/msw/auth-handlers.ts`),`message` 省略時等於 `code`,所以**大多數情況只傳第一個參數**(`graphqlError("FORBIDDEN")`)。要附 `reason` / `violations` 這類 `extensions` 才傳第三個。與 api 那側的 `GraphQLError(message, { extensions: { code } })` 順序相反,這是最容易寫反的地方
-- **Autocomplete 的兩行選項用「主文字前綴」比對,第四處出現時上提到 `apps/admin/src/test/`**(2026-09-22,#307):`getByRole("option", { name })` 對兩行選項(主文字 + 次文字)的完整比對對不上,要用主文字開頭比對並封成 helper(「打開某個 Autocomplete → 點主文字是 X 的那一列」)。目前有三份各自的實作(`DataScopePage/data-scope-test-support.ts`、`RoleManagerUsers.test.tsx`、`AssignRolesDialog/AssignRolesDialog.test.tsx`),**三份以內維持各自一份,第四處出現時才上提**成共用 helper —— 上提的成本是所有呼叫端一起改,兩三處還看不出共同的介面長什麼樣
+- **Autocomplete 的兩行選項一律用 `apps/admin/src/test/autocomplete.ts`**(2026-09-23 改寫,#377;原條文寫的是「三份各自一份、第四處出現時才上提」,#377 的「加入成員」就是第四處,已經上提完成):`getByRole("option", { name })` 對兩行選項(主文字 + 次文字)的完整比對對不上 —— 無障礙名稱是兩行串起來的那一長串。共用 helper 有兩支:`openAutocomplete(actor, name)`(以無障礙名稱找 combobox、點開、回傳選項)與 `autocompleteOption(text)`(在展開的選單裡以**主文字**先比開頭、再比包含;找不到時把現有選項一起印出來)。新的呼叫端**直接用這兩支**,不要再各寫一份
+- **「閃一下」這種中間幀要用 msw 的 `delay("infinite")` 擋住**(2026-09-23,#372):儲存成功後的重取一旦回來,畫面就是最終狀態,`DATA-04` 那種「先寫快取、避免閃一下舊值」的行為在測試裡**根本來不及被觀察到**。做法是讓重取的那個 handler 永遠不回應(`await delay("infinite")`),中間那一幀就停在畫面上可以斷言;斷言完就結束該測試,不必收尾。要驗的是「寫入端有沒有把新值交給快取」,不是重取回來對不對
 - 輸出雜訊:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`
 
 ### mock 開發模式:用同一批夾具把 admin 跑在瀏覽器上(#194,2026-09-22)
@@ -124,13 +138,20 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
 沒有 dev 帳號、也不想連真 api 時,用**同一批 MSW 夾具**把整個 admin 跑起來,拿來截圖驗版面(admin 票的 PR 要附圖,見 `docs/agents/issue-tracker.md`)。跑的是**真的 `App`**(同一組 providers、路由與頁面),只有網路層被 service worker 接管。
 
 ```
-pnpm --filter @repo/admin dev:mock     # http://localhost:3002
+pnpm --filter @repo/admin dev:mock -- --port <自選埠> --strictPort
 ```
+
+**埠不要寫死 3002**(2026-09-23 改寫;#360 / #373 / #375 / #372 / #374 連續五次回報):`3002` 只是 `vite.mock.config.ts` 的**偏好值**,被占用時 Vite 會**靜默跳到下一個埠**。多個 worktree 並行時,打開 `http://localhost:3002` 很可能連到**別人的**(或主 checkout 上一次沒關掉的)server —— 截出來的圖裡沒有自己的改動,而且完全看不出哪裡不對。兩條硬規則:
+
+- **起的時候指定自己的埠並加 `--strictPort`**:埠被占就直接失敗,不會悄悄換一個。
+- **看終端印出的 `Local:` 那一行為準**,不要憑記憶打網址;截圖前先在自己開的那個分頁上**確認畫面裡看得到自己這次的改動**(改了文案就找那句文案,改了版面就看那塊版面)。
 
 - 預設**自動登入 root**、落在總覽;側欄的組織 / 使用者 / 角色 / 模組與權限 / 欄位 / 資料範圍都有假資料
 - 網址參數:`?view=tenant` 切租戶管理員視角(少掉兩個 `isRootOnly` 模組、組織樹換成租戶那一棵)、`?auth=off` 停在登入頁(任何帳密都能登入)
 - 深層網址與重新整理都可用(`vite.mock.config.ts` 把 HTML fallback 指到 `mock.html`)
-- **截圖**:瀏覽器開上面的網址 → 走到要驗的頁 → 截整個視窗(側欄 + 內容),PR 內文逐張寫明「哪一頁、什麼狀態」;彈窗類的改動要各截一張開啟前後
+- **截圖**:瀏覽器開自己那個埠的網址 → 走到要驗的頁 → 截整個視窗(側欄 + 內容),PR 內文逐張寫明「哪一頁、什麼狀態」;彈窗類的改動要各截一張開啟前後
+- **會自動關掉的東西**(操作結果提示 Snackbar 那類,#376)截不到時,在 console 把 `setTimeout` 暫時攔掉(`window.setTimeout = ((fn, ms) => ms > 1000 ? 0 : 原本的(fn, ms))`)再觸發一次,它就會停著等你截
+- **MUI Dialog 裡的按鈕點不到**時不要跟合成點擊事件硬碰:瀏覽器工具的 `computer` 合成點擊會被 MUI 的 modal 攔截層吃掉,改用 `javascript_tool` 直接對該元素 `element.click()`
 
 實作面三件事,改動前先看懂再動:
 
@@ -170,7 +191,16 @@ pnpm --filter @repo/admin dev:mock     # http://localhost:3002
   **admin 與 api 要用同一個主機名**:cookie 是 `SameSite=Lax`,`localhost` 與 `127.0.0.1`
   對瀏覽器是兩個站台,混用會讓換票整個失效。
 
+## TEST-12 單元測試的夾具不得為了精簡而與正本資料的形狀分歧(2026-09-23,#363)
+
+純函式的測試夾具(`@repo/domain` 的權限樹、admin 的模組樹、api 的 seed 形狀…)是「正本資料長什麼樣」的一份**手寫副本**。為了讓案子好讀而刪掉幾個欄位或幾列,看起來無害,實際上是**把 bug 鎖進夾具**:#363 的矩陣測試在群組節點上省略了 `<模組>.*` 那一列(理由是「群組沒有個別權限,寫了很囉嗦」),於是「整組全選對沒有 `*` 列的模組不該生出 `*`」這條規則,在測試裡永遠驗不到,直到使用者在畫面上撞到。
+
+- **形狀照正本,內容才可以精簡**:少幾個模組、少幾筆權限沒關係;**每一筆該有的欄位與該有的列不能少**(seed 一定會補的 wildcard、api 一定會回的 `parentId: null`、mapper 一定會投影的欄位)。
+- 正本在哪就對著哪:seed 的形狀對 `apps/db-migrator/seeds/`、api 回傳的形狀對 `apps/api/src/**/*.test.ts` 的既有斷言(TEST-08 的「MSW 夾具的形狀以 api 測試的斷言為準」是本條在網路層的特例)。
+- 真的要拿掉一列,**在夾具旁邊註解寫明「這裡刻意沒有 X,因為要驗 Y」** —— 讓下一個人看得出那是設計,而不是漏掉。
+
 ## 已知偶發(CI 紅先對這裡)
 
 - `apps/api/src/auth/password/password.test.ts` 的 `setPassword` describe 四案偶爾整組逾時(2026-09-18 兩次,重跑即過;疑與 CI runner 慢 + argon2 雜湊有關)。重跑一次仍紅才算真的紅。
 - `apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx` 的「直接設定初始密碼」偶發紅一次(2026-09-21,#215;重跑即過)。**只出現過一次,先記在這裡當觀察名單** —— 再紅就不是偶發,要照 TEST-10 的判準查是不是斷言方向錯(等待時機、非同步接力)。
+- `apps/admin/src/components/HelpButton/HelpButton.test.tsx` 的 Markdown 彈窗第一次紅、重跑即過(2026-09-22,#373;疑為 `React.lazy` 的等待時機)。同上是**觀察名單**:再紅一次就不算偶發,要照本檔 TEST-08 的「`React.lazy` + 動態 `import()`」那條檢查第一筆斷言是不是該換成 `findBy*` / `waitFor`。
