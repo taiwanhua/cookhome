@@ -56,7 +56,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** 選取模式(單選):組織管理頁的主樹 */
+/**
+ * 選取模式(單選):組織管理頁的主樹。
+ * 點文字只選取;**展開 / 收合只認名稱前面的箭頭**(`expansionTrigger="iconContainer"`,#373)。
+ */
 export const SingleSelect: Story = {
   args: { defaultSelectedIds: ["org-1"] },
 };
