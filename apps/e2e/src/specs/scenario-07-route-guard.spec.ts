@@ -7,7 +7,7 @@ import {
   SAMPLE_ONE_VIEW_ROUTE,
 } from "../fixtures/demo-keys";
 import { expect, test } from "../fixtures/test";
-import { expectForbiddenPage, signIn } from "../fixtures/ui";
+import { expectForbiddenPage, pageAlert, signIn } from "../fixtures/ui";
 
 /**
  * 劇本 7 — 路由防守
@@ -19,6 +19,7 @@ import { expectForbiddenPage, signIn } from "../fixtures/ui";
  */
 
 const CREATE_BUTTON = "+ 新增示範項目";
+const NO_PERMISSION = "你沒有執行這個動作的權限。";
 
 test("劇本 7:沒綁新增頁 → 手打網址被擋;綁了頁沒有 create → 進得去、送出被擋", async ({
   page,
@@ -61,7 +62,8 @@ test("劇本 7:沒綁新增頁 → 手打網址被擋;綁了頁沒有 create →
   ).toBeVisible();
   await page.getByLabel("名稱").fill(`擋下來-${tenant.slug}`);
   await page.getByRole("button", { name: "儲存" }).click();
-  await expect(page.getByText("你沒有執行這個動作的權限。")).toBeVisible();
+  // 同一句話會同時出現在頁內橫幅與右下角 Snackbar(#376),所以只看 `<main>` 裡的那一則
+  await expect(pageAlert(page)).toHaveText(NO_PERMISSION);
 
   // 步驟 3:綁了詳情頁模組 → 手打帶 id 的網址進得去,解出來的就是那一筆
   await page.goto(`${SAMPLE_ONE_VIEW_ROUTE}/${itemId}`);
