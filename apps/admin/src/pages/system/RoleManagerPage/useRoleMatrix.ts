@@ -1,13 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useTranslations } from "use-intl";
 
 import {
   type PermissionGrant,
   isWholeGroupGranted,
   toggleWholeGroup,
 } from "@repo/domain/permission";
-import { useRoleMatrixQuery, useSaveRoleMatrixMutation } from "@repo/graphql";
+import {
+  type SaveRoleMatrixMutation,
+  useRoleMatrixQuery,
+  useSaveRoleMatrixMutation,
+} from "@repo/graphql";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import {
   allMatrixRowIds,
@@ -47,6 +53,8 @@ export const useRoleMatrix = (
   roleId: string | null,
   { canEdit, onSaved }: UseRoleMatrixOptions,
 ) => {
+  const t = useTranslations("admin.roleManager");
+  const tErrors = useTranslations("admin.roleManager.errors");
   const { session } = useSession();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<{
@@ -108,25 +116,30 @@ export const useRoleMatrix = (
     setDraft({ roleId, grant: next });
   };
 
-  const save = useSaveRoleMatrixMutation(session.client, {
-    onSuccess: (result) => {
-      /**
-       * 先把回傳的矩陣寫進 `roleMatrix` 的快取,再丟掉草稿(DATA-04 的 (a) 步)。
-       * 順序反過來就是驗收看到的「閃一下」(#372):草稿一沒了,`grant` 立刻退回
-       * `saved` —— 那還是**儲存前**的快取,畫面會先跳回舊勾選,等 `onSaved` 失效
-       * 後重取回來才變新的。payload 與 `roleMatrix` 查詢同形,所以整份覆寫即可。
-       */
-      queryClient.setQueryData(
-        useRoleMatrixQuery.getKey({ roleId: result.saveRoleMatrix.role.id }),
-        { roleMatrix: result.saveRoleMatrix },
-      );
-      setDraft(null);
-      onSaved(result.saveRoleMatrix.role.id);
-    },
-    onError: (error: unknown) => {
-      setErrorCode(roleManagerErrorOf(error).code);
-    },
-  });
+  const save = useSaveRoleMatrixMutation(
+    session.client,
+    useMutationFeedback<SaveRoleMatrixMutation>({
+      success: t("feedback.saveMatrixSuccess"),
+      error: (error) => tErrors(roleManagerErrorOf(error).code),
+      onSuccess: (result) => {
+        /**
+         * 先把回傳的矩陣寫進 `roleMatrix` 的快取,再丟掉草稿(DATA-04 的 (a) 步)。
+         * 順序反過來就是驗收看到的「閃一下」(#372):草稿一沒了,`grant` 立刻退回
+         * `saved` —— 那還是**儲存前**的快取,畫面會先跳回舊勾選,等 `onSaved` 失效
+         * 後重取回來才變新的。payload 與 `roleMatrix` 查詢同形,所以整份覆寫即可。
+         */
+        queryClient.setQueryData(
+          useRoleMatrixQuery.getKey({ roleId: result.saveRoleMatrix.role.id }),
+          { roleMatrix: result.saveRoleMatrix },
+        );
+        setDraft(null);
+        onSaved(result.saveRoleMatrix.role.id);
+      },
+      onError: (error: unknown) => {
+        setErrorCode(roleManagerErrorOf(error).code);
+      },
+    }),
+  );
 
   return {
     isLoading: roleId !== null && query.isLoading,

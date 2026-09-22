@@ -14,6 +14,7 @@ import {
   SIDE_NAV_STORAGE_KEY,
   useSideNavStore,
 } from "../stores/useSideNavStore";
+import { useSnackbarStore } from "../stores/useSnackbarStore";
 import { resetHelpFiles } from "./help-registry";
 import { server } from "./msw/server";
 
@@ -41,6 +42,8 @@ afterEach(() => {
   localStorage.removeItem(SIDE_NAV_STORAGE_KEY);
   // 舊 key 也清:驗搬移的測試會塞它(#183 第 6 項),留著會被下一個測試搬進新 key
   localStorage.removeItem(LEGACY_SIDE_NAV_STORAGE_KEY);
+  // 操作結果提示也是模組層單例(#376):上一個測試留下的那一則不能跟著進下一個測試
+  useSnackbarStore.getState().reset();
   // 模組說明的假 registry 也是模組層單例(#197);改過的測試不影響下一個
   resetHelpFiles();
 });

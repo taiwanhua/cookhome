@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useTranslations } from "use-intl";
+
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 
 import { type DemoError, demoErrorOf } from "./demo-error";
 import type { DemoFormConfig, DemoItemLike } from "./demo-module-config";
@@ -18,6 +21,8 @@ export interface FileSlot {
 export const emptyFileSlot: FileSlot = { file: null, isCleared: false };
 
 export interface UseDemoFormOptions<Detail extends DemoItemLike, Values> {
+  /** 該模組的 i18n 命名空間(成功 / 失敗提示的文案都掛在它底下,#376) */
+  i18nNamespace: string;
   form: DemoFormConfig<Detail, Values>;
   /** 編輯的那一筆;新增頁為 null。**外層已經 gate 過**(資料到了才掛,REACT-08) */
   item: Detail | null;
@@ -58,10 +63,13 @@ const isSameValue = (a: unknown, b: unknown): boolean =>
  * 原路徑原樣送回),再把值與路徑交給設定物件的 `useSave` 轉成該模組的 input。
  */
 export const useDemoForm = <Detail extends DemoItemLike, Values>({
+  i18nNamespace,
   form,
   item,
   onSaved,
 }: UseDemoFormOptions<Detail, Values>): DemoFormState<Values> => {
+  const t = useTranslations(i18nNamespace);
+  const tErrors = useTranslations(`${i18nNamespace}.errors`);
   const { upload, isUploading } = useDemoUpload();
 
   const [initialValues] = useState(() => form.toValues(item));
@@ -70,13 +78,26 @@ export const useDemoForm = <Detail extends DemoItemLike, Values>({
   const [error, setError] = useState<DemoError | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  /**
+   * 一次「儲存」= 上傳欄逐一上傳 + 設定物件的 create / update,所以回饋在這一層報一次
+   * (#376):`useSave` 只收 `{ onSuccess(): void; onError(error): void }`,而且上傳
+   * 失敗那條路徑根本不經過 mutation —— 掛在 mutation 的 options 上會漏掉它。
+   */
+  const feedback = useMutationFeedback({
+    success:
+      item === null ? t("feedback.createSuccess") : t("feedback.updateSuccess"),
+    error: (failure: unknown) => tErrors(demoErrorOf(failure).code),
+  });
+
   const save = form.useSave({
     item,
     onSuccess: () => {
+      feedback.onSuccess();
       setIsSaving(false);
       onSaved();
     },
     onError: (error_: unknown) => {
+      feedback.onError(error_);
       setIsSaving(false);
       setError(demoErrorOf(error_));
     },
@@ -123,6 +144,8 @@ export const useDemoForm = <Detail extends DemoItemLike, Values>({
         }
         save.save(values, paths);
       } catch (error_: unknown) {
+        // 上傳自己失敗(沒走到 mutation):一樣算這次儲存失敗,照跳提示(#376)
+        feedback.onError(error_);
         setIsSaving(false);
         setError(demoErrorOf(error_));
       }

@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { useCreateFieldMutation, useUpdateFieldMutation } from "@repo/graphql";
+import {
+  type CreateFieldMutation,
+  type UpdateFieldMutation,
+  useCreateFieldMutation,
+  useUpdateFieldMutation,
+} from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
@@ -9,6 +14,7 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import { fieldManagerErrorOf } from "../field-manager-error";
@@ -45,6 +51,7 @@ export const FieldFormDialog = ({
 }: FieldFormDialogProps) => {
   const t = useTranslations("admin.fieldManager.form");
   const tErrors = useTranslations("admin.fieldManager.errors");
+  const tFeedback = useTranslations("admin.fieldManager.feedback");
   const { session } = useSession();
 
   const isEdit = field !== undefined;
@@ -57,14 +64,26 @@ export const FieldFormDialog = ({
     setErrorCode(fieldManagerErrorOf(error));
   };
 
-  const createField = useCreateFieldMutation(session.client, {
-    onSuccess: onSaved,
-    onError,
-  });
-  const updateField = useUpdateFieldMutation(session.client, {
-    onSuccess: onSaved,
-    onError,
-  });
+  const feedbackError = (error: unknown) => tErrors(fieldManagerErrorOf(error));
+
+  const createField = useCreateFieldMutation(
+    session.client,
+    useMutationFeedback<CreateFieldMutation>({
+      success: tFeedback("createSuccess"),
+      error: feedbackError,
+      onSuccess: onSaved,
+      onError,
+    }),
+  );
+  const updateField = useUpdateFieldMutation(
+    session.client,
+    useMutationFeedback<UpdateFieldMutation>({
+      success: tFeedback("updateSuccess"),
+      error: feedbackError,
+      onSuccess: onSaved,
+      onError,
+    }),
+  );
 
   const isPending = createField.isPending || updateField.isPending;
   const isValid =

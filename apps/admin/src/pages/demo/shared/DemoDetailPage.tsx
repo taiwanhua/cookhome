@@ -10,6 +10,7 @@ import { CircularProgress } from "@repo/ui/circular-progress";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import type { ModulePageProps } from "@/lib/module-tree";
 
@@ -66,12 +67,20 @@ export const DemoDetailPage = <
     void navigate(id === undefined ? route : `${route}/${id}`);
   };
 
+  /** `useDelete` 只收 `{ onSuccess(): void; … }`,所以回饋在這一層自己報一次(#376)。 */
+  const feedback = useMutationFeedback({
+    success: t("feedback.deleteSuccess"),
+    error: (error: unknown) => tErrors(demoErrorOf(error).code),
+  });
+
   const deleteItem = config.useDelete(session.client, {
     onSuccess: () => {
+      feedback.onSuccess();
       setIsDeleting(false);
       goTo(access.listRoute);
     },
     onError: (error: unknown) => {
+      feedback.onError(error);
       setActionError(demoErrorOf(error).code);
     },
   });

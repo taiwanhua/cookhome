@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { useCreateChildOrgMutation } from "@repo/graphql";
+import {
+  type CreateChildOrgMutation,
+  useCreateChildOrgMutation,
+} from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
@@ -9,6 +12,7 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import {
@@ -37,20 +41,26 @@ export const CreateChildOrgDialog = ({
   const t = useTranslations("admin.orgManager.createChild");
   const tForm = useTranslations("admin.orgManager.form");
   const tErrors = useTranslations("admin.orgManager.errors");
+  const tFeedback = useTranslations("admin.orgManager.feedback");
   const { session } = useSession();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [errorCode, setErrorCode] = useState<OrgManagerErrorCode | null>(null);
 
-  const createChildOrg = useCreateChildOrgMutation(session.client, {
-    onSuccess: (payload) => {
-      onCreated(payload.createChildOrg.org.id);
-    },
-    onError: (error) => {
-      setErrorCode(orgManagerErrorOf(error).code);
-    },
-  });
+  const createChildOrg = useCreateChildOrgMutation(
+    session.client,
+    useMutationFeedback<CreateChildOrgMutation>({
+      success: tFeedback("createSuccess"),
+      error: (error) => tErrors(orgManagerErrorOf(error).code),
+      onSuccess: (payload) => {
+        onCreated(payload.createChildOrg.org.id);
+      },
+      onError: (error) => {
+        setErrorCode(orgManagerErrorOf(error).code);
+      },
+    }),
+  );
 
   const isValid = name.trim() !== "";
 
