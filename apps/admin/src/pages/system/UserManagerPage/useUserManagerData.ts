@@ -32,9 +32,10 @@ import {
  * **初始狀態**(#183):樹可用時預設選中樹根 = 操作者可見範圍的根,與組織管理頁一致;
  * 樹根還沒到手前不送 `users`(`orgId` 為 null 的查詢會被 api 擋下),右區塊顯示載入中。
  *
- * 擁有者保護(ADR-0009)在前端只需要一個 id:樹根就是「租戶頂層」(租戶視角)或「根組織」
+ * 擁有者保護(ADR-0009)在前端只需要樹根這一筆:樹根就是「租戶頂層」(租戶視角)或「根組織」
  * (根組織視角)。樹根 `parentId === null` 代表操作者站在根組織 — 一律放行,不標保護;
- * 否則樹根的 `ownerUserId` 就是受保護的那一位。
+ * 否則樹根的 `ownerUserId` 就是受保護的那一位(`protectedOwnerUserId`),
+ * 而樹根自己就是他「不可被移出」的那個組織(`protectedOwnerOrgId`,#362)。
  */
 export const useUserManagerData = () => {
   const { session } = useSession();
@@ -72,6 +73,12 @@ export const useUserManagerData = () => {
     rootOrg === undefined || rootOrg.parentId === null
       ? null
       : (rootOrg.ownerUserId ?? null);
+  /**
+   * 擁有者「不可被移出」的那一個組織(#362):就是樹根 —— `protectedOwnerUserId`
+   * 本來就是從它的 `ownerUserId` 來的,所以不必為此向 api 多要欄位。
+   * 沒有受保護的擁有者(根組織視角 / 樹根沒有擁有者)時是 null。
+   */
+  const protectedOwnerOrgId = protectedOwnerUserId === null ? null : treeRootId;
 
   /**
    * 初始選中樹根(與組織管理頁一致,#183 的 (a) 案;不在 effect 內 setState,REACT-06)。
@@ -131,6 +138,7 @@ export const useUserManagerData = () => {
     orgNodes,
     isOrgTreeLoading: orgTree.isLoading,
     protectedOwnerUserId,
+    protectedOwnerOrgId,
     selectedOrgId,
     selectOrg,
     keyword,

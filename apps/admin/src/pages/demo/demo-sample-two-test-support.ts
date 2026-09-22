@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 
 import { ModuleSidebarType } from "@repo/graphql";
 
@@ -160,6 +161,8 @@ export interface RenderSampleTwoOptions {
   permissions?: readonly string[];
   pages?: readonly SampleTwoPageKey[];
   world?: DemoTwoWorldOptions;
+  /** 掛在路由旁的探針(測「設定物件換一份會怎樣」用,見 `renderApp`) */
+  extra?: ReactNode;
 }
 
 export const renderSampleTwo = ({
@@ -167,6 +170,7 @@ export const renderSampleTwo = ({
   permissions = SAMPLE_TWO_ALL_PERMISSIONS,
   pages = SAMPLE_TWO_ALL_PAGES,
   world = {},
+  extra,
 }: RenderSampleTwoOptions = {}) => {
   const fake = demoTwoWorld({ items: demoTwoItems, ...world });
   server.use(
@@ -176,7 +180,7 @@ export const renderSampleTwo = ({
       modules: sampleTwoModulesWith(permissions, pages),
     }).handlers,
   );
-  return { ...renderApp({ path }), fake };
+  return { ...renderApp({ path, extra }), fake };
 };
 
 /** 清單的一列(以名稱找);清單是後到的,所以等它出現。 */

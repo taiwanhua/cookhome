@@ -19,7 +19,11 @@ export interface MatrixPermissionNode {
 /** 模組樹節點(最小介面:key + 同層權限 + 子模組)。 */
 export interface MatrixModuleNode {
   key: string;
-  /** 這個模組**自己這一層**的權限;含不含 `<key>.*` 都可以,矩陣一律自行推導 wildcard。 */
+  /**
+   * 這個模組**自己這一層**的權限。列了個別權限時含不含 `<key>.*` 都可以,矩陣一律自行推導
+   * wildcard;但**整層一筆都沒有就是真的沒有**(#363):矩陣不會替它生一筆 `<key>.*`。
+   * 餵顯示樹時尤其重要 —— 操作者搆不到的 `*` 列已被剪掉,推導出來的那一筆他根本授不出去。
+   */
   permissions?: readonly MatrixPermissionNode[];
   children?: readonly MatrixModuleNode[];
 }
@@ -39,6 +43,14 @@ interface FlatModule {
   ancestorKeys: readonly string[];
   /** 自己這一層的個別權限 key(不含 `<key>.*`),依宣告順序。 */
   individualKeys: readonly string[];
+  /**
+   * 這個模組**在這棵樹上**有沒有可授出的權限(個別筆或 `*` 列,兩者有其一即可)。
+   *
+   * 沒有 = 這一層根本沒有 `<key>.*` 這回事(#363):可能是模組本來就不帶權限,
+   * 也可能餵進來的是顯示樹、而那一列因為操作者搆不到被剪掉了。兩種情況都不得推導出
+   * `<key>.*` —— 推出來的那一筆矩陣上看不到、取消不掉,送出必被 subset 檢查擋下。
+   */
+  hasPermissions: boolean;
 }
 
 /** 把樹攤平成「深度優先、父在前」的索引;順序即輸出順序(可預期的 diff 與斷言)。 */
@@ -49,12 +61,14 @@ function flatten(tree: MatrixModuleTree): Map<string, FlatModule> {
     ancestorKeys: readonly string[],
   ): void => {
     for (const node of nodes) {
+      const permissionKeys = (node.permissions ?? []).map(
+        (permission) => permission.key,
+      );
       flat.set(node.key, {
         node,
         ancestorKeys,
-        individualKeys: (node.permissions ?? [])
-          .map((permission) => permission.key)
-          .filter((key) => !isWildcardKey(key)),
+        individualKeys: permissionKeys.filter((key) => !isWildcardKey(key)),
+        hasPermissions: permissionKeys.length > 0,
       });
       visit(node.children ?? [], [...ancestorKeys, node.key]);
     }
@@ -91,7 +105,8 @@ export function normalizeGrant(
   const knownPermissionKeys = new Set(
     [...flat.values()].flatMap((entry) => [
       ...entry.individualKeys,
-      wildcardKeyOf(entry.node.key),
+      // 這一層有權限可給才推導得出 `*`;整層沒有權限的模組不存在 `<key>.*`(#363,規則 1 的一種)
+      ...(entry.hasPermissions ? [wildcardKeyOf(entry.node.key)] : []),
     ]),
   );
   const requested = new Set(
@@ -204,6 +219,10 @@ export function isSubsetOf(
  * 頂層模組列的「全選整組 / 清空整組」(role-manager.md):
  * 開 = 對子樹**每個模組**(含群組本身)寫入一筆 `*` 並勾上模組;
  * 關 = 清掉整個子樹的模組與權限(子樹以外不受影響)。結果為正規化後的授予。
+ *
+ * `*` 只寫給**這棵樹上真的有權限可給**的模組(#363):群組節點本身常常一層權限都沒有,
+ * 餵顯示樹時那一列更可能是因為操作者搆不到而被剪掉 —— 硬寫一筆 `<key>.*` 會產出
+ * 矩陣上看不到、使用者也取消不掉的授予,送出後只會換來 `ROLE_OUT_OF_REACH`。
  */
 export function toggleWholeGroup(
   moduleTree: MatrixModuleTree,
@@ -230,13 +249,17 @@ export function toggleWholeGroup(
     moduleKeys: [...grant.moduleKeys, ...keys],
     permissionKeys: [
       ...grant.permissionKeys,
-      ...[...keys].map((key) => wildcardKeyOf(key)),
+      ...[...keys].flatMap((key) =>
+        flat.get(key)?.hasPermissions === true ? [wildcardKeyOf(key)] : [],
+      ),
     ],
   });
 }
 
 /**
  * 群組列的勾選狀態是**衍生**的(ADR-0004:子樹每個模組都有 `*` 才顯示勾,不另存記錄)。
+ * 這一層沒有權限可給的模組只看模組本身有沒有勾(#363:它沒有 `*` 可以持有,
+ * 要求一筆不存在的 `<key>.*` 會讓整組開關永遠顯示成沒開)。
  */
 export function isWholeGroupGranted(
   moduleTree: MatrixModuleTree,
@@ -252,6 +275,9 @@ export function isWholeGroupGranted(
   const moduleKeys = new Set(normalized.moduleKeys);
   const permissionKeys = new Set(normalized.permissionKeys);
   return subtreeKeys(group.node).every(
-    (key) => moduleKeys.has(key) && permissionKeys.has(wildcardKeyOf(key)),
+    (key) =>
+      moduleKeys.has(key) &&
+      (flat.get(key)?.hasPermissions !== true ||
+        permissionKeys.has(wildcardKeyOf(key))),
   );
 }

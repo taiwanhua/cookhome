@@ -4,7 +4,11 @@ import type { GraphQLClient } from "@repo/graphql";
 
 import { useSession } from "@/hooks/useSession";
 
-import type { DemoItemResult, DemoRows } from "./demo-module-config";
+import type {
+  DemoItemResult,
+  DemoRows,
+  DemoSetEnabledHook,
+} from "./demo-module-config";
 
 /**
  * codegen 產的 query hook 的**最小形狀**(共用元件只用到這三件事:呼叫、`enabled`、`getKey`)。
@@ -45,6 +49,29 @@ export const useDemoRows = <Variables, Data, Row>(
       });
     },
   };
+};
+
+/**
+ * 沒給 `useSetEnabled` 的模組用的替身:同形、什麼都不做。
+ * hook 不能條件呼叫,所以「有沒有這個選配」不能寫成 `if`,要換成一支恆呼叫的替身。
+ */
+const noDemoSetEnabled: DemoSetEnabledHook = () => ({
+  mutate: () => {
+    // 沒有這個選配的模組不會有開關,所以這支永遠不會被呼叫
+  },
+  isPending: false,
+});
+
+/**
+ * 切換啟用 / 停用(選配)。設定物件給了就用它的 mutation hook,沒給就用上面的替身 ——
+ * 設定物件是模組層常數,「給不給」在執行期不會變,所以 hook 的呼叫順序仍然是穩定的。
+ */
+export const useDemoSetEnabled = (
+  useSetEnabled: DemoSetEnabledHook | undefined,
+  options: { onSuccess: () => void; onError: (error: unknown) => void },
+): ReturnType<DemoSetEnabledHook> => {
+  const { session } = useSession();
+  return (useSetEnabled ?? noDemoSetEnabled)(session.client, options);
 };
 
 /**

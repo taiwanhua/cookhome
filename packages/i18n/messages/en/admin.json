@@ -777,6 +777,7 @@
       "viewOf": "View “{name}”",
       "editOf": "Edit “{name}”",
       "deleteOf": "Delete “{name}”",
+      "toggleEnabledOf": "Toggle enabled state for “{name}”",
       "backToList": "← Back to list"
     },
     "attachment": {
@@ -875,6 +876,7 @@
       "viewOf": "View “{name}”",
       "editOf": "Edit “{name}”",
       "deleteOf": "Delete “{name}”",
+      "toggleEnabledOf": "Toggle enabled state for “{name}”",
       "backToList": "← Back to list"
     },
     "form": {

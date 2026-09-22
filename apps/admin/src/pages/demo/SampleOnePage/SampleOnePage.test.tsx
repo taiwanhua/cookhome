@@ -13,22 +13,68 @@ import {
  * 詳情與共版型各有自己的測試檔;路由防守在 `SampleOneRoutes.test.tsx`。
  */
 describe("示範模組1 列表(/demo/sub/sample-one)", () => {
-  it("列出示範項目,狀態與啟用各有標籤,沒填的欄位顯示「—」", async () => {
+  it("列出示範項目,狀態有標籤、啟用是開關,沒填的欄位顯示「—」", async () => {
     renderSampleOne();
 
     const row = await findRowOf("醬燒雞腿排");
     expect(within(row).getByText("主食")).toBeInTheDocument();
     expect(within(row).getByText("已發布")).toBeInTheDocument();
-    expect(within(row).getByText("啟用")).toBeInTheDocument();
+    expect(
+      within(row).getByRole("switch", { name: "切換「醬燒雞腿排」的啟用狀態" }),
+    ).toBeChecked();
 
     // 備註沒填的那一筆顯示「—」,不是空白格
     const plain = await findRowOf("涼拌小黃瓜");
     expect(within(plain).getByText("—")).toBeInTheDocument();
 
-    // 停用 + 已封存的那一筆
+    // 停用 + 已封存 + 改不動的那一筆:啟用欄退回唯讀標籤
     const archived = await findRowOf("古早味紅茶");
     expect(within(archived).getByText("已封存")).toBeInTheDocument();
     expect(within(archived).getByText("停用")).toBeInTheDocument();
+    expect(within(archived).queryByRole("switch")).not.toBeInTheDocument();
+  });
+
+  it("啟用欄:改得動的那一列是開關,切換後送出並更新列表", async () => {
+    const { user: actor, fake } = renderSampleOne();
+    const row = await findRowOf("醬燒雞腿排");
+
+    await actor.click(
+      within(row).getByRole("switch", { name: "切換「醬燒雞腿排」的啟用狀態" }),
+    );
+
+    await waitFor(() => {
+      expect(fake.inputs.setDemoItemOneEnabled).toEqual([
+        { id: "demo-1", enabled: false },
+      ]);
+    });
+    // 成功後只失效當前清單(DATA-02 / 04)→ 重查後那一列是停用的
+    await waitFor(() => {
+      expect(
+        within(screen.getByRole("row", { name: /醬燒雞腿排/ })).getByRole(
+          "switch",
+        ),
+      ).not.toBeChecked();
+    });
+  });
+
+  it("切換失敗時列表上出現說明,狀態不變", async () => {
+    const { user: actor } = renderSampleOne({
+      world: { failures: { SetDemoItemOneEnabled: { code: "FORBIDDEN" } } },
+    });
+    const row = await findRowOf("醬燒雞腿排");
+
+    await actor.click(
+      within(row).getByRole("switch", { name: "切換「醬燒雞腿排」的啟用狀態" }),
+    );
+
+    expect(
+      await screen.findByText("你沒有執行這個動作的權限。"),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("row", { name: /醬燒雞腿排/ })).getByRole(
+        "switch",
+      ),
+    ).toBeChecked();
   });
 
   it("搜尋比對名稱與備註,把關鍵字送給 api(不是前端過濾)", async () => {

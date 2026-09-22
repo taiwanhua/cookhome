@@ -8,6 +8,7 @@ import type {
   DemoItemOneQueryVariables,
   DemoItemsOneQuery,
   DemoItemsOneQueryVariables,
+  SetDemoItemOneEnabledMutationVariables,
   UpdateDemoItemOneMutationVariables,
 } from "@repo/graphql";
 import { DemoItemOneStatus } from "@repo/graphql";
@@ -28,6 +29,7 @@ export type DemoOperation =
   | "CreateDemoItemOne"
   | "UpdateDemoItemOne"
   | "DeleteDemoItemOne"
+  | "SetDemoItemOneEnabled"
   | "CreateUploadUrl";
 
 export interface DemoFailure {
@@ -54,6 +56,7 @@ export interface DemoWorld {
     createDemoItemOne: CreateDemoItemOneMutationVariables["input"][];
     updateDemoItemOne: UpdateDemoItemOneMutationVariables["input"][];
     deleteDemoItemOne: DeleteDemoItemOneMutationVariables["input"][];
+    setDemoItemOneEnabled: SetDemoItemOneEnabledMutationVariables["input"][];
     createUploadUrl: CreateUploadUrlMutationVariables["input"][];
   };
   /** 各查詢被打到的次數(驗 invalidate、驗「點了才現簽」) */
@@ -108,6 +111,7 @@ export const demoWorld = (options: DemoWorldOptions = {}): DemoWorld => {
     createDemoItemOne: [],
     updateDemoItemOne: [],
     deleteDemoItemOne: [],
+    setDemoItemOneEnabled: [],
     createUploadUrl: [],
   };
   const calls = {
@@ -285,6 +289,23 @@ export const demoWorld = (options: DemoWorldOptions = {}): DemoWorld => {
       }
       return HttpResponse.json({
         data: { deleteDemoItemOne: { success: true, deletedId: input.id } },
+      });
+    }),
+    api.mutation("SetDemoItemOneEnabled", ({ variables }) => {
+      const { input } = variables as SetDemoItemOneEnabledMutationVariables;
+      inputs.setDemoItemOneEnabled.push(input);
+      const failure = fail("SetDemoItemOneEnabled");
+      if (failure !== null) {
+        return failure;
+      }
+      const target = findItem(input.id);
+      if (target === undefined) {
+        return notFound();
+      }
+      // 有狀態:寫回同一份清單,列表 invalidate 後才看得到新狀態(TEST-08)
+      target.enabled = input.enabled;
+      return HttpResponse.json({
+        data: { setDemoItemOneEnabled: { item: project(target) } },
       });
     }),
     api.mutation("CreateUploadUrl", ({ variables }) => {

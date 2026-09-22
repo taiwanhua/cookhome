@@ -1,6 +1,6 @@
 # CookHome 部署架構與操作手冊
 
-> 最後更新:2026-09-22(#313:Release 步驟第 4 點定為「對齊 `dev` / `staging`」的唯一正本,其餘四處改為一句指路;#309:release 一批一次、release 後 `dev` / `staging` 以 `reset --hard` 對齊 `main`,取代原本把 `main` 空合併回去的做法;2026-09-21 #270:admin nginx 的 `index.html` 回 `Cache-Control: no-cache`、`/assets/` 維持 immutable 長快取;#259:`.dockerignore` 對 admin 模組說明開例外 + Dockerfile 加打包資產檢查;2026-09-19 #69:api 非機密環境變數改由 `deploy/env/<環境>.yaml` 提供、Secret Manager 加 `jwt-secret*`、`resend-api-key*`)。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
+> 最後更新:2026-09-22(#364:新增「資料庫還原(reset)」一節與手動 workflow `reset-db.yml`,僅 dev / staging;#313:Release 步驟第 4 點定為「對齊 `dev` / `staging`」的唯一正本,其餘四處改為一句指路;#309:release 一批一次、release 後 `dev` / `staging` 以 `reset --hard` 對齊 `main`,取代原本把 `main` 空合併回去的做法;2026-09-21 #270:admin nginx 的 `index.html` 回 `Cache-Control: no-cache`、`/assets/` 維持 immutable 長快取;#259:`.dockerignore` 對 admin 模組說明開例外 + Dockerfile 加打包資產檢查;2026-09-19 #69:api 非機密環境變數改由 `deploy/env/<環境>.yaml` 提供、Secret Manager 加 `jwt-secret*`、`resend-api-key*`)。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
 
 ## 一、架構總覽
 
@@ -73,6 +73,7 @@ release 後:進行中的 feat 分支 rebase 到最新 main
   - **只部署改到的 app**(2026-09-19):workflow 讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過(migrate → seed 也只在 api 或 db-migrator 受影響時跑);判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`(第一次部署或 Cloud Run 讀不到 tag 時會自動全部)
   - image tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(VITE 端點烘入)
   - **部署成功後自動跑 `migrate → seed`**(ADR-0002):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`;seed 摘要(新增 N / 更新 M / 未變 K)印在 Actions log — 第一次跑應全為新增,之後每次應為 0 / 0 / K。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)
+- **資料庫還原(reset-db.yml)**:同樣只能手動觸發,**只有 dev / staging**(`data` / `full` 兩模式);操作見下面「三、手動操作」的「資料庫還原(reset)」,規則正本是 ADR-0002「還原(reset)」
 - **release 一批一次**:同一批票各自 PR 合進 `dev`、各自 PR 合進 `staging`,**累積成一批之後才走一次 release**(一個 `staging → main` 的 PR + 一次 production 部署);`dev` 的部署也等該批最後一張合完才觸發,不要一張一部署。release 完成後照下面 Release 步驟第 4 點(對齊分支的正本)把 `dev` / `staging` reset 到 `main`。例外只有**產物依賴**(後面的票要拿前面的票已上線的產物才做得下去),這種才單獨先 release 一次
 - **Release 步驟(每次一樣;票的看板狀態見 `docs/agents/issue-tracker.md`)**:
   1. dev 的 CI 綠 → 要上線的 feat 分支**逐一** PR 合進 `staging`(PR 內文帶 `Refs #票號`,自動化才移卡);合完 `git diff --stat origin/dev origin/staging` 應為空
@@ -119,6 +120,32 @@ REG=asia-east1-docker.pkg.dev/cookhome-online/cookhome
 docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$SHA
 # 接著複製 deploy.yml「deploy」步驟裡 api 的 gcloud run deploy 指令,把 ${{ … }} 換成該環境的值
 ```
+
+### 資料庫還原(reset;僅 dev / staging)
+
+驗收要反覆重建租戶與使用者時,用手動 workflow 把該環境的資料庫還原。**規則正本是 ADR-0002「還原(reset)」**(兩種模式的定義、`data` 的刪 / 留判準、三道安全閥),這裡只寫怎麼操作。
+
+- UI:Actions → **Reset DB** → Run workflow → 選 `environment`(dev / staging)與 `mode`
+- CLI:`gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data`
+
+| mode   | 做什麼                                                                              | 什麼時候用                                            |
+| ------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `data` | 只刪人建的資料(租戶、使用者、租戶角色、資料範圍規則、示範與業務資料…),再跑一次 seed | 重測開通租戶那條線;**模組頁調過的開關 / 圖示會留著**  |
+| `full` | `dropDatabase` → `migrate` → `seed`                                                 | 要一個全新安裝的環境(連調過的開關 / 圖示也回到宣告值) |
+
+限制與注意:
+
+- **沒有 production 選項** —— workflow 的 choice 只有 dev / staging,指令端另有三道安全閥(`--confirm` 要等於資料庫名、目標環境由資料庫名推得且 production 永遠拒絕、`RESET_ALLOW_ENV` 要含目標環境),兩層都擋。
+- **只碰資料庫,不動 Cloud Run**:服務不會重新部署,`full` 之後 api 也不必重啟(它不快取這些資料)。
+- **不還原 GCS 上的檔案**(商標、封面…):物件留在 bucket 裡變成孤兒,不影響功能。
+- **root 帳號的密碼**:`data` 保留原帳號整筆(含密碼雜湊,改過的密碼仍有效);**`full` 會重新建立帳號,密碼回到 `root-admin-password*` secret 的當前值**。
+- job 掛在 GitHub `environment: <env>` 底下,日後要加人工審核在該 environment 設 required reviewers 即可。
+- 本機跑同一支指令(本地資料庫名要以 `-dev` 結尾,否則會被當成 production 拒絕):
+
+  ```bash
+  RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev \
+    pnpm --filter @repo/db-migrator reset --mode=data --confirm=cookhome-dev
+  ```
 
 ### 觀測與維運
 

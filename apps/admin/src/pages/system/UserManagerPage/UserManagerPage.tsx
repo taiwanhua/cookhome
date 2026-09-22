@@ -76,6 +76,15 @@ export const UserManagerPage = () => {
 
   const pageCount = Math.max(1, Math.ceil(data.totalCount / USERS_PAGE_SIZE));
 
+  /**
+   * 擁有者在「選擇所屬組織」裡鎖住的節點(#362):只鎖他擁有的租戶頂層 —— api 的
+   * `assertOwnedOrgsKept` 也只擋這一件,加入其他組織一直是允許的。其他人沒有鎖。
+   */
+  const lockedOrgIdsFor = (user: UserRow): string[] =>
+    data.protectedOwnerOrgId !== null && user.id === data.protectedOwnerUserId
+      ? [data.protectedOwnerOrgId]
+      : [];
+
   return (
     // 撐滿殼給的內容區高度(#183 / Figma 30:166:左右兩塊等高、各自內部捲動)
     <Stack direction="row" spacing={3} sx={{ flex: 1, minHeight: 0 }}>
@@ -180,6 +189,8 @@ export const UserManagerPage = () => {
           nodes={data.orgNodes}
           isLoading={data.isOrgTreeLoading}
           initialSelectedIds={orgsFlow.flow.user.orgs.map((org) => org.id)}
+          lockedOrgIds={lockedOrgIdsFor(orgsFlow.flow.user)}
+          lockedHint={t("ownerProtected")}
           isSubmitting={orgsFlow.isSubmitting}
           onCancel={orgsFlow.close}
           onConfirm={orgsFlow.pick}

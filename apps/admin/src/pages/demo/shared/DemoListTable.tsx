@@ -4,6 +4,7 @@ import { useTranslations } from "use-intl";
 import { IconButton } from "@repo/ui/icon-button";
 import { DeleteIcon, EditIcon, ViewIcon } from "@repo/ui/icons";
 import { Stack } from "@repo/ui/stack";
+import { Switch } from "@repo/ui/switch";
 import { Table, type TableColumn } from "@repo/ui/table";
 import { Tag } from "@repo/ui/tag";
 import { Tooltip } from "@repo/ui/tooltip";
@@ -20,9 +21,17 @@ export interface DemoListTableProps<Row extends DemoItemLike> {
   canEnterView: boolean;
   /** 綁了編輯頁嗎;能不能改那一筆另外看 `row.abilities.canEdit` */
   canEnterEdit: boolean;
+  /**
+   * 這個模組有沒有啟用 / 停用(設定物件給了 `useSetEnabled` 嗎)。
+   * false = `enabled` 欄維持唯讀 Tag —— 選配沒開的模組連切換的入口都不該出現。
+   */
+  canToggleEnabled: boolean;
+  /** 正在送出的那一列(同時只會有一筆);那一列的開關先停用,避免連點送出兩次 */
+  togglingRowId: string | null;
   onView: (row: Row) => void;
   onEdit: (row: Row) => void;
   onDelete: (row: Row) => void;
+  onToggleEnabled: (row: Row, enabled: boolean) => void;
 }
 
 /**
@@ -42,9 +51,12 @@ export const DemoListTable = <Row extends DemoItemLike>({
   isLoading,
   canEnterView,
   canEnterEdit,
+  canToggleEnabled,
+  togglingRowId,
   onView,
   onEdit,
   onDelete,
+  onToggleEnabled,
 }: DemoListTableProps<Row>) => {
   const t = useTranslations(i18nNamespace);
   const tColumns = useTranslations(`${i18nNamespace}.columns`);
@@ -100,12 +112,27 @@ export const DemoListTable = <Row extends DemoItemLike>({
   /** 每個 CRUD 模組都一樣的三欄;其餘 key 由設定物件的 `render` 負責(沒給就是空的)。 */
   const builtIn: Partial<Record<string, (row: Row) => ReactNode>> = {
     name: (row) => <>{row.name}</>,
-    enabled: (row) => (
-      <Tag
-        tone={row.enabled ? "success" : "grey"}
-        label={row.enabled ? t("enabled.true") : t("enabled.false")}
-      />
-    ),
+    enabled: (row) =>
+      // 有這個選配、而且這一列改得動才給開關;其餘情況看得到狀態但切不了(唯讀 Tag)
+      canToggleEnabled && row.abilities.canEdit ? (
+        <Switch
+          checked={row.enabled}
+          disabled={togglingRowId === row.id}
+          onChange={(_event, checked) => {
+            onToggleEnabled(row, checked);
+          }}
+          slotProps={{
+            input: {
+              "aria-label": tActions("toggleEnabledOf", { name: row.name }),
+            },
+          }}
+        />
+      ) : (
+        <Tag
+          tone={row.enabled ? "success" : "grey"}
+          label={row.enabled ? t("enabled.true") : t("enabled.false")}
+        />
+      ),
     actions: renderActions,
   };
 

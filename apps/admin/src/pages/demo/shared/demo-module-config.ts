@@ -295,6 +295,27 @@ export type DemoDeleteHook = (
   isPending: boolean;
 };
 
+/* ------------------------------------------------- 啟用 / 停用(選配) */
+
+/**
+ * 切換啟用 / 停用的 mutation hook(**選配**)。形狀比照 `useDelete`:兩支示範模組的 input
+ * 同形(`{ id, enabled }`),所以直接收 codegen 的 hook,不必再包一層。
+ *
+ * **不給 = 這個模組沒有啟用 / 停用**,列表的 `enabled` 欄維持唯讀 Tag(#359 的裁決:
+ * 未來的模組不一定有這個欄位,共版型不強迫)。給了也不代表每一列都切得動 —— 開關只在
+ * **那一列的 `abilities.canEdit` 為真**時出現,改不動的列仍然是 Tag(逐列的能力一律讀 api)。
+ */
+export type DemoSetEnabledHook = (
+  client: GraphQLClient,
+  options?: {
+    onSuccess?: () => void;
+    onError?: (error: unknown) => void;
+  },
+) => {
+  mutate: (variables: { input: { id: string; enabled: boolean } }) => void;
+  isPending: boolean;
+};
+
 /* ------------------------------------------------------------------ 總表 */
 
 export interface DemoModuleConfig<
@@ -311,4 +332,8 @@ export interface DemoModuleConfig<
   form: DemoFormConfig<Detail, Values>;
   /** 刪除(列表與詳情共用同一個確認彈窗與端點) */
   useDelete: DemoDeleteHook;
+  /**
+   * 切換啟用 / 停用(**選配**)。不給 = 這個模組沒有啟用 / 停用,列表的 `enabled` 欄維持唯讀 Tag。
+   */
+  useSetEnabled?: DemoSetEnabledHook;
 }

@@ -23,6 +23,12 @@ export interface OrgTreePickerProps {
   keyword?: string;
   /** 節點名稱右側的附加標籤(組織管理頁的「停用」「租戶」);預設沒有 */
   labelSuffixOf?: OrgLabelSuffix;
+  /**
+   * 勾選框鎖住的節點:已勾的維持勾選、勾不動也取消不掉,但該列仍可展開
+   * (#362 的「擁有者不可被移出自己擁有的租戶頂層」)。與整個節點 `disabled`
+   * (範圍外)不同 —— 鎖住的節點仍然是選取結果的一部分。
+   */
+  lockedIds?: readonly string[];
   maxHeight?: number | string;
   "aria-label"?: string;
 }
@@ -40,6 +46,7 @@ export const OrgTreePicker = ({
   isMultiSelect = false,
   keyword = "",
   labelSuffixOf,
+  lockedIds,
   maxHeight,
   "aria-label": ariaLabel,
 }: OrgTreePickerProps) => {
@@ -70,6 +77,7 @@ export const OrgTreePicker = ({
       checkboxSelection={isMultiSelect}
       selectedIds={selectedIds}
       onSelectedIdsChange={onSelectedIdsChange}
+      disabledCheckIds={lockedIds}
       expandedIds={expandedIds}
       onExpandedIdsChange={handleExpandedIdsChange}
       sx={{
