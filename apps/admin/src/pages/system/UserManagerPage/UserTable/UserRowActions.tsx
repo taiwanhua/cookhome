@@ -9,7 +9,11 @@ import type { UserActionAbility, UserRow } from "../user-manager-types";
 export interface UserRowActionsProps {
   user: UserRow;
   ability: UserActionAbility;
-  /** 這一列是受保護的頂層組織擁有者(ADR-0009):停用與所屬組織的動作停用並提示 */
+  /**
+   * 這一列是受保護的頂層組織擁有者(ADR-0009):**只有「停用」停用並提示**。
+   * 「所屬組織」照常可開(#362):api 的 `assertOwnedOrgsKept` 只擋「移出他擁有的
+   * 租戶頂層」,加入其他組織一直是允許的 —— 鎖在彈窗裡的那一個節點上。
+   */
   isOwnerProtected: boolean;
   /** 沒有組織樹(缺 `system.org-manager.view`)時「所屬組織」無從勾選,一併停用 */
   isOrgTreeAvailable: boolean;
@@ -21,7 +25,9 @@ export interface UserRowActionsProps {
 
 /**
  * 每列的動作(Figma 31:98):有權限才出現;擁有者受保護的動作出現但 disabled 並以 title 說明原因
- * (停用 / 移出租戶一律被 api 以 `OWNER_PROTECTED` 擋下,先在畫面上講清楚)。
+ * (停用被 api 以 `OWNER_PROTECTED` 擋下,先在畫面上講清楚)。
+ * **「所屬組織」不在此列**(#362):api 只擋「移出他擁有的租戶頂層」,
+ * 整個按鈕停用比 api 嚴,擁有者會因此連加入其他組織都做不到。
  */
 export const UserRowActions = ({
   user,
@@ -50,18 +56,16 @@ export const UserRowActions = ({
         </Button>
       )}
       {ability.canManageOrgs && (
-        <Box component="span" title={protectedTitle}>
-          <Button
-            variant="text"
-            size="small"
-            disabled={isOwnerProtected || !isOrgTreeAvailable}
-            onClick={() => {
-              onManageOrgs(user);
-            }}
-          >
-            {t("actions.orgs")}
-          </Button>
-        </Box>
+        <Button
+          variant="text"
+          size="small"
+          disabled={!isOrgTreeAvailable}
+          onClick={() => {
+            onManageOrgs(user);
+          }}
+        >
+          {t("actions.orgs")}
+        </Button>
       )}
       {ability.canAssignRoles && (
         <Button

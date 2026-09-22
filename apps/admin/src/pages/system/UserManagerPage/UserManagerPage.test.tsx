@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { heightChainOf } from "@/test/height-chain";
 
@@ -9,6 +9,7 @@ import {
 } from "./user-manager-permissions";
 import {
   ALL_PERMISSIONS,
+  orgCheckboxOf,
   renderPage,
   rowOf,
 } from "./user-manager-test-support";
@@ -78,6 +79,69 @@ describe("使用者管理頁(/system/user-manager)", () => {
     expect(
       within(rowOf("王小明")).getByRole("button", { name: "停用" }),
     ).toBeEnabled();
+  });
+
+  /**
+   * #362:api 的 `assertOwnedOrgsKept` 只擋「把擁有者移出他擁有的租戶頂層」,
+   * 加入其他組織一直是允許的 —— 畫面以前把整個「所屬組織」按鈕停用,比 api 嚴,
+   * 擁有者因此連把自己加進分店都做不到。鎖只在彈窗裡的那一個節點上。
+   */
+  it("擁有者的所屬組織照常可開:租戶頂層鎖住不可取消,加入其他組織送得出去", async () => {
+    const { user: actor, fake } = renderPage();
+
+    await screen.findByText("何家華");
+    // 擁有者由 `org(樹根)` 的 ownerUserId 決定,那是第二個查詢,可能比清單晚回來
+    await waitFor(() => {
+      expect(
+        within(rowOf("何家華")).getByRole("button", { name: "停用" }),
+      ).toBeDisabled();
+    });
+    const orgsButton = within(rowOf("何家華")).getByRole("button", {
+      name: "所屬組織",
+    });
+    expect(orgsButton).toBeEnabled();
+    await actor.click(orgsButton);
+
+    const tenantCheckbox = await orgCheckboxOf("租戶 A");
+    expect(tenantCheckbox).toBeChecked();
+    expect(tenantCheckbox).toBeDisabled();
+    expect(
+      screen.getByText("頂層組織的擁有者受保護,無法執行此動作"),
+    ).toBeInTheDocument();
+
+    // 勾不掉:停用的勾選框連 pointer-events 都沒有,所以用 fireEvent 硬點也切不動
+    fireEvent.click(tenantCheckbox);
+    expect(tenantCheckbox).toBeChecked();
+
+    await actor.click(await orgCheckboxOf("內容組"));
+    await actor.click(screen.getByRole("button", { name: "確定" }));
+
+    // 純粹是「加入」,沒有移除 → 不走 dry-run,直接送出
+    await waitFor(() => {
+      expect(fake.inputs.setUserOrgs).toHaveLength(1);
+    });
+    expect(fake.inputs.setUserOrgs[0]).toMatchObject({
+      userId: "user-owner",
+      dryRun: false,
+    });
+    expect(fake.inputs.setUserOrgs[0]?.orgIds).toHaveLength(2);
+    expect(fake.inputs.setUserOrgs[0]?.orgIds).toEqual(
+      expect.arrayContaining(["org-tenant", "org-content"]),
+    );
+  });
+
+  it("非擁有者的所屬組織彈窗沒有鎖住的節點", async () => {
+    const { user: actor } = renderPage();
+
+    await screen.findByText("王小明");
+    await actor.click(
+      within(rowOf("王小明")).getByRole("button", { name: "所屬組織" }),
+    );
+
+    expect(await orgCheckboxOf("租戶 A")).toBeEnabled();
+    expect(
+      screen.queryByText("頂層組織的擁有者受保護,無法執行此動作"),
+    ).not.toBeInTheDocument();
   });
 
   it("新增使用者:選「直接設定初始密碼」才出現密碼欄,送出帶啟用方式與所屬組織", async () => {
@@ -172,13 +236,7 @@ describe("使用者管理頁(/system/user-manager)", () => {
       within(rowOf("王小明")).getByRole("button", { name: "所屬組織" }),
     );
 
-    const treeItems = await screen.findAllByRole("treeitem");
-    const contentItem = treeItems.find((item) => item.textContent === "內容組");
-    const checkbox = contentItem?.querySelector("input[type='checkbox']");
-    if (!(checkbox instanceof HTMLElement)) {
-      throw new TypeError("找不到「內容組」的核取方塊");
-    }
-    await actor.click(checkbox);
+    await actor.click(await orgCheckboxOf("內容組"));
     await actor.click(screen.getByRole("button", { name: "確定" }));
 
     expect(await screen.findByText("確認所屬組織變更?")).toBeInTheDocument();
