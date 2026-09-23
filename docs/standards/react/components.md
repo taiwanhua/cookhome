@@ -2,7 +2,7 @@
 
 ## REACT-01 箭頭函數 + 具名匯出;props 用 `export interface XxxProps` 獨立宣告
 
-(2026-09-19 改,ADR-0012;lint:`func-style` / `react/function-component-definition`,各包完成重構後啟用)
+(決策見 ADR-0012;lint:`func-style` / `react/function-component-definition`,admin / front / ui 皆已啟用。正本:`packages/config-eslint/frontend-style.js`)
 
 ```tsx
 ✅ export interface ShellAppBarProps {
@@ -11,7 +11,7 @@
    }
    export const ShellAppBar = ({ me, title }: ShellAppBarProps) => { … };
 
-❌ export function ShellAppBar({ me, title }: Readonly<ShellAppBarProps>) { … }   // 舊寫法
+❌ export function ShellAppBar({ me, title }: Readonly<ShellAppBarProps>) { … }   // function 宣告 + Readonly 包 props
 ❌ export const ShellAppBar = ({ me, title }: { me: …; title: string }) => { … }   // props 型別寫在參數裡
 ❌ export default ({ href }: any) => { … }
 ```
@@ -23,10 +23,10 @@
 
 ## REACT-02 狀態放哪:照決策樹;跨元件的用戶端狀態用 zustand
 
-(2026-09-19 改,ADR-0012:原「全域 store 禁止」改為 zustand 是唯一的跨元件狀態容器)
+(決策見 ADR-0012:zustand 是唯一的跨元件狀態容器)
 
 1. 伺服器資料 → TanStack Query(codegen hooks),**不要**複製進 useState 或 store。
-2. URL 能表達的(頁碼、篩選、tab)→ URL(searchParams / router)。**admin 例外**:admin 有路由頁籤,`RouteTabs` 以 pathname 記頁籤、不處理 search,所以頁內篩選(頁碼、關鍵字、選中組織)在頁籤行為定案前留在頁面層的 `useState`,不進 URL(#139)。
+2. URL 能表達的(頁碼、篩選、tab)→ URL(searchParams / router)。**admin 例外**:admin 有路由頁籤,`RouteTabs` 以 pathname 記頁籤、不處理 search,所以頁內篩選(頁碼、關鍵字、選中組織)在頁籤行為定案前留在頁面層的 `useState`,不進 URL。
 3. 只有單一元件用 → `useState`。
 4. 跨元件的用戶端狀態(登入狀態、語言、路由頁籤…)→ **zustand**:`stores/useXxxStore.ts`,需要跨重新整理保留的用 `persist` middleware(sessionStorage / localStorage 由該狀態的規則決定)。
 5. context **只剩注入用**(theme、QueryClient、Intl provider、`AuthSession` 實例),不承載會變的狀態;redux / 自刻 `useSyncExternalStore` store 不用。注入用的 context 物件**與它的 hook 同檔、放 `hooks/`**(`hooks/useSession.ts` 同時匯出 `SessionContext` 與 `useSession`),provider 元件放 `app/providers/`。
@@ -38,9 +38,9 @@
 
 `persist` 的兩個注意:①它預設寫 `{ state, version }` 的 JSON 封包,**沿用既有 storage key 與格式時**(`docs/branding.md` 登記的那些)要保住舊格式,不然既存值失效、既有測試的 storage 斷言也會壞;②key 依使用者分把(如頁籤的 `…:<userId>`)的,store 提供 `bind(userId)` 以 `persist.setOptions({ name }) + rehydrate()` 換 key,不要把 userId 寫死在 `name`。
 
-注意①**先分辨既存格式是哪一種再決定怎麼寫**(2026-09-22,#183:兩種都被寫成整份自訂 `PersistStorage`,多繞一圈):
+注意①**先分辨既存格式是哪一種再決定怎麼寫**(兩種都寫成整份自訂 `PersistStorage` 是多繞一圈):
 
-- **既存格式本來就是 `persist` 的 JSON 封包**(只是換了 storage 後端、換了 key、讀取時要多墊一層搬移)→ **只換 `StateStorage`**:自訂一個 `getItem` / `setItem` / `removeItem` 的三方法物件,用 `createJSONStorage(() => …)` 包起來交給 `persist`。序列化仍由 zustand 做,`version` / `migrate` 也照常運作。先例 `stores/useSideNavStore.ts`(#289)。
+- **既存格式本來就是 `persist` 的 JSON 封包**(只是換了 storage 後端、換了 key、讀取時要多墊一層搬移)→ **只換 `StateStorage`**:自訂一個 `getItem` / `setItem` / `removeItem` 的三方法物件,用 `createJSONStorage(() => …)` 包起來交給 `persist`。序列化仍由 zustand 做,`version` / `migrate` 也照常運作。先例 `stores/useSideNavStore.ts`。
 - **既存格式不是 JSON 封包**(裸字串、舊版自己手寫的格式)→ 才整份自訂 `PersistStorage<S>`(`getItem` 要自己回 `{ state, version }`),因為序列化的形狀根本對不上。先例 `stores/useLocaleStore.ts`(localStorage 存的是 `"en"` 這種語言代碼字串)與 `stores/useRouteTabsStore.ts`。
 
 換句話說:`createJSONStorage` 管「存到哪」,`PersistStorage` 管「存成什麼形狀」;只有後者不對時才寫後者。
@@ -80,11 +80,11 @@ render 期呼叫 store action **只允許冪等的初始化**(放 `useState` 的
 
 ## REACT-07 一檔一元件;單檔以 300 行為目標,超過就拆
 
-(2026-09-19,ADR-0012;lint 硬上限 `max-lines` 400,各包完成重構後啟用)
+(決策見 ADR-0012;lint 硬上限 `max-lines` 400,admin / front / ui 皆已啟用)
 
 - 一個 `.tsx` 只匯出一個元件(檔名 = 元件名,GEN-01);同檔可以有它專用的小型 helper,但不能有第二個元件。
 - 300 行是**目標不是門檻**:301 行不算違規,重點是切得合理。拆法依序:子元件(放到同名資料夾底下,GEN-01)→ 有狀態的邏輯抽 hook(`useXxx.ts`,只有這個元件用就跟元件同資料夾)→ 純函式抽到 `lib/`(REACT-03)。
-- **300 與 400 都不計註解與空行**(2026-09-22,#321 問到才定):與 lint 設定一致 —— `packages/config-eslint/frontend-style.js` 的 `max-lines` 是 `{ max: 400, skipBlankLines: true, skipComments: true }`,所以數的是**程式碼行**。純型別 + JSDoc 的介面檔(`pages/demo/shared/demo-module-config.ts` 檔案 314 行)實際程式碼遠低於 300,不算超標、也不必為了行數把註解搬走。判斷要不要拆時看 lint 報的數字,不看編輯器的行號。
+- **300 與 400 都不計註解與空行**:與 lint 設定一致 —— `packages/config-eslint/frontend-style.js` 的 `max-lines` 是 `{ max: 400, skipBlankLines: true, skipComments: true }`,所以數的是**程式碼行**。純型別 + JSDoc 的介面檔(`pages/demo/shared/demo-module-config.ts` 檔案 314 行)實際程式碼遠低於 300,不算超標、也不必為了行數把註解搬走。判斷要不要拆時看 lint 報的數字,不看編輯器的行號。
 - 400 行由 lint 擋,超過就一定要拆;300 到 400 之間的在 PR 說明為何不拆。
 
 ```
@@ -94,7 +94,7 @@ render 期呼叫 store action **只允許冪等的初始化**(放 `useState` 的
 
 ## REACT-08 彈窗的初始值:關閉即卸載、props 進 `useState`、非同步資料外層 gate
 
-REACT-06 禁止 effect 內 setState,所以「開彈窗時把資料塞進表單」不能寫 `useEffect(() => setValues(data), [data])`。固定模式(#139 / #138 的做法):
+REACT-06 禁止 effect 內 setState,所以「開彈窗時把資料塞進表單」不能寫 `useEffect(() => setValues(data), [data])`。固定模式(組織管理、使用者管理的彈窗都這樣寫):
 
 - 彈窗**關閉就卸載**(`open && <Dialog …/>`),每次開啟都是新的元件;
 - 初始值由 props 帶入 `useState` 的初始化器(`useState(() => toForm(org))`);
@@ -102,7 +102,7 @@ REACT-06 禁止 effect 內 setState,所以「開彈窗時把資料塞進表單�
 
 ## REACT-09 槽位(slot)元件一律是模組層常數;逐列資料走 context
 
-(2026-09-20,#207 包 `RichTreeView` 時定;適用所有吃 `slots` / `components` 的外部庫)
+(適用所有吃 `slots` / `components` 的外部庫;先例是 `@repo/ui` 包 `RichTreeView` 的 `Tree/`)
 
 MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是元素。把槽位元件定義在 render 內(或用閉包把該列的資料綁進去),每次 render 都是一個新的函式身分 → 整棵樹重新掛載,狀態、焦點與展開都會掉。
 
@@ -121,7 +121,7 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 
 ## REACT-10 提示文字一律用 `@repo/ui/tooltip`,不寫原生 `title`;預設 `describeChild`
 
-(2026-09-21,#240 / #260 定)
+正本:`packages/ui/src/Tooltip/Tooltip.tsx`
 
 `@repo/ui/tooltip` 的 `Tooltip` **與 MUI 的預設不同,`describeChild` 預設是 `true`**,理由是提示在 CookHome 一律是「補充說明」而不是「這顆按鈕叫什麼」:
 
@@ -131,7 +131,7 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 規則與呼叫端要知道的四件事:
 
 - **app 裡不要再寫原生 `title`**(STYLE-05 的元件牆同理):原生 `title` 的外觀不受 theme 控制、延遲不可調、觸控裝置看不到。
-- 真的需要提示**當名稱**時(圖示按鈕沒有可見文字)才明示 `describeChild={false}`,並在 PR 說明為什麼。記錄在案的例外:**側欄收合態的圖示列**(`SideNav/NavRail`,#295)—— 每一格只有圖示、提示顯示的就是模組名稱,留 `describeChild` 為 `true` 會做出一個「沒有無障礙名稱、只有描述」的按鈕。判準是**「提示的文字念出來就是這顆元件的名字」**;只要元素本身已有可見文字(按鈕上有字、旁邊有 label),提示就是補充,維持預設。
+- 真的需要提示**當名稱**時(圖示按鈕沒有可見文字)才明示 `describeChild={false}`,並在 PR 說明為什麼。記錄在案的例外:**側欄收合態的圖示列**(`SideNav/NavRail`)—— 每一格只有圖示、提示顯示的就是模組名稱,留 `describeChild` 為 `true` 會做出一個「沒有無障礙名稱、只有描述」的按鈕。判準是**「提示的文字念出來就是這顆元件的名字」**;只要元素本身已有可見文字(按鈕上有字、旁邊有 label),提示就是補充,維持預設。
 - **disabled 子元素由元件內部包 `span`**(disabled 元素不發 hover 事件),呼叫端不要自己再包一層;可用的元素則直接掛在 child 上,`aria-describedby` 仍指向它本身。
 - `title` 傳 `""` / `undefined` 就不提示,所以條件式提示直接寫 `title={isLocked ? hint : ""}`,不要條件式地換掉整棵子樹。
 
@@ -139,7 +139,7 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 
 ## REACT-11 表單下拉一律用 `@repo/ui/select-field` 的 `SelectField`
 
-(2026-09-23,#429)
+正本:`packages/ui/src/SelectField/SelectField.tsx`
 
 表單裡「從固定幾個選項挑一個(或幾個)」的欄位,一律用 `SelectField`:**`label` 就是浮動標籤兼無障礙名稱,欄位下的說明用 `helperText`**,選項以 `options: { value, label, disabled? }[]` 傳入。
 
@@ -158,7 +158,5 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 - **不適用**:殼的 AppBar 行內切換(語言、當前組織)是 `Draft/Select` 的 standard 變體、沒有標籤,仍用 `@repo/ui/select`;選單式動作(使用者選單)用 `@repo/ui/menu`。
 
 ## REACT-12 彈窗開著時,提示也要念得到:live region 不能是彈窗開啟前就在 body 裡的節點
-
-(2026-09-23,#430)
 
 MUI 的 modal manager 在 Dialog 開啟那一刻把 body 底下**已存在**的其他節點全標 `aria-hidden`,掛在 app 根節點裡的 Snackbar 因此看得到、念不到;admin 的解法是 `app/providers/SnackbarAnnouncer.tsx` —— 每一則提示各自 portal 一個視覺隱藏的 `role="status"` 到 body 末端(掛上時間晚於彈窗開啟),只在 Snackbar 被藏起來時才填字,測試以 `findByRole("status")` / `test/snackbar.ts` 的 `findSnackbarAlert()` 驗,**不帶 `hidden: true`**。

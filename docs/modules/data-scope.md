@@ -1,18 +1,23 @@
 # 資料範圍(技術)
 
-- **模組 key**:`system.data-scope`(掛系統管理群組,**根組織專屬**,租戶不可見)
-- **畫面**:Figma「Screen / Admin 資料範圍」— 左資料目標清單、右規則編輯器;合成規則說明見畫布旁註記卡
-- **相關 ADR**:[0008 資料範圍](../adr/0008-data-scope.md)(機制本體)、[0011 查詢與判斷流程](../adr/0011-permission-resolution-flow.md)
-- **資料**:`data_scope_rules`(collection unique、combineOp、rules[{audience, filter}])
-- **資料目標來源**:各模組 seed 的 `dataScopeTarget` 宣告(collection、中文名、描述、可篩欄位);基礎欄位由底座自動掛進欄位目錄
-- **執行**:BaseRepository 查詢時套用 — 命中規則依 combineOp 合成,最外層恆 AND 租戶隔離保底;設定記憶體快取、儲存時作廢
-- **UI 規則**:條件列 = 欄位(依目錄)→ 運算子(依型別)→ 值(依值來源,含動態值【操作者本人】【操作者的所屬組織】);巢狀群組任意深、UI 呈現建議 3 層;每層與頂層各有 AND/OR 切換
-- **權限備忘**:整頁根組織專屬;未來若開放租戶,套用對象與值選擇器已天然受可見範圍限制,保底不可關
-- **使用者說明**:[system.data-scope.help.md](../../apps/admin/src/md/module-help/system.data-scope.help.md)(根組織專屬模組 — help 讀者即系統管理員,可用平台詞彙)
+## 用途
 
-> **這一頁只有 root 進得去**(2026-09-23 明寫,#322):模組節點在 seed 宣告上標了 **`isRootOnly`**,所以租戶管理員模板複製時整個模組被扣除(ADR-0009 第 3 步),租戶的側欄根本沒有「資料範圍」這一列;api 那側另有第二道門(`OwnerProtectionService.isRootOperator`,見下方「api 介面」)。**所以凡是「建一條資料範圍規則」的步驟,帳號一律是 root** —— 驗收劇本 2 / 4 的建規則帳號因此是 root,劇本 16 驗的就是租戶看不到這一列。「模組與權限」(`system.module-manager`)與「租戶作業」(`system.org-manager.tenant-ops`)是同一種寫法。
+讓根組織的系統管理員對「業務類」資料目標(目前是示範模組1 的 `demo_items_one`)設定額外的過濾規則:規則依「套用對象」(全部 / 指定角色 / 指定組織 / 指定使用者)命中操作者,再以條件樹過濾他查得到的資料。規則只會讓看到的資料**變少**,永遠疊在租戶隔離保底之內。機制本體見 ADR-0008,查詢時的合成順序見 ADR-0011。
 
-## 權限表(第 4 段前置,2026-09-20)
+正本:`docs/adr/0008-data-scope.md`、`docs/adr/0011-permission-resolution-flow.md`
+
+## 模組 key 與畫面
+
+| key                 | 名稱     | sidebarType | 路由                 | 備註                                            |
+| ------------------- | -------- | ----------- | -------------------- | ----------------------------------------------- |
+| `system.data-scope` | 資料範圍 | link        | `/system/data-scope` | 掛「系統管理」群組;**根組織專屬**(`isRootOnly`) |
+
+- 畫面:Figma「Screen / 資料範圍」166:318 —— 左資料目標清單、右規則編輯器;合成規則說明見註記卡 167:1901,日期條件列 167:1804 / 167:1819,捲動提示 169:277。
+- 側欄初始圖示 `filter`(可在「模組與權限」頁更換)。
+
+正本:`apps/db-migrator/seeds/modules/system.ts`、`docs/standards/general/figma.md`(FIGMA-09 節點表)
+
+## 權限表
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。綁定原則:綁「按鈕 / 欄位所在的那一頁」(ADR-0004)。
 
@@ -21,13 +26,46 @@
 | `system.data-scope.view` | 看資料目標清單與各目標的規則                                               |
 | `system.data-scope.edit` | 規則編輯器「儲存」+ API(整份 `data_scope_rules` 覆蓋;儲存即作廢記憶體快取) |
 
-執行面(第 4 段做):BaseRepository 對**業務類** collection(`tenantScopePlugin({ kind: "business" })`)套規則;第一個目標是示範模組1 的 `demo_items_one`;`users` / `orgs` 這類底座資料不做資料範圍。審計動作:`data-scope.edit`(`targetType = "data_scope_rule"`,`targetId` 為該 collection 的規則文件)。
+整頁根組織專屬:模組節點在 seed 宣告標了 `isRootOnly`,租戶管理員模板複製時整個模組被扣除(ADR-0009),所以租戶的側欄根本沒有「資料範圍」這一列;api 另有第二道門(見「規則」)。若未來開放給租戶,套用對象與值選擇器本來就受可見範圍限制,保底不可關。
 
-## api 介面(#205;程式正本 `apps/api/src/data-scope/`)
+正本:`apps/db-migrator/seeds/modules/system.ts`
+
+## 資料
+
+- **`data_scope_rules`**:每個資料目標一份規則文件 —— `collection`(**unique 索引**)、`combineOp`(`AND` / `OR`)、`rules[{ audience, filter }]`。**沒有掛 `tenantScopePlugin`**:規則是全域設定,一個資料目標全站只有一份,由 root 維護、對所有租戶同時生效(「命中誰」由套用對象決定)。
+- **`data_scope_targets`**:資料目標目錄,來源是各模組 seed 的 `dataScopeTarget` 宣告(collection、中文名、描述、可篩欄位);基礎欄位由底座自動掛進欄位目錄,不必宣告。
+- **目前唯一的資料目標**:示範模組1 的 `demo_items_one`。它宣告了一個 enum 欄位 **`status`**(草稿 / 已發布 / 已封存),`value` 與 `demo-item-one.schema.ts` 的 `status` 一一對應 —— 沒有它,「enum 固定選項」這條在任何環境都驗不到。示範模組2 刻意不宣告,是對照組。
+- 執行面快取:規則設定放記憶體快取,`saveDataScopeRule` 儲存時作廢。
+
+正本:`apps/api/src/database/schemas/data-scope-rule.schema.ts`、`apps/api/src/database/schemas/data-scope-target.schema.ts`、`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`(`dataScopeTarget`)
+
+## 規則
+
+**只有 root 進得去**:`isRootOnly` 擋在側欄與路由(第一道),service 再守「當前組織是根組織」(第二道,判斷點 `OwnerProtectionService.isRootOperator`,與租戶作業、模組與權限同一個)—— 權限可能經角色被帶到別的組織,**站在哪裡**才是判準。所以凡是「建一條資料範圍規則」的步驟,帳號一律是 root(驗收劇本 2 / 4 的建規則帳號是 root,劇本 16 驗租戶看不到這一列)。
+
+### 執行面的回傳語意
+
+BaseRepository 查詢時套用;GQL-07 的語意正本在此。
+
+- 規則只套**業務類** collection(`tenantScopePlugin({ kind: "business" })`);`users` / `orgs` 這類底座 / 治理資料不做資料範圍。
+- **沒有規則命中操作者 = 不過濾**(只剩租戶保底),不是「什麼都看不到」。
+- 規則永遠以 `$and` 疊在租戶保底之內 —— 規則只會讓看到的**變少**,保底不可關。
+- 規則套在 `SCOPED_QUERY_MIDDLEWARE` **整組**(與租戶保底同一組),**含寫入與刪除的查詢** —— 看不到的資料也改不到 / 刪不到。
+- **`combineOp` 只作用在「命中同一個人的那幾條規則」之間**:`OR` = 聯集、`AND` = 交集;只命中一條的人就只受那一條限制,沒命中的規則不參與合成。
+- 套用對象比對的兩份事實:「指定組織」比 `memberOrgIds`(`org_user` 直接關聯)、「指定角色」比 `roleIds`(**啟用中**的角色 —— 停用角色後規則立刻不再命中,與管理範圍同一條規則)。
+- 動態值在**查詢當下**代入正在查的人:`current-user` → 操作者 id、`current-user-orgs` → 操作者的**所屬組織**(`org_user` 的直接關聯,**不含**可見性開關展開的下層);代入後若是空集合,該條件命中不到任何資料(fail-closed)。
+- **`rules: []` 不等於「從來沒設定過」**:整份覆蓋成空陣列 = 這個目標沒有規則(執行面只剩租戶保底),但 `dataScopeRule` 仍回一份 `rules: []` 的文件;`rule = null` 專指從來沒設定過。
+- **規則是共用狀態**:因為規則不隨租戶隔離,自動化測試動到規則的劇本結尾一定要整份覆蓋成 `rules: []` 清乾淨,否則會污染同一個資料庫上跑的其他劇本(TEST-11)。
+
+**條件樹**:條件列 = 欄位(依目錄)→ 運算子(依型別)→ 值(依值來源,含動態值【操作者本人】【操作者的所屬組織】);群組任意深、每層與頂層各有 AND / OR 切換。
+
+正本:`apps/api/src/data-scope/data-scope.service.ts`、`apps/api/src/database/plugins/data-scope-provider.ts`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`、`apps/api/src/database/base.repository.ts`
+
+## api 介面
 
 ```graphql
 dataScopeTargets: DataScopeTargetsPayload!                          # { targets: [DataScopeTarget!]! }
-dataScopeRule(collection: String!): DataScopeRulePayload!           # { rule: DataScopeRule }(rule = null → 尚無規則)
+dataScopeRule(collection: String!): DataScopeRulePayload!           # { rule: DataScopeRule }(rule = null → 從來沒設定過)
 saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!   # { rule: DataScopeRule! }
 
 type DataScopeTarget {
@@ -65,21 +103,15 @@ input SaveDataScopeRuleInput {
 }
 ```
 
+三者皆根組織專屬:`@RequirePermission` 先守 `.view` / `.edit`,service 再守根組織(見「規則」)。
+
 **回傳欄位的語意**(GQL-07):
 
-- `DataScopeTarget.hasRule`(#246):這個目標**已設規則** = 有規則文件**且 `rules` 非空**。
-  整份覆蓋時送 `rules: []` 等於刪掉規則,之後留下的空文件**不算**已設 —— 判準與執行面一致
-  (`DataScopeService.load`:`rules` 為空即視為沒有規則,查詢只剩租戶保底)。
-  左清單的「已設規則」讀它,不必對每個目標各查一次 `dataScopeRule`。
+- `DataScopeTarget.hasRule`:這個目標**已設規則** = 有規則文件**且 `rules` 非空**。整份覆蓋時送 `rules: []` 等於刪掉規則,之後留下的空文件**不算**已設 —— 判準與執行面一致(`DataScopeService.load`:`rules` 為空即視為沒有規則)。左清單的「已設規則」讀它,不必對每個目標各查一次 `dataScopeRule`。
 
-三者皆**根組織專屬**:`@RequirePermission` 先守權限(`.view` / `.edit`),service 再守「當前組織是根組織」
-(判斷點 `OwnerProtectionService.isRootOperator`,與租戶作業、模組與權限同一個)— 權限可能經角色被帶到別的組織,
-**站在哪裡**才是判準。不是根組織 → `FORBIDDEN`;不是 seed 宣告的資料目標 → `NOT_FOUND`;
-規則不合法 → `RULE_INVALID`(GQL-04 已追加該列)。
+### `rules[].filter` 的 JSON 形狀(admin 條件樹編輯器照這份產)
 
-### `rules[].filter` 的 JSON 形狀(admin #210 的條件樹編輯器照這份產)
-
-節點只有兩種,靠欄位判別:**群組**有 `op` + `children`(任意深,UI 建議 3 層),**條件列**有 `field` + `cond` + `value`。
+節點只有兩種,靠欄位判別:**群組**有 `op` + `children`(任意深,UI 上限 3 層),**條件列**有 `field` + `cond` + `value`。
 
 ```jsonc
 {
@@ -106,7 +138,7 @@ input SaveDataScopeRuleInput {
         {
           "field": "createdAt",
           "cond": "between",
-          "value": { "kind": "static", "values": ["2026-01-01", "2026-12-31"] },
+          "value": { "kind": "static", "values": ["<ISO 起日>", "<ISO 迄日>"] },
         },
       ],
     },
@@ -114,7 +146,7 @@ input SaveDataScopeRuleInput {
 }
 ```
 
-型別 → 運算子 → 值來源(ADR-0008 的表的執行期正本 `apps/api/src/data-scope/data-scope-rule.ts`):
+型別 → 運算子 → 值來源(ADR-0008 那張表的執行期正本):
 
 | 型別   | `cond`                         | `value`                                                                                    |
 | ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
@@ -125,11 +157,36 @@ input SaveDataScopeRuleInput {
 
 `value.values` 一律是**字串陣列**(id、ISO 日期、enum value 都以字串送),型別轉換在 api 內完成。
 
+正本:`apps/api/src/data-scope/`(`data-scope.resolver.ts`、`data-scope-rule.ts`、`models/data-scope.model.ts`)、`apps/api/schema.gql`
+
+## admin 頁面
+
+程式在 `apps/admin/src/pages/system/DataScopePage/`:`TargetListPanel.tsx`(左資料目標清單)、`RuleEditorPanel/`(右規則編輯器)、`DiscardChangesDialog.tsx`(未儲存離開確認)、`useDataScopeData.ts`(資料與 mutation)。
+
+- 純函式在 `apps/admin/src/lib/`:`data-scope-rule.ts`(型別目錄、編輯器狀態 ↔ api JSON、條件樹增刪改)與 `data-scope-issues.ts`(本地驗證、`RULE_INVALID` 的 `path` → 標在哪一格)。**型別 → 運算子 → 值來源那張表在 admin 重寫了一份**(STRUCT-01 不能 import api),改動時兩邊一起改。
+- 條件樹節點**不帶自產 id**:位置(`rules[n]` + 往下的 `children[i]`)就是身分,與 api 回的 `path` 同一套座標。
+- **UI 上限三層**(ADR-0008「任意深、UI 建議 3 層」):第三層的群組不再給「+ 群組」;資料結構本身不設限,更深的規則由 api 回來仍讀得回、顯示得出來,只是不能再往下加。
+- 新群組**一定帶一條條件列**(空群組會被 `EMPTY_GROUP` 拒絕,不讓它先出現在畫面上)。
+- 動態值與靜態值在同一個「值」下拉裡(動態值排在最前面):選了動態值就取代整份靜態值,反之亦然。
+- **左清單的「已設規則」讀 `DataScopeTarget.hasRule`**(判準見「api 介面」)。
+- 未儲存就切換資料目標 → 放棄變更確認;`saveDataScopeRule` 成功後失效該 collection 的 `dataScopeRule` 與 `dataScopeTargets`。
+- 動作按鈕依 `system.data-scope.edit`,只有 `.view` 時整個編輯器唯讀。
+- 非根組織不在頁面判斷 —— 本模組 `isRootOnly`,租戶的 `me.modules` 裡沒有它,路由層就擋掉(ADR-0011)。
+
+正本:`apps/admin/src/pages/system/DataScopePage/`、`apps/admin/src/lib/data-scope-rule.ts`、`apps/admin/src/lib/data-scope-issues.ts`
+
+## 錯誤碼
+
+| 情況                        | 回什麼                                     |
+| --------------------------- | ------------------------------------------ |
+| 權限不足(`.view` / `.edit`) | `FORBIDDEN`(由 `@RequirePermission` 擋)    |
+| 當前組織不是根組織          | `FORBIDDEN`                                |
+| 不是 seed 宣告的資料目標    | `NOT_FOUND`                                |
+| 規則不合法                  | `RULE_INVALID`(GQL-04 的表已列;見下一小節) |
+
 ### `RULE_INVALID` 的 `extensions`
 
-`path` 指到條件樹裡出問題的位置(如 `rules[0].filter.children[1].value.values[0]`),
-`reason` 是原因列舉;前端依 `reason` 顯示中文、把錯誤標在 `path` 指到的那一列。
-一次只回第一個違規(整份覆蓋,修掉再送)。
+`path` 指到條件樹裡出問題的位置(如 `rules[0].filter.children[1].value.values[0]`),`reason` 是原因列舉;前端依 `reason` 顯示中文、把錯誤標在 `path` 指到的那一列。一次只回第一個違規(整份覆蓋,修掉再送)。
 
 | `reason`                   | 什麼情況                                                                    |
 | -------------------------- | --------------------------------------------------------------------------- |
@@ -142,35 +199,33 @@ input SaveDataScopeRuleInput {
 | `VALUE_INVALID`            | 空清單、id 不是 ObjectId、日期解析不了、`between` 不是兩個、enum 不在選項內 |
 | `AUDIENCE_INVALID`         | `audience.type` 不認得,或 `ALL` 以外沒給 `ids` / `ids` 不是 id              |
 
-### admin 頁面(#210;程式正本 `apps/admin/src/pages/system/DataScopePage/`)
+admin 的解讀集中在 `DataScopePage/data-scope-error.ts`。
 
-- 純函式在 `apps/admin/src/lib/`:`data-scope-rule.ts`(型別目錄、編輯器狀態 ↔ api JSON、條件樹增刪改)
-  與 `data-scope-issues.ts`(本地驗證、`RULE_INVALID` 的 `path` → 標在哪一格)。
-  **型別 → 運算子 → 值來源那張表在 admin 重寫了一份**(STRUCT-01 不能 import api),改動時兩邊一起改。
-- 條件樹節點**不帶自產 id**:位置(`rules[n]` + 往下的 `children[i]`)就是身分,與 api 回的 `path` 同一套座標。
-- **UI 上限三層**(ADR-0008「任意深、UI 建議 3 層」):第三層的群組不再給「+ 群組」;資料結構本身不設限,
-  更深的規則若由 api 回來仍讀得回、顯示得出來,只是不能再往下加。
-- 新群組**一定帶一條條件列**(空群組會被 `EMPTY_GROUP` 拒絕,不讓它先出現在畫面上)。
-- 動態值與靜態值在同一個「值」下拉裡(動態值排在最前面):選了動態值就取代整份靜態值,反之亦然。
-- **左清單的「已設規則」讀 `DataScopeTarget.hasRule`**(#246 已做;2026-09-23 更新,原條文寫的是
-  「沒有現成欄位、對每個目標各查一次 `dataScopeRule`」)。判準見上方「回傳欄位的語意」——
-  有文件**且 `rules` 非空**才算已設。
-- **`demo_items_one` 的 seed 宣告了一個 enum 欄位 `status`**(草稿 / 已發布 / 已封存;#246 已做,
-  2026-09-23 更新,原條文寫的是 `fields: []`、enum 條件驗不到)。正本
-  `apps/db-migrator/seeds/modules/demo.sub.sample-one.ts` 的 `dataScopeTarget.fields`,
-  `value` 與 `demo-item-one.schema.ts` 的 `status` 一一對應;示範模組2 仍不宣告,是對照組。
-- 未儲存就切換資料目標 → 放棄變更確認;`saveDataScopeRule` 成功後失效該 collection 的 `dataScopeRule`
-  與 `dataScopeTargets`。動作按鈕依 `system.data-scope.edit`,只有 `.view` 時整個編輯器唯讀。
+正本:`apps/api/src/data-scope/data-scope-error.ts`、`apps/api/src/data-scope/data-scope-rule.ts`、`apps/admin/src/pages/system/DataScopePage/data-scope-error.ts`
 
-### 執行面的回傳語意(GQL-07:正本在此)
+## 稽核
 
-- **沒有規則命中操作者 = 不過濾**(只剩租戶保底),不是「什麼都看不到」
-- 規則永遠以 `$and` 疊在租戶保底之內 — 規則只會讓看到的**變少**,保底不可關
-- 規則套在 `SCOPED_QUERY_MIDDLEWARE` **整組**(與租戶保底同一組),**含寫入與刪除的查詢** — 看不到的資料也改不到 / 刪不到
-- **`combineOp` 只作用在「命中同一個人的那幾條規則」之間**:`OR` = 聯集、`AND` = 交集;**只命中一條的人就只受那一條限制**,沒命中的規則不參與合成
-- 套用對象比對的兩份事實:「指定組織」比 `memberOrgIds`(`org_user` 直接關聯)、「指定角色」比 `roleIds`(**啟用中**的角色 — 停用角色後規則立刻不再命中,與管理範圍同一條規則)
-- **`rules: []` 不等於「從來沒設定過」**:整份覆蓋成空陣列 = 這個目標沒有規則(執行面只剩租戶保底),但 `dataScopeRule` 仍回一份 `rules: []` 的文件;`rule = null` 專指從來沒設定過
-- 動態值在**查詢當下**代入正在查的人:`current-user` → 操作者 id、`current-user-orgs` → 操作者的**所屬組織**
-  (`org_user` 的直接關聯,**不含**可見性開關展開的下層);代入後若是空集合,該條件命中不到任何資料(fail-closed)
-- 規則只套**業務類** collection(`tenantScopePlugin({ kind: "business" })`);治理類(`orgs`)完全不受影響
-- **規則本身是全域設定,不隨租戶隔離**(2026-09-23 明寫,#395):`data_scope_rules` **沒有掛 `tenantScopePlugin`**、`collection` 上是 **unique 索引**(程式正本 `apps/api/src/database/schemas/data-scope-rule.schema.ts`),所以**一個資料目標全站只有一份規則文件**,由 root 維護、對所有租戶同時生效(套用對象才是決定「命中誰」的那一層)。**寫自動化測試時這是共用狀態**:動到規則的劇本結尾一定要把它清乾淨(整份覆蓋成 `rules: []`),否則會污染同一個資料庫上跑的其他劇本 —— 租戶隔離救不了它,見 TEST-11
+`saveDataScopeRule` 寫一筆 `data-scope.edit`,`targetType = "data_scope_rule"`,`targetId` 為該 collection 的規則文件。
+
+正本:`apps/api/src/data-scope/data-scope.service.ts`
+
+## 測試
+
+- api:`apps/api/src/data-scope/data-scope.test.ts`(端點、根組織守門、`RULE_INVALID`、`hasRule`);執行面 `apps/api/src/database/data-scope-provider.test.ts`、`apps/api/src/database/base.repository.test.ts`、`apps/api/src/demo-items-one/demo-items-one-scope.test.ts`
+- admin:`apps/admin/src/pages/system/DataScopePage/DataScopePage.test.tsx`、`DataScopeRuleEditor.test.tsx`、`apps/admin/src/lib/data-scope-rule.test.ts`
+- 劇本 E2E(`docs/testing/permission-scenarios.md`):劇本 2 資料範圍規則 `scenario-02-data-scope-rule.spec.ts`、劇本 3 未宣告對照 `scenario-03-undeclared-target.spec.ts`、劇本 4 頂層合成 OR / AND `scenario-04-combine-op.spec.ts`、劇本 16 租戶視角 `scenario-16-tenant-perspective.spec.ts`(皆在 `apps/e2e/src/specs/`)
+
+正本:上列檔案、`docs/testing/permission-scenarios.md`
+
+## 使用者說明(help.md)
+
+[system.data-scope.help.md](../../apps/admin/src/md/module-help/system.data-scope.help.md) —— 根組織專屬模組,help 的讀者就是系統管理員,可用平台詞彙。
+
+正本:`apps/admin/src/md/module-help/system.data-scope.help.md`
+
+## 平台視角備註
+
+- 規則是全站一份、跨租戶生效(見「資料」);租戶管理員看不到也改不到,只有 root 維護。
+- root 挑「套用對象 = 指定角色」時,每個租戶可能都有同名角色,靠次文字(擁有組織)分辨(`docs/modules/role-manager.md`「角色選單怎麼分辨同名角色」);挑錯租戶的同名角色,規則會命中不到任何人。
+
+正本:`apps/api/src/database/schemas/data-scope-rule.schema.ts`、`docs/testing/permission-scenarios.md`
