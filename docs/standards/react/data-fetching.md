@@ -101,6 +101,10 @@ const setOrgEnabled = useSetOrgEnabledMutation(
   同一支端點兩種說法(啟用 / 停用)就給一個吃 payload 的函式,不要各寫一個 mutation。
 - **失敗文案用該頁既有的錯誤解讀**(`<ns>ErrorOf(error)` + `errors.<code>`),不要在提示裡另起一套;
   **表單 / 彈窗內原本的錯誤顯示保留** —— 欄位級標示講「哪裡要改」,Snackbar 講「這次沒成功」。
+  **錯誤解讀的回傳形狀只有一種**(2026-09-23,#430):`<ns>ErrorOf` 一律回 `apps/admin/src/lib/errors.ts`
+  的 `AdminError`(`{ code, reason?, reasons?, fields?, path?, message? }`,選填欄位沒有就缺席),
+  各頁的 `*-error.ts` 只宣告碼表 / 原因白名單交給 `parseAdminError`,不再各自解析 `extensions`;
+  `message` 是 api 的原文,只供除錯,不拿來顯示。
 - **一次操作只跳一則**。`mutateAsync` 串多步的流程(`EditOrgDialog` 的儲存最多四支 mutation、
   `useDemoForm` 的上傳 + 儲存)不要把 feedback 交給每一支,改成整段 try / catch 完成後自己呼叫
   `feedback.onSuccess()` / `feedback.onError(error)`;共版型那種只收 `{ onSuccess(): void }` 的

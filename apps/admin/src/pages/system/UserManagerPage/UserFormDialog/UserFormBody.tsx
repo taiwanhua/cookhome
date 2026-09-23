@@ -72,7 +72,7 @@ export const UserFormBody = ({
   const [isPickingOrgs, setIsPickingOrgs] = useState(false);
 
   const onError = (error: unknown) => {
-    const { code, fields } = userManagerErrorOf(error);
+    const { code, fields = [] } = userManagerErrorOf(error);
     if (code === "VALIDATION_FAILED" && fields.length > 0) {
       setErrorText(t("errors.duplicate", { fields: fields.join("、") }));
       return;

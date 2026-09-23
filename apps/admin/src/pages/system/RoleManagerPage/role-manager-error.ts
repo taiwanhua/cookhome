@@ -1,4 +1,4 @@
-import { ClientError } from "@repo/graphql";
+import { type AdminError, parseAdminError } from "@/lib/errors";
 
 /**
  * 角色管理會收到的業務錯誤碼(GQL-04;api 的程式正本 `apps/api/src/roles/`)。
@@ -30,49 +30,17 @@ export const ROLE_NOT_DELETABLE_REASONS = [
 export type RoleNotDeletableReason =
   (typeof ROLE_NOT_DELETABLE_REASONS)[number];
 
-export interface RoleManagerError {
-  code: RoleManagerErrorCode;
-  /** `ROLE_NOT_DELETABLE` 時逐項列出為什麼不能刪 */
-  reasons: RoleNotDeletableReason[];
-  /** `VALIDATION_FAILED` 時 api 以 `extensions.fields` 指出不合法的欄位 */
-  fields: string[];
-}
+/**
+ * 共用形狀(`lib/errors.ts`)。本頁用到的選填欄位:`reasons`(`ROLE_NOT_DELETABLE`
+ * 時逐項列出為什麼不能刪)與 `fields`(`VALIDATION_FAILED` 時不合法的欄位)。
+ */
+export type RoleManagerError = AdminError<
+  RoleManagerErrorCode,
+  RoleNotDeletableReason
+>;
 
-interface GraphqlErrorShape {
-  extensions?: { code?: unknown; reasons?: unknown; fields?: unknown };
-}
-
-const errorsOf = (error: unknown): GraphqlErrorShape[] => {
-  if (!(error instanceof ClientError)) {
-    return [];
-  }
-  const { errors } = error.response as { errors?: unknown };
-  return Array.isArray(errors) ? (errors as GraphqlErrorShape[]) : [];
-};
-
-const isKnownCode = (value: unknown): value is RoleManagerErrorCode =>
-  typeof value === "string" &&
-  (ROLE_MANAGER_ERROR_CODES as readonly string[]).includes(value);
-
-const isKnownReason = (value: unknown): value is RoleNotDeletableReason =>
-  typeof value === "string" &&
-  (ROLE_NOT_DELETABLE_REASONS as readonly string[]).includes(value);
-
-const stringsOf = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
-
-export const roleManagerErrorOf = (error: unknown): RoleManagerError => {
-  for (const item of errorsOf(error)) {
-    const { code, reasons, fields } = item.extensions ?? {};
-    if (isKnownCode(code)) {
-      return {
-        code,
-        reasons: stringsOf(reasons).filter((reason) => isKnownReason(reason)),
-        fields: stringsOf(fields),
-      };
-    }
-  }
-  return { code: "UNEXPECTED", reasons: [], fields: [] };
-};
+export const roleManagerErrorOf = (error: unknown): RoleManagerError =>
+  parseAdminError(error, {
+    codes: ROLE_MANAGER_ERROR_CODES,
+    reasons: ROLE_NOT_DELETABLE_REASONS,
+  });

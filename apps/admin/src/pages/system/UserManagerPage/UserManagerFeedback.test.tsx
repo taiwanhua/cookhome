@@ -50,7 +50,8 @@ describe("使用者管理頁的操作結果提示", () => {
       text: message,
       severity: "error",
     });
-    // Snackbar 不取代彈窗內的錯誤顯示:兩者並存(DATA-06)
-    expect(screen.getAllByText(message)).toHaveLength(2);
+    // Snackbar 不取代彈窗內的錯誤顯示:兩者並存(DATA-06)。只比全頁文字數不準 ——
+    // 彈窗開著時 provider 另有一份補念的 live region(#430),所以直接在彈窗裡找那一條
+    expect(within(screen.getByRole("dialog")).getByText(message)).toBeVisible();
   });
 });

@@ -1,4 +1,4 @@
-import { ClientError } from "@repo/graphql";
+import { type AdminError, parseAdminError } from "@/lib/errors";
 
 /**
  * 示範家族三頁會收到的業務錯誤(GQL-04)。文案在 `<ns>.errors.*`,認不出來的一律 `UNEXPECTED`。
@@ -14,35 +14,18 @@ export type DemoErrorCode =
   | "VALIDATION_FAILED"
   | "UNEXPECTED";
 
-export interface DemoError {
-  code: DemoErrorCode;
-  /**
-   * `VALIDATION_FAILED` 時 api 逐項回報的欄位名(`name` / `category` / `coverPath`…),
-   * 前端據此把錯誤標在對應的表單欄位上;其餘情況為空陣列。
-   */
-  fields: readonly string[];
-}
+/**
+ * 共用形狀(`lib/errors.ts`)。本頁用到的選填欄位只有 `fields`:`VALIDATION_FAILED` 時
+ * api 逐項回報的欄位名(`name` / `category` / `coverPath`…),前端據此把錯誤標在對應的
+ * 表單欄位上;`FIELD_FORBIDDEN` 時是下方 `FIELD_FORBIDDEN_FIELDS`。
+ */
+export type DemoError = AdminError<DemoErrorCode, never>;
 
-const DEMO_ERROR_CODES = new Set<string>([
+const DEMO_ERROR_CODES = [
   "FORBIDDEN",
   "NOT_FOUND",
   "VALIDATION_FAILED",
-]);
-
-interface GraphqlErrorShape {
-  extensions?: { code?: unknown; reason?: unknown; fields?: unknown };
-}
-
-const errorsOf = (error: unknown): GraphqlErrorShape[] => {
-  if (!(error instanceof ClientError)) {
-    return [];
-  }
-  const { errors } = error.response as { errors?: unknown };
-  return Array.isArray(errors) ? (errors as GraphqlErrorShape[]) : [];
-};
-
-const fieldsOf = (value: unknown): readonly string[] =>
-  Array.isArray(value) ? value.filter((item) => typeof item === "string") : [];
+] as const;
 
 /**
  * `FIELD_FORBIDDEN` 時要標在哪個欄位上 —— api 只說「有個欄位你動不得」,不說是哪一個
@@ -51,23 +34,23 @@ const fieldsOf = (value: unknown): readonly string[] =>
 const FIELD_FORBIDDEN_FIELDS = ["internalNote"] as const;
 
 export const demoErrorOf = (error: unknown): DemoError => {
-  for (const item of errorsOf(error)) {
-    const { code, reason, fields } = item.extensions ?? {};
-    if (typeof code !== "string") {
-      continue;
-    }
-    if (code === "FORBIDDEN" && reason === "FIELD_FORBIDDEN") {
-      return { code: "FIELD_FORBIDDEN", fields: [...FIELD_FORBIDDEN_FIELDS] };
-    }
-    if (DEMO_ERROR_CODES.has(code)) {
-      return { code: code as DemoErrorCode, fields: fieldsOf(fields) };
-    }
-  }
-  return { code: "UNEXPECTED", fields: [] };
+  const parsed = parseAdminError<Exclude<DemoErrorCode, "UNEXPECTED">, never>(
+    error,
+    {
+      codes: DEMO_ERROR_CODES,
+      refine: (code, reason) =>
+        code === "FORBIDDEN" && reason === "FIELD_FORBIDDEN"
+          ? "FIELD_FORBIDDEN"
+          : undefined,
+    },
+  );
+  return parsed.code === "FIELD_FORBIDDEN"
+    ? { ...parsed, fields: [...FIELD_FORBIDDEN_FIELDS] }
+    : parsed;
 };
 
 /** 這個欄位上有沒有錯誤(表單把 `helperText` / `error` 標在對的欄位上)。 */
 export const hasFieldError = (
   error: DemoError | null,
   field: string,
-): boolean => error?.fields.includes(field) ?? false;
+): boolean => error?.fields?.includes(field) ?? false;
