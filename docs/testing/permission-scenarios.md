@@ -202,6 +202,7 @@
 
 - **用哪一頁**:角色管理 → 權限矩陣
 - **帳號**:+tenant(**不是** root —— 超級管理員直接全權放行,看不出限制)
+- **E2E**:`apps/e2e/src/specs/scenario-10-out-of-reach.spec.ts`(手動觸發,見下方「E2E 怎麼跑」;硬送 `system.module-manager.*` 回 `ROLE_OUT_OF_REACH` 那一半直接打 api)
 
 1. +tenant 新建或編輯一個角色 → 開權限矩陣。
 2. 比對矩陣列出的模組 / 權限,與 +tenant 自己持有的(預設角色的內容)。
@@ -239,6 +240,7 @@
 
 - **用哪一頁**:角色管理 → 權限矩陣;結果看登入後的落點與側欄
 - **帳號**:+tenant 改矩陣、+user 登入
+- **E2E**:`apps/e2e/src/specs/scenario-13-overview-module.spec.ts`(手動觸發,見下方「E2E 怎麼跑」)
 
 1. 「客服」角色**取消**勾選「總覽」模組 → +user 重新登入。
 2. 手打 `/overview`。
@@ -316,10 +318,10 @@
 | 7 路由防守              | 示範模組1 列表 + 直接打網址               | +tenant / +user      | `scenario-07-route-guard.spec.ts`       |
 | 8 組織外                | 使用者管理 / 角色管理 / 示範模組1 列表    | +tenant / +user      | 尚未                                    |
 | 9 移除三檔              | 使用者管理 → 移除所屬組織彈窗             | +tenant / 多組織帳號 | 尚未                                    |
-| 10 防越權               | 角色管理 → 權限矩陣                       | +tenant              | 尚未                                    |
+| 10 防越權               | 角色管理 → 權限矩陣                       | +tenant              | `scenario-10-out-of-reach.spec.ts`      |
 | 11 儲存雙路             | 示範模組1 表單 + 詳情頁                   | +user                | 尚未                                    |
 | 12 可見性開關           | 組織管理(開關)+ 示範模組1 列表 + 三治理頁 | +tenant / +user      | 尚未                                    |
-| 13 總覽也是模組         | 角色管理 → 權限矩陣 + 登入落點            | +tenant / +user      | 尚未                                    |
+| 13 總覽也是模組         | 角色管理 → 權限矩陣 + 登入落點            | +tenant / +user      | `scenario-13-overview-module.spec.ts`   |
 | 14 管理範圍 vs 可見範圍 | 角色管理 + 三治理頁 + 示範模組1 列表      | +tenant / +user      | 尚未                                    |
 | 15 側欄商標繼承         | 組織管理 → 商標 + 側欄                    | +tenant / +user      | 尚未                                    |
 | 16 租戶視角             | 組織管理 → 開通租戶 + 租戶側欄            | root / +tenant       | 尚未                                    |

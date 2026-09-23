@@ -483,3 +483,29 @@ export function flattenMatrix(
     ...flattenMatrix(module.children ?? []),
   ]);
 }
+
+/* ---- 劇本 10 / 13(#397):防越權、總覽也是模組 ---- */
+
+const ME_MODULE_KEYS = `
+query Me { me { modules { key } } }`;
+
+/** 操作者自己持有的模組 key(`me.modules`;側欄與可進入路由都從這一份長出來)。 */
+export async function myModuleKeys(accessToken: string): Promise<string[]> {
+  const data = await graphqlOk<{ me: { modules: { key: string }[] } }>(
+    ME_MODULE_KEYS,
+    {},
+    accessToken,
+  );
+  return data.me.modules.map((module) => module.key);
+}
+
+/**
+ * 原樣回傳的 `saveRoleMatrix`(要驗 `ROLE_OUT_OF_REACH` 這類錯誤碼,所以不用 `graphqlOk`)。
+ * 前置用的整份覆蓋走上面的 `saveRoleMatrix`。
+ */
+export function saveRoleMatrixRaw(
+  accessToken: string,
+  input: { roleId: string; moduleKeys: string[]; permissionKeys: string[] },
+): ReturnType<typeof graphql> {
+  return graphql(SAVE_ROLE_MATRIX, { input }, accessToken);
+}
