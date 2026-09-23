@@ -45,8 +45,9 @@ import {
 
 /** 開通出來的角色副本沿用模板名稱;角色清單上另掛「預設角色」標籤。 */
 const TENANT_ADMIN_ROLE_NAME = "租戶管理員";
-/** 使用者管理的鎖定說明(`admin.userManager.ownerProtected`)。 */
-const OWNER_PROTECTED_HINT = "頂層組織的擁有者受保護,無法執行此動作";
+/** 所屬組織彈窗裡鎖住節點的說明(`admin.userManager.orgPicker.ownerLocked`,#426)。 */
+const OWNER_LOCKED_HINT =
+  "頂層組織的擁有者不能被移出頂層組織;其他組織可自由勾選或取消。";
 /** 分配使用者那一列的標籤(`admin.roleManager.users.ownerProtected`)。 */
 const OWNER_PROTECTED_TAG = "擁有者保護";
 
@@ -98,7 +99,7 @@ test("劇本 17:①+tenant 對自己(擁有者)停用 / 移出租戶頂層 / 解
   await expect(tenantTop).toBeChecked();
   await expect(tenantTop).toBeDisabled();
   await expect(
-    picker.getByText(OWNER_PROTECTED_HINT, { exact: true }),
+    picker.getByText(OWNER_LOCKED_HINT, { exact: true }),
   ).toBeVisible();
   await picker.getByRole("button", { name: "取消", exact: true }).click();
   await expect(picker).toBeHidden();
