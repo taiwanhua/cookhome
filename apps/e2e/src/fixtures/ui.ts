@@ -262,3 +262,75 @@ export function removalOption(
     label: dialog.locator("label").filter({ hasText: text }),
   };
 }
+
+/* ---- 劇本 12(#399):可見性開關、治理頁不動 ---- */
+
+/** 可見性開關的文案(`admin.orgManager.form.visibility`;文件寫的「使用者可見下層組織資料」是簡稱)。 */
+export const VISIBILITY_SWITCH = "使用者可見自身組織的下層組織資料";
+
+/** 組織管理的組織樹(`OrgTreePanel` 的 `aria-label`;預設全部展開)。 */
+export function orgTree(page: Page): Locator {
+  return page.getByRole("tree", { name: "組織樹" });
+}
+
+/**
+ * 組織管理 → 選 `orgName` →「編輯」→ 把可見性開關從 `from` 切到另一邊 →「儲存」。
+ * 只動開關時編輯彈窗只送 `setOrgVisibility` 一個 mutation(`EditOrgDialog` 依「有變的欄位」送),
+ * 所以等的就是它。呼叫前要已經在組織管理頁上。
+ */
+export async function toggleOrgVisibility(
+  page: Page,
+  orgName: string,
+  from: { isOn: boolean },
+): Promise<void> {
+  await orgTree(page).getByText(orgName, { exact: true }).click();
+  await page.getByRole("button", { name: "編輯", exact: true }).click();
+  const dialog = dialogWithButton(page, "儲存");
+  const toggle = dialog.getByRole("switch", { name: VISIBILITY_SWITCH });
+  await expect(toggle).toBeChecked({ checked: from.isOn });
+  await toggle.click();
+  await expect(toggle).toBeChecked({ checked: !from.isOn });
+  await clickAndWaitFor(page, "儲存", "SetOrgVisibility");
+  await expect(dialog).toBeHidden();
+}
+
+/** 三個治理頁各自「畫面上列了什麼」(比對切開關前後用)。 */
+export interface GovernanceSnapshot {
+  /** 組織管理的樹:每個節點的標籤(依畫面順序)。 */
+  orgTree: string[];
+  /** 使用者管理的清單:每一列的文字(含表頭)。 */
+  userRows: string[];
+  /** 角色管理的左清單:整份文字(含分組標題)。 */
+  roleList: string[];
+}
+
+/**
+ * 依序打開組織管理 / 使用者管理 / 角色管理,讀出畫面上列著的東西。
+ *
+ * 每一頁先等一個「一定在」的錨點出現(清單還在路上時讀到的是空的),錨點由呼叫端給:
+ * 樹上最深的那個組織、清單上一定有的帳號、一定有的角色。路由也由呼叫端給(`demo-keys.ts`)。
+ */
+export async function readGovernancePages(
+  page: Page,
+  anchors: { orgName: string; account: string; roleName: string },
+  routes: { org: string; user: string; role: string },
+): Promise<GovernanceSnapshot> {
+  await page.goto(routes.org);
+  const tree = orgTree(page);
+  await expect(tree.getByText(anchors.orgName, { exact: true })).toBeVisible();
+  const orgLabels = await tree.locator(".MuiTreeItem-label").allInnerTexts();
+
+  await page.goto(routes.user);
+  const users = page.getByRole("table", { name: "使用者清單" });
+  await expect(users.getByText(anchors.account, { exact: true })).toBeVisible();
+  const userRows = await users.getByRole("row").allInnerTexts();
+
+  await page.goto(routes.role);
+  const roles = page.getByRole("list", { name: "角色清單" });
+  await expect(
+    roles.getByText(anchors.roleName, { exact: true }),
+  ).toBeVisible();
+  const roleList = await roles.allInnerTexts();
+
+  return { orgTree: orgLabels, userRows, roleList };
+}

@@ -617,3 +617,52 @@ export async function setUserOrgsWithPolicy(
   );
   return data.setUserOrgs;
 }
+
+/* ---- 劇本 12(#399):可見性開關 ---- */
+
+const DATA_SCOPE_RULE = `
+query DataScopeRule($collection: String!) {
+  dataScopeRule(collection: $collection) {
+    rule {
+      collection
+      combineOp
+      rules { audience { type ids } filter }
+    }
+  }
+}`;
+
+const SET_ORG_VISIBILITY = `
+mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
+  setOrgVisibility(input: $input) { org { id visibility } }
+}`;
+
+/**
+ * 讀某個資料目標目前的規則:`null` = 從來沒設定過,`rules: []` = 設過又刪光
+ * (兩者在執行面等價,都只剩租戶保底;`docs/modules/data-scope.md`「執行面的回傳語意」)。
+ * 規則是全站共用的一份,所以要讀它的是 root。
+ */
+export async function dataScopeRule(
+  accessToken: string,
+  collection: string,
+): Promise<DataScopeRule | null> {
+  const data = await graphqlOk<{
+    dataScopeRule: { rule: DataScopeRule | null };
+  }>(DATA_SCOPE_RULE, { collection }, accessToken);
+  return data.dataScopeRule.rule;
+}
+
+/** 租戶頂層的「使用者可見下層組織資料」開關(ADR-0005;新開通的租戶沒有設定 = `OWN`)。 */
+export type OrgVisibility = "OWN" | "SUBTREE";
+
+/** 設租戶頂層的可見性開關;+tenant(模板副本含 `set-visibility`)與 root 都設得了。 */
+export async function setOrgVisibility(
+  accessToken: string,
+  orgId: string,
+  visibility: OrgVisibility,
+): Promise<void> {
+  await graphqlOk(
+    SET_ORG_VISIBILITY,
+    { input: { orgId, visibility } },
+    accessToken,
+  );
+}
