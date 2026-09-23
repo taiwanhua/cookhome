@@ -229,6 +229,7 @@
 
 - **用哪一頁**:組織管理 → 編輯**租戶頂層**的「使用者可見下層組織資料」開關;結果看示範模組1 列表與三個治理頁
 - **帳號**:+tenant 切開關、+user 看結果
+- **E2E**:`apps/e2e/src/specs/scenario-12-visibility-toggle.spec.ts`(手動觸發,見下方「E2E 怎麼跑」;前置另把 +tenant 移出南港店、並在南港店底下建「南港倉庫」放一筆,+tenant 與 +user 的收縮才看得出來,理由見 spec 開頭註解;切回 ON 走 api)
 - **前置**:「劇本 2 / 12 的共同前置資料」四筆(+user 在南港店 2 筆、+tenant 在南港店 1 筆與租戶頂層 1 筆);**劇本 2 的資料範圍規則要先刪掉**,不然兩層收縮混在一起看不出是誰造成的
 
 1. 開關 **ON**(可見下層)時,讓 **+tenant** 看示範模組1 列表 → 看得到租戶頂層那筆**與**南港店那三筆(他的可見範圍含下層)。
@@ -322,7 +323,7 @@
 | 9 移除三檔              | 使用者管理 → 移除所屬組織彈窗             | +tenant / 多組織帳號 | `scenario-09-org-removal-policy.spec.ts` |
 | 10 防越權               | 角色管理 → 權限矩陣                       | +tenant              | `scenario-10-out-of-reach.spec.ts`       |
 | 11 儲存雙路             | 示範模組1 表單 + 詳情頁                   | +user                | 尚未                                     |
-| 12 可見性開關           | 組織管理(開關)+ 示範模組1 列表 + 三治理頁 | +tenant / +user      | 尚未                                     |
+| 12 可見性開關           | 組織管理(開關)+ 示範模組1 列表 + 三治理頁 | +tenant / +user      | `scenario-12-visibility-toggle.spec.ts`  |
 | 13 總覽也是模組         | 角色管理 → 權限矩陣 + 登入落點            | +tenant / +user      | `scenario-13-overview-module.spec.ts`    |
 | 14 管理範圍 vs 可見範圍 | 角色管理 + 三治理頁 + 示範模組1 列表      | +tenant / +user      | 尚未                                     |
 | 15 側欄商標繼承         | 組織管理 → 商標 + 側欄                    | +tenant / +user      | 尚未                                     |
