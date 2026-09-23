@@ -136,3 +136,30 @@ export async function expectForbiddenPage(page: Page): Promise<void> {
     page.getByRole("heading", { name: "沒有權限進入此頁面" }),
   ).toBeVisible();
 }
+
+/**
+ * 側欄(`AdminShell/SideNav` 的 `<nav aria-label="主選單">`)。
+ * 模組列是連結(`NavLinkItem`,名稱 = 模組名稱);斷「有沒有某一列」時從這個範圍往下找,
+ * 路由頁籤或頁面標題裡的同名文字才不會混進來。
+ */
+export function sideNav(page: Page): Locator {
+  return page.getByRole("navigation", { name: "主選單" });
+}
+
+/** 角色管理的權限矩陣(`MatrixTree` 的 `aria-label`);斷「樹上有沒有某一列」時的範圍。 */
+export function matrixTree(page: Page): Locator {
+  return page.getByRole("tree", { name: "權限矩陣" });
+}
+
+/**
+ * 重新登入:清掉 refresh cookie 再走登入頁(劇本 13 要看的是**登入後的落點**)。
+ * access token 只在記憶體裡,`signIn` 的 `page.goto` 是完整導覽,清掉 cookie 就回到未登入。
+ */
+export async function signInAgain(
+  page: Page,
+  account: string,
+  password: string,
+): Promise<void> {
+  await page.context().clearCookies();
+  await signIn(page, account, password);
+}
