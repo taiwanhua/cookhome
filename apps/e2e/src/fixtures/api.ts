@@ -509,3 +509,111 @@ export function saveRoleMatrixRaw(
 ): ReturnType<typeof graphql> {
   return graphql(SAVE_ROLE_MATRIX, { input }, accessToken);
 }
+
+/* ---- 劇本 8 / 9(#398):多所屬組織、組織外、移除所屬組織三檔 ---- */
+
+const ADD_ORG_MEMBERS = `
+mutation AddOrgMembers($input: AddOrgMembersInput!) {
+  addOrgMembers(input: $input) { addedUserIds skippedUserIds }
+}`;
+
+const MOVE_ORG = `
+mutation MoveOrg($input: MoveOrgInput!) {
+  moveOrg(input: $input) { org { id parentId } }
+}`;
+
+const REVOKE_ROLE_USERS = `
+mutation RevokeRoleUsers($input: RevokeRoleUsersInput!) {
+  revokeRoleUsers(input: $input) { totalCount }
+}`;
+
+const SET_USER_ORGS_WITH_POLICY = `
+mutation SetUserOrgs($input: SetUserOrgsInput!) {
+  setUserOrgs(input: $input) {
+    user { id orgs { id name } roles { id name outOfScope } }
+    removedOrgs { id name }
+    unqualifiedRoles { roleId roleName ownerOrgId ownerOrgName reasons ownerProtected }
+    revokedRoleIds
+  }
+}`;
+
+/**
+ * 組織管理「成員」分頁的「加入成員」(#377):對每個人的所屬組織**加**一筆
+ * (只加不減,所以沒有 dry-run;移除只有 `setUserOrgs` 一個入口)。
+ */
+export async function addOrgMembers(
+  accessToken: string,
+  orgId: string,
+  userIds: readonly string[],
+): Promise<void> {
+  await graphqlOk(ADD_ORG_MEMBERS, { input: { orgId, userIds } }, accessToken);
+}
+
+/** 把組織搬到新的上層(候選 = 管理範圍 ∩ 同租戶 − 自己子樹)。 */
+export async function moveOrg(
+  accessToken: string,
+  id: string,
+  newParentId: string,
+): Promise<void> {
+  await graphqlOk(MOVE_ORG, { input: { id, newParentId } }, accessToken);
+}
+
+/** 角色管理「分配使用者」的「移除」:解除這幾個人的這個角色授予。 */
+export async function revokeRoleUsers(
+  accessToken: string,
+  roleId: string,
+  userIds: readonly string[],
+): Promise<void> {
+  await graphqlOk(
+    REVOKE_ROLE_USERS,
+    { input: { roleId, userIds } },
+    accessToken,
+  );
+}
+
+/** 移除所屬組織的三檔(ADR-0003;`docs/modules/user-manager.md` 的 radio 文案表)。 */
+export type UserOrgRemovalPolicy =
+  "KEEP_ALL" | "REVOKE_OWNED_BY_ORG" | "REVOKE_ALL_UNQUALIFIED";
+
+export type RoleUnqualifiedReason =
+  "OWNED_BY_REMOVED_ORG" | "NO_REMAINING_SUBTREE_SUPPORT";
+
+export interface SetUserOrgsResult {
+  user: {
+    id: string;
+    orgs: { id: string; name: string }[];
+    roles: { id: string; name: string; outOfScope: boolean }[];
+  };
+  removedOrgs: { id: string; name: string }[];
+  unqualifiedRoles: {
+    roleId: string;
+    roleName: string;
+    ownerOrgId: string | null;
+    ownerOrgName: string | null;
+    reasons: RoleUnqualifiedReason[];
+    ownerProtected: boolean;
+  }[];
+  revokedRoleIds: string[];
+}
+
+/**
+ * 帶 `dryRun` / `removalPolicy` 的 `setUserOrgs`,回完整 payload
+ * (劇本 9 要比對 dry-run 的 `reasons` 與送出後的 `revokedRoleIds`)。
+ * 只加不減的前置用上面的 `setUserOrgs` 即可。
+ */
+export async function setUserOrgsWithPolicy(
+  accessToken: string,
+  input: {
+    userId: string;
+    orgIds: readonly string[];
+    dryRun: boolean;
+    removalPolicy?: UserOrgRemovalPolicy;
+  },
+): Promise<SetUserOrgsResult> {
+  const data = await graphqlOk<{ setUserOrgs: SetUserOrgsResult }>(
+    SET_USER_ORGS_WITH_POLICY,
+    { input },
+    accessToken,
+  );
+  return data.setUserOrgs;
+}
