@@ -10,7 +10,7 @@
 - **release 是一批一次**(各票各自合 `dev` / `staging`,累積後一次 release PR + 一次部署);**release 後把 `dev` 與 `staging` reset 對齊 `main`**:`git push --force origin origin/main:refs/heads/dev`(`staging` 同),絕不把 `main` 合併回 `dev` / `staging`。前置檢查與例外見 `docs/deployment.md` 二、Release 步驟第 4 點
 - `dev` 汙染時整支重置:同上一條的 reset 指令(或 `git checkout dev && git fetch && git reset --hard origin/main && git push --force origin dev`)
 - **部署一律手動觸發 deploy.yml**(merge 不自動部署):Actions UI 或 `gh workflow run Deploy --ref <分支> -f environment=<dev|staging|production>`
-- **不直接 commit/push `main`** — 一律走 feat 分支 → PR → dev → staging → main,**連文件/設定修正也不例外**(2026-09-14 收緊:直接 commit main 會使進行中的 feat 分支被迫一直 rebase;發現要補的東西就開新分支)。此為紀律約定(免費方案無 branch protection),AI 與人同守
+- **不直接 commit/push `main`** — 一律走 feat 分支 → PR → dev → staging → main,**連文件/設定修正也不例外**(理由:直接 commit main 會使進行中的 feat 分支被迫一直 rebase;發現要補的東西就開新分支)。此為紀律約定(免費方案無 branch protection),AI 與人同守
 
 ## Coding standards
 
