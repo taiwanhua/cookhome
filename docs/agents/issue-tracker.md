@@ -95,6 +95,10 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 
 **改含中文的檔案**:PowerShell 的 cp950 stdout 會把繁中印成亂碼、`sed -i` 對含 CJK 的行常靜默不生效;最可靠的做法是 `python - <<'PY'` 寫精準取代腳本(worktree 守衛不擋這種 heredoc,但**寫 `.md` 要加 `newline="\n"`**,否則寫出 CRLF、`format:check` 立刻紅),或直接用 Write / Edit 工具。**全形 / 半形標點很容易混進去而沒有任何一關會擋**(2026-09-22,#321):用 python 寫測試文案或 `packages/i18n` 的 zh-TW 字典時,全形問號「?」、全形逗號「,」與半形版本肉眼幾乎一樣,prettier 不管、lint 也不管,只有跟斷言比對時才發現。寫完用 `grep` 對那一行原樣比對一次(或直接從既有文案複製貼上),不要憑記憶打標點。這台機器沒有外部 `jq`,只有 `gh --jq`;filter 名一律寫全名 `@repo/admin`(`--filter=admin` 找不到套件)。其餘守衛細節見下方「worktree 裡的 Bash 守衛與寫檔」。
 
+**`Edit` 工具對「含 CJK + 大量空白」的 markdown 表格列常常比對不到**(2026-09-22,#313 / #322 各撞一次):prettier 排過的表格列,欄寬是用**半形空白補到對齊 CJK 寬度**的,肉眼與複製貼上都還原不回原樣,`Edit` 於是報「String to replace not found」。做法:**改用 `python - <<'PY'` 以 `line.startswith("| \`KEY\`")`定位那一列**(表格列的開頭是穩定的),換掉整列或在它後面插一列,寫檔記得`newline="\n"`,寫完跑 `pnpm exec prettier --write <檔>`讓它重排欄寬。**不要為了讓`Edit` 比對得到而手動調空白**。
+
+**`packages/i18n` 的 JSON 一律用 Edit / Write 改那幾個字面字元,不要用腳本做全檔替換**(2026-09-23,#374):字典是一整包兩語系對照的資料,腳本的「把 A 換成 B」很容易掃到別的 namespace 裡同名的 key 或同樣的字串。**新增 zh-TW 字串時,標點用「從既有條目複製」或碼位 dump 比對**一次(`python -c "print([hex(ord(c)) for c in s])"`),CookHome 的慣例是:**半形** `,` `:` `?` `(` `)` `;`、**全形** `「」` `。` `—`。
+
 **Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。
 
 **陷阱**:PR 內文的 `Closes #n` 只在合進**預設分支(main)**時自動關票 — 我們的 PR 合 `dev`,**不會自動關**;關票時機是 Released(手動 `gh issue close <n> --comment "<PR 連結>"`)。部署一律手動觸發(deploy.yml 僅 workflow_dispatch),merge 不會部署任何環境。
@@ -105,7 +109,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 
 1. **讀**:票全文與留言 → Parent spec(含接手指南)→ CLAUDE.md → 相關規範與 ADR
 2. **認領**:assign 給自己,看板移 In Progress
-3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支從 main 切,**命名含票號**:`feat/<票號>-<kebab 描述>`(如 `feat/25-base-schemas`)。**票有依賴時:從依賴票的 feat 分支切(stacked)** — main 上還沒有依賴內容,從 main 切會沒得開發;PR 一樣目標 dev,**依賴票的 PR 先合、自己後合**(合完 diff 自動只剩本票變更);依賴票被 review 改動時要 rebase 跟上。依賴票已 release 進 main 時,直接從 main 切即可(最常見)。線性依賴鏈是健康的(依序上);**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**。**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。開工的兩個環境動作見下方「`.claude/hook-typecheck-off`」與「worktree 裡的 Bash 守衛與寫檔」兩節。改檔名為 PascalCase 的重構要**先在該包啟用 `frontend-style` 再搬檔**(基礎設定的 `unicorn/filename-case` 會連目錄名一起檢查)
+3. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫);feat 分支從 main 切,**命名含票號**:`feat/<票號>-<kebab 描述>`(如 `feat/25-base-schemas`)。**票有依賴時:從依賴票的 feat 分支切(stacked)** — main 上還沒有依賴內容,從 main 切會沒得開發;PR 一樣目標 dev,**依賴票的 PR 先合、自己後合**(合完 diff 自動只剩本票變更);依賴票被 review 改動時要 rebase 跟上。依賴票已 release 進 main 時,直接從 main 切即可(最常見)。線性依賴鏈是健康的(依序上);**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**。**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。**這一步對 `apps/db-migrator` 的票同樣必要**(2026-09-23,#364):它的 `seeds/module-declaration.ts` 依賴 `@repo/domain/module-icon`,沒 build 過連 `check-types` 都跑不起來。**純文件票也要先 `pnpm install`**(2026-09-22,#313 / #322 各撞一次):新 worktree 沒有 `node_modules`,**連 prettier 都沒有** —— PostToolUse hook 與 `pnpm run format:check` 會一路報「Command "prettier" not found」,看起來像 hook 壞了。開工的兩個環境動作見下方「`.claude/hook-typecheck-off`」與「worktree 裡的 Bash 守衛與寫檔」兩節。改檔名為 PascalCase 的重構要**先在該包啟用 `frontend-style` 再搬檔**(基礎設定的 `unicorn/filename-case` 會連目錄名一起檢查)
    **動到 api 的 GraphQL schema 時**(resolver / model / input / `*.graphql` document),交件前依序跑 `pnpm --filter @repo/api schema:generate` 與 `pnpm --filter @repo/graphql generate`,把 `apps/api/schema.gql` 與 `packages/graphql/src/generated` 兩份產物一起進 commit(GQL-05)。api-only 的票也一樣 —— CI 的 `codegen 產物與 schema 一致` 一步會擋(#160)。
 
 4. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試/lint/typecheck 全綠才開;看板移 In Review。**動到 admin 的票另有交付要求**,見下方「admin 票的交付要求」一節
@@ -117,19 +121,26 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 **凡是動到 `apps/admin` 畫面的票,PR 內文一律附 mock 模式截圖。**(位置定在這裡:它不只屬於「開 PR」那一步 —— 起 mock 模式是開發期間就該做的事,交件只是把截圖貼上。)
 
 ```
-pnpm --filter @repo/admin dev:mock     # http://localhost:3002
+pnpm --filter @repo/admin dev:mock -- --port <自選埠> --strictPort
 ```
 
+- **埠不要寫死 3002、也不要憑記憶打網址**(2026-09-23 改寫;#360 / #373 / #375 / #372 / #374 **連續五次**回報,其中一次是連到主 checkout 上一次沒關掉的 server):`3002` 只是偏好值,被占用時 Vite **靜默跳埠**。起的時候指定自己的埠 + `--strictPort`(占用就直接失敗),**網址以終端印出的 `Local:` 那一行為準**。
+- **截圖前先開自己的分頁、並確認畫面裡看得到自己這次的改動**(改文案就找那句文案、改版面就看那塊版面)。看到的是別的 worktree 的畫面時,截圖會長得「完全正常」,沒有任何一關會擋。
 - 自動登入 root、各頁都有假資料;`?view=tenant` 換租戶管理員視角、`?auth=off` 看登入頁。
 - **改動到的每一頁各截一張**貼進 PR 內文,逐張寫明「哪一頁、什麼狀態」;彈窗類的改動要各截開啟前後。
 - **不必有 dev 帳號、不必等部署** —— 版面問題在 PR 階段就看得到,不要留到 dev 驗證再回報。
-- 跑法與實作細節(入口獨立、共用端點的 handler 正本、`msw/node` 的 alias stub)見 `docs/standards/testing/testing.md` TEST-08 的「mock 開發模式」。
+- 跑法與實作細節(入口獨立、共用端點的 handler 正本、`msw/node` 的 alias stub、自動關閉的提示怎麼截、MUI Dialog 的按鈕點不到時怎麼辦)見 `docs/standards/testing/testing.md` TEST-08 的「mock 開發模式」。
 
 ### 權限 / 示範模組的票:交件前手動觸發一次劇本 E2E(#378,2026-09-23)
 
-改到**權限解析、模組樹 / 路由防守、示範模組、角色矩陣**的票,交件前手動觸發一次
-`gh workflow run e2e.yml --ref <你的分支>`(只有 `workflow_dispatch`、**不在 ci.yml 內**,所以 PR 的 CI 不會跑它),
-把 run 連結與結果附在 PR 上。`-f grep="劇本 7"` 可只跑其中一條。
+改到**權限解析、模組樹 / 路由防守、示範模組、角色矩陣**的票,交件前手動觸發一次劇本 E2E,
+把 run 連結與結果附在 PR 上。`e2e.yml` 只有 `workflow_dispatch`、**不在 ci.yml 內**,所以 PR 的 CI 不會跑它。
+
+**先看 `e2e.yml` 在不在 `main` 上,兩種情況做法不同**(2026-09-23 釐清,#395;`workflow_dispatch` 要求 workflow 檔已在預設分支才叫得動):
+
+- **已在 `main`(目前就是)** → 直接 `gh workflow run e2e.yml --ref <你的分支>`,**跑的是你分支上的那一版** spec 與 harness(`--ref` 決定 checkout 哪一版,`main` 上那份只是「這個 workflow 存在」的登記)。`-f grep="劇本 7"` 只跑其中一條。
+- **還沒在 `main`**(新開一個手動 workflow 的那張票) → 叫不動,改用下方「新增一個『只手動觸發』的 workflow 時怎麼驗」那一節的暫加 `push:` trigger 做法。
+
 跑法與目前覆蓋到哪幾條見 `docs/standards/testing/testing.md` 的 TEST-05 / TEST-11 與
 `docs/testing/permission-scenarios.md` 的「E2E」欄。
 
@@ -138,6 +149,7 @@ pnpm --filter @repo/admin dev:mock     # http://localhost:3002
 **重構型的票**(先搬檔再修 import,中途型別必紅)與**只改文件的票**,在 repo 根建空檔 `.claude/hook-typecheck-off`(已 gitignore),PostToolUse hook 就只跑 ESLint。
 
 - **開工第一件事、單獨一行指令做,做完 `ls .claude/` 確認** — 有人把它串在複合指令裡,被 worktree 守衛整條擋掉而不自知,結果每改一個檔都等一次 typecheck。
+- **建不起來就略過,不要卡在這裡**(2026-09-23 改寫,#313 / #322 / #375 三次回報):auto mode 的指令分類器有時會把建檔指令整條擋下來,這只是「每次寫檔多等一次 typecheck」,**對交件結果沒有任何影響**。試一次不成就往下做,不要繞路(改用 python 寫、改路徑、關掉 hook…)。
 - **交件前刪掉**,並自己跑一次 `pnpm exec turbo run check-types` 與 `pnpm run format:check`(文件票只需後者)。
 
 ### worktree 裡的 Bash 守衛與寫檔
@@ -151,7 +163,8 @@ pnpm --filter @repo/admin dev:mock     # http://localhost:3002
 - **這台機器沒有外部 `jq`**:含 `jq` 的指令不是報錯而是**靜默失敗**(輸出空的),一律用 `gh --jq`。
 - **CI 輪詢用平鋪的單行 `until`**(`until gh pr checks <n>; do sleep 30; done` 這種寫在一行),多行 / 巢狀的迴圈會被擋。**不要加 `--required`**(2026-09-22,#290):免費方案沒有 branch protection、也就沒有 required checks,`gh pr checks --required` 永遠回 `no required checks`(非零退出),迴圈會一直轉到逾時,看起來像 CI 卡住。不帶旗標時它看的是 PR 上所有的 check。
 - **`git stash` 的堆疊與主 checkout、其他 worktree 共用**:不要用裸 `git stash` / `git stash pop`(會撈到別的 session 的東西),要用時 `git stash push -u -m "<票號>-<標記>"`,取回前先 `git stash list` 找到**自己那一筆當下的 `stash@{n}`**再 apply;更安全的做法是開一個 WIP commit。
-- **turbo 的快取跨 worktree 共用**:別的 worktree 先跑過同一份輸入,`pnpm exec turbo run test --filter=…` 會 `cache hit, replaying logs`(甚至 `FULL TURBO`)—— 驗收自己的改動沒問題(輸入變了就不會命中),但**取「`origin/main` 的測試數基準」時會拿到別人跑的舊結果**。取基準要進 package 目錄直接跑 jest,見 `docs/standards/testing/testing.md` TEST-08 的「測試數的基準」。
+- **turbo 的快取跨 worktree 共用**:別的 worktree 先跑過同一份輸入,`pnpm exec turbo run test --filter=…` 會 `cache hit, replaying logs`(甚至 `FULL TURBO`)—— 驗收自己的改動沒問題(輸入變了就不會命中),但**取「`origin/main` 的測試數基準」時會拿到別人跑的舊結果**。取基準要進 package 目錄直接跑 jest,見 `docs/standards/testing/testing.md` TEST-08 的「測試數的基準」。**交件前的 `lint` 與 `check-types` 同理**(2026-09-23,#362 被 CI 擋下兩個 type-aware warning 就是快取命中所致):`cd apps/admin && pnpm run lint && pnpm run check-types`,不要只看 turbo 的綠燈。
+- **PostToolUse 的 ESLint 對「先加 import、下一次編輯才用到它」的中間態必紅**(2026-09-23,#376):那一刻檔案裡確實有一個沒用到的 import,規則沒有錯。兩種做法都可以,挑一種:**把 import 與用到它的那段合併成一次 `Edit`**,或**接受中間態那次紅**、下一次編輯完成後自然轉綠。不要為了閃它去關 hook 或改 lint 設定。
 - **跑測試**:整包驗收 `pnpm exec turbo run test --filter=@repo/admin`(filter 寫全名);**只跑一個檔就進那個 package 的目錄下 `pnpm run test -- <路徑片段>`**,三個包都一樣。`pnpm --filter <pkg> test -- …` 會把 `--` 一起傳進去(`No tests found`)、`pnpm exec jest` 少了 `--experimental-vm-modules` 會直接炸;要下旗標時 **jest 30 的參數是 `--testPathPatterns`(複數)**,`apps/api` 也不例外(#344)。完整說明與取基準的做法見 `docs/standards/testing/testing.md` TEST-08。
 - 暫存檔放 scratchpad 且**檔名帶票號**(多個 agent 共用同一個 scratchpad)。
 
@@ -162,6 +175,17 @@ pnpm --filter @repo/admin dev:mock     # http://localhost:3002
 - **release 一批一次**:各票各自合 `dev`、各自合 `staging`,累積成一批後才走一次 release PR + 一次部署(`dev` 的部署也等該批最後一張合完才觸發),release 完由主流程把 `dev` / `staging` reset 對齊 `main`。所以「合進 `dev` 了但還沒部署」是正常的,不必追問。**release 與分支對齊的步驟正本是 `docs/deployment.md` 二、Release 步驟(對齊分支在第 4 點)** —— 這裡與 CLAUDE.md 只是指路,指令以那邊為準。
 - **剛開 PR 時 Actions 可能排隊很久**(沒有 check 不等於失敗),**force-push 之後 `mergeable` 會短暫回 `UNKNOWN`** —— 等幾秒重查,不要據此判斷有衝突(#203)。
 - **交件前跑一次 `pnpm format`**(#195 起 `format:check` 涵蓋 md 與 ts / tsx / js / json / yaml,CI 會擋未格式化的檔)。`main` 已一次性重排過,所以跑完只會看到自己改到的檔案,不必再挑 diff。
+
+### 新增一個「只手動觸發」的 workflow 時怎麼驗(2026-09-23,#378)
+
+`workflow_dispatch` 有一條 GitHub 的硬限制:**workflow 檔必須已經在預設分支(`main`)上,`gh workflow run` 才叫得動它**。新開的 workflow 還在 feat 分支上,所以「交件前手動跑一次」對它自己是做不到的(`e2e.yml` 就是這樣 —— 建立它的那張票沒辦法先跑一次 e2e,只能等 release 進 `main` 之後)。
+
+**限制只在「叫不叫得動」,不在「跑哪一版」**:檔案一旦進了 `main`,之後 `--ref <feat 分支>` 跑的就是**該分支上的那一版**(包含你這次改的 spec 與 harness),不必再為了驗自己的改動做任何額外動作。
+
+交件前想真的驗它跑得起來:**暫時加一段 `push: branches: [<你的 feat 分支>]`** → push 一次讓它跑 → 綠了之後**把那段移除**再開 PR / 合併。PR 內文附那次 run 的連結並註明「驗證用的 push trigger 已移除」。
+
+- **不要把 `push` trigger 留著合進去** —— 手動觸發的 workflow 通常很貴(e2e 要 build + 起 Mongo + 開瀏覽器),留著等於每次 push 都燒 Actions 額度。
+- 同理,**「交件前手動觸發一次 e2e」這條要求對 `e2e.yml` 本身的那張票不成立**,寫驗收條件時要避開這種自我指涉。
 
 ### 拆票時的硬規則(第 5 段補充,2026-09-22;#183 / #246 / #161 / #319 / #318 / #320 / #344 / #321)
 
@@ -174,7 +198,19 @@ pnpm --filter @repo/admin dev:mock     # http://localhost:3002
 - **「某功能還沒實作、所以被別的測試借去當反例」的耦合要在票上標出**:#321 的殼測試拿「示範模組2」當「未實作的佔位頁」,等模組2 真的實作出來,5 個殼測試同時紅,實作者一度以為自己抽壞了。票上寫明「本票會讓 X 的測試失去反例,連帶修 X 屬於本票」;更好的做法是**反例改用永不實作的夾具**(先例 `test/msw/module-fixtures.ts` 的 `placeholderModules`)。
 - **對照組模組的 i18n 與測試夾具「各自一份」要明寫**,不留給實作者裁決(#321):示範模組1 / 模組2 這種「同版型的對照組」,共用一份字典或夾具看起來省事,實際上兩邊只要有一處要分歧就得拆回去,而且拆的時候兩張票都已經合了。
 - **seed 類的票除了「連帶修既有斷言」(下一節第 1 條)還有兩件**(#319):①**加業務資料會讓 root 視角的既有測試「多出資料」** —— root 看得到全部,清單筆數、分頁、樹的節點數都會變,受影響的不只是「數字寫死」的那幾個;②**拆票前先查現有 seeds 能引用到什麼**(`apps/db-migrator/seeds/`),能沿用既有的組織 / 角色 / 欄位就不要新增,新增一筆的連帶成本是上面那一整串。
-- **要讓程式票順手改 ADR / 規範,票面要寫明例外**(#344):issue-tracker 的規則是「規則本文(ADR、`docs/standards/`、模組文件的行為說明)只由文件票寫」,但拆票時常寫「順便在 ADR-00xx 補一句」,兩條形式上相衝。做法:**票上明寫「本票例外可改 `ADR-00xx` 第 N 段,只改這一段」**;沒寫就一律留給文件票,實作票把發現寫進 PR 的「規則回饋」。
+- **要讓程式票順手改 ADR / 規範,票面要寫明例外**(#344):issue-tracker 的規則是「規則本文(ADR、`docs/standards/`、模組文件的行為說明)只由文件票寫」,但拆票時常寫「順便在 ADR-00xx 補一句」,兩條形式上相衝。做法:**票上明寫「本票例外可改 `ADR-00xx` 第 N 段,只改這一段」**;沒寫就一律留給文件票,實作票把發現寫進 PR 的「規則回饋」。**`docs/modules/<key>.md` 的「admin 頁面」節與 `docs/agents/module-scaffold.md` 同樣算規則本文**(2026-09-23 補,#359):實作票要動它們也要在票面明寫例外,否則實作者會在「我該不該改」上卡一次。
+- **`CLAUDE.md` 在每張票上都要明確歸進「可改」或「不可改」**(2026-09-23 補,#313 / #322 各遇一次灰區):它既是規則本文、又常被順手指路,不寫的話實作者只能猜。預設是**不可改**(它是入口文件,改動影響每一個 agent);真的要改就開一張獨立的文件票。
+- **拆票的指路要先開檔確認,不要憑記憶指先例**(2026-09-23 補,#359 踩到):#359 的票面寫「列表 Switch 對齊使用者管理列表」,但使用者管理的停用是 `Button`、啟用欄是 `Tag`,真正的列表 Switch 先例是 `FieldManagerPage/FieldOptionsPanel/FieldOptionsTable.tsx`(含無權限時退回 `Tag`)。**指錯先例比不指更糟** —— 實作者會照著一個不存在的東西做。寫票時把那個檔案打開看一眼,並在票上寫到**檔案路徑**。
+- **名字相近的元件 / 函式要在票上點名是哪一支**(2026-09-23 補,#362):`OrgPickerDialog`(勾選所屬組織)與 `OrgChangeDialog`(移除確認)只差一個詞,票面寫「組織彈窗」時兩邊都對得上。同一頁有兩支以上同族元件時,票上寫**完整檔名**。
+- **票面提到的欄位要逐一對過 schema,「推導出來的欄位」尤其要**(2026-09-23 補,#364;延伸自下一條的「spec 與設計稿各說一半」):#364 的票面寫 `roles.kind` 是判準,但 schema 裡根本沒有這個欄位(只有 `key` / `isSystem`,`kind` 是 api 依操作者算出來的回傳欄位)。**判準類的欄位要寫「正本在哪」而不只是欄位名** —— 該票真正的判準正本是 db-migrator 的 **registry 宣告清單**(`apps/db-migrator/seeds/registry.ts`),不是任何一個資料庫欄位。
+- **要 root-only 就直接指定 `system.org-manager.tenant-ops` 容器底下的 key**(2026-09-23 補,#374):`isRootOnly` 是**模組**的旗標、不是權限的旗標(ADR-0004 / ADR-0009:模板複製時整個模組被扣除),所以票上寫「這個動作要 root-only」等於沒寫 —— 要寫成「權限 key 掛在 `…tenant-ops` 底下」。已有的先例是 `tenant-ops.provision` / `revoke-provision` / `transfer-owner`。
+- **「驗收缺口」類的票,開票時附原始 payload 與操作順序**(2026-09-23 補,#363):「矩陣存錯了」這種回報,實作者拿不到當時送出去的東西就只能重現、猜條件。#363 最後是靠使用者事後補的 input 才確認引擎本身沒問題(問題在顯示樹)。票上放:**送出的 payload**、**操作順序**(先點什麼再點什麼)、**當時的環境與版本**(dev 的 release PR / commit)。
+- **「逐一檢查同型」類的驗收項,要求 PR 列出「確認不動」的結論**(2026-09-23 補,#372):票上寫「把其他同類的地方也檢查一遍」時,只改到的那幾處會進 diff,**檢查過但不必改的那些在 PR 上完全看不見** —— review 的人無從分辨「檢查過沒問題」與「漏了」。票面直接要求:PR 內文列出逐項結論,不動的寫一句為什麼。
+- **驗收項寫成「現況 / 期望」兩行**(2026-09-23 補,#373):只寫期望時,實作者要先自己猜現在長什麼樣才知道差在哪;兩行寫清楚,連帶讓「其實已經是對的」那幾項當場消掉(同上一節的「僅確認、不改」)。**引用 Figma 時節點 id 給到列層級**(給到整張畫布等於沒給)。
+- **清單類端點的三件事在票上寫死**(2026-09-23 補,#377):①**候選清單的端點**(「可見且尚未加入」這種)直接寫進票面,不要讓實作者從既有端點推;②**「直接成員」還是「子樹成員」**這類欄位語意在票上點名(兩者數字對不起來是對的,但沒寫就會被當成 bug);③**mutation 的 payload 回不回清單**寫死(回了就有兩份可能不一致的真相,不回就要在票上寫「加完失效哪幾把 query」)。
+- **「等某票合併後再派」不要用 `needs-info` 標籤**(2026-09-23 補,#377):那個標籤的語意是「票面本身有問題要先解開」,拿來表示等待會讓 triage 看不懂。改在票面寫一行 `Blocked by: #<n>`(看板的 Backlog / Ready 兩格就是吃這個)。
+- **`apps/` 還是 `packages/` 這種「放哪裡」的二選一,拆票時裁決**(2026-09-23 補,#378):e2e harness 要當一個 app 還是一個 package、共用元件先放 `components/` 還是直接進 `@repo/ui` —— 這類問題實作者兩邊都做得出來,但選錯的代價是之後整包搬。票上寫選哪邊 + 一句理由(同本節「裁決寫死在票上」)。
+- **票面引用「錯誤解讀」的慣例時照實際的寫法寫**(2026-09-23 補,#376):admin 的慣例是 **`<ns>ErrorOf(error)` 取出 code、再 `tErrors(code)` 取文案**(正本 `docs/standards/react/data-fetching.md` DATA-06),**沒有 `messageOf` 這種東西**。票面憑印象造一個不存在的函式名,實作者會先花時間找它。**訊息形狀與要顯示的文案一起對**(#375:`login` 的訊息要帶 `name` 才顯示得出「歡迎,某某」)—— 只寫其中一半,做完才發現對不上。
 
 ### 拆票時要寫清楚的幾件事(第 4 段補充,2026-09-20)
 

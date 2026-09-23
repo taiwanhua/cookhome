@@ -79,14 +79,48 @@ mutation GrantRoleUsers($input: GrantRoleUsersInput!) {
   grantRoleUsers(input: $input) { totalCount }
 }`;
 
+const SWITCH_ORG = `
+mutation SwitchOrg($input: SwitchOrgInput!) {
+  switchOrg(input: $input) { accessToken }
+}`;
+
 const CREATE_DEMO_ITEM_ONE = `
 mutation CreateDemoItemOne($input: CreateDemoItemOneInput!) {
   createDemoItemOne(input: $input) { item { id name } }
 }`;
 
+const CREATE_DEMO_ITEM_TWO = `
+mutation CreateDemoItemTwo($input: CreateDemoItemTwoInput!) {
+  createDemoItemTwo(input: $input) { item { id name } }
+}`;
+
+const SET_DEMO_ITEM_ONE_STATUS = `
+mutation UpdateDemoItemOne($input: UpdateDemoItemOneInput!) {
+  updateDemoItemOne(input: $input) { item { id status } }
+}`;
+
+const SAVE_DATA_SCOPE_RULE = `
+mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
+  saveDataScopeRule(input: $input) {
+    rule {
+      collection
+      combineOp
+      rules { audience { type ids } filter }
+    }
+  }
+}`;
+
 const UPDATE_DEMO_ITEM_ONE = `
 mutation UpdateDemoItemOne($input: UpdateDemoItemOneInput!) {
   updateDemoItemOne(input: $input) { item { id name internalNote } }
+}`;
+
+const DEMO_ITEM_ONE_HISTORY = `
+query DemoItemOneHistory($id: ID!) {
+  demoItemOneHistory(id: $id) {
+    items { id action before after createdAt }
+    totalCount
+  }
 }`;
 
 export interface MatrixPermission {
@@ -279,6 +313,19 @@ export async function grantRoleUsers(
   );
 }
 
+/** 切換當前組織:驗過所屬組織後**換發**一張 access token(舊的那張不會失效)。 */
+export async function switchOrg(
+  accessToken: string,
+  orgId: string,
+): Promise<string> {
+  const data = await graphqlOk<{ switchOrg: { accessToken: string } }>(
+    SWITCH_ORG,
+    { input: { orgId } },
+    accessToken,
+  );
+  return data.switchOrg.accessToken;
+}
+
 export async function createDemoItemOne(
   accessToken: string,
   input: { name: string; note?: string; internalNote?: string },
@@ -289,12 +336,142 @@ export async function createDemoItemOne(
   return data.createDemoItemOne.item.id;
 }
 
+export async function createDemoItemTwo(
+  accessToken: string,
+  input: { name: string; note?: string },
+): Promise<string> {
+  const data = await graphqlOk<{
+    createDemoItemTwo: { item: { id: string } };
+  }>(CREATE_DEMO_ITEM_TWO, { input }, accessToken);
+  return data.createDemoItemTwo.item.id;
+}
+
 /** 原樣回傳(要驗 `FIELD_FORBIDDEN` 這類錯誤碼,所以不用 `graphqlOk`)。 */
 export function updateDemoItemOne(
   accessToken: string,
   input: Record<string, unknown>,
 ): ReturnType<typeof graphql> {
   return graphql(UPDATE_DEMO_ITEM_ONE, { input }, accessToken);
+}
+
+/** GraphQL 的狀態列舉(資料庫存的是小寫,`dataScopeTarget` 宣告的 enum 選項用那一份)。 */
+export type DemoItemOneStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+
+export async function setDemoItemOneStatus(
+  accessToken: string,
+  id: string,
+  status: DemoItemOneStatus,
+): Promise<void> {
+  await graphqlOk(
+    SET_DEMO_ITEM_ONE_STATUS,
+    { input: { id, status } },
+    accessToken,
+  );
+}
+
+/* ---- 資料範圍(ADR-0008;形狀正本 `docs/modules/data-scope.md`) ---- */
+
+/** 多條規則命中同一個人時的頂層合成:OR = 聯集、AND = 交集。 */
+export type DataScopeCombineOp = "AND" | "OR";
+
+/** 一條規則:套用對象 + 條件樹(`filter`)。 */
+export interface DataScopeRuleEntry {
+  audience: { type: "ALL" | "ROLE" | "ORG" | "USER"; ids: string[] };
+  filter: Record<string, unknown>;
+}
+
+export interface DataScopeRule {
+  collection: string;
+  combineOp: DataScopeCombineOp;
+  rules: DataScopeRuleEntry[];
+}
+
+/**
+ * **整份覆蓋**這個資料目標的規則(送出的就是之後生效的全部)。
+ * 根組織專屬:站在租戶裡即使持有權限也會拿到 `FORBIDDEN`,所以一律用 root 的 token。
+ */
+export async function saveDataScopeRule(
+  accessToken: string,
+  input: {
+    collection: string;
+    combineOp: DataScopeCombineOp;
+    rules: readonly DataScopeRuleEntry[];
+  },
+): Promise<DataScopeRule> {
+  const data = await graphqlOk<{
+    saveDataScopeRule: { rule: DataScopeRule };
+  }>(SAVE_DATA_SCOPE_RULE, { input }, accessToken);
+  return data.saveDataScopeRule.rule;
+}
+
+/** 刪規則 = 整份覆蓋成空陣列(執行面只剩租戶保底)。 */
+export async function clearDataScopeRule(
+  accessToken: string,
+  collection: string,
+): Promise<void> {
+  await saveDataScopeRule(accessToken, {
+    collection,
+    combineOp: "OR",
+    rules: [],
+  });
+}
+
+/** 條件樹:一個群組包一條條件列(編輯器存出來就是這個形狀)。 */
+function singleCondition(
+  field: string,
+  value: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    op: "AND",
+    children: [{ field, cond: "in", value }],
+  };
+}
+
+/** 套用對象 = 指定角色 → 建立者 屬於【操作者本人】(劇本 2 / 3 / 4 的規則①)。 */
+export function ownedByOperatorRule(roleId: string): DataScopeRuleEntry {
+  return {
+    audience: { type: "ROLE", ids: [roleId] },
+    filter: singleCondition("createdBy", {
+      kind: "dynamic",
+      ref: "current-user",
+    }),
+  };
+}
+
+/** 套用對象 = 指定組織 → 狀態 屬於【已發布】(劇本 4 的規則②)。 */
+export function publishedInOrgRule(orgId: string): DataScopeRuleEntry {
+  return {
+    audience: { type: "ORG", ids: [orgId] },
+    filter: singleCondition("status", {
+      kind: "static",
+      values: ["published"],
+    }),
+  };
+}
+
+export interface HistoryEntry {
+  id: string;
+  action: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+/**
+ * 某一筆示範項目的變更歷程(新到舊,不分頁);需要 `edit-page.show-history`。
+ *
+ * 受欄位級權限保護的欄位在 `before` / `after` 裡一律是 `"[redacted]"`
+ * (ADR-0004「稽核歷程一律記 `[redacted]`」)—— 畫面上的歷程區塊根本不渲染值,
+ * 所以那一條只驗得到這裡。
+ */
+export async function demoItemOneHistory(
+  accessToken: string,
+  id: string,
+): Promise<HistoryEntry[]> {
+  const data = await graphqlOk<{
+    demoItemOneHistory: { items: HistoryEntry[] };
+  }>(DEMO_ITEM_ONE_HISTORY, { id }, accessToken);
+  return data.demoItemOneHistory.items;
 }
 
 /** 攤平權限矩陣的樹(矩陣是巢狀四層,選模組 / 權限時一律先攤平)。 */

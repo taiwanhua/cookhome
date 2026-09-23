@@ -10,6 +10,8 @@
 - **權限備忘**:整頁根組織專屬;未來若開放租戶,套用對象與值選擇器已天然受可見範圍限制,保底不可關
 - **使用者說明**:[system.data-scope.help.md](../../apps/admin/src/md/module-help/system.data-scope.help.md)(根組織專屬模組 — help 讀者即系統管理員,可用平台詞彙)
 
+> **這一頁只有 root 進得去**(2026-09-23 明寫,#322):模組節點在 seed 宣告上標了 **`isRootOnly`**,所以租戶管理員模板複製時整個模組被扣除(ADR-0009 第 3 步),租戶的側欄根本沒有「資料範圍」這一列;api 那側另有第二道門(`OwnerProtectionService.isRootOperator`,見下方「api 介面」)。**所以凡是「建一條資料範圍規則」的步驟,帳號一律是 root** —— 驗收劇本 2 / 4 的建規則帳號因此是 root,劇本 16 驗的就是租戶看不到這一列。「模組與權限」(`system.module-manager`)與「租戶作業」(`system.org-manager.tenant-ops`)是同一種寫法。
+
 ## 權限表(第 4 段前置,2026-09-20)
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。綁定原則:綁「按鈕 / 欄位所在的那一頁」(ADR-0004)。
@@ -150,10 +152,13 @@ input SaveDataScopeRuleInput {
   更深的規則若由 api 回來仍讀得回、顯示得出來,只是不能再往下加。
 - 新群組**一定帶一條條件列**(空群組會被 `EMPTY_GROUP` 拒絕,不讓它先出現在畫面上)。
 - 動態值與靜態值在同一個「值」下拉裡(動態值排在最前面):選了動態值就取代整份靜態值,反之亦然。
-- **「有沒有規則」沒有現成欄位**:左清單的「已設規則」目前是對每個目標各查一次 `dataScopeRule`
-  (目標是 seed 宣告的小清單,成本可接受)。目標變多時的正解是 `DataScopeTarget` 上補 `hasRule`(待 #246)。
-- **`demo_items_one` 的 seed 目前宣告 `fields: []`**,所以 enum 型別的條件在 dev 上驗不到
-  (只有底座自動掛入的 org / user / date 基礎欄位);seed 補一個 enum 欄位待 #246。
+- **左清單的「已設規則」讀 `DataScopeTarget.hasRule`**(#246 已做;2026-09-23 更新,原條文寫的是
+  「沒有現成欄位、對每個目標各查一次 `dataScopeRule`」)。判準見上方「回傳欄位的語意」——
+  有文件**且 `rules` 非空**才算已設。
+- **`demo_items_one` 的 seed 宣告了一個 enum 欄位 `status`**(草稿 / 已發布 / 已封存;#246 已做,
+  2026-09-23 更新,原條文寫的是 `fields: []`、enum 條件驗不到)。正本
+  `apps/db-migrator/seeds/modules/demo.sub.sample-one.ts` 的 `dataScopeTarget.fields`,
+  `value` 與 `demo-item-one.schema.ts` 的 `status` 一一對應;示範模組2 仍不宣告,是對照組。
 - 未儲存就切換資料目標 → 放棄變更確認;`saveDataScopeRule` 成功後失效該 collection 的 `dataScopeRule`
   與 `dataScopeTargets`。動作按鈕依 `system.data-scope.edit`,只有 `.view` 時整個編輯器唯讀。
 
@@ -168,3 +173,4 @@ input SaveDataScopeRuleInput {
 - 動態值在**查詢當下**代入正在查的人:`current-user` → 操作者 id、`current-user-orgs` → 操作者的**所屬組織**
   (`org_user` 的直接關聯,**不含**可見性開關展開的下層);代入後若是空集合,該條件命中不到任何資料(fail-closed)
 - 規則只套**業務類** collection(`tenantScopePlugin({ kind: "business" })`);治理類(`orgs`)完全不受影響
+- **規則本身是全域設定,不隨租戶隔離**(2026-09-23 明寫,#395):`data_scope_rules` **沒有掛 `tenantScopePlugin`**、`collection` 上是 **unique 索引**(程式正本 `apps/api/src/database/schemas/data-scope-rule.schema.ts`),所以**一個資料目標全站只有一份規則文件**,由 root 維護、對所有租戶同時生效(套用對象才是決定「命中誰」的那一層)。**寫自動化測試時這是共用狀態**:動到規則的劇本結尾一定要把它清乾淨(整份覆蓋成 `rules: []`),否則會污染同一個資料庫上跑的其他劇本 —— 租戶隔離救不了它,見 TEST-11

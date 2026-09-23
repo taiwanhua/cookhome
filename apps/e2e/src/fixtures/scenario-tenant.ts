@@ -47,6 +47,10 @@ export interface SupportMatrixOptions {
 export interface ScenarioTenant {
   slug: string;
   tenantOrgId: string;
+  /** 租戶頂層的組織名稱(`租戶A-<slug>`);根組織視角的選單靠它分辨同名角色。 */
+  tenantOrgName: string;
+  /** seed 的超級管理員 token(根組織專屬的操作要用它,如資料範圍規則)。 */
+  rootToken: string;
   nangangOrgId: string;
   neihuOrgId: string;
   /** 租戶擁有者 = 首任租戶管理員(+tenant)。 */
@@ -111,12 +115,13 @@ async function applySupportMatrix(
 async function provisionTenantAdmin(
   rootToken: string,
   slug: string,
-): Promise<{ orgId: string; admin: ScenarioAccount }> {
+): Promise<{ orgId: string; orgName: string; admin: ScenarioAccount }> {
   const moduleKeys = await tenantModuleOptionKeys(rootToken);
   const account = `tenant-${slug}`;
   const email = `${account}@cookhome.test`;
+  const orgName = `租戶A-${slug}`;
   const provisioned = await provisionTenant(rootToken, {
-    name: `租戶A-${slug}`,
+    name: orgName,
     adminAccount: account,
     adminEmail: email,
     moduleKeys,
@@ -126,6 +131,7 @@ async function provisionTenantAdmin(
   const token = await setPassword(activationToken, MEMBER_PASSWORD);
   return {
     orgId: provisioned.orgId,
+    orgName,
     admin: {
       account,
       password: MEMBER_PASSWORD,
@@ -161,10 +167,11 @@ export async function createScenarioTenant(): Promise<ScenarioTenant> {
   const rootToken = await login(ROOT_ACCOUNT, ROOT_PASSWORD);
 
   // 1. root 開通租戶 + 首任租戶管理員
-  const { orgId: tenantOrgId, admin } = await provisionTenantAdmin(
-    rootToken,
-    slug,
-  );
+  const {
+    orgId: tenantOrgId,
+    orgName: tenantOrgName,
+    admin,
+  } = await provisionTenantAdmin(rootToken, slug);
 
   // 2. +tenant 在租戶底下建兩個分店
   const nangangOrgId = await createChildOrg(admin.token, tenantOrgId, "南港店");
@@ -182,6 +189,8 @@ export async function createScenarioTenant(): Promise<ScenarioTenant> {
   return {
     slug,
     tenantOrgId,
+    tenantOrgName,
+    rootToken,
     nangangOrgId,
     neihuOrgId,
     tenantAdmin: admin,

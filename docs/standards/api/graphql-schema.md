@@ -53,7 +53,8 @@ type UsersPayload {
 - `page` 從 **1** 起算(不是 0),`pageSize` 預設 20、**上限 100**(超過由 resolver 夾住,不報錯)。
 - payload **把 `page` / `pageSize` 原樣回傳**,前端的分頁器不必自己記送出去的值。
 - 型別名照 GQL-02 帶前綴(`UsersPayload` / `DemoItemsOnePayload`)。
-- **清單掛在某個實體底下時**,那個實體的 id 是**獨立參數**、不進 input(`roleUsers(input: RoleUsersInput!, roleId: ID!)`)—— input 只放篩選與分頁。
+- **清單掛在某個實體底下時**,那個實體的 id 是**獨立參數**、不進 input —— input 只放篩選與分頁。**兩個先例並列**(2026-09-23 補,#377):`roleUsers(roleId: ID!, input: RoleUsersInput!)` 與 `orgMembers(orgId: ID!, input: OrgMembersInput!)` / `orgMemberCandidates(orgId: ID!, input: OrgMembersInput!)`。**spec 裡寫成 `orgMembers(input: { orgId, … })` 是 Interface design 的簡寫,實作照本條寫、不照抄 spec**(同 GQL-02 最後一段對裸型別的處理)。
+- **同形的兩個清單共用一組 input / payload**:「已經在裡面的」與「還沒在裡面的」兩支 query 的列完全同形時,再宣告一組只是多兩個名字(先例 `OrgMembersInput` / `OrgMembersPayload` 同時服務 `orgMembers` 與 `orgMemberCandidates`)。形狀真的分岔時才拆。
 - **不分頁的清單**(一次全取的字典型資料,如 `fields(categoryId: ID!)`)仍回 `{ items, totalCount }`,不硬塞 `page` / `pageSize`;會長大的清單一律分頁。
 
 (專案規模不需要 Relay cursor connection;若未來需要無限捲動再開討論、記 ADR。)
@@ -82,6 +83,7 @@ type UsersPayload {
 | `CROSS_TENANT`             | 搬移組織時新上層不在同一個租戶(程式正本 `apps/api/src/orgs/org-error.ts`)                                                                                                                                             | 顯示「只能搬到同一個頂層組織之下」,樹上不讓放                                    |
 | `CYCLIC_MOVE`              | 搬移組織時新上層是自己或自己的子孫(會造出環)                                                                                                                                                                          | 顯示「不能搬到自己的下層」,樹上不讓放                                            |
 | `ORG_NOT_DELETABLE`        | 刪除組織的前置檢查未過;`extensions.reasons` 逐項列出(`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG`)                                                                              | 依 reasons 逐項顯示中文原因,並引導改用停用                                       |
+| `PROVISION_NOT_REVOKABLE`  | 撤銷租戶開通的前置檢查未過;`extensions.reasons` 與 `ORG_NOT_DELETABLE` **同一組語彙**(程式正本 `apps/api/src/orgs/org-error.ts`,#374)                                                                                 | 依 reasons 逐項顯示中文原因,並提示「已經有自己的資料時請改用停用」               |
 | `RULE_INVALID`             | 資料範圍規則不合法:欄位不在目錄、運算子不符型別、值來源不符型別…;`extensions.path` 指到條件樹裡的位置、`extensions.reason` 是原因列舉(程式正本 `apps/api/src/data-scope/data-scope-error.ts` 與 `data-scope-rule.ts`) | 依 reason 顯示中文原因,並把錯誤標在 `path` 指到的那一列條件上                    |
 | `FIELD_VALUE_DUPLICATE`    | 欄位選項的 `value` 在同一類別下重複:本組織已有同 value 的自訂選項,或與該類別的全域種子選項同 value(程式正本 `apps/api/src/fields/fields-error.ts`)                                                                    | 把錯誤標在「值」欄位(`extensions.fields` 為 `["value"]`),要求改一個值            |
 | `ROLE_NOT_DELETABLE`       | 刪除角色的前置檢查未過;`extensions.reasons` 逐項列出(`HAS_GRANTS` / `SYSTEM_ROLE` / `TEMPLATE_COPY`;程式正本 `apps/api/src/roles/roles-error.ts`)                                                                     | 依 reasons 逐項顯示中文原因,並引導改用停用                                       |
@@ -155,9 +157,17 @@ pnpm --filter @repo/graphql generate
 - **輸出端**:回傳型別的欄位**永遠在 response 裡**,只是值可能是 `null`。所以「沒有欄位級權限 → api 不把這個欄位放進回傳物件」在 GraphQL 上呈現的是 **`null`**,不是欄位消失。前端因此**不能拿值判斷有沒有權限**(「沒權限」與「沒填」長得一樣),要依自己的權限集決定渲不渲染那個欄位(先例 `demo.sub.sample-one` 的 `internalNote`,ADR-0004)。
 - 寫模組文件時這兩端分開寫:input 欄位寫「缺席 / `null`」,輸出欄位寫「無權限時回 `null`,前端依權限決定是否顯示」。
 
+**受欄位級權限保護的欄位,「新增」與「編輯」的 `null` 語意可以不同**(2026-09-23 裁決 / #372;先例 `createUser` / `updateUser` 的 `nationalId`):
+
+- **編輯**(`updateUser`):`nationalId: null` 是**清空**,是一次寫入 → 要 `edit-national-id`,沒有就 `FORBIDDEN` + `reason FIELD_FORBIDDEN`。
+- **新增**(`createUser`):`nationalId: null` **視同缺席**、不要求 `edit-national-id` —— 新增時「沒有東西可清」,前端不填該欄時送 `null` 與不送在語意上是同一件事,把它擋下只會讓沒有該權限的人連「不填身分證字號的使用者」都建不了。
+- 這與示範模組1 的 `internalNote` **方向不同**(那裡 `null` 一律要權限),差別就在**編輯有東西可清、新增沒有**。所以這件事**一律在票上與模組文件的「api 介面」節寫死**,不要從別的端點推;寫的時候把「新增」與「編輯」分兩行。
+
 ## GQL-07 跨 api / 前端的欄位語意,正本寫在模組文件的「api 介面」節,前端段只引用
 
 `OrgNode.parentId` 對每棵樹的根一律回 `null`(不是真的上層),api 測試有斷言,但模組文件的前端段寫成「`parentId` 為 null = 站在根組織」,兩位實作者各照自己那半邊寫,前端拿它判視角就錯了(#186)。回傳欄位的語意只在 api 介面段定義一次;前端段需要時引用該段,不另寫解釋。api-only 的票也要**同 PR 補前端要用的 operation 文件**(`packages/graphql/src/documents/*.graphql` + generate),否則下游票撞不到 hook(#137 → #138)。
+
+**寫 `*.graphql` document 時,註解順手寫下 input 的形狀**(2026-09-23,#378):document 只寫 `$input: SetPasswordInput!`,呼叫端要知道裡面有哪些欄位就得回去翻 `schema.gql` 或 api 的 dto。在 operation 上方的註解寫一行(`# SetPasswordInput: { token, newPassword }`)成本幾乎為零,而它是下游票**第一個**會看到的地方。欄位語意(缺席 / `null`、無權限回 `null`)仍以模組文件的「api 介面」節為正本,註解只寫形狀、不重寫規則。
 
 ### `abilities` 欄位:兩種語意,依模組種類擇一並寫在 api 介面段(2026-09-22 裁決 / #319)
 
