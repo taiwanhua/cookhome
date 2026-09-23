@@ -45,11 +45,11 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 
 ## 閱讀路線
 
-| 你是     | 照這個順序讀                                                                                                        |
-| -------- | ------------------------------------------------------------------------------------------------------------------- |
-| 新手     | 本頁 → `CONTEXT.md`(詞彙)→ `docs/concepts/` 五份(順序見下)→ 感興趣的 `docs/modules/<key>.md`                        |
-| 開發者   | 新手路線 → `docs/standards/README.md`(只載入相關規範)→ `docs/agents/module-scaffold.md`(新增模組)→ 需要理由時讀 ADR |
-| AI agent | 新手路線 → `docs/agents/toolbox.md`(工具與環境)→ `docs/agents/issue-tracker.md`(票與 PR 流程)→ 依改動範圍載入規範   |
+| 你是     | 照這個順序讀                                                                                                                                                |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 新手     | 本頁 → `CONTEXT.md`(詞彙)→ `docs/concepts/` 五份(順序見下)→ 感興趣的 `docs/modules/<key>.md`                                                                |
+| 開發者   | 新手路線 → `docs/standards/README.md`(只載入相關規範)→ `docs/agents/module-scaffold.md`(新增模組;要人機問答出規格卡用 `/module-scaffold`)→ 需要理由時讀 ADR |
+| AI agent | 新手路線 → `docs/agents/toolbox.md`(工具與環境)→ `docs/agents/issue-tracker.md`(票與 PR 流程)→ 依改動範圍載入規範                                           |
 
 concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-and-isolation` → `storage-and-mail` → `frontend-architecture`。
 

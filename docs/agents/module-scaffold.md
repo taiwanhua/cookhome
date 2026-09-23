@@ -2,6 +2,8 @@
 
 給**沒有對話 session** 的 agent 或新成員:從零長出一個後台 CRUD 模組要動哪些檔、照什麼順序動、每一步的正本在哪裡。
 
+互動流程用 Claude Code skill `/module-scaffold`(`.claude/skills/module-scaffold/`):`plan` 模式問需求出規格卡,`build` 模式照本檔逐步實作;步驟內容仍以本檔為準。
+
 藍本取自**示範家族**:[示範模組1](../modules/demo.sub.sample-one.md)(把所有選配都打開的完整示範)與 [示範模組2](../modules/demo.sample-two.md)(**對照組 —— 拿掉全部選配之後剩下的最小可行模組**)。要照抄就抄示範模組2,需要哪一項選配再回示範模組1 對照(選配清單見文末「示範模組 1 vs 2 差異對照表」)。
 
 **這份文件不是規則的正本**,只是指路與順序:權限綁定看 ADR-0004、路由與判斷流程看 ADR-0011、資料範圍看 ADR-0008、基礎欄位看 ADR-0007、檔案儲存看 ADR-0010、前端分層看 ADR-0012(現況說明在 `docs/concepts/`)、程式碼規範看 `docs/standards/README.md` 的索引。每一步結尾的「正本」是照抄時要打開的檔。

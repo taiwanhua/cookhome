@@ -127,34 +127,35 @@
 
 ## Claude Code skill 對照表
 
-「用哪個」欄是在 Claude Code 裡的呼叫名稱。repo 自帶的三個 skill 放在 `.agents/skills/`(版本鎖在 `skills-lock.json`)。
+「用哪個」欄是在 Claude Code 裡的呼叫名稱。repo 自帶的三個 skill 放在 `.agents/skills/`(版本鎖在 `skills-lock.json`);repo 自製的 skill 放在 `.claude/skills/<名稱>/`。
 
-| 情境                                                 | 用哪個                                                        | 一句提醒                                                                                   |
-| ---------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 自己交件前掃一次 diff 的 bug                         | `/code-review`(內建)                                          | 可指定 PR 號或分支;`--fix` 會直接改工作目錄,文件票不需要                                   |
-| review 一張 PR 是否守規範、是否照票做                | `mattpocock-skills:code-review`                               | Standards / Spec 兩軸並行;給它比較的起點(如 `origin/main`)與票號,引用規則編號回報          |
-| 改完後清理重複、過度複雜的程式                       | `/simplify`(內建)                                             | 只管品質不找 bug;會直接套用修改,跑完重看 diff                                              |
-| 動到登入、權限、上傳、金鑰相關的程式                 | `/security-review`(內建)                                      | 針對目前分支的待合變更                                                                     |
-| 產生 CLAUDE.md                                       | `/init`(內建)                                                 | 本 repo 已有 `CLAUDE.md`,**不要跑**;要改入口文件開獨立文件票                               |
-| 先寫紅燈測試再實作                                   | `mattpocock-skills:tdd`                                       | 測試只呼叫 spec 指定的接縫;api 打真的 `/graphql`(TEST-07)、admin 走 MSW(TEST-08)           |
-| 難纏的 bug、效能退化                                 | `mattpocock-skills:diagnosing-bugs`                           | 先重現再下手;先查 pitfalls,很多「壞掉」其實是快取或埠                                      |
-| 查官方文件 / API 事實                                | `mattpocock-skills:research`                                  | 它會在 repo 寫一份 Markdown,先講好路徑,不要混進本票 commit                                 |
-| 改 `CONTEXT.md` 詞彙或寫 ADR                         | `mattpocock-skills:domain-modeling`                           | 規則本文由文件票寫;新詞連 `_Avoid_` 一起寫                                                 |
-| 設計模組介面、決定接縫放哪                           | `mattpocock-skills:codebase-design`                           | 結論要寫回模組文件或規範,不留在對話裡                                                      |
-| rebase / merge 衝突                                  | `mattpocock-skills:resolving-merge-conflicts`                 | 衝突對象是還沒 release 的 feat 時改走疊分支,不要 rebase 到 `dev`(pitfalls)                 |
-| 在動手前把計畫問到底                                 | `mattpocock-skills:grilling`                                  | 適合拆票前、裁決「二選一」前                                                               |
-| 寫給 agent 看的文件(skill、`AGENTS.md`、`CLAUDE.md`) | `mattpocock-skills:writing-for-agents`                        | 每段附正本路徑                                                                             |
-| 只有人能做的步驟(建 Secret、第三方後台)              | `mattpocock-skills:wizard`                                    | 產出互動式腳本讓人跑;agent 不經手任何密碼 / 金鑰                                           |
-| 狀態模型或 UI 走向拿不定                             | `mattpocock-skills:prototype`                                 | 丟棄式原型,不進正式程式碼                                                                  |
-| 照 Figma 稿實作畫面                                  | `figma:figma-design-to-code`                                  | 呼叫 `get_design_context` 前必載;節點 id 給到列層級,規範 `docs/standards/general/figma.md` |
-| 在 Figma 裡改稿、建元件                              | `figma:figma-use`(寫入前必載)+ `figma:figma-generate-library` | 動到品牌文字 / 色彩同步 `docs/branding.md`                                                 |
-| 把程式裡的頁面畫進 Figma                             | `figma:figma-generate-design`(搭配 `figma:figma-use`)         | 用設計系統的元件與變數,不要寫死數值                                                        |
-| mock 模式截圖、看畫面                                | `claude-in-chrome`                                            | 開自己的分頁、連自己起的埠;截圖前確認看得到本次改動                                        |
-| review 文件的文字                                    | `writing-guidelines`(repo 自帶)                               | 本 repo 另有「文件不寫日期、段落、票號」的通則(`docs/standards/general/structure.md`)      |
-| review UI 的可及性與介面慣例                         | `web-design-guidelines`(repo 自帶)                            | 結論引用 `docs/standards/react/` 的規則編號                                                |
-| 寫 / review React 元件的效能                         | `vercel-react-best-practices`(repo 自帶)                      | 與 `docs/standards/react/` 衝突時以 repo 規範為準                                          |
+| 情境                                                 | 用哪個                                                        | 一句提醒                                                                                                     |
+| ---------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 自己交件前掃一次 diff 的 bug                         | `/code-review`(內建)                                          | 可指定 PR 號或分支;`--fix` 會直接改工作目錄,文件票不需要                                                     |
+| review 一張 PR 是否守規範、是否照票做                | `mattpocock-skills:code-review`                               | Standards / Spec 兩軸並行;給它比較的起點(如 `origin/main`)與票號,引用規則編號回報                            |
+| 改完後清理重複、過度複雜的程式                       | `/simplify`(內建)                                             | 只管品質不找 bug;會直接套用修改,跑完重看 diff                                                                |
+| 動到登入、權限、上傳、金鑰相關的程式                 | `/security-review`(內建)                                      | 針對目前分支的待合變更                                                                                       |
+| 產生 CLAUDE.md                                       | `/init`(內建)                                                 | 本 repo 已有 `CLAUDE.md`,**不要跑**;要改入口文件開獨立文件票                                                 |
+| 先寫紅燈測試再實作                                   | `mattpocock-skills:tdd`                                       | 測試只呼叫 spec 指定的接縫;api 打真的 `/graphql`(TEST-07)、admin 走 MSW(TEST-08)                             |
+| 難纏的 bug、效能退化                                 | `mattpocock-skills:diagnosing-bugs`                           | 先重現再下手;先查 pitfalls,很多「壞掉」其實是快取或埠                                                        |
+| 查官方文件 / API 事實                                | `mattpocock-skills:research`                                  | 它會在 repo 寫一份 Markdown,先講好路徑,不要混進本票 commit                                                   |
+| 改 `CONTEXT.md` 詞彙或寫 ADR                         | `mattpocock-skills:domain-modeling`                           | 規則本文由文件票寫;新詞連 `_Avoid_` 一起寫                                                                   |
+| 設計模組介面、決定接縫放哪                           | `mattpocock-skills:codebase-design`                           | 結論要寫回模組文件或規範,不留在對話裡                                                                        |
+| rebase / merge 衝突                                  | `mattpocock-skills:resolving-merge-conflicts`                 | 衝突對象是還沒 release 的 feat 時改走疊分支,不要 rebase 到 `dev`(pitfalls)                                   |
+| 新增後台 CRUD 模組(固定欄位)                         | `/module-scaffold`(repo 自製)                                 | 先選 `plan`(四輪問答 → 規格卡 → 可產 issue)或 `build`(照規格卡與 module-scaffold.md 實作);動態表單模組不適用 |
+| 在動手前把計畫問到底                                 | `mattpocock-skills:grilling`                                  | 適合拆票前、裁決「二選一」前                                                                                 |
+| 寫給 agent 看的文件(skill、`AGENTS.md`、`CLAUDE.md`) | `mattpocock-skills:writing-for-agents`                        | 每段附正本路徑                                                                                               |
+| 只有人能做的步驟(建 Secret、第三方後台)              | `mattpocock-skills:wizard`                                    | 產出互動式腳本讓人跑;agent 不經手任何密碼 / 金鑰                                                             |
+| 狀態模型或 UI 走向拿不定                             | `mattpocock-skills:prototype`                                 | 丟棄式原型,不進正式程式碼                                                                                    |
+| 照 Figma 稿實作畫面                                  | `figma:figma-design-to-code`                                  | 呼叫 `get_design_context` 前必載;節點 id 給到列層級,規範 `docs/standards/general/figma.md`                   |
+| 在 Figma 裡改稿、建元件                              | `figma:figma-use`(寫入前必載)+ `figma:figma-generate-library` | 動到品牌文字 / 色彩同步 `docs/branding.md`                                                                   |
+| 把程式裡的頁面畫進 Figma                             | `figma:figma-generate-design`(搭配 `figma:figma-use`)         | 用設計系統的元件與變數,不要寫死數值                                                                          |
+| mock 模式截圖、看畫面                                | `claude-in-chrome`                                            | 開自己的分頁、連自己起的埠;截圖前確認看得到本次改動                                                          |
+| review 文件的文字                                    | `writing-guidelines`(repo 自帶)                               | 本 repo 另有「文件不寫日期、段落、票號」的通則(`docs/standards/general/structure.md`)                        |
+| review UI 的可及性與介面慣例                         | `web-design-guidelines`(repo 自帶)                            | 結論引用 `docs/standards/react/` 的規則編號                                                                  |
+| 寫 / review React 元件的效能                         | `vercel-react-best-practices`(repo 自帶)                      | 與 `docs/standards/react/` 衝突時以 repo 規範為準                                                            |
 
-正本:`.agents/skills/`、`skills-lock.json`;內建與外掛 skill 以 Claude Code 當下列出的清單為準
+正本:`.agents/skills/`、`skills-lock.json`、`.claude/skills/`;內建與外掛 skill 以 Claude Code 當下列出的清單為準
 
 ## 派工模板(給無 session 的 agent)
 
