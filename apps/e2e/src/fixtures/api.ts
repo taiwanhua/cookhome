@@ -1,4 +1,4 @@
-import { graphql, graphqlOk } from "./graphql";
+import { type GraphqlResponse, graphql, graphqlOk } from "./graphql";
 
 /**
  * 前置資料要用到的 GraphQL 操作(正本是 `packages/graphql/src/documents/*.graphql`,
@@ -663,6 +663,109 @@ export async function setOrgVisibility(
   await graphqlOk(
     SET_ORG_VISIBILITY,
     { input: { orgId, visibility } },
+    accessToken,
+  );
+}
+
+/* ---- 劇本 14(#400):管理範圍 vs 可見範圍 ---- */
+
+const ORG_TREE = `
+query OrgTree {
+  orgTree {
+    id name parentId
+    children {
+      id name parentId
+      children { id name parentId children { id name parentId } }
+    }
+  }
+}`;
+
+const ORG = `
+query Org($id: ID!) {
+  org(id: $id) { id name parentId visibility }
+}`;
+
+const SET_ROLE_ENABLED = `
+mutation SetRoleEnabled($input: SetRoleEnabledInput!) {
+  setRoleEnabled(input: $input) { role { id enabled } }
+}`;
+
+/** 組織樹的一個節點(`orgTree`;四層夠劇本用:租戶頂層 > 分店 > 倉庫)。 */
+export interface OrgTreeNode {
+  id: string;
+  name: string;
+  /** 每棵樹的**樹根一律 `null`**(它的上層不在管理範圍內;`docs/modules/org-manager.md`)。 */
+  parentId: string | null;
+  children?: OrgTreeNode[];
+}
+
+/**
+ * 原樣回傳的 `orgTree`(要驗 `FORBIDDEN`)。根 = 操作者**管理範圍**的各個頂點,範圍外不回傳;
+ * `system.org-manager.view` 或 `system.user-manager.view` 任一即可進端點。
+ */
+export function orgTreeRaw(
+  accessToken: string,
+): Promise<GraphqlResponse<{ orgTree: OrgTreeNode[] }>> {
+  return graphql<{ orgTree: OrgTreeNode[] }>(ORG_TREE, {}, accessToken);
+}
+
+/** 組織樹的各個樹根(前置失敗就拋)。 */
+export async function orgTree(accessToken: string): Promise<OrgTreeNode[]> {
+  const data = await graphqlOk<{ orgTree: OrgTreeNode[] }>(
+    ORG_TREE,
+    {},
+    accessToken,
+  );
+  return data.orgTree;
+}
+
+export interface OrgSummary {
+  id: string;
+  name: string;
+  parentId: string | null;
+  /** 只有租戶頂層有值(新開通的租戶沒設定 = `OWN`)。 */
+  visibility: OrgVisibility | null;
+}
+
+/** 單一組織,原樣回傳(管理範圍外 = `NOT_FOUND`,不透露存不存在)。 */
+export function orgRaw(
+  accessToken: string,
+  id: string,
+): Promise<GraphqlResponse<{ org: OrgSummary }>> {
+  return graphql<{ org: OrgSummary }>(ORG, { id }, accessToken);
+}
+
+/** 原樣回傳的 `setOrgVisibility`(要驗 `NOT_FOUND` / `VALIDATION_FAILED` / `FORBIDDEN`)。 */
+export function setOrgVisibilityRaw(
+  accessToken: string,
+  orgId: string,
+  visibility: OrgVisibility,
+): ReturnType<typeof graphql> {
+  return graphql(
+    SET_ORG_VISIBILITY,
+    { input: { orgId, visibility } },
+    accessToken,
+  );
+}
+
+/** 原樣回傳的 `moveOrg`(要驗 `NOT_FOUND` / `CYCLIC_MOVE` / `CROSS_TENANT` / `FORBIDDEN`)。 */
+export function moveOrgRaw(
+  accessToken: string,
+  id: string,
+  newParentId: string,
+): ReturnType<typeof graphql> {
+  return graphql(MOVE_ORG, { input: { id, newParentId } }, accessToken);
+}
+
+/** 角色管理的「停用 / 啟用」:停用的角色不算進管理範圍,也不給任何權限(ADR-0011 步驟 2)。 */
+export async function setRoleEnabled(
+  accessToken: string,
+  roleId: string,
+  enabled: boolean,
+): Promise<void> {
+  await graphqlOk(
+    SET_ROLE_ENABLED,
+    { input: { id: roleId, enabled } },
     accessToken,
   );
 }
