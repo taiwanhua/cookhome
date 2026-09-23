@@ -1,4 +1,4 @@
-import { graphql, graphqlOk } from "./graphql";
+import { type GraphqlResponse, graphql, graphqlOk } from "./graphql";
 
 /**
  * 前置資料要用到的 GraphQL 操作(正本是 `packages/graphql/src/documents/*.graphql`,
@@ -482,4 +482,290 @@ export function flattenMatrix(
     module,
     ...flattenMatrix(module.children ?? []),
   ]);
+}
+
+/* ---- 劇本 10 / 13(#397):防越權、總覽也是模組 ---- */
+
+const ME_MODULE_KEYS = `
+query Me { me { modules { key } } }`;
+
+/** 操作者自己持有的模組 key(`me.modules`;側欄與可進入路由都從這一份長出來)。 */
+export async function myModuleKeys(accessToken: string): Promise<string[]> {
+  const data = await graphqlOk<{ me: { modules: { key: string }[] } }>(
+    ME_MODULE_KEYS,
+    {},
+    accessToken,
+  );
+  return data.me.modules.map((module) => module.key);
+}
+
+/**
+ * 原樣回傳的 `saveRoleMatrix`(要驗 `ROLE_OUT_OF_REACH` 這類錯誤碼,所以不用 `graphqlOk`)。
+ * 前置用的整份覆蓋走上面的 `saveRoleMatrix`。
+ */
+export function saveRoleMatrixRaw(
+  accessToken: string,
+  input: { roleId: string; moduleKeys: string[]; permissionKeys: string[] },
+): ReturnType<typeof graphql> {
+  return graphql(SAVE_ROLE_MATRIX, { input }, accessToken);
+}
+
+/* ---- 劇本 8 / 9(#398):多所屬組織、組織外、移除所屬組織三檔 ---- */
+
+const ADD_ORG_MEMBERS = `
+mutation AddOrgMembers($input: AddOrgMembersInput!) {
+  addOrgMembers(input: $input) { addedUserIds skippedUserIds }
+}`;
+
+const MOVE_ORG = `
+mutation MoveOrg($input: MoveOrgInput!) {
+  moveOrg(input: $input) { org { id parentId } }
+}`;
+
+const REVOKE_ROLE_USERS = `
+mutation RevokeRoleUsers($input: RevokeRoleUsersInput!) {
+  revokeRoleUsers(input: $input) { totalCount }
+}`;
+
+const SET_USER_ORGS_WITH_POLICY = `
+mutation SetUserOrgs($input: SetUserOrgsInput!) {
+  setUserOrgs(input: $input) {
+    user { id orgs { id name } roles { id name outOfScope } }
+    removedOrgs { id name }
+    unqualifiedRoles { roleId roleName ownerOrgId ownerOrgName reasons ownerProtected }
+    revokedRoleIds
+  }
+}`;
+
+/**
+ * 組織管理「成員」分頁的「加入成員」(#377):對每個人的所屬組織**加**一筆
+ * (只加不減,所以沒有 dry-run;移除只有 `setUserOrgs` 一個入口)。
+ */
+export async function addOrgMembers(
+  accessToken: string,
+  orgId: string,
+  userIds: readonly string[],
+): Promise<void> {
+  await graphqlOk(ADD_ORG_MEMBERS, { input: { orgId, userIds } }, accessToken);
+}
+
+/** 把組織搬到新的上層(候選 = 管理範圍 ∩ 同租戶 − 自己子樹)。 */
+export async function moveOrg(
+  accessToken: string,
+  id: string,
+  newParentId: string,
+): Promise<void> {
+  await graphqlOk(MOVE_ORG, { input: { id, newParentId } }, accessToken);
+}
+
+/** 角色管理「分配使用者」的「移除」:解除這幾個人的這個角色授予。 */
+export async function revokeRoleUsers(
+  accessToken: string,
+  roleId: string,
+  userIds: readonly string[],
+): Promise<void> {
+  await graphqlOk(
+    REVOKE_ROLE_USERS,
+    { input: { roleId, userIds } },
+    accessToken,
+  );
+}
+
+/** 移除所屬組織的三檔(ADR-0003;`docs/modules/user-manager.md` 的 radio 文案表)。 */
+export type UserOrgRemovalPolicy =
+  "KEEP_ALL" | "REVOKE_OWNED_BY_ORG" | "REVOKE_ALL_UNQUALIFIED";
+
+export type RoleUnqualifiedReason =
+  "OWNED_BY_REMOVED_ORG" | "NO_REMAINING_SUBTREE_SUPPORT";
+
+export interface SetUserOrgsResult {
+  user: {
+    id: string;
+    orgs: { id: string; name: string }[];
+    roles: { id: string; name: string; outOfScope: boolean }[];
+  };
+  removedOrgs: { id: string; name: string }[];
+  unqualifiedRoles: {
+    roleId: string;
+    roleName: string;
+    ownerOrgId: string | null;
+    ownerOrgName: string | null;
+    reasons: RoleUnqualifiedReason[];
+    ownerProtected: boolean;
+  }[];
+  revokedRoleIds: string[];
+}
+
+/**
+ * 帶 `dryRun` / `removalPolicy` 的 `setUserOrgs`,回完整 payload
+ * (劇本 9 要比對 dry-run 的 `reasons` 與送出後的 `revokedRoleIds`)。
+ * 只加不減的前置用上面的 `setUserOrgs` 即可。
+ */
+export async function setUserOrgsWithPolicy(
+  accessToken: string,
+  input: {
+    userId: string;
+    orgIds: readonly string[];
+    dryRun: boolean;
+    removalPolicy?: UserOrgRemovalPolicy;
+  },
+): Promise<SetUserOrgsResult> {
+  const data = await graphqlOk<{ setUserOrgs: SetUserOrgsResult }>(
+    SET_USER_ORGS_WITH_POLICY,
+    { input },
+    accessToken,
+  );
+  return data.setUserOrgs;
+}
+
+/* ---- 劇本 12(#399):可見性開關 ---- */
+
+const DATA_SCOPE_RULE = `
+query DataScopeRule($collection: String!) {
+  dataScopeRule(collection: $collection) {
+    rule {
+      collection
+      combineOp
+      rules { audience { type ids } filter }
+    }
+  }
+}`;
+
+const SET_ORG_VISIBILITY = `
+mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
+  setOrgVisibility(input: $input) { org { id visibility } }
+}`;
+
+/**
+ * 讀某個資料目標目前的規則:`null` = 從來沒設定過,`rules: []` = 設過又刪光
+ * (兩者在執行面等價,都只剩租戶保底;`docs/modules/data-scope.md`「執行面的回傳語意」)。
+ * 規則是全站共用的一份,所以要讀它的是 root。
+ */
+export async function dataScopeRule(
+  accessToken: string,
+  collection: string,
+): Promise<DataScopeRule | null> {
+  const data = await graphqlOk<{
+    dataScopeRule: { rule: DataScopeRule | null };
+  }>(DATA_SCOPE_RULE, { collection }, accessToken);
+  return data.dataScopeRule.rule;
+}
+
+/** 租戶頂層的「使用者可見下層組織資料」開關(ADR-0005;新開通的租戶沒有設定 = `OWN`)。 */
+export type OrgVisibility = "OWN" | "SUBTREE";
+
+/** 設租戶頂層的可見性開關;+tenant(模板副本含 `set-visibility`)與 root 都設得了。 */
+export async function setOrgVisibility(
+  accessToken: string,
+  orgId: string,
+  visibility: OrgVisibility,
+): Promise<void> {
+  await graphqlOk(
+    SET_ORG_VISIBILITY,
+    { input: { orgId, visibility } },
+    accessToken,
+  );
+}
+
+/* ---- 劇本 14(#400):管理範圍 vs 可見範圍 ---- */
+
+const ORG_TREE = `
+query OrgTree {
+  orgTree {
+    id name parentId
+    children {
+      id name parentId
+      children { id name parentId children { id name parentId } }
+    }
+  }
+}`;
+
+const ORG = `
+query Org($id: ID!) {
+  org(id: $id) { id name parentId visibility }
+}`;
+
+const SET_ROLE_ENABLED = `
+mutation SetRoleEnabled($input: SetRoleEnabledInput!) {
+  setRoleEnabled(input: $input) { role { id enabled } }
+}`;
+
+/** 組織樹的一個節點(`orgTree`;四層夠劇本用:租戶頂層 > 分店 > 倉庫)。 */
+export interface OrgTreeNode {
+  id: string;
+  name: string;
+  /** 每棵樹的**樹根一律 `null`**(它的上層不在管理範圍內;`docs/modules/org-manager.md`)。 */
+  parentId: string | null;
+  children?: OrgTreeNode[];
+}
+
+/**
+ * 原樣回傳的 `orgTree`(要驗 `FORBIDDEN`)。根 = 操作者**管理範圍**的各個頂點,範圍外不回傳;
+ * `system.org-manager.view` 或 `system.user-manager.view` 任一即可進端點。
+ */
+export function orgTreeRaw(
+  accessToken: string,
+): Promise<GraphqlResponse<{ orgTree: OrgTreeNode[] }>> {
+  return graphql<{ orgTree: OrgTreeNode[] }>(ORG_TREE, {}, accessToken);
+}
+
+/** 組織樹的各個樹根(前置失敗就拋)。 */
+export async function orgTree(accessToken: string): Promise<OrgTreeNode[]> {
+  const data = await graphqlOk<{ orgTree: OrgTreeNode[] }>(
+    ORG_TREE,
+    {},
+    accessToken,
+  );
+  return data.orgTree;
+}
+
+export interface OrgSummary {
+  id: string;
+  name: string;
+  parentId: string | null;
+  /** 只有租戶頂層有值(新開通的租戶沒設定 = `OWN`)。 */
+  visibility: OrgVisibility | null;
+}
+
+/** 單一組織,原樣回傳(管理範圍外 = `NOT_FOUND`,不透露存不存在)。 */
+export function orgRaw(
+  accessToken: string,
+  id: string,
+): Promise<GraphqlResponse<{ org: OrgSummary }>> {
+  return graphql<{ org: OrgSummary }>(ORG, { id }, accessToken);
+}
+
+/** 原樣回傳的 `setOrgVisibility`(要驗 `NOT_FOUND` / `VALIDATION_FAILED` / `FORBIDDEN`)。 */
+export function setOrgVisibilityRaw(
+  accessToken: string,
+  orgId: string,
+  visibility: OrgVisibility,
+): ReturnType<typeof graphql> {
+  return graphql(
+    SET_ORG_VISIBILITY,
+    { input: { orgId, visibility } },
+    accessToken,
+  );
+}
+
+/** 原樣回傳的 `moveOrg`(要驗 `NOT_FOUND` / `CYCLIC_MOVE` / `CROSS_TENANT` / `FORBIDDEN`)。 */
+export function moveOrgRaw(
+  accessToken: string,
+  id: string,
+  newParentId: string,
+): ReturnType<typeof graphql> {
+  return graphql(MOVE_ORG, { input: { id, newParentId } }, accessToken);
+}
+
+/** 角色管理的「停用 / 啟用」:停用的角色不算進管理範圍,也不給任何權限(ADR-0011 步驟 2)。 */
+export async function setRoleEnabled(
+  accessToken: string,
+  roleId: string,
+  enabled: boolean,
+): Promise<void> {
+  await graphqlOk(
+    SET_ROLE_ENABLED,
+    { input: { id: roleId, enabled } },
+    accessToken,
+  );
 }
