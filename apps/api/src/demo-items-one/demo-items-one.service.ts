@@ -12,7 +12,11 @@ import {
 import type { OperatorContext } from "../database/operator-context";
 import { PermissionResolver } from "../permission/permission-resolver";
 import { StorageService } from "../storage/storage.service";
-import { isOwnedUploadPath } from "../storage/upload-rules";
+import {
+  UPLOAD_RULES,
+  UploadPurpose,
+  isOwnedUploadPath,
+} from "../storage/upload-rules";
 import { DemoCategoryService } from "./demo-category.service";
 import {
   AUDIT_ACTIONS,
@@ -33,6 +37,7 @@ import {
 } from "./demo-items-one-error";
 import type { CreateDemoItemOneInput } from "./dto/create-demo-item-one.input";
 import type { DeleteDemoItemOneInput } from "./dto/delete-demo-item-one.input";
+import type { DemoItemOneAttachmentInput } from "./dto/demo-item-one-attachment.input";
 import {
   DEFAULT_PAGE_SIZE,
   type DemoItemsOneInput,
@@ -42,15 +47,32 @@ import type { SetDemoItemOneEnabledInput } from "./dto/set-demo-item-one-enabled
 import type { UpdateDemoItemOneInput } from "./dto/update-demo-item-one.input";
 import type {
   DeleteDemoItemOnePayload,
+  DemoItemOneAttachmentUrlPayload,
   DemoItemOneHistoryPayload,
   DemoItemsOnePayload,
-  SignedUrlPayload,
 } from "./models/demo-item-one-payloads.model";
 import type { DemoItemOneModel } from "./models/demo-item-one.model";
 
-/** 兩個走上傳票的欄位(ADR-0010 雙路:封面公開、附件私有)。 */
-const UPLOAD_PATH_FIELDS = ["coverPath", "attachmentPath"] as const;
-type UploadPathField = (typeof UPLOAD_PATH_FIELDS)[number];
+/** 走上傳票的兩個 input 欄位(ADR-0010 雙路:封面公開、附件私有);錯誤的 `fields` 就標這個名字。 */
+type UploadPathField = "coverPath" | "attachment";
+
+/** 附件原始檔名的長度上限(一般檔案系統的單一檔名上限)。 */
+const MAX_ATTACHMENT_NAME_LENGTH = 255;
+
+/** 附件在 DB 的四個平行欄位(#427:同生同滅,換檔一起 `$set`、清空一起 `$unset`)。 */
+interface AttachmentFields {
+  attachmentPath: string;
+  attachmentName: string;
+  attachmentSize: number;
+  attachmentContentType: string;
+}
+
+const ATTACHMENT_FIELD_KEYS = [
+  "attachmentPath",
+  "attachmentName",
+  "attachmentSize",
+  "attachmentContentType",
+] as const satisfies readonly (keyof AttachmentFields)[];
 
 /** 一次更新要送出的 `$set` / `$unset` 與要記進稽核的前後值。 */
 interface UpdatePatch {
@@ -156,10 +178,10 @@ export class DemoItemsOneService {
    * 「這個人看得到這筆資料嗎」在此驗(`mustFind` 已含租戶保底 + 資料範圍規則),
    * 沒有附件 → `NOT_FOUND`。
    */
-  async attachmentDownloadUrl(
+  async attachmentUrl(
     operator: OperatorContext,
     id: string,
-  ): Promise<SignedUrlPayload> {
+  ): Promise<DemoItemOneAttachmentUrlPayload> {
     const record = await this.mustFind(operator, id);
     const url = await this.storage.readUrlOf(record.attachmentPath);
     if (url === null) {
@@ -189,10 +211,7 @@ export class DemoItemsOneService {
       ...optionalOf("note", trimToNull(input.note)),
       ...optionalOf("internalNote", trimToNull(input.internalNote)),
       ...optionalOf("coverPath", uploadPathOf("coverPath", input.coverPath)),
-      ...optionalOf(
-        "attachmentPath",
-        uploadPathOf("attachmentPath", input.attachmentPath),
-      ),
+      ...attachmentFieldsOf(input.attachment),
     });
     await this.audit.record(operator, {
       action: AUDIT_ACTIONS.create,
@@ -244,12 +263,20 @@ export class DemoItemsOneService {
         trimToNull(input.note),
       );
     }
-    for (const field of UPLOAD_PATH_FIELDS) {
-      const given = input[field];
-      if (given !== undefined) {
-        const value = uploadPathOf(field, given);
-        applyClearable(patch, field, current[field] ?? null, value);
-      }
+    if (input.coverPath !== undefined) {
+      applyClearable(
+        patch,
+        "coverPath",
+        current.coverPath ?? null,
+        uploadPathOf("coverPath", input.coverPath),
+      );
+    }
+    if (input.attachment !== undefined) {
+      applyAttachment(
+        patch,
+        current.attachmentPath ?? null,
+        attachmentFieldsOf(input.attachment),
+      );
     }
     if (input.internalNote !== undefined) {
       applyClearable(
@@ -466,6 +493,74 @@ function uploadPathOf(
     ]);
   }
   return trimmed;
+}
+
+/**
+ * 附件 input → DB 的四個平行欄位(#427);`null` / 缺席 = 沒有附件。
+ * 路徑照封面同一條守門(`isOwnedUploadPath`);檔名 / 大小 / 檔型是顯示用的中繼資料,
+ * 只驗形狀(不驗與 bucket 物件一致),不合一律 `VALIDATION_FAILED`,`fields: ["attachment"]`。
+ */
+function attachmentFieldsOf(
+  input: DemoItemOneAttachmentInput | null | undefined,
+): AttachmentFields | null {
+  if (input === null || input === undefined) {
+    return null;
+  }
+  const path = uploadPathOf("attachment", input.path);
+  if (path === null) {
+    throw validationError("attachment.path is required", ["attachment"]);
+  }
+  const name = input.name.trim();
+  if (name === "" || name.length > MAX_ATTACHMENT_NAME_LENGTH) {
+    throw validationError(
+      `attachment.name must be 1-${String(MAX_ATTACHMENT_NAME_LENGTH)} characters`,
+      ["attachment"],
+    );
+  }
+  const rule = UPLOAD_RULES[UploadPurpose.DEMO_ATTACHMENT];
+  if (
+    !Number.isInteger(input.size) ||
+    input.size < 0 ||
+    input.size > rule.maxBytes
+  ) {
+    throw validationError(
+      `attachment.size must be 0-${String(rule.maxBytes)} bytes`,
+      ["attachment"],
+    );
+  }
+  const contentType = input.contentType.trim().toLowerCase();
+  if (!(contentType in rule.extensions)) {
+    throw validationError(
+      `attachment.contentType is not allowed: ${input.contentType}`,
+      ["attachment"],
+    );
+  }
+  return {
+    attachmentPath: path,
+    attachmentName: name,
+    attachmentSize: input.size,
+    attachmentContentType: contentType,
+  };
+}
+
+/**
+ * 附件的編輯(#427):四欄一起換或一起清。稽核只記路徑(`attachmentPath`)——
+ * 歷程的欄位名沿用 #427 以前的那一個,檔名等中繼資料不進稽核。
+ */
+function applyAttachment(
+  patch: UpdatePatch,
+  currentPath: string | null,
+  fields: AttachmentFields | null,
+): void {
+  if (fields === null) {
+    for (const key of ATTACHMENT_FIELD_KEYS) {
+      patch.unset[key] = "";
+    }
+  } else {
+    Object.assign(patch.set, fields);
+  }
+  patch.before.attachmentPath = currentPath;
+  patch.after.attachmentPath = fields?.attachmentPath ?? null;
 }
 
 /** 新增時的選填欄位:沒值就不寫這個欄位(不落 null,ADR-0002 只約束初始 seed 值欄位)。 */

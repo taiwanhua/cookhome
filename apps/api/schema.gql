@@ -33,7 +33,7 @@ input CreateChildOrgInput {
 }
 
 input CreateDemoItemOneInput {
-  attachmentPath: ID
+  attachment: DemoItemOneAttachmentInput
   category: String
   coverPath: ID
   internalNote: String
@@ -238,8 +238,21 @@ type DemoItemOneAbilities {
 }
 
 type DemoItemOneAttachment {
+  contentType: String
+  name: String
+  path: ID!
+  size: Int
+}
+
+input DemoItemOneAttachmentInput {
+  contentType: String!
   name: String!
   path: ID!
+  size: Int!
+}
+
+type DemoItemOneAttachmentUrlPayload {
+  url: String!
 }
 
 type DemoItemOneHistoryEntry {
@@ -616,10 +629,10 @@ type ProvisionTenantPayload {
 }
 
 type Query {
-  attachmentDownloadUrl(id: ID!): SignedUrlPayload!
   dataScopeRule(collection: String!): DataScopeRulePayload!
   dataScopeTargets: DataScopeTargetsPayload!
   demoItemOne(id: ID!): DemoItemOnePayload!
+  demoItemOneAttachmentUrl(id: ID!): DemoItemOneAttachmentUrlPayload!
   demoItemOneHistory(id: ID!): DemoItemOneHistoryPayload!
   demoItemTwo(id: ID!): DemoItemTwoPayload!
   demoItemsOne(input: DemoItemsOneInput!): DemoItemsOnePayload!
@@ -928,10 +941,6 @@ type SetUserOrgsPayload {
   user: User!
 }
 
-type SignedUrlPayload {
-  url: String!
-}
-
 input SwitchOrgInput {
   orgId: ID!
 }
@@ -955,7 +964,7 @@ type UnqualifiedRole {
 }
 
 input UpdateDemoItemOneInput {
-  attachmentPath: ID
+  attachment: DemoItemOneAttachmentInput
   category: String
   coverPath: ID
   id: ID!

@@ -2,6 +2,7 @@ import {
   Field,
   GraphQLISODateTime,
   ID,
+  Int,
   ObjectType,
   registerEnumType,
 } from "@nestjs/graphql";
@@ -35,20 +36,28 @@ export class DemoItemOneUserRef {
 
 /**
  * 附件(私有 bucket,ADR-0010)。
- * `path` 是物件路徑(編輯時原樣送回即「不換檔」);**下載網址不在這裡** —— 要另外呼叫
- * `attachmentDownloadUrl(id)` 現簽,才守得住「私有檔案的可取範圍 = 該筆資料的可查範圍」。
+ * `path` 是物件路徑;**下載網址不在這裡** —— 要另外呼叫 `demoItemOneAttachmentUrl(id)` 現簽,
+ * 才守得住「私有檔案的可取範圍 = 該筆資料的可查範圍」。
+ *
+ * `name` / `size` / `contentType` 是上傳時前端申報的原始值(#427),原樣回傳。
+ * **#427 以前上傳的附件三者皆為 `null`**(當時只存路徑)—— 前端退回顯示路徑尾段、不顯示大小。
  */
 @ObjectType()
 export class DemoItemOneAttachment {
   @Field(() => ID)
   path!: string;
 
-  /**
-   * 顯示用檔名 = 物件路徑的最後一段(`<uuid>.<副檔名>`)。
-   * 底座的上傳票不保留原始檔名(路徑帶 uuid,ADR-0010),所以這裡沒有「使用者當初選的檔名」。
-   */
-  @Field(() => String)
-  name!: string;
+  /** 原始檔名(使用者選檔時的檔名);舊資料為 null。 */
+  @Field(() => String, { nullable: true })
+  name!: string | null;
+
+  /** 檔案大小(bytes);舊資料為 null。 */
+  @Field(() => Int, { nullable: true })
+  size!: number | null;
+
+  /** content type;舊資料為 null。 */
+  @Field(() => String, { nullable: true })
+  contentType!: string | null;
 }
 
 /**
@@ -85,7 +94,7 @@ export class DemoItemOneAbilities {
  *   api 根本不把這個欄位放進回傳物件(GraphQL 序列化成 `null`),所以「沒權限」與「沒填」
  *   在線上看起來一樣 —— 前端依**自己的權限集**決定要不要渲染這個欄位,不靠值去猜
  * - `coverUrl`:公開 bucket 的**穩定** URL(不過期,可直接放 `<img src>`);沒有封面時 null
- * - `attachment`:私有 bucket,**只給路徑與檔名**,下載網址另呼叫 `attachmentDownloadUrl(id)`
+ * - `attachment`:私有 bucket,**只給路徑與原始檔名 / 大小 / 檔型**,下載網址另呼叫 `demoItemOneAttachmentUrl(id)`
  * - `categoryLabel`:`category`(存 value)在欄位管理「示範分類」**操作者合併範圍**內對應的
  *   顯示名稱;分類已被停用 / 屬於看不到的組織時為 null(值仍原樣回在 `category`)
  * - `createdBy`:建立者;**查不到那位使用者時一律回 `null`,不拋錯** —— seed 的示範資料用假的

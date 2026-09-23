@@ -101,7 +101,7 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 
 ### 上傳(選配,ADR-0010)
 
-`apps/api/src/storage/upload-rules.ts` 是正本:加一個 `UploadPurpose`,並在 `UPLOAD_VISIBILITIES`(公開 / 私有 bucket)、`UPLOAD_PATH_PREFIXES`、`UPLOAD_RULES`(允許的 content type → 副檔名、大小上限)各補一行。可見性是**用途的衍生屬性**,不另給參數。寫入「由前端回傳路徑」的欄位前一律先過 `isOwnedUploadPath`,不然呼叫端可以把任意 bucket 物件塞進 DB。公開 bucket 回**穩定 URL**(可直接放 `<img src>`),私有 bucket 只回路徑與檔名、下載時另外現簽。
+`apps/api/src/storage/upload-rules.ts` 是正本:加一個 `UploadPurpose`,並在 `UPLOAD_VISIBILITIES`(公開 / 私有 bucket)、`UPLOAD_PATH_PREFIXES`、`UPLOAD_RULES`(允許的 content type → 副檔名、大小上限)各補一行。可見性是**用途的衍生屬性**,不另給參數。寫入「由前端回傳路徑」的欄位前一律先過 `isOwnedUploadPath`,不然呼叫端可以把任意 bucket 物件塞進 DB。公開 bucket 回**穩定 URL**(可直接放 `<img src>`),私有 bucket 只回路徑與檔名、下載時另外現簽(讀取網址的 query 名帶模組前綴,如 `demoItemOneAttachmentUrl`,GQL-02)。**要顯示原始檔名 / 大小就在寫入 input 一起收**(前端 `useDemoUpload` 已回 `{ path, name, size, contentType }`,即 `File.name` / `size` / `type`),存成與路徑同生同滅的平行欄位 —— 物件路徑是 `<uuid>.<副檔名>`,本身不帶原始檔名(先例示範模組1 的 `attachment`,#427)。
 
 ## 步驟 4:documents + codegen
 

@@ -4,14 +4,19 @@ import { useTranslations } from "use-intl";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 
 import { type DemoError, demoErrorOf } from "./demo-error";
-import type { DemoFormConfig, DemoItemLike } from "./demo-module-config";
+import type {
+  DemoFormConfig,
+  DemoItemLike,
+  DemoUploadResults,
+  DemoUploadedFile,
+} from "./demo-module-config";
 import { useDemoUpload } from "./useDemoUpload";
 
 /**
  * 一個上傳欄的狀態。三種情形要分得開,因為送給 api 的值不一樣(GQL-06):
- * - 選了新檔(`file`)→ 上傳後送新路徑
+ * - 選了新檔(`file`)→ 上傳後送新檔案
  * - 按了移除(`isCleared`)→ 送 `null`(清空)
- * - 都沒動 → 把原本的路徑原樣送回(= 不換檔)
+ * - 都沒動 → 不放進 input(缺席 = 不動;#427 起不再把原路徑原樣送回)
  */
 export interface FileSlot {
   file: File | null;
@@ -59,8 +64,8 @@ const isSameValue = (a: unknown, b: unknown): boolean =>
  * 初始值由 `config.form.toValues` 帶進 `useState` 的初始化器(REACT-08:不在 effect 內 setState);
  * 要先取單筆的編輯情境由**外層 gate** —— 資料到了才掛這個表單,所以這裡的 `item` 必然已就緒。
  *
- * 送出分兩段:先把每個上傳欄解析成一條路徑(選了新檔就上傳、按了移除送 null、沒動就把
- * 原路徑原樣送回),再把值與路徑交給設定物件的 `useSave` 轉成該模組的 input。
+ * 送出分兩段:先把每個上傳欄解析成結果(選了新檔就上傳、按了移除為 null、沒動就不放),
+ * 再把值與結果交給設定物件的 `useSave` 轉成該模組的 input。
  */
 export const useDemoForm = <Detail extends DemoItemLike, Values>({
   i18nNamespace,
@@ -116,20 +121,19 @@ export const useDemoForm = <Detail extends DemoItemLike, Values>({
       return slot.file !== null || slot.isCleared;
     });
 
-  /** 一個上傳欄 → 要送給 api 的路徑。 */
-  const pathOf = async (key: string): Promise<string | null> => {
+  /** 一個上傳欄 → 這次的結果;`undefined` = 沒動(不放進結果)。 */
+  const resultOf = async (
+    key: string,
+  ): Promise<DemoUploadedFile | null | undefined> => {
     const definition = form.uploads.find((upload_) => upload_.key === key);
     if (definition === undefined) {
-      return null;
+      return undefined;
     }
     const slot = slotOf(key);
     if (slot.file !== null) {
       return upload(slot.file, definition.purpose);
     }
-    if (slot.isCleared || item === null) {
-      return null;
-    }
-    return definition.pathOf(item);
+    return slot.isCleared ? null : undefined;
   };
 
   const submit = () => {
@@ -138,11 +142,14 @@ export const useDemoForm = <Detail extends DemoItemLike, Values>({
     void (async () => {
       try {
         // 逐欄依序解析(封面 → 附件):兩欄同時換檔時,失敗的那一個要停在自己的錯誤上
-        const paths: Record<string, string | null> = {};
+        const uploads: Record<string, DemoUploadedFile | null> = {};
         for (const definition of form.uploads) {
-          paths[definition.key] = await pathOf(definition.key);
+          const result = await resultOf(definition.key);
+          if (result !== undefined) {
+            uploads[definition.key] = result;
+          }
         }
-        save.save(values, paths);
+        save.save(values, uploads satisfies DemoUploadResults);
       } catch (error_: unknown) {
         // 上傳自己失敗(沒走到 mutation):一樣算這次儲存失敗,照跳提示(#376)
         feedback.onError(error_);

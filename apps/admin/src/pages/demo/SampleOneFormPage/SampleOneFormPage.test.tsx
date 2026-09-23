@@ -163,7 +163,7 @@ describe("新增 / 編輯示範項目(共版型)", () => {
     expect(fake.calls.history).toBe(0);
   });
 
-  it("編輯:未改的封面與附件原樣送回(缺席 = 不動、null = 清空)", async () => {
+  it("編輯:沒動的封面與附件不放進 input(缺席 = 不動,GQL-06;#427 起不再原樣送回)", async () => {
     const { user: actor, fake } = renderSampleOne({ path: editPath("demo-1") });
     await screen.findByLabelText("名稱 *");
 
@@ -174,12 +174,18 @@ describe("新增 / 編輯示範項目(共版型)", () => {
     await waitFor(() => {
       expect(fake.inputs.updateDemoItemOne).toHaveLength(1);
     });
-    expect(fake.inputs.updateDemoItemOne[0]).toMatchObject({
-      id: "demo-1",
-      name: "醬燒雞腿排(改)",
-      coverPath: "demo/cover.png",
-      attachmentPath: "demo/cost.png",
-    });
+    const [input] = fake.inputs.updateDemoItemOne;
+    expect(input).toMatchObject({ id: "demo-1", name: "醬燒雞腿排(改)" });
+    expect(input).not.toHaveProperty("coverPath");
+    expect(input).not.toHaveProperty("attachment");
+  });
+
+  it("編輯頁顯示目前附件的原始檔名(#427)", async () => {
+    renderSampleOne({ path: editPath("demo-1") });
+
+    expect(
+      await screen.findByText("目前的附件:成本試算 2026.png"),
+    ).toBeInTheDocument();
   });
 
   it("移除附件:送 null 給 api(清空)", async () => {
@@ -192,7 +198,7 @@ describe("新增 / 編輯示範項目(共版型)", () => {
     await waitFor(() => {
       expect(fake.inputs.updateDemoItemOne).toHaveLength(1);
     });
-    expect(fake.inputs.updateDemoItemOne[0].attachmentPath).toBeNull();
+    expect(fake.inputs.updateDemoItemOne[0].attachment).toBeNull();
   });
 
   it("取消:改過就先問一次放棄變更,確認後才離開", async () => {
@@ -297,5 +303,33 @@ describe("新增 / 編輯示範項目(共版型)", () => {
     });
     expect(fake.uploadedFiles).toHaveLength(1);
     expect(fake.inputs.updateDemoItemOne[0].coverPath).toBe("demo/1.png");
+  });
+
+  it("上傳附件:原始檔名 / 大小 / 檔型與 objectPath 一起送(#427)", async () => {
+    const { user: actor, fake } = renderSampleOne({ path: editPath("demo-1") });
+    await screen.findByLabelText("名稱 *");
+
+    const file = new File(["%PDF-1.4 demo"], "新版合約.pdf", {
+      type: "application/pdf",
+    });
+    await actor.upload(screen.getByLabelText("附件"), file);
+    await actor.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() => {
+      expect(fake.inputs.updateDemoItemOne).toHaveLength(1);
+    });
+    expect(fake.inputs.createUploadUrl[0]).toMatchObject({
+      purpose: "DEMO_ATTACHMENT",
+      contentType: "application/pdf",
+      size: file.size,
+    });
+    expect(fake.inputs.updateDemoItemOne[0].attachment).toEqual({
+      path: "demo/1.png", // 假伺服器的 objectPath 一律 .png
+      name: "新版合約.pdf",
+      size: file.size,
+      contentType: "application/pdf",
+    });
+    // 封面沒動 → 不放進 input
+    expect(fake.inputs.updateDemoItemOne[0]).not.toHaveProperty("coverPath");
   });
 });

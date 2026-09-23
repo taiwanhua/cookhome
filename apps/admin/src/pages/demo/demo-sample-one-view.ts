@@ -44,3 +44,32 @@ export const changedFieldsOf = (
   after: Record<string, unknown> | null | undefined,
 ): readonly string[] =>
   after === null || after === undefined ? [] : Object.keys(after);
+
+/**
+ * 附件的顯示檔名(#427):api 回原始檔名;**#427 以前的舊資料 `name` 為 null**
+ * (當時只存路徑)→ 退回物件路徑的最後一段(`demo/<uuid>.pdf` → `<uuid>.pdf`)。
+ * 欄位語意正本:`docs/modules/demo.sub.sample-one.md`「api 介面」。
+ */
+export const attachmentNameOf = (attachment: {
+  path: string;
+  name?: string | null;
+}): string =>
+  attachment.name ??
+  attachment.path.slice(attachment.path.lastIndexOf("/") + 1);
+
+const FILE_SIZE_UNITS = ["B", "KB", "MB", "GB"] as const;
+
+/**
+ * bytes → 人類可讀的大小(`532 B`、`120.6 KB`、`18.4 MB`;1 KB = 1024 B)。
+ * 單位是通用符號、不隨語言變,所以不走 i18n。
+ */
+export const formatFileSize = (bytes: number): string => {
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < FILE_SIZE_UNITS.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  const text = unit === 0 ? String(value) : value.toFixed(1);
+  return `${text} ${FILE_SIZE_UNITS[unit]}`;
+};

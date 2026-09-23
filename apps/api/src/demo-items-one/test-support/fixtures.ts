@@ -42,6 +42,14 @@ export const ALL_SAMPLE_ONE_PERMISSIONS = [
 export const COVER_PATH = "demo/11111111-2222-4333-8444-555555555555.png";
 export const ATTACHMENT_PATH = "demo/66666666-7777-4888-8999-aaaaaaaaaaaa.jpg";
 
+/** 附件 input(#427):路徑 + 前端申報的原始檔名 / 大小 / 檔型。 */
+export const ATTACHMENT_INPUT = {
+  path: ATTACHMENT_PATH,
+  name: "成本估算 2026 Q3.jpg",
+  size: 123_456,
+  contentType: "image/jpeg",
+} as const;
+
 const LOGIN = /* GraphQL */ `
   mutation Login($input: LoginInput!) {
     login(input: $input) {
@@ -64,6 +72,8 @@ const ITEM_FIELDS = /* GraphQL */ `
     attachment {
       path
       name
+      size
+      contentType
     }
     status
     enabled
@@ -167,9 +177,9 @@ export const DEMO_ITEM_ONE_HISTORY = /* GraphQL */ `
   }
 `;
 
-export const ATTACHMENT_DOWNLOAD_URL = /* GraphQL */ `
-  query AttachmentDownloadUrl($id: ID!) {
-    attachmentDownloadUrl(id: $id) {
+export const DEMO_ITEM_ONE_ATTACHMENT_URL = /* GraphQL */ `
+  query DemoItemOneAttachmentUrl($id: ID!) {
+    demoItemOneAttachmentUrl(id: $id) {
       url
     }
   }
@@ -184,7 +194,12 @@ export interface ItemRow {
   internalNote: string | null;
   coverPath: string | null;
   coverUrl: string | null;
-  attachment: { path: string; name: string } | null;
+  attachment: {
+    path: string;
+    name: string | null;
+    size: number | null;
+    contentType: string | null;
+  } | null;
   status: string;
   enabled: boolean;
   createdBy: { id: string; name: string } | null;
@@ -230,7 +245,7 @@ export interface HistoryData {
 }
 
 export interface AttachmentUrlData {
-  attachmentDownloadUrl: { url: string };
+  demoItemOneAttachmentUrl: { url: string };
 }
 
 interface LoginData {

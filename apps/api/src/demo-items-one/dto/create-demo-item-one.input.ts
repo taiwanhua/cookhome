@@ -1,6 +1,7 @@
 import { Field, ID, InputType } from "@nestjs/graphql";
 
 import { DemoItemOneStatusEnum } from "../models/demo-item-one.model";
+import { DemoItemOneAttachmentInput } from "./demo-item-one-attachment.input";
 
 /**
  * 新增示範項目(需 `demo.sub.sample-one.create`)。
@@ -34,7 +35,10 @@ export class CreateDemoItemOneInput {
   @Field(() => ID, { nullable: true })
   coverPath?: string | null;
 
-  /** 附件的物件路徑(`createUploadUrl` 以 purpose `DEMO_ATTACHMENT` 取得,私有 bucket)。 */
-  @Field(() => ID, { nullable: true })
-  attachmentPath?: string | null;
+  /**
+   * 附件(私有 bucket):`createUploadUrl` 以 purpose `DEMO_ATTACHMENT` 取得的路徑 +
+   * 原始檔名 / 大小 / 檔型(#427,形狀見 `DemoItemOneAttachmentInput`)。缺席 / `null` = 不設。
+   */
+  @Field(() => DemoItemOneAttachmentInput, { nullable: true })
+  attachment?: DemoItemOneAttachmentInput | null;
 }

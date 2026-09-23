@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { TEST_DEMO_COVER_URL } from "@/test/msw/demo-fixtures";
+import { TEST_DEMO_COVER_URL, demoItems } from "@/test/msw/demo-fixtures";
 import { TEST_DEMO_DOWNLOAD_URL } from "@/test/msw/demo-sample-one-handlers";
 
 import { SAMPLE_ONE_PERMISSIONS } from "../demo-sample-one-config";
@@ -45,16 +45,50 @@ describe("示範項目詳情(/demo/sub/sample-one/view-page/:id)", () => {
     expect(screen.queryByText("成本試算尚未確認")).not.toBeInTheDocument();
   });
 
+  it("附件:顯示原始檔名與人類可讀大小(#427)", async () => {
+    renderSampleOne({ path: viewPath("demo-1") });
+
+    expect(await screen.findByText("成本試算 2026.png")).toBeInTheDocument();
+    expect(screen.getByText("1.2 MB")).toBeInTheDocument();
+    // 物件路徑的檔名不再拿來當顯示名
+    expect(screen.queryByText("cost.png")).not.toBeInTheDocument();
+  });
+
+  it("附件:#427 以前的舊資料(沒有原始檔名)退回路徑尾段、不顯示大小", async () => {
+    renderSampleOne({
+      path: viewPath("demo-legacy"),
+      world: {
+        items: [
+          {
+            ...demoItems[0],
+            id: "demo-legacy",
+            attachment: {
+              path: "demo/66666666-7777-4888-8999-aaaaaaaaaaaa.pdf",
+              name: null,
+              size: null,
+              contentType: null,
+            },
+          },
+        ],
+      },
+    });
+
+    expect(
+      await screen.findByText("66666666-7777-4888-8999-aaaaaaaaaaaa.pdf"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/\d (B|KB|MB)$/)).not.toBeInTheDocument();
+  });
+
   it("附件:按下「下載」才現簽短效網址,之前一次都不打", async () => {
     const { user: actor, fake } = renderSampleOne({ path: viewPath("demo-1") });
 
-    expect(await screen.findByText("cost.png")).toBeInTheDocument();
-    expect(fake.calls.attachmentDownloadUrl).toBe(0);
+    expect(await screen.findByText("成本試算 2026.png")).toBeInTheDocument();
+    expect(fake.calls.demoItemOneAttachmentUrl).toBe(0);
 
     await actor.click(screen.getByRole("button", { name: "下載" }));
 
     await waitFor(() => {
-      expect(fake.calls.attachmentDownloadUrl).toBe(1);
+      expect(fake.calls.demoItemOneAttachmentUrl).toBe(1);
     });
     expect(
       await screen.findByRole("link", { name: "開啟下載連結" }),

@@ -62,7 +62,7 @@ export type CreateChildOrgInput = {
 };
 
 export type CreateDemoItemOneInput = {
-  attachmentPath?: InputMaybe<Scalars['ID']['input']>;
+  attachment?: InputMaybe<DemoItemOneAttachmentInput>;
   category?: InputMaybe<Scalars['String']['input']>;
   coverPath?: InputMaybe<Scalars['ID']['input']>;
   internalNote?: InputMaybe<Scalars['String']['input']>;
@@ -271,8 +271,22 @@ export type DemoItemOneAbilities = {
 
 export type DemoItemOneAttachment = {
   __typename?: 'DemoItemOneAttachment';
-  name: Scalars['String']['output'];
+  contentType?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
   path: Scalars['ID']['output'];
+  size?: Maybe<Scalars['Int']['output']>;
+};
+
+export type DemoItemOneAttachmentInput = {
+  contentType: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  path: Scalars['ID']['input'];
+  size: Scalars['Int']['input'];
+};
+
+export type DemoItemOneAttachmentUrlPayload = {
+  __typename?: 'DemoItemOneAttachmentUrlPayload';
+  url: Scalars['String']['output'];
 };
 
 export type DemoItemOneHistoryEntry = {
@@ -900,10 +914,10 @@ export type ProvisionTenantPayload = {
 
 export type Query = {
   __typename?: 'Query';
-  attachmentDownloadUrl: SignedUrlPayload;
   dataScopeRule: DataScopeRulePayload;
   dataScopeTargets: DataScopeTargetsPayload;
   demoItemOne: DemoItemOnePayload;
+  demoItemOneAttachmentUrl: DemoItemOneAttachmentUrlPayload;
   demoItemOneHistory: DemoItemOneHistoryPayload;
   demoItemTwo: DemoItemTwoPayload;
   demoItemsOne: DemoItemsOnePayload;
@@ -929,17 +943,17 @@ export type Query = {
 };
 
 
-export type QueryAttachmentDownloadUrlArgs = {
-  id: Scalars['ID']['input'];
-};
-
-
 export type QueryDataScopeRuleArgs = {
   collection: Scalars['String']['input'];
 };
 
 
 export type QueryDemoItemOneArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryDemoItemOneAttachmentUrlArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -1330,11 +1344,6 @@ export type SetUserOrgsPayload = {
   user: User;
 };
 
-export type SignedUrlPayload = {
-  __typename?: 'SignedUrlPayload';
-  url: Scalars['String']['output'];
-};
-
 export type SwitchOrgInput = {
   orgId: Scalars['ID']['input'];
 };
@@ -1360,7 +1369,7 @@ export type UnqualifiedRole = {
 };
 
 export type UpdateDemoItemOneInput = {
-  attachmentPath?: InputMaybe<Scalars['ID']['input']>;
+  attachment?: InputMaybe<DemoItemOneAttachmentInput>;
   category?: InputMaybe<Scalars['String']['input']>;
   coverPath?: InputMaybe<Scalars['ID']['input']>;
   id: Scalars['ID']['input'];
@@ -1567,21 +1576,21 @@ export type SaveDataScopeRuleMutationVariables = Exact<{
 
 export type SaveDataScopeRuleMutation = { __typename?: 'Mutation', saveDataScopeRule: { __typename?: 'SaveDataScopeRulePayload', rule: { __typename?: 'DataScopeRule', collection: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } } };
 
-export type DemoItemOneFieldsFragment = { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } };
+export type DemoItemOneFieldsFragment = { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name?: string | null, size?: number | null, contentType?: string | null } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } };
 
 export type DemoItemsOneQueryVariables = Exact<{
   input: DemoItemsOneInput;
 }>;
 
 
-export type DemoItemsOneQuery = { __typename?: 'Query', demoItemsOne: { __typename?: 'DemoItemsOnePayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } }> } };
+export type DemoItemsOneQuery = { __typename?: 'Query', demoItemsOne: { __typename?: 'DemoItemsOnePayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name?: string | null, size?: number | null, contentType?: string | null } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } }> } };
 
 export type DemoItemOneQueryVariables = Exact<{
   id: Scalars['ID']['input'];
 }>;
 
 
-export type DemoItemOneQuery = { __typename?: 'Query', demoItemOne: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
+export type DemoItemOneQuery = { __typename?: 'Query', demoItemOne: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name?: string | null, size?: number | null, contentType?: string | null } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
 
 export type DemoItemOneHistoryQueryVariables = Exact<{
   id: Scalars['ID']['input'];
@@ -1590,26 +1599,26 @@ export type DemoItemOneHistoryQueryVariables = Exact<{
 
 export type DemoItemOneHistoryQuery = { __typename?: 'Query', demoItemOneHistory: { __typename?: 'DemoItemOneHistoryPayload', totalCount: number, items: Array<{ __typename?: 'DemoItemOneHistoryEntry', id: string, action: string, before?: Record<string, unknown> | null, after?: Record<string, unknown> | null, createdAt: string, actor?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null }> } };
 
-export type AttachmentDownloadUrlQueryVariables = Exact<{
+export type DemoItemOneAttachmentUrlQueryVariables = Exact<{
   id: Scalars['ID']['input'];
 }>;
 
 
-export type AttachmentDownloadUrlQuery = { __typename?: 'Query', attachmentDownloadUrl: { __typename?: 'SignedUrlPayload', url: string } };
+export type DemoItemOneAttachmentUrlQuery = { __typename?: 'Query', demoItemOneAttachmentUrl: { __typename?: 'DemoItemOneAttachmentUrlPayload', url: string } };
 
 export type CreateDemoItemOneMutationVariables = Exact<{
   input: CreateDemoItemOneInput;
 }>;
 
 
-export type CreateDemoItemOneMutation = { __typename?: 'Mutation', createDemoItemOne: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
+export type CreateDemoItemOneMutation = { __typename?: 'Mutation', createDemoItemOne: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name?: string | null, size?: number | null, contentType?: string | null } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
 
 export type UpdateDemoItemOneMutationVariables = Exact<{
   input: UpdateDemoItemOneInput;
 }>;
 
 
-export type UpdateDemoItemOneMutation = { __typename?: 'Mutation', updateDemoItemOne: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
+export type UpdateDemoItemOneMutation = { __typename?: 'Mutation', updateDemoItemOne: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name?: string | null, size?: number | null, contentType?: string | null } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
 
 export type DeleteDemoItemOneMutationVariables = Exact<{
   input: DeleteDemoItemOneInput;
@@ -1623,7 +1632,7 @@ export type SetDemoItemOneEnabledMutationVariables = Exact<{
 }>;
 
 
-export type SetDemoItemOneEnabledMutation = { __typename?: 'Mutation', setDemoItemOneEnabled: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name: string } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
+export type SetDemoItemOneEnabledMutation = { __typename?: 'Mutation', setDemoItemOneEnabled: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name?: string | null, size?: number | null, contentType?: string | null } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
 
 export type DemoItemTwoFieldsFragment = { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean } };
 
@@ -2022,6 +2031,8 @@ export const DemoItemOneFieldsFragmentDoc = `
   attachment {
     path
     name
+    size
+    contentType
   }
   status
   enabled
@@ -2731,36 +2742,36 @@ useDemoItemOneHistoryQuery.getKey = (variables: DemoItemOneHistoryQueryVariables
 
 useDemoItemOneHistoryQuery.fetcher = (client: GraphQLClient, variables: DemoItemOneHistoryQueryVariables, headers?: RequestInit['headers']) => fetcher<DemoItemOneHistoryQuery, DemoItemOneHistoryQueryVariables>(client, DemoItemOneHistoryDocument, variables, headers);
 
-export const AttachmentDownloadUrlDocument = `
-    query AttachmentDownloadUrl($id: ID!) {
-  attachmentDownloadUrl(id: $id) {
+export const DemoItemOneAttachmentUrlDocument = `
+    query DemoItemOneAttachmentUrl($id: ID!) {
+  demoItemOneAttachmentUrl(id: $id) {
     url
   }
 }
     `;
 
-export const useAttachmentDownloadUrlQuery = <
-      TData = AttachmentDownloadUrlQuery,
+export const useDemoItemOneAttachmentUrlQuery = <
+      TData = DemoItemOneAttachmentUrlQuery,
       TError = unknown
     >(
       client: GraphQLClient,
-      variables: AttachmentDownloadUrlQueryVariables,
-      options?: Omit<UseQueryOptions<AttachmentDownloadUrlQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AttachmentDownloadUrlQuery, TError, TData>['queryKey'] },
+      variables: DemoItemOneAttachmentUrlQueryVariables,
+      options?: Omit<UseQueryOptions<DemoItemOneAttachmentUrlQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DemoItemOneAttachmentUrlQuery, TError, TData>['queryKey'] },
       headers?: RequestInit['headers']
     ) => {
     
-    return useQuery<AttachmentDownloadUrlQuery, TError, TData>(
+    return useQuery<DemoItemOneAttachmentUrlQuery, TError, TData>(
       {
-    queryKey: ['AttachmentDownloadUrl', variables],
-    queryFn: fetcher<AttachmentDownloadUrlQuery, AttachmentDownloadUrlQueryVariables>(client, AttachmentDownloadUrlDocument, variables, headers),
+    queryKey: ['DemoItemOneAttachmentUrl', variables],
+    queryFn: fetcher<DemoItemOneAttachmentUrlQuery, DemoItemOneAttachmentUrlQueryVariables>(client, DemoItemOneAttachmentUrlDocument, variables, headers),
     ...options
   }
     )};
 
-useAttachmentDownloadUrlQuery.getKey = (variables: AttachmentDownloadUrlQueryVariables) => ['AttachmentDownloadUrl', variables];
+useDemoItemOneAttachmentUrlQuery.getKey = (variables: DemoItemOneAttachmentUrlQueryVariables) => ['DemoItemOneAttachmentUrl', variables];
 
 
-useAttachmentDownloadUrlQuery.fetcher = (client: GraphQLClient, variables: AttachmentDownloadUrlQueryVariables, headers?: RequestInit['headers']) => fetcher<AttachmentDownloadUrlQuery, AttachmentDownloadUrlQueryVariables>(client, AttachmentDownloadUrlDocument, variables, headers);
+useDemoItemOneAttachmentUrlQuery.fetcher = (client: GraphQLClient, variables: DemoItemOneAttachmentUrlQueryVariables, headers?: RequestInit['headers']) => fetcher<DemoItemOneAttachmentUrlQuery, DemoItemOneAttachmentUrlQueryVariables>(client, DemoItemOneAttachmentUrlDocument, variables, headers);
 
 export const CreateDemoItemOneDocument = `
     mutation CreateDemoItemOne($input: CreateDemoItemOneInput!) {

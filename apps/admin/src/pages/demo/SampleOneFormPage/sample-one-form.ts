@@ -10,7 +10,7 @@ import type {
 } from "../demo-sample-one-types";
 import type {
   DemoFieldMode,
-  DemoUploadPaths,
+  DemoUploadResults,
 } from "../shared/demo-module-config";
 
 /** 編輯情境的初始值;新增情境傳 `null`。 */
@@ -45,6 +45,20 @@ const orNull = (value: string): string | null =>
   value.trim() === "" ? null : value.trim();
 
 /**
+ * 上傳欄的結果 → input 的兩個檔案欄位。**沒動的上傳欄不放鍵**(缺席 = 不動,GQL-06):
+ * 封面只送路徑(`coverPath`);附件把路徑與原始檔名 / 大小 / 檔型一起送(`attachment`,#427)。
+ */
+const uploadInputOf = (
+  uploads: DemoUploadResults,
+): Pick<CreateDemoItemOneInput, "coverPath" | "attachment"> => {
+  const { cover, attachment } = uploads;
+  return {
+    ...(cover === undefined ? {} : { coverPath: cover?.path ?? null }),
+    ...(attachment === undefined ? {} : { attachment }),
+  };
+};
+
+/**
  * 表單 → `createDemoItemOne` 的 input。
  *
  * **`internalNote` 只在可改時才放進 input**:模組文件寫得很清楚 —— 這個欄位**一出現就要權限**,
@@ -52,30 +66,29 @@ const orNull = (value: string): string | null =>
  */
 export const toCreateInput = (
   values: SampleOneFormValues,
-  paths: DemoUploadPaths,
+  uploads: DemoUploadResults,
   internalNoteMode: DemoFieldMode,
 ): CreateDemoItemOneInput => ({
   name: values.name.trim(),
   status: values.status,
   category: values.category?.value ?? null,
   note: orNull(values.note),
-  coverPath: paths.cover ?? null,
-  attachmentPath: paths.attachment ?? null,
+  ...uploadInputOf(uploads),
   ...(internalNoteMode === "editable"
     ? { internalNote: orNull(values.internalNote) }
     : {}),
 });
 
 /**
- * 表單 → `updateDemoItemOne` 的 input。缺席 = 不動、`null` = 清空(GQL-06),
- * 所以每個欄位都明確送值:封面 / 附件「不換檔」就是把原本的路徑原樣送回。
+ * 表單 → `updateDemoItemOne` 的 input。缺席 = 不動、`null` = 清空(GQL-06):
+ * 文字欄明確送值;封面 / 附件「不換檔」就不放那個鍵(#427 起,見 `uploadInputOf`)。
  */
 export const toUpdateInput = (
   id: string,
   values: SampleOneFormValues,
-  paths: DemoUploadPaths,
+  uploads: DemoUploadResults,
   internalNoteMode: DemoFieldMode,
 ): UpdateDemoItemOneInput => ({
   id,
-  ...toCreateInput(values, paths, internalNoteMode),
+  ...toCreateInput(values, uploads, internalNoteMode),
 });

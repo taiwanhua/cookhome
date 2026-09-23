@@ -9,6 +9,7 @@ import { createOrg } from "../auth/test-support/fixtures";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import { findCategoryId } from "../fields/test-support/fixtures";
 import {
+  ATTACHMENT_INPUT,
   ATTACHMENT_PATH,
   COVER_PATH,
   CREATE_DEMO_ITEM_ONE,
@@ -152,20 +153,87 @@ describe("示範模組1 CRUD(#318,GraphQL 端點 + 真 MongoDB)", () => {
       });
     });
 
-    it("封面回公開穩定 URL(不帶簽名參數)、附件只回路徑與檔名", async () => {
+    it("封面回公開穩定 URL(不帶簽名參數)、附件回路徑與原始檔名 / 大小 / 檔型(#427)", async () => {
       const item = await createItem(api, operator.token, {
         name: "雙路檔案",
         coverPath: COVER_PATH,
-        attachmentPath: ATTACHMENT_PATH,
+        attachment: ATTACHMENT_INPUT,
       });
       expect(item.coverPath).toBe(COVER_PATH);
       expect(item.coverUrl).toContain(COVER_PATH);
       expect(item.coverUrl).not.toContain("action=read");
       expect(item.attachment).toEqual({
         path: ATTACHMENT_PATH,
-        name: "66666666-7777-4888-8999-aaaaaaaaaaaa.jpg",
+        name: "成本估算 2026 Q3.jpg",
+        size: 123_456,
+        contentType: "image/jpeg",
+      });
+
+      // 重新查一次:存進 DB 的是原始值(不是回傳時臨時算的)
+      const fetched = await api.graphql<ItemData>(
+        DEMO_ITEM_ONE,
+        { id: item.id },
+        { accessToken: operator.token },
+      );
+      expect(fetched.data?.demoItemOne.item.attachment).toEqual(
+        item.attachment,
+      );
+    });
+
+    it("#427 以前的舊資料(只有 attachmentPath)→ 檔名 / 大小 / 檔型回 null,路徑照回", async () => {
+      const item = await createItem(api, operator.token, {
+        name: "舊附件",
+        attachment: ATTACHMENT_INPUT,
+      });
+      await connection.collection("demo_items_one").updateOne(
+        { _id: new Types.ObjectId(item.id) },
+        {
+          $unset: {
+            attachmentName: "",
+            attachmentSize: "",
+            attachmentContentType: "",
+          },
+        },
+      );
+      const fetched = await api.graphql<ItemData>(
+        DEMO_ITEM_ONE,
+        { id: item.id },
+        { accessToken: operator.token },
+      );
+      expect(fetched.data?.demoItemOne.item.attachment).toEqual({
+        path: ATTACHMENT_PATH,
+        name: null,
+        size: null,
+        contentType: null,
       });
     });
+
+    it.each([
+      ["路徑不是本 API 簽出來的", { path: "secrets/private.pdf" }],
+      ["檔名空白", { name: " ".repeat(3) }],
+      ["檔名超過 255 字", { name: `${"長".repeat(252)}.pdf` }],
+      ["大小是負數", { size: -1 }],
+      ["大小超過附件上限 20MB", { size: 20 * 1024 * 1024 + 1 }],
+      ["檔型不在附件白名單", { contentType: "application/x-msdownload" }],
+    ])(
+      "附件%s → VALIDATION_FAILED,fields 標在 attachment",
+      async (_label, override) => {
+        const result = await api.graphql(
+          CREATE_DEMO_ITEM_ONE,
+          {
+            input: {
+              name: "附件不合法",
+              attachment: { ...ATTACHMENT_INPUT, ...override },
+            },
+          },
+          { accessToken: operator.token },
+        );
+        expect(result.errors?.[0]?.extensions).toMatchObject({
+          code: "VALIDATION_FAILED",
+          fields: ["attachment"],
+        });
+      },
+    );
   });
 
   describe("編輯", () => {
@@ -198,6 +266,60 @@ describe("示範模組1 CRUD(#318,GraphQL 端點 + 真 MongoDB)", () => {
       );
       expect(audit?.before).toEqual({ name: "待編輯", note: "原本的備註" });
       expect(audit?.after).toEqual({ name: "改過的名稱", note: null });
+    });
+
+    it("附件:換檔 = 四欄一起換、null = 四欄一起清;稽核只記路徑(#427)", async () => {
+      const item = await createItem(api, operator.token, {
+        name: "換附件",
+        attachment: ATTACHMENT_INPUT,
+      });
+      const replacement = {
+        path: "demo/77777777-8888-4999-8aaa-bbbbbbbbbbbb.pdf",
+        name: "新版合約.pdf",
+        size: 2048,
+        contentType: "application/pdf",
+      };
+      const replaced = await api.graphql<MutationData>(
+        UPDATE_DEMO_ITEM_ONE,
+        { input: { id: item.id, attachment: replacement } },
+        { accessToken: operator.token },
+      );
+      expect(replaced.errors).toBeUndefined();
+      expect(replaced.data?.updateDemoItemOne?.item.attachment).toEqual(
+        replacement,
+      );
+      const replaceAudit = await latestAudit(
+        connection,
+        "demo-item-one.edit",
+        item.id,
+      );
+      expect(replaceAudit?.before).toEqual({ attachmentPath: ATTACHMENT_PATH });
+      expect(replaceAudit?.after).toEqual({ attachmentPath: replacement.path });
+
+      // 缺席 = 不動
+      const untouched = await api.graphql<MutationData>(
+        UPDATE_DEMO_ITEM_ONE,
+        { input: { id: item.id, note: "只改備註" } },
+        { accessToken: operator.token },
+      );
+      expect(untouched.data?.updateDemoItemOne?.item.attachment).toEqual(
+        replacement,
+      );
+
+      const cleared = await api.graphql<MutationData>(
+        UPDATE_DEMO_ITEM_ONE,
+        { input: { id: item.id, attachment: null } },
+        { accessToken: operator.token },
+      );
+      expect(cleared.errors).toBeUndefined();
+      expect(cleared.data?.updateDemoItemOne?.item.attachment).toBeNull();
+      const stored = await connection
+        .collection("demo_items_one")
+        .findOne({ _id: new Types.ObjectId(item.id) });
+      expect(stored).not.toHaveProperty("attachmentPath");
+      expect(stored).not.toHaveProperty("attachmentName");
+      expect(stored).not.toHaveProperty("attachmentSize");
+      expect(stored).not.toHaveProperty("attachmentContentType");
     });
 
     it("名稱沒變就不進稽核的 before / after(只記真的有動的欄位)", async () => {
