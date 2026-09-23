@@ -129,6 +129,16 @@
         "default": "./dist/cjs/table.js"
       }
     },
+    "./data-table": {
+      "import": {
+        "types": "./dist/es/data-table.d.mts",
+        "default": "./dist/es/data-table.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/data-table.d.ts",
+        "default": "./dist/cjs/data-table.js"
+      }
+    },
     "./box": {
       "import": {
         "types": "./dist/es/box.d.mts",
@@ -433,6 +443,8 @@
     "@mui/x-date-pickers": "^9.14.0",
     "@mui/x-tree-view": "^9.14.0",
     "@swc/helpers": "^0.5.18",
+    "@tanstack/react-table": "^9.2.4",
+    "@tanstack/react-virtual": "^3.14.13",
     "dayjs": "^1.11.23",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
