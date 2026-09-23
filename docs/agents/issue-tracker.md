@@ -99,7 +99,11 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 
 **`packages/i18n` 的 JSON 一律用 Edit / Write 改那幾個字面字元,不要用腳本做全檔替換**(2026-09-23,#374):字典是一整包兩語系對照的資料,腳本的「把 A 換成 B」很容易掃到別的 namespace 裡同名的 key 或同樣的字串。**新增 zh-TW 字串時,標點用「從既有條目複製」或碼位 dump 比對**一次(`python -c "print([hex(ord(c)) for c in s])"`),CookHome 的慣例是:**半形** `,` `:` `?` `(` `)` `;`、**全形** `「」` `。` `—`。
 
-**Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。
+**Windows / PowerShell 注意**:`gh issue view --comments` 的純文字輸出會被截斷,改用 `--json body,comments`;`--add-assignee @me` 的 `@me` 要加引號(`"@me"`),否則被當成 splat 運算子。另外三件(2026-09-23):
+
+- **環境變數前綴改用 PowerShell 寫**(#397):Bash 的 `E2E_GREP="劇本 7" pnpm e2e` 這種「`VAR=… 指令`」前綴會被 worktree 守衛擋下,改用 PowerShell 的 `$env:E2E_GREP="劇本 7"; pnpm e2e`(`apps/e2e/README.md`)。
+- **PowerShell `*>` 導出的檔案直接當 UTF-8 讀**(#400):這台機器的 `>` / `*>` 寫出來就是 UTF-8(不是 PowerShell 5.1 文件說的 UTF-16),不要再 `iconv -f UTF-16` 轉一次 —— 轉了反而變亂碼,看起來像輸出壞了。
+- **python heredoc 裡寫含 `\n` / `\.` 的內容會被跳脫兩次**(#402):寫進檔的反斜線會多一層或被吃掉(heredoc 傳遞與 python 字串字面值各處理一次),而且不會報錯。要寫的內容本身含反斜線(正規表示式、跳脫序列)時,改用 Edit / Write 工具;非用腳本不可,就把腳本用 Write 寫成 scratchpad 裡的 `.py` 檔再 `python <檔>`,少掉 shell 那一層。
 
 **陷阱**:PR 內文的 `Closes #n` 只在合進**預設分支(main)**時自動關票 — 我們的 PR 合 `dev`,**不會自動關**;關票時機是 Released(手動 `gh issue close <n> --comment "<PR 連結>"`)。部署一律手動觸發(deploy.yml 僅 workflow_dispatch),merge 不會部署任何環境。
 
@@ -171,6 +175,7 @@ pnpm --filter @repo/admin dev:mock -- --port <自選埠> --strictPort
 ### 開 PR 之後的等待(CI 與 mergeable)
 
 - **PR 對 `dev` 是 `CONFLICTING` 時,GitHub 根本不建 merge ref、CI 一個 check 都不會跑**,`gh pr checks --watch` 會永遠等下去。開 PR 後先看 `gh pr view <n> --json mergeable`,`CONFLICTING` 就先 rebase 到最新的 `origin/main` 再說(#206)。**沒有 merge ref 連帶讓 `project-status.yml` 也不跑** —— PR 卡與票卡都不會自動移格,看到看板沒動先查 `mergeable`,不要以為自動化壞了。
+- **衝突來源是「已合 `dev`、但還沒 release 的 feat」時,疊到那張 feat 分支上**(2026-09-23,#396):這種衝突 rebase 到 `origin/main` 解不掉 —— `main` 上根本還沒有那張票的內容。做法:**從那張 feat 分支切**(已經開工的就把本票的 commit `cherry-pick` 到從它切出的新分支),PR 仍目標 `dev`、內文寫明疊在哪一張之上,前票先合(同「實作一張票」第 3 步的 stacked)。**不要 rebase 到 `dev`、也不要把 `dev` merge 進來** —— 會把 `dev` 上其他還沒 release 的票一起帶進本票,之後逐一合 `staging` 時就分不開了。
 - **rebase 之後還是 `CONFLICTING`、本地 `git merge-tree --write-tree origin/dev HEAD` 卻乾淨 = 交叉 merge base**(`dev` 與 `staging` 都會發生:feat 從 `main` 切,而兩條線各自合過同一批票)。這不是實作者能單獨解的:要由主流程把該 base reset 到 `main`(指令與前置檢查見 `docs/deployment.md` 二、Release 步驟第 4 點,那是正本),**base 更新後還要把 PR `gh pr close <n>` → `gh pr reopen <n>`** 才會觸發 CI(base 變動不算 `pull_request` 事件)。遇到就回報,**不要自己去改 `dev` / `staging`**。
 - **release 一批一次**:各票各自合 `dev`、各自合 `staging`,累積成一批後才走一次 release PR + 一次部署(`dev` 的部署也等該批最後一張合完才觸發),release 完由主流程把 `dev` / `staging` reset 對齊 `main`。所以「合進 `dev` 了但還沒部署」是正常的,不必追問。**release 與分支對齊的步驟正本是 `docs/deployment.md` 二、Release 步驟(對齊分支在第 4 點)** —— 這裡與 CLAUDE.md 只是指路,指令以那邊為準。
 - **剛開 PR 時 Actions 可能排隊很久**(沒有 check 不等於失敗),**force-push 之後 `mergeable` 會短暫回 `UNKNOWN`** —— 等幾秒重查,不要據此判斷有衝突(#203)。
@@ -208,6 +213,8 @@ pnpm --filter @repo/admin dev:mock -- --port <自選埠> --strictPort
 - **「逐一檢查同型」類的驗收項,要求 PR 列出「確認不動」的結論**(2026-09-23 補,#372):票上寫「把其他同類的地方也檢查一遍」時,只改到的那幾處會進 diff,**檢查過但不必改的那些在 PR 上完全看不見** —— review 的人無從分辨「檢查過沒問題」與「漏了」。票面直接要求:PR 內文列出逐項結論,不動的寫一句為什麼。
 - **驗收項寫成「現況 / 期望」兩行**(2026-09-23 補,#373):只寫期望時,實作者要先自己猜現在長什麼樣才知道差在哪;兩行寫清楚,連帶讓「其實已經是對的」那幾項當場消掉(同上一節的「僅確認、不改」)。**引用 Figma 時節點 id 給到列層級**(給到整張畫布等於沒給)。
 - **清單類端點的三件事在票上寫死**(2026-09-23 補,#377):①**候選清單的端點**(「可見且尚未加入」這種)直接寫進票面,不要讓實作者從既有端點推;②**「直接成員」還是「子樹成員」**這類欄位語意在票上點名(兩者數字對不起來是對的,但沒寫就會被當成 bug);③**mutation 的 payload 回不回清單**寫死(回了就有兩份可能不一致的真相,不回就要在票上寫「加完失效哪幾把 query」)。
+- **同一批會疊到同一組檔的 E2E 票,票面寫「從前一張票的分支切」**(2026-09-23 補,#396):劇本 E2E 共用 `apps/e2e/src/fixtures/` 與 `permission-scenarios.md` 的「E2E」欄,並行各自從 `main` 切,後合的那張一定衝突,而且衝突對象是還沒 release 的票(上一節「開 PR 之後的等待」)。拆票時就排好順序、寫死每張從哪一支切。
+- **測試用的金鑰 / 憑證不入 repo,票面寫「由 harness 現產」**(2026-09-23 補,#402):假服務要簽章時(fake GCS 的 V4 簽名),放進 repo 的私鑰就算是假的,也會被 secret scanning 當真的報。票上直接寫「harness 每次現產」,不要留給實作者選(做法見 `docs/standards/testing/testing.md` TEST-11 的「需要外部服務的劇本」)。
 - **「等某票合併後再派」不要用 `needs-info` 標籤**(2026-09-23 補,#377):那個標籤的語意是「票面本身有問題要先解開」,拿來表示等待會讓 triage 看不懂。改在票面寫一行 `Blocked by: #<n>`(看板的 Backlog / Ready 兩格就是吃這個)。
 - **`apps/` 還是 `packages/` 這種「放哪裡」的二選一,拆票時裁決**(2026-09-23 補,#378):e2e harness 要當一個 app 還是一個 package、共用元件先放 `components/` 還是直接進 `@repo/ui` —— 這類問題實作者兩邊都做得出來,但選錯的代價是之後整包搬。票上寫選哪邊 + 一句理由(同本節「裁決寫死在票上」)。
 - **票面引用「錯誤解讀」的慣例時照實際的寫法寫**(2026-09-23 補,#376):admin 的慣例是 **`<ns>ErrorOf(error)` 取出 code、再 `tErrors(code)` 取文案**(正本 `docs/standards/react/data-fetching.md` DATA-06),**沒有 `messageOf` 這種東西**。票面憑印象造一個不存在的函式名,實作者會先花時間找它。**訊息形狀與要顯示的文案一起對**(#375:`login` 的訊息要帶 `name` 才顯示得出「歡迎,某某」)—— 只寫其中一半,做完才發現對不上。

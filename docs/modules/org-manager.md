@@ -19,20 +19,20 @@
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。
 
-| 權限 key                                         | 它是哪一頁的什麼                                                                                                                                                    |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `system.org-manager.view`                        | 看組織樹與組織資料(名稱、描述、商標、狀態、擁有者);沒有它整頁進不去內容                                                                                             |
-| `system.org-manager.create-child`                | 「新增子組織」按鈕 + API:在選中的組織下建一個子組織(名稱 + 描述)                                                                                                    |
-| `system.org-manager.edit`                        | 「編輯」按鈕 + API:名稱、描述、商標                                                                                                                                 |
-| `system.org-manager.toggle-enabled`              | 「停用 / 啟用」按鈕 + API:連動整棵子樹                                                                                                                              |
-| `system.org-manager.move`                        | 「搬移」動作 + API:改上層組織,限同一租戶(以 `ancestors` 驗證),跨租戶拒                                                                                              |
-| `system.org-manager.delete`                      | 「刪除」按鈕 + API:前置檢查通過才可(見流程)                                                                                                                         |
-| `system.org-manager.view-members`                | 組織詳情的「成員」頁籤 + API(`orgMembers`):看這個組織**自己**的成員(#377)                                                                                           |
-| `system.org-manager.add-members`                 | 「加入成員」按鈕 + API(`orgMemberCandidates` / `addOrgMembers`):把管理範圍內的使用者加進這個組織;**移除不在這裡**(#377)                                             |
-| `system.org-manager.set-visibility`              | 編輯**自己租戶的頂層**時的「使用者可見下層組織資料」開關 + API(`settings.visibility`,ADR-0005);租戶管理員模板含此權限,根組織亦可(2026-09-19 從 tenant-ops 搬到這層) |
-| `system.org-manager.tenant-ops.provision`        | 根組織:「開通租戶」按鈕 + API(ADR-0009 四步 + 擁有者 + 啟用信)                                                                                                      |
-| `system.org-manager.tenant-ops.revoke-provision` | 根組織:租戶頂層的「撤銷開通」按鈕 + API(反向抹掉開通建出的三樣;與開通分開兩筆權限,風險等級不同)                                                                     |
-| `system.org-manager.tenant-ops.transfer-owner`   | 根組織:編輯租戶頂層時的「擁有者」欄位 + API(ADR-0009:v1 僅根組織可轉移)                                                                                             |
+| 權限 key                                         | 它是哪一頁的什麼                                                                                                                                                              |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system.org-manager.view`                        | 看組織樹與組織資料(名稱、描述、商標、狀態、擁有者);沒有它整頁進不去內容                                                                                                       |
+| `system.org-manager.create-child`                | 「新增子組織」按鈕 + API:在選中的組織下建一個子組織(名稱 + 描述)                                                                                                              |
+| `system.org-manager.edit`                        | 「編輯」按鈕 + API:名稱、描述、商標                                                                                                                                           |
+| `system.org-manager.toggle-enabled`              | 「停用 / 啟用」按鈕 + API:連動整棵子樹                                                                                                                                        |
+| `system.org-manager.move`                        | 「搬移」動作 + API:改上層組織,限同一租戶(以 `ancestors` 驗證),跨租戶拒                                                                                                        |
+| `system.org-manager.delete`                      | 「刪除」按鈕 + API:前置檢查通過才可(見流程)                                                                                                                                   |
+| `system.org-manager.view-members`                | 組織詳情的「成員」頁籤 + API(`orgMembers`):看這個組織**自己**的成員(#377)                                                                                                     |
+| `system.org-manager.add-members`                 | 「加入成員」按鈕 + API(`orgMemberCandidates` / `addOrgMembers`):把管理範圍內的使用者加進這個組織;**移除不在這裡**(#377)                                                       |
+| `system.org-manager.set-visibility`              | 編輯**自己租戶的頂層**時的「使用者可見自身組織的下層組織資料」開關 + API(`settings.visibility`,ADR-0005);租戶管理員模板含此權限,根組織亦可(2026-09-19 從 tenant-ops 搬到這層) |
+| `system.org-manager.tenant-ops.provision`        | 根組織:「開通租戶」按鈕 + API(ADR-0009 四步 + 擁有者 + 啟用信)                                                                                                                |
+| `system.org-manager.tenant-ops.revoke-provision` | 根組織:租戶頂層的「撤銷開通」按鈕 + API(反向抹掉開通建出的三樣;與開通分開兩筆權限,風險等級不同)                                                                               |
+| `system.org-manager.tenant-ops.transfer-owner`   | 根組織:編輯租戶頂層時的「擁有者」欄位 + API(ADR-0009:v1 僅根組織可轉移)                                                                                                       |
 
 ## 畫面與流程
 
@@ -42,7 +42,7 @@
 
 **新增子組織**:輕量入口,名稱 + 描述,掛在目前選中的組織下(限操作者管理範圍內);不觸發開通流程。
 
-**編輯組織**:名稱、描述、商標(任何組織;既有商標要顯示預覽)、上層組織(搬移,見下);租戶頂層另有:「使用者可見下層組織資料」開關(持 `set-visibility` 者可設,租戶管理員預設有)與擁有者轉移(根組織專屬)。
+**編輯組織**:名稱、描述、商標(任何組織;既有商標要顯示預覽)、上層組織(搬移,見下);租戶頂層另有:「使用者可見自身組織的下層組織資料」開關(持 `set-visibility` 者可設,租戶管理員預設有)與擁有者轉移(根組織專屬)。
 
 **停用 / 啟用**:**租戶頂層只有根組織能停用**(租戶內的人對它的停用 / 刪除 / 搬移按鈕停用並提示);連動整棵子樹;停用的組織不再出現在使用者的可切換組織清單,其成員登入後若沒有其他啟用中的所屬組織則無法進入後台(ADR-0005)。啟用只啟用自己這一節,下層各自處理。
 
@@ -217,7 +217,7 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 - **撤銷開通**整段都是平台視角(根組織專屬、對象是租戶頂層、抹掉的是「開通」建出來的東西),
   租戶使用者既看不到按鈕也沒有對應的概念,因此**不寫進 help.md**(#374;help 邊界見下)
 - 搬移僅限同租戶,跨租戶禁止
-- 「使用者可見下層組織資料」開關實際掛在租戶頂層、套用整個租戶;help 對租戶只說「頂層組織」「整個組織」
+- 「使用者可見自身組織的下層組織資料」開關實際掛在租戶頂層、套用整個租戶;help 對租戶只說「頂層組織」「整個組織」
 
 ## help 邊界
 
