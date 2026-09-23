@@ -34,6 +34,8 @@ export const SAMPLE_TWO_LIST_ROUTE = "/demo/sample-two";
 
 export const ROLE_MANAGER_ROUTE = "/system/role-manager";
 export const DATA_SCOPE_ROUTE = "/system/data-scope";
+export const USER_MANAGER_ROUTE = "/system/user-manager";
+export const ORG_MANAGER_ROUTE = "/system/org-manager";
 
 /**
  * 資料範圍的資料目標識別鍵(各模組 seed 的 `dataScopeTarget.collection`)。

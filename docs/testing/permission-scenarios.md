@@ -177,6 +177,7 @@
 
 - **用哪一頁**:使用者管理(移除所屬組織)+ 角色管理「分配使用者」分頁 + 組織管理 + 示範模組1 列表
 - **帳號**:+tenant 操作、+user 受影響
+- **E2E**:`apps/e2e/src/specs/scenario-08-out-of-scope.spec.ts`(手動觸發,見下方「E2E 怎麼跑」;前置改用「+user 同屬南港店 + 內湖店、持擁有組織 = 南港店的角色」,理由見 spec 開頭註解)
 - **前置**:+user 只屬南港店;「客服」角色的擁有組織 = 租戶A;+user 在南港店已建過資料
   (把 +user 放進南港店可以走使用者管理的「選擇所屬組織」,也可以走組織管理 → 南港店 →「成員」分頁 →「加入成員」,#377;兩者等價)
 
@@ -191,6 +192,7 @@
 
 - **用哪一頁**:使用者管理 → 移除所屬組織的確認彈窗
 - **帳號**:+tenant 操作;對象要是**多所屬組織**的帳號(前置第 3 步的 +tenant 自己,或另建一個同屬南港店 + 內湖店的帳號)
+- **E2E**:`apps/e2e/src/specs/scenario-09-org-removal-policy.spec.ts`(手動觸發,見下方「E2E 怎麼跑」;為了讓 (b) / (c) 分得出來,前置把南港店搬到新建的「東區」底下,三個角色的對照表見 spec 開頭註解)
 
 1. 對象同時屬南港店與內湖店,並持有兩個角色:一個擁有組織 = 南港店、一個擁有組織 = 租戶A。
 2. 把他自南港店移除 → 看彈窗列出的 dry-run 清單。
@@ -307,25 +309,25 @@
 
 「E2E」欄 = `apps/e2e/src/specs/` 底下對應的 spec 檔名,「尚未」= 還是人工驗收。
 
-| 劇本                    | 主要頁面                                  | 操作帳號 / 被測帳號  | E2E                                     |
-| ----------------------- | ----------------------------------------- | -------------------- | --------------------------------------- |
-| 1 wildcard              | 角色管理 → 權限矩陣                       | +tenant              | `scenario-01-wildcard.spec.ts`          |
-| 2 資料範圍規則          | 資料範圍頁 + 示範模組1 列表 / 詳情        | root / +user         | `scenario-02-data-scope-rule.spec.ts`   |
-| 3 未宣告對照            | 資料範圍頁左清單 + 示範模組2 列表         | root / +user         | `scenario-03-undeclared-target.spec.ts` |
-| 4 頂層合成 OR / AND     | 資料範圍頁 + 示範模組1 列表               | root / +user         | `scenario-04-combine-op.spec.ts`        |
-| 5 欄位級權限            | 示範模組1 詳情頁 + 編輯頁                 | +tenant / +user      | `scenario-05-field-permission.spec.ts`  |
-| 6 頁面自有權限          | 示範模組1 新增頁 + 編輯頁                 | +tenant / +user      | `scenario-06-page-permission.spec.ts`   |
-| 7 路由防守              | 示範模組1 列表 + 直接打網址               | +tenant / +user      | `scenario-07-route-guard.spec.ts`       |
-| 8 組織外                | 使用者管理 / 角色管理 / 示範模組1 列表    | +tenant / +user      | 尚未                                    |
-| 9 移除三檔              | 使用者管理 → 移除所屬組織彈窗             | +tenant / 多組織帳號 | 尚未                                    |
-| 10 防越權               | 角色管理 → 權限矩陣                       | +tenant              | `scenario-10-out-of-reach.spec.ts`      |
-| 11 儲存雙路             | 示範模組1 表單 + 詳情頁                   | +user                | 尚未                                    |
-| 12 可見性開關           | 組織管理(開關)+ 示範模組1 列表 + 三治理頁 | +tenant / +user      | 尚未                                    |
-| 13 總覽也是模組         | 角色管理 → 權限矩陣 + 登入落點            | +tenant / +user      | `scenario-13-overview-module.spec.ts`   |
-| 14 管理範圍 vs 可見範圍 | 角色管理 + 三治理頁 + 示範模組1 列表      | +tenant / +user      | 尚未                                    |
-| 15 側欄商標繼承         | 組織管理 → 商標 + 側欄                    | +tenant / +user      | 尚未                                    |
-| 16 租戶視角             | 組織管理 → 開通租戶 + 租戶側欄            | root / +tenant       | 尚未                                    |
-| 17 擁有者保護           | 使用者管理 / 角色管理 / 組織管理          | +tenant / root       | 尚未                                    |
+| 劇本                    | 主要頁面                                  | 操作帳號 / 被測帳號  | E2E                                      |
+| ----------------------- | ----------------------------------------- | -------------------- | ---------------------------------------- |
+| 1 wildcard              | 角色管理 → 權限矩陣                       | +tenant              | `scenario-01-wildcard.spec.ts`           |
+| 2 資料範圍規則          | 資料範圍頁 + 示範模組1 列表 / 詳情        | root / +user         | `scenario-02-data-scope-rule.spec.ts`    |
+| 3 未宣告對照            | 資料範圍頁左清單 + 示範模組2 列表         | root / +user         | `scenario-03-undeclared-target.spec.ts`  |
+| 4 頂層合成 OR / AND     | 資料範圍頁 + 示範模組1 列表               | root / +user         | `scenario-04-combine-op.spec.ts`         |
+| 5 欄位級權限            | 示範模組1 詳情頁 + 編輯頁                 | +tenant / +user      | `scenario-05-field-permission.spec.ts`   |
+| 6 頁面自有權限          | 示範模組1 新增頁 + 編輯頁                 | +tenant / +user      | `scenario-06-page-permission.spec.ts`    |
+| 7 路由防守              | 示範模組1 列表 + 直接打網址               | +tenant / +user      | `scenario-07-route-guard.spec.ts`        |
+| 8 組織外                | 使用者管理 / 角色管理 / 示範模組1 列表    | +tenant / +user      | `scenario-08-out-of-scope.spec.ts`       |
+| 9 移除三檔              | 使用者管理 → 移除所屬組織彈窗             | +tenant / 多組織帳號 | `scenario-09-org-removal-policy.spec.ts` |
+| 10 防越權               | 角色管理 → 權限矩陣                       | +tenant              | `scenario-10-out-of-reach.spec.ts`       |
+| 11 儲存雙路             | 示範模組1 表單 + 詳情頁                   | +user                | 尚未                                     |
+| 12 可見性開關           | 組織管理(開關)+ 示範模組1 列表 + 三治理頁 | +tenant / +user      | 尚未                                     |
+| 13 總覽也是模組         | 角色管理 → 權限矩陣 + 登入落點            | +tenant / +user      | `scenario-13-overview-module.spec.ts`    |
+| 14 管理範圍 vs 可見範圍 | 角色管理 + 三治理頁 + 示範模組1 列表      | +tenant / +user      | 尚未                                     |
+| 15 側欄商標繼承         | 組織管理 → 商標 + 側欄                    | +tenant / +user      | 尚未                                     |
+| 16 租戶視角             | 組織管理 → 開通租戶 + 租戶側欄            | root / +tenant       | 尚未                                     |
+| 17 擁有者保護           | 使用者管理 / 角色管理 / 組織管理          | +tenant / root       | 尚未                                     |
 
 **唯一在畫面上驗不到的**:劇本 1 的「下一版 seed 新增權限即擁有」(跨版本),由 api 測試覆蓋。
 

@@ -163,3 +163,102 @@ export async function signInAgain(
   await page.context().clearCookies();
   await signIn(page, account, password);
 }
+
+/* ---- 劇本 8 / 9(#398):使用者管理的所屬組織彈窗、「組織外」標示 ---- */
+
+/** 「組織外」標籤的文案(使用者管理 / 分配使用者 / 指派角色三處同一句)。 */
+export const OUT_OF_SCOPE_TAG = "組織外";
+
+/** 使用者管理清單(`UserTable` 的 `aria-label`)裡、帳號是 `account` 的那一列。 */
+export function userRow(page: Page, account: string): Locator {
+  return page
+    .getByRole("table", { name: "使用者清單" })
+    .getByRole("row")
+    .filter({ has: page.getByText(account, { exact: true }) });
+}
+
+/**
+ * 畫面上唯一開著的那個彈窗,以它自己的按鈕辨認(`@repo/ui/dialog` 的標題不是無障礙名字)。
+ * 用按鈕而不是標題:標題含全形 / 半形標點,照打很容易打錯(issue-tracker「全形 / 半形標點」)。
+ */
+export function dialogWithButton(page: Page, buttonName: string): Locator {
+  return page
+    .getByRole("dialog")
+    .filter({ has: page.getByRole("button", { name: buttonName }) });
+}
+
+/** 組織樹某一列的勾選框(列文字 = 組織名稱;同一棵樹內分店名稱不重複)。 */
+export function orgTreeCheckbox(scope: Locator, orgName: string): Locator {
+  return scope
+    .locator(".MuiTreeItem-content")
+    .filter({ has: scope.page().getByText(orgName, { exact: true }) })
+    .locator('input[type="checkbox"]');
+}
+
+/**
+ * 按一個按鈕、等那一次 GraphQL 回應,回傳它的 `data`(要斷言 payload 內容時用;
+ * 只要同步點用 `clickAndWaitFor`)。
+ */
+export async function clickAndReadData(
+  button: Locator,
+  operationName: string,
+): Promise<Record<string, unknown>> {
+  const [response] = await Promise.all([
+    button
+      .page()
+      .waitForResponse(
+        (candidate) =>
+          candidate.url().includes("/graphql") &&
+          (candidate.request().postData() ?? "").includes(operationName),
+      ),
+    button.click(),
+  ]);
+  const body = (await response.json()) as { data: Record<string, unknown> };
+  return body.data;
+}
+
+/**
+ * 使用者管理 → 那一列的「所屬組織」→ 在「選擇所屬組織」彈窗(`OrgPickerDialog`)取消勾選 `orgName`
+ * → 確定。有移除就會先送 `setUserOrgs(dryRun: true)`,回來後換成「確認所屬組織變更」彈窗
+ * (`OrgChangeDialog`),回傳那個彈窗。
+ */
+export async function removeUserOrgInPicker(
+  page: Page,
+  account: string,
+  orgName: string,
+): Promise<Locator> {
+  await userRow(page, account)
+    .getByRole("button", { name: "所屬組織" })
+    .click();
+  const picker = dialogWithButton(page, "確定");
+  const checkbox = orgTreeCheckbox(picker, orgName);
+  await expect(checkbox).toBeChecked();
+  await checkbox.click();
+  await expect(checkbox).not.toBeChecked();
+  await clickAndWaitFor(page, "確定", "SetUserOrgs");
+  const confirm = dialogWithButton(page, "確認變更");
+  await expect(confirm).toBeVisible();
+  return confirm;
+}
+
+/** `OrgChangeDialog` 的三個 radio(文案正本 `docs/modules/user-manager.md` 的 radio 文案表)。 */
+export const REMOVAL_OPTIONS = {
+  keepAll: "保留所有角色授予",
+  revokeOwned: "只解除此組織擁有的角色",
+  revokeAll: "解除所有因此失去資格的角色",
+} as const;
+
+/**
+ * 某一檔的 radio 與它整個標籤(標籤 = 檔名 + 「將解除:…」那一行說明)。
+ * 說明列的是**這一檔會解除哪些授予**,劇本 9 的 (b) / (c) 差異就是比這一行。
+ */
+export function removalOption(
+  dialog: Locator,
+  option: keyof typeof REMOVAL_OPTIONS,
+): { radio: Locator; label: Locator } {
+  const text = REMOVAL_OPTIONS[option];
+  return {
+    radio: dialog.getByRole("radio", { name: text }),
+    label: dialog.locator("label").filter({ hasText: text }),
+  };
+}
