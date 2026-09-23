@@ -4,6 +4,7 @@ engineering skills 在探索 codebase 時,應如何使用本 repo 的領域文�
 
 ## 探索前先讀這些
 
+- **`docs/README.md`** 與 **`docs/concepts/`** — 本專案的入口與現況說明(見下方「本專案概念導讀」)。
 - repo 根目錄的 **`CONTEXT.md`**,或
 - repo 根目錄的 **`CONTEXT-MAP.md`**(如果存在)— 它指向每個 context 各自的 `CONTEXT.md`,讀取與主題相關的那幾份。
 - **`docs/adr/`** — 讀取與即將動工區域相關的 ADR。多 context 的 repo 還要查 `src/<context>/docs/adr/` 裡限定該 context 的決策。
@@ -38,29 +39,36 @@ engineering skills 在探索 codebase 時,應如何使用本 repo 的領域文�
         └── docs/adr/
 ```
 
-## 本專案 ADR 導讀(依理解順序,非編號順序)
+## 本專案概念導讀(依理解順序)
 
 想理解底座如何運作,照這個順序讀:
 
-1. **0003 帳號體系** — 使用者/會員分離、所屬組織、角色授予、移除規則
-2. **0004 權限模型** — 模組=頁面、權限=頁面裡的東西、wildcard、防越權
-3. **0011 查詢與判斷流程** — 登入後查什麼表、前端怎麼判斷(資料流總圖)
-4. **0005 多租戶隔離** — orgId、可見範圍、BaseRepository 自動過濾
-5. **0008 資料範圍** — 規則產生器(查資料的上限)
-6. 依需要查:**0009** 租戶開通、**0001** 核心關聯、**0002** 種子與遷移、**0007** 基礎欄位、**0010** 儲存與寄信、**0006** OAuth(延後)、**0012** 前端程式碼風格與分層(寫前端程式碼前必讀)
+1. **`docs/README.md`** — 系統地圖、六個核心概念、閱讀路線
+2. **`CONTEXT.md`** — 詞彙表;產出內容一律用它的術語
+3. **`docs/concepts/`**(現況說明,「是什麼 / 怎麼運作」),依序:
+   1. `accounts-and-tenants.md` — 兩套帳號、組織樹、角色授予資格、租戶開通與擁有者保護
+   2. `authorization.md` — 模組 = 頁面、權限、wildcard、解析流程、防越權、角色種類、稽核
+   3. `data-layer-and-isolation.md` — 三類資料、核心關聯、租戶隔離、管理範圍 vs 可見範圍、資料範圍規則、種子
+   4. `storage-and-mail.md` — GCS 上傳與讀取、寄信
+   5. `frontend-architecture.md` — admin 分層、殼、路由與頁籤、共版型、Snackbar、快取(寫前端前必讀)
+4. **需要「為什麼」時才讀 `docs/adr/`** — ADR 只記決策、理由、取捨與影響;每份檔頭指向對應的 concepts
 
-讀完 1–5 即有全貌。各模組的具體畫面、權限表、資料定義在 `docs/modules/<key>.md`。
+讀完 1–3 即有全貌。各模組的畫面、權限表、api 介面在 `docs/modules/<key>.md`。
 
-### 要動手長一個新模組時(底座第 5 段的產出)
+正本:`docs/README.md`「閱讀路線」、`docs/concepts/`、`docs/adr/`
 
-ADR 讀完之後,接著照這個順序看「規則長成程式之後的樣子」:
+### 要動手長一個新模組時
 
-1. **[示範模組1](../modules/demo.sub.sample-one.md)** — 把所有選配都打開的完整示範:三層模組樹、隱藏頁、欄位級權限、頁面自有權限、資料範圍目標、公開 / 私有雙路檔案、變更歷程
-2. **[示範模組2](../modules/demo.sample-two.md)** — 對照組:拿掉全部選配之後剩下的**最小可行模組**(它「少了什麼」那張表就是選配清單)
-3. **[module-scaffold](./module-scaffold.md)** — 從上面兩支抽出來的藍本:新增一個 CRUD 模組要動哪些檔、照什麼順序動、每一步的正本;文末有「示範模組 1 vs 2 差異對照表」
+concepts 讀完之後,接著照這個順序看「規則長成程式之後的樣子」:
+
+1. **[示範模組1](../modules/demo.sub.sample-one.md)** — 所有選配都打開的完整示範:三層模組樹、隱藏頁、欄位級權限、頁面自有權限、資料範圍目標、公開 / 私有雙路檔案、變更歷程
+2. **[示範模組2](../modules/demo.sample-two.md)** — 對照組:拿掉全部選配之後的**最小可行模組**(它「少了什麼」那張表就是選配清單)
+3. **[module-scaffold](./module-scaffold.md)** — 從上面兩支抽出來的藍本:要動哪些檔、照什麼順序、每一步的正本
 4. **[權限測試劇本](../testing/permission-scenarios.md)** — 17 條劇本,每條標明用哪一頁、哪個帳號、什麼步驟、預期什麼;新模組做完拿它自檢
 
-前端要動手之前先讀 **ADR-0012**(程式碼風格與分層)與 `apps/admin/src/pages/demo/shared/demo-module-config.ts` 的 `DemoModuleConfig`(逐項 JSDoc 就是前端藍本的規格)。
+前端要動手之前先讀 `docs/concepts/frontend-architecture.md` 與 `DemoModuleConfig` 的逐項 JSDoc(前端藍本的規格)。
+
+正本:`apps/admin/src/pages/demo/shared/demo-module-config.ts`、`docs/agents/module-scaffold.md`
 
 ## 使用詞彙表的用語
 

@@ -1,20 +1,32 @@
 # 底座統一 base 欄位、軟刪除與個資保護
 
-## 基礎欄位
+> 現況說明見 `docs/concepts/data-layer-and-isolation.md`「基礎欄位、軟刪除、更新保護」。
 
-全部 collection 由共用 Mongoose plugin(`baseFieldsPlugin`)補上:`createdAt` / `updatedAt`(timestamps)、`createdBy` / `updatedBy`(自操作者上下文填,無登入主體的流程為 null)、`deletedAt`(軟刪除)。schema class 不重複宣告這些欄位。各表的「偏好設定」統一命名 `settings`,為受控 JSON — 已知 key 於程式碼中定義與驗證,不做自由塞值。
+## 決策
 
-## 軟刪除
+- **基礎欄位**:全部 collection 由共用 plugin 補上 `createdAt` / `updatedAt` / `createdBy` / `updatedBy` / `deletedAt`;schema class 不重複宣告。
+- 各表的偏好設定統一叫 `settings`,為受控 JSON:已知 key 在程式裡定義與驗證。
+- **軟刪除**:刪除 = 寫 `deletedAt`;之後預設排除,要看已刪除的明講 `includeDeleted`。已刪除的不能再更新。
+- **硬刪除只有兩種**:
+  - 核心關聯的移除(ADR-0001)。
+  - 補償刪除:本次請求剛建立、尚未對外可見的文件(如開通租戶失敗的回滾、撤銷開通)。
+  - 其餘真正抹除(個資清除、清理測試資料)一律走 cleanup migration(ADR-0002),不給 API 硬刪按鈕。
+- **更新保護**:更新不得變更 `orgId`、`createdBy`、`createdAt`(含子路徑),觸及即拋錯(ADR-0005)。
+- **個資保護**:高敏個資(身分證 `nationalId`)欄位級加密(AES-256-GCM,金鑰走 Secret Manager),預設投影排除,明確要求才解密回傳。
 
-- 「刪除」= 寫入 `deletedAt` 時間戳,資料仍在庫裡;之後所有查詢**預設排除**(視為不存在),要連已刪除一起看須明講 `includeDeleted`。
-- 已刪除的資料不能再被更新(更新的查詢也找不到它);再刪一次回 null。
-- **BaseRepository 不提供硬刪除**。真正從資料庫抹除(個資清除、清理測試資料)一律以 cleanup migration 執行(ADR-0002),不給 API 硬刪按鈕。
-- **例外:核心關聯**(`core_relationships`)是「有 / 沒有」的事實而非實體,移除即硬刪(ADR-0001);歷史交給 audit_logs。
+## 理由
 
-## 更新保護
+- 基礎欄位統一後,稽核、資料範圍的欄位目錄、排序都能假設每張表都有這五欄。
+- 軟刪除讓誤刪可救;預設排除讓呼叫端不必每次記得過濾。
+- 補償刪除非硬刪不可:`users` 的 account / email 唯一索引含已軟刪除的文件,留一筆殭屍會讓同一組帳號永遠開不了。
+- `nationalId` 目前沒有功能使用,保留作為加密機制的驗證載體。
 
-`updateById` 不得變更 `orgId`、`createdBy`、`createdAt`(含子路徑);觸及即拋錯(ADR-0005)。
+## 取捨
 
-## 個資保護
+- 加密金鑰建立後不可輪替或刪除,否則舊密文解不開。
+- 軟刪除的資料仍佔唯一索引;需要「刪了可重建」的情境要另外處理(見上面的補償刪除)。
 
-高敏個資(身分證 `nationalId`,底座目前無功能使用,作為機制的驗證載體保留、非必填):欄位級加密存放(AES-256-GCM,金鑰 `FIELD_ENCRYPTION_KEY` 走 Secret Manager,見 docs/env-registry.md),API 預設投影排除,明確 `select("+nationalId")` 才解密回傳。加密金鑰建立後不可輪替或刪除(舊密文會解不開)。密碼雜湊規範見 ADR-0003。
+## 影響
+
+- 新 collection 不必自己處理時間戳、建立者與刪除。
+- 密碼雜湊規範見 ADR-0003。
