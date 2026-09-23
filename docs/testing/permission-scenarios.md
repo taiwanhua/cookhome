@@ -216,6 +216,10 @@
 
 - **用哪一頁**:示範模組1 的新增 / 編輯頁(上傳)+ 詳情頁(顯示與下載)
 - **帳號**:+user
+- **E2E**:`apps/e2e/src/specs/scenario-11-storage-two-paths.spec.ts`(手動觸發,見下方「E2E 怎麼跑」;檔案真的傳到 fake GCS 容器,本機沒有 Docker 時 skip,#402)
+  - 步驟 1–3 走畫面:新增頁選封面 PNG / 附件 PDF → 儲存(瀏覽器直傳)→ 詳情頁封面 `<img>` 載得出來、網址是公開 bucket 的不簽名 URL,不帶登入去讀拿得到同一個檔;按「下載」才出現連結,網址是私有 bucket 的 V4 簽名網址(`X-Goog-Expires` = 1h),讀得到同一個檔
+  - 步驟 4 / 5 直接打 api:錯檔型 / 超過上限回 `UPLOAD_REJECTED`(訊息含 purpose);拿掉「客服」的 `view` 後同一個 token 要 `attachmentDownloadUrl` 回 `FORBIDDEN`
+  - **驗不到的**:fake GCS 不驗簽章、不分公開 / 私有,所以「簽名網址過一陣子就失效」仍屬 dev 環境的人工驗收
 
 1. 新增一筆,封面上傳一張 PNG / JPG / WebP(2MB 內),附件上傳一份 PDF 或 ZIP(20MB 內)。
 2. 進詳情頁:封面**直接顯示**;複製圖片網址到無痕視窗開 → 仍然看得到(公開穩定 URL,不過期)。
@@ -278,6 +282,9 @@
 
 - **用哪一頁**:組織管理 → 編輯組織的商標欄;結果看側欄
 - **帳號**:+tenant 設定、+user 看側欄
+- **E2E**:`apps/e2e/src/specs/scenario-15-sidebar-logo.spec.ts`(手動觸發,見下方「E2E 怎麼跑」;商標真的傳到 fake GCS 容器,本機沒有 Docker 時 skip,#402)
+  - 三個步驟都走畫面:+tenant 在組織管理的編輯彈窗上傳 / 按「移除」清掉商標,+user(另一個 context)重新整理後看側欄的商標圖;「顯示的是哪一張」以讀回來的內容比對兩張顏色不同的測試圖。前置對照:沒人設商標時側欄是組織名稱的文字、沒有商標圖
+  - 附帶驗「換圖即刪舊」:清掉南港店的商標後,步驟 2 那個物件已從 bucket 刪除(404)
 
 1. 在**租戶頂層**上傳商標、南港店不設 → +user(屬南港店)重新登入看側欄。
 2. 在**南港店**也上傳一張 → +user 再看。
@@ -336,11 +343,11 @@
 | 8 組織外                | 使用者管理 / 角色管理 / 示範模組1 列表    | +tenant / +user      | `scenario-08-out-of-scope.spec.ts`       |
 | 9 移除三檔              | 使用者管理 → 移除所屬組織彈窗             | +tenant / 多組織帳號 | `scenario-09-org-removal-policy.spec.ts` |
 | 10 防越權               | 角色管理 → 權限矩陣                       | +tenant              | `scenario-10-out-of-reach.spec.ts`       |
-| 11 儲存雙路             | 示範模組1 表單 + 詳情頁                   | +user                | 尚未                                     |
+| 11 儲存雙路             | 示範模組1 表單 + 詳情頁                   | +user                | `scenario-11-storage-two-paths.spec.ts`  |
 | 12 可見性開關           | 組織管理(開關)+ 示範模組1 列表 + 三治理頁 | +tenant / +user      | `scenario-12-visibility-toggle.spec.ts`  |
 | 13 總覽也是模組         | 角色管理 → 權限矩陣 + 登入落點            | +tenant / +user      | `scenario-13-overview-module.spec.ts`    |
 | 14 管理範圍 vs 可見範圍 | 角色管理 + 三治理頁 + 示範模組1 列表      | +tenant / +user      | `scenario-14-management-scope.spec.ts`   |
-| 15 側欄商標繼承         | 組織管理 → 商標 + 側欄                    | +tenant / +user      | 尚未                                     |
+| 15 側欄商標繼承         | 組織管理 → 商標 + 側欄                    | +tenant / +user      | `scenario-15-sidebar-logo.spec.ts`       |
 | 16 租戶視角             | 組織管理 → 開通租戶 + 租戶側欄            | root / +tenant       | `scenario-16-tenant-perspective.spec.ts` |
 | 17 擁有者保護           | 使用者管理 / 角色管理 / 組織管理          | +tenant / root       | `scenario-17-owner-protection.spec.ts`   |
 

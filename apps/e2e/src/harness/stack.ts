@@ -23,10 +23,16 @@ import {
   SKIP_STACK,
   TMP_DIR,
 } from "../config";
+import {
+  type FakeGcsState,
+  apiStorageEnv,
+  startFakeGcs,
+  stopFakeGcs,
+} from "./fake-gcs";
 import { log, run, start, stopProcess, waitUntil } from "./process";
 
 /**
- * 一整套本機 stack(TEST-11):**記憶體 / 拋棄式 Mongo → migrate → seed → api → admin 靜態檔**。
+ * 一整套本機 stack(TEST-11):**記憶體 / 拋棄式 Mongo → migrate → seed → fake GCS(有 Docker 才起)→ api → admin 靜態檔**。
  *
  * `globalSetup` 起、`globalTeardown` 收,兩者跑在 Playwright 的同一個行程裡,
  * 所以 handle 放模組層就夠(worker 是另外的行程,要跨行程的東西一律走環境變數或 `.tmp` 下的檔案)。
@@ -121,7 +127,7 @@ async function isAdminReady(): Promise<boolean> {
  * cwd 指到 `.tmp` 有兩個作用:`autoSchemaFile` 產出的 schema.gql 不會弄髒 repo,
  * 也不會誤讀開發者本機 `apps/api/.env` 的設定。
  */
-function startApi(uri: string): ChildProcess {
+function startApi(uri: string, gcs: FakeGcsState): ChildProcess {
   return start(
     process.execPath,
     [path.join(REPO_ROOT, "apps/api/dist/main.js")],
@@ -137,6 +143,8 @@ function startApi(uri: string): ChildProcess {
         RESEND_API_KEY: "",
         MAIL_ALLOWLIST: "",
         GRAPHQL_SANDBOX: "false",
+        // 檔案儲存:fake GCS 起得來就指過去(劇本 11 / 15),否則維持記錄用 adapter(#402)
+        ...apiStorageEnv(gcs),
       },
     },
   );
@@ -165,8 +173,9 @@ export async function startStack(): Promise<void> {
   const { uri, server } = await startMongo();
   state = { mongo: server, api: null, admin: null };
   await migrateAndSeed(uri);
+  const gcs = await startFakeGcs();
 
-  state.api = startApi(uri);
+  state.api = startApi(uri, gcs);
   await waitUntil(isGraphqlReady, { label: `api ${GRAPHQL_ENDPOINT}` });
   log(`api 就緒:${GRAPHQL_ENDPOINT}`);
 
@@ -183,6 +192,7 @@ export async function stopStack(): Promise<void> {
   }
   await current.admin?.close();
   await stopProcess(current.api);
+  await stopFakeGcs();
   await current.mongo?.stop();
   log("stack 已停止");
 }

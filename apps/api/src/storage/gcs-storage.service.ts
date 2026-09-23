@@ -1,4 +1,4 @@
-import { Storage } from "@google-cloud/storage";
+import { Storage, type StorageOptions } from "@google-cloud/storage";
 
 import type { StorageConfig } from "./storage.config";
 import { type SignUploadRequest, StorageService } from "./storage.service";
@@ -29,6 +29,34 @@ export interface GcsBucket {
 const PUBLIC_URL_BASE = "https://storage.googleapis.com";
 
 /**
+ * `new Storage()` 的參數。**雲端環境一律回 `undefined`**(= 原本的 `new Storage()`,走 ADC);
+ * 只有設了 `GCS_API_ENDPOINT`(劇本 E2E 的 fake GCS,#402)才帶端點與測試用假憑證 ——
+ * 本機 / CI 沒有 ADC,V4 簽名要一把私鑰才算得出來;fake GCS 不驗簽章。
+ * 有自訂端點時 SDK 的 JSON API 呼叫(刪物件)本來就不帶 OAuth token,不會去打 Google 換票。
+ */
+export function gcsClientOptions(
+  config: StorageConfig,
+): StorageOptions | undefined {
+  const override = config.endpointOverride;
+  if (override === undefined) {
+    return undefined;
+  }
+  return {
+    apiEndpoint: override.apiEndpoint,
+    credentials: {
+      client_email: override.clientEmail,
+      private_key: override.privateKey,
+    },
+  };
+}
+
+/** 依設定建 SDK client:沒有端點覆寫時就是 `new Storage()`,一個參數都不給。 */
+export function createGcsClient(config: StorageConfig): Storage {
+  const options = gcsClientOptions(config);
+  return options === undefined ? new Storage() : new Storage(options);
+}
+
+/**
  * GCS adapter(ADR-0010):V4 簽名的上傳 / 讀取網址。
  *
  * **兩顆 bucket**:`GCS_BUCKET_PRIVATE` 放私有檔案(商標、示範附件,讀取現簽短效網址),
@@ -40,6 +68,7 @@ const PUBLIC_URL_BASE = "https://storage.googleapis.com";
  * SDK 沒有私鑰可簽時自動改呼叫 IAM Credentials 的 `signBlob`(所以該 SA 要對自己持
  * `roles/iam.serviceAccountTokenCreator`、專案要開 `iamcredentials.googleapis.com`;
  * 建立步驟見 docs/deployment.md)。本機沒有憑證,連 adapter 都不會被選中(改用記錄用 adapter)。
+ * 例外是劇本 E2E:設了 `GCS_API_ENDPOINT` 就指向 fake GCS、以假憑證簽名(`gcsClientOptions`)。
  */
 export class GcsStorageService extends StorageService {
   private readonly bucket: GcsBucket;
@@ -51,12 +80,13 @@ export class GcsStorageService extends StorageService {
     publicBucket?: GcsBucket,
   ) {
     super(config);
-    this.bucket = bucket ?? new Storage().bucket(requireBucket(config));
+    this.bucket =
+      bucket ?? createGcsClient(config).bucket(requireBucket(config));
     this.publicBucket =
       publicBucket ??
       (config.publicBucket === undefined
         ? this.bucket
-        : new Storage().bucket(config.publicBucket));
+        : createGcsClient(config).bucket(config.publicBucket));
     if (config.publicBucket === undefined && publicBucket === undefined) {
       this.logger.warn(
         "GCS_BUCKET_PUBLIC 未設定,公開檔案改放私有 bucket:穩定 URL 會取不到物件",
@@ -95,7 +125,9 @@ export class GcsStorageService extends StorageService {
 
   protected override publicUrl(objectPath: string): string {
     const bucketName = this.config.publicBucket ?? this.config.privateBucket;
-    return `${PUBLIC_URL_BASE}/${bucketName ?? ""}/${objectPath}`;
+    // 端點覆寫時(fake GCS)公開檔案也從同一個端點讀,與簽名網址同一個主機
+    const base = this.config.endpointOverride?.apiEndpoint ?? PUBLIC_URL_BASE;
+    return `${base}/${bucketName ?? ""}/${objectPath}`;
   }
 
   /** 刪除只對**私有** bucket(#161 的換商標清理);公開檔案目前沒有清理需求。 */

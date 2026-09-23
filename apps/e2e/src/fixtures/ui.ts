@@ -483,3 +483,67 @@ export async function confirmRevokeProvision(
   await expect(confirm).toBeEnabled();
   await clickAndReadData(confirm, "RevokeTenantProvision");
 }
+
+/* ---- 劇本 11 / 15(#402):上傳欄、圖片真的載得出來、側欄商標 ---- */
+
+/**
+ * `@repo/ui/upload-field` 藏起來的 `<input type="file">`(無障礙名字 = 欄位標題)。
+ * 上傳一律走這個 input 的 `setInputFiles`,不去點「點擊或拖曳圖片至此」(那會開系統的檔案對話框)。
+ */
+export function uploadInput(scope: Page | Locator, label: string): Locator {
+  return scope.locator(`input[type="file"][aria-label="${label}"]`);
+}
+
+/**
+ * 一張 `<img>` 真的載入完成(`complete` 且有寬度)。只斷 `toBeVisible` 不夠:
+ * 破圖也是「看得到的元素」,網址指錯、物件不在時照樣綠。
+ */
+export async function expectImageLoaded(image: Locator): Promise<void> {
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() =>
+      image.evaluate((element) => {
+        const img = element as HTMLImageElement;
+        return img.complete ? img.naturalWidth : 0;
+      }),
+    )
+    .toBeGreaterThan(0);
+}
+
+/**
+ * 側欄頂部的商標圖(`AdminShell/SideNav`:有商標才畫 `<img>`,`alt` = 當前組織名稱;
+ * 沒有商標時那個位置是組織名稱的文字,不會有這個 img)。
+ */
+export function sideNavLogo(page: Page, orgName: string): Locator {
+  return sideNav(page).getByRole("img", { name: orgName, exact: true });
+}
+
+/**
+ * 組織管理 → 選 `orgName` →「編輯」→ 商標欄選 `filePath` →「儲存」,等那一次 `UpdateOrg` 回來
+ * (送出時先 `createUploadUrl` → 瀏覽器直傳 bucket → 才送 `UpdateOrg`,`useLogoUpload`)。
+ * 呼叫前要已經在組織管理頁上。
+ */
+export async function setOrgLogoInUi(
+  page: Page,
+  orgName: string,
+  filePath: string,
+): Promise<void> {
+  const dialog = await openEditOrgDialog(page, orgName);
+  await dialog.locator('input[type="file"]').setInputFiles(filePath);
+  await clickAndWaitFor(page, "儲存", "UpdateOrg");
+  await expect(dialog).toBeHidden();
+}
+
+/**
+ * 組織管理 → 選 `orgName` →「編輯」→ 商標欄按「移除」→「儲存」(送 `logoPath: null` = 清空)。
+ * 彈窗一開就顯示既有商標的預覽,所以「移除」鈕一定在。
+ */
+export async function clearOrgLogoInUi(
+  page: Page,
+  orgName: string,
+): Promise<void> {
+  const dialog = await openEditOrgDialog(page, orgName);
+  await dialog.getByRole("button", { name: "移除", exact: true }).click();
+  await clickAndWaitFor(page, "儲存", "UpdateOrg");
+  await expect(dialog).toBeHidden();
+}
