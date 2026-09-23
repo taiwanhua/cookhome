@@ -559,15 +559,27 @@ importers:
 
   packages/i18n:
     devDependencies:
+      '@jest/globals':
+        specifier: ^30.2.0
+        version: 30.4.1
       '@repo/eslint-config':
         specifier: workspace:*
         version: link:../config-eslint
+      '@repo/jest-presets':
+        specifier: workspace:*
+        version: link:../jest-presets
       '@repo/typescript-config':
         specifier: workspace:*
         version: link:../config-typescript
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.20.1
       eslint:
         specifier: ^9.39.0
         version: 9.39.5(jiti@2.7.0)
+      jest:
+        specifier: ^30.2.0
+        version: 30.4.2(@types/node@22.20.1)(babel-plugin-macros@3.1.0)(esbuild-register@3.6.0(esbuild@0.28.2))(ts-node@10.9.2(@swc/core@1.16.1(@swc/helpers@0.5.23))(@types/node@22.20.1)(typescript@5.9.3))
       typescript:
         specifier: 5.9.3
         version: 5.9.3

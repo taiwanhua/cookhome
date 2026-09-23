@@ -67,7 +67,7 @@ describe("使用者管理頁(/system/user-manager)", () => {
   });
 
   it("擁有者的停用動作 disabled 並提示,其他人正常", async () => {
-    renderPage();
+    const { user: actor } = renderPage();
 
     await screen.findByText("何家華");
     // 擁有者由 `org(樹根)` 的 ownerUserId 決定,那是第二個查詢,可能比清單晚回來
@@ -76,6 +76,18 @@ describe("使用者管理頁(/system/user-manager)", () => {
         within(rowOf("何家華")).getByRole("button", { name: "停用" }),
       ).toBeDisabled();
     });
+    // 提示改用 @repo/ui 的 Tooltip(REACT-10,#426):停用的按鈕收不到 hover,
+    // 事件載體是 Tooltip 自己包的外層 span
+    const hintCarrier = within(rowOf("何家華")).getByRole("button", {
+      name: "停用",
+    }).parentElement;
+    if (hintCarrier === null) {
+      throw new Error("停用按鈕沒有被 Tooltip 包起來");
+    }
+    await actor.hover(hintCarrier);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "頂層組織的擁有者受保護,無法執行此動作",
+    );
     expect(
       within(rowOf("王小明")).getByRole("button", { name: "停用" }),
     ).toBeEnabled();
@@ -105,8 +117,11 @@ describe("使用者管理頁(/system/user-manager)", () => {
     const tenantCheckbox = await orgCheckboxOf("租戶 A");
     expect(tenantCheckbox).toBeChecked();
     expect(tenantCheckbox).toBeDisabled();
+    // 鎖住節點的說明是彈窗專屬的那一句(#426),不是列上「無法執行此動作」那句
     expect(
-      screen.getByText("頂層組織的擁有者受保護,無法執行此動作"),
+      screen.getByText(
+        "頂層組織的擁有者不能被移出頂層組織;其他組織可自由勾選或取消。",
+      ),
     ).toBeInTheDocument();
 
     // 勾不掉:停用的勾選框連 pointer-events 都沒有,所以用 fireEvent 硬點也切不動
@@ -170,7 +185,9 @@ describe("使用者管理頁(/system/user-manager)", () => {
 
     expect(await orgCheckboxOf("租戶 A")).toBeEnabled();
     expect(
-      screen.queryByText("頂層組織的擁有者受保護,無法執行此動作"),
+      screen.queryByText(
+        "頂層組織的擁有者不能被移出頂層組織;其他組織可自由勾選或取消。",
+      ),
     ).not.toBeInTheDocument();
   });
 
