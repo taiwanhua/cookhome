@@ -160,3 +160,34 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 ## REACT-12 彈窗開著時,提示也要念得到:live region 不能是彈窗開啟前就在 body 裡的節點
 
 MUI 的 modal manager 在 Dialog 開啟那一刻把 body 底下**已存在**的其他節點全標 `aria-hidden`,掛在 app 根節點裡的 Snackbar 因此看得到、念不到;admin 的解法是 `app/providers/SnackbarAnnouncer.tsx` —— 每一則提示各自 portal 一個視覺隱藏的 `role="status"` 到 body 末端(掛上時間晚於彈窗開啟),只在 Snackbar 被藏起來時才填字,測試以 `findByRole("status")` / `test/snackbar.ts` 的 `findSnackbarAlert()` 驗,**不帶 `hidden: true`**。
+
+## REACT-13 表格欄位的渲染簽章:`render(ctx)`;小表用 `Table`、大量資料用 `DataTable`
+
+正本:`packages/ui/src/DataTable/cell-render-context.ts`(型別)、`packages/ui/src/DataTable/DataTable.tsx`、`packages/ui/src/Table/Table.tsx`
+
+兩個表格元件的欄位共用同一份渲染參數 `CellRenderContext<Row>`:
+
+```ts
+interface CellRenderContext<Row> {
+  value: unknown; // 由 column.accessor(欄位名或函式)取出的值
+  row: Row;
+  rows: readonly Row[]; // 顯示順序(排序後),rows[index] === row
+  index: number;
+  column: CellRenderColumn<Row>; // key / header / accessor / align / width / minWidth / pinned / isSortable / isEmphasized
+}
+```
+
+- **`DataTable`**:`render?: (ctx) => ReactNode`;沒給 `render` 時直接顯示 `ctx.value`(字串、數字原樣,空值與物件不顯示)。排序比的也是 `accessor` 取出的值,所以要能排序的欄一定要給 `accessor`。
+- **`Table`**:`render: (row, ctx) => ReactNode`,`ctx` 是**選填的第二參數**,只看 `row` 的既有寫法不必改;`ctx.value` 只在給了 `accessor` 時才有值。
+- 要看「別列」的邏輯(合計、累計、與上一列比較、奇偶列)一律從 `ctx.rows` / `ctx.index` 取,不要在呼叫端另外維護一份排序後的陣列 —— 排序改變時兩邊會對不上。
+- `ctx` **不帶翻譯函式**(I18N-01:`@repo/ui` 語言無關);欄內文字由呼叫端在閉包裡用自己的 `t` 取。
+- 布林旗標依 GEN-04 命名(`isSortable`、`isEmphasized`);`pinned` 是 `"left" | "right"`。
+
+**選哪一個**:
+
+| 情境                                                           | 用                          |
+| -------------------------------------------------------------- | --------------------------- |
+| 治理頁的小表、彈窗裡的表、有分頁的清單(一頁幾十列)             | `@repo/ui/table` 的 `Table` |
+| 大量資料(上百到上萬列)、需要欄寬拖拉、欄位固定、表頭排序的列表 | `@repo/ui/data-table`       |
+
+`DataTable` 的三件事:①列虛擬捲動,**捲動容器要有確定的高度**(父層是 STYLE-08 的 `flex: 1; minHeight: 0` 欄,或以 `containerSx` 給 `height` / `maxHeight`),高度跟著內容長時等於沒有虛擬化;②排序與欄寬都是「給了就受控(`sort` + `onSortChange`、`columnWidths` + `onColumnWidthsChange`),沒給就內部管」,資料已由 api 排好時加 `isManualSorting`;③儲存格不折行、超出寬度以省略號截斷(列高一致,虛擬捲動才量得準),要完整內容就加寬或在 `render` 裡放 `Tooltip`。

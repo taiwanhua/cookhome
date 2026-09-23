@@ -52,6 +52,7 @@
 | Components / `Draft/Snackbar`     | Popover 頁 73:2;元件 261:10                                                                                                | `@repo/ui/snackbar`:操作結果提示,`success` / `error` 兩個變體用 MUI Alert 的語意色,不寫死色碼。**右上角**(AppBar 下方)、4 秒自動關閉、長度 1 的佇列(只顯示最新一則);文案與呼叫慣例的正本見 `docs/standards/react/data-fetching.md` DATA-06          |
 | Components / `Draft/Tooltip`      | Popover 頁 73:2;元件 252:10(說明卡 252:11)                                                                                 | `@repo/ui/tooltip`:`grey[800]` 底 + `shape.borderRadius`(theme 的 `MuiTooltip` 覆寫)                                                                                                                                                                |
 | Components / `Draft/DatePicker`   | TextField 頁 11:2;元件 253:61(說明卡 253:62)                                                                               | `@repo/ui/date-picker`:外觀 = outlined `TextField` + 日曆鈕,幾何由 theme 的 `MuiOutlinedInput` 供給                                                                                                                                                 |
+| Components / `Draft/DataTable`    | Table 頁 101:2;元件節點待主流程畫完回填                                                                                    | `@repo/ui/data-table`:表頭 / 儲存格沿用 `Draft/TableHeaderCell` 101:3、`Draft/TableCell` 101:9 的樣式;固定欄與捲動區交界的分隔陰影、表頭右緣的欄寬把手(hover / 聚焦 / 拖拉中為 `primary.main`)**取自語意 token**,不寫死色碼                         |
 
 ## 資料
 

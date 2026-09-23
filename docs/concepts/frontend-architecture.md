@@ -103,6 +103,17 @@ test/       測試支援
 
 正本:`apps/admin/src/hooks/usePermissions.ts`、`packages/domain/src/permission/keys.ts`
 
+## 表格兩種
+
+| 種類        | 用在哪                                                    | 入口                  |
+| ----------- | --------------------------------------------------------- | --------------------- |
+| `Table`     | 治理頁的小表、彈窗裡的表、有分頁的清單                    | `@repo/ui/table`      |
+| `DataTable` | 大量資料的列表:列虛擬捲動、欄寬拖拉、左右固定欄、表頭排序 | `@repo/ui/data-table` |
+
+- 兩者的欄位共用渲染簽章 `render(ctx)`(`ctx = { value, row, rows, index, column }`)。
+
+正本:`docs/standards/react/components.md` REACT-13、`packages/ui/src/DataTable/`、`packages/ui/src/Table/`
+
 ## 共版型(CRUD 模組的前端藍本)
 
 一個 CRUD 模組 = 一份 `DemoModuleConfig`。列表、詳情、表單三頁是共用元件,不用改。
