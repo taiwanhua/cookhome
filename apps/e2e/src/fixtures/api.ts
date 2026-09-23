@@ -769,3 +769,163 @@ export async function setRoleEnabled(
     accessToken,
   );
 }
+
+/* ---- 劇本 16 / 17(#401):租戶視角、擁有者保護、撤銷開通 ---- */
+
+const REVOKE_TENANT_PROVISION = `
+mutation RevokeTenantProvision($input: RevokeTenantProvisionInput!) {
+  revokeTenantProvision(input: $input) {
+    success revokedOrgId revokedOwnerUserId revokedRoleId
+  }
+}`;
+
+const SET_USER_ENABLED = `
+mutation SetUserEnabled($input: SetUserEnabledInput!) {
+  setUserEnabled(input: $input) { user { id enabled } }
+}`;
+
+const SET_ORG_ENABLED = `
+mutation SetOrgEnabled($input: SetOrgEnabledInput!) {
+  setOrgEnabled(input: $input) { org { id enabled } }
+}`;
+
+const DELETE_ORG = `
+mutation DeleteOrg($input: DeleteOrgInput!) {
+  deleteOrg(input: $input) { success deletedId }
+}`;
+
+const USER = `
+query User($id: ID!) {
+  user(id: $id) { id account enabled orgs { id name } roles { id name } }
+}`;
+
+const ROLE = `
+query Role($id: ID!) {
+  role(id: $id) { role { id name } }
+}`;
+
+export interface RevokeTenantProvisionResult {
+  success: boolean;
+  revokedOrgId: string;
+  revokedOwnerUserId: string | null;
+  revokedRoleId: string | null;
+}
+
+/**
+ * 原樣回傳的 `revokeTenantProvision`(根組織專屬,#374;要驗 `PROVISION_NOT_REVOKABLE`
+ * 與它的 `extensions.reasons`,所以不用 `graphqlOk`)。
+ */
+export function revokeTenantProvisionRaw(
+  accessToken: string,
+  orgId: string,
+): Promise<
+  GraphqlResponse<{ revokeTenantProvision: RevokeTenantProvisionResult }>
+> {
+  return graphql<{ revokeTenantProvision: RevokeTenantProvisionResult }>(
+    REVOKE_TENANT_PROVISION,
+    { input: { orgId } },
+    accessToken,
+  );
+}
+
+/** 原樣回傳的 `setUserEnabled`(擁有者被租戶內的人停用 → `OWNER_PROTECTED`)。 */
+export function setUserEnabledRaw(
+  accessToken: string,
+  id: string,
+  enabled: boolean,
+): ReturnType<typeof graphql> {
+  return graphql(SET_USER_ENABLED, { input: { id, enabled } }, accessToken);
+}
+
+/** 原樣回傳的 `setOrgEnabled`(租戶內的人停用租戶頂層 → `FORBIDDEN`)。 */
+export function setOrgEnabledRaw(
+  accessToken: string,
+  id: string,
+  enabled: boolean,
+): ReturnType<typeof graphql> {
+  return graphql(SET_ORG_ENABLED, { input: { id, enabled } }, accessToken);
+}
+
+/** 原樣回傳的 `deleteOrg`(租戶內的人刪租戶頂層 → `FORBIDDEN`,排在前置四項之前)。 */
+export function deleteOrgRaw(
+  accessToken: string,
+  id: string,
+): ReturnType<typeof graphql> {
+  return graphql(DELETE_ORG, { input: { id } }, accessToken);
+}
+
+/**
+ * 原樣回傳的 `setUserOrgs`(全量覆蓋、不 dry-run;要驗 `OWNER_PROTECTED` / `LAST_ORG`)。
+ * 要讀 dry-run 清單的用上面的 `setUserOrgsWithPolicy`。
+ */
+export function setUserOrgsRaw(
+  accessToken: string,
+  userId: string,
+  orgIds: readonly string[],
+): ReturnType<typeof graphql> {
+  return graphql(SET_USER_ORGS, { input: { userId, orgIds } }, accessToken);
+}
+
+/** 原樣回傳的 `revokeRoleUsers`(解除擁有者的預設角色授予 → `OWNER_PROTECTED`)。 */
+export function revokeRoleUsersRaw(
+  accessToken: string,
+  roleId: string,
+  userIds: readonly string[],
+): ReturnType<typeof graphql> {
+  return graphql(
+    REVOKE_ROLE_USERS,
+    { input: { roleId, userIds } },
+    accessToken,
+  );
+}
+
+export interface UserSummary {
+  id: string;
+  account: string;
+  enabled: boolean;
+  orgs: { id: string; name: string }[];
+  roles: { id: string; name: string }[];
+}
+
+/** 單一使用者,原樣回傳(撤銷開通後擁有者帳號被抹掉 → `NOT_FOUND`)。 */
+export function userRaw(
+  accessToken: string,
+  id: string,
+): Promise<GraphqlResponse<{ user: UserSummary }>> {
+  return graphql<{ user: UserSummary }>(USER, { id }, accessToken);
+}
+
+/** 單一使用者(前置失敗就拋)。 */
+export async function userById(
+  accessToken: string,
+  id: string,
+): Promise<UserSummary> {
+  const data = await graphqlOk<{ user: UserSummary }>(
+    USER,
+    { id },
+    accessToken,
+  );
+  return data.user;
+}
+
+/** 單一角色,原樣回傳(撤銷開通後角色副本被抹掉 → `NOT_FOUND`)。 */
+export function roleRaw(
+  accessToken: string,
+  id: string,
+): Promise<GraphqlResponse<{ role: { role: { id: string; name: string } } }>> {
+  return graphql<{ role: { role: { id: string; name: string } } }>(
+    ROLE,
+    { id },
+    accessToken,
+  );
+}
+
+/** 原樣回傳的 `login`(帳號被抹掉之後 → `INVALID_CREDENTIALS`)。 */
+export function loginRaw(
+  account: string,
+  password: string,
+): Promise<GraphqlResponse<{ login: { accessToken: string } }>> {
+  return graphql<{ login: { accessToken: string } }>(LOGIN, {
+    input: { account, password },
+  });
+}
