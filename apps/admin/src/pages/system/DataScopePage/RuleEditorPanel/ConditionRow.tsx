@@ -2,16 +2,14 @@ import { useTranslations } from "use-intl";
 
 import { Box } from "@repo/ui/box";
 import { Button } from "@repo/ui/button";
-import { MenuItem } from "@repo/ui/menu";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
-import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import { issueKey } from "@/lib/data-scope-issues";
 import {
   CONDITIONS_BY_TYPE,
   type ConditionDraft,
-  type DataScopeCondition,
   newCondition,
   withCondition,
 } from "@/lib/data-scope-rule";
@@ -53,29 +51,24 @@ export const ConditionRow = ({
     env.issues.get(issueKey(ruleIndex, childPath, "value"));
 
   const fieldSelect = (
-    <TextField
-      select
+    <SelectField
       size="small"
       label={t("field")}
       value={field === undefined ? "" : condition.field}
       error={issue?.target === "field"}
       disabled={env.isReadOnly}
       sx={{ width: 190 }}
-      onChange={(event) => {
-        const next = env.fields.find(
-          (item) => item.name === event.target.value,
-        );
+      options={env.fields.map((item) => ({
+        value: item.name,
+        label: item.label,
+      }))}
+      onChange={(name) => {
+        const next = env.fields.find((item) => item.name === name);
         if (next !== undefined) {
           onChange(newCondition(next));
         }
       }}
-    >
-      {env.fields.map((item) => (
-        <MenuItem key={item.name} value={item.name}>
-          {item.label}
-        </MenuItem>
-      ))}
-    </TextField>
+    />
   );
 
   const removeButton = env.isReadOnly ? null : (
@@ -90,30 +83,21 @@ export const ConditionRow = ({
         {fieldSelect}
         {field !== undefined && (
           <>
-            <TextField
-              select
+            <SelectField
               size="small"
               label={t("cond")}
               value={condition.cond}
               error={issue?.target === "cond"}
               disabled={env.isReadOnly}
               sx={{ width: 150 }}
-              onChange={(event) => {
-                onChange(
-                  withCondition(
-                    condition,
-                    event.target.value as DataScopeCondition,
-                    field.type,
-                  ),
-                );
+              options={CONDITIONS_BY_TYPE[field.type].map((cond) => ({
+                value: cond,
+                label: tConditions(cond),
+              }))}
+              onChange={(cond) => {
+                onChange(withCondition(condition, cond, field.type));
               }}
-            >
-              {CONDITIONS_BY_TYPE[field.type].map((cond) => (
-                <MenuItem key={cond} value={cond}>
-                  {tConditions(cond)}
-                </MenuItem>
-              ))}
-            </TextField>
+            />
             <ValueEditor
               field={field}
               condition={condition}

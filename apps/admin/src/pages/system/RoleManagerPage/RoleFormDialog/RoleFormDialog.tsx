@@ -10,11 +10,9 @@ import {
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
-import { MenuItem } from "@repo/ui/menu";
-import { Select } from "@repo/ui/select";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
-import { Typography } from "@repo/ui/typography";
 
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
@@ -141,30 +139,18 @@ export const RoleFormDialog = ({
             size="small"
           />
         ) : (
-          <Stack spacing={0.5}>
-            <Select
-              displayEmpty
-              size="small"
-              value={pickedOrgId}
-              inputProps={{ "aria-label": t("ownerOrg") }}
-              onChange={(event) => {
-                setOwnerOrgId(event.target.value);
-              }}
-            >
-              {orgs.options.map((option) => (
-                <MenuItem
-                  key={option.id}
-                  value={option.id}
-                  disabled={option.outOfScope}
-                >
-                  {option.path}
-                </MenuItem>
-              ))}
-            </Select>
-            <Typography variant="caption" color="text.secondary">
-              {t("ownerOrgHint")}
-            </Typography>
-          </Stack>
+          <SelectField
+            label={t("ownerOrg")}
+            size="small"
+            value={pickedOrgId}
+            helperText={t("ownerOrgHint")}
+            options={orgs.options.map((option) => ({
+              value: option.id,
+              label: option.path,
+              disabled: option.outOfScope,
+            }))}
+            onChange={setOwnerOrgId}
+          />
         )}
         <TextField
           label={t("name")}

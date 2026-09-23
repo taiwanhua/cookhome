@@ -11,9 +11,8 @@ import {
   useUpdateDemoItemOneMutation,
 } from "@repo/graphql";
 import { Box } from "@repo/ui/box";
-import { MenuItem } from "@repo/ui/menu";
+import { SelectField } from "@repo/ui/select-field";
 import { Tag } from "@repo/ui/tag";
-import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import { usePermissions } from "@/hooks/usePermissions";
@@ -319,25 +318,19 @@ export const sampleOneModule: DemoModuleConfig<
         key: "status",
         kind: "custom",
         render: ({ values, setValue, tFields, tRoot }) => (
-          <TextField
-            select
+          <SelectField
             label={tFields("status")}
             size="small"
             value={values.status}
             sx={{ width: 240 }}
-            onChange={(event) => {
-              setValue(
-                "status",
-                event.target.value as SampleOneFormValues["status"],
-              );
+            options={SAMPLE_ONE_STATUSES.map((status) => ({
+              value: status,
+              label: tRoot(`status.${status}`),
+            }))}
+            onChange={(status) => {
+              setValue("status", status);
             }}
-          >
-            {SAMPLE_ONE_STATUSES.map((status) => (
-              <MenuItem key={status} value={status}>
-                {tRoot(`status.${status}`)}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
         ),
       },
       { key: "note", kind: "multiline", width: 480, minRows: 2 },

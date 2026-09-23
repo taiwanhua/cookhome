@@ -71,6 +71,7 @@ return createElement(moduleIconOf(module.icon), { fontSize: "small" });
 | `Tooltip`                                                  | `@repo/ui/tooltip`      | #240 / #260 |
 | `Tabs`(頁內頁籤;殼的路由頁籤是另一個東西 `RouteTabs`)      | `@repo/ui/tabs`         | #254 / #307 |
 | `Autocomplete`(輸入即搜尋、多選、分組、主 / 次文字)        | `@repo/ui/autocomplete` | #307        |
+| `SelectField`(表單下拉:浮動標籤 + helperText,見 REACT-11)  | `@repo/ui/select-field` | #429        |
 | `EditIcon` / `DeleteIcon` / `ChevronDoubleLeft` / `…Right` | `@repo/ui/icons`        | #254 / #297 |
 
 `Tooltip` 的兩件事:原生 `title` 的三處(`OrgActionBar`、模組與權限頁的 self-lock 開關、

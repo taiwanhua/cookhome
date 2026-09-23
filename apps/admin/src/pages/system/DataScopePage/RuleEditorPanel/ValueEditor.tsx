@@ -2,11 +2,9 @@ import type { ReactNode } from "react";
 import { useTranslations } from "use-intl";
 
 import { DataScopeFieldType } from "@repo/graphql";
-import { Checkbox } from "@repo/ui/checkbox";
 import { DatePicker } from "@repo/ui/date-picker";
-import { MenuItem } from "@repo/ui/menu";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
-import { TextField } from "@repo/ui/text-field";
 
 import {
   type ConditionDraft,
@@ -140,8 +138,8 @@ export const ValueEditor = ({
     });
   };
 
-  const renderValue = (value: unknown): ReactNode =>
-    (value as string[])
+  const renderValue = (value: readonly string[]): ReactNode =>
+    value
       .map(
         (item) =>
           options.find((option) => option.value === item)?.label ?? item,
@@ -149,26 +147,17 @@ export const ValueEditor = ({
       .join("、");
 
   return (
-    <TextField
-      select
+    <SelectField<string>
+      multiple
       size="small"
       label={t("value")}
       value={selected}
       error={hasError}
       disabled={env.isReadOnly}
       sx={{ width: 230 }}
-      slotProps={{ select: { multiple: true, renderValue } }}
-      onChange={(event) => {
-        // MUI 的 TextField 只簽單值 onChange;`multiple` 時 `value` 實際上是字串陣列
-        handleChange(event.target.value as unknown as string[]);
-      }}
-    >
-      {options.map((option) => (
-        <MenuItem key={option.value} value={option.value}>
-          <Checkbox checked={selected.includes(option.value)} />
-          {option.label}
-        </MenuItem>
-      ))}
-    </TextField>
+      options={options}
+      renderValue={renderValue}
+      onChange={handleChange}
+    />
   );
 };

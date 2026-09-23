@@ -1,6 +1,6 @@
 import { useTranslations } from "use-intl";
 
-import { MenuItem } from "@repo/ui/menu";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 
@@ -52,28 +52,28 @@ export const UserBasicFields = ({
         <TextField {...field("nickname")} />
         {/*
          * 性別是下拉,但**照其他欄位一樣要有浮動標籤**(Figma 202:734 的「性別」;
-         * 驗收 #373:原本只有 `aria-label`,畫面上看不到欄位名)。
-         * 裸 `Select` 自己不畫標籤 —— 要嘛外面包 `FormControl` + `InputLabel`,
-         * 要嘛用 `TextField select`(admin 既有做法,如資料範圍的條件列);這裡選後者,
-         * 版面與 `disabled` / `fullWidth` 全部跟同列的 `TextField` 一致。
-         * `displayEmpty` 讓未填時仍顯示「未填」那一項,連帶要 `inputLabel.shrink`
-         * 把標籤釘在上緣(MUI 只在值非空時才自動收起標籤,否則會壓在「未填」上面)。
+         * 驗收 #373:原本只有 `aria-label`,畫面上看不到欄位名)。表單下拉一律 `SelectField`
+         * (REACT-11,#429):標籤、`disabled` / `fullWidth` 與同列的 `TextField` 一致,
+         * 「未填」是 `value: ""` 的空值項 + `displayEmpty`(標籤釘在上緣)。
+         * 表單值是自由字串(api 的 `gender` 不是 enum),所以 `Value` 明示為 `string`。
          */}
-        <TextField
-          {...field("gender")}
-          select
-          slotProps={{
-            select: { displayEmpty: true },
-            inputLabel: { shrink: true },
+        <SelectField<string>
+          label={t("gender")}
+          value={form.values.gender}
+          fullWidth
+          disabled={isDisabled}
+          displayEmpty
+          options={[
+            { value: "", label: t("genderOptions.unset") },
+            ...GENDERS.map((gender) => ({
+              value: gender,
+              label: t(`genderOptions.${gender}`),
+            })),
+          ]}
+          onChange={(value) => {
+            form.setValue("gender", value);
           }}
-        >
-          <MenuItem value="">{t("genderOptions.unset")}</MenuItem>
-          {GENDERS.map((gender) => (
-            <MenuItem key={gender} value={gender}>
-              {t(`genderOptions.${gender}`)}
-            </MenuItem>
-          ))}
-        </TextField>
+        />
       </Stack>
       <Stack direction="row" spacing={2}>
         <TextField {...field("email", true)} type="email" />
