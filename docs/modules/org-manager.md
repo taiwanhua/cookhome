@@ -1,7 +1,7 @@
 # 組織管理(技術)
 
 - **模組 key**:`system.org-manager`
-- **畫面**:Figma「Screen / Admin 組織管理」(根組織視角 87:3、租戶視角 92:694)+ 彈窗:開通租戶 88:146(含開放模組勾選區 202:351)、新增子組織 202:404、編輯組織 88:167、停用確認 88:200;**撤銷開通的按鈕與確認彈窗(87:2 動作列)、詳情的「成員」頁籤(#377)尚未進設計稿**,由主流程補畫(#374 / #377 票面)
+- **畫面**:Figma「Screen / Admin 組織管理」(根組織視角 87:3、租戶視角 92:694)+ 彈窗:開通租戶 88:146(含開放模組勾選區 202:351)、新增子組織 202:404、編輯組織 88:167、停用確認 88:200;**撤銷開通的按鈕與確認彈窗、詳情的「成員」頁籤與加入成員彈窗已於 2026-09-23 補畫在 87:2**(#374 / #377;頁籤本身用 `Draft/Tabs`,登記見 `docs/branding.md` 的 Figma 表)
 - **相關 ADR**:[0005 多租戶隔離](../adr/0005-multi-tenant-isolation.md)、[0009 租戶開通](../adr/0009-tenant-provisioning.md)、[0010 儲存與寄信](../adr/0010-file-storage-and-email.md)、[0004 權限模型](../adr/0004-permission-model.md)
 - **資料**:`orgs`(`ancestors` 物化路徑、`settings.visibility` 可見範圍、`logoPath` 商標、`ownerUserId` 租戶擁有者)、`core_relationships`(`org_user`)、`audit_logs`
 - **使用者說明**:[system.org-manager.help.md](../../apps/admin/src/md/module-help/system.org-manager.help.md)
@@ -110,6 +110,8 @@ addOrgMembers(input: { orgId, userIds }): AddOrgMembersPayload!                 
 - **`AddOrgMembersPayload` 不回清單**:分頁與關鍵字都在前端手上,加完本來就要把 `orgMembers` / `orgMemberCandidates` 失效重查,把一頁塞進 mutation 的回傳只會有兩份可能不一致的真相(與 `grantRoleUsers` 回整份清單的先例不同,那是早期的寫法)。
 - 錯誤碼:`NOT_FOUND`(組織或使用者不在管理範圍內,不透露差別)、`VALIDATION_FAILED`(`orgId` 不是合法 id)、`FORBIDDEN`(沒有那筆權限,由 `@RequirePermission` 擋)。沒有本節專屬的新碼。
 - **Nest 模組是獨立的一個薄模組** `OrgMembersModule`(`apps/api/src/orgs/org-members.module.ts`):寫入正本在 `UsersService`,而 `UsersModule` 已經 import `OrgsModule`(擁有者保護住在 `orgs/`),掛回 `OrgsModule` 會造出模組環。檔案照樣放在 `orgs/` —— 它是組織管理模組的一頁。
+
+> **模組依賴方向 `users → orgs` 是單向鎖死的**(2026-09-23 明寫,#377):`UsersModule` import `OrgsModule`,**`OrgsModule` 不可以反過來 import `UsersModule`**,否則就是 Nest 的循環依賴。所以任何「組織這邊要用到使用者那邊的寫入」一律開一個**薄模組**掛在 `AppModule` 上(先例 `OrgMembersModule`),由它同時 import 兩邊 —— 不要為了省一個檔案把邊反過來接。判斷依據是**規則住在哪裡**:擁有者保護、組織樹、管理範圍住 `orgs/`,所以 `users` 依賴 `orgs`。
 
 ## api 介面:租戶作業(#135 已實作,程式在 `apps/api/src/orgs/tenant-ops.*.ts`)
 

@@ -1,5 +1,14 @@
 # 使用者與會員是兩套帳號體系:分表、分登入、分 token
 
+> **登入線與殼不另開 `docs/modules/` 文件**(2026-09-23 裁決,#375):`docs/modules/<key>.md` 的檔名就是**模組 key**,而登入線(登入 / 忘記密碼 / 設定新密碼 / 改密碼)與殼(AdminShell:AppBar / SideNav / RouteTabs)**不在模組樹上、沒有模組 key、沒有權限**,開不出合規的檔名,硬開一份只會多一個沒人維護的正本。分工維持現況:
+>
+> - **帳號、token、密碼雜湊、不可枚舉、多分頁同步** → 本 ADR。
+> - **登入後查什麼、導去哪、路由與側欄怎麼長** → ADR-0011。
+> - **密碼流程的三個入口與 admin 三頁的行為** → `docs/modules/user-manager.md`「密碼流程」(那是使用者管理模組的動作)。
+> - **前端分層與殼住哪一層** → ADR-0012 與 `docs/standards/general/structure.md` STRUCT-03;殼的設計稿節點登記在 `docs/branding.md`。
+>
+> 哪天登入線真的長出自己的規則(如第三方登入),寫進本 ADR 或另開一份 ADR,**不要**新增 `docs/modules/` 底下的檔。
+
 ## 帳號分離
 
 admin 的使用者(User)與 front 的會員(Customer)分 collection、分登入端點。兩種 token 用 JWT 的 `aud` 欄位標記發給誰(admin 或 front),拿會員 token 打後台 API 會被拒絕,反之亦然。會員不進 RBAC:能力是固定集合 + 資料擁有權檢查;角色/權限體系只服務使用者。

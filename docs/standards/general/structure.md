@@ -54,6 +54,10 @@ apps/<app>/src/
 /* eslint-disable @repo/no-raw-model-query -- deprecated:早期原型,食譜域重寫時整包刪除 */
 ```
 
+**已知會誤判、豁免時照抄理由的規則**(碰到就在該行寫 `// eslint-disable-next-line`,別為了閃它改寫程式):
+
+- `unicorn/no-array-callback-reference` 對 **mongodb driver 的 `collection.find(filter)`** 會誤判(2026-09-23,#364):規則假設 `find` 是 `Array.prototype.find`、傳進去的是 callback,而 driver 的 `find` 收的是查詢條件物件。`apps/db-migrator` 的 reset 直接操作 driver,整支都會踩到。理由寫「mongodb driver 的 `find` 收的是 filter 不是 callback」。
+
 ## STRUCT-06 輸出與 log 依執行環境分三種,都不直接 `console.*`
 
 | 環境                         | 用什麼                                          | 為什麼                                                                                 |
@@ -103,6 +107,32 @@ re-export `matrix.ts`,若 `matrix.ts` 寫 `from "./index"` 就是 `import-x/no-c
 
 漏第 3 點的症狀是「本地 import 得到、`check-types` 在別的包紅」;漏第 5 點的症狀是 architecture.md 的子路徑列悄悄過期(`@repo/domain/module-icon` 就漏了一輪)。
 
+### 新增一個 app workspace(`apps/<name>`)的清單(2026-09-23,#378 開 `apps/e2e` 時整理)
+
+app 與 package 不同:它不出 `dist` 給別人 import,但**會被 turbo 排程、被 CI 掃到、被 lint 與 prettier 管**。照這份做:
+
+1. `package.json`:`"name": "@repo/<name>"`、`"private": true`;scripts 至少 `lint`、`check-types`,有測試再加 `test`。**不要**宣告 `files` / `exports`(沒人 import 它)
+2. `tsconfig.json` extends `@repo/typescript-config/` 底下對應的那一份
+3. **eslint 設定檔的副檔名先看自己 `package.json` 有沒有 `"type": "module"`,不要照抄鄰居**:沒有(目前只有 `apps/api`)就**必須**寫 `eslint.config.mjs`,否則 node 會把它當 CommonJS 載入而炸;有就兩種都載得起來。現況是 `apps/admin` / `apps/front` 用 `.js`、`apps/api` / `apps/db-migrator` / `apps/e2e` 用 `.mjs`(後兩者其實有 `"type": "module"`,`.mjs` 只是沿用 api 的寫法)。**這個不一致是歷史的,不是 bug**,不要為了對齊去改既有的檔;新 app 挑一種、與性質最近的那個 app 一致即可
+4. `turbo.json`(`extends: ["//"]`)宣告自己的 `build` 輸出;**build 時烘進產物的環境變數一定要登記進 `env`**,見下一條
+5. 登記:`docs/architecture.md`、`docs/env-registry.md`(新變數)、CI 的 job 清單(如果它要進 `ci.yml`)
+
+### build 時烘進產物的變數要登記進該 package 的 turbo `env`(2026-09-23,#378)
+
+`VITE_*` / `NEXT_PUBLIC_*` 這類變數會被**編譯進產物**,所以它們是 build 的**輸入**。沒登記進該 package `turbo.json` 的 `tasks.build.env`,turbo 的 build 快取就不含它 —— **換一個值重 build 會直接 `cache hit`,拿到烘著舊值的產物**,而且沒有任何一步會失敗。
+
+```jsonc
+// apps/admin/turbo.json
+{
+  "extends": ["//"],
+  "tasks": {
+    "build": { "env": ["VITE_GRAPHQL_ENDPOINT"], "outputs": ["dist/**"] },
+  },
+}
+```
+
+admin 的 `VITE_GRAPHQL_ENDPOINT` 原本就漏登記過(admin 每個環境各建一顆 image,正是最容易吃到這個坑的形狀)。新增這類變數時三處一起動:該 package 的 `turbo.json` 的 `env`、`docs/env-registry.md`、該環境的 build 參數(`deploy/env/<環境>.yaml` 或 deploy.yml 的 `--build-arg`,見 `docs/deployment.md`)。**執行期才讀的變數不在此列**(api 的那些),它們不影響產物。
+
 ## STRUCT-09 全 repo 都走 prettier,CI 守門:表格與 import 由它排版,不手排
 
 全 repo 的 `.md` 與 `.ts` / `.tsx` / `.js`(含 `.mjs` / `.cjs`)/ `.json` / `.yaml` 都受 CI 的 `prettier --check` 檢查(`pnpm run format:check`,與 `pnpm format` 同一組副檔名、同一套設定;md 自 2026-09-19、其餘自 #195 於 2026-09-22 起)。`ci.yml` 與 `docs.yml` 都跑同一個腳本,排除清單的正本是 `.prettierignore`(`pnpm-lock.yaml`、`dist` / `build` / `.next` / `coverage` 等產物、`**/src/generated`、`.agents` 的 skill 正本、Claude Code 的本機目錄)。
@@ -121,3 +151,14 @@ re-export `matrix.ts`,若 `matrix.ts` 寫 `from "./index"` 就是 `import-x/no-c
 2. **外部工具產生、由上游決定長相的檔** —— `msw init` 產的 `apps/admin/mock-public/mockServiceWorker.js` 不合我們的 prettier 設定,重排會與 msw 上游漂移(下次 `msw init` 又被改回去)。這類檔案一律進 `.prettierignore` 並註明來源,不要手動改格式。
 
 順帶:字面星號(例如 wildcard 權限「全部(\*)」)要寫成 `\*`,否則成對的 `*` 會被當成強調符號,prettier 會把它改寫成 `_` 讓問題浮現。
+
+## STRUCT-10 `localeCompare` 一律明給 `zh-Hant`(2026-09-23,#372)
+
+全 repo(api、admin、db-migrator 都算)排字串一律寫 `a.localeCompare(b, "zh-Hant")`,**不留給執行環境決定**。
+
+```ts
+✅ rows.toSorted((a, b) => a.name.localeCompare(b.name, COLLATION_LOCALE)); // const COLLATION_LOCALE = "zh-Hant"
+❌ rows.toSorted((a, b) => a.name.localeCompare(b.name));
+```
+
+不給語言時 `localeCompare` 吃的是執行環境的預設語言:開發機通常是 `zh-TW`、**CI runner 通常退回 `en-US`**,中文字的先後跟著不一樣 —— 排序斷言於是「本機綠、CI 紅」,而且看起來像偶發。先例與理由註解在 `apps/admin/src/lib/role-options.ts`(`COLLATION_LOCALE`)。同一支檔案裡排多處時抽成模組層常數,不要逐處重打字串。
