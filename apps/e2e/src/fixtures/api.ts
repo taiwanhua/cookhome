@@ -115,6 +115,14 @@ mutation UpdateDemoItemOne($input: UpdateDemoItemOneInput!) {
   updateDemoItemOne(input: $input) { item { id name internalNote } }
 }`;
 
+const DEMO_ITEM_ONE_HISTORY = `
+query DemoItemOneHistory($id: ID!) {
+  demoItemOneHistory(id: $id) {
+    items { id action before after createdAt }
+    totalCount
+  }
+}`;
+
 export interface MatrixPermission {
   key: string;
   action: string;
@@ -439,6 +447,31 @@ export function publishedInOrgRule(orgId: string): DataScopeRuleEntry {
       values: ["published"],
     }),
   };
+}
+
+export interface HistoryEntry {
+  id: string;
+  action: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+/**
+ * 某一筆示範項目的變更歷程(新到舊,不分頁);需要 `edit-page.show-history`。
+ *
+ * 受欄位級權限保護的欄位在 `before` / `after` 裡一律是 `"[redacted]"`
+ * (ADR-0004「稽核歷程一律記 `[redacted]`」)—— 畫面上的歷程區塊根本不渲染值,
+ * 所以那一條只驗得到這裡。
+ */
+export async function demoItemOneHistory(
+  accessToken: string,
+  id: string,
+): Promise<HistoryEntry[]> {
+  const data = await graphqlOk<{
+    demoItemOneHistory: { items: HistoryEntry[] };
+  }>(DEMO_ITEM_ONE_HISTORY, { id }, accessToken);
+  return data.demoItemOneHistory.items;
 }
 
 /** 攤平權限矩陣的樹(矩陣是巢狀四層,選模組 / 權限時一律先攤平)。 */

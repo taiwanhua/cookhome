@@ -1,5 +1,10 @@
-import { createDemoItemOne, updateDemoItemOne } from "../fixtures/api";
 import {
+  createDemoItemOne,
+  demoItemOneHistory,
+  updateDemoItemOne,
+} from "../fixtures/api";
+import {
+  EDIT_PAGE_SHOW_HISTORY,
   SAMPLE_ONE_EDIT_INTERNAL_NOTE,
   SAMPLE_ONE_EDIT_ROUTE,
   SAMPLE_ONE_SHOW_INTERNAL_NOTE,
@@ -7,7 +12,7 @@ import {
 } from "../fixtures/demo-keys";
 import { errorCodeOf, errorReasonOf } from "../fixtures/graphql";
 import { expect, test } from "../fixtures/test";
-import { signIn } from "../fixtures/ui";
+import { pageArea, signIn } from "../fixtures/ui";
 
 /**
  * 劇本 5 — 欄位級權限(綁父模組)
@@ -20,6 +25,8 @@ import { signIn } from "../fixtures/ui";
 
 const INTERNAL_NOTE = "內部備註";
 const READONLY_HINT = "你看得到內部備註,但沒有修改它的權限。";
+const HISTORY_REGION = "變更歷程";
+const REDACTED = "[redacted]";
 
 test("劇本 5:內部備註的三態(看不到 → 唯讀 → 可編輯),硬送寫入被擋", async ({
   page,
@@ -89,4 +96,24 @@ test("劇本 5:內部備註的三態(看不到 → 唯讀 → 可編輯),硬送�
 
   await page.goto(viewUrl);
   await expect(page.getByText(newNote)).toBeVisible();
+
+  // 順手一起看(文件「劇本 5」末節):把內部備註的兩筆權限收回、只給 `edit-page.show-history`
+  // —— 這就是「沒有讀的權限、卻有看變更歷程的權限」那個人。歷程區塊看得到,
+  // 但剛剛那次變更的內容在歷程裡一律是 `[redacted]`,不會從側門外洩(ADR-0004)。
+  await tenant.setSupportPermissions({
+    addPermissions: [EDIT_PAGE_SHOW_HISTORY],
+  });
+
+  await page.goto(editUrl);
+  await expect(page.getByLabel(INTERNAL_NOTE, { exact: true })).toHaveCount(0);
+  await expect(
+    pageArea(page).getByRole("region", { name: HISTORY_REGION }),
+  ).toBeVisible();
+
+  // 區塊本身只列「誰、什麼時候、做了什麼」,值根本不渲染 ——
+  // 所以「值有沒有被遮」只問得到 api(`demoItemOneHistory` 需 `edit-page.show-history`)
+  const entries = await demoItemOneHistory(tenant.member.token, itemId);
+  const edited = entries.find((entry) => entry.action.endsWith(".edit"));
+  expect(edited?.after?.internalNote).toBe(REDACTED);
+  expect(JSON.stringify(entries)).not.toContain(newNote);
 });
