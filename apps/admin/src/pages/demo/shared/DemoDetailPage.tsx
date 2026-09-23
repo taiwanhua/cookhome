@@ -11,6 +11,7 @@ import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
+import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
 import { useSession } from "@/hooks/useSession";
 import type { ModulePageProps } from "@/lib/module-tree";
 
@@ -59,6 +60,8 @@ export const DemoDetailPage = <
 
   const query = config.detail.useItem(routeParam ?? "", true);
   const { item } = query;
+  // 路由頁籤顯示「模組名 — 項目名」(#428)
+  useRouteTabItemLabel(item?.name);
 
   const goTo = (route: string | null, id?: string) => {
     if (route === null) {
