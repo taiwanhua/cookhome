@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 
 import { GCS_BUCKET_PRIVATE, GCS_BUCKET_PUBLIC, GCS_ENDPOINT } from "../config";
-import { attachmentDownloadUrlRaw, createUploadUrlRaw } from "../fixtures/api";
+import {
+  createUploadUrlRaw,
+  demoItemOneAttachmentUrlRaw,
+} from "../fixtures/api";
 import {
   SAMPLE_ONE_CREATE_ROUTE,
   SAMPLE_ONE_VIEW,
@@ -82,15 +85,17 @@ test("劇本 11:封面走公開穩定 URL、附件走短效簽名網址,拿掉 v
 
   // 步驟 3:附件按「下載」才向 api 要一條**私有 bucket 的短效簽名網址**
   const attachmentPanel = pageArea(page);
-  // 附件名是物件路徑的檔名(`<uuid>.pdf`,api 的 `basenameOf`;原始檔名不存)
-  await expect(attachmentPanel.getByText(/^[0-9a-f-]{36}\.pdf$/)).toBeVisible();
+  // 附件顯示使用者選檔時的原始檔名(#427 起存原始檔名 / 大小;物件路徑仍是 `<uuid>.pdf`)
+  await expect(
+    attachmentPanel.getByText("attachment.pdf", { exact: true }),
+  ).toBeVisible();
   // 按下去之前頁面上沒有任何下載連結(不預先簽)
   await expect(
     attachmentPanel.getByRole("link", { name: "開啟下載連結" }),
   ).toHaveCount(0);
   await clickAndReadData(
     attachmentPanel.getByRole("button", { name: "下載", exact: true }),
-    "AttachmentDownloadUrl",
+    "DemoItemOneAttachmentUrl",
   );
   const link = attachmentPanel.getByRole("link", { name: "開啟下載連結" });
   await expect(link).toBeVisible();
@@ -129,10 +134,10 @@ test("劇本 11:封面走公開穩定 URL、附件走短效簽名網址,拿掉 v
 
   // 步驟 5:+tenant 把「客服」的 `view` 拿掉 → 同一筆再要下載網址,api **拒發**。
   //         對照:拿掉之前同一個 token 要得到(每一次取用都重新檢查權限)
-  const before = await attachmentDownloadUrlRaw(member.token, itemId);
+  const before = await demoItemOneAttachmentUrlRaw(member.token, itemId);
   expect(errorCodeOf(before)).toBeNull();
   await tenant.setSupportPermissions({ omitPermissions: [SAMPLE_ONE_VIEW] });
-  const denied = await attachmentDownloadUrlRaw(member.token, itemId);
+  const denied = await demoItemOneAttachmentUrlRaw(member.token, itemId);
   expect(errorCodeOf(denied)).toBe("FORBIDDEN");
   expect(denied.data).toBeNull();
 });

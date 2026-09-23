@@ -159,8 +159,24 @@ export interface DemoDetailConfig<Detail extends DemoItemLike> {
 /** 表單欄位在畫面上的三態(示範模組1 的內部備註就是這個的示範)。 */
 export type DemoFieldMode = "hidden" | "readonly" | "editable";
 
-/** 上傳欄送出後的路徑,以 `DemoUpload.key` 為鍵。 */
-export type DemoUploadPaths = Readonly<Record<string, string | null>>;
+/**
+ * 上傳完成的一個檔案(#427):物件路徑 + 選檔時就知道的原始檔名 / 大小 / 檔型
+ * (`File.name` / `File.size` / `File.type`)。要不要把後三者送給 api 由設定物件決定。
+ */
+export interface DemoUploadedFile {
+  path: string;
+  name: string;
+  size: number;
+  contentType: string;
+}
+
+/**
+ * 這次送出時各上傳欄的結果,以 `DemoUpload.key` 為鍵(GQL-06:input 只放使用者碰過的欄位):
+ * 選了新檔 = 上傳完的 `DemoUploadedFile`、按了移除 = `null`(清空)、**沒動 = 鍵不存在**(不放進 input = 不動)。
+ */
+export type DemoUploadResults = Readonly<
+  Partial<Record<string, DemoUploadedFile | null>>
+>;
 
 /** 判斷一個欄位的三態時看得到的東西。 */
 export interface DemoFieldModeContext<Detail> {
@@ -220,7 +236,7 @@ export interface DemoFormField<Detail, Values> {
  * 附件走私有 bucket(沒有可預覽的網址,既有檔案另起一行顯示檔名 + 移除)。
  */
 export interface DemoUpload<Detail> {
-  /** 欄位名(= `<ns>.fields.<key>`,也是 `DemoUploadPaths` 的鍵) */
+  /** 欄位名(= `<ns>.fields.<key>`,也是 `DemoUploadResults` 的鍵) */
   key: string;
   purpose: UploadPurpose;
   accept: readonly string[];
@@ -228,8 +244,6 @@ export interface DemoUpload<Detail> {
   /** i18n 的 `<ns>.form.<hintKey>` */
   hintKey: string;
   width?: number;
-  /** 既有檔案的路徑(不換檔時原樣送回 api) */
-  pathOf: (item: Detail) => string | null;
   /** 公開穩定網址(封面);私有檔案不給 */
   previewUrlOf?: (item: Detail) => string | null | undefined;
   previewLabelKey?: string;
@@ -253,7 +267,7 @@ export interface DemoFormSlots<Detail> {
 
 /** `useSave` 要回的東西。 */
 export interface DemoSave<Values> {
-  save: (values: Values, paths: DemoUploadPaths) => void;
+  save: (values: Values, uploads: DemoUploadResults) => void;
   isPending: boolean;
 }
 
@@ -271,7 +285,7 @@ export interface DemoFormConfig<Detail extends DemoItemLike, Values> {
   /** 初始值;新增情境的 `item` 是 null */
   toValues: (item: Detail | null) => Values;
   /**
-   * 送出:設定物件在這裡把表單值 + 上傳完成的路徑轉成該模組的 input 並呼叫 create / update。
+   * 送出:設定物件在這裡把表單值 + 各上傳欄的結果(`DemoUploadResults`)轉成該模組的 input 並呼叫 create / update。
    * 共用元件不認得任何模組的 input 型別。
    */
   useSave: (options: DemoSaveOptions<Detail>) => DemoSave<Values>;

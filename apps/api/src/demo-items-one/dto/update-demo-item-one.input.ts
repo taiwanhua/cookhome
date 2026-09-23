@@ -1,6 +1,7 @@
 import { Field, ID, InputType } from "@nestjs/graphql";
 
 import { DemoItemOneStatusEnum } from "../models/demo-item-one.model";
+import { DemoItemOneAttachmentInput } from "./demo-item-one-attachment.input";
 
 /**
  * 編輯示範項目(需 `demo.sub.sample-one.edit`)。
@@ -35,6 +36,7 @@ export class UpdateDemoItemOneInput {
   @Field(() => ID, { nullable: true })
   coverPath?: string | null;
 
-  @Field(() => ID, { nullable: true })
-  attachmentPath?: string | null;
+  /** 附件(#427):缺席 = 不動、`null` = 清空(路徑與中繼資料四欄一起 `$unset`)、有值 = 換檔。 */
+  @Field(() => DemoItemOneAttachmentInput, { nullable: true })
+  attachment?: DemoItemOneAttachmentInput | null;
 }

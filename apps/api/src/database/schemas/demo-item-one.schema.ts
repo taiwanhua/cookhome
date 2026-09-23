@@ -51,9 +51,28 @@ export class DemoItemOne {
   @Prop({ type: String })
   coverPath?: string;
 
-  /** 附件:私有 bucket 物件路徑。 */
+  /**
+   * 附件:私有 bucket 物件路徑。下面三個 `attachment*` 欄位是它的中繼資料(#427),
+   * **四欄同生同滅**:換檔一起 `$set`、清空一起 `$unset`。採平行欄位而非巢狀物件,
+   * 是為了不必搬既有資料(#427 以前的附件只有這一欄)。
+   */
   @Prop({ type: String })
   attachmentPath?: string;
+
+  /**
+   * 附件的原始檔名(使用者選檔時的 `File.name`,#427)。
+   * #427 以前上傳的附件沒有這一欄 → api 回 `null`,前端退回顯示路徑尾段。
+   */
+  @Prop({ type: String })
+  attachmentName?: string;
+
+  /** 附件大小(bytes,前端申報的 `File.size`;上限同 `DEMO_ATTACHMENT` 的上傳規則)。舊資料沒有。 */
+  @Prop({ type: Number })
+  attachmentSize?: number;
+
+  /** 附件的 content type(前端申報的 `File.type`,在 `DEMO_ATTACHMENT` 的白名單內)。舊資料沒有。 */
+  @Prop({ type: String })
+  attachmentContentType?: string;
 
   /** 啟用狀態。 */
   @Prop({ type: Boolean, default: true })

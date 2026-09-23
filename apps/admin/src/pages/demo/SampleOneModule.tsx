@@ -43,7 +43,7 @@ import type {
   DemoItemRow,
   SampleOneFormValues,
 } from "./demo-sample-one-types";
-import { statusToneOf } from "./demo-sample-one-view";
+import { attachmentNameOf, statusToneOf } from "./demo-sample-one-view";
 import type {
   DemoFieldMode,
   DemoListFilters,
@@ -167,11 +167,13 @@ const useSampleOneSave = ({
   );
 
   return {
-    save: (values, paths) => {
+    save: (values, uploads) => {
       if (item === null) {
-        create.mutate({ input: toCreateInput(values, paths, mode) });
+        create.mutate({ input: toCreateInput(values, uploads, mode) });
       } else {
-        update.mutate({ input: toUpdateInput(item.id, values, paths, mode) });
+        update.mutate({
+          input: toUpdateInput(item.id, values, uploads, mode),
+        });
       }
     },
     isPending: create.isPending || update.isPending,
@@ -363,7 +365,6 @@ export const sampleOneModule: DemoModuleConfig<
         key: "cover",
         ...SAMPLE_ONE_UPLOAD.cover,
         hintKey: "coverHint",
-        pathOf: (item) => item.coverPath ?? null,
         previewUrlOf: (item) => item.coverUrl,
         previewLabelKey: "coverCurrent",
       },
@@ -371,8 +372,8 @@ export const sampleOneModule: DemoModuleConfig<
         key: "attachment",
         ...SAMPLE_ONE_UPLOAD.attachment,
         hintKey: "attachmentHint",
-        pathOf: (item) => item.attachment?.path ?? null,
-        currentNameOf: (item) => item.attachment?.name ?? null,
+        currentNameOf: (item) =>
+          item.attachment == null ? null : attachmentNameOf(item.attachment),
         currentLabelKey: "attachmentCurrent",
         removeLabelKey: "removeAttachment",
       },

@@ -64,7 +64,7 @@ export interface DemoWorld {
     demoItemsOne: number;
     demoItemOne: number;
     history: number;
-    attachmentDownloadUrl: number;
+    demoItemOneAttachmentUrl: number;
   };
   /** 直傳到簽名網址的檔案(ADR-0010 第 2 步) */
   uploadedFiles: { url: string; contentType: string | null; size: number }[];
@@ -118,7 +118,7 @@ export const demoWorld = (options: DemoWorldOptions = {}): DemoWorld => {
     demoItemsOne: 0,
     demoItemOne: 0,
     history: 0,
-    attachmentDownloadUrl: 0,
+    demoItemOneAttachmentUrl: 0,
   };
   const uploadedFiles: DemoWorld["uploadedFiles"] = [];
   let created = 0;
@@ -191,10 +191,10 @@ export const demoWorld = (options: DemoWorldOptions = {}): DemoWorld => {
         },
       });
     }),
-    api.query("AttachmentDownloadUrl", () => {
-      calls.attachmentDownloadUrl += 1;
+    api.query("DemoItemOneAttachmentUrl", () => {
+      calls.demoItemOneAttachmentUrl += 1;
       return HttpResponse.json({
-        data: { attachmentDownloadUrl: { url: TEST_DEMO_DOWNLOAD_URL } },
+        data: { demoItemOneAttachmentUrl: { url: TEST_DEMO_DOWNLOAD_URL } },
       });
     }),
     api.mutation("CreateDemoItemOne", ({ variables }) => {
@@ -218,7 +218,8 @@ export const demoWorld = (options: DemoWorldOptions = {}): DemoWorld => {
         internalNote: input.internalNote ?? null,
         coverPath: input.coverPath ?? null,
         coverUrl: null,
-        attachment: null,
+        // 附件原樣存原始檔名 / 大小 / 檔型(#427),與 api 同
+        attachment: input.attachment ?? null,
         status: input.status ?? DemoItemOneStatus.Draft,
         enabled: true,
         createdBy: null,
@@ -266,11 +267,8 @@ export const demoWorld = (options: DemoWorldOptions = {}): DemoWorld => {
       if ("coverPath" in input) {
         target.coverPath = input.coverPath ?? null;
       }
-      if ("attachmentPath" in input) {
-        target.attachment =
-          input.attachmentPath == null
-            ? null
-            : { path: input.attachmentPath, name: input.attachmentPath };
+      if ("attachment" in input) {
+        target.attachment = input.attachment ?? null;
       }
       return HttpResponse.json({
         data: { updateDemoItemOne: { item: project(target) } },

@@ -10,7 +10,7 @@ import type {
  *
  * 形狀以 `docs/modules/demo.sub.sample-one.md`「api 介面」與 api 測試的斷言為準(TEST-08):
  * `abilities` 由 api 逐筆算好(已含權限判斷)、`coverUrl` 是公開穩定網址、
- * 附件只給 `{ path, name }`、`createdBy` 查不到人時是 null(seed 示範資料用假 ObjectId)。
+ * 附件給路徑 + 原始檔名 / 大小 / 檔型(#427;舊資料後三者為 null)、`createdBy` 查不到人時是 null(seed 示範資料用假 ObjectId)。
  *
  * 分類的 value 對照欄位管理「示範分類」的種子選項(`field-fixtures.ts` 的 `demoCategoryFields`),
  * 兩份夾具的 value 必須一致 —— 不然列表的分類篩選在測試裡永遠篩不到東西。
@@ -56,7 +56,12 @@ export const demoItems: TestDemoItem[] = [
     internalNote: "成本試算尚未確認",
     coverPath: "demo/cover.png",
     coverUrl: TEST_DEMO_COVER_URL,
-    attachment: { path: "demo/cost.png", name: "cost.png" },
+    attachment: {
+      path: "demo/cost.png",
+      name: "成本試算 2026.png",
+      size: 1_258_291,
+      contentType: "image/png",
+    },
     status: DemoItemOneStatus.Published,
     createdBy: { id: "user-ming", name: "王小明" },
   }),

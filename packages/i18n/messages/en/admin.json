@@ -945,7 +945,7 @@
         "name": "Please fill in the name.",
         "category": "That category is not available to you, or has been disabled.",
         "coverPath": "The cover file is invalid. Please upload it again.",
-        "attachmentPath": "The attachment file is invalid. Please upload it again.",
+        "attachment": "The attachment file is invalid. Please upload it again.",
         "internalNote": "You are not allowed to change the internal note."
       }
     }

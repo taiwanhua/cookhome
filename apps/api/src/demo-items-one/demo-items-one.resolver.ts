@@ -12,10 +12,10 @@ import { SetDemoItemOneEnabledInput } from "./dto/set-demo-item-one-enabled.inpu
 import { UpdateDemoItemOneInput } from "./dto/update-demo-item-one.input";
 import {
   DeleteDemoItemOnePayload,
+  DemoItemOneAttachmentUrlPayload,
   DemoItemOneHistoryPayload,
   DemoItemOnePayload,
   DemoItemsOnePayload,
-  SignedUrlPayload,
 } from "./models/demo-item-one-payloads.model";
 import { DemoItemOneModel } from "./models/demo-item-one.model";
 
@@ -60,14 +60,19 @@ export class DemoItemsOneResolver {
     return this.service.history(operator, id);
   }
 
-  /** 私有附件的下載網址(ADR-0010);看得到這筆資料的人才拿得到(`view`)。 */
+  /**
+   * 私有附件的下載網址(ADR-0010);看得到這筆資料的人才拿得到(`view`)。
+   * 名稱帶模組前綴(GQL-02;#427 由 `attachmentDownloadUrl` 改名,舊名不保留)。
+   */
   @RequirePermission(SAMPLE_ONE_PERMISSIONS.view)
-  @Query(() => SignedUrlPayload, { name: "attachmentDownloadUrl" })
-  attachmentDownloadUrl(
+  @Query(() => DemoItemOneAttachmentUrlPayload, {
+    name: "demoItemOneAttachmentUrl",
+  })
+  demoItemOneAttachmentUrl(
     @Args("id", { type: () => ID }) id: string,
     @CurrentOperator() operator: OperatorContext,
-  ): Promise<SignedUrlPayload> {
-    return this.service.attachmentDownloadUrl(operator, id);
+  ): Promise<DemoItemOneAttachmentUrlPayload> {
+    return this.service.attachmentUrl(operator, id);
   }
 
   @RequirePermission(SAMPLE_ONE_PERMISSIONS.create)
