@@ -4,7 +4,7 @@
 
 藍本取自**示範家族**:[示範模組1](../modules/demo.sub.sample-one.md)(把所有選配都打開的完整示範)與 [示範模組2](../modules/demo.sample-two.md)(**對照組 —— 拿掉全部選配之後剩下的最小可行模組**)。要照抄就抄示範模組2,需要哪一項選配再回示範模組1 對照(選配清單見文末「示範模組 1 vs 2 差異對照表」)。
 
-**這份文件不是規則的正本**,只是指路與順序:權限綁定看 ADR-0004、路由與判斷流程看 ADR-0011、資料範圍看 ADR-0008、基礎欄位看 ADR-0007、檔案儲存看 ADR-0010、前端分層看 ADR-0012、程式碼規範看 `docs/standards/README.md` 的索引。
+**這份文件不是規則的正本**,只是指路與順序:權限綁定看 ADR-0004、路由與判斷流程看 ADR-0011、資料範圍看 ADR-0008、基礎欄位看 ADR-0007、檔案儲存看 ADR-0010、前端分層看 ADR-0012(現況說明在 `docs/concepts/`)、程式碼規範看 `docs/standards/README.md` 的索引。每一步結尾的「正本」是照抄時要打開的檔。
 
 ## 檔案清單一覽
 
@@ -23,7 +23,7 @@
 | 7 測試      | `apps/api/src/<feature>/*.test.ts`、`apps/admin/src/pages/<域>/**/*.test.tsx`、`apps/admin/src/test/msw/<feature>-handlers.ts`                                                                 | TEST-07、TEST-08                                             |
 | 8 文件回寫  | `docs/modules/<模組key>.md` 補齊、`docs/data-model.md`、`CONTEXT.md`(有新詞才動)                                                                                                               | CLAUDE.md「Domain docs」                                     |
 
-**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。
+**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。其餘指令見 [toolbox.md](./toolbox.md)。
 
 ## 步驟 0:先把規格寫進模組文件
 
@@ -33,7 +33,11 @@
 2. **權限表**:每一筆權限「是哪一頁的什麼」。綁定原則(ADR-0004)是**綁按鈕 / 欄位所在的那一頁** —— 跨頁共用的欄位綁父模組,某一頁自己的區塊綁那一頁。權限與端點、權限與頁面都**不必一一對應**(示範模組2 六個端點只用四個 key;示範模組1 的 `delete` 沒有自己的頁)。
 3. **資料欄位**:哪些欄位、哪些要進資料範圍目錄。
 
+模組文件的章節順序固定(用途 → 模組 key 與畫面 → 權限表 → 資料 → 規則 → api 介面 → admin 頁面 → 錯誤碼 → 稽核 → 測試 → 使用者說明 → 平台視角備註),照示範模組2 的檔抄一份骨架;這一步先填前四節,其餘在步驟 8 補齊。
+
 CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌元素同步 `docs/branding.md`。
+
+正本:`docs/modules/demo.sample-two.md`(章節骨架)、`docs/modules/demo.sub.sample-one.md`(選配全開的寫法)
 
 ## 步驟 1:seed 宣告(模組樹 / 權限 / dataScopeTarget)
 
@@ -48,9 +52,13 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 
 **動到種子的數量或內容,連帶修 api 既有測試裡寫死的數字**(`apps/api/src/permission/permission.test.ts` 這類)—— 這屬於同一張票。
 
+正本:`apps/db-migrator/seeds/module-declaration.ts`、`apps/db-migrator/seeds/modules.ts`、`apps/db-migrator/seeds/modules/demo.sample-two.ts`、`apps/db-migrator/src/seed/seed-key-convention.test.ts`
+
 ### 1b 示範 / 初始資料(選配)
 
 抄 `apps/db-migrator/seeds/demo-items.ts`,在 `seeds/registry.ts` 註冊,**順序放在被引用者之後**(引用組織、欄位選項的資料放最後)。冪等以 `key` 識別(`key` 不是 schema 欄位,由 runner 寫在文件上);`seedRef` **只解析得到有 `key` 的種子文件**,所以引用不到 root 初始帳號這種沒有 `key` 的資料 —— 示範資料的建立者因此是固定的假 id。
+
+正本:`apps/db-migrator/seeds/demo-items.ts`、`apps/db-migrator/seeds/registry.ts`
 
 ## 步驟 2:schema(基礎欄位 plugin、租戶過濾)
 
@@ -64,6 +72,8 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 - **`database.module.ts` 三處註冊**:`MongooseModule.forFeature` 的陣列、一個 `XxxRepository extends BaseRepository<Entity, EntityDocument>`、providers 與 exports;`HydratedDocument<Entity>` 的型別別名也在該檔。
 
 沒有 `orgId`、歸屬走核心關聯的資料(users / roles 那種)**不掛** `tenantScopePlugin`,由模組先查關聯再查本表。
+
+正本:`apps/api/src/database/schemas/demo-item-two.schema.ts`、`apps/api/src/database/database.module.ts`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`
 
 ## 步驟 3:api 模組(resolver / service / error / audit / abilities)
 
@@ -88,7 +98,9 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 - **稽核**:`AuditService.record`,動作 `<entity>.create` / `.edit` / `.delete` / `.toggle-enabled`,`targetType` 固定為該 collection 的單數名;`before` / `after` 只放有變的欄位。
 - **自鎖**:`setXxxEnabled` 要不要套 `SELF_LOCK`,**拆票時就裁決並寫在票上**。判準:會讓操作者失去繼續操作能力(關掉就再也開不回來)的才套;業務資料的停用隨時開得回來,不套。
 
-### 欄位級權限欄的四件事(選配,來源 #318)
+正本:`apps/api/src/demo-items-two/`(最小)、`apps/api/src/demo-items-one/`(完整)、`apps/api/src/app.module.ts`、`docs/standards/api/graphql-schema.md`
+
+### 欄位級權限欄的四件事(選配)
 
 某個欄位要另外一組權限才看得到 / 改得動時(示範模組1 的 `internalNote`),四件事缺一不可:
 
@@ -99,9 +111,13 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 
 歷程查詢(`xxxHistory(id)`)本身要**先驗這筆資料看不看得到**,否則歷程會變成繞過資料範圍規則的側門。
 
+正本:`apps/api/src/demo-items-one/demo-items-one.service.ts`、`apps/api/src/demo-items-one/demo-item-one-mapper.ts`
+
 ### 上傳(選配,ADR-0010)
 
-`apps/api/src/storage/upload-rules.ts` 是正本:加一個 `UploadPurpose`,並在 `UPLOAD_VISIBILITIES`(公開 / 私有 bucket)、`UPLOAD_PATH_PREFIXES`、`UPLOAD_RULES`(允許的 content type → 副檔名、大小上限)各補一行。可見性是**用途的衍生屬性**,不另給參數。寫入「由前端回傳路徑」的欄位前一律先過 `isOwnedUploadPath`,不然呼叫端可以把任意 bucket 物件塞進 DB。公開 bucket 回**穩定 URL**(可直接放 `<img src>`),私有 bucket 只回路徑與檔名、下載時另外現簽(讀取網址的 query 名帶模組前綴,如 `demoItemOneAttachmentUrl`,GQL-02)。**要顯示原始檔名 / 大小就在寫入 input 一起收**(前端 `useDemoUpload` 已回 `{ path, name, size, contentType }`,即 `File.name` / `size` / `type`),存成與路徑同生同滅的平行欄位 —— 物件路徑是 `<uuid>.<副檔名>`,本身不帶原始檔名(先例示範模組1 的 `attachment`,#427)。
+`apps/api/src/storage/upload-rules.ts` 是正本:加一個 `UploadPurpose`,並在 `UPLOAD_VISIBILITIES`(公開 / 私有 bucket)、`UPLOAD_PATH_PREFIXES`、`UPLOAD_RULES`(允許的 content type → 副檔名、大小上限)各補一行。可見性是**用途的衍生屬性**,不另給參數。寫入「由前端回傳路徑」的欄位前一律先過 `isOwnedUploadPath`,不然呼叫端可以把任意 bucket 物件塞進 DB。公開 bucket 回**穩定 URL**(可直接放 `<img src>`),私有 bucket 只回路徑與檔名、下載時另外現簽(讀取網址的 query 名帶模組前綴,如 `demoItemOneAttachmentUrl`,GQL-02)。**要顯示原始檔名 / 大小就在寫入 input 一起收**(前端 `useDemoUpload` 已回 `{ path, name, size, contentType }`,即 `File.name` / `size` / `type`),存成與路徑同生同滅的平行欄位 —— 物件路徑是 `<uuid>.<副檔名>`,本身不帶原始檔名(先例示範模組1 的 `attachment`)。
+
+正本:`apps/api/src/storage/upload-rules.ts`、`apps/api/src/storage/storage.service.ts`(`isOwnedUploadPath`)
 
 ## 步驟 4:documents + codegen
 
@@ -116,12 +132,14 @@ pnpm --filter @repo/graphql generate
 
 **新環境第一次跑 `schema:generate` 前先 `pnpm exec turbo run build --filter=@repo/domain`**,否則 api 解不開 `@repo/domain` 的型別。
 
+正本:`apps/api/package.json`(`schema:generate`)、`packages/graphql/package.json`(`generate`)、`packages/graphql/src/documents/demo-items-two.graphql`
+
 ## 步驟 5:admin(一份設定物件 + 三個薄頁面檔)
 
 前端藍本正本:`apps/admin/src/pages/demo/shared/demo-module-config.ts` 的 **`DemoModuleConfig`**(逐項 JSDoc 就是規格)。分工是:
 
 - **共用元件**(`pages/demo/shared/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`)負責版型、兩層權限判斷、分頁、未儲存離開確認、刪除確認、錯誤擺放位置 —— **一行都不用改**。
-- **詳情頁要設 itemLabel**(#428,ADR-0011「頁籤兩種」):路由頁籤列把詳情 / 編輯頁顯示成「模組名 — 項目名」,項目名由頁面拿到資料後呼叫 `hooks/useRouteTabItemLabel(item.name)` 提供。共用的 `DemoDetailPage` / `DemoFormPage` 已接好;不用共用元件、自己寫詳情頁的模組要自己呼叫。
+- **詳情頁要設 itemLabel**(ADR-0011「頁籤兩種」):路由頁籤列把詳情 / 編輯頁顯示成「模組名 — 項目名」,項目名由頁面拿到資料後呼叫 `hooks/useRouteTabItemLabel(item.name)` 提供。共用的 `DemoDetailPage` / `DemoFormPage` 已接好;不用共用元件、自己寫詳情頁的模組要自己呼叫。
 - **設定物件**負責「這個模組是什麼」:模組 key、權限 key、欄位定義、資料存取 hook、選配區塊。
 
 共用元件**完全不認得任何模組的 GraphQL 型別**:資料存取一律由設定物件包成 `useRows` / `useItem` / `useSave` 三個 hook 交出來(只有刪除因為兩邊 input 同形 `{ id }` 才直接收 codegen 的 hook)。
@@ -144,31 +162,39 @@ pnpm --filter @repo/graphql generate
 
 **i18n**(I18N-02):`packages/i18n/messages/zh-TW/admin.json` 與 `en/admin.json` 各加一個 namespace,三頁共用;`columns.<key>` / `fields.<key>` / `form.<key>` 的 key 與設定物件的欄位 `key` 同名 —— 表單欄位的 `key` 同時是 `FormValues` 的鍵、i18n 的 key、**api 回報 `VALIDATION_FAILED` 時的欄位名**,三者同名,錯誤才標得回正確的欄位上。
 
-**目前 `shared/` 那組共用元件掛在 `pages/demo/` 底下**(示範家族的共版型,#321)。正式業務模組要用時,把它搬到共用位置屬於另一張票 —— 搬之前先照抄一份也行,但兩份共用元件不要長期並存。
+**目前 `shared/` 那組共用元件掛在 `pages/demo/` 底下**(示範家族的共版型)。正式業務模組要用時,把它搬到共用位置屬於另一張票 —— 搬之前先照抄一份也行,但兩份共用元件不要長期並存。
+
+正本:`apps/admin/src/pages/demo/shared/demo-module-config.ts`、`apps/admin/src/pages/demo/SampleTwoModule.tsx`、`apps/admin/src/pages/demo/demo-sample-two-config.ts`、`apps/admin/src/pages/demo/SampleTwoPage/`、`apps/admin/src/app/module-pages.tsx`
 
 ## 步驟 6:help.md(租戶使用者看的說明)
 
 新增 `apps/admin/src/md/module-help/<模組key>.help.md`,**檔名必須等於模組 key**(`lib/module-help.ts` 以檔名對應;`lib/help-registry.ts` 的 `import.meta.glob` 在 build 時把內容內嵌進 bundle)。
 
-- 結構沿用既有八份:`# <模組名>` → `## 這個模組做什麼` → `## 常用操作` → `## 重要規則`。
+- 結構沿用既有的說明檔:`# <模組名>` → `## 這個模組做什麼` → `## 常用操作` → `## 重要規則`。
 - **讀者是租戶使用者**:守 `CONTEXT.md` 詞彙表、**不得出現平台視角詞彙**(根組織 / 租戶 / 開通 / 跨租戶 / 平台);聯絡窗口一律寫「系統管理員」;「租戶管理員副本」在 UI 與 help 裡叫「預設角色」(FIGMA-04)。
 - 對人的提示不用內部術語(「子樹」→「或其下層組織」)。
 - 寫**使用者做得到的事與看得到的差異**,不寫實作(不出現 collection 名、權限 key、GraphQL 端點)。
-- 交件前跑 `pnpm --filter @repo/admin check:help-bundle`(Dockerfile 也跑這一步):它驗每份 help.md 真的被打包進 `dist/assets`。`.dockerignore` 曾經把 `**/*.md` 擋在 build context 外,本機 build 正常但 image 裡三環境的說明全是空的(#259)。
+- 交件前先 `pnpm --filter @repo/admin build` 再跑 `pnpm --filter @repo/admin check:help-bundle`(Dockerfile 也跑這一步):它驗每份 help.md 真的被打包進 `dist/assets`。理由:根目錄 `.dockerignore` 排除 `**/*.md`,help.md 靠一條例外才進得了 build context;例外一失效,本機 build 正常、image 裡的說明卻全是空的,沒有任何一步會失敗。
+
+正本:`apps/admin/src/lib/module-help.ts`、`apps/admin/src/lib/help-registry.ts`、`apps/admin/src/md/module-help/demo.sample-two.help.md`、`apps/admin/scripts/check-help-bundle.mjs`
 
 ## 步驟 7:測試
 
 - **api(TEST-07)**:打真的 `/graphql`、對真 MongoDB。至少覆蓋:每個端點的權限守門(有 / 沒有該 key)、範圍(看不到的資料回 `NOT_FOUND`)、輸入驗證、稽核有沒有寫、`abilities` 的值。有欄位級權限的再加投影與寫入拒絕;有 `dataScopeTarget` 的加「規則命中 → 列表與單筆一致」;沒宣告的加「規則不介入」的對照。
 - **admin(TEST-08)**:MSW 攔網路層 + RTL,`renderApp()` 渲染。至少覆蓋:權限驅動的渲染(按鈕出不出現、區塊顯不顯示)、路由防守(沒綁隱藏頁模組 → 無權限頁)、放棄變更、錯誤標回欄位。MSW handler **有連動 / 狀態語意就實作進 handler**,不要回固定資料。
 - **不要把佔位夾具登記掉**:`apps/admin/src/test/msw/module-fixtures.ts` 的 **`placeholderModules`**(`demo.not-implemented`)是專門用來驗「殼對沒登記頁面的模組顯示佔位頁」的夾具模組,**永遠不會被實作**。新增真頁面時不要順手把它加進 `module-pages.tsx`。
-- 跑法:`pnpm exec turbo run test --filter=@repo/api` / `--filter=@repo/admin`(turbo 會先 build 依賴)。只跑一個 admin 測試檔要**直接在 `apps/admin`** 跑 `node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPatterns=X`。
+- 跑法:`pnpm exec turbo run test --filter=@repo/api` / `--filter=@repo/admin`(turbo 會先 build 依賴)。只跑一個測試檔要**進那個 package 的目錄**跑 `pnpm run test -- <路徑片段>`(見 toolbox「pnpm / turbo」)。
+
+正本:`apps/api/src/demo-items-two/demo-items-two.test.ts`、`apps/admin/src/pages/demo/SampleTwoPage/`(`*.test.tsx`)、`apps/admin/src/test/msw/demo-sample-two-handlers.ts`、`docs/standards/testing/testing.md`
 
 ## 步驟 8:文件回寫
 
-- `docs/modules/<模組key>.md` 補齊「api 介面」(GQL-06 / GQL-07 的正本寫在這裡)與「admin 頁面」兩節。
+- `docs/modules/<模組key>.md` 照固定章節補齊,尤其「api 介面」(GQL-06 / GQL-07 的正本寫在這裡)、「admin 頁面」、「錯誤碼」、「稽核」、「測試」;每節結尾附「正本:`<路徑>`」。
 - `docs/data-model.md` 加該 collection 一列(欄位細節指向 schema 檔,不在地圖裡重抄)。
 - `CONTEXT.md` 只在**真的長出新詞**時加;新詞要連 `_Avoid_` 一起寫。
-- 模組文件與 help.md 是**實作票必然連動的兩處**;ADR、`docs/standards/`、CONTEXT 這類規則本文由文件票寫,實作發現寫錯**寫進 PR 的「規則回饋」**,不要就地改(`docs/agents/issue-tracker.md`)。
+- 模組文件與 help.md 是**實作票必然連動的兩處**;ADR、`docs/standards/`、CONTEXT 這類規則本文由文件票寫,實作發現寫錯**寫進 PR 的「規則回饋」**,不要就地改。
+
+正本:`docs/agents/issue-tracker.md`「文件的歸屬」、`docs/data-model.md`、`CONTEXT.md`
 
 ## 示範模組 1 vs 2 差異對照表(哪些是選配)
 
@@ -184,13 +210,12 @@ pnpm --filter @repo/graphql generate
 | **雙路檔案儲存**       | 封面(公開 bucket)+ 附件(私有 bucket)                     | 無        | `upload-rules.ts` 加 purpose;前端用設定物件的 `form.uploads`(空陣列 = 沒有上傳欄)                                          |
 | **模組自有篩選器**     | 分類 `Autocomplete`(選項來自欄位管理)                    | 無        | 設定物件的 `list.Filters`;不給就只有搜尋框                                                                                 |
 | **外部選項來源**       | 分類選項來自欄位管理「示範分類」                         | 無        | 選項端點掛在**別的模組的權限**底下(`system.field-manager.view`)—— 沒有它的人:列表無該篩選、表單該欄唯讀並說明原因          |
-| **模組專屬錯誤解讀**   | `demo-sample-one-error.ts`                               | 共用一份  | 錯誤碼一律沿用 GQL-04 通用碼,不新增 code                                                                                   |
 | **三層模組樹**         | `demo > demo.sub > sample-one`                           | 兩層      | 純粹是樹的深度;`route` 各寫自己那一段,完整路徑由 api 累加                                                                  |
 | **多筆個別權限**       | 8 筆(含欄位級與頁面自有)                                 | 4 筆      | 最小就是 view / create / edit / delete;wildcard 每個節點自動一筆                                                           |
 
-**兩邊一樣、沒得選的**:四個模組 key = 四頁、共用的三個頁面元件、兩層判斷分開問、`abilities` 由 api 算好、`tenantScopePlugin` + `baseFieldsPlugin`、軟刪除、payload 形狀、審計四個動作、help.md、i18n 兩份字典。
+**兩邊一樣、沒得選的**:四個模組 key = 四頁、共用的三個頁面元件、兩層判斷分開問、`abilities` 由 api 算好、`tenantScopePlugin` + `baseFieldsPlugin`、軟刪除、payload 形狀、審計四個動作、help.md、i18n 兩份字典、錯誤解讀共用 `pages/demo/shared/demo-error.ts`(錯誤碼一律沿用 GQL-04 通用碼,不新增 code)。
 
-### 選配、但兩支示範模組都做了的(2026-09-23 拆出,#359)
+### 選配、但兩支示範模組都做了的
 
 上表每一列都可以不做,而且**示範模組2 沒做**;下面這些**是選配、但兩支都示範了**,所以在上表裡會把「示範模組2 = 最小可行、每列都可不做」的語意撐開。要照抄最小模組時,這幾項也可以不做:
 
@@ -198,14 +223,18 @@ pnpm --filter @repo/graphql generate
 | ----------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | **啟用 / 停用切換(選配:`useSetEnabled`)** | 各自有 `setDemoItemOneEnabled` / `setDemoItemTwoEnabled`,列表「啟用」欄是開關 | 設定物件不給 `useSetEnabled` = 這個模組沒有啟用 / 停用,列表維持唯讀 `Tag`;給了也只有 `abilities.canEdit` 為真的列才是開關 |
 
-**選配的 hook 與 React 的 hook 規則相衝 —— 用「替身 hook」解,不要條件式呼叫**(#359):設定物件裡的 `useSetEnabled` 是選配,直覺寫法是 `config.useSetEnabled?.(…)`,但那是**條件式呼叫 hook**,`rules-of-hooks` 會擋(REACT-06),而且模組之間切換時 hook 數量會變。做法是在共用層準備一支**同簽章、什麼都不做**的替身(先例 `pages/demo/shared/useDemoQuery.ts` 的 `noDemoSetEnabled`,回一個恆 `undefined` / no-op 的結果),呼叫端一律 `(config.useSetEnabled ?? noDemoSetEnabled)(…)` —— hook 一定被呼叫、呼叫順序固定,「有沒有這個選配」變成資料而不是控制流。日後新增別的選配 hook 照同一個形狀做。
+**選配的 hook 與 React 的 hook 規則相衝 —— 用「替身 hook」解,不要條件式呼叫**:設定物件裡的 `useSetEnabled` 是選配,直覺寫法是 `config.useSetEnabled?.(…)`,但那是**條件式呼叫 hook**,`rules-of-hooks` 會擋(REACT-06),而且模組之間切換時 hook 數量會變。做法是在共用層準備一支**同簽章、什麼都不做**的替身(先例 `pages/demo/shared/useDemoQuery.ts` 的 `noDemoSetEnabled`,回一個恆 `undefined` / no-op 的結果),呼叫端一律 `(config.useSetEnabled ?? noDemoSetEnabled)(…)` —— hook 一定被呼叫、呼叫順序固定,「有沒有這個選配」變成資料而不是控制流。日後新增別的選配 hook 照同一個形狀做。
+
+正本:`apps/admin/src/pages/demo/shared/useDemoQuery.ts`、`apps/admin/src/pages/demo/shared/demo-module-config.ts`
 
 ## 交件前檢查清單
 
 - [ ] `pnpm exec turbo run check-types`、`lint`、`test` 全綠
 - [ ] `pnpm format` 跑過(`format:check` 涵蓋 `.md` 與 `.ts` / `.tsx` / `.json` / `.yaml`)
 - [ ] 動過 schema → `schema:generate` + `graphql generate` 兩份產物都在 commit 裡(GQL-05)
-- [ ] `pnpm --filter @repo/admin check:help-bundle` 過
+- [ ] `pnpm --filter @repo/admin build` 後 `check:help-bundle` 過
 - [ ] `docs/modules/<模組key>.md` 與 help.md 同 PR 更新
-- [ ] admin 票附 mock 模式截圖(`pnpm --filter @repo/admin dev:mock`,`http://localhost:3002`),逐張寫明哪一頁、什麼狀態
+- [ ] admin 票附 mock 模式截圖(`pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort`,網址以終端的 `Local:` 為準),逐張寫明哪一頁、什麼狀態
 - [ ] 新增的環境變數 / 品牌元素同步 `docs/env-registry.md` / `docs/branding.md`
+
+正本:`docs/agents/issue-tracker.md`「實作一張票」

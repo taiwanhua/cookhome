@@ -1,6 +1,6 @@
 # CookHome 部署架構與操作手冊
 
-> 最後更新:2026-09-22(#364:新增「資料庫還原(reset)」一節與手動 workflow `reset-db.yml`,僅 dev / staging;#313:Release 步驟第 4 點定為「對齊 `dev` / `staging`」的唯一正本,其餘四處改為一句指路;#309:release 一批一次、release 後 `dev` / `staging` 以 `reset --hard` 對齊 `main`,取代原本把 `main` 空合併回去的做法;2026-09-21 #270:admin nginx 的 `index.html` 回 `Cache-Control: no-cache`、`/assets/` 維持 immutable 長快取;#259:`.dockerignore` 對 admin 模組說明開例外 + Dockerfile 加打包資產檢查;2026-09-19 #69:api 非機密環境變數改由 `deploy/env/<環境>.yaml` 提供、Secret Manager 加 `jwt-secret*`、`resend-api-key*`)。**學習路線 ①~⑤ 全部完成**:CI + CD 上線,www / erp / api 運行於自訂網域;三環境分支模型(`dev` / `staging` / `main`),部署一律手動觸發。
+> 三環境分支模型(`dev` / `staging` / `main`),CI + CD 上線,www / erp / api 運行於自訂網域;**部署一律手動觸發**。本檔是部署、release 與分支對齊的操作正本。
 
 ## 一、架構總覽
 
@@ -53,6 +53,8 @@ dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-st
 | Cloudflare / Vercel | DNS 代管 / front(Hobby)                                                                                                                                               | $0              |
 | Vercel 第二專案     | `cookhome-design` → `design.cookhome.online`(Storybook,root `apps/storybook`,output `storybook-static`,只建 main:Ignored Build Step = Only build production)          | $0              |
 
+正本:`.github/workflows/deploy.yml`(服務名、區域、registry、secret 接線)、`deploy/env/<環境>.yaml`、`docs/env-registry.md`(secret 與變數清單)
+
 ## 二、分支模型與 CI/CD 流程
 
 ```
@@ -70,7 +72,7 @@ release 後:進行中的 feat 分支 rebase 到最新 main
   - UI:Actions → Deploy → Run workflow →「Use workflow from」選分支 + environment 選環境
   - CLI:`gh workflow run Deploy --ref dev -f environment=dev`(staging 同理;production 的 ref 是 `main`)
   - 防呆:分支與環境不對應會直接失敗(dev→`dev`、staging→`staging`、production→`main`)
-  - **只部署改到的 app**(2026-09-19):workflow 讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過(migrate → seed 也只在 api 或 db-migrator 受影響時跑);判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`(第一次部署或 Cloud Run 讀不到 tag 時會自動全部)
+  - **只部署改到的 app**:workflow 讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過(migrate → seed 也只在 api 或 db-migrator 受影響時跑);判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`(第一次部署或 Cloud Run 讀不到 tag 時會自動全部)
   - image tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(VITE 端點烘入)
   - **部署成功後自動跑 `migrate → seed`**(ADR-0002):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`;seed 摘要(新增 N / 更新 M / 未變 K)印在 Actions log — 第一次跑應全為新增,之後每次應為 0 / 0 / K。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)
 - **資料庫還原(reset-db.yml)**:同樣只能手動觸發,**只有 dev / staging**(`data` / `full` 兩模式);操作見下面「三、手動操作」的「資料庫還原(reset)」,規則正本是 ADR-0002「還原(reset)」
@@ -95,14 +97,16 @@ release 後:進行中的 feat 分支 rebase 到最新 main
 
   5. 關票(`gh issue close <n> --comment "<release PR>"`)→ 自動化移到 Released;刪已合併的遠端分支
   6. **交叉 merge base(dev 與 staging 都會發生)**:feat 一律從 `main` 切,而 `dev` / `staging` 各自往前走一條線,同一批票在兩條線上各合一次之後,PR 就有兩個 merge base。徵兆是 **GitHub 顯示 CONFLICTING,但本地 `git merge-tree --write-tree origin/<base> <feat>` 乾淨**。後果不只是紅字:**GitHub 不建 merge ref ⇒ 這張 PR 一個 Actions run 都不會跑**,CI 沒結果、`project-status.yml` 也不會移卡(看板停在原格不是自動化壞了)。處理:先照第 4 點把該 base reset 到 `main`(reset 後 base 與 `main` 是同一個 commit,交叉 merge base 直接消失;base 上有未 release 的 feat 就 reset 後再合回去),**接著把 PR close → reopen** 才會重跑 CI(base 更新本身不觸發 `pull_request` 事件)
-- **Docker build context 排除 `.md`,但 admin 的 help.md 是程式資產**(#259):根目錄 `.dockerignore` 有 `**/*.md`(文件不進 image),而 `apps/admin/src/md/module-help/*.help.md` 是 Vite 在 build 時用 `import.meta.glob` 內嵌進 bundle 的**程式資產** —— 被排除時本機 `pnpm build` 照樣正常、CI 建出來的 image 卻讓每頁的「?」全部 disabled,而且沒有任何一步會失敗。例外規則寫在 `.dockerignore`(`!apps/admin/src/md/**/*.md`,必須排在 `**/*.md` 之後才生效),防回歸檢查在 `apps/admin/Dockerfile` 的 builder stage:build 之後 `RUN pnpm --filter @repo/admin check:help-bundle`(腳本 `apps/admin/scripts/check-help-bundle.mjs`,比對每份說明的內容是否出現在 `dist/assets/*.js`;掃不到說明檔也算失敗)。**日後再有這類「跟著 build 烘進產物的非程式檔」**(i18n 字典、範本、憑證…),一律同時做兩件事:在 `.dockerignore` 補例外 + 在 Dockerfile 加一條驗產物的檢查
-- **admin 的靜態檔快取策略:`index.html` = `no-cache`、`/assets/` = `immutable` 一年**(#270,設定在 `apps/admin/nginx.conf`):`index.html` 是唯一指向「這次部署的 bundle 檔名」的入口,一旦被快取,部署後重新整理仍會載入舊 HTML → 舊 `assets/index-<hash>.js`;`/assets/` 底下的檔名帶 content hash,內容一變檔名就變,可以永久快取。`no-cache` 不是「不快取」,是「每次都先向伺服器驗證」(ETag 命中回 304,只花一個 round trip)。**部署後使用者正常重新整理即可拿到新版,不需要 Ctrl+F5 / 清快取**;先前沒有這個標頭時瀏覽器會用啟發式快取(依 `Last-Modified` 自行推算效期),於是出現「部署成功但畫面沒變」。注意 nginx 的 `add_header` **不會**繼承到自己也有 `add_header` 的子 block,所以 `location /`(SPA fallback)與 `location = /index.html`(`try_files` 的內部轉址會重新比對 location)各寫一份。**改了 `apps/admin/nginx.conf` 之後,驗收方式是 `curl -I https://erp-<環境>.cookhome.online/` 看 `Cache-Control`**
+- **Docker build context 排除 `.md`,但 admin 的 help.md 是程式資產**:根目錄 `.dockerignore` 有 `**/*.md`(文件不進 image),而 `apps/admin/src/md/module-help/*.help.md` 是 Vite 在 build 時用 `import.meta.glob` 內嵌進 bundle 的**程式資產** —— 被排除時本機 `pnpm build` 照樣正常、CI 建出來的 image 卻讓每頁的「?」全部 disabled,而且沒有任何一步會失敗。例外規則寫在 `.dockerignore`(`!apps/admin/src/md/**/*.md`,必須排在 `**/*.md` 之後才生效),防回歸檢查在 `apps/admin/Dockerfile` 的 builder stage:build 之後 `RUN pnpm --filter @repo/admin check:help-bundle`(腳本 `apps/admin/scripts/check-help-bundle.mjs`,比對每份說明的內容是否出現在 `dist/assets/*.js`;掃不到說明檔也算失敗)。**日後再有這類「跟著 build 烘進產物的非程式檔」**(i18n 字典、範本、憑證…),一律同時做兩件事:在 `.dockerignore` 補例外 + 在 Dockerfile 加一條驗產物的檢查
+- **admin 的靜態檔快取策略:`index.html` = `no-cache`、`/assets/` = `immutable` 一年**(設定在 `apps/admin/nginx.conf`):`index.html` 是唯一指向「這次部署的 bundle 檔名」的入口,一旦被快取,部署後重新整理仍會載入舊 HTML → 舊 `assets/index-<hash>.js`;`/assets/` 底下的檔名帶 content hash,內容一變檔名就變,可以永久快取。`no-cache` 不是「不快取」,是「每次都先向伺服器驗證」(ETag 命中回 304,只花一個 round trip)。**部署後使用者正常重新整理即可拿到新版,不需要 Ctrl+F5 / 清快取**;沒有這個標頭時瀏覽器會用啟發式快取(依 `Last-Modified` 自行推算效期),就會出現「部署成功但畫面沒變」。注意 nginx 的 `add_header` **不會**繼承到自己也有 `add_header` 的子 block,所以 `location /`(SPA fallback)與 `location = /index.html`(`try_files` 的內部轉址會重新比對 location)各寫一份。**改了 `apps/admin/nginx.conf` 之後,驗收方式是 `curl -I https://erp-<環境>.cookhome.online/` 看 `Cache-Control`**
 - **改了 `.dockerignore` / Dockerfile 之後要用 `-f force=true` 部署**:這兩個檔不屬於任何 package,`turbo ls --affected` 看不到,不加 force 會整個 build 步驟被跳過
-- **新增「會被烘進前端產物」的環境變數時,同步登記進該 package `turbo.json` 的 `tasks.build.env`**(2026-09-23,#378;規則正本 `docs/standards/general/structure.md` STRUCT-08):`VITE_*` / `NEXT_PUBLIC_*` 是 build 的**輸入**,沒登記就不在 build 的快取鍵裡 —— 換一個值重 build 會直接 `cache hit`,**部署出去的 image 裡烘的還是舊值**,而且沒有任何一步會失敗。admin 的 `VITE_GRAPHQL_ENDPOINT` 原本就漏登記過(每環境各建一顆 image,正是最容易吃到這個坑的形狀)。三處一起動:`turbo.json` 的 `env`、`docs/env-registry.md`、該環境的 build 參數(deploy.yml 的 `--build-arg` 或 Vercel dashboard)
-- **Vercel 的 `Deployment rate limited` 是帳號層級的額度,不是我們的設定壞了**(2026-09-23,#376):front 在免費方案上短時間內推太多次就會碰到,等額度回復再推即可,**不要為此改 workflow 或重試設定**;它不影響 api / admin 的 Cloud Run 部署
+- **新增「會被烘進前端產物」的環境變數時,同步登記進該 package `turbo.json` 的 `tasks.build.env`**(規則正本 `docs/standards/general/structure.md` STRUCT-08):`VITE_*` / `NEXT_PUBLIC_*` 是 build 的**輸入**,沒登記就不在 build 的快取鍵裡 —— 換一個值重 build 會直接 `cache hit`,**部署出去的 image 裡烘的還是舊值**,而且沒有任何一步會失敗。admin 每環境各建一顆 image(`VITE_GRAPHQL_ENDPOINT` 烘入),正是最容易吃到這個坑的形狀。三處一起動:`turbo.json` 的 `env`、`docs/env-registry.md`、該環境的 build 參數(deploy.yml 的 `--build-arg` 或 Vercel dashboard)
+- **Vercel 的 `Deployment rate limited` 是帳號層級的額度,不是我們的設定壞了**:front 在免費方案上短時間內推太多次就會碰到,等額度回復再推即可,**不要為此改 workflow 或重試設定**;它不影響 api / admin 的 Cloud Run 部署
 - **dev / staging 重置**:指令與前置檢查見上面 Release 步驟第 4 點(正本)。它不需要切分支、不動本地工作目錄
 - **認證**:Workload Identity Federation — OIDC 短期憑證換 `github-deployer` 身分,repo 裡**零 GCP 金鑰**,provider 限定本 repo
 - **回滾**:`gcloud run services update-traffic cookhome-api --to-revisions=<舊revision>=100`,或從舊 commit 觸發部署
+
+正本:`.github/workflows/ci.yml`、`.github/workflows/deploy.yml`、`.github/workflows/reset-db.yml`、`.github/workflows/e2e.yml`、`.github/workflows/project-status.yml`(看板移卡)、`.dockerignore`、`apps/admin/Dockerfile`、`apps/admin/scripts/check-help-bundle.mjs`、`apps/admin/nginx.conf`
 
 ## 三、手動操作(維運速查)
 
@@ -112,6 +116,8 @@ release 後:進行中的 feat 分支 rebase 到最新 main
 docker compose up -d                  # 日常開發:只起 MongoDB
 docker compose --profile full up -d   # 部署前驗證:mongo + api + admin 整套容器
 ```
+
+正本:`docker-compose.yml`
 
 ### 手動部署(CD 掛掉時的備援;平常交給 deploy.yml)
 
@@ -123,6 +129,8 @@ REG=asia-east1-docker.pkg.dev/cookhome-online/cookhome
 docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$SHA
 # 接著複製 deploy.yml「deploy」步驟裡 api 的 gcloud run deploy 指令,把 ${{ … }} 換成該環境的值
 ```
+
+正本:`.github/workflows/deploy.yml`(deploy 步驟)、`apps/api/Dockerfile`、`apps/admin/Dockerfile`
 
 ### 資料庫還原(reset;僅 dev / staging)
 
@@ -150,6 +158,8 @@ docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$
     pnpm --filter @repo/db-migrator reset --mode=data --confirm=cookhome-dev
   ```
 
+正本:`.github/workflows/reset-db.yml`、`apps/db-migrator/src/reset/`(三道安全閥在 `reset-safety.ts`)、ADR-0002「還原(reset)」
+
 ### 觀測與維運
 
 ```bash
@@ -176,11 +186,11 @@ gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=a
 
 其他層:
 
-| 層               | 真實來源                                                                                                                                                                                                                               | 進版控?                     |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| Cloud Run(api)   | 上表前兩列(`deploy/env/<環境>.yaml` + Secret Manager)。YAML 自 #69 起是該環境**全部明文變數**的唯一來源(`GRAPHQL_SANDBOX` 也在檔內):`--env-vars-file` 整包取代,檔內沒寫的變數部署後即不存在;`--set-secrets` 掛入的 secret 變數不受影響 | ✅ / ❌                     |
-| Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image)                                                                                                                                                                                       | ✅                          |
-| Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                                                                                                                                     | ❌(平台保存;清單記載於下表) |
+| 層               | 真實來源                                                                                                                                                                                                                      | 進版控?                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Cloud Run(api)   | 上表前兩列(`deploy/env/<環境>.yaml` + Secret Manager)。YAML 是該環境**全部明文變數**的唯一來源(`GRAPHQL_SANDBOX` 也在檔內):`--env-vars-file` 整包取代,檔內沒寫的變數部署後即不存在;`--set-secrets` 掛入的 secret 變數不受影響 | ✅ / ❌                     |
+| Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image)                                                                                                                                                                              | ✅                          |
+| Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                                                                                                                            | ❌(平台保存;清單記載於下表) |
 
 Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型):
 
@@ -201,9 +211,11 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 
 變數清單(用途/是否機密/放哪/狀態)的正本是 `docs/env-registry.md`,新增或異動變數時必須更新它。
 
+正本:`deploy/env/<環境>.yaml`、`.github/workflows/deploy.yml`(`--env-vars-file` / `--set-secrets` / `--build-arg`)、`docs/env-registry.md`
+
 ### GCS bucket 的 CORS(瀏覽器直傳必要)
 
-瀏覽器對簽名網址 `PUT` 直傳受 CORS 限制,六個 bucket 都已設(2026-09-19;#140 驗收時開通租戶因此失敗過):
+瀏覽器對簽名網址 `PUT` 直傳受 CORS 限制,六個 bucket 都已設(沒設時,開通租戶的商標上傳會在瀏覽器端失敗):
 
 ```bash
 # cors.json:origin = erp-dev / erp-staging / erp 三個網域 + http://localhost:3001,method GET / PUT / HEAD,responseHeader Content-Type,maxAge 3600
@@ -256,7 +268,9 @@ gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上
 
 小工具:裝了 vercel CLI 並登入後,`vercel env pull` 可把 Vercel 的變數拉成本地 `.env.local`(本地 front 想直連雲端 dev api 時方便)。
 
-### GCS bucket 與 IAM(已建於 2026-09-19,重建或加新環境時照此)
+正本:`.github/workflows/deploy.yml`(`--set-secrets` 與 migrate → seed 步驟讀 secret)、`docs/env-registry.md`
+
+### GCS bucket 與 IAM(已建立;重建或加新環境時照此)
 
 檔案儲存走 GCS 簽名網址直傳(ADR-0010):瀏覽器拿 API 簽的 V4 網址直接上傳 / 讀取,檔案不經過 api。**簽名不下載金鑰檔** — Cloud Run 執行身分沒有私鑰,`@google-cloud/storage` 會改呼叫 IAM Credentials 的 `signBlob`,所以那個 SA 必須能簽自己的名(第 3 步)。指令在 Git Bash 執行,`<env>` 取 `dev` / `staging` / `prod`。
 
@@ -287,20 +301,22 @@ gcloud iam service-accounts add-iam-policy-binding 728045896207-compute@develope
 
 **4. 接線**(走 PR):`deploy/env/<環境>.yaml` 的 `GCS_BUCKET_PRIVATE` / `GCS_BUCKET_PUBLIC` 填 bucket 名稱(非機密,不進 Secret Manager);登記於 `docs/env-registry.md`。`GCS_BUCKET_PRIVATE` 沒設時 api 照常啟動,但改用記錄用 adapter(簽出來的網址是假的、檔案不會真的上傳)—— 本地開發與測試即此模式。
 
-**驗證**(需要 Cloud Run 的執行身分,本地做不到):部署後以 GraphQL 要一張上傳票 → 用該網址 PUT 一張圖 → 讀回簽名網址能開,步驟見 #137 的 PR 內文。
+**驗證**(需要 Cloud Run 的執行身分,本地做不到):部署後以 GraphQL 要一張上傳票 → 用該網址 PUT 一張圖 → 讀回簽名網址能開。
 
-### Vercel 補充設定(2026-09-04)
+正本:`apps/api/src/storage/`、`deploy/env/<環境>.yaml`、ADR-0010
+
+### Vercel 補充設定
 
 - **分支網域**:`dev.cookhome.online` → branch `dev`、`staging.cookhome.online` → branch `staging`(Settings → Domains,各綁 Git Branch);api/admin 的 dev/staging 子網域走 Cloud Run domain mapping(`api-dev`、`erp-dev`、`api-staging`、`erp-staging`,Cloudflare 灰雲 CNAME → ghs.googlehosted.com)
 - **Deploy Hooks**(Settings → Git 最下方):`dev-front`、`staging-front` — 對 hook URL 發 POST 即可**不靠 commit** 重 build 該分支的 front(Vercel 會跳過無檔案變更的 commit,分支剛建立或只想重烘時用這個)
 - **Deployment Protection:已關閉** Vercel Authentication(決策:dev/staging 的 api/admin 在 Cloud Run 本就公開,單獨保護 front preview 無實益;未來要全面保護測試環境再另議)
-- 三環境 admin image 烘入的 api 端點皆為自訂子網域(`api` / `api-dev` / `api-staging.cookhome.online`,2026-09-05 C11 完成)
+- 三環境 admin image 烘入的 api 端點皆為自訂子網域(`api` / `api-dev` / `api-staging.cookhome.online`)
 
 ## 五、安全與費用備忘
 
 - 連線字串(含密碼)只存在:Atlas、Secret Manager、擁有者本機 — 從未進版控或指令輸出
 - GraphQL Sandbox / introspection:production 關、dev 開(`GRAPHQL_SANDBOX`,值寫在 `deploy/env/dev.yaml`,其他環境的檔不寫此鍵 = 關);本地 dev 恆開
 - 費用防線:全服務 `max-instances=2`(費用天花板)+ Budget NT$600 三段警告
-- 連線池:三環境的 MongoDB URI 均含 `maxPoolSize=10` — 理論上限 6 實例 × 10 = 60 連線,遠低於 M0 的 500(三環境共用同一 cluster 額度,拆 cluster 見 dis.md 待辦)
+- 連線池:三環境的 MongoDB URI 均含 `maxPoolSize=10` — 理論上限 6 實例 × 10 = 60 連線,遠低於 M0 的 500(三環境共用同一 cluster 額度,拆 cluster 見 `docs/tmp/dis.md` 搜「Atlas」)
 - 已評估先不做:固定出口 IP(VPC connector + NAT ~US$10/月)、Cloudflare 橙雲 WAF(需 Global LB ~US$18/月)、production api `min-instances=1`(冷啟動換省錢,有流量後再開)
 - 待議:api schema 演進規範(向後相容 + 破壞性變更配遷移腳本)→ `docs/standards/api/`
