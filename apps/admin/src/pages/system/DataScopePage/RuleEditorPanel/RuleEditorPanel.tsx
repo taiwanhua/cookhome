@@ -5,9 +5,8 @@ import { Alert } from "@repo/ui/alert";
 import { Box } from "@repo/ui/box";
 import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
-import { MenuItem } from "@repo/ui/menu";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
-import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import type { OrgNodeLike, OrgOption } from "@/lib/org-tree";
@@ -104,22 +103,18 @@ export const RuleEditorPanel = ({
         </Box>
 
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-          <TextField
-            select
+          <SelectField
             size="small"
             label={t("combineOp")}
             value={editor.draft.combineOp}
             disabled={!canEdit}
             sx={{ width: 320 }}
-            onChange={(event) => {
-              editor.setCombineOp(event.target.value as DataScopeCombineOp);
-            }}
-          >
-            <MenuItem value={DataScopeCombineOp.Or}>{t("combineOr")}</MenuItem>
-            <MenuItem value={DataScopeCombineOp.And}>
-              {t("combineAnd")}
-            </MenuItem>
-          </TextField>
+            options={[
+              { value: DataScopeCombineOp.Or, label: t("combineOr") },
+              { value: DataScopeCombineOp.And, label: t("combineAnd") },
+            ]}
+            onChange={editor.setCombineOp}
+          />
           <Typography variant="caption" color="text.secondary">
             {t("combineOpHint")}
           </Typography>

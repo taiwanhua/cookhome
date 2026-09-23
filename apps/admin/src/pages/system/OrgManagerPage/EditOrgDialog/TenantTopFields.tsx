@@ -2,8 +2,7 @@ import { useTranslations } from "use-intl";
 
 import { OrgVisibility } from "@repo/graphql";
 import { FormControlLabel } from "@repo/ui/form-control-label";
-import { MenuItem } from "@repo/ui/menu";
-import { Select } from "@repo/ui/select";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { Switch } from "@repo/ui/switch";
 import { Typography } from "@repo/ui/typography";
@@ -48,34 +47,25 @@ export const TenantTopFields = ({
   return (
     <Stack spacing={2.25}>
       {canTransferOwner && (
-        <Stack spacing={0.75}>
-          <Typography variant="caption" color="text.secondary">
-            {t("owner")}
-          </Typography>
-          <Select
-            value={form.ownerUserId}
-            displayEmpty
-            fullWidth
-            disabled={isDisabled}
-            aria-label={t("owner")}
-            onChange={(event) => {
-              form.setOwnerUserId(event.target.value);
-            }}
-          >
-            <MenuItem value="">{t("ownerUnset")}</MenuItem>
-            {candidates.map((candidate) => (
-              <MenuItem key={candidate.id} value={candidate.id}>
-                {t("ownerOption", {
-                  name: candidate.name,
-                  account: candidate.account,
-                })}
-              </MenuItem>
-            ))}
-          </Select>
-          <Typography variant="caption" color="text.secondary">
-            {t("ownerHint")}
-          </Typography>
-        </Stack>
+        <SelectField
+          label={t("owner")}
+          value={form.ownerUserId}
+          displayEmpty
+          fullWidth
+          disabled={isDisabled}
+          helperText={t("ownerHint")}
+          options={[
+            { value: "", label: t("ownerUnset") },
+            ...candidates.map((candidate) => ({
+              value: candidate.id,
+              label: t("ownerOption", {
+                name: candidate.name,
+                account: candidate.account,
+              }),
+            })),
+          ]}
+          onChange={form.setOwnerUserId}
+        />
       )}
       {canSetVisibility && (
         <Stack spacing={0.5}>

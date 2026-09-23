@@ -2,15 +2,13 @@ import { useTranslations } from "use-intl";
 
 import { Box } from "@repo/ui/box";
 import { Button } from "@repo/ui/button";
-import { MenuItem } from "@repo/ui/menu";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
-import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import { issueKey } from "@/lib/data-scope-issues";
 import {
   DATA_SCOPE_GROUP_OPS,
-  type DataScopeGroupOp,
   type GroupDraft,
   type NodeDraft,
   newCondition,
@@ -92,23 +90,20 @@ export const ConditionGroup = ({
       }
     >
       <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-        <TextField
-          select
+        <SelectField
           size="small"
           label={isRoot ? t("rootOp") : t("nestedOp")}
           value={group.op}
           disabled={env.isReadOnly}
           sx={{ width: 240 }}
-          onChange={(event) => {
-            onChange({ ...group, op: event.target.value as DataScopeGroupOp });
+          options={DATA_SCOPE_GROUP_OPS.map((op) => ({
+            value: op,
+            label: op === "AND" ? t("opAnd") : t("opOr"),
+          }))}
+          onChange={(op) => {
+            onChange({ ...group, op });
           }}
-        >
-          {DATA_SCOPE_GROUP_OPS.map((op) => (
-            <MenuItem key={op} value={op}>
-              {op === "AND" ? t("opAnd") : t("opOr")}
-            </MenuItem>
-          ))}
-        </TextField>
+        />
         {!isRoot && (
           <Typography variant="caption" color="text.secondary">
             {t("nestedHint")}

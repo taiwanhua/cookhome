@@ -136,3 +136,23 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 - `title` 傳 `""` / `undefined` 就不提示,所以條件式提示直接寫 `title={isLocked ? hint : ""}`,不要條件式地換掉整棵子樹。
 
 **測試怎麼斷言**(配 TEST-08 / TEST-09):提示是 portal 出去、hover 後才出現的節點,用 `await userEvent.hover(trigger)` + `await screen.findByRole("tooltip")` 取它的文字。**不要驗 `toHaveAttribute("title", …)`** —— 改用 `Tooltip` 之後 DOM 上根本沒有 `title`,舊斷言會紅。
+
+## REACT-11 表單下拉一律用 `@repo/ui/select-field` 的 `SelectField`
+
+(2026-09-23,#429)
+
+表單裡「從固定幾個選項挑一個(或幾個)」的欄位,一律用 `SelectField`:**`label` 就是浮動標籤兼無障礙名稱,欄位下的說明用 `helperText`**,選項以 `options: { value, label, disabled? }[]` 傳入。
+
+```tsx
+✅ <SelectField label={t("owner")} value={ownerId} displayEmpty helperText={t("ownerHint")}
+     options={[{ value: "", label: t("ownerUnset") }, ...candidates]} onChange={setOwnerId} />
+❌ <Typography variant="caption">{t("owner")}</Typography>
+   <Select aria-label={t("owner")} …><MenuItem …/></Select>          // 裸 Select + 自畫標題
+❌ <TextField select label={t("owner")} …><MenuItem …/></TextField>   // 各自拼,空值 / 型別轉換各寫一份
+```
+
+- **空值項**(「未指定」「全部」)放進 `options`(`value: ""`)並開 `displayEmpty`;不要另外用 `Typography` 畫提示或標題。
+- `onChange` 收到的是**選項的 `value` 本身**(以 `options` 查表),`Value` 可以是 enum / 字面量聯集,呼叫端不再 `event.target.value as X`。
+- 多選用 `multiple`(選項自帶勾選框、`onChange` 依點選先後回整個陣列),收合摘要不合用時給 `renderValue`。
+- 需要搜尋、分組、次文字或 chip 時改用 `@repo/ui/autocomplete`(STYLE-05 的分工:選項少於十個、不需搜尋 → `SelectField`)。
+- **不適用**:殼的 AppBar 行內切換(語言、當前組織)是 `Draft/Select` 的 standard 變體、沒有標籤,仍用 `@repo/ui/select`;選單式動作(使用者選單)用 `@repo/ui/menu`。

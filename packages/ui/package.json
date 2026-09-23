@@ -209,6 +209,16 @@
         "default": "./dist/cjs/select.js"
       }
     },
+    "./select-field": {
+      "import": {
+        "types": "./dist/es/select-field.d.mts",
+        "default": "./dist/es/select-field.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/select-field.d.ts",
+        "default": "./dist/cjs/select-field.js"
+      }
+    },
     "./avatar": {
       "import": {
         "types": "./dist/es/avatar.d.mts",

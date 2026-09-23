@@ -5,9 +5,8 @@ import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
 import { CircularProgress } from "@repo/ui/circular-progress";
 import { List } from "@repo/ui/list";
-import { MenuItem } from "@repo/ui/menu";
 import { Pagination } from "@repo/ui/pagination";
-import { Select } from "@repo/ui/select";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
@@ -98,27 +97,22 @@ export const RoleListPanel = ({
         )}
       </Stack>
       {/* 擁有組織下拉與搜尋框並存,兩個條件疊加(api 的 RolesInput.ownerOrgId + keyword) */}
-      <Select
+      <SelectField
+        label={t("toolbar.ownerOrg")}
         displayEmpty
         size="small"
         value={ownerOrgId}
         sx={{ mt: 1.5 }}
-        inputProps={{ "aria-label": t("toolbar.ownerOrg") }}
-        onChange={(event) => {
-          onOwnerOrgChange(event.target.value);
-        }}
-      >
-        <MenuItem value="">{t("toolbar.ownerOrgAll")}</MenuItem>
-        {ownerOrgOptions.map((option) => (
-          <MenuItem
-            key={option.id}
-            value={option.id}
-            disabled={option.outOfScope}
-          >
-            {option.path}
-          </MenuItem>
-        ))}
-      </Select>
+        options={[
+          { value: "", label: t("toolbar.ownerOrgAll") },
+          ...ownerOrgOptions.map((option) => ({
+            value: option.id,
+            label: option.path,
+            disabled: option.outOfScope,
+          })),
+        ]}
+        onChange={onOwnerOrgChange}
+      />
       <TextField
         label={t("toolbar.search")}
         placeholder={t("toolbar.searchPlaceholder")}
