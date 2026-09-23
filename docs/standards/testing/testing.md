@@ -179,13 +179,29 @@ pnpm --filter @repo/admin dev:mock -- --port <自選埠> --strictPort
 - **一條劇本一個 spec**,檔名 `scenario-<兩位數>-<主題>.spec.ts`,測試標題以「劇本 N:」開頭
   (手動觸發時的 `grep` 就是比對標題)。
 
-另外三件踩過的:
+另外幾件踩過的:
 
 - **隔離靠租戶,不靠資料庫**。`tenant` fixture 每條劇本開一個新租戶(名稱帶隨機字尾),
   租戶本來就是產品的隔離邊界(ADR-0005);這比「一劇本一個資料庫」便宜太多 ——
   後者等於每條劇本各起一座 api。
 - **定位優先用畫面上唯一的字串**。權限矩陣每一列列尾都印著權限 key(全樹唯一),
   拿它定位比拿中文名稱穩;`.MuiTreeItem-content` 只含自己那一列(子列在自己的 `ul` 裡)。
+  兩個「看起來唯一、其實不唯一」的踩過:
+  - **開通出來的擁有者,姓名預設 = 帳號**(#398):使用者清單那一列的姓名欄與帳號欄是同一個字串,
+    `getByText(account, { exact: true })` 會命中兩個而撞 Playwright 的 strict mode。先定位到列
+    (`src/fixtures/ui.ts` 的 `userRow`),再在列內找。
+  - **root 視角的組織樹,掛「租戶」/「停用」標籤的列**(#401):名稱與標籤在同一個節點裡是相鄰的裸文字,
+    `getByText(名稱, { exact: true })` 比對的是合併後的「名稱租戶」而找不到。組織樹的列一律用
+    `orgTreeRow`(`.MuiTreeItem-content` + `hasText` 子字串)定位。
+- **驗「缺某個權限」時,前一道門要先開著**(2026-09-23,#400):畫面上的功能常常疊好幾道權限 ——
+  組織的可見性開關在「編輯」彈窗裡,而「編輯」鈕要 `edit`。只給 `view` 去驗「沒有 `set-visibility`
+  看不到開關」會白綠(連彈窗都打不開)。對照組要給到**只差要驗的那一筆**(`view` + `edit`、無
+  `set-visibility`),再斷言開關不在、硬送 `FORBIDDEN`。
+- **兩道判準在劇本的資料條件下結果相同時,不在 E2E 裡硬分**(2026-09-23,#397):預設角色的
+  `shrinkOnly`(只能縮不能擴)與防越權(subset-only)對 +tenant 來說鎖的是同一批列、回的是同一個
+  `ROLE_OUT_OF_REACH` —— 他自己的權限就是預設角色的內容。E2E 只驗「鎖住了」,判準的**順序與歸屬**
+  留給 api 測試(`apps/api/src/roles/role-kinds.test.ts`),`permission-scenarios.md` 在該劇本寫明。
+  同理,產品上造不出來的狀態(劇本 14「有 `view` 但管理範圍是空的」)不要為了 E2E 去繞資料,指向 api 測試。
 - **Snackbar 不是同步點**(2026-09-23,#395):操作結果提示 4 秒就自動關閉(DATA-06),
   拿「看到提示」當「這一步做完了」會在 CI 慢的時候抓不到、在快的時候又提早往下走。
   **連續操作之間等的是那一次 GraphQL 回應**(`page.waitForResponse` 比對 operationName),
@@ -200,6 +216,18 @@ pnpm --filter @repo/admin dev:mock -- --port <自選埠> --strictPort
   `page.goto(...)` 是完整導覽,會重查 —— 不必重新登入(refresh cookie 還在)。
   **admin 與 api 要用同一個主機名**:cookie 是 `SameSite=Lax`,`localhost` 與 `127.0.0.1`
   對瀏覽器是兩個站台,混用會讓換票整個失效。
+- **需要外部服務的劇本:Docker 容器 + 狀態檔 skip,CI 設 `*_REQUIRED=1`**(2026-09-23,#402;先例是
+  劇本 11 / 15 的 fake GCS,`src/harness/fake-gcs.ts`):
+  - harness(`globalSetup`)偵測得到 Docker 才以 `docker compose up -d` 起容器,並把「可不可用 + 原因」
+    寫成**狀態檔** —— spec 跑在 worker 行程,拿不到 harness 的記憶體,只能讀檔。不可用時依賴它的 spec
+    讀狀態檔後 `test.skip(原因)`,其餘劇本照跑;`E2E_SKIP_STACK=1` 沒有狀態檔,同樣當不可用。
+  - CI 設 `E2E_<服務>_REQUIRED=1`(`e2e.yml`):起不來就整個失敗,不會變成「那幾條 skip、其餘全綠」。
+  - **不寫成 GitHub Actions 的 `services:`**:service container 不能帶啟動參數(fake-gcs-server 不給參數
+    就是 https + 自簽憑證 + 公開網址指向真 GCS);改由 harness 用 app 自己的 `docker-compose.yml`,
+    CI 與本機同一份檔。
+  - **測試用的金鑰 / 憑證不入 repo,由 harness 每次現產**(`fakePrivateKey()`):放進 repo 的私鑰就算是假的,
+    也會被 secret scanning 當真的報。
+  - 假服務驗不到的行為(簽名網址過期)在 `permission-scenarios.md` 該劇本寫明「仍屬 dev 人工驗收」。
 
 ## TEST-12 單元測試的夾具不得為了精簡而與正本資料的形狀分歧(2026-09-23,#363)
 
