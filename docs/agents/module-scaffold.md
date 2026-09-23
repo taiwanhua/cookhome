@@ -121,6 +121,7 @@ pnpm --filter @repo/graphql generate
 前端藍本正本:`apps/admin/src/pages/demo/shared/demo-module-config.ts` 的 **`DemoModuleConfig`**(逐項 JSDoc 就是規格)。分工是:
 
 - **共用元件**(`pages/demo/shared/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`)負責版型、兩層權限判斷、分頁、未儲存離開確認、刪除確認、錯誤擺放位置 —— **一行都不用改**。
+- **詳情頁要設 itemLabel**(#428,ADR-0011「頁籤兩種」):路由頁籤列把詳情 / 編輯頁顯示成「模組名 — 項目名」,項目名由頁面拿到資料後呼叫 `hooks/useRouteTabItemLabel(item.name)` 提供。共用的 `DemoDetailPage` / `DemoFormPage` 已接好;不用共用元件、自己寫詳情頁的模組要自己呼叫。
 - **設定物件**負責「這個模組是什麼」:模組 key、權限 key、欄位定義、資料存取 hook、選配區塊。
 
 共用元件**完全不認得任何模組的 GraphQL 型別**:資料存取一律由設定物件包成 `useRows` / `useItem` / `useSave` 三個 hook 交出來(只有刪除因為兩邊 input 同形 `{ id }` 才直接收 codegen 的 hook)。

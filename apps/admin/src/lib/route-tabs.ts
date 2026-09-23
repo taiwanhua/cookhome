@@ -1,15 +1,18 @@
-import type { ShellModule } from "./module-tree";
+import { type ShellModule, matchModuleRoute } from "./module-tree";
 
 /**
- * 一筆路由頁籤的紀錄(#67;dis #15:以路由 id 去重)。持久化到 sessionStorage 的就是這個形狀,
- * 所以只存「識別」不存顯示資料 — 名稱一律回頭從 `me.modules` 解析,權限或名稱變了不會留下舊字。
+ * 一筆路由頁籤的紀錄(#67;dis #15:以路由 id 去重)。持久化到 sessionStorage 的就是這個形狀(`[{ route, itemLabel? }]`),
+ * 模組名一律回頭從 `me.modules` 解析,權限或名稱變了不會留下舊字;唯一存下來的顯示資料是頁面給的 `itemLabel`。
  */
 export interface RouteTabEntry {
-  /** 模組路由(完整路徑,= `me.modules[].route`);tab 的唯一 id */
+  /**
+   * 頁籤的唯一 id = 網址(已正規化)。一般頁籤是模組路由本身(= `me.modules[].route`);
+   * 詳情子頁籤(#428)是隱藏頁模組路由 + 尾端識別碼(`/…/view-page/<id>`,`matchModuleRoute` 對得上的那種),每一筆各一個 tab。
+   */
   route: string;
   /**
-   * 擴充點(dis #15「鑽入詳情生成『模組 / 項目名』子 tab」):鑽入詳情時填入項目名,`resolveTabs` 會顯示成「模組 / 項目名」;
-   * 屆時 `route` 改用含識別碼的路徑去重。本段沒有詳情頁,不生成、不讀取。
+   * 詳情子頁籤的項目名(#428):由頁面經 `useRouteTabItemLabel` → store 的 `setItemLabel` 提供,
+   * `resolveTabs` 顯示成「所屬模組名 — 項目名」。頁面每次進入都會重設,所以存檔裡的舊名只活到下次進入那一頁。
    */
   itemLabel?: string;
 }
@@ -19,6 +22,9 @@ export interface RouteTab extends RouteTabEntry {
   label: string;
   moduleKey: string;
 }
+
+/** 詳情子頁籤「所屬模組名」與「項目名」之間的分隔(#428)。 */
+export const ITEM_LABEL_SEPARATOR = " — ";
 
 /** 關閉時「切到相鄰」的落點;沒有 tab 可切時回首頁(`/` 由 ADR-0011 規則轉到側欄第一個能進的頁)。 */
 export const EMPTY_TABS_ROUTE = "/";
@@ -73,20 +79,55 @@ export const isSameEntries = (
   a.length === b.length && a.every((entry, index) => entry === b[index]);
 
 /**
+ * 網址進得去嗎(ADR-0011「路由防守」的同一個比對,含隱藏頁的尾端識別碼退路):
+ * 頁籤的生成、保留、選中都用這一條,與 `ModuleRoute` 放不放行永遠一致。
+ */
+const isEnterable = (
+  routes: ReadonlyMap<string, ShellModule>,
+  path: string,
+): boolean => matchModuleRoute(routes, path) !== undefined;
+
+/**
  * 與「可進入路由集合」對齊:進不去的路由(權限變了、換了組織)剔除;目前路徑能進而還沒有 tab → 追加到最後
- * (= 進入路由即生成 tab;重複進入不重複生成)。`/`、群組路由、無權限頁都不在集合內,不生成。沒變化就回原陣列。
+ * (= 進入路由即生成 tab;重複進入不重複生成)。`/`、群組路由、無權限頁都不在集合內,不生成。
+ * 詳情 / 編輯頁的 `/…/view-page/<id>` 也算能進(#428):每一筆各生成一個子頁籤。沒變化就回原陣列。
  */
 export const syncEntries = (
   entries: readonly RouteTabEntry[],
-  routes: ReadonlyMap<string, unknown>,
+  routes: ReadonlyMap<string, ShellModule>,
   currentPath: string,
 ): RouteTabEntry[] => {
-  const kept = entries.filter((entry) => routes.has(entry.route));
+  const kept = entries.filter((entry) => isEnterable(routes, entry.route));
   const hasCurrent = kept.some((entry) => entry.route === currentPath);
-  if (!hasCurrent && routes.has(currentPath)) {
+  if (!hasCurrent && isEnterable(routes, currentPath)) {
     kept.push({ route: currentPath });
   }
   return isSameEntries(kept, entries) ? [...entries] : kept;
+};
+
+/**
+ * 設定詳情子頁籤的項目名(#428):有那個 tab → 換掉標籤(同名不動、回原陣列);還沒有 → 帶著標籤追加到最後。
+ * 追加是為了時序:子元件(頁面)的 effect 比殼的 `sync` 早跑,項目資料已在快取時頁面會先呼叫這裡;
+ * 路由進不進得去仍由緊接著的 `sync` 把關(進不去的會被剔除)。空字串視同沒有標籤,不動。
+ */
+export const setEntryItemLabel = (
+  entries: readonly RouteTabEntry[],
+  route: string,
+  itemLabel: string,
+): RouteTabEntry[] => {
+  if (itemLabel === "") {
+    return [...entries];
+  }
+  const index = entries.findIndex((entry) => entry.route === route);
+  if (index === -1) {
+    return [...entries, { route, itemLabel }];
+  }
+  if (entries[index].itemLabel === itemLabel) {
+    return [...entries];
+  }
+  return entries.map((entry, at) =>
+    at === index ? { ...entry, itemLabel } : entry,
+  );
 };
 
 export interface CloseResult {
@@ -134,14 +175,36 @@ export const moveEntry = (
   return next;
 };
 
-/** 紀錄 → 可渲染的頁籤:名稱從模組陣列取;模組不在陣列內的紀錄略過(`syncEntries` 已剔除,這裡只是保底)。 */
+/**
+ * 詳情子頁籤前半段的「所屬模組」:隱藏頁模組(詳情、編輯)的父模組在可進入集合內時用父模組
+ * (「示範模組1 — 項目名」,而不是「示範項目詳情 — 項目名」);否則用自己。
+ */
+const ownerModuleOf = (
+  module: ShellModule,
+  routes: ReadonlyMap<string, ShellModule>,
+): ShellModule => {
+  if (module.parentId === null || module.parentId === undefined) {
+    return module;
+  }
+  for (const candidate of routes.values()) {
+    if (candidate.id === module.parentId) {
+      return candidate;
+    }
+  }
+  return module;
+};
+
+/**
+ * 紀錄 → 可渲染的頁籤:名稱從模組陣列取;對不上模組的紀錄略過(`syncEntries` 已剔除,這裡只是保底)。
+ * 有 `itemLabel` → 「所屬模組名 — 項目名」;沒有(一般頁籤、詳情頁資料還沒到)→ 網址對上的那個模組自己的名稱。
+ */
 export const resolveTabs = (
   entries: readonly RouteTabEntry[],
   routes: ReadonlyMap<string, ShellModule>,
 ): RouteTab[] => {
   const tabs: RouteTab[] = [];
   for (const entry of entries) {
-    const module = routes.get(entry.route);
+    const module = matchModuleRoute(routes, entry.route)?.module;
     if (module === undefined) {
       continue;
     }
@@ -151,7 +214,7 @@ export const resolveTabs = (
       label:
         entry.itemLabel === undefined
           ? module.name
-          : `${module.name} / ${entry.itemLabel}`,
+          : `${ownerModuleOf(module, routes).name}${ITEM_LABEL_SEPARATOR}${entry.itemLabel}`,
     });
   }
   return tabs;

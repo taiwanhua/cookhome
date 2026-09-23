@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "@jest/globals";
 
 import { overviewModule } from "../test/msw/auth-handlers";
-import { systemModules } from "../test/msw/module-fixtures";
+import { sampleOneModules, systemModules } from "../test/msw/module-fixtures";
 import { enterableRouteMap } from "./module-tree";
 import {
   EMPTY_TABS_ROUTE,
@@ -11,6 +11,7 @@ import {
   readStoredEntries,
   resolveTabs,
   routeTabsStorageKey,
+  setEntryItemLabel,
   syncEntries,
 } from "./route-tabs";
 
@@ -49,6 +50,73 @@ describe("syncEntries(進入路由即生成、去重、剔除進不去的)", () 
         syncEntries(entriesOf(OVERVIEW, "/demo/sample-two", ORG), routes, ORG),
       ),
     ).toEqual([OVERVIEW, ORG]);
+  });
+});
+
+describe("詳情子頁籤(#428:隱藏頁 + 尾端識別碼,與路由防守同一條判斷)", () => {
+  const demoRoutes = enterableRouteMap([overviewModule, ...sampleOneModules]);
+  const LIST = "/demo/sub/sample-one";
+  const VIEW_1 = `${LIST}/view-page/demo-1`;
+  const VIEW_2 = `${LIST}/view-page/demo-2`;
+
+  it("syncEntries:每一筆各生成一個 tab(以完整網址去重)", () => {
+    const once = syncEntries(entriesOf(LIST), demoRoutes, VIEW_1);
+    expect(routesOf(once)).toEqual([LIST, VIEW_1]);
+    expect(routesOf(syncEntries(once, demoRoutes, VIEW_1))).toEqual([
+      LIST,
+      VIEW_1,
+    ]);
+    expect(routesOf(syncEntries(once, demoRoutes, VIEW_2))).toEqual([
+      LIST,
+      VIEW_1,
+      VIEW_2,
+    ]);
+  });
+
+  it("syncEntries:列表(link)後面多一段、沒綁的隱藏頁都不生成;權限變了的子頁籤被剔除", () => {
+    expect(routesOf(syncEntries([], demoRoutes, `${LIST}/demo-1`))).toEqual([]);
+    const withoutView = enterableRouteMap(
+      sampleOneModules.filter((module) => !module.key.endsWith(".view-page")),
+    );
+    expect(routesOf(syncEntries([], withoutView, VIEW_1))).toEqual([]);
+    expect(
+      routesOf(syncEntries(entriesOf(LIST, VIEW_1), withoutView, LIST)),
+    ).toEqual([LIST]);
+  });
+
+  it("setEntryItemLabel:有 tab 換標籤、同名回同參考的紀錄;沒有 tab 帶標籤追加;空字串不動", () => {
+    const entries = entriesOf(LIST, VIEW_1);
+    const labelled = setEntryItemLabel(entries, VIEW_1, "醬燒雞腿排");
+    expect(labelled).toEqual([
+      { route: LIST },
+      { route: VIEW_1, itemLabel: "醬燒雞腿排" },
+    ]);
+    expect(labelled[0]).toBe(entries[0]);
+
+    const same = setEntryItemLabel(labelled, VIEW_1, "醬燒雞腿排");
+    expect(same.every((entry, index) => entry === labelled[index])).toBe(true);
+
+    expect(setEntryItemLabel(entriesOf(LIST), VIEW_2, "涼拌小黃瓜")).toEqual([
+      { route: LIST },
+      { route: VIEW_2, itemLabel: "涼拌小黃瓜" },
+    ]);
+    expect(setEntryItemLabel(entries, VIEW_1, "")).toEqual(entries);
+  });
+
+  it("resolveTabs:有標籤 →「所屬模組名 — 項目名」(隱藏頁取父模組);沒標籤 → 網址對上的模組名", () => {
+    const tabs = resolveTabs(
+      [
+        { route: LIST },
+        { route: VIEW_1, itemLabel: "醬燒雞腿排" },
+        { route: VIEW_2 },
+      ],
+      demoRoutes,
+    );
+    expect(tabs.map((tab) => [tab.label, tab.moduleKey])).toEqual([
+      ["示範模組1", "demo.sub.sample-one"],
+      ["示範模組1 — 醬燒雞腿排", "demo.sub.sample-one.view-page"],
+      ["示範項目詳情", "demo.sub.sample-one.view-page"],
+    ]);
   });
 });
 
@@ -107,15 +175,15 @@ describe("moveEntry(排序)", () => {
   });
 });
 
-describe("resolveTabs(名稱從模組陣列取;子 tab 擴充點)", () => {
-  it("一般 tab 顯示模組名;itemLabel 有值時顯示「模組 / 項目名」", () => {
+describe("resolveTabs(名稱從模組陣列取)", () => {
+  it("一般 tab 顯示模組名;itemLabel 有值時顯示「模組 — 項目名」(父模組不在集合內時用自己)", () => {
     const tabs = resolveTabs(
       [{ route: OVERVIEW }, { route: ORG, itemLabel: "台北店" }],
       routes,
     );
     expect(tabs.map((tab) => [tab.label, tab.moduleKey])).toEqual([
       ["總覽", "overview"],
-      ["組織管理 / 台北店", "system.org-manager"],
+      ["組織管理 — 台北店", "system.org-manager"],
     ]);
   });
 });
