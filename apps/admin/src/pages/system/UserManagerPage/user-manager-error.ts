@@ -1,4 +1,4 @@
-import { ClientError } from "@repo/graphql";
+import { type AdminError, parseAdminError } from "@/lib/errors";
 
 /**
  * 使用者管理會收到的業務錯誤碼(GQL-04;api 的程式正本 `apps/api/src/users/users-error.ts`)。
@@ -17,39 +17,11 @@ export const USER_MANAGER_ERROR_CODES = [
 export type UserManagerErrorCode =
   (typeof USER_MANAGER_ERROR_CODES)[number] | "UNEXPECTED";
 
-export interface UserManagerError {
-  code: UserManagerErrorCode;
-  /** `VALIDATION_FAILED` 時 api 以 `extensions.fields` 指出重複 / 不合法的欄位 */
-  fields: string[];
-}
+/**
+ * 共用形狀(`lib/errors.ts`)。本頁用到的選填欄位只有 `fields`:
+ * `VALIDATION_FAILED` 時 api 以 `extensions.fields` 指出重複 / 不合法的欄位。
+ */
+export type UserManagerError = AdminError<UserManagerErrorCode, never>;
 
-interface GraphqlErrorShape {
-  extensions?: { code?: unknown; fields?: unknown };
-}
-
-const errorsOf = (error: unknown): GraphqlErrorShape[] => {
-  if (!(error instanceof ClientError)) {
-    return [];
-  }
-  const { errors } = error.response as { errors?: unknown };
-  return Array.isArray(errors) ? (errors as GraphqlErrorShape[]) : [];
-};
-
-const isKnownCode = (value: unknown): value is UserManagerErrorCode =>
-  typeof value === "string" &&
-  (USER_MANAGER_ERROR_CODES as readonly string[]).includes(value);
-
-export const userManagerErrorOf = (error: unknown): UserManagerError => {
-  for (const item of errorsOf(error)) {
-    const { code, fields } = item.extensions ?? {};
-    if (isKnownCode(code)) {
-      return {
-        code,
-        fields: Array.isArray(fields)
-          ? fields.filter((field): field is string => typeof field === "string")
-          : [],
-      };
-    }
-  }
-  return { code: "UNEXPECTED", fields: [] };
-};
+export const userManagerErrorOf = (error: unknown): UserManagerError =>
+  parseAdminError(error, { codes: USER_MANAGER_ERROR_CODES });

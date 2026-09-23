@@ -49,12 +49,12 @@ export const ModuleManagerPage = () => {
   );
 
   const onActionError = (error: unknown) => {
-    setActionError(moduleManagerErrorOf(error));
+    setActionError(moduleManagerErrorOf(error).code);
   };
 
   /** 失敗的 Snackbar 文案與頁面上那一條 Alert 同一份解讀(#376)。 */
   const feedbackError = (error: unknown) =>
-    t(`errors.${moduleManagerErrorOf(error)}`);
+    t(`errors.${moduleManagerErrorOf(error).code}`);
 
   const setModuleEnabled = useSetModuleEnabledMutation(
     session.client,

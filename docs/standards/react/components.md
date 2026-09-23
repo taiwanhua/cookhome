@@ -156,3 +156,9 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 - 多選用 `multiple`(選項自帶勾選框、`onChange` 依點選先後回整個陣列),收合摘要不合用時給 `renderValue`。
 - 需要搜尋、分組、次文字或 chip 時改用 `@repo/ui/autocomplete`(STYLE-05 的分工:選項少於十個、不需搜尋 → `SelectField`)。
 - **不適用**:殼的 AppBar 行內切換(語言、當前組織)是 `Draft/Select` 的 standard 變體、沒有標籤,仍用 `@repo/ui/select`;選單式動作(使用者選單)用 `@repo/ui/menu`。
+
+## REACT-12 彈窗開著時,提示也要念得到:live region 不能是彈窗開啟前就在 body 裡的節點
+
+(2026-09-23,#430)
+
+MUI 的 modal manager 在 Dialog 開啟那一刻把 body 底下**已存在**的其他節點全標 `aria-hidden`,掛在 app 根節點裡的 Snackbar 因此看得到、念不到;admin 的解法是 `app/providers/SnackbarAnnouncer.tsx` —— 每一則提示各自 portal 一個視覺隱藏的 `role="status"` 到 body 末端(掛上時間晚於彈窗開啟),只在 Snackbar 被藏起來時才填字,測試以 `findByRole("status")` / `test/snackbar.ts` 的 `findSnackbarAlert()` 驗,**不帶 `hidden: true`**。

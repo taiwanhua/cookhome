@@ -1,4 +1,4 @@
-import { ClientError } from "@repo/graphql";
+import { type AdminError, parseAdminError } from "@/lib/errors";
 
 import type { FieldManagerErrorCode } from "./field-manager-types";
 
@@ -16,30 +16,12 @@ const FIELD_MANAGER_ERROR_CODES = [
   "VALIDATION_FAILED",
 ] as const;
 
-interface GraphqlErrorShape {
-  extensions?: { code?: unknown; reason?: unknown };
-}
+/** 共用形狀(`lib/errors.ts`);本頁只看 `code`(`NOT_OWNER` 已折進 `code`)。 */
+export type FieldManagerError = AdminError<FieldManagerErrorCode, never>;
 
-const errorsOf = (error: unknown): GraphqlErrorShape[] => {
-  if (!(error instanceof ClientError)) {
-    return [];
-  }
-  const { errors } = error.response as { errors?: unknown };
-  return Array.isArray(errors) ? (errors as GraphqlErrorShape[]) : [];
-};
-
-export const fieldManagerErrorOf = (error: unknown): FieldManagerErrorCode => {
-  for (const item of errorsOf(error)) {
-    const { code, reason } = item.extensions ?? {};
-    if (typeof code !== "string") {
-      continue;
-    }
-    if (code === "FORBIDDEN" && reason === "NOT_OWNER") {
-      return "NOT_OWNER";
-    }
-    if ((FIELD_MANAGER_ERROR_CODES as readonly string[]).includes(code)) {
-      return code as FieldManagerErrorCode;
-    }
-  }
-  return "UNEXPECTED";
-};
+export const fieldManagerErrorOf = (error: unknown): FieldManagerError =>
+  parseAdminError<Exclude<FieldManagerErrorCode, "UNEXPECTED">, never>(error, {
+    codes: FIELD_MANAGER_ERROR_CODES,
+    refine: (code, reason) =>
+      code === "FORBIDDEN" && reason === "NOT_OWNER" ? "NOT_OWNER" : undefined,
+  });

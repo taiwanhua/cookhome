@@ -91,7 +91,7 @@ export const useRuleEditor = ({
         const parsed = dataScopeErrorOf(failure);
         setError(parsed);
         setServerIssue(
-          parsed.path === null || parsed.reason === null
+          parsed.path === undefined || parsed.reason === undefined
             ? null
             : issueFromRuleInvalid(parsed.path, parsed.reason),
         );

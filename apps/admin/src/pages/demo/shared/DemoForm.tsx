@@ -63,7 +63,7 @@ export const DemoForm = <Detail extends DemoItemLike, Values>({
   /** 欄位級的錯誤已經標在欄位上,不必再來一條橫幅。 */
   const hasBannerError =
     error !== null &&
-    (error.fields.length === 0 || error.code !== "VALIDATION_FAILED");
+    ((error.fields ?? []).length === 0 || error.code !== "VALIDATION_FAILED");
 
   /** 欄位的三態、`render` 都看得到同一組上下文(介面見 `DemoFormFieldContext`)。 */
   const modeContext = { access, isEdit, item };
