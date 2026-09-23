@@ -3,9 +3,8 @@ import { useTranslations } from "use-intl";
 import { DataScopeAudienceType } from "@repo/graphql";
 import { Autocomplete } from "@repo/ui/autocomplete";
 import { Box } from "@repo/ui/box";
-import { MenuItem } from "@repo/ui/menu";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
-import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import { OrgTreePicker } from "@/components/OrgTreePicker/OrgTreePicker";
@@ -96,27 +95,21 @@ export const RuleAudience = ({
   return (
     <Stack spacing={0.75}>
       <Stack direction="row" spacing={1.25} sx={{ alignItems: "center" }}>
-        <TextField
-          select
+        <SelectField
           size="small"
           label={t("audience")}
           value={audience.type}
           disabled={env.isReadOnly}
           sx={{ width: 150 }}
-          onChange={(event) => {
+          options={AUDIENCE_TYPES.map((type) => ({
+            value: type,
+            label: labelOf(type),
+          }))}
+          onChange={(type) => {
             // 換了種類,原本選的對象就不是同一種東西了,一律清空
-            onChange({
-              type: event.target.value as DataScopeAudienceType,
-              ids: [],
-            });
+            onChange({ type, ids: [] });
           }}
-        >
-          {AUDIENCE_TYPES.map((type) => (
-            <MenuItem key={type} value={type}>
-              {labelOf(type)}
-            </MenuItem>
-          ))}
-        </TextField>
+        />
 
         {isList && (
           <Autocomplete<PickerOption, true>

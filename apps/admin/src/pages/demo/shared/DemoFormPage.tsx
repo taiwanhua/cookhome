@@ -5,6 +5,7 @@ import { Alert } from "@repo/ui/alert";
 import { Card } from "@repo/ui/card";
 import { CircularProgress } from "@repo/ui/circular-progress";
 
+import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
 import type { ModulePageProps } from "@/lib/module-tree";
 
 import { DemoForm } from "./DemoForm";
@@ -46,6 +47,8 @@ export const DemoFormPage = <
   const isEdit = module.key === config.moduleKeys.editPage;
   const itemId = routeParam ?? "";
   const query = config.detail.useItem(itemId, isEdit && itemId !== "");
+  // 編輯情境的路由頁籤顯示「模組名 — 項目名」(#428);新增情境沒有項目,維持模組名
+  useRouteTabItemLabel(isEdit ? query.item?.name : null);
 
   const leave = () => {
     if (access.listRoute !== null) {

@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { useTranslations } from "use-intl";
 
 import { Snackbar } from "@repo/ui/snackbar";
 
 import { useSnackbarStore } from "@/stores/useSnackbarStore";
+
+import { SnackbarAnnouncer } from "./SnackbarAnnouncer";
 
 export interface SnackbarProviderProps {
   children: ReactNode;
@@ -18,15 +20,29 @@ export interface SnackbarProviderProps {
  *
  * `key` 綁在那一則的 `id` 上:同語氣的連續兩則(接連儲存兩次)要重跑一次進場動畫與
  * 自動關閉計時,否則第二則會沿用第一則剩下的秒數、看起來像「沒有反應」。
+ *
+ * **彈窗開著時的無障礙(#430)**:MUI Dialog 開啟時會把 app 根節點標 `aria-hidden`,
+ * Snackbar 在畫面上看得到、螢幕閱讀器卻念不到。`SnackbarAnnouncer` 在那種時候以一個
+ * 視覺隱藏的 `role="status"` 區域補念同一份文案(做法與取捨寫在它的 JSDoc)。
+ * `anchorRef` 那個 span 與 Snackbar 同層,用來判斷「Snackbar 現在是不是被藏起來」。
  */
 export const SnackbarProvider = ({ children }: SnackbarProviderProps) => {
   const t = useTranslations("admin.app.snackbar");
   const current = useSnackbarStore((state) => state.current);
   const dismiss = useSnackbarStore((state) => state.dismiss);
+  const anchorRef = useRef<HTMLSpanElement>(null);
 
   return (
     <>
       {children}
+      <span ref={anchorRef} hidden />
+      {current !== null && (
+        <SnackbarAnnouncer
+          key={`announcer-${String(current.id)}`}
+          message={current.message}
+          anchorRef={anchorRef}
+        />
+      )}
       {current !== null && (
         <Snackbar
           key={current.id}

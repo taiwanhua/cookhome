@@ -136,3 +136,29 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 - `title` 傳 `""` / `undefined` 就不提示,所以條件式提示直接寫 `title={isLocked ? hint : ""}`,不要條件式地換掉整棵子樹。
 
 **測試怎麼斷言**(配 TEST-08 / TEST-09):提示是 portal 出去、hover 後才出現的節點,用 `await userEvent.hover(trigger)` + `await screen.findByRole("tooltip")` 取它的文字。**不要驗 `toHaveAttribute("title", …)`** —— 改用 `Tooltip` 之後 DOM 上根本沒有 `title`,舊斷言會紅。
+
+## REACT-11 表單下拉一律用 `@repo/ui/select-field` 的 `SelectField`
+
+(2026-09-23,#429)
+
+表單裡「從固定幾個選項挑一個(或幾個)」的欄位,一律用 `SelectField`:**`label` 就是浮動標籤兼無障礙名稱,欄位下的說明用 `helperText`**,選項以 `options: { value, label, disabled? }[]` 傳入。
+
+```tsx
+✅ <SelectField label={t("owner")} value={ownerId} displayEmpty helperText={t("ownerHint")}
+     options={[{ value: "", label: t("ownerUnset") }, ...candidates]} onChange={setOwnerId} />
+❌ <Typography variant="caption">{t("owner")}</Typography>
+   <Select aria-label={t("owner")} …><MenuItem …/></Select>          // 裸 Select + 自畫標題
+❌ <TextField select label={t("owner")} …><MenuItem …/></TextField>   // 各自拼,空值 / 型別轉換各寫一份
+```
+
+- **空值項**(「未指定」「全部」)放進 `options`(`value: ""`)並開 `displayEmpty`;不要另外用 `Typography` 畫提示或標題。
+- `onChange` 收到的是**選項的 `value` 本身**(以 `options` 查表),`Value` 可以是 enum / 字面量聯集,呼叫端不再 `event.target.value as X`。
+- 多選用 `multiple`(選項自帶勾選框、`onChange` 依點選先後回整個陣列),收合摘要不合用時給 `renderValue`。
+- 需要搜尋、分組、次文字或 chip 時改用 `@repo/ui/autocomplete`(STYLE-05 的分工:選項少於十個、不需搜尋 → `SelectField`)。
+- **不適用**:殼的 AppBar 行內切換(語言、當前組織)是 `Draft/Select` 的 standard 變體、沒有標籤,仍用 `@repo/ui/select`;選單式動作(使用者選單)用 `@repo/ui/menu`。
+
+## REACT-12 彈窗開著時,提示也要念得到:live region 不能是彈窗開啟前就在 body 裡的節點
+
+(2026-09-23,#430)
+
+MUI 的 modal manager 在 Dialog 開啟那一刻把 body 底下**已存在**的其他節點全標 `aria-hidden`,掛在 app 根節點裡的 Snackbar 因此看得到、念不到;admin 的解法是 `app/providers/SnackbarAnnouncer.tsx` —— 每一則提示各自 portal 一個視覺隱藏的 `role="status"` 到 body 末端(掛上時間晚於彈窗開啟),只在 Snackbar 被藏起來時才填字,測試以 `findByRole("status")` / `test/snackbar.ts` 的 `findSnackbarAlert()` 驗,**不帶 `hidden: true`**。

@@ -117,10 +117,16 @@ export function toDemoItemOneModel(
       : {}),
     coverPath: record.coverPath ?? null,
     coverUrl: context.publicUrlOf(record.coverPath),
+    // 中繼資料原樣回(#427);#427 以前的附件沒有這三欄 → null,前端退回顯示路徑尾段
     attachment:
       attachmentPath === null
         ? null
-        : { path: attachmentPath, name: basenameOf(attachmentPath) },
+        : {
+            path: attachmentPath,
+            name: record.attachmentName ?? null,
+            size: record.attachmentSize ?? null,
+            contentType: record.attachmentContentType ?? null,
+          },
     status: record.status as DemoItemOneStatusEnum,
     enabled: record.enabled,
     createdBy: userRefOf(record.createdBy, context.users),
@@ -128,9 +134,4 @@ export function toDemoItemOneModel(
     updatedAt: record.updatedAt,
     abilities: context.abilities,
   };
-}
-
-/** 物件路徑的最後一段(`demo/<uuid>.png` → `<uuid>.png`)。 */
-function basenameOf(objectPath: string): string {
-  return objectPath.slice(objectPath.lastIndexOf("/") + 1);
 }

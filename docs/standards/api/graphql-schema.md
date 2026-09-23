@@ -23,7 +23,7 @@ schema 採 code-first:NestJS decorators 產出 `schema.gql`,產物不手改(GQL-
 
 - payload type 寫 `DeleteDemoItemOnePayload`、`DemoItemsOnePayload`,不寫 `DeletePayload` / `ItemsPayload`;
 - query / mutation 名同理 —— 附件的讀取網址寫 `demoItemOneAttachmentUrl(id)`,不寫 `attachmentDownloadUrl(id)`,否則第二個有附件的模組沒有名字可用;
-- 已存在的通用名(`DeletePayload`、`attachmentDownloadUrl`)是**先例不是標準**,碰到就回報,不要照抄。
+- 已存在的通用名(`DeletePayload`)是**先例不是標準**,碰到就回報,不要照抄。`attachmentDownloadUrl` / `SignedUrlPayload` 已於 #427 改名為 `demoItemOneAttachmentUrl` / `DemoItemOneAttachmentUrlPayload`(舊名不保留)。
 
 **Spec 的 Interface design 也一律照本條寫 payload type**(2026-09-20 裁決,#204 / #206 / #205 / #203 各撞一次):spec 裡寫 `createField(input: …): Field!`、`role(id): Role!` 這種裸型別是簡寫,實作時**照 GQL-02 補 payload**,不必回頭改 spec;query 回清單照 GQL-03 的 `{ items, totalCount }`。**例外:樹狀回傳可以裸回陣列**(`moduleTree: [ModuleAdminNode!]!` 是先例 — 它不是清單、沒有 `totalCount` 可言,包一層只是多一層)。同一份 spec 的多張票並行時,這條決定哪一邊都行**但要先定案**,否則四票四種形狀。
 

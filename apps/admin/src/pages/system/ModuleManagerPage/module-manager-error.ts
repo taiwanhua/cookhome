@@ -1,4 +1,4 @@
-import { ClientError } from "@repo/graphql";
+import { type AdminError, parseAdminError } from "@/lib/errors";
 
 import type { ModuleManagerErrorCode } from "./module-manager-types";
 
@@ -9,29 +9,8 @@ import type { ModuleManagerErrorCode } from "./module-manager-types";
  */
 const MODULE_MANAGER_ERROR_CODES = ["FORBIDDEN", "NOT_FOUND"] as const;
 
-interface GraphqlErrorShape {
-  extensions?: { code?: unknown };
-}
+/** 共用形狀(`lib/errors.ts`);本頁只看 `code`。 */
+export type ModuleManagerError = AdminError<ModuleManagerErrorCode, never>;
 
-const errorsOf = (error: unknown): GraphqlErrorShape[] => {
-  if (!(error instanceof ClientError)) {
-    return [];
-  }
-  const { errors } = error.response as { errors?: unknown };
-  return Array.isArray(errors) ? (errors as GraphqlErrorShape[]) : [];
-};
-
-export const moduleManagerErrorOf = (
-  error: unknown,
-): ModuleManagerErrorCode => {
-  for (const item of errorsOf(error)) {
-    const { code } = item.extensions ?? {};
-    if (
-      typeof code === "string" &&
-      (MODULE_MANAGER_ERROR_CODES as readonly string[]).includes(code)
-    ) {
-      return code as ModuleManagerErrorCode;
-    }
-  }
-  return "UNEXPECTED";
-};
+export const moduleManagerErrorOf = (error: unknown): ModuleManagerError =>
+  parseAdminError(error, { codes: MODULE_MANAGER_ERROR_CODES });

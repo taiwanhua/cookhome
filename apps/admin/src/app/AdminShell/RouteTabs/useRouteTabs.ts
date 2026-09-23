@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 
-import type { ShellModule } from "@/lib/module-tree";
+import { type ShellModule, matchModuleRoute } from "@/lib/module-tree";
 import { type RouteTab, resolveTabs } from "@/lib/route-tabs";
 import { useRouteTabsStore } from "@/stores/useRouteTabsStore";
 
@@ -16,7 +16,10 @@ export interface UseRouteTabsOptions {
 
 export interface RouteTabsState {
   tabs: RouteTab[];
-  /** 目前網址對應的 tab 路由;網址不是模組路由(`/`、群組、無權限頁)時為 null,沒有 tab 是選中的 */
+  /**
+   * 目前網址對應的 tab 路由(= 網址本身;詳情子頁籤含尾端識別碼);
+   * 網址不是模組路由(`/`、群組、無權限頁)時為 null,沒有 tab 是選中的
+   */
   activeRoute: string | null;
   select: (route: string) => void;
   close: (route: string) => void;
@@ -52,7 +55,8 @@ export const useRouteTabs = ({
   }, [sync, routes, currentPath]);
 
   const tabs = useMemo(() => resolveTabs(entries, routes), [entries, routes]);
-  const activeRoute = routes.has(currentPath) ? currentPath : null;
+  const activeRoute =
+    matchModuleRoute(routes, currentPath) === undefined ? null : currentPath;
 
   const select = useCallback(
     (route: string) => {

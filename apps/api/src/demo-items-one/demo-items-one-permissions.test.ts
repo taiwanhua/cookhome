@@ -8,11 +8,12 @@ import {
 import { createOrg } from "../auth/test-support/fixtures";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import {
-  ATTACHMENT_DOWNLOAD_URL,
+  ATTACHMENT_INPUT,
   ATTACHMENT_PATH,
   type AttachmentUrlData,
   CREATE_DEMO_ITEM_ONE,
   DEMO_ITEM_ONE,
+  DEMO_ITEM_ONE_ATTACHMENT_URL,
   DEMO_ITEM_ONE_HISTORY,
   EDIT_PAGE_MODULE,
   type HistoryData,
@@ -94,7 +95,7 @@ describe("示範模組1 權限(#318,GraphQL 端點 + 真 MongoDB)", () => {
     item = await createItem(api, full.token, {
       name: "有內部備註的項目",
       internalNote: INTERNAL,
-      attachmentPath: ATTACHMENT_PATH,
+      attachment: ATTACHMENT_INPUT,
     });
   }, HOOK_TIMEOUT_MS);
 
@@ -260,20 +261,24 @@ describe("示範模組1 權限(#318,GraphQL 端點 + 真 MongoDB)", () => {
   });
 
   describe("劇本 11:儲存雙路(封面公開 / 附件私有簽名)", () => {
-    it("有 view → attachmentDownloadUrl 回一個短效讀取網址", async () => {
+    it("有 view → demoItemOneAttachmentUrl 回一個短效讀取網址", async () => {
       const result = await api.graphql<AttachmentUrlData>(
-        ATTACHMENT_DOWNLOAD_URL,
+        DEMO_ITEM_ONE_ATTACHMENT_URL,
         { id: item.id },
         { accessToken: viewer.token },
       );
       expect(result.errors).toBeUndefined();
-      expect(result.data?.attachmentDownloadUrl.url).toContain(ATTACHMENT_PATH);
-      expect(result.data?.attachmentDownloadUrl.url).toContain("action=read");
+      expect(result.data?.demoItemOneAttachmentUrl.url).toContain(
+        ATTACHMENT_PATH,
+      );
+      expect(result.data?.demoItemOneAttachmentUrl.url).toContain(
+        "action=read",
+      );
     });
 
     it("無 view → FORBIDDEN(附件不隨編輯權限一起給)", async () => {
       const result = await api.graphql(
-        ATTACHMENT_DOWNLOAD_URL,
+        DEMO_ITEM_ONE_ATTACHMENT_URL,
         { id: item.id },
         { accessToken: noView.token },
       );
@@ -285,7 +290,7 @@ describe("示範模組1 權限(#318,GraphQL 端點 + 真 MongoDB)", () => {
     it("這筆沒有附件 → NOT_FOUND", async () => {
       const bare = await createItem(api, full.token, { name: "沒有附件" });
       const result = await api.graphql(
-        ATTACHMENT_DOWNLOAD_URL,
+        DEMO_ITEM_ONE_ATTACHMENT_URL,
         { id: bare.id },
         { accessToken: viewer.token },
       );
@@ -301,7 +306,7 @@ describe("示範模組1 權限(#318,GraphQL 端點 + 真 MongoDB)", () => {
         permissionKeys: [P.view],
       });
       const result = await api.graphql(
-        ATTACHMENT_DOWNLOAD_URL,
+        DEMO_ITEM_ONE_ATTACHMENT_URL,
         { id: item.id },
         { accessToken: outsider.token },
       );

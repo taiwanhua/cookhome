@@ -4,11 +4,14 @@ import { type UploadPurpose, useCreateUploadUrlMutation } from "@repo/graphql";
 
 import { useSession } from "@/hooks/useSession";
 
+import type { DemoUploadedFile } from "./demo-module-config";
+
 /**
  * 示範項目的檔案上傳(ADR-0010 的三步,封面與附件共用;沿用 #138 商標上傳的型式):
  * 1. `createUploadUrl` 向 api 要一張簽名上傳票(檔型 / 大小不合會在這一步回 `UPLOAD_REJECTED`)
  * 2. 瀏覽器把檔案 `PUT` 到 `uploadUrl` — 直傳 bucket,不經過 api
- * 3. 回來的 `objectPath` 當成 `coverPath` / `attachmentPath` 交給 create / update
+ * 3. 回來的 `objectPath` 連同原始檔名 / 大小 / 檔型(`File.name` / `size` / `type`,#427)交回呼叫端,
+ *    由設定物件決定怎麼放進 create / update(封面只用路徑、附件四個都送)
  *
  * 封面與附件的差別只有 `purpose`:api 依用途決定放公開還是私有 bucket(前端不選 bucket)。
  * 沒選檔就回 `null`,呼叫端據此決定「不動」還是「清空」。
@@ -21,7 +24,7 @@ export const useDemoUpload = () => {
   const upload = async (
     file: File | null,
     purpose: UploadPurpose,
-  ): Promise<string | null> => {
+  ): Promise<DemoUploadedFile | null> => {
     if (file === null) {
       return null;
     }
@@ -38,7 +41,12 @@ export const useDemoUpload = () => {
       if (!response.ok) {
         throw new Error(`Demo upload failed: ${String(response.status)}`);
       }
-      return ticket.objectPath;
+      return {
+        path: ticket.objectPath,
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+      };
     } finally {
       setIsUploading(false);
     }

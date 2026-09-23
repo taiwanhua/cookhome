@@ -1,4 +1,4 @@
-import { waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 
 /**
  * 操作結果提示(#376)的查詢 helper。
@@ -22,23 +22,41 @@ export const findSnackbar = async (): Promise<HTMLElement> =>
   });
 
 /**
+ * 螢幕閱讀器念得到的那一份文案(#430):沒有彈窗時是 Snackbar 自己的 `role="alert"`;
+ * **彈窗開著時** app 根節點被 MUI 的 modal manager 標了 `aria-hidden`,alert 在無障礙樹上
+ * 不存在,改由 `SnackbarProvider` 補的 `role="status"` 區域念。兩個查詢都**不帶 `hidden: true`**
+ * —— 這個 helper 本身就是「提示念得到」的斷言,念不到就逾時失敗。
+ */
+const announcedTextOf = async (root: HTMLElement): Promise<string> => {
+  const alert = within(root).queryByRole("alert");
+  if (alert !== null) {
+    return alert.textContent;
+  }
+  return waitFor(() => {
+    const text = screen.getByRole("status").textContent;
+    if (text === "") {
+      throw new Error("status 區域還沒填字");
+    }
+    return text;
+  });
+};
+
+/**
  * 等提示出現並回傳那一則的文字與語氣(`success` / `error` 取自 MUI Alert 的 class)。
- *
- * `hidden: true` 是必要的:**彈窗開著時 MUI 的 modal manager 會把 body 底下其他節點
- * 標上 `aria-hidden`**,提示雖然看得到,但在無障礙樹上是隱藏的(見 PR #376 的規則回饋)。
+ * 文字取的是**螢幕閱讀器念得到的那一份**(`announcedTextOf`),彈窗開著時也一樣。
  */
 export const findSnackbarAlert = async (): Promise<{
   text: string;
   severity: "success" | "error";
 }> => {
-  const alert = within(await findSnackbar()).getByRole("alert", {
-    hidden: true,
-  });
+  const root = await findSnackbar();
+  const alert = root.querySelector(".MuiAlert-root");
   return {
-    text: alert.textContent,
-    severity: alert.classList.contains("MuiAlert-colorSuccess")
-      ? "success"
-      : "error",
+    text: await announcedTextOf(root),
+    severity:
+      alert?.classList.contains("MuiAlert-colorSuccess") === true
+        ? "success"
+        : "error",
   };
 };
 

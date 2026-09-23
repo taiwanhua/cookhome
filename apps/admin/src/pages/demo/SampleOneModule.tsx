@@ -11,9 +11,8 @@ import {
   useUpdateDemoItemOneMutation,
 } from "@repo/graphql";
 import { Box } from "@repo/ui/box";
-import { MenuItem } from "@repo/ui/menu";
+import { SelectField } from "@repo/ui/select-field";
 import { Tag } from "@repo/ui/tag";
-import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import { usePermissions } from "@/hooks/usePermissions";
@@ -43,7 +42,7 @@ import type {
   DemoItemRow,
   SampleOneFormValues,
 } from "./demo-sample-one-types";
-import { statusToneOf } from "./demo-sample-one-view";
+import { attachmentNameOf, statusToneOf } from "./demo-sample-one-view";
 import type {
   DemoFieldMode,
   DemoListFilters,
@@ -167,11 +166,13 @@ const useSampleOneSave = ({
   );
 
   return {
-    save: (values, paths) => {
+    save: (values, uploads) => {
       if (item === null) {
-        create.mutate({ input: toCreateInput(values, paths, mode) });
+        create.mutate({ input: toCreateInput(values, uploads, mode) });
       } else {
-        update.mutate({ input: toUpdateInput(item.id, values, paths, mode) });
+        update.mutate({
+          input: toUpdateInput(item.id, values, uploads, mode),
+        });
       }
     },
     isPending: create.isPending || update.isPending,
@@ -319,25 +320,19 @@ export const sampleOneModule: DemoModuleConfig<
         key: "status",
         kind: "custom",
         render: ({ values, setValue, tFields, tRoot }) => (
-          <TextField
-            select
+          <SelectField
             label={tFields("status")}
             size="small"
             value={values.status}
             sx={{ width: 240 }}
-            onChange={(event) => {
-              setValue(
-                "status",
-                event.target.value as SampleOneFormValues["status"],
-              );
+            options={SAMPLE_ONE_STATUSES.map((status) => ({
+              value: status,
+              label: tRoot(`status.${status}`),
+            }))}
+            onChange={(status) => {
+              setValue("status", status);
             }}
-          >
-            {SAMPLE_ONE_STATUSES.map((status) => (
-              <MenuItem key={status} value={status}>
-                {tRoot(`status.${status}`)}
-              </MenuItem>
-            ))}
-          </TextField>
+          />
         ),
       },
       { key: "note", kind: "multiline", width: 480, minRows: 2 },
@@ -363,7 +358,6 @@ export const sampleOneModule: DemoModuleConfig<
         key: "cover",
         ...SAMPLE_ONE_UPLOAD.cover,
         hintKey: "coverHint",
-        pathOf: (item) => item.coverPath ?? null,
         previewUrlOf: (item) => item.coverUrl,
         previewLabelKey: "coverCurrent",
       },
@@ -371,8 +365,8 @@ export const sampleOneModule: DemoModuleConfig<
         key: "attachment",
         ...SAMPLE_ONE_UPLOAD.attachment,
         hintKey: "attachmentHint",
-        pathOf: (item) => item.attachment?.path ?? null,
-        currentNameOf: (item) => item.attachment?.name ?? null,
+        currentNameOf: (item) =>
+          item.attachment == null ? null : attachmentNameOf(item.attachment),
         currentLabelKey: "attachmentCurrent",
         removeLabelKey: "removeAttachment",
       },

@@ -34,7 +34,7 @@
 
 ## 資料
 
-**demo_items_one**:name、category(欄位管理「示範分類」選項)、status(狀態:draft / published / archived,預設 draft)、note、internalNote(欄位級權限控)、coverPath(公開 bucket)、attachmentPath(私有 bucket)、enabled + 基礎欄位(ADR-0007)。
+**demo_items_one**:name、category(欄位管理「示範分類」選項)、status(狀態:draft / published / archived,預設 draft)、note、internalNote(欄位級權限控)、coverPath(公開 bucket)、attachmentPath(私有 bucket)+ attachmentName / attachmentSize / attachmentContentType(附件原始檔名 / 大小 / 檔型,#427)、enabled + 基礎欄位(ADR-0007)。
 
 **資料範圍(ADR-0008)**:seed 宣告 `dataScopeTarget`(collection=demo_items_one),落庫至 `data_scope_targets`。可篩業務欄位只有 **`status`(enum,選項 草稿 / 已發布 / 已封存)**,基礎欄位由程式自動附加。它是全平台唯一的 enum 資料範圍欄位 —— 沒有它,「enum 固定選項」這條規則在任何環境都驗不到(#246);value 的正本是 seed 宣告,schema 的 `status` 一一對應。
 
@@ -50,7 +50,7 @@
 demoItemsOne(input: DemoItemsOneInput!): DemoItemsOnePayload!   # { items, totalCount, page, pageSize }
 demoItemOne(id: ID!): DemoItemOnePayload!                        # { item }
 demoItemOneHistory(id: ID!): DemoItemOneHistoryPayload!          # 需 edit-page.show-history
-attachmentDownloadUrl(id: ID!): SignedUrlPayload!                # { url };私有附件現簽,需 view
+demoItemOneAttachmentUrl(id: ID!): DemoItemOneAttachmentUrlPayload!  # { url };私有附件現簽,需 view(#427 由 attachmentDownloadUrl 改名)
 
 createDemoItemOne(input: CreateDemoItemOneInput!): DemoItemOnePayload!
 updateDemoItemOne(input: UpdateDemoItemOneInput!): DemoItemOnePayload!
@@ -66,13 +66,20 @@ type DemoItemOne {
   internalNote: String # 欄位級權限(見下)
   coverPath: ID # 公開 bucket 的物件路徑
   coverUrl: String # 公開**穩定** URL(不過期)
-  attachment: DemoItemOneAttachment # { path, name };下載網址另簽
+  attachment: DemoItemOneAttachment # { path, name, size, contentType };下載網址另簽
   status: DemoItemOneStatus! # DRAFT / PUBLISHED / ARCHIVED
   enabled: Boolean!
   createdBy: DemoItemOneUserRef # { id, name }
   createdAt: DateTime!
   updatedAt: DateTime!
   abilities: DemoItemOneAbilities! # { canEdit, canDelete, canEditInternalNote }
+}
+
+input DemoItemOneAttachmentInput { # create / update 的 attachment(#427)
+  path: ID! # createUploadUrl(DEMO_ATTACHMENT)回的 objectPath
+  name: String! # 原始檔名(File.name)
+  size: Int! # bytes(File.size)
+  contentType: String! # File.type
 }
 
 input DemoItemsOneInput {
@@ -90,20 +97,22 @@ input DemoItemsOneInput {
 
 - **`internalNote` 是欄位級權限欄(綁父模組,ADR-0004)**:沒有 `demo.sub.sample-one.show-internal-note` 時,api **不把這個欄位放進回傳物件**(GraphQL 因此序列化成 `null`),列表與單筆一致。「沒權限」與「沒填」在值上長得一樣,所以**前端依自己的權限集決定要不要渲染這個欄位**,不要拿值去猜。
 - **`abilities` 由 api 依操作者的有效權限集算好,每個旗標都已含權限判斷**:前端**直接用**,不要再與 `usePermissions` 相乘(同一條規則兩邊各算一次,對不起來就是畫面與 API 不一致)。與角色頁的 `RoleAbilities` 不同 —— 那組刻意不含權限 key,因為它表達的是「角色種類規則」。`canEditInternalNote` 為 false 但 `internalNote` 有值 = 看得到、改不動(唯讀)。
-- **`coverUrl` 是公開 bucket 的穩定 URL**(不簽名、不過期,可直接放 `<img src>`、可快取);**附件只給 `attachment { path, name }`**,下載要另外呼叫 `attachmentDownloadUrl(id)` 現簽短效網址(ADR-0010 的雙路)。`attachment.name` 是物件路徑的最後一段(`<uuid>.<副檔名>`)—— 上傳票不保留使用者當初選的檔名。
+- **`coverUrl` 是公開 bucket 的穩定 URL**(不簽名、不過期,可直接放 `<img src>`、可快取);**附件只給 `attachment { path, name, size, contentType }`**,下載要另外呼叫 `demoItemOneAttachmentUrl(id)` 現簽短效網址(ADR-0010 的雙路)。`name` / `size` / `contentType` 是寫入時前端申報的**原始檔名 / bytes / 檔型**,原樣回傳(#427)。**#427 以前上傳的附件三者皆為 `null`**(當時只存路徑):前端顯示檔名時退回物件路徑的最後一段(`<uuid>.<副檔名>`)、不顯示大小。
 - **`categoryLabel`**:分類已被停用、或屬於操作者看不到的組織時為 `null`(`category` 仍原樣回)。
 - **`createdBy` 查不到那位使用者時一律回 `null`,不拋錯**:seed 的示範資料用假的 ObjectId 當建立者(#319),真實環境也會有使用者被刪掉的情形;前端顯示「—」即可。
 
 **可選輸入欄位的缺席 / `null` 語意**(GQL-06):
 
-| 欄位                                              | `createDemoItemOne`                 | `updateDemoItemOne`                      |
-| ------------------------------------------------- | ----------------------------------- | ---------------------------------------- |
-| `name`                                            | 必填(空白 → 拒)                     | 缺席 / `null` = 不動                     |
-| `status`                                          | 缺席 / `null` = 草稿                | 缺席 / `null` = 不動                     |
-| `category`、`note`、`coverPath`、`attachmentPath` | 缺席 / `null` = 不設                | **缺席 = 不動、`null` = 清空**(`$unset`) |
-| `internalNote`                                    | 同上,但**欄位一出現就要權限**(見下) | 同上                                     |
+| 欄位                                          | `createDemoItemOne`                 | `updateDemoItemOne`                      |
+| --------------------------------------------- | ----------------------------------- | ---------------------------------------- |
+| `name`                                        | 必填(空白 → 拒)                     | 缺席 / `null` = 不動                     |
+| `status`                                      | 缺席 / `null` = 草稿                | 缺席 / `null` = 不動                     |
+| `category`、`note`、`coverPath`、`attachment` | 缺席 / `null` = 不設                | **缺席 = 不動、`null` = 清空**(`$unset`) |
+| `internalNote`                                | 同上,但**欄位一出現就要權限**(見下) | 同上                                     |
 
-**上傳**(ADR-0010):`createUploadUrl` 的 purpose 新增 `DEMO_COVER`(公開 bucket)與 `DEMO_ATTACHMENT`(私有 bucket),路徑一律 `demo/<uuid>.<副檔名>`;兩者都要 `demo.sub.sample-one.create` 或 `.edit`。寫入 `coverPath` / `attachmentPath` 時 api 會驗「是不是本 API 簽出來的路徑」(`isOwnedUploadPath`),不是就 `VALIDATION_FAILED`。
+**上傳**(ADR-0010):`createUploadUrl` 的 purpose 新增 `DEMO_COVER`(公開 bucket)與 `DEMO_ATTACHMENT`(私有 bucket),路徑一律 `demo/<uuid>.<副檔名>`;兩者都要 `demo.sub.sample-one.create` 或 `.edit`。寫入 `coverPath` / `attachment.path` 時 api 會驗「是不是本 API 簽出來的路徑」(`isOwnedUploadPath`),不是就 `VALIDATION_FAILED`。
+
+**附件的中繼資料**(#427):`attachment` 是 `{ path, name, size, contentType }` 一整組,**四個都必填**(沒有「只改檔名」這回事,換檔就整組送)。`name` / `size` / `contentType` 是前端選檔時的 `File.name` / `File.size` / `File.type`,api **只驗形狀、不驗與 bucket 裡的物件一致**(它們是顯示用的):檔名去頭尾空白後 1–255 字、大小是 0 到 `DEMO_ATTACHMENT` 上限(20 MB)的整數、檔型在 `DEMO_ATTACHMENT` 白名單內(存小寫);不合一律 `VALIDATION_FAILED`,`fields: ["attachment"]`。落庫是 `attachmentPath` / `attachmentName` / `attachmentSize` / `attachmentContentType` 四個平行欄位,換檔一起 `$set`、清空一起 `$unset`;稽核的 `before` / `after` 只記 `attachmentPath`(檔名等中繼資料不進歷程)。
 
 **可上傳的檔型與大小依 purpose**(#344;正本 `apps/api/src/storage/upload-rules.ts` 的 `UPLOAD_RULES`):
 
@@ -118,14 +127,14 @@ input DemoItemsOneInput {
 
 ### 錯誤(沿用 GQL-04 的通用碼,不新增 code)
 
-| 情況                                                                     | 回什麼                                                             |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| 端點所需權限不足(`view` / `create` / `edit` / `delete` / `show-history`) | `FORBIDDEN`(由 `@RequirePermission` 擋,無 `reason`)                |
-| input 裡出現 `internalNote`(含送 `null` 清空)但沒有 `edit-internal-note` | `FORBIDDEN` + `extensions.reason = "FIELD_FORBIDDEN"`              |
-| 名稱空白                                                                 | `VALIDATION_FAILED`,`fields: ["name"]`                             |
-| 分類不在操作者的**合併範圍**內、或該選項已停用                           | `VALIDATION_FAILED`,`fields: ["category"]`                         |
-| `coverPath` / `attachmentPath` 不是本 API 簽出來的路徑                   | `VALIDATION_FAILED`,`fields: ["coverPath"]` / `["attachmentPath"]` |
-| 資料不在可見範圍 / 資料範圍內、id 不存在、這筆沒有附件                   | `NOT_FOUND`                                                        |
+| 情況                                                                                          | 回什麼                                                         |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 端點所需權限不足(`view` / `create` / `edit` / `delete` / `show-history`)                      | `FORBIDDEN`(由 `@RequirePermission` 擋,無 `reason`)            |
+| input 裡出現 `internalNote`(含送 `null` 清空)但沒有 `edit-internal-note`                      | `FORBIDDEN` + `extensions.reason = "FIELD_FORBIDDEN"`          |
+| 名稱空白                                                                                      | `VALIDATION_FAILED`,`fields: ["name"]`                         |
+| 分類不在操作者的**合併範圍**內、或該選項已停用                                                | `VALIDATION_FAILED`,`fields: ["category"]`                     |
+| `coverPath` / `attachment.path` 不是本 API 簽出來的路徑;`attachment` 的檔名 / 大小 / 檔型不合 | `VALIDATION_FAILED`,`fields: ["coverPath"]` / `["attachment"]` |
+| 資料不在可見範圍 / 資料範圍內、id 不存在、這筆沒有附件                                        | `NOT_FOUND`                                                    |
 
 ### 審計
 

@@ -61,10 +61,11 @@ export const FieldFormDialog = ({
   );
 
   const onError = (error: unknown) => {
-    setErrorCode(fieldManagerErrorOf(error));
+    setErrorCode(fieldManagerErrorOf(error).code);
   };
 
-  const feedbackError = (error: unknown) => tErrors(fieldManagerErrorOf(error));
+  const feedbackError = (error: unknown) =>
+    tErrors(fieldManagerErrorOf(error).code);
 
   const createField = useCreateFieldMutation(
     session.client,

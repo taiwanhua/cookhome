@@ -13,11 +13,9 @@ import {
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
 import { Dialog } from "@repo/ui/dialog";
-import { MenuItem } from "@repo/ui/menu";
-import { Select } from "@repo/ui/select";
+import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
-import { Typography } from "@repo/ui/typography";
 
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
@@ -199,33 +197,24 @@ export const EditOrgDialog = ({
           }}
         />
         {ability.canMove && !org.isSystem && (
-          <Stack spacing={0.75}>
-            <Typography variant="caption" color="text.secondary">
-              {t("parent")}
-            </Typography>
-            <Select
-              value={form.parentId}
-              displayEmpty
-              fullWidth
-              disabled={isBusy || isTenantTopProtected}
-              aria-label={t("parent")}
-              onChange={(event) => {
-                form.setParentId(event.target.value);
-              }}
-            >
-              <MenuItem value="">{t("parentUnset")}</MenuItem>
-              {parentOptions.map((option) => (
-                <MenuItem key={option.id} value={option.id}>
-                  {option.path}
-                </MenuItem>
-              ))}
-            </Select>
-            <Typography variant="caption" color="text.secondary">
-              {isTenantTopProtected
-                ? tActions("tenantTopHint")
-                : t("parentHint")}
-            </Typography>
-          </Stack>
+          <SelectField
+            label={t("parent")}
+            value={form.parentId}
+            displayEmpty
+            fullWidth
+            disabled={isBusy || isTenantTopProtected}
+            helperText={
+              isTenantTopProtected ? tActions("tenantTopHint") : t("parentHint")
+            }
+            options={[
+              { value: "", label: t("parentUnset") },
+              ...parentOptions.map((option) => ({
+                value: option.id,
+                label: option.path,
+              })),
+            ]}
+            onChange={form.setParentId}
+          />
         )}
         <OrgLogoField
           file={form.logoFile}

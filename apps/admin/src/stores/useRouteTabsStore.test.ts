@@ -42,6 +42,24 @@ describe("useRouteTabsStore:sessionStorage 保留(以使用者分 key)", () => {
     ]);
   });
 
+  it("setItemLabel:寫回 sessionStorage(`[{ route, itemLabel }]`),同名不通知", () => {
+    const { bind, sync, setItemLabel } = useRouteTabsStore.getState();
+    bind("user-1");
+    sync(routes, ORG);
+    setItemLabel(ORG, "台北店");
+    expect(readStoredEntries(key)).toEqual([
+      { route: ORG, itemLabel: "台北店" },
+    ]);
+
+    let notified = 0;
+    const unsubscribe = useRouteTabsStore.subscribe(() => {
+      notified += 1;
+    });
+    setItemLabel(ORG, "台北店");
+    expect(notified).toBe(0);
+    unsubscribe();
+  });
+
   it("沒變化不通知訂閱者(快照參考不變)", () => {
     const { bind, sync } = useRouteTabsStore.getState();
     bind("user-1");

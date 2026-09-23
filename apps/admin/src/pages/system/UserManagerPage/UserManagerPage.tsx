@@ -210,7 +210,7 @@ export const UserManagerPage = () => {
           isLoading={data.isOrgTreeLoading}
           initialSelectedIds={orgsFlow.flow.user.orgs.map((org) => org.id)}
           lockedOrgIds={lockedOrgIdsFor(orgsFlow.flow.user)}
-          lockedHint={t("ownerProtected")}
+          lockedHint={t("orgPicker.ownerLocked")}
           isSubmitting={orgsFlow.isSubmitting}
           onCancel={orgsFlow.close}
           onConfirm={orgsFlow.pick}

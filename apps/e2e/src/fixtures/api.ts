@@ -937,9 +937,9 @@ mutation CreateUploadUrl($input: CreateUploadUrlInput!) {
   createUploadUrl(input: $input) { uploadUrl objectPath expiresAt }
 }`;
 
-const ATTACHMENT_DOWNLOAD_URL = `
-query AttachmentDownloadUrl($id: ID!) {
-  attachmentDownloadUrl(id: $id) { url }
+const DEMO_ITEM_ONE_ATTACHMENT_URL = `
+query DemoItemOneAttachmentUrl($id: ID!) {
+  demoItemOneAttachmentUrl(id: $id) { url }
 }`;
 
 /** GraphQL 的上傳用途列舉(正本 `apps/api/src/storage/upload-rules.ts` 的 `UploadPurpose`)。 */
@@ -963,13 +963,13 @@ export function createUploadUrlRaw(
   );
 }
 
-/** 原樣回傳的 `attachmentDownloadUrl`(劇本 11 步驟 5:拿掉 `view` → `FORBIDDEN`)。 */
-export function attachmentDownloadUrlRaw(
+/** 原樣回傳的 `demoItemOneAttachmentUrl`(劇本 11 步驟 5:拿掉 `view` → `FORBIDDEN`)。 */
+export function demoItemOneAttachmentUrlRaw(
   accessToken: string,
   id: string,
-): Promise<GraphqlResponse<{ attachmentDownloadUrl: { url: string } }>> {
-  return graphql<{ attachmentDownloadUrl: { url: string } }>(
-    ATTACHMENT_DOWNLOAD_URL,
+): Promise<GraphqlResponse<{ demoItemOneAttachmentUrl: { url: string } }>> {
+  return graphql<{ demoItemOneAttachmentUrl: { url: string } }>(
+    DEMO_ITEM_ONE_ATTACHMENT_URL,
     { id },
     accessToken,
   );

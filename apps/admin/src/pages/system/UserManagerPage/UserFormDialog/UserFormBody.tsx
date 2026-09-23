@@ -60,6 +60,8 @@ export const UserFormBody = ({
   onSaved,
 }: UserFormBodyProps) => {
   const t = useTranslations("admin.userManager.form");
+  // 成功提示在頁層級的 `admin.userManager.feedback`,不在 `form` 底下(#426 死鍵測試抓到的誤指)
+  const tFeedback = useTranslations("admin.userManager.feedback");
   const { session } = useSession();
   const queryClient = useQueryClient();
   const isCreate = userId === null;
@@ -72,7 +74,7 @@ export const UserFormBody = ({
   const [isPickingOrgs, setIsPickingOrgs] = useState(false);
 
   const onError = (error: unknown) => {
-    const { code, fields } = userManagerErrorOf(error);
+    const { code, fields = [] } = userManagerErrorOf(error);
     if (code === "VALIDATION_FAILED" && fields.length > 0) {
       setErrorText(t("errors.duplicate", { fields: fields.join("、") }));
       return;
@@ -99,7 +101,7 @@ export const UserFormBody = ({
   const createUser = useCreateUserMutation(
     session.client,
     useMutationFeedback<CreateUserMutation>({
-      success: t("feedback.createSuccess"),
+      success: tFeedback("createSuccess"),
       error: feedbackError,
       onSuccess: onSaved,
       onError,
@@ -108,7 +110,7 @@ export const UserFormBody = ({
   const updateUser = useUpdateUserMutation(
     session.client,
     useMutationFeedback<UpdateUserMutation>({
-      success: t("feedback.updateSuccess"),
+      success: tFeedback("updateSuccess"),
       error: feedbackError,
       onSuccess: (payload) => {
         /**

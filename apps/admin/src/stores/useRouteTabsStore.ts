@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { type PersistStorage, persist } from "zustand/middleware";
 
+import type { ShellModule } from "../lib/module-tree";
 import {
   ROUTE_TABS_STORAGE_PREFIX,
   type RouteTabEntry,
@@ -9,6 +10,7 @@ import {
   moveEntry,
   readStoredEntries,
   routeTabsStorageKey,
+  setEntryItemLabel,
   syncEntries,
   writeStoredEntries,
 } from "../lib/route-tabs";
@@ -21,7 +23,12 @@ export interface RouteTabsStoreState extends RouteTabsPersisted {
   /** 綁定登入者:切到 `cookhome-admin-route-tabs:<userId>` 這把 key 並從 sessionStorage 讀回(殼 mount 時呼叫) */
   bind: (userId: string) => void;
   /** 與「可進入路由集合」對齊 + 目前路徑生成 tab(進入路由即呼叫;沒變化不寫回、不通知) */
-  sync: (routes: ReadonlyMap<string, unknown>, currentPath: string) => void;
+  sync: (routes: ReadonlyMap<string, ShellModule>, currentPath: string) => void;
+  /**
+   * 詳情子頁籤的項目名(#428;「模組名 — 項目名」的後半):頁面拿到資料後經 `hooks/useRouteTabItemLabel` 呼叫,
+   * 同名不寫回、不通知。`route` 是該頁的完整網址(已正規化)。
+   */
+  setItemLabel: (route: string, itemLabel: string) => void;
   /** 關閉 tab;回傳關閉當前 tab 時要轉去的路由(非當前為 null) */
   close: (route: string, activeRoute: string | null) => string | null;
   move: (fromRoute: string, toRoute: string) => void;
@@ -33,7 +40,7 @@ export interface RouteTabsStoreState extends RouteTabsPersisted {
 }
 
 /**
- * sessionStorage 存的是紀錄陣列本身(`[{ route }]`),不是 zustand 的 JSON 封包 — 沿用重構前的格式與 key(docs/branding.md)。
+ * sessionStorage 存的是紀錄陣列本身(`[{ route, itemLabel? }]`),不是 zustand 的 JSON 封包 — 沿用重構前的格式與 key(docs/branding.md)。
  * `getItem` 讀不到回空陣列(不是 null),讓 `bind` 換使用者時一定以 storage 內容覆蓋記憶體、不會撿到上一個人的頁籤。
  */
 const storage: PersistStorage<RouteTabsPersisted> = {
@@ -72,6 +79,9 @@ export const useRouteTabsStore = create<RouteTabsStoreState>()(
         },
         sync: (routes, currentPath) => {
           commit(syncEntries(get().entries, routes, currentPath));
+        },
+        setItemLabel: (route, itemLabel) => {
+          commit(setEntryItemLabel(get().entries, route, itemLabel));
         },
         close: (route, activeRoute) => {
           const result = closeEntry(get().entries, route, activeRoute);

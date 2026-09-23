@@ -1,8 +1,8 @@
 import { useTranslations } from "use-intl";
 
-import { Box } from "@repo/ui/box";
 import { Button } from "@repo/ui/button";
 import { Stack } from "@repo/ui/stack";
+import { Tooltip } from "@repo/ui/tooltip";
 
 import type { UserActionAbility, UserRow } from "../user-manager-types";
 
@@ -24,7 +24,7 @@ export interface UserRowActionsProps {
 }
 
 /**
- * 每列的動作(Figma 31:98):有權限才出現;擁有者受保護的動作出現但 disabled 並以 title 說明原因
+ * 每列的動作(Figma 31:98):有權限才出現;擁有者受保護的動作出現但 disabled 並以 Tooltip 說明原因
  * (停用被 api 以 `OWNER_PROTECTED` 擋下,先在畫面上講清楚)。
  * **「所屬組織」不在此列**(#362):api 只擋「移出他擁有的租戶頂層」,
  * 整個按鈕停用比 api 嚴,擁有者會因此連加入其他組織都做不到。
@@ -40,7 +40,8 @@ export const UserRowActions = ({
   onToggleEnabled,
 }: UserRowActionsProps) => {
   const t = useTranslations("admin.userManager");
-  const protectedTitle = isOwnerProtected ? t("ownerProtected") : undefined;
+  // 只有「停用」會被擋;已停用的擁有者要重新啟用不受限,那顆按鈕就不必提示
+  const isToggleLocked = isOwnerProtected && user.enabled;
 
   return (
     <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
@@ -79,19 +80,20 @@ export const UserRowActions = ({
         </Button>
       )}
       {ability.canToggleEnabled && (
-        <Box component="span" title={protectedTitle}>
+        // 停用的按鈕收不到 hover,包 span 的事情交給 Tooltip 自己處理(REACT-10)
+        <Tooltip title={isToggleLocked ? t("ownerProtected") : ""}>
           <Button
             variant="text"
             size="small"
             color={user.enabled ? "error" : "success"}
-            disabled={isOwnerProtected && user.enabled}
+            disabled={isToggleLocked}
             onClick={() => {
               onToggleEnabled(user);
             }}
           >
             {user.enabled ? t("actions.disable") : t("actions.enable")}
           </Button>
-        </Box>
+        </Tooltip>
       )}
     </Stack>
   );

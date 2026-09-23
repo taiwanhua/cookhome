@@ -51,7 +51,7 @@ export const FieldManagerPage = () => {
           ? t("feedback.enableSuccess")
           : t("feedback.disableSuccess"),
       // 失敗的 Snackbar 文案與頁面上那一條 Alert 同一份解讀(#376)
-      error: (error) => t(`errors.${fieldManagerErrorOf(error)}`),
+      error: (error) => t(`errors.${fieldManagerErrorOf(error).code}`),
       onSuccess: () => {
         setPendingFieldId(null);
         setActionError(null);
@@ -59,7 +59,7 @@ export const FieldManagerPage = () => {
       },
       onError: (error: unknown) => {
         setPendingFieldId(null);
-        setActionError(fieldManagerErrorOf(error));
+        setActionError(fieldManagerErrorOf(error).code);
       },
     }),
   );

@@ -69,8 +69,6 @@
     "description": "Enter your current password and a new one: at least {min} characters and not digits only.",
     "forced": "Please change your password before continuing; other features are available afterwards.",
     "currentPassword": "Current password",
-    "newPassword": "New password",
-    "confirmPassword": "Confirm new password",
     "submit": "Confirm",
     "back": "Back",
     "errors": {
@@ -84,7 +82,6 @@
     "collapseNav": "Collapse sidebar",
     "expandNav": "Expand sidebar",
     "currentOrg": "Current organization",
-    "userMenu": "User menu",
     "placeholder": {
       "pending": "This page is not built yet"
     },
@@ -313,8 +310,7 @@
       "orgs": "Organizations",
       "roles": "Assign roles",
       "enable": "Enable",
-      "disable": "Disable",
-      "rowLabel": "{action} {name}"
+      "disable": "Disable"
     },
     "form": {
       "createTitle": "Add user",
@@ -356,9 +352,9 @@
     },
     "orgPicker": {
       "title": "Organizations — {name}",
-      "createTitle": "Pick organizations",
       "selected": "{count} selected",
       "hint": "Adding an organization widens the data this user can see. When you remove one, the affected role grants are listed before submitting so you can keep or revoke them.",
+      "ownerLocked": "The owner of the top-level organization cannot be removed from it; other organizations can be checked or unchecked freely.",
       "confirm": "Confirm",
       "cancel": "Cancel"
     },
@@ -393,8 +389,6 @@
       "title": "Assign roles — {name}",
       "hint": "\"Outside org\" means {name} is not inside the organization that owns the role",
       "outOfScope": "Outside org",
-      "orgFilter": "Organization (lists that organization's roles)",
-      "allOrgs": "All organizations",
       "empty": "No roles available to assign",
       "outOfReach": "Outside your managed scope",
       "ownerOrg": "Owned by {org}",
@@ -546,7 +540,6 @@
       "templateCopy": "Preset role"
     },
     "status": {
-      "enabled": "Enabled",
       "disabled": "Disabled"
     },
     "toolbar": {
@@ -602,7 +595,6 @@
     },
     "addUsers": {
       "title": "Add users — {name} ({org})",
-      "search": "Search",
       "searchPlaceholder": "Name or email",
       "candidate": "{account} · {name} ({orgs})",
       "hint": "Only users inside \"{org}\" or below it can be added; anyone else is listed but cannot be selected. Cannot find someone? Add them to the organization in user management first.",
@@ -708,7 +700,6 @@
       "audienceOrg": "Organizations",
       "audienceUser": "Users",
       "remove": "Delete rule",
-      "audienceSearch": "Search roles",
       "audienceEmpty": "No matching targets",
       "audienceNoOwnerOrg": "No owning organization"
     },
@@ -945,7 +936,7 @@
         "name": "Please fill in the name.",
         "category": "That category is not available to you, or has been disabled.",
         "coverPath": "The cover file is invalid. Please upload it again.",
-        "attachmentPath": "The attachment file is invalid. Please upload it again.",
+        "attachment": "The attachment file is invalid. Please upload it again.",
         "internalNote": "You are not allowed to change the internal note."
       }
     }

@@ -24,6 +24,8 @@ E2E_GREP="劇本 7" pnpm e2e            # 只跑某一條(`--` 之後的旗標�
 
 跑完 `globalTeardown` 會把它們收掉。報告在 `playwright-report/`(失敗時附 trace 與截圖)。
 
+Windows 的 PowerShell 沒有 `VAR=… 指令` 這種前綴,寫成 `$env:E2E_GREP="劇本 7"; pnpm e2e`(agent 在 worktree 裡用 Bash 下前綴也會被守衛擋)。
+
 本機反覆跑同一條時,`E2E_SKIP_BUILD=1` 省掉重建;接在自己手動起好的 stack 上除錯用 `E2E_SKIP_STACK=1`。
 變數清單見 `.env.example`。
 

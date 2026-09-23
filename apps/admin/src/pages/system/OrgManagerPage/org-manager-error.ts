@@ -1,4 +1,4 @@
-import { ClientError } from "@repo/graphql";
+import { type AdminError, parseAdminError } from "@/lib/errors";
 
 /**
  * 組織管理會收到的業務錯誤碼(GQL-04;api 的程式正本 `apps/api/src/orgs/org-error.ts`)。
@@ -33,49 +33,17 @@ export const ORG_NOT_DELETABLE_REASONS = [
 
 export type OrgNotDeletableReason = (typeof ORG_NOT_DELETABLE_REASONS)[number];
 
-export interface OrgManagerError {
-  code: OrgManagerErrorCode;
-  /** `ORG_NOT_DELETABLE` / `PROVISION_NOT_REVOKABLE` 時逐項列出為什麼不行 */
-  reasons: OrgNotDeletableReason[];
-  /** `VALIDATION_FAILED` 時 api 以 `extensions.fields` 指出不合法的欄位 */
-  fields: string[];
-}
+/**
+ * 共用形狀(`lib/errors.ts`)。本頁用到的選填欄位:`reasons`(`ORG_NOT_DELETABLE` /
+ * `PROVISION_NOT_REVOKABLE` 時逐項列出為什麼不行)與 `fields`(`VALIDATION_FAILED` 時不合法的欄位)。
+ */
+export type OrgManagerError = AdminError<
+  OrgManagerErrorCode,
+  OrgNotDeletableReason
+>;
 
-interface GraphqlErrorShape {
-  extensions?: { code?: unknown; reasons?: unknown; fields?: unknown };
-}
-
-const errorsOf = (error: unknown): GraphqlErrorShape[] => {
-  if (!(error instanceof ClientError)) {
-    return [];
-  }
-  const { errors } = error.response as { errors?: unknown };
-  return Array.isArray(errors) ? (errors as GraphqlErrorShape[]) : [];
-};
-
-const isKnownCode = (value: unknown): value is OrgManagerErrorCode =>
-  typeof value === "string" &&
-  (ORG_MANAGER_ERROR_CODES as readonly string[]).includes(value);
-
-const isKnownReason = (value: unknown): value is OrgNotDeletableReason =>
-  typeof value === "string" &&
-  (ORG_NOT_DELETABLE_REASONS as readonly string[]).includes(value);
-
-const stringsOf = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
-
-export const orgManagerErrorOf = (error: unknown): OrgManagerError => {
-  for (const item of errorsOf(error)) {
-    const { code, reasons, fields } = item.extensions ?? {};
-    if (isKnownCode(code)) {
-      return {
-        code,
-        reasons: Array.isArray(reasons) ? reasons.filter(isKnownReason) : [],
-        fields: stringsOf(fields),
-      };
-    }
-  }
-  return { code: "UNEXPECTED", reasons: [], fields: [] };
-};
+export const orgManagerErrorOf = (error: unknown): OrgManagerError =>
+  parseAdminError(error, {
+    codes: ORG_MANAGER_ERROR_CODES,
+    reasons: ORG_NOT_DELETABLE_REASONS,
+  });

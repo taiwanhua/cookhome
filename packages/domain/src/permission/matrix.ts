@@ -162,6 +162,10 @@ export function normalizeGrant(
  * `<模組>.*` → 該模組**自己這一層**的全部權限,且 `*` 本身保留(矩陣的「全部」列要顯示勾選)。
  * 同層語意:父模組的 `*` 不展開到子模組。模組清單只做「樹內過濾 + 依樹排序」(展開只管權限,
  * 不做補上層 — 那是 {@link normalizeGrant} 的事)。
+ *
+ * **與 {@link normalizeGrant} 同一條 M-10**(#363 / #426):只有這棵樹上列得出權限的模組才有
+ * `<模組>.*` 可展開。餵顯示樹時,整層被剪掉的模組即使角色實際持有 `<模組>.*` 也不輸出 ——
+ * 矩陣上沒有那一列,輸出了只會是一筆看不到、取消不掉的勾選。
  */
 export function expandGrant(
   moduleTree: MatrixModuleTree,
@@ -174,7 +178,7 @@ export function expandGrant(
   const permissionKeys: string[] = [];
   for (const [key, entry] of flat) {
     const wildcardKey = wildcardKeyOf(key);
-    if (requested.has(wildcardKey)) {
+    if (entry.hasPermissions && requested.has(wildcardKey)) {
       permissionKeys.push(wildcardKey, ...entry.individualKeys);
       continue;
     }
