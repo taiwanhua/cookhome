@@ -2,7 +2,9 @@
 
 ## GEN-01 檔名依內容分三種:元件 PascalCase、hook camelCase、其餘 kebab-case
 
-(2026-09-19 改,ADR-0012;lint:`@repo/eslint-config/frontend-style` 的 `unicorn/filename-case` 三條,各包完成重構後啟用)
+(決策見 ADR-0012;lint:`@repo/eslint-config/frontend-style` 的 `unicorn/filename-case` 三條,admin / front / ui 皆已啟用)
+
+正本:`packages/config-eslint/frontend-style.js`、`apps/admin/eslint.config.js`、`apps/front/eslint.config.js`、`packages/ui/eslint.config.mjs`
 
 | 檔案是什麼                                  | 檔名                               | 例                                                        |
 | ------------------------------------------- | ---------------------------------- | --------------------------------------------------------- |
