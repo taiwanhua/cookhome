@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 
 import { Snackbar } from "./Snackbar";
 
+/** 固定在右上角、AppBar 下方(#426);story 畫布沒有 AppBar,上方那段空白就是讓給它的。 */
 const meta = {
   title: "Components/Snackbar",
   component: Snackbar,

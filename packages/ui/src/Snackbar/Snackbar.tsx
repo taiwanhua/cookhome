@@ -7,6 +7,12 @@ import type { ReactNode, SyntheticEvent } from "react";
 /** 提示的語氣。成功與失敗兩種就夠用(mutation 只有這兩種結果)。 */
 export type SnackbarSeverity = "success" | "error";
 
+/**
+ * 距視窗頂端的偏移(theme.spacing 單位):後台 AppBar 高 8(64px,Figma AdminAppBar)
+ * + 與 AppBar 之間留 2 的間距,提示才不會蓋住右上角的語言 / 組織 / 使用者選單。
+ */
+const TOP_OFFSET = 10;
+
 export interface SnackbarProps {
   /** 顯示與否;關閉即由呼叫端把這一則從佇列上移除 */
   open: boolean;
@@ -24,7 +30,8 @@ export interface SnackbarProps {
 
 /**
  * 操作結果提示(MUI Snackbar + Alert)。成功 / 失敗各一種語氣,4 秒自動關閉、
- * 也可以按右邊的 × 手動關;位置固定在右下角。顏色取自 theme 的 `success` / `error`
+ * 也可以按右邊的 × 手動關。**位置固定在右上角、AppBar 下方**(#426,使用者 2026-09-23 裁決;
+ * 偏移量見 `TOP_OFFSET`,用 theme spacing 不寫死像素)。顏色取自 theme 的 `success` / `error`
  * 語意色,不自帶品牌色。
  *
  * **排隊策略:一次只顯示最新的一則(latest-only),不排隊。** 本元件只負責畫「一則」,
@@ -48,7 +55,11 @@ export const Snackbar = ({
   <MuiSnackbar
     open={open}
     autoHideDuration={autoHideDuration}
-    anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+    anchorOrigin={{ vertical: "top", horizontal: "right" }}
+    // MUI 在 sm 以上另有一條 `top: 24px` 的 media query,xs / sm 都要寫才蓋得過
+    sx={(theme) => ({
+      top: { xs: theme.spacing(TOP_OFFSET), sm: theme.spacing(TOP_OFFSET) },
+    })}
     onClose={(_event: Event | SyntheticEvent, reason?: string) => {
       if (reason === "clickaway") {
         return;
