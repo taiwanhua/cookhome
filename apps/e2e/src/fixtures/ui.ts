@@ -334,3 +334,55 @@ export async function readGovernancePages(
 
   return { orgTree: orgLabels, userRows, roleList };
 }
+
+/* ---- 劇本 14(#400):管理範圍的樹根、搬移候選 ---- */
+
+/**
+ * 組織樹**各個樹根**的標籤(依畫面順序)。
+ * `RichTreeView` 的樹根是 `role="tree"` 底下直屬的 `li`,子節點住在自己的 `ul role="group"` 裡,
+ * 所以用直屬子選擇器就只撈得到樹根。呼叫前先等樹上某個節點出現(清單還在路上時是空的)。
+ */
+export async function orgTreeRootLabels(page: Page): Promise<string[]> {
+  return orgTree(page)
+    .locator(':scope > li[role="treeitem"] > .MuiTreeItem-content')
+    .locator(".MuiTreeItem-label")
+    .allInnerTexts();
+}
+
+/** 編輯彈窗的「上層組織」下拉(`admin.orgManager.form.parent`;選項文字 = 含祖先的完整路徑)。 */
+export const MOVE_TARGET_SELECT = "上層組織(搬移)";
+
+/** 「上層組織」下拉的第一個選項 = 不搬(`admin.orgManager.form.parentUnset`)。 */
+export const MOVE_TARGET_UNSET = "不變更";
+
+/**
+ * 組織管理 → 選 `orgName` →「編輯」,回傳編輯彈窗。呼叫前要已經在組織管理頁上。
+ * 彈窗以「儲存」按鈕辨認(理由見 `dialogWithButton`)。
+ */
+export async function openEditOrgDialog(
+  page: Page,
+  orgName: string,
+): Promise<Locator> {
+  await orgTree(page).getByText(orgName, { exact: true }).click();
+  await page.getByRole("button", { name: "編輯", exact: true }).click();
+  const dialog = dialogWithButton(page, "儲存");
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/**
+ * 編輯彈窗裡「上層組織」下拉列出的選項(不含第一個「不變更」),讀完按 Esc 收掉選單。
+ * 候選 = 管理範圍 ∩ 同租戶 − 自己子樹(`useMoveTargets.ts`),api 會再驗一次。
+ */
+export async function readMoveTargets(
+  page: Page,
+  dialog: Locator,
+): Promise<string[]> {
+  await dialog.getByRole("combobox", { name: MOVE_TARGET_SELECT }).click();
+  const options = page.getByRole("listbox").getByRole("option");
+  await expect(options.first()).toHaveText(MOVE_TARGET_UNSET);
+  const labels = await options.allInnerTexts();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toBeHidden();
+  return labels.filter((label) => label !== MOVE_TARGET_UNSET);
+}
