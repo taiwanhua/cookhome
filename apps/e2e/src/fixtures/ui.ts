@@ -386,3 +386,164 @@ export async function readMoveTargets(
   await expect(page.getByRole("listbox")).toBeHidden();
   return labels.filter((label) => label !== MOVE_TARGET_UNSET);
 }
+
+/* ---- 劇本 16 / 17(#401):開通租戶、撤銷開通、租戶頂層保護 ---- */
+
+/** 組織管理右側的資料區(`OrgDetailPanel` 的 `aria-label`);動作列(編輯 / 停用 / 刪除 / 撤銷開通)在裡面。 */
+export function orgDetail(page: Page): Locator {
+  return page.getByRole("region", { name: "組織資料" });
+}
+
+/**
+ * 組織樹上名稱含 `orgName` 的那一列(`.MuiTreeItem-content` 只含自己那一列)。
+ *
+ * **掛了標籤的列不能用 `getByText(名稱, { exact: true })` 找**:標籤(「停用」「租戶」,
+ * `OrgTreePanel` 的 `labelSuffixOf`)與名稱是同一個 `.MuiTreeItem-label` 裡的兄弟 ——
+ * 名稱是裸的文字節點、沒有自己的元素,所以最小的那個元素的文字是「名稱租戶」,精確比對永遠落空。
+ * 這裡改用子字串比對,名稱要夠獨特(劇本裡的租戶名一律帶隨機字尾)。
+ */
+export function orgTreeRow(page: Page, orgName: string): Locator {
+  return orgTree(page)
+    .locator(".MuiTreeItem-content")
+    .filter({ hasText: orgName });
+}
+
+/** 樹上「租戶」標籤的文案(`admin.orgManager.tree.tenantTag`;只標父節點是平台根組織的節點)。 */
+export const TENANT_TAG = "租戶";
+
+/**
+ * 組織管理 →「開通租戶」→ 填表 → 取消勾選 `uncheckModules` →「開通」,回傳新租戶頂層的 id。
+ * 呼叫前要已經在組織管理頁上(root 視角)。模組勾選是連動的:取消群組會連同下層一起取消。
+ * 回傳值取自那一次 `ProvisionTenant` 的回應(成功提示 4 秒就關,不當同步點)。
+ */
+export async function provisionTenantInUi(
+  page: Page,
+  input: {
+    name: string;
+    adminEmail: string;
+    adminAccount: string;
+    uncheckModules: readonly string[];
+  },
+): Promise<string> {
+  await page.getByRole("button", { name: "開通租戶", exact: true }).click();
+  const dialog = dialogWithButton(page, "開通");
+  // 表單要等 `tenantModuleOptions` 回來才掛上(之前只有轉圈)
+  const nameField = dialog.getByLabel("租戶名稱");
+  await expect(nameField).toBeVisible();
+  await nameField.fill(input.name);
+  await dialog.getByLabel("首任租戶管理員 Email").fill(input.adminEmail);
+  await dialog.getByLabel("首任租戶管理員帳號").fill(input.adminAccount);
+  for (const moduleName of input.uncheckModules) {
+    const checkbox = dialog.getByRole("checkbox", {
+      name: moduleName,
+      exact: true,
+    });
+    await expect(checkbox).toBeChecked();
+    await checkbox.click();
+    await expect(checkbox).not.toBeChecked();
+  }
+  const data = await clickAndReadData(
+    dialog.getByRole("button", { name: "開通", exact: true }),
+    "ProvisionTenant",
+  );
+  await expect(dialog).toBeHidden();
+  const payload = data.provisionTenant as { org: { id: string } };
+  return payload.org.id;
+}
+
+/**
+ * 組織管理 → 選 `orgName` →「撤銷開通」,回傳確認彈窗(`RevokeProvisionDialog`)。
+ * 按鈕只在 root 視角選中租戶頂層時出現(#374)。被擋之後彈窗裡就沒有「撤銷開通」鈕了,
+ * 所以不用 `dialogWithButton` 認它 —— 畫面上同時只會有這一個彈窗。
+ */
+export async function openRevokeProvisionDialog(
+  page: Page,
+  orgName: string,
+): Promise<Locator> {
+  await orgTreeRow(page, orgName).click();
+  await orgDetail(page)
+    .getByRole("button", { name: "撤銷開通", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** 撤銷開通彈窗:名稱沒打之前按不下去 → 照打租戶名稱 →「撤銷開通」,等那一次 `RevokeTenantProvision` 回來。 */
+export async function confirmRevokeProvision(
+  dialog: Locator,
+  orgName: string,
+): Promise<void> {
+  const confirm = dialog.getByRole("button", {
+    name: "撤銷開通",
+    exact: true,
+  });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByLabel(`請輸入租戶名稱「${orgName}」以確認`).fill(orgName);
+  await expect(confirm).toBeEnabled();
+  await clickAndReadData(confirm, "RevokeTenantProvision");
+}
+
+/* ---- 劇本 11 / 15(#402):上傳欄、圖片真的載得出來、側欄商標 ---- */
+
+/**
+ * `@repo/ui/upload-field` 藏起來的 `<input type="file">`(無障礙名字 = 欄位標題)。
+ * 上傳一律走這個 input 的 `setInputFiles`,不去點「點擊或拖曳圖片至此」(那會開系統的檔案對話框)。
+ */
+export function uploadInput(scope: Page | Locator, label: string): Locator {
+  return scope.locator(`input[type="file"][aria-label="${label}"]`);
+}
+
+/**
+ * 一張 `<img>` 真的載入完成(`complete` 且有寬度)。只斷 `toBeVisible` 不夠:
+ * 破圖也是「看得到的元素」,網址指錯、物件不在時照樣綠。
+ */
+export async function expectImageLoaded(image: Locator): Promise<void> {
+  await expect(image).toBeVisible();
+  await expect
+    .poll(() =>
+      image.evaluate((element) => {
+        const img = element as HTMLImageElement;
+        return img.complete ? img.naturalWidth : 0;
+      }),
+    )
+    .toBeGreaterThan(0);
+}
+
+/**
+ * 側欄頂部的商標圖(`AdminShell/SideNav`:有商標才畫 `<img>`,`alt` = 當前組織名稱;
+ * 沒有商標時那個位置是組織名稱的文字,不會有這個 img)。
+ */
+export function sideNavLogo(page: Page, orgName: string): Locator {
+  return sideNav(page).getByRole("img", { name: orgName, exact: true });
+}
+
+/**
+ * 組織管理 → 選 `orgName` →「編輯」→ 商標欄選 `filePath` →「儲存」,等那一次 `UpdateOrg` 回來
+ * (送出時先 `createUploadUrl` → 瀏覽器直傳 bucket → 才送 `UpdateOrg`,`useLogoUpload`)。
+ * 呼叫前要已經在組織管理頁上。
+ */
+export async function setOrgLogoInUi(
+  page: Page,
+  orgName: string,
+  filePath: string,
+): Promise<void> {
+  const dialog = await openEditOrgDialog(page, orgName);
+  await dialog.locator('input[type="file"]').setInputFiles(filePath);
+  await clickAndWaitFor(page, "儲存", "UpdateOrg");
+  await expect(dialog).toBeHidden();
+}
+
+/**
+ * 組織管理 → 選 `orgName` →「編輯」→ 商標欄按「移除」→「儲存」(送 `logoPath: null` = 清空)。
+ * 彈窗一開就顯示既有商標的預覽,所以「移除」鈕一定在。
+ */
+export async function clearOrgLogoInUi(
+  page: Page,
+  orgName: string,
+): Promise<void> {
+  const dialog = await openEditOrgDialog(page, orgName);
+  await dialog.getByRole("button", { name: "移除", exact: true }).click();
+  await clickAndWaitFor(page, "儲存", "UpdateOrg");
+  await expect(dialog).toBeHidden();
+}

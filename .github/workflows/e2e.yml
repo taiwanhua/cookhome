@@ -8,6 +8,12 @@ name: E2E
 #
 # 這個 workflow **不碰任何真實環境**:資料庫是 job 自己的 service container(拋棄式),
 # 帳密用 apps/e2e/.env.example 的測試值,一個 Secret 都不讀。
+#
+# 檔案儲存(劇本 11 / 15,#402)走 fake GCS 容器(fsouza/fake-gcs-server),**不寫成下面的 `services:`**:
+# service container 不能帶啟動參數,而這個映像不給參數就是 https + 自簽憑證 + 公開網址指向
+# storage.googleapis.com,瀏覽器與 api 都連不上。所以改由 harness 以 apps/e2e/docker-compose.yml
+# `up -d` / `down`(與本機 `pnpm e2e` 同一份,runner 內建 Docker);bucket 由 harness 建,
+# 簽名用的假憑證由 harness 每次現產 —— 同樣一個 Secret 都不讀。
 on:
   workflow_dispatch:
     inputs:
@@ -57,12 +63,14 @@ jobs:
       - name: 安裝 chromium
         run: pnpm --filter @repo/e2e exec playwright install --with-deps chromium
 
-      # build api / admin、migrate + seed、起 api 與 admin 都在 globalSetup 裡(apps/e2e/src/harness/stack.ts)
+      # build api / admin、migrate + seed、起 fake GCS / api / admin 都在 globalSetup 裡(apps/e2e/src/harness/stack.ts)
       - name: 跑劇本
         run: pnpm e2e
         env:
           E2E_MONGODB_URI: mongodb://127.0.0.1:27017/cookhome_e2e
           E2E_GREP: ${{ inputs.grep }}
+          # fake GCS 起不來就整個失敗:本機沒有 Docker 時劇本 11 / 15 會 skip,CI 不允許這種「看起來綠」
+          E2E_GCS_REQUIRED: "1"
 
       - name: 上傳報告(含失敗時的 trace 與截圖)
         if: always()
