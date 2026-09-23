@@ -9,12 +9,20 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "lint": "eslint src/ --max-warnings 0"
+    "lint": "eslint src/ --max-warnings 0",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "@repo/jest-presets/node"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
     "@repo/eslint-config": "workspace:*",
+    "@repo/jest-presets": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
     "eslint": "^9.39.0",
+    "jest": "^30.2.0",
     "typescript": "5.9.3"
   }
 }

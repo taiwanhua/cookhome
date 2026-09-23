@@ -20,6 +20,23 @@ describe("Snackbar", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("已儲存");
   });
 
+  /** #426:固定右上角(避開 AppBar 的偏移由 theme spacing 決定,jsdom 驗不到版面,只驗錨點)。 */
+  it("固定在右上角", () => {
+    render(
+      <Snackbar
+        open
+        message="已儲存"
+        closeLabel="關閉"
+        onClose={() => {
+          // 這個案子不驗關閉
+        }}
+      />,
+    );
+
+    const root = screen.getByRole("alert").closest(".MuiSnackbar-root");
+    expect(root).toHaveClass("MuiSnackbar-anchorOriginTopRight");
+  });
+
   it("open=false 時什麼都不渲染", () => {
     render(
       <Snackbar

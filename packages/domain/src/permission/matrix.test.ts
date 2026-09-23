@@ -380,6 +380,31 @@ describe("整層沒有權限的模組不推導 `*`(#363:顯示樹剪掉 `*` 列�
     expect(result.permissionKeys).toEqual([]);
     expect(result.moduleKeys).toEqual(["demo"]);
   });
+
+  /**
+   * #426:`expandGrant` 跟上 M-10 —— 角色實際持有 `demo.*`(操作者搆不到的那一筆),
+   * 餵顯示樹展開時不得冒出一筆矩陣上沒有對應列的 `demo.*`;搆得到的那幾層照常展開。
+   */
+  it("expandGrant:整層被剪掉的模組持有的 `*` 不展開,搆得到的那層照常展開", () => {
+    const result = expandGrant(
+      prunedTree,
+      grantOf(
+        ["demo", "demo.sub", "demo.sub.sample-one"],
+        ["demo.*", "demo.sub.*", "demo.sub.sample-one.*"],
+      ),
+    );
+
+    expect(result.moduleKeys).toEqual([
+      "demo",
+      "demo.sub",
+      "demo.sub.sample-one",
+    ]);
+    expect(result.permissionKeys).toEqual([
+      "demo.sub.sample-one.*",
+      "demo.sub.sample-one.view",
+      "demo.sub.sample-one.edit",
+    ]);
+  });
 });
 
 describe("isWholeGroupGranted:「群組列的勾選狀態是衍生的(子樹全部有 `*` 才顯示勾),不另存」(ADR-0004)", () => {

@@ -1,0 +1,151 @@
+import path from "node:path";
+
+import { describe, expect, it } from "@jest/globals";
+
+import { defaultLocale } from ".";
+import { keysOf, namespacesOf } from "./message-keys";
+import { referencedKeys } from "./usage-scan";
+
+/**
+ * 死鍵守門(#426):字典裡的鍵在 `apps/admin/src`、`apps/front/src` 沒有任何引用就失敗。
+ * 掃描做法(字面字串 × namespace 的配對、配對範圍、掃不到什麼)寫在 `usage-scan.ts` 檔頭。
+ *
+ * 失敗時二選一:①真的沒人用了 → 兩語系一起刪掉那個鍵;②鍵是執行期組出來的 → 加進下方
+ * `DYNAMIC_KEYS` 並寫理由。**不要**為了讓測試過而在程式碼裡寫一個沒用到的字串。
+ */
+
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
+const SOURCE_ROOTS = [
+  path.join(REPO_ROOT, "apps", "admin", "src"),
+  path.join(REPO_ROOT, "apps", "front", "src"),
+];
+
+/**
+ * 靜態掃描看不到、由執行期的值組出來的鍵。以 `.` 結尾的是前綴(底下全部算有引用),
+ * 其餘是單一個鍵。每一條都寫「值從哪裡來」,之後有人要刪才知道去哪裡確認。
+ */
+const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
+  {
+    key: "admin.login.errors.",
+    reason:
+      "`t(`errors.${errorKey}`)`,errorKey 由 `login-error.ts` 從 api 錯誤碼換算",
+  },
+  {
+    key: "admin.changePassword.errors.",
+    reason:
+      "`t(`errors.${errorKey}`)`,errorKey 由 `change-password-error.ts` 從 api 錯誤碼換算",
+  },
+  {
+    key: "admin.orgManager.delete.reasons.",
+    reason:
+      "`t(`reasons.${reason}`)`,reason 是 api `ORG_NOT_DELETABLE` 帶回的 `OrgNotDeletableReason`",
+  },
+  {
+    key: "admin.roleManager.delete.reasons.",
+    reason:
+      "`t(`reasons.${reason}`)`,reason 是 api `ROLE_NOT_DELETABLE` 帶回的 `RoleNotDeletableReason`",
+  },
+  {
+    key: "admin.userManager.orgChange.reasons.",
+    reason: "`t(`reasons.${reason}`)`,reason 是 `setUserOrgs` dry-run 回的列舉",
+  },
+  {
+    key: "admin.userManager.form.genderOptions.",
+    reason:
+      "`t(`genderOptions.${gender}`)`,gender 逐一取自 GraphQL 的 `Gender` 列舉",
+  },
+  {
+    key: "admin.moduleIcons.",
+    reason:
+      "`tIcons(key)`,key 是 `@repo/ui` 圖示登錄表的 29 個短詞(I18N-01 的覆寫 prop)",
+  },
+  {
+    key: "admin.dataScope.conditions.",
+    reason: "`tConditions(cond)`,cond 取自 `CONDITIONS_BY_TYPE[field.type]`",
+  },
+  {
+    key: "admin.dataScope.dynamic.",
+    reason: "`tDynamic(ref)`,ref 是動態值來源的列舉(`current-user` 等)",
+  },
+  {
+    key: "admin.dataScope.reasons.",
+    reason:
+      "`tReasons(issue.reason)`,reason 是 `RuleInvalidReason`(`data-scope-issues.ts` / api 回傳)",
+  },
+  {
+    key: "admin.demoSampleOne.status.",
+    reason: "`t(`status.${row.status}`)`,status 是示範模組1 的狀態列舉",
+  },
+  {
+    key: "admin.demoSampleOne.history.actions.",
+    reason:
+      "`t(`actions.${historyActionKeyOf(entry.action)}`)`,來源是異動紀錄的 action",
+  },
+  {
+    key: "admin.demoSampleOne.errors.fields.",
+    reason:
+      "`tErrors(`fields.${field}`)`,field 是 api `VALIDATION_FAILED` 逐項回報的欄位名",
+  },
+  {
+    key: "admin.demoSampleTwo.errors.fields.",
+    reason: "同示範模組1:`VALIDATION_FAILED` 回報的欄位名",
+  },
+  {
+    key: "admin.demoSampleOne.fields.coverPath",
+    reason:
+      "異動紀錄 `tFields(field)` 的 field 是 api 欄位名(存的是 path,不是畫面上的 cover)",
+  },
+  {
+    key: "admin.demoSampleOne.fields.attachmentPath",
+    reason: "同上:異動紀錄裡附件欄位的 api 欄位名",
+  },
+  {
+    key: "admin.demoSampleOne.form.categoryUnavailable",
+    reason:
+      "`SampleOneCategoryField` 用的 `t` 由 `shared/DemoForm` 經 context 傳入,兩者不在同一個資料夾",
+  },
+];
+
+const isCoveredByDynamicKeys = (key: string): boolean =>
+  DYNAMIC_KEYS.some((entry) =>
+    entry.key.endsWith(".") ? key.startsWith(entry.key) : key === entry.key,
+  );
+
+const allKeys = () => {
+  const leaves = new Set<string>();
+  const branches = new Set<string>();
+  for (const namespace of namespacesOf(defaultLocale)) {
+    const keys = keysOf(defaultLocale, namespace);
+    for (const key of keys.leaves) {
+      leaves.add(key);
+    }
+    for (const key of keys.branches) {
+      branches.add(key);
+    }
+  }
+  return { leaves, branches };
+};
+
+describe("字典沒有死鍵(#426)", () => {
+  const { leaves, branches } = allKeys();
+
+  it("每個鍵都在 admin / front 的程式碼裡被引用(或列在 DYNAMIC_KEYS)", () => {
+    const referenced = referencedKeys(SOURCE_ROOTS, leaves, branches);
+
+    const dead = [...leaves].filter(
+      (key) => !referenced.has(key) && !isCoveredByDynamicKeys(key),
+    );
+
+    expect(dead).toEqual([]);
+  });
+
+  it("DYNAMIC_KEYS 的每一條都還對得上字典(鍵刪光了白名單要跟著刪)", () => {
+    const stale = DYNAMIC_KEYS.filter((entry) =>
+      entry.key.endsWith(".")
+        ? ![...leaves].some((key) => key.startsWith(entry.key))
+        : !leaves.has(entry.key),
+    ).map((entry) => entry.key);
+
+    expect(stale).toEqual([]);
+  });
+});

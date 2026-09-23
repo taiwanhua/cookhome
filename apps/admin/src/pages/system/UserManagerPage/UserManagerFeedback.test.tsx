@@ -32,6 +32,36 @@ describe("使用者管理頁的操作結果提示", () => {
     });
   });
 
+  /**
+   * #426:i18n 死鍵測試抓到的 —— 表單的 `t` 是 `admin.userManager.form`,
+   * 以前寫 `t("feedback.createSuccess")` 查的是不存在的 `form.feedback.*`,提示直接露出 key。
+   */
+  it("新增成功 → 跳「已新增使用者。」", async () => {
+    const { user: actor, fake } = renderPage();
+
+    await screen.findByText("何家華");
+    await actor.click(screen.getByRole("button", { name: "新增使用者" }));
+    await actor.click(
+      await screen.findByRole("radio", { name: /直接設定初始密碼/ }),
+    );
+    await actor.type(screen.getByLabelText("登入帳號 *"), "newbie");
+    await actor.type(screen.getByLabelText("姓名 *"), "新人");
+    await actor.type(
+      screen.getByLabelText("Email *"),
+      "newbie@cookhome.online",
+    );
+    await actor.type(await screen.findByLabelText("初始密碼 *"), "secret-1234");
+    await actor.click(screen.getByRole("button", { name: "新增" }));
+
+    await waitFor(() => {
+      expect(fake.inputs.createUser).toHaveLength(1);
+    });
+    expect(await findSnackbarAlert()).toEqual({
+      text: "已新增使用者。",
+      severity: "success",
+    });
+  });
+
   it("停用失敗 → 跳失敗提示,彈窗內原本那一條錯誤仍然留著", async () => {
     const { user: actor } = renderPage({
       world: { failures: { SetUserEnabled: "OWNER_PROTECTED" } },

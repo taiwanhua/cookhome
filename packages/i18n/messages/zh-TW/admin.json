@@ -69,8 +69,6 @@
     "description": "輸入目前密碼與新密碼:新密碼至少 {min} 碼、不可為純數字。",
     "forced": "首次登入請先變更密碼,完成後才能使用其他功能。",
     "currentPassword": "目前密碼",
-    "newPassword": "新密碼",
-    "confirmPassword": "確認新密碼",
     "submit": "確定",
     "back": "返回",
     "errors": {
@@ -84,7 +82,6 @@
     "collapseNav": "收合側欄",
     "expandNav": "展開側欄",
     "currentOrg": "當前組織",
-    "userMenu": "使用者選單",
     "placeholder": {
       "pending": "此頁面尚未建置"
     },
@@ -313,8 +310,7 @@
       "orgs": "所屬組織",
       "roles": "指派角色",
       "enable": "啟用",
-      "disable": "停用",
-      "rowLabel": "{action} {name}"
+      "disable": "停用"
     },
     "form": {
       "createTitle": "新增使用者",
@@ -356,9 +352,9 @@
     },
     "orgPicker": {
       "title": "選擇所屬組織 — {name}",
-      "createTitle": "選擇所屬組織",
       "selected": "已選 {count} 個組織",
       "hint": "加入組織會擴大此使用者的資料可見範圍;移除組織時,受影響的角色授予會在送出前列出,由你選擇保留或解除(保留的角色功能繼續有效,資料範圍仍由所屬組織決定)。",
+      "ownerLocked": "頂層組織的擁有者不能被移出頂層組織;其他組織可自由勾選或取消。",
       "confirm": "確定",
       "cancel": "取消"
     },
@@ -393,8 +389,6 @@
       "title": "指派角色 — {name}",
       "hint": "「組織外」表示 {name} 不在該角色的所屬組織內",
       "outOfScope": "組織外",
-      "orgFilter": "組織(列出該組織的角色)",
-      "allOrgs": "全部組織",
       "empty": "沒有可以指派的角色",
       "outOfReach": "不在你的管理範圍內,無法變更",
       "ownerOrg": "擁有組織:{org}",
@@ -546,7 +540,6 @@
       "templateCopy": "預設角色"
     },
     "status": {
-      "enabled": "啟用",
       "disabled": "停用"
     },
     "toolbar": {
@@ -602,7 +595,6 @@
     },
     "addUsers": {
       "title": "加入使用者 — {name}({org})",
-      "search": "搜尋",
       "searchPlaceholder": "姓名或 Email",
       "candidate": "{account} · {name}({orgs})",
       "hint": "可加入的是屬於「{org}」或其下層組織的使用者;不在範圍內的人會列出來但不能勾選。找不到人?請先到使用者管理將他加入組織。",
@@ -708,7 +700,6 @@
       "audienceOrg": "組織",
       "audienceUser": "使用者",
       "remove": "刪除規則",
-      "audienceSearch": "搜尋角色",
       "audienceEmpty": "沒有符合的對象",
       "audienceNoOwnerOrg": "無擁有組織"
     },
