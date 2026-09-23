@@ -33,6 +33,7 @@
 
 - **私有**:前端經 API 取檔 — API 驗權(接資料隔離與資料範圍規則:BaseRepository 查得到該筆資料的人才可取檔)後,簽發**短效讀取簽名網址**(商標類 TTL 1 小時 = `GCS_SIGNED_URL_TTL` 預設、前端快取;敏感檔約 15 分鐘);極敏感檔案可收緊為 API 代理串流。**DB 存物件路徑(bucket+key),不存 URL**(簽名網址會過期,看時現簽)。
 - **公開**:穩定公開 URL,供 CDN 快取、SEO、og:image;DB 可直接存 URL。
+- **測試用的端點覆寫**(#402):`GCS_API_ENDPOINT` 只在劇本 E2E 設,api 改以測試用假憑證簽 V4 網址、連同公開 URL 一起指向 fake GCS 容器(`apps/e2e/docker-compose.yml`);任何雲端環境都不設,上面兩條路徑照舊走 ADC 與真 GCS。
 
 ### 新模組怎麼選(建模組流程必問,dis.md #16)
 

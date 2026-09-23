@@ -1,0 +1,29 @@
+# 劇本 11 / 15 用的 fake GCS(#402;`fsouza/fake-gcs-server`,只有 JSON / XML API 的模擬,不驗簽章)。
+#
+# **不必自己起**:`pnpm e2e` 的 harness(src/harness/fake-gcs.ts)會以這個檔 `up -d`、跑完 `down`,
+# 本機與 CI 走同一份。bucket 由 harness 以 JSON API 建(名稱是 E2E_GCS_BUCKET_PUBLIC / _PRIVATE,
+# compose 的 `-data` 預建目錄吃不到變數)。資料放記憶體,容器一收就沒了。
+#
+# 三個 `${…}` 由 harness 帶入(預設值與 apps/e2e/src/config.ts 同一組):
+#   E2E_GCS_PORT       主機上的埠
+#   E2E_GCS_ENDPOINT   瀏覽器與 api 看到的端點(= 簽名網址與公開 URL 的前綴)
+#   E2E_GCS_PUBLIC_HOST 同上、不含 scheme
+name: cookhome-e2e
+
+services:
+  fake-gcs:
+    # 版本釘死:模擬器的行為(CORS、XML 上傳路徑)換版可能不同,要升級就在這裡改一次重跑 e2e
+    image: fsouza/fake-gcs-server:1.56.1
+    command:
+      - -scheme
+      - http
+      - -port
+      - "4443"
+      - -backend
+      - memory
+      - -public-host
+      - ${E2E_GCS_PUBLIC_HOST:-127.0.0.1:4443}
+      - -external-url
+      - ${E2E_GCS_ENDPOINT:-http://127.0.0.1:4443}
+    ports:
+      - ${E2E_GCS_PORT:-4443}:4443

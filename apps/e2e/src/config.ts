@@ -83,6 +83,39 @@ export const MEMBER_PASSWORD = text(
 export const JWT_SECRET = text("E2E_JWT_SECRET", "e2e-only-jwt-secret");
 
 /**
+ * fake GCS(`fsouza/fake-gcs-server`,#402):劇本 11 / 15 要真的把檔案傳上去、再讀回來。
+ * harness 以 `apps/e2e/docker-compose.yml` 起容器,api 以 `GCS_API_ENDPOINT` 指過去。
+ * 主機沿用 `HOST`:瀏覽器從 admin 的頁面直傳 / 讀圖,跟 api 同一個主機名最單純。
+ */
+export const GCS_PORT = port("E2E_GCS_PORT", 4443);
+export const GCS_ENDPOINT = `http://${HOST}:${String(GCS_PORT)}`;
+export const GCS_BUCKET_PUBLIC = text(
+  "E2E_GCS_BUCKET_PUBLIC",
+  "cookhome-e2e-public",
+);
+export const GCS_BUCKET_PRIVATE = text(
+  "E2E_GCS_BUCKET_PRIVATE",
+  "cookhome-e2e-private",
+);
+/**
+ * 簽名用的**假**憑證(api 的 `GCS_FAKE_CLIENT_EMAIL` / `GCS_FAKE_PRIVATE_KEY`):
+ * 本機 / CI 沒有 ADC,V4 簽名要一把私鑰才算得出來;fake GCS 不驗簽章,這組值**沒有任何真實權限**。
+ * 私鑰預設留空 = harness 每次啟動現產一把(repo 裡不放任何長得像金鑰的東西)。
+ */
+export const GCS_FAKE_CLIENT_EMAIL = text(
+  "E2E_GCS_FAKE_CLIENT_EMAIL",
+  "fake-gcs@cookhome-e2e.test",
+);
+export const GCS_FAKE_PRIVATE_KEY = text("E2E_GCS_FAKE_PRIVATE_KEY", "");
+/**
+ * 1 = 起不了 fake GCS 就整個失敗(CI 用;本機沒有 Docker 時劇本 11 / 15 改成 skip)。
+ * 沒有這個開關,CI 上 Docker 出狀況會變成「兩條 skip、其餘全綠」,看起來像過了。
+ */
+export const GCS_REQUIRED = text("E2E_GCS_REQUIRED", "") === "1";
+/** harness 寫、spec 讀:fake GCS 這一輪起不起得來(spec 跑在別的行程,只能走檔案)。 */
+export const FAKE_GCS_STATE_PATH = path.join(TMP_DIR, "fake-gcs.json");
+
+/**
  * 只跑標題符合這個 pattern 的劇本(Playwright 的 `grep`,空 = 全部)。
  * 走環境變數而不是命令列參數:`pnpm e2e` 中間隔了一層 `pnpm --filter`,`--` 之後的旗標傳不進去。
  */

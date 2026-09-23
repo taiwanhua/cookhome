@@ -929,3 +929,48 @@ export function loginRaw(
     input: { account, password },
   });
 }
+
+/* ---- 劇本 11 / 15(#402):上傳票、附件下載網址 ---- */
+
+const CREATE_UPLOAD_URL = `
+mutation CreateUploadUrl($input: CreateUploadUrlInput!) {
+  createUploadUrl(input: $input) { uploadUrl objectPath expiresAt }
+}`;
+
+const ATTACHMENT_DOWNLOAD_URL = `
+query AttachmentDownloadUrl($id: ID!) {
+  attachmentDownloadUrl(id: $id) { url }
+}`;
+
+/** GraphQL 的上傳用途列舉(正本 `apps/api/src/storage/upload-rules.ts` 的 `UploadPurpose`)。 */
+export type UploadPurpose = "ORG_LOGO" | "DEMO_COVER" | "DEMO_ATTACHMENT";
+
+export interface UploadTicket {
+  uploadUrl: string;
+  objectPath: string;
+  expiresAt: string;
+}
+
+/** 原樣回傳的 `createUploadUrl`(劇本 11 步驟 4:檔型 / 大小不合 → `UPLOAD_REJECTED`)。 */
+export function createUploadUrlRaw(
+  accessToken: string,
+  input: { purpose: UploadPurpose; contentType: string; size: number },
+): Promise<GraphqlResponse<{ createUploadUrl: UploadTicket }>> {
+  return graphql<{ createUploadUrl: UploadTicket }>(
+    CREATE_UPLOAD_URL,
+    { input },
+    accessToken,
+  );
+}
+
+/** 原樣回傳的 `attachmentDownloadUrl`(劇本 11 步驟 5:拿掉 `view` → `FORBIDDEN`)。 */
+export function attachmentDownloadUrlRaw(
+  accessToken: string,
+  id: string,
+): Promise<GraphqlResponse<{ attachmentDownloadUrl: { url: string } }>> {
+  return graphql<{ attachmentDownloadUrl: { url: string } }>(
+    ATTACHMENT_DOWNLOAD_URL,
+    { id },
+    accessToken,
+  );
+}
