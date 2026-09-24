@@ -12,6 +12,11 @@ import type { SxProps, Theme } from "@mui/material/styles";
 import type { ReactNode } from "react";
 
 import { CircularProgress } from "../CircularProgress/CircularProgress";
+import {
+  type CellRenderContext,
+  type ColumnAccessor,
+  cellValueOf,
+} from "../DataTable/cell-render-context";
 import { mergeSx } from "../theme/sx";
 import { TableStatusRow } from "./TableStatusRow";
 
@@ -21,8 +26,13 @@ export interface TableColumn<Row> {
   key: string;
   /** 表頭內容 */
   header: ReactNode;
-  /** 依該列資料產生儲存格內容;複合內容(標籤、連結、動作)在此自行組合 */
-  render: (row: Row) => ReactNode;
+  /**
+   * 依該列資料產生儲存格內容;複合內容(標籤、連結、動作)在此自行組合。
+   * 選填的第二參數是與 `DataTable` 同形的渲染參數(REACT-13),只看 `row` 的既有寫法不必改。
+   */
+  render: (row: Row, ctx: CellRenderContext<Row>) => ReactNode;
+  /** 取值方式,只用來填 `ctx.value`;沒給時 `ctx.value` 是 `undefined` */
+  accessor?: ColumnAccessor<Row>;
   align?: NonNullable<MuiTableCellProps["align"]>;
   width?: number | string;
   /** Figma Emphasis=Strong:主要識別欄(如姓名)用較重字重 */
@@ -107,7 +117,7 @@ export const Table = <Row,>({
             </TableStatusRow>
           )}
           {!isLoading &&
-            rows.map((row) => (
+            rows.map((row, index) => (
               <MuiTableRow
                 key={getRowKey(row)}
                 hover={isRowClickable}
@@ -128,7 +138,13 @@ export const Table = <Row,>({
                       typography: column.isEmphasized ? "subtitle2" : "body2",
                     }}
                   >
-                    {column.render(row)}
+                    {column.render(row, {
+                      value: cellValueOf(column, row),
+                      row,
+                      rows,
+                      index,
+                      column,
+                    })}
                   </MuiTableCell>
                 ))}
               </MuiTableRow>

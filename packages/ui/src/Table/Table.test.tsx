@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 
+import type { CellRenderContext } from "../DataTable/cell-render-context";
 import {
   cssRulesMatching,
   declaredValue,
@@ -48,6 +49,30 @@ describe("Table", () => {
     expect(screen.getByText("帳號")).not.toBeNull();
     expect(screen.getByText("王小明")).not.toBeNull();
     expect(screen.getByText("陳小華")).not.toBeNull();
+  });
+
+  it("render 的選填第二參數帶與 DataTable 同形的 ctx(REACT-13)", () => {
+    const seen: CellRenderContext<DemoRow>[] = [];
+    const accountColumn: TableColumn<DemoRow> = {
+      key: "account",
+      header: "帳號",
+      accessor: "account",
+      render: (row, ctx) => {
+        seen.push(ctx);
+        return row.account;
+      },
+    };
+    render(
+      <Table columns={[accountColumn]} rows={rows} getRowKey={getRowKey} />,
+    );
+
+    expect(seen[1]).toEqual({
+      value: "hua",
+      row: rows[1],
+      rows,
+      index: 1,
+      column: accountColumn,
+    });
   });
 
   it("沒有資料時顯示空狀態文案", () => {
