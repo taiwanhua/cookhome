@@ -22,8 +22,11 @@ export type StepResult =
   | {
       kind: TerminalDecision;
       taskKey: string;
-      /** 該決定的接受序號(`history` 裡對應事件的索引);找不到事件 = `Infinity`。 */
-      historyIndex: number;
+      /**
+       * 該決定的接受序號(`history` 裡對應事件的索引)。找不到事件 = `null`:決定與事件是同一次
+       * 原子寫入,缺了代表資料損毀 —— 不拿 `Infinity` 或陣列順序硬湊,由 `advance` 回 `invalidState`。
+       */
+      historyIndex: number | null;
     };
 
 export interface StepEvaluation {
@@ -41,12 +44,12 @@ export interface StepEvaluation {
 export function historyIndexOf(
   history: readonly HistoryEvent[],
   decision: Pick<AcceptedDecision, "taskKey" | "decision">,
-): number {
+): number | null {
   const index = history.findIndex(
     (event) =>
       event.kind === decision.decision && event.taskKey === decision.taskKey,
   );
-  return index === -1 ? Number.POSITIVE_INFINITY : index;
+  return index === -1 ? null : index;
 }
 
 /**

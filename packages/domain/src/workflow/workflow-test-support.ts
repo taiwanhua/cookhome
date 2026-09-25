@@ -4,6 +4,7 @@ import {
   type InstanceCondition,
   type StepEntry,
   advance,
+  initialStepStates,
 } from "./advance";
 import { startStepKey } from "./graph";
 import type {
@@ -82,13 +83,7 @@ export function newInstance(
     submissionId: "submission-1",
     revision: 1,
     activeStepKeys: start === null ? [] : [start],
-    steps: definition.steps.map((step) => ({
-      stepKey: step.key,
-      status: "pending",
-      blocked: false,
-      plan: [],
-      decisions: [],
-    })),
+    steps: initialStepStates(definition),
     editVersion: 1,
     outcome: null,
     history: [{ at: NOW, kind: "started" }],
@@ -227,12 +222,27 @@ function conditionHolds(
   );
 }
 
-/** 依序執行一輪的動作(照 api 的語意:條件不成立就什麼都不做)。回有沒有寫入成功。 */
+/**
+ * 依序執行一輪的動作(照 `advance.ts` 檔頭的執行合約):條件不成立就不寫;
+ * **`updateInstance` 失敗或遇到 `invalidState` 就中止本輪**,後面的動作不執行。
+ * 回每個**有執行到**的動作是否寫入成功。
+ */
 export function applyActions(
   world: World,
   actions: readonly AdvanceAction[],
 ): boolean[] {
-  return actions.map((action) => applyAction(world, action));
+  const results: boolean[] = [];
+  for (const action of actions) {
+    const isWritten = applyAction(world, action);
+    results.push(isWritten);
+    if (
+      action.kind === "invalidState" ||
+      (action.kind === "updateInstance" && !isWritten)
+    ) {
+      break;
+    }
+  }
+  return results;
 }
 
 function applyInstanceUpdate(
@@ -262,7 +272,8 @@ function applyInstanceUpdate(
 
 function applyAction(world: World, action: AdvanceAction): boolean {
   switch (action.kind) {
-    case "resolveStepEntry": {
+    case "resolveStepEntry":
+    case "invalidState": {
       return false;
     }
     case "updateInstance": {

@@ -38,6 +38,19 @@ import {
  *
  * 列 5 需要查資料庫才知道「跳過條件成不成立、解析出誰」:第一次呼叫回 `resolveStepEntry`,
  * api 算好後把結果放進 `stepEntries` 再呼叫一次,才回真正的寫入。
+ *
+ * **執行合約**(api 必須照做,`workflow-test-support.ts` 的執行器是參考實作):
+ * 1. 依陣列順序執行;**`updateInstance` 的條件不成立(CAS 失敗)就中止本輪**,後面的動作一個都不做,
+ *    重讀實例與任務再呼叫 `advance`。後面的動作(同步提交、寄信)是依「這筆更新成功」算出來的,
+ *    CAS 失敗代表快照已過期,繼續做會把舊判斷寫進去。
+ * 2. 其他動作的「條件不成立」都是**已做過**(冪等),照常往下:`createTask` 撞唯一鍵、`syncTask` 的狀態
+ *    已被改過、`updateSubmission` 沒有同步資格、`appendHistoryOnce` 事件已存在。
+ * 3. `invalidState` = 權威資料自相矛盾,不寫任何東西、中止推進並記 log;它會一直出現在「需要推進」,
+ *    等人工修資料。
+ *
+ * **實例建立時要為版本的每個節點建一筆 `pending` 的 `StepState`**(`initialStepStates`):
+ * CAS 條件 `stepStatus: { N: "pending" }` 在 Mongo 是對 `steps` 陣列元素下條件
+ * (`steps: { $elemMatch: { stepKey: N, status: "pending" } }`),元素不存在就永遠不成立。
  */
 
 /** 列 5 的外部輸入:跳過,或解析到的審核者(未剔除申請人也可,這裡會剔除)。 */
@@ -70,7 +83,8 @@ export type AdvanceRow =
   | "7"
   | "8"
   | "8b"
-  | "9";
+  | "9"
+  | "invalid";
 
 /** 實例的條件更新要帶的條件(全部都要成立;api 翻成 Mongo 條件)。 */
 export interface InstanceCondition {
@@ -155,7 +169,14 @@ export type AdvanceAction =
    * 追加一筆歷程,條件是 `history` 裡還沒有「同種類 + 同 `taskKey` / `result`」的事件
    * (`task_created` 與 `notified` 的冪等標記)。
    */
-  | { kind: "appendHistoryOnce"; event: HistoryEvent };
+  | { kind: "appendHistoryOnce"; event: HistoryEvent }
+  /** 權威資料自相矛盾(見檔頭「執行合約」3):不寫、中止、記 log。 */
+  | {
+      kind: "invalidState";
+      reason: string;
+      stepKey?: string;
+      taskKey?: string;
+    };
 
 export interface AdvancePlan {
   row: AdvanceRow;
@@ -452,6 +473,16 @@ function finishingActions(input: AdvanceInput): AdvanceAction[] {
     });
   }
   if (instance.finishedAt === null) {
+    // 流程完成事件(時間軸的「流程完成」);與通知標記 `notified` 分開,各自冪等
+    const isCompletedLogged = instance.history.some(
+      (event) => event.kind === "completed",
+    );
+    if (instance.status === "approved" && !isCompletedLogged) {
+      actions.push({
+        kind: "appendHistoryOnce",
+        event: { at: now, kind: "completed" },
+      });
+    }
     const result = NOTIFIED_RESULT_OF[instance.status];
     const isNotified = instance.history.some(
       (event) => event.kind === "notified" && event.result === result,
@@ -520,6 +551,20 @@ function decideRow4(input: AdvanceInput): AdvancePlan | null {
     if (result.kind === "completed") {
       completedKey ??= key;
     } else if (result.kind !== "none") {
+      if (result.historyIndex === null) {
+        // 決定與它的歷程事件是同一次原子寫入;找不到事件 = 資料損毀,不猜接受順序
+        return {
+          row: "invalid",
+          actions: [
+            {
+              kind: "invalidState",
+              reason: "accepted decision has no matching history event",
+              stepKey: key,
+              taskKey: result.taskKey,
+            },
+          ],
+        };
+      }
       candidates.push({
         kind: result.kind,
         stepKey: key,
@@ -697,7 +742,7 @@ function joinRow5b(input: AdvanceInput): AdvancePlan | null {
 // ---- 列 6:計畫項目缺任務 ----
 
 function createTasksRow6(input: AdvanceInput): AdvancePlan | null {
-  const { definition, instance, tasks, now } = input;
+  const { definition, instance, tasks } = input;
   const existing = new Set(tasks.map((task) => task.taskKey));
   const projections = projectAllTasks(definition, instance);
   const actions: AdvanceAction[] = [];
@@ -706,46 +751,60 @@ function createTasksRow6(input: AdvanceInput): AdvancePlan | null {
       continue;
     }
     for (const item of state.plan) {
-      if (existing.has(item.taskKey)) {
-        continue;
-      }
       const projection = projections.get(item.taskKey)?.projection;
       if (projection === undefined) {
         continue;
       }
-      actions.push({
-        kind: "createTask",
-        stepKey: state.stepKey,
-        taskKey: item.taskKey,
-        projection,
-      });
-      const isAnnounced = instance.history.some(
-        (event) =>
-          event.kind === "task_created" && event.taskKey === item.taskKey,
-      );
-      if (!isAnnounced) {
-        actions.push(
-          {
-            kind: "notifyTaskCreated",
-            stepKey: state.stepKey,
-            taskKey: item.taskKey,
-            assigneeId: item.assigneeId,
-          },
-          {
-            kind: "appendHistoryOnce",
-            event: {
-              at: now,
-              kind: "task_created",
-              stepKey: state.stepKey,
-              taskKey: item.taskKey,
-              userId: item.assigneeId,
-            },
-          },
-        );
+      if (!existing.has(item.taskKey)) {
+        actions.push({
+          kind: "createTask",
+          stepKey: state.stepKey,
+          taskKey: item.taskKey,
+          projection,
+        });
       }
+      actions.push(...announceActions(input, state, item));
     }
   }
   return actions.length > 0 ? { row: "6", actions } : null;
+}
+
+/**
+ * 「有新任務」的信與 `task_created` 事件。任務已建、但事件還沒記(建完就中斷)也要補,
+ * 否則這位審核者永遠收不到信;只通知還能審的人(有效承辦人、尚未決定)。
+ */
+function announceActions(
+  input: AdvanceInput,
+  state: StepState,
+  item: PlanItem,
+): AdvanceAction[] {
+  const isAnnounced = input.instance.history.some(
+    (event) => event.kind === "task_created" && event.taskKey === item.taskKey,
+  );
+  const isDecided = state.decisions.some(
+    (decision) => decision.taskKey === item.taskKey,
+  );
+  if (isAnnounced || isDecided || item.assigneeState !== "active") {
+    return [];
+  }
+  return [
+    {
+      kind: "notifyTaskCreated",
+      stepKey: state.stepKey,
+      taskKey: item.taskKey,
+      assigneeId: item.assigneeId,
+    },
+    {
+      kind: "appendHistoryOnce",
+      event: {
+        at: input.now,
+        kind: "task_created",
+        stepKey: state.stepKey,
+        taskKey: item.taskKey,
+        userId: item.assigneeId,
+      },
+    },
+  ];
 }
 
 // ---- 列 7:任務投影不同步 ----
@@ -843,4 +902,20 @@ function syncSubmissionBlockedRow8b(input: AdvanceInput): AdvancePlan | null {
       },
     ],
   };
+}
+
+// ---- 建立實例 ----
+
+/**
+ * 新實例的 `steps[]`:版本的**每個節點**各一筆 `pending`(見檔頭「執行合約」的最後一段)。
+ * 送出第 2 步建 `linking` 實例時寫入;之後只改欄位,不增刪元素。
+ */
+export function initialStepStates(definition: WorkflowDefinition): StepState[] {
+  return definition.steps.map((step) => ({
+    stepKey: step.key,
+    status: "pending",
+    blocked: false,
+    plan: [],
+    decisions: [],
+  }));
 }

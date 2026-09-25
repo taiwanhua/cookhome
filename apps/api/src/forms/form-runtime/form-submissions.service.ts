@@ -18,7 +18,10 @@ import {
   FormsRepository,
 } from "../../database/database.module";
 import type { OperatorContext } from "../../database/operator-context";
-import type { FormRevision } from "../../database/schemas/form-submission.schema";
+import type {
+  FormRevision,
+  FormSubmissionStatus,
+} from "../../database/schemas/form-submission.schema";
 import { StorageService } from "../../storage/storage.service";
 import { fieldGateOf } from "../field-permission-gate";
 import {
@@ -117,6 +120,29 @@ function definitionOf(version: FormVersionRecord): FormDefinition {
  *   `values` / `summary` / `revision` / 快照 / `editVersion` 在**同一次**更新裡寫
  * - 值的寫入規則(四種不能填的原因與順序)在 `form-values/submission-values.service.ts`
  */
+/**
+ * 落庫狀態 → GraphQL enum。**窮舉**:`form_submissions.status` 已是 6b 的七值,但 GraphQL enum
+ * 還只有 6a 的兩值(6b 的審核狀態在產生它們的票才擴),遇到未知值直接丟錯 ——
+ * 擴 enum 的人一定會經過這裡,不會被靜默翻成「已完成」。
+ */
+function submissionStatusOf(
+  status: FormSubmissionStatus,
+): FormSubmissionStatusEnum {
+  switch (status) {
+    case "draft": {
+      return FormSubmissionStatusEnum.DRAFT;
+    }
+    case "completed": {
+      return FormSubmissionStatusEnum.COMPLETED;
+    }
+    default: {
+      throw new Error(
+        `form_submissions.status "${status}" has no GraphQL mapping yet`,
+      );
+    }
+  }
+}
+
 @Injectable()
 export class FormSubmissionsService {
   constructor(
@@ -820,9 +846,7 @@ export class FormSubmissionsService {
         formKey: record.formKey,
         formName: formNames.get(record.formKey) ?? null,
         version: record.version,
-        status: isDraft
-          ? FormSubmissionStatusEnum.DRAFT
-          : FormSubmissionStatusEnum.COMPLETED,
+        status: submissionStatusOf(record.status),
         revision: record.revision,
         viewedRevision: viewed.revision,
         values: entry.projected,

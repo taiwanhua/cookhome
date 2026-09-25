@@ -50,6 +50,14 @@ const SET_ORG_MANAGERS = /* GraphQL */ `
   }
 `;
 
+const DELETE_ORG = /* GraphQL */ `
+  mutation DeleteOrg($input: DeleteOrgInput!) {
+    deleteOrg(input: $input) {
+      success
+    }
+  }
+`;
+
 const CANDIDATES = /* GraphQL */ `
   query OrgManagerCandidates($orgId: ID!, $keyword: String) {
     orgManagerCandidates(orgId: $orgId, keyword: $keyword) {
@@ -282,6 +290,29 @@ describe("組織主管(setOrgManagers / org.managers / resolveManagers)", () => 
     expect(
       filtered.data?.orgManagerCandidates.map((candidate) => candidate.account),
     ).toEqual(["mgr-boss"]);
+  });
+
+  it("刪除組織時一併移除它的主管關聯(稽核的 before 記下被移除的主管)", async () => {
+    const emptyOrgId = await createOrg(api.connection, {
+      name: "待刪分店",
+      parentId: tenantAId,
+    });
+    await setManagersOk(emptyOrgId, [wangId]);
+    const result = await api.graphql(
+      DELETE_ORG,
+      { input: { id: String(emptyOrgId) } },
+      { accessToken: rootToken },
+    );
+    expect(result.errors).toBeUndefined();
+    await expect(
+      api.connection
+        .collection("core_relationships")
+        .countDocuments({ type: "org_manager", firstId: emptyOrgId }),
+    ).resolves.toBe(0);
+    const audit = await api.connection
+      .collection("audit_logs")
+      .findOne<AuditRow>({ action: "org.delete", targetId: emptyOrgId });
+    expect(audit?.before?.managerIds).toEqual([String(wangId)]);
   });
 
   describe("resolveManagers(TEST-07 例外:還沒有 GraphQL 端點,引擎在票 B 才掛上)", () => {

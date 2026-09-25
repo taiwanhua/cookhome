@@ -116,6 +116,13 @@ const IMMUTABLE_PATHS: ReadonlySet<string> = new Set([
 ]);
 
 function assertImmutablePaths(update: UpdateQuery<WorkflowTask>): void {
+  // 沒有運算子的整份取代式 update 會把識別欄位與邊界一起蓋掉,一律拒絕
+  const replaced = Object.keys(update).filter((key) => !key.startsWith("$"));
+  if (replaced.length > 0) {
+    throw new Error(
+      `workflow_tasks 只收運算子式 update(收到 ${replaced.join(", ")})`,
+    );
+  }
   const touched = Object.values(update).flatMap((part: unknown) =>
     part !== null && typeof part === "object" ? Object.keys(part) : [],
   );

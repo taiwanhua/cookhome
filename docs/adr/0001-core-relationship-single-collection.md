@@ -7,7 +7,7 @@
 - Org / User / Role / Module / Permission 之間的關聯集中在一張 `core_relationships`。
 - `type` 是封閉 enum,只有六種:`org_user`、`org_role`、`user_role`、`role_module`、`role_permission`、`org_manager`。命名順序固定 `Org > User > Role > Module > Permission`,first / second 依此順序;type 名稱 = `<第一方單數>_<第二方單數>`,唯一的例外是 `org_manager`:第二方是 users,但語意是「該組織的主管」(職位制,一個組織可多位),與成員關係 `org_user` 分開存,名稱照語意取。
 - 會增刪的多對多用關聯;固定從屬用欄位(如 `permissions.moduleId`)。`org_role` 雖唯一,保留在本表以留解綁彈性。
-- 只用二元關聯組合,不建三元關聯。`thirdId` 保留但一律 null。
+- 只用二元關聯組合,不建三元關聯。`thirdId` 保留但一律 null。這條只管 `core_relationships`:業務關聯 `business_relationships` 從 `org_form_workflow`(租戶 × 表單 → 流程)起使用 `thirdId`。
 - 唯一出口是 `RelationService` 的具名包裝;BaseRepository 拒收這張表。
 - 讀不帶操作者上下文;寫帶上下文。
 - 移除關聯 = 硬刪除;表只存現況,歷史在 `audit_logs`。

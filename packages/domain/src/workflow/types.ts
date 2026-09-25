@@ -169,7 +169,11 @@ export interface AcceptedDecision {
   at: Date;
 }
 
-/** `steps[]` 的一筆(以 `stepKey` 對應版本的節點;實例內唯一、不可變)。 */
+/**
+ * `steps[]` 的一筆(以 `stepKey` 對應版本的節點;實例內唯一、不可變)。
+ * **實例建立時就為每個節點建一筆 `pending`**(`initialStepStates`),之後只改欄位不增刪元素 ——
+ * 推進的 CAS 條件是對陣列元素下的,元素不存在條件就永遠不成立。
+ */
 export interface StepState {
   stepKey: string;
   status: StepStatus;

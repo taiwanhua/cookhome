@@ -515,6 +515,7 @@ describe("checkSubmitCompatibility:送出時檢查每一列", () => {
           slot: "assignee",
           fieldKey: "approver",
           problem: "FIELD_MISSING",
+          detail: "關卡「boss」的審核者欄位 approver 不在這個表單版本",
         },
       ],
     });

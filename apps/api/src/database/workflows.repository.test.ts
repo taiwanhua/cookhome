@@ -412,6 +412,16 @@ describe("workflows / workflow_versions / workflow_instances / workflow_tasks", 
           { $set: { tenantId: tenantB } },
         ),
       ).rejects.toThrow(/不可改/);
+      await expect(
+        tasks.updateOne(
+          asA,
+          tenantA,
+          { instanceId, taskKey: "boss-1" },
+          {
+            status: "late",
+          },
+        ),
+      ).rejects.toThrow(/運算子式/);
     });
 
     it("沒帶 tenantId 的讀寫一律拋 TenantScopeError", async () => {

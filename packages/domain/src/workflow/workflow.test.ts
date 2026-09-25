@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 
 import { CTX, field } from "../form/form-test-support";
-import { evaluateStep, selectOutcome } from "./evaluate";
+import { initialStepStates } from "./advance";
+import { evaluateStep, historyIndexOf, selectOutcome } from "./evaluate";
 import {
   endStepKey,
   nextStepKeys,
@@ -134,6 +135,12 @@ describe("@repo/domain/workflow evaluateStep 與全案終局", () => {
     expect(approvedAll.result).toEqual({ kind: "completed" });
   });
 
+  it("historyIndexOf:找不到對應事件回 null(不是 Infinity)", () => {
+    expect(
+      historyIndexOf([], { taskKey: "s-1", decision: "rejected" }),
+    ).toBeNull();
+  });
+
   it("all:空計畫永遠不算完成", () => {
     expect(evaluateStep("all", { plan: [], decisions: [] }, []).result).toEqual(
       { kind: "none" },
@@ -226,6 +233,20 @@ describe("@repo/domain/workflow 任務投影規則", () => {
         decidedAt: NOW,
       });
     }
+  });
+});
+
+describe("@repo/domain/workflow 建立實例", () => {
+  it("initialStepStates:版本的每個節點(含匯合)各一筆 pending", () => {
+    expect(initialStepStates(PURCHASE)).toEqual(
+      PURCHASE.steps.map((step) => ({
+        stepKey: step.key,
+        status: "pending",
+        blocked: false,
+        plan: [],
+        decisions: [],
+      })),
+    );
   });
 });
 

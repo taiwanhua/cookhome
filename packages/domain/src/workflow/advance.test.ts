@@ -53,6 +53,23 @@ function taskOf(
   };
 }
 
+/** 為這些任務補上 `task_created` 事件(已寄過通知的狀態)。 */
+function announce(
+  instance: InstanceSnapshot,
+  taskKeys: readonly string[],
+): InstanceSnapshot {
+  const next = clone(instance);
+  for (const taskKey of taskKeys) {
+    next.history.push({
+      at: NOW,
+      kind: "task_created",
+      stepKey: taskKey.slice(0, taskKey.lastIndexOf("-")),
+      taskKey,
+    });
+  }
+  return next;
+}
+
 function kindsOf(actions: readonly AdvanceAction[]): string[] {
   return actions.map((action) => action.kind);
 }
@@ -63,7 +80,7 @@ describe("advance 判斷表:每一列", () => {
     expect(plan).toEqual({ row: "1", actions: [] });
   });
 
-  it("列 2:已核准但未收尾 → 任務投影同步、提交 → completed、寄結果信、最後寫 finishedAt", () => {
+  it("列 2:已核准但未收尾 → 任務投影同步、提交 → completed、記流程完成、寄結果信、最後寫 finishedAt", () => {
     let instance = entered(newInstance(LINEAR), "boss", ["u1", "u2"]);
     instance = decide(instance, "boss", "boss-1", "approved");
     instance = withStep(instance, "boss", { status: "completed" });
@@ -77,11 +94,17 @@ describe("advance 判斷表:每一列", () => {
       "syncTask",
       "syncTask",
       "updateSubmission",
+      "appendHistoryOnce",
       "notifyResult",
       "appendHistoryOnce",
       "updateInstance",
     ]);
-    const [approvedSync, cancelledSync, submission, notify] = plan.actions;
+    const [approvedSync, cancelledSync, submission, completed, notify] =
+      plan.actions;
+    expect(completed).toEqual({
+      kind: "appendHistoryOnce",
+      event: { at: NOW, kind: "completed" },
+    });
     // 最後一位核准者的投影是 approved(收尾不把它取消),其他人 cancelled
     expect(approvedSync).toMatchObject({ set: { status: "approved" } });
     expect(cancelledSync).toMatchObject({ set: { status: "cancelled" } });
@@ -432,8 +455,40 @@ describe("advance 判斷表:每一列", () => {
       stepKey: "boss",
       taskKey: "boss-2",
     });
+    // boss-1 任務已建但沒記 task_created(建完就中斷)→ 補寄信與事件;boss-2 已記過 → 只補建
     const replan = run(LINEAR, announced, [taskOf("boss", "boss-1", "u1")]);
-    expect(kindsOf(replan.actions)).toEqual(["createTask"]);
+    expect(kindsOf(replan.actions)).toEqual([
+      "notifyTaskCreated",
+      "appendHistoryOnce",
+      "createTask",
+    ]);
+    expect(replan.actions[0]).toMatchObject({
+      taskKey: "boss-1",
+      assigneeId: "u1",
+    });
+  });
+
+  it("列 6:已決定或已失效的承辦人不補寄;其餘都已記過 → 不再觸發", () => {
+    const ALL_BOSS: WorkflowDefinition = {
+      steps: [review("boss", { mode: "all" }), review("hr")],
+    };
+    let instance = entered(newInstance(ALL_BOSS), "boss", ["u1", "u2", "u3"]);
+    instance = withStep(instance, "boss", {
+      plan: instance.steps[0]?.plan.map((item) =>
+        item.taskKey === "boss-3"
+          ? { ...item, assigneeState: "invalid" as const }
+          : item,
+      ),
+    });
+    instance = decide(instance, "boss", "boss-2", "approved");
+    instance = announce(instance, ["boss-1"]);
+    const plan = run(ALL_BOSS, instance, [
+      taskOf("boss", "boss-1", "u1"),
+      taskOf("boss", "boss-2", "u2"),
+      taskOf("boss", "boss-3", "u3"),
+    ]);
+    expect(plan.row).not.toBe("6");
+    expect(kindsOf(plan.actions)).not.toContain("notifyTaskCreated");
   });
 
   it("列 7:已完成關卡(不在 active)的任務投影不同步也會修", () => {
@@ -441,6 +496,7 @@ describe("advance 判斷表:每一列", () => {
     instance = decide(instance, "boss", "boss-1", "approved");
     instance = withStep(instance, "boss", { status: "completed" });
     instance = entered({ ...instance, activeStepKeys: ["hr"] }, "hr", ["u9"]);
+    instance = announce(instance, ["boss-1", "boss-2", "hr-1"]);
     const plan = run(LINEAR, instance, [
       taskOf("boss", "boss-1", "u1"),
       taskOf("boss", "boss-2", "u2"),
@@ -478,7 +534,10 @@ describe("advance 判斷表:每一列", () => {
   it("列 8:any 阻擋但仍有有效未決承辦人 → 解除;實例回 running、提交 blocked = false", () => {
     let instance = entered(newInstance(LINEAR), "boss", ["u1", "u2"]);
     instance = withStep(instance, "boss", { blocked: true });
-    instance = { ...instance, status: "blocked" };
+    instance = announce({ ...instance, status: "blocked" }, [
+      "boss-1",
+      "boss-2",
+    ]);
     const plan = run(
       LINEAR,
       instance,
@@ -510,7 +569,9 @@ describe("advance 判斷表:每一列", () => {
   });
 
   it("列 8b:實例沒阻擋、提交卻還標著阻擋 → 同步提交", () => {
-    const instance = entered(newInstance(LINEAR), "boss", ["u1"]);
+    const instance = announce(entered(newInstance(LINEAR), "boss", ["u1"]), [
+      "boss-1",
+    ]);
     const plan = run(
       LINEAR,
       instance,
@@ -530,7 +591,9 @@ describe("advance 判斷表:每一列", () => {
   });
 
   it("列 9:等人審 → 沒事可做", () => {
-    const instance = entered(newInstance(LINEAR), "boss", ["u1"]);
+    const instance = announce(entered(newInstance(LINEAR), "boss", ["u1"]), [
+      "boss-1",
+    ]);
     expect(run(LINEAR, instance, [taskOf("boss", "boss-1", "u1")])).toEqual({
       row: "9",
       actions: [],
@@ -694,15 +757,67 @@ describe("advance:決定順序與全案終局", () => {
     const world = worldOf(PURCHASE);
     runAdvance(world);
     decideIn(world, "init-1", "approved");
-    runAdvance(world);
+    runAdvance(world, {
+      finance: { kind: "assign", assigneeIds: ["f1", "f2"] },
+    });
+    // 兩筆都在關卡關閉前被接受:先核准、後駁回(交錯)
     decideIn(world, "finance-1", "approved");
+    decideIn(world, "finance-2", "rejected", "晚到的駁回");
     runAdvance(world);
-    // 財務已完成離開 active;財務第二筆駁回在 advance 前寫進(模擬交錯)也不會終局
     const financeState = world.instance.steps.find(
       (step) => step.stepKey === "finance",
     );
+    expect(financeState?.decisions.map((decision) => decision.taskKey)).toEqual(
+      ["finance-1", "finance-2"],
+    );
     expect(financeState?.status).toBe("completed");
+    expect(world.instance.outcome).toBeNull();
     expect(world.instance.status).toBe("running");
+    expect(taskStatusOf(world, "finance-1")).toBe("approved");
+    expect(taskStatusOf(world, "finance-2")).toBe("late");
+  });
+
+  it("決定找不到對應的歷程事件 → invalidState(不猜接受順序、不寫 outcome)", () => {
+    let instance = entered(newInstance(LINEAR), "boss", ["u1"]);
+    instance = decide(instance, "boss", "boss-1", "rejected", "否");
+    instance.history = instance.history.filter(
+      (event) => event.kind !== "rejected",
+    );
+    const plan = run(LINEAR, instance);
+    expect(plan).toEqual({
+      row: "invalid",
+      actions: [
+        {
+          kind: "invalidState",
+          reason: "accepted decision has no matching history event",
+          stepKey: "boss",
+          taskKey: "boss-1",
+        },
+      ],
+    });
+    const world = worldOf(LINEAR, instance);
+    expect(applyActions(world, plan.actions)).toEqual([false]);
+    expect(world.instance).toEqual(instance);
+  });
+
+  it("執行合約:updateInstance 的 CAS 失敗就中止本輪,後面的動作(同步提交)不做", () => {
+    const stale = newInstance(LINEAR);
+    const plan = advance({
+      definition: LINEAR,
+      instance: stale,
+      tasks: [],
+      submission: reviewingSubmission(),
+      now: NOW,
+      stepEntries: { boss: { kind: "assign", assigneeIds: [] } },
+    });
+    expect(kindsOf(plan.actions)).toEqual([
+      "updateInstance",
+      "updateSubmission",
+    ]);
+    // 別的入口已先推進(editVersion 變了)
+    const world = worldOf(LINEAR, { ...stale, editVersion: 2 });
+    expect(applyActions(world, plan.actions)).toEqual([false]);
+    expect(world.submission?.blocked).toBe(false);
   });
 });
 

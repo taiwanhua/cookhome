@@ -45,7 +45,7 @@ export interface SubmitCheckInput {
 export type SubmitCheckCode =
   "WORKFLOW_REMOVED" | "WORKFLOW_UNPUBLISHED" | "WORKFLOW_MISCONFIGURED";
 
-/** 設定有誤時指出第幾關(1 起)、哪個欄位、哪種問題。 */
+/** 設定有誤時指出哪一關(`stepKey` / 陣列位置 `stepNumber`,訊息用關卡名稱)、哪個欄位、哪種問題。 */
 export interface SubmitCheckIssue {
   stepKey: string;
   stepNumber: number;
@@ -160,7 +160,7 @@ function assigneeIssues(
     slot: "assignee" as const,
     fieldKey: assignee.fieldKey,
   };
-  const label = `第 ${String(stepNumber)} 關的審核者欄位`;
+  const label = `關卡「${step.name}」的審核者欄位`;
   if (assignee.formKey !== formKey) {
     return [
       {
@@ -205,6 +205,6 @@ function skipWhenIssues(
       problem.problem === "PROTECTED_FIELD"
         ? problem.problem
         : "INVALID_EXPRESSION",
-    detail: `第 ${String(stepNumber)} 關的跳過條件:${problem.detail}`,
+    detail: `關卡「${step.name}」的跳過條件:${problem.detail}`,
   }));
 }
