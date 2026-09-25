@@ -99,11 +99,16 @@ mutation UpdateDemoItemOne($input: UpdateDemoItemOneInput!) {
   updateDemoItemOne(input: $input) { item { id status } }
 }`;
 
+const DATA_SCOPE_TARGETS = `
+query DataScopeTargets { dataScopeTargets { targets { id moduleKey } } }`;
+
 const SAVE_DATA_SCOPE_RULE = `
 mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
   saveDataScopeRule(input: $input) {
     rule {
+      targetId
       collection
+      moduleKey
       combineOp
       rules { audience { type ids } filter }
     }
@@ -197,6 +202,8 @@ export async function provisionTenant(
   accessToken: string,
   input: {
     name: string;
+    /** 租戶短碼(`^[a-z][a-z0-9_]{1,19}$`、全域唯一) */
+    slug: string;
     adminAccount: string;
     adminEmail: string;
     moduleKeys: readonly string[];
@@ -381,36 +388,65 @@ export interface DataScopeRuleEntry {
 }
 
 export interface DataScopeRule {
+  targetId: string;
   collection: string;
+  moduleKey: string;
   combineOp: DataScopeCombineOp;
   rules: DataScopeRuleEntry[];
 }
 
 /**
- * **整份覆蓋**這個資料目標的規則(送出的就是之後生效的全部)。
+ * 某模組的資料目標 id(一個模組一個目標,`(collection, moduleKey)` 唯一;規則以 id 指定目標)。
+ * 目標清單是根組織專屬,所以要用 root 的 token。
+ */
+async function dataScopeTargetId(
+  accessToken: string,
+  moduleKey: string,
+): Promise<string> {
+  const data = await graphqlOk<{
+    dataScopeTargets: { targets: { id: string; moduleKey: string }[] };
+  }>(DATA_SCOPE_TARGETS, {}, accessToken);
+  const target = data.dataScopeTargets.targets.find(
+    (item) => item.moduleKey === moduleKey,
+  );
+  if (!target) {
+    throw new Error(`seed 沒有登記 ${moduleKey} 的資料範圍目標`);
+  }
+  return target.id;
+}
+
+/**
+ * **整份覆蓋**某模組這個資料目標的規則(送出的就是之後生效的全部)。
  * 根組織專屬:站在租戶裡即使持有權限也會拿到 `FORBIDDEN`,所以一律用 root 的 token。
  */
 export async function saveDataScopeRule(
   accessToken: string,
   input: {
-    collection: string;
+    moduleKey: string;
     combineOp: DataScopeCombineOp;
     rules: readonly DataScopeRuleEntry[];
   },
 ): Promise<DataScopeRule> {
+  const targetId = await dataScopeTargetId(accessToken, input.moduleKey);
   const data = await graphqlOk<{
     saveDataScopeRule: { rule: DataScopeRule };
-  }>(SAVE_DATA_SCOPE_RULE, { input }, accessToken);
+  }>(
+    SAVE_DATA_SCOPE_RULE,
+    {
+      input: { targetId, combineOp: input.combineOp, rules: input.rules },
+    },
+    accessToken,
+  );
   return data.saveDataScopeRule.rule;
 }
 
 /** 刪規則 = 整份覆蓋成空陣列(執行面只剩租戶保底)。 */
 export async function clearDataScopeRule(
   accessToken: string,
-  collection: string,
+  moduleKey: string,
 ): Promise<void> {
   await saveDataScopeRule(accessToken, {
-    collection,
+    moduleKey,
     combineOp: "OR",
     rules: [],
   });
@@ -621,10 +657,12 @@ export async function setUserOrgsWithPolicy(
 /* ---- 劇本 12(#399):可見性開關 ---- */
 
 const DATA_SCOPE_RULE = `
-query DataScopeRule($collection: String!) {
-  dataScopeRule(collection: $collection) {
+query DataScopeRule($targetId: ID!) {
+  dataScopeRule(targetId: $targetId) {
     rule {
+      targetId
       collection
+      moduleKey
       combineOp
       rules { audience { type ids } filter }
     }
@@ -643,11 +681,12 @@ mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
  */
 export async function dataScopeRule(
   accessToken: string,
-  collection: string,
+  moduleKey: string,
 ): Promise<DataScopeRule | null> {
+  const targetId = await dataScopeTargetId(accessToken, moduleKey);
   const data = await graphqlOk<{
     dataScopeRule: { rule: DataScopeRule | null };
-  }>(DATA_SCOPE_RULE, { collection }, accessToken);
+  }>(DATA_SCOPE_RULE, { targetId }, accessToken);
   return data.dataScopeRule.rule;
 }
 

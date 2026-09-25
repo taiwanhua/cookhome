@@ -8,7 +8,7 @@ import {
 } from "../fixtures/api";
 import {
   DATA_SCOPE_ROUTE,
-  DEMO_ITEMS_ONE_COLLECTION,
+  SAMPLE_ONE,
   SAMPLE_ONE_LIST_ROUTE,
 } from "../fixtures/demo-keys";
 import { createScenarioDemoItems } from "../fixtures/scenario-demo-items";
@@ -55,7 +55,7 @@ test("劇本 4:兩條都命中 +user 的規則,OR 取聯集、AND 取交集", as
   // ①指定角色「客服」→ 建立者【操作者本人】;②指定組織「南港店」→ 狀態【已發布】
   //(套用對象比的是啟用中角色與**所屬組織的直接關聯**,所以②要寫南港店而不是租戶A)
   await saveDataScopeRule(tenant.rootToken, {
-    collection: DEMO_ITEMS_ONE_COLLECTION,
+    moduleKey: SAMPLE_ONE,
     combineOp: "AND",
     rules: [
       ownedByOperatorRule(tenant.supportRoleId),
@@ -100,5 +100,5 @@ test("劇本 4:兩條都命中 +user 的規則,OR 取聯集、AND 取交集", as
   });
 
   // 規則是**全域**設定(`data_scope_rules` 的 collection 唯一),測完清掉不留給後面的劇本
-  await clearDataScopeRule(tenant.rootToken, DEMO_ITEMS_ONE_COLLECTION);
+  await clearDataScopeRule(tenant.rootToken, SAMPLE_ONE);
 });
