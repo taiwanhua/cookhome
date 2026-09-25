@@ -1007,11 +1007,11 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
-    // 宣告的 76 筆全部未變;dynamic 那筆不在比對範圍內,不計入也不被動到
+    // 宣告的 83 筆全部未變;dynamic 那筆不在比對範圍內,不計入也不被動到
     expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 83");
 
     const { permissions } = await readSeededDocuments(databaseUri);
-    expect(permissions).toHaveLength(77);
+    expect(permissions).toHaveLength(84);
     expect(
       permissions.find((permission) => permission.key === dynamicKey),
     ).toMatchObject({

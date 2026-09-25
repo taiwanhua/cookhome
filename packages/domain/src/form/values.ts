@@ -1,6 +1,11 @@
 import { roundToPrecision, toDecimal } from "./decimal";
 import { evaluateCondition } from "./expression";
-import type { ExpressionContext, FieldDef, StoredValues } from "./types";
+import type {
+  ExpressionContext,
+  FieldDef,
+  FieldType,
+  StoredValues,
+} from "./types";
 import { PATTERN_FLAGS } from "./validate-fields";
 
 /**
@@ -103,24 +108,134 @@ export function isCalendarDate(value: unknown): value is string {
 }
 
 /**
- * 選項的一個值:字串或 `{ value, label?, custom? }`。
- * 靜態選項存 `value` 字串;`allowCustom` 打進來的、類別 / lookup 選項存 `{ value, label }`
- * (label 由 api 送出時重取;這裡先收下送來的 label,沒有就 null)。
+ * 選項的一個值:字串或 `{ value, label?, custom? }` → `{ value, label, custom }`;形狀不對回 null。
+ * label 由 api 送出時重取,這裡先收下送來的(沒有就 null)。
  */
-function normalizeOption(field: FieldDef, raw: unknown): StoredOption | string {
-  const isStatic = field.options?.kind === "static";
+function optionOf(raw: unknown): StoredOption | null {
   if (typeof raw === "string") {
-    return isStatic ? raw : { value: raw, label: null };
+    return { value: raw, label: null };
   }
   if (isRecord(raw) && typeof raw.value === "string") {
     const label = typeof raw.label === "string" ? raw.label : null;
-    if (raw.custom === true) {
-      return { value: raw.value, label: label ?? raw.value, custom: true };
-    }
-    return isStatic ? raw.value : { value: raw.value, label };
+    return raw.custom === true
+      ? { value: raw.value, label: label ?? raw.value, custom: true }
+      : { value: raw.value, label };
   }
-  throw new TypeError("option");
+  return null;
 }
+
+/**
+ * 選項欄的存值:靜態選項只存 `value` 字串;類別 / lookup 選項與 `allowCustom` 打進來的存
+ * `{ value, label }`(自訂值另標 `custom: true`)。多選逐項收進 `stored`。
+ */
+function pushStoredOption(
+  field: FieldDef,
+  option: StoredOption,
+  stored: unknown[],
+): void {
+  if (field.options?.kind === "static" && option.custom !== true) {
+    stored.push(option.value);
+  } else {
+    stored.push(option);
+  }
+}
+
+function normalizeSelect(field: FieldDef, raw: unknown): NormalizeResult {
+  const option = optionOf(raw);
+  if (!option) {
+    return typeIssue(field, "須為選項值");
+  }
+  const stored: unknown[] = [];
+  pushStoredOption(field, option, stored);
+  return { ok: true, value: stored[0] };
+}
+
+function normalizeMultiSelect(field: FieldDef, raw: unknown): NormalizeResult {
+  if (!Array.isArray(raw)) {
+    return typeIssue(field, "須為選項值清單");
+  }
+  const stored: unknown[] = [];
+  for (const item of raw) {
+    const option = optionOf(item);
+    if (!option) {
+      return typeIssue(field, "須為選項值清單");
+    }
+    pushStoredOption(field, option, stored);
+  }
+  return { ok: true, value: stored };
+}
+
+function normalizeUpload(field: FieldDef, raw: unknown): NormalizeResult {
+  if (
+    isRecord(raw) &&
+    typeof raw.path === "string" &&
+    typeof raw.name === "string" &&
+    typeof raw.size === "number" &&
+    Number.isInteger(raw.size) &&
+    raw.size >= 0 &&
+    typeof raw.contentType === "string"
+  ) {
+    const upload: StoredUpload = {
+      path: raw.path,
+      name: raw.name,
+      size: raw.size,
+      contentType: raw.contentType,
+    };
+    return { ok: true, value: upload };
+  }
+  return typeIssue(field, "須為上傳完成的檔案");
+}
+
+function normalizeReference(field: FieldDef, raw: unknown): NormalizeResult {
+  let reference: StoredReference | null = null;
+  if (typeof raw === "string") {
+    reference = { id: raw, label: null };
+  } else if (isRecord(raw) && typeof raw.id === "string") {
+    reference = {
+      id: raw.id,
+      label: typeof raw.label === "string" ? raw.label : null,
+    };
+  }
+  return reference
+    ? { ok: true, value: reference }
+    : typeIssue(field, "須為引用的來源");
+}
+
+function normalizeNumber(field: FieldDef, raw: unknown): NormalizeResult {
+  const isNumeric =
+    (typeof raw === "number" && Number.isFinite(raw)) ||
+    (typeof raw === "string" && NUMERIC_STRING.test(raw));
+  return isNumeric
+    ? { ok: true, value: roundToPrecision(raw, field.precision ?? 0) }
+    : typeIssue(field, "須為數字");
+}
+
+type Normalizer = (field: FieldDef, raw: unknown) => NormalizeResult;
+
+/** 型別 → 正規化(空值已先處理掉)。 */
+const NORMALIZERS: Readonly<Record<FieldType, Normalizer>> = {
+  text: (field, raw) =>
+    typeof raw === "string"
+      ? { ok: true, value: raw }
+      : typeIssue(field, "須為文字"),
+  multiline: (field, raw) =>
+    typeof raw === "string"
+      ? { ok: true, value: raw }
+      : typeIssue(field, "須為文字"),
+  number: normalizeNumber,
+  date: (field, raw) =>
+    isCalendarDate(raw)
+      ? { ok: true, value: raw }
+      : typeIssue(field, "須為 YYYY-MM-DD 日期"),
+  boolean: (field, raw) =>
+    typeof raw === "boolean"
+      ? { ok: true, value: raw }
+      : typeIssue(field, "須為是 / 否"),
+  select: normalizeSelect,
+  multiSelect: normalizeMultiSelect,
+  upload: normalizeUpload,
+  reference: normalizeReference,
+};
 
 /**
  * 型別層的正規化:送來的值 → 存值形狀(`Spec §5「值的存法」`)。空值一律收成 `null`。
@@ -133,90 +248,12 @@ export function normalizeFieldValue(
   if (isEmptyValue(raw)) {
     return { ok: true, value: null };
   }
-  switch (field.type) {
-    case "text":
-    case "multiline": {
-      return typeof raw === "string"
-        ? { ok: true, value: raw }
-        : typeIssue(field, "須為文字");
-    }
-    case "number": {
-      if (
-        (typeof raw === "number" && Number.isFinite(raw)) ||
-        (typeof raw === "string" && NUMERIC_STRING.test(raw))
-      ) {
-        return { ok: true, value: roundToPrecision(raw, field.precision ?? 0) };
-      }
-      return typeIssue(field, "須為數字");
-    }
-    case "date": {
-      return isCalendarDate(raw)
-        ? { ok: true, value: raw }
-        : typeIssue(field, "須為 YYYY-MM-DD 日期");
-    }
-    case "boolean": {
-      return typeof raw === "boolean"
-        ? { ok: true, value: raw }
-        : typeIssue(field, "須為是 / 否");
-    }
-    case "select": {
-      try {
-        return { ok: true, value: normalizeOption(field, raw) };
-      } catch {
-        return typeIssue(field, "須為選項值");
-      }
-    }
-    case "multiSelect": {
-      if (!Array.isArray(raw)) {
-        return typeIssue(field, "須為選項值清單");
-      }
-      try {
-        return {
-          ok: true,
-          value: raw.map((item) => normalizeOption(field, item)),
-        };
-      } catch {
-        return typeIssue(field, "須為選項值清單");
-      }
-    }
-    case "upload": {
-      if (
-        isRecord(raw) &&
-        typeof raw.path === "string" &&
-        typeof raw.name === "string" &&
-        typeof raw.size === "number" &&
-        Number.isInteger(raw.size) &&
-        raw.size >= 0 &&
-        typeof raw.contentType === "string"
-      ) {
-        const upload: StoredUpload = {
-          path: raw.path,
-          name: raw.name,
-          size: raw.size,
-          contentType: raw.contentType,
-        };
-        return { ok: true, value: upload };
-      }
-      return typeIssue(field, "須為上傳完成的檔案");
-    }
-    case "reference": {
-      if (typeof raw === "string") {
-        const reference: StoredReference = { id: raw, label: null };
-        return { ok: true, value: reference };
-      }
-      if (isRecord(raw) && typeof raw.id === "string") {
-        const reference: StoredReference = {
-          id: raw.id,
-          label: typeof raw.label === "string" ? raw.label : null,
-        };
-        return { ok: true, value: reference };
-      }
-      return typeIssue(field, "須為引用的來源");
-    }
-    default: {
-      return typeIssue(field, "未知的欄位型別");
-    }
-  }
+  const normalizer = (NORMALIZERS as Partial<Record<string, Normalizer>>)[
+    field.type
+  ];
+  return normalizer
+    ? normalizer(field, raw)
+    : typeIssue(field, "未知的欄位型別");
 }
 
 /** 規則驗證要的上下文:`rules.custom` 求值用(語意值 + ctx + 定義與存值給 `optionLabel`)。 */
@@ -227,17 +264,28 @@ export interface RuleEvaluationInput {
   stored: StoredValues;
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u;
+const WHITESPACE = /\s/u;
 const PHONE_PATTERN = /^\+?[\d\s()-]{6,20}$/u;
+
+/** Email:恰一個 `@`、兩邊非空、網域有 `.` 且不在頭尾、全段無空白(不用回溯型的正則)。 */
+function isEmail(value: string): boolean {
+  const parts = value.split("@");
+  if (parts.length !== 2 || WHITESPACE.test(value)) {
+    return false;
+  }
+  const [local = "", domain = ""] = parts;
+  const dot = domain.indexOf(".");
+  return local !== "" && dot > 0 && !domain.endsWith(".");
+}
 
 function matchesFormat(format: string, value: string): boolean {
   switch (format) {
     case "email": {
-      return EMAIL_PATTERN.test(value);
+      return isEmail(value);
     }
     case "phone": {
       return (
-        PHONE_PATTERN.test(value) && /\d{6}/u.test(value.replaceAll(/\D/gu, ""))
+        PHONE_PATTERN.test(value) && value.replaceAll(/\D/gu, "").length >= 6
       );
     }
     case "url": {
@@ -301,7 +349,8 @@ function textIssue(field: FieldDef, value: unknown): ValueIssue | null {
     return null;
   }
   const rules = field.rules ?? {};
-  const length = [...value].length;
+  // 以 code point 計字數(中文、emoji 都算一個字),不用 UTF-16 的 `.length`
+  const length = value.match(/./gsu)?.length ?? 0;
   if (rules.minLength !== undefined && length < rules.minLength) {
     return issueOf(
       field,

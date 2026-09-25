@@ -350,8 +350,8 @@ describe("reset --mode=data(對真 MongoDB)", () => {
     expect(state.fields.map((field) => field.label)).not.toContain("甜點");
 
     // seed 管的設定留著(數量正本:src/seed/seed.test.ts 的模組 / 權限斷言)
-    expect(state.modules).toHaveLength(24);
-    expect(state.permissions).toHaveLength(76);
+    expect(state.modules).toHaveLength(25);
+    expect(state.permissions).toHaveLength(83);
     expect(state.fieldCategories).toHaveLength(2);
     expect(state.dataScopeTargets).toHaveLength(2);
 
@@ -410,12 +410,12 @@ describe("reset --mode=data(對真 MongoDB)", () => {
         secondId: superAdminId,
       }),
     );
-    // 種子角色的擁有組織兩筆 + 租戶管理員模板的 21 + 21 綁定(正本:src/seed/seed.test.ts)
+    // 種子角色的擁有組織兩筆 + 租戶管理員模板的 22 + 22 綁定(正本:src/seed/seed.test.ts)
     expect(countOf("org_role", rootOrgId)).toBe(2);
-    expect(countOf("role_module", tenantAdminId)).toBe(21);
-    expect(countOf("role_permission", tenantAdminId)).toBe(21);
+    expect(countOf("role_module", tenantAdminId)).toBe(22);
+    expect(countOf("role_permission", tenantAdminId)).toBe(22);
     // 掛在被刪租戶 / 使用者 / 角色上的六筆關聯全數消失
-    expect(state.relationships).toHaveLength(2 + 1 + 1 + 21 + 21);
+    expect(state.relationships).toHaveLength(2 + 1 + 1 + 22 + 22);
   }, 300_000);
 });
 
@@ -433,7 +433,7 @@ describe("reset --mode=full(對真 MongoDB)", () => {
     expect(state.orgs.map((org) => org.key)).toEqual(["root"]);
     expect(state.users).toHaveLength(1);
     expect(state.roles).toHaveLength(2);
-    expect(state.modules).toHaveLength(24);
+    expect(state.modules).toHaveLength(25);
     expect(state.demoItemsOne).toHaveLength(5);
     expect(state.demoItemsTwo).toHaveLength(5);
     // 整庫 drop:純業務表連 collection 都不再存在

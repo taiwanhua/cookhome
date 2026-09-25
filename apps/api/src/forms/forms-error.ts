@@ -48,8 +48,6 @@ export const FORM_FORBIDDEN_REASONS = [
   "NOT_FORM_OWNER",
   /** 只有站在根組織才能做(分派 / 收回、建共用表單)。 */
   "ROOT_ONLY",
-  /** 草稿只有建立者本人能存 / 送 / 刪。 */
-  "NOT_DRAFT_OWNER",
 ] as const;
 
 export type FormForbiddenReason = (typeof FORM_FORBIDDEN_REASONS)[number];

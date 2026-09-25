@@ -129,16 +129,12 @@ export class SubmissionValuesService {
     }
 
     // 以最終的值重算計算欄位;隱藏的計算欄位維持 null
-    const computed = computeOrThrow(input.fields, final, input.ctx);
-    for (const field of input.fields) {
-      if (classes.get(field.key) === "computed") {
-        final[field.key] = computed[field.key] ?? null;
-      }
-    }
-
+    recompute(input, classes, final);
     await this.checkUploads(input.fields, classes, final, input.base, issues);
     if (input.mode === "complete") {
       await this.resolveSnapshots(input, classes, final, issues);
+      // label 重取後再算一次:`optionLabel` 這類公式要看到的是新快照,不是前端送來的 label
+      recompute(input, classes, final);
       this.validateRules(input, classes, final, issues);
     }
     return { values: final, issues };
@@ -473,6 +469,20 @@ export class SubmissionValuesService {
       if (issue) {
         issues.push(issue);
       }
+    }
+  }
+}
+
+/** 以目前的值重算計算 / 固定值欄位(隱藏的維持 null)。 */
+function recompute(
+  input: SubmissionWriteInput,
+  classes: ReadonlyMap<string, FieldClass>,
+  final: StoredValues,
+): void {
+  const computed = computeOrThrow(input.fields, final, input.ctx);
+  for (const field of input.fields) {
+    if (classes.get(field.key) === "computed") {
+      final[field.key] = computed[field.key] ?? null;
     }
   }
 }

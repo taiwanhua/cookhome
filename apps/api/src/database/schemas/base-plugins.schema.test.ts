@@ -17,6 +17,9 @@ import { DemoItemOneSchema } from "./demo-item-one.schema";
 import { DemoItemTwoSchema } from "./demo-item-two.schema";
 import { FieldCategorySchema } from "./field-category.schema";
 import { FieldSchema } from "./field.schema";
+import { FormSubmissionSchema } from "./form-submission.schema";
+import { FormVersionSchema } from "./form-version.schema";
+import { FormSchema } from "./form.schema";
 import { ModuleSchema } from "./module.schema";
 import { OrgSchema } from "./org.schema";
 import { PermissionSchema } from "./permission.schema";
@@ -24,7 +27,7 @@ import { RefreshTokenSchema } from "./refresh-token.schema";
 import { RoleSchema } from "./role.schema";
 import { UserSchema } from "./user.schema";
 
-/** 全部底座 collection(docs/data-model.md「Collection 一覽」,17 張)。 */
+/** 全部底座 collection(docs/data-model.md「Collection 一覽」,20 張)。 */
 const ALL_SCHEMAS: Record<string, Schema> = {
   orgs: OrgSchema,
   users: UserSchema,
@@ -40,6 +43,9 @@ const ALL_SCHEMAS: Record<string, Schema> = {
   fields: FieldSchema,
   demo_items_one: DemoItemOneSchema,
   demo_items_two: DemoItemTwoSchema,
+  forms: FormSchema,
+  form_versions: FormVersionSchema,
+  form_submissions: FormSubmissionSchema,
   refresh_tokens: RefreshTokenSchema,
   action_tokens: ActionTokenSchema,
   audit_logs: AuditLogSchema,
@@ -84,6 +90,12 @@ const TENANT_SCOPED: Record<string, TenantScope> = {
     kind: "business",
     moduleData: true,
   },
+  form_submissions: {
+    path: "orgId",
+    allowGlobal: false,
+    kind: "business",
+    moduleData: true,
+  },
   audit_logs: {
     path: "orgId",
     allowGlobal: false,
@@ -92,12 +104,16 @@ const TENANT_SCOPED: Record<string, TenantScope> = {
   },
 };
 
-/** 模組資料表(`moduleData: true`):只有兩張示範表;business 類的其他表不是模組資料。 */
-const MODULE_DATA_COLLECTIONS = new Set(["demo_items_one", "demo_items_two"]);
+/** 模組資料表(`moduleData: true`):兩張示範表 + 表單提交;business 類的其他表不是模組資料。 */
+const MODULE_DATA_COLLECTIONS = new Set([
+  "demo_items_one",
+  "demo_items_two",
+  "form_submissions",
+]);
 
 describe("底座 schema 的 plugin 掛載(ADR-0005 / ADR-0007)", () => {
-  it("全部 17 張 collection 都掛 baseFields:timestamps + createdBy / updatedBy / deletedAt", () => {
-    expect(Object.keys(ALL_SCHEMAS)).toHaveLength(17);
+  it("全部 20 張 collection 都掛 baseFields:timestamps + createdBy / updatedBy / deletedAt", () => {
+    expect(Object.keys(ALL_SCHEMAS)).toHaveLength(20);
     for (const [name, schema] of Object.entries(ALL_SCHEMAS)) {
       expect({ name, timestamps: schema.get("timestamps") }).toEqual({
         name,

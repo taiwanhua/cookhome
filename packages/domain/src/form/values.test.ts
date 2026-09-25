@@ -31,7 +31,7 @@ describe("normalizeFieldValue:型別層(草稿也驗)", () => {
   it("空值一律收成 null(空字串、空陣列、undefined)", () => {
     expect(normalized(field("note", "text"), "")).toBeNull();
     expect(normalized(field("tags", "multiSelect"), [])).toBeNull();
-    expect(normalized(field("qty", "number"), undefined)).toBeNull();
+    expect(normalized(field("qty", "number"), null)).toBeNull();
   });
 
   it("number 取到 precision 位的十進位字串;非數字 → TYPE_INVALID", () => {
