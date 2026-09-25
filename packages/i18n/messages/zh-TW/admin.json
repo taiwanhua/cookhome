@@ -127,6 +127,9 @@
       "logoAlt": "{name} 的商標",
       "owner": "擁有者",
       "ownerHidden": "(你沒有使用者管理的檢視權限,看不到擁有者姓名)",
+      "managers": "主管",
+      "managersEmpty": "未設定",
+      "managerDisabled": "{name}(已停用)",
       "none": "—",
       "tabs": {
         "label": "組織分頁",
@@ -191,6 +194,12 @@
       "slugInvalid": "格式不符:小寫英文開頭,只能用小寫英文、數字、底線,長度 2–20。",
       "visibility": "使用者可見自身組織的下層組織資料",
       "visibilityHint": "此設定僅出現在頂層組織,套用整個組織。",
+      "managers": "主管",
+      "managersHint": "審核流程的「主管」關卡會從申請所屬的組織往上,找到第一個設了主管的組織。可設多位,只能選本租戶啟用中的使用者。",
+      "managersPlaceholder": "姓名或帳號",
+      "managerOption": "{name}({account})",
+      "managersEmpty": "沒有符合條件的使用者",
+      "managersLoading": "搜尋中",
       "cancel": "取消",
       "save": "儲存"
     },

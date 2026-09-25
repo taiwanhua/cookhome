@@ -15,6 +15,7 @@ import type {
   ProvisionTenantMutationVariables,
   RevokeTenantProvisionMutationVariables,
   SetOrgEnabledMutationVariables,
+  SetOrgManagersMutationVariables,
   SetOrgVisibilityMutationVariables,
   TenantModuleOptionsQuery,
   TransferOrgOwnerMutationVariables,
@@ -24,6 +25,10 @@ import type {
 } from "@repo/graphql";
 
 import { type AuthErrorCode, graphqlError } from "./auth-handlers";
+import {
+  type TestUserSummary,
+  orgManagersWorld,
+} from "./org-managers-handlers";
 import { api } from "./server";
 
 export type TestOrgNode = OrgTreeQuery["orgTree"][number];
@@ -48,6 +53,7 @@ export type OrgOperation =
   | "TransferOrgOwner"
   | "SetOrgVisibility"
   | "AddOrgMembers"
+  | "SetOrgManagers"
   | "CreateUploadUrl";
 
 export interface OrgFailure {
@@ -67,6 +73,10 @@ export interface OrgWorldOptions {
   /** 管理範圍內的全部使用者;`orgMemberCandidates` = 這些人扣掉該組織的既有成員 */
   memberCandidates?: TestOrgMember[];
   moduleOptions?: TestModuleOption[];
+  /** `org(id).managers` 的來源:orgId → 主管(設定順序);`setOrgManagers` 整組取代這份狀態 */
+  managers?: Record<string, TestUserSummary[]>;
+  /** 本租戶啟用中的使用者;`orgManagerCandidates` 依關鍵字過濾它 */
+  managerCandidates?: TestUserSummary[];
   failures?: Partial<Record<OrgOperation, OrgFailure>>;
 }
 
@@ -84,6 +94,7 @@ export interface OrgWorld {
     transferOrgOwner: TransferOrgOwnerMutationVariables["input"][];
     setOrgVisibility: SetOrgVisibilityMutationVariables["input"][];
     addOrgMembers: AddOrgMembersMutationVariables["input"][];
+    setOrgManagers: SetOrgManagersMutationVariables["input"][];
     createUploadUrl: CreateUploadUrlMutationVariables["input"][];
   };
   /** 直傳到簽名網址的檔案(ADR-0010 第 2 步) */
@@ -105,8 +116,11 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
     members = {},
     memberCandidates = [],
     moduleOptions = [],
+    managers = {},
+    managerCandidates = [],
     failures = {},
   } = options;
+
   /** 加入成員會真的改到這份狀態(TEST-08:有連動語意就實作進 handler) */
   const membersByOrg = new Map(
     Object.entries(members).map(([orgId, rows]) => [orgId, [...rows]]),
@@ -123,6 +137,7 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
     transferOrgOwner: [],
     setOrgVisibility: [],
     addOrgMembers: [],
+    setOrgManagers: [],
     createUploadUrl: [],
   };
   const uploadedFiles: OrgWorld["uploadedFiles"] = [];
@@ -139,6 +154,13 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
   };
 
   const orgOf = (id: string) => orgs.find((org) => org.id === id);
+
+  const managersWorld = orgManagersWorld({
+    managers,
+    managerCandidates,
+    failure: () => fail("SetOrgManagers"),
+  });
+  inputs.setOrgManagers = managersWorld.inputs;
 
   const handlers = [
     api.query("OrgTree", () => HttpResponse.json({ data: { orgTree } })),
@@ -162,6 +184,7 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
         },
       });
     }),
+    ...managersWorld.handlers,
     api.query("TenantModuleOptions", () =>
       HttpResponse.json({ data: { tenantModuleOptions: moduleOptions } }),
     ),

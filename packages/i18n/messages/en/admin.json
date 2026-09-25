@@ -127,6 +127,9 @@
       "logoAlt": "Logo of {name}",
       "owner": "Owner",
       "ownerHidden": "(You cannot view user records, so the owner's name is hidden.)",
+      "managers": "Managers",
+      "managersEmpty": "Not set",
+      "managerDisabled": "{name} (disabled)",
       "none": "—",
       "tabs": {
         "label": "Organization tabs",
@@ -191,6 +194,12 @@
       "slugInvalid": "Invalid format: start with a lowercase letter; lowercase letters, digits and underscores only, 2–20 characters.",
       "visibility": "Users can see data from organizations below their own",
       "visibilityHint": "This setting only appears on the top-level organization and applies to the whole organization.",
+      "managers": "Managers",
+      "managersHint": "A \"manager\" approval step starts from the organization the request belongs to and walks up to the first organization with managers. You can set several; only enabled users of this tenant can be picked.",
+      "managersPlaceholder": "Name or account",
+      "managerOption": "{name} ({account})",
+      "managersEmpty": "No matching users",
+      "managersLoading": "Searching",
       "cancel": "Cancel",
       "save": "Save"
     },
