@@ -24,6 +24,9 @@ import { RecipesModule } from "./recipes/recipes.module";
 import { RolesModule } from "./roles/roles.module";
 import { StorageModule } from "./storage/storage.module";
 import { UsersModule } from "./users/users.module";
+import { ApplyCenterModule } from "./workflows/apply-center/apply-center.module";
+import { WorkflowDesignModule } from "./workflows/workflow-design/workflow-design.module";
+import { WorkflowEngineModule } from "./workflows/workflow-engine/workflow-engine.module";
 
 // GraphQL Sandbox 開關:本地開發(NODE_ENV 非 production)預設開;
 // 雲端預設關(不讓外人窺探 schema),dev/staging 環境以 GRAPHQL_SANDBOX=true 明確打開
@@ -73,6 +76,9 @@ const isSandboxEnabled =
     DemoItemsTwoModule,
     FormDesignModule,
     FormRuntimeModule,
+    WorkflowDesignModule,
+    WorkflowEngineModule,
+    ApplyCenterModule,
     RecipesModule,
   ],
 })

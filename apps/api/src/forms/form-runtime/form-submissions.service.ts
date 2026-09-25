@@ -1,11 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import type { Types } from "mongoose";
+import { Types } from "mongoose";
 
 import {
   type ExpressionContext,
   type FieldDef,
   type FormDefinition,
   type StoredValues,
+  type SubmissionSummary,
   computeSummary,
 } from "@repo/domain/form";
 
@@ -23,10 +24,14 @@ import type {
   FormSubmissionStatus,
 } from "../../database/schemas/form-submission.schema";
 import { StorageService } from "../../storage/storage.service";
+import { InstanceWithdrawService } from "../../workflows/workflow-engine/instance-withdraw.service";
+import { SubmissionReadAccess } from "../../workflows/workflow-engine/submission-read-access.service";
+import { WorkflowSubmitService } from "../../workflows/workflow-engine/workflow-submit.service";
 import { fieldGateOf } from "../field-permission-gate";
 import {
   FormAccessService,
   type FormOperatorFacts,
+  type FormRecord,
   escapeRegex,
   toObjectId,
 } from "../form-access.service";
@@ -46,10 +51,12 @@ import {
   notFoundError,
   validationError,
 } from "../forms-error";
+import { LookupProvidersService } from "../lookup-providers";
 import type { FormVersionPayload } from "../models/form-common.model";
 import { projectFieldsForReader } from "./definition-projection";
 import { DisplayNamesService } from "./display-names.service";
 import {
+  type CopySubmissionToDraftInput,
   type CreateFormDraftInput,
   DEFAULT_PAGE_SIZE,
   type DeleteFormSubmissionInput,
@@ -58,6 +65,8 @@ import {
   type SaveFormDraftInput,
   type SubmitFormSubmissionInput,
   type UpdateFormSubmissionInput,
+  type VoidSubmissionInput,
+  type WithdrawSubmissionInput,
 } from "./dto/form-runtime.input";
 import {
   type DeleteFormSubmissionPayload,
@@ -77,7 +86,33 @@ export const SUBMISSION_AUDIT = {
   submit: "submission.submit",
   update: "submission.update",
   delete: "submission.delete",
+  withdraw: "submission.withdraw",
+  void: "submission.void",
+  copy: "submission.copy",
 } as const;
+
+/** 申請人可以改內容(存草稿 / 再送出)的狀態:草稿、被退回、自己撤回(Spec 6b §6)。 */
+const APPLICANT_EDITABLE: readonly FormSubmissionStatus[] = [
+  "draft",
+  "returned",
+  "withdrawn",
+];
+
+/**
+ * 只審過某些修訂的讀者(任務持有者)讀這筆提交時的限制:只列有權讀的修訂,
+ * 摘要用該修訂實例上的快照(不讀提交最新的 `summary`)。
+ */
+interface RevisionRestriction {
+  revisions: ReadonlySet<number>;
+  summary: SubmissionSummary | null;
+}
+
+/** 可讀的一筆:原始文件、限制(全讀為 null)、實際要回的修訂號(null = 目前)。 */
+interface ReadableSubmission {
+  record: SubmissionRecord;
+  restriction: RevisionRestriction | null;
+  revision: number | null;
+}
 
 const SUBMISSION_TARGET = "form_submission";
 
@@ -121,11 +156,7 @@ function definitionOf(version: FormVersionRecord): FormDefinition {
  *   `values` / `summary` / `revision` / 快照 / `editVersion` 在**同一次**更新裡寫
  * - 值的寫入規則(四種不能填的原因與順序)在 `form-values/submission-values.service.ts`
  */
-/**
- * 落庫狀態 → GraphQL enum。**窮舉**:`form_submissions.status` 已是 6b 的七值,但 GraphQL enum
- * 還只有 6a 的兩值(6b 的審核狀態在產生它們的票才擴),遇到未知值直接丟錯 ——
- * 擴 enum 的人一定會經過這裡,不會被靜默翻成「已完成」。
- */
+/** 落庫狀態 → GraphQL enum(窮舉:新增狀態時編譯器會指到這裡)。 */
 function submissionStatusOf(
   status: FormSubmissionStatus,
 ): FormSubmissionStatusEnum {
@@ -133,15 +164,50 @@ function submissionStatusOf(
     case "draft": {
       return FormSubmissionStatusEnum.DRAFT;
     }
+    case "reviewing": {
+      return FormSubmissionStatusEnum.REVIEWING;
+    }
+    case "returned": {
+      return FormSubmissionStatusEnum.RETURNED;
+    }
+    case "withdrawn": {
+      return FormSubmissionStatusEnum.WITHDRAWN;
+    }
     case "completed": {
       return FormSubmissionStatusEnum.COMPLETED;
     }
-    default: {
-      throw new Error(
-        `form_submissions.status "${status}" has no GraphQL mapping yet`,
-      );
+    case "rejected": {
+      return FormSubmissionStatusEnum.REJECTED;
+    }
+    case "voided": {
+      return FormSubmissionStatusEnum.VOIDED;
     }
   }
+}
+
+/** 可刪的已送出提交:不綁流程的已完成、已駁回(草稿另判)。 */
+function isDeletableRecord(record: {
+  status: FormSubmissionStatus;
+  currentInstanceId: Types.ObjectId | null;
+}): boolean {
+  return (
+    (record.status === "completed" && record.currentInstanceId === null) ||
+    record.status === "rejected"
+  );
+}
+
+function summaryModelOf(summary: SubmissionSummary | null): {
+  title: string | null;
+  date: string | null;
+  amount: string | null;
+} | null {
+  return summary
+    ? {
+        title: summary.title,
+        date: summary.date,
+        amount: summary.amount ?? null,
+      }
+    : null;
 }
 
 @Injectable()
@@ -156,6 +222,10 @@ export class FormSubmissionsService {
     private readonly userNames: FormUserNames,
     private readonly storage: StorageService,
     private readonly audit: AuditService,
+    private readonly lookups: LookupProvidersService,
+    private readonly workflowSubmit: WorkflowSubmitService,
+    private readonly readAccess: SubmissionReadAccess,
+    private readonly withdrawal: InstanceWithdrawService,
   ) {}
 
   // ---- 讀 ----
@@ -190,7 +260,10 @@ export class FormSubmissionsService {
     if (!form) {
       throw notFoundError(`Form not found: ${formKey}`);
     }
-    this.access.assertRuntimeAccess(facts, form.moduleKey);
+    // 沒有業務模組權限的審核者(申請中心詳情頁)也要拿得到定義來渲染他審的那筆
+    if (!(await this.readAccess.holdsTaskOnForm(facts, formKey))) {
+      this.access.assertRuntimeAccess(facts, form.moduleKey);
+    }
     const record = await this.versions.findOne(facts.operator, {
       formKey,
       version,
@@ -231,9 +304,9 @@ export class FormSubmissionsService {
       ...(keyword
         ? { "summary.title": { $regex: escapeRegex(keyword), $options: "i" } }
         : {}),
-      // 草稿只給建立者本人
+      // 草稿只給建立者本人;其餘狀態(審核中 / 退回 / 撤回 / 完成 / 駁回 / 作廢)照可見範圍與資料範圍
       $or: [
-        { status: "completed" },
+        { status: { $ne: "draft" } },
         { status: "draft", createdBy: facts.operator.actorId },
       ],
     };
@@ -259,8 +332,13 @@ export class FormSubmissionsService {
     id: string,
     revision: number | null | undefined,
   ): Promise<FormSubmissionModel> {
-    const record = await this.findReadable(facts, id);
-    const [model] = await this.toModels(facts, [record], revision ?? null);
+    const readable = await this.findReadable(facts, id, revision ?? null);
+    const [model] = await this.toModels(
+      facts,
+      [readable.record],
+      readable.revision,
+      readable.restriction,
+    );
     if (!model) {
       throw notFoundError(`Form submission not found: ${id}`);
     }
@@ -274,7 +352,8 @@ export class FormSubmissionsService {
     fieldKey: string,
     revision: number | null | undefined,
   ): Promise<string> {
-    const record = await this.findReadable(facts, id);
+    const readable = await this.findReadable(facts, id, revision ?? null);
+    const record = readable.record;
     const version = await this.versionOf(facts.operator, record);
     const field = version.fields.find(
       (candidate) => candidate.key === fieldKey,
@@ -291,7 +370,7 @@ export class FormSubmissionsService {
         "FIELD_FORBIDDEN",
       );
     }
-    const values = this.viewedRevision(record, revision ?? null).values;
+    const values = this.viewedRevision(record, readable.revision).values;
     const stored = values[fieldKey] as { path?: unknown } | null | undefined;
     const url = await this.storage.readUrlOf(
       typeof stored?.path === "string" ? stored.path : null,
@@ -341,13 +420,37 @@ export class FormSubmissionsService {
         "FORM_NOT_AVAILABLE",
       );
     }
+    const created = await this.insertDraft(
+      facts,
+      form,
+      version,
+      clientRequestId,
+      input.values ?? {},
+      null,
+    );
+    return this.single(facts, created);
+  }
+
+  /**
+   * 建一筆草稿(新增 / 複製為新單共用):值照 6a 的寫入規則(草稿放寬完成資料所需的驗證);
+   * 同一次請求的重試同時到、另一個先建好了 → 回那一筆。
+   */
+  private async insertDraft(
+    facts: FormOperatorFacts,
+    form: FormRecord,
+    version: FormVersionRecord,
+    clientRequestId: string,
+    sent: StoredValues,
+    copiedFrom: Types.ObjectId | null,
+  ): Promise<SubmissionRecord> {
+    const operator = facts.operator;
     const values = await this.values.apply({
       facts,
       moduleKey: form.moduleKey,
       formKey: form.key,
       fields: version.fields,
       base: {},
-      sent: input.values ?? {},
+      sent,
       previous: null,
       ctx: this.draftContext(facts),
       mode: "draft",
@@ -357,7 +460,7 @@ export class FormSubmissionsService {
       created = await this.submissions.create(operator, {
         moduleKey: form.moduleKey,
         formKey: form.key,
-        version: boundVersion,
+        version: version.version ?? 0,
         values,
         summary: null,
         status: "draft",
@@ -366,17 +469,13 @@ export class FormSubmissionsService {
         editVersion: 0,
         clientRequestId,
         submittedAt: null,
+        copiedFrom,
       });
     } catch (error) {
-      // 同一次請求的重試同時到:另一個先建好了,回那一筆
       if (isDuplicateKeyError(error)) {
-        const winner = await this.findRetried(
-          facts,
-          input.formKey,
-          clientRequestId,
-        );
+        const winner = await this.findRetried(facts, form.key, clientRequestId);
         if (winner) {
-          return this.single(facts, winner);
+          return winner;
         }
       }
       throw error;
@@ -385,17 +484,24 @@ export class FormSubmissionsService {
       action: SUBMISSION_AUDIT.createDraft,
       targetType: SUBMISSION_TARGET,
       targetId: created._id,
-      after: { formKey: form.key, version: version.version },
+      after: {
+        formKey: form.key,
+        version: version.version,
+        ...(copiedFrom === null ? {} : { copiedFrom: String(copiedFrom) }),
+      },
     });
-    return this.single(facts, created);
+    return created;
   }
 
-  /** 存草稿:放寬完成資料所需的驗證,寫入守門照常;`expectedEditVersion` 不符 → 409。 */
+  /**
+   * 存草稿:放寬完成資料所需的驗證,寫入守門照常;`expectedEditVersion` 不符 → 409。
+   * 被退回 / 撤回的單也由申請人以此改內容(狀態不變,再送出才進下一個修訂)。
+   */
   async saveDraft(
     facts: FormOperatorFacts,
     input: SaveFormDraftInput,
   ): Promise<FormSubmissionModel> {
-    const record = await this.requireOwnDraft(facts, input.id);
+    const record = await this.requireOwnEditable(facts, input.id);
     this.assertEditVersion(record, input.expectedEditVersion);
     const version = await this.versionOf(facts.operator, record);
     const values = await this.values.apply({
@@ -413,7 +519,7 @@ export class FormSubmissionsService {
       facts.operator,
       {
         _id: record._id,
-        status: "draft",
+        status: record.status,
         editVersion: input.expectedEditVersion,
       },
       { $set: { values }, $inc: { editVersion: 1 } },
@@ -434,15 +540,26 @@ export class FormSubmissionsService {
   }
 
   /**
-   * 送出草稿:以存的值全驗、後端重算 computed、重取選項 / 引用 label、寫摘要;`completed`、`revision = 1`、
-   * `revisions[0]` = 快照 + ctx —— `values` / `summary` / `revision` / `revisions` / `editVersion` 同一次更新。
+   * 送出:以存的值全驗、後端重算 computed、重取選項 / 引用 label、寫摘要,再依送出時檢查分兩條路
+   * (Spec 6b §3、§6):
+   *
+   * - **不走流程**(沒綁、也沒進過審核):6a 行為 —— `completed`、`revision = 1`、`revisions[0]` = 快照 + ctx,
+   *   `values` / `summary` / `revision` / `revisions` / `editVersion` 同一次更新
+   * - **走流程**:`WorkflowSubmitService` 的寫入順序(建 `linking` 實例 → 提交連上並進 `reviewing` →
+   *   實例 `running` → 推進);送審不經過 `completed`。被退回 / 撤回後再送出 = 修訂 +1、新實例
+   * - 提交已是 `reviewing`(同一次送出的重試):直接接續原實例,不驗、不看綁定、不增加修訂
+   *
    * 版本已退役的既有草稿仍可送出(寬鬆)。
    */
   async submit(
     facts: FormOperatorFacts,
     input: SubmitFormSubmissionInput,
   ): Promise<FormSubmissionModel> {
-    const record = await this.requireOwnDraft(facts, input.id);
+    const record = await this.requireOwnSubmittable(facts, input.id);
+    if (record.status === "reviewing") {
+      await this.workflowSubmit.resume(record);
+      return this.single(facts, await this.reloadOwn(facts, record));
+    }
     this.assertEditVersion(record, input.expectedEditVersion);
     const version = await this.versionOf(facts.operator, record);
     const at = new Date();
@@ -454,13 +571,36 @@ export class FormSubmissionsService {
       fields: version.fields,
       base: record.values,
       sent: null,
-      previous: null,
+      previous: record.revisions.at(-1)?.values ?? null,
       ctx: expressionContextOf(ctx),
       mode: "complete",
     });
     const summary = computeSummary(definitionOf(version), values, {
-      submittedAt: at.toISOString(),
+      submittedAt: (record.submittedAt ?? at).toISOString(),
     });
+    const route = await this.workflowSubmit.route(record);
+    if (route.kind === "workflow") {
+      await this.workflowSubmit.submit(
+        facts.operator,
+        record,
+        input.expectedEditVersion,
+        { values, summary, ctx, at },
+        route,
+      );
+      await this.audit.record(facts.operator, {
+        action: SUBMISSION_AUDIT.submit,
+        targetType: SUBMISSION_TARGET,
+        targetId: record._id,
+        after: {
+          revision: record.revision + 1,
+          formKey: record.formKey,
+          version: record.version,
+          workflowKey: route.workflowKey,
+          workflowVersion: route.workflowVersion,
+        },
+      });
+      return this.single(facts, await this.reloadOwn(facts, record));
+    }
     const updated = await this.submissions.findOwnAndUpdate(
       facts.operator,
       {
@@ -504,10 +644,11 @@ export class FormSubmissionsService {
       facts.operator,
       toObjectId(input.id, "id"),
     );
-    if (record?.status !== "completed") {
+    if (record?.status !== "completed" || record.currentInstanceId !== null) {
       if (record) {
+        // 綁流程的已完成(走過流程)鎖定、只能作廢(Spec 6b §6)
         throw conflictError(
-          `Submission ${input.id} is not completed`,
+          `Submission ${input.id} is not an editable completed submission`,
           "STATUS_MISMATCH",
         );
       }
@@ -544,6 +685,7 @@ export class FormSubmissionsService {
       {
         _id: record._id,
         status: "completed",
+        currentInstanceId: null,
         editVersion: input.expectedEditVersion,
         revision: input.expectedRevision,
       },
@@ -588,8 +730,15 @@ export class FormSubmissionsService {
       );
     } else {
       record = await this.submissions.findById(facts.operator, id);
-      if (record?.status !== "completed") {
+      if (!record) {
         throw notFoundError(`Form submission not found: ${input.id}`);
+      }
+      // 可刪:不綁流程的已完成、已駁回(Spec 6b §6);審核中 / 退回 / 撤回 / 綁流程的已完成 / 作廢不可刪
+      if (!isDeletableRecord(record)) {
+        throw conflictError(
+          `Submission ${input.id} cannot be deleted in status ${record.status}`,
+          "STATUS_MISMATCH",
+        );
       }
       this.access.assertModulePermission(facts, record.moduleKey, "delete");
       deleted = await this.submissions.softDeleteById(facts.operator, id);
@@ -606,17 +755,344 @@ export class FormSubmissionsService {
     return { success: true, deletedId: String(record._id) };
   }
 
-  // ---- 內部 ----
+  // ---- 審核流程的提交動作(Spec 6b §6)----
 
   /**
-   * 單筆讀取的範圍:一般路徑(可見範圍 + 資料範圍規則)讀不到時,改用「自己建立的」路徑
-   * (可見範圍照套、不套資料範圍規則)。別人的草稿一律不存在;已完成要模組 `view`,
-   * 自己的草稿有 `view` 或 `create` 即可。
+   * 撤回(申請人本人;審核中、還沒有任何被接受的審核意見):實例 CAS → `withdrawn`,
+   * 推進收尾把提交同步成 `withdrawn`(可改後再送)。已有審核意見 → `CONFLICT`(`HAS_DECISIONS`)。
+   */
+  async withdraw(
+    facts: FormOperatorFacts,
+    input: WithdrawSubmissionInput,
+  ): Promise<FormSubmissionModel> {
+    const record = await this.submissions.findOwnById(
+      facts.operator,
+      toObjectId(input.id, "id"),
+    );
+    if (!record) {
+      throw notFoundError(`Form submission not found: ${input.id}`);
+    }
+    if (record.status !== "reviewing" || record.currentInstanceId === null) {
+      throw conflictError(
+        `Submission ${input.id} is not under review`,
+        "STATUS_MISMATCH",
+      );
+    }
+    this.assertEditVersion(record, input.expectedEditVersion);
+    await this.withdrawal.withdraw(
+      record.currentInstanceId,
+      facts.operator.actorId ?? record._id,
+    );
+    await this.audit.record(facts.operator, {
+      action: SUBMISSION_AUDIT.withdraw,
+      targetType: SUBMISSION_TARGET,
+      targetId: record._id,
+      before: { revision: record.revision },
+    });
+    return this.single(facts, await this.reloadOwn(facts, record));
+  }
+
+  /**
+   * 作廢(綁流程且已核准;申請人本人或有該模組 `edit` 者;理由必填;不需審核):提交 → `voided`,內容凍結。
+   */
+  async voidSubmission(
+    facts: FormOperatorFacts,
+    input: VoidSubmissionInput,
+  ): Promise<FormSubmissionModel> {
+    const reason = input.reason.trim();
+    if (reason === "") {
+      throw validationError("reason is required", ["reason"]);
+    }
+    const id = toObjectId(input.id, "id");
+    const own = await this.submissions.findOwnById(facts.operator, id);
+    const record = own ?? (await this.submissions.findById(facts.operator, id));
+    if (!record) {
+      throw notFoundError(`Form submission not found: ${input.id}`);
+    }
+    if (own === null) {
+      this.access.assertModulePermission(facts, record.moduleKey, "edit");
+    }
+    if (record.status !== "completed" || record.currentInstanceId === null) {
+      throw conflictError(
+        `Submission ${input.id} is not an approved workflow submission`,
+        "STATUS_MISMATCH",
+      );
+    }
+    this.assertEditVersion(record, input.expectedEditVersion);
+    const filter = {
+      _id: id,
+      status: "completed" as const,
+      currentInstanceId: { $ne: null },
+      editVersion: input.expectedEditVersion,
+    };
+    const update = {
+      $set: {
+        status: "voided",
+        voidedAt: new Date(),
+        voidedBy: facts.operator.actorId,
+        voidReason: reason,
+      },
+      $inc: { editVersion: 1 },
+    };
+    const updated =
+      own === null
+        ? await this.submissions.findOneAndUpdate(
+            facts.operator,
+            filter,
+            update,
+          )
+        : await this.submissions.findOwnAndUpdate(
+            facts.operator,
+            filter,
+            update,
+          );
+    if (!updated) {
+      throw conflictError(
+        `Submission ${input.id} was updated by someone else`,
+        "EDIT_VERSION_MISMATCH",
+      );
+    }
+    await this.audit.record(facts.operator, {
+      action: SUBMISSION_AUDIT.void,
+      targetType: SUBMISSION_TARGET,
+      targetId: record._id,
+      before: { status: record.status, revision: record.revision },
+      after: { status: "voided", reason },
+    });
+    return this.single(facts, updated);
+  }
+
+  /**
+   * 複製為新單(`copySubmissionToDraft`,專用操作,不走一般帶入 / lookup):來源 = 已作廢、讀者讀得到全部內容;
+   * 目標 = 同表單**目前可新增的版本**。只複製「讀者對來源有 `show`、目標版本有同 key 同型別的使用者填欄位、
+   * 讀者對目標有 `edit`」的欄位;`computed` / `constant` 由目標版本重算;引用重驗來源可讀,失效 → 清空並列在
+   * `clearedFields`;附件複製一份儲存路徑歸新單(沿用 6a 的上傳驗證)。`clientRequestId` 去重;
+   * 新草稿記 `copiedFrom`,來源記 `replacedById`。
+   */
+  async copyToDraft(
+    facts: FormOperatorFacts,
+    input: CopySubmissionToDraftInput,
+  ): Promise<FormSubmissionModel> {
+    const clientRequestId = this.requireClientRequestId(input.clientRequestId);
+    const readable = await this.findReadable(facts, input.id, null);
+    const source = readable.record;
+    if (readable.restriction !== null) {
+      throw forbiddenError(
+        `Submission ${input.id} cannot be copied by a reviewer`,
+      );
+    }
+    if (source.status !== "voided") {
+      throw conflictError(
+        `Only voided submissions can be copied (status ${source.status})`,
+        "STATUS_MISMATCH",
+      );
+    }
+    const retried = await this.findRetried(
+      facts,
+      source.formKey,
+      clientRequestId,
+    );
+    if (retried) {
+      return this.single(facts, retried);
+    }
+    const form = await this.access.requireAvailableForm(facts, source.formKey);
+    this.access.assertModulePermission(facts, form.moduleKey, "create");
+    const target = await this.versions.findOne(facts.operator, {
+      formKey: form.key,
+      version: form.currentVersion,
+      status: "published",
+    });
+    if (target?.version === null || target === null) {
+      throw forbiddenError(
+        `Form ${form.key} has no published version`,
+        "FORM_NOT_AVAILABLE",
+      );
+    }
+    const sourceVersion = await this.versionOf(facts.operator, source);
+    const { values, cleared } = await this.copiedValues(
+      facts,
+      source,
+      sourceVersion.fields,
+      target.fields,
+    );
+    const created = await this.insertDraft(
+      facts,
+      form,
+      target,
+      clientRequestId,
+      values,
+      source._id,
+    );
+    const isOwner =
+      facts.operator.actorId !== null &&
+      source.createdBy?.equals(facts.operator.actorId) === true;
+    const link = { $set: { replacedById: created._id } };
+    await (isOwner
+      ? this.submissions.findOwnAndUpdate(
+          facts.operator,
+          { _id: source._id },
+          link,
+        )
+      : this.submissions.findOneAndUpdate(
+          facts.operator,
+          { _id: source._id },
+          link,
+        ));
+    await this.audit.record(facts.operator, {
+      action: SUBMISSION_AUDIT.copy,
+      targetType: SUBMISSION_TARGET,
+      targetId: created._id,
+      after: { copiedFrom: String(source._id), clearedFields: cleared },
+    });
+    const model = await this.single(facts, created);
+    model.clearedFields = cleared;
+    return model;
+  }
+
+  // ---- 內部 ----
+
+  private requireClientRequestId(raw: string): string {
+    const clientRequestId = raw.trim();
+    if (
+      clientRequestId === "" ||
+      clientRequestId.length > MAX_CLIENT_REQUEST_ID_LENGTH
+    ) {
+      throw validationError("clientRequestId must be 1-100 characters", [
+        "clientRequestId",
+      ]);
+    }
+    return clientRequestId;
+  }
+
+  /** 複製為新單要帶過去的值(見 `copyToDraft`);回值與被清空的引用欄位。 */
+  private async copiedValues(
+    facts: FormOperatorFacts,
+    source: SubmissionRecord,
+    sourceFields: readonly FieldDef[],
+    targetFields: readonly FieldDef[],
+  ): Promise<{ values: StoredValues; cleared: string[] }> {
+    const gate = fieldGateOf(facts, source.moduleKey, source.formKey);
+    const values: StoredValues = {};
+    const cleared: string[] = [];
+    for (const field of targetFields) {
+      const from = sourceFields.find(
+        (candidate) => candidate.key === field.key,
+      );
+      const value = source.values[field.key];
+      if (
+        from?.type !== field.type ||
+        field.valueSource.kind !== "input" ||
+        value === null ||
+        value === undefined ||
+        !gate.canShow(sourceFields, field.key) ||
+        !gate.canEdit(targetFields, field)
+      ) {
+        continue;
+      }
+      const copied = await this.copiedValueOf(facts, field, value);
+      if (copied === undefined) {
+        cleared.push(field.key);
+      } else if (copied !== null) {
+        values[field.key] = copied;
+      }
+    }
+    return { values, cleared };
+  }
+
+  /** 一欄的複製值:引用失效 → undefined(清空並提示);附件複製不成 → null(略過)。 */
+  private async copiedValueOf(
+    facts: FormOperatorFacts,
+    field: FieldDef,
+    value: unknown,
+  ): Promise<unknown> {
+    if (field.type === "reference") {
+      const id = (value as { id?: unknown }).id;
+      const source = field.source;
+      if (typeof id !== "string" || !source) {
+        return undefined;
+      }
+      const [record] = await this.lookups.findByValues(
+        facts,
+        source,
+        "id",
+        [id],
+        [source.labelField],
+        { publicOnly: true },
+      );
+      return record ? value : undefined;
+    }
+    if (field.type === "upload") {
+      const upload = value as Record<string, unknown>;
+      const path = await this.storage.copyPrivateObject(
+        typeof upload.path === "string" ? upload.path : null,
+      );
+      return path === null ? null : { ...upload, path };
+    }
+    return value;
+  }
+
+  /**
+   * 這筆對操作者允許的動作(含權限,業務模組那一種 `abilities`):
+   * - 改:申請人改草稿 / 退回 / 撤回(`create`);不綁流程的已完成(`edit`);綁流程的已完成鎖定
+   * - 刪:草稿同改;不綁流程的已完成 / 已駁回(`delete`)
+   * - 撤回:申請人、審核中;作廢:綁流程的已完成、申請人或 `edit`;複製為新單:已作廢 + `create`
+   */
+  private abilitiesOf(
+    facts: FormOperatorFacts,
+    record: SubmissionRecord,
+    isOwner: boolean,
+  ): {
+    canEdit: boolean;
+    canDelete: boolean;
+    canWithdraw: boolean;
+    canVoid: boolean;
+    canCopy: boolean;
+  } {
+    const can = (action: "view" | "create" | "edit" | "delete"): boolean =>
+      this.access.has(facts, formModulePermission(record.moduleKey, action));
+    const isBound = record.currentInstanceId !== null;
+    const isApplicantEditable =
+      isOwner && APPLICANT_EDITABLE.includes(record.status) && can("create");
+    const canEdit =
+      isApplicantEditable ||
+      (record.status === "completed" && !isBound && can("edit"));
+    const canDelete =
+      record.status === "draft"
+        ? isApplicantEditable
+        : isDeletableRecord(record) && can("delete");
+    return {
+      canEdit,
+      canDelete,
+      canWithdraw: isOwner && record.status === "reviewing",
+      canVoid:
+        record.status === "completed" && isBound && (isOwner || can("edit")),
+      canCopy: record.status === "voided" && can("create"),
+    };
+  }
+
+  /** 重讀自己的一筆(寫入後回傳最新狀態)。 */
+  private async reloadOwn(
+    facts: FormOperatorFacts,
+    record: SubmissionRecord,
+  ): Promise<SubmissionRecord> {
+    return (
+      (await this.submissions.findOwnById(facts.operator, record._id)) ?? record
+    );
+  }
+
+  /**
+   * 單筆讀取的範圍(`canReadSubmissionRevision`,Spec 6b §3):
+   *
+   * 1. 一般路徑(可見範圍 + 資料範圍規則)或「自己建立的」路徑讀得到:建立者一律可讀(含所有修訂);
+   *    別人的草稿一律不存在;其他人要模組 `view`
+   * 2. 讀不到或沒有 `view`:以讀者的租戶為邊界找提交,任務持有者(現在或曾經)**只**讀他審過的那幾個修訂
+   *    (`revision` 省略 = 其中最新的一個),摘要改用該修訂實例上的快照
    */
   private async findReadable(
     facts: FormOperatorFacts,
     id: string,
-  ): Promise<SubmissionRecord> {
+    revision: number | null,
+  ): Promise<ReadableSubmission> {
     const objectId = toObjectId(id, "id");
     const record =
       (await this.submissions.findById(facts.operator, objectId)) ??
@@ -625,27 +1101,72 @@ export class FormSubmissionsService {
       record !== null &&
       facts.operator.actorId !== null &&
       record.createdBy?.equals(facts.operator.actorId) === true;
-    if (!record || (record.status === "draft" && !isOwner)) {
+    if (record && (isOwner || this.canViewModule(facts, record))) {
+      if (record.status === "draft" && !isOwner) {
+        throw notFoundError(`Form submission not found: ${id}`);
+      }
+      return { record, restriction: null, revision };
+    }
+    const stored = await this.readAccess.findInTenant(facts, objectId);
+    const readable = stored
+      ? await this.readAccess.readableRevisions(facts, stored)
+      : ({ kind: "none" } as const);
+    if (stored === null || readable.kind === "none") {
+      if (record && record.status !== "draft") {
+        throw forbiddenError(`Missing permission ${record.moduleKey}.view`);
+      }
       throw notFoundError(`Form submission not found: ${id}`);
     }
-    const canView = this.access.has(
+    const asRecord = stored as unknown as SubmissionRecord;
+    if (readable.kind === "all") {
+      return { record: asRecord, restriction: null, revision };
+    }
+    const target = revision ?? Math.max(...readable.revisions);
+    if (!readable.revisions.has(target)) {
+      throw forbiddenError(
+        `Revision ${String(target)} of submission ${id} is not readable by the operator`,
+      );
+    }
+    return {
+      record: asRecord,
+      restriction: {
+        revisions: readable.revisions,
+        summary: await this.readAccess.revisionSummaryOf(stored._id, target),
+      },
+      revision: target,
+    };
+  }
+
+  private canViewModule(
+    facts: FormOperatorFacts,
+    record: SubmissionRecord,
+  ): boolean {
+    return this.access.has(
       facts,
       formModulePermission(record.moduleKey, "view"),
     );
-    const canCreate = this.access.has(
-      facts,
-      formModulePermission(record.moduleKey, "create"),
-    );
-    if (!canView && !(record.status === "draft" && canCreate)) {
-      throw forbiddenError(`Missing permission ${record.moduleKey}.view`);
-    }
-    return record;
   }
 
-  /** 草稿只屬於建立者;不是草稿 → 409,不是自己的 → 不存在。 */
-  private async requireOwnDraft(
+  /** 申請人改內容(存草稿):草稿 / 被退回 / 撤回;其他狀態 → 409,不是自己的 → 不存在。 */
+  private async requireOwnEditable(
     facts: FormOperatorFacts,
     id: string,
+  ): Promise<SubmissionRecord> {
+    return this.requireOwnIn(facts, id, APPLICANT_EDITABLE);
+  }
+
+  /** 送出:可改內容的三種 + 審核中(同一次送出的重試,第 0 步接續)。 */
+  private async requireOwnSubmittable(
+    facts: FormOperatorFacts,
+    id: string,
+  ): Promise<SubmissionRecord> {
+    return this.requireOwnIn(facts, id, [...APPLICANT_EDITABLE, "reviewing"]);
+  }
+
+  private async requireOwnIn(
+    facts: FormOperatorFacts,
+    id: string,
+    statuses: readonly FormSubmissionStatus[],
   ): Promise<SubmissionRecord> {
     const record = await this.submissions.findOwnById(
       facts.operator,
@@ -654,8 +1175,11 @@ export class FormSubmissionsService {
     if (!record) {
       throw notFoundError(`Form submission not found: ${id}`);
     }
-    if (record.status !== "draft") {
-      throw conflictError(`Submission ${id} is not a draft`, "STATUS_MISMATCH");
+    if (!statuses.includes(record.status)) {
+      throw conflictError(
+        `Submission ${id} cannot be changed in status ${record.status}`,
+        "STATUS_MISMATCH",
+      );
     }
     this.access.assertModulePermission(facts, record.moduleKey, "create");
     return record;
@@ -771,6 +1295,7 @@ export class FormSubmissionsService {
     facts: FormOperatorFacts,
     records: readonly SubmissionRecord[],
     revision: number | null,
+    restriction: RevisionRestriction | null = null,
   ): Promise<FormSubmissionModel[]> {
     const operator = facts.operator;
     const versionCache = new Map<string, FormVersionRecord>();
@@ -833,23 +1358,16 @@ export class FormSubmissionsService {
       const isOwner =
         facts.operator.actorId !== null &&
         record.createdBy?.equals(facts.operator.actorId) === true;
-      const isDraft = record.status === "draft";
-      const canEdit = isDraft
-        ? isOwner &&
-          this.access.has(
-            facts,
-            formModulePermission(record.moduleKey, "create"),
-          )
-        : this.access.has(
-            facts,
-            formModulePermission(record.moduleKey, "edit"),
-          );
-      const canDelete = isDraft
-        ? canEdit
-        : this.access.has(
-            facts,
-            formModulePermission(record.moduleKey, "delete"),
-          );
+      const abilities =
+        restriction === null
+          ? this.abilitiesOf(facts, record, isOwner)
+          : {
+              canEdit: false,
+              canDelete: false,
+              canWithdraw: false,
+              canVoid: false,
+              canCopy: false,
+            };
       return {
         id: String(record._id),
         moduleKey: record.moduleKey,
@@ -862,13 +1380,9 @@ export class FormSubmissionsService {
         values: entry.projected,
         fieldStates: entry.fieldStates,
         displayValues: displays[index] ?? [],
-        summary: record.summary
-          ? {
-              title: record.summary.title,
-              date: record.summary.date,
-              amount: record.summary.amount ?? null,
-            }
-          : null,
+        summary: summaryModelOf(
+          restriction === null ? record.summary : restriction.summary,
+        ),
         ctx: viewed.ctx
           ? {
               at: viewed.ctx.at,
@@ -877,21 +1391,34 @@ export class FormSubmissionsService {
               orgId: viewed.ctx.orgId ? String(viewed.ctx.orgId) : null,
             }
           : null,
-        revisions: record.revisions.map((item) => ({
-          revision: item.revision,
-          at: item.ctx.at,
-          user: userRefOf(item.ctx.userId, names),
-        })),
+        revisions: record.revisions
+          .filter(
+            (item) =>
+              restriction === null || restriction.revisions.has(item.revision),
+          )
+          .map((item) => ({
+            revision: item.revision,
+            at: item.ctx.at,
+            user: userRefOf(item.ctx.userId, names),
+          })),
         editVersion: record.editVersion,
         orgId: String(record.orgId),
         createdBy: userRefOf(record.createdBy, names),
         submittedAt: record.submittedAt,
         createdAt: record.createdAt,
         updatedAt: record.updatedAt,
+        currentInstanceId: record.currentInstanceId
+          ? String(record.currentInstanceId)
+          : null,
+        blocked: record.blocked,
+        voidedAt: record.voidedAt,
+        voidReason: record.voidReason,
+        replacedById: record.replacedById ? String(record.replacedById) : null,
+        copiedFrom: record.copiedFrom ? String(record.copiedFrom) : null,
+        clearedFields: [],
         abilities: {
-          canEdit,
-          canDelete,
-          canEditField: canEdit
+          ...abilities,
+          canEditField: abilities.canEdit
             ? fields
                 .filter((field) => gate.canEdit(fields, field))
                 .map((field) => field.key)

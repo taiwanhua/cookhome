@@ -12,6 +12,7 @@ import {
   FormsRepository,
 } from "../../database/database.module";
 import type { OperatorContext } from "../../database/operator-context";
+import { retireCurrentVersion } from "../../versioning/version-lifecycle";
 import type { FieldGate } from "../field-permission-gate";
 import {
   FormAccessService,
@@ -292,29 +293,13 @@ export class FormVersionsService {
   ): Promise<FormRecord> {
     const operator = facts.operator;
     const form = await this.access.requireWritableForm(facts, input.formKey);
-    await this.publisher.assertNotPublishing(operator, form);
-    if (form.currentVersion === null) {
-      throw conflictError(
-        `Form ${form.key} has no current version`,
-        "NO_CURRENT_VERSION",
-      );
-    }
-    const retired = await this.versions.findOneAndUpdate(
-      operator,
-      { formKey: form.key, version: form.currentVersion, status: "published" },
-      { $set: { status: "retired" } },
+    const retired = await retireCurrentVersion(
+      this.publisher.lifecycle(operator),
+      { key: form.key, currentVersion: form.currentVersion },
     );
-    // 條件更新:讀到之後 currentVersion 被別人動過(另一次退役 / 發布)→ 409,不蓋掉
-    const updated = await this.forms.findOneAndUpdate(
-      operator,
-      { _id: form._id, currentVersion: form.currentVersion },
-      { $set: { currentVersion: null } },
-    );
+    const updated = await this.forms.findById(operator, form._id);
     if (!updated) {
-      throw conflictError(
-        `Form ${form.key} current version changed while retiring`,
-        "CURRENT_VERSION_CHANGED",
-      );
+      throw notFoundError(`Form not found: ${input.formKey}`);
     }
     await this.audit.record(operator, {
       action: FORM_VERSION_AUDIT.retire,

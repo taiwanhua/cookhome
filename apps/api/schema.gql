@@ -12,6 +12,39 @@ type AddOrgMembersPayload {
   skippedUserIds: [ID!]!
 }
 
+input AddStepAssigneeInput {
+  instanceId: ID!
+  stepKey: String!
+  userId: ID!
+}
+
+type ApplicableModuleForms {
+  forms: [FormSummary!]!
+  moduleKey: String!
+  moduleName: String
+}
+
+type ApplicationActiveStep {
+  name: String!
+  stepKey: String!
+}
+
+type ApplicationItem {
+  activeSteps: [ApplicationActiveStep!]!
+  blocked: Boolean!
+  currentInstanceId: ID
+  formKey: ID!
+  formName: String
+  id: ID!
+  moduleKey: String!
+  moduleName: String
+  revision: Int!
+  status: FormSubmissionStatus!
+  submittedAt: DateTime
+  summary: FormSubmissionSummary
+  updatedAt: DateTime!
+}
+
 input AssignFormToTenantsInput {
   formKey: ID!
   tenantOrgIds: [ID!]!
@@ -22,6 +55,30 @@ input AssignUserRolesInput {
   userId: ID!
 }
 
+input AssignWorkflowToTenantsInput {
+  tenantOrgIds: [ID!]!
+  workflowKey: ID!
+}
+
+input BindFormWorkflowInput {
+  formKey: ID!
+  workflowKey: ID!
+}
+
+"""阻擋清單篩選:阻擋 / 需要推進"""
+enum BlockedInstancesFilter {
+  BLOCKED
+  NEEDS_ADVANCE
+}
+
+input BlockedInstancesInput {
+  filter: BlockedInstancesFilter!
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
 input ChangePasswordInput {
   currentPassword: String!
   newPassword: String!
@@ -29,6 +86,11 @@ input ChangePasswordInput {
 
 type ChangePasswordPayload {
   success: Boolean!
+}
+
+input CopySubmissionToDraftInput {
+  clientRequestId: String!
+  id: ID!
 }
 
 input CreateChildOrgInput {
@@ -121,6 +183,16 @@ input CreateUserInput {
   roleIds: [ID!]
 }
 
+input CreateWorkflowInput {
+  key: ID!
+  name: String!
+}
+
+input CreateWorkflowVersionDraftInput {
+  baseVersion: Int
+  workflowKey: ID!
+}
+
 type DataScopeAudience {
   ids: [ID!]!
   type: DataScopeAudienceType!
@@ -208,6 +280,13 @@ type DataScopeTargetsPayload {
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
 scalar DateTime
+
+input DecideTaskInput {
+  comment: String
+  decision: WorkflowDecision!
+  expectedEditVersion: Int!
+  taskId: ID!
+}
 
 input DeleteDemoItemOneInput {
   id: ID!
@@ -437,6 +516,13 @@ input ForkFormInput {
   sourceVersion: Int!
 }
 
+input ForkWorkflowInput {
+  key: ID!
+  name: String!
+  sourceKey: ID!
+  sourceVersion: Int!
+}
+
 type FormAbilities {
   canAssign: Boolean!
   canEdit: Boolean!
@@ -568,6 +654,7 @@ type FormModel {
   tabLabelTemplate: String
   tenantEnabled: Boolean
   updatedAt: DateTime!
+  workflowBinding: FormWorkflowBinding
 }
 
 type FormPayload {
@@ -582,9 +669,12 @@ type FormPreviewPayload {
 }
 
 type FormSubmissionAbilities {
+  canCopy: Boolean!
   canDelete: Boolean!
   canEdit: Boolean!
   canEditField: [String!]!
+  canVoid: Boolean!
+  canWithdraw: Boolean!
 }
 
 type FormSubmissionAttachmentUrlPayload {
@@ -600,9 +690,13 @@ type FormSubmissionContext {
 
 type FormSubmissionModel {
   abilities: FormSubmissionAbilities!
+  blocked: Boolean!
+  clearedFields: [String!]!
+  copiedFrom: ID
   createdAt: DateTime!
   createdBy: FormUserRef
   ctx: FormSubmissionContext
+  currentInstanceId: ID
   displayValues: [FormDisplayValue!]!
   editVersion: Int!
   fieldStates: [FormFieldState!]!
@@ -611,6 +705,7 @@ type FormSubmissionModel {
   id: ID!
   moduleKey: String!
   orgId: ID!
+  replacedById: ID
   revision: Int!
   revisions: [FormSubmissionRevisionMeta!]!
   status: FormSubmissionStatus!
@@ -620,6 +715,8 @@ type FormSubmissionModel {
   values: JSONObject!
   version: Int!
   viewedRevision: Int!
+  voidReason: String
+  voidedAt: DateTime
 }
 
 type FormSubmissionPayload {
@@ -639,10 +736,15 @@ enum FormSubmissionSort {
   UPDATED_AT_DESC
 }
 
-"""提交狀態:草稿 / 已完成(6a 送出即完成)"""
+"""提交狀態:草稿 / 審核中 / 已退回 / 已撤回 / 已完成 / 已駁回 / 已作廢(不綁流程的表單送出即完成)"""
 enum FormSubmissionStatus {
   COMPLETED
   DRAFT
+  REJECTED
+  RETURNED
+  REVIEWING
+  VOIDED
+  WITHDRAWN
 }
 
 type FormSubmissionSummary {
@@ -721,6 +823,25 @@ enum FormVersionStatus {
 
 type FormVersionsPayload {
   items: [FormVersionModel!]!
+  totalCount: Int!
+}
+
+type FormWorkflowBinding {
+  isValid: Boolean!
+  workflowKey: ID!
+  workflowName: String
+}
+
+type FormWorkflowOption {
+  canBind: Boolean!
+  isShared: Boolean!
+  issues: [WorkflowBindingIssueModel!]!
+  workflowKey: ID!
+  workflowName: String!
+}
+
+type FormWorkflowOptionsPayload {
+  items: [FormWorkflowOption!]!
   totalCount: Int!
 }
 
@@ -885,9 +1006,13 @@ input MoveOrgInput {
 
 type Mutation {
   addOrgMembers(input: AddOrgMembersInput!): AddOrgMembersPayload!
+  addStepAssignee(input: AddStepAssigneeInput!): WorkflowTaskPayload!
   assignFormToTenants(input: AssignFormToTenantsInput!): FormPayload!
   assignUserRoles(input: AssignUserRolesInput!): UserPayload!
+  assignWorkflowToTenants(input: AssignWorkflowToTenantsInput!): WorkflowPayload!
+  bindFormWorkflow(input: BindFormWorkflowInput!): FormPayload!
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
+  copySubmissionToDraft(input: CopySubmissionToDraftInput!): FormSubmissionPayload!
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
   createDemoItemOne(input: CreateDemoItemOneInput!): DemoItemOnePayload!
   createDemoItemTwo(input: CreateDemoItemTwoInput!): DemoItemTwoPayload!
@@ -899,6 +1024,9 @@ type Mutation {
   createRole(input: CreateRoleInput!): RolePayload!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   createUser(input: CreateUserInput!): UserPayload!
+  createWorkflow(input: CreateWorkflowInput!): WorkflowPayload!
+  createWorkflowVersionDraft(input: CreateWorkflowVersionDraftInput!): WorkflowVersionPayload!
+  decideTask(input: DecideTaskInput!): WorkflowTaskPayload!
   deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeleteDemoItemOnePayload!
   deleteDemoItemTwo(input: DeleteDemoItemTwoInput!): DeleteDemoItemTwoPayload!
   deleteFormSubmission(input: DeleteFormSubmissionInput!): DeleteFormSubmissionPayload!
@@ -906,6 +1034,7 @@ type Mutation {
   deleteRetiredPermission(input: DeleteRetiredPermissionInput!): DeleteRetiredPermissionPayload!
   deleteRole(input: DeleteRoleInput!): DeletePayload!
   forkForm(input: ForkFormInput!): FormPayload!
+  forkWorkflow(input: ForkWorkflowInput!): WorkflowPayload!
   grantRoleUsers(input: GrantRoleUsersInput!): RoleUsersPayload!
   login(input: LoginInput!): LoginPayload!
   logout: LogoutPayload!
@@ -913,17 +1042,24 @@ type Mutation {
   moveOrg(input: MoveOrgInput!): OrgPayload!
   provisionTenant(input: ProvisionTenantInput!): ProvisionTenantPayload!
   publishFormVersion(input: PublishFormVersionInput!): FormVersionPayload!
+  publishWorkflowVersion(input: PublishWorkflowVersionInput!): WorkflowVersionPayload!
+  reassignTask(input: ReassignTaskInput!): WorkflowTaskPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
   retireCurrentVersion(input: FormKeyInput!): FormPayload!
+  retireCurrentWorkflowVersion(input: WorkflowKeyInput!): WorkflowPayload!
+  retryAdvanceInstance(input: RetryAdvanceInstanceInput!): WorkflowInstancePayload!
   retryPublishFormVersion(input: FormKeyInput!): FormVersionPayload!
+  retryPublishWorkflowVersion(input: WorkflowKeyInput!): WorkflowVersionPayload!
   revokeFormFromTenant(input: RevokeFormFromTenantInput!): FormPayload!
   revokeRoleUsers(input: RevokeRoleUsersInput!): RoleUsersPayload!
   revokeTenantProvision(input: RevokeTenantProvisionInput!): RevokeTenantProvisionPayload!
+  revokeWorkflowFromTenant(input: RevokeWorkflowFromTenantInput!): WorkflowPayload!
   saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!
   saveFormDraft(input: SaveFormDraftInput!): FormSubmissionPayload!
   saveFormVersionDraft(input: SaveFormVersionDraftInput!): FormVersionPayload!
   saveRoleMatrix(input: SaveRoleMatrixInput!): RoleMatrixPayload!
+  saveWorkflowVersionDraft(input: SaveWorkflowVersionDraftInput!): WorkflowVersionPayload!
   setDemoItemOneEnabled(input: SetDemoItemOneEnabledInput!): DemoItemOnePayload!
   setDemoItemTwoEnabled(input: SetDemoItemTwoEnabledInput!): DemoItemTwoPayload!
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
@@ -942,6 +1078,7 @@ type Mutation {
   submitFormSubmission(input: SubmitFormSubmissionInput!): FormSubmissionPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
   transferOrgOwner(input: TransferOrgOwnerInput!): OrgPayload!
+  unbindFormWorkflow(input: UnbindFormWorkflowInput!): FormPayload!
   updateDemoItemOne(input: UpdateDemoItemOneInput!): DemoItemOnePayload!
   updateDemoItemTwo(input: UpdateDemoItemTwoInput!): DemoItemTwoPayload!
   updateField(input: UpdateFieldInput!): FieldPayload!
@@ -950,6 +1087,36 @@ type Mutation {
   updateOrg(input: UpdateOrgInput!): OrgPayload!
   updateRole(input: UpdateRoleInput!): RolePayload!
   updateUser(input: UpdateUserInput!): UserPayload!
+  updateWorkflow(input: UpdateWorkflowInput!): WorkflowPayload!
+  voidSubmission(input: VoidSubmissionInput!): FormSubmissionPayload!
+  withdrawSubmission(input: WithdrawSubmissionInput!): FormSubmissionPayload!
+}
+
+input MyApplicationsInput {
+  formKey: ID
+  moduleKey: String
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+  status: FormSubmissionStatus
+}
+
+type MyApplicationsPayload {
+  items: [ApplicationItem!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
+}
+
+input MyTasksInput {
+  done: Boolean = false
+  formKey: ID
+  moduleKey: String
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
 }
 
 type Org {
@@ -1053,7 +1220,15 @@ input PublishFormVersionInput {
   formKey: ID!
 }
 
+input PublishWorkflowVersionInput {
+  changelog: String!
+  expectedDraftRevision: Int!
+  workflowKey: ID!
+}
+
 type Query {
+  applicableForms: [ApplicableModuleForms!]!
+  blockedInstances(input: BlockedInstancesInput!): WorkflowInstancesPayload!
   dataScopeRule(targetId: ID!): DataScopeRulePayload!
   dataScopeTargets: DataScopeTargetsPayload!
   demoItemOne(id: ID!): DemoItemOnePayload!
@@ -1074,11 +1249,14 @@ type Query {
   formSubmissions(input: FormSubmissionsInput!): FormSubmissionsPayload!
   formVersion(formKey: ID!, version: Int): FormVersionPayload!
   formVersions(formKey: ID!): FormVersionsPayload!
+  formWorkflowOptions(formKey: ID!): FormWorkflowOptionsPayload!
   forms(input: FormsInput!): FormsPayload!
   me: Me!
   moduleForms(moduleKey: ID!): [FormSummary!]!
   moduleListColumns(moduleKey: String!): ModuleListColumnsPayload!
   moduleTree: [ModuleAdminNode!]!
+  myApplications(input: MyApplicationsInput!): MyApplicationsPayload!
+  myTasks(input: MyTasksInput!): WorkflowTasksPayload!
   org(id: ID!): Org!
   orgManagerCandidates(keyword: String, orgId: ID!): [UserSummary!]!
   orgMemberCandidates(input: OrgMembersInput!, orgId: ID!): OrgMembersPayload!
@@ -1097,6 +1275,17 @@ type Query {
   user(id: ID!): User!
   users(input: UsersInput!): UsersPayload!
   validateFormVersion(input: ValidateFormVersionInput!): FormValidationReport!
+  validateWorkflowVersion(input: ValidateWorkflowVersionInput!): WorkflowValidationReport!
+  workflow(key: ID!): WorkflowPayload!
+  workflowInstance(id: ID!): WorkflowInstancePayload!
+  workflowVersion(version: Int, workflowKey: ID!): WorkflowVersionPayload!
+  workflowVersions(workflowKey: ID!): WorkflowVersionsPayload!
+  workflows(input: WorkflowsInput!): WorkflowsPayload!
+}
+
+input ReassignTaskInput {
+  taskId: ID!
+  toUserId: ID!
 }
 
 type Recipe {
@@ -1149,6 +1338,10 @@ type RetiredPermissionUsage {
   draftVersions: [Int!]!
 }
 
+input RetryAdvanceInstanceInput {
+  instanceId: ID!
+}
+
 input RevokeFormFromTenantInput {
   formKey: ID!
   tenantOrgId: ID!
@@ -1168,6 +1361,11 @@ type RevokeTenantProvisionPayload {
   revokedOwnerUserId: ID
   revokedRoleId: ID
   success: Boolean!
+}
+
+input RevokeWorkflowFromTenantInput {
+  tenantOrgId: ID!
+  workflowKey: ID!
 }
 
 type Role {
@@ -1354,6 +1552,12 @@ input SaveRoleMatrixInput {
   roleId: ID!
 }
 
+input SaveWorkflowVersionDraftInput {
+  definition: WorkflowDefinitionInput!
+  expectedDraftRevision: Int!
+  workflowKey: ID!
+}
+
 input SetDemoItemOneEnabledInput {
   enabled: Boolean!
   id: ID!
@@ -1460,6 +1664,10 @@ input TransferOrgOwnerInput {
   orgId: ID!
 }
 
+input UnbindFormWorkflowInput {
+  formKey: ID!
+}
+
 type UnqualifiedRole {
   ownerOrgId: ID
   ownerOrgName: String
@@ -1530,6 +1738,11 @@ input UpdateUserInput {
   nationalId: String
   nickname: String
   phone: String
+}
+
+input UpdateWorkflowInput {
+  key: ID!
+  name: String!
 }
 
 """上傳用途:決定物件路徑前綴與所需權限(ADR-0010)"""
@@ -1626,4 +1839,321 @@ input ValidateFormVersionInput {
   layout: JSONObject!
   prefills: [JSONObject!]!
   summaryMap: JSONObject!
+}
+
+input ValidateWorkflowVersionInput {
+  checkFormKey: ID
+  definition: WorkflowDefinitionInput!
+  workflowKey: ID!
+}
+
+input VoidSubmissionInput {
+  expectedEditVersion: Int!
+  id: ID!
+  reason: String!
+}
+
+input WithdrawSubmissionInput {
+  expectedEditVersion: Int!
+  id: ID!
+}
+
+type WorkflowAbilities {
+  canAssign: Boolean!
+  canEdit: Boolean!
+  canFork: Boolean!
+  canPublish: Boolean!
+}
+
+type WorkflowAssignment {
+  tenantName: String
+  tenantOrgId: ID!
+}
+
+type WorkflowBindingIssueModel {
+  detail: String!
+  problem: String!
+  stepKey: String!
+  stepNumber: Int!
+}
+
+type WorkflowBoundForm {
+  formKey: ID!
+  formName: String
+  moduleKey: String
+}
+
+"""決定被接受 / 此關已結束或任務已變更(前端提示並重載)"""
+enum WorkflowDecideResult {
+  ACCEPTED
+  STEP_CLOSED
+}
+
+"""核准 / 駁回(理由必填)/ 退回修改(理由必填,該關要允許退回)"""
+enum WorkflowDecision {
+  APPROVE
+  REJECT
+  RETURN
+}
+
+type WorkflowDecisionModel {
+  at: DateTime!
+  comment: String
+  decision: String!
+  taskKey: String!
+  user: FormUserRef!
+}
+
+input WorkflowDefinitionInput {
+  edges: [WorkflowEdgeInput!]
+  steps: [JSONObject!]!
+}
+
+input WorkflowEdgeInput {
+  from: String!
+  to: String!
+}
+
+type WorkflowEdgeModel {
+  from: String!
+  to: String!
+}
+
+type WorkflowForkSourceModel {
+  version: Int!
+  workflowKey: ID!
+}
+
+type WorkflowHistoryEventModel {
+  at: DateTime!
+  comment: String
+  kind: String!
+  result: String
+  stepKey: String
+  taskKey: String
+  toUser: FormUserRef
+  user: FormUserRef
+}
+
+type WorkflowInstanceAbilities {
+  canManage: Boolean!
+  canWithdraw: Boolean!
+}
+
+type WorkflowInstanceModel {
+  abilities: WorkflowInstanceAbilities!
+  activeStepKeys: [String!]!
+  applicant: FormUserRef
+  createdAt: DateTime!
+  editVersion: Int!
+  finishedAt: DateTime
+  formKey: ID!
+  formName: String
+  formVersion: Int!
+  history: [WorkflowHistoryEventModel!]!
+  id: ID!
+  moduleKey: String!
+  moduleName: String
+  myTasks: [WorkflowTaskModel!]!
+  outcome: WorkflowOutcomeModel
+  revision: Int!
+  status: WorkflowInstanceStatus!
+  steps: [WorkflowInstanceStepModel!]!
+  submissionId: ID!
+  summary: FormSubmissionSummary
+  updatedAt: DateTime!
+  workflowKey: ID!
+  workflowName: String
+  workflowVersion: Int!
+}
+
+type WorkflowInstancePayload {
+  instance: WorkflowInstanceModel!
+}
+
+"""流程實例狀態:連結中 / 審核中 / 阻擋 / 核准 / 駁回 / 退回 / 撤回 / 被取代"""
+enum WorkflowInstanceStatus {
+  APPROVED
+  BLOCKED
+  LINKING
+  REJECTED
+  RETURNED
+  RUNNING
+  SUPERSEDED
+  WITHDRAWN
+}
+
+type WorkflowInstanceStepModel {
+  blocked: Boolean!
+  decisions: [WorkflowDecisionModel!]!
+  kind: String!
+  mode: String
+  name: String!
+  plan: [WorkflowPlanItemModel!]!
+  status: WorkflowStepStatus!
+  stepKey: String!
+}
+
+type WorkflowInstancesPayload {
+  items: [WorkflowInstanceModel!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
+}
+
+type WorkflowIssueModel {
+  code: String!
+  edgeIndex: Int
+  exprPath: String
+  message: String!
+  property: String
+  stepIndex: Int
+  stepKey: String
+}
+
+input WorkflowKeyInput {
+  workflowKey: ID!
+}
+
+type WorkflowModel {
+  abilities: WorkflowAbilities!
+  assignments: [WorkflowAssignment!]!
+  boundForms: [WorkflowBoundForm!]!
+  createdAt: DateTime!
+  currentVersion: Int
+  forkedFrom: WorkflowForkSourceModel
+  hasDraft: Boolean!
+  hasRolePlaceholder: Boolean!
+  id: ID!
+  isShared: Boolean!
+  key: ID!
+  name: String!
+  ownerOrgId: ID
+  ownerOrgName: String
+  publishInterrupted: Boolean!
+  updatedAt: DateTime!
+}
+
+type WorkflowOutcomeModel {
+  kind: String!
+  stepKey: String!
+  taskKey: String!
+}
+
+type WorkflowPayload {
+  workflow: WorkflowModel!
+}
+
+type WorkflowPlanItemModel {
+  assignee: FormUserRef!
+  assigneeState: String!
+  previousAssignees: [FormUserRef!]!
+  taskKey: String!
+}
+
+"""關卡狀態:還沒進 / 跳過 / 進行中 / 完成 / 被終止"""
+enum WorkflowStepStatus {
+  ACTIVE
+  COMPLETED
+  PENDING
+  SKIPPED
+  TERMINATED
+}
+
+type WorkflowTaskModel {
+  applicant: FormUserRef
+  assignee: FormUserRef!
+  comment: String
+  createdAt: DateTime!
+  decidedAt: DateTime
+  editVersion: Int!
+  formKey: ID!
+  formName: String
+  id: ID!
+  instanceId: ID!
+  instanceStatus: WorkflowInstanceStatus!
+  moduleKey: String!
+  moduleName: String
+  revision: Int!
+  status: WorkflowTaskStatus!
+  stepKey: String!
+  stepName: String!
+  submissionId: ID!
+  summary: FormSubmissionSummary
+  taskKey: String!
+}
+
+type WorkflowTaskPayload {
+  result: WorkflowDecideResult!
+  task: WorkflowTaskModel!
+}
+
+"""任務狀態:待處理 / 核准 / 駁回 / 退回 / 晚到(不影響結果)/ 取消 / 承辦人失效"""
+enum WorkflowTaskStatus {
+  APPROVED
+  BLOCKED
+  CANCELLED
+  LATE
+  PENDING
+  REJECTED
+  RETURNED
+}
+
+type WorkflowTasksPayload {
+  items: [WorkflowTaskModel!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
+}
+
+type WorkflowValidationReport {
+  errors: [WorkflowIssueModel!]!
+  warnings: [WorkflowIssueModel!]!
+}
+
+type WorkflowVersionModel {
+  baseVersion: Int
+  changelog: String
+  draftRevision: Int!
+  edges: [WorkflowEdgeModel!]
+  id: ID!
+  publishedAt: DateTime
+  publishedBy: FormUserRef
+  status: WorkflowVersionStatus!
+  steps: [JSONObject!]!
+  version: Int
+  workflowKey: ID!
+}
+
+type WorkflowVersionPayload {
+  validation: WorkflowValidationReport
+  workflowVersion: WorkflowVersionModel!
+}
+
+"""流程版本狀態:草稿 / 發布中 / 已發布 / 已退役"""
+enum WorkflowVersionStatus {
+  DRAFT
+  PUBLISHED
+  PUBLISHING
+  RETIRED
+}
+
+type WorkflowVersionsPayload {
+  items: [WorkflowVersionModel!]!
+  totalCount: Int!
+}
+
+input WorkflowsInput {
+  keyword: String
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
+type WorkflowsPayload {
+  items: [WorkflowModel!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
 }

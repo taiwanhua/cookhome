@@ -20,6 +20,7 @@ import type { OperatorContext } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
 import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import { PermissionResolver } from "../permission/permission-resolver";
+import { AssigneeInvalidationService } from "../workflows/workflow-engine/assignee-invalidation.service";
 import type { AssignUserRolesInput } from "./dto/assign-user-roles.input";
 import type { CreateUserInput } from "./dto/create-user.input";
 import type { SetUserEnabledInput } from "./dto/set-user-enabled.input";
@@ -121,6 +122,7 @@ export class UsersService {
     private readonly permissions: PermissionResolver,
     private readonly qualification: OrgQualificationService,
     private readonly ownerProtection: OwnerProtectionService,
+    private readonly assigneeInvalidation: AssigneeInvalidationService,
   ) {}
 
   // ---- 讀 ----
@@ -334,6 +336,10 @@ export class UsersService {
       );
     }
     if (user.enabled === input.enabled) {
+      if (!input.enabled) {
+        // 冪等補做:上一次停用後 hook 失敗時,再停用一次會把審核者失效補上
+        await this.assigneeInvalidation.onUserChanged(user._id);
+      }
       return this.decorateOne(operator, user);
     }
     const updated =
@@ -343,6 +349,8 @@ export class UsersService {
     if (!input.enabled) {
       // 下一次請求即 UNAUTHENTICATED / ACCOUNT_DISABLED(登入線既有的「登出所有裝置」)
       await this.auth.logoutAllDevices(user);
+      // 審核流程:他手上還沒決定的審核任務 → 承辦人失效(該關依會簽模式阻擋,等改派)
+      await this.assigneeInvalidation.onUserChanged(user._id);
     }
     await this.audit.record(operator, {
       action: "user.toggle-enabled",
@@ -449,6 +457,8 @@ export class UsersService {
       });
     }
     if (removed.length > 0) {
+      // 審核流程:被移出某個租戶(在那裡已沒有任何所屬組織)→ 他在那個租戶的待審任務承辦人失效
+      await this.assigneeInvalidation.onUserChanged(user._id);
       await this.audit.record(operator, {
         action: "user.remove-org",
         targetType: "user",
