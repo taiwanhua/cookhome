@@ -1,3 +1,4 @@
+import { formModulePages } from "../components/form-engine/FormModulePages/form-module-pages";
 import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
 import { SampleOneFormPage } from "../pages/demo/SampleOneFormPage/SampleOneFormPage";
 import { SampleOnePage } from "../pages/demo/SampleOnePage/SampleOnePage";
@@ -11,6 +12,8 @@ import { DataScopePage } from "../pages/system/DataScopePage/DataScopePage";
 import { DATA_SCOPE_MODULE_KEY } from "../pages/system/DataScopePage/data-scope-permissions";
 import { FieldManagerPage } from "../pages/system/FieldManagerPage/FieldManagerPage";
 import { FIELD_MANAGER_MODULE_KEY } from "../pages/system/FieldManagerPage/field-manager-permissions";
+import { FormsPage } from "../pages/system/FormsPage/FormsPage";
+import { FORMS_MODULE_KEY } from "../pages/system/FormsPage/forms-permissions";
 import { ModuleManagerPage } from "../pages/system/ModuleManagerPage/ModuleManagerPage";
 import { MODULE_MANAGER_MODULE_KEY } from "../pages/system/ModuleManagerPage/module-manager-permissions";
 import { OrgManagerPage } from "../pages/system/OrgManagerPage/OrgManagerPage";
@@ -23,6 +26,9 @@ import type { ModulePageRegistry } from "./guards/ModuleRoute/ModuleRoute";
 
 /** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
 export const OVERVIEW_MODULE_KEY = "overview";
+
+/** 購物清單:表單模組範例(seed 正本 apps/db-migrator/seeds/modules/shopping-list.ts,`engine: "form"`)。 */
+export const SHOPPING_LIST_MODULE_KEY = "shopping-list";
 
 /**
  * 模組 key → 頁面元件(組裝層,STRUCT-03):各模組實作時在此登記;
@@ -46,4 +52,7 @@ export const modulePages: ModulePageRegistry = {
   [USER_MANAGER_MODULE_KEY]: UserManagerPage,
   [ROLE_MANAGER_MODULE_KEY]: RoleManagerPage,
   [DATA_SCOPE_MODULE_KEY]: DataScopePage,
+  [FORMS_MODULE_KEY]: FormsPage,
+  // 表單模組(Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝
+  ...formModulePages(SHOPPING_LIST_MODULE_KEY),
 };

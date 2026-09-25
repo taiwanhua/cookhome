@@ -100,6 +100,86 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
     reason: "同上:異動紀錄裡附件欄位的 api 欄位名",
   },
   {
+    key: "admin.formEngine.errors.",
+    reason:
+      "`tErrors(code)`,code 由 `lib/form-engine/form-errors.ts` 的 `formErrorOf` 從 api 錯誤碼換算",
+  },
+  {
+    key: "admin.formEngine.list.slots.",
+    reason:
+      "`t(`slots.${spec.key}`)`,key 是列表欄位配置的摘要槽(title / date / amount)",
+  },
+  {
+    key: "admin.forms.errors.",
+    reason: "`tErrors(code)`,code 同 `formErrorOf` 的換算(表單管理頁)",
+  },
+  {
+    key: "admin.forms.versions.statuses.",
+    reason:
+      "`t(`statuses.${item.status}`)`,status 是 GraphQL 的 `FormVersionStatus`",
+  },
+  {
+    key: "admin.forms.designer.types.",
+    reason:
+      "`t(`types.${type}`)`,type 逐一取自 `@repo/domain/form` 的 `FIELD_TYPES`",
+  },
+  {
+    key: "admin.forms.property.types.",
+    reason: "同上:屬性面板顯示欄位的 `type`",
+  },
+  {
+    key: "admin.forms.property.widgets.",
+    reason: "`t(`widgets.${kind}`)`,kind 取自 widget 登錄表(`widgetKindsFor`)",
+  },
+  {
+    key: "admin.forms.property.sources.",
+    reason: "`t(`sources.${kind}`)`,kind 是 `ValueSource` 的三種",
+  },
+  {
+    key: "admin.forms.options.sources.",
+    reason: "`t(`sources.${kind}`)`,kind 是 `FieldOptions` 的三種來源",
+  },
+  {
+    key: "admin.forms.lookupSource.fields.",
+    reason: "`t(`fields.${field}`)`,field 是 lookup provider 可回的欄位",
+  },
+  {
+    key: "admin.forms.rules.formats.",
+    reason: "`t(`formats.${format}`)`,format 取自 `TEXT_FORMATS`",
+  },
+  {
+    key: "admin.forms.settings.slots.",
+    reason: "`t(`slots.${slot}`)`,slot 是摘要槽(title / date / amount)",
+  },
+  {
+    key: "admin.forms.deleteField.slots.",
+    reason: "`t(`slots.${reference.slot}`)`,slot 是 `ExpressionSlot`",
+  },
+  {
+    key: "admin.forms.deleteField.summarySlots.",
+    reason: "`t(`summarySlots.${reference.slot}`)`,slot 是摘要槽",
+  },
+  {
+    key: "admin.forms.expression.kinds.",
+    reason: "`t(`kinds.${item}`)`,item 是表達式節點種類",
+  },
+  {
+    key: "admin.forms.expression.contexts.",
+    reason: "`t(`contexts.${item}`)`,item 取自 `CONTEXT_VAR_PATHS`(`ctx.now`…)",
+  },
+  {
+    key: "admin.forms.expression.operators.",
+    reason: "`t(`operators.${item}`)`,item 取自 `EXPRESSION_OPERATORS`",
+  },
+  {
+    key: "admin.forms.expression.constants.",
+    reason: "`t(`constants.${item}`)`,item 是常數種類",
+  },
+  {
+    key: "admin.moduleManager.listColumns.slots.",
+    reason: "`t(`slots.${slot}`)`,slot 取自 `SUMMARY_SLOTS`",
+  },
+  {
     key: "admin.demoSampleOne.form.categoryUnavailable",
     reason:
       "`SampleOneCategoryField` 用的 `t` 由 `shared/DemoForm` 經 context 傳入,兩者不在同一個資料夾",
