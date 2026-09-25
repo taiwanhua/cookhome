@@ -321,6 +321,7 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
                 enabled: true,
                 ownerUserId: "user-new-admin",
                 visibility: "OWN",
+                slug: input.slug,
                 logoUrl: null,
               },
               ownerUserId: "user-new-admin",

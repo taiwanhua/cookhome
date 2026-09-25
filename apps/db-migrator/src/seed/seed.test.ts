@@ -661,16 +661,16 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     ]);
   }, 120_000);
 
-  it("示範家族 12 筆 + 組織管理 12 筆(9 + 租戶作業 3)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 3 筆 + 欄位管理 4 筆 + 資料範圍 2 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 20 個模組各一筆 wildcard,共 68 筆", async () => {
+  it("示範家族 12 筆 + 組織管理 12 筆(9 + 租戶作業 3)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 3 筆 + 欄位管理 4 筆 + 資料範圍 2 筆 + 購物清單 4 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 24 個模組各一筆 wildcard,共 76 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     const firstRun = runSeedCommand(databaseUri);
     expect(firstRun.status).toBe(0);
-    expect(firstRun.stdout).toContain("permissions:新增 68 / 更新 0 / 未變 0");
+    expect(firstRun.stdout).toContain("permissions:新增 76 / 更新 0 / 未變 0");
     // 冪等:重跑 0 新增 / 0 更新 / 全部未變
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.status).toBe(0);
-    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 68");
+    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 76");
 
     const { modules, permissions } = await readSeededDocuments(databaseUri);
     const moduleIdOf = (key: string): string | undefined =>
@@ -739,37 +739,51 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       // 正本:docs/modules/data-scope.md 權限表(2;根組織專屬模組)
       "system.data-scope.view": "system.data-scope",
       "system.data-scope.edit": "system.data-scope",
+      // 表單模組範例(Spec 6a §2)
+      "shopping-list.view": "shopping-list",
+      "shopping-list.create": "shopping-list",
+      "shopping-list.edit": "shopping-list",
+      "shopping-list.delete": "shopping-list",
     };
 
     // D3:wildcard 只代表該模組自己這一層 → 每個模組(含群組、隱藏頁、api 樹)各一筆 `<key>.*`
     for (const module of modules) {
       expectedOwners[`${String(module.key)}.*`] = String(module.key);
     }
-    expect(modules).toHaveLength(20);
-    expect(permissions).toHaveLength(68);
+    expect(modules).toHaveLength(24);
+    expect(permissions).toHaveLength(76);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
-      expect(permission).toMatchObject({ isSystem: true, enabled: true });
+      expect(permission).toMatchObject({
+        isSystem: true,
+        enabled: true,
+        source: "seed",
+      });
       expect(typeof permission?.name).toBe("string");
       expect(permission?.moduleId?.toHexString()).toBe(moduleIdOf(ownerKey));
     }
   }, 120_000);
 
-  it("示範模組1 的 dataScopeTarget 落庫至 data_scope_targets(collection 為識別鍵,不多掛 key 欄位),重跑冪等", async () => {
+  it("dataScopeTarget 落庫至 data_scope_targets:runner 填宣告模組的 moduleKey(識別鍵 (collection, moduleKey),不多掛 key 欄位),重跑冪等", async () => {
     const databaseUri = createTestDatabaseUri("data-scope-targets");
 
     expect(runSeedCommand(databaseUri).status).toBe(0);
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.status).toBe(0);
     expect(secondRun.stdout).toContain(
-      "data_scope_targets:新增 0 / 更新 0 / 未變 1",
+      "data_scope_targets:新增 0 / 更新 0 / 未變 2",
     );
 
     const { dataScopeTargets } = await readSeededDocuments(databaseUri);
-    expect(dataScopeTargets).toHaveLength(1);
+    expect(dataScopeTargets).toHaveLength(2);
+    // 表單模組的目標:collection 固定 form_submissions,moduleKey = 宣告它的模組
+    expect(
+      dataScopeTargets.find((target) => target.moduleKey === "shopping-list"),
+    ).toMatchObject({ collection: "form_submissions", isSystem: true });
     // 業務欄位目錄照宣告落庫(#246 的 2:enum 的固定選項);基礎欄位不入庫,由 api 查詢時附加
     expect(dataScopeTargets[0]).toMatchObject({
       collection: "demo_items_one",
+      moduleKey: "demo.sub.sample-one",
       isSystem: true,
       fields: [
         {
@@ -930,6 +944,76 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     expect(afterIconOf("api")).toBe("tune");
   }, 120_000);
 
+  it("modules.engine:宣告 engine: form 的購物清單落庫為 form(含三個 -page 隱藏頁的父節點),其餘一律 fixed", async () => {
+    const databaseUri = createTestDatabaseUri("module-engine");
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+    const { modules } = await readSeededDocuments(databaseUri);
+    const engineOf = (key: string): unknown =>
+      modules.find((module) => module.key === key)?.engine;
+    expect(engineOf("shopping-list")).toBe("form");
+    expect(
+      modules
+        .filter((module) => module.key?.startsWith("shopping-list."))
+        .map((module) => [module.key, module.sidebarType]),
+    ).toEqual([
+      ["shopping-list.create-page", "hidden"],
+      ["shopping-list.edit-page", "hidden"],
+      ["shopping-list.view-page", "hidden"],
+    ]);
+    expect(
+      modules
+        .filter((module) => module.key !== "shopping-list")
+        .every((module) => module.engine === "fixed"),
+    ).toBe(true);
+  }, 120_000);
+
+  it("seed 只同步 source = seed 的權限:先塞一筆 dynamic 權限再跑 seed,它原封不動還在", async () => {
+    const databaseUri = createTestDatabaseUri("dynamic-permission");
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+    const dynamicKey = "shopping-list.show-shopping_list-internal_amount";
+    const dynamicPermission = await withDatabase(
+      databaseUri,
+      async (database) => {
+        const owner = await database
+          .collection("modules")
+          .findOne({ key: "shopping-list" });
+        const document = {
+          key: dynamicKey,
+          moduleId: owner?._id,
+          name: "購物清單 / 內部金額 可見",
+          enabled: true,
+          isSystem: false,
+          settings: {},
+          source: "dynamic",
+          retiredAt: null,
+          createdAt: new Date("2026-01-01T00:00:00Z"),
+          updatedAt: new Date("2026-01-01T00:00:00Z"),
+        };
+        await database.collection("permissions").insertOne(document);
+        return document;
+      },
+    );
+
+    const secondRun = runSeedCommand(databaseUri);
+    expect(secondRun.stderr).toBe("");
+    expect(secondRun.status).toBe(0);
+    // 宣告的 76 筆全部未變;dynamic 那筆不在比對範圍內,不計入也不被動到
+    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 76");
+
+    const { permissions } = await readSeededDocuments(databaseUri);
+    expect(permissions).toHaveLength(77);
+    expect(
+      permissions.find((permission) => permission.key === dynamicKey),
+    ).toMatchObject({
+      name: dynamicPermission.name,
+      source: "dynamic",
+      isSystem: false,
+      updatedAt: dynamicPermission.updatedAt,
+    });
+  }, 120_000);
+
   it("初始 seed 值的欄位改了不算變更,每次都 seed 的欄位改了仍同步(以夾具 registry 驗證)", async () => {
     const databaseUri = createTestDatabaseUri("initial-seed-value-fixture");
 
@@ -996,7 +1080,7 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
       (key) => key !== undefined && !rootOnlyKeys.has(key),
     );
     expect(new Set(boundModuleKeys)).toEqual(new Set(tenantModuleKeys));
-    expect(boundModuleKeys).toHaveLength(17);
+    expect(boundModuleKeys).toHaveLength(21);
     // 租戶作業(開通、轉移擁有者)永遠不進模板(ADR-0009 第 3 步:整個 rootOnly 模組被扣除)
     expect(boundModuleKeys).not.toContain("system.org-manager.tenant-ops");
     // 反面:可見範圍開關搬到組織管理層後,模板靠 `system.org-manager.*` 自動取得(#187 / ADR-0005)—
@@ -1017,7 +1101,7 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
     expect(new Set(boundPermissionKeys)).toEqual(
       new Set(tenantModuleKeys.map((key) => `${String(key)}.*`)),
     );
-    expect(boundPermissionKeys).toHaveLength(17);
+    expect(boundPermissionKeys).toHaveLength(21);
 
     // 超級管理員:解析時 bypass,不靠記錄(ADR-0004)
     expect(boundBy(superAdmin?._id, "role_module")).toHaveLength(0);

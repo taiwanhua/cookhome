@@ -16,7 +16,7 @@ import {
 const startRule = async (actor: {
   click: (element: Element) => Promise<void>;
 }) => {
-  await waitForEditor("示範項目(demo_items_one)");
+  await waitForEditor("示範模組1(demo_items_one)");
   await actor.click(screen.getByRole("button", { name: "+ 新增規則" }));
 };
 
@@ -143,7 +143,7 @@ describe("條件樹編輯器(資料範圍)", () => {
       expect(fake.inputs.saveDataScopeRule).toHaveLength(1);
     });
     expect(fake.inputs.saveDataScopeRule[0]).toEqual({
-      collection: "demo_items_one",
+      targetId: "target-sample-one",
       combineOp: "OR",
       rules: [
         {
@@ -276,7 +276,7 @@ describe("條件樹編輯器(資料範圍)", () => {
     ).toBeInTheDocument();
   });
 
-  it("儲存成功後左清單的「已設規則」亮起來(該 collection 的規則被失效重查)", async () => {
+  it("儲存成功後左清單的「已設規則」亮起來(該目標的規則被失效重查)", async () => {
     const { user: actor } = renderPage();
     await startRule(actor);
 

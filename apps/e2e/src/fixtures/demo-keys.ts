@@ -38,7 +38,7 @@ export const USER_MANAGER_ROUTE = "/system/user-manager";
 export const ORG_MANAGER_ROUTE = "/system/org-manager";
 
 /**
- * 資料範圍的資料目標識別鍵(各模組 seed 的 `dataScopeTarget.collection`)。
+ * 資料範圍左清單的副文字(各模組 seed 的 `dataScopeTarget.collection`;目標本身以模組 key 指定)。
  * 示範模組1 有宣告、**示範模組2 沒有** —— 劇本 3 的對照組就是這件事。
  */
 export const DEMO_ITEMS_ONE_COLLECTION = "demo_items_one";

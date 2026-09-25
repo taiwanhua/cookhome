@@ -42,21 +42,21 @@ export const useDataScopeData = () => {
     [targets.data],
   );
 
-  const [pickedCollection, setPickedCollection] = useState<string | null>(null);
+  /** 目標以 id 指定:一列 = 一個模組,同一個 collection 可能有好幾列。 */
+  const [pickedTargetId, setPickedTargetId] = useState<string | null>(null);
   /** 還沒點過任何目標時預設選第一個(不在 effect 內 setState,REACT-06)。 */
-  const firstCollection =
-    targetList.length > 0 ? targetList[0].collection : null;
-  const selectedCollection = pickedCollection ?? firstCollection;
+  const firstTargetId = targetList.length > 0 ? targetList[0].id : null;
+  const selectedTargetId = pickedTargetId ?? firstTargetId;
   const selectedIndex = targetList.findIndex(
-    (item) => item.collection === selectedCollection,
+    (item) => item.id === selectedTargetId,
   );
   const target = selectedIndex === -1 ? undefined : targetList[selectedIndex];
 
   /** 只查選中的那一個目標的規則;「有沒有規則」由目標清單自己的 `hasRule` 回答。 */
   const selectedRule = useDataScopeRuleQuery(
     session.client,
-    { collection: selectedCollection ?? "" },
-    { enabled: selectedCollection !== null },
+    { targetId: selectedTargetId ?? "" },
+    { enabled: selectedTargetId !== null },
   );
 
   const roles = useRolesQuery(
@@ -100,9 +100,9 @@ export const useDataScopeData = () => {
   const orgOptions = useMemo(() => flattenOrgs(orgNodes), [orgNodes]);
 
   /** 儲存後精準失效(DATA-04):該目標的規則(編輯器 + 左清單的「已設規則」)與目標清單。 */
-  const invalidate = async (collection: string) => {
+  const invalidate = async (targetId: string) => {
     await queryClient.invalidateQueries({
-      queryKey: useDataScopeRuleQuery.getKey({ collection }),
+      queryKey: useDataScopeRuleQuery.getKey({ targetId }),
     });
     await queryClient.invalidateQueries({
       queryKey: useDataScopeTargetsQuery.getKey(),
@@ -113,8 +113,8 @@ export const useDataScopeData = () => {
     canEdit: hasPermission(DATA_SCOPE_PERMISSIONS.edit),
     targets: targetList,
     isTargetsLoading: targets.isLoading,
-    selectedCollection,
-    selectTarget: setPickedCollection,
+    selectedTargetId,
+    selectTarget: setPickedTargetId,
     target,
     rule: selectedRule.data?.dataScopeRule.rule ?? null,
     isRuleLoading: selectedRule.isPending,

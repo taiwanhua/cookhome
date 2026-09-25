@@ -114,7 +114,7 @@ const SAMPLE_ONE_FAMILY = [
   `${SAMPLE_ONE}.create-page`,
   `${SAMPLE_ONE}.edit-page`,
 ];
-/** seed 的全部模組(總覽 1 + 系統管理群組 8 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4)。 */
+/** seed 的全部模組(總覽 1 + 系統管理群組 8 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4 + 購物清單一支 4)。 */
 const ALL_SEEDED_MODULES = [
   "overview",
   "system",
@@ -131,6 +131,10 @@ const ALL_SEEDED_MODULES = [
   "demo.sample-two.view-page",
   "demo.sample-two.create-page",
   "demo.sample-two.edit-page",
+  "shopping-list",
+  "shopping-list.view-page",
+  "shopping-list.create-page",
+  "shopping-list.edit-page",
 ];
 
 describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePermission 守門(GraphQL 端點,對真 Nest app + 真 MongoDB)", () => {

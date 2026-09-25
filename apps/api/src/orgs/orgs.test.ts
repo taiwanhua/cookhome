@@ -85,6 +85,17 @@ const CREATE_CHILD_ORG = /* GraphQL */ `
   }
 `;
 
+const UPDATE_ORG_SLUG = /* GraphQL */ `
+  mutation UpdateOrgSlug($input: UpdateOrgInput!) {
+    updateOrg(input: $input) {
+      org {
+        id
+        slug
+      }
+    }
+  }
+`;
+
 const UPDATE_ORG = /* GraphQL */ `
   mutation UpdateOrg($input: UpdateOrgInput!) {
     updateOrg(input: $input) {
@@ -336,6 +347,18 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       { accessToken: tenantAdminToken },
     );
     expect(result.errors).toBeUndefined();
+  }
+
+  async function updateSlug(
+    orgId: Types.ObjectId,
+    slug: string,
+    accessToken: string,
+  ) {
+    return api.graphql<{ updateOrg: { org: { slug: string | null } } }>(
+      UPDATE_ORG_SLUG,
+      { input: { id: String(orgId), slug } },
+      { accessToken },
+    );
   }
 
   async function auditRows(
@@ -729,6 +752,39 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
         { accessToken: deptUserToken },
       );
       expect(viewOnly.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+  });
+
+  describe("updateOrg:租戶短碼(slug)只有根組織能改、只有租戶頂層有", () => {
+    it("根組織改租戶頂層的短碼:落庫、回在 org.slug、審計記前後值", async () => {
+      const result = await updateSlug(tenantAId, "tenant_a", rootToken);
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.updateOrg.org.slug).toBe("tenant_a");
+      const audits = await auditRows("org.edit", tenantAId);
+      expect(audits.at(-1)?.after).toMatchObject({ slug: "tenant_a" });
+    });
+
+    it("租戶內的操作者(即使持有編輯權限)改短碼 → FORBIDDEN", async () => {
+      const result = await updateSlug(tenantAId, "tenant_a2", tenantAdminToken);
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+
+    it("不是租戶頂層、格式不符、已被別的租戶用 → VALIDATION_FAILED 並標 slug 欄", async () => {
+      const dept = await newOrgUnderTenantA("沒有短碼的部門");
+      for (const [orgId, slug] of [
+        [dept, "dept_slug"],
+        [tenantBId, "Bad-Slug"],
+        [tenantBId, "tenant_a"],
+      ] as const) {
+        const result = await updateSlug(orgId, slug, rootToken);
+        expect({ slug, error: result.errors?.[0]?.extensions }).toEqual({
+          slug,
+          error: expect.objectContaining({
+            code: "VALIDATION_FAILED",
+            fields: ["slug"],
+          }),
+        });
+      }
     });
   });
 

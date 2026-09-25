@@ -78,6 +78,10 @@ export class Org {
   @Field(() => ID, { nullable: true })
   ownerUserId!: string | null;
 
+  /** 租戶短碼(`orgs.slug`);只有租戶頂層有值,其餘恆為 null。 */
+  @Field(() => String, { nullable: true })
+  slug!: string | null;
+
   /** 租戶頂層的可見範圍開關(ADR-0005);非租戶頂層恆為 null。 */
   @Field(() => OrgVisibility, { nullable: true })
   visibility!: OrgVisibility | null;

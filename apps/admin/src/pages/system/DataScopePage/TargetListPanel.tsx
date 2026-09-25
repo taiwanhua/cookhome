@@ -13,19 +13,21 @@ import type { DataScopeTarget } from "./data-scope-types";
 export interface TargetListPanelProps {
   targets: readonly DataScopeTarget[];
   isLoading: boolean;
-  selectedCollection: string | null;
+  selectedTargetId: string | null;
   /** 有未儲存變更時由頁面攔下來先問(放棄變更確認),不是直接切 */
-  onSelectTarget: (collection: string) => void;
+  onSelectTarget: (targetId: string) => void;
 }
 
 /**
- * 左欄資料目標清單(Figma TargetList 167:237):中文名 + collection + 有沒有規則。
+ * 左欄資料目標清單(Figma TargetList 167:237):**一列 = 一個模組** —
+ * 主文字是模組名、副文字是資料所在的 collection,再標有沒有規則。
+ * 同一張表可以有好幾列(表單模組共用 `form_submissions`),各自一份規則。
  * 清單來自各模組 seed 宣告的 `dataScopeTarget`(ADR-0008),頁面不能新增或刪除。
  */
 export const TargetListPanel = ({
   targets,
   isLoading,
-  selectedCollection,
+  selectedTargetId,
   onSelectTarget,
 }: TargetListPanelProps) => {
   const t = useTranslations("admin.dataScope.targets");
@@ -59,11 +61,11 @@ export const TargetListPanel = ({
           <List aria-label={t("title")} disablePadding>
             {targets.map((target) => (
               <ListItemButton
-                key={target.collection}
-                selected={target.collection === selectedCollection}
+                key={target.id}
+                selected={target.id === selectedTargetId}
                 sx={{ borderRadius: 1, mb: 0.5 }}
                 onClick={() => {
-                  onSelectTarget(target.collection);
+                  onSelectTarget(target.id);
                 }}
               >
                 <Stack spacing={0.25} sx={{ flex: 1, minWidth: 0 }}>
@@ -72,7 +74,9 @@ export const TargetListPanel = ({
                     spacing={1}
                     sx={{ alignItems: "center" }}
                   >
-                    <Typography variant="subtitle2">{target.name}</Typography>
+                    <Typography variant="subtitle2">
+                      {target.moduleName}
+                    </Typography>
                     {/* 「已設規則」直接讀 api 的 hasRule(#246 的 1) */}
                     {target.hasRule && (
                       <Tag tone="primary" label={t("hasRule")} />

@@ -52,6 +52,7 @@ const MODULE_TREE = /* GraphQL */ `
     order
     description
     icon
+    engine
     enabled
     permissions {
       id
@@ -147,6 +148,7 @@ interface ModuleAdminNode {
   order: number;
   description: string | null;
   icon: string | null;
+  engine: string;
   enabled: boolean;
   permissions: PermissionAdmin[];
   children?: ModuleAdminNode[];
@@ -357,6 +359,7 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         "overview",
         "system",
         "demo",
+        "shopping-list",
         "api",
       ]);
       const system = byKey(tree, "system");
@@ -373,6 +376,9 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         sidebarType: "HIDDEN",
         parentId: byKey(tree, "system.org-manager").id,
       });
+      // 頁面組裝方式:seed 宣告 engine: "form" 的購物清單是 FORM,其餘 FIXED
+      expect(byKey(tree, "shopping-list").engine).toBe("FORM");
+      expect(byKey(tree, "demo").engine).toBe("FIXED");
       // 隱藏的 api 樹是頂層節點(不是頁面,側欄看不到)
       expect(byKey(tree, "api")).toMatchObject({
         sidebarType: "HIDDEN",

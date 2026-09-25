@@ -1,6 +1,7 @@
 export * from "./account-base.schema";
 export * from "./action-token.schema";
 export * from "./audit-log.schema";
+export * from "./business-relationship.schema";
 export * from "./core-relationship.schema";
 export * from "./customer.schema";
 export * from "./data-scope-rule.schema";

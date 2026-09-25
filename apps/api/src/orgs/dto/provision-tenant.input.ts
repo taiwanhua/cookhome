@@ -11,6 +11,13 @@ export class ProvisionTenantInput {
   @Field(() => String)
   name!: string;
 
+  /**
+   * 租戶短碼(`orgs.slug`):`^[a-z][a-z0-9_]{1,19}$`、全域唯一;格式不符或已被用 →
+   * `VALIDATION_FAILED`(`extensions.fields = ["slug"]`)。客製表單 key 的預設後綴。
+   */
+  @Field(() => String)
+  slug!: string;
+
   /** 首任管理員帳號(前端預設帶入 Email、可改);在 `users` 內唯一(ADR-0003)。 */
   @Field(() => String)
   adminAccount!: string;

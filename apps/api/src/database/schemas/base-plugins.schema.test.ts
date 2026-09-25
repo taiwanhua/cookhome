@@ -8,6 +8,7 @@ import {
 } from "../plugins/tenant-scope.plugin";
 import { ActionTokenSchema } from "./action-token.schema";
 import { AuditLogSchema } from "./audit-log.schema";
+import { BusinessRelationshipSchema } from "./business-relationship.schema";
 import { CoreRelationshipSchema } from "./core-relationship.schema";
 import { CustomerSchema } from "./customer.schema";
 import { DataScopeRuleSchema } from "./data-scope-rule.schema";
@@ -23,7 +24,7 @@ import { RefreshTokenSchema } from "./refresh-token.schema";
 import { RoleSchema } from "./role.schema";
 import { UserSchema } from "./user.schema";
 
-/** 全部底座 collection(docs/data-model.md「Collection 一覽」,16 張)。 */
+/** 全部底座 collection(docs/data-model.md「Collection 一覽」,17 張)。 */
 const ALL_SCHEMAS: Record<string, Schema> = {
   orgs: OrgSchema,
   users: UserSchema,
@@ -32,6 +33,7 @@ const ALL_SCHEMAS: Record<string, Schema> = {
   modules: ModuleSchema,
   permissions: PermissionSchema,
   core_relationships: CoreRelationshipSchema,
+  business_relationships: BusinessRelationshipSchema,
   data_scope_rules: DataScopeRuleSchema,
   data_scope_targets: DataScopeTargetSchema,
   field_categories: FieldCategorySchema,
@@ -52,17 +54,50 @@ const ALL_SCHEMAS: Record<string, Schema> = {
  * 這張表就是那條分界線的正本,新 collection 加進來時要在這裡決定自己屬哪一類。
  */
 const TENANT_SCOPED: Record<string, TenantScope> = {
-  orgs: { path: "_id", allowGlobal: false, kind: "governance" },
-  customers: { path: "orgId", allowGlobal: false, kind: "business" },
-  fields: { path: "orgId", allowGlobal: true, kind: "business" },
-  demo_items_one: { path: "orgId", allowGlobal: false, kind: "business" },
-  demo_items_two: { path: "orgId", allowGlobal: false, kind: "business" },
-  audit_logs: { path: "orgId", allowGlobal: false, kind: "business" },
+  orgs: {
+    path: "_id",
+    allowGlobal: false,
+    kind: "governance",
+    moduleData: false,
+  },
+  customers: {
+    path: "orgId",
+    allowGlobal: false,
+    kind: "business",
+    moduleData: false,
+  },
+  fields: {
+    path: "orgId",
+    allowGlobal: true,
+    kind: "business",
+    moduleData: false,
+  },
+  demo_items_one: {
+    path: "orgId",
+    allowGlobal: false,
+    kind: "business",
+    moduleData: true,
+  },
+  demo_items_two: {
+    path: "orgId",
+    allowGlobal: false,
+    kind: "business",
+    moduleData: true,
+  },
+  audit_logs: {
+    path: "orgId",
+    allowGlobal: false,
+    kind: "business",
+    moduleData: false,
+  },
 };
 
+/** 模組資料表(`moduleData: true`):只有兩張示範表;business 類的其他表不是模組資料。 */
+const MODULE_DATA_COLLECTIONS = new Set(["demo_items_one", "demo_items_two"]);
+
 describe("底座 schema 的 plugin 掛載(ADR-0005 / ADR-0007)", () => {
-  it("全部 16 張 collection 都掛 baseFields:timestamps + createdBy / updatedBy / deletedAt", () => {
-    expect(Object.keys(ALL_SCHEMAS)).toHaveLength(16);
+  it("全部 17 張 collection 都掛 baseFields:timestamps + createdBy / updatedBy / deletedAt", () => {
+    expect(Object.keys(ALL_SCHEMAS)).toHaveLength(17);
     for (const [name, schema] of Object.entries(ALL_SCHEMAS)) {
       expect({ name, timestamps: schema.get("timestamps") }).toEqual({
         name,
@@ -84,6 +119,21 @@ describe("底座 schema 的 plugin 掛載(ADR-0005 / ADR-0007)", () => {
         name,
         scope: TENANT_SCOPED[name],
       });
+    }
+  });
+
+  it("moduleData 的 moduleKey / tenantId 只宣告在模組資料表;fields / audit_logs / customers 沒有", () => {
+    // 只看掛 tenantScope 的表:data_scope_* 有自己的 moduleKey 欄位(目標識別鍵),不是模組資料
+    for (const name of Object.keys(TENANT_SCOPED)) {
+      const schema = ALL_SCHEMAS[name];
+      const expected = MODULE_DATA_COLLECTIONS.has(name)
+        ? "real"
+        : "adhocOrUndefined";
+      expect({
+        name,
+        moduleKey: schema?.pathType("moduleKey"),
+        tenantId: schema?.pathType("tenantId"),
+      }).toEqual({ name, moduleKey: expected, tenantId: expected });
     }
   });
 });
