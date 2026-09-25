@@ -12,6 +12,11 @@ type AddOrgMembersPayload {
   skippedUserIds: [ID!]!
 }
 
+input AssignFormToTenantsInput {
+  formKey: ID!
+  tenantOrgIds: [ID!]!
+}
+
 input AssignUserRolesInput {
   roleIds: [ID!]!
   userId: ID!
@@ -55,6 +60,23 @@ input CreateFieldInput {
   value: String!
 }
 
+input CreateFormDraftInput {
+  clientRequestId: String!
+  formKey: ID!
+  values: JSONObject
+}
+
+input CreateFormInput {
+  key: ID!
+  moduleKey: String!
+  name: String!
+}
+
+input CreateFormVersionDraftInput {
+  baseVersion: Int
+  formKey: ID!
+}
+
 input CreateRecipeInput {
   cookMinutes: Int
   description: String
@@ -74,13 +96,13 @@ input CreateRoleInput {
 
 input CreateUploadUrlInput {
   """
-  允許的檔型依 purpose:ORG_LOGO / DEMO_COVER image/png / image/jpeg / image/webp;DEMO_ATTACHMENT image/png / image/jpeg / image/webp / application/pdf / application/msword / application/vnd.openxmlformats-officedocument.wordprocessingml.document / application/vnd.ms-excel / application/vnd.openxmlformats-officedocument.spreadsheetml.sheet / application/zip / application/x-zip-compressed
+  允許的檔型依 purpose:ORG_LOGO / DEMO_COVER image/png / image/jpeg / image/webp;DEMO_ATTACHMENT / FORM_ATTACHMENT image/png / image/jpeg / image/webp / application/pdf / application/msword / application/vnd.openxmlformats-officedocument.wordprocessingml.document / application/vnd.ms-excel / application/vnd.openxmlformats-officedocument.spreadsheetml.sheet / application/zip / application/x-zip-compressed
   """
   contentType: String!
   purpose: UploadPurpose!
 
   """
-  檔案大小(bytes),上限依 purpose:ORG_LOGO / DEMO_COVER 2097152;DEMO_ATTACHMENT 20971520
+  檔案大小(bytes),上限依 purpose:ORG_LOGO / DEMO_COVER 2097152;DEMO_ATTACHMENT / FORM_ATTACHMENT 20971520
   """
   size: Int!
 }
@@ -205,6 +227,15 @@ type DeleteDemoItemTwoPayload {
   success: Boolean!
 }
 
+input DeleteFormSubmissionInput {
+  id: ID!
+}
+
+type DeleteFormSubmissionPayload {
+  deletedId: ID!
+  success: Boolean!
+}
+
 input DeleteOrgInput {
   id: ID!
 }
@@ -212,6 +243,17 @@ input DeleteOrgInput {
 type DeletePayload {
   deletedId: ID!
   success: Boolean!
+}
+
+input DeleteRetiredPermissionInput {
+  confirmCompletedUsage: Boolean = false
+  permissionKey: ID!
+}
+
+type DeleteRetiredPermissionPayload {
+  deletedKey: ID!
+  success: Boolean!
+  usage: RetiredPermissionUsage!
 }
 
 input DeleteRoleInput {
@@ -388,6 +430,295 @@ type FieldsPayload {
   totalCount: Int!
 }
 
+input ForkFormInput {
+  key: ID!
+  name: String!
+  sourceKey: ID!
+  sourceVersion: Int!
+}
+
+type FormAbilities {
+  canAssign: Boolean!
+  canEdit: Boolean!
+  canFork: Boolean!
+  canSetEnabled: Boolean!
+}
+
+type FormAssignment {
+  enabled: Boolean!
+  tenantName: String
+  tenantOrgId: ID!
+}
+
+type FormDefinitionIssue {
+  code: String!
+  location: JSONObject!
+  message: String!
+}
+
+type FormDisplayItem {
+  available: Boolean!
+  label: String
+  value: String!
+}
+
+type FormDisplayValue {
+  fieldKey: String!
+  items: [FormDisplayItem!]!
+}
+
+type FormFieldError {
+  code: String!
+  fieldKey: String!
+  message: String!
+}
+
+type FormFieldState {
+  key: String!
+  readonly: Boolean!
+  redacted: Boolean!
+  visible: Boolean!
+}
+
+type FormForkSourceModel {
+  formKey: ID!
+  version: Int!
+}
+
+input FormKeyInput {
+  formKey: ID!
+}
+
+input FormLookupInput {
+  formKey: ID!
+  keyword: String
+  page: Int = 1
+  pageSize: Int = 20
+  target: FormLookupTargetInput!
+  version: Int
+}
+
+type FormLookupPayload {
+  items: [FormLookupRecord!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
+}
+
+type FormLookupRecord {
+  id: ID!
+  label: String
+  value: String
+  values: JSONObject!
+}
+
+input FormLookupRecordInput {
+  formKey: ID!
+  id: ID!
+  target: FormLookupTargetInput!
+  version: Int
+}
+
+type FormLookupRecordPayload {
+  record: FormLookupRecord
+}
+
+input FormLookupTargetInput {
+  fieldKey: String
+  prefillIndex: Int
+}
+
+type FormModel {
+  abilities: FormAbilities!
+  assignments: [FormAssignment!]!
+  createdAt: DateTime!
+  currentVersion: Int
+  forkedFrom: FormForkSourceModel
+  hasDraft: Boolean!
+  id: ID!
+  isShared: Boolean!
+  key: ID!
+  moduleKey: String!
+  moduleName: String
+  name: String!
+  ownerOrgId: ID
+  ownerOrgName: String
+  publishInterrupted: Boolean!
+  tabLabelTemplate: String
+  tenantEnabled: Boolean
+  updatedAt: DateTime!
+}
+
+type FormPayload {
+  form: FormModel!
+}
+
+type FormPreviewPayload {
+  fieldErrors: [FormFieldError!]!
+  fieldStates: [FormFieldState!]!
+  summary: FormSubmissionSummary!
+  values: JSONObject!
+}
+
+type FormSubmissionAbilities {
+  canDelete: Boolean!
+  canEdit: Boolean!
+  canEditField: [String!]!
+}
+
+type FormSubmissionAttachmentUrlPayload {
+  url: String!
+}
+
+type FormSubmissionContext {
+  at: DateTime!
+  orgId: ID
+  timezone: String!
+  userId: ID
+}
+
+type FormSubmissionModel {
+  abilities: FormSubmissionAbilities!
+  createdAt: DateTime!
+  createdBy: FormUserRef
+  ctx: FormSubmissionContext
+  displayValues: [FormDisplayValue!]!
+  editVersion: Int!
+  fieldStates: [FormFieldState!]!
+  formKey: ID!
+  formName: String
+  id: ID!
+  moduleKey: String!
+  orgId: ID!
+  revision: Int!
+  revisions: [FormSubmissionRevisionMeta!]!
+  status: FormSubmissionStatus!
+  submittedAt: DateTime
+  summary: FormSubmissionSummary
+  updatedAt: DateTime!
+  values: JSONObject!
+  version: Int!
+  viewedRevision: Int!
+}
+
+type FormSubmissionPayload {
+  submission: FormSubmissionModel!
+}
+
+type FormSubmissionRevisionMeta {
+  at: DateTime!
+  revision: Int!
+  user: FormUserRef
+}
+
+"""提交列表的排序(預設送出時間新到舊;草稿沒有送出時間,排在最後)"""
+enum FormSubmissionSort {
+  SUBMITTED_AT_ASC
+  SUBMITTED_AT_DESC
+  UPDATED_AT_DESC
+}
+
+"""提交狀態:草稿 / 已完成(6a 送出即完成)"""
+enum FormSubmissionStatus {
+  COMPLETED
+  DRAFT
+}
+
+type FormSubmissionSummary {
+  amount: String
+  date: String
+  title: String
+}
+
+input FormSubmissionsInput {
+  formKey: ID
+  keyword: String
+  moduleKey: String!
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+  sort: FormSubmissionSort = SUBMITTED_AT_DESC
+  status: FormSubmissionStatus
+}
+
+type FormSubmissionsPayload {
+  items: [FormSubmissionModel!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
+}
+
+type FormSummary {
+  currentVersion: Int!
+  key: ID!
+  moduleKey: String!
+  name: String!
+  tabLabelTemplate: String
+}
+
+type FormUserRef {
+  id: ID!
+  name: String
+}
+
+type FormValidationReport {
+  errors: [FormDefinitionIssue!]!
+  warnings: [FormDefinitionIssue!]!
+}
+
+type FormVersionModel {
+  baseVersion: Int
+  changelog: String
+  createdAt: DateTime!
+  draftRevision: Int!
+  fields: [JSONObject!]!
+  formKey: ID!
+  id: ID!
+  layout: JSONObject!
+  prefills: [JSONObject!]!
+  publishedAt: DateTime
+  publishedBy: FormUserRef
+  status: FormVersionStatus!
+  summaryMap: JSONObject!
+  updatedAt: DateTime!
+  version: Int
+}
+
+type FormVersionPayload {
+  formVersion: FormVersionModel!
+  validation: FormValidationReport
+}
+
+"""表單版本狀態:草稿 / 發布中(中斷可重試)/ 已發布(供新增)/ 已退役"""
+enum FormVersionStatus {
+  DRAFT
+  PUBLISHED
+  PUBLISHING
+  RETIRED
+}
+
+type FormVersionsPayload {
+  items: [FormVersionModel!]!
+  totalCount: Int!
+}
+
+input FormsInput {
+  keyword: String
+  moduleKey: String
+  page: Int = 1
+
+  """每頁筆數,上限 100"""
+  pageSize: Int = 20
+}
+
+type FormsPayload {
+  items: [FormModel!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
+}
+
 input GrantRoleUsersInput {
   roleId: ID!
   userIds: [ID!]!
@@ -483,6 +814,33 @@ enum ModuleEngine {
   FORM
 }
 
+type ModuleListColumn {
+  formKey: ID
+  key: String!
+  kind: ModuleListColumnKind!
+  order: Int!
+  width: Int!
+}
+
+input ModuleListColumnInput {
+  formKey: ID
+  key: String!
+  kind: ModuleListColumnKind!
+  order: Int!
+  width: Int!
+}
+
+"""列表欄位的種類:摘要槽 / 表單欄位"""
+enum ModuleListColumnKind {
+  FIELD
+  SLOT
+}
+
+type ModuleListColumnsPayload {
+  columns: [ModuleListColumn!]!
+  moduleKey: String!
+}
+
 type ModuleOption {
   id: ID!
   key: String!
@@ -506,49 +864,67 @@ input MoveOrgInput {
 
 type Mutation {
   addOrgMembers(input: AddOrgMembersInput!): AddOrgMembersPayload!
+  assignFormToTenants(input: AssignFormToTenantsInput!): FormPayload!
   assignUserRoles(input: AssignUserRolesInput!): UserPayload!
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
   createDemoItemOne(input: CreateDemoItemOneInput!): DemoItemOnePayload!
   createDemoItemTwo(input: CreateDemoItemTwoInput!): DemoItemTwoPayload!
   createField(input: CreateFieldInput!): FieldPayload!
+  createForm(input: CreateFormInput!): FormPayload!
+  createFormDraft(input: CreateFormDraftInput!): FormSubmissionPayload!
+  createFormVersionDraft(input: CreateFormVersionDraftInput!): FormVersionPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   createRole(input: CreateRoleInput!): RolePayload!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   createUser(input: CreateUserInput!): UserPayload!
   deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeleteDemoItemOnePayload!
   deleteDemoItemTwo(input: DeleteDemoItemTwoInput!): DeleteDemoItemTwoPayload!
+  deleteFormSubmission(input: DeleteFormSubmissionInput!): DeleteFormSubmissionPayload!
   deleteOrg(input: DeleteOrgInput!): DeletePayload!
+  deleteRetiredPermission(input: DeleteRetiredPermissionInput!): DeleteRetiredPermissionPayload!
   deleteRole(input: DeleteRoleInput!): DeletePayload!
+  forkForm(input: ForkFormInput!): FormPayload!
   grantRoleUsers(input: GrantRoleUsersInput!): RoleUsersPayload!
   login(input: LoginInput!): LoginPayload!
   logout: LogoutPayload!
   logoutAllDevices: LogoutAllDevicesPayload!
   moveOrg(input: MoveOrgInput!): OrgPayload!
   provisionTenant(input: ProvisionTenantInput!): ProvisionTenantPayload!
+  publishFormVersion(input: PublishFormVersionInput!): FormVersionPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
+  retireCurrentVersion(input: FormKeyInput!): FormPayload!
+  retryPublishFormVersion(input: FormKeyInput!): FormVersionPayload!
+  revokeFormFromTenant(input: RevokeFormFromTenantInput!): FormPayload!
   revokeRoleUsers(input: RevokeRoleUsersInput!): RoleUsersPayload!
   revokeTenantProvision(input: RevokeTenantProvisionInput!): RevokeTenantProvisionPayload!
   saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!
+  saveFormDraft(input: SaveFormDraftInput!): FormSubmissionPayload!
+  saveFormVersionDraft(input: SaveFormVersionDraftInput!): FormVersionPayload!
   saveRoleMatrix(input: SaveRoleMatrixInput!): RoleMatrixPayload!
   setDemoItemOneEnabled(input: SetDemoItemOneEnabledInput!): DemoItemOnePayload!
   setDemoItemTwoEnabled(input: SetDemoItemTwoEnabledInput!): DemoItemTwoPayload!
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setModuleIcon(input: SetModuleIconInput!): ModuleAdminPayload!
+  setModuleListColumns(input: SetModuleListColumnsInput!): ModuleListColumnsPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
   setPermissionEnabled(input: SetPermissionEnabledInput!): PermissionAdminPayload!
   setRoleEnabled(input: SetRoleEnabledInput!): RolePayload!
+  setTenantFormEnabled(input: SetTenantFormEnabledInput!): FormPayload!
   setUserEnabled(input: SetUserEnabledInput!): UserPayload!
   setUserOrgs(input: SetUserOrgsInput!): SetUserOrgsPayload!
+  submitFormSubmission(input: SubmitFormSubmissionInput!): FormSubmissionPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
   transferOrgOwner(input: TransferOrgOwnerInput!): OrgPayload!
   updateDemoItemOne(input: UpdateDemoItemOneInput!): DemoItemOnePayload!
   updateDemoItemTwo(input: UpdateDemoItemTwoInput!): DemoItemTwoPayload!
   updateField(input: UpdateFieldInput!): FieldPayload!
+  updateForm(input: UpdateFormInput!): FormPayload!
+  updateFormSubmission(input: UpdateFormSubmissionInput!): FormSubmissionPayload!
   updateOrg(input: UpdateOrgInput!): OrgPayload!
   updateRole(input: UpdateRoleInput!): RolePayload!
   updateUser(input: UpdateUserInput!): UserPayload!
@@ -627,6 +1003,11 @@ type PermissionAdminPayload {
   permission: PermissionAdmin!
 }
 
+input PreviewFormVersionInput {
+  formKey: ID!
+  values: JSONObject
+}
+
 input ProvisionTenantInput {
   adminAccount: String!
   adminEmail: String!
@@ -643,6 +1024,12 @@ type ProvisionTenantPayload {
   roleId: ID!
 }
 
+input PublishFormVersionInput {
+  changelog: String!
+  expectedDraftRevision: Int!
+  formKey: ID!
+}
+
 type Query {
   dataScopeRule(targetId: ID!): DataScopeRulePayload!
   dataScopeTargets: DataScopeTargetsPayload!
@@ -654,14 +1041,28 @@ type Query {
   demoItemsTwo(input: DemoItemsTwoInput!): DemoItemsTwoPayload!
   fieldCategories: FieldCategoriesPayload!
   fields(categoryId: ID!): FieldsPayload!
+  form(key: ID!): FormPayload!
+  formLookup(input: FormLookupInput!): FormLookupPayload!
+  formLookupRecord(input: FormLookupRecordInput!): FormLookupRecordPayload!
+  formRuntimeVersion(formKey: ID!, version: Int!): FormVersionPayload!
+  formSubmission(id: ID!, revision: Int): FormSubmissionPayload!
+  formSubmissionAttachmentUrl(fieldKey: String!, id: ID!, revision: Int): FormSubmissionAttachmentUrlPayload!
+  formSubmissions(input: FormSubmissionsInput!): FormSubmissionsPayload!
+  formVersion(formKey: ID!, version: Int): FormVersionPayload!
+  formVersions(formKey: ID!): FormVersionsPayload!
+  forms(input: FormsInput!): FormsPayload!
   me: Me!
+  moduleForms(moduleKey: ID!): [FormSummary!]!
+  moduleListColumns(moduleKey: String!): ModuleListColumnsPayload!
   moduleTree: [ModuleAdminNode!]!
   org(id: ID!): Org!
   orgMemberCandidates(input: OrgMembersInput!, orgId: ID!): OrgMembersPayload!
   orgMembers(input: OrgMembersInput!, orgId: ID!): OrgMembersPayload!
   orgTree: [OrgNode!]!
+  previewFormVersion(input: PreviewFormVersionInput!): FormPreviewPayload!
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
+  retiredFormPermissions: RetiredFormPermissionsPayload!
   role(id: ID!): RolePayload!
   roleMatrix(roleId: ID!): RoleMatrixPayload!
   roleUserCandidates(input: RoleUserCandidatesInput!, roleId: ID!): RoleUserCandidatesPayload!
@@ -670,6 +1071,7 @@ type Query {
   tenantModuleOptions: [ModuleOption!]!
   user(id: ID!): User!
   users(input: UsersInput!): UsersPayload!
+  validateFormVersion(input: ValidateFormVersionInput!): FormValidationReport!
 }
 
 type Recipe {
@@ -696,6 +1098,35 @@ input RequestPasswordResetInput {
 
 type RequestPasswordResetPayload {
   success: Boolean!
+}
+
+type RetiredFormPermission {
+  action: String!
+  fieldKey: String!
+  formKey: ID!
+  formName: String
+  key: ID!
+  moduleKey: String!
+  name: String!
+  retiredAt: DateTime!
+  usage: RetiredPermissionUsage!
+}
+
+type RetiredFormPermissionsPayload {
+  items: [RetiredFormPermission!]!
+  totalCount: Int!
+}
+
+type RetiredPermissionUsage {
+  completedCount: Int!
+  completedVersions: [Int!]!
+  draftCount: Int!
+  draftVersions: [Int!]!
+}
+
+input RevokeFormFromTenantInput {
+  formKey: ID!
+  tenantOrgId: ID!
 }
 
 input RevokeRoleUsersInput {
@@ -877,6 +1308,21 @@ type SaveDataScopeRulePayload {
   rule: DataScopeRule!
 }
 
+input SaveFormDraftInput {
+  expectedEditVersion: Int!
+  id: ID!
+  values: JSONObject!
+}
+
+input SaveFormVersionDraftInput {
+  expectedDraftRevision: Int!
+  fields: [JSONObject!]!
+  formKey: ID!
+  layout: JSONObject!
+  prefills: [JSONObject!]!
+  summaryMap: JSONObject!
+}
+
 input SaveRoleMatrixInput {
   moduleKeys: [String!]!
   permissionKeys: [String!]!
@@ -908,6 +1354,11 @@ input SetModuleIconInput {
   id: ID!
 }
 
+input SetModuleListColumnsInput {
+  columns: [ModuleListColumnInput!]!
+  moduleKey: String!
+}
+
 input SetOrgEnabledInput {
   enabled: Boolean!
   id: ID!
@@ -937,6 +1388,11 @@ input SetRoleEnabledInput {
   id: ID!
 }
 
+input SetTenantFormEnabledInput {
+  enabled: Boolean!
+  formKey: ID!
+}
+
 input SetUserEnabledInput {
   enabled: Boolean!
   id: ID!
@@ -954,6 +1410,11 @@ type SetUserOrgsPayload {
   revokedRoleIds: [ID!]!
   unqualifiedRoles: [UnqualifiedRole!]!
   user: User!
+}
+
+input SubmitFormSubmissionInput {
+  expectedEditVersion: Int!
+  id: ID!
 }
 
 input SwitchOrgInput {
@@ -1002,6 +1463,19 @@ input UpdateFieldInput {
   order: Int
 }
 
+input UpdateFormInput {
+  key: ID!
+  name: String
+  tabLabelTemplate: String
+}
+
+input UpdateFormSubmissionInput {
+  expectedEditVersion: Int!
+  expectedRevision: Int!
+  id: ID!
+  values: JSONObject!
+}
+
 input UpdateOrgInput {
   description: String
   id: ID!
@@ -1032,6 +1506,7 @@ input UpdateUserInput {
 enum UploadPurpose {
   DEMO_ATTACHMENT
   DEMO_COVER
+  FORM_ATTACHMENT
   ORG_LOGO
 }
 
@@ -1106,4 +1581,12 @@ type UsersPayload {
   page: Int!
   pageSize: Int!
   totalCount: Int!
+}
+
+input ValidateFormVersionInput {
+  fields: [JSONObject!]!
+  formKey: ID!
+  layout: JSONObject!
+  prefills: [JSONObject!]!
+  summaryMap: JSONObject!
 }

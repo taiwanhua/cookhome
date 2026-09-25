@@ -1,0 +1,205 @@
+# 表單執行(所有表單模組共用;規則正本 docs/modules/forms.md)。
+#
+# 三件事在這裡就要看得懂:
+# 1. `values` 裡讀者沒有 show 的欄位(含只因依賴而受保護的計算欄位)是字串 "[redacted]";
+#    寫回時原樣送回或不送都算「沒動」,送別的值 → FORBIDDEN(reason FIELD_FORBIDDEN)。
+# 2. 每次寫入帶 `expectedEditVersion`(= 讀到的 editVersion),已完成修改另帶 `expectedRevision`;
+#    不符 → CONFLICT,前端提示「這筆資料已被別人更新,請重新載入」。
+# 3. 顯示名看 `displayValues`(類別 / lookup 選項、引用:來源還在且有權 → 現名;否則快照 +
+#    available false);靜態選項的 label 從該筆綁的版本定義取。`abilities` 已含權限,直接用。
+
+fragment FormSubmissionFields on FormSubmissionModel {
+  id
+  moduleKey
+  formKey
+  formName
+  version
+  status
+  revision
+  viewedRevision
+  values
+  fieldStates {
+    key
+    visible
+    readonly
+    redacted
+  }
+  displayValues {
+    fieldKey
+    items {
+      value
+      label
+      available
+    }
+  }
+  summary {
+    title
+    date
+    amount
+  }
+  ctx {
+    at
+    timezone
+    userId
+    orgId
+  }
+  revisions {
+    revision
+    at
+    user {
+      id
+      name
+    }
+  }
+  editVersion
+  orgId
+  createdBy {
+    id
+    name
+  }
+  submittedAt
+  createdAt
+  updatedAt
+  abilities {
+    canEdit
+    canDelete
+    canEditField
+  }
+}
+
+fragment FormLookupRecordFields on FormLookupRecord {
+  id
+  value
+  label
+  values
+}
+
+# 新增選單:此刻可以新增的表單(一張直接進、多張先選)
+query ModuleForms($moduleKey: ID!) {
+  moduleForms(moduleKey: $moduleKey) {
+    key
+    name
+    moduleKey
+    currentVersion
+    tabLabelTemplate
+  }
+}
+
+# 填寫 / 詳情渲染用的版本定義(已發布或已退役版)
+query FormRuntimeVersion($formKey: ID!, $version: Int!) {
+  formRuntimeVersion(formKey: $formKey, version: $version) {
+    formVersion {
+      id
+      formKey
+      version
+      status
+      fields
+      layout
+      summaryMap
+      prefills
+    }
+  }
+}
+
+# FormSubmissionsInput: { moduleKey, formKey?, status?, keyword?, sort?, page?, pageSize? }
+# 範圍(可見範圍 + 資料範圍規則)由 api 套;別人的草稿不列;keyword 只比對摘要標題
+query FormSubmissions($input: FormSubmissionsInput!) {
+  formSubmissions(input: $input) {
+    items {
+      ...FormSubmissionFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+
+# revision 省略 = 目前;建立者一律讀得到自己的單
+query FormSubmission($id: ID!, $revision: Int) {
+  formSubmission(id: $id, revision: $revision) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+
+# 上傳欄的私有檔案(短效簽名網址,不要快取)
+query FormSubmissionAttachmentUrl(
+  $id: ID!
+  $fieldKey: String!
+  $revision: Int
+) {
+  formSubmissionAttachmentUrl(
+    id: $id
+    fieldKey: $fieldKey
+    revision: $revision
+  ) {
+    url
+  }
+}
+
+# CreateFormDraftInput: { formKey, clientRequestId, values? };同 clientRequestId 重試回同一筆
+mutation CreateFormDraft($input: CreateFormDraftInput!) {
+  createFormDraft(input: $input) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+
+# SaveFormDraftInput: { id, expectedEditVersion, values };values 是整張表單的狀態(缺席 = 清空)
+mutation SaveFormDraft($input: SaveFormDraftInput!) {
+  saveFormDraft(input: $input) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+
+# SubmitFormSubmissionInput: { id, expectedEditVersion };值錯誤 → VALIDATION_FAILED(extensions.fieldErrors)
+mutation SubmitFormSubmission($input: SubmitFormSubmissionInput!) {
+  submitFormSubmission(input: $input) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+
+# UpdateFormSubmissionInput: { id, expectedEditVersion, expectedRevision, values };修訂 +1 並存完整快照
+mutation UpdateFormSubmission($input: UpdateFormSubmissionInput!) {
+  updateFormSubmission(input: $input) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+
+# DeleteFormSubmissionInput: { id };草稿 = 本人、已完成 = 模組 delete
+mutation DeleteFormSubmission($input: DeleteFormSubmissionInput!) {
+  deleteFormSubmission(input: $input) {
+    success
+    deletedId
+  }
+}
+
+# FormLookupInput: { formKey, version?, target: { fieldKey } | { prefillIndex }, keyword?, page?, pageSize? }
+# provider / filter 從版本定義取;version 省略 = 草稿(設計器預覽)
+query FormLookup($input: FormLookupInput!) {
+  formLookup(input: $input) {
+    items {
+      ...FormLookupRecordFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+
+# FormLookupRecordInput: { formKey, version?, target, id };讀不到為 null
+query FormLookupRecord($input: FormLookupRecordInput!) {
+  formLookupRecord(input: $input) {
+    record {
+      ...FormLookupRecordFields
+    }
+  }
+}

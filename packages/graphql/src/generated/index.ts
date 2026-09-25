@@ -40,6 +40,11 @@ export type AddOrgMembersPayload = {
   skippedUserIds: Array<Scalars['ID']['output']>;
 };
 
+export type AssignFormToTenantsInput = {
+  formKey: Scalars['ID']['input'];
+  tenantOrgIds: Array<Scalars['ID']['input']>;
+};
+
 export type AssignUserRolesInput = {
   roleIds: Array<Scalars['ID']['input']>;
   userId: Scalars['ID']['input'];
@@ -84,6 +89,23 @@ export type CreateFieldInput = {
   value: Scalars['String']['input'];
 };
 
+export type CreateFormDraftInput = {
+  clientRequestId: Scalars['String']['input'];
+  formKey: Scalars['ID']['input'];
+  values?: InputMaybe<Scalars['JSONObject']['input']>;
+};
+
+export type CreateFormInput = {
+  key: Scalars['ID']['input'];
+  moduleKey: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+};
+
+export type CreateFormVersionDraftInput = {
+  baseVersion?: InputMaybe<Scalars['Int']['input']>;
+  formKey: Scalars['ID']['input'];
+};
+
 export type CreateRecipeInput = {
   cookMinutes?: InputMaybe<Scalars['Int']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
@@ -102,10 +124,10 @@ export type CreateRoleInput = {
 };
 
 export type CreateUploadUrlInput = {
-  /** 允許的檔型依 purpose:ORG_LOGO / DEMO_COVER image/png / image/jpeg / image/webp;DEMO_ATTACHMENT image/png / image/jpeg / image/webp / application/pdf / application/msword / application/vnd.openxmlformats-officedocument.wordprocessingml.document / application/vnd.ms-excel / application/vnd.openxmlformats-officedocument.spreadsheetml.sheet / application/zip / application/x-zip-compressed */
+  /** 允許的檔型依 purpose:ORG_LOGO / DEMO_COVER image/png / image/jpeg / image/webp;DEMO_ATTACHMENT / FORM_ATTACHMENT image/png / image/jpeg / image/webp / application/pdf / application/msword / application/vnd.openxmlformats-officedocument.wordprocessingml.document / application/vnd.ms-excel / application/vnd.openxmlformats-officedocument.spreadsheetml.sheet / application/zip / application/x-zip-compressed */
   contentType: Scalars['String']['input'];
   purpose: UploadPurpose;
-  /** 檔案大小(bytes),上限依 purpose:ORG_LOGO / DEMO_COVER 2097152;DEMO_ATTACHMENT 20971520 */
+  /** 檔案大小(bytes),上限依 purpose:ORG_LOGO / DEMO_COVER 2097152;DEMO_ATTACHMENT / FORM_ATTACHMENT 20971520 */
   size: Scalars['Int']['input'];
 };
 
@@ -234,6 +256,16 @@ export type DeleteDemoItemTwoPayload = {
   success: Scalars['Boolean']['output'];
 };
 
+export type DeleteFormSubmissionInput = {
+  id: Scalars['ID']['input'];
+};
+
+export type DeleteFormSubmissionPayload = {
+  __typename?: 'DeleteFormSubmissionPayload';
+  deletedId: Scalars['ID']['output'];
+  success: Scalars['Boolean']['output'];
+};
+
 export type DeleteOrgInput = {
   id: Scalars['ID']['input'];
 };
@@ -242,6 +274,18 @@ export type DeletePayload = {
   __typename?: 'DeletePayload';
   deletedId: Scalars['ID']['output'];
   success: Scalars['Boolean']['output'];
+};
+
+export type DeleteRetiredPermissionInput = {
+  confirmCompletedUsage?: InputMaybe<Scalars['Boolean']['input']>;
+  permissionKey: Scalars['ID']['input'];
+};
+
+export type DeleteRetiredPermissionPayload = {
+  __typename?: 'DeleteRetiredPermissionPayload';
+  deletedKey: Scalars['ID']['output'];
+  success: Scalars['Boolean']['output'];
+  usage: RetiredPermissionUsage;
 };
 
 export type DeleteRoleInput = {
@@ -436,6 +480,322 @@ export type FieldsPayload = {
   totalCount: Scalars['Int']['output'];
 };
 
+export type ForkFormInput = {
+  key: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  sourceKey: Scalars['ID']['input'];
+  sourceVersion: Scalars['Int']['input'];
+};
+
+export type FormAbilities = {
+  __typename?: 'FormAbilities';
+  canAssign: Scalars['Boolean']['output'];
+  canEdit: Scalars['Boolean']['output'];
+  canFork: Scalars['Boolean']['output'];
+  canSetEnabled: Scalars['Boolean']['output'];
+};
+
+export type FormAssignment = {
+  __typename?: 'FormAssignment';
+  enabled: Scalars['Boolean']['output'];
+  tenantName?: Maybe<Scalars['String']['output']>;
+  tenantOrgId: Scalars['ID']['output'];
+};
+
+export type FormDefinitionIssue = {
+  __typename?: 'FormDefinitionIssue';
+  code: Scalars['String']['output'];
+  location: Scalars['JSONObject']['output'];
+  message: Scalars['String']['output'];
+};
+
+export type FormDisplayItem = {
+  __typename?: 'FormDisplayItem';
+  available: Scalars['Boolean']['output'];
+  label?: Maybe<Scalars['String']['output']>;
+  value: Scalars['String']['output'];
+};
+
+export type FormDisplayValue = {
+  __typename?: 'FormDisplayValue';
+  fieldKey: Scalars['String']['output'];
+  items: Array<FormDisplayItem>;
+};
+
+export type FormFieldError = {
+  __typename?: 'FormFieldError';
+  code: Scalars['String']['output'];
+  fieldKey: Scalars['String']['output'];
+  message: Scalars['String']['output'];
+};
+
+export type FormFieldState = {
+  __typename?: 'FormFieldState';
+  key: Scalars['String']['output'];
+  readonly: Scalars['Boolean']['output'];
+  redacted: Scalars['Boolean']['output'];
+  visible: Scalars['Boolean']['output'];
+};
+
+export type FormForkSourceModel = {
+  __typename?: 'FormForkSourceModel';
+  formKey: Scalars['ID']['output'];
+  version: Scalars['Int']['output'];
+};
+
+export type FormKeyInput = {
+  formKey: Scalars['ID']['input'];
+};
+
+export type FormLookupInput = {
+  formKey: Scalars['ID']['input'];
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  target: FormLookupTargetInput;
+  version?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type FormLookupPayload = {
+  __typename?: 'FormLookupPayload';
+  items: Array<FormLookupRecord>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
+export type FormLookupRecord = {
+  __typename?: 'FormLookupRecord';
+  id: Scalars['ID']['output'];
+  label?: Maybe<Scalars['String']['output']>;
+  value?: Maybe<Scalars['String']['output']>;
+  values: Scalars['JSONObject']['output'];
+};
+
+export type FormLookupRecordInput = {
+  formKey: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  target: FormLookupTargetInput;
+  version?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type FormLookupRecordPayload = {
+  __typename?: 'FormLookupRecordPayload';
+  record?: Maybe<FormLookupRecord>;
+};
+
+export type FormLookupTargetInput = {
+  fieldKey?: InputMaybe<Scalars['String']['input']>;
+  prefillIndex?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type FormModel = {
+  __typename?: 'FormModel';
+  abilities: FormAbilities;
+  assignments: Array<FormAssignment>;
+  createdAt: Scalars['DateTime']['output'];
+  currentVersion?: Maybe<Scalars['Int']['output']>;
+  forkedFrom?: Maybe<FormForkSourceModel>;
+  hasDraft: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  isShared: Scalars['Boolean']['output'];
+  key: Scalars['ID']['output'];
+  moduleKey: Scalars['String']['output'];
+  moduleName?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  ownerOrgId?: Maybe<Scalars['ID']['output']>;
+  ownerOrgName?: Maybe<Scalars['String']['output']>;
+  publishInterrupted: Scalars['Boolean']['output'];
+  tabLabelTemplate?: Maybe<Scalars['String']['output']>;
+  tenantEnabled?: Maybe<Scalars['Boolean']['output']>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type FormPayload = {
+  __typename?: 'FormPayload';
+  form: FormModel;
+};
+
+export type FormPreviewPayload = {
+  __typename?: 'FormPreviewPayload';
+  fieldErrors: Array<FormFieldError>;
+  fieldStates: Array<FormFieldState>;
+  summary: FormSubmissionSummary;
+  values: Scalars['JSONObject']['output'];
+};
+
+export type FormSubmissionAbilities = {
+  __typename?: 'FormSubmissionAbilities';
+  canDelete: Scalars['Boolean']['output'];
+  canEdit: Scalars['Boolean']['output'];
+  canEditField: Array<Scalars['String']['output']>;
+};
+
+export type FormSubmissionAttachmentUrlPayload = {
+  __typename?: 'FormSubmissionAttachmentUrlPayload';
+  url: Scalars['String']['output'];
+};
+
+export type FormSubmissionContext = {
+  __typename?: 'FormSubmissionContext';
+  at: Scalars['DateTime']['output'];
+  orgId?: Maybe<Scalars['ID']['output']>;
+  timezone: Scalars['String']['output'];
+  userId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type FormSubmissionModel = {
+  __typename?: 'FormSubmissionModel';
+  abilities: FormSubmissionAbilities;
+  createdAt: Scalars['DateTime']['output'];
+  createdBy?: Maybe<FormUserRef>;
+  ctx?: Maybe<FormSubmissionContext>;
+  displayValues: Array<FormDisplayValue>;
+  editVersion: Scalars['Int']['output'];
+  fieldStates: Array<FormFieldState>;
+  formKey: Scalars['ID']['output'];
+  formName?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  moduleKey: Scalars['String']['output'];
+  orgId: Scalars['ID']['output'];
+  revision: Scalars['Int']['output'];
+  revisions: Array<FormSubmissionRevisionMeta>;
+  status: FormSubmissionStatus;
+  submittedAt?: Maybe<Scalars['DateTime']['output']>;
+  summary?: Maybe<FormSubmissionSummary>;
+  updatedAt: Scalars['DateTime']['output'];
+  values: Scalars['JSONObject']['output'];
+  version: Scalars['Int']['output'];
+  viewedRevision: Scalars['Int']['output'];
+};
+
+export type FormSubmissionPayload = {
+  __typename?: 'FormSubmissionPayload';
+  submission: FormSubmissionModel;
+};
+
+export type FormSubmissionRevisionMeta = {
+  __typename?: 'FormSubmissionRevisionMeta';
+  at: Scalars['DateTime']['output'];
+  revision: Scalars['Int']['output'];
+  user?: Maybe<FormUserRef>;
+};
+
+/** 提交列表的排序(預設送出時間新到舊;草稿沒有送出時間,排在最後) */
+export enum FormSubmissionSort {
+  SubmittedAtAsc = 'SUBMITTED_AT_ASC',
+  SubmittedAtDesc = 'SUBMITTED_AT_DESC',
+  UpdatedAtDesc = 'UPDATED_AT_DESC'
+}
+
+/** 提交狀態:草稿 / 已完成(6a 送出即完成) */
+export enum FormSubmissionStatus {
+  Completed = 'COMPLETED',
+  Draft = 'DRAFT'
+}
+
+export type FormSubmissionSummary = {
+  __typename?: 'FormSubmissionSummary';
+  amount?: Maybe<Scalars['String']['output']>;
+  date?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
+};
+
+export type FormSubmissionsInput = {
+  formKey?: InputMaybe<Scalars['ID']['input']>;
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  moduleKey: Scalars['String']['input'];
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  sort?: InputMaybe<FormSubmissionSort>;
+  status?: InputMaybe<FormSubmissionStatus>;
+};
+
+export type FormSubmissionsPayload = {
+  __typename?: 'FormSubmissionsPayload';
+  items: Array<FormSubmissionModel>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
+export type FormSummary = {
+  __typename?: 'FormSummary';
+  currentVersion: Scalars['Int']['output'];
+  key: Scalars['ID']['output'];
+  moduleKey: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  tabLabelTemplate?: Maybe<Scalars['String']['output']>;
+};
+
+export type FormUserRef = {
+  __typename?: 'FormUserRef';
+  id: Scalars['ID']['output'];
+  name?: Maybe<Scalars['String']['output']>;
+};
+
+export type FormValidationReport = {
+  __typename?: 'FormValidationReport';
+  errors: Array<FormDefinitionIssue>;
+  warnings: Array<FormDefinitionIssue>;
+};
+
+export type FormVersionModel = {
+  __typename?: 'FormVersionModel';
+  baseVersion?: Maybe<Scalars['Int']['output']>;
+  changelog?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  draftRevision: Scalars['Int']['output'];
+  fields: Array<Scalars['JSONObject']['output']>;
+  formKey: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  layout: Scalars['JSONObject']['output'];
+  prefills: Array<Scalars['JSONObject']['output']>;
+  publishedAt?: Maybe<Scalars['DateTime']['output']>;
+  publishedBy?: Maybe<FormUserRef>;
+  status: FormVersionStatus;
+  summaryMap: Scalars['JSONObject']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type FormVersionPayload = {
+  __typename?: 'FormVersionPayload';
+  formVersion: FormVersionModel;
+  validation?: Maybe<FormValidationReport>;
+};
+
+/** 表單版本狀態:草稿 / 發布中(中斷可重試)/ 已發布(供新增)/ 已退役 */
+export enum FormVersionStatus {
+  Draft = 'DRAFT',
+  Published = 'PUBLISHED',
+  Publishing = 'PUBLISHING',
+  Retired = 'RETIRED'
+}
+
+export type FormVersionsPayload = {
+  __typename?: 'FormVersionsPayload';
+  items: Array<FormVersionModel>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type FormsInput = {
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  moduleKey?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type FormsPayload = {
+  __typename?: 'FormsPayload';
+  items: Array<FormModel>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
 export type GrantRoleUsersInput = {
   roleId: Scalars['ID']['input'];
   userIds: Array<Scalars['ID']['input']>;
@@ -537,6 +897,35 @@ export enum ModuleEngine {
   Form = 'FORM'
 }
 
+export type ModuleListColumn = {
+  __typename?: 'ModuleListColumn';
+  formKey?: Maybe<Scalars['ID']['output']>;
+  key: Scalars['String']['output'];
+  kind: ModuleListColumnKind;
+  order: Scalars['Int']['output'];
+  width: Scalars['Int']['output'];
+};
+
+export type ModuleListColumnInput = {
+  formKey?: InputMaybe<Scalars['ID']['input']>;
+  key: Scalars['String']['input'];
+  kind: ModuleListColumnKind;
+  order: Scalars['Int']['input'];
+  width: Scalars['Int']['input'];
+};
+
+/** 列表欄位的種類:摘要槽 / 表單欄位 */
+export enum ModuleListColumnKind {
+  Field = 'FIELD',
+  Slot = 'SLOT'
+}
+
+export type ModuleListColumnsPayload = {
+  __typename?: 'ModuleListColumnsPayload';
+  columns: Array<ModuleListColumn>;
+  moduleKey: Scalars['String']['output'];
+};
+
 export type ModuleOption = {
   __typename?: 'ModuleOption';
   id: Scalars['ID']['output'];
@@ -562,49 +951,67 @@ export type MoveOrgInput = {
 export type Mutation = {
   __typename?: 'Mutation';
   addOrgMembers: AddOrgMembersPayload;
+  assignFormToTenants: FormPayload;
   assignUserRoles: UserPayload;
   changePassword: ChangePasswordPayload;
   createChildOrg: OrgPayload;
   createDemoItemOne: DemoItemOnePayload;
   createDemoItemTwo: DemoItemTwoPayload;
   createField: FieldPayload;
+  createForm: FormPayload;
+  createFormDraft: FormSubmissionPayload;
+  createFormVersionDraft: FormVersionPayload;
   createRecipe: Recipe;
   createRole: RolePayload;
   createUploadUrl: UploadUrlPayload;
   createUser: UserPayload;
   deleteDemoItemOne: DeleteDemoItemOnePayload;
   deleteDemoItemTwo: DeleteDemoItemTwoPayload;
+  deleteFormSubmission: DeleteFormSubmissionPayload;
   deleteOrg: DeletePayload;
+  deleteRetiredPermission: DeleteRetiredPermissionPayload;
   deleteRole: DeletePayload;
+  forkForm: FormPayload;
   grantRoleUsers: RoleUsersPayload;
   login: LoginPayload;
   logout: LogoutPayload;
   logoutAllDevices: LogoutAllDevicesPayload;
   moveOrg: OrgPayload;
   provisionTenant: ProvisionTenantPayload;
+  publishFormVersion: FormVersionPayload;
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
+  retireCurrentVersion: FormPayload;
+  retryPublishFormVersion: FormVersionPayload;
+  revokeFormFromTenant: FormPayload;
   revokeRoleUsers: RoleUsersPayload;
   revokeTenantProvision: RevokeTenantProvisionPayload;
   saveDataScopeRule: SaveDataScopeRulePayload;
+  saveFormDraft: FormSubmissionPayload;
+  saveFormVersionDraft: FormVersionPayload;
   saveRoleMatrix: RoleMatrixPayload;
   setDemoItemOneEnabled: DemoItemOnePayload;
   setDemoItemTwoEnabled: DemoItemTwoPayload;
   setFieldEnabled: FieldPayload;
   setModuleEnabled: ModuleAdminPayload;
   setModuleIcon: ModuleAdminPayload;
+  setModuleListColumns: ModuleListColumnsPayload;
   setOrgEnabled: OrgPayload;
   setOrgVisibility: OrgPayload;
   setPassword: SetPasswordPayload;
   setPermissionEnabled: PermissionAdminPayload;
   setRoleEnabled: RolePayload;
+  setTenantFormEnabled: FormPayload;
   setUserEnabled: UserPayload;
   setUserOrgs: SetUserOrgsPayload;
+  submitFormSubmission: FormSubmissionPayload;
   switchOrg: SwitchOrgPayload;
   transferOrgOwner: OrgPayload;
   updateDemoItemOne: DemoItemOnePayload;
   updateDemoItemTwo: DemoItemTwoPayload;
   updateField: FieldPayload;
+  updateForm: FormPayload;
+  updateFormSubmission: FormSubmissionPayload;
   updateOrg: OrgPayload;
   updateRole: RolePayload;
   updateUser: UserPayload;
@@ -613,6 +1020,11 @@ export type Mutation = {
 
 export type MutationAddOrgMembersArgs = {
   input: AddOrgMembersInput;
+};
+
+
+export type MutationAssignFormToTenantsArgs = {
+  input: AssignFormToTenantsInput;
 };
 
 
@@ -646,6 +1058,21 @@ export type MutationCreateFieldArgs = {
 };
 
 
+export type MutationCreateFormArgs = {
+  input: CreateFormInput;
+};
+
+
+export type MutationCreateFormDraftArgs = {
+  input: CreateFormDraftInput;
+};
+
+
+export type MutationCreateFormVersionDraftArgs = {
+  input: CreateFormVersionDraftInput;
+};
+
+
 export type MutationCreateRecipeArgs = {
   input: CreateRecipeInput;
 };
@@ -676,13 +1103,28 @@ export type MutationDeleteDemoItemTwoArgs = {
 };
 
 
+export type MutationDeleteFormSubmissionArgs = {
+  input: DeleteFormSubmissionInput;
+};
+
+
 export type MutationDeleteOrgArgs = {
   input: DeleteOrgInput;
 };
 
 
+export type MutationDeleteRetiredPermissionArgs = {
+  input: DeleteRetiredPermissionInput;
+};
+
+
 export type MutationDeleteRoleArgs = {
   input: DeleteRoleInput;
+};
+
+
+export type MutationForkFormArgs = {
+  input: ForkFormInput;
 };
 
 
@@ -706,8 +1148,28 @@ export type MutationProvisionTenantArgs = {
 };
 
 
+export type MutationPublishFormVersionArgs = {
+  input: PublishFormVersionInput;
+};
+
+
 export type MutationRequestPasswordResetArgs = {
   input: RequestPasswordResetInput;
+};
+
+
+export type MutationRetireCurrentVersionArgs = {
+  input: FormKeyInput;
+};
+
+
+export type MutationRetryPublishFormVersionArgs = {
+  input: FormKeyInput;
+};
+
+
+export type MutationRevokeFormFromTenantArgs = {
+  input: RevokeFormFromTenantInput;
 };
 
 
@@ -723,6 +1185,16 @@ export type MutationRevokeTenantProvisionArgs = {
 
 export type MutationSaveDataScopeRuleArgs = {
   input: SaveDataScopeRuleInput;
+};
+
+
+export type MutationSaveFormDraftArgs = {
+  input: SaveFormDraftInput;
+};
+
+
+export type MutationSaveFormVersionDraftArgs = {
+  input: SaveFormVersionDraftInput;
 };
 
 
@@ -756,6 +1228,11 @@ export type MutationSetModuleIconArgs = {
 };
 
 
+export type MutationSetModuleListColumnsArgs = {
+  input: SetModuleListColumnsInput;
+};
+
+
 export type MutationSetOrgEnabledArgs = {
   input: SetOrgEnabledInput;
 };
@@ -781,6 +1258,11 @@ export type MutationSetRoleEnabledArgs = {
 };
 
 
+export type MutationSetTenantFormEnabledArgs = {
+  input: SetTenantFormEnabledInput;
+};
+
+
 export type MutationSetUserEnabledArgs = {
   input: SetUserEnabledInput;
 };
@@ -788,6 +1270,11 @@ export type MutationSetUserEnabledArgs = {
 
 export type MutationSetUserOrgsArgs = {
   input: SetUserOrgsInput;
+};
+
+
+export type MutationSubmitFormSubmissionArgs = {
+  input: SubmitFormSubmissionInput;
 };
 
 
@@ -813,6 +1300,16 @@ export type MutationUpdateDemoItemTwoArgs = {
 
 export type MutationUpdateFieldArgs = {
   input: UpdateFieldInput;
+};
+
+
+export type MutationUpdateFormArgs = {
+  input: UpdateFormInput;
+};
+
+
+export type MutationUpdateFormSubmissionArgs = {
+  input: UpdateFormSubmissionInput;
 };
 
 
@@ -910,6 +1407,11 @@ export type PermissionAdminPayload = {
   permission: PermissionAdmin;
 };
 
+export type PreviewFormVersionInput = {
+  formKey: Scalars['ID']['input'];
+  values?: InputMaybe<Scalars['JSONObject']['input']>;
+};
+
 export type ProvisionTenantInput = {
   adminAccount: Scalars['String']['input'];
   adminEmail: Scalars['String']['input'];
@@ -927,6 +1429,12 @@ export type ProvisionTenantPayload = {
   roleId: Scalars['ID']['output'];
 };
 
+export type PublishFormVersionInput = {
+  changelog: Scalars['String']['input'];
+  expectedDraftRevision: Scalars['Int']['input'];
+  formKey: Scalars['ID']['input'];
+};
+
 export type Query = {
   __typename?: 'Query';
   dataScopeRule: DataScopeRulePayload;
@@ -939,14 +1447,28 @@ export type Query = {
   demoItemsTwo: DemoItemsTwoPayload;
   fieldCategories: FieldCategoriesPayload;
   fields: FieldsPayload;
+  form: FormPayload;
+  formLookup: FormLookupPayload;
+  formLookupRecord: FormLookupRecordPayload;
+  formRuntimeVersion: FormVersionPayload;
+  formSubmission: FormSubmissionPayload;
+  formSubmissionAttachmentUrl: FormSubmissionAttachmentUrlPayload;
+  formSubmissions: FormSubmissionsPayload;
+  formVersion: FormVersionPayload;
+  formVersions: FormVersionsPayload;
+  forms: FormsPayload;
   me: Me;
+  moduleForms: Array<FormSummary>;
+  moduleListColumns: ModuleListColumnsPayload;
   moduleTree: Array<ModuleAdminNode>;
   org: Org;
   orgMemberCandidates: OrgMembersPayload;
   orgMembers: OrgMembersPayload;
   orgTree: Array<OrgNode>;
+  previewFormVersion: FormPreviewPayload;
   recipe: Recipe;
   recipes: Array<Recipe>;
+  retiredFormPermissions: RetiredFormPermissionsPayload;
   role: RolePayload;
   roleMatrix: RoleMatrixPayload;
   roleUserCandidates: RoleUserCandidatesPayload;
@@ -955,6 +1477,7 @@ export type Query = {
   tenantModuleOptions: Array<ModuleOption>;
   user: User;
   users: UsersPayload;
+  validateFormVersion: FormValidationReport;
 };
 
 
@@ -998,6 +1521,71 @@ export type QueryFieldsArgs = {
 };
 
 
+export type QueryFormArgs = {
+  key: Scalars['ID']['input'];
+};
+
+
+export type QueryFormLookupArgs = {
+  input: FormLookupInput;
+};
+
+
+export type QueryFormLookupRecordArgs = {
+  input: FormLookupRecordInput;
+};
+
+
+export type QueryFormRuntimeVersionArgs = {
+  formKey: Scalars['ID']['input'];
+  version: Scalars['Int']['input'];
+};
+
+
+export type QueryFormSubmissionArgs = {
+  id: Scalars['ID']['input'];
+  revision?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryFormSubmissionAttachmentUrlArgs = {
+  fieldKey: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
+  revision?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryFormSubmissionsArgs = {
+  input: FormSubmissionsInput;
+};
+
+
+export type QueryFormVersionArgs = {
+  formKey: Scalars['ID']['input'];
+  version?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryFormVersionsArgs = {
+  formKey: Scalars['ID']['input'];
+};
+
+
+export type QueryFormsArgs = {
+  input: FormsInput;
+};
+
+
+export type QueryModuleFormsArgs = {
+  moduleKey: Scalars['ID']['input'];
+};
+
+
+export type QueryModuleListColumnsArgs = {
+  moduleKey: Scalars['String']['input'];
+};
+
+
 export type QueryOrgArgs = {
   id: Scalars['ID']['input'];
 };
@@ -1012,6 +1600,11 @@ export type QueryOrgMemberCandidatesArgs = {
 export type QueryOrgMembersArgs = {
   input: OrgMembersInput;
   orgId: Scalars['ID']['input'];
+};
+
+
+export type QueryPreviewFormVersionArgs = {
+  input: PreviewFormVersionInput;
 };
 
 
@@ -1056,6 +1649,11 @@ export type QueryUsersArgs = {
   input: UsersInput;
 };
 
+
+export type QueryValidateFormVersionArgs = {
+  input: ValidateFormVersionInput;
+};
+
 export type Recipe = {
   __typename?: 'Recipe';
   cookMinutes: Scalars['Int']['output'];
@@ -1083,6 +1681,38 @@ export type RequestPasswordResetInput = {
 export type RequestPasswordResetPayload = {
   __typename?: 'RequestPasswordResetPayload';
   success: Scalars['Boolean']['output'];
+};
+
+export type RetiredFormPermission = {
+  __typename?: 'RetiredFormPermission';
+  action: Scalars['String']['output'];
+  fieldKey: Scalars['String']['output'];
+  formKey: Scalars['ID']['output'];
+  formName?: Maybe<Scalars['String']['output']>;
+  key: Scalars['ID']['output'];
+  moduleKey: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  retiredAt: Scalars['DateTime']['output'];
+  usage: RetiredPermissionUsage;
+};
+
+export type RetiredFormPermissionsPayload = {
+  __typename?: 'RetiredFormPermissionsPayload';
+  items: Array<RetiredFormPermission>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type RetiredPermissionUsage = {
+  __typename?: 'RetiredPermissionUsage';
+  completedCount: Scalars['Int']['output'];
+  completedVersions: Array<Scalars['Int']['output']>;
+  draftCount: Scalars['Int']['output'];
+  draftVersions: Array<Scalars['Int']['output']>;
+};
+
+export type RevokeFormFromTenantInput = {
+  formKey: Scalars['ID']['input'];
+  tenantOrgId: Scalars['ID']['input'];
 };
 
 export type RevokeRoleUsersInput = {
@@ -1278,6 +1908,21 @@ export type SaveDataScopeRulePayload = {
   rule: DataScopeRule;
 };
 
+export type SaveFormDraftInput = {
+  expectedEditVersion: Scalars['Int']['input'];
+  id: Scalars['ID']['input'];
+  values: Scalars['JSONObject']['input'];
+};
+
+export type SaveFormVersionDraftInput = {
+  expectedDraftRevision: Scalars['Int']['input'];
+  fields: Array<Scalars['JSONObject']['input']>;
+  formKey: Scalars['ID']['input'];
+  layout: Scalars['JSONObject']['input'];
+  prefills: Array<Scalars['JSONObject']['input']>;
+  summaryMap: Scalars['JSONObject']['input'];
+};
+
 export type SaveRoleMatrixInput = {
   moduleKeys: Array<Scalars['String']['input']>;
   permissionKeys: Array<Scalars['String']['input']>;
@@ -1307,6 +1952,11 @@ export type SetModuleEnabledInput = {
 export type SetModuleIconInput = {
   icon?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
+};
+
+export type SetModuleListColumnsInput = {
+  columns: Array<ModuleListColumnInput>;
+  moduleKey: Scalars['String']['input'];
 };
 
 export type SetOrgEnabledInput = {
@@ -1339,6 +1989,11 @@ export type SetRoleEnabledInput = {
   id: Scalars['ID']['input'];
 };
 
+export type SetTenantFormEnabledInput = {
+  enabled: Scalars['Boolean']['input'];
+  formKey: Scalars['ID']['input'];
+};
+
 export type SetUserEnabledInput = {
   enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
@@ -1357,6 +2012,11 @@ export type SetUserOrgsPayload = {
   revokedRoleIds: Array<Scalars['ID']['output']>;
   unqualifiedRoles: Array<UnqualifiedRole>;
   user: User;
+};
+
+export type SubmitFormSubmissionInput = {
+  expectedEditVersion: Scalars['Int']['input'];
+  id: Scalars['ID']['input'];
 };
 
 export type SwitchOrgInput = {
@@ -1407,6 +2067,19 @@ export type UpdateFieldInput = {
   order?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type UpdateFormInput = {
+  key: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  tabLabelTemplate?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateFormSubmissionInput = {
+  expectedEditVersion: Scalars['Int']['input'];
+  expectedRevision: Scalars['Int']['input'];
+  id: Scalars['ID']['input'];
+  values: Scalars['JSONObject']['input'];
+};
+
 export type UpdateOrgInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
@@ -1437,6 +2110,7 @@ export type UpdateUserInput = {
 export enum UploadPurpose {
   DemoAttachment = 'DEMO_ATTACHMENT',
   DemoCover = 'DEMO_COVER',
+  FormAttachment = 'FORM_ATTACHMENT',
   OrgLogo = 'ORG_LOGO'
 }
 
@@ -1516,6 +2190,14 @@ export type UsersPayload = {
   page: Scalars['Int']['output'];
   pageSize: Scalars['Int']['output'];
   totalCount: Scalars['Int']['output'];
+};
+
+export type ValidateFormVersionInput = {
+  fields: Array<Scalars['JSONObject']['input']>;
+  formKey: Scalars['ID']['input'];
+  layout: Scalars['JSONObject']['input'];
+  prefills: Array<Scalars['JSONObject']['input']>;
+  summaryMap: Scalars['JSONObject']['input'];
 };
 
 export type LoginMutationVariables = Exact<{
@@ -1728,6 +2410,250 @@ export type SetFieldEnabledMutationVariables = Exact<{
 
 
 export type SetFieldEnabledMutation = { __typename?: 'Mutation', setFieldEnabled: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null } } };
+
+export type FormSubmissionFieldsFragment = { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null } | null, revisions: Array<{ __typename?: 'FormSubmissionRevisionMeta', revision: number, at: string, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canEditField: Array<string> } };
+
+export type FormLookupRecordFieldsFragment = { __typename?: 'FormLookupRecord', id: string, value?: string | null, label?: string | null, values: Record<string, unknown> };
+
+export type ModuleFormsQueryVariables = Exact<{
+  moduleKey: Scalars['ID']['input'];
+}>;
+
+
+export type ModuleFormsQuery = { __typename?: 'Query', moduleForms: Array<{ __typename?: 'FormSummary', key: string, name: string, moduleKey: string, currentVersion: number, tabLabelTemplate?: string | null }> };
+
+export type FormRuntimeVersionQueryVariables = Exact<{
+  formKey: Scalars['ID']['input'];
+  version: Scalars['Int']['input'];
+}>;
+
+
+export type FormRuntimeVersionQuery = { __typename?: 'Query', formRuntimeVersion: { __typename?: 'FormVersionPayload', formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>> } } };
+
+export type FormSubmissionsQueryVariables = Exact<{
+  input: FormSubmissionsInput;
+}>;
+
+
+export type FormSubmissionsQuery = { __typename?: 'Query', formSubmissions: { __typename?: 'FormSubmissionsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null } | null, revisions: Array<{ __typename?: 'FormSubmissionRevisionMeta', revision: number, at: string, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canEditField: Array<string> } }> } };
+
+export type FormSubmissionQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+  revision?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type FormSubmissionQuery = { __typename?: 'Query', formSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null } | null, revisions: Array<{ __typename?: 'FormSubmissionRevisionMeta', revision: number, at: string, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canEditField: Array<string> } } } };
+
+export type FormSubmissionAttachmentUrlQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+  fieldKey: Scalars['String']['input'];
+  revision?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type FormSubmissionAttachmentUrlQuery = { __typename?: 'Query', formSubmissionAttachmentUrl: { __typename?: 'FormSubmissionAttachmentUrlPayload', url: string } };
+
+export type CreateFormDraftMutationVariables = Exact<{
+  input: CreateFormDraftInput;
+}>;
+
+
+export type CreateFormDraftMutation = { __typename?: 'Mutation', createFormDraft: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null } | null, revisions: Array<{ __typename?: 'FormSubmissionRevisionMeta', revision: number, at: string, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canEditField: Array<string> } } } };
+
+export type SaveFormDraftMutationVariables = Exact<{
+  input: SaveFormDraftInput;
+}>;
+
+
+export type SaveFormDraftMutation = { __typename?: 'Mutation', saveFormDraft: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null } | null, revisions: Array<{ __typename?: 'FormSubmissionRevisionMeta', revision: number, at: string, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canEditField: Array<string> } } } };
+
+export type SubmitFormSubmissionMutationVariables = Exact<{
+  input: SubmitFormSubmissionInput;
+}>;
+
+
+export type SubmitFormSubmissionMutation = { __typename?: 'Mutation', submitFormSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null } | null, revisions: Array<{ __typename?: 'FormSubmissionRevisionMeta', revision: number, at: string, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canEditField: Array<string> } } } };
+
+export type UpdateFormSubmissionMutationVariables = Exact<{
+  input: UpdateFormSubmissionInput;
+}>;
+
+
+export type UpdateFormSubmissionMutation = { __typename?: 'Mutation', updateFormSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null } | null, revisions: Array<{ __typename?: 'FormSubmissionRevisionMeta', revision: number, at: string, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canEditField: Array<string> } } } };
+
+export type DeleteFormSubmissionMutationVariables = Exact<{
+  input: DeleteFormSubmissionInput;
+}>;
+
+
+export type DeleteFormSubmissionMutation = { __typename?: 'Mutation', deleteFormSubmission: { __typename?: 'DeleteFormSubmissionPayload', success: boolean, deletedId: string } };
+
+export type FormLookupQueryVariables = Exact<{
+  input: FormLookupInput;
+}>;
+
+
+export type FormLookupQuery = { __typename?: 'Query', formLookup: { __typename?: 'FormLookupPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormLookupRecord', id: string, value?: string | null, label?: string | null, values: Record<string, unknown> }> } };
+
+export type FormLookupRecordQueryVariables = Exact<{
+  input: FormLookupRecordInput;
+}>;
+
+
+export type FormLookupRecordQuery = { __typename?: 'Query', formLookupRecord: { __typename?: 'FormLookupRecordPayload', record?: { __typename?: 'FormLookupRecord', id: string, value?: string | null, label?: string | null, values: Record<string, unknown> } | null } };
+
+export type FormFieldsFragment = { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } };
+
+export type FormVersionFieldsFragment = { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null };
+
+export type FormValidationFieldsFragment = { __typename?: 'FormValidationReport', errors: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }>, warnings: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }> };
+
+export type FormsQueryVariables = Exact<{
+  input: FormsInput;
+}>;
+
+
+export type FormsQuery = { __typename?: 'Query', forms: { __typename?: 'FormsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } }> } };
+
+export type FormQueryVariables = Exact<{
+  key: Scalars['ID']['input'];
+}>;
+
+
+export type FormQuery = { __typename?: 'Query', form: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } } } };
+
+export type CreateFormMutationVariables = Exact<{
+  input: CreateFormInput;
+}>;
+
+
+export type CreateFormMutation = { __typename?: 'Mutation', createForm: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } } } };
+
+export type UpdateFormMutationVariables = Exact<{
+  input: UpdateFormInput;
+}>;
+
+
+export type UpdateFormMutation = { __typename?: 'Mutation', updateForm: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } } } };
+
+export type ForkFormMutationVariables = Exact<{
+  input: ForkFormInput;
+}>;
+
+
+export type ForkFormMutation = { __typename?: 'Mutation', forkForm: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } } } };
+
+export type FormVersionQueryVariables = Exact<{
+  formKey: Scalars['ID']['input'];
+  version?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type FormVersionQuery = { __typename?: 'Query', formVersion: { __typename?: 'FormVersionPayload', formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }, validation?: { __typename?: 'FormValidationReport', errors: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }>, warnings: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }> } | null } };
+
+export type FormVersionsQueryVariables = Exact<{
+  formKey: Scalars['ID']['input'];
+}>;
+
+
+export type FormVersionsQuery = { __typename?: 'Query', formVersions: { __typename?: 'FormVersionsPayload', totalCount: number, items: Array<{ __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }> } };
+
+export type CreateFormVersionDraftMutationVariables = Exact<{
+  input: CreateFormVersionDraftInput;
+}>;
+
+
+export type CreateFormVersionDraftMutation = { __typename?: 'Mutation', createFormVersionDraft: { __typename?: 'FormVersionPayload', formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }, validation?: { __typename?: 'FormValidationReport', errors: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }>, warnings: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }> } | null } };
+
+export type SaveFormVersionDraftMutationVariables = Exact<{
+  input: SaveFormVersionDraftInput;
+}>;
+
+
+export type SaveFormVersionDraftMutation = { __typename?: 'Mutation', saveFormVersionDraft: { __typename?: 'FormVersionPayload', formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }, validation?: { __typename?: 'FormValidationReport', errors: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }>, warnings: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }> } | null } };
+
+export type PublishFormVersionMutationVariables = Exact<{
+  input: PublishFormVersionInput;
+}>;
+
+
+export type PublishFormVersionMutation = { __typename?: 'Mutation', publishFormVersion: { __typename?: 'FormVersionPayload', formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null } } };
+
+export type RetryPublishFormVersionMutationVariables = Exact<{
+  input: FormKeyInput;
+}>;
+
+
+export type RetryPublishFormVersionMutation = { __typename?: 'Mutation', retryPublishFormVersion: { __typename?: 'FormVersionPayload', formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null } } };
+
+export type RetireCurrentVersionMutationVariables = Exact<{
+  input: FormKeyInput;
+}>;
+
+
+export type RetireCurrentVersionMutation = { __typename?: 'Mutation', retireCurrentVersion: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } } } };
+
+export type ValidateFormVersionQueryVariables = Exact<{
+  input: ValidateFormVersionInput;
+}>;
+
+
+export type ValidateFormVersionQuery = { __typename?: 'Query', validateFormVersion: { __typename?: 'FormValidationReport', errors: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }>, warnings: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }> } };
+
+export type PreviewFormVersionQueryVariables = Exact<{
+  input: PreviewFormVersionInput;
+}>;
+
+
+export type PreviewFormVersionQuery = { __typename?: 'Query', previewFormVersion: { __typename?: 'FormPreviewPayload', values: Record<string, unknown>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, summary: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null }, fieldErrors: Array<{ __typename?: 'FormFieldError', fieldKey: string, code: string, message: string }> } };
+
+export type AssignFormToTenantsMutationVariables = Exact<{
+  input: AssignFormToTenantsInput;
+}>;
+
+
+export type AssignFormToTenantsMutation = { __typename?: 'Mutation', assignFormToTenants: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } } } };
+
+export type RevokeFormFromTenantMutationVariables = Exact<{
+  input: RevokeFormFromTenantInput;
+}>;
+
+
+export type RevokeFormFromTenantMutation = { __typename?: 'Mutation', revokeFormFromTenant: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } } } };
+
+export type SetTenantFormEnabledMutationVariables = Exact<{
+  input: SetTenantFormEnabledInput;
+}>;
+
+
+export type SetTenantFormEnabledMutation = { __typename?: 'Mutation', setTenantFormEnabled: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean } } } };
+
+export type RetiredFormPermissionsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type RetiredFormPermissionsQuery = { __typename?: 'Query', retiredFormPermissions: { __typename?: 'RetiredFormPermissionsPayload', totalCount: number, items: Array<{ __typename?: 'RetiredFormPermission', key: string, name: string, moduleKey: string, formKey: string, formName?: string | null, fieldKey: string, action: string, retiredAt: string, usage: { __typename?: 'RetiredPermissionUsage', draftCount: number, draftVersions: Array<number>, completedCount: number, completedVersions: Array<number> } }> } };
+
+export type DeleteRetiredPermissionMutationVariables = Exact<{
+  input: DeleteRetiredPermissionInput;
+}>;
+
+
+export type DeleteRetiredPermissionMutation = { __typename?: 'Mutation', deleteRetiredPermission: { __typename?: 'DeleteRetiredPermissionPayload', success: boolean, deletedKey: string, usage: { __typename?: 'RetiredPermissionUsage', draftCount: number, draftVersions: Array<number>, completedCount: number, completedVersions: Array<number> } } };
+
+export type ModuleListColumnsQueryVariables = Exact<{
+  moduleKey: Scalars['String']['input'];
+}>;
+
+
+export type ModuleListColumnsQuery = { __typename?: 'Query', moduleListColumns: { __typename?: 'ModuleListColumnsPayload', moduleKey: string, columns: Array<{ __typename?: 'ModuleListColumn', kind: ModuleListColumnKind, key: string, formKey?: string | null, width: number, order: number }> } };
+
+export type SetModuleListColumnsMutationVariables = Exact<{
+  input: SetModuleListColumnsInput;
+}>;
+
+
+export type SetModuleListColumnsMutation = { __typename?: 'Mutation', setModuleListColumns: { __typename?: 'ModuleListColumnsPayload', moduleKey: string, columns: Array<{ __typename?: 'ModuleListColumn', kind: ModuleListColumnKind, key: string, formKey?: string | null, width: number, order: number }> } };
 
 export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
 
@@ -2099,6 +3025,144 @@ export const FieldFieldsFragmentDoc = `
   isOwn
   canEdit
   canToggleEnabled
+}
+    `;
+export const FormSubmissionFieldsFragmentDoc = `
+    fragment FormSubmissionFields on FormSubmissionModel {
+  id
+  moduleKey
+  formKey
+  formName
+  version
+  status
+  revision
+  viewedRevision
+  values
+  fieldStates {
+    key
+    visible
+    readonly
+    redacted
+  }
+  displayValues {
+    fieldKey
+    items {
+      value
+      label
+      available
+    }
+  }
+  summary {
+    title
+    date
+    amount
+  }
+  ctx {
+    at
+    timezone
+    userId
+    orgId
+  }
+  revisions {
+    revision
+    at
+    user {
+      id
+      name
+    }
+  }
+  editVersion
+  orgId
+  createdBy {
+    id
+    name
+  }
+  submittedAt
+  createdAt
+  updatedAt
+  abilities {
+    canEdit
+    canDelete
+    canEditField
+  }
+}
+    `;
+export const FormLookupRecordFieldsFragmentDoc = `
+    fragment FormLookupRecordFields on FormLookupRecord {
+  id
+  value
+  label
+  values
+}
+    `;
+export const FormFieldsFragmentDoc = `
+    fragment FormFields on FormModel {
+  id
+  key
+  moduleKey
+  moduleName
+  name
+  isShared
+  ownerOrgId
+  ownerOrgName
+  forkedFrom {
+    formKey
+    version
+  }
+  currentVersion
+  tabLabelTemplate
+  hasDraft
+  publishInterrupted
+  tenantEnabled
+  assignments {
+    tenantOrgId
+    tenantName
+    enabled
+  }
+  abilities {
+    canEdit
+    canAssign
+    canSetEnabled
+    canFork
+  }
+  createdAt
+  updatedAt
+}
+    `;
+export const FormVersionFieldsFragmentDoc = `
+    fragment FormVersionFields on FormVersionModel {
+  id
+  formKey
+  version
+  status
+  draftRevision
+  baseVersion
+  fields
+  layout
+  summaryMap
+  prefills
+  changelog
+  publishedAt
+  publishedBy {
+    id
+    name
+  }
+  createdAt
+  updatedAt
+}
+    `;
+export const FormValidationFieldsFragmentDoc = `
+    fragment FormValidationFields on FormValidationReport {
+  errors {
+    code
+    message
+    location
+  }
+  warnings {
+    code
+    message
+    location
+  }
 }
     `;
 export const ModuleAdminNodeFieldsFragmentDoc = `
@@ -3263,6 +4327,1110 @@ export const useSetFieldEnabledMutation = <
 
 
 useSetFieldEnabledMutation.fetcher = (client: GraphQLClient, variables: SetFieldEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetFieldEnabledMutation, SetFieldEnabledMutationVariables>(client, SetFieldEnabledDocument, variables, headers);
+
+export const ModuleFormsDocument = `
+    query ModuleForms($moduleKey: ID!) {
+  moduleForms(moduleKey: $moduleKey) {
+    key
+    name
+    moduleKey
+    currentVersion
+    tabLabelTemplate
+  }
+}
+    `;
+
+export const useModuleFormsQuery = <
+      TData = ModuleFormsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ModuleFormsQueryVariables,
+      options?: Omit<UseQueryOptions<ModuleFormsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ModuleFormsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ModuleFormsQuery, TError, TData>(
+      {
+    queryKey: ['ModuleForms', variables],
+    queryFn: fetcher<ModuleFormsQuery, ModuleFormsQueryVariables>(client, ModuleFormsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useModuleFormsQuery.getKey = (variables: ModuleFormsQueryVariables) => ['ModuleForms', variables];
+
+
+useModuleFormsQuery.fetcher = (client: GraphQLClient, variables: ModuleFormsQueryVariables, headers?: RequestInit['headers']) => fetcher<ModuleFormsQuery, ModuleFormsQueryVariables>(client, ModuleFormsDocument, variables, headers);
+
+export const FormRuntimeVersionDocument = `
+    query FormRuntimeVersion($formKey: ID!, $version: Int!) {
+  formRuntimeVersion(formKey: $formKey, version: $version) {
+    formVersion {
+      id
+      formKey
+      version
+      status
+      fields
+      layout
+      summaryMap
+      prefills
+    }
+  }
+}
+    `;
+
+export const useFormRuntimeVersionQuery = <
+      TData = FormRuntimeVersionQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormRuntimeVersionQueryVariables,
+      options?: Omit<UseQueryOptions<FormRuntimeVersionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormRuntimeVersionQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormRuntimeVersionQuery, TError, TData>(
+      {
+    queryKey: ['FormRuntimeVersion', variables],
+    queryFn: fetcher<FormRuntimeVersionQuery, FormRuntimeVersionQueryVariables>(client, FormRuntimeVersionDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormRuntimeVersionQuery.getKey = (variables: FormRuntimeVersionQueryVariables) => ['FormRuntimeVersion', variables];
+
+
+useFormRuntimeVersionQuery.fetcher = (client: GraphQLClient, variables: FormRuntimeVersionQueryVariables, headers?: RequestInit['headers']) => fetcher<FormRuntimeVersionQuery, FormRuntimeVersionQueryVariables>(client, FormRuntimeVersionDocument, variables, headers);
+
+export const FormSubmissionsDocument = `
+    query FormSubmissions($input: FormSubmissionsInput!) {
+  formSubmissions(input: $input) {
+    items {
+      ...FormSubmissionFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    ${FormSubmissionFieldsFragmentDoc}`;
+
+export const useFormSubmissionsQuery = <
+      TData = FormSubmissionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormSubmissionsQueryVariables,
+      options?: Omit<UseQueryOptions<FormSubmissionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormSubmissionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormSubmissionsQuery, TError, TData>(
+      {
+    queryKey: ['FormSubmissions', variables],
+    queryFn: fetcher<FormSubmissionsQuery, FormSubmissionsQueryVariables>(client, FormSubmissionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormSubmissionsQuery.getKey = (variables: FormSubmissionsQueryVariables) => ['FormSubmissions', variables];
+
+
+useFormSubmissionsQuery.fetcher = (client: GraphQLClient, variables: FormSubmissionsQueryVariables, headers?: RequestInit['headers']) => fetcher<FormSubmissionsQuery, FormSubmissionsQueryVariables>(client, FormSubmissionsDocument, variables, headers);
+
+export const FormSubmissionDocument = `
+    query FormSubmission($id: ID!, $revision: Int) {
+  formSubmission(id: $id, revision: $revision) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+    ${FormSubmissionFieldsFragmentDoc}`;
+
+export const useFormSubmissionQuery = <
+      TData = FormSubmissionQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormSubmissionQueryVariables,
+      options?: Omit<UseQueryOptions<FormSubmissionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormSubmissionQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormSubmissionQuery, TError, TData>(
+      {
+    queryKey: ['FormSubmission', variables],
+    queryFn: fetcher<FormSubmissionQuery, FormSubmissionQueryVariables>(client, FormSubmissionDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormSubmissionQuery.getKey = (variables: FormSubmissionQueryVariables) => ['FormSubmission', variables];
+
+
+useFormSubmissionQuery.fetcher = (client: GraphQLClient, variables: FormSubmissionQueryVariables, headers?: RequestInit['headers']) => fetcher<FormSubmissionQuery, FormSubmissionQueryVariables>(client, FormSubmissionDocument, variables, headers);
+
+export const FormSubmissionAttachmentUrlDocument = `
+    query FormSubmissionAttachmentUrl($id: ID!, $fieldKey: String!, $revision: Int) {
+  formSubmissionAttachmentUrl(id: $id, fieldKey: $fieldKey, revision: $revision) {
+    url
+  }
+}
+    `;
+
+export const useFormSubmissionAttachmentUrlQuery = <
+      TData = FormSubmissionAttachmentUrlQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormSubmissionAttachmentUrlQueryVariables,
+      options?: Omit<UseQueryOptions<FormSubmissionAttachmentUrlQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormSubmissionAttachmentUrlQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormSubmissionAttachmentUrlQuery, TError, TData>(
+      {
+    queryKey: ['FormSubmissionAttachmentUrl', variables],
+    queryFn: fetcher<FormSubmissionAttachmentUrlQuery, FormSubmissionAttachmentUrlQueryVariables>(client, FormSubmissionAttachmentUrlDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormSubmissionAttachmentUrlQuery.getKey = (variables: FormSubmissionAttachmentUrlQueryVariables) => ['FormSubmissionAttachmentUrl', variables];
+
+
+useFormSubmissionAttachmentUrlQuery.fetcher = (client: GraphQLClient, variables: FormSubmissionAttachmentUrlQueryVariables, headers?: RequestInit['headers']) => fetcher<FormSubmissionAttachmentUrlQuery, FormSubmissionAttachmentUrlQueryVariables>(client, FormSubmissionAttachmentUrlDocument, variables, headers);
+
+export const CreateFormDraftDocument = `
+    mutation CreateFormDraft($input: CreateFormDraftInput!) {
+  createFormDraft(input: $input) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+    ${FormSubmissionFieldsFragmentDoc}`;
+
+export const useCreateFormDraftMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateFormDraftMutation, TError, CreateFormDraftMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateFormDraftMutation, TError, CreateFormDraftMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateFormDraft'],
+    mutationFn: (variables?: CreateFormDraftMutationVariables) => fetcher<CreateFormDraftMutation, CreateFormDraftMutationVariables>(client, CreateFormDraftDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateFormDraftMutation.fetcher = (client: GraphQLClient, variables: CreateFormDraftMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateFormDraftMutation, CreateFormDraftMutationVariables>(client, CreateFormDraftDocument, variables, headers);
+
+export const SaveFormDraftDocument = `
+    mutation SaveFormDraft($input: SaveFormDraftInput!) {
+  saveFormDraft(input: $input) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+    ${FormSubmissionFieldsFragmentDoc}`;
+
+export const useSaveFormDraftMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SaveFormDraftMutation, TError, SaveFormDraftMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SaveFormDraftMutation, TError, SaveFormDraftMutationVariables, TContext>(
+      {
+    mutationKey: ['SaveFormDraft'],
+    mutationFn: (variables?: SaveFormDraftMutationVariables) => fetcher<SaveFormDraftMutation, SaveFormDraftMutationVariables>(client, SaveFormDraftDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSaveFormDraftMutation.fetcher = (client: GraphQLClient, variables: SaveFormDraftMutationVariables, headers?: RequestInit['headers']) => fetcher<SaveFormDraftMutation, SaveFormDraftMutationVariables>(client, SaveFormDraftDocument, variables, headers);
+
+export const SubmitFormSubmissionDocument = `
+    mutation SubmitFormSubmission($input: SubmitFormSubmissionInput!) {
+  submitFormSubmission(input: $input) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+    ${FormSubmissionFieldsFragmentDoc}`;
+
+export const useSubmitFormSubmissionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SubmitFormSubmissionMutation, TError, SubmitFormSubmissionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SubmitFormSubmissionMutation, TError, SubmitFormSubmissionMutationVariables, TContext>(
+      {
+    mutationKey: ['SubmitFormSubmission'],
+    mutationFn: (variables?: SubmitFormSubmissionMutationVariables) => fetcher<SubmitFormSubmissionMutation, SubmitFormSubmissionMutationVariables>(client, SubmitFormSubmissionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSubmitFormSubmissionMutation.fetcher = (client: GraphQLClient, variables: SubmitFormSubmissionMutationVariables, headers?: RequestInit['headers']) => fetcher<SubmitFormSubmissionMutation, SubmitFormSubmissionMutationVariables>(client, SubmitFormSubmissionDocument, variables, headers);
+
+export const UpdateFormSubmissionDocument = `
+    mutation UpdateFormSubmission($input: UpdateFormSubmissionInput!) {
+  updateFormSubmission(input: $input) {
+    submission {
+      ...FormSubmissionFields
+    }
+  }
+}
+    ${FormSubmissionFieldsFragmentDoc}`;
+
+export const useUpdateFormSubmissionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateFormSubmissionMutation, TError, UpdateFormSubmissionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateFormSubmissionMutation, TError, UpdateFormSubmissionMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateFormSubmission'],
+    mutationFn: (variables?: UpdateFormSubmissionMutationVariables) => fetcher<UpdateFormSubmissionMutation, UpdateFormSubmissionMutationVariables>(client, UpdateFormSubmissionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateFormSubmissionMutation.fetcher = (client: GraphQLClient, variables: UpdateFormSubmissionMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateFormSubmissionMutation, UpdateFormSubmissionMutationVariables>(client, UpdateFormSubmissionDocument, variables, headers);
+
+export const DeleteFormSubmissionDocument = `
+    mutation DeleteFormSubmission($input: DeleteFormSubmissionInput!) {
+  deleteFormSubmission(input: $input) {
+    success
+    deletedId
+  }
+}
+    `;
+
+export const useDeleteFormSubmissionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteFormSubmissionMutation, TError, DeleteFormSubmissionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteFormSubmissionMutation, TError, DeleteFormSubmissionMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteFormSubmission'],
+    mutationFn: (variables?: DeleteFormSubmissionMutationVariables) => fetcher<DeleteFormSubmissionMutation, DeleteFormSubmissionMutationVariables>(client, DeleteFormSubmissionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useDeleteFormSubmissionMutation.fetcher = (client: GraphQLClient, variables: DeleteFormSubmissionMutationVariables, headers?: RequestInit['headers']) => fetcher<DeleteFormSubmissionMutation, DeleteFormSubmissionMutationVariables>(client, DeleteFormSubmissionDocument, variables, headers);
+
+export const FormLookupDocument = `
+    query FormLookup($input: FormLookupInput!) {
+  formLookup(input: $input) {
+    items {
+      ...FormLookupRecordFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    ${FormLookupRecordFieldsFragmentDoc}`;
+
+export const useFormLookupQuery = <
+      TData = FormLookupQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormLookupQueryVariables,
+      options?: Omit<UseQueryOptions<FormLookupQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormLookupQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormLookupQuery, TError, TData>(
+      {
+    queryKey: ['FormLookup', variables],
+    queryFn: fetcher<FormLookupQuery, FormLookupQueryVariables>(client, FormLookupDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormLookupQuery.getKey = (variables: FormLookupQueryVariables) => ['FormLookup', variables];
+
+
+useFormLookupQuery.fetcher = (client: GraphQLClient, variables: FormLookupQueryVariables, headers?: RequestInit['headers']) => fetcher<FormLookupQuery, FormLookupQueryVariables>(client, FormLookupDocument, variables, headers);
+
+export const FormLookupRecordDocument = `
+    query FormLookupRecord($input: FormLookupRecordInput!) {
+  formLookupRecord(input: $input) {
+    record {
+      ...FormLookupRecordFields
+    }
+  }
+}
+    ${FormLookupRecordFieldsFragmentDoc}`;
+
+export const useFormLookupRecordQuery = <
+      TData = FormLookupRecordQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormLookupRecordQueryVariables,
+      options?: Omit<UseQueryOptions<FormLookupRecordQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormLookupRecordQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormLookupRecordQuery, TError, TData>(
+      {
+    queryKey: ['FormLookupRecord', variables],
+    queryFn: fetcher<FormLookupRecordQuery, FormLookupRecordQueryVariables>(client, FormLookupRecordDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormLookupRecordQuery.getKey = (variables: FormLookupRecordQueryVariables) => ['FormLookupRecord', variables];
+
+
+useFormLookupRecordQuery.fetcher = (client: GraphQLClient, variables: FormLookupRecordQueryVariables, headers?: RequestInit['headers']) => fetcher<FormLookupRecordQuery, FormLookupRecordQueryVariables>(client, FormLookupRecordDocument, variables, headers);
+
+export const FormsDocument = `
+    query Forms($input: FormsInput!) {
+  forms(input: $input) {
+    items {
+      ...FormFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    ${FormFieldsFragmentDoc}`;
+
+export const useFormsQuery = <
+      TData = FormsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormsQueryVariables,
+      options?: Omit<UseQueryOptions<FormsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormsQuery, TError, TData>(
+      {
+    queryKey: ['Forms', variables],
+    queryFn: fetcher<FormsQuery, FormsQueryVariables>(client, FormsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormsQuery.getKey = (variables: FormsQueryVariables) => ['Forms', variables];
+
+
+useFormsQuery.fetcher = (client: GraphQLClient, variables: FormsQueryVariables, headers?: RequestInit['headers']) => fetcher<FormsQuery, FormsQueryVariables>(client, FormsDocument, variables, headers);
+
+export const FormDocument = `
+    query Form($key: ID!) {
+  form(key: $key) {
+    form {
+      ...FormFields
+    }
+  }
+}
+    ${FormFieldsFragmentDoc}`;
+
+export const useFormQuery = <
+      TData = FormQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormQueryVariables,
+      options?: Omit<UseQueryOptions<FormQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormQuery, TError, TData>(
+      {
+    queryKey: ['Form', variables],
+    queryFn: fetcher<FormQuery, FormQueryVariables>(client, FormDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormQuery.getKey = (variables: FormQueryVariables) => ['Form', variables];
+
+
+useFormQuery.fetcher = (client: GraphQLClient, variables: FormQueryVariables, headers?: RequestInit['headers']) => fetcher<FormQuery, FormQueryVariables>(client, FormDocument, variables, headers);
+
+export const CreateFormDocument = `
+    mutation CreateForm($input: CreateFormInput!) {
+  createForm(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+    ${FormFieldsFragmentDoc}`;
+
+export const useCreateFormMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateFormMutation, TError, CreateFormMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateFormMutation, TError, CreateFormMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateForm'],
+    mutationFn: (variables?: CreateFormMutationVariables) => fetcher<CreateFormMutation, CreateFormMutationVariables>(client, CreateFormDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateFormMutation.fetcher = (client: GraphQLClient, variables: CreateFormMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateFormMutation, CreateFormMutationVariables>(client, CreateFormDocument, variables, headers);
+
+export const UpdateFormDocument = `
+    mutation UpdateForm($input: UpdateFormInput!) {
+  updateForm(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+    ${FormFieldsFragmentDoc}`;
+
+export const useUpdateFormMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateFormMutation, TError, UpdateFormMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateFormMutation, TError, UpdateFormMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateForm'],
+    mutationFn: (variables?: UpdateFormMutationVariables) => fetcher<UpdateFormMutation, UpdateFormMutationVariables>(client, UpdateFormDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateFormMutation.fetcher = (client: GraphQLClient, variables: UpdateFormMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateFormMutation, UpdateFormMutationVariables>(client, UpdateFormDocument, variables, headers);
+
+export const ForkFormDocument = `
+    mutation ForkForm($input: ForkFormInput!) {
+  forkForm(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+    ${FormFieldsFragmentDoc}`;
+
+export const useForkFormMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ForkFormMutation, TError, ForkFormMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ForkFormMutation, TError, ForkFormMutationVariables, TContext>(
+      {
+    mutationKey: ['ForkForm'],
+    mutationFn: (variables?: ForkFormMutationVariables) => fetcher<ForkFormMutation, ForkFormMutationVariables>(client, ForkFormDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useForkFormMutation.fetcher = (client: GraphQLClient, variables: ForkFormMutationVariables, headers?: RequestInit['headers']) => fetcher<ForkFormMutation, ForkFormMutationVariables>(client, ForkFormDocument, variables, headers);
+
+export const FormVersionDocument = `
+    query FormVersion($formKey: ID!, $version: Int) {
+  formVersion(formKey: $formKey, version: $version) {
+    formVersion {
+      ...FormVersionFields
+    }
+    validation {
+      ...FormValidationFields
+    }
+  }
+}
+    ${FormVersionFieldsFragmentDoc}
+${FormValidationFieldsFragmentDoc}`;
+
+export const useFormVersionQuery = <
+      TData = FormVersionQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormVersionQueryVariables,
+      options?: Omit<UseQueryOptions<FormVersionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormVersionQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormVersionQuery, TError, TData>(
+      {
+    queryKey: ['FormVersion', variables],
+    queryFn: fetcher<FormVersionQuery, FormVersionQueryVariables>(client, FormVersionDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormVersionQuery.getKey = (variables: FormVersionQueryVariables) => ['FormVersion', variables];
+
+
+useFormVersionQuery.fetcher = (client: GraphQLClient, variables: FormVersionQueryVariables, headers?: RequestInit['headers']) => fetcher<FormVersionQuery, FormVersionQueryVariables>(client, FormVersionDocument, variables, headers);
+
+export const FormVersionsDocument = `
+    query FormVersions($formKey: ID!) {
+  formVersions(formKey: $formKey) {
+    items {
+      ...FormVersionFields
+    }
+    totalCount
+  }
+}
+    ${FormVersionFieldsFragmentDoc}`;
+
+export const useFormVersionsQuery = <
+      TData = FormVersionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormVersionsQueryVariables,
+      options?: Omit<UseQueryOptions<FormVersionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormVersionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormVersionsQuery, TError, TData>(
+      {
+    queryKey: ['FormVersions', variables],
+    queryFn: fetcher<FormVersionsQuery, FormVersionsQueryVariables>(client, FormVersionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormVersionsQuery.getKey = (variables: FormVersionsQueryVariables) => ['FormVersions', variables];
+
+
+useFormVersionsQuery.fetcher = (client: GraphQLClient, variables: FormVersionsQueryVariables, headers?: RequestInit['headers']) => fetcher<FormVersionsQuery, FormVersionsQueryVariables>(client, FormVersionsDocument, variables, headers);
+
+export const CreateFormVersionDraftDocument = `
+    mutation CreateFormVersionDraft($input: CreateFormVersionDraftInput!) {
+  createFormVersionDraft(input: $input) {
+    formVersion {
+      ...FormVersionFields
+    }
+    validation {
+      ...FormValidationFields
+    }
+  }
+}
+    ${FormVersionFieldsFragmentDoc}
+${FormValidationFieldsFragmentDoc}`;
+
+export const useCreateFormVersionDraftMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateFormVersionDraftMutation, TError, CreateFormVersionDraftMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateFormVersionDraftMutation, TError, CreateFormVersionDraftMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateFormVersionDraft'],
+    mutationFn: (variables?: CreateFormVersionDraftMutationVariables) => fetcher<CreateFormVersionDraftMutation, CreateFormVersionDraftMutationVariables>(client, CreateFormVersionDraftDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateFormVersionDraftMutation.fetcher = (client: GraphQLClient, variables: CreateFormVersionDraftMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateFormVersionDraftMutation, CreateFormVersionDraftMutationVariables>(client, CreateFormVersionDraftDocument, variables, headers);
+
+export const SaveFormVersionDraftDocument = `
+    mutation SaveFormVersionDraft($input: SaveFormVersionDraftInput!) {
+  saveFormVersionDraft(input: $input) {
+    formVersion {
+      ...FormVersionFields
+    }
+    validation {
+      ...FormValidationFields
+    }
+  }
+}
+    ${FormVersionFieldsFragmentDoc}
+${FormValidationFieldsFragmentDoc}`;
+
+export const useSaveFormVersionDraftMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SaveFormVersionDraftMutation, TError, SaveFormVersionDraftMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SaveFormVersionDraftMutation, TError, SaveFormVersionDraftMutationVariables, TContext>(
+      {
+    mutationKey: ['SaveFormVersionDraft'],
+    mutationFn: (variables?: SaveFormVersionDraftMutationVariables) => fetcher<SaveFormVersionDraftMutation, SaveFormVersionDraftMutationVariables>(client, SaveFormVersionDraftDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSaveFormVersionDraftMutation.fetcher = (client: GraphQLClient, variables: SaveFormVersionDraftMutationVariables, headers?: RequestInit['headers']) => fetcher<SaveFormVersionDraftMutation, SaveFormVersionDraftMutationVariables>(client, SaveFormVersionDraftDocument, variables, headers);
+
+export const PublishFormVersionDocument = `
+    mutation PublishFormVersion($input: PublishFormVersionInput!) {
+  publishFormVersion(input: $input) {
+    formVersion {
+      ...FormVersionFields
+    }
+  }
+}
+    ${FormVersionFieldsFragmentDoc}`;
+
+export const usePublishFormVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<PublishFormVersionMutation, TError, PublishFormVersionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<PublishFormVersionMutation, TError, PublishFormVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['PublishFormVersion'],
+    mutationFn: (variables?: PublishFormVersionMutationVariables) => fetcher<PublishFormVersionMutation, PublishFormVersionMutationVariables>(client, PublishFormVersionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+usePublishFormVersionMutation.fetcher = (client: GraphQLClient, variables: PublishFormVersionMutationVariables, headers?: RequestInit['headers']) => fetcher<PublishFormVersionMutation, PublishFormVersionMutationVariables>(client, PublishFormVersionDocument, variables, headers);
+
+export const RetryPublishFormVersionDocument = `
+    mutation RetryPublishFormVersion($input: FormKeyInput!) {
+  retryPublishFormVersion(input: $input) {
+    formVersion {
+      ...FormVersionFields
+    }
+  }
+}
+    ${FormVersionFieldsFragmentDoc}`;
+
+export const useRetryPublishFormVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RetryPublishFormVersionMutation, TError, RetryPublishFormVersionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RetryPublishFormVersionMutation, TError, RetryPublishFormVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['RetryPublishFormVersion'],
+    mutationFn: (variables?: RetryPublishFormVersionMutationVariables) => fetcher<RetryPublishFormVersionMutation, RetryPublishFormVersionMutationVariables>(client, RetryPublishFormVersionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRetryPublishFormVersionMutation.fetcher = (client: GraphQLClient, variables: RetryPublishFormVersionMutationVariables, headers?: RequestInit['headers']) => fetcher<RetryPublishFormVersionMutation, RetryPublishFormVersionMutationVariables>(client, RetryPublishFormVersionDocument, variables, headers);
+
+export const RetireCurrentVersionDocument = `
+    mutation RetireCurrentVersion($input: FormKeyInput!) {
+  retireCurrentVersion(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+    ${FormFieldsFragmentDoc}`;
+
+export const useRetireCurrentVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RetireCurrentVersionMutation, TError, RetireCurrentVersionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RetireCurrentVersionMutation, TError, RetireCurrentVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['RetireCurrentVersion'],
+    mutationFn: (variables?: RetireCurrentVersionMutationVariables) => fetcher<RetireCurrentVersionMutation, RetireCurrentVersionMutationVariables>(client, RetireCurrentVersionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRetireCurrentVersionMutation.fetcher = (client: GraphQLClient, variables: RetireCurrentVersionMutationVariables, headers?: RequestInit['headers']) => fetcher<RetireCurrentVersionMutation, RetireCurrentVersionMutationVariables>(client, RetireCurrentVersionDocument, variables, headers);
+
+export const ValidateFormVersionDocument = `
+    query ValidateFormVersion($input: ValidateFormVersionInput!) {
+  validateFormVersion(input: $input) {
+    ...FormValidationFields
+  }
+}
+    ${FormValidationFieldsFragmentDoc}`;
+
+export const useValidateFormVersionQuery = <
+      TData = ValidateFormVersionQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ValidateFormVersionQueryVariables,
+      options?: Omit<UseQueryOptions<ValidateFormVersionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ValidateFormVersionQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ValidateFormVersionQuery, TError, TData>(
+      {
+    queryKey: ['ValidateFormVersion', variables],
+    queryFn: fetcher<ValidateFormVersionQuery, ValidateFormVersionQueryVariables>(client, ValidateFormVersionDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useValidateFormVersionQuery.getKey = (variables: ValidateFormVersionQueryVariables) => ['ValidateFormVersion', variables];
+
+
+useValidateFormVersionQuery.fetcher = (client: GraphQLClient, variables: ValidateFormVersionQueryVariables, headers?: RequestInit['headers']) => fetcher<ValidateFormVersionQuery, ValidateFormVersionQueryVariables>(client, ValidateFormVersionDocument, variables, headers);
+
+export const PreviewFormVersionDocument = `
+    query PreviewFormVersion($input: PreviewFormVersionInput!) {
+  previewFormVersion(input: $input) {
+    values
+    fieldStates {
+      key
+      visible
+      readonly
+      redacted
+    }
+    summary {
+      title
+      date
+      amount
+    }
+    fieldErrors {
+      fieldKey
+      code
+      message
+    }
+  }
+}
+    `;
+
+export const usePreviewFormVersionQuery = <
+      TData = PreviewFormVersionQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: PreviewFormVersionQueryVariables,
+      options?: Omit<UseQueryOptions<PreviewFormVersionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<PreviewFormVersionQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<PreviewFormVersionQuery, TError, TData>(
+      {
+    queryKey: ['PreviewFormVersion', variables],
+    queryFn: fetcher<PreviewFormVersionQuery, PreviewFormVersionQueryVariables>(client, PreviewFormVersionDocument, variables, headers),
+    ...options
+  }
+    )};
+
+usePreviewFormVersionQuery.getKey = (variables: PreviewFormVersionQueryVariables) => ['PreviewFormVersion', variables];
+
+
+usePreviewFormVersionQuery.fetcher = (client: GraphQLClient, variables: PreviewFormVersionQueryVariables, headers?: RequestInit['headers']) => fetcher<PreviewFormVersionQuery, PreviewFormVersionQueryVariables>(client, PreviewFormVersionDocument, variables, headers);
+
+export const AssignFormToTenantsDocument = `
+    mutation AssignFormToTenants($input: AssignFormToTenantsInput!) {
+  assignFormToTenants(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+    ${FormFieldsFragmentDoc}`;
+
+export const useAssignFormToTenantsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<AssignFormToTenantsMutation, TError, AssignFormToTenantsMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<AssignFormToTenantsMutation, TError, AssignFormToTenantsMutationVariables, TContext>(
+      {
+    mutationKey: ['AssignFormToTenants'],
+    mutationFn: (variables?: AssignFormToTenantsMutationVariables) => fetcher<AssignFormToTenantsMutation, AssignFormToTenantsMutationVariables>(client, AssignFormToTenantsDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useAssignFormToTenantsMutation.fetcher = (client: GraphQLClient, variables: AssignFormToTenantsMutationVariables, headers?: RequestInit['headers']) => fetcher<AssignFormToTenantsMutation, AssignFormToTenantsMutationVariables>(client, AssignFormToTenantsDocument, variables, headers);
+
+export const RevokeFormFromTenantDocument = `
+    mutation RevokeFormFromTenant($input: RevokeFormFromTenantInput!) {
+  revokeFormFromTenant(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+    ${FormFieldsFragmentDoc}`;
+
+export const useRevokeFormFromTenantMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RevokeFormFromTenantMutation, TError, RevokeFormFromTenantMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RevokeFormFromTenantMutation, TError, RevokeFormFromTenantMutationVariables, TContext>(
+      {
+    mutationKey: ['RevokeFormFromTenant'],
+    mutationFn: (variables?: RevokeFormFromTenantMutationVariables) => fetcher<RevokeFormFromTenantMutation, RevokeFormFromTenantMutationVariables>(client, RevokeFormFromTenantDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRevokeFormFromTenantMutation.fetcher = (client: GraphQLClient, variables: RevokeFormFromTenantMutationVariables, headers?: RequestInit['headers']) => fetcher<RevokeFormFromTenantMutation, RevokeFormFromTenantMutationVariables>(client, RevokeFormFromTenantDocument, variables, headers);
+
+export const SetTenantFormEnabledDocument = `
+    mutation SetTenantFormEnabled($input: SetTenantFormEnabledInput!) {
+  setTenantFormEnabled(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+    ${FormFieldsFragmentDoc}`;
+
+export const useSetTenantFormEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetTenantFormEnabledMutation, TError, SetTenantFormEnabledMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetTenantFormEnabledMutation, TError, SetTenantFormEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['SetTenantFormEnabled'],
+    mutationFn: (variables?: SetTenantFormEnabledMutationVariables) => fetcher<SetTenantFormEnabledMutation, SetTenantFormEnabledMutationVariables>(client, SetTenantFormEnabledDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetTenantFormEnabledMutation.fetcher = (client: GraphQLClient, variables: SetTenantFormEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetTenantFormEnabledMutation, SetTenantFormEnabledMutationVariables>(client, SetTenantFormEnabledDocument, variables, headers);
+
+export const RetiredFormPermissionsDocument = `
+    query RetiredFormPermissions {
+  retiredFormPermissions {
+    items {
+      key
+      name
+      moduleKey
+      formKey
+      formName
+      fieldKey
+      action
+      retiredAt
+      usage {
+        draftCount
+        draftVersions
+        completedCount
+        completedVersions
+      }
+    }
+    totalCount
+  }
+}
+    `;
+
+export const useRetiredFormPermissionsQuery = <
+      TData = RetiredFormPermissionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: RetiredFormPermissionsQueryVariables,
+      options?: Omit<UseQueryOptions<RetiredFormPermissionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<RetiredFormPermissionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<RetiredFormPermissionsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['RetiredFormPermissions'] : ['RetiredFormPermissions', variables],
+    queryFn: fetcher<RetiredFormPermissionsQuery, RetiredFormPermissionsQueryVariables>(client, RetiredFormPermissionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useRetiredFormPermissionsQuery.getKey = (variables?: RetiredFormPermissionsQueryVariables) => variables === undefined ? ['RetiredFormPermissions'] : ['RetiredFormPermissions', variables];
+
+
+useRetiredFormPermissionsQuery.fetcher = (client: GraphQLClient, variables?: RetiredFormPermissionsQueryVariables, headers?: RequestInit['headers']) => fetcher<RetiredFormPermissionsQuery, RetiredFormPermissionsQueryVariables>(client, RetiredFormPermissionsDocument, variables, headers);
+
+export const DeleteRetiredPermissionDocument = `
+    mutation DeleteRetiredPermission($input: DeleteRetiredPermissionInput!) {
+  deleteRetiredPermission(input: $input) {
+    success
+    deletedKey
+    usage {
+      draftCount
+      draftVersions
+      completedCount
+      completedVersions
+    }
+  }
+}
+    `;
+
+export const useDeleteRetiredPermissionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DeleteRetiredPermissionMutation, TError, DeleteRetiredPermissionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DeleteRetiredPermissionMutation, TError, DeleteRetiredPermissionMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteRetiredPermission'],
+    mutationFn: (variables?: DeleteRetiredPermissionMutationVariables) => fetcher<DeleteRetiredPermissionMutation, DeleteRetiredPermissionMutationVariables>(client, DeleteRetiredPermissionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useDeleteRetiredPermissionMutation.fetcher = (client: GraphQLClient, variables: DeleteRetiredPermissionMutationVariables, headers?: RequestInit['headers']) => fetcher<DeleteRetiredPermissionMutation, DeleteRetiredPermissionMutationVariables>(client, DeleteRetiredPermissionDocument, variables, headers);
+
+export const ModuleListColumnsDocument = `
+    query ModuleListColumns($moduleKey: String!) {
+  moduleListColumns(moduleKey: $moduleKey) {
+    moduleKey
+    columns {
+      kind
+      key
+      formKey
+      width
+      order
+    }
+  }
+}
+    `;
+
+export const useModuleListColumnsQuery = <
+      TData = ModuleListColumnsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ModuleListColumnsQueryVariables,
+      options?: Omit<UseQueryOptions<ModuleListColumnsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ModuleListColumnsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ModuleListColumnsQuery, TError, TData>(
+      {
+    queryKey: ['ModuleListColumns', variables],
+    queryFn: fetcher<ModuleListColumnsQuery, ModuleListColumnsQueryVariables>(client, ModuleListColumnsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useModuleListColumnsQuery.getKey = (variables: ModuleListColumnsQueryVariables) => ['ModuleListColumns', variables];
+
+
+useModuleListColumnsQuery.fetcher = (client: GraphQLClient, variables: ModuleListColumnsQueryVariables, headers?: RequestInit['headers']) => fetcher<ModuleListColumnsQuery, ModuleListColumnsQueryVariables>(client, ModuleListColumnsDocument, variables, headers);
+
+export const SetModuleListColumnsDocument = `
+    mutation SetModuleListColumns($input: SetModuleListColumnsInput!) {
+  setModuleListColumns(input: $input) {
+    moduleKey
+    columns {
+      kind
+      key
+      formKey
+      width
+      order
+    }
+  }
+}
+    `;
+
+export const useSetModuleListColumnsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetModuleListColumnsMutation, TError, SetModuleListColumnsMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetModuleListColumnsMutation, TError, SetModuleListColumnsMutationVariables, TContext>(
+      {
+    mutationKey: ['SetModuleListColumns'],
+    mutationFn: (variables?: SetModuleListColumnsMutationVariables) => fetcher<SetModuleListColumnsMutation, SetModuleListColumnsMutationVariables>(client, SetModuleListColumnsDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetModuleListColumnsMutation.fetcher = (client: GraphQLClient, variables: SetModuleListColumnsMutationVariables, headers?: RequestInit['headers']) => fetcher<SetModuleListColumnsMutation, SetModuleListColumnsMutationVariables>(client, SetModuleListColumnsDocument, variables, headers);
 
 export const ModuleTreeDocument = `
     query ModuleTree {

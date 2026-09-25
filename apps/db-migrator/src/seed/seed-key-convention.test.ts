@@ -260,7 +260,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(findSeedKeyViolations(seedRegistry)).toEqual([]);
   });
 
-  it("示範家族、六個治理模組與購物清單依正本落地:個別權限 12 + 12 + 8 + 7 + 3 + 4 + 2 + 4 = 52 筆;全部 24 個模組各一筆 wildcard(共 76 筆)", () => {
+  it("示範家族、六個治理模組與購物清單依正本落地:個別權限 12 + 12 + 8 + 7 + 4 + 4 + 2 + 5 + 4 = 58 筆;全部 25 個模組各一筆 wildcard(共 83 筆)", () => {
     const documentSets = seedRegistry.filter((set) => set.kind === "documents");
     const moduleKeys = documentSets
       .filter((set) => set.collection === "modules")
@@ -284,9 +284,9 @@ describe("seeds/registry.ts 靜態檢查", () => {
     ]);
 
     // 正本:示範家族兩份權限表(7 + 5)+ docs/modules/org-manager.md(12)、user-manager.md(8)、
-    // role-manager.md(7)、module-manager.md(3)、field-manager.md(4)、data-scope.md(2)
+    // role-manager.md(7)、module-manager.md(4)、field-manager.md(4)、data-scope.md(2)、forms.md(5)
     const individualKeys = permissionKeys.filter((key) => !key.endsWith(".*"));
-    expect(individualKeys).toHaveLength(52);
+    expect(individualKeys).toHaveLength(58);
     expect(new Set(individualKeys)).toEqual(
       new Set([
         "demo.sub.sample-one.view",
@@ -335,12 +335,20 @@ describe("seeds/registry.ts 靜態檢查", () => {
         "system.module-manager.toggle-enabled",
         // #288:換側欄圖示是獨立權限(與停用 / 啟用的後果差太遠,不共用一把鑰匙)
         "system.module-manager.set-icon",
+        // 表單發布產生、已退役的欄位級權限的清理(三層檢查)
+        "system.module-manager.delete-retired-permission",
         "system.field-manager.view",
         "system.field-manager.create",
         "system.field-manager.edit",
         "system.field-manager.toggle-enabled",
         "system.data-scope.view",
         "system.data-scope.edit",
+        // 表單管理(docs/modules/forms.md 權限表)
+        "system.forms.view",
+        "system.forms.create",
+        "system.forms.edit",
+        "system.forms.assign",
+        "system.forms.set-enabled",
         // 表單模組範例(Spec 6a §2):四筆基本權限
         "shopping-list.view",
         "shopping-list.create",
@@ -350,11 +358,11 @@ describe("seeds/registry.ts 靜態檢查", () => {
     );
 
     // 每個模組各一筆 `<key>.*`(D3:wildcard 只代表該模組自己這一層)
-    expect(moduleKeys).toHaveLength(24);
+    expect(moduleKeys).toHaveLength(25);
     expect(new Set(permissionKeys.filter((key) => key.endsWith(".*")))).toEqual(
       new Set(moduleKeys.map((key) => `${key}.*`)),
     );
-    expect(permissionKeys).toHaveLength(76);
+    expect(permissionKeys).toHaveLength(83);
 
     // D1:治理模組 key 累加 system 群組前綴;tenant-ops 是組織管理底下的純權限容器
     expect(moduleKeys.filter((key) => key.startsWith("system"))).toEqual([
@@ -366,6 +374,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
       "system.module-manager",
       "system.field-manager",
       "system.data-scope",
+      "system.forms",
     ]);
   });
 });

@@ -1,0 +1,327 @@
+# 表單設計(表單管理 system.forms;規則正本 docs/modules/forms.md)。
+#
+# 三件事在這裡就要看得懂:
+# 1. 定義四塊(fields / layout / summaryMap / prefills)以 JSON 進出,形狀正本是 `@repo/domain/form`;
+#    存草稿與發布都帶 `expectedDraftRevision`(= 讀到的 draftRevision),不符 → CONFLICT
+#    (reason DRAFT_REVISION_MISMATCH),前端提示「已被別人更新,請重新載入」。
+# 2. 發布是四步、不用交易:中斷時 `publishInterrupted` 為 true、版本面板顯示「重試」
+#    (RetryPublishFormVersion,從步驟 3 冪等重跑);中斷期間開草稿 / 退役 / 再發布一律 CONFLICT
+#    (reason PUBLISH_IN_PROGRESS)。
+# 3. `abilities` 已含權限與「是不是自己的表單」判斷,前端直接用,不要再與 usePermissions 相乘。
+
+fragment FormFields on FormModel {
+  id
+  key
+  moduleKey
+  moduleName
+  name
+  isShared
+  ownerOrgId
+  ownerOrgName
+  forkedFrom {
+    formKey
+    version
+  }
+  currentVersion
+  tabLabelTemplate
+  hasDraft
+  publishInterrupted
+  # 站在租戶內時本租戶的開關;root 視角為 null
+  tenantEnabled
+  # 只有 root 視角的共用表單有;其餘為空陣列
+  assignments {
+    tenantOrgId
+    tenantName
+    enabled
+  }
+  abilities {
+    canEdit
+    canAssign
+    canSetEnabled
+    canFork
+  }
+  createdAt
+  updatedAt
+}
+
+fragment FormVersionFields on FormVersionModel {
+  id
+  formKey
+  # 草稿為 null(發布時才配)
+  version
+  status
+  draftRevision
+  baseVersion
+  fields
+  layout
+  summaryMap
+  prefills
+  changelog
+  publishedAt
+  publishedBy {
+    id
+    name
+  }
+  createdAt
+  updatedAt
+}
+
+fragment FormValidationFields on FormValidationReport {
+  errors {
+    code
+    message
+    location
+  }
+  warnings {
+    code
+    message
+    location
+  }
+}
+
+# FormsInput: { moduleKey?, keyword?, page?, pageSize? }
+# root 看全部;租戶看分派來的 + 自己的客製表單
+query Forms($input: FormsInput!) {
+  forms(input: $input) {
+    items {
+      ...FormFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+
+query Form($key: ID!) {
+  form(key: $key) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
+# CreateFormInput: { key, moduleKey, name };只有站在根組織能建(共用表單),key 建立後不可改
+mutation CreateForm($input: CreateFormInput!) {
+  createForm(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
+# UpdateFormInput: { key, name?, tabLabelTemplate? };tabLabelTemplate 缺席 = 不動、null = 清空
+mutation UpdateForm($input: UpdateFormInput!) {
+  updateForm(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
+# ForkFormInput: { sourceKey, sourceVersion, key, name };同模組,客製副本自動建本租戶的 org_form
+mutation ForkForm($input: ForkFormInput!) {
+  forkForm(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
+# version 省略 = 草稿(附 validation)
+query FormVersion($formKey: ID!, $version: Int) {
+  formVersion(formKey: $formKey, version: $version) {
+    formVersion {
+      ...FormVersionFields
+    }
+    validation {
+      ...FormValidationFields
+    }
+  }
+}
+
+# 版本面板:草稿在最前,其餘新到舊
+query FormVersions($formKey: ID!) {
+  formVersions(formKey: $formKey) {
+    items {
+      ...FormVersionFields
+    }
+    totalCount
+  }
+}
+
+# CreateFormVersionDraftInput: { formKey, baseVersion? };已有草稿 → CONFLICT(DRAFT_EXISTS)
+mutation CreateFormVersionDraft($input: CreateFormVersionDraftInput!) {
+  createFormVersionDraft(input: $input) {
+    formVersion {
+      ...FormVersionFields
+    }
+    validation {
+      ...FormValidationFields
+    }
+  }
+}
+
+# SaveFormVersionDraftInput: { formKey, expectedDraftRevision, fields, layout, summaryMap, prefills }
+# 檢查器的錯可以先存(回在 validation),正則不合法 / 不安全直接 VALIDATION_FAILED(extensions.issues)
+mutation SaveFormVersionDraft($input: SaveFormVersionDraftInput!) {
+  saveFormVersionDraft(input: $input) {
+    formVersion {
+      ...FormVersionFields
+    }
+    validation {
+      ...FormValidationFields
+    }
+  }
+}
+
+# PublishFormVersionInput: { formKey, expectedDraftRevision, changelog }
+# 檢查器有錯 → VALIDATION_FAILED(extensions.issues);兩個發布同時送出只有一個成功
+mutation PublishFormVersion($input: PublishFormVersionInput!) {
+  publishFormVersion(input: $input) {
+    formVersion {
+      ...FormVersionFields
+    }
+  }
+}
+
+# FormKeyInput: { formKey };沒有中斷的發布 → CONFLICT(PUBLISH_NOT_INTERRUPTED)
+mutation RetryPublishFormVersion($input: FormKeyInput!) {
+  retryPublishFormVersion(input: $input) {
+    formVersion {
+      ...FormVersionFields
+    }
+  }
+}
+
+# FormKeyInput: { formKey };之後所有租戶都不能新增,再發布新版才恢復
+mutation RetireCurrentVersion($input: FormKeyInput!) {
+  retireCurrentVersion(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
+# ValidateFormVersionInput: { formKey, fields, layout, summaryMap, prefills };不落庫
+query ValidateFormVersion($input: ValidateFormVersionInput!) {
+  validateFormVersion(input: $input) {
+    ...FormValidationFields
+  }
+}
+
+# PreviewFormVersionInput: { formKey, values? };對草稿跑計算與條件,不建提交
+query PreviewFormVersion($input: PreviewFormVersionInput!) {
+  previewFormVersion(input: $input) {
+    values
+    fieldStates {
+      key
+      visible
+      readonly
+      redacted
+    }
+    summary {
+      title
+      date
+      amount
+    }
+    fieldErrors {
+      fieldKey
+      code
+      message
+    }
+  }
+}
+
+# AssignFormToTenantsInput: { formKey, tenantOrgIds };root 專屬,已分派的略過
+mutation AssignFormToTenants($input: AssignFormToTenantsInput!) {
+  assignFormToTenants(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
+# RevokeFormFromTenantInput: { formKey, tenantOrgId };root 專屬,歷史提交照常可讀
+mutation RevokeFormFromTenant($input: RevokeFormFromTenantInput!) {
+  revokeFormFromTenant(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
+# SetTenantFormEnabledInput: { formKey, enabled };租戶內的開關(org_form.meta.enabled)
+mutation SetTenantFormEnabled($input: SetTenantFormEnabledInput!) {
+  setTenantFormEnabled(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
+# 模組與權限 → 退役權限清理(根組織專屬):已退役的動態權限與它被多少提交用到
+query RetiredFormPermissions {
+  retiredFormPermissions {
+    items {
+      key
+      name
+      moduleKey
+      formKey
+      formName
+      fieldKey
+      action
+      retiredAt
+      usage {
+        draftCount
+        draftVersions
+        completedCount
+        completedVersions
+      }
+    }
+    totalCount
+  }
+}
+
+# DeleteRetiredPermissionInput: { permissionKey, confirmCompletedUsage? }
+# 三層檢查:草稿用到 → PERMISSION_NOT_DELETABLE(USED_BY_DRAFTS);只剩已完成 → 要 confirmCompletedUsage: true
+mutation DeleteRetiredPermission($input: DeleteRetiredPermissionInput!) {
+  deleteRetiredPermission(input: $input) {
+    success
+    deletedKey
+    usage {
+      draftCount
+      draftVersions
+      completedCount
+      completedVersions
+    }
+  }
+}
+
+# 表單模組的列表欄位配置(modules.settings.list);沒設定過為空陣列(前端用預設欄)
+query ModuleListColumns($moduleKey: String!) {
+  moduleListColumns(moduleKey: $moduleKey) {
+    moduleKey
+    columns {
+      kind
+      key
+      formKey
+      width
+      order
+    }
+  }
+}
+
+# SetModuleListColumnsInput: { moduleKey, columns: [{ kind, key, formKey?, width, order }] }
+# root 整份覆蓋;欄位要在共用表單目前版本且不是受保護欄位,否則 VALIDATION_FAILED(fields: ["columns.N"])
+mutation SetModuleListColumns($input: SetModuleListColumnsInput!) {
+  setModuleListColumns(input: $input) {
+    moduleKey
+    columns {
+      kind
+      key
+      formKey
+      width
+      order
+    }
+  }
+}
