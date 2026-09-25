@@ -1325,7 +1325,8 @@
       "draftCreated": "Draft created.",
       "interrupted": "The last publish did not finish. Use “Retry publish” to complete it; new drafts, retiring and publishing are blocked until then.",
       "retry": "Retry publish",
-      "retried": "Publish completed."
+      "retried": "Publish completed.",
+      "publishedLine": "{at} · {user}"
     },
     "publish": {
       "title": "Publish a new version",
@@ -1333,7 +1334,9 @@
       "changelog": "Changelog",
       "cancel": "Cancel",
       "confirm": "Publish",
-      "success": "v{version} published."
+      "success": "v{version} published.",
+      "unsavedWarning": "The designer has unsaved changes: the last saved draft will be published.",
+      "saveFirst": "Save draft first"
     },
     "retire": {
       "title": "Retire the current version?",
@@ -1387,7 +1390,10 @@
       "jsonPreview": "JSON preview",
       "copy": "Copy",
       "copied": "Copied.",
-      "copyFailed": "Copy failed."
+      "copyFailed": "Copy failed.",
+      "regexChecking": "Checking patterns…",
+      "regexUnavailable": "Pattern safety can't be checked right now; it will be checked when you save the draft.",
+      "categoryRequiredWarning": "“{label}” takes options from a field category and is required: people without field-management view permission can't get the options and won't be able to submit."
     },
     "preview": {
       "region": "Preview",
@@ -1628,7 +1634,15 @@
       "unplace": "Move fields to unplaced",
       "withFields": "Delete the fields too",
       "cancel": "Cancel",
-      "confirm": "Delete"
+      "confirm": "Delete",
+      "withFieldsBody": "These references will become check errors that you need to fix:"
+    },
+    "unsaved": {
+      "title": "Unsaved changes",
+      "body": "The designer has unsaved changes; they will be lost if you switch to another form.",
+      "stay": "Keep designing",
+      "discard": "Discard changes",
+      "saveAndLeave": "Save draft first"
     }
   }
 }

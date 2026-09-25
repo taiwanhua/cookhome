@@ -162,12 +162,12 @@ export const FormDetailPanel = ({
             { value: "versions", label: t("tabVersions") },
           ]}
         />
-        <Box>
-          {tab === "design" ? (
-            <FormDesigner form={form} onChanged={onChanged} />
-          ) : (
-            <VersionPanel form={form} onChanged={onChanged} />
-          )}
+        {/* 兩個頁籤都保持掛載、只切顯示:切到「版本」不能讓設計器卸載(未存的改動會無聲消失) */}
+        <Box hidden={tab !== "design"}>
+          <FormDesigner form={form} onChanged={onChanged} />
+        </Box>
+        <Box hidden={tab !== "versions"}>
+          <VersionPanel form={form} onChanged={onChanged} />
         </Box>
       </Stack>
       {dialog === "edit" && (

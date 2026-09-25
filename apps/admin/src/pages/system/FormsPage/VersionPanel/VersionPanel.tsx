@@ -15,6 +15,7 @@ import { Stack } from "@repo/ui/stack";
 import { Table } from "@repo/ui/table";
 import { Tag, type TagTone } from "@repo/ui/tag";
 
+import { useDateTimeText } from "@/hooks/useDateTimeText";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import { definitionOf } from "@/lib/form-engine/definition";
@@ -45,6 +46,7 @@ const STATUS_TONE: Record<FormVersionStatus, TagTone> = {
  */
 export const VersionPanel = ({ form, onChanged }: VersionPanelProps) => {
   const t = useTranslations("admin.forms.versions");
+  const dateTimeText = useDateTimeText();
   const tErrors = useTranslations("admin.forms.errors");
   const { session } = useSession();
   const [isPublishing, setIsPublishing] = useState(false);
@@ -226,7 +228,10 @@ export const VersionPanel = ({ form, onChanged }: VersionPanelProps) => {
             render: (item) =>
               item.publishedAt === null || item.publishedAt === undefined
                 ? "—"
-                : `${new Date(item.publishedAt).toLocaleString()} · ${item.publishedBy?.name ?? "—"}`,
+                : t("publishedLine", {
+                    at: dateTimeText(item.publishedAt),
+                    user: item.publishedBy?.name ?? "—",
+                  }),
           },
           { key: "actions", header: t("actions"), render: renderActions },
         ]}

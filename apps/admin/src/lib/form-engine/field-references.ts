@@ -88,3 +88,32 @@ export const fieldReferences = (
   }
   return references;
 };
+
+/**
+ * 刪分區選「連同欄位刪除」前的確認清單:分區裡每個欄位被**分區外**引用的地方
+ * (分區內欄位互相引用的不列 —— 它們一起刪掉)。同一處引用只列一次。
+ */
+export const sectionReferences = (
+  definition: FormDefinition,
+  fieldKeys: readonly string[],
+  listColumnFieldKeys: readonly string[] = [],
+): FieldReference[] => {
+  const removed = new Set(fieldKeys);
+  const seen = new Set<string>();
+  return fieldKeys
+    .flatMap((fieldKey) =>
+      fieldReferences(definition, fieldKey, listColumnFieldKeys),
+    )
+    .filter(
+      (reference) =>
+        reference.kind !== "expression" || !removed.has(reference.fieldKey),
+    )
+    .filter((reference) => {
+      const id = JSON.stringify(reference);
+      if (seen.has(id)) {
+        return false;
+      }
+      seen.add(id);
+      return true;
+    });
+};

@@ -8,6 +8,8 @@ import { Stack } from "@repo/ui/stack";
 import { Tag } from "@repo/ui/tag";
 import { Typography } from "@repo/ui/typography";
 
+import { useDateTimeText } from "@/hooks/useDateTimeText";
+
 import { RevisionDiff } from "./RevisionDiff";
 
 export interface RevisionHistoryProps {
@@ -29,6 +31,7 @@ export const RevisionHistory = ({
   onViewRevision,
 }: RevisionHistoryProps) => {
   const t = useTranslations("admin.formEngine.detail");
+  const dateTimeText = useDateTimeText();
   const [diffRevision, setDiffRevision] = useState<number | null>(null);
   const revisions = submission.revisions.toSorted(
     (a, b) => b.revision - a.revision,
@@ -53,7 +56,7 @@ export const RevisionHistory = ({
                 {t("revisionLine", {
                   revision: entry.revision,
                   user: entry.user?.name ?? "—",
-                  at: new Date(entry.at).toLocaleString(),
+                  at: dateTimeText(entry.at),
                 })}
               </Typography>
               {isViewed ? (

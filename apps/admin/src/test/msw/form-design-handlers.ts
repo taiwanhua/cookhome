@@ -9,6 +9,8 @@ import {
   FormVersionStatus,
   type FormsQueryVariables,
   ModuleEngine,
+  type PreviewFormVersionQuery,
+  type PreviewFormVersionQueryVariables,
   type PublishFormVersionMutationVariables,
   type RetiredFormPermissionsQuery,
   type SaveFormVersionDraftMutationVariables,
@@ -37,6 +39,8 @@ export interface FormDesignWorldOptions {
   /** 依權限 key 決定 `deleteRetiredPermission` 的回應(沒列 = 直接刪) */
   retiredOutcomes?: Record<string, FormFailure>;
   failures?: Partial<Record<FormDesignOperation, FormFailure>>;
+  /** `previewFormVersion` 的回應(沒給 = 回送來的值、全部顯示、沒有錯誤) */
+  preview?: PreviewFormVersionQuery["previewFormVersion"];
 }
 
 export interface FormDesignWorld {
@@ -47,6 +51,7 @@ export interface FormDesignWorld {
     createFormVersionDraft: CreateFormVersionDraftMutationVariables["input"][];
     deleteRetiredPermission: DeleteRetiredPermissionMutationVariables["input"][];
     setModuleListColumns: SetModuleListColumnsMutationVariables["input"][];
+    previewFormVersion: PreviewFormVersionQueryVariables["input"][];
   };
 }
 
@@ -70,6 +75,7 @@ export const formDesignWorld = (
     createFormVersionDraft: [],
     deleteRetiredPermission: [],
     setModuleListColumns: [],
+    previewFormVersion: [],
   };
 
   const fail = (operation: FormDesignOperation) => {
@@ -237,6 +243,20 @@ export const formDesignWorld = (
       Object.assign(form, { currentVersion: next, hasDraft: false });
       return HttpResponse.json({
         data: { publishFormVersion: { formVersion: draft } },
+      });
+    }),
+    api.query("PreviewFormVersion", ({ variables }) => {
+      const { input } = variables as PreviewFormVersionQueryVariables;
+      inputs.previewFormVersion.push(input);
+      return HttpResponse.json({
+        data: {
+          previewFormVersion: options.preview ?? {
+            values: input.values ?? {},
+            fieldStates: [],
+            summary: { title: null, date: null, amount: null },
+            fieldErrors: [],
+          },
+        },
       });
     }),
     api.query("RetiredFormPermissions", () =>

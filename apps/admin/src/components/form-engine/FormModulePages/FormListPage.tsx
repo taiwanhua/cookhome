@@ -2,15 +2,20 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslations } from "use-intl";
 
-import type { FormSubmissionStatus } from "@repo/graphql";
+import {
+  type FormSubmissionStatus,
+  useDeleteFormSubmissionMutation,
+} from "@repo/graphql";
 import { Card } from "@repo/ui/card";
 import { IconButton } from "@repo/ui/icon-button";
 import { DeleteIcon, EditIcon, ViewIcon } from "@repo/ui/icons";
 import { Stack } from "@repo/ui/stack";
 import { Tooltip } from "@repo/ui/tooltip";
 
-import { useFormSubmission } from "@/hooks/useFormSubmission";
+import { useFormSubmissionCache } from "@/hooks/useFormSubmissionCache";
 import { useModuleForms } from "@/hooks/useModuleForms";
+import { useSession } from "@/hooks/useSession";
+import { type FormError, formErrorOf } from "@/lib/form-engine/form-errors";
 import type { ModulePageProps } from "@/lib/module-tree";
 
 import { FormPicker } from "../FormPicker";
@@ -43,7 +48,19 @@ export const FormListPage = ({ module }: ModulePageProps) => {
   const [deleteTarget, setDeleteTarget] = useState<FormSubmissionRow | null>(
     null,
   );
-  const deletion = useFormSubmission(deleteTarget?.id ?? "");
+  const [deleteError, setDeleteError] = useState<FormError | null>(null);
+  const { session } = useSession();
+  const updateCache = useFormSubmissionCache();
+  // 刪除只要 id:不為了刪一筆再查整筆提交
+  const deletion = useDeleteFormSubmissionMutation(session.client, {
+    onSuccess: () => {
+      updateCache(null);
+      setDeleteTarget(null);
+    },
+    onError: (failure) => {
+      setDeleteError(formErrorOf(failure));
+    },
+  });
 
   const goCreate = (key: string) => {
     if (access.createRoute !== null) {
@@ -156,16 +173,14 @@ export const FormListPage = ({ module }: ModulePageProps) => {
         <DeleteSubmissionDialog
           label={labelOf(deleteTarget)}
           isSubmitting={deletion.isPending}
-          errorCode={deletion.error?.code ?? null}
+          errorCode={deleteError?.code ?? null}
           onCancel={() => {
+            setDeleteError(null);
             setDeleteTarget(null);
           }}
           onConfirm={() => {
-            void deletion.remove().then((isDeleted) => {
-              if (isDeleted) {
-                setDeleteTarget(null);
-              }
-            });
+            setDeleteError(null);
+            deletion.mutate({ input: { id: deleteTarget.id } });
           }}
         />
       )}

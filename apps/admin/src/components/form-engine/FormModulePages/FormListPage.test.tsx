@@ -27,7 +27,12 @@ const createButton = async () => {
   return screen.getByRole("button", { name: "+ 新增" });
 };
 
-const table = () => screen.findByRole("table", { name: "購物清單清單" });
+/**
+ * 列表要接力載完才出現(登入 → 模組 → 表單清單 → 列表欄位配置 → 提交清單);整包並行跑時
+ * 5 秒的預設等待偶爾不夠(曾在本機全量跑紅一次、單檔跑過),這一段放寬到 10 秒。
+ */
+const table = () =>
+  screen.findByRole("table", { name: "購物清單清單" }, { timeout: 10_000 });
 
 describe("表單模組列表頁(預設組裝)", () => {
   it("列表依列表欄位配置顯示;配置引用那一筆版本沒有的欄位顯示「—」", async () => {

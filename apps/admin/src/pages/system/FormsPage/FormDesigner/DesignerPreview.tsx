@@ -105,7 +105,12 @@ export const DesignerPreview = ({
           user?.currentOrg?.id ?? null,
           now,
         )}
-        onChange={setValues}
+        onChange={(next) => {
+          // 改了測試值,後端上一輪的結果就過期了:回到前端即時算,等下一次「以後端重算」
+          setValues(next);
+          setResult(null);
+        }}
+        serverState={result}
         fieldErrors={result?.fieldErrors ?? []}
       />
       {failure !== null && <Alert severity="error">{failure}</Alert>}
@@ -130,6 +135,7 @@ export const DesignerPreview = ({
           canEdit={() => true}
           onApply={(patch) => {
             setValues((current) => ({ ...current, ...patch }));
+            setResult(null);
             setIsPrefilling(false);
           }}
           onClose={() => {

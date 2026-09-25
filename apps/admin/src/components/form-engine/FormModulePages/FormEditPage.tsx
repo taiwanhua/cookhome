@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslations } from "use-intl";
 
@@ -51,6 +51,18 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
     submission?.version ?? null,
   );
   const [now] = useState(() => new Date());
+  const user = me.data?.me;
+  const userId = user?.id ?? null;
+  const orgId = user?.currentOrg?.id ?? null;
+  // 權限與 ctx 以 useMemo 保持身分穩定:`FormRenderer` 以它們為 memo 依賴
+  const expressionContext = useMemo(
+    () => liveContextOf(userId, orgId, now),
+    [userId, orgId, now],
+  );
+  const permissions = useMemo(
+    () => (submission === null ? null : permissionsOfSubmission(submission)),
+    [submission],
+  );
   const formTemplate =
     forms.find((form) => form.key === submission?.formKey)?.tabLabelTemplate ??
     null;
@@ -85,7 +97,6 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
   }
 
   const isCompleted = submission.status === FormSubmissionStatus.Completed;
-  const user = me.data?.me;
 
   return (
     <Card sx={{ flex: 1, minHeight: 0, overflow: "auto", px: 3, py: 2.5 }}>
@@ -100,12 +111,8 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
           version={submission.version}
           initialValues={submission.values}
           mode="edit"
-          permissions={permissionsOfSubmission(submission)}
-          expressionContext={liveContextOf(
-            user?.id ?? null,
-            user?.currentOrg?.id ?? null,
-            now,
-          )}
+          permissions={permissions ?? permissionsOfSubmission(submission)}
+          expressionContext={expressionContext}
           isCompleted={isCompleted}
           isPending={state.isPending}
           error={state.error}

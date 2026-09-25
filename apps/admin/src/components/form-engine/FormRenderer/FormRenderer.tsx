@@ -19,6 +19,7 @@ import {
   type FieldPermissionFacts,
   type FormRendererMode,
   OPEN_PERMISSIONS,
+  type ServerFormState,
   resolveFormState,
 } from "@/lib/form-engine/field-states";
 import type { FormFieldErrorLike } from "@/lib/form-engine/form-errors";
@@ -56,6 +57,8 @@ export interface FormRendererProps {
     items: readonly FormDisplayItemLike[];
   }[];
   onDownload?: (field: FieldDef) => void;
+  /** 後端算的值與狀態(預覽「以後端重算」之後);有就以後端為準 */
+  serverState?: ServerFormState | null;
   /** 設計模式的選取(畫布由設計器包 `DndContext`) */
   design?: FormRendererDesignProps;
 }
@@ -78,6 +81,7 @@ export const FormRenderer = ({
   fieldErrors = [],
   displayValues = [],
   onDownload,
+  serverState = null,
   design,
 }: FormRendererProps) => {
   const byKey = useMemo(() => fieldMapOf(version.fields), [version.fields]);
@@ -93,8 +97,9 @@ export const FormRenderer = ({
         ctx: expressionContext,
         mode,
         permissions,
+        serverState,
       }),
-    [version, values, expressionContext, mode, permissions],
+    [version, values, expressionContext, mode, permissions, serverState],
   );
 
   const handleChange = (fieldKey: string, value: unknown) => {
@@ -140,6 +145,7 @@ export const FormRenderer = ({
                 <DesignFieldCell
                   field={field}
                   protection={protections.get(field.key)}
+                  labelOf={(key) => byKey.get(key)?.label ?? key}
                   isSelected={design.selectedFieldKey === field.key}
                   onSelect={design.onSelectField}
                 >

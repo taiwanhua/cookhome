@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "use-intl";
 
 import type { FieldDef } from "@repo/domain/form";
@@ -15,7 +15,10 @@ import { Typography } from "@repo/ui/typography";
 
 import { useFormRuntimeVersion } from "@/hooks/useFormRuntimeVersion";
 import { useSession } from "@/hooks/useSession";
-import { revisionContextOf } from "@/lib/form-engine/expression-context";
+import {
+  liveContextOf,
+  revisionContextOf,
+} from "@/lib/form-engine/expression-context";
 import { permissionsOfSubmission } from "@/lib/form-engine/field-permissions";
 import { formErrorOf } from "@/lib/form-engine/form-errors";
 
@@ -53,6 +56,20 @@ export const FormSubmissionDetail = ({ id }: FormSubmissionDetailProps) => {
     viewedRevision === null
       ? base
       : (viewed.data?.formSubmission.submission ?? null);
+  const [now] = useState(() => new Date());
+  // 已完成:條件用那次修訂的 ctx;草稿(還沒有 ctx):用真正的現在 + 填寫者本人與那一筆的組織
+  const expressionContext = useMemo(() => {
+    if (shown === null) {
+      return null;
+    }
+    return shown.ctx === null || shown.ctx === undefined
+      ? liveContextOf(shown.createdBy?.id ?? null, shown.orgId, now)
+      : revisionContextOf(shown.ctx);
+  }, [shown, now]);
+  const permissions = useMemo(
+    () => (shown === null ? null : permissionsOfSubmission(shown)),
+    [shown],
+  );
   const version = useFormRuntimeVersion(
     base?.formKey ?? null,
     base?.version ?? null,
@@ -82,7 +99,13 @@ export const FormSubmissionDetail = ({ id }: FormSubmissionDetailProps) => {
   if (current.isLoading || version.isLoading) {
     return <CircularProgress aria-label={t("loading")} />;
   }
-  if (base === null || shown === null || version.definition === null) {
+  if (
+    base === null ||
+    shown === null ||
+    version.definition === null ||
+    expressionContext === null ||
+    permissions === null
+  ) {
     const code =
       current.error === null ? "NOT_FOUND" : formErrorOf(current.error).code;
     return <Alert severity="error">{tErrors(code)}</Alert>;
@@ -122,10 +145,8 @@ export const FormSubmissionDetail = ({ id }: FormSubmissionDetailProps) => {
         values={shown.values}
         mode="readonly"
         context={{ formKey: base.formKey, version: base.version }}
-        expressionContext={revisionContextOf(
-          shown.ctx ?? { at: shown.createdAt, timezone: "UTC" },
-        )}
-        permissions={permissionsOfSubmission(shown)}
+        expressionContext={expressionContext}
+        permissions={permissions}
         displayValues={shown.displayValues}
         onDownload={(field) => {
           void download(field);

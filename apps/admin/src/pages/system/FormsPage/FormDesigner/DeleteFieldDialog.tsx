@@ -8,6 +8,8 @@ import { Typography } from "@repo/ui/typography";
 
 import type { FieldReference } from "@/lib/form-engine/field-references";
 
+import { FieldReferenceList } from "./FieldReferenceList";
+
 export interface DeleteFieldDialogProps {
   field: FieldDef;
   references: readonly FieldReference[];
@@ -27,26 +29,6 @@ export const DeleteFieldDialog = ({
   onConfirm,
 }: DeleteFieldDialogProps) => {
   const t = useTranslations("admin.forms.deleteField");
-
-  const describe = (reference: FieldReference): string => {
-    switch (reference.kind) {
-      case "expression": {
-        return t("refExpression", {
-          field: reference.fieldKey,
-          slot: t(`slots.${reference.slot}`),
-        });
-      }
-      case "summary": {
-        return t("refSummary", { slot: t(`summarySlots.${reference.slot}`) });
-      }
-      case "prefill": {
-        return t("refPrefill", { label: reference.label });
-      }
-      case "listColumn": {
-        return t("refListColumn");
-      }
-    }
-  };
 
   return (
     <Dialog
@@ -68,28 +50,7 @@ export const DeleteFieldDialog = ({
     >
       <Stack spacing={1.5}>
         <Typography variant="body2">{t("body")}</Typography>
-        {references.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            {t("noReferences")}
-          </Typography>
-        ) : (
-          <Stack
-            component="ul"
-            role="list"
-            aria-label={t("references")}
-            sx={{ m: 0, pl: 2.5 }}
-          >
-            {references.map((reference, index) => (
-              <Typography
-                key={`${reference.kind}-${String(index)}`}
-                component="li"
-                variant="body2"
-              >
-                {describe(reference)}
-              </Typography>
-            ))}
-          </Stack>
-        )}
+        <FieldReferenceList references={references} />
       </Stack>
     </Dialog>
   );

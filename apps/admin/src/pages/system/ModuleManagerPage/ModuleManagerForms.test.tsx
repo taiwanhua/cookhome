@@ -88,6 +88,8 @@ const render = (permissions: readonly string[]) => {
     retired: [
       retiredPermission("old_price", "購物單 / 舊單價 可見", 1, 3),
       retiredPermission("old_note", "購物單 / 舊備註 可見", 0, 2),
+      // 沒人用:api 直接刪(retiredOutcomes 沒列)
+      retiredPermission("old_tag", "購物單 / 舊標籤 可見", 0, 0),
     ],
     retiredOutcomes: {
       "shopping-list.show-shopping_list-old_price": {
@@ -155,6 +157,37 @@ describe("模組與權限:表單模組的列表欄位配置、退役權限清理
     await waitFor(() => {
       expect(within(dialog).queryByText("購物單 / 舊備註 可見")).toBeNull();
     });
+  });
+
+  it("退役權限清理:沒人用 → 直接刪,不跳確認", async () => {
+    const { user, design } = render([
+      ...FULL_PERMISSIONS,
+      MODULE_MANAGER_PERMISSIONS.deleteRetiredPermission,
+    ]);
+    await waitForTree();
+
+    await user.click(screen.getByRole("button", { name: "退役權限清理" }));
+    const dialog = await screen.findByRole("dialog", { name: "退役權限清理" });
+    await within(dialog).findByText("購物單 / 舊標籤 可見");
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "刪除權限「購物單 / 舊標籤 可見」",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(within(dialog).queryByText("購物單 / 舊標籤 可見")).toBeNull();
+    });
+    expect(design.inputs.deleteRetiredPermission).toEqual([
+      { permissionKey: "shopping-list.show-shopping_list-old_tag" },
+    ]);
+    expect(
+      within(dialog).queryByRole("button", { name: "確認刪除" }),
+    ).toBeNull();
+    // 其餘兩筆還在
+    expect(
+      within(dialog).getByText("購物單 / 舊單價 可見"),
+    ).toBeInTheDocument();
   });
 
   it("沒有 delete-retired-permission:看得到清單、沒有刪除鈕", async () => {

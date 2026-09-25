@@ -65,6 +65,17 @@ export interface ResolveFormStateInput {
   ctx: ExpressionContext;
   mode: FormRendererMode;
   permissions: FieldPermissionFacts;
+  /**
+   * 後端算的結果(預覽的 `previewFormVersion`):有就**以後端為準** —— 計算 / 固定值欄位用它的值,
+   * 顯示 / 唯讀條件用它的 `fieldStates`(Spec 6a §8「設計模式 vs 預覽」)。
+   */
+  serverState?: ServerFormState | null;
+}
+
+/** 後端回的值與欄位狀態(`previewFormVersion` 的 `values` / `fieldStates`)。 */
+export interface ServerFormState {
+  values: StoredValues;
+  fieldStates: readonly { key: string; visible: boolean; readonly: boolean }[];
 }
 
 export interface ResolvedFormState {
@@ -106,6 +117,7 @@ export const resolveFormState = ({
   ctx,
   mode,
   permissions,
+  serverState = null,
 }: ResolveFormStateInput): ResolvedFormState => {
   const { fields } = definition;
   const protections = fieldProtections(fields);
@@ -135,10 +147,17 @@ export const resolveFormState = ({
     };
   }
 
-  const shown: StoredValues =
-    mode === "readonly"
-      ? values
-      : { ...values, ...computeAll(fields, { values, ctx }) };
+  const computed =
+    mode === "readonly" ? {} : computeAll(fields, { values, ctx });
+  const fromServer = Object.fromEntries(
+    fields
+      .filter((field) => isDerived(field) && serverState !== null)
+      .map((field) => [field.key, serverState?.values[field.key] ?? null]),
+  );
+  const shown: StoredValues = { ...values, ...computed, ...fromServer };
+  const serverStates = new Map(
+    (serverState?.fieldStates ?? []).map((state) => [state.key, state]),
+  );
   const conditionInput = {
     values: semanticValuesOf(fields, shown),
     ctx,
@@ -149,13 +168,14 @@ export const resolveFormState = ({
   const states = new Map<string, FieldUiState>();
   for (const field of fields) {
     const redacted = !canShowField(field);
+    const server = serverStates.get(field.key);
     const visible =
-      !redacted && safeCondition(field.visibleWhen, conditionInput, true);
-    const byCondition = safeCondition(
-      field.readonlyWhen,
-      conditionInput,
-      false,
-    );
+      !redacted &&
+      (server?.visible ??
+        safeCondition(field.visibleWhen, conditionInput, true));
+    const byCondition =
+      server?.readonly ??
+      safeCondition(field.readonlyWhen, conditionInput, false);
     let readonlyReason: FieldUiState["readonlyReason"] = null;
     if (mode === "readonly") {
       readonlyReason = "mode";

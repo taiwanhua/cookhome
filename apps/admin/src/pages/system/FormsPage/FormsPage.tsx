@@ -6,12 +6,15 @@ import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import { usePermissions } from "@/hooks/usePermissions";
+import { useDesignerDraftStore } from "@/stores/useDesignerDraftStore";
 
 import { FormDetailPanel } from "./FormDetailPanel";
 import { CreateFormDialog } from "./FormDialogs/CreateFormDialog";
 import { FormListPanel } from "./FormListPanel";
+import { UnsavedDesignDialog } from "./UnsavedDesignDialog";
 import { FORMS_PERMISSIONS } from "./forms-permissions";
 import { useFormsPageData } from "./useFormsPageData";
+import { useIsAtRootOrg } from "./useIsAtRootOrg";
 
 /**
  * 表單管理(模組 key `system.forms`,正本 `docs/modules/forms.md`;Spec 6a §8 畫面 1–5)。
@@ -25,6 +28,24 @@ export const FormsPage = () => {
   const { hasPermission } = usePermissions();
   const data = useFormsPageData();
   const [isCreating, setIsCreating] = useState(false);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const isDirty = useDesignerDraftStore(
+    (state) => state.isDirty && state.formKey === data.selectedKey,
+  );
+  const saveDraft = useDesignerDraftStore((state) => state.save);
+  const isAtRoot = useIsAtRootOrg(data.forms);
+
+  /** 換表單:設計器有未存的變更就先問(留下 / 放棄 / 先存),不讓右欄一換就把改動丟掉。 */
+  const requestSelect = (key: string) => {
+    if (key === data.selectedKey) {
+      return;
+    }
+    if (isDirty) {
+      setPendingKey(key);
+      return;
+    }
+    data.select(key);
+  };
 
   return (
     <Stack direction="row" spacing={3} sx={{ flex: 1, minHeight: 0 }}>
@@ -34,8 +55,8 @@ export const FormsPage = () => {
         keyword={data.keyword}
         onKeywordChange={data.setKeyword}
         selectedKey={data.selectedKey}
-        onSelect={data.select}
-        canCreate={hasPermission(FORMS_PERMISSIONS.create)}
+        onSelect={requestSelect}
+        canCreate={isAtRoot && hasPermission(FORMS_PERMISSIONS.create)}
         onCreate={() => {
           setIsCreating(true);
         }}
@@ -54,8 +75,27 @@ export const FormsPage = () => {
             void data.invalidate(data.selectedKey);
           }}
           onForked={(formKey) => {
-            data.select(formKey);
             void data.invalidate(formKey);
+            requestSelect(formKey);
+          }}
+        />
+      )}
+      {pendingKey !== null && (
+        <UnsavedDesignDialog
+          onStay={() => {
+            setPendingKey(null);
+          }}
+          onDiscard={() => {
+            data.select(pendingKey);
+            setPendingKey(null);
+          }}
+          onSaveAndLeave={async () => {
+            const isSaved = saveDraft === null || (await saveDraft()) !== null;
+            if (isSaved) {
+              data.select(pendingKey);
+            }
+            setPendingKey(null);
+            return isSaved;
           }}
         />
       )}
@@ -66,8 +106,8 @@ export const FormsPage = () => {
           }}
           onCreated={(formKey) => {
             setIsCreating(false);
-            data.select(formKey);
             void data.invalidate(formKey);
+            requestSelect(formKey);
           }}
         />
       )}

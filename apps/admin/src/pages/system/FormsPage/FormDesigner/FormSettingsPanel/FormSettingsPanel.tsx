@@ -1,21 +1,19 @@
 import { useTranslations } from "use-intl";
 
-import type {
-  DefinitionIssue,
-  FormDefinition,
-  SummarySlot,
-} from "@repo/domain/form";
+import type { FormDefinition, SummarySlot } from "@repo/domain/form";
 import { Button } from "@repo/ui/button";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
+
+import type { DesignerIssue } from "@/lib/form-engine/designer-issues";
 
 import { PrefillEditor } from "./PrefillEditor";
 
 export interface FormSettingsPanelProps {
   definition: FormDefinition;
   /** 摘要槽與帶入規則的檢查器錯誤(`location.summarySlot` / `prefillIndex`) */
-  issues: readonly DefinitionIssue[];
+  issues: readonly DesignerIssue[];
   onChange: (definition: FormDefinition) => void;
 }
 

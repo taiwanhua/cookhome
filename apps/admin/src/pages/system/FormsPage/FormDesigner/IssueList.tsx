@@ -1,21 +1,33 @@
 import { useTranslations } from "use-intl";
 
-import type { DefinitionIssue, ValidationReport } from "@repo/domain/form";
+import { Alert } from "@repo/ui/alert";
 import { List, ListItemButton, ListItemText } from "@repo/ui/list";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import type {
+  DesignerIssue,
+  DesignerReport,
+} from "@/lib/form-engine/designer-issues";
+
+import type { RegexCheckStatus } from "./useRegexSafety";
+
 export interface IssueListProps {
-  report: ValidationReport;
+  report: DesignerReport;
+  regexStatus: RegexCheckStatus;
   /** 點一筆 → 定位(有欄位就選那個欄位;摘要槽 / 帶入規則 / 版面格就回到表單設定) */
-  onLocate: (issue: DefinitionIssue) => void;
+  onLocate: (issue: DesignerIssue) => void;
 }
 
 /**
  * 檢查結果(Spec 6a §5「定義檢查器」):**有錯不能發布、警告可發布**;每筆帶定位,點擊定位到
  * 欄位 / 表達式節點 / 版面格。
  */
-export const IssueList = ({ report, onLocate }: IssueListProps) => {
+export const IssueList = ({
+  report,
+  regexStatus,
+  onLocate,
+}: IssueListProps) => {
   const t = useTranslations("admin.forms.designer");
   const issues = [
     ...report.errors.map((issue) => ({ issue, isError: true })),
@@ -30,6 +42,14 @@ export const IssueList = ({ report, onLocate }: IssueListProps) => {
           warnings: report.warnings.length,
         })}
       </Typography>
+      {regexStatus === "checking" && (
+        <Typography variant="caption" color="text.secondary">
+          {t("regexChecking")}
+        </Typography>
+      )}
+      {regexStatus === "failed" && (
+        <Alert severity="warning">{t("regexUnavailable")}</Alert>
+      )}
       {issues.length > 0 && (
         <List dense aria-label={t("issues")}>
           {issues.map(({ issue, isError }, index) => (

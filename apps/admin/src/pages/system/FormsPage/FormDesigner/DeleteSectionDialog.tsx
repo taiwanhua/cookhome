@@ -10,9 +10,14 @@ import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import type { RemoveSectionMode } from "@/lib/form-engine/designer-ops";
+import type { FieldReference } from "@/lib/form-engine/field-references";
+
+import { FieldReferenceList } from "./FieldReferenceList";
 
 export interface DeleteSectionDialogProps {
   section: LayoutSection;
+  /** 分區欄位被分區外引用的地方(選「連同欄位刪除」時列出,同刪單一欄位) */
+  references: readonly FieldReference[];
   onCancel: () => void;
   onConfirm: (mode: RemoveSectionMode) => void;
 }
@@ -20,6 +25,7 @@ export interface DeleteSectionDialogProps {
 /** 刪分區二選一(Spec 6a §8):欄位移到「未放置」區,或連同欄位一起刪除(只動草稿)。 */
 export const DeleteSectionDialog = ({
   section,
+  references,
   onCancel,
   onConfirm,
 }: DeleteSectionDialogProps) => {
@@ -69,6 +75,12 @@ export const DeleteSectionDialog = ({
             label={t("withFields")}
           />
         </RadioGroup>
+        {mode === "withFields" && (
+          <Stack spacing={0.5}>
+            <Typography variant="body2">{t("withFieldsBody")}</Typography>
+            <FieldReferenceList references={references} />
+          </Stack>
+        )}
       </Stack>
     </Dialog>
   );

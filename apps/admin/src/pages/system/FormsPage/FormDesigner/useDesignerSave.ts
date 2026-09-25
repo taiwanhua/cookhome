@@ -1,0 +1,97 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "use-intl";
+
+import type { FormDefinition } from "@repo/domain/form";
+import { useSaveFormVersionDraftMutation } from "@repo/graphql";
+
+import { useMutationFeedback } from "@/hooks/useMutationFeedback";
+import { useSession } from "@/hooks/useSession";
+import { rawOf } from "@/lib/form-engine/definition";
+import { type FormError, formErrorOf } from "@/lib/form-engine/form-errors";
+import { useDesignerDraftStore } from "@/stores/useDesignerDraftStore";
+
+export interface DesignerSaveInput {
+  formKey: string;
+  initialRevision: number;
+  definition: FormDefinition;
+  isDirty: boolean;
+  markSaved: (saved: FormDefinition) => void;
+  onSaved: () => void;
+}
+
+export interface DesignerSave {
+  revision: number;
+  /** 存草稿;成功回新的草稿修訂號、失敗回 null(帶 `expectedDraftRevision`,不符 → `CONFLICT`) */
+  save: () => Promise<number | null>;
+  isPending: boolean;
+  error: FormError | null;
+}
+
+/**
+ * 設計器的「存草稿」,並把「有沒有未存的變更 + 怎麼存」回報給 `useDesignerDraftStore`:
+ * 換表單時的攔截、發布跳窗的「先存草稿」都走同一支 `save`(REACT-06:store action 在 effect 內呼叫)。
+ */
+export const useDesignerSave = ({
+  formKey,
+  initialRevision,
+  definition,
+  isDirty,
+  markSaved,
+  onSaved,
+}: DesignerSaveInput): DesignerSave => {
+  const t = useTranslations("admin.forms.designer");
+  const tErrors = useTranslations("admin.forms.errors");
+  const { session } = useSession();
+  const [revision, setRevision] = useState(initialRevision);
+  const [error, setError] = useState<FormError | null>(null);
+  const mutation = useSaveFormVersionDraftMutation(session.client);
+  const feedback = useMutationFeedback<unknown>({
+    success: t("saved"),
+    error: (failure) => tErrors(formErrorOf(failure).code),
+  });
+  const report = useDesignerDraftStore((state) => state.report);
+  const clear = useDesignerDraftStore((state) => state.clear);
+
+  const save = async (): Promise<number | null> => {
+    const snapshot = definition;
+    setError(null);
+    try {
+      const payload = await mutation.mutateAsync({
+        input: {
+          formKey,
+          expectedDraftRevision: revision,
+          ...rawOf(snapshot),
+        },
+      });
+      const next = payload.saveFormVersionDraft.formVersion.draftRevision;
+      setRevision(next);
+      markSaved(snapshot);
+      feedback.onSuccess(payload);
+      onSaved();
+      return next;
+    } catch (error_) {
+      setError(formErrorOf(error_));
+      feedback.onError(error_);
+      return null;
+    }
+  };
+
+  // store 裡放的是身分穩定的包裝(永遠呼叫最新一版的 save),
+  // 否則每次 render 都回報新函式 → 訂閱 `save` 的元件重繪 → 設計器重繪,無限循環
+  const latestSave = useRef(save);
+  useEffect(() => {
+    latestSave.current = save;
+  });
+  const stableSave = useCallback(() => latestSave.current(), []);
+  useEffect(() => {
+    report(formKey, isDirty, stableSave);
+  }, [report, formKey, isDirty, stableSave]);
+  useEffect(
+    () => () => {
+      clear(formKey);
+    },
+    [clear, formKey],
+  );
+
+  return { revision, save, isPending: mutation.isPending, error };
+};

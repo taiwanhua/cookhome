@@ -15,6 +15,10 @@ import { Typography } from "@repo/ui/typography";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import { type FormError, formErrorOf } from "@/lib/form-engine/form-errors";
+import {
+  useDesignerDraftStore,
+  useIsDesignerDirty,
+} from "@/stores/useDesignerDraftStore";
 
 export interface PublishDialogProps {
   formKey: string;
@@ -38,6 +42,12 @@ export const PublishDialog = ({
   const { session } = useSession();
   const [changelog, setChangelog] = useState("");
   const [error, setError] = useState<FormError | null>(null);
+  // 設計器有未存的變更:發布的是**上次存的草稿**;提示並提供先存(存完用新的修訂號發布)
+  const isDirty = useIsDesignerDirty(formKey);
+  const saveDraft = useDesignerDraftStore((state) => state.save);
+  const [savedRevision, setSavedRevision] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const expectedRevision = savedRevision ?? draftRevision;
 
   const publish = usePublishFormVersionMutation(
     session.client,
@@ -67,13 +77,13 @@ export const PublishDialog = ({
             {t("cancel")}
           </Button>
           <Button
-            disabled={changelog.trim() === "" || publish.isPending}
+            disabled={changelog.trim() === "" || publish.isPending || isSaving}
             onClick={() => {
               setError(null);
               publish.mutate({
                 input: {
                   formKey,
-                  expectedDraftRevision: draftRevision,
+                  expectedDraftRevision: expectedRevision,
                   changelog: changelog.trim(),
                 },
               });
@@ -86,6 +96,34 @@ export const PublishDialog = ({
     >
       <Stack spacing={2} sx={{ pt: 1 }}>
         <Typography variant="body2">{t("body")}</Typography>
+        {isDirty && saveDraft !== null && (
+          <Alert
+            severity="warning"
+            action={
+              <Button
+                variant="text"
+                size="small"
+                disabled={isSaving}
+                onClick={() => {
+                  setIsSaving(true);
+                  void saveDraft()
+                    .then((next) => {
+                      if (next !== null) {
+                        setSavedRevision(next);
+                      }
+                    })
+                    .finally(() => {
+                      setIsSaving(false);
+                    });
+                }}
+              >
+                {t("saveFirst")}
+              </Button>
+            }
+          >
+            {t("unsavedWarning")}
+          </Alert>
+        )}
         <TextField
           label={t("changelog")}
           value={changelog}

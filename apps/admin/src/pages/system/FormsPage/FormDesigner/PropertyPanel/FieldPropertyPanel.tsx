@@ -1,15 +1,13 @@
 import { useTranslations } from "use-intl";
 
-import type {
-  DefinitionIssue,
-  ExpressionSlot,
-  FieldDef,
-} from "@repo/domain/form";
+import type { ExpressionSlot, FieldDef } from "@repo/domain/form";
 import { Button } from "@repo/ui/button";
 import { FormControlLabel } from "@repo/ui/form-control-label";
 import { Stack } from "@repo/ui/stack";
 import { Switch } from "@repo/ui/switch";
 import { Typography } from "@repo/ui/typography";
+
+import type { DesignerIssue } from "@/lib/form-engine/designer-issues";
 
 import { ExpressionPicker } from "../ExpressionPicker/ExpressionPicker";
 import { FieldBasicsEditor } from "./FieldBasicsEditor";
@@ -23,7 +21,7 @@ export interface FieldPropertyPanelProps {
   fields: readonly FieldDef[];
   span: number | null;
   /** 檢查器指到這個欄位的錯誤與警告(點檢查結果定位到這裡) */
-  issues: readonly DefinitionIssue[];
+  issues: readonly DesignerIssue[];
   onChange: (field: FieldDef) => void;
   onSpanChange: (span: number) => void;
   onDelete: () => void;

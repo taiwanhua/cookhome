@@ -1,14 +1,19 @@
 import { useMemo, useState } from "react";
+import { useTranslations } from "use-intl";
 
 import {
   DEFAULT_WIDGET_REGISTRY,
   type FieldDef,
   type FieldType,
   type FormDefinition,
-  type ValidationReport,
   validateDefinition,
 } from "@repo/domain/form";
 
+import {
+  type DesignerReport,
+  adminWarningsOf,
+  withAdminWarnings,
+} from "@/lib/form-engine/designer-issues";
 import {
   type PlaceTarget,
   type RemoveSectionMode,
@@ -24,13 +29,15 @@ import {
   updateField,
 } from "@/lib/form-engine/designer-ops";
 
-import { useRegexSafety } from "./useRegexSafety";
+import { type RegexCheckStatus, useRegexSafety } from "./useRegexSafety";
 
 export interface DesignerState {
   definition: FormDefinition;
   isDirty: boolean;
   /** 前端即時檢查器(Spec 6a §5:設計器即時 + 發布時 api 再跑) */
-  report: ValidationReport;
+  report: DesignerReport;
+  /** 正則即時檢查的狀態(檢查結果區塊顯示「正則檢查中」/ 載入失敗的警告) */
+  regexStatus: RegexCheckStatus;
   selectedFieldKey: string | null;
   select: (fieldKey: string | null) => void;
   /**
@@ -50,8 +57,8 @@ export interface DesignerState {
   renameSection: (sectionKey: string, title: string) => void;
   removeSection: (sectionKey: string, mode: RemoveSectionMode) => void;
   setDefinition: (next: FormDefinition) => void;
-  /** 存草稿成功後把目前內容當成新的基準 */
-  markSaved: () => void;
+  /** 存草稿成功後把**送出去的那一份**當成新的基準(存檔途中又改的仍算未存) */
+  markSaved: (saved: FormDefinition) => void;
 }
 
 /**
@@ -62,15 +69,21 @@ export const useDesignerState = (initial: FormDefinition): DesignerState => {
   const [definition, setDefinition] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [selectedFieldKey, select] = useState<string | null>(null);
-  const regexSafety = useRegexSafety(definition);
+  const t = useTranslations("admin.forms.designer");
+  const { regexSafety, status: regexStatus } = useRegexSafety(definition);
 
   const report = useMemo(
     () =>
-      validateDefinition(definition, {
-        widgets: DEFAULT_WIDGET_REGISTRY,
-        regexSafety,
-      }),
-    [definition, regexSafety],
+      withAdminWarnings(
+        validateDefinition(definition, {
+          widgets: DEFAULT_WIDGET_REGISTRY,
+          regexSafety,
+        }),
+        adminWarningsOf(definition, (label) =>
+          t("categoryRequiredWarning", { label }),
+        ),
+      ),
+    [definition, regexSafety, t],
   );
 
   const apply = (next: FormDefinition) => {
@@ -81,6 +94,7 @@ export const useDesignerState = (initial: FormDefinition): DesignerState => {
     definition,
     isDirty: JSON.stringify(definition) !== JSON.stringify(saved),
     report,
+    regexStatus,
     selectedFieldKey,
     select,
     add: (type, label, target, sectionTitle) => {
@@ -127,8 +141,8 @@ export const useDesignerState = (initial: FormDefinition): DesignerState => {
       apply(removeSection(definition, sectionKey, mode));
     },
     setDefinition: apply,
-    markSaved: () => {
-      setSaved(definition);
+    markSaved: (snapshot) => {
+      setSaved(snapshot);
     },
   };
 };

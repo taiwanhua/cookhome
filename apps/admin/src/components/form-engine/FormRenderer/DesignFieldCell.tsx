@@ -12,6 +12,8 @@ import { designFieldId } from "@/lib/form-engine/design-ids";
 export interface DesignFieldCellProps {
   field: FieldDef;
   protection: FieldProtection | undefined;
+  /** 欄位 key → 顯示名(「因引用受保護欄位 X」列顯示名,不列 key) */
+  labelOf: (fieldKey: string) => string;
   isSelected: boolean;
   onSelect: (fieldKey: string) => void;
   children: ReactNode;
@@ -24,6 +26,7 @@ export interface DesignFieldCellProps {
 export const DesignFieldCell = ({
   field,
   protection,
+  labelOf,
   isSelected,
   onSelect,
   children,
@@ -55,7 +58,11 @@ export const DesignFieldCell = ({
     badges.push(t("protected"));
   }
   if (protection !== undefined && protection.via.length > 0) {
-    badges.push(t("protectedVia", { fields: protection.via.join("、") }));
+    badges.push(
+      t("protectedVia", {
+        fields: protection.via.map((key) => labelOf(key)).join("、"),
+      }),
+    );
   }
 
   return (

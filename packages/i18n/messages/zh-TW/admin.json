@@ -1325,7 +1325,8 @@
       "draftCreated": "已開新草稿。",
       "interrupted": "上次發布沒有完成。請按「重試發布」完成它;完成前不能開新草稿、退役或再發布。",
       "retry": "重試發布",
-      "retried": "已完成發布。"
+      "retried": "已完成發布。",
+      "publishedLine": "{at} · {user}"
     },
     "publish": {
       "title": "發布新版本",
@@ -1333,7 +1334,9 @@
       "changelog": "變更說明",
       "cancel": "取消",
       "confirm": "發布",
-      "success": "已發布 v{version}。"
+      "success": "已發布 v{version}。",
+      "unsavedWarning": "設計器有未存的變更:發布的是上次存的草稿。",
+      "saveFirst": "先存草稿"
     },
     "retire": {
       "title": "退役目前版本?",
@@ -1387,7 +1390,10 @@
       "jsonPreview": "JSON 預覽",
       "copy": "複製",
       "copied": "已複製。",
-      "copyFailed": "複製失敗。"
+      "copyFailed": "複製失敗。",
+      "regexChecking": "正則檢查中…",
+      "regexUnavailable": "目前無法即時檢查正則的安全性;存草稿時會再檢查。",
+      "categoryRequiredWarning": "「{label}」的選項來自欄位管理類別又設為必填:沒有欄位管理檢視權限的填寫者拿不到選項,會送不出去。"
     },
     "preview": {
       "region": "預覽",
@@ -1628,7 +1634,15 @@
       "unplace": "欄位移到未放置區",
       "withFields": "連同欄位一起刪除",
       "cancel": "取消",
-      "confirm": "刪除"
+      "confirm": "刪除",
+      "withFieldsBody": "下列引用處會變成檢查器錯誤,需要你手動修改:"
+    },
+    "unsaved": {
+      "title": "有未存的變更",
+      "body": "設計器裡還有沒存的改動,換到別張表單就會消失。",
+      "stay": "留在設計",
+      "discard": "放棄變更",
+      "saveAndLeave": "先存草稿"
     }
   }
 }

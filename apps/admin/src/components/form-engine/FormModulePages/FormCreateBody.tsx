@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslations } from "use-intl";
 
@@ -49,15 +49,28 @@ export const FormCreateBody = ({
   const [now] = useState(() => new Date());
   const user = me.data?.me;
 
-  const permissions =
-    draft.draft === null
-      ? permissionsFromHeld({
-          moduleKey,
-          formKey: form.key,
-          fields: definition.fields,
-          hasPermission,
-        })
-      : permissionsOfSubmission(draft.draft);
+  // 權限與 ctx 以 useMemo 保持身分穩定:`FormRenderer` 以它們為 memo 依賴
+  const held = useMemo(
+    () =>
+      permissionsFromHeld({
+        moduleKey,
+        formKey: form.key,
+        fields: definition.fields,
+        hasPermission,
+      }),
+    [moduleKey, form.key, definition.fields, hasPermission],
+  );
+  const fromDraft = useMemo(
+    () => (draft.draft === null ? null : permissionsOfSubmission(draft.draft)),
+    [draft.draft],
+  );
+  const permissions = fromDraft ?? held;
+  const userId = user?.id ?? null;
+  const orgId = user?.currentOrg?.id ?? null;
+  const expressionContext = useMemo(
+    () => liveContextOf(userId, orgId, now),
+    [userId, orgId, now],
+  );
 
   return (
     <Stack spacing={2.5}>
@@ -71,11 +84,7 @@ export const FormCreateBody = ({
         initialValues={{}}
         mode="create"
         permissions={permissions}
-        expressionContext={liveContextOf(
-          user?.id ?? null,
-          user?.currentOrg?.id ?? null,
-          now,
-        )}
+        expressionContext={expressionContext}
         isCompleted={false}
         isPending={draft.isPending}
         error={draft.error}
