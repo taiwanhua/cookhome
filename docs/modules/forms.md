@@ -105,7 +105,22 @@
 - 權限判斷是 **mapper 規則,不走 `hasPermission`**:有效權限集合裡要有那一個具體 key(`PermissionResolver` 已把模組 `*` 展開成存在且啟用的權限,所以持 `*` 的人自動涵蓋);權限列被刪 → 對所有人視為無權,只有超級管理員看得到,模組 `*` 不放行。
 - 唯讀讀取(`formSubmission(id, revision)`)**不重算、不清空**存值;`fieldStates` 的顯示 / 唯讀條件用**該修訂的 `ctx`**(`at` / `timezone` / `userId` / `orgId`)重算,不拿讀者現在的身分或時間補值;草稿用現在與建立者本人。
 - **建立者一律讀得到自己的單**:單筆讀取在一般路徑(可見範圍 + 資料範圍規則)讀不到時,改走 `BaseRepository.findOwnById`(可見範圍照套、不套資料範圍規則、條件加 `createdBy = 操作者`);列表不放寬。草稿只屬於建立者(別人的草稿不列、讀不到)。
+- **定義也依讀者投影**(`formRuntimeVersion`,`form-runtime/definition-projection.ts`,判準同一支 `canShow`):讀得到的欄位照回;讀不到的(沒有自己的 `show`,或計算欄位沿依賴鏈引用到沒有 `show` 的受保護欄位)只回骨架 `{ key, label, type, widget: { kind }, valueSource: { kind }, permission, redacted: true }` —— `constant.value`、計算公式(可能內嵌常數)、`options`、`rules`、`help`、條件、引用來源一律省略(骨架的 `expr` / `value` 為 `null`)。有 `show` 的人照回完整定義。設計端的 `formVersion` / `formVersions` 不投影(設計者本來就要看全部)。
 - 顯示名(現名 vs 快照)在 `form-runtime/display-names.service.ts` **批次**解析:整頁的值先依來源分組,每個類別、每個 lookup 來源各查一次(DataLoader 的做法,不逐列查)。
+
+## 欄位管理類別選項
+
+`formFieldOptions`(`form-runtime/form-field-options.service.ts`):選項欄(`options.kind = "fieldCategory"`)給填寫者取當前選項,**不需要** `system.field-manager.view`。前端只帶 `{ formKey, version, fieldKey }`,類別 key 從版本定義取(與 `formLookup` 同一原則);範圍是 `FieldCategoryOptionsService` 的合併範圍(送出時驗值、顯示名解析用的同一支),只回啟用的,依欄位管理的排序值、建立順序排。
+
+| 情況                                                  | 回什麼                                                 |
+| ----------------------------------------------------- | ------------------------------------------------------ |
+| 表單不存在、別租戶的客製表單、版本不是已發布 / 已退役 | `NOT_FOUND`                                            |
+| 沒有該模組 `view` / `create` / `edit` 任一            | `FORBIDDEN`(無 reason,同 `formRuntimeVersion`)         |
+| 欄位不存在或不是類別選項                              | `VALIDATION_FAILED`(`fields: ["fieldKey"]`)            |
+| 讀者讀不到這一欄(受保護欄位沒有 `show`)               | `FORBIDDEN`(無 reason;定義投影也不給它的選項)          |
+| `version` 省略(設計器預覽草稿)                        | 要 `system.forms.view` 且讀得到這張表單;不套欄位級權限 |
+
+「表單可用」取執行端的邊界(共用表單或本租戶客製表單,`findRuntimeForm`),**不**要求表單此刻可新增:租戶停用或收回分派後,既有的草稿 / 已完成的單仍可存、可修改(`saveFormDraft` / `updateFormSubmission` 不看新增資格),選項也要拿得到。
 
 ## lookup 登錄表
 
@@ -170,7 +185,8 @@
 | `useModuleForms` / `useFormDraft` / `useFormSubmission` / `useFormRuntimeVersion` | `hooks/`                                                                 |
 
 - 欄位級權限:已有提交 → 用 api 的 `fieldStates.redacted` 與 `abilities.canEditField`;新增、草稿還沒建 → 由持有的 `<模組>.show-/edit-<formKey>-<fieldKey>` 推(推錯只影響畫面,寫入仍由 api 守)。
-- 欄位管理類別選項要 `system.field-manager.view` 才讀得到(填寫端沒有專屬端點);沒有的人只看得到既有值。
+- 選項欄三種來源統一在 `components/form-engine/widgets/useFieldOptions.ts`:靜態清單讀定義、類別選項打 `formFieldOptions`(一次取完、前端比對關鍵字)、lookup 打 `formLookup`(關鍵字送 api)。類別選項的查詢失敗時該欄只顯示既有值、改不了。
+- 定義裡標 `redacted: true` 的欄位(`formRuntimeVersion` 的骨架)一律當讀不到、整格不渲染(`lib/form-engine/field-states.ts`、`field-permissions.ts`);骨架省略了公式,所以「只因依賴而受保護」的計算欄位靠這個旗標,不靠權限 key 推。
 
 ## api 介面
 
@@ -178,18 +194,20 @@ GraphQL 文件:`packages/graphql/src/documents/forms.graphql`(設計)、`form-su
 
 **設計端**(`@RequirePermission` 守端點,「是不是自己的表單 / 站在哪裡」在 service):`forms`、`form`、`formVersion(formKey, version?)`(省略 = 草稿)、`formVersions`、`validateFormVersion`、`previewFormVersion`(兩者是 query,不落庫)、`createForm`、`updateForm`、`forkForm`、`createFormVersionDraft`、`saveFormVersionDraft`、`publishFormVersion`、`retryPublishFormVersion`、`retireCurrentVersion`、`assignFormToTenants`、`revokeFormFromTenant`、`setTenantFormEnabled`、`retiredFormPermissions`、`deleteRetiredPermission`、`setModuleListColumns`(`system.forms.edit` + 站在根組織)。`moduleListColumns(moduleKey)` 給該模組的使用者讀(有 view / create / edit 任一)。
 
-**執行端**(模組是執行期的,service 依該模組的 `view` / `create` / `edit` / `delete` 判,錯誤與 `@RequirePermission` 同一種):`moduleForms(moduleKey)`、`formRuntimeVersion(formKey, version)`、`formSubmissions`、`formSubmission(id, revision?)`、`formSubmissionAttachmentUrl(id, fieldKey, revision?)`、`createFormDraft`、`saveFormDraft`、`submitFormSubmission`、`updateFormSubmission`、`deleteFormSubmission`、`formLookup`、`formLookupRecord`。
+**執行端**(模組是執行期的,service 依該模組的 `view` / `create` / `edit` / `delete` 判,錯誤與 `@RequirePermission` 同一種):`moduleForms(moduleKey)`、`formRuntimeVersion(formKey, version)`、`formSubmissions`、`formSubmission(id, revision?)`、`formSubmissionAttachmentUrl(id, fieldKey, revision?)`、`createFormDraft`、`saveFormDraft`、`submitFormSubmission`、`updateFormSubmission`、`deleteFormSubmission`、`formLookup`、`formLookupRecord`、`formFieldOptions`(類別選項,見上)。
 
 input 欄位的缺席 / `null`:
 
 - `UpdateFormInput.name`:缺席或 `null` = 不動。`tabLabelTemplate`:缺席 = 不動、`null` 或空字串 = 清空(改回模組層模板)。
 - `CreateFormVersionDraftInput.baseVersion`:缺席 / `null` = 空白草稿。
 - `SaveFormDraftInput.values` / `UpdateFormSubmissionInput.values`:**整張表單的狀態**,缺席的欄位 = 清空;看不到的欄位不送或原樣送回 `"[redacted]"` 都算沒動。`CreateFormDraftInput.values` 缺席 = 空白。
+- `FormFieldOptionsInput`:`version` 缺席 = 草稿(同下一條);`keyword` 缺席 / 空字串 = 全部(比對顯示名與值,不分大小寫);`pageSize` 預設 100(上限 100)。
 - `FormLookupInput.version`:缺席 = 草稿(設計器預覽,要 `system.forms.view` 且讀得到這張表單);有值 = 已發布或已退役版(要該模組的 `create` 或 `edit`)。`target` 的 `fieldKey` / `prefillIndex` 恰給一個。
 
 輸出欄位:
 
 - `FormSubmissionModel.values`:讀者沒有 `show` 的欄位是字串 `"[redacted]"`(不是 `null`),前端依 `fieldStates.redacted` 判斷,不要拿值猜。`displayValues` 只有類別 / lookup 選項與引用欄;`available: false` = 來源已刪或讀者無權,顯示快照 label + 「(來源不可用)」。
+- `formRuntimeVersion` 的 `fields`:讀者讀不到的欄位是骨架且 `redacted: true`(見「讀取投影」);`redacted` 缺席 = 完整定義。
 - `FormLookupRecord.values`:受保護且無權的欄位**省略**(鍵不存在),那筆版本沒有的欄位為 `null`。
 - `FormModel.tenantEnabled`:站在租戶內時本租戶的開關,root 視角為 `null`;`assignments` 只有 root 視角的共用表單有。
 - **`abilities` 含權限**(業務模組那一種,前端直接用,不再與 `usePermissions` 相乘):`FormAbilities` 已含 `system.forms.*` 權限與「是不是自己的表單 / 站在哪裡」;`FormSubmissionAbilities.canEdit` = 草稿:建立者本人 + `create`、已完成:`edit`;`canDelete` = 草稿同 `canEdit`、已完成:`delete`;`canEditField` = 權限層面改得動的欄位(條件唯讀看 `fieldStates.readonly`)。

@@ -115,7 +115,8 @@ export const formsModules = (permissions: readonly string[]): TestModule[] => [
   ),
 ];
 
-const field = (
+/** 一個欄位定義(測試用預設:文字框、使用者填、非必填、不受保護)。 */
+export const field = (
   key: string,
   label: string,
   type: FieldDef["type"],

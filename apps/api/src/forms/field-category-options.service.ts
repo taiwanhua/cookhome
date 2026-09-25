@@ -42,7 +42,7 @@ export class FieldCategoryOptionsService {
     return new Set(found.map((category) => category.key));
   }
 
-  /** 操作者在合併範圍內看得到的選項(含停用的,以 `enabled` 區分)。 */
+  /** 操作者在合併範圍內看得到的選項(含停用的,以 `enabled` 區分;Map 依 `order`、建立時間排)。 */
   async options(
     operator: OperatorContext,
     categoryKey: string,
@@ -54,10 +54,12 @@ export class FieldCategoryOptionsService {
       return new Map();
     }
     const visibility = await resolveFieldVisibility(operator, this.orgs);
-    const found = await this.fields.findMany(fieldReadContext(operator), {
-      categoryId: category._id,
-      ...scopeFilterOf(visibility),
-    });
+    const found = await this.fields.findMany(
+      fieldReadContext(operator),
+      { categoryId: category._id, ...scopeFilterOf(visibility) },
+      // 選項下拉的順序(`formFieldOptions`)照欄位管理的排序值;同值依建立順序
+      { sort: { order: 1, createdAt: 1 } },
+    );
     return new Map(
       found.map((field) => [
         field.value,

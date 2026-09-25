@@ -473,6 +473,27 @@ type FormFieldError {
   message: String!
 }
 
+type FormFieldOption {
+  label: String!
+  value: String!
+}
+
+input FormFieldOptionsInput {
+  fieldKey: String!
+  formKey: ID!
+  keyword: String
+  page: Int = 1
+  pageSize: Int = 100
+  version: Int
+}
+
+type FormFieldOptionsPayload {
+  items: [FormFieldOption!]!
+  page: Int!
+  pageSize: Int!
+  totalCount: Int!
+}
+
 type FormFieldState {
   key: String!
   readonly: Boolean!
@@ -1042,6 +1063,7 @@ type Query {
   fieldCategories: FieldCategoriesPayload!
   fields(categoryId: ID!): FieldsPayload!
   form(key: ID!): FormPayload!
+  formFieldOptions(input: FormFieldOptionsInput!): FormFieldOptionsPayload!
   formLookup(input: FormLookupInput!): FormLookupPayload!
   formLookupRecord(input: FormLookupRecordInput!): FormLookupRecordPayload!
   formRuntimeVersion(formKey: ID!, version: Int!): FormVersionPayload!

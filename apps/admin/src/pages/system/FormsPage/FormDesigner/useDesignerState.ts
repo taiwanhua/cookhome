@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useTranslations } from "use-intl";
 
 import {
   DEFAULT_WIDGET_REGISTRY,
@@ -9,11 +8,7 @@ import {
   validateDefinition,
 } from "@repo/domain/form";
 
-import {
-  type DesignerReport,
-  adminWarningsOf,
-  withAdminWarnings,
-} from "@/lib/form-engine/designer-issues";
+import type { DesignerReport } from "@/lib/form-engine/designer-issues";
 import {
   type PlaceTarget,
   type RemoveSectionMode,
@@ -69,21 +64,15 @@ export const useDesignerState = (initial: FormDefinition): DesignerState => {
   const [definition, setDefinition] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [selectedFieldKey, select] = useState<string | null>(null);
-  const t = useTranslations("admin.forms.designer");
   const { regexSafety, status: regexStatus } = useRegexSafety(definition);
 
   const report = useMemo(
     () =>
-      withAdminWarnings(
-        validateDefinition(definition, {
-          widgets: DEFAULT_WIDGET_REGISTRY,
-          regexSafety,
-        }),
-        adminWarningsOf(definition, (label) =>
-          t("categoryRequiredWarning", { label }),
-        ),
-      ),
-    [definition, regexSafety, t],
+      validateDefinition(definition, {
+        widgets: DEFAULT_WIDGET_REGISTRY,
+        regexSafety,
+      }),
+    [definition, regexSafety],
   );
 
   const apply = (next: FormDefinition) => {

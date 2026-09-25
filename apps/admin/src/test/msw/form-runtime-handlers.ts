@@ -3,6 +3,8 @@ import { type GraphQLResponseBody, HttpResponse } from "msw";
 import type { FormDefinition } from "@repo/domain/form";
 import {
   type CreateFormDraftMutationVariables,
+  type FormFieldOptionsQuery,
+  type FormFieldOptionsQueryVariables,
   type FormLookupQuery,
   type FormLookupQueryVariables,
   type FormRuntimeVersionQueryVariables,
@@ -26,6 +28,7 @@ import { submissionFragment } from "./form-fixtures";
 import { api } from "./server";
 
 export type FormRuntimeOperation =
+  | "FormFieldOptions"
   | "CreateFormDraft"
   | "SaveFormDraft"
   | "SubmitFormSubmission"
@@ -45,6 +48,11 @@ export interface FormRuntimeWorldOptions {
   /** 模組 key → 列表欄位配置(沒給 = 空陣列) */
   listColumns?: Record<string, ModuleListColumn[]>;
   lookupRecords?: FormLookupQuery["formLookup"]["items"];
+  /** 欄位 key → `formFieldOptions` 回的類別選項(沒給 = 空清單) */
+  fieldOptions?: Record<
+    string,
+    FormFieldOptionsQuery["formFieldOptions"]["items"]
+  >;
   /** 提交 id → 修訂號 → 那個修訂的完整快照(`formSubmission(id, revision)` 用;沒給就回目前的值) */
   snapshots?: Record<string, Record<number, Record<string, unknown>>>;
   failures?: Partial<Record<FormRuntimeOperation, FormFailure>>;
@@ -59,6 +67,7 @@ export interface FormRuntimeWorld {
     updateFormSubmission: UpdateFormSubmissionMutationVariables["input"][];
     formSubmissions: FormSubmissionsQueryVariables["input"][];
     formLookup: FormLookupQueryVariables["input"][];
+    formFieldOptions: FormFieldOptionsQueryVariables["input"][];
   };
 }
 
@@ -95,6 +104,7 @@ export const formRuntimeWorld = (
     updateFormSubmission: [],
     formSubmissions: [],
     formLookup: [],
+    formFieldOptions: [],
   };
   let created = 0;
 
@@ -201,6 +211,25 @@ export const formRuntimeWorld = (
             totalCount: lookupRecords.length,
             page: 1,
             pageSize: 20,
+          },
+        },
+      });
+    }),
+    api.query("FormFieldOptions", ({ variables }) => {
+      const { input } = variables as FormFieldOptionsQueryVariables;
+      inputs.formFieldOptions.push(input);
+      const failure = fail("FormFieldOptions");
+      if (failure !== null) {
+        return failure;
+      }
+      const items = options.fieldOptions?.[input.fieldKey] ?? [];
+      return HttpResponse.json({
+        data: {
+          formFieldOptions: {
+            items,
+            totalCount: items.length,
+            page: input.page ?? 1,
+            pageSize: input.pageSize ?? 100,
           },
         },
       });
