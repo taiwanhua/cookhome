@@ -6,8 +6,11 @@ import { SHOPPING_FORM_KEY, formFragment } from "@/test/msw/form-fixtures";
 import {
   defaultDesignOptions,
   findDesigner,
+  preloadFormsPage,
   renderFormsPage,
 } from "./forms-page-test-support";
+
+preloadFormsPage();
 
 const OTHER_KEY = "other_form";
 
