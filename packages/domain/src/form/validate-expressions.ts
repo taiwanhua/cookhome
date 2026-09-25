@@ -1,3 +1,4 @@
+import { COLLATION_LOCALE } from "./collation";
 import { type FieldProtection, isProtected } from "./dependencies";
 import { evaluateCondition } from "./expression";
 import {
@@ -195,7 +196,7 @@ function validateCycles(
       const cycle = [...trail.slice(trail.indexOf(key)), key];
       const signature = cycle
         .slice(0, -1)
-        .toSorted((left, right) => left.localeCompare(right, "en"))
+        .toSorted((left, right) => left.localeCompare(right, COLLATION_LOCALE))
         .join(",");
       if (!reported.has(signature)) {
         reported.add(signature);

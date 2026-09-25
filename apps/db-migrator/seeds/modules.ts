@@ -161,7 +161,7 @@ export const permissions: SeedDocumentSet = {
  *
  * runner 以 `moduleKey` 找文件:每個模組至多宣告一個目標,所以 moduleKey 單獨就能認出是哪一筆
  * (唯一索引仍是 `(collection, moduleKey)`,同一張表可以有多個模組各一個目標)。
- * `moduleKey` = 宣告檔的第一個節點(該模組本身,父在前)。
+ * `moduleKey` = 宣告檔的第一個**非群組**節點(該模組本身;群組在前、隱藏頁在後,見 `ownerModuleKeyOf`)。
  */
 export const dataScopeTargets: SeedDocumentSet = {
   kind: "documents",

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 
+import { fieldProtections } from "./dependencies";
 import { definitionOf, field } from "./form-test-support";
 import type { DefinitionIssueCode } from "./issues";
-import type { FieldDef, FormDefinition } from "./types";
+import type { Expression, FieldDef, FormDefinition } from "./types";
 import {
   type ValidateDefinitionOptions,
   validateDefinition,
@@ -511,5 +512,123 @@ describe("validateDefinition:警告", () => {
         listColumnFieldKeys: ["title", "gone"],
       }),
     ).toEqual(["LIST_COLUMN_MISSING"]);
+  });
+});
+
+/** `[[[…]]]` 純陣列巢狀 `levels` 層(不經遞迴建,建多深都不會爆堆疊)。 */
+function nestedArrays(levels: number): Expression {
+  let node: Expression = 1;
+  for (let level = 0; level < levels; level += 1) {
+    node = [node];
+  }
+  return node;
+}
+
+describe("validateDefinition:上限在走訪時就生效(惡意輸入只回錯誤、不 throw)", () => {
+  it("純陣列巢狀也算深度:11 層陣列 → EXPR_TOO_DEEP", () => {
+    expect(
+      codesOf(
+        definitionOf([
+          title,
+          field("a", "text", {
+            visibleWhen: { in: ["x", nestedArrays(11)] },
+          }),
+        ]),
+      ),
+    ).toEqual(["EXPR_TOO_DEEP"]);
+  });
+
+  it("兩萬層巢狀陣列:不爆堆疊,檢查器與依賴鏈推導都正常回來", () => {
+    const deep = field("a", "text", {
+      visibleWhen: { in: ["x", nestedArrays(20_000)] },
+    });
+    const computedDeep = computed("b", { "+": [nestedArrays(20_000), 1] });
+    const definition = definitionOf([title, deep, computedDeep]);
+    expect(() => validateDefinition(definition)).not.toThrow();
+    expect(codesOf(definition)).toEqual(["EXPR_TOO_DEEP", "EXPR_TOO_DEEP"]);
+    expect(() => fieldProtections(definition.fields)).not.toThrow();
+  });
+
+  it("十萬個節點:一超過 200 就中止,回 EXPR_TOO_MANY_NODES 一筆", () => {
+    const wide = field("a", "text", {
+      visibleWhen: { "+": Array.from({ length: 100_000 }, () => 1) },
+    });
+    expect(codesOf(definitionOf([title, wide]))).toEqual([
+      "EXPR_TOO_MANY_NODES",
+    ]);
+  });
+});
+
+describe("validateDefinition:欄位本身的錯誤碼", () => {
+  it("PRECISION_INVALID:小數位數不在 0–6 或不是整數", () => {
+    for (const precision of [7, -1, 1.5]) {
+      expect(
+        codesOf(definitionOf([title, field("qty", "number", { precision })])),
+      ).toEqual(["PRECISION_INVALID"]);
+    }
+  });
+
+  it("EXPR_MISSING:計算欄位沒有公式", () => {
+    const noExpr = field("total", "number", {
+      valueSource: { kind: "computed" } as FieldDef["valueSource"],
+    });
+    expect(codesOf(definitionOf([title, noExpr]))).toContain("EXPR_MISSING");
+  });
+
+  it("OPTIONS_MISSING:選項欄沒有選項來源", () => {
+    const noOptions = field("kind", "select");
+    delete noOptions.options;
+    expect(codesOf(definitionOf([title, noOptions]))).toEqual([
+      "OPTIONS_MISSING",
+    ]);
+  });
+
+  it("EXPR_INVALID:運算子節點不是恰好一個鍵", () => {
+    expect(
+      codesOf(
+        definitionOf([
+          title,
+          field("a", "text", {
+            visibleWhen: {
+              "==": [1, 1],
+              "!=": [1, 2],
+            } as FieldDef["visibleWhen"],
+          }),
+        ]),
+      ),
+    ).toEqual(["EXPR_INVALID"]);
+  });
+
+  it("FIELD_TYPE_UNKNOWN:型別不在清單內 → 回錯誤碼,不因查表而 throw", () => {
+    const bogus = {
+      ...field("weird", "text"),
+      type: "color",
+    } as unknown as FieldDef;
+    expect(() =>
+      validateDefinition(definitionOf([title, bogus])),
+    ).not.toThrow();
+    expect(codesOf(definitionOf([title, bogus]))).toContain(
+      "FIELD_TYPE_UNKNOWN",
+    );
+  });
+
+  it("lookup:原型鏈上的名稱不算可回欄位;form_submission 來源要帶 formKey", () => {
+    const protoName = field("who", "select", {
+      options: {
+        kind: "lookup",
+        source: { provider: "user", labelField: "toString" },
+      },
+    });
+    const noFormKey = field("from", "reference", {
+      source: { provider: "form_submission", labelField: "title" },
+    });
+    expect(
+      codesOf(definitionOf([title, protoName, noFormKey]), {
+        lookupProviders: {
+          user: { fields: { name: "text" } },
+          form_submission: { fields: { title: "text" } },
+        },
+      }),
+    ).toEqual(["LOOKUP_UNKNOWN_FIELD", "LOOKUP_FORM_KEY_MISSING"]);
   });
 });

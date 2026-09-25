@@ -13,8 +13,11 @@ import {
   findRootOrgId,
 } from "../auth/test-support/fixtures";
 import {
+  AuditLogsRepository,
+  CustomersRepository,
   DemoItemsOneRepository,
   DemoItemsTwoRepository,
+  FieldsRepository,
   OrgsRepository,
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
@@ -842,6 +845,109 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
         "乙的項目",
         "甲的項目",
       ]);
+    });
+
+    it("沒有 moduleKey 的舊文件(回填前):有規則命中時看不到,不會從 $nin 那一支溜過去", async () => {
+      const now = new Date();
+      await connection.collection("demo_items_one").insertOne({
+        name: "回填前的舊資料",
+        orgId: deptOne,
+        status: "draft",
+        enabled: true,
+        createdBy: agentUserId,
+        updatedBy: agentUserId,
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+      // 另一模組的規則仍命中客服甲(見上一條):舊文件不屬於任何模組 → 看不到
+      expect(await visibleItemsOne(agentUserId, deptOne)).toEqual([
+        "乙的項目",
+        "甲的項目",
+      ]);
+      await connection
+        .collection("demo_items_one")
+        .deleteOne({ name: "回填前的舊資料" });
+    });
+
+    it("沒有 moduleKey 的規則文件(回填前)被略過,不影響其他模組的規則", async () => {
+      await connection.collection("data_scope_rules").insertOne({
+        collection: "demo_items_one",
+        combineOp: "OR",
+        rules: [{ audience: { type: "all" }, filter: ONLY_MINE }],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: null,
+        updatedBy: null,
+        deletedAt: null,
+      });
+      // 作廢快取(存一次示範模組1 的空規則),讓下一次查詢重新載入含那份舊文件的規則
+      await saveRule([]);
+      expect(await visibleItemsOne(agentUserId, deptOne)).toEqual([
+        "乙的項目",
+        "甲的項目",
+      ]);
+      await connection.collection("data_scope_rules").deleteMany({
+        collection: "demo_items_one",
+        moduleKey: { $exists: false },
+      });
+    });
+  });
+
+  describe("moduleData 不影響 fields / audit_logs / customers(真的寫、真的查)", () => {
+    it("三張表不帶 moduleKey 也寫得進去,查詢不套資料範圍規則(即使塞了一份規則)", async () => {
+      const now = new Date();
+      for (const collection of ["customers", "fields", "audit_logs"]) {
+        await connection.collection("data_scope_rules").insertOne({
+          collection,
+          moduleKey: "test.not-module-data",
+          combineOp: "OR",
+          rules: [{ audience: { type: "all" }, filter: ONLY_MINE }],
+          createdAt: now,
+          updatedAt: now,
+          createdBy: null,
+          updatedBy: null,
+          deletedAt: null,
+        });
+      }
+      const asAgent = await operatorOf(agentUserId, deptOne);
+      const asPeer = await operatorOf(peerUserId, deptOne);
+
+      const customers = api.app.get(CustomersRepository);
+      const customer = await customers.create(asAgent, {
+        name: "會員甲",
+        account: "member-module-data",
+        email: "member-module-data@example.com",
+        passwordHash: "x",
+      });
+      expect(customer).not.toHaveProperty("moduleKey");
+      const fields = api.app.get(FieldsRepository);
+      await fields.create(asAgent, {
+        categoryId: new Types.ObjectId(),
+        label: "自訂",
+        value: "custom-module-data",
+      });
+      const audits = api.app.get(AuditLogsRepository);
+      await audits.create(asAgent, {
+        actorId: agentUserId,
+        actorType: "user",
+        action: "test.module-data",
+      });
+
+      // 規則若套上,「僅本人」會讓客服乙一筆都看不到客服甲建的
+      await expect(
+        customers.count(asPeer, { account: "member-module-data" }),
+      ).resolves.toBe(1);
+      await expect(
+        fields.count(asPeer, { value: "custom-module-data" }),
+      ).resolves.toBe(1);
+      await expect(
+        audits.count(asPeer, { action: "test.module-data" }),
+      ).resolves.toBe(1);
+
+      await connection
+        .collection("data_scope_rules")
+        .deleteMany({ moduleKey: "test.not-module-data" });
     });
   });
 

@@ -331,6 +331,7 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
   describe("模組資料(tenantScopePlugin 的 moduleData):moduleKey 寫死、tenantId 由後端推導", () => {
     const tenantTop = new Types.ObjectId();
     const dept = new Types.ObjectId();
+    const team = new Types.ObjectId();
     const otherTenant = new Types.ObjectId();
 
     beforeAll(async () => {
@@ -348,7 +349,21 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
           parentId: tenantTop,
           ancestors: [rootOrgId, tenantTop],
         },
+        {
+          _id: team,
+          name: "小組",
+          parentId: dept,
+          ancestors: [rootOrgId, tenantTop, dept],
+        },
       ]);
+    });
+
+    it("三層以上的組織(根 → 租戶 → 部門 → 小組):tenantId 仍是租戶頂層", async () => {
+      const created = await demoItems.create(
+        operator({ visibleOrgIds: [team] }),
+        { name: "小組的資料" },
+      );
+      expect(created.tenantId).toEqual(tenantTop);
     });
 
     it("建立時 moduleKey = 本表的模組 key;tenantId = orgId 的租戶頂層(部門 → 租戶頂層)", async () => {

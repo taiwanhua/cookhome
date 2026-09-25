@@ -1,3 +1,4 @@
+import { COLLATION_LOCALE } from "./collation";
 import { referencedFieldKeys } from "./expression-shape";
 import type { FieldDef } from "./types";
 
@@ -112,7 +113,9 @@ export function fieldProtections(
     const via = [...viaOf(field, new Set())].filter((key) => key !== field.key);
     result.set(field.key, {
       self: field.permission?.show === true,
-      via: via.toSorted((left, right) => left.localeCompare(right, "en")),
+      via: via.toSorted((left, right) =>
+        left.localeCompare(right, COLLATION_LOCALE),
+      ),
     });
   }
   return result;

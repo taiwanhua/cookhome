@@ -653,9 +653,11 @@ export interface ModuleCondition {
 /**
  * 同一 collection 下多個模組的規則 → 一個要 AND 進查詢的條件(`docs/modules/data-scope.md`「依模組」):
  *
- * `{ $or: [ { moduleKey: { $nin: [有規則的模組] } }, { $and: [{ moduleKey: M }, M 的規則] }, … ] }`
+ * `{ $or: [ { moduleKey: { $exists: true, $nin: [有規則的模組] } }, { $and: [{ moduleKey: M }, M 的規則] }, … ] }`
  *
  * - 沒有規則命中操作者的模組不列進 `$nin` → 那些模組的資料維持只看可見範圍
+ * - `$nin` 那一支要求 `moduleKey` **存在**:沒有 `moduleKey` 的文件(回填 migration 跑完前的舊資料)
+ *   `$nin` 本來會命中,等於繞過規則;有規則命中操作者時,這種文件一律看不到(fail-closed)
  * - 固定欄位表只有一個 moduleKey,結果等於「該模組的規則」本身(外面多包一層 `$or`,語意相同)
  * - 一個模組都沒有 → `null`(不加條件)
  *
@@ -670,7 +672,12 @@ export function combineByModule(
   }
   return {
     $or: [
-      { moduleKey: { $nin: conditions.map((entry) => entry.moduleKey) } },
+      {
+        moduleKey: {
+          $exists: true,
+          $nin: conditions.map((entry) => entry.moduleKey),
+        },
+      },
       ...conditions.map((entry) => ({
         $and: [{ moduleKey: entry.moduleKey }, entry.condition],
       })),

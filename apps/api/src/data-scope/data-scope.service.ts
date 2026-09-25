@@ -163,8 +163,12 @@ export class DataScopeService
     );
     const loaded: CollectionRules = new Map();
     for (const document of documents) {
-      // 空 `rules` = 已被清掉的規則(ADR-0008),等同沒有規則
-      if (document.rules.length === 0) {
+      // 空 `rules` = 已被清掉的規則(ADR-0008),等同沒有規則。
+      // 沒有 moduleKey 的舊文件(回填前)不知道該套在哪個模組:跳過,不拿 undefined 當 Map 的鍵
+      if (
+        document.rules.length === 0 ||
+        typeof document.moduleKey !== "string"
+      ) {
         continue;
       }
       loaded.set(document.moduleKey, {

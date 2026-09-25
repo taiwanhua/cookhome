@@ -47,7 +47,8 @@ export interface PermissionDeclaration {
 
 /**
  * 資料範圍目標(ADR-0008):落庫至 data_scope_targets,以 `(collection, moduleKey)` 為識別鍵。
- * `moduleKey` 不在宣告裡寫 —— seed runner 填宣告檔所在模組(`nodes[0].key`),
+ * `moduleKey` 不在宣告裡寫 —— seed runner 填宣告檔所在模組(第一個**非群組**節點的 key,
+ * `seeds/modules.ts` 的 `ownerModuleKeyOf`),
  * 所以一個模組至多一個目標,同一張表(如 `form_submissions`)可以被多個模組各宣告一次。
  */
 export interface DataScopeTargetDeclaration {

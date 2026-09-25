@@ -65,7 +65,7 @@ BaseRepository 查詢時套用;GQL-07 的語意正本在此。
 ```js
 {
   $or: [
-    { moduleKey: { $nin: ["leave", "expense"] } }, // 沒有規則命中操作者的模組:只看可見範圍
+    { moduleKey: { $exists: true, $nin: ["leave", "expense"] } }, // 沒有規則命中操作者的模組:只看可見範圍
     { $and: [{ moduleKey: "leave" }, 請假的規則] },
     { $and: [{ moduleKey: "expense" }, 報銷的規則] },
   ];
@@ -73,6 +73,7 @@ BaseRepository 查詢時套用;GQL-07 的語意正本在此。
 ```
 
 - 某模組的規則沒有命中操作者(或那個模組根本沒設規則)→ 那個模組的資料維持只看可見範圍,不會被別的模組的規則影響。
+- 那一支要求 `moduleKey` **存在**:沒有 `moduleKey` 的文件(回填前的舊資料、所屬組織已不存在而沒回填的孤兒)在有規則命中操作者時看不到(fail-closed),不會從 `$nin` 溜過去。規則文件本身缺 `moduleKey` 的(回填前)不載入。
 - 固定欄位模組的表只有一個 `moduleKey`,結果等於「該模組的規則」本身。
 - 單筆 / 更新 / 刪除 / lookup 都走同一條路徑(同一組查詢中介層)。
 - 記憶體快取以 collection 為外層、`moduleKey` 為內層;`saveDataScopeRule` 儲存時作廢整個 collection。

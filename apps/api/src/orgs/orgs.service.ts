@@ -39,7 +39,7 @@ import {
   visibilityOf,
   visibilitySettingOf,
 } from "./org-mapper";
-import { assertSlugFree, requireSlug } from "./org-slug";
+import { assertSlugFree, requireSlug, slugConflictOr } from "./org-slug";
 import { OwnerProtectionService } from "./owner-protection.service";
 
 /** 審計動作名(docs/modules/org-manager.md「審計」;`targetType` 一律 org)。 */
@@ -315,11 +315,12 @@ export class OrgsService {
     if (changes.length === 0) {
       return toOrg(current);
     }
-    const updated = await this.orgs.updateById(
-      operator,
-      current._id,
-      updateOf(changes),
-    );
+    const updated = await this.orgs
+      .updateById(operator, current._id, updateOf(changes))
+      .catch((error: unknown) => {
+        // 短碼事前查過沒人用,同時有別的請求搶先寫入時由唯一索引擋下
+        throw slugConflictOr(error);
+      });
     await this.audit.record(operator, {
       action: AUDIT_ACTIONS.edit,
       targetType: AUDIT_TARGET_TYPE,

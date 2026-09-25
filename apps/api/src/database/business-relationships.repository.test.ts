@@ -149,6 +149,18 @@ describe("BusinessRelationshipsRepository(tenantId 邊界,fail-closed)", () => {
     expect(rowsOfA[0]?.meta).toEqual({ enabled: true });
   });
 
+  it("根組織指定的租戶必須是存在的租戶頂層:部門或不存在的 id 一律拋錯(不寫出孤兒 org_form)", async () => {
+    await expect(relations.tenantIdFor(asRoot, deptA)).rejects.toBeInstanceOf(
+      TenantScopeError,
+    );
+    await expect(
+      relations.tenantIdFor(asRoot, new Types.ObjectId()),
+    ).rejects.toBeInstanceOf(TenantScopeError);
+    await expect(relations.tenantIdFor(asRoot, rootOrg)).rejects.toBeInstanceOf(
+      TenantScopeError,
+    );
+  });
+
   it("(tenantId, type, firstId, secondId) 唯一:同一筆分派兩次被唯一索引擋下", async () => {
     await expect(
       relations.create(asRoot, tenantA, {

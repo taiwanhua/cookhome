@@ -94,14 +94,24 @@ export function textOf(value: unknown): string {
   return typeof value === "object" ? JSON.stringify(value) : "";
 }
 
-/** 兩個值的順序:兩邊都是數值就比數值,否則比文字(`YYYY-MM-DD` 的字典序即日期序)。 */
+/**
+ * 兩個值的順序:兩邊都是數值就比數值,否則以**字碼**比文字(`YYYY-MM-DD` 的字碼序即日期序)。
+ *
+ * 不用 `localeCompare`:語系排序吃執行環境的 ICU 版本,前端即時算與後端重算可能不一致
+ * (STRUCT-10 的同一個坑),而且和 JSONLogic 原生 `<` / `>` 的字碼序不同。
+ */
 function orderOf(left: unknown, right: unknown): number {
   const leftDecimal = toDecimal(left);
   const rightDecimal = toDecimal(right);
   if (leftDecimal && rightDecimal) {
     return leftDecimal.comparedTo(rightDecimal);
   }
-  return textOf(left).localeCompare(textOf(right), "en");
+  const leftText = textOf(left);
+  const rightText = textOf(right);
+  if (leftText === rightText) {
+    return 0;
+  }
+  return leftText < rightText ? -1 : 1;
 }
 
 /** `<` / `<=` 等比較(支援 JSONLogic 的三參數「介於」);有空值 → false。 */

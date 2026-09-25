@@ -19,6 +19,7 @@ import {
 } from "./plugins/tenant-scope.plugin";
 import { BUSINESS_RELATIONSHIPS_COLLECTION } from "./schemas/business-relationship.schema";
 import { CORE_RELATIONSHIPS_COLLECTION } from "./schemas/core-relationship.schema";
+import { ORGS_COLLECTION } from "./schemas/org.schema";
 import { tenantIdOfOrg } from "./tenant-id";
 
 /** Model 型別參數固定為預設值(無 query helpers / instance methods / virtuals),只讓 hydrated 文件型別可推導。 */
@@ -309,8 +310,6 @@ const MODULE_DATA_PROTECTED_PATHS: readonly string[] = [
   "moduleKey",
   "tenantId",
 ];
-
-const ORGS_COLLECTION = "orgs";
 
 /**
  * 檢查 update 的頂層與各運算子(`$set` / `$unset` / `$setOnInsert` / `$rename`…)內

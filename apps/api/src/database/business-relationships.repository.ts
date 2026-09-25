@@ -8,6 +8,7 @@ import type {
   BusinessRelationship,
   BusinessRelationshipType,
 } from "./schemas/business-relationship.schema";
+import { ORGS_COLLECTION } from "./schemas/org.schema";
 import { tenantIdOfOrg } from "./tenant-id";
 
 /** 已落庫的一筆業務關聯(含基礎欄位,ADR-0007)。 */
@@ -30,8 +31,6 @@ export interface BusinessRelationshipLink {
   secondId: Types.ObjectId;
   meta?: Record<string, unknown>;
 }
-
-const ORGS_COLLECTION = "orgs";
 
 /**
  * `business_relationships` 的存取層(`docs/data-model.md`「business_relationships」)。
@@ -75,8 +74,9 @@ export class BusinessRelationshipsRepository {
         ? null
         : new mongoose.Types.ObjectId(String(requested));
     if (own === null) {
-      // 根組織操作者:可指定任一租戶,但一定要指定
-      return assertTenantId(wanted);
+      // 根組織操作者:可指定任一租戶,但一定要指定,而且必須是真的租戶頂層 ——
+      // 否則會寫出指向不存在租戶(或部門)的孤兒 `org_form`
+      return this.assertTenantTop(assertTenantId(wanted));
     }
     if (wanted !== null && !wanted.equals(own)) {
       throw new TenantScopeError(
@@ -84,6 +84,21 @@ export class BusinessRelationshipsRepository {
       );
     }
     return own;
+  }
+
+  /** `tenantId` 必須是存在的租戶頂層(`ancestors` 只有根組織一層),否則拋錯。 */
+  private async assertTenantTop(
+    tenantId: Types.ObjectId,
+  ): Promise<Types.ObjectId> {
+    const org = await this.model.db
+      .collection<{ ancestors?: Types.ObjectId[] }>(ORGS_COLLECTION)
+      .findOne({ _id: tenantId }, { projection: { ancestors: 1 } });
+    if (org?.ancestors?.length !== 1) {
+      throw new TenantScopeError(
+        `business_relationships:${String(tenantId)} 不是存在的租戶頂層`,
+      );
+    }
+    return tenantId;
   }
 
   async findMany(

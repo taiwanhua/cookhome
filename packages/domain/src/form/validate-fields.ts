@@ -7,7 +7,12 @@ import {
   type LookupProviderRegistry,
   type WidgetRegistry,
 } from "./registry";
-import type { FieldDef, FieldType, LookupSourceDescriptor } from "./types";
+import {
+  FIELD_TYPES,
+  type FieldDef,
+  type FieldType,
+  type LookupSourceDescriptor,
+} from "./types";
 
 /**
  * 檢查器的欄位段(Spec §5「定義檢查器」):key、精度、widget、選項、規則(含正則 ReDoS)、reference。
@@ -22,12 +27,43 @@ export const PATTERN_FLAGS = "u";
 /** 正則是否安全(不會被特定輸入卡住);預設用 `recheck`。 */
 export type RegexSafetyCheck = (source: string) => boolean;
 
+/** recheck 在 node 端選同步後端的環境變數(它只認這個,沒有程式內參數)。 */
+const RECHECK_SYNC_BACKEND = "RECHECK_SYNC_BACKEND";
+
 /**
- * 預設的 ReDoS 檢查:`recheck`(純 JS / worker)判定為 `safe` 才算安全;
+ * 以 recheck 的**純 JS 後端**同步執行 `fn`。
+ *
+ * recheck 在 node 的 `checkSync` 預設走 synckit:另開 worker、優先 spawn 原生執行檔或 java,
+ * 主執行緒以 `Atomics.wait` 等結果 —— api 每檢查一條正則就可能卡住最多一個逾時。
+ * 同步後端只能用環境變數 `RECHECK_SYNC_BACKEND` 選(`lib/main.js` 每次呼叫時讀),
+ * 所以在呼叫前暫時設成 `pure`、呼叫後還原,不影響行程裡其他人的設定。
+ * 瀏覽器版(`lib/browser.js`)本來就只有純 JS,沒有 `process` 時直接呼叫。
+ */
+function withPureRecheck<T>(fn: () => T): T {
+  if (typeof process === "undefined") {
+    return fn();
+  }
+  const previous = process.env[RECHECK_SYNC_BACKEND];
+  process.env[RECHECK_SYNC_BACKEND] = "pure";
+  try {
+    return fn();
+  } finally {
+    if (previous === undefined) {
+      Reflect.deleteProperty(process.env, RECHECK_SYNC_BACKEND);
+    } else {
+      process.env[RECHECK_SYNC_BACKEND] = previous;
+    }
+  }
+}
+
+/**
+ * 預設的 ReDoS 檢查:`recheck`(固定純 JS 後端,見 `withPureRecheck`)判定為 `safe` 才算安全;
  * `vulnerable` 與「判不出來」(`unknown`,含逾時)都視為不安全 — 寧可請設計者改寫,也不讓 API 冒險。
  */
 export const recheckRegexSafety: RegexSafetyCheck = (source) =>
-  checkSync(source, PATTERN_FLAGS, { timeout: 2000 }).status === "safe";
+  withPureRecheck(
+    () => checkSync(source, PATTERN_FLAGS, { timeout: 2000 }).status,
+  ) === "safe";
 
 export interface FieldValidationContext {
   widgets: WidgetRegistry;
@@ -52,15 +88,10 @@ export function validateFields(
       collector.error("KEY_DUPLICATE", `欄位 key ${field.key} 重複`, location);
     }
     seen.add(field.key);
-    const keyCheck = checkFieldKey(field.key);
-    if (!keyCheck.valid) {
-      collector.error(
-        keyCheck.reason === "reserved" ? "KEY_RESERVED" : "KEY_FORMAT",
-        keyCheck.reason === "reserved"
-          ? `欄位 key ${field.key} 是保留字`
-          : `欄位 key ${field.key} 格式不符(小寫開頭,只允許小寫、數字、底線,最長 40)`,
-        location,
-      );
+    validateKeyFormat(field, collector);
+    // 型別不在 `FIELD_TYPES` 內:後面每一項都以型別查表,這個欄位不再往下檢查
+    if (!hasKnownType(field, collector)) {
+      continue;
     }
     const previousType = previousTypes.get(field.key);
     if (previousType !== undefined && previousType !== field.type) {
@@ -76,6 +107,34 @@ export function validateFields(
     validateRules(field, context.regexSafety, collector);
     validateReference(field, context.lookupProviders, collector);
   }
+}
+
+/** 欄位 key 的格式與保留字(`keys.ts`)。 */
+function validateKeyFormat(field: FieldDef, collector: IssueCollector): void {
+  const keyCheck = checkFieldKey(field.key);
+  if (keyCheck.valid) {
+    return;
+  }
+  collector.error(
+    keyCheck.reason === "reserved" ? "KEY_RESERVED" : "KEY_FORMAT",
+    keyCheck.reason === "reserved"
+      ? `欄位 key ${field.key} 是保留字`
+      : `欄位 key ${field.key} 格式不符(小寫開頭,只允許小寫、數字、底線,最長 40)`,
+    { fieldKey: field.key },
+  );
+}
+
+/** 型別在 `FIELD_TYPES` 內;不在就報 `FIELD_TYPE_UNKNOWN`(定義來自設計器送來的 JSON,型別保證不了)。 */
+function hasKnownType(field: FieldDef, collector: IssueCollector): boolean {
+  if ((FIELD_TYPES as readonly string[]).includes(field.type)) {
+    return true;
+  }
+  collector.error(
+    "FIELD_TYPE_UNKNOWN",
+    `「${field.label}」的型別 ${field.type} 不存在`,
+    { fieldKey: field.key, property: "type" },
+  );
+  return false;
 }
 
 function validatePrecision(field: FieldDef, collector: IssueCollector): void {
@@ -193,6 +252,9 @@ function validateOptions(
   }
 }
 
+/** 「其他表單提交」這個 lookup 來源的 key;它的來源描述必須帶 `formKey`。 */
+export const FORM_SUBMISSION_PROVIDER = "form_submission";
+
 /** lookup 來源描述:provider 已登錄、顯示欄 / 值欄在可回欄位內。沒注入登錄表就跳過。 */
 export function validateLookupSource(
   source: LookupSourceDescriptor,
@@ -212,9 +274,21 @@ export function validateLookupSource(
     );
     return;
   }
+  // `form_submission` 來源要指定查哪張表單的提交(Spec §5「lookup 來源」)
+  if (
+    source.provider === FORM_SUBMISSION_PROVIDER &&
+    (source.formKey === undefined || source.formKey === "")
+  ) {
+    collector.error(
+      "LOOKUP_FORM_KEY_MISSING",
+      `lookup 來源 ${source.provider} 要指定 formKey(查哪張表單的提交)`,
+      location,
+    );
+  }
   const fields = [source.labelField, source.valueField ?? "id"];
   for (const name of fields) {
-    if (name !== "id" && !(name in provider.fields)) {
+    // 用 `Object.hasOwn`:`in` 會把 `toString` / `constructor` 這類原型鏈上的名稱當成欄位
+    if (name !== "id" && !Object.hasOwn(provider.fields, name)) {
       collector.error(
         "LOOKUP_UNKNOWN_FIELD",
         `lookup 來源 ${source.provider} 沒有欄位 ${name}`,

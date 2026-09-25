@@ -4,8 +4,11 @@ import { Schema as MongooseSchema, Types } from "mongoose";
 import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
 
+/** collection 名;推導 `tenantId` 的地方(BaseRepository、業務關聯)以原生 collection 讀祖先時共用。 */
+export const ORGS_COLLECTION = "orgs";
+
 /** 組織(ADR-0005):物化路徑 ancestors;根組織以 key 供 seed 冪等。 */
-@Schema({ collection: "orgs", timestamps: true })
+@Schema({ collection: ORGS_COLLECTION, timestamps: true })
 export class Org {
   /** 組織顯示名稱。 */
   @Prop({ type: String, required: true })

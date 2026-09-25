@@ -178,3 +178,51 @@ describe("@repo/domain/form 表達式:限制", () => {
     ).toThrow(/TOO_MANY_NODES/);
   });
 });
+
+describe("@repo/domain/form 表達式:文字比較與存值收斂", () => {
+  it("文字的 < / > 是字碼比較(與 JSONLogic 原生相同,不吃語系)", () => {
+    expect(
+      evaluateCondition({ "<": ["B", "a"] }, { values: {}, ctx: CTX }),
+    ).toBe(true);
+    expect(
+      evaluateCondition(
+        { "<": ["2026-02-28", "2026-03-01"] },
+        {
+          values: {},
+          ctx: CTX,
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it("date 型別的計算結果收斂成 YYYY-MM-DD(now 是 ISO 時間,以租戶時區換算)", () => {
+    // CTX.now = 2026-03-01T01:00Z,台北是 3/1 09:00
+    expect(
+      computeAll(
+        [
+          field("today", "date", {
+            valueSource: { kind: "computed", expr: { now: [] } },
+          }),
+        ],
+        {
+          values: {},
+          ctx: CTX,
+        },
+      ),
+    ).toEqual({ today: "2026-03-01" });
+  });
+
+  it("number 的固定值依 precision 取位", () => {
+    expect(
+      computeAll(
+        [
+          field("rate", "number", {
+            precision: 2,
+            valueSource: { kind: "constant", value: "1.005" },
+          }),
+        ],
+        { values: {}, ctx: CTX },
+      ),
+    ).toEqual({ rate: "1.01" });
+  });
+});

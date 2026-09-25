@@ -38,7 +38,7 @@ import {
   provisionNotRevokableError,
 } from "./org-error";
 import { type OrgRecord, isTenantTop, toOrg } from "./org-mapper";
-import { assertSlugFree, requireSlug } from "./org-slug";
+import { assertSlugFree, requireSlug, slugConflictOr } from "./org-slug";
 import { OrgsService } from "./orgs.service";
 import {
   OwnerProtectionService,
@@ -322,7 +322,8 @@ export class TenantOpsService {
       };
     } catch (error) {
       await this.rollback(operator, created);
-      throw error;
+      // 同時開通同一個短碼:事前查過沒人用,由唯一索引擋下 → 與事前檢查同一個錯誤
+      throw slugConflictOr(error);
     }
   }
 
