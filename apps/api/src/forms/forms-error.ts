@@ -1,0 +1,164 @@
+import { GraphQLError } from "graphql";
+
+import type { DefinitionIssue, ValueIssue } from "@repo/domain/form";
+
+/**
+ * 表單引擎(`forms/`)的錯誤。通用碼沿用 GQL-04(`NOT_FOUND` / `VALIDATION_FAILED` / `FORBIDDEN`),
+ * 「為什麼」一律以 `extensions.reason` 表示;新增兩個 code(正本 `docs/modules/forms.md`「錯誤」):
+ *
+ * - `CONFLICT`:樂觀鎖 / 搶鎖沒搶到(Spec 寫的「409」)。前端提示「已被別人更新,請重新載入」
+ * - `PERMISSION_NOT_DELETABLE`:退役權限清理的前置檢查未過(同 `ORG_NOT_DELETABLE` 的形狀)
+ *
+ * message 給開發者看(英文);使用者文案由前端依 code / reason 對應。
+ */
+
+/** `CONFLICT` 的 `extensions.reason`。 */
+export const FORM_CONFLICT_REASONS = [
+  /** `expectedDraftRevision` 與草稿目前的 `draftRevision` 不符(兩人同時改草稿,後存的被擋)。 */
+  "DRAFT_REVISION_MISMATCH",
+  /** 已有草稿時又要開一份(一張表單同時只有一份草稿)。 */
+  "DRAFT_EXISTS",
+  /** 要存 / 發布的草稿不存在(已被發布或還沒開)。 */
+  "DRAFT_MISSING",
+  /** 發布進行中(有 `publishing` 版本、或已發布但還沒切換完):禁止開草稿 / 退役 / 再發布。 */
+  "PUBLISH_IN_PROGRESS",
+  /** 重試發布時沒有中斷的發布可以接續。 */
+  "PUBLISH_NOT_INTERRUPTED",
+  /** 退役目前版本時表單沒有已發布的版本。 */
+  "NO_CURRENT_VERSION",
+  /** 提交的 `expectedEditVersion` 與目前不符(兩個分頁同時改同一筆,後存的被擋)。 */
+  "EDIT_VERSION_MISMATCH",
+  /** 已完成修改的 `expectedRevision` 與目前修訂號不符。 */
+  "REVISION_MISMATCH",
+  /** 狀態不對:草稿的動作打在已完成的提交上,或反之。 */
+  "STATUS_MISMATCH",
+  /** 同一個 `clientRequestId` 被拿去建另一張表單(或已被刪除),不能當成重試。 */
+  "CLIENT_REQUEST_REUSED",
+] as const;
+
+export type FormConflictReason = (typeof FORM_CONFLICT_REASONS)[number];
+
+/** `FORBIDDEN` 的 `extensions.reason`(端點本身可用,擋的是這一筆 / 這一欄)。 */
+export const FORM_FORBIDDEN_REASONS = [
+  /** 欄位級權限:沒有該欄的 `edit`(或看不到它)卻送了與既有值不同的值(Spec §5 原因 3)。 */
+  "FIELD_FORBIDDEN",
+  /** 這張表單不在操作者可新增的清單內(未分派 / 已停用 / 無發布版本 / 不在該模組)。 */
+  "FORM_NOT_AVAILABLE",
+  /** 表單不是操作者擁有的(共用表單只有 root 能改;客製表單只有擁有它的租戶能改)。 */
+  "NOT_FORM_OWNER",
+  /** 只有站在根組織才能做(分派 / 收回、建共用表單)。 */
+  "ROOT_ONLY",
+  /** 草稿只有建立者本人能存 / 送 / 刪。 */
+  "NOT_DRAFT_OWNER",
+] as const;
+
+export type FormForbiddenReason = (typeof FORM_FORBIDDEN_REASONS)[number];
+
+/** `PERMISSION_NOT_DELETABLE` 的 `extensions.reasons`。 */
+export const PERMISSION_NOT_DELETABLE_REASONS = [
+  /** 不是表單發布產生的權限(`source != dynamic`)。 */
+  "NOT_DYNAMIC",
+  /** 還沒退役(目前版本仍宣告它)。 */
+  "NOT_RETIRED",
+  /** 還有草稿(6b 起含審核中)的提交綁的版本宣告這個欄位:擋下。 */
+  "USED_BY_DRAFTS",
+  /** 只剩已完成的提交用到:要帶 `confirmCompletedUsage: true` 才刪。 */
+  "CONFIRM_REQUIRED",
+] as const;
+
+export type PermissionNotDeletableReason =
+  (typeof PERMISSION_NOT_DELETABLE_REASONS)[number];
+
+export function conflictError(
+  message: string,
+  reason: FormConflictReason,
+  extra: Record<string, unknown> = {},
+): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: { code: "CONFLICT", reason, ...extra },
+  });
+}
+
+export function forbiddenError(
+  message: string,
+  reason?: FormForbiddenReason,
+  extra: Record<string, unknown> = {},
+): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: {
+      code: "FORBIDDEN",
+      ...(reason === undefined ? {} : { reason }),
+      ...extra,
+    },
+  });
+}
+
+export function notFoundError(message: string): GraphQLError {
+  return new GraphQLError(message, { extensions: { code: "NOT_FOUND" } });
+}
+
+/** 一般輸入錯誤(GQL-04 `VALIDATION_FAILED`),`fields` 標在哪幾個 input 欄位上。 */
+export function validationError(
+  message: string,
+  fields: string[],
+): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: { code: "VALIDATION_FAILED", fields },
+  });
+}
+
+/**
+ * 定義檢查器有錯(發布 / 存草稿時的正則不安全):`VALIDATION_FAILED` + `extensions.issues`
+ * (`@repo/domain/form` 的 `DefinitionIssue[]`,每筆帶定位)。
+ */
+export function definitionInvalidError(
+  message: string,
+  issues: readonly DefinitionIssue[],
+): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: {
+      code: "VALIDATION_FAILED",
+      fields: ["definition"],
+      issues,
+    },
+  });
+}
+
+/**
+ * 提交的值不合法(送出 / 已完成修改的規則驗證、任何寫入的型別驗證):
+ * `VALIDATION_FAILED` + `fields`(欄位 key)+ `fieldErrors`(`{ fieldKey, code, message }`)。
+ */
+export function valuesInvalidError(
+  issues: readonly ValueIssue[],
+): GraphQLError {
+  const summary = issues
+    .map((issue) => issue.fieldKey + "(" + issue.code + ")")
+    .join(", ");
+  return new GraphQLError(`Form values are invalid: ${summary}`, {
+    extensions: {
+      code: "VALIDATION_FAILED",
+      fields: issues.map((issue) => issue.fieldKey),
+      fieldErrors: issues,
+    },
+  });
+}
+
+export function permissionNotDeletableError(
+  message: string,
+  reasons: PermissionNotDeletableReason[],
+  extra: Record<string, unknown> = {},
+): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: { code: "PERMISSION_NOT_DELETABLE", reasons, ...extra },
+  });
+}
+
+/** Mongo 唯一索引衝突(E11000)。 */
+export function isDuplicateKeyError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === 11_000
+  );
+}

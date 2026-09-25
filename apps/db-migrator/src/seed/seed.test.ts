@@ -661,16 +661,16 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     ]);
   }, 120_000);
 
-  it("示範家族 12 筆 + 組織管理 12 筆(9 + 租戶作業 3)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 3 筆 + 欄位管理 4 筆 + 資料範圍 2 筆 + 購物清單 4 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 24 個模組各一筆 wildcard,共 76 筆", async () => {
+  it("示範家族 12 筆 + 組織管理 12 筆(9 + 租戶作業 3)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 4 筆 + 欄位管理 4 筆 + 資料範圍 2 筆 + 表單管理 5 筆 + 購物清單 4 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 25 個模組各一筆 wildcard,共 83 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     const firstRun = runSeedCommand(databaseUri);
     expect(firstRun.status).toBe(0);
-    expect(firstRun.stdout).toContain("permissions:新增 76 / 更新 0 / 未變 0");
+    expect(firstRun.stdout).toContain("permissions:新增 83 / 更新 0 / 未變 0");
     // 冪等:重跑 0 新增 / 0 更新 / 全部未變
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.status).toBe(0);
-    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 76");
+    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 83");
 
     const { modules, permissions } = await readSeededDocuments(databaseUri);
     const moduleIdOf = (key: string): string | undefined =>
@@ -727,10 +727,12 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "system.role-manager.assign-users": "system.role-manager",
       "system.role-manager.toggle-enabled": "system.role-manager",
       "system.role-manager.delete": "system.role-manager",
-      // 正本:docs/modules/module-manager.md 權限表(3;根組織專屬模組)
+      // 正本:docs/modules/module-manager.md 權限表(4;根組織專屬模組)
       "system.module-manager.view": "system.module-manager",
       "system.module-manager.toggle-enabled": "system.module-manager",
       "system.module-manager.set-icon": "system.module-manager",
+      "system.module-manager.delete-retired-permission":
+        "system.module-manager",
       // 正本:docs/modules/field-manager.md 權限表(4)
       "system.field-manager.view": "system.field-manager",
       "system.field-manager.create": "system.field-manager",
@@ -739,6 +741,12 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       // 正本:docs/modules/data-scope.md 權限表(2;根組織專屬模組)
       "system.data-scope.view": "system.data-scope",
       "system.data-scope.edit": "system.data-scope",
+      // 正本:docs/modules/forms.md 權限表(5)
+      "system.forms.view": "system.forms",
+      "system.forms.create": "system.forms",
+      "system.forms.edit": "system.forms",
+      "system.forms.assign": "system.forms",
+      "system.forms.set-enabled": "system.forms",
       // 表單模組範例(Spec 6a §2)
       "shopping-list.view": "shopping-list",
       "shopping-list.create": "shopping-list",
@@ -750,8 +758,8 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     for (const module of modules) {
       expectedOwners[`${String(module.key)}.*`] = String(module.key);
     }
-    expect(modules).toHaveLength(24);
-    expect(permissions).toHaveLength(76);
+    expect(modules).toHaveLength(25);
+    expect(permissions).toHaveLength(83);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
       expect(permission).toMatchObject({
@@ -1000,7 +1008,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
     // 宣告的 76 筆全部未變;dynamic 那筆不在比對範圍內,不計入也不被動到
-    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 76");
+    expect(secondRun.stdout).toContain("permissions:新增 0 / 更新 0 / 未變 83");
 
     const { permissions } = await readSeededDocuments(databaseUri);
     expect(permissions).toHaveLength(77);
@@ -1080,7 +1088,7 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
       (key) => key !== undefined && !rootOnlyKeys.has(key),
     );
     expect(new Set(boundModuleKeys)).toEqual(new Set(tenantModuleKeys));
-    expect(boundModuleKeys).toHaveLength(21);
+    expect(boundModuleKeys).toHaveLength(22);
     // 租戶作業(開通、轉移擁有者)永遠不進模板(ADR-0009 第 3 步:整個 rootOnly 模組被扣除)
     expect(boundModuleKeys).not.toContain("system.org-manager.tenant-ops");
     // 反面:可見範圍開關搬到組織管理層後,模板靠 `system.org-manager.*` 自動取得(#187 / ADR-0005)—
@@ -1101,7 +1109,7 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
     expect(new Set(boundPermissionKeys)).toEqual(
       new Set(tenantModuleKeys.map((key) => `${String(key)}.*`)),
     );
-    expect(boundPermissionKeys).toHaveLength(21);
+    expect(boundPermissionKeys).toHaveLength(22);
 
     // 超級管理員:解析時 bypass,不靠記錄(ADR-0004)
     expect(boundBy(superAdmin?._id, "role_module")).toHaveLength(0);

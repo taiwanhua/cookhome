@@ -9,6 +9,7 @@
  * - `compute.ts` / `dependencies.ts`:計算欄位求值(拓樸順序、最終取位)、受保護依賴鏈
  * - `layout.ts`、`summary.ts`:版面換算、摘要槽快照
  * - `validate-*.ts`、`issues.ts`、`registry.ts`:定義檢查器與它的登錄表
+ * - `values.ts`:提交值的型別正規化與規則驗證(存草稿只驗型別、送出再驗規則)
  */
 export * from "./compute";
 export * from "./dependencies";
@@ -22,4 +23,9 @@ export * from "./semantic";
 export * from "./summary";
 export * from "./types";
 export * from "./validate-definition";
-export { recheckRegexSafety, type RegexSafetyCheck } from "./validate-fields";
+export * from "./values";
+export {
+  FORM_SUBMISSION_PROVIDER,
+  recheckRegexSafety,
+  type RegexSafetyCheck,
+} from "./validate-fields";

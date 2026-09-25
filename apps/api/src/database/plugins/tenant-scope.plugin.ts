@@ -173,6 +173,11 @@ async function applyDataScope(
   if (!queryScope) {
     return;
   }
+  if (queryScope.ownRecordsOnly === true) {
+    // 建立者讀自己的資料:不套規則,改成只許命中自己建的(沒有操作者 = 什麼都命中不到)
+    query.and([{ createdBy: queryScope.operator.actorId ?? { $in: [] } }]);
+    return;
+  }
   const condition = await provider.conditionFor(
     collectionName,
     queryScope.operator,

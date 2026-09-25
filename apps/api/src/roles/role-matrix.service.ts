@@ -244,7 +244,9 @@ export class RoleMatrixService {
     const reader = globalReader(operator);
     const [allModules, allPermissions] = await Promise.all([
       this.modules.findMany(reader, {}),
-      this.permissions.findMany(reader, { enabled: true }),
+      // 已退役的欄位級權限(表單新版本不再宣告)不進矩陣:授了也沒有欄位用它;
+      // 既有的綁定照留(`currentGrant` 只認矩陣裡的 key,不會因此被清掉)
+      this.permissions.findMany(reader, { enabled: true, retiredAt: null }),
     ]);
     // 停用的模組(連子樹)與停用的權限不進矩陣:勾了也不生效(ADR-0011 的剔除規則)
     const liveModules = pruneDisabledSubtrees(allModules);
