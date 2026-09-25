@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@jest/globals";
+import { beforeAll, describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
 import { setHelpFiles } from "@/test/help-registry";
@@ -17,8 +17,16 @@ import { renderApp } from "@/test/render";
  *
  * 內文改成 `React.lazy(() => import("@repo/ui/markdown"))` 後(#215),彈窗開啟到 Markdown
  * 渲染之間多一個 `Suspense` 的 tick,所以第一筆內文斷言一律用 `findBy*` 等(TEST-08)。
+ *
+ * 先 preload 那支 chunk(#470):第一次 `import()` 要在 jest ESM 裡現載 react-markdown / micromark
+ * 整條依賴鏈,全套並行時 CPU 被搶,會把 `findBy*` 的 5 秒與單一測試的 15 秒吃光。放進 `beforeAll`
+ * 先載完,元件裡的 `import()` 就直接拿到模組快取,測試只剩一個 `Suspense` tick 要等。
  */
 describe("模組說明「?」", () => {
+  beforeAll(async () => {
+    await import("@repo/ui/markdown");
+  });
+
   it("模組路由有對應的 help.md:點開彈窗,標題帶模組名,內文是渲染後的 Markdown", async () => {
     server.use(
       ...authWorld({ hasRefreshCookie: true, modules: superAdminModules })
