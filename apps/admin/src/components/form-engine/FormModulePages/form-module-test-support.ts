@@ -19,6 +19,11 @@ import { renderApp } from "@/test/render";
  */
 export const SHOPPING_ALL = [`${SHOPPING_LIST_KEY}.*`];
 
+/** 四個模組動作(不含 `*`:`*` 會涵蓋欄位級的動態權限)。 */
+export const SHOPPING_ACTIONS = ["view", "create", "edit", "delete"].map(
+  (action) => `${SHOPPING_LIST_KEY}.${action}`,
+);
+
 export const shoppingForm = {
   key: SHOPPING_FORM_KEY,
   name: "購物單",

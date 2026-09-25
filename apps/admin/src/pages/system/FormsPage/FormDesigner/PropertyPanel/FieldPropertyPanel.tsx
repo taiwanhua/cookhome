@@ -27,6 +27,8 @@ export interface FieldPropertyPanelProps {
   onChange: (field: FieldDef) => void;
   onSpanChange: (span: number) => void;
   onDelete: () => void;
+  /** 回到表單層設定(摘要槽、帶入規則) */
+  onBack: () => void;
 }
 
 /**
@@ -41,6 +43,7 @@ export const FieldPropertyPanel = ({
   onChange,
   onSpanChange,
   onDelete,
+  onBack,
 }: FieldPropertyPanelProps) => {
   const t = useTranslations("admin.forms.property");
   const others = fields.filter((candidate) => candidate.key !== field.key);
@@ -55,9 +58,14 @@ export const FieldPropertyPanel = ({
 
   return (
     <Stack spacing={2}>
-      <Typography variant="subtitle2">
-        {t("title", { label: field.label })}
-      </Typography>
+      <Stack direction="row" sx={{ alignItems: "center" }}>
+        <Typography variant="subtitle2" sx={{ flex: 1 }}>
+          {t("title", { label: field.label })}
+        </Typography>
+        <Button variant="text" size="small" onClick={onBack}>
+          {t("backToSettings")}
+        </Button>
+      </Stack>
       {general.length > 0 && (
         <Stack spacing={0.5} role="list" aria-label={t("issues")}>
           {general.map((issue, index) => (

@@ -270,7 +270,7 @@ export const formDesignWorld = (
       const index = retired.findIndex(
         (item) => item.key === input.permissionKey,
       );
-      const [removed] = index === -1 ? [] : retired.splice(index, 1);
+      const removed = index === -1 ? undefined : retired.splice(index, 1).at(0);
       return HttpResponse.json({
         data: {
           deleteRetiredPermission: {

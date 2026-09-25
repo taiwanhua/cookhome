@@ -7,7 +7,7 @@ import { afterAll, beforeAll } from "@jest/globals";
  */
 const VIEWPORT = { offsetHeight: 600, offsetWidth: 1200 } as const;
 
-export const useFakeViewport = (): void => {
+export const setupFakeViewport = (): void => {
   const originals = Object.fromEntries(
     Object.keys(VIEWPORT).map((key) => [
       key,

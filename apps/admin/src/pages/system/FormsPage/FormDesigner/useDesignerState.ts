@@ -33,7 +33,15 @@ export interface DesignerState {
   report: ValidationReport;
   selectedFieldKey: string | null;
   select: (fieldKey: string | null) => void;
-  add: (type: FieldType, label: string, target: PlaceTarget | null) => void;
+  /**
+   * 新增欄位:`target` 為 null = 放在第一個分區最後;還沒有任何分區時先建一個(`sectionTitle`)。
+   */
+  add: (
+    type: FieldType,
+    label: string,
+    target: PlaceTarget | null,
+    sectionTitle: string,
+  ) => void;
   move: (fieldKey: string, target: PlaceTarget) => void;
   remove: (fieldKey: string) => void;
   update: (fieldKey: string, next: FieldDef) => void;
@@ -75,18 +83,22 @@ export const useDesignerState = (initial: FormDefinition): DesignerState => {
     report,
     selectedFieldKey,
     select,
-    add: (type, label, target) => {
+    add: (type, label, target, sectionTitle) => {
       const key = nextKey(
         "field",
         definition.fields.map((field) => field.key),
       );
-      const firstSection = definition.layout.sections.at(0);
+      const base =
+        target === null && definition.layout.sections.length === 0
+          ? addSection(definition, sectionTitle)
+          : definition;
+      const firstSection = base.layout.sections.at(0);
       const place =
         target ??
         (firstSection === undefined
           ? null
           : { sectionKey: firstSection.key, beforeKey: null });
-      apply(addField(definition, newFieldOf(type, key, label), place));
+      apply(addField(base, newFieldOf(type, key, label), place));
       select(key);
     },
     move: (fieldKey, target) => {

@@ -33,6 +33,7 @@ import {
 import type { TestModule, TestOrg } from "@/test/msw/auth-handlers";
 import { overviewModule } from "@/test/msw/auth-handlers";
 import { dataScopeRoles } from "@/test/msw/data-scope-fixtures";
+import { formsModules, shoppingListModules } from "@/test/msw/form-fixtures";
 import {
   sampleOneModules,
   sampleTwoModules,
@@ -204,6 +205,11 @@ export const modulesForView = (view: MockView): TestModule[] => [
     .map((module) => withFullPermissions(module)),
   ...sampleTwoModules.map((module) => withFullPermissions(module)),
   ...sampleOneModules.map((module) => withFullPermissions(module)),
+  // 表單引擎:表單管理(掛在系統管理群組下)與表單模組範例「購物清單」
+  ...formsModules(["system.forms.*"]).filter(
+    (module) => module.key === "system.forms",
+  ),
+  ...shoppingListModules(["shopping-list.*"]),
 ];
 
 /** `me.orgs`(組織切換器);第一個即 `me.currentOrg`。 */

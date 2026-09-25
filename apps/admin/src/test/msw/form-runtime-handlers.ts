@@ -40,11 +40,13 @@ export interface FormFailure {
 export interface FormRuntimeWorldOptions {
   moduleForms?: ModuleFormsQuery["moduleForms"];
   /** `<formKey>@<version>` → 定義 */
-  versions?: Record<string, FormDefinition>;
+  versions?: Partial<Record<string, FormDefinition>>;
   submissions?: FormSubmissionFieldsFragment[];
   /** 模組 key → 列表欄位配置(沒給 = 空陣列) */
   listColumns?: Record<string, ModuleListColumn[]>;
   lookupRecords?: FormLookupQuery["formLookup"]["items"];
+  /** 提交 id → 修訂號 → 那個修訂的完整快照(`formSubmission(id, revision)` 用;沒給就回目前的值) */
+  snapshots?: Record<string, Record<number, Record<string, unknown>>>;
   failures?: Partial<Record<FormRuntimeOperation, FormFailure>>;
 }
 
@@ -61,6 +63,12 @@ export interface FormRuntimeWorld {
 }
 
 const notFound = () => graphqlError("NOT_FOUND" as AuthErrorCode);
+
+/** 樂觀鎖沒搶到(與 api 同一個 code / reason)。 */
+const conflict = () =>
+  graphqlError("CONFLICT" as AuthErrorCode, "CONFLICT", {
+    reason: "EDIT_VERSION_MISMATCH",
+  });
 
 /**
  * 表單執行端的假 api(docs/modules/forms.md「api 介面」執行端)。有狀態:建草稿 / 存 / 送 / 改寫回同一份清單,
@@ -100,10 +108,6 @@ export const formRuntimeWorld = (
           failure.extensions ?? {},
         );
   };
-  const conflict = () =>
-    graphqlError("CONFLICT" as AuthErrorCode, "CONFLICT", {
-      reason: "EDIT_VERSION_MISMATCH",
-    });
   const find = (id: string) => state.find((item) => item.id === id);
   /** 單筆 payload(`{ <操作名>: { submission } }`);型別交給各 handler 的回傳推導。 */
   const payload = (name: string, submission: FormSubmissionFieldsFragment) =>
@@ -169,9 +173,23 @@ export const formRuntimeWorld = (
       });
     }),
     api.query("FormSubmission", ({ variables }) => {
-      const { id } = variables as FormSubmissionQueryVariables;
+      const { id, revision } = variables as FormSubmissionQueryVariables;
       const item = find(id);
-      return item === undefined ? notFound() : payload("formSubmission", item);
+      if (item === undefined) {
+        return notFound();
+      }
+      const snapshot =
+        revision == null ? undefined : options.snapshots?.[id]?.[revision];
+      return payload(
+        "formSubmission",
+        snapshot === undefined
+          ? item
+          : {
+              ...item,
+              values: snapshot,
+              viewedRevision: revision ?? item.revision,
+            },
+      );
     }),
     api.query("FormLookup", ({ variables }) => {
       const { input } = variables as FormLookupQueryVariables;
@@ -245,7 +263,8 @@ export const formRuntimeWorld = (
         revision: 1,
         editVersion: target.editVersion + 1,
         summary: {
-          title: String(target.values.item ?? ""),
+          title:
+            typeof target.values.item === "string" ? target.values.item : "",
           date: null,
           amount: null,
         },

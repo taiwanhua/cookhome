@@ -8,7 +8,7 @@ import {
   SHOPPING_ROUTES,
   submissionFragment,
 } from "@/test/msw/form-fixtures";
-import { useFakeViewport } from "@/test/viewport";
+import { setupFakeViewport } from "@/test/viewport";
 
 import {
   defaultRuntimeOptions,
@@ -16,7 +16,7 @@ import {
   shoppingForm,
 } from "./form-module-test-support";
 
-useFakeViewport();
+setupFakeViewport();
 
 /** 新增鈕在「此刻可新增的表單」回來之前是停用的;等它可按再點。 */
 const createButton = async () => {

@@ -1448,7 +1448,8 @@
       "permissionShow": "Protected (permission needed to see)",
       "permissionEdit": "Restricted edit (permission needed to change)",
       "permissionHint": "Each creates a field permission when published; grant it in the role permission matrix.",
-      "delete": "Delete field"
+      "delete": "Delete field",
+      "backToSettings": "← Form settings"
     },
     "options": {
       "source": "Option source",

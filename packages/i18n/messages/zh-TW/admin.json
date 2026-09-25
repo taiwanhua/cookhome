@@ -1448,7 +1448,8 @@
       "permissionShow": "受保護(要權限才看得到)",
       "permissionEdit": "限定可改(要權限才能改)",
       "permissionHint": "發布時會各建一筆欄位級權限,在角色的權限矩陣授予。",
-      "delete": "刪除欄位"
+      "delete": "刪除欄位",
+      "backToSettings": "← 表單設定"
     },
     "options": {
       "source": "選項來源",
