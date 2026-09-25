@@ -10,6 +10,7 @@ import { HOOK_TIMEOUT_MS } from "../../database/test-support/mongo-connection";
 import {
   CREATE_DRAFT,
   CREATE_FORM,
+  CREATE_FORM_DRAFT,
   FORM_LOOKUP,
   FORM_LOOKUP_RECORD,
   type FormOperator,
@@ -19,6 +20,7 @@ import {
   PREVIEW_VERSION,
   SUBMIT,
   type SubmissionRow,
+  VALIDATE_VERSION,
   assignForm,
   call,
   codeOf,
@@ -36,6 +38,22 @@ import {
   saveDefinition,
   showKey,
 } from "../test-support/form-fixtures";
+
+const CREATE_UPLOAD_URL = /* GraphQL */ `
+  mutation CreateUploadUrl($input: CreateUploadUrlInput!) {
+    createUploadUrl(input: $input) {
+      objectPath
+    }
+  }
+`;
+
+const ATTACHMENT_URL = /* GraphQL */ `
+  query FormSubmissionAttachmentUrl($id: ID!, $fieldKey: String!) {
+    formSubmissionAttachmentUrl(id: $id, fieldKey: $fieldKey) {
+      url
+    }
+  }
+`;
 
 interface LookupRow {
   id: string;
@@ -453,6 +471,105 @@ describe("表單的值:語意值、引用快照、現名 / 快照、lookup 以�
     );
     expect(single.formLookupRecord.record?.values).toMatchObject({
       extra: "v2 才有",
+    });
+  });
+
+  it("上傳欄:只收本 API 簽出來的 form/ 路徑;附件網址要看得到這筆、看得到這一欄才簽", async () => {
+    await publishNewForm(
+      api,
+      root,
+      "upload_form",
+      definitionOf([
+        field("title", "text"),
+        field("file", "upload"),
+        field("secret_file", "upload", {
+          permission: { show: true, edit: false },
+        }),
+      ]),
+    );
+    await assignForm(api, root, "upload_form", [tenant]);
+    const ticket = await ok<{ createUploadUrl: { objectPath: string } }>(
+      api,
+      staff.token,
+      CREATE_UPLOAD_URL,
+      {
+        input: {
+          purpose: "FORM_ATTACHMENT",
+          contentType: "application/pdf",
+          size: 1000,
+        },
+      },
+    );
+    const path = ticket.createUploadUrl.objectPath;
+    expect(path).toMatch(/^form\//);
+    const submitted = await createSubmitted(api, staff.token, "upload_form", {
+      title: "有附件",
+      file: {
+        path,
+        name: "報價單.pdf",
+        size: 1000,
+        contentType: "application/pdf",
+      },
+    });
+    const url = await ok<{ formSubmissionAttachmentUrl: { url: string } }>(
+      api,
+      staff.token,
+      ATTACHMENT_URL,
+      { id: submitted.id, fieldKey: "file" },
+    );
+    expect(url.formSubmissionAttachmentUrl.url).toContain(path);
+    const hidden = await call(api, staff.token, ATTACHMENT_URL, {
+      id: submitted.id,
+      fieldKey: "secret_file",
+    });
+    expect(extensionsOf(hidden).reason).toBe("FIELD_FORBIDDEN");
+    const foreign = await call(api, staff.token, CREATE_FORM_DRAFT, {
+      input: {
+        formKey: "upload_form",
+        clientRequestId: "foreign-upload",
+        values: {
+          file: {
+            path: "demo/11111111-2222-4333-8444-555555555555.png",
+            name: "a.png",
+            size: 10,
+            contentType: "image/png",
+          },
+        },
+      },
+    });
+    expect(extensionsOf(foreign).fieldErrors).toContainEqual(
+      expect.objectContaining({ fieldKey: "file", code: "UPLOAD_INVALID" }),
+    );
+  });
+
+  it("檢查器(不落庫):條件引用受保護欄位 → 錯誤並定位到欄位與表達式槽", async () => {
+    await ok(api, root, CREATE_FORM, {
+      input: { key: "check_form", moduleKey: MODULE_KEY, name: "檢查" },
+    });
+    const report = await ok<{
+      validateFormVersion: {
+        errors: { code: string; location: Record<string, unknown> }[];
+      };
+    }>(api, root, VALIDATE_VERSION, {
+      input: {
+        formKey: "check_form",
+        ...definitionOf([
+          field("title", "text"),
+          field("salary", "number", {
+            permission: { show: true, edit: false },
+          }),
+          field("note", "text", {
+            visibleWhen: { ">": [{ var: "salary" }, 0] },
+          }),
+        ]),
+      },
+    });
+    expect(report.validateFormVersion.errors).toContainEqual({
+      code: "EXPR_PROTECTED_REF",
+      location: expect.objectContaining({
+        fieldKey: "note",
+        exprSlot: "visibleWhen",
+      }),
     });
   });
 

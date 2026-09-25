@@ -64,6 +64,24 @@ const SAVE_DATA_SCOPE_RULE = /* GraphQL */ `
   }
 `;
 
+const ROLE_MATRIX = /* GraphQL */ `
+  query RoleMatrix($roleId: ID!) {
+    roleMatrix(roleId: $roleId) {
+      modules {
+        key
+        permissions {
+          key
+        }
+      }
+    }
+  }
+`;
+
+interface MatrixNode {
+  key: string;
+  permissions: { key: string }[];
+}
+
 interface TreeNode {
   key: string;
   permissions: { key: string }[];
@@ -420,6 +438,15 @@ describe("表單的欄位級權限:投影 / 守門 / 依賴鏈 / 權限被刪 / 
       const keys = shopping?.permissions.map((permission) => permission.key);
       expect(keys).toContain(showKey(CLEANUP, "c"));
       expect(keys).not.toContain(showKey(CLEANUP, "a"));
+      // 權限矩陣同樣不列退役的(授了也沒有欄位用它)
+      const matrix = await ok<{
+        roleMatrix: { modules: MatrixNode[] };
+      }>(api, root, ROLE_MATRIX, { roleId: String(plain.roleId) });
+      const matrixKeys = matrix.roleMatrix.modules
+        .find((node) => node.key === MODULE_KEY)
+        ?.permissions.map((permission) => permission.key);
+      expect(matrixKeys).toContain(showKey(CLEANUP, "c"));
+      expect(matrixKeys).not.toContain(showKey(CLEANUP, "a"));
     });
 
     it("1. 草稿仍用到 → 擋下並列出筆數與版本", async () => {
