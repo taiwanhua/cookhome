@@ -48,6 +48,16 @@
         "types": "./dist/cjs/form.d.cts",
         "default": "./dist/cjs/form.cjs"
       }
+    },
+    "./form-regex-safety": {
+      "import": {
+        "types": "./dist/es/form-regex-safety.d.ts",
+        "default": "./dist/es/form-regex-safety.js"
+      },
+      "require": {
+        "types": "./dist/cjs/form-regex-safety.d.cts",
+        "default": "./dist/cjs/form-regex-safety.cjs"
+      }
     }
   },
   "typesVersions": {
@@ -63,6 +73,9 @@
       ],
       "form": [
         "./dist/es/form.d.ts"
+      ],
+      "form-regex-safety": [
+        "./dist/es/form-regex-safety.d.ts"
       ]
     }
   },

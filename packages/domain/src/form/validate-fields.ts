@@ -1,5 +1,3 @@
-import { checkSync } from "recheck";
-
 import type { IssueCollector } from "./issues";
 import { checkFieldKey } from "./keys";
 import {
@@ -24,46 +22,11 @@ export const MAX_PATTERN_LENGTH = 200;
 /** 正則固定用的 flag(前後端同一顆引擎,結果一致)。 */
 export const PATTERN_FLAGS = "u";
 
-/** 正則是否安全(不會被特定輸入卡住);預設用 `recheck`。 */
+/**
+ * 正則是否安全(不會被特定輸入卡住)。實作在 `@repo/domain/form-regex-safety`(recheck),
+ * 由呼叫端注入:recheck 瀏覽器版約 2.9 MB,不能跟著 `form` 進 admin 首屏 bundle。
+ */
 export type RegexSafetyCheck = (source: string) => boolean;
-
-/** recheck 在 node 端選同步後端的環境變數(它只認這個,沒有程式內參數)。 */
-const RECHECK_SYNC_BACKEND = "RECHECK_SYNC_BACKEND";
-
-/**
- * 以 recheck 的**純 JS 後端**同步執行 `fn`。
- *
- * recheck 在 node 的 `checkSync` 預設走 synckit:另開 worker、優先 spawn 原生執行檔或 java,
- * 主執行緒以 `Atomics.wait` 等結果 —— api 每檢查一條正則就可能卡住最多一個逾時。
- * 同步後端只能用環境變數 `RECHECK_SYNC_BACKEND` 選(`lib/main.js` 每次呼叫時讀),
- * 所以在呼叫前暫時設成 `pure`、呼叫後還原,不影響行程裡其他人的設定。
- * 瀏覽器版(`lib/browser.js`)本來就只有純 JS,沒有 `process` 時直接呼叫。
- */
-function withPureRecheck<T>(fn: () => T): T {
-  if (typeof process === "undefined") {
-    return fn();
-  }
-  const previous = process.env[RECHECK_SYNC_BACKEND];
-  process.env[RECHECK_SYNC_BACKEND] = "pure";
-  try {
-    return fn();
-  } finally {
-    if (previous === undefined) {
-      Reflect.deleteProperty(process.env, RECHECK_SYNC_BACKEND);
-    } else {
-      process.env[RECHECK_SYNC_BACKEND] = previous;
-    }
-  }
-}
-
-/**
- * 預設的 ReDoS 檢查:`recheck`(固定純 JS 後端,見 `withPureRecheck`)判定為 `safe` 才算安全;
- * `vulnerable` 與「判不出來」(`unknown`,含逾時)都視為不安全 — 寧可請設計者改寫,也不讓 API 冒險。
- */
-export const recheckRegexSafety: RegexSafetyCheck = (source) =>
-  withPureRecheck(
-    () => checkSync(source, PATTERN_FLAGS, { timeout: 2000 }).status,
-  ) === "safe";
 
 export interface FieldValidationContext {
   widgets: WidgetRegistry;
