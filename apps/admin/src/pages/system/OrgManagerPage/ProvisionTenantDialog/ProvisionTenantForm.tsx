@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { isValidOrgSlug } from "@repo/domain/form";
+import { isValidOrgSlug } from "@repo/domain/form-keys";
 import {
   type ProvisionTenantMutation,
   useProvisionTenantMutation,

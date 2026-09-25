@@ -1,6 +1,7 @@
 import { useTranslations } from "use-intl";
 
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
+import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
 import { CircularProgress } from "@repo/ui/circular-progress";
 import type { ModuleIconKey } from "@repo/ui/icons";
@@ -35,6 +36,9 @@ export interface ModuleDetailPanelProps {
     permission: ModuleAdminPermissionLike,
     enabled: boolean,
   ) => void;
+  /** 表單模組的列表欄位配置(`system.forms.edit`) */
+  canEditListColumns: boolean;
+  onEditListColumns: () => void;
 }
 
 /** `sidebarType` → 文案 key(三種類型都要看得到,樹上只標群組與隱藏頁)。 */
@@ -62,6 +66,8 @@ export const ModuleDetailPanel = ({
   onToggleModule,
   onChangeIcon,
   onTogglePermission,
+  canEditListColumns,
+  onEditListColumns,
 }: ModuleDetailPanelProps) => {
   const t = useTranslations("admin.moduleManager.detail");
 
@@ -164,6 +170,21 @@ export const ModuleDetailPanel = ({
           isPending={isIconPending}
           onChange={onChangeIcon}
         />
+
+        {module.engine === ModuleEngine.Form && (
+          <ModuleDetailRow label={t("listColumns")}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Typography variant="body2" sx={{ flex: 1 }}>
+                {t("listColumnsHint")}
+              </Typography>
+              {canEditListColumns && (
+                <Button variant="text" size="small" onClick={onEditListColumns}>
+                  {t("editListColumns")}
+                </Button>
+              )}
+            </Stack>
+          </ModuleDetailRow>
+        )}
 
         <ModulePermissionTable
           permissions={module.permissions}

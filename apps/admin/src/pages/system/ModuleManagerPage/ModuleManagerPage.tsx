@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
@@ -9,16 +9,26 @@ import {
   useSetPermissionEnabledMutation,
 } from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
+import { Button } from "@repo/ui/button";
 import type { ModuleIconKey } from "@repo/ui/icons";
 import { Stack } from "@repo/ui/stack";
 
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
 
 import { DisableModuleDialog } from "./DisableModuleDialog";
 import { ModuleDetailPanel } from "./ModuleDetailPanel/ModuleDetailPanel";
 import { ModuleTreePanel } from "./ModuleTreePanel";
+import {
+  LazyListColumnsDialog,
+  LazyRetiredPermissionsDialog,
+} from "./lazy-form-dialogs";
 import { moduleManagerErrorOf } from "./module-manager-error";
+import {
+  LIST_COLUMNS_PERMISSION,
+  MODULE_MANAGER_PERMISSIONS,
+} from "./module-manager-permissions";
 import type {
   ModuleAdminPermissionLike,
   ModuleManagerErrorCode,
@@ -39,6 +49,9 @@ export const ModuleManagerPage = () => {
   const { session } = useSession();
   const t = useTranslations("admin.moduleManager");
   const data = useModuleManagerData();
+  const { hasPermission } = usePermissions();
+  const [isListColumnsOpen, setIsListColumnsOpen] = useState(false);
+  const [isRetiredOpen, setIsRetiredOpen] = useState(false);
 
   const [isDisableOpen, setIsDisableOpen] = useState(false);
   const [actionError, setActionError] = useState<ModuleManagerErrorCode | null>(
@@ -148,7 +161,19 @@ export const ModuleManagerPage = () => {
   return (
     // 撐滿殼給的內容區高度(STYLE-08 / Figma 89:214:左右兩塊等高、各自內部捲動)
     <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
-      <Alert severity="warning">{t("seedNotice")}</Alert>
+      <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start" }}>
+        <Alert severity="warning" sx={{ flex: 1 }}>
+          {t("seedNotice")}
+        </Alert>
+        <Button
+          variant="outlined"
+          onClick={() => {
+            setIsRetiredOpen(true);
+          }}
+        >
+          {t("retired.open")}
+        </Button>
+      </Stack>
       {pageError !== null && (
         <Alert severity="error">{t(`errors.${pageError}`)}</Alert>
       )}
@@ -171,9 +196,36 @@ export const ModuleManagerPage = () => {
           onToggleModule={handleToggleModule}
           onChangeIcon={handleChangeIcon}
           onTogglePermission={handleTogglePermission}
+          canEditListColumns={hasPermission(LIST_COLUMNS_PERMISSION)}
+          onEditListColumns={() => {
+            setIsListColumnsOpen(true);
+          }}
         />
       </Stack>
 
+      {isListColumnsOpen && data.selectedModule !== null && (
+        <Suspense fallback={null}>
+          <LazyListColumnsDialog
+            moduleKey={data.selectedModule.key}
+            moduleName={data.selectedModule.name}
+            onClose={() => {
+              setIsListColumnsOpen(false);
+            }}
+          />
+        </Suspense>
+      )}
+      {isRetiredOpen && (
+        <Suspense fallback={null}>
+          <LazyRetiredPermissionsDialog
+            canDelete={hasPermission(
+              MODULE_MANAGER_PERMISSIONS.deleteRetiredPermission,
+            )}
+            onClose={() => {
+              setIsRetiredOpen(false);
+            }}
+          />
+        </Suspense>
+      )}
       {isDisableOpen && data.selectedModule !== null && (
         <DisableModuleDialog
           module={data.selectedModule}

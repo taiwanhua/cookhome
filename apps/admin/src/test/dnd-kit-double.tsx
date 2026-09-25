@@ -45,6 +45,24 @@ const useSortable = () => ({
   isDragging: false,
 });
 
+/** 可拖來源 / 放置目標的替身(設計器的元件面板與分區放置區用):都不量測、不動作。 */
+const useDraggable = () => ({
+  attributes: {},
+  listeners: {},
+  setNodeRef: () => {
+    // 替身不量測節點
+  },
+  transform: null,
+  isDragging: false,
+});
+
+const useDroppable = () => ({
+  setNodeRef: () => {
+    // 替身不量測節點
+  },
+  isOver: false,
+});
+
 /** 模擬使用者把 `activeId` 拖到 `overId` 的位置放下。 */
 export const dragEnd = (activeId: string, overId: string | null): void => {
   act(() => {
@@ -62,11 +80,15 @@ export const dndKitCoreDouble = {
   closestCenter: () => [],
   useSensor: () => ({}),
   useSensors: () => [],
+  useDraggable,
+  useDroppable,
 };
 
 /** 取代 `@dnd-kit/sortable` 的模組物件 */
 export const dndKitSortableDouble = {
   SortableContext,
   horizontalListSortingStrategy: () => null,
+  rectSortingStrategy: () => null,
+  verticalListSortingStrategy: () => null,
   useSortable,
 };

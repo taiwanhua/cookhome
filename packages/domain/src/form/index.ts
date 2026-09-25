@@ -26,6 +26,6 @@ export * from "./validate-definition";
 export * from "./values";
 export {
   FORM_SUBMISSION_PROVIDER,
-  recheckRegexSafety,
+  PATTERN_FLAGS,
   type RegexSafetyCheck,
 } from "./validate-fields";

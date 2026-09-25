@@ -7,11 +7,7 @@ import {
 } from "./registry";
 import type { FieldDef, FormDefinition } from "./types";
 import { validateExpressions } from "./validate-expressions";
-import {
-  type RegexSafetyCheck,
-  recheckRegexSafety,
-  validateFields,
-} from "./validate-fields";
+import { type RegexSafetyCheck, validateFields } from "./validate-fields";
 import {
   collectFieldWarnings,
   validateLayout,
@@ -30,8 +26,11 @@ export interface ValidateDefinitionOptions {
   widgets?: WidgetRegistry;
   /** 列表欄位配置(`modules.settings.list`)引用的表單欄位 key;不給就不出 `LIST_COLUMN_MISSING`。 */
   listColumnFieldKeys?: readonly string[];
-  /** ReDoS 檢查;預設 `recheck`。 */
-  regexSafety?: RegexSafetyCheck;
+  /**
+   * ReDoS 檢查,**必填**:api 傳 `@repo/domain/form-regex-safety` 的 `recheckRegexSafety`;
+   * admin 設計器懶載入同一支(不讓 recheck 進首屏 bundle)。
+   */
+  regexSafety: RegexSafetyCheck;
 }
 
 /**
@@ -41,7 +40,7 @@ export interface ValidateDefinitionOptions {
  */
 export function validateDefinition(
   definition: FormDefinition,
-  options: ValidateDefinitionOptions = {},
+  options: ValidateDefinitionOptions,
 ): ValidationReport {
   const collector = new IssueCollector();
   const protections = fieldProtections(definition.fields);
@@ -49,7 +48,7 @@ export function validateDefinition(
     definition.fields,
     {
       widgets: options.widgets ?? DEFAULT_WIDGET_REGISTRY,
-      regexSafety: options.regexSafety ?? recheckRegexSafety,
+      regexSafety: options.regexSafety,
       ...(options.previousFields && { previousFields: options.previousFields }),
       ...(options.fieldCategoryKeys && {
         fieldCategoryKeys: options.fieldCategoryKeys,

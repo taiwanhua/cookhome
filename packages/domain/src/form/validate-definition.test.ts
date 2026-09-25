@@ -1,34 +1,45 @@
 import { describe, expect, it } from "@jest/globals";
 
+import { recheckRegexSafety } from "../form-regex-safety";
 import { fieldProtections } from "./dependencies";
 import { definitionOf, field } from "./form-test-support";
 import type { DefinitionIssueCode } from "./issues";
 import type { Expression, FieldDef, FormDefinition } from "./types";
 import {
   type ValidateDefinitionOptions,
-  validateDefinition,
+  validateDefinition as validateDefinitionWith,
 } from "./validate-definition";
 
 const title = field("title", "text");
 
+/** ReDoS 檢查由呼叫端注入(`regexSafety` 必填);案例沒指定時用正本的 recheck。 */
+const validateDefinition = (
+  definition: FormDefinition,
+  options: Partial<ValidateDefinitionOptions> = {},
+) =>
+  validateDefinitionWith(definition, {
+    regexSafety: recheckRegexSafety,
+    ...options,
+  });
+
 /** 只看錯誤碼(與第一筆的定位),每個案例只關心自己那一類。 */
 function errorsOf(
   definition: FormDefinition,
-  options?: ValidateDefinitionOptions,
+  options?: Partial<ValidateDefinitionOptions>,
 ) {
   return validateDefinition(definition, options).errors;
 }
 
 function codesOf(
   definition: FormDefinition,
-  options?: ValidateDefinitionOptions,
+  options?: Partial<ValidateDefinitionOptions>,
 ): DefinitionIssueCode[] {
   return errorsOf(definition, options).map((issue) => issue.code);
 }
 
 function warningCodesOf(
   definition: FormDefinition,
-  options?: ValidateDefinitionOptions,
+  options?: Partial<ValidateDefinitionOptions>,
 ): DefinitionIssueCode[] {
   return validateDefinition(definition, options).warnings.map(
     (issue) => issue.code,
