@@ -1,6 +1,9 @@
 import { Field, ID, Int, ObjectType } from "@nestjs/graphql";
 
-import { ModuleSidebarType } from "../../permission/models/me-module.model";
+import {
+  ModuleEngine,
+  ModuleSidebarType,
+} from "../../permission/models/me-module.model";
 
 /**
  * 模組與權限頁右側清單的一筆權限(`docs/modules/module-manager.md`)。
@@ -82,6 +85,10 @@ export class ModuleAdminNode {
    */
   @Field(() => String, { nullable: true })
   icon!: string | null;
+
+  /** 頁面組裝方式(`modules.engine`,seed 宣告;不可在頁面改)。 */
+  @Field(() => ModuleEngine)
+  engine!: ModuleEngine;
 
   /**
    * 模組自己的停用狀態。**停用連動整棵子樹**(`setModuleEnabled(enabled: false)` 會把子孫

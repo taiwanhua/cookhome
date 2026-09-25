@@ -3,6 +3,7 @@ import {
   type OnModuleDestroy,
   type OnModuleInit,
 } from "@nestjs/common";
+import { Types } from "mongoose";
 
 import { AuditService } from "../audit/audit.service";
 import type { Persisted } from "../database/base.repository";
@@ -10,6 +11,7 @@ import {
   DataScopeRulesRepository,
   type DataScopeTargetDocument,
   DataScopeTargetsRepository,
+  ModulesRepository,
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import {
@@ -27,6 +29,8 @@ import {
   type DataScopeGroupOp,
   type DataScopeOperatorFacts,
   type DataScopeRuleEntry,
+  type ModuleCondition,
+  combineByModule,
   compileRules,
   fieldCatalogOf,
   validateRules,
@@ -57,7 +61,7 @@ const RULE_READER: OperatorContext = {
   roleIds: [],
 };
 
-/** 快取中的一份規則:沒有規則的 collection 也要記(`null`),否則每次查詢都打一次資料庫。 */
+/** 快取中的一份規則(某個模組的):沒有規則的模組不進快取。 */
 interface CachedRule {
   combineOp: DataScopeGroupOp;
   rules: DataScopeRuleEntry[];
@@ -65,18 +69,24 @@ interface CachedRule {
   catalog: DataScopeField[];
 }
 
+/** 一個 collection 的快取:moduleKey → 該模組的規則;空 Map = 這張表沒有任何模組設了規則。 */
+type CollectionRules = Map<string, CachedRule>;
+
 type TargetRecord = Persisted<DataScopeTargetDocument>;
 
 /**
  * 資料範圍(`system.data-scope`,ADR-0008)。resolver 薄、service 厚(STRUCT-01)。
  *
  * 兩個職責:
- * 1. **設定面**:資料目標與欄位目錄、讀規則、整份覆蓋儲存(驗證 + 審計 + 作廢快取)
+ * 1. **設定面**:資料目標(一個模組一個)與欄位目錄、讀規則、整份覆蓋儲存(驗證 + 審計 + 作廢快取)
  * 2. **執行面**:實作 `DataScopeRuleProvider`,在 Nest 啟動時註冊給查詢中介層
- *    (`database/plugins/tenant-scope.plugin.ts`),讓每一次業務查詢都在租戶保底之內再套規則
+ *    (`database/plugins/tenant-scope.plugin.ts`),讓每一次模組資料查詢都在租戶保底之內再套規則
  *
- * **快取**:`Map<collection, CachedRule | null>`,儲存時作廢該 collection(ADR-0008
- * 「設定整包記憶體快取,儲存時作廢」)。**多執行個體的一致性本段不處理** —
+ * **依模組**:目標與規則以 `(collection, moduleKey)` 為鍵;查某 collection 時,把該 collection 下
+ * 命中操作者的規則依模組拼成 `$or`(`combineByModule`)。
+ *
+ * **快取**:`Map<collection, Map<moduleKey, CachedRule>>`,儲存時作廢該 collection(ADR-0008
+ * 「設定整包記憶體快取,儲存時作廢」)。**多執行個體的一致性不處理** —
  * 同一份規則改動後,其他執行個體要到自己的快取被作廢(重啟)才會跟上;
  * 規則是低頻設定、且各執行個體最終一致,現階段可接受,需要時再上 pub/sub 或短 TTL。
  */
@@ -84,11 +94,12 @@ type TargetRecord = Persisted<DataScopeTargetDocument>;
 export class DataScopeService
   implements DataScopeRuleProvider, OnModuleInit, OnModuleDestroy
 {
-  private readonly cache = new Map<string, CachedRule | null>();
+  private readonly cache = new Map<string, CollectionRules>();
 
   constructor(
     private readonly rules: DataScopeRulesRepository,
     private readonly targets: DataScopeTargetsRepository,
+    private readonly modules: ModulesRepository,
     private readonly audit: AuditService,
     private readonly ownerProtection: OwnerProtectionService,
   ) {}
@@ -104,26 +115,35 @@ export class DataScopeService
   // ---- 執行面(查詢中介層) ----
 
   /**
-   * 查詢中介層的唯一入口:回傳要 AND 進查詢的條件,沒有規則命中 → `null`。
-   * 命中判斷、動態值代入、combineOp 合成全在 `data-scope-rule.ts`(純函式)。
+   * 查詢中介層的唯一入口:回傳要 AND 進查詢的條件,沒有任何模組的規則命中 → `null`。
+   * 命中判斷、動態值代入、combineOp 合成在 `compileRules`,依模組拼 `$or` 在 `combineByModule`
+   * (都是 `data-scope-rule.ts` 的純函式)。
    */
   async conditionFor(
     collection: string,
     operator: OperatorContext,
   ): Promise<Record<string, unknown> | null> {
-    const cached = await this.ruleOf(collection);
-    if (!cached) {
+    const byModule = await this.rulesOf(collection);
+    if (byModule.size === 0) {
       return null;
     }
-    return compileRules(
-      cached.rules,
-      cached.combineOp,
-      cached.catalog,
-      factsOf(operator),
-    );
+    const facts = factsOf(operator);
+    const conditions: ModuleCondition[] = [];
+    for (const [moduleKey, cached] of byModule) {
+      const condition = compileRules(
+        cached.rules,
+        cached.combineOp,
+        cached.catalog,
+        facts,
+      );
+      if (condition) {
+        conditions.push({ moduleKey, condition });
+      }
+    }
+    return combineByModule(conditions);
   }
 
-  private async ruleOf(collection: string): Promise<CachedRule | null> {
+  private async rulesOf(collection: string): Promise<CollectionRules> {
     const hit = this.cache.get(collection);
     if (hit !== undefined) {
       return hit;
@@ -133,61 +153,83 @@ export class DataScopeService
     return loaded;
   }
 
-  private async load(collection: string): Promise<CachedRule | null> {
-    const document = await this.rules.findOne(RULE_READER, { collection });
-    if (!document || document.rules.length === 0) {
-      return null;
+  private async load(collection: string): Promise<CollectionRules> {
+    const [documents, targets] = await Promise.all([
+      this.rules.findMany(RULE_READER, { collection }),
+      this.targets.findMany(RULE_READER, { collection }),
+    ]);
+    const targetByModule = new Map(
+      targets.map((target) => [target.moduleKey, target]),
+    );
+    const loaded: CollectionRules = new Map();
+    for (const document of documents) {
+      // 空 `rules` = 已被清掉的規則(ADR-0008),等同沒有規則
+      if (document.rules.length === 0) {
+        continue;
+      }
+      loaded.set(document.moduleKey, {
+        combineOp: document.combineOp,
+        rules: document.rules as unknown as DataScopeRuleEntry[],
+        catalog: fieldCatalogOf(
+          declaredFieldsOf(targetByModule.get(document.moduleKey) ?? null),
+        ),
+      });
     }
-    const target = await this.targets.findOne(RULE_READER, { collection });
-    return {
-      combineOp: document.combineOp,
-      rules: document.rules as unknown as DataScopeRuleEntry[],
-      catalog: fieldCatalogOf(declaredFieldsOf(target)),
-    };
+    return loaded;
   }
 
   // ---- 設定面(「資料範圍」頁) ----
 
   /**
-   * 資料目標清單(seed);每個目標的欄位目錄已附上底座的基礎欄位(ADR-0008)。
-   * `hasRule` 一次取全部規則文件算出來(#246 的 1),前端不必對每個目標各查一次規則。
+   * 資料目標清單(seed;**一列 = 一個模組**);每個目標的欄位目錄已附上底座的基礎欄位(ADR-0008)。
+   * `hasRule` 一次取全部規則文件算出來,前端不必對每個目標各查一次規則。
+   * 依模組 key 排序:同一棵模組樹的目標排在一起(前端可再依模組樹分組)。
    */
   async listTargets(
     operator: OperatorContext,
   ): Promise<DataScopeTargetModel[]> {
     await this.assertRootOperator(operator, "dataScopeTargets");
     const [documents, rules] = await Promise.all([
-      this.targets.findMany(RULE_READER, {}, { sort: { collection: 1 } }),
+      this.targets.findMany(
+        RULE_READER,
+        {},
+        { sort: { moduleKey: 1, collection: 1 } },
+      ),
       this.rules.findMany(RULE_READER, {}),
     ]);
     // 空 `rules` = 已被清掉的規則(ADR-0008),不算已設 — 與執行面的 `load` 同一條判準
     const withRule = new Set(
       rules
         .filter((rule) => rule.rules.length > 0)
-        .map((rule) => rule.collection),
+        .map((rule) => targetKeyOf(rule.collection, rule.moduleKey)),
+    );
+    const moduleNames = await this.moduleNamesOf(
+      documents.map((target) => target.moduleKey),
     );
     return documents.map((target) =>
-      toTargetModel(target, withRule.has(target.collection)),
+      toTargetModel(
+        target,
+        withRule.has(targetKeyOf(target.collection, target.moduleKey)),
+        moduleNames.get(target.moduleKey) ?? target.name,
+      ),
     );
   }
 
   /** 某目標目前的規則;尚未設定過 → `null`(ADR-0008:沒有規則 = 只有租戶保底)。 */
   async findRule(
     operator: OperatorContext,
-    collection: string,
+    targetId: string,
   ): Promise<DataScopeRuleModel | null> {
     await this.assertRootOperator(operator, "dataScopeRule");
-    await this.mustFindTarget(collection);
-    const document = await this.rules.findOne(RULE_READER, { collection });
+    const target = await this.mustFindTarget(targetId);
+    const document = await this.rules.findOne(RULE_READER, {
+      collection: target.collection,
+      moduleKey: target.moduleKey,
+    });
     if (!document) {
       return null;
     }
-    return {
-      collection: document.collection,
-      combineOp: document.combineOp as DataScopeCombineOpEnum,
-      rules: document.rules as unknown as DataScopeRuleModel["rules"],
-      updatedAt: document.updatedAt,
-    };
+    return toRuleModel(target, document);
   }
 
   /**
@@ -199,7 +241,7 @@ export class DataScopeService
     input: SaveDataScopeRuleInput,
   ): Promise<DataScopeRuleModel> {
     await this.assertRootOperator(operator, AUDIT_ACTION);
-    const target = await this.mustFindTarget(input.collection);
+    const target = await this.mustFindTarget(input.targetId);
     const catalog = fieldCatalogOf(declaredFieldsOf(target));
     const rules = input.rules.map((rule) => ({
       audience: { type: rule.audience.type, ids: rule.audience.ids ?? [] },
@@ -210,9 +252,8 @@ export class DataScopeService
       throw ruleInvalidError(violation);
     }
 
-    const existing = await this.rules.findOne(RULE_READER, {
-      collection: input.collection,
-    });
+    const key = { collection: target.collection, moduleKey: target.moduleKey };
+    const existing = await this.rules.findOne(RULE_READER, key);
     const before = existing
       ? { combineOp: existing.combineOp, rules: existing.rules }
       : undefined;
@@ -221,36 +262,50 @@ export class DataScopeService
           $set: { combineOp: input.combineOp, rules },
         })
       : await this.rules.create(RULE_READER, {
-          collection: input.collection,
+          ...key,
           combineOp: input.combineOp,
           rules,
         });
     if (!saved) {
-      throw targetNotFoundError(input.collection);
+      throw targetNotFoundError(input.targetId);
     }
-    // 儲存即作廢(ADR-0008);下一次查詢重新載入
-    this.cache.delete(input.collection);
+    // 儲存即作廢(ADR-0008);下一次查詢重新載入該 collection 的全部模組規則
+    this.cache.delete(target.collection);
     await this.audit.record(operator, {
       action: AUDIT_ACTION,
       targetType: AUDIT_TARGET_TYPE,
       targetId: saved._id,
       ...(before === undefined ? {} : { before }),
-      after: { combineOp: input.combineOp, rules },
+      after: {
+        collection: target.collection,
+        moduleKey: target.moduleKey,
+        combineOp: input.combineOp,
+        rules,
+      },
     });
-    return {
-      collection: saved.collection,
-      combineOp: saved.combineOp as DataScopeCombineOpEnum,
-      rules: saved.rules as unknown as DataScopeRuleModel["rules"],
-      updatedAt: saved.updatedAt,
-    };
+    return toRuleModel(target, saved);
   }
 
-  private async mustFindTarget(collection: string): Promise<TargetRecord> {
-    const target = await this.targets.findOne(RULE_READER, { collection });
+  private async mustFindTarget(targetId: string): Promise<TargetRecord> {
+    if (!Types.ObjectId.isValid(targetId)) {
+      throw targetNotFoundError(targetId);
+    }
+    const target = await this.targets.findById(RULE_READER, targetId);
     if (!target) {
-      throw targetNotFoundError(collection);
+      throw targetNotFoundError(targetId);
     }
     return target;
+  }
+
+  /** 模組 key → 模組顯示名(左清單的主文字);模組已不存在時由呼叫端退回目標自己的名稱。 */
+  private async moduleNamesOf(keys: string[]): Promise<Map<string, string>> {
+    if (keys.length === 0) {
+      return new Map();
+    }
+    const modules = await this.modules.findMany(RULE_READER, {
+      key: { $in: [...new Set(keys)] },
+    });
+    return new Map(modules.map((module) => [module.key, module.name]));
   }
 
   /**
@@ -270,6 +325,11 @@ export class DataScopeService
   }
 }
 
+/** 目標的複合鍵(Set 查找用)。 */
+function targetKeyOf(collection: string, moduleKey: string): string {
+  return `${collection}\u0000${moduleKey}`;
+}
+
 /** OperatorContext → 規則比對 / 動態值代入需要的事實(ADR-0008)。 */
 function factsOf(operator: OperatorContext): DataScopeOperatorFacts {
   return {
@@ -284,12 +344,34 @@ function declaredFieldsOf(target: TargetRecord | null): DataScopeField[] {
   return (target?.fields ?? []) as unknown as DataScopeField[];
 }
 
+function toRuleModel(
+  target: TargetRecord,
+  document: {
+    combineOp: string;
+    rules: Record<string, unknown>[];
+    updatedAt: Date;
+  },
+): DataScopeRuleModel {
+  return {
+    targetId: String(target._id),
+    collection: target.collection,
+    moduleKey: target.moduleKey,
+    combineOp: document.combineOp as DataScopeCombineOpEnum,
+    rules: document.rules as unknown as DataScopeRuleModel["rules"],
+    updatedAt: document.updatedAt,
+  };
+}
+
 function toTargetModel(
   target: TargetRecord,
   hasRule: boolean,
+  moduleName: string,
 ): DataScopeTargetModel {
   return {
+    id: String(target._id),
     collection: target.collection,
+    moduleKey: target.moduleKey,
+    moduleName,
     name: target.name,
     description: target.description ?? null,
     hasRule,

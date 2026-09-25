@@ -1,9 +1,10 @@
 /* eslint-disable unicorn/no-this-outside-of-class -- Mongoose 中介層以 this 接收 Query,無參數式替代;到期條件:Mongoose 提供以參數傳入 query 的中介層 API */
-import type {
-  MongooseQueryMiddleware,
-  Query,
-  QueryFilter,
-  Schema,
+import {
+  type MongooseQueryMiddleware,
+  type Query,
+  type QueryFilter,
+  type Schema,
+  Types,
 } from "mongoose";
 
 import type { OperatorOrgScope } from "../operator-context";
@@ -29,6 +30,19 @@ export interface TenantScopeOptions {
   allowGlobal?: boolean;
   /** 治理類 / 業務類(見 `TenantScopeKind`);預設 `business`。 */
   kind?: TenantScopeKind;
+  /**
+   * **模組資料表**(`demo_items_one`、`demo_items_two`、之後的 `form_submissions` 與每張模組資料表):
+   * 開了就由本 plugin 一併宣告兩個欄位並建索引 —
+   * - `moduleKey`(必填):這筆資料屬於哪個模組;固定欄位模組寫死自己的 key,表單提交寫綁的模組。
+   *   資料範圍規則依它分模組套用(`docs/modules/data-scope.md`「依模組」)
+   * - `tenantId`(ObjectId | null):租戶頂層 id,由 `BaseRepository.create` 依 `orgId` 的祖先推導
+   *   (根組織的資料為 null),呼叫端給了也會被覆蓋;只用於租戶邊界、索引與日後分片,
+   *   **不決定可見範圍**(可見範圍仍看 `orgId`)
+   *
+   * **不綁 `kind: "business"`**:業務類還掛在 `fields`、`audit_logs`、`customers` 上,
+   * 它們不是模組資料,不加這兩欄。
+   */
+  moduleData?: boolean;
 }
 
 export type TenantScope = Required<TenantScopeOptions>;
@@ -73,8 +87,12 @@ export function tenantScopePlugin(
     path: options.path ?? "orgId",
     allowGlobal: options.allowGlobal ?? false,
     kind: options.kind ?? "business",
+    moduleData: options.moduleData ?? false,
   };
   tenantScopes.set(schema, scope);
+  if (scope.moduleData) {
+    declareModuleDataFields(schema);
+  }
   // collection 名在 schema 定義時就確定(每張 schema 都以 `@Schema({ collection })` 明寫),
   // 在此取一次:資料範圍規則以 collection 為識別鍵(ADR-0008),中介層裡不必再碰原生驅動程式
   const collectionName: string | undefined = schema.get("collection");
@@ -82,6 +100,17 @@ export function tenantScopePlugin(
     applyTenantScope(this, scope);
     await applyDataScope(this, scope, collectionName);
   });
+}
+
+/** 模組資料的兩個欄位與索引(見 `TenantScopeOptions.moduleData`)。 */
+function declareModuleDataFields(schema: Schema): void {
+  schema.add({
+    moduleKey: { type: String, required: true },
+    tenantId: { type: Types.ObjectId, default: null },
+  });
+  // 租戶邊界 + 模組(列表、分片的前綴);資料範圍的 `$or` 依 moduleKey 分支
+  schema.index({ tenantId: 1, moduleKey: 1, createdAt: 1 });
+  schema.index({ moduleKey: 1, orgId: 1 });
 }
 
 /** 讀取 schema 的租戶範圍設定;未掛 plugin 回 undefined(= 非租戶資料)。 */
@@ -115,16 +144,22 @@ function applyTenantScope(query: AnyQuery, scope: TenantScope): void {
  * 資料範圍規則(ADR-0008):在租戶保底**之內**再收窄 —
  * 條件同樣以 `$and` 追加,所以規則永遠只會讓看到的變少,保底不可被關掉。
  *
- * 只套**業務類**(`kind: "business"`):治理類 collection(組織 / 使用者 / 角色)吃的是管理範圍,
- * 由角色決定,不是資料範圍要管的事(`docs/modules/data-scope.md`「執行面」)。
- * 未宣告 `dataScopeTarget` 的業務 collection(如 `demo_items_two`)也不會有規則 → provider 回 null。
+ * 只套**模組資料表**(`moduleData: true`,必為業務類):治理類 collection(組織 / 使用者 / 角色)
+ * 吃的是管理範圍,由角色決定,不是資料範圍要管的事;`fields` / `audit_logs` / `customers` 這類
+ * 業務類但非模組資料的表沒有 `moduleKey`,規則無從依模組套用(`docs/modules/data-scope.md`「執行面」)。
+ * 規則以 `(collection, moduleKey)` 為鍵,provider 把同一 collection 下命中操作者的規則
+ * 依模組拼成 `$or`;沒有規則的模組(如 `demo.sample-two`)維持只看可見範圍。
  */
 async function applyDataScope(
   query: AnyQuery,
   scope: TenantScope,
   collectionName: string | undefined,
 ): Promise<void> {
-  if (scope.kind !== "business" || collectionName === undefined) {
+  if (
+    !scope.moduleData ||
+    scope.kind !== "business" ||
+    collectionName === undefined
+  ) {
     return;
   }
   const provider = getDataScopeRuleProvider();

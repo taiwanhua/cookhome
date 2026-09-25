@@ -8,7 +8,11 @@ import {
   CoreRelationship,
   CoreRelationshipSchema,
 } from "./schemas/core-relationship.schema";
-import { DemoItemOne, DemoItemOneSchema } from "./schemas/demo-item-one.schema";
+import {
+  DEMO_ITEM_ONE_MODULE_KEY,
+  DemoItemOne,
+  DemoItemOneSchema,
+} from "./schemas/demo-item-one.schema";
 import {
   FieldCategory,
   FieldCategorySchema,
@@ -61,6 +65,24 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
     await database.close();
   });
 
+  /** 測試用的根組織 id(`ancestors` 為空);其餘組織都登記成它底下的租戶頂層。 */
+  const rootOrgId = new Types.ObjectId();
+
+  /**
+   * 示範表是模組資料(`moduleData`):建立時要從 `orgId` 的祖先推 `tenantId`,
+   * 所以測試用到的組織要真的在 `orgs` 裡。登記成根組織底下的租戶頂層(tenantId = 自己)。
+   */
+  async function registerOrgs(...ids: Types.ObjectId[]): Promise<void> {
+    await database.connection.collection("orgs").insertMany(
+      ids.map((id) => ({
+        _id: id,
+        name: `組織 ${String(id)}`,
+        parentId: rootOrgId,
+        ancestors: [rootOrgId],
+      })),
+    );
+  }
+
   describe("租戶隔離:查詢自動限縮在操作者可見組織集合內", () => {
     const orgA = new Types.ObjectId();
     const orgB = new Types.ObjectId();
@@ -69,6 +91,7 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
     const asB = operator({ visibleOrgIds: [orgB] });
 
     beforeAll(async () => {
+      await registerOrgs(orgA, orgB);
       await demoItems.create(asA, { name: "A 的資料" });
       await demoItems.create(asB, { name: "B 的資料" });
     });
@@ -122,6 +145,10 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
     const creator = new Types.ObjectId();
     const editor = new Types.ObjectId();
 
+    beforeAll(async () => {
+      await registerOrgs(org);
+    });
+
     it("create 填 createdBy = updatedBy = 操作者,並帶 createdAt / updatedAt", async () => {
       const created = await demoItems.create(
         operator({ visibleOrgIds: [org], actorId: creator }),
@@ -163,6 +190,10 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
     const orgA = new Types.ObjectId();
     const orgB = new Types.ObjectId();
 
+    beforeAll(async () => {
+      await registerOrgs(orgA, orgB);
+    });
+
     it("只更新可見範圍內符合條件的資料,回傳筆數;updatedBy 為操作者;不得觸及 orgId", async () => {
       const asA = operator({ visibleOrgIds: [orgA] });
       const asB = operator({ visibleOrgIds: [orgB] });
@@ -198,6 +229,10 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
     const org = new Types.ObjectId();
     const asMember = operator({ visibleOrgIds: [org] });
 
+    beforeAll(async () => {
+      await registerOrgs(org);
+    });
+
     it("softDeleteById 後預設查不到;includeDeleted 才看得到且 deletedAt 有值", async () => {
       const created = await demoItems.create(asMember, { name: "將被刪除" });
 
@@ -228,6 +263,10 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
   describe("寫入保護與根組織(ADR-0005)", () => {
     const orgA = new Types.ObjectId();
     const orgB = new Types.ObjectId();
+
+    beforeAll(async () => {
+      await registerOrgs(orgA, orgB);
+    });
 
     it("updateById 不得變更 orgId 與建立資訊(不可把資料搬進別的組織)", async () => {
       const asA = operator({ visibleOrgIds: [orgA] });
@@ -286,6 +325,77 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
       expect(seenByRoot.map((item) => item.name)).toEqual(
         expect.arrayContaining(["B 的私有資料", "根組織代 A 建立"]),
       );
+    });
+  });
+
+  describe("模組資料(tenantScopePlugin 的 moduleData):moduleKey 寫死、tenantId 由後端推導", () => {
+    const tenantTop = new Types.ObjectId();
+    const dept = new Types.ObjectId();
+    const otherTenant = new Types.ObjectId();
+
+    beforeAll(async () => {
+      await database.connection.collection("orgs").insertMany([
+        { _id: rootOrgId, name: "根", parentId: null, ancestors: [] },
+        {
+          _id: tenantTop,
+          name: "租戶",
+          parentId: rootOrgId,
+          ancestors: [rootOrgId],
+        },
+        {
+          _id: dept,
+          name: "部門",
+          parentId: tenantTop,
+          ancestors: [rootOrgId, tenantTop],
+        },
+      ]);
+    });
+
+    it("建立時 moduleKey = 本表的模組 key;tenantId = orgId 的租戶頂層(部門 → 租戶頂層)", async () => {
+      const created = await demoItems.create(
+        operator({ visibleOrgIds: [dept] }),
+        { name: "部門的資料" },
+      );
+      expect(created.moduleKey).toBe(DEMO_ITEM_ONE_MODULE_KEY);
+      expect(created.tenantId).toEqual(tenantTop);
+    });
+
+    it("呼叫端給的 tenantId 一律忽略(後端推導為準)", async () => {
+      const created = await demoItems.create(
+        operator({ visibleOrgIds: [dept] }),
+        { name: "偷填 tenantId", tenantId: otherTenant },
+      );
+      expect(created.tenantId).toEqual(tenantTop);
+    });
+
+    it("根組織的資料 tenantId = null(根組織不屬於任何租戶)", async () => {
+      const created = await demoItems.create(
+        operator({ visibleOrgIds: "all", currentOrgId: rootOrgId }),
+        { name: "根組織的資料" },
+      );
+      expect(created.tenantId).toBeNull();
+    });
+
+    it("所屬組織不存在 → TenantScopeError(不寫出沒有租戶邊界的資料)", async () => {
+      await expect(
+        demoItems.create(operator({ visibleOrgIds: "all" }), {
+          name: "孤兒",
+          orgId: new Types.ObjectId(),
+        }),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+    });
+
+    it("一般更新不得改 moduleKey / tenantId", async () => {
+      const asDept = operator({ visibleOrgIds: [dept] });
+      const created = await demoItems.create(asDept, { name: "鎖住兩欄" });
+      await expect(
+        demoItems.updateById(asDept, created._id, {
+          $set: { moduleKey: "someone-else" },
+        }),
+      ).rejects.toBeInstanceOf(TenantScopeError);
+      await expect(
+        demoItems.updateMany(asDept, {}, { $set: { tenantId: otherTenant } }),
+      ).rejects.toBeInstanceOf(TenantScopeError);
     });
   });
 

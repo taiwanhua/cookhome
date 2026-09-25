@@ -30,9 +30,9 @@ export function ruleInvalidError(violation: RuleViolation): GraphQLError {
 }
 
 /** 資料目標不在 `data_scope_targets`(沒有模組 seed 宣告它,GQL-04 `NOT_FOUND`)。 */
-export function targetNotFoundError(collection: string): GraphQLError {
+export function targetNotFoundError(targetId: string): GraphQLError {
   return new GraphQLError(
-    `Data scope target ${collection} is not declared by any module seed`,
+    `Data scope target ${targetId} is not declared by any module seed`,
     { extensions: { code: "NOT_FOUND" } },
   );
 }

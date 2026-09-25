@@ -48,6 +48,7 @@ const PROVISION_TENANT = /* GraphQL */ `
         ownerUserId
         visibility
         logoUrl
+        slug
       }
       ownerUserId
       roleId
@@ -158,6 +159,7 @@ interface ProvisionTenantData {
       ownerUserId: string | null;
       visibility: string | null;
       logoUrl: string | null;
+      slug: string | null;
     };
     ownerUserId: string;
     roleId: string;
@@ -311,6 +313,12 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
     return `${prefix}-${String(accountSequence)}`;
   }
 
+  /** 每次開通一個新的租戶短碼(`^[a-z][a-z0-9_]{1,19}$`、全域唯一)。 */
+  function nextSlug(): string {
+    accountSequence += 1;
+    return `tenant_${String(accountSequence)}`;
+  }
+
   async function login(account: string, password = PASSWORD): Promise<string> {
     const result = await api.graphql<LoginData>(LOGIN, {
       input: { account, password },
@@ -407,6 +415,7 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
   async function provision(
     overrides: Partial<{
       name: string;
+      slug: string;
       adminAccount: string;
       adminEmail: string;
       logoPath: string | null;
@@ -420,6 +429,7 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
       {
         input: {
           name: overrides.name ?? `租戶 ${account}`,
+          slug: overrides.slug ?? nextSlug(),
           adminAccount: account,
           adminEmail: overrides.adminEmail ?? `${account}@example.com`,
           logoPath: overrides.logoPath ?? null,
@@ -720,6 +730,7 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
       const before = mail.sent.length;
       const result = await provision({
         name: "五件齊租戶",
+        slug: "five_pieces",
         adminAccount: account,
         adminEmail: `${account}@example.com`,
         logoPath: LOGO_PATH,
@@ -791,6 +802,29 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
         name: "五件齊租戶",
         adminAccount: account,
         ownerUserId: payload.ownerUserId,
+      });
+    });
+
+    it("租戶短碼:落庫到租戶頂層並回在 org.slug;格式不符、已被用都是 VALIDATION_FAILED 並標 slug 欄", async () => {
+      const created = await provision({ slug: "slug_owner" });
+      expect(created.errors).toBeUndefined();
+      expect(created.data?.provisionTenant.org.slug).toBe("slug_owner");
+
+      for (const bad of ["Bad", "1abc", "a", "has-dash", "a".repeat(21)]) {
+        const result = await provision({ slug: bad });
+        expect({ bad, error: result.errors?.[0]?.extensions }).toEqual({
+          bad,
+          error: expect.objectContaining({
+            code: "VALIDATION_FAILED",
+            fields: ["slug"],
+          }),
+        });
+      }
+
+      const taken = await provision({ slug: "slug_owner" });
+      expect(taken.errors?.[0]?.extensions).toMatchObject({
+        code: "VALIDATION_FAILED",
+        fields: ["slug"],
       });
     });
 

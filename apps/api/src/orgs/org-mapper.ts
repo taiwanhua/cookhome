@@ -52,6 +52,7 @@ export function toOrg(org: OrgRecord): Org {
     enabled: org.enabled,
     isSystem: org.isSystem,
     ownerUserId: org.ownerUserId === undefined ? null : String(org.ownerUserId),
+    slug: org.slug ?? null,
     visibility: visibilityOf(org),
     ...(org.logoPath === undefined ? {} : { logoPath: org.logoPath }),
   };

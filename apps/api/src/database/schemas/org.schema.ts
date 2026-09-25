@@ -43,6 +43,13 @@ export class Org {
   @Prop({ type: Types.ObjectId })
   ownerUserId?: Types.ObjectId;
 
+  /**
+   * 租戶短碼(只有租戶頂層有值):格式 `^[a-z][a-z0-9_]{1,19}$`(`@repo/domain/form` 的
+   * `ORG_SLUG_PATTERN`)、全域唯一;開通時填,根組織可在組織編輯改。客製表單 key 的預設後綴。
+   */
+  @Prop({ type: String })
+  slug?: string;
+
   /** 受控 JSON。租戶頂層專用:`visibility` = "own"(使用者只看自己所屬組織的資料)| "subtree"(含整棵下層);未設視為 "own";下層組織不看自己的(ADR-0005)。 */
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   settings!: Record<string, unknown>;
@@ -52,6 +59,7 @@ export class Org {
 export const OrgSchema = SchemaFactory.createForClass(Org);
 
 OrgSchema.index({ key: 1 }, { unique: true, sparse: true });
+OrgSchema.index({ slug: 1 }, { unique: true, sparse: true });
 OrgSchema.index({ parentId: 1 });
 OrgSchema.index({ ancestors: 1 });
 // 基礎欄位(ADR-0007);組織自身以 _id 判定是否在範圍內(ADR-0005)。

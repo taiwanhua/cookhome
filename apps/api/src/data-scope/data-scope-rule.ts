@@ -643,3 +643,37 @@ function resolveValues(
   }
   return [...value.values];
 }
+
+/** 某模組在這次查詢要套的條件(`compileRules` 的結果,已確定命中操作者)。 */
+export interface ModuleCondition {
+  moduleKey: string;
+  condition: MongoCondition;
+}
+
+/**
+ * 同一 collection 下多個模組的規則 → 一個要 AND 進查詢的條件(`docs/modules/data-scope.md`「依模組」):
+ *
+ * `{ $or: [ { moduleKey: { $nin: [有規則的模組] } }, { $and: [{ moduleKey: M }, M 的規則] }, … ] }`
+ *
+ * - 沒有規則命中操作者的模組不列進 `$nin` → 那些模組的資料維持只看可見範圍
+ * - 固定欄位表只有一個 moduleKey,結果等於「該模組的規則」本身(外面多包一層 `$or`,語意相同)
+ * - 一個模組都沒有 → `null`(不加條件)
+ *
+ * 各分支用 `$and` 包而不是把 `moduleKey` 與規則攤平在同一個物件:規則本身可以是任意條件,
+ * 攤平會有同名鍵互相覆蓋的風險。
+ */
+export function combineByModule(
+  conditions: readonly ModuleCondition[],
+): MongoCondition | null {
+  if (conditions.length === 0) {
+    return null;
+  }
+  return {
+    $or: [
+      { moduleKey: { $nin: conditions.map((entry) => entry.moduleKey) } },
+      ...conditions.map((entry) => ({
+        $and: [{ moduleKey: entry.moduleKey }, entry.condition],
+      })),
+    ],
+  };
+}

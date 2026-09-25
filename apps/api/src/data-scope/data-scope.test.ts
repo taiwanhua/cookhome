@@ -20,6 +20,10 @@ import {
 import type { OperatorContext } from "../database/operator-context";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import { createRole } from "../permission/test-support/fixtures";
+import {
+  SAMPLE_ONE_MODULE_KEY,
+  dataScopeTargetIdOf,
+} from "./test-support/fixtures";
 
 const PASSWORD = ["test", "pass", "word"].join("-");
 
@@ -35,7 +39,10 @@ const DATA_SCOPE_TARGETS = /* GraphQL */ `
   query DataScopeTargets {
     dataScopeTargets {
       targets {
+        id
         collection
+        moduleKey
+        moduleName
         name
         description
         hasRule
@@ -54,10 +61,12 @@ const DATA_SCOPE_TARGETS = /* GraphQL */ `
 `;
 
 const DATA_SCOPE_RULE = /* GraphQL */ `
-  query DataScopeRule($collection: String!) {
-    dataScopeRule(collection: $collection) {
+  query DataScopeRule($targetId: ID!) {
+    dataScopeRule(targetId: $targetId) {
       rule {
+        targetId
         collection
+        moduleKey
         combineOp
         rules {
           audience {
@@ -104,7 +113,10 @@ interface TargetField {
 interface TargetsData {
   dataScopeTargets: {
     targets: {
+      id: string;
       collection: string;
+      moduleKey: string;
+      moduleName: string;
       name: string;
       description: string | null;
       hasRule: boolean;
@@ -114,7 +126,9 @@ interface TargetsData {
 }
 
 interface RuleShape {
+  targetId?: string;
   collection: string;
+  moduleKey?: string;
   combineOp: string;
   rules: {
     audience: { type: string; ids: string[] };
@@ -224,6 +238,8 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
   let peerUserId: Types.ObjectId;
   let supervisorUserId: Types.ObjectId;
   let agentRoleId: Types.ObjectId;
+  /** 示範模組1 的資料範圍目標 id(`demo_items_one` + `demo.sub.sample-one`)。 */
+  let sampleOneTargetId: string;
 
   async function login(account: string, password = PASSWORD): Promise<string> {
     const result = await api.graphql<LoginData>(LOGIN, {
@@ -272,9 +288,18 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     combineOp: "AND" | "OR" = "OR",
     token = rootToken,
   ): Promise<ReturnType<AuthTestApp["graphql"]>> {
+    return saveRuleOf(sampleOneTargetId, rules, combineOp, token);
+  }
+
+  async function saveRuleOf(
+    targetId: string,
+    rules: Record<string, unknown>[],
+    combineOp: "AND" | "OR" = "OR",
+    token = rootToken,
+  ): Promise<ReturnType<AuthTestApp["graphql"]>> {
     return api.graphql<SaveRuleData>(
       SAVE_DATA_SCOPE_RULE,
-      { input: { collection: "demo_items_one", combineOp, rules } },
+      { input: { targetId, combineOp, rules } },
       { accessToken: token },
     );
   }
@@ -287,7 +312,9 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
       { accessToken: rootToken },
     );
     expect(result.errors).toBeUndefined();
-    return result.data?.dataScopeTargets.targets[0]?.hasRule;
+    return result.data?.dataScopeTargets.targets.find(
+      (target) => target.id === sampleOneTargetId,
+    )?.hasRule;
   }
 
   /** 送一條必定驗不過的規則,回傳 `RULE_INVALID` 的 extensions。 */
@@ -319,6 +346,10 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     });
 
     rootToken = await login(ROOT_ADMIN.account, ROOT_ADMIN.password);
+    sampleOneTargetId = await dataScopeTargetIdOf(
+      connection,
+      SAMPLE_ONE_MODULE_KEY,
+    );
 
     // 客服甲 / 客服乙:同屬部門一;主管:屬租戶甲(沒開可見性開關 ⇒ 只看得到租戶甲本身)
     agentUserId = await createUser(connection, {
@@ -378,17 +409,31 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
   }, HOOK_TIMEOUT_MS);
 
   describe("資料目標與欄位目錄(dataScopeTargets)", () => {
-    it("只列 seed 宣告的目標;示範模組2 沒宣告就不在清單裡(劇本 3 的對照)", async () => {
+    it("一列 = 一個模組:只列 seed 宣告的目標(示範模組2 沒宣告就不在清單裡,劇本 3 的對照);主文字是模組名", async () => {
       const result = await api.graphql<TargetsData>(
         DATA_SCOPE_TARGETS,
         {},
         { accessToken: rootToken },
       );
       expect(result.errors).toBeUndefined();
-      const collections = result.data?.dataScopeTargets.targets.map(
-        (target) => target.collection,
-      );
-      expect(collections).toEqual(["demo_items_one"]);
+      const rows = result.data?.dataScopeTargets.targets.map((target) => ({
+        moduleKey: target.moduleKey,
+        moduleName: target.moduleName,
+        collection: target.collection,
+      }));
+      // 依模組 key 排序;表單模組的目標 collection 固定 form_submissions
+      expect(rows).toEqual([
+        {
+          moduleKey: "demo.sub.sample-one",
+          moduleName: "示範模組1",
+          collection: "demo_items_one",
+        },
+        {
+          moduleKey: "shopping-list",
+          moduleName: "購物清單",
+          collection: "form_submissions",
+        },
+      ]);
     });
 
     it("底座的六個基礎欄位自動掛進目錄,且標記 isBase", async () => {
@@ -460,7 +505,7 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     it("尚未設定過 → null(ADR-0008:沒有規則 = 只有租戶保底)", async () => {
       const result = await api.graphql<RuleData>(
         DATA_SCOPE_RULE,
-        { collection: "demo_items_one" },
+        { targetId: sampleOneTargetId },
         { accessToken: rootToken },
       );
       expect(result.errors).toBeUndefined();
@@ -468,12 +513,14 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     });
 
     it("不是 seed 宣告的目標 → NOT_FOUND", async () => {
-      const result = await api.graphql<RuleData>(
-        DATA_SCOPE_RULE,
-        { collection: "demo_items_two" },
-        { accessToken: rootToken },
-      );
-      expect(result.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+      for (const targetId of [String(new Types.ObjectId()), "not-an-id"]) {
+        const result = await api.graphql<RuleData>(
+          DATA_SCOPE_RULE,
+          { targetId },
+          { accessToken: rootToken },
+        );
+        expect(result.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+      }
     });
 
     it("RULE_INVALID:欄位不在目錄裡,path 指到該條件列", async () => {
@@ -591,7 +638,7 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
       // 規則文件還在(dataScopeRule 回得到),但沒有任何規則 ⇒ 不算已設
       const rule = await api.graphql<RuleData>(
         DATA_SCOPE_RULE,
-        { collection: "demo_items_one" },
+        { targetId: sampleOneTargetId },
         { accessToken: rootToken },
       );
       expect(rule.data?.dataScopeRule.rule?.rules).toEqual([]);
@@ -647,10 +694,15 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     it("讀回來的規則與存進去的一致(admin 條件樹編輯器照用的形狀)", async () => {
       const result = await api.graphql<RuleData>(
         DATA_SCOPE_RULE,
-        { collection: "demo_items_one" },
+        { targetId: sampleOneTargetId },
         { accessToken: rootToken },
       );
       const rule = result.data?.dataScopeRule.rule;
+      expect(rule).toMatchObject({
+        targetId: sampleOneTargetId,
+        collection: "demo_items_one",
+        moduleKey: "demo.sub.sample-one",
+      });
       expect(rule?.combineOp).toBe("OR");
       expect(rule?.rules[0]?.audience).toEqual({
         type: "ROLE",
@@ -704,6 +756,92 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     it("AND 時只命中一條的人只受那一條限制", async () => {
       // 客服乙沒有客服角色 → 只命中「全部人 → 僅本人」
       expect(await visibleItemsOne(peerUserId, deptOne)).toEqual(["乙的項目"]);
+    });
+  });
+
+  describe("依模組:同一個 collection 兩個模組各自的規則", () => {
+    /** 同一張 demo_items_one 裡掛另一個模組的資料(模擬 form_submissions 被多個表單模組共用)。 */
+    const OTHER_MODULE = "test.other-module";
+    let otherTargetId: string;
+
+    beforeAll(async () => {
+      await saveRule([]);
+      const inserted = await connection
+        .collection("data_scope_targets")
+        .insertOne({
+          collection: "demo_items_one",
+          moduleKey: OTHER_MODULE,
+          name: "另一個模組",
+          fields: [],
+          isSystem: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: null,
+          updatedBy: null,
+          deletedAt: null,
+        });
+      otherTargetId = String(inserted.insertedId);
+      const now = new Date();
+      await connection.collection("demo_items_one").insertMany(
+        [
+          ["另一模組:甲的", agentUserId],
+          ["另一模組:乙的", peerUserId],
+        ].map(([name, createdBy]) => ({
+          name,
+          orgId: deptOne,
+          tenantId: tenantA,
+          moduleKey: OTHER_MODULE,
+          status: "draft",
+          enabled: true,
+          createdBy,
+          updatedBy: createdBy,
+          deletedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })),
+      );
+    }, HOOK_TIMEOUT_MS);
+
+    afterAll(async () => {
+      await saveRule([]);
+      await saveRuleOf(otherTargetId, []);
+      await connection
+        .collection("demo_items_one")
+        .deleteMany({ moduleKey: OTHER_MODULE });
+      await connection
+        .collection("data_scope_rules")
+        .deleteMany({ moduleKey: OTHER_MODULE });
+      await connection
+        .collection("data_scope_targets")
+        .deleteMany({ moduleKey: OTHER_MODULE });
+    }, HOOK_TIMEOUT_MS);
+
+    it("只有示範模組1 有規則 → 只收窄示範模組1 的資料;沒規則的模組維持只看可見範圍", async () => {
+      const result = await saveRule([
+        { audience: { type: "ALL" }, filter: ONLY_MINE },
+      ]);
+      expect(result.errors).toBeUndefined();
+      expect(await visibleItemsOne(agentUserId, deptOne)).toEqual([
+        "另一模組:乙的",
+        "另一模組:甲的",
+        "甲的項目",
+      ]);
+    });
+
+    it("兩個模組各設規則 → 各自生效(另一模組:只看部門二 → 部門一的都看不到)", async () => {
+      const result = await saveRuleOf(otherTargetId, [
+        { audience: { type: "ALL" }, filter: staticOrgFilter(deptTwo) },
+      ]);
+      expect(result.errors).toBeUndefined();
+      expect(await visibleItemsOne(agentUserId, deptOne)).toEqual(["甲的項目"]);
+    });
+
+    it("清掉示範模組1 的規則 → 示範模組1 恢復可見範圍,另一模組的規則照舊", async () => {
+      await saveRule([]);
+      expect(await visibleItemsOne(agentUserId, deptOne)).toEqual([
+        "乙的項目",
+        "甲的項目",
+      ]);
     });
   });
 
