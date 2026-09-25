@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
 import type { Connection, Types } from "mongoose";
 
 import {
@@ -17,6 +17,7 @@ import {
   FORMS_MODULES,
   FORM_LOOKUP,
   FORM_SUBMISSION,
+  FORM_TEST_TIMEOUT_MS,
   FORM_VERSION,
   type FormOperator,
   type FormRow,
@@ -43,6 +44,8 @@ import {
   rootToken,
   showKey,
 } from "../test-support/form-fixtures";
+
+jest.setTimeout(FORM_TEST_TIMEOUT_MS);
 
 const ROLE_MATRIX = /* GraphQL */ `
   query RoleMatrix($roleId: ID!) {

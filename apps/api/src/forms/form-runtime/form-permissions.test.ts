@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
 import type { Connection, Types } from "mongoose";
 
 import {
@@ -14,6 +14,7 @@ import {
   FORK_FORM,
   FORM_SUBMISSION,
   FORM_SUBMISSIONS,
+  FORM_TEST_TIMEOUT_MS,
   type FormOperator,
   M,
   MODULE_KEY,
@@ -40,6 +41,8 @@ import {
   saveDefinition,
   showKey,
 } from "../test-support/form-fixtures";
+
+jest.setTimeout(FORM_TEST_TIMEOUT_MS);
 
 const MODULE_TREE = /* GraphQL */ `
   query ModuleTree {

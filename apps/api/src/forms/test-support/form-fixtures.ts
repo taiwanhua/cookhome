@@ -16,6 +16,12 @@ import { createRole } from "../../permission/test-support/fixtures";
  * 測試檔只寫行為(TEST-07;同示範模組的分檔方式)。
  */
 
+/**
+ * 表單測試的單一測試逾時。一個情境要走「建表單 → 發布 → 分派 → 填寫 → 送出 → 讀」十幾次 GraphQL 往返,
+ * CI runner 在 turbo 並行跑全部套件時會超過 jest 預設的 5 秒(曾偶發紅燈),各測試檔以 `jest.setTimeout` 放寬。
+ */
+export const FORM_TEST_TIMEOUT_MS = 60_000;
+
 export const PASSWORD = ["form", "pass", "word"].join("-");
 export const MODULE_KEY = "shopping-list";
 /** 表單模組的四筆個別權限。 */

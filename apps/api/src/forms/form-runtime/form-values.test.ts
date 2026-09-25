@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
 import type { Connection, Types } from "mongoose";
 
 import {
@@ -13,6 +13,7 @@ import {
   CREATE_FORM_DRAFT,
   FORM_LOOKUP,
   FORM_LOOKUP_RECORD,
+  FORM_TEST_TIMEOUT_MS,
   type FormOperator,
   M,
   MODULE_KEY,
@@ -39,6 +40,8 @@ import {
   saveDefinition,
   showKey,
 } from "../test-support/form-fixtures";
+
+jest.setTimeout(FORM_TEST_TIMEOUT_MS);
 
 const CREATE_UPLOAD_URL = /* GraphQL */ `
   mutation CreateUploadUrl($input: CreateUploadUrlInput!) {

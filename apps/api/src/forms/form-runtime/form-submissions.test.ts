@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
 import type { Connection, Types } from "mongoose";
 
 import type { FormDefinition } from "@repo/domain/form";
@@ -13,6 +13,7 @@ import {
   CREATE_FORM_DRAFT,
   DELETE_SUBMISSION,
   FORM_SUBMISSIONS,
+  FORM_TEST_TIMEOUT_MS,
   type FormOperator,
   M,
   MODULE_KEY,
@@ -41,6 +42,8 @@ import {
   showKey,
   submitDraft,
 } from "../test-support/form-fixtures";
+
+jest.setTimeout(FORM_TEST_TIMEOUT_MS);
 
 interface FieldError {
   fieldKey: string;

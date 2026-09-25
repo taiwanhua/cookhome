@@ -18,6 +18,7 @@ import {
   CREATE_DRAFT,
   CREATE_FORM,
   CREATE_FORM_DRAFT,
+  FORM_TEST_TIMEOUT_MS,
   FORM_VERSION,
   FORM_VERSIONS,
   MODULE_FORMS,
@@ -42,6 +43,8 @@ import {
   showKey,
 } from "../test-support/form-fixtures";
 import { FormPublishHooks, type PublishCheckpoint } from "./form-publish-hooks";
+
+jest.setTimeout(FORM_TEST_TIMEOUT_MS);
 
 interface PermissionDoc {
   _id: unknown;
