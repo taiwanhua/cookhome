@@ -15,6 +15,10 @@ import {
   openTestDatabase,
 } from "./test-support/mongo-connection";
 
+/** id 字串的穩定排序(STRUCT-10:不留給執行環境的預設語言)。 */
+const byText = (left: string, right: string): number =>
+  left.localeCompare(right, "en");
+
 /** 站在某組織、只看得到那一個組織的操作者(部門使用者的典型:可見範圍不含租戶頂層)。 */
 function standingAt(orgId: Types.ObjectId): OperatorContext {
   return {
@@ -169,6 +173,91 @@ describe("BusinessRelationshipsRepository(tenantId 邊界,fail-closed)", () => {
         secondId: formOfA,
       }),
     ).rejects.toMatchObject({ code: 11_000 });
+  });
+
+  it("org_workflow(流程分派):同樣以 tenantId 為邊界,別租戶查不到", async () => {
+    const workflow = new Types.ObjectId();
+    await relations.create(
+      asRoot,
+      await relations.tenantIdFor(asRoot, tenantA),
+      {
+        type: "org_workflow",
+        firstId: tenantA,
+        secondId: workflow,
+        meta: {},
+      },
+    );
+    const ownRows = await relations.findMany(
+      await relations.tenantIdFor(asDeptA),
+      { type: "org_workflow" },
+    );
+    expect(ownRows.map((row) => String(row.secondId))).toEqual([
+      String(workflow),
+    ]);
+    await expect(
+      relations.findMany(tenantB, { type: "org_workflow" }),
+    ).resolves.toEqual([]);
+  });
+
+  it("org_form_workflow(三方):同租戶多張表單綁同一流程可以;同一張表單綁第二個流程被唯一鍵擋;換流程 = 改 thirdId", async () => {
+    const leaveForm = new Types.ObjectId();
+    const overtimeForm = new Types.ObjectId();
+    const leaveFlow = new Types.ObjectId();
+    const otherFlow = new Types.ObjectId();
+    const tenantId = await relations.tenantIdFor(asDeptA);
+    for (const form of [leaveForm, overtimeForm]) {
+      await relations.create(asDeptA, tenantId, {
+        type: "org_form_workflow",
+        firstId: tenantA,
+        secondId: form,
+        thirdId: leaveFlow,
+        meta: {},
+      });
+    }
+    // 反查「哪些表單綁了這個流程」
+    const bound = await relations.findMany(tenantId, {
+      type: "org_form_workflow",
+      thirdId: leaveFlow,
+    });
+    expect(bound.map((row) => String(row.secondId)).toSorted(byText)).toEqual(
+      [String(leaveForm), String(overtimeForm)].toSorted(byText),
+    );
+    await expect(
+      relations.create(asDeptA, tenantId, {
+        type: "org_form_workflow",
+        firstId: tenantA,
+        secondId: leaveForm,
+        thirdId: otherFlow,
+      }),
+    ).rejects.toMatchObject({ code: 11_000 });
+    const switched = await relations.setThirdId(
+      asDeptA,
+      tenantId,
+      { type: "org_form_workflow", secondId: leaveForm },
+      otherFlow,
+    );
+    expect(String(switched?.thirdId)).toBe(String(otherFlow));
+    // 別的租戶綁同一張表單 id 不受唯一鍵影響(鍵含 tenantId),也看不到甲的綁定
+    await relations.create(asRoot, tenantB, {
+      type: "org_form_workflow",
+      firstId: tenantB,
+      secondId: leaveForm,
+      thirdId: leaveFlow,
+    });
+    await expect(
+      relations.findMany(tenantB, {
+        type: "org_form_workflow",
+        thirdId: otherFlow,
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      relations.setThirdId(
+        asRoot,
+        null,
+        { type: "org_form_workflow" },
+        otherFlow,
+      ),
+    ).rejects.toBeInstanceOf(TenantScopeError);
   });
 
   it("不能拿去建 BaseRepository(只能經本 repository,避免繞過 tenantId 邊界)", () => {

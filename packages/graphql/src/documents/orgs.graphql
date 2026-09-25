@@ -219,3 +219,40 @@ mutation AddOrgMembers($input: AddOrgMembersInput!) {
     skippedUserIds
   }
 }
+
+# 組織的主管(`org_manager`,審核流程的「主管」來源從提交組織往上找它);
+# 獨立一支查詢,只有組織管理頁的詳情 / 編輯用得到,不讓每一次 org(id) 都多查一次
+fragment UserSummaryFields on UserSummary {
+  id
+  name
+  account
+  enabled
+}
+
+query OrgManagers($id: ID!) {
+  org(id: $id) {
+    id
+    managers {
+      ...UserSummaryFields
+    }
+  }
+}
+
+# 主管候選人:該組織所屬租戶裡啟用中的使用者(關鍵字比對姓名 / 帳號,最多 50 位)
+query OrgManagerCandidates($orgId: ID!, $keyword: String) {
+  orgManagerCandidates(orgId: $orgId, keyword: $keyword) {
+    ...UserSummaryFields
+  }
+}
+
+# 整組取代主管(稽核 org.set-managers);回傳帶新的主管名單,直接換掉快取
+mutation SetOrgManagers($input: SetOrgManagersInput!) {
+  setOrgManagers(input: $input) {
+    org {
+      id
+      managers {
+        ...UserSummaryFields
+      }
+    }
+  }
+}

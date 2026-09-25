@@ -910,6 +910,7 @@ type Mutation {
   setModuleIcon(input: SetModuleIconInput!): ModuleAdminPayload!
   setModuleListColumns(input: SetModuleListColumnsInput!): ModuleListColumnsPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
+  setOrgManagers(input: SetOrgManagersInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
   setPermissionEnabled(input: SetPermissionEnabledInput!): PermissionAdminPayload!
@@ -936,6 +937,7 @@ type Org {
   id: ID!
   isSystem: Boolean!
   logoUrl: String
+  managers: [UserSummary!]!
   name: String!
   ownerUserId: ID
   parentId: ID
@@ -1056,6 +1058,7 @@ type Query {
   moduleListColumns(moduleKey: String!): ModuleListColumnsPayload!
   moduleTree: [ModuleAdminNode!]!
   org(id: ID!): Org!
+  orgManagerCandidates(keyword: String, orgId: ID!): [UserSummary!]!
   orgMemberCandidates(input: OrgMembersInput!, orgId: ID!): OrgMembersPayload!
   orgMembers(input: OrgMembersInput!, orgId: ID!): OrgMembersPayload!
   orgTree: [OrgNode!]!
@@ -1364,6 +1367,11 @@ input SetOrgEnabledInput {
   id: ID!
 }
 
+input SetOrgManagersInput {
+  orgId: ID!
+  userIds: [ID!]!
+}
+
 input SetOrgVisibilityInput {
   orgId: ID!
   visibility: OrgVisibility!
@@ -1565,6 +1573,13 @@ type UserRoleGrant {
   outOfScope: Boolean!
   ownerOrgId: ID
   ownerOrgName: String
+}
+
+type UserSummary {
+  account: String!
+  enabled: Boolean!
+  id: ID!
+  name: String!
 }
 
 input UsersInput {
