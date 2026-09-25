@@ -122,7 +122,8 @@ export const resolveFormState = ({
   const { fields } = definition;
   const protections = fieldProtections(fields);
   const canShowField = (field: FieldDef): boolean => {
-    if (isRedactedValue(values[field.key])) {
+    // api 依讀者投影過的定義(`formRuntimeVersion` 的骨架)或值(`"[redacted]"`)為準
+    if (field.redacted === true || isRedactedValue(values[field.key])) {
       return false;
     }
     return (
