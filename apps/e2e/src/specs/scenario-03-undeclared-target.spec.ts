@@ -8,6 +8,7 @@ import {
   DATA_SCOPE_ROUTE,
   DEMO_ITEMS_ONE_COLLECTION,
   DEMO_ITEMS_TWO_COLLECTION,
+  SAMPLE_ONE,
   SAMPLE_ONE_LIST_ROUTE,
   SAMPLE_TWO_LIST_ROUTE,
 } from "../fixtures/demo-keys";
@@ -34,7 +35,7 @@ test("劇本 3:資料目標清單只有示範項目,示範模組2 的列表不�
 
   // 前置:維持劇本 2 的規則開啟狀態(套用對象 = 客服角色 → 建立者【操作者本人】)
   await saveDataScopeRule(tenant.rootToken, {
-    collection: DEMO_ITEMS_ONE_COLLECTION,
+    moduleKey: SAMPLE_ONE,
     combineOp: "OR",
     rules: [ownedByOperatorRule(tenant.supportRoleId)],
   });
@@ -70,5 +71,5 @@ test("劇本 3:資料目標清單只有示範項目,示範模組2 的列表不�
   });
 
   // 規則是**全域**設定(`data_scope_rules` 的 collection 唯一),測完清掉不留給後面的劇本
-  await clearDataScopeRule(tenant.rootToken, DEMO_ITEMS_ONE_COLLECTION);
+  await clearDataScopeRule(tenant.rootToken, SAMPLE_ONE);
 });

@@ -122,6 +122,8 @@ async function provisionTenantAdmin(
   const orgName = `租戶A-${slug}`;
   const provisioned = await provisionTenant(rootToken, {
     name: orgName,
+    // 租戶短碼要小寫英文開頭;場景字尾是隨機 hex,前面補固定字母
+    slug: `ta_${slug}`,
     adminAccount: account,
     adminEmail: email,
     moduleKeys,

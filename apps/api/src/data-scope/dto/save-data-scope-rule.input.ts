@@ -35,9 +35,9 @@ export class DataScopeRuleEntryInput {
 
 @InputType()
 export class SaveDataScopeRuleInput {
-  /** 資料目標;不在 `data_scope_targets` → `NOT_FOUND`。 */
-  @Field()
-  collection!: string;
+  /** 資料目標的 id(`DataScopeTarget.id`,一個模組一個);不在 `data_scope_targets` → `NOT_FOUND`。 */
+  @Field(() => ID)
+  targetId!: string;
 
   @Field(() => DataScopeCombineOpEnum, {
     defaultValue: DataScopeCombineOpEnum.OR,

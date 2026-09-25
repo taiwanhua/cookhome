@@ -1,0 +1,292 @@
+import { type FieldProtection, isProtected } from "./dependencies";
+import type { DefinitionIssueLocation, IssueCollector } from "./issues";
+import { LAYOUT_COLUMNS } from "./layout";
+import type { LookupProviderRegistry, LookupProviderSpec } from "./registry";
+import type {
+  FieldDef,
+  FormDefinition,
+  LayoutCol,
+  PrefillMapping,
+  SummarySlot,
+} from "./types";
+import { isPrefillCompatible, validateLookupSource } from "./validate-fields";
+
+/**
+ * 檢查器的結構段(Spec §5「定義檢查器」):版面、摘要槽、帶入,以及警告清單。
+ */
+
+export function validateLayout(
+  definition: FormDefinition,
+  collector: IssueCollector,
+): void {
+  const byKey = new Map(definition.fields.map((field) => [field.key, field]));
+  const placed = new Map<string, string>();
+  const sectionKeys = new Set<string>();
+  for (const [sectionIndex, section] of definition.layout.sections.entries()) {
+    const sectionPath = `sections.${String(sectionIndex)}`;
+    if (sectionKeys.has(section.key)) {
+      collector.error(
+        "LAYOUT_SECTION_DUPLICATE",
+        `分區 key ${section.key} 重複`,
+        {
+          layoutPath: sectionPath,
+        },
+      );
+    }
+    sectionKeys.add(section.key);
+    const cols = section.rows.flatMap((row, rowIndex) =>
+      row.cols.map((col, colIndex) => ({
+        col,
+        path: `${sectionPath}.rows.${String(rowIndex)}.cols.${String(colIndex)}`,
+      })),
+    );
+    if (cols.length === 0) {
+      collector.warn("SECTION_EMPTY", `分區「${section.title}」沒有任何欄位`, {
+        layoutPath: sectionPath,
+      });
+    }
+    for (const { col, path } of cols) {
+      checkLayoutCol(col, path, byKey, placed, collector);
+    }
+  }
+  for (const field of definition.fields) {
+    if (field.valueSource.kind !== "constant" && !placed.has(field.key)) {
+      collector.error(
+        "LAYOUT_MISSING_FIELD",
+        `欄位「${field.label}」沒有放進版面`,
+        {
+          fieldKey: field.key,
+        },
+      );
+    }
+  }
+}
+
+function checkLayoutCol(
+  col: LayoutCol,
+  path: string,
+  byKey: ReadonlyMap<string, FieldDef>,
+  placed: Map<string, string>,
+  collector: IssueCollector,
+): void {
+  const location = { fieldKey: col.fieldKey, layoutPath: path };
+  if (
+    !Number.isInteger(col.span) ||
+    col.span < 1 ||
+    col.span > LAYOUT_COLUMNS
+  ) {
+    collector.error(
+      "LAYOUT_SPAN_INVALID",
+      `寬度須為 1–${String(LAYOUT_COLUMNS)} 格`,
+      location,
+    );
+  }
+  if (!byKey.has(col.fieldKey)) {
+    collector.error(
+      "LAYOUT_UNKNOWN_FIELD",
+      `版面放了不存在的欄位 ${col.fieldKey}`,
+      location,
+    );
+    return;
+  }
+  if (placed.has(col.fieldKey)) {
+    collector.error(
+      "LAYOUT_DUPLICATE_FIELD",
+      `欄位 ${col.fieldKey} 在版面出現兩次`,
+      location,
+    );
+  }
+  placed.set(col.fieldKey, path);
+}
+
+/** 摘要槽可對的欄位型別:`title` 只能文字或靜態選項;`date` 只能日期;`amount` 只能數字。 */
+function isSummaryCompatible(slot: SummarySlot, field: FieldDef): boolean {
+  switch (slot) {
+    case "title": {
+      return (
+        field.type === "text" ||
+        (field.type === "select" && field.options?.kind === "static")
+      );
+    }
+    case "date": {
+      return field.type === "date";
+    }
+    case "amount": {
+      return field.type === "number";
+    }
+  }
+}
+
+export function validateSummary(
+  definition: FormDefinition,
+  protections: ReadonlyMap<string, FieldProtection>,
+  collector: IssueCollector,
+): void {
+  const byKey = new Map(definition.fields.map((field) => [field.key, field]));
+  const slots: SummarySlot[] = ["title", "date", "amount"];
+  for (const slot of slots) {
+    const key = definition.summaryMap[slot];
+    const location = { summarySlot: slot };
+    if (!key) {
+      // `date` 不對 = 用送出時間,`amount` 選填;只有 `title` 必對
+      if (slot === "title") {
+        collector.error(
+          "SUMMARY_UNMAPPED",
+          "摘要槽「標題」沒有對到欄位",
+          location,
+        );
+      }
+      continue;
+    }
+    const field = byKey.get(key);
+    if (!field) {
+      collector.error(
+        "SUMMARY_UNMAPPED",
+        `摘要槽 ${slot} 對到不存在的欄位 ${key}`,
+        location,
+      );
+      continue;
+    }
+    const fieldLocation = { ...location, fieldKey: key };
+    if (isProtected(protections.get(key))) {
+      collector.error(
+        "SUMMARY_PROTECTED",
+        `摘要槽 ${slot} 不可對受保護欄位「${field.label}」`,
+        fieldLocation,
+      );
+    }
+    if (!isSummaryCompatible(slot, field)) {
+      collector.error(
+        "SUMMARY_TYPE",
+        `摘要槽 ${slot} 不能對 ${field.type} 型別的欄位「${field.label}」`,
+        fieldLocation,
+      );
+    }
+    if (
+      field.valueSource.kind === "computed" &&
+      hasCondition(field.visibleWhen)
+    ) {
+      collector.warn(
+        "COMPUTED_HIDDEN",
+        `摘要槽對到的計算欄位「${field.label}」有顯示條件,隱藏時會算成空值`,
+        fieldLocation,
+      );
+    }
+  }
+}
+
+function hasCondition(expr: unknown): boolean {
+  return expr !== undefined && expr !== null;
+}
+
+export function validatePrefills(
+  definition: FormDefinition,
+  providers: LookupProviderRegistry | undefined,
+  collector: IssueCollector,
+): void {
+  const byKey = new Map(definition.fields.map((field) => [field.key, field]));
+  for (const [prefillIndex, prefill] of definition.prefills.entries()) {
+    validateLookupSource(prefill.source, providers, collector, {
+      prefillIndex,
+      property: "source",
+    });
+    const provider = providers?.[prefill.source.provider];
+    for (const [mappingIndex, mapping] of prefill.mapping.entries()) {
+      checkPrefillMapping(
+        mapping,
+        byKey.get(mapping.fieldKey),
+        provider,
+        {
+          prefillIndex,
+          fieldKey: mapping.fieldKey,
+          property: `mapping.${String(mappingIndex)}`,
+        },
+        collector,
+      );
+    }
+  }
+}
+
+function checkPrefillMapping(
+  mapping: PrefillMapping,
+  target: FieldDef | undefined,
+  provider: LookupProviderSpec | undefined,
+  location: DefinitionIssueLocation,
+  collector: IssueCollector,
+): void {
+  if (target?.valueSource.kind !== "input" || target.type === "reference") {
+    collector.error(
+      "PREFILL_TARGET_NOT_INPUT",
+      `帶入目標 ${mapping.fieldKey} 必須是使用者填寫的欄位(不能是計算、固定值或引用欄位)`,
+      location,
+    );
+  }
+  if (!provider) {
+    return;
+  }
+  const sourceType = provider.fields[mapping.sourceField];
+  if (sourceType === undefined) {
+    collector.error(
+      "PREFILL_UNKNOWN_SOURCE_FIELD",
+      `來源沒有欄位 ${mapping.sourceField}`,
+      location,
+    );
+    return;
+  }
+  if (target && !isPrefillCompatible(sourceType, target.type)) {
+    collector.error(
+      "PREFILL_TYPE_INCOMPATIBLE",
+      `來源欄位 ${mapping.sourceField}(${sourceType})不能帶入 ${target.type} 欄位「${target.label}」`,
+      location,
+    );
+  }
+}
+
+/** 其餘警告:受保護 + 必填、必填計算欄位有顯示條件、列表欄位配置引用這版沒有的欄位。 */
+export function collectFieldWarnings(
+  definition: FormDefinition,
+  listColumnFieldKeys: readonly string[] | undefined,
+  collector: IssueCollector,
+): void {
+  const summaryKeys = new Set(Object.values(definition.summaryMap));
+  for (const field of definition.fields) {
+    const isRequired = field.rules?.required === true;
+    if (isRequired && field.permission?.show === true) {
+      collector.warn(
+        "PROTECTED_REQUIRED",
+        `受保護欄位「${field.label}」設了必填:沒有編輯資格的人可留空送出`,
+        { fieldKey: field.key },
+      );
+    }
+    if (
+      isRequired &&
+      !summaryKeys.has(field.key) &&
+      field.valueSource.kind === "computed" &&
+      hasCondition(field.visibleWhen)
+    ) {
+      collector.warn(
+        "COMPUTED_HIDDEN",
+        `必填的計算欄位「${field.label}」有顯示條件,隱藏時會算成空值`,
+        { fieldKey: field.key },
+      );
+    }
+  }
+  collectListColumnWarnings(definition, listColumnFieldKeys, collector);
+}
+
+function collectListColumnWarnings(
+  definition: FormDefinition,
+  listColumnFieldKeys: readonly string[] | undefined,
+  collector: IssueCollector,
+): void {
+  const keys = new Set(definition.fields.map((field) => field.key));
+  for (const key of listColumnFieldKeys ?? []) {
+    if (!keys.has(key)) {
+      collector.warn(
+        "LIST_COLUMN_MISSING",
+        `列表欄位配置引用了這一版沒有的欄位 ${key}(請 root 在模組管理調整)`,
+        { fieldKey: key },
+      );
+    }
+  }
+}

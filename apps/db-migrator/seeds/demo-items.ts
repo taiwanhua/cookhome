@@ -6,6 +6,8 @@ import {
   seedRef,
 } from "../src/seed/seed-declaration";
 import { DEMO_CATEGORY_KEY } from "./field-categories";
+import { SAMPLE_TWO_KEY } from "./modules/demo.sample-two";
+import { SAMPLE_ONE_KEY } from "./modules/demo.sub.sample-one";
 import { ROOT_ORG_KEY } from "./orgs";
 
 /**
@@ -191,14 +193,29 @@ export const DEMO_ITEM_CATEGORY_KEYS = Object.values(CATEGORY).map(
   (value) => `${DEMO_CATEGORY_KEY}.${value}`,
 );
 
+/**
+ * 模組資料的兩個欄位(api 的 `tenantScopePlugin({ moduleData: true })`):seed 直接寫 driver、
+ * 不經 api 的 BaseRepository,所以要自己帶。`moduleKey` 寫死該表的模組 key;
+ * 示範資料全在根組織,根組織不屬於任何租戶 → `tenantId: null`。
+ */
+function asModuleData(
+  entries: SeedDocument[],
+  moduleKey: string,
+): SeedDocument[] {
+  return entries.map((entry) => ({
+    ...entry,
+    data: { ...entry.data, moduleKey, tenantId: null },
+  }));
+}
+
 export const demoItemsOne: SeedDocumentSet = {
   kind: "documents",
   collection: "demo_items_one",
-  entries: demoItemsOneEntries,
+  entries: asModuleData(demoItemsOneEntries, SAMPLE_ONE_KEY),
 };
 
 export const demoItemsTwo: SeedDocumentSet = {
   kind: "documents",
   collection: "demo_items_two",
-  entries: demoItemsTwoEntries,
+  entries: asModuleData(demoItemsTwoEntries, SAMPLE_TWO_KEY),
 };

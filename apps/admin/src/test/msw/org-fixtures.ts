@@ -111,6 +111,7 @@ export const orgDetails: TestOrg[] = [
     description: "示範租戶",
     ownerUserId: "user-owner",
     visibility: OrgVisibility.Own,
+    slug: "tenant_a",
     logoUrl: "https://cdn.test/tenant-a.png",
   }),
   org("org-content", "A-1 內容組", "org-tenant-a", {

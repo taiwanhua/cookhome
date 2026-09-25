@@ -260,7 +260,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(findSeedKeyViolations(seedRegistry)).toEqual([]);
   });
 
-  it("示範家族與六個治理模組依正本落地:個別權限 12 + 9 + 8 + 7 + 3 + 4 + 2 = 45 筆;全部 20 個模組各一筆 wildcard(共 65 筆)", () => {
+  it("示範家族、六個治理模組與購物清單依正本落地:個別權限 12 + 12 + 8 + 7 + 3 + 4 + 2 + 4 = 52 筆;全部 24 個模組各一筆 wildcard(共 76 筆)", () => {
     const documentSets = seedRegistry.filter((set) => set.kind === "documents");
     const moduleKeys = documentSets
       .filter((set) => set.collection === "modules")
@@ -286,7 +286,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     // 正本:示範家族兩份權限表(7 + 5)+ docs/modules/org-manager.md(12)、user-manager.md(8)、
     // role-manager.md(7)、module-manager.md(3)、field-manager.md(4)、data-scope.md(2)
     const individualKeys = permissionKeys.filter((key) => !key.endsWith(".*"));
-    expect(individualKeys).toHaveLength(48);
+    expect(individualKeys).toHaveLength(52);
     expect(new Set(individualKeys)).toEqual(
       new Set([
         "demo.sub.sample-one.view",
@@ -341,15 +341,20 @@ describe("seeds/registry.ts 靜態檢查", () => {
         "system.field-manager.toggle-enabled",
         "system.data-scope.view",
         "system.data-scope.edit",
+        // 表單模組範例(Spec 6a §2):四筆基本權限
+        "shopping-list.view",
+        "shopping-list.create",
+        "shopping-list.edit",
+        "shopping-list.delete",
       ]),
     );
 
     // 每個模組各一筆 `<key>.*`(D3:wildcard 只代表該模組自己這一層)
-    expect(moduleKeys).toHaveLength(20);
+    expect(moduleKeys).toHaveLength(24);
     expect(new Set(permissionKeys.filter((key) => key.endsWith(".*")))).toEqual(
       new Set(moduleKeys.map((key) => `${key}.*`)),
     );
-    expect(permissionKeys).toHaveLength(68);
+    expect(permissionKeys).toHaveLength(76);
 
     // D1:治理模組 key 累加 system 群組前綴;tenant-ops 是組織管理底下的純權限容器
     expect(moduleKeys.filter((key) => key.startsWith("system"))).toEqual([

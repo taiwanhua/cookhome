@@ -186,6 +186,9 @@
       "ownerUnset": "不變更",
       "ownerOption": "{name}({account})",
       "ownerHint": "轉移後,新擁有者的管理員授予不可被解除、不可被移出組織、不可被停用。",
+      "slug": "租戶短碼",
+      "slugHint": "小寫英文開頭,只能用小寫英文、數字、底線,長度 2–20;客製表單的代碼會以它當後綴。",
+      "slugInvalid": "格式不符:小寫英文開頭,只能用小寫英文、數字、底線,長度 2–20。",
       "visibility": "使用者可見自身組織的下層組織資料",
       "visibilityHint": "此設定僅出現在頂層組織,套用整個組織。",
       "cancel": "取消",
@@ -241,6 +244,10 @@
     "provision": {
       "title": "開通租戶",
       "tenantName": "租戶名稱",
+      "tenantSlug": "租戶短碼",
+      "slugHint": "小寫英文開頭,只能用小寫英文、數字、底線,長度 2–20;客製表單的代碼會以它當後綴。",
+      "slugInvalid": "格式不符:小寫英文開頭,只能用小寫英文、數字、底線,長度 2–20。",
+      "slugTaken": "這個短碼已被其他租戶使用,請換一個。",
       "adminEmail": "首任租戶管理員 Email",
       "adminAccount": "首任租戶管理員帳號",
       "adminAccountHint": "帳號為登入識別,預設帶入 Email、可修改。",
@@ -671,7 +678,7 @@
   "dataScope": {
     "targets": {
       "title": "資料目標",
-      "hint": "由各模組的種子宣告",
+      "hint": "由各模組的種子宣告;一列一個模組",
       "hasRule": "已設規則",
       "loading": "載入資料目標",
       "empty": "目前沒有資料目標。"

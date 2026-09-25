@@ -38,6 +38,16 @@
         "types": "./dist/cjs/module-icon.d.cts",
         "default": "./dist/cjs/module-icon.cjs"
       }
+    },
+    "./form": {
+      "import": {
+        "types": "./dist/es/form.d.ts",
+        "default": "./dist/es/form.js"
+      },
+      "require": {
+        "types": "./dist/cjs/form.d.cts",
+        "default": "./dist/cjs/form.cjs"
+      }
     }
   },
   "typesVersions": {
@@ -50,6 +60,9 @@
       ],
       "module-icon": [
         "./dist/es/module-icon.d.ts"
+      ],
+      "form": [
+        "./dist/es/form.d.ts"
       ]
     }
   },
@@ -63,11 +76,17 @@
   "jest": {
     "preset": "@repo/jest-presets/node"
   },
+  "dependencies": {
+    "decimal.js": "^10.6.0",
+    "json-logic-js": "^2.0.5",
+    "recheck": "^4.5.0"
+  },
   "devDependencies": {
     "@jest/globals": "^30.2.0",
     "@repo/eslint-config": "workspace:*",
     "@repo/jest-presets": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@types/json-logic-js": "^2.0.8",
     "@types/node": "^22.15.3",
     "bunchee": "^6.4.0",
     "eslint": "^9.39.0",

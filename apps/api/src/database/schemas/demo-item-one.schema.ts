@@ -16,6 +16,12 @@ export const DEMO_ITEM_ONE_STATUSES = [
 
 export type DemoItemOneStatus = (typeof DEMO_ITEM_ONE_STATUSES)[number];
 
+/**
+ * 這張表的資料固定屬於哪個模組(`tenantScopePlugin` 的 `moduleData`;固定欄位模組寫死自己的 key)。
+ * 與 `apps/db-migrator/seeds/modules/` 的模組 key 一致;回填舊資料的是 `data_module-data-fields` migration。
+ */
+export const DEMO_ITEM_ONE_MODULE_KEY = "demo.sub.sample-one";
+
 /** 示範模組1(docs/modules/demo.sub.sample-one.md):宣告資料範圍目標的對象。 */
 @Schema({ collection: "demo_items_one", timestamps: true })
 export class DemoItemOne {
@@ -77,6 +83,12 @@ export class DemoItemOne {
   /** 啟用狀態。 */
   @Prop({ type: Boolean, default: true })
   enabled!: boolean;
+
+  /** 模組 key(由 `tenantScopePlugin({ moduleData: true })` 宣告;本表固定為 `DEMO_ITEM_ONE_MODULE_KEY`)。 */
+  moduleKey!: string;
+
+  /** 租戶頂層 id(同上 plugin 宣告;`BaseRepository.create` 推導,根組織資料為 null)。 */
+  tenantId!: Types.ObjectId | null;
 }
 
 // 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引)
@@ -85,4 +97,6 @@ export const DemoItemOneSchema = SchemaFactory.createForClass(DemoItemOne);
 DemoItemOneSchema.index({ orgId: 1, createdAt: 1 });
 // 基礎欄位(ADR-0007)+ 租戶資料:查詢自動限縮在操作者可見組織內(ADR-0005)
 DemoItemOneSchema.plugin(baseFieldsPlugin);
-DemoItemOneSchema.plugin(tenantScopePlugin);
+// 模組資料表(moduleData):plugin 宣告 moduleKey / tenantId 並建索引;moduleKey 寫死本模組
+DemoItemOneSchema.plugin(tenantScopePlugin, { moduleData: true });
+DemoItemOneSchema.path("moduleKey").default(DEMO_ITEM_ONE_MODULE_KEY);

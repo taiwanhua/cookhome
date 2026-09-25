@@ -139,7 +139,9 @@ enum DataScopeFieldType {
 type DataScopeRule {
   collection: String!
   combineOp: DataScopeCombineOp!
+  moduleKey: String!
   rules: [DataScopeRuleEntry!]!
+  targetId: ID!
   updatedAt: DateTime!
 }
 
@@ -162,6 +164,9 @@ type DataScopeTarget {
   description: String
   fields: [DataScopeTargetField!]!
   hasRule: Boolean!
+  id: ID!
+  moduleKey: String!
+  moduleName: String!
   name: String!
 }
 
@@ -434,6 +439,7 @@ type Me {
 }
 
 type MeModule {
+  engine: ModuleEngine!
   icon: String
   id: ID!
   key: String!
@@ -455,6 +461,7 @@ type ModuleAdminNode {
   children: [ModuleAdminNode!]!
   description: String
   enabled: Boolean!
+  engine: ModuleEngine!
   icon: String
   id: ID!
   key: String!
@@ -468,6 +475,12 @@ type ModuleAdminNode {
 
 type ModuleAdminPayload {
   module: ModuleAdminNode!
+}
+
+"""模組頁面怎麼組裝:FIXED=固定欄位模組(手寫頁面)、FORM=表單模組(頁面由表單引擎組裝)"""
+enum ModuleEngine {
+  FIXED
+  FORM
 }
 
 type ModuleOption {
@@ -550,6 +563,7 @@ type Org {
   name: String!
   ownerUserId: ID
   parentId: ID
+  slug: String
   visibility: OrgVisibility
 }
 
@@ -619,6 +633,7 @@ input ProvisionTenantInput {
   logoPath: String
   moduleKeys: [String!]!
   name: String!
+  slug: String!
 }
 
 type ProvisionTenantPayload {
@@ -629,7 +644,7 @@ type ProvisionTenantPayload {
 }
 
 type Query {
-  dataScopeRule(collection: String!): DataScopeRulePayload!
+  dataScopeRule(targetId: ID!): DataScopeRulePayload!
   dataScopeTargets: DataScopeTargetsPayload!
   demoItemOne(id: ID!): DemoItemOnePayload!
   demoItemOneAttachmentUrl(id: ID!): DemoItemOneAttachmentUrlPayload!
@@ -853,9 +868,9 @@ type RolesPayload {
 }
 
 input SaveDataScopeRuleInput {
-  collection: String!
   combineOp: DataScopeCombineOp! = OR
   rules: [DataScopeRuleEntryInput!]!
+  targetId: ID!
 }
 
 type SaveDataScopeRulePayload {
@@ -992,6 +1007,7 @@ input UpdateOrgInput {
   id: ID!
   logoPath: String
   name: String
+  slug: String
 }
 
 input UpdateRoleInput {

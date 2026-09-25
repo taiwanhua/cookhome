@@ -137,6 +137,8 @@ export async function provisionOtherTenant(
   const account = `tenant-b-${tenant.slug}`;
   const { orgId } = await provisionTenant(tenant.rootToken, {
     name: `租戶B-${tenant.slug}`,
+    // 租戶短碼要小寫英文開頭;場景字尾是隨機 hex,前面補固定字母
+    slug: `tb_${tenant.slug}`,
     adminAccount: account,
     adminEmail: `${account}@cookhome.test`,
     moduleKeys: await tenantModuleOptionKeys(tenant.rootToken),

@@ -14,7 +14,10 @@ import {
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import { OwnerProtectionService } from "../orgs/owner-protection.service";
-import type { ModuleSidebarType } from "../permission/models/me-module.model";
+import type {
+  ModuleEngine,
+  ModuleSidebarType,
+} from "../permission/models/me-module.model";
 import type { SetModuleEnabledInput } from "./dto/set-module-enabled.input";
 import type { SetModuleIconInput } from "./dto/set-module-icon.input";
 import type { SetPermissionEnabledInput } from "./dto/set-permission-enabled.input";
@@ -102,6 +105,7 @@ function buildTree(
       order: module.order,
       description: module.description ?? null,
       icon: module.icon,
+      engine: module.engine as ModuleEngine,
       enabled: module.enabled,
       permissions: (permissionsByModule.get(String(module._id)) ?? [])
         .toSorted(comparePermissions)

@@ -17,6 +17,7 @@ import { apiModules } from "./modules/api";
 import { sampleTwoModule } from "./modules/demo.sample-two";
 import { sampleOneModule } from "./modules/demo.sub.sample-one";
 import { overviewModule } from "./modules/overview";
+import { shoppingListModule } from "./modules/shopping-list";
 import { systemModules } from "./modules/system";
 
 export const DATA_SCOPE_TARGETS_COLLECTION = "data_scope_targets";
@@ -31,6 +32,7 @@ const moduleDeclarations: ModuleSeedDeclaration[] = [
   apiModules,
   sampleOneModule,
   sampleTwoModule,
+  shoppingListModule,
 ];
 
 /** 全部模組樹節點(依宣告順序),供角色綁定等其他種子推導。 */
@@ -96,6 +98,8 @@ function toModuleDocument(node: ModuleNodeDeclaration): SeedDocument {
       enabled: true,
       // 沒宣告圖示的節點(多數隱藏頁)落庫為 null = 側欄用預設圖示;根組織可再用 setModuleIcon 指定
       icon: node.icon ?? null,
+      // 每次都 seed 的欄位:頁面組裝方式由宣告決定,不在系統內改
+      engine: node.engine ?? "fixed",
       ...(node.description === undefined
         ? {}
         : { description: node.description }),
@@ -116,6 +120,8 @@ function toPermissionDocument(permission: PermissionDeclaration): SeedDocument {
         : { description: permission.description }),
       enabled: true,
       settings: {},
+      // seed 只同步 source = seed 的權限(`permissions` 的 `match`);執行期產生的是 dynamic
+      source: "seed",
     },
   };
 }
@@ -133,27 +139,49 @@ export const modules: SeedDocumentSet = {
   entries: moduleNodes.map((node) => toModuleDocument(node)),
 };
 
-/** 權限(每模組一筆 wildcard + 示範家族與六個治理模組的個別權限;正本:docs/modules/*.md 權限表)。 */
+/**
+ * 權限(每模組一筆 wildcard + 各模組宣告的個別權限;正本:docs/modules/*.md 權限表)。
+ *
+ * **只碰 `source: seed` 的權限**:表單發布會在同一張表建 `source: "dynamic"` 的欄位級權限,
+ * seed 既不比對、也不更新它們(`match` 排除 dynamic;runner 本來就不刪不認識的文件)。
+ * 條件寫成「不是 dynamic」而不是「是 seed」:欄位加上之前的舊文件沒有 `source`,
+ * 要讓它們照樣被認成 seed 權限並補上 `source: "seed"`。
+ */
 export const permissions: SeedDocumentSet = {
   kind: "documents",
   collection: PERMISSIONS_COLLECTION,
+  match: { source: { $ne: "dynamic" } },
   entries: permissionDeclarations.map((permission) =>
     toPermissionDocument(permission),
   ),
 };
 
-/** 資料範圍目標(ADR-0008;以 collection 為識別鍵,schema 無 key 欄位)。 */
+/**
+ * 資料範圍目標(ADR-0008;識別鍵 `(collection, moduleKey)`,schema 無 key 欄位)。
+ *
+ * runner 以 `moduleKey` 找文件:每個模組至多宣告一個目標,所以 moduleKey 單獨就能認出是哪一筆
+ * (唯一索引仍是 `(collection, moduleKey)`,同一張表可以有多個模組各一個目標)。
+ * `moduleKey` = 宣告檔的第一個**非群組**節點(該模組本身;群組在前、隱藏頁在後,見 `ownerModuleKeyOf`)。
+ */
 export const dataScopeTargets: SeedDocumentSet = {
   kind: "documents",
   collection: DATA_SCOPE_TARGETS_COLLECTION,
-  keyField: "collection",
+  keyField: "moduleKey",
   entries: moduleDeclarations
     .flatMap((declaration) =>
-      declaration.dataScopeTarget ? [declaration.dataScopeTarget] : [],
+      declaration.dataScopeTarget
+        ? [
+            {
+              moduleKey: ownerModuleKeyOf(declaration),
+              target: declaration.dataScopeTarget,
+            },
+          ]
+        : [],
     )
-    .map((target) => ({
-      key: target.collection,
+    .map(({ moduleKey, target }) => ({
+      key: moduleKey,
       data: {
+        collection: target.collection,
         name: target.name,
         ...(target.description === undefined
           ? {}
@@ -162,3 +190,15 @@ export const dataScopeTargets: SeedDocumentSet = {
       },
     })),
 };
+
+/**
+ * 宣告資料範圍目標的模組 = 宣告檔中第一個非群組節點:
+ * 模組檔先宣告群組(如示範家族的 `demo` / `demo.sub`)、再宣告模組本身,隱藏頁在後。
+ */
+function ownerModuleKeyOf(declaration: ModuleSeedDeclaration): string {
+  const owner = declaration.nodes.find((node) => node.sidebarType !== "group");
+  if (!owner) {
+    throw new Error("宣告 dataScopeTarget 的模組檔至少要有一個非群組節點");
+  }
+  return owner.key;
+}

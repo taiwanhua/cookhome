@@ -7,10 +7,15 @@ import { InjectModel, MongooseModule, getModelToken } from "@nestjs/mongoose";
 import type { HydratedDocument, Model } from "mongoose";
 
 import { BaseRepository, type RepositoryModel } from "./base.repository";
+import { BusinessRelationshipsRepository } from "./business-relationships.repository";
 import { getDataScopeRuleProvider } from "./plugins/data-scope-provider";
 import { RelationService } from "./relation.service";
 import { ActionToken, ActionTokenSchema } from "./schemas/action-token.schema";
 import { AuditLog, AuditLogSchema } from "./schemas/audit-log.schema";
+import {
+  BusinessRelationship,
+  BusinessRelationshipSchema,
+} from "./schemas/business-relationship.schema";
 import {
   CoreRelationship,
   CoreRelationshipSchema,
@@ -272,6 +277,7 @@ export class FieldCategoriesRepository extends BaseRepository<
       { name: Permission.name, schema: PermissionSchema },
       { name: AuditLog.name, schema: AuditLogSchema },
       { name: CoreRelationship.name, schema: CoreRelationshipSchema },
+      { name: BusinessRelationship.name, schema: BusinessRelationshipSchema },
       { name: Customer.name, schema: CustomerSchema },
       { name: DataScopeRule.name, schema: DataScopeRuleSchema },
       { name: DataScopeTarget.name, schema: DataScopeTargetSchema },
@@ -303,6 +309,12 @@ export class FieldCategoriesRepository extends BaseRepository<
       useFactory: (model: Model<CoreRelationship>) =>
         new RelationService(model),
     },
+    {
+      provide: BusinessRelationshipsRepository,
+      inject: [getModelToken(BusinessRelationship.name)],
+      useFactory: (model: Model<BusinessRelationship>) =>
+        new BusinessRelationshipsRepository(model),
+    },
   ],
   exports: [
     UsersRepository,
@@ -321,6 +333,7 @@ export class FieldCategoriesRepository extends BaseRepository<
     FieldsRepository,
     FieldCategoriesRepository,
     RelationService,
+    BusinessRelationshipsRepository,
   ],
 })
 export class DatabaseModule implements OnApplicationBootstrap {

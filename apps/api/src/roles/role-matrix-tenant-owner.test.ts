@@ -247,6 +247,8 @@ describe("權限矩陣:租戶擁有者為自建角色勾示範家族(#363)", () 
       {
         input: {
           name: "租戶A",
+          // 短碼 `^[a-z][a-z0-9_]{1,19}$`:取帳號尾段(含流水號)才不會撞
+          slug: `t${ownerAccount.replaceAll("-", "_").slice(-19)}`,
           adminAccount: ownerAccount,
           adminEmail: `${ownerAccount}@example.com`,
           logoPath: null,

@@ -28,6 +28,7 @@ import {
   type OrgNotDeletableReason,
   orgError,
   orgNotDeletableError,
+  orgValidationError,
 } from "./org-error";
 import {
   type OrgRecord,
@@ -38,6 +39,7 @@ import {
   visibilityOf,
   visibilitySettingOf,
 } from "./org-mapper";
+import { assertSlugFree, requireSlug, slugConflictOr } from "./org-slug";
 import { OwnerProtectionService } from "./owner-protection.service";
 
 /** 審計動作名(docs/modules/org-manager.md「審計」;`targetType` 一律 org)。 */
@@ -61,7 +63,7 @@ export interface OrgContentExemptions {
 }
 
 /** 編輯可動的欄位(擁有者屬租戶作業 #135、可見範圍開關另有 mutation,都不在此)。 */
-type EditablePath = "name" | "description" | "logoPath";
+type EditablePath = "name" | "description" | "logoPath" | "slug";
 
 /** 一個欄位的變動;`value` / `previous` 為 undefined 代表「沒有值 / 清空」。 */
 interface OrgFieldChange {
@@ -305,15 +307,20 @@ export class OrgsService {
    */
   async update(operator: OperatorContext, input: UpdateOrgInput): Promise<Org> {
     const current = await this.requireManaged(operator, input.id);
-    const changes = editChangesOf(input, current);
+    const slugChange = await this.slugChangeOf(operator, input, current);
+    const changes = [
+      ...editChangesOf(input, current),
+      ...(slugChange ? [slugChange] : []),
+    ];
     if (changes.length === 0) {
       return toOrg(current);
     }
-    const updated = await this.orgs.updateById(
-      operator,
-      current._id,
-      updateOf(changes),
-    );
+    const updated = await this.orgs
+      .updateById(operator, current._id, updateOf(changes))
+      .catch((error: unknown) => {
+        // 短碼事前查過沒人用,同時有別的請求搶先寫入時由唯一索引擋下
+        throw slugConflictOr(error);
+      });
     await this.audit.record(operator, {
       action: AUDIT_ACTIONS.edit,
       targetType: AUDIT_TARGET_TYPE,
@@ -323,6 +330,32 @@ export class OrgsService {
     });
     await this.discardReplacedLogo(changes);
     return toOrg(updated ?? current);
+  }
+
+  /**
+   * 租戶短碼的變動:未給 / null = 不動;只有租戶頂層有短碼、只有根組織的操作者能改
+   * (短碼是客製表單 key 的預設後綴,改它是平台層級的事,不交給租戶自己)。
+   */
+  private async slugChangeOf(
+    operator: OperatorContext,
+    input: UpdateOrgInput,
+    current: OrgRecord,
+  ): Promise<OrgFieldChange | null> {
+    if (input.slug === undefined || input.slug === null) {
+      return null;
+    }
+    if (!(await this.protection.isRootOperator(operator))) {
+      throw orgError("FORBIDDEN", "Only the root org can change a tenant slug");
+    }
+    if (!isTenantTop(current)) {
+      throw orgValidationError("Only a tenant top org has a slug", ["slug"]);
+    }
+    const slug = requireSlug(input.slug);
+    if (slug === current.slug) {
+      return null;
+    }
+    await assertSlugFree(this.orgs, operator, slug);
+    return { path: "slug", value: slug, previous: current.slug };
   }
 
   /**

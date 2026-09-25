@@ -4,7 +4,11 @@ import { Types } from "mongoose";
 import { CurrentOperator } from "../auth/decorators";
 import { Me } from "../auth/models/me.model";
 import type { OperatorContext } from "../database/operator-context";
-import { MeModule, type ModuleSidebarType } from "./models/me-module.model";
+import {
+  MeModule,
+  type ModuleEngine,
+  type ModuleSidebarType,
+} from "./models/me-module.model";
 import { PermissionResolver, type ResolvedModule } from "./permission-resolver";
 
 function toMeModule(module: ResolvedModule): MeModule {
@@ -18,6 +22,8 @@ function toMeModule(module: ResolvedModule): MeModule {
     order: module.order,
     route: module.route,
     icon: module.icon,
+    // schema 的字串值與 GraphQL enum 的內部值相同(fixed / form)
+    engine: module.engine as ModuleEngine,
     permissions: module.permissions,
   };
 }

@@ -1,5 +1,10 @@
 /* eslint-disable @repo/no-raw-model-query -- 此檔即過濾層本身:裸 Model 存取的唯一合法出口(ADR-0005);到期條件:無 */
-import type { Model, QueryFilter, Types, UpdateQuery } from "mongoose";
+import mongoose, {
+  type Model,
+  type QueryFilter,
+  type Types,
+  type UpdateQuery,
+} from "mongoose";
 
 import {
   OPERATOR_LOCAL_KEY,
@@ -12,7 +17,10 @@ import {
   TenantScopeError,
   getTenantScope,
 } from "./plugins/tenant-scope.plugin";
+import { BUSINESS_RELATIONSHIPS_COLLECTION } from "./schemas/business-relationship.schema";
 import { CORE_RELATIONSHIPS_COLLECTION } from "./schemas/core-relationship.schema";
+import { ORGS_COLLECTION } from "./schemas/org.schema";
+import { tenantIdOfOrg } from "./tenant-id";
 
 /** Model 型別參數固定為預設值(無 query helpers / instance methods / virtuals),只讓 hydrated 文件型別可推導。 */
 type NoExtras = Record<never, never>;
@@ -63,6 +71,12 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     if (model.collection.collectionName === CORE_RELATIONSHIPS_COLLECTION) {
       throw new TenantScopeError(
         `${model.modelName}:核心關聯不經 BaseRepository,請改用 RelationService(ADR-0001)`,
+      );
+    }
+    // 業務關聯以 tenantId 為邊界、不掛 tenantScope;只能經強制帶 tenantId 的專屬 repository
+    if (model.collection.collectionName === BUSINESS_RELATIONSHIPS_COLLECTION) {
+      throw new TenantScopeError(
+        `${model.modelName}:業務關聯不經 BaseRepository,請改用 BusinessRelationshipsRepository`,
       );
     }
   }
@@ -121,12 +135,17 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     }).exec();
   }
 
-  /** 建立資料:租戶資料自動寫入當前組織(ADR-0005),且不可寫入可見範圍外的組織。 */
+  /**
+   * 建立資料:租戶資料自動寫入當前組織(ADR-0005),且不可寫入可見範圍外的組織。
+   * 模組資料表(`moduleData`)另由後端推導 `tenantId`,呼叫端給的值一律忽略。
+   */
   async create(
     operator: OperatorContext,
     data: Partial<TSchema>,
   ): Promise<Persisted<TDocument>> {
-    const document = new this.model(this.withTenantOrg(operator, data));
+    const document = new this.model(
+      await this.withModuleTenant(this.withTenantOrg(operator, data)),
+    );
     document.$locals[OPERATOR_LOCAL_KEY] = operator;
     await document.save();
     return document as Persisted<TDocument>;
@@ -141,7 +160,11 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     id: Types.ObjectId | string,
     update: RepositoryUpdate<TSchema>,
   ): Promise<Persisted<TDocument> | null> {
-    assertUpdateLeavesProtectedPaths(this.model.modelName, update);
+    assertUpdateLeavesProtectedPaths(
+      this.model.modelName,
+      update,
+      this.protectedUpdatePaths(),
+    );
     const document = await scopeQuery(
       this.model.findOneAndUpdate({ _id: id }, update, {
         returnDocument: "after",
@@ -161,7 +184,11 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     filter: RepositoryFilter<TSchema>,
     update: RepositoryUpdate<TSchema>,
   ): Promise<number> {
-    assertUpdateLeavesProtectedPaths(this.model.modelName, update);
+    assertUpdateLeavesProtectedPaths(
+      this.model.modelName,
+      update,
+      this.protectedUpdatePaths(),
+    );
     const { modifiedCount } = await scopeQuery(
       this.model.updateMany({ ...filter }, update, { runValidators: true }),
       { operator },
@@ -198,6 +225,50 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     return deletedCount > 0;
   }
 
+  /** 模組資料表另外鎖住 `moduleKey` / `tenantId`:兩者建立後不可經一般更新改動。 */
+  private protectedUpdatePaths(): readonly string[] {
+    return getTenantScope(this.model.schema)?.moduleData === true
+      ? [...PROTECTED_UPDATE_PATHS, ...MODULE_DATA_PROTECTED_PATHS]
+      : PROTECTED_UPDATE_PATHS;
+  }
+
+  /**
+   * 模組資料表的 `tenantId`:依 `orgId` 的祖先推導租戶頂層(`tenantIdOfOrg`),
+   * 覆蓋呼叫端給的任何值(GraphQL input 本來就不收,這裡再防一次內部呼叫端)。
+   *
+   * 組織以原生 collection 讀:`orgs` 掛的是治理類過濾(吃管理範圍),而建立業務資料的人
+   * 不一定管得到自己寫入的組織;可寫入與否已由 `withTenantOrg` 以可見範圍判過,這裡只取祖先。
+   * 讀不到組織 → 拋錯(fail-closed):那是資料損毀,不該靜默寫出一筆沒有租戶邊界的資料。
+   */
+  private async withModuleTenant(
+    data: Partial<TSchema>,
+  ): Promise<Partial<TSchema>> {
+    if (getTenantScope(this.model.schema)?.moduleData !== true) {
+      return data;
+    }
+    const orgId = (data as { orgId?: Types.ObjectId | string | null }).orgId;
+    if (orgId === undefined || orgId === null) {
+      throw new TenantScopeError(
+        `${this.model.modelName} 是模組資料,建立時需要所屬組織才能推導 tenantId`,
+      );
+    }
+    const org = await this.model.db
+      .collection<{ ancestors?: Types.ObjectId[] }>(ORGS_COLLECTION)
+      .findOne(
+        { _id: new mongoose.Types.ObjectId(String(orgId)) },
+        { projection: { ancestors: 1 } },
+      );
+    if (!org) {
+      throw new TenantScopeError(
+        `${this.model.modelName}:所屬組織 ${String(orgId)} 不存在,無法推導 tenantId`,
+      );
+    }
+    return {
+      ...data,
+      tenantId: tenantIdOfOrg({ _id: org._id, ancestors: org.ancestors ?? [] }),
+    };
+  }
+
   private withTenantOrg(
     operator: OperatorContext,
     data: Partial<TSchema>,
@@ -228,7 +299,17 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
 }
 
 /** 更新內容不得觸及的欄位:所屬組織(租戶隔離)與建立資訊(稽核)。 */
-const PROTECTED_UPDATE_PATHS = ["orgId", "createdBy", "createdAt"] as const;
+const PROTECTED_UPDATE_PATHS: readonly string[] = [
+  "orgId",
+  "createdBy",
+  "createdAt",
+];
+
+/** 模組資料表另外不得經一般更新改動的欄位(`tenantScopePlugin` 的 `moduleData`)。 */
+const MODULE_DATA_PROTECTED_PATHS: readonly string[] = [
+  "moduleKey",
+  "tenantId",
+];
 
 /**
  * 檢查 update 的頂層與各運算子(`$set` / `$unset` / `$setOnInsert` / `$rename`…)內
@@ -238,6 +319,7 @@ const PROTECTED_UPDATE_PATHS = ["orgId", "createdBy", "createdAt"] as const;
 function assertUpdateLeavesProtectedPaths(
   modelName: string,
   update: unknown,
+  protectedPaths: readonly string[],
 ): void {
   if (!update || typeof update !== "object") {
     return;
@@ -247,7 +329,7 @@ function assertUpdateLeavesProtectedPaths(
       ? Object.keys((value ?? {}) as Record<string, unknown>)
       : [key];
     const touched = paths.find((path) =>
-      PROTECTED_UPDATE_PATHS.some(
+      protectedPaths.some(
         (protectedPath) =>
           path === protectedPath || path.startsWith(`${protectedPath}.`),
       ),

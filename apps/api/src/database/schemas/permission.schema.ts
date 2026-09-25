@@ -3,6 +3,14 @@ import { Schema as MongooseSchema, Types } from "mongoose";
 
 import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 
+/**
+ * 權限的來源:`seed` = 模組 seed 宣告(seed runner 同步的只有這些);
+ * `dynamic` = 執行期產生(表單發布時建的欄位級權限),seed 不碰、不刪。
+ */
+export const PERMISSION_SOURCES = ["seed", "dynamic"] as const;
+
+export type PermissionSource = (typeof PERMISSION_SOURCES)[number];
+
 /** 權限(全表種子資料,ADR-0004):key = 擁有模組key.動作。 */
 @Schema({ collection: "permissions", timestamps: true })
 export class Permission {
@@ -33,6 +41,17 @@ export class Permission {
   /** 受控 JSON 設定。 */
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   settings!: Record<string, unknown>;
+
+  /** 來源(見 `PERMISSION_SOURCES`);既有資料由 migration 填 `seed`。 */
+  @Prop({ type: String, enum: PERMISSION_SOURCES, default: "seed" })
+  source!: PermissionSource;
+
+  /**
+   * 退役時間:`dynamic` 權限在新發布的版本不再宣告時標上(矩陣不列、授不了);
+   * 再次宣告時清回 null。`null` = 使用中。
+   */
+  @Prop({ type: Date, default: null })
+  retiredAt!: Date | null;
 }
 
 // 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引/plugin)

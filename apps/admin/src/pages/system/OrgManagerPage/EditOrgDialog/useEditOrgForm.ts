@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { isValidOrgSlug } from "@repo/domain/form";
 import { OrgVisibility } from "@repo/graphql";
 
 import type { OrgDetail } from "../org-manager-types";
@@ -25,10 +26,17 @@ export interface EditOrgFormState {
   setOwnerUserId: (value: string) => void;
   visibility: OrgVisibility;
   setVisibility: (value: OrgVisibility) => void;
+  /** 租戶短碼(只有租戶頂層有;只有根組織改得動,欄位出不出現由 `TenantTopFields` 決定) */
+  slug: string;
+  setSlug: (value: string) => void;
+  /** 短碼改過且格式不符(`@repo/domain/form` 的 `isValidOrgSlug`,與 api 同一條) */
+  isSlugInvalid: boolean;
   isValid: boolean;
   /** 四個 mutation 各自要不要送(沒變動的欄位不送,api 也不會留空的審計紀錄) */
   changes: {
     hasProfileChange: boolean;
+    /** 短碼改了(隨 `updateOrg` 一起送;沒改就不帶 `slug`,api 視為不動) */
+    hasSlugChange: boolean;
     hasMove: boolean;
     hasOwnerChange: boolean;
     hasVisibilityChange: boolean;
@@ -54,9 +62,13 @@ export const useEditOrgForm = (org: OrgDetail): EditOrgFormState => {
   const [visibility, setVisibility] = useState(
     org.visibility ?? OrgVisibility.Own,
   );
+  const [slug, setSlug] = useState(org.slug ?? "");
 
   const trimmedName = name.trim();
   const trimmedDescription = description.trim();
+  const trimmedSlug = slug.trim();
+  const hasSlugChange = trimmedSlug !== (org.slug ?? "");
+  const isSlugInvalid = hasSlugChange && !isValidOrgSlug(trimmedSlug);
 
   return {
     name,
@@ -75,12 +87,17 @@ export const useEditOrgForm = (org: OrgDetail): EditOrgFormState => {
     setOwnerUserId,
     visibility,
     setVisibility,
-    isValid: trimmedName !== "",
+    slug,
+    setSlug,
+    isSlugInvalid,
+    isValid: trimmedName !== "" && !isSlugInvalid,
     changes: {
       hasProfileChange:
         trimmedName !== org.name ||
         trimmedDescription !== (org.description ?? "") ||
-        isLogoTouched,
+        isLogoTouched ||
+        hasSlugChange,
+      hasSlugChange,
       hasMove: parentId !== "" && parentId !== (org.parentId ?? ""),
       hasOwnerChange:
         ownerUserId !== "" && ownerUserId !== (org.ownerUserId ?? ""),
