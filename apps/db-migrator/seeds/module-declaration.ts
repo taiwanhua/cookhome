@@ -29,6 +29,11 @@ export interface ModuleNodeDeclaration {
   icon?: ModuleIconKey;
   /** 根組織專屬(租戶不可見):租戶管理員模板扣除之(ADR-0009)。 */
   isRootOnly?: boolean;
+  /**
+   * 表單模組:頁面由表單引擎組裝、資料存 `form_submissions`。落庫到 `modules.engine`
+   * (不宣告 = `"fixed"`,固定欄位模組);每次 seed 都同步宣告值。
+   */
+  engine?: "form";
 }
 
 /** 一筆個別權限;key 須為 `<moduleKey>.<動作>`(規約由 seed-key-convention 靜態測試強制)。 */
@@ -40,7 +45,11 @@ export interface PermissionDeclaration {
   description?: string;
 }
 
-/** 資料範圍目標(ADR-0008):落庫至 data_scope_targets,以 collection 為識別鍵。 */
+/**
+ * 資料範圍目標(ADR-0008):落庫至 data_scope_targets,以 `(collection, moduleKey)` 為識別鍵。
+ * `moduleKey` 不在宣告裡寫 —— seed runner 填宣告檔所在模組(`nodes[0].key`),
+ * 所以一個模組至多一個目標,同一張表(如 `form_submissions`)可以被多個模組各宣告一次。
+ */
 export interface DataScopeTargetDeclaration {
   collection: string;
   name: string;

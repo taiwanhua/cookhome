@@ -97,6 +97,8 @@ async function resolveReferences(
 interface DocumentSyncOptions {
   /** 存放 entry.key 的欄位名。 */
   keyField: string;
+  /** 找既有文件時的額外條件(`SeedDocumentSet.match`)。 */
+  match: Record<string, unknown>;
   /** 建立後永不比對、永不覆寫的欄位。 */
   initialSeedValueFields: ReadonlySet<string>;
 }
@@ -108,14 +110,17 @@ async function syncDocument(
   entry: SeedDocument,
   now: Date,
 ): Promise<SyncOutcome> {
-  const { keyField, initialSeedValueFields } = options;
+  const { keyField, initialSeedValueFields, match } = options;
   // 種子記錄一律掛 isSystem 保護(ADR-0002);宣告不得覆寫識別鍵
   const desired = {
     ...(await resolveReferences(database, entry.data)),
     [keyField]: entry.key,
     isSystem: true,
   };
-  const existing = await collection.findOne({ [keyField]: entry.key });
+  const existing = await collection.findOne({
+    ...match,
+    [keyField]: entry.key,
+  });
 
   if (!existing) {
     await collection.insertOne({ ...desired, createdAt: now, updatedAt: now });
@@ -142,6 +147,7 @@ async function runDocumentSet(
   const collection = database.collection(set.collection);
   const options: DocumentSyncOptions = {
     keyField: set.keyField ?? "key",
+    match: set.match ?? {},
     initialSeedValueFields: new Set(
       set.initialSeedValueFields ?? DEFAULT_INITIAL_SEED_VALUE_FIELDS,
     ),
