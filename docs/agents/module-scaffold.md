@@ -6,6 +6,8 @@
 
 藍本取自**示範家族**:[示範模組1](../modules/demo.sub.sample-one.md)(把所有選配都打開的完整示範)與 [示範模組2](../modules/demo.sample-two.md)(**對照組 —— 拿掉全部選配之後剩下的最小可行模組**)。要照抄就抄示範模組2,需要哪一項選配再回示範模組1 對照(選配清單見文末「示範模組 1 vs 2 差異對照表」)。
 
+**欄位由使用者在後台設計的模組**(表單模組)不照本檔的步驟 2–5,改走文末的「表單模組路線」。
+
 **這份文件不是規則的正本**,只是指路與順序:權限綁定看 ADR-0004、路由與判斷流程看 ADR-0011、資料範圍看 ADR-0008、基礎欄位看 ADR-0007、檔案儲存看 ADR-0010、前端分層看 ADR-0012(現況說明在 `docs/concepts/`)、程式碼規範看 `docs/standards/README.md` 的索引。每一步結尾的「正本」是照抄時要打開的檔。
 
 ## 檔案清單一覽
@@ -228,6 +230,29 @@ pnpm --filter @repo/graphql generate
 **選配的 hook 與 React 的 hook 規則相衝 —— 用「替身 hook」解,不要條件式呼叫**:設定物件裡的 `useSetEnabled` 是選配,直覺寫法是 `config.useSetEnabled?.(…)`,但那是**條件式呼叫 hook**,`rules-of-hooks` 會擋(REACT-06),而且模組之間切換時 hook 數量會變。做法是在共用層準備一支**同簽章、什麼都不做**的替身(先例 `pages/demo/shared/useDemoQuery.ts` 的 `noDemoSetEnabled`,回一個恆 `undefined` / no-op 的結果),呼叫端一律 `(config.useSetEnabled ?? noDemoSetEnabled)(…)` —— hook 一定被呼叫、呼叫順序固定,「有沒有這個選配」變成資料而不是控制流。日後新增別的選配 hook 照同一個形狀做。
 
 正本:`apps/admin/src/pages/demo/shared/useDemoQuery.ts`、`apps/admin/src/pages/demo/shared/demo-module-config.ts`
+
+## 表單模組路線
+
+欄位、版面、版本由使用者在後台「表單管理」設計的模組(`engine: "form"`),**不寫 schema、api、設定物件**:只宣告骨架、登記預設組裝,其餘全走畫面。範例 [購物清單](../modules/shopping-list.md),規則正本 [forms](../modules/forms.md),概念見 `docs/concepts/form-engine.md`。
+
+| 步驟 | 做什麼                                                                                                                                                                                                                                                                 | 正本                                                     |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| 1    | seed 宣告:列表節點加 `engine: "form"`;三個隱藏頁 `view-page` / `create-page` / `edit-page`(用跳窗的不宣告對應的頁);四筆權限 `view / create / edit / delete`;`dataScopeTarget` 的 `collection` 固定 `form_submissions`、欄位目錄只放 `status`(`moduleKey` 由 runner 填) | `apps/db-migrator/seeds/modules/shopping-list.ts`        |
+| 2    | 登記頁面:`apps/admin/src/app/module-pages.tsx` 展開 `...formModulePages(<模組 key>)`(四頁全用預設)                                                                                                                                                                     | `apps/admin/src/components/form-engine/FormModulePages/` |
+| 3    | help.md:`apps/admin/src/md/module-help/<模組 key>.help.md`,照購物清單的通用說明改模組名與用途                                                                                                                                                                          | `apps/admin/src/md/module-help/shopping-list.help.md`    |
+| 4    | 模組文件:`docs/modules/<模組 key>.md`,照購物清單的節構                                                                                                                                                                                                                 | `docs/modules/shopping-list.md`                          |
+| 5    | 部署後:平台在「表單管理」建共用表單 → 設計 → 發布 → 分派租戶;列表欄位配置在「模組與權限」設定                                                                                                                                                                          | `apps/admin/src/md/module-help/system.forms.help.md`     |
+
+**客製頁**:登記方式不變(模組 key → 頁面元件),想怎麼排都可以,表單相關的部分用引擎零件(`FormRenderer`、`FormSubmissionList`、`FormSubmissionDetail`、`useFormDraft`…)綁進去:
+
+```ts
+...formModulePages(LEAVE_KEY),                                      // 四頁全用預設
+...formModulePages(LEAVE_KEY), [LEAVE_KEY]: LeavePage,             // 列表頁客製、其餘預設(後寫的蓋掉前面的)
+[LEAVE_KEY]: LeavePage, [`${LEAVE_KEY}.view-page`]: LeaveViewPage, // 全部自己來;新增 / 編輯用跳窗(seed 不宣告 create-page / edit-page)
+```
+
+- 模組層的頁籤 / 標題模板以 `formModulePages(key, { tabLabelTemplate })` 給(預設 `{{title}}`)。
+- 不必新增 i18n、MSW handler、api 測試:引擎零件的文案與測試已在 `admin.formEngine` 與 `components/form-engine/` 旁邊;新模組只需要在 seed 測試與 `module-pages` 的登記裡出現。
 
 ## 交件前檢查清單
 

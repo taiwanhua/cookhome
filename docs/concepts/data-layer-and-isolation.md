@@ -4,14 +4,16 @@
 
 ## 三類資料
 
-| 類別         | 判定                              | 過濾                              | 例                                                                                 |
-| ------------ | --------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------- |
-| 租戶資料     | 有 `orgId`,掛 `tenantScopePlugin` | 自動過濾                          | `customers`、`fields`(租戶自訂)、`audit_logs`、`demo_items_*`;`orgs` 以 `_id` 判定 |
-| 全域資料     | 不掛 plugin                       | 不過濾                            | `modules`、`permissions`、`field_categories`、`data_scope_targets`                 |
-| 關聯歸屬資料 | 沒有 `orgId`,歸屬走核心關聯       | 資料層不過濾;模組先查關聯再查本表 | `users`(經 `org_user`)、`roles`(經 `org_role`)                                     |
+| 類別         | 判定                              | 過濾                              | 例                                                                                                     |
+| ------------ | --------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 租戶資料     | 有 `orgId`,掛 `tenantScopePlugin` | 自動過濾                          | `customers`、`fields`(租戶自訂)、`audit_logs`、`demo_items_*`、`form_submissions`;`orgs` 以 `_id` 判定 |
+| 全域資料     | 不掛 plugin                       | 不過濾                            | `modules`、`permissions`、`field_categories`、`data_scope_targets`                                     |
+| 關聯歸屬資料 | 沒有 `orgId`,歸屬走核心關聯       | 資料層不過濾;模組先查關聯再查本表 | `users`(經 `org_user`)、`roles`(經 `org_role`)                                                         |
 
 - 哪些 schema 掛了 plugin 由測試鎖定。
 - `fields` 掛 `allowGlobal`:`orgId = null` 的全域種子對所有人可見。
+- **模組資料表**:schema 明確開 `tenantScopePlugin({ moduleData: true })` 的租戶資料(`demo_items_one`、`demo_items_two`、`form_submissions`),多兩個欄位 `moduleKey`(必填;固定欄位模組寫死自己的 key,表單提交寫綁的模組)與 `tenantId`(依 `orgId` 的祖先推導的租戶頂層,根組織資料為 null;前端不可指定、一般更新不可改)。`tenantId` 只用於租戶邊界、索引與日後分片,**不決定可見範圍**(仍看 `orgId`)。資料範圍規則只套模組資料表。
+- **業務關聯**(`business_relationships`,目前只有 `org_form`)不掛 plugin:部門使用者的可見範圍不含租戶頂層,掛了就查不到本租戶的列。改以必填的 `tenantId` 為邊界,`BusinessRelationshipsRepository` 每個方法強制帶它(沒帶就拋錯;租戶內只能用自己的,根組織要明給)。
 
 正本:`apps/api/src/database/plugins/tenant-scope.plugin.ts`、`apps/api/src/database/schemas/`
 
@@ -56,7 +58,7 @@ service 呼叫 BaseRepository.xxx(operator, …)
   → tenantScopePlugin 中介層:
        沒有上下文 → 拋錯(fail-closed)
        $and { orgId ∈ 範圍 }          ← 租戶保底
-       $and { 資料範圍規則的條件 }    ← 只對業務類
+       $and { 資料範圍規則的條件 }    ← 只對模組資料表,依 moduleKey 拼 $or
 ```
 
 - 讀、寫、刪的查詢中介層都套(`find`、`updateOne`、`deleteMany`…)。
@@ -65,6 +67,9 @@ service 呼叫 BaseRepository.xxx(operator, …)
 - `create` 自動寫入當前組織;寫到範圍外 → 拋錯。
 - api 內裸 `Model.find` 由 ESLint 規則 `@repo/no-raw-model-query` 擋下。
 - 已知限制:`populate()` 的子查詢不帶上下文,關聯資料分兩次查。
+- **兩個登記在案的例外出口**(ADR-0005 / ADR-0008):
+  - `BaseRepository.findOwnById` / `findOwnOne` / `findOwnAndUpdate`:只給表單提交用 —— 建立者讀自己的單、寫自己的草稿。可見範圍照套、條件加 `createdBy = 操作者`,**不套資料範圍規則**(否則規則把草稿擋掉時,建立者連自己的草稿都送不出去)。列表不放寬。
+  - `apps/api/src/database/form-submission-usage.ts`:退役欄位級權限清理的三層檢查要**跨全部租戶**計數提交(少算一筆草稿就會把還在用的權限刪掉),不經 BaseRepository;只回筆數與版本號,不回內容。
 
 正本:`apps/api/src/database/base.repository.ts`、`apps/api/src/database/operator-context.ts`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`
 
@@ -103,14 +108,15 @@ BaseRepository 每個方法的第一個參數。四個集合各有用途,不可�
 
 權限管「能做什麼」,資料範圍管「看得到哪些資料的上限」。兩者分離;`*` 不影響資料範圍。
 
-- 每個資料目標(collection)一份設定:`combineOp` + `rules[]`。
+- 資料目標以 `(collection, moduleKey)` 為鍵:**一個模組一個目標**,同一張表可以有多個模組各一份(所有表單模組共用 `form_submissions`)。每個資料目標一份設定:`combineOp` + `rules[]`。
 - 一條規則 = 套用對象(`all` / `role` / `org` / `user`)+ 過濾條件(巢狀 AND / OR 樹)。
 - 沒有規則命中操作者 → 不過濾(= 可見範圍內)。
 - 多條命中:`OR`(預設)取聯集;`AND` 取交集。沒命中的規則不影響他。
 - 動態值:`current-user`(【操作者本人】)、`current-user-orgs`(【操作者的所屬組織】)。算不出對象 → 命中不到任何資料(fail-closed)。
 - 套在整組查詢中介層,含寫入與刪除:看不到的也改不到。
-- 只套業務類;治理類不套。未宣告資料目標的 collection 不會有規則。
-- 設定以 collection 為單位快取在記憶體,儲存時作廢該筆;多實例之間不同步。
+- 只套模組資料表(`moduleData`);治理類與非模組資料的業務類(`fields`、`audit_logs`、`customers`)不套。未宣告資料目標的模組不會有規則。
+- 執行面:查某 collection 時,把該 collection 下命中操作者的規則依模組拼成 `$or`(沒規則的模組 `moduleKey ∉ [有規則的模組]` 只看可見範圍;有規則的 `moduleKey = M` 且套 M 的規則),再與租戶保底 `$and`。固定欄位表只有一個 `moduleKey`,等於單一規則。
+- 設定快取在記憶體(外層 collection、內層 moduleKey),儲存時作廢該 collection;多實例之間不同步。
 - 欄位目錄:seed 宣告的業務欄位 + 底座自動掛的六個基礎欄位(`orgId`、`createdBy`、`updatedBy`、三個時間)。
 
 | 欄位型別 | 運算子                   | 值來源                            |

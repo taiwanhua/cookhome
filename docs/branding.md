@@ -54,6 +54,18 @@
 | Components / `Draft/DatePicker`   | TextField 頁 11:2;元件 253:61(說明卡 253:62)                                                                               | `@repo/ui/date-picker`:外觀 = outlined `TextField` + 日曆鈕,幾何由 theme 的 `MuiOutlinedInput` 供給                                                                                                                                                 |
 | Components / `Draft/DataTable`    | Table 頁 101:2;元件節點待主流程畫完回填                                                                                    | `@repo/ui/data-table`:表頭 / 儲存格沿用 `Draft/TableHeaderCell` 101:3、`Draft/TableCell` 101:9 的樣式;固定欄與捲動區交界的分隔陰影、表頭右緣的欄寬把手(hover / 聚焦 / 拖拉中為 `primary.main`)**取自語意 token**,不寫死色碼                         |
 
+| Screen / Admin 表單管理 | 待回填 | 表單管理頁(`system.forms`):左側表單清單、右側標頭動作與「設計 / 版本」頁籤。色彩與幾何取自語意 token |
+| Draft/FormDesigner | 待回填 | 設計器:元件面板 / 畫布(設計模式的欄位格與分區放置區,選取框 `primary.main`)/ 屬性面板 / JSON 預覽 / 檢查結果 |
+| Draft/FormVersionPanel | 待回填 | 版本面板:草稿與各版本列、發布(變更說明)、發布中斷重試、退役目前版本、與上一版差異 |
+| Overlay / 分派跳窗 | 待回填 | 勾選租戶 = 分派、取消勾 = 收回 |
+| Overlay / 以此為基底建新表單 | 待回填 | 基底版本、表單 key(建立後不可改)、名稱 |
+| Screen / Admin 模組與權限:列表欄位配置 | 待回填 | 表單模組的右面板區塊 + 設定跳窗(摘要槽 / 表單欄位、排序、欄寬) |
+| Overlay / 退役權限清理 | 待回填 | 退役欄位級權限清單(名稱、表單、欄位、使用筆數)與三層檢查的確認 |
+| Screen / Admin 表單模組列表 | 待回填 | 預設組裝的列表頁(搜尋、表單 / 狀態篩選、DataTable、新增鈕) |
+| Screen / Admin 表單模組新增編輯 | 待回填 | `FormRenderer` 填寫模式 + 帶入資料鈕 + 存草稿 / 送出 |
+| Overlay / 帶入資料跳窗 | 待回填 | 來源下拉 → 搜尋結果 → 對應表勾選(「會覆蓋」提示) |
+| Screen / Admin 表單模組詳情 | 待回填 | 唯讀渲染、附件下載、修訂紀錄與差異 |
+
 ## 資料
 
 | 位置                 | 內容                                | 說明                                                                                  |

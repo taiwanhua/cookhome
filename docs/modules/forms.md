@@ -2,13 +2,13 @@
 
 表單引擎的 api 端:**表單設計**(`apps/api/src/forms/form-design/`:表單、版本、四步發布、分派 / 啟用、欄位級權限的產生與退役清理)與**表單執行**(`apps/api/src/forms/form-runtime/`:草稿 / 送出 / 修訂、欄位級投影、顯示名、lookup)。兩邊共用的判準與寫入規則在 `apps/api/src/forms/` 根目錄。定義的形狀、表達式、檢查器、值的正規化與規則驗證是前後端共用的純邏輯,在 `@repo/domain/form`。
 
-規格正本是 Spec 6a(表單引擎);本文件寫 api 怎麼落地、選了哪些做法與為什麼。
+規格正本是表單引擎的 Spec(現況摘要見 `docs/concepts/form-engine.md`);本文件寫 api 怎麼落地、選了哪些做法與為什麼。
 
 ## 用途
 
 - 業務模組的**骨架**(路由、頁面節點、權限、資料範圍目標)由 seed 宣告(`engine: "form"`,範例 `shopping-list`);**表單**(欄位、版面、版本、分派、啟用)由 root 與租戶在「表單管理」(`system.forms`)管理。
 - 所有表單模組的資料共用 `form_submissions`(模組資料表,`moduleKey` = 綁的表單所屬模組)。
-- 6a 的提交「送出即完成」;審核流程另案。
+- 提交「送出即完成」;審核流程另案。
 
 ## 模組 key 與權限表
 
@@ -70,6 +70,8 @@
 
 **存草稿**:檢查器的錯草稿可以先存(隨 payload 的 `validation` 回);只有正則不合法 / 可能造成 ReDoS 的不收(存草稿與發布都驗過 ReDoS 才收)。
 
+**ReDoS 檢查注入**:`validateDefinition` 的 `regexSafety` 是必填選項;實作 `recheckRegexSafety`(recheck,固定純 JS 後端)在獨立子路徑 `@repo/domain/form-regex-safety`,不在 `@repo/domain/form` 裡 —— recheck 瀏覽器版約 2.9 MB,放在 `form` 會跟著渲染器進 admin 首屏 bundle。api 的 `form-definition-checker.ts` 直接 import 它;admin 設計器以動態 `import()` 懶載入,載到之前的即時檢查先略過正則安全性(存草稿 / 發布時 api 照驗)。
+
 ## 提交的寫入規則
 
 `form-values/submission-values.service.ts`。每次寫入(建草稿、存草稿、送出、已完成修改)每一欄**依序**判定,命中第一個就照那列處理:
@@ -129,6 +131,46 @@
 
 計數**跨全部租戶**且不受操作者的可見範圍 / 資料範圍影響(`database/form-submission-usage.ts`;少算一筆草稿就會把還在用的權限刪掉)。刪的順序:先寫稽核 → 刪權限列 → 解除全部 `role_permission` 綁定(硬刪:權限 key 唯一,軟刪的殭屍會擋住日後同一欄位重新發布時建回同一個 key);每一步重做都無害,中途失敗殘留的綁定指向不存在的權限列、不生效。**檢查使用量到真的刪之間沒有鎖**:這段時間有人新建草稿綁到宣告該欄位的版本,那筆草稿的該欄位之後只有超級管理員看得到。權限矩陣與模組樹不列退役的權限;角色對退役權限的既有綁定保留(矩陣只認得它列出的 key,不會因此被清掉)。
 **權限矩陣的租戶邊界**(`roles/role-matrix.service.ts`):欄位級權限依 key 拆出 formKey,只列共用表單與操作者自己租戶的客製表單的那幾筆(根組織操作者只看得到共用表單的);存檔時送了別租戶(或已不存在的)表單的欄位級權限 → `ROLE_OUT_OF_REACH`。持模組 `*` 的角色在解析時仍涵蓋該模組全部權限(含別租戶的),但那些欄位所在的提交本來就在別的租戶,讀不到。
+
+## admin 頁面
+
+### 表單管理(`system.forms`)
+
+`apps/admin/src/pages/system/FormsPage/`。左清單、右面板:
+
+| 畫面                   | 做什麼                                                                                                                                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 表單清單               | 搜尋;每列名稱、key、模組、共用 / 客製、目前版本或「無發布版本」、停用、發布中斷、有草稿;「+ 建立表單」(共用表單,只有站在根組織才建得成,租戶收到 `ROOT_ONLY`)                                                         |
+| 右側標頭               | 編輯名稱與頁籤模板(`abilities.canEdit`)、以此為基底建新表單(`canFork`)、分派租戶(`canAssign`)、在本租戶啟用開關(`canSetEnabled`)                                                                                     |
+| 設計(頁籤)             | 元件面板 / 畫布(`FormRenderer` 設計模式,dnd-kit 拖拉)/ 屬性面板 / JSON 預覽 / 檢查結果(點擊定位);表單設定(摘要槽、帶入規則);存草稿帶 `expectedDraftRevision`;「預覽」切 `preview` 模式(另以 `previewFormVersion` 算) |
+| 版本(頁籤)             | 草稿與各版本、發布(changelog 必填)、發布中斷重試、退役目前版本、與上一版差異、以任一版本為基底開新草稿                                                                                                               |
+| 分派跳窗               | 勾租戶 = 分派、取消勾 = 收回(只有平台)                                                                                                                                                                               |
+| 以此為基底建新表單跳窗 | 選基底版本、填 key(建立後不可改)與名稱                                                                                                                                                                               |
+
+- 設計器的表達式一律用**結構化選擇器**(欄位 / 上下文 / 常數 / 運算,可巢狀),不做文字輸入。
+- 刪被引用的欄位:先列出草稿內引用它的表達式、摘要槽、帶入規則,以及草稿外的列表欄位配置(只提示);確認後只從草稿的 `fields[]` / `layout` 移除,引用處變成檢查器錯誤。刪分區二選一:欄位移到「未放置」或連同欄位刪除。
+- 存草稿 / 發布收到 `CONFLICT` → 「已被別人更新,請重新載入」。
+
+### 模組與權限(`system.module-manager`)
+
+- 表單模組(`engine: FORM`)的右面板多一塊**列表欄位配置**(`setModuleListColumns`,`system.forms.edit` + 站在根組織):選摘要槽或表單欄位、排序、欄寬。
+- 頁首「退役權限清理」(`system.module-manager.delete-retired-permission`):列 `retiredFormPermissions`(顯示權限 `name`、表單、欄位、使用筆數),刪除走三層檢查:`USED_BY_DRAFTS` 顯示筆數與版本、`CONFIRM_REQUIRED` 先確認再帶 `confirmCompletedUsage: true`。
+
+### 引擎零件與預設組裝
+
+| 零件                                                                              | 檔案(`apps/admin/src/`)                                                  |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `FormRenderer`(五種 `mode`)、設計模式的格子與放置區                               | `components/form-engine/FormRenderer/`                                   |
+| widget 登錄表(`widget.kind` → 元件)                                               | `components/form-engine/widgets/widget-registry.ts`                      |
+| `FormSubmissionList` / `FormSubmissionDetail`(含修訂紀錄與差異)                   | `components/form-engine/FormSubmissionList.tsx`、`FormSubmissionDetail/` |
+| `FormPicker` / `LookupDialog` / `ReferenceField`                                  | `components/form-engine/`                                                |
+| `renderValue(ctx)` / `FormValue`                                                  | `components/form-engine/render-value.ts`、`FormValue.tsx`                |
+| `formModulePages(moduleKey)` 與四個預設頁                                         | `components/form-engine/FormModulePages/`                                |
+| 純邏輯:欄位狀態(五種 mode)、欄位級權限來源、設計器操作、帶入、修訂差異            | `lib/form-engine/`                                                       |
+| `useModuleForms` / `useFormDraft` / `useFormSubmission` / `useFormRuntimeVersion` | `hooks/`                                                                 |
+
+- 欄位級權限:已有提交 → 用 api 的 `fieldStates.redacted` 與 `abilities.canEditField`;新增、草稿還沒建 → 由持有的 `<模組>.show-/edit-<formKey>-<fieldKey>` 推(推錯只影響畫面,寫入仍由 api 守)。
+- 欄位管理類別選項要 `system.field-manager.view` 才讀得到(填寫端沒有專屬端點);沒有的人只看得到既有值。
 
 ## api 介面
 
