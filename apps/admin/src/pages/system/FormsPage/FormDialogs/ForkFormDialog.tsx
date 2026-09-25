@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { isValidFormKey } from "@repo/domain/form";
+import { isValidFormKey } from "@repo/domain/form-keys";
 import {
   type ForkFormMutation,
   type FormFieldsFragment,

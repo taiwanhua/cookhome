@@ -4,9 +4,6 @@ import { useState } from "react";
 
 import { ModuleListColumnKind } from "@repo/graphql";
 
-import { FormCreatePage } from "@/components/form-engine/FormModulePages/FormCreatePage";
-import { FormEditPage } from "@/components/form-engine/FormModulePages/FormEditPage";
-import { FormViewPage } from "@/components/form-engine/FormModulePages/FormViewPage";
 import { formModulePages } from "@/components/form-engine/FormModulePages/form-module-pages";
 import {
   SHOPPING_ALL,
@@ -78,11 +75,12 @@ describe("formModulePages:預設組裝與客製", () => {
       ]),
     );
     expect(customPages[SHOPPING_LIST_KEY]).toBe(CustomShoppingPage);
-    expect(customPages[`${SHOPPING_LIST_KEY}.view-page`]).toBe(FormViewPage);
-    expect(customPages[`${SHOPPING_LIST_KEY}.create-page`]).toBe(
-      FormCreatePage,
-    );
-    expect(customPages[`${SHOPPING_LIST_KEY}.edit-page`]).toBe(FormEditPage);
+    // 其餘三頁沿用預設(同一個模組層常數,不是每次呼叫各建一份)
+    for (const suffix of ["view-page", "create-page", "edit-page"]) {
+      const key = `${SHOPPING_LIST_KEY}.${suffix}`;
+      expect(customPages[key]).toBe(defaults[key]);
+      expect(customPages[key]).not.toBe(CustomShoppingPage);
+    }
   });
 
   it("客製列表頁用零件組裝:自訂欄位的 FormSubmissionList 照樣吃提交與版本定義", async () => {

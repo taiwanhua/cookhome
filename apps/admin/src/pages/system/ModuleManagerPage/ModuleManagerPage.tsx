@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
@@ -18,10 +18,12 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
 
 import { DisableModuleDialog } from "./DisableModuleDialog";
-import { ListColumnsDialog } from "./ListColumnsDialog/ListColumnsDialog";
 import { ModuleDetailPanel } from "./ModuleDetailPanel/ModuleDetailPanel";
 import { ModuleTreePanel } from "./ModuleTreePanel";
-import { RetiredPermissionsDialog } from "./RetiredPermissionsDialog/RetiredPermissionsDialog";
+import {
+  LazyListColumnsDialog,
+  LazyRetiredPermissionsDialog,
+} from "./lazy-form-dialogs";
 import { moduleManagerErrorOf } from "./module-manager-error";
 import {
   LIST_COLUMNS_PERMISSION,
@@ -202,23 +204,27 @@ export const ModuleManagerPage = () => {
       </Stack>
 
       {isListColumnsOpen && data.selectedModule !== null && (
-        <ListColumnsDialog
-          moduleKey={data.selectedModule.key}
-          moduleName={data.selectedModule.name}
-          onClose={() => {
-            setIsListColumnsOpen(false);
-          }}
-        />
+        <Suspense fallback={null}>
+          <LazyListColumnsDialog
+            moduleKey={data.selectedModule.key}
+            moduleName={data.selectedModule.name}
+            onClose={() => {
+              setIsListColumnsOpen(false);
+            }}
+          />
+        </Suspense>
       )}
       {isRetiredOpen && (
-        <RetiredPermissionsDialog
-          canDelete={hasPermission(
-            MODULE_MANAGER_PERMISSIONS.deleteRetiredPermission,
-          )}
-          onClose={() => {
-            setIsRetiredOpen(false);
-          }}
-        />
+        <Suspense fallback={null}>
+          <LazyRetiredPermissionsDialog
+            canDelete={hasPermission(
+              MODULE_MANAGER_PERMISSIONS.deleteRetiredPermission,
+            )}
+            onClose={() => {
+              setIsRetiredOpen(false);
+            }}
+          />
+        </Suspense>
       )}
       {isDisableOpen && data.selectedModule !== null && (
         <DisableModuleDialog

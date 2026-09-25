@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { isValidOrgSlug } from "@repo/domain/form";
+import { isValidOrgSlug } from "@repo/domain/form-keys";
 import { OrgVisibility } from "@repo/graphql";
 
 import type { OrgDetail } from "../org-manager-types";

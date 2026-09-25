@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
 
+import { recheckRegexSafety } from "../form-regex-safety";
 import { fieldProtections } from "./dependencies";
 import { definitionOf, field } from "./form-test-support";
 import type { DefinitionIssueCode } from "./issues";
 import type { Expression, FieldDef, FormDefinition } from "./types";
-import { recheckRegexSafety } from "../form-regex-safety";
 import {
   type ValidateDefinitionOptions,
   validateDefinition as validateDefinitionWith,

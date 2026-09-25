@@ -1,16 +1,31 @@
-import type { ComponentType } from "react";
+import { type ComponentType, lazy } from "react";
 
 import type { ModulePageProps } from "@/lib/module-tree";
 
-import { FormCreatePage } from "./FormCreatePage";
-import { FormEditPage } from "./FormEditPage";
-import { FormListPage } from "./FormListPage";
-import { FormViewPage } from "./FormViewPage";
 import {
   type FormModuleOptions,
   registerFormModule,
 } from "./form-module-options";
 import { FORM_MODULE_PAGE_SUFFIXES } from "./useFormModuleAccess";
+
+/**
+ * 四頁各自懶載入(`React.lazy`,Suspense 在 `ModuleRoute`):表單引擎(渲染器、JSONLogic / decimal 計算器、
+ * widget)只有進到表單模組才需要,不進首屏 bundle。模組層常數,身分固定(不在 render 內建立)。
+ */
+const FormListPage = lazy(() =>
+  import("./FormListPage").then((module) => ({ default: module.FormListPage })),
+);
+const FormViewPage = lazy(() =>
+  import("./FormViewPage").then((module) => ({ default: module.FormViewPage })),
+);
+const FormCreatePage = lazy(() =>
+  import("./FormCreatePage").then((module) => ({
+    default: module.FormCreatePage,
+  })),
+);
+const FormEditPage = lazy(() =>
+  import("./FormEditPage").then((module) => ({ default: module.FormEditPage })),
+);
 
 /**
  * 表單模組的預設組裝(Spec 6a §8「登記與客製」):產出四個 key 的預設元件,在 `app/module-pages.tsx` 展開。

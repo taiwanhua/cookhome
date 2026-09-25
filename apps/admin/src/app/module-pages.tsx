@@ -12,8 +12,8 @@ import { DataScopePage } from "../pages/system/DataScopePage/DataScopePage";
 import { DATA_SCOPE_MODULE_KEY } from "../pages/system/DataScopePage/data-scope-permissions";
 import { FieldManagerPage } from "../pages/system/FieldManagerPage/FieldManagerPage";
 import { FIELD_MANAGER_MODULE_KEY } from "../pages/system/FieldManagerPage/field-manager-permissions";
-import { FormsPage } from "../pages/system/FormsPage/FormsPage";
 import { FORMS_MODULE_KEY } from "../pages/system/FormsPage/forms-permissions";
+import { LazyFormsPage } from "../pages/system/FormsPage/lazy-forms-page";
 import { ModuleManagerPage } from "../pages/system/ModuleManagerPage/ModuleManagerPage";
 import { MODULE_MANAGER_MODULE_KEY } from "../pages/system/ModuleManagerPage/module-manager-permissions";
 import { OrgManagerPage } from "../pages/system/OrgManagerPage/OrgManagerPage";
@@ -52,7 +52,8 @@ export const modulePages: ModulePageRegistry = {
   [USER_MANAGER_MODULE_KEY]: UserManagerPage,
   [ROLE_MANAGER_MODULE_KEY]: RoleManagerPage,
   [DATA_SCOPE_MODULE_KEY]: DataScopePage,
-  [FORMS_MODULE_KEY]: FormsPage,
+  // 表單管理:懶載入(設計器不進首屏 bundle)
+  [FORMS_MODULE_KEY]: LazyFormsPage,
   // 表單模組(Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝
   ...formModulePages(SHOPPING_LIST_MODULE_KEY),
 };
