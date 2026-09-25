@@ -360,6 +360,8 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         "system",
         "demo",
         "shopping-list",
+        "apply-center",
+        "leave",
         "api",
       ]);
       const system = byKey(tree, "system");
@@ -371,6 +373,7 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         "system.field-manager",
         "system.data-scope",
         "system.forms",
+        "system.workflows",
       ]);
       // 隱藏的純權限容器也在樹上(租戶作業掛在組織管理底下)
       expect(byKey(tree, "system.org-manager.tenant-ops")).toMatchObject({

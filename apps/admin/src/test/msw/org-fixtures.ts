@@ -7,6 +7,7 @@ import type {
   TestOrgNode,
   TestOrgUser,
 } from "./org-manager-handlers";
+import type { TestUserSummary } from "./org-managers-handlers";
 
 /**
  * 組織管理頁的夾具(與 `module-fixtures.ts` 同一個位置的用意:一份形狀,測試檔只寫行為)。
@@ -175,6 +176,28 @@ export const orgMembersByOrg: Record<string, TestOrgMember[]> = {
   ],
   "org-tenant-a": [member("user-owner", "何家華")],
 };
+
+const summary = (
+  id: string,
+  name: string,
+  enabled = true,
+): TestUserSummary => ({ id, account: id, name, enabled });
+
+/** 組織主管(6b `org_manager`):orgId → 主管(設定順序);停用的主管仍在名單上。 */
+export const orgManagersByOrg: Record<string, TestUserSummary[]> = {
+  "org-tenant-a": [summary("user-extra", "陳大文")],
+  "org-content": [
+    summary("user-new", "王小明"),
+    summary("user-off", "離職者", false),
+  ],
+};
+
+/** 主管候選人:本租戶啟用中的使用者(api 的 `orgManagerCandidates`,停用的不在內)。 */
+export const orgManagerCandidates: TestUserSummary[] = [
+  summary("user-owner", "何家華"),
+  summary("user-new", "王小明"),
+  summary("user-extra", "陳大文"),
+];
 
 /** 管理範圍內的全部使用者;候選 = 這些人扣掉該組織的既有成員(api 的 `orgMemberCandidates`)。 */
 export const orgMemberCandidates: TestOrgMember[] = [

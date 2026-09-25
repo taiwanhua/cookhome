@@ -432,6 +432,11 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
           collection: "demo_items_one",
         },
         {
+          moduleKey: "leave",
+          moduleName: "請假",
+          collection: "form_submissions",
+        },
+        {
           moduleKey: "shopping-list",
           moduleName: "購物清單",
           collection: "form_submissions",

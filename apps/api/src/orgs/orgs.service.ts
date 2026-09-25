@@ -489,6 +489,20 @@ export class OrgsService {
       throw orgNotDeletableError(reasons);
     }
     await this.orgs.softDeleteById(operator, org._id);
+    // 主管是組織的職位:組織不在了職位也不在(關聯只存現況、硬刪,ADR-0001);
+    // 留著的話,審核流程的主管解析不會走到被刪的組織,但名單會變成指向死組織的殭屍
+    const managerLinks = await this.relations.listLinks("org_manager", {
+      firstIds: [org._id],
+    });
+    const removedManagerIds = managerLinks.map((link) => String(link.secondId));
+    await this.relations.unlinkMany(
+      operator,
+      managerLinks.map((link) => ({
+        type: "org_manager" as const,
+        firstId: link.firstId,
+        secondId: link.secondId,
+      })),
+    );
     await this.audit.record(operator, {
       action: AUDIT_ACTIONS.delete,
       targetType: AUDIT_TARGET_TYPE,
@@ -496,6 +510,9 @@ export class OrgsService {
       before: {
         name: org.name,
         parentId: org.parentId === null ? null : String(org.parentId),
+        ...(removedManagerIds.length === 0
+          ? {}
+          : { managerIds: removedManagerIds }),
       },
     });
     return { success: true, deletedId: String(org._id) };

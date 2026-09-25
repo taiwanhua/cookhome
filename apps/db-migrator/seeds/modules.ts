@@ -14,8 +14,10 @@ import {
   wildcardPermission,
 } from "./module-declaration";
 import { apiModules } from "./modules/api";
+import { applyCenterModule } from "./modules/apply-center";
 import { sampleTwoModule } from "./modules/demo.sample-two";
 import { sampleOneModule } from "./modules/demo.sub.sample-one";
+import { leaveModule } from "./modules/leave";
 import { overviewModule } from "./modules/overview";
 import { shoppingListModule } from "./modules/shopping-list";
 import { systemModules } from "./modules/system";
@@ -33,6 +35,8 @@ const moduleDeclarations: ModuleSeedDeclaration[] = [
   sampleOneModule,
   sampleTwoModule,
   shoppingListModule,
+  applyCenterModule,
+  leaveModule,
 ];
 
 /** 全部模組樹節點(依宣告順序),供角色綁定等其他種子推導。 */

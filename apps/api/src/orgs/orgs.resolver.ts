@@ -20,10 +20,13 @@ import { CreateChildOrgInput } from "./dto/create-child-org.input";
 import { DeleteOrgInput } from "./dto/delete-org.input";
 import { MoveOrgInput } from "./dto/move-org.input";
 import { SetOrgEnabledInput } from "./dto/set-org-enabled.input";
+import { SetOrgManagersInput } from "./dto/set-org-managers.input";
 import { SetOrgVisibilityInput } from "./dto/set-org-visibility.input";
 import { UpdateOrgInput } from "./dto/update-org.input";
 import { DeletePayload, OrgPayload } from "./models/org-payloads.model";
 import { Org, OrgNode } from "./models/org.model";
+import { UserSummary } from "./models/user-summary.model";
+import { OrgManagersService } from "./org-managers.service";
 import { OrgsService } from "./orgs.service";
 
 /** 權限 key(docs/modules/org-manager.md 權限表;種子 apps/db-migrator/seeds/modules/system.ts)。 */
@@ -62,6 +65,7 @@ const READ_ORG_PERMISSIONS = [
 export class OrgsResolver {
   constructor(
     private readonly orgs: OrgsService,
+    private readonly orgManagers: OrgManagersService,
     private readonly storage: StorageService,
     private readonly permissions: PermissionResolver,
   ) {}
@@ -92,6 +96,37 @@ export class OrgsResolver {
   @ResolveField(() => String, { nullable: true })
   logoUrl(@Parent() org: Org): Promise<string | null> {
     return this.storage.readUrlOf(org.logoPath);
+  }
+
+  /**
+   * 組織的主管(`org_manager`,Spec 6b §4):讀得到這筆組織(`org` / `setOrgManagers` 已把關範圍)
+   * 就讀得到它的主管名單;名單含停用的主管(解析時不算,但管理者要看得到才移得掉)。
+   */
+  @ResolveField(() => [UserSummary])
+  managers(@Parent() org: Org): Promise<UserSummary[]> {
+    return this.orgManagers.managersOf(org.id);
+  }
+
+  /** 主管候選人:該組織所屬租戶裡啟用中的使用者(編輯組織的「主管」欄用)。 */
+  @RequirePermission(PERMISSIONS.edit)
+  @Query(() => [UserSummary])
+  orgManagerCandidates(
+    @Args("orgId", { type: () => ID }) orgId: string,
+    @Args("keyword", { type: () => String, nullable: true })
+    keyword: string | null,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<UserSummary[]> {
+    return this.orgManagers.candidates(operator, orgId, keyword);
+  }
+
+  /** 設定組織的主管(整組取代;稽核 `org.set-managers`)。沿用編輯權限(主管是組織資料的一部分)。 */
+  @RequirePermission(PERMISSIONS.edit)
+  @Mutation(() => OrgPayload)
+  async setOrgManagers(
+    @Args("input") input: SetOrgManagersInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<OrgPayload> {
+    return { org: await this.orgManagers.setManagers(operator, input) };
   }
 
   @RequirePermission(PERMISSIONS.createChild)

@@ -19,6 +19,7 @@ import {
 } from "../org-manager-types";
 import { OrgActionBar } from "./OrgActionBar";
 import { OrgDetailRow } from "./OrgDetailRow";
+import { OrgManagersRow } from "./OrgManagersRow";
 
 export interface OrgDetailPanelProps {
   org: OrgDetail | undefined;
@@ -186,6 +187,8 @@ export const OrgDetailPanel = ({
                 </Typography>
               </OrgDetailRow>
             )}
+            {/* 根組織不屬於任何租戶,不能設主管 */}
+            {!org.isSystem && <OrgManagersRow orgId={org.id} />}
           </Stack>
         )}
       </Box>

@@ -20,6 +20,8 @@ import {
 import { BUSINESS_RELATIONSHIPS_COLLECTION } from "./schemas/business-relationship.schema";
 import { CORE_RELATIONSHIPS_COLLECTION } from "./schemas/core-relationship.schema";
 import { ORGS_COLLECTION } from "./schemas/org.schema";
+import { WORKFLOW_TASKS_COLLECTION } from "./schemas/workflow-task.schema";
+import { WORKFLOWS_COLLECTION } from "./schemas/workflow.schema";
 import { tenantIdOfOrg } from "./tenant-id";
 
 /** Model 型別參數固定為預設值(無 query helpers / instance methods / virtuals),只讓 hydrated 文件型別可推導。 */
@@ -77,6 +79,17 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     if (model.collection.collectionName === BUSINESS_RELATIONSHIPS_COLLECTION) {
       throw new TenantScopeError(
         `${model.modelName}:業務關聯不經 BaseRepository,請改用 BusinessRelationshipsRepository`,
+      );
+    }
+    // 流程與審核任務同樣以 tenantId 為邊界、不掛 tenantScope;只能經各自的專屬 repository
+    const tenantBoundRepositories: Record<string, string> = {
+      [WORKFLOWS_COLLECTION]: "WorkflowsRepository",
+      [WORKFLOW_TASKS_COLLECTION]: "WorkflowTasksRepository",
+    };
+    const dedicated = tenantBoundRepositories[model.collection.collectionName];
+    if (dedicated !== undefined) {
+      throw new TenantScopeError(
+        `${model.modelName}:以 tenantId 為邊界的表不經 BaseRepository,請改用 ${dedicated}`,
       );
     }
   }

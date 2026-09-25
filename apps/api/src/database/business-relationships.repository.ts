@@ -20,6 +20,8 @@ export interface BusinessRelationshipFilter {
   type: BusinessRelationshipType;
   firstId?: Types.ObjectId;
   secondId?: Types.ObjectId | { $in: Types.ObjectId[] };
+  /** 三方關聯的第三方(`org_form_workflow` 的 workflow;反查「哪些表單綁了這個流程」)。 */
+  thirdId?: Types.ObjectId | { $in: Types.ObjectId[] };
   /** `meta` 底下的等值條件(如 `{ enabled: true }` → `meta.enabled: true`)。 */
   meta?: Record<string, unknown>;
 }
@@ -29,6 +31,8 @@ export interface BusinessRelationshipLink {
   type: BusinessRelationshipType;
   firstId: Types.ObjectId;
   secondId: Types.ObjectId;
+  /** 三方關聯的第三方(`org_form_workflow` 必給);其他 type 省略 = null。 */
+  thirdId?: Types.ObjectId | null;
   meta?: Record<string, unknown>;
 }
 
@@ -133,7 +137,7 @@ export class BusinessRelationshipsRepository {
       type: link.type,
       firstId: link.firstId,
       secondId: link.secondId,
-      thirdId: null,
+      thirdId: link.thirdId ?? null,
       ...(link.meta === undefined ? {} : { meta: link.meta }),
     });
     // baseFields 的 save 中介層從這裡取操作者,填 createdBy / updatedBy(ADR-0007)
@@ -153,6 +157,26 @@ export class BusinessRelationshipsRepository {
       .findOneAndUpdate(
         conditionOf(assertTenantId(tenantId), filter),
         { $set: { meta, updatedBy: operator.actorId } },
+        { returnDocument: "after" },
+      )
+      .lean<BusinessRelationshipRecord>()
+      .exec();
+  }
+
+  /**
+   * 換三方關聯的第三方(`org_form_workflow` 換流程 = 改 `thirdId`);回更新後的列,不存在回 null。
+   * 唯一鍵不含 `thirdId`,所以換流程是改同一筆,不是新增。
+   */
+  async setThirdId(
+    operator: OperatorContext,
+    tenantId: Types.ObjectId | null | undefined,
+    filter: BusinessRelationshipFilter,
+    thirdId: Types.ObjectId,
+  ): Promise<BusinessRelationshipRecord | null> {
+    return this.model
+      .findOneAndUpdate(
+        conditionOf(assertTenantId(tenantId), filter),
+        { $set: { thirdId, updatedBy: operator.actorId } },
         { returnDocument: "after" },
       )
       .lean<BusinessRelationshipRecord>()
@@ -200,6 +224,9 @@ function conditionOf(
   }
   if (filter.secondId !== undefined) {
     condition.secondId = filter.secondId;
+  }
+  if (filter.thirdId !== undefined) {
+    condition.thirdId = filter.thirdId;
   }
   for (const [key, value] of Object.entries(filter.meta ?? {})) {
     condition[`meta.${key}`] = value;

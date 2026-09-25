@@ -52,6 +52,21 @@ import {
 } from "./schemas/refresh-token.schema";
 import { Role, RoleSchema } from "./schemas/role.schema";
 import { User, UserSchema } from "./schemas/user.schema";
+import {
+  WorkflowInstance,
+  WorkflowInstanceSchema,
+} from "./schemas/workflow-instance.schema";
+import {
+  WorkflowTask,
+  WorkflowTaskSchema,
+} from "./schemas/workflow-task.schema";
+import {
+  WorkflowVersion,
+  WorkflowVersionSchema,
+} from "./schemas/workflow-version.schema";
+import { Workflow, WorkflowSchema } from "./schemas/workflow.schema";
+import { WorkflowTasksRepository } from "./workflow-tasks.repository";
+import { WorkflowsRepository } from "./workflows.repository";
 
 export type UserDocument = HydratedDocument<User>;
 export type OrgDocument = HydratedDocument<Org>;
@@ -71,6 +86,8 @@ export type FieldCategoryDocument = HydratedDocument<FieldCategory>;
 export type FormDocument = HydratedDocument<Form>;
 export type FormVersionDocument = HydratedDocument<FormVersion>;
 export type FormSubmissionDocument = HydratedDocument<FormSubmission>;
+export type WorkflowVersionDocument = HydratedDocument<WorkflowVersion>;
+export type WorkflowInstanceDocument = HydratedDocument<WorkflowInstance>;
 
 /** users(關聯歸屬資料:所屬組織走 org_user,資料層不自動過濾,ADR-0005)。 */
 @Injectable()
@@ -308,6 +325,38 @@ export class FormSubmissionsRepository extends BaseRepository<
   }
 }
 
+/** workflow_versions(流程版本;跟著流程走,不掛 tenantScope)。 */
+@Injectable()
+export class WorkflowVersionsRepository extends BaseRepository<
+  WorkflowVersion,
+  WorkflowVersionDocument
+> {
+  constructor(
+    @InjectModel(WorkflowVersion.name)
+    model: RepositoryModel<WorkflowVersion, WorkflowVersionDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/**
+ * workflow_instances(流程實例;模組資料表,`moduleKey` / `tenantId` 由 plugin 宣告與推導)。
+ * 引擎的背景推進與審核者讀取不靠可見範圍(審核者不一定看得到申請人的組織):
+ * 呼叫端以明確的租戶邊界條件查,讀取授權走 `canReadSubmissionRevision`。
+ */
+@Injectable()
+export class WorkflowInstancesRepository extends BaseRepository<
+  WorkflowInstance,
+  WorkflowInstanceDocument
+> {
+  constructor(
+    @InjectModel(WorkflowInstance.name)
+    model: RepositoryModel<WorkflowInstance, WorkflowInstanceDocument>,
+  ) {
+    super(model);
+  }
+}
+
 /**
  * 資料層的 Nest 接線:把 BaseRepository 子類與 RelationService 註冊為 provider,
  * 功能模組只注入這些出口,不直接拿 Model(ESLint `@repo/no-raw-model-query`,ADR-0005)。
@@ -336,6 +385,10 @@ export class FormSubmissionsRepository extends BaseRepository<
       { name: Form.name, schema: FormSchema },
       { name: FormVersion.name, schema: FormVersionSchema },
       { name: FormSubmission.name, schema: FormSubmissionSchema },
+      { name: Workflow.name, schema: WorkflowSchema },
+      { name: WorkflowVersion.name, schema: WorkflowVersionSchema },
+      { name: WorkflowInstance.name, schema: WorkflowInstanceSchema },
+      { name: WorkflowTask.name, schema: WorkflowTaskSchema },
     ]),
   ],
   providers: [
@@ -357,6 +410,19 @@ export class FormSubmissionsRepository extends BaseRepository<
     FormsRepository,
     FormVersionsRepository,
     FormSubmissionsRepository,
+    WorkflowVersionsRepository,
+    WorkflowInstancesRepository,
+    {
+      provide: WorkflowsRepository,
+      inject: [getModelToken(Workflow.name)],
+      useFactory: (model: Model<Workflow>) => new WorkflowsRepository(model),
+    },
+    {
+      provide: WorkflowTasksRepository,
+      inject: [getModelToken(WorkflowTask.name)],
+      useFactory: (model: Model<WorkflowTask>) =>
+        new WorkflowTasksRepository(model),
+    },
     {
       provide: FormSubmissionUsageCounter,
       inject: [getModelToken(FormSubmission.name)],
@@ -398,6 +464,10 @@ export class FormSubmissionsRepository extends BaseRepository<
     FormSubmissionUsageCounter,
     RelationService,
     BusinessRelationshipsRepository,
+    WorkflowsRepository,
+    WorkflowVersionsRepository,
+    WorkflowInstancesRepository,
+    WorkflowTasksRepository,
   ],
 })
 export class DatabaseModule implements OnApplicationBootstrap {
