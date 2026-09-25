@@ -142,6 +142,34 @@ export class FormLookupInput {
   pageSize?: number;
 }
 
+/**
+ * 選項欄(`options.kind = "fieldCategory"`)的當前選項:前端只帶「哪一版的哪一個欄位」+ 關鍵字,
+ * 類別 key 從版本定義取(與 `formLookup` 同一原則)。
+ */
+@InputType()
+export class FormFieldOptionsInput {
+  @Field(() => ID)
+  formKey!: string;
+
+  /** 版本號;省略 = 草稿(設計器預覽用,需表單管理的檢視權限)。 */
+  @Field(() => Int, { nullable: true })
+  version?: number | null;
+
+  @Field(() => String)
+  fieldKey!: string;
+
+  /** 比對顯示名與值(部分比對、不分大小寫);缺席 / 空字串 = 全部。 */
+  @Field(() => String, { nullable: true })
+  keyword?: string | null;
+
+  @Field(() => Int, { nullable: true, defaultValue: 1 })
+  page?: number;
+
+  /** 每頁筆數,上限 100。 */
+  @Field(() => Int, { nullable: true, defaultValue: MAX_PAGE_SIZE })
+  pageSize?: number;
+}
+
 @InputType()
 export class FormLookupRecordInput {
   @Field(() => ID)

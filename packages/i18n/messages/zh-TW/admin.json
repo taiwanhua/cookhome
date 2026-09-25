@@ -1401,8 +1401,7 @@
       "copied": "已複製。",
       "copyFailed": "複製失敗。",
       "regexChecking": "正則檢查中…",
-      "regexUnavailable": "目前無法即時檢查正則的安全性;存草稿時會再檢查。",
-      "categoryRequiredWarning": "「{label}」的選項來自欄位管理類別又設為必填:沒有欄位管理檢視權限的填寫者拿不到選項,會送不出去。"
+      "regexUnavailable": "目前無法即時檢查正則的安全性;存草稿時會再檢查。"
     },
     "preview": {
       "region": "預覽",

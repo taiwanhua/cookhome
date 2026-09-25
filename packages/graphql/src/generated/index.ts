@@ -529,6 +529,29 @@ export type FormFieldError = {
   message: Scalars['String']['output'];
 };
 
+export type FormFieldOption = {
+  __typename?: 'FormFieldOption';
+  label: Scalars['String']['output'];
+  value: Scalars['String']['output'];
+};
+
+export type FormFieldOptionsInput = {
+  fieldKey: Scalars['String']['input'];
+  formKey: Scalars['ID']['input'];
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  version?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type FormFieldOptionsPayload = {
+  __typename?: 'FormFieldOptionsPayload';
+  items: Array<FormFieldOption>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
 export type FormFieldState = {
   __typename?: 'FormFieldState';
   key: Scalars['String']['output'];
@@ -1455,6 +1478,7 @@ export type Query = {
   fieldCategories: FieldCategoriesPayload;
   fields: FieldsPayload;
   form: FormPayload;
+  formFieldOptions: FormFieldOptionsPayload;
   formLookup: FormLookupPayload;
   formLookupRecord: FormLookupRecordPayload;
   formRuntimeVersion: FormVersionPayload;
@@ -1531,6 +1555,11 @@ export type QueryFieldsArgs = {
 
 export type QueryFormArgs = {
   key: Scalars['ID']['input'];
+};
+
+
+export type QueryFormFieldOptionsArgs = {
+  input: FormFieldOptionsInput;
 };
 
 
@@ -2522,6 +2551,13 @@ export type FormLookupQueryVariables = Exact<{
 
 
 export type FormLookupQuery = { __typename?: 'Query', formLookup: { __typename?: 'FormLookupPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormLookupRecord', id: string, value?: string | null, label?: string | null, values: Record<string, unknown> }> } };
+
+export type FormFieldOptionsQueryVariables = Exact<{
+  input: FormFieldOptionsInput;
+}>;
+
+
+export type FormFieldOptionsQuery = { __typename?: 'Query', formFieldOptions: { __typename?: 'FormFieldOptionsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormFieldOption', value: string, label: string }> } };
 
 export type FormLookupRecordQueryVariables = Exact<{
   input: FormLookupRecordInput;
@@ -4752,6 +4788,43 @@ useFormLookupQuery.getKey = (variables: FormLookupQueryVariables) => ['FormLooku
 
 
 useFormLookupQuery.fetcher = (client: GraphQLClient, variables: FormLookupQueryVariables, headers?: RequestInit['headers']) => fetcher<FormLookupQuery, FormLookupQueryVariables>(client, FormLookupDocument, variables, headers);
+
+export const FormFieldOptionsDocument = `
+    query FormFieldOptions($input: FormFieldOptionsInput!) {
+  formFieldOptions(input: $input) {
+    items {
+      value
+      label
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    `;
+
+export const useFormFieldOptionsQuery = <
+      TData = FormFieldOptionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormFieldOptionsQueryVariables,
+      options?: Omit<UseQueryOptions<FormFieldOptionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormFieldOptionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormFieldOptionsQuery, TError, TData>(
+      {
+    queryKey: ['FormFieldOptions', variables],
+    queryFn: fetcher<FormFieldOptionsQuery, FormFieldOptionsQueryVariables>(client, FormFieldOptionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormFieldOptionsQuery.getKey = (variables: FormFieldOptionsQueryVariables) => ['FormFieldOptions', variables];
+
+
+useFormFieldOptionsQuery.fetcher = (client: GraphQLClient, variables: FormFieldOptionsQueryVariables, headers?: RequestInit['headers']) => fetcher<FormFieldOptionsQuery, FormFieldOptionsQueryVariables>(client, FormFieldOptionsDocument, variables, headers);
 
 export const FormLookupRecordDocument = `
     query FormLookupRecord($input: FormLookupRecordInput!) {

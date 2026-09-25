@@ -285,3 +285,29 @@ export class FormLookupRecordPayload {
   @Field(() => FormLookupRecord, { nullable: true })
   record!: FormLookupRecord | null;
 }
+
+/** 選項欄的一個當前選項(存值時寫 `{ value, label }`,Spec §5「值的存法」)。 */
+@ObjectType()
+export class FormFieldOption {
+  @Field(() => String)
+  value!: string;
+
+  @Field(() => String)
+  label!: string;
+}
+
+@ObjectType()
+export class FormFieldOptionsPayload {
+  /** 只列啟用中的選項(停用的只在顯示既有值時算「來源還在」)。 */
+  @Field(() => [FormFieldOption])
+  items!: FormFieldOption[];
+
+  @Field(() => Int)
+  totalCount!: number;
+
+  @Field(() => Int)
+  page!: number;
+
+  @Field(() => Int)
+  pageSize!: number;
+}

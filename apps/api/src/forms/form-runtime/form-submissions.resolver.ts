@@ -7,6 +7,7 @@ import { FormVersionPayload } from "../models/form-common.model";
 import {
   CreateFormDraftInput,
   DeleteFormSubmissionInput,
+  FormFieldOptionsInput,
   FormLookupInput,
   FormLookupRecordInput,
   FormSubmissionsInput,
@@ -14,10 +15,12 @@ import {
   SubmitFormSubmissionInput,
   UpdateFormSubmissionInput,
 } from "./dto/form-runtime.input";
+import { FormFieldOptionsService } from "./form-field-options.service";
 import { FormLookupService } from "./form-lookup.service";
 import { FormSubmissionsService } from "./form-submissions.service";
 import {
   DeleteFormSubmissionPayload,
+  FormFieldOptionsPayload,
   FormLookupPayload,
   FormLookupRecordPayload,
   FormSubmissionAttachmentUrlPayload,
@@ -37,6 +40,7 @@ export class FormSubmissionsResolver {
   constructor(
     private readonly service: FormSubmissionsService,
     private readonly lookups: FormLookupService,
+    private readonly fieldOptions: FormFieldOptionsService,
     private readonly access: FormAccessService,
   ) {}
 
@@ -52,7 +56,7 @@ export class FormSubmissionsResolver {
     );
   }
 
-  /** 填寫 / 詳情渲染用的版本定義(已發布或已退役版)。 */
+  /** 填寫 / 詳情渲染用的版本定義(已發布或已退役版;讀不到的欄位只回骨架)。 */
   @Query(() => FormVersionPayload, { name: "formRuntimeVersion" })
   async formRuntimeVersion(
     @Args("formKey", { type: () => ID }) formKey: string,
@@ -179,6 +183,18 @@ export class FormSubmissionsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<FormLookupPayload> {
     return this.lookups.search(await this.access.factsOf(operator), input);
+  }
+
+  /** 選項欄的欄位管理類別選項;類別 key 從版本定義取,不需要欄位管理的權限。 */
+  @Query(() => FormFieldOptionsPayload, { name: "formFieldOptions" })
+  async formFieldOptions(
+    @Args("input") input: FormFieldOptionsInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<FormFieldOptionsPayload> {
+    return this.fieldOptions.options(
+      await this.access.factsOf(operator),
+      input,
+    );
   }
 
   @Query(() => FormLookupRecordPayload, { name: "formLookupRecord" })
