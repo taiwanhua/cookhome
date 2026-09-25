@@ -110,6 +110,7 @@ export const EditOrgDialog = ({
             description:
               form.description.trim() === "" ? null : form.description.trim(),
             ...(logoPath === undefined ? {} : { logoPath }),
+            ...(changes.hasSlugChange ? { slug: form.slug.trim() } : {}),
           },
         });
         /**

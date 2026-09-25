@@ -186,6 +186,9 @@
       "ownerUnset": "Keep current",
       "ownerOption": "{name} ({account})",
       "ownerHint": "After the transfer, the new owner's administrator grant cannot be revoked, and the owner cannot be removed from the organization or disabled.",
+      "slug": "Tenant short code",
+      "slugHint": "Starts with a lowercase letter; lowercase letters, digits and underscores only, 2–20 characters. Custom form codes use it as a suffix.",
+      "slugInvalid": "Invalid format: start with a lowercase letter; lowercase letters, digits and underscores only, 2–20 characters.",
       "visibility": "Users can see data from organizations below their own",
       "visibilityHint": "This setting only appears on the top-level organization and applies to the whole organization.",
       "cancel": "Cancel",
@@ -241,6 +244,10 @@
     "provision": {
       "title": "Provision tenant",
       "tenantName": "Tenant name",
+      "tenantSlug": "Tenant short code",
+      "slugHint": "Starts with a lowercase letter; lowercase letters, digits and underscores only, 2–20 characters. Custom form codes use it as a suffix.",
+      "slugInvalid": "Invalid format: start with a lowercase letter; lowercase letters, digits and underscores only, 2–20 characters.",
+      "slugTaken": "This short code is already used by another tenant.",
       "adminEmail": "First tenant administrator email",
       "adminAccount": "First tenant administrator account",
       "adminAccountHint": "The account is the sign-in identifier; it defaults to the email and can be changed.",
@@ -671,7 +678,7 @@
   "dataScope": {
     "targets": {
       "title": "Data targets",
-      "hint": "Declared by each module's seed",
+      "hint": "Declared by each module's seed; one row per module",
       "hasRule": "Has rules",
       "loading": "Loading data targets",
       "empty": "There are no data targets yet."

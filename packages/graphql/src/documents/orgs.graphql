@@ -32,7 +32,7 @@ query OrgTree {
 }
 
 # 右側資料區;logoUrl 是現簽的短效網址(ADR-0010:DB 存路徑不存 URL),
-# ownerUserId / visibility 只在租戶頂層有值,且只有根組織改得動(租戶作業 #135)
+# ownerUserId / visibility / slug 只在租戶頂層有值,且只有根組織改得動(租戶作業 #135;slug = 租戶短碼)
 query Org($id: ID!) {
   org(id: $id) {
     id
@@ -43,6 +43,7 @@ query Org($id: ID!) {
     isSystem
     ownerUserId
     visibility
+    slug
     logoUrl
   }
 }
@@ -117,7 +118,8 @@ query TenantModuleOptions {
 }
 
 # ADR-0009 四步 + 擁有者 + 啟用信一次完成;logoPath 只收 createUploadUrl 發出的物件路徑。
-# moduleKeys 不在 tenantModuleOptions 內(含根組織專屬模組)或一個都沒勾 → VALIDATION_FAILED,
+# moduleKeys 不在 tenantModuleOptions 內(含根組織專屬模組)或一個都沒勾、slug 格式不符
+# (^[a-z][a-z0-9_]{1,19}$)或已被用 → VALIDATION_FAILED,
 # errors[0].extensions.fields 指出是哪一欄。成功後組織樹要重查(多一個租戶節點)
 mutation ProvisionTenant($input: ProvisionTenantInput!) {
   provisionTenant(input: $input) {
@@ -128,6 +130,7 @@ mutation ProvisionTenant($input: ProvisionTenantInput!) {
       enabled
       ownerUserId
       visibility
+      slug
       logoUrl
     }
     ownerUserId

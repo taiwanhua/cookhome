@@ -31,7 +31,7 @@ export interface UseRuleEditorOptions {
   /** 這個目標目前存著的規則(`null` = 尚無規則) */
   rule: DataScopeRuleData | null;
   /** 儲存成功後失效相關查詢 */
-  onSaved: (collection: string) => void;
+  onSaved: (targetId: string) => void;
   /** 有沒有未儲存的變更 — 由頁面接住,切換資料目標前先問 */
   onDirtyChange: (isDirty: boolean) => void;
 }
@@ -85,7 +85,7 @@ export const useRuleEditor = ({
         setDraft(toEditorDraft(payload.saveDataScopeRule.rule));
         clearIssues();
         onDirtyChange(false);
-        onSaved(target.collection);
+        onSaved(target.id);
       },
       onError: (failure: unknown) => {
         const parsed = dataScopeErrorOf(failure);
@@ -110,7 +110,7 @@ export const useRuleEditor = ({
     }
     save.mutate({
       input: {
-        collection: target.collection,
+        targetId: target.id,
         combineOp: draft.combineOp,
         rules: toRuleEntryInputs(draft),
       },

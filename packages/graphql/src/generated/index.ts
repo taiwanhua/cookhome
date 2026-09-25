@@ -166,7 +166,9 @@ export type DataScopeRule = {
   __typename?: 'DataScopeRule';
   collection: Scalars['String']['output'];
   combineOp: DataScopeCombineOp;
+  moduleKey: Scalars['String']['output'];
   rules: Array<DataScopeRuleEntry>;
+  targetId: Scalars['ID']['output'];
   updatedAt: Scalars['DateTime']['output'];
 };
 
@@ -192,6 +194,9 @@ export type DataScopeTarget = {
   description?: Maybe<Scalars['String']['output']>;
   fields: Array<DataScopeTargetField>;
   hasRule: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  moduleKey: Scalars['String']['output'];
+  moduleName: Scalars['String']['output'];
   name: Scalars['String']['output'];
 };
 
@@ -485,6 +490,7 @@ export type Me = {
 
 export type MeModule = {
   __typename?: 'MeModule';
+  engine: ModuleEngine;
   icon?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   key: Scalars['String']['output'];
@@ -508,6 +514,7 @@ export type ModuleAdminNode = {
   children: Array<ModuleAdminNode>;
   description?: Maybe<Scalars['String']['output']>;
   enabled: Scalars['Boolean']['output'];
+  engine: ModuleEngine;
   icon?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   key: Scalars['String']['output'];
@@ -523,6 +530,12 @@ export type ModuleAdminPayload = {
   __typename?: 'ModuleAdminPayload';
   module: ModuleAdminNode;
 };
+
+/** 模組頁面怎麼組裝:FIXED=固定欄位模組(手寫頁面)、FORM=表單模組(頁面由表單引擎組裝) */
+export enum ModuleEngine {
+  Fixed = 'FIXED',
+  Form = 'FORM'
+}
 
 export type ModuleOption = {
   __typename?: 'ModuleOption';
@@ -827,6 +840,7 @@ export type Org = {
   name: Scalars['String']['output'];
   ownerUserId?: Maybe<Scalars['ID']['output']>;
   parentId?: Maybe<Scalars['ID']['output']>;
+  slug?: Maybe<Scalars['String']['output']>;
   visibility?: Maybe<OrgVisibility>;
 };
 
@@ -902,6 +916,7 @@ export type ProvisionTenantInput = {
   logoPath?: InputMaybe<Scalars['String']['input']>;
   moduleKeys: Array<Scalars['String']['input']>;
   name: Scalars['String']['input'];
+  slug: Scalars['String']['input'];
 };
 
 export type ProvisionTenantPayload = {
@@ -944,7 +959,7 @@ export type Query = {
 
 
 export type QueryDataScopeRuleArgs = {
-  collection: Scalars['String']['input'];
+  targetId: Scalars['ID']['input'];
 };
 
 
@@ -1253,9 +1268,9 @@ export type RolesPayload = {
 };
 
 export type SaveDataScopeRuleInput = {
-  collection: Scalars['String']['input'];
   combineOp?: DataScopeCombineOp;
   rules: Array<DataScopeRuleEntryInput>;
+  targetId: Scalars['ID']['input'];
 };
 
 export type SaveDataScopeRulePayload = {
@@ -1397,6 +1412,7 @@ export type UpdateOrgInput = {
   id: Scalars['ID']['input'];
   logoPath?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  slug?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateRoleInput = {
@@ -1560,21 +1576,21 @@ export type ChangePasswordMutation = { __typename?: 'Mutation', changePassword: 
 export type DataScopeTargetsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type DataScopeTargetsQuery = { __typename?: 'Query', dataScopeTargets: { __typename?: 'DataScopeTargetsPayload', targets: Array<{ __typename?: 'DataScopeTarget', collection: string, name: string, description?: string | null, hasRule: boolean, fields: Array<{ __typename?: 'DataScopeTargetField', name: string, label: string, type: DataScopeFieldType, isBase: boolean, options: Array<{ __typename?: 'DataScopeFieldOption', value: string, label: string }> }> }> } };
+export type DataScopeTargetsQuery = { __typename?: 'Query', dataScopeTargets: { __typename?: 'DataScopeTargetsPayload', targets: Array<{ __typename?: 'DataScopeTarget', id: string, collection: string, moduleKey: string, moduleName: string, name: string, description?: string | null, hasRule: boolean, fields: Array<{ __typename?: 'DataScopeTargetField', name: string, label: string, type: DataScopeFieldType, isBase: boolean, options: Array<{ __typename?: 'DataScopeFieldOption', value: string, label: string }> }> }> } };
 
 export type DataScopeRuleQueryVariables = Exact<{
-  collection: Scalars['String']['input'];
+  targetId: Scalars['ID']['input'];
 }>;
 
 
-export type DataScopeRuleQuery = { __typename?: 'Query', dataScopeRule: { __typename?: 'DataScopeRulePayload', rule?: { __typename?: 'DataScopeRule', collection: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } | null } };
+export type DataScopeRuleQuery = { __typename?: 'Query', dataScopeRule: { __typename?: 'DataScopeRulePayload', rule?: { __typename?: 'DataScopeRule', targetId: string, collection: string, moduleKey: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } | null } };
 
 export type SaveDataScopeRuleMutationVariables = Exact<{
   input: SaveDataScopeRuleInput;
 }>;
 
 
-export type SaveDataScopeRuleMutation = { __typename?: 'Mutation', saveDataScopeRule: { __typename?: 'SaveDataScopeRulePayload', rule: { __typename?: 'DataScopeRule', collection: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } } };
+export type SaveDataScopeRuleMutation = { __typename?: 'Mutation', saveDataScopeRule: { __typename?: 'SaveDataScopeRulePayload', rule: { __typename?: 'DataScopeRule', targetId: string, collection: string, moduleKey: string, combineOp: DataScopeCombineOp, updatedAt: string, rules: Array<{ __typename?: 'DataScopeRuleEntry', filter: Record<string, unknown>, audience: { __typename?: 'DataScopeAudience', type: DataScopeAudienceType, ids: Array<string> } }> } } };
 
 export type DemoItemOneFieldsFragment = { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name?: string | null, size?: number | null, contentType?: string | null } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } };
 
@@ -1753,7 +1769,7 @@ export type OrgQueryVariables = Exact<{
 }>;
 
 
-export type OrgQuery = { __typename?: 'Query', org: { __typename?: 'Org', id: string, name: string, description?: string | null, parentId?: string | null, enabled: boolean, isSystem: boolean, ownerUserId?: string | null, visibility?: OrgVisibility | null, logoUrl?: string | null } };
+export type OrgQuery = { __typename?: 'Query', org: { __typename?: 'Org', id: string, name: string, description?: string | null, parentId?: string | null, enabled: boolean, isSystem: boolean, ownerUserId?: string | null, visibility?: OrgVisibility | null, slug?: string | null, logoUrl?: string | null } };
 
 export type CreateChildOrgMutationVariables = Exact<{
   input: CreateChildOrgInput;
@@ -1800,7 +1816,7 @@ export type ProvisionTenantMutationVariables = Exact<{
 }>;
 
 
-export type ProvisionTenantMutation = { __typename?: 'Mutation', provisionTenant: { __typename?: 'ProvisionTenantPayload', ownerUserId: string, roleId: string, moduleKeys: Array<string>, org: { __typename?: 'Org', id: string, name: string, parentId?: string | null, enabled: boolean, ownerUserId?: string | null, visibility?: OrgVisibility | null, logoUrl?: string | null } } };
+export type ProvisionTenantMutation = { __typename?: 'Mutation', provisionTenant: { __typename?: 'ProvisionTenantPayload', ownerUserId: string, roleId: string, moduleKeys: Array<string>, org: { __typename?: 'Org', id: string, name: string, parentId?: string | null, enabled: boolean, ownerUserId?: string | null, visibility?: OrgVisibility | null, slug?: string | null, logoUrl?: string | null } } };
 
 export type RevokeTenantProvisionMutationVariables = Exact<{
   input: RevokeTenantProvisionInput;
@@ -2508,7 +2524,10 @@ export const DataScopeTargetsDocument = `
     query DataScopeTargets {
   dataScopeTargets {
     targets {
+      id
       collection
+      moduleKey
+      moduleName
       name
       description
       hasRule
@@ -2551,10 +2570,12 @@ useDataScopeTargetsQuery.getKey = (variables?: DataScopeTargetsQueryVariables) =
 useDataScopeTargetsQuery.fetcher = (client: GraphQLClient, variables?: DataScopeTargetsQueryVariables, headers?: RequestInit['headers']) => fetcher<DataScopeTargetsQuery, DataScopeTargetsQueryVariables>(client, DataScopeTargetsDocument, variables, headers);
 
 export const DataScopeRuleDocument = `
-    query DataScopeRule($collection: String!) {
-  dataScopeRule(collection: $collection) {
+    query DataScopeRule($targetId: ID!) {
+  dataScopeRule(targetId: $targetId) {
     rule {
+      targetId
       collection
+      moduleKey
       combineOp
       updatedAt
       rules {
@@ -2596,7 +2617,9 @@ export const SaveDataScopeRuleDocument = `
     mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
   saveDataScopeRule(input: $input) {
     rule {
+      targetId
       collection
+      moduleKey
       combineOp
       updatedAt
       rules {
@@ -3450,6 +3473,7 @@ export const OrgDocument = `
     isSystem
     ownerUserId
     visibility
+    slug
     logoUrl
   }
 }
@@ -3682,6 +3706,7 @@ export const ProvisionTenantDocument = `
       enabled
       ownerUserId
       visibility
+      slug
       logoUrl
     }
     ownerUserId
