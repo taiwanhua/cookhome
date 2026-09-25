@@ -26,6 +26,8 @@ export const FORM_CONFLICT_REASONS = [
   "PUBLISH_NOT_INTERRUPTED",
   /** 退役目前版本時表單沒有已發布的版本。 */
   "NO_CURRENT_VERSION",
+  /** 讀到之後 `currentVersion` 被別人改了(同時的退役 / 發布);重新載入再做。 */
+  "CURRENT_VERSION_CHANGED",
   /** 提交的 `expectedEditVersion` 與目前不符(兩個分頁同時改同一筆,後存的被擋)。 */
   "EDIT_VERSION_MISMATCH",
   /** 已完成修改的 `expectedRevision` 與目前修訂號不符。 */

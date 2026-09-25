@@ -296,3 +296,32 @@ mutation DeleteRetiredPermission($input: DeleteRetiredPermissionInput!) {
     }
   }
 }
+
+# 表單模組的列表欄位配置(modules.settings.list);沒設定過為空陣列(前端用預設欄)
+query ModuleListColumns($moduleKey: String!) {
+  moduleListColumns(moduleKey: $moduleKey) {
+    moduleKey
+    columns {
+      kind
+      key
+      formKey
+      width
+      order
+    }
+  }
+}
+
+# SetModuleListColumnsInput: { moduleKey, columns: [{ kind, key, formKey?, width, order }] }
+# root 整份覆蓋;欄位要在共用表單目前版本且不是受保護欄位,否則 VALIDATION_FAILED(fields: ["columns.N"])
+mutation SetModuleListColumns($input: SetModuleListColumnsInput!) {
+  setModuleListColumns(input: $input) {
+    moduleKey
+    columns {
+      kind
+      key
+      formKey
+      width
+      order
+    }
+  }
+}

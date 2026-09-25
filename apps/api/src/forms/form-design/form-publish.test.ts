@@ -454,6 +454,7 @@ describe("表單發布(四步、冪等重試、版本)", () => {
     const cases: [string, PublishCheckpoint, number][] = [
       ["步驟 3:建第二筆權限時失敗", "permission", 2],
       ["步驟 3:退役權限時失敗", "retire-permission", 1],
+      ["步驟 4:這一版改 published 時失敗", "publish-version", 1],
       ["步驟 4:切換前一版為退役時失敗", "retire-previous", 1],
       ["步驟 4:最後一筆(currentVersion)失敗", "current-version", 1],
     ];
@@ -481,6 +482,31 @@ describe("表單發布(四步、冪等重試、版本)", () => {
         JSON.parse(JSON.stringify(baseline).replaceAll("pub_base", formKey)),
       );
     });
+  });
+
+  it("currentVersion 用條件更新:讀到之後被別人改了 → 409,不蓋掉", async () => {
+    await publishNewForm(api, token, "pub_cas", definitionOf(v1Fields));
+    await ok(api, token, CREATE_DRAFT, {
+      input: { formKey: "pub_cas", baseVersion: 1 },
+    });
+    await saveDefinition(api, token, "pub_cas", definitionOf(v2Fields), 0);
+    // 走到步驟 4c 之前,有人把 currentVersion 改掉了(模擬同時進行的退役)
+    jest.spyOn(hooks, "reached").mockImplementation(async (checkpoint) => {
+      if (checkpoint === "current-version") {
+        await connection
+          .collection("forms")
+          .updateOne({ key: "pub_cas" }, { $set: { currentVersion: null } });
+      }
+    });
+    const result = await call(api, token, PUBLISH, {
+      input: { formKey: "pub_cas", expectedDraftRevision: 1, changelog: "x" },
+    });
+    expect(codeOf(result)).toBe("CONFLICT");
+    expect(extensionsOf(result).reason).toBe("CURRENT_VERSION_CHANGED");
+    const raw = await connection
+      .collection("forms")
+      .findOne<{ currentVersion: number | null }>({ key: "pub_cas" });
+    expect(raw?.currentVersion).toBeNull();
   });
 
   it("退役目前版本:版本改 retired、currentVersion → null,之後不可新增;再發布才恢復", async () => {

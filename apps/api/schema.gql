@@ -814,6 +814,33 @@ enum ModuleEngine {
   FORM
 }
 
+type ModuleListColumn {
+  formKey: ID
+  key: String!
+  kind: ModuleListColumnKind!
+  order: Int!
+  width: Int!
+}
+
+input ModuleListColumnInput {
+  formKey: ID
+  key: String!
+  kind: ModuleListColumnKind!
+  order: Int!
+  width: Int!
+}
+
+"""列表欄位的種類:摘要槽 / 表單欄位"""
+enum ModuleListColumnKind {
+  FIELD
+  SLOT
+}
+
+type ModuleListColumnsPayload {
+  columns: [ModuleListColumn!]!
+  moduleKey: String!
+}
+
 type ModuleOption {
   id: ID!
   key: String!
@@ -881,6 +908,7 @@ type Mutation {
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setModuleIcon(input: SetModuleIconInput!): ModuleAdminPayload!
+  setModuleListColumns(input: SetModuleListColumnsInput!): ModuleListColumnsPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
@@ -1025,6 +1053,7 @@ type Query {
   forms(input: FormsInput!): FormsPayload!
   me: Me!
   moduleForms(moduleKey: ID!): [FormSummary!]!
+  moduleListColumns(moduleKey: String!): ModuleListColumnsPayload!
   moduleTree: [ModuleAdminNode!]!
   org(id: ID!): Org!
   orgMemberCandidates(input: OrgMembersInput!, orgId: ID!): OrgMembersPayload!
@@ -1323,6 +1352,11 @@ input SetModuleEnabledInput {
 input SetModuleIconInput {
   icon: String
   id: ID!
+}
+
+input SetModuleListColumnsInput {
+  columns: [ModuleListColumnInput!]!
+  moduleKey: String!
 }
 
 input SetOrgEnabledInput {

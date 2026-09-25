@@ -133,7 +133,7 @@ export class FormPublishService {
     }
 
     // 步驟 1:檢查器
-    const report = await this.checker.check(operator, form, {
+    const report = await this.checker.check(facts, form, {
       fields: draft.fields,
       layout: draft.layout,
       summaryMap: draft.summaryMap,
@@ -259,9 +259,18 @@ export class FormPublishService {
     // 步驟 4c:currentVersion 指向新版(最後一筆;寫完填寫者才看到新版)
     if (form.currentVersion !== version) {
       await this.hooks.reached("current-version");
-      await this.forms.updateById(operator, form._id, {
-        $set: { currentVersion: version },
-      });
+      // 條件更新:只在 currentVersion 還是讀到的那個時切換(避免蓋掉同時進行的退役 / 發布)
+      const switched = await this.forms.findOneAndUpdate(
+        operator,
+        { _id: form._id, currentVersion: form.currentVersion },
+        { $set: { currentVersion: version } },
+      );
+      if (!switched) {
+        throw conflictError(
+          `Form ${form.key} current version changed while publishing`,
+          "CURRENT_VERSION_CHANGED",
+        );
+      }
     }
     return published;
   }

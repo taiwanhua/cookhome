@@ -155,7 +155,7 @@ export class FormLookupService {
       }
       await this.access.requireReadableForm(facts, input.formKey);
     }
-    const form = await this.access.findForm(facts.operator, input.formKey);
+    const form = await this.access.findRuntimeForm(facts, input.formKey);
     if (!form) {
       throw notFoundError(`Form not found: ${input.formKey}`);
     }

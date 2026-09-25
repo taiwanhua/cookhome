@@ -12,7 +12,7 @@ import {
   FormsRepository,
 } from "../../database/database.module";
 import type { OperatorContext } from "../../database/operator-context";
-import { fieldGateOf } from "../field-permission-gate";
+import type { FieldGate } from "../field-permission-gate";
 import {
   FormAccessService,
   type FormOperatorFacts,
@@ -105,7 +105,7 @@ export class FormVersionsService {
         `Form version not found: ${formKey}@${String(version ?? "draft")}`,
       );
     }
-    return this.payloadOf(facts.operator, form, record);
+    return this.payloadOf(facts, form, record);
   }
 
   /** 版本面板:全部版本(草稿在最前,其餘新到舊)。 */
@@ -180,7 +180,7 @@ export class FormVersionsService {
       targetId: created._id,
       after: { formKey: form.key, baseVersion: input.baseVersion ?? null },
     });
-    return this.payloadOf(operator, form, created);
+    return this.payloadOf(facts, form, created);
   }
 
   /** 基底版本的定義(複製欄位、版面、摘要槽、帶入規則);不給 = 空白。 */
@@ -219,7 +219,7 @@ export class FormVersionsService {
     const operator = facts.operator;
     const form = await this.access.requireWritableForm(facts, input.formKey);
     const definition = definitionOf(input);
-    const report = await this.checker.check(operator, form, definition);
+    const report = await this.checker.check(facts, form, definition);
     const blocking = report.errors.filter((issue) =>
       DRAFT_BLOCKING_CODES.has(issue.code),
     );
@@ -281,7 +281,7 @@ export class FormVersionsService {
   ): Promise<FormValidationReport> {
     const form = await this.access.requireReadableForm(facts, input.formKey);
     return toValidationReport(
-      await this.checker.check(facts.operator, form, definitionOf(input)),
+      await this.checker.check(facts, form, definitionOf(input)),
     );
   }
 
@@ -304,9 +304,18 @@ export class FormVersionsService {
       { formKey: form.key, version: form.currentVersion, status: "published" },
       { $set: { status: "retired" } },
     );
-    const updated = await this.forms.updateById(operator, form._id, {
-      $set: { currentVersion: null },
-    });
+    // 條件更新:讀到之後 currentVersion 被別人動過(另一次退役 / 發布)→ 409,不蓋掉
+    const updated = await this.forms.findOneAndUpdate(
+      operator,
+      { _id: form._id, currentVersion: form.currentVersion },
+      { $set: { currentVersion: null } },
+    );
+    if (!updated) {
+      throw conflictError(
+        `Form ${form.key} current version changed while retiring`,
+        "CURRENT_VERSION_CHANGED",
+      );
+    }
     await this.audit.record(operator, {
       action: FORM_VERSION_AUDIT.retire,
       targetType: FORM_VERSION_TARGET,
@@ -314,7 +323,7 @@ export class FormVersionsService {
       before: { formKey: form.key, currentVersion: form.currentVersion },
       after: { currentVersion: null },
     });
-    return updated ?? form;
+    return updated;
   }
 
   /**
@@ -333,10 +342,16 @@ export class FormVersionsService {
     if (!draft) {
       throw notFoundError(`Form ${form.key} has no draft`);
     }
-    const designer: FormOperatorFacts = { ...facts, isSuperAdmin: true };
+    // 「不套欄位級權限」只指**本表單**的欄位:閘門只對本表單全開;lookup / 引用的來源
+    // 照樣用操作者真實的權限(否則設計者可以用預覽讀出別張表單的受保護欄位)
+    const designerGate: FieldGate = {
+      canShow: () => true,
+      canEdit: (_fields, field) => field.valueSource.kind === "input",
+    };
     const ctx = contextOf(facts);
     const { values, issues } = await this.values.evaluate({
-      facts: designer,
+      facts,
+      gate: designerGate,
       moduleKey: form.moduleKey,
       formKey: form.key,
       fields: draft.fields,
@@ -349,12 +364,7 @@ export class FormVersionsService {
     const summary = computeSummary(draft, values, { submittedAt: ctx.now });
     return {
       values,
-      fieldStates: fieldStatesOf(
-        draft.fields,
-        values,
-        ctx,
-        fieldGateOf(designer, form.moduleKey, form.key),
-      ),
+      fieldStates: fieldStatesOf(draft.fields, values, ctx, designerGate),
       summary: {
         title: summary.title,
         date: summary.date,
@@ -365,14 +375,14 @@ export class FormVersionsService {
   }
 
   private async payloadOf(
-    operator: OperatorContext,
+    facts: FormOperatorFacts,
     form: FormRecord,
     record: FormVersionRecord,
   ): Promise<FormVersionPayload> {
     const validation =
       record.status === "draft"
         ? toValidationReport(
-            await this.checker.check(operator, form, {
+            await this.checker.check(facts, form, {
               fields: record.fields,
               layout: record.layout,
               summaryMap: record.summaryMap,
@@ -380,7 +390,10 @@ export class FormVersionsService {
             }),
           )
         : null;
-    return { formVersion: await this.modelOf(operator, record), validation };
+    return {
+      formVersion: await this.modelOf(facts.operator, record),
+      validation,
+    };
   }
 
   private async modelOf(

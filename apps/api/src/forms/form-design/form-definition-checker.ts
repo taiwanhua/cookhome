@@ -15,7 +15,7 @@ import {
 } from "../../database/database.module";
 import type { OperatorContext } from "../../database/operator-context";
 import { FieldCategoryOptionsService } from "../field-category-options.service";
-import type { FormRecord } from "../form-access.service";
+import type { FormOperatorFacts, FormRecord } from "../form-access.service";
 import { validationError } from "../forms-error";
 import { LookupProvidersService } from "../lookup-providers";
 import type { FormDefinitionInput } from "./dto/form-design.input";
@@ -91,10 +91,11 @@ export class FormDefinitionChecker {
   ) {}
 
   async check(
-    operator: OperatorContext,
+    facts: FormOperatorFacts,
     form: FormRecord,
     definition: FormDefinition,
   ): Promise<ValidationReport> {
+    const operator = facts.operator;
     const sources = sourcesOf(definition);
     const submissionFormKeys = sources
       .map(({ source }) => source)
@@ -107,7 +108,7 @@ export class FormDefinitionChecker {
       await Promise.all([
         this.previousFieldsOf(operator, form.key),
         this.categories.categoryKeys(operator),
-        this.lookups.registryFor(operator, submissionFormKeys),
+        this.lookups.registryFor(facts, submissionFormKeys),
         this.listColumnFieldKeys(operator, form),
       ]);
     const report = validateDefinition(definition, {
@@ -116,7 +117,7 @@ export class FormDefinitionChecker {
       lookupProviders,
       listColumnFieldKeys: listColumns,
     });
-    await this.checkSubmissionSources(operator, definition, sources, report);
+    await this.checkSubmissionSources(facts, definition, sources, report);
     return report;
   }
 
@@ -164,7 +165,7 @@ export class FormDefinitionChecker {
   }
 
   private async checkSubmissionSources(
-    operator: OperatorContext,
+    facts: FormOperatorFacts,
     definition: FormDefinition,
     sources: ReturnType<typeof sourcesOf>,
     report: ValidationReport,
@@ -174,7 +175,7 @@ export class FormDefinitionChecker {
         continue;
       }
       const catalog = await this.lookups.formSubmissionCatalog(
-        operator,
+        facts,
         source.formKey,
       );
       const wanted = [source.labelField, source.valueField ?? "id"];

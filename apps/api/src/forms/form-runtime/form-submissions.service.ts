@@ -156,7 +156,7 @@ export class FormSubmissionsService {
     formKey: string,
     version: number,
   ): Promise<FormVersionPayload> {
-    const form = await this.access.findForm(facts.operator, formKey);
+    const form = await this.access.findRuntimeForm(facts, formKey);
     if (!form) {
       throw notFoundError(`Form not found: ${formKey}`);
     }
@@ -547,7 +547,7 @@ export class FormSubmissionsService {
       record = own;
       deleted = await this.submissions.findOwnAndUpdate(
         facts.operator,
-        { _id: id },
+        { _id: id, status: "draft" },
         { $set: { deletedAt: new Date() } },
       );
     } else {

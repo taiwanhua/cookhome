@@ -136,7 +136,16 @@ interface LookupProviderRuntime {
     field: string,
     values: readonly string[],
     fields: readonly string[],
+    options: LookupReadOptions,
   ): Promise<LookupRecord[]>;
+}
+
+/**
+ * `publicOnly`:只回**不受權限保護**的欄位(不看操作者有沒有權限)。寫進提交的快照(引用、lookup 選項的
+ * label)用它 —— 快照存在非受保護欄位裡,來源欄位之後改成受保護時,持有 show 的人送出不能把值帶進來。
+ */
+export interface LookupReadOptions {
+  publicOnly?: boolean;
 }
 
 /** 顯示名:`labels` 有就用,否則把值轉成字串;讀不到(被省略)→ null。 */
@@ -250,7 +259,7 @@ export class LookupProvidersService {
    * 精確到「哪張表單有哪些欄位」由 `formSubmissionCatalog` 另外檢查。
    */
   async registryFor(
-    operator: OperatorContext,
+    facts: FormOperatorFacts,
     formKeys: readonly string[],
   ): Promise<LookupProviderRegistry> {
     const registry: Record<string, { fields: Record<string, FieldType> }> = {};
@@ -266,7 +275,7 @@ export class LookupProvidersService {
     }
     const union: Record<string, FieldType> = { ...SUMMARY_SLOT_FIELDS };
     for (const formKey of new Set(formKeys)) {
-      Object.assign(union, await this.formSubmissionCatalog(operator, formKey));
+      Object.assign(union, await this.formSubmissionCatalog(facts, formKey));
     }
     registry[FORM_SUBMISSION_PROVIDER] = { fields: union };
     return registry;
@@ -274,11 +283,13 @@ export class LookupProvidersService {
 
   /** `form_submission` 來源在設計時可挑的欄位:該表單目前版本的非受保護欄位 + 摘要槽。 */
   async formSubmissionCatalog(
-    operator: OperatorContext,
+    facts: FormOperatorFacts,
     formKey: string,
   ): Promise<Record<string, FieldType>> {
+    const operator = facts.operator;
     const catalog: Record<string, FieldType> = { ...SUMMARY_SLOT_FIELDS };
-    const form = await this.access.findForm(operator, formKey);
+    // 別租戶的客製表單當不存在:不透露它的欄位 key 與型別
+    const form = await this.access.findRuntimeForm(facts, formKey);
     if (form?.currentVersion === null || form === null) {
       return catalog;
     }
@@ -315,6 +326,7 @@ export class LookupProvidersService {
     field: string,
     values: readonly string[],
     fields: readonly string[] = [],
+    options: LookupReadOptions = {},
   ): Promise<LookupRecord[]> {
     if (values.length === 0) {
       return Promise.resolve([]);
@@ -325,6 +337,7 @@ export class LookupProvidersService {
       field,
       values,
       fields,
+      options,
     );
   }
 
@@ -381,11 +394,15 @@ export class LookupProvidersService {
         totalCount,
       };
     },
-    findByValues: async (facts, source, field, values) => {
+    findByValues: async (facts, source, field, values, _fields, options) => {
       const filter = await this.userFilter(facts, source);
+      // 以帳號 / Email 反查也要讀得到那一欄,否則可以拿它們逐一試出誰是誰
+      const fieldPermission = USER_PROVIDER.fields[field]?.permission;
       if (
         filter === null ||
-        !["id", "name", "account", "email"].includes(field)
+        !["id", "name", "account", "email"].includes(field) ||
+        (fieldPermission !== undefined &&
+          !this.access.has(facts, fieldPermission))
       ) {
         return [];
       }
@@ -396,7 +413,9 @@ export class LookupProvidersService {
       const found = await this.users.findMany(facts.operator, {
         $and: [filter, byValue],
       });
-      return found.map((user) => this.userRecord(facts, user));
+      return found.map((user) =>
+        this.userRecord(facts, user, options.publicOnly === true),
+      );
     },
   };
 
@@ -421,10 +440,14 @@ export class LookupProvidersService {
   private userRecord(
     facts: FormOperatorFacts,
     user: { _id: Types.ObjectId; name: string; account: string; email: string },
+    publicOnly = false,
   ): LookupRecord {
     const canRead = (field: string): boolean => {
       const permission = USER_PROVIDER.fields[field]?.permission;
-      return permission === undefined || this.access.has(facts, permission);
+      return (
+        permission === undefined ||
+        (!publicOnly && this.access.has(facts, permission))
+      );
     };
     const values: Record<string, unknown> = { name: user.name };
     if (canRead("account")) {
@@ -502,7 +525,7 @@ export class LookupProvidersService {
         totalCount,
       };
     },
-    findByValues: async (facts, source, field, values, fields) => {
+    findByValues: async (facts, source, field, values, fields, options) => {
       const scope = await this.submissionScope(facts, source);
       // 表單提交只能以 id 取回(欄位值不是唯一鍵,也可能受保護)
       if (scope === null || field !== "id") {
@@ -512,7 +535,7 @@ export class LookupProvidersService {
         ...scope.filter,
         _id: { $in: objectIdsOf(values) },
       });
-      return this.submissionRecords(facts, scope, found, fields);
+      return this.submissionRecords(facts, scope, found, fields, options);
     },
   };
 
@@ -528,7 +551,7 @@ export class LookupProvidersService {
     if (!source.formKey) {
       return null;
     }
-    const form = await this.access.findForm(facts.operator, source.formKey);
+    const form = await this.access.findRuntimeForm(facts, source.formKey);
     if (
       !form ||
       !this.access.has(facts, formModulePermission(form.moduleKey, "view"))
@@ -556,6 +579,7 @@ export class LookupProvidersService {
     scope: { formKey: string; moduleKey: string },
     found: readonly SubmissionRecord[],
     requested: readonly string[],
+    options: LookupReadOptions = {},
   ): Promise<LookupRecord[]> {
     const fieldsByVersion = await this.fieldsByVersion(
       facts.operator,
@@ -582,7 +606,11 @@ export class LookupProvidersService {
           values[name] = null;
           continue;
         }
-        if (!gate.canShow(fields, name)) {
+        const isProtected = requiredShowKeys(fields, name).length > 0;
+        if (
+          (isProtected && options.publicOnly === true) ||
+          !gate.canShow(fields, name)
+        ) {
           continue;
         }
         const stored = record.values[name];

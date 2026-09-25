@@ -897,6 +897,35 @@ export enum ModuleEngine {
   Form = 'FORM'
 }
 
+export type ModuleListColumn = {
+  __typename?: 'ModuleListColumn';
+  formKey?: Maybe<Scalars['ID']['output']>;
+  key: Scalars['String']['output'];
+  kind: ModuleListColumnKind;
+  order: Scalars['Int']['output'];
+  width: Scalars['Int']['output'];
+};
+
+export type ModuleListColumnInput = {
+  formKey?: InputMaybe<Scalars['ID']['input']>;
+  key: Scalars['String']['input'];
+  kind: ModuleListColumnKind;
+  order: Scalars['Int']['input'];
+  width: Scalars['Int']['input'];
+};
+
+/** 列表欄位的種類:摘要槽 / 表單欄位 */
+export enum ModuleListColumnKind {
+  Field = 'FIELD',
+  Slot = 'SLOT'
+}
+
+export type ModuleListColumnsPayload = {
+  __typename?: 'ModuleListColumnsPayload';
+  columns: Array<ModuleListColumn>;
+  moduleKey: Scalars['String']['output'];
+};
+
 export type ModuleOption = {
   __typename?: 'ModuleOption';
   id: Scalars['ID']['output'];
@@ -966,6 +995,7 @@ export type Mutation = {
   setFieldEnabled: FieldPayload;
   setModuleEnabled: ModuleAdminPayload;
   setModuleIcon: ModuleAdminPayload;
+  setModuleListColumns: ModuleListColumnsPayload;
   setOrgEnabled: OrgPayload;
   setOrgVisibility: OrgPayload;
   setPassword: SetPasswordPayload;
@@ -1198,6 +1228,11 @@ export type MutationSetModuleIconArgs = {
 };
 
 
+export type MutationSetModuleListColumnsArgs = {
+  input: SetModuleListColumnsInput;
+};
+
+
 export type MutationSetOrgEnabledArgs = {
   input: SetOrgEnabledInput;
 };
@@ -1424,6 +1459,7 @@ export type Query = {
   forms: FormsPayload;
   me: Me;
   moduleForms: Array<FormSummary>;
+  moduleListColumns: ModuleListColumnsPayload;
   moduleTree: Array<ModuleAdminNode>;
   org: Org;
   orgMemberCandidates: OrgMembersPayload;
@@ -1542,6 +1578,11 @@ export type QueryFormsArgs = {
 
 export type QueryModuleFormsArgs = {
   moduleKey: Scalars['ID']['input'];
+};
+
+
+export type QueryModuleListColumnsArgs = {
+  moduleKey: Scalars['String']['input'];
 };
 
 
@@ -1911,6 +1952,11 @@ export type SetModuleEnabledInput = {
 export type SetModuleIconInput = {
   icon?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
+};
+
+export type SetModuleListColumnsInput = {
+  columns: Array<ModuleListColumnInput>;
+  moduleKey: Scalars['String']['input'];
 };
 
 export type SetOrgEnabledInput = {
@@ -2594,6 +2640,20 @@ export type DeleteRetiredPermissionMutationVariables = Exact<{
 
 
 export type DeleteRetiredPermissionMutation = { __typename?: 'Mutation', deleteRetiredPermission: { __typename?: 'DeleteRetiredPermissionPayload', success: boolean, deletedKey: string, usage: { __typename?: 'RetiredPermissionUsage', draftCount: number, draftVersions: Array<number>, completedCount: number, completedVersions: Array<number> } } };
+
+export type ModuleListColumnsQueryVariables = Exact<{
+  moduleKey: Scalars['String']['input'];
+}>;
+
+
+export type ModuleListColumnsQuery = { __typename?: 'Query', moduleListColumns: { __typename?: 'ModuleListColumnsPayload', moduleKey: string, columns: Array<{ __typename?: 'ModuleListColumn', kind: ModuleListColumnKind, key: string, formKey?: string | null, width: number, order: number }> } };
+
+export type SetModuleListColumnsMutationVariables = Exact<{
+  input: SetModuleListColumnsInput;
+}>;
+
+
+export type SetModuleListColumnsMutation = { __typename?: 'Mutation', setModuleListColumns: { __typename?: 'ModuleListColumnsPayload', moduleKey: string, columns: Array<{ __typename?: 'ModuleListColumn', kind: ModuleListColumnKind, key: string, formKey?: string | null, width: number, order: number }> } };
 
 export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
 
@@ -5298,6 +5358,79 @@ export const useDeleteRetiredPermissionMutation = <
 
 
 useDeleteRetiredPermissionMutation.fetcher = (client: GraphQLClient, variables: DeleteRetiredPermissionMutationVariables, headers?: RequestInit['headers']) => fetcher<DeleteRetiredPermissionMutation, DeleteRetiredPermissionMutationVariables>(client, DeleteRetiredPermissionDocument, variables, headers);
+
+export const ModuleListColumnsDocument = `
+    query ModuleListColumns($moduleKey: String!) {
+  moduleListColumns(moduleKey: $moduleKey) {
+    moduleKey
+    columns {
+      kind
+      key
+      formKey
+      width
+      order
+    }
+  }
+}
+    `;
+
+export const useModuleListColumnsQuery = <
+      TData = ModuleListColumnsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ModuleListColumnsQueryVariables,
+      options?: Omit<UseQueryOptions<ModuleListColumnsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ModuleListColumnsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ModuleListColumnsQuery, TError, TData>(
+      {
+    queryKey: ['ModuleListColumns', variables],
+    queryFn: fetcher<ModuleListColumnsQuery, ModuleListColumnsQueryVariables>(client, ModuleListColumnsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useModuleListColumnsQuery.getKey = (variables: ModuleListColumnsQueryVariables) => ['ModuleListColumns', variables];
+
+
+useModuleListColumnsQuery.fetcher = (client: GraphQLClient, variables: ModuleListColumnsQueryVariables, headers?: RequestInit['headers']) => fetcher<ModuleListColumnsQuery, ModuleListColumnsQueryVariables>(client, ModuleListColumnsDocument, variables, headers);
+
+export const SetModuleListColumnsDocument = `
+    mutation SetModuleListColumns($input: SetModuleListColumnsInput!) {
+  setModuleListColumns(input: $input) {
+    moduleKey
+    columns {
+      kind
+      key
+      formKey
+      width
+      order
+    }
+  }
+}
+    `;
+
+export const useSetModuleListColumnsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetModuleListColumnsMutation, TError, SetModuleListColumnsMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetModuleListColumnsMutation, TError, SetModuleListColumnsMutationVariables, TContext>(
+      {
+    mutationKey: ['SetModuleListColumns'],
+    mutationFn: (variables?: SetModuleListColumnsMutationVariables) => fetcher<SetModuleListColumnsMutation, SetModuleListColumnsMutationVariables>(client, SetModuleListColumnsDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetModuleListColumnsMutation.fetcher = (client: GraphQLClient, variables: SetModuleListColumnsMutationVariables, headers?: RequestInit['headers']) => fetcher<SetModuleListColumnsMutation, SetModuleListColumnsMutationVariables>(client, SetModuleListColumnsDocument, variables, headers);
 
 export const ModuleTreeDocument = `
     query ModuleTree {

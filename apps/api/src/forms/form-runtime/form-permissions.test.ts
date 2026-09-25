@@ -11,10 +11,13 @@ import { HOOK_TIMEOUT_MS } from "../../database/test-support/mongo-connection";
 import { findPermissionIdByKey } from "../../permission/test-support/fixtures";
 import {
   DELETE_RETIRED_PERMISSION,
+  FORK_FORM,
+  FORM_SUBMISSION,
   FORM_SUBMISSIONS,
   type FormOperator,
   M,
   MODULE_KEY,
+  PREVIEW_VERSION,
   RETIRED_PERMISSIONS,
   SAVE_FORM_DRAFT,
   type SubmissionRow,
@@ -34,6 +37,7 @@ import {
   publishDefinition,
   publishNewForm,
   rootToken,
+  saveDefinition,
   showKey,
 } from "../test-support/form-fixtures";
 
@@ -351,6 +355,70 @@ describe("表單的欄位級權限:投影 / 守門 / 依賴鏈 / 權限被刪 / 
     expect(forRoot.values.secret).toBe("機密");
   });
 
+  it("設計器預覽不套欄位級權限只限本表單:引用別張表單的受保護欄位當顯示欄,讀不出原值", async () => {
+    // 來源表單:受保護欄位 secret(root 建、分派給租戶)
+    await publishNewForm(
+      api,
+      root,
+      "preview_src",
+      definitionOf([
+        field("title", "text"),
+        field("secret", "text", { permission: { show: true, edit: false } }),
+      ]),
+    );
+    await assignForm(api, root, "preview_src", [tenant]);
+    const writer = await createOperator(api, connection, {
+      orgId: tenant,
+      permissionKeys: [M.view, M.create, showKey("preview_src", "secret")],
+    });
+    const source = await createSubmitted(api, writer.token, "preview_src", {
+      title: "來源單",
+      secret: "別張表單的機密",
+    });
+    // 租戶設計者(沒有 secret 的 show)以來源表單為基底建客製表單,草稿放一個引用欄指向 secret
+    const designer = await createOperator(api, connection, {
+      orgId: tenant,
+      moduleKeys: ["system", "system.forms", MODULE_KEY],
+      permissionKeys: ["system.forms.*", M.view, M.create],
+    });
+    await ok(api, designer.token, FORK_FORM, {
+      input: {
+        sourceKey: "preview_src",
+        sourceVersion: 1,
+        key: "preview_dst",
+        name: "預覽目標",
+      },
+    });
+    await saveDefinition(
+      api,
+      designer.token,
+      "preview_dst",
+      definitionOf([
+        field("title", "text"),
+        field("pick", "reference", {
+          source: {
+            provider: "form_submission",
+            formKey: "preview_src",
+            labelField: "secret",
+          },
+        }),
+      ]),
+      0,
+    );
+    const preview = await ok<{
+      previewFormVersion: { values: Record<string, unknown> };
+    }>(api, designer.token, PREVIEW_VERSION, {
+      input: { formKey: "preview_dst", values: { pick: source.id } },
+    });
+    expect(JSON.stringify(preview.previewFormVersion.values)).not.toContain(
+      "別張表單的機密",
+    );
+    expect(preview.previewFormVersion.values.pick).toEqual({
+      id: source.id,
+      label: null,
+    });
+  });
+
   describe("退役權限清理(三層檢查)", () => {
     const CLEANUP = "cleanup_form";
 
@@ -591,10 +659,22 @@ describe("表單的欄位級權限:投影 / 守門 / 依賴鏈 / 權限被刪 / 
         },
       });
       expect(codeOf(others)).toBe("NOT_FOUND");
-      const othersRead = await call(api, plain.token, FORM_SUBMISSIONS, {
+      // 別人的單:列表看不到、單筆也讀不到(規則照套,不因「是建立者」以外的理由放寬)
+      const othersList = await ok<{
+        formSubmissions: { items: SubmissionRow[]; totalCount: number };
+      }>(api, plain.token, FORM_SUBMISSIONS, {
         input: { moduleKey: MODULE_KEY, formKey: FORM },
       });
-      expect(othersRead.errors).toBeUndefined();
+      expect(othersList.formSubmissions.items.map((item) => item.id)).toEqual(
+        [],
+      );
+      const othersRead = await call(api, plain.token, FORM_SUBMISSION, {
+        id: submission.id,
+      });
+      expect(codeOf(othersRead)).toBe("NOT_FOUND");
+      expect(JSON.stringify(othersRead.data ?? {})).not.toContain(
+        "一開始的備註",
+      );
     });
   });
 });

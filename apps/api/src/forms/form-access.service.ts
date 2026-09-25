@@ -57,7 +57,7 @@ function orgReader(operator: OperatorContext): OperatorContext {
  *
  * | 操作者       | 設計端看得到                         | 設計端改得動          | 新增(`moduleForms`)                    |
  * | ------------ | ------------------------------------ | --------------------- | -------------------------------------- |
- * | 站在根組織   | 全部表單                             | 共用表單(owner null) | 全部共用表單(有發布版本)              |
+ * | 站在根組織   | 共用表單(客製表單只有該租戶看得到)  | 共用表單(owner null) | 全部共用表單(有發布版本)              |
  * | 站在租戶內   | 分派來的(有 `org_form`)+ 自己的客製 | 自己的客製表單        | `org_form.enabled` 的表單(有發布版本) |
  *
  * `org_form` 以租戶為邊界讀(`BusinessRelationshipsRepository`),所以部門使用者也查得到本租戶的列。
@@ -169,7 +169,8 @@ export class FormAccessService {
     facts: FormOperatorFacts,
   ): Promise<Record<string, unknown> | null> {
     if (facts.isRoot) {
-      return null;
+      // 客製表單只有擁有它的租戶看得到(Spec §1),root 也不例外
+      return { ownerOrgId: null };
     }
     if (facts.tenantId === null) {
       return { _id: { $in: [] } };
@@ -191,7 +192,7 @@ export class FormAccessService {
     form: FormRecord,
   ): Promise<boolean> {
     if (facts.isRoot) {
-      return true;
+      return form.ownerOrgId === null;
     }
     if (facts.tenantId === null) {
       return false;
@@ -204,6 +205,27 @@ export class FormAccessService {
       secondId: form._id,
     });
     return link !== null;
+  }
+
+  /**
+   * 執行端(填寫、渲染、lookup、欄位目錄)能不能碰這張表單的**定義**:共用表單,或自己租戶的客製表單。
+   * 別租戶的客製表單一律當不存在 —— 它的 key 猜得到(`<來源 key>_<租戶短碼>`),
+   * 只看模組權限會讓 A 讀到 B 的欄位定義。根組織(租戶 = null)只碰得到共用表單。
+   */
+  isRuntimeVisible(facts: FormOperatorFacts, form: FormRecord): boolean {
+    return (
+      form.ownerOrgId === null ||
+      (facts.tenantId !== null && form.ownerOrgId.equals(facts.tenantId))
+    );
+  }
+
+  /** 找執行端看得到的表單;別租戶的客製表單回 null。 */
+  async findRuntimeForm(
+    facts: FormOperatorFacts,
+    formKey: string,
+  ): Promise<FormRecord | null> {
+    const form = await this.findForm(facts.operator, formKey);
+    return form && this.isRuntimeVisible(facts, form) ? form : null;
   }
 
   /** 改得動這張表單嗎:root 只改共用表單;租戶只改自己的客製表單。 */
@@ -282,7 +304,7 @@ export class FormAccessService {
     facts: FormOperatorFacts,
     formKey: string,
   ): Promise<FormRecord> {
-    const form = await this.findForm(facts.operator, formKey);
+    const form = await this.findRuntimeForm(facts, formKey);
     if (!form) {
       throw notFoundError(`Form not found: ${formKey}`);
     }

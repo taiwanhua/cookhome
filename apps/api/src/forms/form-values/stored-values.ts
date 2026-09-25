@@ -74,11 +74,14 @@ export function isSameStoredValue(
       return optionIdentity(a) === optionIdentity(b);
     }
     case "multiSelect": {
+      // 多選是集合:順序不同不算改動
       if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
         return false;
       }
-      return a.every(
-        (item, index) => optionIdentity(item) === optionIdentity(b[index]),
+      const left = new Set(a.map((item) => optionIdentity(item)));
+      const right = new Set(b.map((item) => optionIdentity(item)));
+      return (
+        left.size === right.size && [...left].every((item) => right.has(item))
       );
     }
     case "reference": {

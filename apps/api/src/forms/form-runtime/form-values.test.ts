@@ -34,6 +34,7 @@ import {
   ok,
   publishDefinition,
   publishNewForm,
+  rawSubmission,
   rootToken,
   saveDefinition,
   showKey,
@@ -621,5 +622,228 @@ describe("表單的值:語意值、引用快照、現名 / 快照、lookup 以�
     expect(
       await connection.collection("form_submissions").countDocuments(),
     ).toBe(before);
+  });
+
+  describe("引用的快照只取非受保護欄位;顯示欄被遮時標來源不可用", () => {
+    let shower: FormOperator;
+    let refToProtected: SubmissionRow;
+
+    beforeAll(async () => {
+      await publishNewForm(
+        api,
+        root,
+        "lbl_src",
+        definitionOf([field("title", "text"), field("note", "text")]),
+      );
+      await assignForm(api, root, "lbl_src", [tenant]);
+      await publishNewForm(
+        api,
+        root,
+        "lbl_dst",
+        definitionOf([
+          field("title", "text"),
+          field("pick", "reference", {
+            source: {
+              provider: "form_submission",
+              formKey: "lbl_src",
+              labelField: "note",
+            },
+          }),
+        ]),
+      );
+      await assignForm(api, root, "lbl_dst", [tenant]);
+      // 來源表單改版:note 變成受保護
+      await publishDefinition(
+        api,
+        root,
+        "lbl_src",
+        definitionOf([
+          field("title", "text"),
+          field("note", "text", { permission: { show: true, edit: false } }),
+        ]),
+        1,
+      );
+      shower = await createOperator(api, connection, {
+        orgId: tenant,
+        permissionKeys: [M.view, M.create, M.edit, showKey("lbl_src", "note")],
+      });
+      const protectedSource = await createSubmitted(
+        api,
+        shower.token,
+        "lbl_src",
+        { title: "新版來源", note: "新版的機密備註" },
+      );
+      // 有 show 的人送出引用:快照不能把受保護欄位的值帶進非受保護的引用欄
+      refToProtected = await createSubmitted(api, shower.token, "lbl_dst", {
+        title: "引用新版來源",
+        pick: protectedSource.id,
+      });
+    }, HOOK_TIMEOUT_MS);
+
+    it("有 show 的人送出:引用快照不含受保護欄位的值", async () => {
+      expect(refToProtected.values.pick).toMatchObject({ label: null });
+      const raw = await rawSubmission(connection, refToProtected.id);
+      expect(JSON.stringify(raw)).not.toContain("新版的機密備註");
+    });
+
+    it("讀得到那筆但顯示欄被遮:回快照 + available false(不是 null + available true)", async () => {
+      const forStaff = await getSubmission(api, staff.token, refToProtected.id);
+      expect(forStaff.displayValues).toEqual([
+        {
+          fieldKey: "pick",
+          items: [
+            {
+              value: expect.any(String) as unknown,
+              label: null,
+              available: false,
+            },
+          ],
+        },
+      ]);
+      // 有 show 的讀者看到現名
+      const forShower = await getSubmission(
+        api,
+        shower.token,
+        refToProtected.id,
+      );
+      expect(forShower.displayValues[0]?.items[0]).toMatchObject({
+        label: "新版的機密備註",
+        available: true,
+      });
+    });
+  });
+
+  it("user 來源以帳號當值反查要能看使用者管理:沒有就選不到", async () => {
+    await publishNewForm(
+      api,
+      root,
+      "user_acct",
+      definitionOf([
+        field("title", "text"),
+        field("who", "select", {
+          options: {
+            kind: "lookup",
+            source: {
+              provider: "user",
+              labelField: "name",
+              valueField: "account",
+            },
+          },
+        }),
+      ]),
+    );
+    await assignForm(api, root, "user_acct", [tenant]);
+    const draft = await createDraft(api, staff.token, "user_acct", {
+      title: "用帳號選人",
+      who: "colleague",
+    });
+    const result = await call(api, staff.token, SUBMIT, {
+      input: { id: draft.id, expectedEditVersion: draft.editVersion },
+    });
+    expect(extensionsOf(result).fieldErrors).toContainEqual(
+      expect.objectContaining({ fieldKey: "who", code: "OPTION_INVALID" }),
+    );
+    // 超級管理員有使用者管理的檢視:選得到
+    const byRoot = await createSubmitted(api, root, "user_acct", {
+      title: "root 用帳號選人",
+      who: "colleague",
+    });
+    expect(byRoot.values.who).toMatchObject({ value: "colleague" });
+  });
+
+  describe("列表欄位配置(modules.settings.list)", () => {
+    const SET_COLUMNS = /* GraphQL */ `
+      mutation SetModuleListColumns($input: SetModuleListColumnsInput!) {
+        setModuleListColumns(input: $input) {
+          moduleKey
+          columns {
+            kind
+            key
+            formKey
+            width
+            order
+          }
+        }
+      }
+    `;
+    const GET_COLUMNS = /* GraphQL */ `
+      query ModuleListColumns($moduleKey: String!) {
+        moduleListColumns(moduleKey: $moduleKey) {
+          columns {
+            kind
+            key
+            formKey
+            width
+            order
+          }
+        }
+      }
+    `;
+
+    it("root 整份覆蓋;欄位要存在於共用表單目前版本且不是受保護欄位;使用者讀得到", async () => {
+      const saved = await ok<{
+        setModuleListColumns: { columns: Record<string, unknown>[] };
+      }>(api, root, SET_COLUMNS, {
+        input: {
+          moduleKey: MODULE_KEY,
+          columns: [
+            { kind: "FIELD", key: "title", width: 200, order: 2 },
+            { kind: "SLOT", key: "date", width: 120, order: 1 },
+          ],
+        },
+      });
+      expect(saved.setModuleListColumns.columns.map((c) => c.key)).toEqual([
+        "date",
+        "title",
+      ]);
+      const read = await ok<{
+        moduleListColumns: { columns: { key: string; kind: string }[] };
+      }>(api, staff.token, GET_COLUMNS, { moduleKey: MODULE_KEY });
+      expect(read.moduleListColumns.columns).toEqual([
+        expect.objectContaining({ kind: "SLOT", key: "date" }),
+        expect.objectContaining({ kind: "FIELD", key: "title", formKey: null }),
+      ]);
+
+      const protectedColumn = await call(api, root, SET_COLUMNS, {
+        input: {
+          moduleKey: MODULE_KEY,
+          columns: [
+            {
+              kind: "FIELD",
+              key: "note",
+              formKey: "lbl_src",
+              width: 100,
+              order: 1,
+            },
+          ],
+        },
+      });
+      expect(codeOf(protectedColumn)).toBe("VALIDATION_FAILED");
+      expect(extensionsOf(protectedColumn).fields).toEqual(["columns.0"]);
+      const unknown = await call(api, root, SET_COLUMNS, {
+        input: {
+          moduleKey: MODULE_KEY,
+          columns: [{ kind: "FIELD", key: "no_such", width: 100, order: 1 }],
+        },
+      });
+      expect(codeOf(unknown)).toBe("VALIDATION_FAILED");
+      const badSlot = await call(api, root, SET_COLUMNS, {
+        input: {
+          moduleKey: MODULE_KEY,
+          columns: [{ kind: "SLOT", key: "nope", width: 100, order: 1 }],
+        },
+      });
+      expect(codeOf(badSlot)).toBe("VALIDATION_FAILED");
+      // 租戶內的人即使有表單管理權限也不能改(全域預設由 root 管)
+      const tenantAdmin = await createOperator(api, connection, {
+        orgId: tenant,
+        moduleKeys: ["system", "system.forms", MODULE_KEY],
+        permissionKeys: ["system.forms.*", M.view],
+      });
+      const denied = await call(api, tenantAdmin.token, SET_COLUMNS, {
+        input: { moduleKey: MODULE_KEY, columns: [] },
+      });
+      expect(extensionsOf(denied).reason).toBe("ROOT_ONLY");
+    });
   });
 });

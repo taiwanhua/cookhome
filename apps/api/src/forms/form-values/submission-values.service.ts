@@ -52,6 +52,11 @@ export interface SubmissionWriteInput {
   previous: StoredValues | null;
   ctx: ExpressionContext;
   mode: SubmissionWriteMode;
+  /**
+   * **本表單**欄位的權限閘門;不給 = 依操作者的欄位級權限(`fieldGateOf`)。
+   * 只有設計器預覽會給(「不套欄位級權限」只指本表單的欄位);lookup / 引用的來源一律用操作者真實的權限。
+   */
+  gate?: FieldGate;
 }
 
 /** 重取選項 label 時共用的東西(類別選項一次請求只查一次)。 */
@@ -104,32 +109,20 @@ export class SubmissionValuesService {
   async evaluate(
     input: SubmissionWriteInput,
   ): Promise<{ values: StoredValues; issues: ValueIssue[] }> {
-    const gate = fieldGateOf(input.facts, input.moduleKey, input.formKey);
+    const gate =
+      input.gate ?? fieldGateOf(input.facts, input.moduleKey, input.formKey);
     const issues: ValueIssue[] = [];
-    const normalizedSent = this.normalizeSent(input, issues);
+    const normalizedSent = this.normalizeSent(input, gate, issues);
     if (issues.length > 0) {
       throw valuesInvalidError(issues);
     }
 
-    const conditionInput = this.conditionInputOf(input, gate, normalizedSent);
-    const classes = new Map<string, FieldClass>();
-    const final: StoredValues = {};
+    const { classes, final } = this.settle(input, gate, normalizedSent);
     for (const field of input.fields) {
-      const fieldClass = this.classify(field, gate, input, conditionInput);
-      classes.set(field.key, fieldClass);
-      if (fieldClass === "kept") {
+      if (classes.get(field.key) === "kept") {
         this.assertUnchanged(field, gate, input, normalizedSent);
       }
-      final[field.key] = initialValueOf(
-        fieldClass,
-        field,
-        input,
-        normalizedSent,
-      );
     }
-
-    // 以最終的值重算計算欄位;隱藏的計算欄位維持 null
-    recompute(input, classes, final);
     await this.checkUploads(input.fields, classes, final, input.base, issues);
     if (input.mode === "complete") {
       await this.resolveSnapshots(input, classes, final, issues);
@@ -141,8 +134,49 @@ export class SubmissionValuesService {
   }
 
   /**
-   * 算條件用的值:既有值 + 操作者**改得動**的欄位送來的值 + 計算欄位
-   * (改不動的欄位送什麼都不影響條件)。
+   * 分類與最終值**一起收斂**:條件一律用「最終會存下的值」重算(被忽略的送入值、被清空的隱藏欄
+   * 都不能影響別欄的條件),分類變了就再算一次,直到不變(上限 = 欄位數 + 1)。
+   * 這樣寫入時的判定與讀取時(以存值重算 `fieldStates`)一致,也擋掉「送一個會被忽略的值
+   * 去把別欄判成隱藏、清掉它的既有值」這種繞過。
+   */
+  private settle(
+    input: SubmissionWriteInput,
+    gate: FieldGate,
+    normalizedSent: ReadonlyMap<string, unknown>,
+  ): { classes: Map<string, FieldClass>; final: StoredValues } {
+    // 第一輪的猜測:既有值 + 改得動的欄位送來的值
+    let conditionInput = this.conditionInputOf(input, gate, normalizedSent);
+    let classes = new Map<string, FieldClass>();
+    let final: StoredValues = {};
+    for (let round = 0; round <= input.fields.length; round += 1) {
+      const next = new Map<string, FieldClass>();
+      for (const field of input.fields) {
+        next.set(field.key, this.classify(field, gate, input, conditionInput));
+      }
+      const stable = round > 0 && sameClasses(classes, next);
+      classes = next;
+      if (stable) {
+        break;
+      }
+      final = {};
+      for (const field of input.fields) {
+        final[field.key] = initialValueOf(
+          classes.get(field.key) ?? "input",
+          field,
+          input,
+          normalizedSent,
+        );
+      }
+      // 以最終的值重算計算欄位;隱藏的計算欄位維持 null
+      recompute(input, classes, final);
+      conditionInput = conditionInputFromValues(input, final);
+    }
+    return { classes, final };
+  }
+
+  /**
+   * 第一輪算條件用的值:既有值 + 操作者**改得動**的欄位送來的值 + 計算欄位
+   * (改不動的欄位送什麼都不影響條件)。之後各輪改用最終值(`settle`)。
    */
   private conditionInputOf(
     input: SubmissionWriteInput,
@@ -173,6 +207,7 @@ export class SubmissionValuesService {
   /** 型別層:送來的每個值收成存值形狀;形狀不對 → `TYPE_INVALID`(草稿也驗)。 */
   private normalizeSent(
     input: SubmissionWriteInput,
+    gate: FieldGate,
     issues: ValueIssue[],
   ): Map<string, unknown> {
     const normalized = new Map<string, unknown>();
@@ -184,8 +219,9 @@ export class SubmissionValuesService {
         continue;
       }
       const raw = input.sent[field.key];
-      if (raw === REDACTED) {
-        // 讀者看不到的欄位,前端原樣送回遮蔽字串:當成「沒動」(由原因 3 守門)
+      if (raw === REDACTED && !gate.canShow(input.fields, field.key)) {
+        // 讀者**真的**看不到的欄位,前端原樣送回遮蔽字串:當成「沒動」(由原因 3 守門);
+        // 看得到的人送 "[redacted]" 就是一般的值,照型別正規化(不合法就 VALIDATION_FAILED)
         normalized.set(field.key, REDACTED);
         continue;
       }
@@ -361,6 +397,7 @@ export class SubmissionValuesService {
             "id",
             [id],
             [source.labelField],
+            { publicOnly: true },
           );
     if (!record || !source) {
       issues.push({
@@ -436,6 +473,7 @@ export class SubmissionValuesService {
         valueField,
         [value],
         [source.labelField, valueField],
+        { publicOnly: true },
       );
       return record ? lookupLabelOf(record, source.labelField) : undefined;
     }
@@ -471,6 +509,26 @@ export class SubmissionValuesService {
       }
     }
   }
+}
+
+function sameClasses(
+  left: ReadonlyMap<string, FieldClass>,
+  right: ReadonlyMap<string, FieldClass>,
+): boolean {
+  return [...right].every(([key, value]) => left.get(key) === value);
+}
+
+/** 以一組存值當條件的輸入(語意值 + ctx + 定義與存值給 `optionLabel`)。 */
+function conditionInputFromValues(
+  input: SubmissionWriteInput,
+  values: StoredValues,
+): Parameters<typeof evaluateCondition>[1] {
+  return {
+    values: semanticOf(input.fields, values),
+    ctx: input.ctx,
+    fields: input.fields,
+    stored: values,
+  };
 }
 
 /** 以目前的值重算計算 / 固定值欄位(隱藏的維持 null)。 */

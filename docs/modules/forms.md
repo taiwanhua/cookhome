@@ -37,13 +37,14 @@
 
 判準只有一份:`apps/api/src/forms/form-access.service.ts`。
 
-| 操作者     | 設計端看得到                        | 設計端改得動         | 可以新增(`moduleForms`)                    |
-| ---------- | ----------------------------------- | -------------------- | ------------------------------------------ |
-| 站在根組織 | 全部表單                            | 共用表單(owner null) | 全部共用表單(有發布版本)                   |
-| 站在租戶內 | 分派來的(有 `org_form`)+ 自己的客製 | 自己的客製表單       | 本租戶 `org_form` 啟用中的表單(有發布版本) |
+| 操作者     | 設計端看得到                                     | 設計端改得動         | 可以新增(`moduleForms`)                    |
+| ---------- | ------------------------------------------------ | -------------------- | ------------------------------------------ |
+| 站在根組織 | 共用表單(客製表單只有該租戶看得到,root 也不例外) | 共用表單(owner null) | 全部共用表單(有發布版本)                   |
+| 站在租戶內 | 分派來的(有 `org_form`)+ 自己的客製              | 自己的客製表單       | 本租戶 `org_form` 啟用中的表單(有發布版本) |
 
 - `org_form` 以租戶為邊界讀(`BusinessRelationshipsRepository`),所以部門使用者(可見範圍不含租戶頂層)也查得到本租戶的列。
-- 設計端讀不到一律 `NOT_FOUND`(不透露別的租戶有這張表單);讀得到但不是自己的 → `FORBIDDEN`(`NOT_FORM_OWNER`)。
+- 設計端讀不到一律 `NOT_FOUND`(不透露別的租戶有這張表單);讀得到但不是自己的 → `FORBIDDEN`(`NOT_FORM_OWNER`)。root 讀不到、也不能以租戶的客製表單為基底(Spec §1「只有該租戶看得到」)。
+- **執行端同一條邊界**(`FormAccessService.findRuntimeForm`):`formRuntimeVersion`、`formLookup` / `formLookupRecord`、`form_submission` 來源的欄位目錄與查詢、新增資格,只認共用表單與操作者自己租戶的客製表單;別租戶的客製表單(key 猜得到 `<來源 key>_<租戶短碼>`)一律當不存在(`NOT_FOUND` / 欄位目錄沒有它的欄位)。
 - 租戶只能以 `forkForm` 建表單(以分派來的或自己的某一版為基底);客製表單建立時自動建本租戶的 `org_form`(預設啟用)。
 - 停用(`org_form.meta.enabled = false`)、收回分派(刪 `org_form`)、退役目前版本都只擋新增;已存在的提交有模組 `view` 就照常看。
 
@@ -65,7 +66,7 @@
 
 **中斷**:有 `publishing` 版本,或有 `published` 版本但它不是 `currentVersion`,就是發布中斷(`FormModel.publishInterrupted`)。`retryPublishFormVersion` 從步驟 3 起重跑全部,每個寫入先看「已是目標狀態就跳過」,重跑幾次結果都一樣。步驟 3 / 4 每筆寫入前有一個檢查點(`form-design/form-publish-hooks.ts`),測試在那裡注入失敗來驗「中途失敗後重試 = 一次成功」。
 
-**退役目前版本**:先 `published → retired`、再 `currentVersion → null`;中斷時再呼叫一次會接著做完(版本已退役就只補後一筆)。
+**退役目前版本**:先 `published → retired`、再 `currentVersion → null`;中斷時再呼叫一次會接著做完(版本已退役就只補後一筆)。`currentVersion` 的兩處寫入(退役、發布步驟 4c)都是條件更新 `{ currentVersion: 讀到的值 }`,讀到之後被別人改了 → `CONFLICT`(`CURRENT_VERSION_CHANGED`),不蓋掉。
 
 **存草稿**:檢查器的錯草稿可以先存(隨 payload 的 `validation` 回);只有正則不合法 / 可能造成 ReDoS 的不收(存草稿與發布都驗過 ReDoS 才收)。
 
@@ -81,12 +82,18 @@
 | 4    | `readonlyWhen` 算出 true        | 保留既有值,送來的忽略                      | 驗既有值                       |
 | —    | 一般可填                        | 存送來的值                                 | 全驗                           |
 
-- 條件以**後端算出的**為準;算條件用的值 = 既有值套上操作者「改得動」的欄位送來的值 + 計算欄位(改不動的欄位送什麼都不影響條件)。
-- 「沒動」的判定比**識別**而不是整個物件:選項比 value、引用比 id、上傳比 path、數字比數值;沒送、或對看不到的欄位原樣送回 `"[redacted]"` 都算沒動。
+- 條件以**後端算出的**為準,而且用**最終會存下的值**算:先以「既有值 + 改得動的欄位送來的值」猜一輪分類,之後每輪用上一輪的最終值(隱藏的清空、唯讀與無權的保留既有值、計算欄位重算)重算條件,分類不變為止。被忽略的送入值因此影響不了別欄(送一個會被 `readonlyWhen` 忽略的值,不能把別欄判成隱藏、清掉它的既有值),寫入時的判定也與讀取時以存值重算的 `fieldStates` 一致。
+- 「沒動」的判定比**識別**而不是整個物件:選項比 value(多選比集合、不看順序)、引用比 id、上傳比 path、數字比數值;沒送算沒動;原樣送回 `"[redacted]"` 只有在讀者**真的看不到**這欄時才算沒動,看得到的人送它就是一般的值、照型別驗證。
 - **存草稿放寬的只有完成資料所需的驗證**(必填 / 範圍 / 長度 / 格式 / custom / 選項是否還在);守門照常(403、computed 由後端算、隱藏清空),另驗型別與表達式可算。
-- 送出與已完成修改時,類別 / lookup 選項與引用**重取 label 寫快照**(引用重驗來源可讀);與上一個已完成修訂相同的值保留原快照(來源停用或刪除不擋整筆修改)。label 重取後再算一次計算欄位,`optionLabel` 看到的是新快照。
+- 送出與已完成修改時,類別 / lookup 選項與引用**重取 label 寫快照**(引用重驗來源可讀);快照的 label **只取來源的非受保護欄位**(不看送出的人有沒有 show:快照存在非受保護的欄位裡,來源欄位之後改成受保護時,不能把值帶進來)。與上一個已完成修訂相同的值保留原快照(來源停用或刪除不擋整筆修改)。label 重取後再算一次計算欄位,`optionLabel` 看到的是新快照。
 - 上傳欄只收本 API 簽出來的 `form/` 路徑(`FORM_ATTACHMENT` 用途,私有 bucket;檔型與大小同示範模組的附件)。
 - `values` / `summary` / `revision` / `revisions[]` / `editVersion` 在**同一次**條件更新寫入(條件含 `editVersion`,已完成修改另含 `revision`)。
+
+**設計器預覽**(`previewFormVersion`):「不套欄位級權限」只指**本表單**的欄位(閘門對本表單全開);引用與 lookup 選項的來源照樣用操作者真實的權限 —— 否則設計者可以在草稿裡放一個引用欄、把顯示欄指到別張表單的受保護欄位,再用預覽讀出原值。
+
+## 列表欄位配置
+
+`modules.settings.list = { columns: [ { kind: "slot" | "field", key, formKey?, width, order } ] }`,root 整份覆蓋(`setModuleListColumns`,`form-design/module-list-columns.service.ts`)。寫入時驗:摘要槽 key 只能是 `title` / `date` / `amount`;表單欄位要存在於該模組**共用表單**目前版本,且在那些版本裡都**不是受保護欄位**(`formKey` 給了就只看那一張,沒給就看模組內全部);欄寬 40–2000;同一欄不能重複。空陣列 = 清掉配置、回前端預設欄。定義檢查器讀它出 `LIST_COLUMN_MISSING` 警告;表單改版後引用到不存在的欄位不自動清,前端顯示「—」。
 
 ## 讀取投影
 
@@ -102,11 +109,11 @@
 
 `apps/api/src/forms/lookup-providers.ts`。帶入、引用、lookup 選項都用這一張;執行時 provider 與 `filter` 一律從**版本定義**取,前端只帶 `{ formKey, version, target }` + 關鍵字。
 
-| provider          | 可回的欄位                                          | 讀欄位要的權限                                    | 可當 `filter` | 範圍                                                           |
-| ----------------- | --------------------------------------------------- | ------------------------------------------------- | ------------- | -------------------------------------------------------------- |
-| `user`            | `name`、`account`、`email`                          | `account` / `email` 要 `system.user-manager.view` | `enabled`     | 可見範圍內組織的成員(根組織不限)                               |
-| `org`             | `name`、`slug`                                      | —                                                 | `enabled`     | 可見範圍內的組織                                               |
-| `form_submission` | 摘要槽(`title` / `date` / `amount`)+ 那張表單的欄位 | 受保護欄位要該表單該欄的 `show`                   | —             | 來源表單所屬模組的 `view` + 可見範圍 / 資料範圍;預設只列已完成 |
+| provider          | 可回的欄位                                          | 讀欄位要的權限                                                                    | 可當 `filter` | 範圍                                                           |
+| ----------------- | --------------------------------------------------- | --------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------- |
+| `user`            | `name`、`account`、`email`                          | `account` / `email` 要 `system.user-manager.view`(以它們當 `valueField` 反查也要) | `enabled`     | 可見範圍內組織的成員(根組織不限)                               |
+| `org`             | `name`、`slug`                                      | —                                                                                 | `enabled`     | 可見範圍內的組織                                               |
+| `form_submission` | 摘要槽(`title` / `date` / `amount`)+ 那張表單的欄位 | 受保護欄位要該表單該欄的 `show`                                                   | —             | 來源表單所屬模組的 `view` + 可見範圍 / 資料範圍;預設只列已完成 |
 
 - `form_submission` 來源回每一筆時,欄位依**那筆自己綁的版本**判斷:存在且非受保護 → 語意值(選項 / 引用另附 label);存在但受保護且沒有 `show` → **省略**;那一版沒有這個欄位 → `null`。
 - 設計時的欄位目錄 = 來源表單目前版本的非受保護欄位 + 摘要槽;檢查器以它驗 `labelField` / `valueField` / 帶入的來源欄位。
@@ -120,13 +127,14 @@
 2. 只剩已完成的提交用到 → 要 `confirmCompletedUsage: true` 才刪(`CONFIRM_REQUIRED`);刪後這些單裡的該欄位只有超級管理員看得到。
 3. 沒有任何提交用到 → 直接刪。
 
-計數**跨全部租戶**且不受操作者的可見範圍 / 資料範圍影響(`database/form-submission-usage.ts`;少算一筆草稿就會把還在用的權限刪掉)。刪 = 權限列與全部 `role_permission` 綁定一起抹掉(硬刪:權限 key 唯一,軟刪的殭屍會擋住日後同一欄位重新發布時建回同一個 key)。權限矩陣與模組樹不列退役的權限;角色對退役權限的既有綁定保留(矩陣只認得它列出的 key,不會因此被清掉)。
+計數**跨全部租戶**且不受操作者的可見範圍 / 資料範圍影響(`database/form-submission-usage.ts`;少算一筆草稿就會把還在用的權限刪掉)。刪的順序:先寫稽核 → 刪權限列 → 解除全部 `role_permission` 綁定(硬刪:權限 key 唯一,軟刪的殭屍會擋住日後同一欄位重新發布時建回同一個 key);每一步重做都無害,中途失敗殘留的綁定指向不存在的權限列、不生效。**檢查使用量到真的刪之間沒有鎖**:這段時間有人新建草稿綁到宣告該欄位的版本,那筆草稿的該欄位之後只有超級管理員看得到。權限矩陣與模組樹不列退役的權限;角色對退役權限的既有綁定保留(矩陣只認得它列出的 key,不會因此被清掉)。
+**權限矩陣的租戶邊界**(`roles/role-matrix.service.ts`):欄位級權限依 key 拆出 formKey,只列共用表單與操作者自己租戶的客製表單的那幾筆(根組織操作者只看得到共用表單的);存檔時送了別租戶(或已不存在的)表單的欄位級權限 → `ROLE_OUT_OF_REACH`。持模組 `*` 的角色在解析時仍涵蓋該模組全部權限(含別租戶的),但那些欄位所在的提交本來就在別的租戶,讀不到。
 
 ## api 介面
 
 GraphQL 文件:`packages/graphql/src/documents/forms.graphql`(設計)、`form-submissions.graphql`(執行)。
 
-**設計端**(`@RequirePermission` 守端點,「是不是自己的表單 / 站在哪裡」在 service):`forms`、`form`、`formVersion(formKey, version?)`(省略 = 草稿)、`formVersions`、`validateFormVersion`、`previewFormVersion`(兩者是 query,不落庫)、`createForm`、`updateForm`、`forkForm`、`createFormVersionDraft`、`saveFormVersionDraft`、`publishFormVersion`、`retryPublishFormVersion`、`retireCurrentVersion`、`assignFormToTenants`、`revokeFormFromTenant`、`setTenantFormEnabled`、`retiredFormPermissions`、`deleteRetiredPermission`。
+**設計端**(`@RequirePermission` 守端點,「是不是自己的表單 / 站在哪裡」在 service):`forms`、`form`、`formVersion(formKey, version?)`(省略 = 草稿)、`formVersions`、`validateFormVersion`、`previewFormVersion`(兩者是 query,不落庫)、`createForm`、`updateForm`、`forkForm`、`createFormVersionDraft`、`saveFormVersionDraft`、`publishFormVersion`、`retryPublishFormVersion`、`retireCurrentVersion`、`assignFormToTenants`、`revokeFormFromTenant`、`setTenantFormEnabled`、`retiredFormPermissions`、`deleteRetiredPermission`、`setModuleListColumns`(`system.forms.edit` + 站在根組織)。`moduleListColumns(moduleKey)` 給該模組的使用者讀(有 view / create / edit 任一)。
 
 **執行端**(模組是執行期的,service 依該模組的 `view` / `create` / `edit` / `delete` 判,錯誤與 `@RequirePermission` 同一種):`moduleForms(moduleKey)`、`formRuntimeVersion(formKey, version)`、`formSubmissions`、`formSubmission(id, revision?)`、`formSubmissionAttachmentUrl(id, fieldKey, revision?)`、`createFormDraft`、`saveFormDraft`、`submitFormSubmission`、`updateFormSubmission`、`deleteFormSubmission`、`formLookup`、`formLookupRecord`。
 
@@ -153,7 +161,7 @@ input 欄位的缺席 / `null`:
 | `CONFLICT`                 | 樂觀鎖或搶鎖沒搶到(規格寫的「409」),`reason` 見下         | 提示「已被別人更新,請重新載入」;發布中斷時顯示「重試」 |
 | `PERMISSION_NOT_DELETABLE` | 退役權限清理的前置檢查未過;`extensions.reasons` + `usage` | 依 reasons 顯示原因;`CONFIRM_REQUIRED` 時跳確認再送    |
 
-- `CONFLICT` 的 `reason`:`DRAFT_REVISION_MISMATCH`、`DRAFT_EXISTS`、`DRAFT_MISSING`、`PUBLISH_IN_PROGRESS`、`PUBLISH_NOT_INTERRUPTED`、`NO_CURRENT_VERSION`、`EDIT_VERSION_MISMATCH`、`REVISION_MISMATCH`、`STATUS_MISMATCH`、`CLIENT_REQUEST_REUSED`。
+- `CONFLICT` 的 `reason`:`DRAFT_REVISION_MISMATCH`、`DRAFT_EXISTS`、`DRAFT_MISSING`、`PUBLISH_IN_PROGRESS`、`PUBLISH_NOT_INTERRUPTED`、`NO_CURRENT_VERSION`、`CURRENT_VERSION_CHANGED`、`EDIT_VERSION_MISMATCH`、`REVISION_MISMATCH`、`STATUS_MISMATCH`、`CLIENT_REQUEST_REUSED`。
 - `FORBIDDEN` 的 `reason`:`FIELD_FORBIDDEN`(附 `fieldKey`)、`FORM_NOT_AVAILABLE`、`NOT_FORM_OWNER`、`ROOT_ONLY`;端點層沒權限的 `FORBIDDEN` 沒有 reason。別人的草稿一律 `NOT_FOUND`(草稿只屬於建立者,不透露它存在)。
 - `PERMISSION_NOT_DELETABLE` 的 `reasons`:`NOT_DYNAMIC`、`NOT_RETIRED`、`USED_BY_DRAFTS`、`CONFIRM_REQUIRED`。
 - `VALIDATION_FAILED`:定義有錯 → `fields: ["definition"]` + `issues`(檢查器的 `DefinitionIssue[]`,每筆帶定位);值有錯 → `fields`(欄位 key)+ `fieldErrors`(`{ fieldKey, code, message }`,code 見 `@repo/domain/form` 的 `VALUE_ISSUE_CODES`);其他輸入錯誤照一般的 `fields`。
@@ -166,3 +174,4 @@ input 欄位的缺席 / `null`:
 | `form-version.create-draft` / `.save-draft` / `.publish` / `.retry-publish` / `.retire`          | `form_version`    | formKey、版號、draftRevision、changelog          |
 | `submission.create-draft` / `.save-draft` / `.submit` / `.update` / `.delete`                    | `form_submission` | 修訂號、editVersion(**不記值**:可能含受保護欄位) |
 | `permission.delete-retired`                                                                      | `permission`      | key、name、被解除的角色綁定數、已完成的使用筆數  |
+| `module.set-list-columns`                                                                        | `module`          | 配置前後的欄位清單                               |

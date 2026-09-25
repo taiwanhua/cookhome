@@ -28,6 +28,7 @@ import {
   createOperator,
   createSubmitted,
   definitionOf,
+  editKey,
   extensionsOf,
   field,
   getSubmission,
@@ -504,5 +505,123 @@ describe("表單提交:草稿 / 送出 / 修訂、四種寫入行為、樂觀鎖
       input: { formKey: FORM, clientRequestId: nextRequestId() },
     });
     expect(extensionsOf(blocked).reason).toBe("FORM_NOT_AVAILABLE");
+  });
+
+  describe("條件以最終存下的值判定;遮蔽字串與多選的「沒動」", () => {
+    const GUARD = "guarded";
+    let guardEditor: FormOperator;
+
+    beforeAll(async () => {
+      await publishNewForm(
+        api,
+        root,
+        GUARD,
+        definitionOf([
+          field("title", "text"),
+          field("lock", "boolean"),
+          field("stage", "text", {
+            readonlyWhen: { "==": [{ var: "lock" }, true] },
+          }),
+          field("audit_note", "text", {
+            permission: { show: true, edit: false },
+            visibleWhen: { "==": [{ var: "stage" }, "x"] },
+          }),
+          field("tags", "multiSelect", {
+            permission: { show: false, edit: true },
+          }),
+          field("amount", "number", {
+            permission: { show: true, edit: false },
+          }),
+        ]),
+      );
+      await assignForm(api, root, GUARD, [tenant]);
+      guardEditor = await createOperator(api, connection, {
+        orgId: tenant,
+        permissionKeys: [
+          M.view,
+          M.create,
+          M.edit,
+          showKey(GUARD, "audit_note"),
+          showKey(GUARD, "amount"),
+          editKey(GUARD, "tags"),
+        ],
+      });
+    }, HOOK_TIMEOUT_MS);
+
+    it("送一個會被 readonlyWhen 忽略的值,不能把受保護欄判成隱藏而清掉它的既有值", async () => {
+      const submitted = await createSubmitted(api, guardEditor.token, GUARD, {
+        title: "有稽核備註",
+        lock: false,
+        stage: "x",
+        audit_note: "機密稽核",
+      });
+      // staff 看不到 audit_note;同時鎖住 stage 又送一個會被忽略的 stage 值
+      await ok(api, staff.token, UPDATE_SUBMISSION, {
+        input: {
+          id: submitted.id,
+          expectedEditVersion: submitted.editVersion,
+          expectedRevision: submitted.revision,
+          values: {
+            title: "有稽核備註",
+            lock: true,
+            stage: "y",
+            audit_note: "[redacted]",
+          },
+        },
+      });
+      const raw = (await rawSubmission(connection, submitted.id)) as {
+        values: Record<string, unknown>;
+      };
+      expect(raw.values).toMatchObject({
+        lock: true,
+        stage: "x",
+        audit_note: "機密稽核",
+      });
+    });
+
+    it('看得到該欄的人送 "[redacted]" 不算沒動:走型別驗證(數字欄不合法 → VALIDATION_FAILED)', async () => {
+      const result = await call(api, guardEditor.token, CREATE_FORM_DRAFT, {
+        input: {
+          formKey: GUARD,
+          clientRequestId: nextRequestId(),
+          values: { title: "x", amount: "[redacted]" },
+        },
+      });
+      expect(codeOf(result)).toBe("VALIDATION_FAILED");
+      expect(extensionsOf(result).fieldErrors).toContainEqual(
+        expect.objectContaining({ fieldKey: "amount", code: "TYPE_INVALID" }),
+      );
+    });
+
+    it("多選是集合:沒有 edit 的人把同一組值換順序送回不算改動", async () => {
+      const submitted = await createSubmitted(api, guardEditor.token, GUARD, {
+        title: "多選",
+        tags: ["sick", "annual"],
+      });
+      const updated = await ok<{
+        updateFormSubmission: { submission: SubmissionRow };
+      }>(api, staff.token, UPDATE_SUBMISSION, {
+        input: {
+          id: submitted.id,
+          expectedEditVersion: submitted.editVersion,
+          expectedRevision: submitted.revision,
+          values: { ...submitted.values, tags: ["annual", "sick"] },
+        },
+      });
+      expect(updated.updateFormSubmission.submission.values.tags).toEqual([
+        "sick",
+        "annual",
+      ]);
+      const changed = await call(api, staff.token, UPDATE_SUBMISSION, {
+        input: {
+          id: submitted.id,
+          expectedEditVersion:
+            updated.updateFormSubmission.submission.editVersion,
+          expectedRevision: 2,
+          values: { ...submitted.values, tags: ["sick"] },
+        },
+      });
+      expect(extensionsOf(changed).reason).toBe("FIELD_FORBIDDEN");
+    });
   });
 });

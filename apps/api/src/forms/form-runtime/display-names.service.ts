@@ -11,6 +11,7 @@ import type { FormOperatorFacts } from "../form-access.service";
 import { REDACTED } from "../form-values/stored-values";
 import {
   LookupProvidersService,
+  type LookupRecord,
   lookupLabelOf,
   lookupValueOf,
 } from "../lookup-providers";
@@ -100,6 +101,15 @@ function resolverOf(field: FieldDef): Resolver | null {
   return null;
 }
 
+/** 顯示欄有沒有回來(`id` 一律有;受保護無權時 provider 會省略那一欄)。 */
+function hasLabelField(record: LookupRecord, labelField: string): boolean {
+  return (
+    labelField === "id" ||
+    labelField in record.labels ||
+    labelField in record.values
+  );
+}
+
 interface LookupGroup {
   source: LookupSourceDescriptor;
   field: string;
@@ -183,13 +193,16 @@ export class DisplayNamesService {
         [...group.values],
         [group.source.labelField],
       );
+      // 讀得到那筆、但顯示欄因受保護被省略 → 不算「現名可用」(不在表裡 = 快照 + available false)
       labels.set(
         signature,
         new Map(
-          records.map((record) => [
-            String(lookupValueOf(record, group.field)),
-            lookupLabelOf(record, group.source.labelField),
-          ]),
+          records
+            .filter((record) => hasLabelField(record, group.source.labelField))
+            .map((record) => [
+              String(lookupValueOf(record, group.field)),
+              lookupLabelOf(record, group.source.labelField),
+            ]),
         ),
       );
     }

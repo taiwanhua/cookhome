@@ -264,15 +264,9 @@ export class FormFieldPermissionsService {
     const links = await this.relations.listLinks("role_permission", {
       secondIds: [record._id],
     });
-    await this.relations.unlinkMany(
-      operator,
-      links.map((link) => ({
-        type: "role_permission" as const,
-        firstId: link.firstId,
-        secondId: link.secondId,
-      })),
-    );
-    await this.permissions.hardDeleteById(operator, record._id);
+    // 順序:先寫稽核 → 刪權限列 → 解綁。每一步重做都無害(刪不到就是已刪、解綁照差集);
+    // 中途失敗時權限列可能已不在、綁定還在 —— 解析權限時只認存在的權限列,殘留的綁定不生效,
+    // 下一次清理(或角色矩陣存檔)會把它們帶走,不會讓任何人多拿到權限。
     await this.audit.record(operator, {
       action: PERMISSION_AUDIT.deleteRetired,
       targetType: "permission",
@@ -284,6 +278,15 @@ export class FormFieldPermissionsService {
         completedCount: usage.completedCount,
       },
     });
+    await this.permissions.hardDeleteById(operator, record._id);
+    await this.relations.unlinkMany(
+      operator,
+      links.map((link) => ({
+        type: "role_permission" as const,
+        firstId: link.firstId,
+        secondId: link.secondId,
+      })),
+    );
     return { success: true, deletedKey: record.key, usage };
   }
 
