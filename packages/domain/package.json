@@ -68,6 +68,16 @@
         "types": "./dist/cjs/form-keys.d.cts",
         "default": "./dist/cjs/form-keys.cjs"
       }
+    },
+    "./workflow": {
+      "import": {
+        "types": "./dist/es/workflow.d.ts",
+        "default": "./dist/es/workflow.js"
+      },
+      "require": {
+        "types": "./dist/cjs/workflow.d.cts",
+        "default": "./dist/cjs/workflow.cjs"
+      }
     }
   },
   "typesVersions": {
@@ -89,6 +99,9 @@
       ],
       "form-keys": [
         "./dist/es/form-keys.d.ts"
+      ],
+      "workflow": [
+        "./dist/es/workflow.d.ts"
       ]
     }
   },

@@ -1,0 +1,105 @@
+/**
+ * 流程定義檢查器的錯誤 / 警告(Spec §5「定義檢查器」)。**有錯不能發布,警告可發布**;
+ * 每筆都定位到關卡(或連線),設計器點擊可跳到該節點。
+ */
+
+/** 錯誤碼(有錯不能發布)。 */
+export const WORKFLOW_ERROR_CODES = [
+  // 基本
+  "WORKFLOW_EMPTY",
+  "STEP_KEY_DUPLICATE",
+  "STEP_KEY_FORMAT",
+  "STEP_KIND_UNKNOWN",
+  "MODE_INVALID",
+  "ASSIGNEE_KIND_UNKNOWN",
+  // 審核者來源
+  "USERS_IN_SHARED",
+  "ROLE_ID_MISSING",
+  "ROLE_ID_IN_SHARED",
+  "ROLE_NOT_IN_TENANT",
+  "ROLE_PLACEHOLDER_MISSING",
+  "FIELD_FORM_MISSING",
+  "FIELD_MISSING",
+  "FIELD_NOT_USER_REFERENCE",
+  "MANAGER_LEVEL_INVALID",
+  // 跳過條件
+  "SKIP_UNKNOWN_OPERATOR",
+  "SKIP_INVALID",
+  "SKIP_UNKNOWN_FIELD",
+  "SKIP_PROTECTED_FIELD",
+  // 匯合節點
+  "JOIN_IN_LINEAR",
+  "JOIN_HAS_REVIEW_PROPS",
+  "JOIN_TOO_FEW_INCOMING",
+  "JOIN_OUTGOING_INVALID",
+  // 結構(有 edges 時)
+  "EDGE_UNKNOWN_STEP",
+  "EDGE_DUPLICATE",
+  "START_NOT_UNIQUE",
+  "END_NOT_UNIQUE",
+  "UNREACHABLE",
+  "CYCLE",
+  "REVIEW_MULTIPLE_INCOMING",
+  "FORK_JOIN_MISMATCH",
+  "BRANCH_EMPTY",
+  "NESTED_FORK",
+  "CROSS_BRANCH",
+] as const;
+
+/** 警告碼(可發布)。 */
+export const WORKFLOW_WARNING_CODES = [
+  "USER_INVALID",
+  "ALL_STEPS_SKIPPABLE",
+] as const;
+
+export type WorkflowErrorCode = (typeof WORKFLOW_ERROR_CODES)[number];
+
+export type WorkflowWarningCode = (typeof WORKFLOW_WARNING_CODES)[number];
+
+export type WorkflowIssueCode = WorkflowErrorCode | WorkflowWarningCode;
+
+export interface WorkflowIssueLocation {
+  stepKey?: string;
+  /** `steps[]` 的索引。 */
+  stepIndex?: number;
+  /** `edges[]` 的索引。 */
+  edgeIndex?: number;
+  /** 關卡上的哪個屬性出錯(`assignee.roleId`、`skipWhen`…)。 */
+  property?: string;
+  /** 跳過條件表達式樹裡的節點位置(根為空字串)。 */
+  exprPath?: string;
+}
+
+export interface WorkflowIssue {
+  code: WorkflowIssueCode;
+  /** 給設計者看的繁中說明。 */
+  message: string;
+  location: WorkflowIssueLocation;
+}
+
+export interface WorkflowValidationReport {
+  errors: WorkflowIssue[];
+  warnings: WorkflowIssue[];
+}
+
+/** 檢查器各段共用的收集器。 */
+export class WorkflowIssueCollector {
+  readonly errors: WorkflowIssue[] = [];
+  readonly warnings: WorkflowIssue[] = [];
+
+  error(
+    code: WorkflowErrorCode,
+    message: string,
+    location: WorkflowIssueLocation,
+  ): void {
+    this.errors.push({ code, message, location });
+  }
+
+  warn(
+    code: WorkflowWarningCode,
+    message: string,
+    location: WorkflowIssueLocation,
+  ): void {
+    this.warnings.push({ code, message, location });
+  }
+}
