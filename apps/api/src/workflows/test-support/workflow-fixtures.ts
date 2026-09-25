@@ -301,6 +301,20 @@ export const UNBIND = /* GraphQL */ `
   }
 `;
 
+export const FORM_BINDING = /* GraphQL */ `
+  query FormBinding($key: ID!) {
+    form(key: $key) {
+      form {
+        key
+        workflowBinding {
+          workflowKey
+          isValid
+        }
+      }
+    }
+  }
+`;
+
 export const FORM_WORKFLOW_OPTIONS = /* GraphQL */ `
   query FormWorkflowOptions($formKey: ID!) {
     formWorkflowOptions(formKey: $formKey) {
@@ -645,6 +659,7 @@ export interface TaskRow {
   instanceId: string;
   submissionId: string;
   revision: number;
+  formKey: string;
   stepKey: string;
   stepName: string;
   taskKey: string;
@@ -781,7 +796,24 @@ export const LEAVE_FIELDS: FieldDef[] = [
     source: { provider: "user", labelField: "name" },
   }),
   field("note", "text"),
+  field("attachment", "upload"),
 ];
+
+/** 上傳欄的存值(路徑要長得像本 API 簽出來的 `form/<uuid>.<副檔名>`)。 */
+export function uploadValue(uuid: string): Record<string, unknown> {
+  return {
+    path: `form/${uuid}.pdf`,
+    name: "證明.pdf",
+    size: 1024,
+    contentType: "application/pdf",
+  };
+}
+
+/** 模組與權限(給需要別的組合的測試自己建人)。 */
+export const PERSON_SCOPES = {
+  userModules: ["leave", "apply-center", "apply-center.view-page"],
+  userPermissions: ["leave.*", "apply-center.view"],
+} as const;
 
 export async function setupWorld(
   api: AuthTestApp,

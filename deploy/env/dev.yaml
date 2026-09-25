@@ -12,6 +12,8 @@ COOKIE_DOMAIN: ".cookhome.online"
 MAIL_ALLOWLIST: "a0987837233@gmail.com,a0987837233+tenant@gmail.com,a0987837233+user@gmail.com"
 # GraphQL Sandbox / introspection:dev 開(其他環境不寫此鍵 = 關)
 GRAPHQL_SANDBOX: "true"
+# 審核流程通知信(任務建立 / 有結果):dev 開;staging / production 不寫此鍵 = 關(怕額度),仍受 MAIL_ALLOWLIST 約束
+WORKFLOW_MAIL_ENABLED: "true"
 # 檔案儲存的 GCS bucket(ADR-0010;未設 GCS_BUCKET_PRIVATE = 改用記錄用 adapter,不會真的上傳)
 GCS_BUCKET_PRIVATE: "cookhome-assets-dev"
 # 公開讀 bucket:第 3 段沒有呼叫端,先接線備用(第 5 段示範模組的封面才用)

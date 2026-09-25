@@ -9,12 +9,38 @@ import { assertTenantBoundary } from "./tenant-boundary";
 export type SubmissionSnapshotRecord = FormSubmission &
   BaseFields & { _id: Types.ObjectId };
 
-type SubmissionCollection = mongo.Collection<SubmissionSnapshotRecord>;
+/** 6b 加的欄位:6b 之前建立的文件沒有(原生驅動不補 schema 預設值),讀出時補上。 */
+type WorkflowFieldKey =
+  | "currentInstanceId"
+  | "blocked"
+  | "voidedAt"
+  | "voidedBy"
+  | "voidReason"
+  | "replacedById"
+  | "copiedFrom";
+
+type StoredSubmission = Omit<SubmissionSnapshotRecord, WorkflowFieldKey> &
+  Partial<Pick<SubmissionSnapshotRecord, WorkflowFieldKey>>;
+
+type SubmissionCollection = mongo.Collection<StoredSubmission>;
+
+function withDefaults(stored: StoredSubmission): SubmissionSnapshotRecord {
+  return {
+    ...stored,
+    currentInstanceId: stored.currentInstanceId ?? null,
+    blocked: stored.blocked ?? false,
+    voidedAt: stored.voidedAt ?? null,
+    voidedBy: stored.voidedBy ?? null,
+    voidReason: stored.voidReason ?? null,
+    replacedById: stored.replacedById ?? null,
+    copiedFrom: stored.copiedFrom ?? null,
+  };
+}
 
 /** 查詢條件(`tenantId` 與軟刪除排除由方法補上)。 */
-export type SubmissionFilter = mongo.Filter<SubmissionSnapshotRecord>;
+export type SubmissionFilter = mongo.Filter<StoredSubmission>;
 
-type SubmissionUpdate = mongo.UpdateFilter<SubmissionSnapshotRecord>;
+type SubmissionUpdate = mongo.UpdateFilter<StoredSubmission>;
 
 /** 列表的排序 / 分頁。 */
 export interface SubmissionPage {
@@ -45,7 +71,10 @@ export class WorkflowSubmissionStore {
     tenantId: Types.ObjectId | null | undefined,
     id: Types.ObjectId,
   ): Promise<SubmissionSnapshotRecord | null> {
-    return this.collection.findOne(conditionOf(tenantId, { _id: id }));
+    const stored = await this.collection.findOne(
+      conditionOf(tenantId, { _id: id }),
+    );
+    return stored === null ? null : withDefaults(stored);
   }
 
   async findMany(
@@ -53,12 +82,13 @@ export class WorkflowSubmissionStore {
     filter: SubmissionFilter,
     page?: SubmissionPage,
   ): Promise<SubmissionSnapshotRecord[]> {
-    return this.collection
+    const stored = await this.collection
       .find(
         conditionOf(tenantId, filter),
         page ? { sort: page.sort, skip: page.skip, limit: page.limit } : {},
       )
       .toArray();
+    return stored.map((one) => withDefaults(one));
   }
 
   count(

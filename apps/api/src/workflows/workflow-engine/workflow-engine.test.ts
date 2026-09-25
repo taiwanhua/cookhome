@@ -220,9 +220,16 @@ describe("審核流程引擎", () => {
 
     it("退回修改 → returned;改完再送出修訂 +1、新實例從頭、舊實例 superseded 並收尾", async () => {
       const submitted = await submitLeave(world);
+      const before = mail().sent.length;
       await decideOn(world, world.manager, submitted.id, "RETURN");
       const returned = await submission(world, world.applicant, submitted.id);
       expect(returned.status).toBe("RETURNED");
+      const subjects = mail()
+        .sent.slice(before)
+        .map((message) => message.subject);
+      expect(subjects.some((subject) => subject.includes("已退回修改"))).toBe(
+        true,
+      );
       expect(returned.abilities.canEdit).toBe(true);
       const saved = await ok<{
         saveFormDraft: { submission: WfSubmissionRow };

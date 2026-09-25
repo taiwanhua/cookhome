@@ -1,0 +1,268 @@
+# 申請中心(apply-center)與審核動作(規則正本 docs/modules/workflows.md)。
+#
+# 1. 摘要一律是「實例上的快照」(該修訂的標題槽),不是提交最新的摘要:單據重送後,
+#    只審過舊修訂的人看到的仍是舊修訂的標題。
+# 2. decideTask 的 `result: STEP_CLOSED` 不是錯誤:此關已結束或任務已變更,任務不動,前端提示後重載。
+# 3. 詳情(workflowInstance、formSubmission(id, revision))的授權同 canReadSubmissionRevision:
+#    申請人讀全部修訂;任務持有者(含曾持有)只讀他審的那個修訂 —— 讀提交要帶 `revision`。
+
+fragment WorkflowTaskFields on WorkflowTaskModel {
+  id
+  instanceId
+  submissionId
+  # 讀提交要帶這個修訂號
+  revision
+  moduleKey
+  moduleName
+  formKey
+  formName
+  stepKey
+  stepName
+  taskKey
+  status
+  assignee {
+    id
+    name
+  }
+  applicant {
+    id
+    name
+  }
+  summary {
+    title
+    date
+    amount
+  }
+  instanceStatus
+  decidedAt
+  comment
+  # 送決定時帶它當 expectedEditVersion
+  editVersion
+  createdAt
+}
+
+fragment WorkflowInstanceFields on WorkflowInstanceModel {
+  id
+  submissionId
+  revision
+  moduleKey
+  moduleName
+  formKey
+  formName
+  formVersion
+  workflowKey
+  workflowName
+  workflowVersion
+  status
+  summary {
+    title
+    date
+    amount
+  }
+  applicant {
+    id
+    name
+  }
+  # 平行時多個
+  activeStepKeys
+  # 版本的每個節點各一列(分支進度)
+  steps {
+    stepKey
+    name
+    kind
+    mode
+    status
+    blocked
+    plan {
+      taskKey
+      assignee {
+        id
+        name
+      }
+      previousAssignees {
+        id
+        name
+      }
+      assigneeState
+    }
+    decisions {
+      taskKey
+      user {
+        id
+        name
+      }
+      decision
+      comment
+      at
+    }
+  }
+  history {
+    at
+    kind
+    stepKey
+    taskKey
+    user {
+      id
+      name
+    }
+    toUser {
+      id
+      name
+    }
+    comment
+    result
+  }
+  outcome {
+    kind
+    stepKey
+    taskKey
+  }
+  editVersion
+  myTasks {
+    ...WorkflowTaskFields
+  }
+  abilities {
+    canWithdraw
+    canManage
+  }
+  createdAt
+  updatedAt
+  finishedAt
+}
+
+# MyApplicationsInput: { moduleKey?, formKey?, status?, page?, pageSize? }
+query MyApplications($input: MyApplicationsInput!) {
+  myApplications(input: $input) {
+    items {
+      id
+      moduleKey
+      moduleName
+      formKey
+      formName
+      status
+      blocked
+      revision
+      summary {
+        title
+        date
+        amount
+      }
+      currentInstanceId
+      activeSteps {
+        stepKey
+        name
+      }
+      submittedAt
+      updatedAt
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+
+# 「新申請」:我能新增且綁了流程的表單,依模組分組
+query ApplicableForms {
+  applicableForms {
+    moduleKey
+    moduleName
+    forms {
+      key
+      name
+      moduleKey
+      currentVersion
+      tabLabelTemplate
+    }
+  }
+}
+
+# MyTasksInput: { moduleKey?, formKey?, done?, page?, pageSize? };done = false 待處理 / true 已處理
+query MyTasks($input: MyTasksInput!) {
+  myTasks(input: $input) {
+    items {
+      ...WorkflowTaskFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+
+query WorkflowInstance($id: ID!) {
+  workflowInstance(id: $id) {
+    instance {
+      ...WorkflowInstanceFields
+    }
+  }
+}
+
+# DecideTaskInput: { taskId, expectedEditVersion, decision: APPROVE | REJECT | RETURN, comment? }
+mutation DecideTask($input: DecideTaskInput!) {
+  decideTask(input: $input) {
+    task {
+      ...WorkflowTaskFields
+    }
+    result
+  }
+}
+
+# ---- 申請人的提交動作(回表單提交) ----
+
+fragment FormSubmissionWorkflowFields on FormSubmissionModel {
+  id
+  status
+  revision
+  editVersion
+  # 進行中或最後一個實例(申請中心詳情頁的 id);null = 沒走過流程
+  currentInstanceId
+  blocked
+  voidedAt
+  voidReason
+  replacedById
+  copiedFrom
+  # 只有 CopySubmissionToDraft 的回傳有值:來源引用已失效、被清空的欄位
+  clearedFields
+  abilities {
+    canEdit
+    canDelete
+    canWithdraw
+    canVoid
+    canCopy
+  }
+}
+
+# 提交的審核狀態(列表 chip、審核區塊的撤回 / 作廢 / 複製按鈕)
+query FormSubmissionWorkflowState($id: ID!, $revision: Int) {
+  formSubmission(id: $id, revision: $revision) {
+    submission {
+      ...FormSubmissionWorkflowFields
+    }
+  }
+}
+
+# WithdrawSubmissionInput: { id, expectedEditVersion };已有審核意見 → CONFLICT(HAS_DECISIONS)
+mutation WithdrawSubmission($input: WithdrawSubmissionInput!) {
+  withdrawSubmission(input: $input) {
+    submission {
+      ...FormSubmissionWorkflowFields
+    }
+  }
+}
+
+# VoidSubmissionInput: { id, expectedEditVersion, reason }
+mutation VoidSubmission($input: VoidSubmissionInput!) {
+  voidSubmission(input: $input) {
+    submission {
+      ...FormSubmissionWorkflowFields
+    }
+  }
+}
+
+# CopySubmissionToDraftInput: { id, clientRequestId }
+mutation CopySubmissionToDraft($input: CopySubmissionToDraftInput!) {
+  copySubmissionToDraft(input: $input) {
+    submission {
+      ...FormSubmissionWorkflowFields
+    }
+  }
+}

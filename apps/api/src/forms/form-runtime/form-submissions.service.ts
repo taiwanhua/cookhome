@@ -730,7 +730,8 @@ export class FormSubmissionsService {
       );
     } else {
       record = await this.submissions.findById(facts.operator, id);
-      if (!record) {
+      // 別人的草稿一律不存在(草稿只屬於建立者)
+      if (!record || record.status === "draft") {
         throw notFoundError(`Form submission not found: ${input.id}`);
       }
       // 可刪:不綁流程的已完成、已駁回(Spec 6b §6);審核中 / 退回 / 撤回 / 綁流程的已完成 / 作廢不可刪
