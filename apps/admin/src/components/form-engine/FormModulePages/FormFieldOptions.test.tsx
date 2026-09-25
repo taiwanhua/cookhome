@@ -8,6 +8,7 @@ import {
   SHOPPING_ROUTES,
   field,
   shoppingDefinition,
+  submissionFragment,
 } from "@/test/msw/form-fixtures";
 import type { FormRuntimeWorldOptions } from "@/test/msw/form-runtime-handlers";
 
@@ -78,6 +79,38 @@ const worldWith = (
   ...overrides,
 });
 
+/** 讀者讀不到 `cost_total`:定義是骨架、值是 `"[redacted]"`、fieldStates 標 redacted。 */
+const redactedSubmission = () => {
+  const base = submissionFragment();
+  return submissionFragment({
+    values: {
+      ...base.values,
+      kind: { value: "drink", label: "飲品" },
+      cost_total: "[redacted]",
+    },
+    fieldStates: [
+      { key: "item", visible: true, readonly: false, redacted: false },
+      { key: "kind", visible: true, readonly: false, redacted: false },
+      {
+        key: "cost_total",
+        visible: false,
+        readonly: true,
+        redacted: true,
+      },
+    ],
+    displayValues: [
+      {
+        fieldKey: "kind",
+        items: [{ value: "drink", label: "飲品", available: true }],
+      },
+    ],
+    abilities: {
+      ...base.abilities,
+      canEditField: [...base.abilities.canEditField, "kind"],
+    },
+  });
+};
+
 describe("表單的類別選項欄與投影過的定義", () => {
   it("一般員工(沒有欄位管理權限)從 formFieldOptions 取類別選項,選了就能送出必填欄", async () => {
     // 只有購物清單的四個動作:沒有 system.field-manager.view
@@ -140,5 +173,86 @@ describe("表單的類別選項欄與投影過的定義", () => {
       "aria-disabled",
       "true",
     );
+  });
+
+  it("類別選項超過 100 筆:打字搜尋改送 api 的 keyword,列出第一頁之外的選項", async () => {
+    const many = Array.from({ length: 120 }, (_, index) => ({
+      value: `opt-${String(index + 1)}`,
+      label: `選項${String(index + 1).padStart(3, "0")}`,
+    }));
+    const definition = definitionWithCategory();
+    const { user, world } = renderShopping({
+      path: CREATE_PATH,
+      permissions: SHOPPING_ACTIONS,
+      world: worldWith({
+        versions: {
+          [`${SHOPPING_FORM_KEY}@1`]: {
+            ...definition,
+            fields: definition.fields.map((item) =>
+              item.key === "kind"
+                ? { ...item, widget: { kind: "autocomplete" } }
+                : item,
+            ),
+          },
+        },
+        fieldOptions: { kind: many },
+      }),
+    });
+
+    const kind = await screen.findByRole("combobox", { name: /分類/ });
+    await waitFor(() => {
+      expect(world.inputs.formFieldOptions).toHaveLength(1);
+    });
+    await user.type(kind, "選項115");
+
+    expect(
+      await screen.findByRole("option", { name: "選項115" }),
+    ).toBeInTheDocument();
+    expect(world.inputs.formFieldOptions).toContainEqual(
+      expect.objectContaining({ fieldKey: "kind", keyword: "選項115" }),
+    );
+  });
+
+  describe('已有提交(api 的 fieldStates):骨架欄位與 "[redacted]" 值並存', () => {
+    it('編輯頁:骨架欄位不渲染,儲存修改原樣送回 "[redacted]"', async () => {
+      const { user, world } = renderShopping({
+        path: `${SHOPPING_ROUTES.editPage}/sub-1`,
+        permissions: SHOPPING_ACTIONS,
+        world: worldWith({ submissions: [redactedSubmission()] }),
+      });
+
+      const item = await screen.findByRole("textbox", { name: "品項" });
+      expect(
+        screen.getByRole("combobox", { name: /分類/ }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("內部總價")).toBeNull();
+      expect(screen.queryByText("[redacted]")).toBeNull();
+
+      await user.type(item, "!");
+      await user.click(screen.getByRole("button", { name: "儲存修改" }));
+      await waitFor(() => {
+        expect(world.inputs.updateFormSubmission).toHaveLength(1);
+      });
+      expect(world.inputs.updateFormSubmission[0]?.values).toMatchObject({
+        item: "雞蛋!",
+        kind: { value: "drink", label: "飲品" },
+      });
+      expect(world.inputs.updateFormSubmission[0]?.values).toHaveProperty(
+        "cost_total",
+        "[redacted]",
+      );
+    });
+
+    it("詳情頁:骨架欄位不渲染,類別欄顯示現名", async () => {
+      renderShopping({
+        path: `${SHOPPING_ROUTES.viewPage}/sub-1`,
+        permissions: SHOPPING_ACTIONS,
+        world: worldWith({ submissions: [redactedSubmission()] }),
+      });
+
+      expect(await screen.findByText("飲品")).toBeInTheDocument();
+      expect(screen.queryByText("內部總價")).toBeNull();
+      expect(screen.queryByText("[redacted]")).toBeNull();
+    });
   });
 });

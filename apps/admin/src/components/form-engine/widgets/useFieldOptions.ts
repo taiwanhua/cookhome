@@ -8,7 +8,11 @@ import type { ChoiceOption, WidgetContext } from "./widget-types";
 /** lookup 選項一次取幾筆(搜尋交給 api,`formLookup` 的 keyword)。 */
 const LOOKUP_PAGE_SIZE = 50;
 
-/** 類別選項一次取完(字典型的短清單,`formFieldOptions` 的上限),搜尋在前端比對。 */
+/**
+ * 類別選項一次取的筆數(`formFieldOptions` 的上限)。字典型的短清單通常一次取完、搜尋在前端比對;
+ * 超過這個數(`totalCount` 大於取回的筆數)時,打字搜尋改送 api 的 `keyword`,
+ * 沒打字時只列前 100 筆(下拉 / 單選鈕沒有搜尋框,也只看得到這 100 筆)。
+ */
 const CATEGORY_PAGE_SIZE = 100;
 
 export interface FieldOptions {
@@ -31,7 +35,7 @@ export interface UseFieldOptionsInput {
  * 選項欄三種來源(Spec 6a §5「`options` 三種來源」)統一成 `ChoiceOption[]`:
  * - 靜態清單:定義裡的 items,停用的不列、依 `order` 排
  * - 欄位管理類別:打 `formFieldOptions`(只帶「哪個版本的哪個欄位」,類別 key 由 api 從定義取;
- *   合併範圍、只回啟用的);存 `{ value, label }`。不需要欄位管理的權限
+ *   合併範圍、只回啟用的);存 `{ value, label }`。不需要欄位管理的權限;超過 100 筆時搜尋改送 api
  * - lookup 來源:打 `formLookup`(只帶「哪個版本的哪個欄位」+ 關鍵字,provider / filter 由 api 從定義取)
  */
 export const useFieldOptions = ({
@@ -43,19 +47,30 @@ export const useFieldOptions = ({
   const { session } = useSession();
   const source = field.options ?? null;
 
+  const categoryInput = {
+    formKey: context.formKey,
+    ...(context.version !== null && { version: context.version }),
+    fieldKey: field.key,
+    page: 1,
+    pageSize: CATEGORY_PAGE_SIZE,
+  };
+  const isCategory = !isDesign && source?.kind === "fieldCategory";
   const categoryOptions = useFormFieldOptionsQuery(
     session.client,
-    {
-      input: {
-        formKey: context.formKey,
-        ...(context.version !== null && { version: context.version }),
-        fieldKey: field.key,
-        page: 1,
-        pageSize: CATEGORY_PAGE_SIZE,
-      },
-    },
-    { enabled: !isDesign && source?.kind === "fieldCategory" },
+    { input: categoryInput },
+    { enabled: isCategory },
   );
+  const firstPage = categoryOptions.data?.formFieldOptions;
+  const isTruncated =
+    firstPage !== undefined && firstPage.totalCount > firstPage.items.length;
+  const searchKeyword = keyword.trim();
+  const isSearchingCategory = isTruncated && searchKeyword !== "";
+  const categorySearch = useFormFieldOptionsQuery(
+    session.client,
+    { input: { ...categoryInput, keyword: searchKeyword } },
+    { enabled: isCategory && isSearchingCategory },
+  );
+  const categoryShown = isSearchingCategory ? categorySearch : categoryOptions;
 
   const lookup = useFormLookupQuery(
     session.client,
@@ -92,15 +107,15 @@ export const useFieldOptions = ({
     }
     case "fieldCategory": {
       return {
-        options: (categoryOptions.data?.formFieldOptions.items ?? []).map(
+        options: (categoryShown.data?.formFieldOptions.items ?? []).map(
           (item) => ({
             value: item.value,
             label: item.label,
             stored: { value: item.value, label: item.label },
           }),
         ),
-        isLoading: categoryOptions.isLoading,
-        isUnavailable: !isDesign && categoryOptions.isError,
+        isLoading: categoryShown.isLoading,
+        isUnavailable: !isDesign && categoryShown.isError,
       };
     }
     case "lookup": {

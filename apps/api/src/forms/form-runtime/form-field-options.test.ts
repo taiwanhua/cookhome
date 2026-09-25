@@ -10,11 +10,19 @@ import {
 import { createOrg } from "../../auth/test-support/fixtures";
 import { HOOK_TIMEOUT_MS } from "../../database/test-support/mongo-connection";
 import {
+  CREATE_DRAFT,
+  F,
   FORK_FORM,
+  FORMS_MODULES,
+  FORM_LOOKUP,
+  FORM_LOOKUP_RECORD,
   FORM_TEST_TIMEOUT_MS,
   type FormOperator,
   M,
   MODULE_KEY,
+  RETIRE_CURRENT,
+  REVOKE,
+  SET_TENANT_ENABLED,
   assignForm,
   call,
   codeOf,
@@ -72,6 +80,19 @@ interface RuntimeVersionPayload {
 const FORM = "options_form";
 const CUSTOM_FORM = "options_form_custom";
 const CATEGORY = "demo-category";
+
+/** 只有一個必填類別選項欄的表單(版本 / 表單狀態的情境共用)。 */
+const categoryForm = () =>
+  definitionOf([
+    field("title", "text"),
+    field("kind", "select", {
+      options: { kind: "fieldCategory", key: CATEGORY },
+      rules: { required: true },
+    }),
+  ]);
+
+/** GraphQL 結果的錯誤(避免在 await 運算式上直接取成員)。 */
+const errorsOf = (result: { errors?: unknown }): unknown => result.errors;
 
 /**
  * 填寫端的類別選項與定義投影(#469;Spec 6a §3、§5「`options` 三種來源」「受保護欄位的配套」):
@@ -313,6 +334,153 @@ describe("formFieldOptions 與 formRuntimeVersion 的讀者投影", () => {
     });
   });
 
+  describe("formFieldOptions:版本與表單狀態", () => {
+    const LIFECYCLE = "options_lifecycle";
+    const PREVIEW = "options_preview";
+
+    it("租戶停用、root 收回分派、退役目前版本之後,既有的單仍取得到選項", async () => {
+      await publishNewForm(api, root, LIFECYCLE, categoryForm());
+      await assignForm(api, root, LIFECYCLE, [tenant]);
+      const input = { formKey: LIFECYCLE, version: 1, fieldKey: "kind" };
+      const tenantAdmin = await createOperator(api, connection, {
+        orgId: tenant,
+        moduleKeys: [...FORMS_MODULES, MODULE_KEY],
+        permissionKeys: [F.all, M.all],
+      });
+
+      await ok(api, tenantAdmin.token, SET_TENANT_ENABLED, {
+        input: { formKey: LIFECYCLE, enabled: false },
+      });
+      expect(errorsOf(await optionsOf(staff.token, input))).toBeUndefined();
+
+      await ok(api, root, REVOKE, {
+        input: { formKey: LIFECYCLE, tenantOrgId: String(tenant) },
+      });
+      expect(errorsOf(await optionsOf(staff.token, input))).toBeUndefined();
+
+      await ok(api, root, RETIRE_CURRENT, { input: { formKey: LIFECYCLE } });
+      const retired = await optionsOf(staff.token, input);
+      expect(retired.errors).toBeUndefined();
+      expect(retired.data?.formFieldOptions.items).toContainEqual({
+        value: "drink",
+        label: "飲品",
+      });
+    });
+
+    it("version 省略 = 設計器預覽草稿:設計者取得到,沒有表單管理檢視權限的填寫者 → FORBIDDEN", async () => {
+      await publishNewForm(api, root, PREVIEW, categoryForm());
+      await assignForm(api, root, PREVIEW, [tenant]);
+      await ok(api, root, CREATE_DRAFT, {
+        input: { formKey: PREVIEW, baseVersion: 1 },
+      });
+      const input = { formKey: PREVIEW, fieldKey: "kind" };
+
+      const designer = await optionsOf(root, input);
+      expect(designer.errors).toBeUndefined();
+      expect(designer.data?.formFieldOptions.items).toContainEqual({
+        value: "drink",
+        label: "飲品",
+      });
+      expect(codeOf(await optionsOf(staff.token, input))).toBe("FORBIDDEN");
+    });
+
+    it("讀不到的欄位:不論它是不是類別選項都回 FORBIDDEN(不從錯誤碼透露 options 的種類)", async () => {
+      // level 是靜態選項、受保護:沒有 show 的人拿到 FORBIDDEN,不是 VALIDATION_FAILED
+      expect(
+        codeOf(
+          await optionsOf(staff.token, {
+            formKey: FORM,
+            version: 1,
+            fieldKey: "level",
+          }),
+        ),
+      ).toBe("FORBIDDEN");
+      // 有 show 的人才看得到「它不是類別選項」
+      expect(
+        codeOf(
+          await optionsOf(manager.token, {
+            formKey: FORM,
+            version: 1,
+            fieldKey: "level",
+          }),
+        ),
+      ).toBe("VALIDATION_FAILED");
+    });
+  });
+
+  describe("formLookup / formLookupRecord:受保護的選項欄與引用欄", () => {
+    const LOOKUP_FORM = "options_lookup";
+
+    beforeAll(async () => {
+      await publishNewForm(
+        api,
+        root,
+        LOOKUP_FORM,
+        definitionOf([
+          field("title", "text"),
+          field("owner", "reference", {
+            source: { provider: "user", labelField: "name" },
+          }),
+          field("secret_owner", "reference", {
+            source: { provider: "user", labelField: "name" },
+            permission: { show: true, edit: false },
+          }),
+          field("secret_pick", "select", {
+            options: {
+              kind: "lookup",
+              source: { provider: "org", labelField: "name" },
+            },
+            permission: { show: true, edit: false },
+          }),
+        ]),
+      );
+      await assignForm(api, root, LOOKUP_FORM, [tenant]);
+    }, HOOK_TIMEOUT_MS);
+
+    const lookup = (token: string, fieldKey: string) =>
+      call(api, token, FORM_LOOKUP, {
+        input: { formKey: LOOKUP_FORM, version: 1, target: { fieldKey } },
+      });
+
+    it("沒有 show:引用欄 / lookup 選項欄都不給候選資料(FORBIDDEN),單筆取回也一樣", async () => {
+      expect(codeOf(await lookup(staff.token, "secret_owner"))).toBe(
+        "FORBIDDEN",
+      );
+      expect(codeOf(await lookup(staff.token, "secret_pick"))).toBe(
+        "FORBIDDEN",
+      );
+      const record = await call(api, staff.token, FORM_LOOKUP_RECORD, {
+        input: {
+          formKey: LOOKUP_FORM,
+          version: 1,
+          target: { fieldKey: "secret_owner" },
+          id: String(staff.userId),
+        },
+      });
+      expect(codeOf(record)).toBe("FORBIDDEN");
+      // 公開的引用欄照常
+      expect(errorsOf(await lookup(staff.token, "owner"))).toBeUndefined();
+    });
+
+    it("有 show:受保護的引用欄照常查得到;沒有另一欄的 show 仍擋", async () => {
+      const holder = await createOperator(api, connection, {
+        orgId: tenant,
+        permissionKeys: [
+          M.view,
+          M.create,
+          M.edit,
+          showKey(LOOKUP_FORM, "secret_owner"),
+        ],
+      });
+      expect(
+        errorsOf(await lookup(holder.token, "secret_owner")),
+      ).toBeUndefined();
+      expect(codeOf(await lookup(holder.token, "secret_pick"))).toBe(
+        "FORBIDDEN",
+      );
+    });
+  });
+
   describe("formRuntimeVersion 依讀者權限投影", () => {
     it("沒有 show:受保護欄位與依賴鏈上的計算欄位只回骨架,固定值 / 選項 / 說明 / 公式不外流", async () => {
       const fields = await runtimeFieldsOf(staff.token);
@@ -374,6 +542,54 @@ describe("formFieldOptions 與 formRuntimeVersion 的讀者投影", () => {
         expr: { "*": [{ var: "total" }, 1.05] },
       });
       expect(fields.some((item) => item.redacted === true)).toBe(false);
+    });
+
+    it("權限列被刪:持模組 `*` 者只看到骨架,只有超級管理員看到完整定義", async () => {
+      const DELETED = "options_deleted_perm";
+      await publishNewForm(
+        api,
+        root,
+        DELETED,
+        definitionOf([
+          field("title", "text"),
+          field("secret_price", "number", {
+            valueSource: { kind: "constant", value: 9876 },
+            permission: { show: true, edit: false },
+          }),
+        ]),
+      );
+      await assignForm(api, root, DELETED, [tenant]);
+      const wildcard = await createOperator(api, connection, {
+        orgId: tenant,
+        permissionKeys: [M.all],
+      });
+      const secretOf = async (token: string): Promise<FieldDef | undefined> => {
+        const data = await ok<RuntimeVersionPayload>(
+          api,
+          token,
+          FORM_RUNTIME_VERSION,
+          { formKey: DELETED, version: 1 },
+        );
+        return data.formRuntimeVersion.formVersion.fields.find(
+          (item) => item.key === "secret_price",
+        );
+      };
+      // 權限列還在:`*` 展開後涵蓋它
+      expect(await secretOf(wildcard.token)).toMatchObject({
+        valueSource: { kind: "constant", value: 9876 },
+      });
+
+      await connection
+        .collection("permissions")
+        .deleteOne({ key: showKey(DELETED, "secret_price") });
+
+      expect(await secretOf(wildcard.token)).toMatchObject({
+        redacted: true,
+        valueSource: { kind: "constant", value: null },
+      });
+      expect(await secretOf(root)).toMatchObject({
+        valueSource: { kind: "constant", value: 9876 },
+      });
     });
   });
 });

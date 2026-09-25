@@ -222,14 +222,23 @@ export const formRuntimeWorld = (
       if (failure !== null) {
         return failure;
       }
-      const items = options.fieldOptions?.[input.fieldKey] ?? [];
+      // 與 api 同:keyword 比對 label / value(不分大小寫),再依 page / pageSize 切
+      const keyword = input.keyword?.trim().toLowerCase() ?? "";
+      const matched = (options.fieldOptions?.[input.fieldKey] ?? []).filter(
+        (item) =>
+          keyword === "" ||
+          item.label.toLowerCase().includes(keyword) ||
+          item.value.toLowerCase().includes(keyword),
+      );
+      const page = input.page ?? 1;
+      const pageSize = input.pageSize ?? 100;
       return HttpResponse.json({
         data: {
           formFieldOptions: {
-            items,
-            totalCount: items.length,
-            page: input.page ?? 1,
-            pageSize: input.pageSize ?? 100,
+            items: matched.slice((page - 1) * pageSize, page * pageSize),
+            totalCount: matched.length,
+            page,
+            pageSize,
           },
         },
       });

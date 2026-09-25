@@ -105,7 +105,7 @@
 - 權限判斷是 **mapper 規則,不走 `hasPermission`**:有效權限集合裡要有那一個具體 key(`PermissionResolver` 已把模組 `*` 展開成存在且啟用的權限,所以持 `*` 的人自動涵蓋);權限列被刪 → 對所有人視為無權,只有超級管理員看得到,模組 `*` 不放行。
 - 唯讀讀取(`formSubmission(id, revision)`)**不重算、不清空**存值;`fieldStates` 的顯示 / 唯讀條件用**該修訂的 `ctx`**(`at` / `timezone` / `userId` / `orgId`)重算,不拿讀者現在的身分或時間補值;草稿用現在與建立者本人。
 - **建立者一律讀得到自己的單**:單筆讀取在一般路徑(可見範圍 + 資料範圍規則)讀不到時,改走 `BaseRepository.findOwnById`(可見範圍照套、不套資料範圍規則、條件加 `createdBy = 操作者`);列表不放寬。草稿只屬於建立者(別人的草稿不列、讀不到)。
-- **定義也依讀者投影**(`formRuntimeVersion`,`form-runtime/definition-projection.ts`,判準同一支 `canShow`):讀得到的欄位照回;讀不到的(沒有自己的 `show`,或計算欄位沿依賴鏈引用到沒有 `show` 的受保護欄位)只回骨架 `{ key, label, type, widget: { kind }, valueSource: { kind }, permission, redacted: true }` —— `constant.value`、計算公式(可能內嵌常數)、`options`、`rules`、`help`、條件、引用來源一律省略(骨架的 `expr` / `value` 為 `null`)。有 `show` 的人照回完整定義。設計端的 `formVersion` / `formVersions` 不投影(設計者本來就要看全部)。
+- **定義也依讀者投影**(`formRuntimeVersion`,`form-runtime/definition-projection.ts`,判準同一支 `canShow`):讀得到的欄位照回;讀不到的(沒有自己的 `show`,或計算欄位沿依賴鏈引用到沒有 `show` 的受保護欄位)只回骨架 `{ key, label, type, widget: { kind }, valueSource: { kind }, permission, redacted: true }` —— `constant.value`、計算公式(可能內嵌常數)、`options`、`rules`、`help`、條件、引用來源一律省略(骨架的 `expr` / `value` 為 `null`)。有 `show` 的人照回完整定義。設計端的 `formVersion` / `formVersions` 不投影(設計者本來就要看全部)。`layout`、`summaryMap`、`prefills` 不投影:它們只列欄位 key(`prefills[].mapping` 會列出骨架欄位的 key),不含受保護欄位的內容;帶入時寫不寫得進該欄由 `canEdit` 擋,來源值經 `formLookup` 依欄位權限省略。
 - 顯示名(現名 vs 快照)在 `form-runtime/display-names.service.ts` **批次**解析:整頁的值先依來源分組,每個類別、每個 lookup 來源各查一次(DataLoader 的做法,不逐列查)。
 
 ## 欄位管理類別選項
@@ -117,14 +117,14 @@
 | 表單不存在、別租戶的客製表單、版本不是已發布 / 已退役 | `NOT_FOUND`                                            |
 | 沒有該模組 `view` / `create` / `edit` 任一            | `FORBIDDEN`(無 reason,同 `formRuntimeVersion`)         |
 | 欄位不存在或不是類別選項                              | `VALIDATION_FAILED`(`fields: ["fieldKey"]`)            |
-| 讀者讀不到這一欄(受保護欄位沒有 `show`)               | `FORBIDDEN`(無 reason;定義投影也不給它的選項)          |
+| 讀者讀不到這一欄(受保護欄位沒有 `show`)               | `FORBIDDEN`(無 reason;先於欄位種類判,不透露 `options`) |
 | `version` 省略(設計器預覽草稿)                        | 要 `system.forms.view` 且讀得到這張表單;不套欄位級權限 |
 
 「表單可用」取執行端的邊界(共用表單或本租戶客製表單,`findRuntimeForm`),**不**要求表單此刻可新增:租戶停用或收回分派後,既有的草稿 / 已完成的單仍可存、可修改(`saveFormDraft` / `updateFormSubmission` 不看新增資格),選項也要拿得到。
 
 ## lookup 登錄表
 
-`apps/api/src/forms/lookup-providers.ts`。帶入、引用、lookup 選項都用這一張;執行時 provider 與 `filter` 一律從**版本定義**取,前端只帶 `{ formKey, version, target }` + 關鍵字。
+`apps/api/src/forms/lookup-providers.ts`。帶入、引用、lookup 選項都用這一張;執行時 provider 與 `filter` 一律從**版本定義**取,前端只帶 `{ formKey, version, target }` + 關鍵字。目標是欄位(lookup 選項欄 / 引用欄)時,讀者還要讀得到那一欄:受保護欄位沒有 `show` → `FORBIDDEN`(先於「有沒有 lookup 來源」判,不從錯誤碼透露定義;草稿預覽不套)。
 
 | provider          | 可回的欄位                                          | 讀欄位要的權限                                                                    | 可當 `filter` | 範圍                                                           |
 | ----------------- | --------------------------------------------------- | --------------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------- |
@@ -185,7 +185,7 @@
 | `useModuleForms` / `useFormDraft` / `useFormSubmission` / `useFormRuntimeVersion` | `hooks/`                                                                 |
 
 - 欄位級權限:已有提交 → 用 api 的 `fieldStates.redacted` 與 `abilities.canEditField`;新增、草稿還沒建 → 由持有的 `<模組>.show-/edit-<formKey>-<fieldKey>` 推(推錯只影響畫面,寫入仍由 api 守)。
-- 選項欄三種來源統一在 `components/form-engine/widgets/useFieldOptions.ts`:靜態清單讀定義、類別選項打 `formFieldOptions`(一次取完、前端比對關鍵字)、lookup 打 `formLookup`(關鍵字送 api)。類別選項的查詢失敗時該欄只顯示既有值、改不了。
+- 選項欄三種來源統一在 `components/form-engine/widgets/useFieldOptions.ts`:靜態清單讀定義、類別選項打 `formFieldOptions`(先取前 100 筆、前端比對關鍵字;api 回的 `totalCount` 大於取回筆數時,打字搜尋改送 api 的 `keyword`。沒有搜尋框的下拉 / 單選鈕只列前 100 筆)、lookup 打 `formLookup`(關鍵字送 api)。類別選項的查詢失敗時該欄只顯示既有值、改不了。
 - 定義裡標 `redacted: true` 的欄位(`formRuntimeVersion` 的骨架)一律當讀不到、整格不渲染(`lib/form-engine/field-states.ts`、`field-permissions.ts`);骨架省略了公式,所以「只因依賴而受保護」的計算欄位靠這個旗標,不靠權限 key 推。
 
 ## api 介面

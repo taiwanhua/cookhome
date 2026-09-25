@@ -49,13 +49,10 @@ export class FormFieldOptionsService {
     const field = version.fields.find(
       (candidate) => candidate.key === input.fieldKey,
     );
-    if (field?.options?.kind !== "fieldCategory") {
-      throw validationError(
-        `Field ${input.fieldKey} has no field category options`,
-        ["fieldKey"],
-      );
-    }
+    // 先看讀不讀得到,再看欄位種類:否則讀不到的人能從錯誤碼的差別推出這欄的 `options.kind`
+    // (骨架刻意省略的就是 `options`)
     if (
+      field !== undefined &&
       !isDraft &&
       !fieldGateOf(facts, moduleKey, version.formKey).canShow(
         version.fields,
@@ -64,6 +61,12 @@ export class FormFieldOptionsService {
     ) {
       throw forbiddenError(
         `Missing field permission: ${requiredShowKeys(version.fields, field.key).join(", ")}`,
+      );
+    }
+    if (field?.options?.kind !== "fieldCategory") {
+      throw validationError(
+        `Field ${input.fieldKey} has no field category options`,
+        ["fieldKey"],
       );
     }
     const found = await this.categories.options(
