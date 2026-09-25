@@ -6,8 +6,11 @@ import { formFragment } from "@/test/msw/form-fixtures";
 import {
   defaultDesignOptions,
   findDesigner,
+  preloadFormsPage,
   renderFormsPage,
 } from "./forms-page-test-support";
+
+preloadFormsPage();
 
 const openVersions = async (
   user: ReturnType<typeof renderFormsPage>["user"],
