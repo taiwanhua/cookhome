@@ -13,7 +13,7 @@ import { SetPasswordPage } from "../pages/auth/SetPasswordPage/SetPasswordPage";
 import { AdminShell } from "./AdminShell/AdminShell";
 import { ModuleRoute } from "./guards/ModuleRoute/ModuleRoute";
 import { RequireAuth } from "./guards/RequireAuth";
-import { modulePages } from "./module-pages";
+import { modulePageMinWidths, modulePages } from "./module-pages";
 
 /**
  * 路由表(#61「admin — 三頁與殼」):
@@ -39,7 +39,7 @@ export const AppRoutes = () => (
       path="/"
       element={
         <RequireAuth>
-          <AdminShell />
+          <AdminShell pageMinWidths={modulePageMinWidths} />
         </RequireAuth>
       }
     >

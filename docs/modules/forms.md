@@ -62,11 +62,13 @@
 1. 跑檢查器(`@repo/domain/form` 的 `validateDefinition` + api 端的登錄表),有錯就停,什麼都沒改。
 2. 條件更新 `{ _id, status: "draft", draftRevision: 預期 } → publishing`,同時配正式版號(最大 + 1)、記 changelog。沒更新到 → `CONFLICT`。兩個發布同時送出只有一個命中。
 3. 欄位級權限:這一版要的缺的建、有 `retiredAt` 的清掉、不再宣告的標 `retiredAt`、`name` 隨表單名與欄位 label 更新。同 key 欄位沿用同一筆權限(`_id` 不變,角色的授予跟著留下)。
-4. 切換三筆,依序逐筆寫:這一版 `publishing → published` → 其餘 `published → retired` → `forms.currentVersion` 指向新版。填寫者只看 `currentVersion`,最後一筆寫完前看到的仍是舊版。
+4. 切換三筆,依序逐筆寫:這一版 `publishing → published` → 其餘 `published → retired` → `forms.currentVersion` 指向新版。第一筆寫完到第二筆寫完之間,會**短暫有兩個 `published`**(新版與前一版);對外(填寫、新增資格、版本面板的「目前版本」)一律以 `forms.currentVersion` 為準,最後一筆寫完前填寫者看到的仍是舊版。
 
 **中斷**:有 `publishing` 版本,或有 `published` 版本但它不是 `currentVersion`,就是發布中斷(`FormModel.publishInterrupted`)。`retryPublishFormVersion` 從步驟 3 起重跑全部,每個寫入先看「已是目標狀態就跳過」,重跑幾次結果都一樣。步驟 3 / 4 每筆寫入前有一個檢查點(`form-design/form-publish-hooks.ts`),測試在那裡注入失敗來驗「中途失敗後重試 = 一次成功」。
 
-**退役目前版本**:先 `published → retired`、再 `currentVersion → null`;中斷時再呼叫一次會接著做完(版本已退役就只補後一筆)。`currentVersion` 的兩處寫入(退役、發布步驟 4c)都是條件更新 `{ currentVersion: 讀到的值 }`,讀到之後被別人改了 → `CONFLICT`(`CURRENT_VERSION_CHANGED`),不蓋掉。
+**退役目前版本**(`retireCurrentVersion(input: { formKey, expectedVersion })`,版本面板帶打開跳窗時看到的版本號;`versioning/version-lifecycle.ts`):固定順序兩步條件更新,**冪等**:先 `form_versions { version: expected, status: published } → retired`,再 `forms { currentVersion: expected } → null`。每一步「已是目標狀態」就算完成(版本已是 `retired`、`currentVersion` 已是 null),所以兩步之間中斷後再呼叫一次會接著做完,同一版重複退役也不報錯;只有 `currentVersion` 已指向別的版本(期間有人發布了新版)→ `CONFLICT` `CURRENT_VERSION_CHANGED`,新版不受影響;那一版既不是已發布也不是已退役 → `NO_CURRENT_VERSION`。第二步前有檢查點 `retire-current`(測試注入失敗用)。`currentVersion` 的兩處寫入(退役、發布步驟 4c)都是條件更新 `{ currentVersion: 讀到的值 }`,讀到之後被別人改了 → `CONFLICT`(`CURRENT_VERSION_CHANGED`),不蓋掉。
+
+**沒有刪除整張表單**:表單與已發布 / 已退役的版本一律保留(提交綁著它們顯示);只有未發布的設計草稿可刪(下面的「刪除草稿」)。root 層也沒有另外的「啟用」旗標 —— 停用共用表單 = 退役目前版本或收回分派;租戶層才有 `org_form.enabled` 開關。
 
 **存草稿**:檢查器的錯草稿可以先存(隨 payload 的 `validation` 回);只有正則不合法 / 可能造成 ReDoS 的不收(存草稿與發布都驗過 ReDoS 才收)。檢查器包含表達式的**型別檢查**(`@repo/domain/form` 的 `validate-expression-types.ts`,與設計器選擇器同一張型別表 `expression-types.ts`):公式 / 預設值公式的根 = 欄位型別、條件 / 自訂驗證的根 = 是 / 否、每個參數位置型別相符(`EXPR_TYPE_MISMATCH`)、`dateDiff` 單位只能 `days` / `hours` / `minutes`(`EXPR_DATE_DIFF_UNIT`);比較運算子(等不等於、大小)兩邊要完全同型,日期與日期時間不互通(要比請用 `dateDiff`,它兩種都收);以及預設值規則(`DEFAULT_*`)、上傳欄上限(`UPLOAD_LIMIT_INVALID`)、日期時間欄上下限的格式(`RULE_RANGE_INVALID`)。這些錯存草稿照收、發布擋。
 
@@ -95,8 +97,9 @@
 - **`touched[]`**:使用者碰過的欄位 key。`createFormDraft` / `saveFormDraft` 的 `touched`(缺席 = 保留目前存的;只收這一版使用者填的欄位、去重);admin 填寫時沒碰過的欄位依賴變了就重算預設值,碰過就停(只在還沒送出過的草稿;送出過的單不再動)。
 - **日期 / 日期時間**(`date` / `datetime`):兩者都是時點,存 Mongo `Date`(`date` = 選的那天在租戶時區 00:00);`values`、`revisions[].values`、`summary.date` 都是。前端送帶時區的 ISO 8601(`YYYY-MM-DD`、不帶時區的字串拒收 `TYPE_INVALID`),值正規化的出口(`form-values/submission-values.service.ts` → `temporal-values.ts`)換成 `Date`;`date` 以租戶時區收斂成當地 00:00。讀出來的 `Date` 由 GraphQL `values`(JSON)序列化成 ISO 字串;表達式的語意值也是 ISO 字串(`@repo/domain/form` 的 `semanticValueOf`)。`rules.min` / `max`、表達式常數、`default.value` 在版本定義裡是 ISO 字串:`date` 的上下限以租戶時區的當地日期比、`datetime` 以時點比(超出時訊息以租戶時區顯示);比較運算兩邊都是時點時比時點;`dateDiff` 的 `days` 是租戶時區的當地日期差,`hours` / `minutes` 是時點差。同值判斷(無 `edit` 送回同一個值)比時點。lookup `form_submission` 來源的日期值回 ISO、顯示名以讀者的租戶時區格式化。時區換算與格式化的正本是 `packages/domain/src/form/temporal.ts`(`toInstant` / `startOfLocalDay` / `compareLocalDay` / `addLocalCalendar` / `formatTemporal`)。
 - `values` / `summary` / `revision` / `revisions[]` / `editVersion` 在**同一次**條件更新寫入(條件含 `editVersion`,已完成修改另含 `revision`)。
+- **容量上限**(`form-runtime/revision-limits.ts`):每筆提交最多 50 筆修訂,且**更新後的完整文件**(最新 `values`、全部 `revisions` 與這次要加的快照)BSON 位元組不超過 8MB(Mongo 單筆 16MB 的一半,留給同一次更新的其他欄位)。存草稿、送出(含走流程的再送出)、已完成修改在寫入前以 `calculateObjectSize` 估算,搭 `expectedEditVersion` 條件更新(估算後被別人改了,條件更新自然不命中);超過 → `CONFLICT`:筆數 `REVISION_LIMIT`、容量 `DOCUMENT_TOO_LARGE`,什麼都不寫。已完成的提交不開放複製成新單(另表保存留待之後)。
 
-**設計器預覽**(`previewFormVersion`):「不套欄位級權限」只指**本表單**的欄位(閘門對本表單全開);引用與 lookup 選項的來源照樣用操作者真實的權限 —— 否則設計者可以在草稿裡放一個引用欄、把顯示欄指到別張表單的受保護欄位,再用預覽讀出原值。
+**設計器預覽**(`previewFormVersion`,`version` 缺席 = 草稿、有值 = 那一版已發布 / 已退役的定義;版本面板唯讀檢視歷史版本時的「以後端重算」帶它):「不套欄位級權限」只指**本表單**的欄位(閘門對本表單全開);引用與 lookup 選項的來源照樣用操作者真實的權限 —— 否則設計者可以在草稿裡放一個引用欄、把顯示欄指到別張表單的受保護欄位,再用預覽讀出原值。
 
 ## 列表欄位配置
 
@@ -197,7 +200,9 @@
 
 - 欄位級權限:已有提交 → 用 api 的 `fieldStates.redacted` 與 `abilities.canEditField`;新增、草稿還沒建 → 由持有的 `<模組>.show-/edit-<formKey>-<fieldKey>` 推(推錯只影響畫面,寫入仍由 api 守)。
 - 預設值與「碰過」旗標在 `hooks/useFillValues.ts`(填寫頁與設計器預覽共用;計算在 `lib/form-engine/form-defaults.ts`):新增頁一打開就填預設值;改到的欄位(含帶入)記為碰過,其餘有預設值、改得動、公式引用都讀得到的欄位依目前的值重算;存草稿時 `touched` 一併送出。引用欄的預設值畫面上先用登入者名稱 / 當前組織名稱當 label,送出時 api 重取。
-- 日期 / 日期時間欄:`DateWidget`(`@repo/ui/date-picker`,選日 → 租戶時區當地 00:00 的 ISO;顯示 → 時點換成該時區的 `YYYY-MM-DD`,換算在 `lib/form-engine/local-day.ts`)與 `DateTimeWidget`(`@repo/ui/date-time-picker`,收發 ISO)以 `WidgetContext.timezone` 輸入與顯示(`FormRenderer` 由表達式 `ctx.timezone` 帶入:填寫 / 草稿 / 設計器預覽 = 讀者的租戶時區 `hooks/useTenantTimezone.ts`(`me.currentOrg.timezone`)、唯讀 = 那次修訂的時區)。**顯示一律走 `hooks/useTemporalText.ts`**(`formatTemporal`:`date` 印 `YYYY-MM-DD`、`datetime` 印 `YYYY-MM-DD HH:mm`;時區 = 呼叫端給的 → 讀者的租戶時區 → `Asia/Taipei`,不用瀏覽器時區),元件不自己格式化日期值:列表(送出過的列用該筆 `ctx.timezone`、草稿列用租戶時區;摘要槽「日期」對到日期欄印日期、其餘印到分鐘)、詳情、修訂差異(兩邊各用自己修訂的時區)、計算欄位、修訂時間、設計器預覽的摘要。預設值的固定日期同樣存當地 00:00 的 ISO。
+- 日期 / 日期時間欄:`DateWidget`(`@repo/ui/date-picker`,選日 → 租戶時區當地 00:00 的 ISO;顯示 → 時點換成該時區的 `YYYY-MM-DD`,換算在 `lib/form-engine/local-day.ts`)與 `DateTimeWidget`(`@repo/ui/date-time-picker`,收發 ISO)以 `WidgetContext.timezone` 輸入與顯示 = **讀者現在的租戶時區**(`hooks/useTenantTimezone.ts`,`me.currentOrg.timezone`;填寫 / 草稿 / 設計器預覽由表達式 `ctx.timezone` 帶入,唯讀檢視由詳情明給)。修訂的 `ctx.timezone` 只用於重算顯示 / 唯讀條件,不決定顯示。**顯示一律走 `hooks/useTemporalText.ts`**(`formatTemporal`:`date` 印 `YYYY-MM-DD`、`datetime` 印 `YYYY-MM-DD HH:mm`;時區 = 呼叫端給的 → 讀者的租戶時區 → `Asia/Taipei`,不用瀏覽器時區),元件不自己格式化日期值:列表(送出過的列用該筆 `ctx.timezone`、草稿列用租戶時區;摘要槽「日期」對到日期欄印日期、其餘印到分鐘)、詳情、修訂差異、計算欄位、修訂時間(這四處都是讀者的租戶時區)、設計器預覽的摘要。預設值的固定日期同樣存當地 00:00 的 ISO。
+- **唯讀檢視 = 同一套填寫元件走 readOnly**(`FormRenderer` 的 `readonly` mode 對每個 widget 傳 `isReadOnly`,不是停用):文字 / 數字 / 日期 / 選項 / 引用走 `widgets/ReadOnlyField.tsx`(有框輸入框、文字照一般顏色、`readonly`;數字帶單位、選項與引用顯示 `displayValues` 的現名或快照 +「(來源不可用)」、多選以「、」串起;不查選項),是否欄是同一個開關 / 勾選框帶 `readOnly`,上傳欄是檔名下載鈕(`onDownload`)。填寫、預覽、唯讀三種模式的分區都是有框卡片 + 標題列。`FormValue` 只給表格格子(列表、修訂差異)。詳情的表單 / 版本 / 狀態 / 建立者與修訂清單收在「修訂紀錄」跳窗(`FormSubmissionDetail` 的 `isHistoryOpen` / `onHistoryClose`,按鈕由頁面放在標題列「刪除」左邊)。
+- 提交的容量上限(`REVISION_LIMIT` / `DOCUMENT_TOO_LARGE`)在 `lib/form-engine/form-errors.ts` 細分成自己的碼,由 `hooks/useCapacityErrorSnackbar.ts` 以 Snackbar 告知(不是「被別人更新」,不給重新載入)。
 - 選項欄三種來源統一在 `components/form-engine/widgets/useFieldOptions.ts`:靜態清單讀定義、類別選項打 `formFieldOptions`(先取前 100 筆、前端比對關鍵字;api 回的 `totalCount` 大於取回筆數時,打字搜尋改送 api 的 `keyword`。沒有搜尋框的下拉 / 單選鈕只列前 100 筆)、lookup 打 `formLookup`(關鍵字送 api)。類別選項的查詢失敗時該欄只顯示既有值、改不了。
 - 定義裡標 `redacted: true` 的欄位(`formRuntimeVersion` 的骨架)一律當讀不到、整格不渲染(`lib/form-engine/field-states.ts`、`field-permissions.ts`);骨架省略了公式,所以「只因依賴而受保護」的計算欄位靠這個旗標,不靠權限 key 推。
 
@@ -215,6 +220,8 @@ input 欄位的缺席 / `null`:
 
 - `UpdateFormInput.name`:缺席或 `null` = 不動。`tabLabelTemplate`:缺席 = 不動、`null` 或空字串 = 清空(改回模組層模板)。
 - `CreateFormVersionDraftInput.baseVersion`:缺席 / `null` = 空白草稿。
+- `RetireCurrentVersionInput.expectedVersion`:必填,呼叫端當時看到的目前版本號(見「版本狀態與四步發布」的退役)。
+- `PreviewFormVersionInput.version`:缺席 / `null` = 草稿;有值 = 該已發布 / 已退役版本(不存在或是發布中的版號 → `NOT_FOUND`)。
 - `SaveFormDraftInput.values` / `UpdateFormSubmissionInput.values`:**整張表單的狀態**,缺席的欄位 = 清空;看不到的欄位不送或原樣送回 `"[redacted]"` 都算沒動。`CreateFormDraftInput.values` 缺席 = 空白(沒碰過且空著的欄位由後端填預設值)。
 - `CreateFormDraftInput.touched`:缺席 / `null` = 都沒碰過。`SaveFormDraftInput.touched`:缺席 / `null` = 保留目前存的,有值 = 整份取代(只收這一版使用者填的欄位)。
 - `FormFieldOptionsInput`:`version` 缺席 = 草稿(同下一條);`keyword` 缺席 / 空字串 = 全部(比對顯示名與值,不分大小寫);`pageSize` 預設 100(上限 100)。
@@ -226,7 +233,7 @@ input 欄位的缺席 / `null`:
 - `formRuntimeVersion` 的 `fields`:讀者讀不到的欄位是骨架且 `redacted: true`(見「讀取投影」);`redacted` 缺席 = 完整定義。
 - `FormLookupRecord.values`:受保護且無權的欄位**省略**(鍵不存在),那筆版本沒有的欄位為 `null`。
 - `FormSubmissionModel.touched`:使用者碰過的欄位 key(草稿填寫時用);一定有值(沒有 = 空陣列)。
-- `me.currentOrg.timezone`(`forms/me-org-timezone.resolver.ts`):讀者當前組織所屬租戶的時區(IANA;租戶頂層 `orgs.settings.timezone`,沒設 = `Asia/Taipei`;根組織讀根組織的設定)。表單引擎日期時間欄的單一時區來源(送出過的修訂例外,用自己的 `ctx.timezone`)。
+- `me.currentOrg.timezone`(`forms/me-org-timezone.resolver.ts`):讀者當前組織所屬租戶的時區(IANA;租戶頂層 `orgs.settings.timezone`,沒設 = `Asia/Taipei`;根組織讀根組織的設定)。表單引擎日期時間欄輸入與顯示的單一時區來源(送出過的修訂的 `ctx.timezone` 只用於重算條件)。
 - `FormModel.tenantEnabled`:站在租戶內時本租戶的開關,root 視角為 `null`;`assignments` 只有 root 視角的共用表單有。
 - **`abilities` 含權限**(業務模組那一種,前端直接用,不再與 `usePermissions` 相乘):`FormAbilities` 已含 `system.forms.*` 權限與「是不是自己的表單 / 站在哪裡」;`FormSubmissionAbilities.canEdit` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成:`edit`(走過流程的已完成為 false);`canDelete` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成 / 已駁回:`delete`;`canWithdraw` = 建立者、審核中;`canVoid` = 走過流程的已完成、建立者或 `edit`;`canCopy` = 已作廢 + `create`;`canEditField` = 權限層面改得動的欄位(條件唯讀看 `fieldStates.readonly`)。只審過某修訂的讀者一律 false。
 
@@ -239,7 +246,7 @@ input 欄位的缺席 / `null`:
 | `CONFLICT`                 | 樂觀鎖或搶鎖沒搶到(規格寫的「409」),`reason` 見下         | 提示「已被別人更新,請重新載入」;發布中斷時顯示「重試」 |
 | `PERMISSION_NOT_DELETABLE` | 退役權限清理的前置檢查未過;`extensions.reasons` + `usage` | 依 reasons 顯示原因;`CONFIRM_REQUIRED` 時跳確認再送    |
 
-- `CONFLICT` 的 `reason`:`DRAFT_REVISION_MISMATCH`、`DRAFT_EXISTS`、`DRAFT_MISSING`、`PUBLISH_IN_PROGRESS`、`PUBLISH_NOT_INTERRUPTED`、`NO_CURRENT_VERSION`、`CURRENT_VERSION_CHANGED`、`EDIT_VERSION_MISMATCH`、`REVISION_MISMATCH`、`STATUS_MISMATCH`、`CLIENT_REQUEST_REUSED`、`ALREADY_COPIED`(複製為新單:來源已複製過)。
+- `CONFLICT` 的 `reason`:`DRAFT_REVISION_MISMATCH`、`DRAFT_EXISTS`、`DRAFT_MISSING`、`PUBLISH_IN_PROGRESS`、`PUBLISH_NOT_INTERRUPTED`、`NO_CURRENT_VERSION`、`CURRENT_VERSION_CHANGED`、`EDIT_VERSION_MISMATCH`、`REVISION_MISMATCH`、`STATUS_MISMATCH`、`CLIENT_REQUEST_REUSED`、`ALREADY_COPIED`(複製為新單:來源已複製過)、`REVISION_LIMIT`(修訂已滿 50 筆;前端文案「修訂次數已達上限,請建立新的申請」)、`DOCUMENT_TOO_LARGE`(更新後文件超過 8MB;「資料容量已達上限,請縮減內容」)。後兩者前端以 Snackbar 顯示,不提示重新載入。
 - `FORBIDDEN` 的 `reason`:`FIELD_FORBIDDEN`(附 `fieldKey`)、`FORM_NOT_AVAILABLE`、`NOT_FORM_OWNER`、`ROOT_ONLY`;端點層沒權限的 `FORBIDDEN` 沒有 reason。別人的草稿一律 `NOT_FOUND`(草稿只屬於建立者,不透露它存在)。
 - `PERMISSION_NOT_DELETABLE` 的 `reasons`:`NOT_DYNAMIC`、`NOT_RETIRED`、`USED_BY_DRAFTS`、`CONFIRM_REQUIRED`。
 - `VALIDATION_FAILED`:定義有錯 → `fields: ["definition"]` + `issues`(檢查器的 `DefinitionIssue[]`,每筆帶定位);值有錯 → `fields`(欄位 key)+ `fieldErrors`(`{ fieldKey, code, message }`,code 見 `@repo/domain/form` 的 `VALUE_ISSUE_CODES`);其他輸入錯誤照一般的 `fields`。

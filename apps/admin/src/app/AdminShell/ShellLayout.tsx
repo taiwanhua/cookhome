@@ -11,14 +11,23 @@ import {
   matchModuleRoute,
   normalizePathname,
 } from "@/lib/module-tree";
+import { useSideNavStore } from "@/stores/useSideNavStore";
 
 import { AppBar } from "./AppBar/AppBar";
 import { RouteTabs } from "./RouteTabs/RouteTabs";
 import { useRouteTabs } from "./RouteTabs/useRouteTabs";
 import { SideNav } from "./SideNav/SideNav";
+import {
+  DEFAULT_SHELL_MIN_WIDTH,
+  MAIN_PADDING,
+  type ShellMinWidth,
+  shellContentMinWidth,
+} from "./shell-geometry";
 
 export interface ShellLayoutProps {
   me: MeQuery["me"];
+  /** 模組 key → 該頁內容區最小寬度的斷點(沒列 = `lg`;`app/module-pages.tsx` 的 `modulePageMinWidths`) */
+  pageMinWidths?: Readonly<Record<string, ShellMinWidth>>;
 }
 
 /**
@@ -28,8 +37,12 @@ export interface ShellLayoutProps {
  * 由 `flex: 1` + `minHeight: 0` 取得一個**確定的高度**並自己捲動。
  * 頁面因此可以用 `flex: 1` / `height: 100%` 撐滿(組織管理、使用者管理的左右兩欄就是這樣滿版);
  * 內容比視窗高的頁面照舊在內容區捲動,不會被裁掉。
+ *
+ * **寬度也有下限**(非手機版面):內容區的最小寬度 = 主題斷點(預設 `lg`,頁面可宣告 `xl`)− 側欄 − 內距,
+ * 視窗比斷點窄時由 `<main>` 水平捲動,不擠壓內容;側欄收合時跟著重算,document 本身永遠不出現水平捲軸
+ * (外框 `overflow: hidden`,主欄 `minWidth: 0`)。幾何在 `shell-geometry.ts`。
  */
-export const ShellLayout = ({ me }: ShellLayoutProps) => {
+export const ShellLayout = ({ me, pageMinWidths = {} }: ShellLayoutProps) => {
   const t = useTranslations("admin.shell");
   const tCommon = useTranslations("common");
   const { pathname } = useLocation();
@@ -47,6 +60,11 @@ export const ShellLayout = ({ me }: ShellLayoutProps) => {
   // `/` 與群組路由會立刻轉走(ModuleRoute),標題留空不閃「無權限」
   const title =
     currentModule?.name ?? (path === "/" ? "" : t("forbidden.title"));
+  const minWidth =
+    (currentModule === undefined
+      ? undefined
+      : pageMinWidths[currentModule.key]) ?? DEFAULT_SHELL_MIN_WIDTH;
+  const isNavCollapsed = useSideNavStore((state) => state.isCollapsed);
 
   return (
     <Box
@@ -89,10 +107,30 @@ export const ShellLayout = ({ me }: ShellLayoutProps) => {
             overflow: "auto",
             display: "flex",
             flexDirection: "column",
-            p: 4,
+            p: MAIN_PADDING,
           }}
         >
-          <Outlet />
+          {/* 內容的最小寬度(非手機版面):視窗比斷點窄時由 <main> 水平捲動,不擠壓內容;
+              高度鏈照舊往下傳(`flex: 1` + `minHeight: 0`,STYLE-08) */}
+          <Box
+            data-testid="shell-content"
+            sx={(theme) => ({
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+              minWidth: {
+                xs: 0,
+                sm: shellContentMinWidth(
+                  theme.breakpoints.values[minWidth],
+                  theme.spacing,
+                  isNavCollapsed,
+                ),
+              },
+            })}
+          >
+            <Outlet />
+          </Box>
         </Box>
       </Box>
     </Box>
