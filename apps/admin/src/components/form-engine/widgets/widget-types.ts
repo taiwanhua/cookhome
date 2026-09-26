@@ -12,6 +12,11 @@ export interface WidgetContext {
   formKey: string;
   /** 已發布 / 退役版的版號;設計器預覽(草稿)為 null —— lookup 依它決定查哪一版的定義 */
   version: number | null;
+  /**
+   * 日期時間欄輸入與顯示用的 IANA 時區(租戶時區;唯讀檢視是那次修訂的時區)。
+   * `FormRenderer` 由表達式的 `ctx.timezone` 帶入;不給 = 瀏覽器時區。
+   */
+  timezone?: string;
 }
 
 export interface WidgetProps {

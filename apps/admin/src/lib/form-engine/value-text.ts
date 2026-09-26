@@ -26,6 +26,11 @@ export interface FormValueRenderContext {
   text: { empty: string; yes: string; no: string; unavailable: string };
   /** 上傳欄的下載(詳情頁給;列表不給就只顯示檔名) */
   onDownload?: (field: FieldDef) => void;
+  /**
+   * 日期時間欄的顯示時區(那一筆的 `ctx.timezone` = 租戶時區);不給 = 瀏覽器時區。
+   * 格式化在元件端走 `useFormatter`(`FormValue`),本檔的純文字版只回原本的 ISO 字串。
+   */
+  timezone?: string;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

@@ -2,6 +2,7 @@ import { FormDecimal, calendarDateOf, roundToPrecision } from "./decimal";
 import { computedOrder } from "./dependencies";
 import { evaluateRaw } from "./expression";
 import { semanticValuesOf } from "./semantic";
+import { instantOf, toStoredDateTime } from "./temporal";
 import type {
   ExpressionContext,
   FieldDef,
@@ -18,6 +19,7 @@ import type {
  * 把表達式結果轉成該型別的**存值**,轉不了 → null:
  * - number:取到 `precision` 位的十進位字串
  * - date:收斂成 `YYYY-MM-DD`(以 `timezone` 換算日曆日)—— `now` 回的是 ISO 時間,不能原樣存進日期欄
+ * - datetime:收斂成 UTC 存值(`YYYY-MM-DDTHH:mm:ssZ`);`YYYY-MM-DD` 視為租戶時區當天 00:00
  * - text / multiline:字串(decimal 不取位轉字串)
  */
 export function coerceComputedResult(
@@ -38,6 +40,10 @@ export function coerceComputedResult(
     }
     case "date": {
       return calendarDateOf(result, timezone);
+    }
+    case "datetime": {
+      const instant = instantOf(result, timezone);
+      return instant === null ? null : toStoredDateTime(new Date(instant));
     }
     case "text":
     case "multiline": {

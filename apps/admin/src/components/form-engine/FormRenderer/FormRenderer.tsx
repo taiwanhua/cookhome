@@ -113,6 +113,12 @@ export const FormRenderer = ({
     [version, values, expressionContext, mode, permissions, serverState],
   );
 
+  // 日期時間欄以表達式 ctx 的時區(填寫 = 租戶時區、唯讀 = 那次修訂的時區)輸入與顯示
+  const cellContext = useMemo(
+    () => ({ ...context, timezone: expressionContext.timezone }),
+    [context, expressionContext.timezone],
+  );
+
   const handleChange = (fieldKey: string, value: unknown) => {
     onChange?.({ ...values, [fieldKey]: value });
   };
@@ -139,7 +145,7 @@ export const FormRenderer = ({
               state={state}
               value={resolved.values[field.key] ?? null}
               mode={mode}
-              context={context}
+              context={cellContext}
               onChange={handleChange}
               errorMessage={
                 fieldErrors.find((error) => error.fieldKey === field.key)

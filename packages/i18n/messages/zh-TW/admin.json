@@ -1086,7 +1086,8 @@
       "optionsUnavailable": "目前無法取得選項,只能顯示既有值。",
       "loading": "載入中…",
       "noOptions": "沒有符合的選項",
-      "uploadHint": "PDF / Office / 圖片 / ZIP,20MB 以內",
+      "uploadHintLimited": "可上傳 {types},{size} MB 以內",
+      "uploadRejected": "檔案類型或大小不符:可上傳 {types},{size} MB 以內。",
       "uploading": "上傳中…",
       "uploadFailed": "上傳失敗,請再試一次。",
       "removeFile": "移除檔案"
@@ -1349,6 +1350,7 @@
       "baseOn": "以 v{version} 為基底開新草稿",
       "diff": "與上一版差異",
       "view": "檢視 v{version}",
+      "deleteDraft": "刪除草稿",
       "diffNone": "與上一版的欄位定義相同。",
       "diffAdded": "新增:{fields}",
       "diffRemoved": "移除:{fields}",
@@ -1359,6 +1361,13 @@
       "retry": "重試發布",
       "retried": "已完成發布。",
       "publishedLine": "{at} · {user}"
+    },
+    "deleteDraft": {
+      "title": "刪除草稿?",
+      "body": "草稿與設計器裡還沒存的變更都會丟掉;已發布的版本不受影響,之後可再以任一版本為基底開新草稿。",
+      "cancel": "取消",
+      "confirm": "刪除",
+      "success": "已刪除草稿。"
     },
     "publish": {
       "title": "發布新版本",
@@ -1403,6 +1412,7 @@
         "multiline": "多行文字",
         "number": "數字",
         "date": "日期",
+        "datetime": "日期時間",
         "select": "單選",
         "multiSelect": "多選",
         "boolean": "是否",
@@ -1455,6 +1465,7 @@
         "multiline": "多行文字",
         "number": "數字",
         "date": "日期",
+        "datetime": "日期時間",
         "select": "單選",
         "multiSelect": "多選",
         "boolean": "是否",
@@ -1469,6 +1480,7 @@
         "textArea": "多行輸入框",
         "number": "數字輸入框",
         "datePicker": "日期選擇",
+        "dateTimePicker": "日期時間選擇",
         "dropdown": "下拉選單",
         "radio": "單選鈕",
         "autocomplete": "可搜尋選單",
@@ -1497,7 +1509,26 @@
       "permissionEdit": "限定可改(要權限才能改)",
       "permissionHint": "發布時會各建一筆欄位級權限,在角色的權限矩陣授予。",
       "delete": "刪除欄位",
-      "backToSettings": "← 表單設定"
+      "backToSettings": "← 表單設定",
+      "defaultValue": "預設值",
+      "defaultKinds": {
+        "none": "不設",
+        "constant": "固定值",
+        "expression": "公式"
+      },
+      "defaultSystem": {
+        "user": "填寫者",
+        "org": "填寫者的組織"
+      },
+      "defaultBoolean": {
+        "true": "是",
+        "false": "否"
+      },
+      "defaultFormula": "預設值公式",
+      "defaultConstant": "預設的值",
+      "defaultHint": "新增時自動填入;填寫的人還沒改過這欄前,它引用的欄位變了會跟著重算,改過就不再變。",
+      "defaultPickerHint": "用填寫時的選擇器挑(選項以已存的草稿查詢)",
+      "defaultClear": "清除預設值"
     },
     "options": {
       "source": "選項來源",
@@ -1571,7 +1602,22 @@
       "allowCustom": "允許自訂值",
       "custom": "自訂驗證(條件成立才通過)",
       "customMessage": "錯誤訊息",
-      "customMessageHint": "條件不成立時顯示;沒填就顯示「欄位名 不符合規則」"
+      "customMessageHint": "條件不成立時顯示;沒填就顯示「欄位名 不符合規則」",
+      "uploadAccept": "允許的檔型",
+      "uploadTypes": {
+        "png": "PNG 圖片",
+        "jpg": "JPEG 圖片",
+        "webp": "WebP 圖片",
+        "pdf": "PDF",
+        "doc": "Word(.doc)",
+        "docx": "Word(.docx)",
+        "xls": "Excel(.xls)",
+        "xlsx": "Excel(.xlsx)",
+        "zip": "ZIP"
+      },
+      "uploadMaxSize": "大小上限(MB)",
+      "uploadMaxSizeHint": "不填 = 平台上限 {max} MB;只能調小",
+      "dateTimeRangeZone": "以 {timezone} 的時間輸入"
     },
     "expression": {
       "root": "根",

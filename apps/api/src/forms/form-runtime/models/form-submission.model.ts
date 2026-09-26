@@ -247,6 +247,10 @@ export class FormSubmissionModel {
   @Field(() => ID, { nullable: true })
   copiedFrom!: string | null;
 
+  /** 使用者碰過的欄位 key(草稿填寫時用來決定預設值還要不要跟著重算)。 */
+  @Field(() => [String])
+  touched!: string[];
+
   /**
    * 複製為新單時被清空的欄位(來源的引用已讀不到);只有 `copySubmissionToDraft` 的回傳有值,
    * 其他讀取為空陣列。

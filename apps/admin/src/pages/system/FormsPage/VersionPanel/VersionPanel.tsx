@@ -22,6 +22,7 @@ import { definitionOf } from "@/lib/form-engine/definition";
 import { formErrorOf } from "@/lib/form-engine/form-errors";
 import { versionDiff } from "@/lib/form-engine/version-diff";
 
+import { DeleteDraftDialog } from "./DeleteDraftDialog";
 import { PublishDialog } from "./PublishDialog";
 import { RetireDialog } from "./RetireDialog";
 import { VersionDiffView } from "./VersionDiffView";
@@ -43,7 +44,8 @@ const STATUS_TONE: Record<FormVersionStatus, TagTone> = {
 
 /**
  * 版本面板(Spec 6a §8 畫面 3):草稿 / 發布(含中斷重試)/ 退役目前版本、changelog、
- * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿、「檢視」任一已發布 / 已退役版本(唯讀設計器)。
+ * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿、「檢視」任一已發布 / 已退役版本(唯讀設計器)、
+ * 刪除草稿(確認跳窗;發布中不可)。
  * 按鈕依 `form.abilities.canEdit`;
  * 發布中斷時只剩「重試發布」(api 在中斷期間擋開草稿 / 退役 / 再發布)。
  */
@@ -58,6 +60,7 @@ export const VersionPanel = ({
   const { session } = useSession();
   const [isPublishing, setIsPublishing] = useState(false);
   const [isRetiring, setIsRetiring] = useState(false);
+  const [isDeletingDraft, setIsDeletingDraft] = useState(false);
   const [diffOf, setDiffOf] = useState<number | null>(null);
   const versions = useFormVersionsQuery(session.client, { formKey: form.key });
   const items = versions.data?.formVersions.items ?? [];
@@ -124,6 +127,18 @@ export const VersionPanel = ({
             }}
           >
             {t("publish")}
+          </Button>
+        )}
+        {canEdit && !isLocked && isDraft && (
+          <Button
+            size="small"
+            variant="text"
+            color="error"
+            onClick={() => {
+              setIsDeletingDraft(true);
+            }}
+          >
+            {t("deleteDraft")}
           </Button>
         )}
         {canEdit && !isLocked && isCurrent && (
@@ -271,6 +286,19 @@ export const VersionPanel = ({
           }}
           onPublished={() => {
             setIsPublishing(false);
+            onChanged();
+          }}
+        />
+      )}
+      {isDeletingDraft && draft !== undefined && (
+        <DeleteDraftDialog
+          formKey={form.key}
+          draftRevision={draft.draftRevision}
+          onClose={() => {
+            setIsDeletingDraft(false);
+          }}
+          onDeleted={() => {
+            setIsDeletingDraft(false);
             onChanged();
           }}
         />

@@ -1,5 +1,6 @@
 import { Button } from "@repo/ui/button";
 
+import { useDateTimeText } from "@/hooks/useDateTimeText";
 import {
   type FormValueRenderContext,
   displayTextOf,
@@ -12,8 +13,13 @@ import {
  * 上傳欄有 `onDownload` 時檔名是按鈕(簽名網址短效,點了才去要)。
  */
 export const FormValue = (ctx: FormValueRenderContext) => {
-  const text = displayTextOf(ctx);
+  const dateTimeText = useDateTimeText();
   const { onDownload, field, value } = ctx;
+  // 日期時間:存 UTC,以那一筆的時區(租戶時區)依語系格式化
+  const text =
+    field.type === "datetime" && typeof value === "string" && value !== ""
+      ? dateTimeText(value, ctx.timezone)
+      : displayTextOf(ctx);
   if (
     field.type !== "upload" ||
     onDownload === undefined ||

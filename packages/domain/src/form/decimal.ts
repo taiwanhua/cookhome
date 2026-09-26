@@ -1,5 +1,7 @@
 import { Decimal } from "decimal.js";
 
+import { isDateTimeString } from "./temporal";
+
 /**
  * 表達式的數值運算(Spec §5「數值」):中間過程**不取位**,只有最後依欄位 `precision` 四捨五入;
  * 除以零與空值 → `null`。另收日期的日曆日換算與文字串接。
@@ -95,7 +97,8 @@ export function textOf(value: unknown): string {
 }
 
 /**
- * 兩個值的順序:兩邊都是數值就比數值,否則以**字碼**比文字(`YYYY-MM-DD` 的字碼序即日期序)。
+ * 兩個值的順序:兩邊都是數值就比數值、兩邊都是日期時間就比時點,否則以**字碼**比文字
+ * (`YYYY-MM-DD` 的字碼序即日期序)。
  *
  * 不用 `localeCompare`:語系排序吃執行環境的 ICU 版本,前端即時算與後端重算可能不一致
  * (STRUCT-10 的同一個坑),而且和 JSONLogic 原生 `<` / `>` 的字碼序不同。
@@ -105,6 +108,10 @@ function orderOf(left: unknown, right: unknown): number {
   const rightDecimal = toDecimal(right);
   if (leftDecimal && rightDecimal) {
     return leftDecimal.comparedTo(rightDecimal);
+  }
+  // 兩邊都是日期時間:比時點(`ctx.now` 帶毫秒、存值不帶,字碼序會把同一刻判成不同)
+  if (isDateTimeString(left) && isDateTimeString(right)) {
+    return Math.sign(Date.parse(left) - Date.parse(right));
   }
   const leftText = textOf(left);
   const rightText = textOf(right);
@@ -141,6 +148,9 @@ export function looseEquals(left: unknown, right: unknown): boolean {
   const rightDecimal = toDecimal(right);
   if (leftDecimal && rightDecimal) {
     return leftDecimal.equals(rightDecimal);
+  }
+  if (isDateTimeString(left) && isDateTimeString(right)) {
+    return Date.parse(left) === Date.parse(right);
   }
   return unwrapDecimal(left) == unwrapDecimal(right);
 }

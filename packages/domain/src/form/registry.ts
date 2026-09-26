@@ -14,6 +14,7 @@ export const DEFAULT_WIDGET_REGISTRY: WidgetRegistry = {
   multiline: ["textArea"],
   number: ["number"],
   date: ["datePicker"],
+  datetime: ["dateTimePicker"],
   select: ["dropdown", "radio", "autocomplete"],
   multiSelect: ["checkboxGroup", "multiDropdown", "autocompleteMulti"],
   boolean: ["switch", "checkbox"],

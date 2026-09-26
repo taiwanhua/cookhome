@@ -3,6 +3,7 @@ import { DEFAULT_WIDGET_REGISTRY } from "@repo/domain/form";
 import { ReferenceField } from "../ReferenceField";
 import { BooleanWidget } from "./BooleanWidget";
 import { ChoiceWidget } from "./ChoiceWidget";
+import { DateTimeWidget } from "./DateTimeWidget";
 import { DateWidget } from "./DateWidget";
 import { MultiChoiceWidget } from "./MultiChoiceWidget";
 import { NumberWidget } from "./NumberWidget";
@@ -20,6 +21,7 @@ export const WIDGET_REGISTRY: Readonly<Record<string, WidgetComponent>> = {
   textArea: TextWidget,
   number: NumberWidget,
   datePicker: DateWidget,
+  dateTimePicker: DateTimeWidget,
   dropdown: ChoiceWidget,
   radio: ChoiceWidget,
   autocomplete: ChoiceWidget,

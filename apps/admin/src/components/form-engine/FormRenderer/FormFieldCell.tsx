@@ -64,6 +64,7 @@ export const FormFieldCell = ({
         text={text}
         errorMessage={errorMessage ?? null}
         {...(display !== undefined && { display })}
+        {...(context.timezone !== undefined && { timezone: context.timezone })}
       />
     );
   }
@@ -80,6 +81,9 @@ export const FormFieldCell = ({
             value={value}
             {...(display !== undefined && { display })}
             {...(onDownload !== undefined && { onDownload })}
+            {...(context.timezone !== undefined && {
+              timezone: context.timezone,
+            })}
             text={text}
           />
         </Typography>

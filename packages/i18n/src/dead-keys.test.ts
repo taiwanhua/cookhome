@@ -181,6 +181,21 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
       "`t(`units.${unit}`)`,unit 取自 `DATE_DIFF_UNITS`(`dateDiff` 的單位)",
   },
   {
+    key: "admin.forms.property.defaultKinds.",
+    reason:
+      "`t(`defaultKinds.${item}`)`,item 取自 `defaultKindsOf(type)`(固定值 / 公式;`none` 直接引用)",
+  },
+  {
+    key: "admin.forms.property.defaultSystem.",
+    reason:
+      "`t(`defaultSystem.${…}`)`,由 `REFERENCE_DEFAULT_PATHS`(填寫者 / 填寫者的組織)換算",
+  },
+  {
+    key: "admin.forms.rules.uploadTypes.",
+    reason:
+      "`t(`uploadTypes.${group.key}`)`,key 取自 `lib/form-engine/upload-types.ts` 的 `UPLOAD_TYPE_GROUPS`",
+  },
+  {
     key: "admin.forms.property.keyProblems.",
     reason:
       "`t(`keyProblems.${problem}`)`,problem 是 `fieldKeyProblemOf` 回的原因(格式 / 保留字 / 重複)",

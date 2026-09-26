@@ -125,6 +125,7 @@ input CreateFieldInput {
 input CreateFormDraftInput {
   clientRequestId: String!
   formKey: ID!
+  touched: [String!]
   values: JSONObject
 }
 
@@ -313,6 +314,11 @@ input DeleteFormSubmissionInput {
 type DeleteFormSubmissionPayload {
   deletedId: ID!
   success: Boolean!
+}
+
+input DeleteFormVersionDraftInput {
+  expectedDraftRevision: Int!
+  formKey: ID!
 }
 
 input DeleteOrgInput {
@@ -716,6 +722,7 @@ type FormSubmissionModel {
   status: FormSubmissionStatus!
   submittedAt: DateTime
   summary: FormSubmissionSummary
+  touched: [String!]!
   updatedAt: DateTime!
   values: JSONObject!
   version: Int!
@@ -933,6 +940,7 @@ type MeOrg {
   id: ID!
   logoUrl: String
   name: String!
+  timezone: String!
 }
 
 type ModuleAdminNode {
@@ -1035,6 +1043,7 @@ type Mutation {
   deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeleteDemoItemOnePayload!
   deleteDemoItemTwo(input: DeleteDemoItemTwoInput!): DeleteDemoItemTwoPayload!
   deleteFormSubmission(input: DeleteFormSubmissionInput!): DeleteFormSubmissionPayload!
+  deleteFormVersionDraft(input: DeleteFormVersionDraftInput!): FormPayload!
   deleteOrg(input: DeleteOrgInput!): DeletePayload!
   deleteRetiredPermission(input: DeleteRetiredPermissionInput!): DeleteRetiredPermissionPayload!
   deleteRole(input: DeleteRoleInput!): DeletePayload!
@@ -1540,6 +1549,7 @@ type SaveDataScopeRulePayload {
 input SaveFormDraftInput {
   expectedEditVersion: Int!
   id: ID!
+  touched: [String!]
   values: JSONObject!
 }
 

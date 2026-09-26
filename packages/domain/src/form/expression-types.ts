@@ -1,4 +1,5 @@
 import type { CONTEXT_VAR_PATHS, ExpressionOperator } from "./expression-shape";
+import { isDateTimeString } from "./temporal";
 import type { Expression, FieldType } from "./types";
 
 /**
@@ -33,6 +34,7 @@ export const FIELD_EXPRESSION_TYPES: Readonly<
   multiline: "text",
   number: "number",
   date: "date",
+  datetime: "datetime",
   select: "text",
   multiSelect: "list",
   boolean: "boolean",
@@ -57,11 +59,17 @@ export type DateDiffUnit = (typeof DATE_DIFF_UNITS)[number];
 
 export const DEFAULT_DATE_DIFF_UNIT: DateDiffUnit = "days";
 
-/**
- * 設計器單位下拉目前開放的單位:計算器還只算日曆日,小時 / 分鐘選了也會照天算。
- * #482 接上計算後開放(改成 `DATE_DIFF_UNITS`)。
- */
-export const PICKABLE_DATE_DIFF_UNITS: readonly DateDiffUnit[] = ["days"];
+/** 設計器單位下拉開放的單位(計算器三種都算:日曆日 / 精確小時 / 精確分鐘)。 */
+export const PICKABLE_DATE_DIFF_UNITS: readonly DateDiffUnit[] =
+  DATE_DIFF_UNITS;
+
+/** 是不是 `dateDiff` 認得的單位字串。 */
+export function isDateDiffUnit(value: unknown): value is DateDiffUnit {
+  return (
+    typeof value === "string" &&
+    (DATE_DIFF_UNITS as readonly string[]).includes(value)
+  );
+}
 
 /**
  * 一個參數位置要什麼:
@@ -171,9 +179,35 @@ export const OPERATOR_SIGNATURES: Readonly<
 
 const TEMPORAL_TYPES = new Set<ExpressionValueType>(["date", "datetime"]);
 
+/** 比較運算子(等不等於、大小):右邊要與左邊**完全同型**,日期與日期時間不互通。 */
+const COMPARISON_OPERATORS = new Set<string>([
+  "==",
+  "!=",
+  "===",
+  "!==",
+  "<",
+  ">",
+  "<=",
+  ">=",
+]);
+
+/**
+ * 「嚴格」的期望型別(日期與日期時間不互通):`expectedTypesAt` 為比較運算子的右邊回的陣列會登記在這裡。
+ * 以陣列身分登記(不改 `ExpectedTypes` 的形狀),設計器與檢查器拿到同一個陣列、判法自然一致。
+ */
+const STRICT_EXPECTATIONS = new WeakSet<readonly ExpressionValueType[]>();
+
+function strictTypes(
+  types: readonly ExpressionValueType[],
+): readonly ExpressionValueType[] {
+  STRICT_EXPECTATIONS.add(types);
+  return types;
+}
+
 /**
  * `actual` 能不能放進要 `expected` 的位置:型別相同即可;日期與日期時間互通
- * (Spec 表 B:「現在時間」可放日期 / 日期時間位置,`dateDiff` 兩種都收)。
+ * (Spec 表 B:「現在時間」可放日期 / 日期時間位置,`dateDiff` 兩種都收)——
+ * **比較運算子的右邊除外**:日期與日期時間比較會變成字串比較的怪結果,要求同型(要比請用 `dateDiff`)。
  */
 export function isTypeAccepted(
   actual: ExpressionValueType,
@@ -182,10 +216,11 @@ export function isTypeAccepted(
   if (expected === null) {
     return true;
   }
+  const isStrict = STRICT_EXPECTATIONS.has(expected);
   return expected.some(
     (type) =>
       type === actual ||
-      (TEMPORAL_TYPES.has(type) && TEMPORAL_TYPES.has(actual)),
+      (!isStrict && TEMPORAL_TYPES.has(type) && TEMPORAL_TYPES.has(actual)),
   );
 }
 
@@ -209,7 +244,10 @@ export function paramSpecAt(
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/** 常數的型別:`YYYY-MM-DD` 字串視為日期、陣列視為清單;null 沒有型別。 */
+/**
+ * 常數的型別:`YYYY-MM-DD` 字串視為日期、帶時區的 ISO 日期時間字串視為日期時間、陣列視為清單;
+ * null 沒有型別。
+ */
 export function constantTypeOf(expr: Expression): ExpressionValueType | null {
   if (typeof expr === "number") {
     return "number";
@@ -218,7 +256,10 @@ export function constantTypeOf(expr: Expression): ExpressionValueType | null {
     return "boolean";
   }
   if (typeof expr === "string") {
-    return DATE_PATTERN.test(expr) ? "date" : "text";
+    if (DATE_PATTERN.test(expr)) {
+      return "date";
+    }
+    return isDateTimeString(expr) ? "datetime" : "text";
   }
   return Array.isArray(expr) ? "list" : null;
 }
@@ -293,7 +334,7 @@ export function fieldTypeLookupOf(
 
 /**
  * 運算節點第 `index` 個參數位置**要什麼型別**:
- * `sameAs` 看那個參數推得出的型別(推不出來就退回那個參數自己的限制);
+ * `sameAs` 看那個參數推得出的型別(推不出來就退回那個參數自己的限制;比較運算子的右邊是嚴格同型);
  * `result` = 這個運算節點被期望的型別(`nodeExpected`);`optionField` / `dateUnit` 不是一般值,回空陣列。
  */
 export function expectedTypesAt(
@@ -317,8 +358,17 @@ export function expectedTypesAt(
     case "sameAs": {
       const source = args[spec.index] ?? null;
       const inferred = inferExpressionType(source, fieldTypeOf);
-      return inferred === null
-        ? expectedTypesAt(operator, spec.index, args, nodeExpected, fieldTypeOf)
+      if (inferred === null) {
+        return expectedTypesAt(
+          operator,
+          spec.index,
+          args,
+          nodeExpected,
+          fieldTypeOf,
+        );
+      }
+      return COMPARISON_OPERATORS.has(operator)
+        ? strictTypes([inferred])
         : [inferred];
     }
     case "optionField":

@@ -1,11 +1,13 @@
 import { useTranslations } from "use-intl";
 
 import {
+  FORM_UPLOAD_MAX_SIZE_MB,
   type FieldDef,
   type FieldRules,
   TEXT_FORMATS,
   type TextFormat,
 } from "@repo/domain/form";
+import { DateTimePicker } from "@repo/ui/date-time-picker";
 import { FormControlLabel } from "@repo/ui/form-control-label";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
@@ -13,7 +15,14 @@ import { Switch } from "@repo/ui/switch";
 import { TextField } from "@repo/ui/text-field";
 
 import { ExpressionPicker } from "@/components/form-engine/ExpressionPicker/ExpressionPicker";
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import type { PropertySections } from "@/lib/form-engine/property-sections";
+import {
+  UPLOAD_TYPE_GROUPS,
+  type UploadTypeGroupKey,
+  acceptOfGroups,
+  acceptedGroupsOf,
+} from "@/lib/form-engine/upload-types";
 import { scalarText } from "@/lib/form-engine/value-text";
 
 export interface RulesEditorProps {
@@ -46,7 +55,8 @@ const numberOrEmpty = (text: string): number | "" =>
   text.trim() === "" ? "" : Number(text);
 
 /**
- * 驗證規則(Spec 6a §5 `rules`,哪些出現照表 A `sections`):必填、範圍(數字 / 日期)、長度(單行 / 多行文字)、
+ * 驗證規則(Spec 6a §5 `rules`,哪些出現照表 A `sections`):必填、範圍(數字 / 日期 / 日期時間;
+ * 日期時間用選擇器、以租戶時區輸入,存 UTC)、上傳的檔型 / 大小上限(`rules.accept` / `rules.maxSizeMb`)、長度(單行 / 多行文字)、
  * 內建格式或正則 + 訊息(只有單行文字)、`allowCustom`(只有可搜尋類 widget、值來源 = 使用者填)、
  * 自訂驗證(條件成立才通過,不成立顯示 `customMessage`)。
  * 正則要搭錯誤訊息、與內建格式二擇一、不安全的正則由檢查器指出(`PATTERN_*`)。
@@ -60,7 +70,9 @@ export const RulesEditor = ({
 }: RulesEditorProps) => {
   const t = useTranslations("admin.forms.rules");
   const rules = field.rules ?? {};
-  const hasRange = sections.numberRange || sections.dateRange;
+  const timezone = useTenantTimezone();
+  const isDateTime = field.type === "datetime";
+  const hasRange = (sections.numberRange || sections.dateRange) && !isDateTime;
 
   return (
     <Stack spacing={1.5}>
@@ -94,6 +106,57 @@ export const RulesEditor = ({
             }}
           />
         </Stack>
+      )}
+      {sections.dateRange && isDateTime && (
+        <Stack direction="row" spacing={1}>
+          {(["min", "max"] as const).map((key) => (
+            <DateTimePicker
+              key={key}
+              label={t(key)}
+              size="small"
+              value={typeof rules[key] === "string" ? rules[key] : null}
+              {...(timezone !== null && { timezone })}
+              helperText={t("dateTimeRangeZone", {
+                timezone:
+                  timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+              })}
+              onChange={(next) => {
+                onChange(withRule(rules, key, next ?? ""));
+              }}
+            />
+          ))}
+        </Stack>
+      )}
+      {sections.uploadLimits && (
+        <>
+          <SelectField<UploadTypeGroupKey>
+            label={t("uploadAccept")}
+            multiple
+            value={acceptedGroupsOf(field)}
+            options={UPLOAD_TYPE_GROUPS.map((group) => ({
+              value: group.key,
+              label: t(`uploadTypes.${group.key}`),
+            }))}
+            onChange={(keys) => {
+              onChange(withRule(rules, "accept", acceptOfGroups(keys) ?? ""));
+            }}
+            size="small"
+          />
+          <TextField
+            label={t("uploadMaxSize")}
+            size="small"
+            type="number"
+            helperText={t("uploadMaxSizeHint", {
+              max: FORM_UPLOAD_MAX_SIZE_MB,
+            })}
+            value={scalarText(rules.maxSizeMb)}
+            onChange={(event) => {
+              onChange(
+                withRule(rules, "maxSizeMb", numberOrEmpty(event.target.value)),
+              );
+            }}
+          />
+        </>
       )}
       {sections.lengthRange && (
         <Stack direction="row" spacing={1}>

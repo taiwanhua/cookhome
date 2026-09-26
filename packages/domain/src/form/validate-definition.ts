@@ -6,6 +6,8 @@ import {
   type WidgetRegistry,
 } from "./registry";
 import type { FieldDef, FormDefinition } from "./types";
+import { validateDefaults } from "./validate-defaults";
+import { validateExpressionTypes } from "./validate-expression-types";
 import { validateExpressions } from "./validate-expressions";
 import { type RegexSafetyCheck, validateFields } from "./validate-fields";
 import {
@@ -35,6 +37,7 @@ export interface ValidateDefinitionOptions {
 
 /**
  * 定義檢查器(Spec §5):設計器即時 + 發布時 api 再跑。**有錯不能發布,警告可發布**;
+ * 表達式另跑型別檢查(表 B,與設計器選擇器同一張型別表)與預設值規則;
  * 每筆都帶定位(欄位 key / 表達式槽與路徑 / 版面位置 / 摘要槽 / 帶入規則)。
  * 草稿裡刪了被引用的欄位不自動修:引用處在這裡變成錯誤,由設計者手動改。
  */
@@ -59,7 +62,9 @@ export function validateDefinition(
     },
     collector,
   );
+  validateDefaults(definition.fields, collector);
   validateExpressions(definition.fields, protections, collector);
+  validateExpressionTypes(definition.fields, collector);
   validateLayout(definition, collector);
   validateSummary(definition, protections, collector);
   validatePrefills(definition, options.lookupProviders, collector);

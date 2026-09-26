@@ -10,6 +10,7 @@ import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
 import { Stack } from "@repo/ui/stack";
 
+import { useFillValues } from "@/hooks/useFillValues";
 import type { FieldPermissionFacts } from "@/lib/form-engine/field-states";
 import type { FormError } from "@/lib/form-engine/form-errors";
 
@@ -21,6 +22,14 @@ export interface FormFillFormProps {
   formKey: string;
   version: number;
   initialValues: StoredValues;
+  /** 使用者碰過的欄位(草稿的 `touched[]`;新增為空) */
+  initialTouched?: readonly string[];
+  /** 預設值跟著依賴重算(新增、還沒送出過的草稿);見 `useFillValues` */
+  recomputeDefaults: boolean;
+  /** 一打開就填預設值(新增頁) */
+  fillDefaultsOnMount: boolean;
+  /** 引用欄預設值(填寫者 / 填寫者的組織)的暫時顯示名 */
+  systemLabels?: { user: string | null; org: string | null };
   mode: "create" | "edit";
   permissions: FieldPermissionFacts;
   expressionContext: ExpressionContext;
@@ -28,8 +37,9 @@ export interface FormFillFormProps {
   isCompleted: boolean;
   isPending: boolean;
   error: FormError | null;
-  onSaveDraft: (values: StoredValues) => void;
-  onSubmit: (values: StoredValues) => void;
+  /** `touched` = 使用者碰過的欄位 key(存草稿時一併存,預設值不再覆蓋它們) */
+  onSaveDraft: (values: StoredValues, touched: readonly string[]) => void;
+  onSubmit: (values: StoredValues, touched: readonly string[]) => void;
   onCancel: () => void;
   /** 409 時的「重新載入」 */
   onReload: () => void;
@@ -40,13 +50,18 @@ export interface FormFillFormProps {
  * 存草稿 / 送出(一顆「送出」= 建 / 存草稿 + 送出;已完成的單只有「儲存修改」,修訂 +1)。
  *
  * 初始值由外層 gate 後帶進 `useState` 的初始化器(REACT-08);`values` 是整張表單的狀態,
- * 看不到的欄位原樣保留 `"[redacted]"` 送回(api 視為沒動)。
+ * 看不到的欄位原樣保留 `"[redacted]"` 送回(api 視為沒動)。預設值與「碰過」旗標在 `useFillValues`:
+ * 沒碰過的欄位依賴變了就重算預設值,碰過(改過、清空、帶入)就停。
  */
 export const FormFillForm = ({
   definition,
   formKey,
   version,
   initialValues,
+  initialTouched = [],
+  recomputeDefaults,
+  fillDefaultsOnMount,
+  systemLabels,
   mode,
   permissions,
   expressionContext,
@@ -60,9 +75,17 @@ export const FormFillForm = ({
 }: FormFillFormProps) => {
   const t = useTranslations("admin.formEngine.fill");
   const tErrors = useTranslations("admin.formEngine.errors");
-  const [values, setValues] = useState<StoredValues>(() => ({
-    ...initialValues,
-  }));
+  const fill = useFillValues({
+    fields: definition.fields,
+    initialValues,
+    initialTouched,
+    ctx: expressionContext,
+    permissions,
+    recomputeDefaults,
+    fillOnMount: fillDefaultsOnMount,
+    ...(systemLabels !== undefined && { systemLabels }),
+  });
+  const { values } = fill;
   const [isPrefilling, setIsPrefilling] = useState(false);
   const canPrefill = definition.prefills.length > 0;
 
@@ -87,7 +110,7 @@ export const FormFillForm = ({
         context={{ formKey, version }}
         expressionContext={expressionContext}
         permissions={permissions}
-        onChange={setValues}
+        onChange={fill.change}
         fieldErrors={error?.fieldErrors ?? []}
       />
       {error !== null &&
@@ -113,7 +136,7 @@ export const FormFillForm = ({
           <Button
             disabled={isPending}
             onClick={() => {
-              onSaveDraft(values);
+              onSaveDraft(values, fill.touched);
             }}
           >
             {t("saveChanges")}
@@ -124,7 +147,7 @@ export const FormFillForm = ({
               variant="outlined"
               disabled={isPending}
               onClick={() => {
-                onSaveDraft(values);
+                onSaveDraft(values, fill.touched);
               }}
             >
               {t("saveDraft")}
@@ -132,7 +155,7 @@ export const FormFillForm = ({
             <Button
               disabled={isPending}
               onClick={() => {
-                onSubmit(values);
+                onSubmit(values, fill.touched);
               }}
             >
               {t("submit")}
@@ -148,7 +171,8 @@ export const FormFillForm = ({
           values={values}
           canEdit={permissions.canEdit}
           onApply={(patch) => {
-            setValues((current) => ({ ...current, ...patch }));
+            // 帶入 = 使用者的動作:帶進來的欄位算碰過,預設值不再覆蓋
+            fill.change({ ...values, ...patch });
             setIsPrefilling(false);
           }}
           onClose={() => {

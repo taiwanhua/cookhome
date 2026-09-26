@@ -11,6 +11,7 @@ import { useMe } from "@/hooks/useMe";
 import type { ModuleFormSummary } from "@/hooks/useModuleForms";
 import { useSnackbar } from "@/hooks/useMutationFeedback";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
 import {
   permissionsFromHeld,
@@ -48,6 +49,7 @@ export const FormCreateBody = ({
   const draft = useFormDraft(form.key);
   const [now] = useState(() => new Date());
   const user = me.data?.me;
+  const timezone = useTenantTimezone();
 
   // 權限與 ctx 以 useMemo 保持身分穩定:`FormRenderer` 以它們為 memo 依賴
   const held = useMemo(
@@ -68,8 +70,12 @@ export const FormCreateBody = ({
   const userId = user?.id ?? null;
   const orgId = user?.currentOrg?.id ?? null;
   const expressionContext = useMemo(
-    () => liveContextOf(userId, orgId, now),
-    [userId, orgId, now],
+    () => liveContextOf(userId, orgId, now, timezone),
+    [userId, orgId, now, timezone],
+  );
+  const systemLabels = useMemo(
+    () => ({ user: user?.name ?? null, org: user?.currentOrg?.name ?? null }),
+    [user?.name, user?.currentOrg?.name],
   );
 
   return (
@@ -82,21 +88,24 @@ export const FormCreateBody = ({
         formKey={form.key}
         version={form.currentVersion}
         initialValues={{}}
+        recomputeDefaults
+        fillDefaultsOnMount
+        systemLabels={systemLabels}
         mode="create"
         permissions={permissions}
         expressionContext={expressionContext}
         isCompleted={false}
         isPending={draft.isPending}
         error={draft.error}
-        onSaveDraft={(values) => {
-          void draft.saveDraft(values).then((saved) => {
+        onSaveDraft={(values, touched) => {
+          void draft.saveDraft(values, touched).then((saved) => {
             if (saved !== null) {
               showSnackbar("success", t("draftSaved"));
             }
           });
         }}
-        onSubmit={(values) => {
-          void draft.submit(values).then((submitted) => {
+        onSubmit={(values, touched) => {
+          void draft.submit(values, touched).then((submitted) => {
             if (submitted === null) {
               return;
             }
