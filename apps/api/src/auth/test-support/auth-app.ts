@@ -85,7 +85,16 @@ function seedDatabase(databaseUri: string): void {
       ROOT_ADMIN_PASSWORD: ROOT_ADMIN.password,
     },
     encoding: "utf8",
+    // 子行程卡住會擋住整個 jest event loop(測試逾時觸發不了、也不會輸出),CI 曾因此掛好幾小時;
+    // 逾時就明確報錯,並把 stdout 尾端一起帶出來方便查
+    timeout: 180_000,
   });
+  if (result.error !== undefined) {
+    throw new Error(
+      `seed 子行程失敗(${result.error.message}):${result.stderr}
+${result.stdout.slice(-2000)}`,
+    );
+  }
   if (result.status !== 0) {
     throw new Error(
       `seed 失敗(status ${String(result.status)}):${result.stderr}`,
