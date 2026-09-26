@@ -18,7 +18,7 @@ import { useSnackbar } from "@/hooks/useMutationFeedback";
 import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
 import { permissionsOfSubmission } from "@/lib/form-engine/field-permissions";
-import { tabLabelOf } from "@/lib/form-engine/tab-label";
+import { tabLabelOf, tabLabelValuesOf } from "@/lib/form-engine/tab-label";
 import type { ModulePageProps } from "@/lib/module-tree";
 
 import { FormFillForm } from "./FormFillForm";
@@ -73,7 +73,7 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
       : (tabLabelOf(
           formModuleOptionsOf(moduleKey).tabLabelTemplate,
           formTemplate,
-          submission.summary,
+          tabLabelValuesOf(submission),
         ) ?? submission.formName),
   );
 

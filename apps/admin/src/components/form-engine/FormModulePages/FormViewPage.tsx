@@ -11,7 +11,7 @@ import { Typography } from "@repo/ui/typography";
 import { useFormSubmission } from "@/hooks/useFormSubmission";
 import { useModuleForms } from "@/hooks/useModuleForms";
 import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
-import { tabLabelOf } from "@/lib/form-engine/tab-label";
+import { tabLabelOf, tabLabelValuesOf } from "@/lib/form-engine/tab-label";
 import type { ModulePageProps } from "@/lib/module-tree";
 
 import { ApprovalSection } from "../../workflow/ApprovalSection/ApprovalSection";
@@ -46,7 +46,7 @@ export const FormViewPage = ({ module, routeParam }: ModulePageProps) => {
       : (tabLabelOf(
           formModuleOptionsOf(moduleKey).tabLabelTemplate,
           formTemplate,
-          submission.summary,
+          tabLabelValuesOf(submission),
         ) ??
         submission.formName ??
         submission.formKey);

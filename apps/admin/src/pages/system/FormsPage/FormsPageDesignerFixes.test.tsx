@@ -56,6 +56,21 @@ const renderWithDraft = (definition: FormDefinition) => {
 };
 
 describe("表單管理:設計器修正(失焦、key 重複、面板依型別)", () => {
+  it("引用與上傳欄位不顯示「值的來源」;引用要設資料來源", async () => {
+    const { user } = renderFormsPage();
+    await addField(user, "引用");
+    expect(screen.queryByRole("combobox", { name: "值的來源" })).toBeNull();
+    expect(
+      screen.getByRole("combobox", { name: "資料來源" }),
+    ).toBeInTheDocument();
+
+    await addField(user, "上傳");
+    expect(screen.queryByRole("combobox", { name: "值的來源" })).toBeNull();
+    expect(
+      screen.queryByRole("group", { name: "自訂驗證(條件成立才通過)" }),
+    ).toBeNull();
+  });
+
   it("靜態選項的值欄連續打字不失焦(列以穩定內部 id 當 key)", async () => {
     const { user, world } = renderFormsPage();
     await addField(user, "單選");
@@ -135,21 +150,6 @@ describe("表單管理:設計器修正(失焦、key 重複、面板依型別)", 
     expect(labels).toContain("數量");
   });
 
-  it("引用與上傳欄位不顯示「值的來源」;引用要設資料來源", async () => {
-    const { user } = renderFormsPage();
-    await addField(user, "引用");
-    expect(screen.queryByRole("combobox", { name: "值的來源" })).toBeNull();
-    expect(
-      screen.getByRole("combobox", { name: "資料來源" }),
-    ).toBeInTheDocument();
-
-    await addField(user, "上傳");
-    expect(screen.queryByRole("combobox", { name: "值的來源" })).toBeNull();
-    expect(
-      screen.queryByRole("group", { name: "自訂驗證(條件成立才通過)" }),
-    ).toBeNull();
-  });
-
   it("面板依型別:文字有格式、多行有列數沒有格式、數字有單位;計算欄位沒有鎖定條件", async () => {
     const { user } = renderFormsPage();
     await findDesigner();
@@ -217,5 +217,19 @@ describe("表單管理:設計器修正(失焦、key 重複、面板依型別)", 
       "{{{{title}} — {{{{date}}",
     );
     expect(preview).toHaveTextContent("範例:病假申請 — 2026-03-12");
+
+    // 系統佔位符:可用清單列出來,{{form}} 用輸入框裡的表單名、{{applicant}} 用範例的建立者
+    const placeholders = within(dialog).getByRole("list", {
+      name: "可用的佔位符",
+    });
+    expect(
+      within(placeholders).getByText("{{applicant}}:建立者(顯示現在的名字)"),
+    ).toBeInTheDocument();
+    const template = within(dialog).getByRole("textbox", {
+      name: "頁籤 / 標題模板",
+    });
+    await user.clear(template);
+    await user.type(template, "{{{{form}} · {{{{applicant}}");
+    expect(preview).toHaveTextContent("範例:購物單 · 王小明");
   });
 });

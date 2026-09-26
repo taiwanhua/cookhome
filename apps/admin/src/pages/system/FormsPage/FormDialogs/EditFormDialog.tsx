@@ -18,6 +18,7 @@ import { useSession } from "@/hooks/useSession";
 import { type FormError, formErrorOf } from "@/lib/form-engine/form-errors";
 import {
   DEFAULT_TAB_LABEL_TEMPLATE,
+  TAB_LABEL_PLACEHOLDERS,
   applyTabLabelTemplate,
 } from "@/lib/form-engine/tab-label";
 
@@ -29,8 +30,9 @@ export interface EditFormDialogProps {
 
 /**
  * 改表單名稱與頁籤 / 標題模板(`updateForm`)。key 建立後不可改,這裡只顯示。
- * 模板只能引用摘要槽(`{{title}}`、`{{date}}`、`{{amount}}`);留空 = 用模組層的預設模板。
- * 模板下方即時顯示以範例摘要套用的結果(留空時以預設模板 `{{title}}` 示範)。
+ * 模板能用的佔位符列在輸入框下方(摘要槽 `{{title}}` / `{{date}}` / `{{amount}}`、建立者 `{{applicant}}`、
+ * 表單名 `{{form}}`);留空 = 用模組層的預設模板。再下方即時顯示以範例資料套用的結果
+ * (留空時以預設模板 `{{title}}` 示範;表單名用輸入框裡的名稱)。
  */
 export const EditFormDialog = ({
   form,
@@ -49,6 +51,8 @@ export const EditFormDialog = ({
       title: t("sampleTitle"),
       date: t("sampleDate"),
       amount: t("sampleAmount"),
+      applicant: t("sampleApplicant"),
+      form: name.trim(),
     },
   );
 
@@ -121,6 +125,24 @@ export const EditFormDialog = ({
           helperText={t("templateHint")}
           size="small"
         />
+        <Stack spacing={0.25} role="list" aria-label={t("placeholders")}>
+          <Typography variant="caption" color="text.secondary">
+            {t("placeholders")}
+          </Typography>
+          {TAB_LABEL_PLACEHOLDERS.map((placeholder) => (
+            <Typography
+              key={placeholder}
+              role="listitem"
+              variant="caption"
+              color="text.secondary"
+            >
+              {t("placeholderItem", {
+                token: `{{${placeholder}}}`,
+                name: t(`placeholderNames.${placeholder}`),
+              })}
+            </Typography>
+          ))}
+        </Stack>
         <Typography
           variant="body2"
           color="text.secondary"

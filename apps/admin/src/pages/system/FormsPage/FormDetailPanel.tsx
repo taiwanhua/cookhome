@@ -21,6 +21,7 @@ import { useSession } from "@/hooks/useSession";
 import { formErrorOf } from "@/lib/form-engine/form-errors";
 
 import { FormDesigner } from "./FormDesigner/FormDesigner";
+import { VersionViewer } from "./FormDesigner/VersionViewer";
 import { AssignFormDialog } from "./FormDialogs/AssignFormDialog";
 import { EditFormDialog } from "./FormDialogs/EditFormDialog";
 import { ForkFormDialog } from "./FormDialogs/ForkFormDialog";
@@ -52,6 +53,8 @@ export const FormDetailPanel = ({
   const { session } = useSession();
   const [tab, setTab] = useState<DetailTab>("design");
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  /** 版本面板點「檢視」的版號:設計頁籤改成唯讀檢視那一版(草稿的設計器照樣掛著,不會丟未存變更) */
+  const [viewing, setViewing] = useState<number | null>(null);
   const { hasPermission } = usePermissions();
   // 流程綁定是租戶自己的設定(root 沒有表單綁定,api 回 TENANT_ONLY),且只對本組織**啟用中**的表單設
   // (Spec 6b §8 畫面 7「每張啟用表單一個下拉」):租戶視角才有 `tenantEnabled`,停用的不給綁
@@ -174,10 +177,30 @@ export const FormDetailPanel = ({
         />
         {/* 兩個頁籤都保持掛載、只切顯示:切到「版本」不能讓設計器卸載(未存的改動會無聲消失) */}
         <Box hidden={tab !== "design"}>
-          <FormDesigner form={form} onChanged={onChanged} />
+          {viewing !== null && (
+            <VersionViewer
+              key={viewing}
+              form={form}
+              version={viewing}
+              onClose={() => {
+                setViewing(null);
+              }}
+              onChanged={onChanged}
+            />
+          )}
+          <Box hidden={viewing !== null}>
+            <FormDesigner form={form} onChanged={onChanged} />
+          </Box>
         </Box>
         <Box hidden={tab !== "versions"}>
-          <VersionPanel form={form} onChanged={onChanged} />
+          <VersionPanel
+            form={form}
+            onChanged={onChanged}
+            onView={(version) => {
+              setViewing(version);
+              setTab("design");
+            }}
+          />
         </Box>
       </Stack>
       {dialog === "edit" && (

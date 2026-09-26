@@ -186,6 +186,11 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
       "`t(`keyProblems.${problem}`)`,problem 是 `fieldKeyProblemOf` 回的原因(格式 / 保留字 / 重複)",
   },
   {
+    key: "admin.forms.edit.placeholderNames.",
+    reason:
+      "`t(`placeholderNames.${placeholder}`)`,placeholder 取自 `TAB_LABEL_PLACEHOLDERS`(頁籤模板佔位符)",
+  },
+  {
     key: "admin.forms.lookupSource.summarySlots.",
     reason:
       "`t(`summarySlots.${slot}`)`,slot 是 `form_submission` 欄位目錄裡的摘要槽",

@@ -197,21 +197,25 @@ export const mockHandlers = ({
     ),
     // 示範模組2 三頁(#321):兩支示範模組的端點各自獨立,沒有共用端點要去重
     ...demoTwoWorld({ items: demoTwoItems }).handlers,
-    // 表單引擎:表單管理(一張共用表單,已發布 v1 + 一份草稿)與購物清單(兩筆提交)
-    ...formDesignWorld({
-      forms: [formFragment()],
-      versions: {
-        [SHOPPING_FORM_KEY]: [
-          versionFragment(shoppingDefinition(), { baseVersion: 1 }),
-          versionFragment(shoppingDefinition(), {
-            id: `ver-${SHOPPING_FORM_KEY}-1`,
-            version: 1,
-            status: FormVersionStatus.Published,
-            changelog: "第一版",
-          }),
-        ],
-      },
-    }).handlers,
+    // 表單引擎:表單管理(一張共用表單,已發布 v1 + 一份草稿)與購物清單(兩筆提交);
+    // 設計器「類別」下拉的 `FieldCategories` 讓給欄位管理(共用端點,正本只留一份)
+    ...withoutOperations(
+      formDesignWorld({
+        forms: [formFragment()],
+        versions: {
+          [SHOPPING_FORM_KEY]: [
+            versionFragment(shoppingDefinition(), { baseVersion: 1 }),
+            versionFragment(shoppingDefinition(), {
+              id: `ver-${SHOPPING_FORM_KEY}-1`,
+              version: 1,
+              status: FormVersionStatus.Published,
+              changelog: "第一版",
+            }),
+          ],
+        },
+      }).handlers,
+      ["FieldCategories"],
+    ),
     ...formRuntimeWorld({
       moduleForms: [
         {

@@ -66,82 +66,6 @@ const savedFields = async (
   return world.inputs.saveFormVersionDraft.at(0)?.fields ?? [];
 };
 
-describe("表單管理:型別導向的表達式選擇器(表 B)", () => {
-  it("自訂驗證的根只列回是 / 否的運算(沒有常數、系統值);填錯誤訊息存進 rules.customMessage", async () => {
-    const { user, world } = renderFormsPage();
-    await findDesigner();
-    await selectField(user, "品項", "item");
-    const custom = await screen.findByRole("group", {
-      name: "自訂驗證(條件成立才通過)",
-    });
-    await user.click(within(custom).getByRole("button", { name: "設定" }));
-
-    // 購物單沒有是 / 否欄位,所以根只剩「運算」
-    expect(await openSelect(user, "節點種類(根)", custom)).toEqual(["運算"]);
-    await user.keyboard("{Escape}");
-    const operators = await openSelect(user, "運算", custom);
-    expect(operators).toEqual(
-      expect.arrayContaining(["等於", "且", "非", "包含於", "如果…則…否則"]),
-    );
-    expect(operators).not.toContain("加");
-    expect(operators).not.toContain("串接文字");
-    expect(operators).not.toContain("日期差");
-    await user.keyboard("{Escape}");
-
-    await user.type(
-      screen.getByRole("textbox", { name: "錯誤訊息" }),
-      "品項不能是這個",
-    );
-    const fields = await savedFields(user, world);
-    expect(fields.find((item) => item.key === "item")).toMatchObject({
-      rules: {
-        custom: { "==": [null, null] },
-        customMessage: "品項不能是這個",
-      },
-    });
-  });
-
-  it("公式參數依型別過濾:乘法的參數只列數字欄;換成日期差出現單位下拉,產生第三參數", async () => {
-    const { user, world } = renderFormsPage();
-    await findDesigner();
-    await selectField(user, "總價", "total");
-    const formula = await screen.findByRole("group", { name: "公式" });
-
-    const [firstArg] = within(formula).getAllByRole("combobox", {
-      name: "欄位",
-    });
-    await user.click(firstArg);
-    const listbox = await screen.findByRole("listbox");
-    expect(
-      within(listbox)
-        .getAllByRole("option")
-        .map((option) => option.textContent),
-    ).toEqual(["數量(qty)", "單價(unit_price)"]);
-    await user.keyboard("{Escape}");
-
-    await pickOption(user, "運算", "日期差", formula);
-    expect(
-      within(formula).getByRole("combobox", { name: "單位" }),
-    ).toHaveTextContent("天");
-    // 起 / 迄只列日期類:購物單沒有日期欄,剩系統值(現在時間)、日期常數、回日期的運算
-    expect(await openSelect(user, "節點種類(dateDiff.0)", formula)).toEqual([
-      "系統值",
-      "常數",
-      "運算",
-    ]);
-    await user.keyboard("{Escape}");
-    await pickOption(user, "單位", "小時", formula);
-
-    const fields = await savedFields(user, world);
-    expect(fields.find((item) => item.key === "total")).toMatchObject({
-      valueSource: {
-        kind: "computed",
-        expr: { dateDiff: [null, null, "hours"] },
-      },
-    });
-  });
-});
-
 describe("表單管理:類別 / 表單 / 欄位改用下拉選", () => {
   it("選項來源 = 欄位管理類別:從類別清單挑", async () => {
     const { user, world } = renderFormsPage();
@@ -159,7 +83,7 @@ describe("表單管理:類別 / 表單 / 欄位改用下拉選", () => {
     });
   });
 
-  it("其他表單的資料:表單只列已發布的;顯示欄從該版欄位挑、不列受保護欄位", async () => {
+  it("表單提交:表單只列已發布的;顯示欄從該版欄位挑、不列受保護欄位", async () => {
     const { user, world } = renderWithProtectedPublished();
     await addField(user, "單選");
     await pickOption(user, "選項來源", "資料來源");
@@ -266,6 +190,80 @@ describe("表單管理:類別 / 表單 / 欄位改用下拉選", () => {
         { fieldKey: "qty", sourceField: "unit_price" },
         { fieldKey: "internal_note", sourceField: "email" },
       ],
+    });
+  });
+});
+
+describe("表單管理:型別導向的表達式選擇器(表 B)", () => {
+  it("自訂驗證的根只列回是 / 否的運算(沒有常數、系統值);填錯誤訊息存進 rules.customMessage", async () => {
+    const { user, world } = renderFormsPage();
+    await findDesigner();
+    await selectField(user, "品項", "item");
+    const custom = await screen.findByRole("group", {
+      name: "自訂驗證(條件成立才通過)",
+    });
+    await user.click(within(custom).getByRole("button", { name: "設定" }));
+
+    // 購物單沒有是 / 否欄位,所以根只剩「運算」
+    expect(await openSelect(user, "節點種類(根)", custom)).toEqual(["運算"]);
+    await user.keyboard("{Escape}");
+    const operators = await openSelect(user, "運算", custom);
+    expect(operators).toEqual(
+      expect.arrayContaining(["等於", "且", "非", "包含於", "如果…則…否則"]),
+    );
+    expect(operators).not.toContain("加");
+    expect(operators).not.toContain("串接文字");
+    expect(operators).not.toContain("日期差");
+    await user.keyboard("{Escape}");
+
+    await user.click(screen.getByRole("textbox", { name: "錯誤訊息" }));
+    await user.paste("品項不能是這個");
+    const fields = await savedFields(user, world);
+    expect(fields.find((item) => item.key === "item")).toMatchObject({
+      rules: {
+        custom: { "==": [null, null] },
+        customMessage: "品項不能是這個",
+      },
+    });
+  });
+
+  it("公式參數依型別過濾:乘法的參數只列數字欄;換成日期差出現單位下拉,產生第三參數", async () => {
+    const { user, world } = renderFormsPage();
+    await findDesigner();
+    await selectField(user, "總價", "total");
+    const formula = await screen.findByRole("group", { name: "公式" });
+
+    const [firstArg] = within(formula).getAllByRole("combobox", {
+      name: "欄位",
+    });
+    await user.click(firstArg);
+    const listbox = await screen.findByRole("listbox");
+    expect(
+      within(listbox)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["數量(qty)", "單價(unit_price)"]);
+    await user.keyboard("{Escape}");
+
+    await pickOption(user, "運算", "日期差", formula);
+    expect(
+      within(formula).getByRole("combobox", { name: "單位" }),
+    ).toHaveTextContent("天");
+    // 起 / 迄只列日期類:購物單沒有日期欄,剩系統值(現在時間)、日期常數、回日期的運算
+    expect(await openSelect(user, "節點種類(dateDiff.0)", formula)).toEqual([
+      "系統值",
+      "常數",
+      "運算",
+    ]);
+    await user.keyboard("{Escape}");
+    await pickOption(user, "單位", "小時", formula);
+
+    const fields = await savedFields(user, world);
+    expect(fields.find((item) => item.key === "total")).toMatchObject({
+      valueSource: {
+        kind: "computed",
+        expr: { dateDiff: [null, null, "hours"] },
+      },
     });
   });
 });
