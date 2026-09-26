@@ -11,6 +11,8 @@
  * - `layout.ts`、`summary.ts`:版面換算、摘要槽快照
  * - `validate-*.ts`、`issues.ts`、`registry.ts`:定義檢查器與它的登錄表
  * - `values.ts`:提交值的型別正規化與規則驗證(存草稿只驗型別、送出再驗規則)
+ * - `template.ts`:顯示模板(頁籤 / 標題模板、lookup `labelTemplate`)的佔位符解析、套用與欄位值的模板文字
+ * - `list-settings.ts`:列表欄位配置(`modules.settings.list`)的內建欄開關
  * - `temporal.ts`:日期 / 日期時間的單一入口(時點 `toInstant`、租戶時區的當地日期、日曆加減、`formatTemporal`)
  * - `defaults.ts`:欄位預設值的計算(api 建草稿填空欄、admin 沒碰過的欄位跟著重算)
  * - `upload.ts`:上傳欄的檔型 / 大小上限(平台上限 + 欄位收窄)
@@ -24,10 +26,12 @@ export * from "./expression-types";
 export * from "./issues";
 export * from "./keys";
 export * from "./layout";
+export * from "./list-settings";
 export * from "./registry";
 export * from "./semantic";
 export * from "./summary";
 export * from "./temporal";
+export * from "./template";
 export * from "./types";
 export * from "./upload";
 export * from "./validate-definition";

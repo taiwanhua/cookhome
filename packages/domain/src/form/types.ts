@@ -44,8 +44,14 @@ export interface ExpressionContext {
 export interface LookupSourceDescriptor {
   /** 登錄表(`apps/api/src/forms/lookup-providers.ts`)的 key。 */
   provider: string;
-  /** 顯示欄(必須在 provider 可回的欄位內)。 */
+  /** 顯示欄(必須在 provider 可回的欄位內);`labelTemplate` 有值時只當退路。 */
   labelField: string;
+  /**
+   * 顯示模板(選填):佔位符 = provider 可回的欄位(`{{name}}`、`{{email}}`;`form_submission` 為摘要槽
+   * `{{title}}` / `{{date}}` / `{{amount}}` + `{{value.<欄位key>}}`),`formLookup` 在後端組好 label。
+   * 沒填(缺席 / null / 空字串)= 用 `labelField`。
+   */
+  labelTemplate?: string | null;
   /** 值欄,`options` 用;預設 `id`。 */
   valueField?: string;
   /** 固定條件(provider 允許的欄位 = 值),後端套。 */

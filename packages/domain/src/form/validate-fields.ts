@@ -5,6 +5,11 @@ import {
   type LookupProviderRegistry,
   type WidgetRegistry,
 } from "./registry";
+import {
+  hasLabelTemplate,
+  lookupTemplateFieldOf,
+  templatePlaceholdersOf,
+} from "./template";
 import { toInstant } from "./temporal";
 import {
   FIELD_TYPES,
@@ -285,7 +290,10 @@ function validateOptions(
 /** 「其他表單提交」這個 lookup 來源的 key;它的來源描述必須帶 `formKey`。 */
 export const FORM_SUBMISSION_PROVIDER = "form_submission";
 
-/** lookup 來源描述:provider 已登錄、顯示欄 / 值欄在可回欄位內。沒注入登錄表就跳過。 */
+/**
+ * lookup 來源描述:provider 已登錄、顯示欄 / 值欄在可回欄位內、顯示模板的佔位符都在可回欄位內
+ * (`form_submission` 只收摘要槽與 `{{value.<key>}}`)。沒注入登錄表就跳過。
+ */
 export function validateLookupSource(
   source: LookupSourceDescriptor,
   providers: LookupProviderRegistry | undefined,
@@ -323,6 +331,29 @@ export function validateLookupSource(
         "LOOKUP_UNKNOWN_FIELD",
         `lookup 來源 ${source.provider} 沒有欄位 ${name}`,
         location,
+      );
+    }
+  }
+  validateLabelTemplate(source, provider.fields, collector, location);
+}
+
+/** 顯示模板的每個佔位符都要對得到 provider 可回的欄位(`id` 一律可回)。 */
+function validateLabelTemplate(
+  source: LookupSourceDescriptor,
+  fields: Readonly<Record<string, FieldType>>,
+  collector: IssueCollector,
+  location: { fieldKey?: string; prefillIndex?: number; property: string },
+): void {
+  if (!hasLabelTemplate(source)) {
+    return;
+  }
+  for (const name of new Set(templatePlaceholdersOf(source.labelTemplate))) {
+    const field = lookupTemplateFieldOf(source.provider, name);
+    if (field === null || (field !== "id" && !Object.hasOwn(fields, field))) {
+      collector.error(
+        "LOOKUP_TEMPLATE_UNKNOWN_PLACEHOLDER",
+        `lookup 來源 ${source.provider} 的顯示模板用了不存在的佔位符 {{${name}}}`,
+        { ...location, property: `${location.property}.labelTemplate` },
       );
     }
   }
