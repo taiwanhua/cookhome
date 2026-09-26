@@ -1,4 +1,5 @@
 import type { CONTEXT_VAR_PATHS, ExpressionOperator } from "./expression-shape";
+import { isDateTimeString } from "./temporal";
 import type { Expression, FieldType } from "./types";
 
 /**
@@ -33,6 +34,7 @@ export const FIELD_EXPRESSION_TYPES: Readonly<
   multiline: "text",
   number: "number",
   date: "date",
+  datetime: "datetime",
   select: "text",
   multiSelect: "list",
   boolean: "boolean",
@@ -57,11 +59,17 @@ export type DateDiffUnit = (typeof DATE_DIFF_UNITS)[number];
 
 export const DEFAULT_DATE_DIFF_UNIT: DateDiffUnit = "days";
 
-/**
- * 設計器單位下拉目前開放的單位:計算器還只算日曆日,小時 / 分鐘選了也會照天算。
- * #482 接上計算後開放(改成 `DATE_DIFF_UNITS`)。
- */
-export const PICKABLE_DATE_DIFF_UNITS: readonly DateDiffUnit[] = ["days"];
+/** 設計器單位下拉開放的單位(計算器三種都算:日曆日 / 精確小時 / 精確分鐘)。 */
+export const PICKABLE_DATE_DIFF_UNITS: readonly DateDiffUnit[] =
+  DATE_DIFF_UNITS;
+
+/** 是不是 `dateDiff` 認得的單位字串。 */
+export function isDateDiffUnit(value: unknown): value is DateDiffUnit {
+  return (
+    typeof value === "string" &&
+    (DATE_DIFF_UNITS as readonly string[]).includes(value)
+  );
+}
 
 /**
  * 一個參數位置要什麼:
@@ -209,7 +217,10 @@ export function paramSpecAt(
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/** 常數的型別:`YYYY-MM-DD` 字串視為日期、陣列視為清單;null 沒有型別。 */
+/**
+ * 常數的型別:`YYYY-MM-DD` 字串視為日期、帶時區的 ISO 日期時間字串視為日期時間、陣列視為清單;
+ * null 沒有型別。
+ */
 export function constantTypeOf(expr: Expression): ExpressionValueType | null {
   if (typeof expr === "number") {
     return "number";
@@ -218,7 +229,10 @@ export function constantTypeOf(expr: Expression): ExpressionValueType | null {
     return "boolean";
   }
   if (typeof expr === "string") {
-    return DATE_PATTERN.test(expr) ? "date" : "text";
+    if (DATE_PATTERN.test(expr)) {
+      return "date";
+    }
+    return isDateTimeString(expr) ? "datetime" : "text";
   }
   return Array.isArray(expr) ? "list" : null;
 }

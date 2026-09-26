@@ -187,7 +187,9 @@ describe("validateDefinition:表達式", () => {
       codesOf(
         definitionOf([
           title,
-          field("qty", "number", { visibleWhen: { var: "qty" } }),
+          field("qty", "number", {
+            visibleWhen: { ">": [{ var: "qty" }, 0] },
+          }),
         ]),
       ),
     ).toEqual(["EXPR_VISIBLE_SELF"]);

@@ -8,7 +8,7 @@ export interface DefinitionIssue {
 
 export interface DefinitionIssueLocation {
   fieldKey?: string;
-  /** 欄位上的哪個表達式:`valueSource.expr` / `visibleWhen` / `readonlyWhen` / `rules.custom`。 */
+  /** 欄位上的哪個表達式:`valueSource.expr` / `default.expr` / `visibleWhen` / `readonlyWhen` / `rules.custom`。 */
   exprSlot?: ExpressionSlot;
   /** 表達式樹裡的節點位置(`scanExpression` 的 path;根為空字串)。 */
   exprPath?: string;
@@ -21,7 +21,11 @@ export interface DefinitionIssueLocation {
 }
 
 export type ExpressionSlot =
-  "valueSource.expr" | "visibleWhen" | "readonlyWhen" | "rules.custom";
+  | "valueSource.expr"
+  | "default.expr"
+  | "visibleWhen"
+  | "readonlyWhen"
+  | "rules.custom";
 
 /** 錯誤碼(有錯不能發布)。 */
 export const DEFINITION_ERROR_CODES = [
@@ -41,6 +45,14 @@ export const DEFINITION_ERROR_CODES = [
   "EXPR_CYCLE",
   "EXPR_VISIBLE_SELF",
   "EXPR_PROTECTED_REF",
+  "EXPR_TYPE_MISMATCH",
+  "EXPR_DATE_DIFF_UNIT",
+  "DEFAULT_NOT_ALLOWED",
+  "DEFAULT_KIND_INVALID",
+  "DEFAULT_VALUE_INVALID",
+  "DEFAULT_SELF",
+  "DEFAULT_REFERENCE_INVALID",
+  "UPLOAD_LIMIT_INVALID",
   "OPTIONS_MISSING",
   "OPTIONS_DUPLICATE_VALUE",
   "OPTIONS_UNKNOWN_CATEGORY",

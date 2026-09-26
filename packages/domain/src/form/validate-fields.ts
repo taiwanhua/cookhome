@@ -11,6 +11,7 @@ import {
   type FieldType,
   type LookupSourceDescriptor,
 } from "./types";
+import { FORM_UPLOAD_CONTENT_TYPES, FORM_UPLOAD_MAX_SIZE_MB } from "./upload";
 
 /**
  * 檢查器的欄位段(Spec §5「定義檢查器」):key、精度、widget、選項、規則(含正則 ReDoS)、reference。
@@ -69,6 +70,48 @@ export function validateFields(
     validateOptions(field, context, collector);
     validateRules(field, context.regexSafety, collector);
     validateReference(field, context.lookupProviders, collector);
+    validateUploadLimits(field, collector);
+  }
+}
+
+/**
+ * 上傳欄的檔型 / 大小上限(`widget.accept` / `widget.maxSizeMb`):只能收窄平台上限 ——
+ * 檔型必須在 `FORM_UPLOAD_CONTENT_TYPES` 內,大小是 0 以上、不超過 `FORM_UPLOAD_MAX_SIZE_MB` 的數字。
+ */
+function validateUploadLimits(
+  field: FieldDef,
+  collector: IssueCollector,
+): void {
+  if (field.type !== "upload") {
+    return;
+  }
+  const { accept, maxSizeMb } = field.widget;
+  const allowed = new Set<string>(FORM_UPLOAD_CONTENT_TYPES);
+  if (
+    accept !== undefined &&
+    (!Array.isArray(accept) ||
+      accept.some(
+        (item) => typeof item !== "string" || !allowed.has(item.toLowerCase()),
+      ))
+  ) {
+    collector.error(
+      "UPLOAD_LIMIT_INVALID",
+      `「${field.label}」的允許檔型只能從平台允許的檔型中挑`,
+      { fieldKey: field.key, property: "widget.accept" },
+    );
+  }
+  if (
+    maxSizeMb !== undefined &&
+    (typeof maxSizeMb !== "number" ||
+      !Number.isFinite(maxSizeMb) ||
+      maxSizeMb <= 0 ||
+      maxSizeMb > FORM_UPLOAD_MAX_SIZE_MB)
+  ) {
+    collector.error(
+      "UPLOAD_LIMIT_INVALID",
+      `「${field.label}」的大小上限須大於 0、不超過 ${String(FORM_UPLOAD_MAX_SIZE_MB)} MB`,
+      { fieldKey: field.key, property: "widget.maxSizeMb" },
+    );
   }
 }
 
@@ -362,6 +405,7 @@ export function isPrefillCompatible(
     "multiline",
     "number",
     "date",
+    "datetime",
     "select",
   ];
   return textual.includes(target) && stringifiable.includes(source);

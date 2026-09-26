@@ -1,5 +1,6 @@
 import { roundToPrecision, toDecimal } from "./decimal";
 import { evaluateCondition } from "./expression";
+import { normalizeDateTime } from "./temporal";
 import type {
   ExpressionContext,
   FieldDef,
@@ -210,6 +211,17 @@ function normalizeNumber(field: FieldDef, raw: unknown): NormalizeResult {
     : typeIssue(field, "須為數字");
 }
 
+/** 帶時區的 ISO 8601 日期時間 → UTC 存值(`YYYY-MM-DDTHH:mm:ssZ`,秒以下捨去)。 */
+function normalizeDateTimeValue(
+  field: FieldDef,
+  raw: unknown,
+): NormalizeResult {
+  const value = normalizeDateTime(raw);
+  return value === null
+    ? typeIssue(field, "須為含時區的 ISO 8601 日期時間")
+    : { ok: true, value };
+}
+
 type Normalizer = (field: FieldDef, raw: unknown) => NormalizeResult;
 
 /** 型別 → 正規化(空值已先處理掉)。 */
@@ -227,6 +239,7 @@ const NORMALIZERS: Readonly<Record<FieldType, Normalizer>> = {
     isCalendarDate(raw)
       ? { ok: true, value: raw }
       : typeIssue(field, "須為 YYYY-MM-DD 日期"),
+  datetime: normalizeDateTimeValue,
   boolean: (field, raw) =>
     typeof raw === "boolean"
       ? { ok: true, value: raw }
@@ -239,7 +252,8 @@ const NORMALIZERS: Readonly<Record<FieldType, Normalizer>> = {
 
 /**
  * 型別層的正規化:送來的值 → 存值形狀(`Spec §5「值的存法」`)。空值一律收成 `null`。
- * number 取到 `precision` 位的十進位字串;date 必須是 `YYYY-MM-DD`;其餘見各型別。
+ * number 取到 `precision` 位的十進位字串;date 必須是 `YYYY-MM-DD`;datetime 收帶時區的 ISO 8601、
+ * 存成 UTC;其餘見各型別。
  */
 export function normalizeFieldValue(
   field: FieldDef,
@@ -310,7 +324,7 @@ function issueOf(
   return { fieldKey: field.key, code, message };
 }
 
-/** number / date 的範圍;回第一個違反的規則,沒有回 null。 */
+/** number / date / datetime 的範圍;回第一個違反的規則,沒有回 null。 */
 function rangeIssue(field: FieldDef, value: unknown): ValueIssue | null {
   const rules = field.rules ?? {};
   if (field.type === "number") {
@@ -332,13 +346,44 @@ function rangeIssue(field: FieldDef, value: unknown): ValueIssue | null {
       );
     }
   }
-  if (field.type === "date" && typeof value === "string") {
-    if (typeof rules.min === "string" && value < rules.min) {
-      return issueOf(field, "MIN", `「${field.label}」不可早於 ${rules.min}`);
-    }
-    if (typeof rules.max === "string" && value > rules.max) {
-      return issueOf(field, "MAX", `「${field.label}」不可晚於 ${rules.max}`);
-    }
+  if (field.type === "date") {
+    return dateRangeIssue(field, value);
+  }
+  return field.type === "datetime" ? dateTimeRangeIssue(field, value) : null;
+}
+
+/** date 的上下限:`YYYY-MM-DD` 的字碼序即日期序。 */
+function dateRangeIssue(field: FieldDef, value: unknown): ValueIssue | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const rules = field.rules ?? {};
+  if (typeof rules.min === "string" && value < rules.min) {
+    return issueOf(field, "MIN", `「${field.label}」不可早於 ${rules.min}`);
+  }
+  if (typeof rules.max === "string" && value > rules.max) {
+    return issueOf(field, "MAX", `「${field.label}」不可晚於 ${rules.max}`);
+  }
+  return null;
+}
+
+/** datetime 的上下限:`rules.min` / `max` 是 ISO 8601(任何時區),以時點比較。 */
+function dateTimeRangeIssue(
+  field: FieldDef,
+  value: unknown,
+): ValueIssue | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const rules = field.rules ?? {};
+  const at = Date.parse(value);
+  const min = normalizeDateTime(rules.min);
+  const max = normalizeDateTime(rules.max);
+  if (min !== null && at < Date.parse(min)) {
+    return issueOf(field, "MIN", `「${field.label}」不可早於 ${min}`);
+  }
+  if (max !== null && at > Date.parse(max)) {
+    return issueOf(field, "MAX", `「${field.label}」不可晚於 ${max}`);
   }
   return null;
 }

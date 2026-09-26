@@ -11,8 +11,12 @@
  * - `layout.ts`、`summary.ts`:版面換算、摘要槽快照
  * - `validate-*.ts`、`issues.ts`、`registry.ts`:定義檢查器與它的登錄表
  * - `values.ts`:提交值的型別正規化與規則驗證(存草稿只驗型別、送出再驗規則)
+ * - `temporal.ts`:日期 / 日期時間(ISO UTC 存值、租戶時區換算、`dateDiff` 的精確差)
+ * - `defaults.ts`:欄位預設值的計算(api 建草稿填空欄、admin 沒碰過的欄位跟著重算)
+ * - `upload.ts`:上傳欄的檔型 / 大小上限(平台上限 + 欄位收窄)
  */
 export * from "./compute";
+export * from "./defaults";
 export * from "./dependencies";
 export * from "./expression";
 export * from "./expression-shape";
@@ -23,8 +27,11 @@ export * from "./layout";
 export * from "./registry";
 export * from "./semantic";
 export * from "./summary";
+export * from "./temporal";
 export * from "./types";
+export * from "./upload";
 export * from "./validate-definition";
+export { REFERENCE_DEFAULT_PATHS, defaultKindsOf } from "./validate-defaults";
 export * from "./values";
 export {
   FORM_SUBMISSION_PROVIDER,
