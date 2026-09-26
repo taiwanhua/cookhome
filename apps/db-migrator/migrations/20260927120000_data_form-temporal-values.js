@@ -4,6 +4,8 @@
  * 轉的範圍(依那筆綁的版本定義 `form_versions.fields` 找出 `date` / `datetime` 欄位):
  * - `form_submissions.values.<key>`、`revisions[].values.<key>`、`summary.date`
  * - `workflow_instances.summary.date`(該修訂的摘要快照)
+ * - `form_versions.fields`(含草稿):日期 / 日期時間欄的 `rules.min` / `max`、`default.value`、固定值,
+ *   與所有表達式裡的 `YYYY-MM-DD` 常數 → 那一天在 `Asia/Taipei` 00:00 的 ISO(共用表單跨租戶,不依租戶時區)
  *
  * 字串怎麼換:
  * - `YYYY-MM-DD`(舊的 `date` 存法)→ 那一天在時區 00:00 的時點。時區 = 該修訂的 `ctx.timezone`;
@@ -175,6 +177,134 @@ function tenantTimezoneLoader(db) {
   };
 }
 
+/** 版本定義裡的日期字串換算用的時區:共用表單跨租戶,一律用預設時區。 */
+const DEFINITION_TIMEZONE = DEFAULT_TIMEZONE;
+
+/** `YYYY-MM-DD` → 那一天在 `DEFINITION_TIMEZONE` 00:00 的 ISO;其他照舊。 */
+function isoDayOf(value) {
+  return typeof value === "string" && DATE_ONLY.test(value)
+    ? new Date(startOfLocalDay(value, DEFINITION_TIMEZONE)).toISOString()
+    : value;
+}
+
+/**
+ * 表達式裡的日期常數:字串葉節點剛好是 `YYYY-MM-DD` 的換成 ISO(舊設計器的日期常數就是這個形;
+ * `var` 的參數是欄位 key、`dateDiff` 的單位都不會長這樣)。回 { expr, changed }。
+ */
+function convertExpression(expr) {
+  if (typeof expr === "string") {
+    const next = isoDayOf(expr);
+    return { expr: next, changed: next !== expr };
+  }
+  if (Array.isArray(expr)) {
+    let changed = false;
+    const next = expr.map((item) => {
+      const converted = convertExpression(item);
+      changed ||= converted.changed;
+      return converted.expr;
+    });
+    return { expr: next, changed };
+  }
+  if (expr && typeof expr === "object") {
+    let changed = false;
+    const next = {};
+    for (const [key, value] of Object.entries(expr)) {
+      const converted = convertExpression(value);
+      changed ||= converted.changed;
+      next[key] = converted.expr;
+    }
+    return { expr: next, changed };
+  }
+  return { expr, changed: false };
+}
+
+/** `holder[key]` 是表達式時換日期常數;沒變回原物件。 */
+function withConvertedExpression(holder, key, onChange) {
+  if (!holder || holder[key] === undefined || holder[key] === null) {
+    return holder;
+  }
+  const converted = convertExpression(holder[key]);
+  if (!converted.changed) {
+    return holder;
+  }
+  onChange();
+  return { ...holder, [key]: converted.expr };
+}
+
+/**
+ * 一個欄位定義:日期 / 日期時間欄的 `rules.min` / `max`、`default.value`(固定值)、`valueSource.value`
+ * (固定值欄位);所有欄位的表達式(`valueSource.expr`、`default.expr`、`visibleWhen`、`readonlyWhen`、
+ * `rules.custom`)裡的日期常數。回 { field, changed }。
+ */
+function convertField(field) {
+  let next = { ...field };
+  let changed = false;
+  const markChanged = () => {
+    changed = true;
+  };
+  const isTemporal = field.type === "date" || field.type === "datetime";
+  if (isTemporal && field.rules) {
+    const rules = { ...field.rules };
+    for (const key of ["min", "max"]) {
+      const converted = isoDayOf(rules[key]);
+      if (converted !== rules[key]) {
+        rules[key] = converted;
+        changed = true;
+      }
+    }
+    next.rules = rules;
+  }
+  if (isTemporal && field.default?.kind === "constant") {
+    const converted = isoDayOf(field.default.value);
+    if (converted !== field.default.value) {
+      next.default = { ...field.default, value: converted };
+      changed = true;
+    }
+  }
+  if (isTemporal && field.valueSource?.kind === "constant") {
+    const converted = isoDayOf(field.valueSource.value);
+    if (converted !== field.valueSource.value) {
+      next.valueSource = { ...field.valueSource, value: converted };
+      changed = true;
+    }
+  }
+  if (next.valueSource?.kind === "computed") {
+    next.valueSource = withConvertedExpression(
+      next.valueSource,
+      "expr",
+      markChanged,
+    );
+  }
+  if (next.default?.kind === "expression") {
+    next.default = withConvertedExpression(next.default, "expr", markChanged);
+  }
+  if (next.rules) {
+    next.rules = withConvertedExpression(next.rules, "custom", markChanged);
+  }
+  next = withConvertedExpression(next, "visibleWhen", markChanged);
+  next = withConvertedExpression(next, "readonlyWhen", markChanged);
+  return { field: next, changed };
+}
+
+/** `form_versions`(含草稿)的定義:日期字串換成 ISO(時區 `DEFINITION_TIMEZONE`);冪等。 */
+async function convertDefinitions(db) {
+  const versions = db.collection("form_versions");
+  for await (const doc of versions.find({}, { projection: { fields: 1 } })) {
+    if (!Array.isArray(doc.fields)) {
+      continue;
+    }
+    let changed = false;
+    const fields = doc.fields.map((field) => {
+      const converted = convertField(field);
+      changed ||= converted.changed;
+      return converted.field;
+    });
+    if (changed) {
+      await versions.updateOne({ _id: doc._id }, { $set: { fields } });
+    }
+  }
+}
+
 /** 修訂的時區:`ctx.timezone`,沒有就退回租戶時區。 */
 function revisionTimezone(revision, fallback) {
   const timezone = revision?.ctx?.timezone;
@@ -186,6 +316,7 @@ function revisionTimezone(revision, fallback) {
  * @returns {Promise<void>}
  */
 export const up = async (db) => {
+  await convertDefinitions(db);
   const temporalKeysOf = temporalKeysLoader(db);
   const tenantTimezoneOf = tenantTimezoneLoader(db);
   const submissions = db.collection("form_submissions");
@@ -267,26 +398,35 @@ export const up = async (db) => {
 };
 
 /**
- * 還原成字串:`date` 欄 → 該修訂時區的 `YYYY-MM-DD`,`datetime` 欄與摘要 → ISO(秒,`Z`)。
+ * 還原成字串(改存 `Date` 之前的形狀,依版本定義的欄位型別):
+ * - `date` 欄 → 該修訂時區的 `YYYY-MM-DD`;`datetime` 欄 → 秒級 ISO(`YYYY-MM-DDTHH:mm:ssZ`)
+ * - 摘要槽 `date`:對到日期欄 → `YYYY-MM-DD`、對到日期時間欄 → 秒級 ISO、沒對(= 送出時間)→ `toISOString()`
+ * - 版本定義的 ISO 上下限 / 常數不還原(分不出哪些是這支遷移轉的;ISO 在舊程式裡也是合法的日期時間)
  *
  * @param db {import('mongodb').Db}
  * @returns {Promise<void>}
  */
 export const down = async (db) => {
   const tenantTimezoneOf = tenantTimezoneLoader(db);
-  const typesCache = new Map();
-  const typesOf = async (formKey, version) => {
+  const versionCache = new Map();
+  /** 版本的欄位型別與摘要槽 `date` 對到的欄位。 */
+  const versionOf = async (formKey, version) => {
     const cacheKey = `${formKey}:${String(version)}`;
-    if (!typesCache.has(cacheKey)) {
+    if (!versionCache.has(cacheKey)) {
       const doc = await db
         .collection("form_versions")
-        .findOne({ formKey, version }, { projection: { fields: 1 } });
-      typesCache.set(
-        cacheKey,
-        new Map((doc?.fields ?? []).map((field) => [field.key, field.type])),
-      );
+        .findOne(
+          { formKey, version },
+          { projection: { fields: 1, summaryMap: 1 } },
+        );
+      versionCache.set(cacheKey, {
+        types: new Map(
+          (doc?.fields ?? []).map((field) => [field.key, field.type]),
+        ),
+        summaryDateKey: doc?.summaryMap?.date ?? null,
+      });
     }
-    return typesCache.get(cacheKey);
+    return versionCache.get(cacheKey);
   };
   const isoOf = (date) => `${date.toISOString().slice(0, 19)}Z`;
   const dayOf = (date, timezone) =>
@@ -304,6 +444,15 @@ export const down = async (db) => {
     }
     return next;
   };
+  const summaryDateOf = (date, version, timezone) => {
+    const type = version.summaryDateKey
+      ? version.types.get(version.summaryDateKey)
+      : undefined;
+    if (type === "date") {
+      return dayOf(date, timezone);
+    }
+    return type === "datetime" ? isoOf(date) : date.toISOString();
+  };
 
   const submissions = db.collection("form_submissions");
   for await (const submission of submissions.find({})) {
@@ -312,20 +461,24 @@ export const down = async (db) => {
       ? submission.revisions
       : [];
     const latestTimezone = revisionTimezone(revisions.at(-1), tenantTimezone);
-    const types = await typesOf(submission.formKey, submission.version);
+    const version = await versionOf(submission.formKey, submission.version);
     const $set = {
-      values: revert(submission.values, types, latestTimezone),
+      values: revert(submission.values, version.types, latestTimezone),
       revisions: revisions.map((revision) => ({
         ...revision,
         values: revert(
           revision.values,
-          types,
+          version.types,
           revisionTimezone(revision, tenantTimezone),
         ),
       })),
     };
     if (submission.summary?.date instanceof Date) {
-      $set["summary.date"] = isoOf(submission.summary.date);
+      $set["summary.date"] = summaryDateOf(
+        submission.summary.date,
+        version,
+        latestTimezone,
+      );
     }
     await submissions.updateOne({ _id: submission._id }, { $set });
   }
@@ -333,9 +486,28 @@ export const down = async (db) => {
   for await (const instance of instances.find({
     "summary.date": { $type: "date" },
   })) {
+    const submission = await submissions.findOne(
+      { _id: instance.submissionId },
+      { projection: { formKey: 1, version: 1, tenantId: 1, revisions: 1 } },
+    );
+    const tenantTimezone = await tenantTimezoneOf(submission?.tenantId ?? null);
+    const revision = (submission?.revisions ?? []).find(
+      (entry) => entry.revision === instance.revision,
+    );
+    const version = submission
+      ? await versionOf(submission.formKey, submission.version)
+      : { types: new Map(), summaryDateKey: null };
     await instances.updateOne(
       { _id: instance._id },
-      { $set: { "summary.date": isoOf(instance.summary.date) } },
+      {
+        $set: {
+          "summary.date": summaryDateOf(
+            instance.summary.date,
+            version,
+            revisionTimezone(revision, tenantTimezone),
+          ),
+        },
+      },
     );
   }
 };

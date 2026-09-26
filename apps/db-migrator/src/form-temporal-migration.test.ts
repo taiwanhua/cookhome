@@ -19,12 +19,12 @@ const MIGRATION = path.join(
 const RUN_UP_DIRECTLY = `
 import { pathToFileURL } from "node:url";
 import { MongoClient } from "mongodb";
-const [uri, times, file] = process.argv.slice(1);
+const [uri, times, file, direction = "up"] = process.argv.slice(1);
 const client = await MongoClient.connect(uri);
 try {
   const migration = await import(pathToFileURL(file).href);
   for (let round = 0; round < Number(times); round += 1) {
-    await migration.up(client.db());
+    await migration[direction](client.db());
   }
 } finally {
   await client.close();
@@ -48,7 +48,11 @@ async function openDatabase(databaseUri: string): Promise<Db> {
   return client.db();
 }
 
-function runUpDirectly(databaseUri: string, times: number) {
+function runUpDirectly(
+  databaseUri: string,
+  times: number,
+  direction: "up" | "down" = "up",
+) {
   return spawnSync(
     process.execPath,
     [
@@ -58,6 +62,7 @@ function runUpDirectly(databaseUri: string, times: number) {
       databaseUri,
       String(times),
       MIGRATION,
+      direction,
     ],
     { cwd: PACKAGE_ROOT, encoding: "utf8" },
   );
@@ -69,6 +74,8 @@ const completedId = new ObjectId("0000000000000000000e0001");
 const draftId = new ObjectId("0000000000000000000e0002");
 const migratedId = new ObjectId("0000000000000000000e0003");
 const instanceId = new ObjectId("0000000000000000000f0001");
+const draftVersionId = new ObjectId("0000000000000000000f0002");
+const publishedVersionId = new ObjectId("0000000000000000000f0003");
 
 /** 「改存 Date 之前」的資料:date 存 `YYYY-MM-DD`、datetime 存 ISO 字串。 */
 async function seedPreState(database: Db): Promise<void> {
@@ -82,15 +89,57 @@ async function seedPreState(database: Db): Promise<void> {
       settings: { timezone: "Asia/Tokyo" },
     },
   ]);
-  await database.collection("form_versions").insertOne({
-    formKey: "trip",
-    version: 1,
-    fields: [
-      { key: "title", type: "text" },
-      { key: "day", type: "date" },
-      { key: "meeting", type: "datetime" },
-    ],
-  });
+  await database.collection("form_versions").insertMany([
+    {
+      _id: publishedVersionId,
+      formKey: "trip",
+      version: 1,
+      fields: [
+        { key: "title", type: "text" },
+        { key: "day", type: "date" },
+        { key: "meeting", type: "datetime" },
+      ],
+      summaryMap: { title: "title", date: "day" },
+    },
+    {
+      // 草稿:定義裡的日期字串(上下限、預設值、固定值、表達式常數)
+      _id: draftVersionId,
+      formKey: "trip",
+      version: null,
+      status: "draft",
+      fields: [
+        { key: "title", type: "text", valueSource: { kind: "input" } },
+        {
+          key: "day",
+          type: "date",
+          valueSource: { kind: "input" },
+          rules: { required: true, min: "2026-01-01", max: "2026-12-31" },
+          default: { kind: "constant", value: "2026-09-26" },
+          visibleWhen: { ">=": [{ var: "day" }, "2026-01-01"] },
+        },
+        {
+          key: "fixed_day",
+          type: "date",
+          valueSource: { kind: "constant", value: "2026-09-26" },
+        },
+        {
+          key: "gap",
+          type: "number",
+          valueSource: {
+            kind: "computed",
+            expr: { dateDiff: [{ var: "day" }, "2026-10-01", "days"] },
+          },
+        },
+        {
+          key: "meeting",
+          type: "datetime",
+          valueSource: { kind: "input" },
+          rules: { min: "2026-01-01T00:00:00Z" },
+        },
+      ],
+      summaryMap: { title: "title" },
+    },
+  ]);
   await database.collection("form_submissions").insertMany([
     {
       // 已完成、改過一次:修訂 1 在台北送出、修訂 2 在紐約修改
@@ -171,6 +220,10 @@ async function snapshotOf(database: Db): Promise<unknown> {
       .toArray(),
     instances: await database
       .collection("workflow_instances")
+      .find({}, { sort: { _id: 1 } })
+      .toArray(),
+    versions: await database
+      .collection("form_versions")
       .find({}, { sort: { _id: 1 } })
       .toArray(),
   };
@@ -257,6 +310,96 @@ describe("遷移:表單提交的日期 / 日期時間字串 → Date", () => {
       date: new Date("2026-09-25T16:00:00.000Z"),
     });
   });
+});
+
+describe("遷移:版本定義裡的日期字串 → ISO(Asia/Taipei 00:00)", () => {
+  it("日期欄的上下限、預設值、固定值與表達式常數換成 ISO;已是 ISO 與非日期字串不動", async () => {
+    const databaseUri = databaseUriOf("definitions");
+    const database = await openDatabase(databaseUri);
+    await seedPreState(database);
+    const result = runUpDirectly(databaseUri, 1);
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+
+    const draft = await database
+      .collection("form_versions")
+      .findOne({ _id: draftVersionId });
+    const fields = draft?.fields as Record<string, unknown>[];
+    const byKey = new Map(fields.map((field) => [field.key, field]));
+    expect(byKey.get("day")).toMatchObject({
+      rules: {
+        required: true,
+        min: "2025-12-31T16:00:00.000Z",
+        max: "2026-12-30T16:00:00.000Z",
+      },
+      default: { kind: "constant", value: "2026-09-25T16:00:00.000Z" },
+      visibleWhen: { ">=": [{ var: "day" }, "2025-12-31T16:00:00.000Z"] },
+    });
+    expect(byKey.get("fixed_day")).toMatchObject({
+      valueSource: { kind: "constant", value: "2026-09-25T16:00:00.000Z" },
+    });
+    expect(byKey.get("gap")).toMatchObject({
+      valueSource: {
+        kind: "computed",
+        expr: {
+          dateDiff: [{ var: "day" }, "2026-09-30T16:00:00.000Z", "days"],
+        },
+      },
+    });
+    expect(byKey.get("meeting")).toMatchObject({
+      rules: { min: "2026-01-01T00:00:00Z" },
+    });
+    expect(byKey.get("title")).toEqual({
+      key: "title",
+      type: "text",
+      valueSource: { kind: "input" },
+    });
+  }, 120_000);
+});
+
+describe("遷移的 down:還原成改存 Date 之前的形狀(依版本定義的欄位型別)", () => {
+  it("date 欄 → 該修訂時區的 YYYY-MM-DD、datetime 欄 → 秒級 ISO;摘要槽對日期欄 → YYYY-MM-DD", async () => {
+    const databaseUri = databaseUriOf("down");
+    const database = await openDatabase(databaseUri);
+    await seedPreState(database);
+    expect(runUpDirectly(databaseUri, 1).status).toBe(0);
+    const reverted = runUpDirectly(databaseUri, 1, "down");
+    expect(reverted.stderr).toBe("");
+    expect(reverted.status).toBe(0);
+
+    const completed = await database
+      .collection("form_submissions")
+      .findOne({ _id: completedId });
+    expect(completed?.values).toEqual({
+      title: "2026-09-26",
+      day: "2026-09-27",
+      meeting: "2026-09-26T05:30:00Z",
+    });
+    expect(
+      (completed?.revisions as { values: Record<string, unknown> }[]).map(
+        (revision) => revision.values.day,
+      ),
+    ).toEqual(["2026-09-26", "2026-09-27"]);
+    expect(completed?.summary).toEqual({
+      title: "2026-09-26",
+      date: "2026-09-27",
+    });
+    const draft = await database
+      .collection("form_submissions")
+      .findOne({ _id: draftId });
+    expect(draft?.values).toEqual({
+      title: "草稿",
+      day: "2026-09-26",
+      meeting: null,
+    });
+    const instance = await database
+      .collection("workflow_instances")
+      .findOne({ _id: instanceId });
+    expect(instance?.summary).toEqual({
+      title: "2026-09-26",
+      date: "2026-09-26",
+    });
+  }, 120_000);
 });
 
 describe("遷移本身冪等:直接呼叫 up 兩次,結果與一次相同", () => {
