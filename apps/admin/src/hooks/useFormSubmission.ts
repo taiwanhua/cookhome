@@ -16,13 +16,26 @@ import { type FormError, formErrorOf } from "@/lib/form-engine/form-errors";
 import { useFormSubmissionCache } from "./useFormSubmissionCache";
 import { useSession } from "./useSession";
 
+/**
+ * 以草稿方式存(`saveFormDraft`)的三種狀態:草稿,以及被退回 / 撤回後申請人改內容再送
+ * (Spec 6b §6:狀態不變,再送出 = 修訂 +1)。其餘(沒走過流程的已完成)走「儲存修改」。
+ */
+const DRAFT_LIKE = new Set<FormSubmissionStatus>([
+  FormSubmissionStatus.Draft,
+  FormSubmissionStatus.Returned,
+  FormSubmissionStatus.Withdrawn,
+]);
+
+export const isDraftLike = (status: FormSubmissionStatus): boolean =>
+  DRAFT_LIKE.has(status);
+
 export interface FormSubmissionState {
   submission: FormSubmissionFieldsFragment | null;
   isLoading: boolean;
   loadError: FormError | null;
-  /** 草稿:存草稿;已完成:儲存修改(修訂 +1,帶 `expectedRevision`) */
+  /** 草稿 / 退回 / 撤回:存草稿;已完成:儲存修改(修訂 +1,帶 `expectedRevision`) */
   save: (values: StoredValues) => Promise<FormSubmissionFieldsFragment | null>;
-  /** 草稿:存 + 送出(一顆鈕) */
+  /** 草稿 / 退回 / 撤回:存 + 送出(一顆鈕;綁流程的會進審核) */
   submit: (
     values: StoredValues,
   ) => Promise<FormSubmissionFieldsFragment | null>;
@@ -106,10 +119,9 @@ export const useFormSubmission = (
       if (submission === null) {
         return null;
       }
-      const next =
-        submission.status === FormSubmissionStatus.Draft
-          ? await saveAsDraft(submission, values)
-          : await saveCompleted(submission, values);
+      const next = isDraftLike(submission.status)
+        ? await saveAsDraft(submission, values)
+        : await saveCompleted(submission, values);
       updateCache(next);
       return next;
     });

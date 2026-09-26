@@ -753,6 +753,15 @@ describe("申請中心與讀取授權", () => {
       expect(instance.summary?.date).not.toBeNull();
       const tasks = await rawTasks(world.connection, instance.id);
       const [taskA, taskB] = tasks.map((task) => String(task._id));
+      // 流程管理者從阻擋清單就拿得到計畫項目的任務 id(改派要它);其他讀者一律 null
+      const listedPlan =
+        listed?.steps.find((one) => one.stepKey === "one")?.plan ?? [];
+      expect(listedPlan.map((item) => item.taskId)).toEqual(
+        tasks.map((task) => String(task._id)),
+      );
+      expect(
+        stepOfRow(instance, "one").plan.every((item) => item.taskId === null),
+      ).toBe(true);
       await ok(api, world.admin.token, REASSIGN, {
         input: { taskId: taskA, toUserId: String(c.userId) },
       });

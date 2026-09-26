@@ -1,5 +1,11 @@
 import { formModulePages } from "../components/form-engine/FormModulePages/form-module-pages";
 import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
+import { ApplyCenterPage } from "../pages/apply-center/ApplyCenterPage/ApplyCenterPage";
+import {
+  APPLY_CENTER_MODULE_KEY,
+  APPLY_CENTER_VIEW_PAGE_KEY,
+} from "../pages/apply-center/apply-center-keys";
+import { LazyApplyCenterViewPage } from "../pages/apply-center/lazy-apply-center-view-page";
 import { SampleOneFormPage } from "../pages/demo/SampleOneFormPage/SampleOneFormPage";
 import { SampleOnePage } from "../pages/demo/SampleOnePage/SampleOnePage";
 import { SampleOneViewPage } from "../pages/demo/SampleOneViewPage/SampleOneViewPage";
@@ -22,6 +28,12 @@ import { RoleManagerPage } from "../pages/system/RoleManagerPage/RoleManagerPage
 import { ROLE_MANAGER_MODULE_KEY } from "../pages/system/RoleManagerPage/role-manager-permissions";
 import { UserManagerPage } from "../pages/system/UserManagerPage/UserManagerPage";
 import { USER_MANAGER_MODULE_KEY } from "../pages/system/UserManagerPage/user-manager-permissions";
+import { WorkflowBlockedPage } from "../pages/system/WorkflowBlockedPage/WorkflowBlockedPage";
+import { LazyWorkflowsPage } from "../pages/system/WorkflowsPage/lazy-workflows-page";
+import {
+  WORKFLOWS_BLOCKED_PAGE_KEY,
+  WORKFLOWS_MODULE_KEY,
+} from "../pages/system/workflows-permissions";
 import type { ModulePageRegistry } from "./guards/ModuleRoute/ModuleRoute";
 
 /** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
@@ -29,6 +41,9 @@ export const OVERVIEW_MODULE_KEY = "overview";
 
 /** 購物清單:表單模組範例(seed 正本 apps/db-migrator/seeds/modules/shopping-list.ts,`engine: "form"`)。 */
 export const SHOPPING_LIST_MODULE_KEY = "shopping-list";
+
+/** 請假:綁審核流程的表單模組範例(seed 正本 apps/db-migrator/seeds/modules/leave.ts,`engine: "form"`)。 */
+export const LEAVE_MODULE_KEY = "leave";
 
 /**
  * 模組 key → 頁面元件(組裝層,STRUCT-03):各模組實作時在此登記;
@@ -54,6 +69,13 @@ export const modulePages: ModulePageRegistry = {
   [DATA_SCOPE_MODULE_KEY]: DataScopePage,
   // 表單管理:懶載入(設計器不進首屏 bundle)
   [FORMS_MODULE_KEY]: LazyFormsPage,
-  // 表單模組(Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝
+  // 審核流程(Spec 6b §8):流程管理(設計器懶載入)與阻擋清單、申請中心兩頁籤與詳情(詳情懶載入)
+  [WORKFLOWS_MODULE_KEY]: LazyWorkflowsPage,
+  [WORKFLOWS_BLOCKED_PAGE_KEY]: WorkflowBlockedPage,
+  [APPLY_CENTER_MODULE_KEY]: ApplyCenterPage,
+  [APPLY_CENTER_VIEW_PAGE_KEY]: LazyApplyCenterViewPage,
+  // 表單模組(Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝;
+  // 請假綁了流程時,詳情頁下方自動掛審核區塊(預設組裝含)
   ...formModulePages(SHOPPING_LIST_MODULE_KEY),
+  ...formModulePages(LEAVE_MODULE_KEY),
 };

@@ -8,7 +8,8 @@ import { type AdminError, parseAdminError } from "@/lib/errors";
  * 文案在 `admin.formEngine.errors.<code>`(設計端另有 `admin.forms.errors`),認不出來的一律 `UNEXPECTED`。
  *
  * `FORBIDDEN` 依 `reason` 細分:欄位級守門(`FIELD_FORBIDDEN`)、表單現在不能新增(`FORM_NOT_AVAILABLE`)、
- * 不是自己的表單(`NOT_FORM_OWNER`)、只有平台能做(`ROOT_ONLY`)。
+ * 不是自己的表單(`NOT_FORM_OWNER`)、只有平台能做(`ROOT_ONLY`),以及送出時檢查擋下
+ * (綁定的流程已移除 / 尚未發布 / 設定有誤:`WORKFLOW_*`,docs/modules/workflows.md「錯誤」)。
  */
 export const FORM_ERROR_CODES = [
   "CONFLICT",
@@ -16,6 +17,9 @@ export const FORM_ERROR_CODES = [
   "FORM_NOT_AVAILABLE",
   "NOT_FORM_OWNER",
   "ROOT_ONLY",
+  "WORKFLOW_REMOVED",
+  "WORKFLOW_UNPUBLISHED",
+  "WORKFLOW_MISCONFIGURED",
   "FORBIDDEN",
   "NOT_FOUND",
   "VALIDATION_FAILED",
@@ -80,6 +84,9 @@ const FORBIDDEN_REASONS: Partial<
   FORM_NOT_AVAILABLE: "FORM_NOT_AVAILABLE",
   NOT_FORM_OWNER: "NOT_FORM_OWNER",
   ROOT_ONLY: "ROOT_ONLY",
+  WORKFLOW_REMOVED: "WORKFLOW_REMOVED",
+  WORKFLOW_UNPUBLISHED: "WORKFLOW_UNPUBLISHED",
+  WORKFLOW_MISCONFIGURED: "WORKFLOW_MISCONFIGURED",
 };
 
 const extensionsOf = (error: unknown): Record<string, unknown> => {

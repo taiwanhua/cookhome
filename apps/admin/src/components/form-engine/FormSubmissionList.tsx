@@ -3,7 +3,7 @@ import { useTranslations } from "use-intl";
 
 import {
   type FormSubmissionFieldsFragment,
-  FormSubmissionStatus,
+  type FormSubmissionStatus,
   ModuleListColumnKind,
   useFormSubmissionsQuery,
   useModuleListColumnsQuery,
@@ -12,7 +12,6 @@ import { Box } from "@repo/ui/box";
 import { DataTable, type DataTableColumn } from "@repo/ui/data-table";
 import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
-import { Tag } from "@repo/ui/tag";
 import { Typography } from "@repo/ui/typography";
 
 import { useSession } from "@/hooks/useSession";
@@ -24,6 +23,7 @@ import {
   sortedColumns,
 } from "@/lib/form-engine/list-columns";
 
+import { SubmissionStatusTag } from "../workflow/SubmissionStatusTag";
 import { renderValue } from "./render-value";
 
 export type FormSubmissionRow = FormSubmissionFieldsFragment;
@@ -152,13 +152,10 @@ export const FormSubmissionList = ({
     {
       key: "status",
       header: t("status"),
-      width: 110,
-      render: ({ row }) =>
-        row.status === FormSubmissionStatus.Draft ? (
-          <Tag tone="warning" label={t("statusDraft")} />
-        ) : (
-          <Tag tone="success" label={t("statusCompleted")} />
-        ),
+      width: 140,
+      render: ({ row }) => (
+        <SubmissionStatusTag status={row.status} blocked={row.blocked} />
+      ),
     },
     {
       key: "createdBy",
@@ -172,7 +169,7 @@ export const FormSubmissionList = ({
           {
             key: "actions",
             header: t("actions"),
-            width: 140,
+            width: 180,
             pinned: "right" as const,
             render: ({ row }: { row: FormSubmissionRow }) => renderActions(row),
           },

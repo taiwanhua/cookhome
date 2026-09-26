@@ -25,6 +25,7 @@ import { rawOf } from "@/lib/form-engine/definition";
 
 import { type AuthErrorCode, graphqlError } from "./auth-handlers";
 import { submissionFragment } from "./form-fixtures";
+import { submissionActionHandlers } from "./form-submission-action-handlers";
 import { api } from "./server";
 
 export type FormRuntimeOperation =
@@ -33,7 +34,10 @@ export type FormRuntimeOperation =
   | "SaveFormDraft"
   | "SubmitFormSubmission"
   | "UpdateFormSubmission"
-  | "DeleteFormSubmission";
+  | "DeleteFormSubmission"
+  | "WithdrawSubmission"
+  | "VoidSubmission"
+  | "CopySubmissionToDraft";
 
 export interface FormFailure {
   code: string;
@@ -56,6 +60,13 @@ export interface FormRuntimeWorldOptions {
   /** 提交 id → 修訂號 → 那個修訂的完整快照(`formSubmission(id, revision)` 用;沒給就回目前的值) */
   snapshots?: Record<string, Record<number, Record<string, unknown>>>;
   failures?: Partial<Record<FormRuntimeOperation, FormFailure>>;
+  /**
+   * 送出後的狀態:不綁流程 = 已完成(預設);綁了流程 = 審核中,並連上 `currentInstanceId`
+   * (Spec 6b §6「送審不經過 completed」)
+   */
+  submitAs?: { status: FormSubmissionStatus; instanceId?: string };
+  /** `copySubmissionToDraft` 回報被清空的欄位(引用來源失效) */
+  copyClearedFields?: string[];
 }
 
 export interface FormRuntimeWorld {
@@ -65,6 +76,13 @@ export interface FormRuntimeWorld {
     saveFormDraft: SaveFormDraftMutationVariables["input"][];
     submitFormSubmission: SubmitFormSubmissionMutationVariables["input"][];
     updateFormSubmission: UpdateFormSubmissionMutationVariables["input"][];
+    withdrawSubmission: { id: string; expectedEditVersion: number }[];
+    voidSubmission: {
+      id: string;
+      expectedEditVersion: number;
+      reason: string;
+    }[];
+    copySubmissionToDraft: { id: string; clientRequestId: string }[];
     formSubmissions: FormSubmissionsQueryVariables["input"][];
     formLookup: FormLookupQueryVariables["input"][];
     formFieldOptions: FormFieldOptionsQueryVariables["input"][];
@@ -102,6 +120,9 @@ export const formRuntimeWorld = (
     saveFormDraft: [],
     submitFormSubmission: [],
     updateFormSubmission: [],
+    withdrawSubmission: [],
+    voidSubmission: [],
+    copySubmissionToDraft: [],
     formSubmissions: [],
     formLookup: [],
     formFieldOptions: [],
@@ -297,8 +318,10 @@ export const formRuntimeWorld = (
         return failure;
       }
       Object.assign(target, {
-        status: FormSubmissionStatus.Completed,
-        revision: 1,
+        status: options.submitAs?.status ?? FormSubmissionStatus.Completed,
+        currentInstanceId:
+          options.submitAs?.instanceId ?? target.currentInstanceId,
+        revision: target.revision + 1,
         editVersion: target.editVersion + 1,
         summary: {
           title:
@@ -329,6 +352,20 @@ export const formRuntimeWorld = (
         editVersion: target.editVersion + 1,
       });
       return payload("updateFormSubmission", target);
+    }),
+    ...submissionActionHandlers({
+      byId: find,
+      push: (submission) => {
+        state.push(submission);
+      },
+      nextId: () => {
+        created += 1;
+        return `sub-copy-${String(created)}`;
+      },
+      fail,
+      payload,
+      inputs,
+      copyClearedFields: options.copyClearedFields ?? [],
     }),
     api.mutation("DeleteFormSubmission", ({ variables }) => {
       const { input } = variables as { input: { id: string } };

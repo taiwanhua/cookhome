@@ -1136,8 +1136,6 @@
       "total": "共 {total} 筆",
       "form": "表單",
       "status": "狀態",
-      "statusDraft": "草稿",
-      "statusCompleted": "已完成",
       "createdBy": "建立者",
       "actions": "操作",
       "slots": {
@@ -1149,8 +1147,6 @@
     "detail": {
       "loading": "載入中",
       "formLine": "{form}(版本 {version})",
-      "statusDraft": "草稿",
-      "statusCompleted": "已完成",
       "createdBy": "建立者:{name}",
       "viewingRevision": "正在檢視修訂 {revision}",
       "downloadFailed": "無法取得檔案,請稍後再試。",
@@ -1174,8 +1170,6 @@
       "allForms": "全部表單",
       "statusFilter": "狀態",
       "allStatuses": "全部狀態",
-      "statusDraft": "草稿",
-      "statusCompleted": "已完成",
       "create": "+ 新增",
       "noFormsHint": "目前沒有可以填寫的表單。",
       "tableAria": "{module}清單",
@@ -1189,7 +1183,9 @@
       "deleteTitle": "刪除這筆資料?",
       "deleteBody": "將刪除「{label}」。此操作無法復原。",
       "deleteConfirm": "確認刪除",
-      "cancel": "取消"
+      "cancel": "取消",
+      "void": "作廢",
+      "voidOf": "作廢「{label}」"
     },
     "fill": {
       "loading": "載入中",
@@ -1203,7 +1199,9 @@
       "reload": "重新載入",
       "draftSaved": "已存草稿。",
       "submitted": "已送出。",
-      "changesSaved": "已儲存修改。"
+      "changesSaved": "已儲存修改。",
+      "returnedHint": "這張單被退回修改:改好再送出會重新走審核流程(從第一關開始)。",
+      "withdrawnHint": "這張單已撤回:改好再送出會重新走審核流程(從第一關開始)。"
     },
     "errors": {
       "CONFLICT": "這筆資料已被別人更新,請重新載入。",
@@ -1215,7 +1213,10 @@
       "NOT_FOUND": "找不到這筆資料,可能已被刪除,或不在你看得到的範圍內。",
       "VALIDATION_FAILED": "有欄位填寫不正確,請修正後再送出。",
       "PERMISSION_NOT_DELETABLE": "這個權限目前不能刪除。",
-      "UNEXPECTED": "操作失敗,請稍後再試。"
+      "UNEXPECTED": "操作失敗,請稍後再試。",
+      "WORKFLOW_REMOVED": "此表單的審核流程已移除,請聯絡管理員。",
+      "WORKFLOW_UNPUBLISHED": "這張表單綁定的審核流程尚未發布,暫時不能送出,請聯絡管理員。",
+      "WORKFLOW_MISCONFIGURED": "審核流程設定有誤,請聯絡管理員。"
     }
   },
   "forms": {
@@ -1247,7 +1248,9 @@
       "noVersion": "無發布版本",
       "disabled": "停用",
       "interrupted": "發布中斷",
-      "hasDraft": "有草稿"
+      "hasDraft": "有草稿",
+      "workflow": "流程:{name}",
+      "workflowInvalid": "綁定的流程已失效"
     },
     "detail": {
       "region": "表單設定",
@@ -1651,6 +1654,563 @@
       "stay": "留在設計",
       "discard": "放棄變更",
       "saveAndLeave": "先存草稿"
+    },
+    "binding": {
+      "region": "流程綁定",
+      "label": "送出後走的審核流程",
+      "hint": "只列可以直接綁的流程;選「不走流程」= 送出即完成。",
+      "none": "不走流程",
+      "bound": "已更新流程綁定",
+      "unbound": "已解除流程綁定",
+      "invalid": "綁定的流程已失效(流程已被收回或不存在):這張表單現在送不出去,請換一個流程或解除綁定。",
+      "unbindableRegion": "不能直接綁的流程",
+      "unbindableTitle": "以下流程不能直接綁:",
+      "createCustom": "建客製流程",
+      "issue": "第 {step} 關:{problem}",
+      "problems": {
+        "ROLE_IN_SHARED": "審核者是角色佔位,要以它為基底建客製流程、指到本組織的角色",
+        "USERS_IN_SHARED": "共用流程不能指定使用者",
+        "USER_NOT_IN_TENANT": "指定的使用者不在本組織",
+        "ROLE_NOT_IN_TENANT": "指定的角色不是本組織的角色",
+        "FIELD_FORM_MISMATCH": "審核者來自別張表單的欄位",
+        "FIELD_MISSING": "審核者欄位在這張表單的目前版本不存在",
+        "FIELD_NOT_USER_REFERENCE": "審核者欄位不是「使用者」引用欄"
+      },
+      "unbindDialog": {
+        "title": "解除流程綁定",
+        "body": "解除「{workflow}」後,新送出的單不再走審核;但已經進過審核的單(例如被退回修改的)再送出時會被擋下。確定要解除嗎?",
+        "cancel": "取消",
+        "confirm": "解除綁定"
+      }
+    }
+  },
+  "approval": {
+    "submissionStatus": {
+      "DRAFT": "草稿",
+      "REVIEWING": "審核中",
+      "RETURNED": "已退回",
+      "WITHDRAWN": "已撤回",
+      "COMPLETED": "已完成",
+      "REJECTED": "已駁回",
+      "VOIDED": "已作廢",
+      "reviewingBlocked": "審核中(待處理)"
+    },
+    "section": {
+      "region": "審核",
+      "title": "審核",
+      "loading": "載入審核進度中",
+      "workflowLine": "{workflow}(第 {version} 版)· 修訂 {revision}",
+      "activeSteps": "目前關卡:{steps}",
+      "blocked": "有關卡找不到審核者或審核者已失效,正在等流程管理者處理。",
+      "stepClosed": "此關已結束或任務已變更,已重新載入最新狀態。",
+      "statuses": {
+        "LINKING": "送出中",
+        "RUNNING": "審核中",
+        "BLOCKED": "審核中(待處理)",
+        "APPROVED": "已核准",
+        "REJECTED": "已駁回",
+        "RETURNED": "已退回",
+        "WITHDRAWN": "已撤回",
+        "SUPERSEDED": "已被新修訂取代"
+      }
+    },
+    "progress": {
+      "region": "關卡進度",
+      "title": "關卡進度",
+      "row": "{name}:{state}",
+      "joinName": "匯合({name})",
+      "joined": "已匯合",
+      "joinWaiting": "等待所有分支",
+      "blocked": "待處理",
+      "noAssignee": "找不到審核者",
+      "assigneeDecided": "{name}({decision})",
+      "assigneeInvalid": "{name}(已失效)",
+      "statuses": {
+        "PENDING": "還沒到",
+        "ACTIVE": "審核中",
+        "COMPLETED": "已通過",
+        "SKIPPED": "已跳過",
+        "TERMINATED": "已結束"
+      },
+      "modes": {
+        "any": "任一人核准即過",
+        "all": "全部核准才過"
+      }
+    },
+    "decisions": {
+      "approved": "已核准",
+      "rejected": "已駁回",
+      "returned": "已退回"
+    },
+    "timeline": {
+      "region": "審核歷程",
+      "title": "審核歷程",
+      "comment": "理由:{comment}",
+      "kinds": {
+        "started": "送出審核",
+        "step_entered": "進入「{step}」",
+        "step_skipped": "「{step}」符合跳過條件,略過",
+        "task_created": "「{step}」派給 {user}",
+        "approved": "{user} 在「{step}」核准",
+        "rejected": "{user} 在「{step}」駁回",
+        "returned": "{user} 在「{step}」退回修改",
+        "late": "{user} 在「{step}」的決定晚於結果,不影響",
+        "step_completed": "「{step}」完成",
+        "join_waiting": "「{step}」等待其他分支",
+        "blocked": "「{step}」待處理(找不到審核者或審核者失效)",
+        "unblocked": "「{step}」恢復審核",
+        "reassigned": "「{step}」由 {user} 改派給 {toUser}",
+        "assignee_added": "「{step}」新增審核者 {toUser}",
+        "withdrawn": "申請人撤回",
+        "completed": "審核完成",
+        "superseded": "已被再次送出的修訂取代"
+      }
+    },
+    "decide": {
+      "region": "我在「{step}」的審核",
+      "prompt": "這張單在「{step}」等你審核。",
+      "stepClosed": "此關已結束或任務已變更",
+      "cancel": "取消",
+      "reasonRequired": "理由",
+      "reasonOptional": "意見(選填)",
+      "reasonHint": "駁回與退回修改要寫理由,申請人會看到。",
+      "buttons": {
+        "APPROVE": "核准",
+        "REJECT": "駁回",
+        "RETURN": "退回修改"
+      },
+      "titles": {
+        "APPROVE": "核准「{step}」",
+        "REJECT": "駁回「{step}」",
+        "RETURN": "退回修改「{step}」"
+      },
+      "bodies": {
+        "APPROVE": "核准後這一關就通過了(任一人核准即過的關卡,其他人的任務會取消)。",
+        "REJECT": "駁回後整張單結束,申請人不能再改,只能重新開一張。",
+        "RETURN": "退回後申請人可以修改再送出,送出後從第一關重新審核。"
+      },
+      "confirms": {
+        "APPROVE": "核准",
+        "REJECT": "駁回",
+        "RETURN": "退回修改"
+      },
+      "feedback": {
+        "APPROVE": "已核准",
+        "REJECT": "已駁回",
+        "RETURN": "已退回修改"
+      }
+    },
+    "applicant": {
+      "withdraw": "撤回",
+      "void": "作廢",
+      "copy": "複製為新單",
+      "voidedReason": "作廢理由:{reason}",
+      "clearedFields": "新單已建立;以下欄位的來源已失效,已清空:{fields}"
+    },
+    "dialog": {
+      "cancel": "取消"
+    },
+    "withdraw": {
+      "title": "撤回申請",
+      "body": "撤回後這張單回到可修改的狀態;還沒有人審核過才能撤回。",
+      "confirm": "撤回"
+    },
+    "void": {
+      "title": "作廢這張單",
+      "body": "作廢後這張單不再生效、內容不能再改;需要的話可以「複製為新單」重新送出。",
+      "reason": "作廢理由",
+      "confirm": "作廢"
+    },
+    "retry": {
+      "button": "重試推進",
+      "success": "已重試推進"
+    },
+    "feedback": {
+      "withdrawSuccess": "已撤回",
+      "voidSuccess": "已作廢",
+      "copySuccess": "已複製為新單"
+    }
+  },
+  "applyCenter": {
+    "tabs": "申請中心",
+    "tabMine": "我的申請",
+    "tabTasks": "待我審核",
+    "total": "共 {total} 筆",
+    "filters": {
+      "module": "模組",
+      "allModules": "全部模組",
+      "form": "表單",
+      "allForms": "全部表單"
+    },
+    "mine": {
+      "tableAria": "我的申請",
+      "module": "模組",
+      "form": "表單",
+      "title": "標題",
+      "status": "狀態",
+      "activeSteps": "目前關卡",
+      "submittedAt": "送出時間",
+      "actions": "操作",
+      "statusFilter": "狀態",
+      "allStatuses": "全部狀態",
+      "empty": "目前沒有申請",
+      "view": "檢視",
+      "viewOf": "檢視「{label}」",
+      "edit": "繼續編輯",
+      "editOf": "繼續編輯「{label}」"
+    },
+    "tasks": {
+      "tableAria": "待我審核",
+      "module": "模組",
+      "form": "表單",
+      "title": "標題",
+      "applicant": "申請人",
+      "step": "關卡",
+      "status": "狀態",
+      "createdAt": "建立時間",
+      "actions": "操作",
+      "doneFilter": "處理狀態",
+      "pending": "待處理",
+      "done": "已處理",
+      "emptyPending": "目前沒有待審核的單",
+      "emptyDone": "還沒有處理過的單",
+      "review": "審核",
+      "view": "檢視",
+      "openOf": "開啟「{label}」",
+      "statuses": {
+        "PENDING": "待處理",
+        "APPROVED": "已核准",
+        "REJECTED": "已駁回",
+        "RETURNED": "已退回",
+        "LATE": "晚於結果",
+        "CANCELLED": "已取消",
+        "BLOCKED": "待改派"
+      }
+    },
+    "newApplication": {
+      "open": "新申請",
+      "title": "新申請",
+      "module": "模組",
+      "form": "表單",
+      "cancel": "取消",
+      "confirm": "前往填寫",
+      "noCreatePage": "你沒有這個模組的新增頁,請聯絡管理員。"
+    },
+    "view": {
+      "loading": "載入中",
+      "back": "回申請中心",
+      "meta": "{module} · {form} · 申請人 {applicant} · 修訂 {revision}",
+      "snapshotUnavailable": "這個修訂的內容目前讀不到。"
+    }
+  },
+  "workflows": {
+    "loading": "載入中",
+    "empty": "還沒有流程",
+    "blockedLink": "阻擋清單",
+    "errors": {
+      "CONFLICT": "這筆資料已被別人更新,請重新載入。",
+      "DRAFT_REVISION_MISMATCH": "草稿已被別人更新,請重新載入。",
+      "PUBLISH_IN_PROGRESS": "上一次發布還沒完成,請先重試發布。",
+      "HAS_DECISIONS": "已有審核意見,不能撤回。",
+      "ALREADY_DECIDED": "此任務已決定,不能改派。",
+      "ALREADY_IN_STEP": "此人已在本關。",
+      "INSTANCE_CHANGED": "這張單的審核狀態已改變,請重新載入。",
+      "ALREADY_COPIED": "這張單已經複製過新單了。",
+      "FORBIDDEN": "你沒有執行這個動作的權限。",
+      "ROOT_ONLY": "只有平台能執行這個動作。",
+      "NOT_WORKFLOW_OWNER": "這個流程不屬於你的組織,不能修改;可以以它為基底建一個自己的流程。",
+      "TENANT_ONLY": "流程綁定要在組織內設定。",
+      "WORKFLOW_UNPUBLISHED": "這個流程還沒有發布版本,不能綁定。",
+      "ASSIGNEE_NOT_ELIGIBLE": "這個人不能審核這張單(已停用、不在本組織,或是申請人自己)。",
+      "NOT_FOUND": "找不到這筆資料,可能已被刪除,或不在你看得到的範圍內。",
+      "VALIDATION_FAILED": "有欄位填寫不正確,請修正後再試。",
+      "UNEXPECTED": "操作失敗,請稍後再試。"
+    },
+    "list": {
+      "region": "流程清單",
+      "title": "流程",
+      "create": "建立流程",
+      "search": "搜尋",
+      "searchPlaceholder": "流程名稱或 key",
+      "loading": "載入中",
+      "empty": "沒有符合的流程",
+      "shared": "共用",
+      "custom": "客製",
+      "noVersion": "未發布",
+      "version": "第 {version} 版",
+      "assigned": "已分派 {count} 個",
+      "interrupted": "發布中斷",
+      "hasDraft": "有草稿",
+      "boundForms": "綁定表單:{forms}"
+    },
+    "detail": {
+      "region": "流程內容",
+      "meta": "{key} · {kind}",
+      "shared": "共用流程",
+      "custom": "客製流程",
+      "forkedFrom": "以 {key} 第 {version} 版為基底",
+      "edit": "改名稱",
+      "fork": "以此為基底建流程",
+      "assign": "分派",
+      "placeholderHint": "這個流程的角色關卡只存佔位,不能直接綁表單;請以它為基底建客製流程。",
+      "assignedTo": "已分派給:{tenants}",
+      "boundForms": "綁定的表單:{forms}",
+      "tabs": "流程內容",
+      "tabDesign": "設計",
+      "tabVersions": "版本"
+    },
+    "nameDialog": {
+      "createTitle": "建立流程",
+      "editTitle": "改名稱",
+      "key": "流程 key",
+      "keyHint": "小寫英文開頭,只允許小寫英文、數字、底線;建立後不能改。",
+      "name": "名稱",
+      "cancel": "取消",
+      "confirm": "儲存",
+      "created": "已建立流程",
+      "updated": "已更新名稱"
+    },
+    "fork": {
+      "title": "以「{name}」為基底建流程",
+      "placeholderHint": "建好後,把角色關卡指到本組織的角色,才能發布與綁定。",
+      "baseVersion": "基底版本",
+      "versionOption": "第 {version} 版",
+      "key": "新流程 key",
+      "keyHint": "小寫英文開頭,只允許小寫英文、數字、底線;建立後不能改。",
+      "name": "名稱",
+      "cancel": "取消",
+      "confirm": "建立",
+      "success": "已建立流程(含一份草稿)"
+    },
+    "assign": {
+      "title": "分派「{name}」",
+      "body": "勾選的組織看得到這個流程;取消勾選 = 收回(該組織之後的新送出會被擋,進行中的審核照常走完)。",
+      "tenants": "組織",
+      "empty": "沒有可以分派的組織",
+      "cancel": "取消",
+      "confirm": "儲存",
+      "success": "已更新分派"
+    },
+    "versions": {
+      "tableAria": "流程版本",
+      "version": "版本",
+      "status": "狀態",
+      "changelog": "變更說明",
+      "publishedAt": "發布",
+      "actions": "操作",
+      "empty": "還沒有版本",
+      "draftLabel": "草稿(修訂 {revision})",
+      "versionLabel": "第 {version} 版",
+      "publishedLine": "{at} · {user}",
+      "publish": "發布",
+      "retire": "退役",
+      "baseOn": "以第 {version} 版開草稿",
+      "diff": "與上一版差異",
+      "diffRegion": "版本差異",
+      "diffTitle": "與上一版差異",
+      "diffAdded": "新增:{steps}",
+      "diffRemoved": "移除:{steps}",
+      "diffChanged": "變更:{steps}",
+      "diffStructure": "分流 / 匯合的結構有變更",
+      "draftCreated": "已開新草稿",
+      "interrupted": "上一次發布中斷了,請重試發布。",
+      "retry": "重試發布",
+      "retried": "已重試發布",
+      "statuses": {
+        "DRAFT": "草稿",
+        "PUBLISHING": "發布中",
+        "PUBLISHED": "已發布",
+        "RETIRED": "已退役"
+      }
+    },
+    "publish": {
+      "title": "發布草稿",
+      "body": "發布後,綁這個流程的表單新送出就走這一版;進行中的審核照原本的版本走完。",
+      "changelog": "變更說明",
+      "cancel": "取消",
+      "confirm": "發布",
+      "success": "已發布第 {version} 版",
+      "unsavedWarning": "設計器有還沒存的變更:發布的是上次存的草稿。",
+      "saveFirst": "先存草稿"
+    },
+    "retire": {
+      "title": "退役目前版本",
+      "body": "退役後,綁這個流程的表單送出會被擋(「流程尚未發布」),直到再發布新版;進行中的審核照常走完。",
+      "cancel": "取消",
+      "confirm": "退役",
+      "success": "已退役目前版本"
+    },
+    "unsaved": {
+      "title": "還有沒存的變更",
+      "body": "流程設計器有還沒存的變更,換到別的流程會遺失。",
+      "stay": "留在設計",
+      "discard": "放棄變更",
+      "saveAndLeave": "先存草稿"
+    },
+    "designer": {
+      "loading": "載入中",
+      "noDraft": "這個流程目前沒有草稿。",
+      "newDraft": "開新草稿",
+      "draftCreated": "已開新草稿",
+      "readonlyEmpty": "這個流程還沒有發布的版本。",
+      "readonlyHint": "這是分派來的共用流程,只能看;要調整請以它為基底建自己的流程。",
+      "canvas": "流程圖",
+      "properties": "屬性",
+      "selectHint": "點流程圖上的關卡或匯合節點來編輯。「從此關分流」在關卡的屬性裡。",
+      "unparseable": "這份草稿的結構無法用設計器編輯(可能是手改過的定義),只能看檢查結果;請以已發布版本重新開草稿。",
+      "revision": "草稿修訂 {revision}",
+      "dirty": "有未存的變更",
+      "checkForm": "檢查用表單",
+      "checkFormHint": "跳過條件的欄位選項與檢查以它的目前版本為準",
+      "checkFormNone": "不指定",
+      "appendStep": "在最後加一關",
+      "save": "存草稿",
+      "saved": "已存草稿",
+      "conflict": "草稿已被別人更新,請重新載入。",
+      "reload": "重新載入",
+      "jsonPreview": "流程定義(JSON)",
+      "newStep": "關卡 {n}",
+      "newJoin": "匯合",
+      "moveToBranch": "移到「{join}」第 {n} 條分支"
+    },
+    "opErrors": {
+      "FORK_NEEDS_SOURCE": "分流前面一定要有一個審核關卡:先刪掉或移動整組分流。",
+      "NESTED_FORK": "分支裡不能再分流。",
+      "ALREADY_FORKED": "這一關已經分流了;要加分支請在匯合節點「加一條分支」。",
+      "BRANCH_WOULD_BE_EMPTY": "這樣會留下空的分支;分支至少要有一關。",
+      "LAST_STEP": "流程至少要有一關。"
+    },
+    "node": {
+      "users": "指定使用者 {count} 人",
+      "role": "角色:{name}",
+      "field": "表單欄位:{form} · {field}",
+      "manager": "主管第 {level} 層",
+      "unset": "未設定",
+      "skipWhen": "有跳過條件",
+      "noReturn": "不可退回",
+      "join": "匯合:{name}",
+      "issues": "{count} 個問題"
+    },
+    "step": {
+      "region": "關卡「{name}」",
+      "title": "審核關卡",
+      "name": "名稱",
+      "key": "關卡 key",
+      "keyHint": "小寫英文開頭;發布後不能改。",
+      "keyLocked": "已發布過的關卡,key 不能改。",
+      "mode": "會簽",
+      "modes": {
+        "any": "任一人核准即過",
+        "all": "全部核准才過"
+      },
+      "modeHints": {
+        "any": "一人核准就通過,一人駁回就駁回。",
+        "all": "每個人都核准才通過,一人駁回就駁回。"
+      },
+      "allowReturn": "允許退回修改",
+      "skipWhen": "跳過條件",
+      "skipNeedsCheckForm": "先在上方選「檢查用表單」,跳過條件才有欄位可選。",
+      "actions": "關卡操作",
+      "insertAfter": "在後面加一關",
+      "fork": "從此關分流",
+      "addBranch": "加一條分支",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "delete": "刪除此關",
+      "moveTo": "移到分支",
+      "moveToPlaceholder": "選擇分支"
+    },
+    "join": {
+      "region": "匯合節點「{name}」",
+      "title": "匯合節點",
+      "body": "系統節點:{count} 條分支都通過(或依條件跳過)後自動完成,不設審核者、不能設跳過條件。",
+      "name": "名稱",
+      "addBranch": "加一條分支",
+      "insertAfter": "在匯合後加一關",
+      "removeParallel": "刪除整組分流"
+    },
+    "forkDialog": {
+      "title": "從「{step}」分流",
+      "body": "這一關通過後,各分支同時開始審;全部分支都通過才會在匯合節點會合。",
+      "count": "分支數",
+      "countOption": "{count} 條",
+      "cancel": "取消",
+      "confirm": "分流"
+    },
+    "issues": {
+      "region": "檢查結果",
+      "summary": "錯誤 {errors} 個、警告 {warnings} 個(有錯誤不能發布)",
+      "error": "錯誤",
+      "warning": "警告"
+    },
+    "assignee": {
+      "region": "審核者",
+      "kind": "審核者來源",
+      "kinds": {
+        "users": "指定使用者",
+        "role": "角色",
+        "field": "表單欄位",
+        "manager": "主管"
+      },
+      "sharedHint": "共用流程不能指定使用者;角色只能填佔位。",
+      "users": "使用者",
+      "usersHint": "送出時這些人裡啟用中、仍在本組織的會收到任務。",
+      "placeholder": "角色佔位",
+      "placeholderHint": "例如「人資」:各組織以此為基底建客製流程後,再指到自己的角色。",
+      "placeholderFrom": "來源的佔位:{placeholder}",
+      "role": "角色",
+      "roleUnset": "未選擇",
+      "form": "表單",
+      "formUnset": "未選擇",
+      "field": "欄位",
+      "fieldUnset": "未選擇",
+      "fieldHint": "只列「使用者」引用欄;審核者 = 送出時這個欄位選的人。",
+      "level": "第幾層",
+      "levelHint": "從申請所屬組織往上找,第 1 層 = 最近的一組主管。",
+      "levelOption": "第 {level} 層"
+    },
+    "userPicker": {
+      "option": "{name}({account})",
+      "loading": "載入中",
+      "empty": "沒有符合的人",
+      "forbidden": "你沒有檢視使用者清單的權限",
+      "disabled": "已停用"
+    },
+    "blocked": {
+      "title": "阻擋清單",
+      "back": "回流程管理",
+      "filters": "篩選",
+      "filterBlocked": "阻擋",
+      "filterNeedsAdvance": "需要推進",
+      "truncated": "需要推進的單太多,這次只檢查了最久沒有變動的一批;處理完再重新整理。",
+      "tableAria": "阻擋清單",
+      "form": "表單",
+      "titleColumn": "標題",
+      "applicant": "申請人",
+      "stuck": "卡在哪",
+      "since": "最後變動",
+      "actions": "操作",
+      "emptyBlocked": "目前沒有被阻擋的單",
+      "emptyNeedsAdvance": "目前沒有需要推進的單",
+      "total": "共 {total} 筆",
+      "noAssignee": "「{step}」找不到審核者",
+      "invalidAssignee": "「{step}」{name}(已失效)",
+      "waitingAssignee": "「{step}」等 {name}",
+      "reassign": "改派",
+      "add": "新增審核者",
+      "reassigned": "已改派",
+      "added": "已新增審核者",
+      "assignDialog": {
+        "reassignTitle": "改派「{step}」",
+        "addTitle": "「{step}」新增審核者",
+        "reassignBody": "把 {from} 的任務改派給:",
+        "addBody": "這一關找不到審核者,指定一位:",
+        "user": "審核者",
+        "isApplicant": "申請人自己不能審",
+        "inStep": "已在這一關",
+        "cancel": "取消",
+        "confirm": "確定"
+      }
     }
   }
 }

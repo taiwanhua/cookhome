@@ -180,6 +180,92 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
     reason: "`t(`slots.${slot}`)`,slot 取自 `SUMMARY_SLOTS`",
   },
   {
+    key: "admin.approval.submissionStatus.",
+    reason:
+      "`t(status)` / `tStatus(value)`,status 是 GraphQL 的 `FormSubmissionStatus`(七值)",
+  },
+  {
+    key: "admin.approval.section.statuses.",
+    reason:
+      "`t(`statuses.${instance.status}`)`,status 是 `WorkflowInstanceStatus`",
+  },
+  {
+    key: "admin.approval.progress.statuses.",
+    reason: "`t(`statuses.${step.status}`)`,status 是 `WorkflowStepStatus`",
+  },
+  {
+    key: "admin.approval.progress.modes.",
+    reason: "`t(`modes.${step.mode}`)`,mode 是會簽模式(`any` / `all`)",
+  },
+  {
+    key: "admin.approval.decisions.",
+    reason:
+      "`tDecision(decision.decision)`,值是實例上的決定(`approved` / `rejected` / `returned`)",
+  },
+  {
+    key: "admin.approval.timeline.kinds.",
+    reason: "`t(`kinds.${event.kind}`)`,kind 是實例 `history` 的事件種類",
+  },
+  {
+    key: "admin.approval.decide.buttons.",
+    reason: "`t(`buttons.${item}`)`,item 是 GraphQL 的 `WorkflowDecision`",
+  },
+  {
+    key: "admin.approval.decide.titles.",
+    reason: "同上:決定跳窗的標題",
+  },
+  {
+    key: "admin.approval.decide.bodies.",
+    reason: "同上:決定跳窗的說明",
+  },
+  {
+    key: "admin.approval.decide.confirms.",
+    reason: "同上:決定跳窗的確認鈕",
+  },
+  {
+    key: "admin.approval.decide.feedback.",
+    reason:
+      "`t(`feedback.${variables.input.decision}`)`,送出的 `WorkflowDecision`",
+  },
+  {
+    key: "admin.applyCenter.tasks.statuses.",
+    reason:
+      "`t(`statuses.${row.status}`)`,status 是 GraphQL 的 `WorkflowTaskStatus`",
+  },
+  {
+    key: "admin.workflows.errors.",
+    reason:
+      "`tErrors(code)`,code 由 `lib/workflow/workflow-errors.ts` 的 `workflowErrorOf` 從 api 錯誤碼 / reason 換算",
+  },
+  {
+    key: "admin.workflows.versions.statuses.",
+    reason:
+      "`t(`statuses.${item.status}`)`,status 是 GraphQL 的 `WorkflowVersionStatus`",
+  },
+  {
+    key: "admin.workflows.opErrors.",
+    reason:
+      "`tOp(state.opError)`,值是 `lib/workflow/flow-model.ts` 的 `FlowOpError`",
+  },
+  {
+    key: "admin.workflows.step.modes.",
+    reason:
+      "`t(`modes.${mode}`)` / `tMode(step.mode)`,mode 取自 `APPROVAL_MODES`",
+  },
+  {
+    key: "admin.workflows.step.modeHints.",
+    reason: "`t(`modeHints.${step.mode}`)`,同上",
+  },
+  {
+    key: "admin.workflows.assignee.kinds.",
+    reason: "`t(`kinds.${kind}`)`,kind 取自 `ASSIGNEE_KINDS`",
+  },
+  {
+    key: "admin.forms.binding.problems.",
+    reason:
+      "`t(`problems.${issue.problem}`)`,problem 是 api 綁定時檢查的 `BindingIssue.problem`",
+  },
+  {
     key: "admin.demoSampleOne.form.categoryUnavailable",
     reason:
       "`SampleOneCategoryField` 用的 `t` 由 `shared/DemoForm` 經 context 傳入,兩者不在同一個資料夾",

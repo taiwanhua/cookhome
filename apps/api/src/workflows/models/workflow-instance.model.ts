@@ -99,6 +99,13 @@ export class WorkflowPlanItemModel {
   /** `invalid` = 承辦人停用 / 移出租戶(等改派)。 */
   @Field(() => String)
   assigneeState!: string;
+
+  /**
+   * 這一項對應的任務 id(`reassignTask` 要它)。**只給流程管理者**(`abilities.canManage`):
+   * 阻擋清單要對別人的任務改派;其他讀者一律 null,任務還沒建出來(計畫剛寫入)也是 null。
+   */
+  @Field(() => ID, { nullable: true })
+  taskId!: string | null;
 }
 
 @ObjectType()
