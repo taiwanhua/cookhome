@@ -1,9 +1,10 @@
 import { Injectable } from "@nestjs/common";
 
-import type {
-  FieldDef,
-  LookupSourceDescriptor,
-  StoredValues,
+import {
+  type FieldDef,
+  type LookupSourceDescriptor,
+  type StoredValues,
+  lookupLabelFieldsOf,
 } from "@repo/domain/form";
 
 import { FieldCategoryOptionsService } from "../field-category-options.service";
@@ -12,7 +13,7 @@ import { REDACTED } from "../form-values/stored-values";
 import {
   LookupProvidersService,
   type LookupRecord,
-  lookupLabelOf,
+  lookupDisplayLabelOf,
   lookupValueOf,
 } from "../lookup-providers";
 import type {
@@ -74,6 +75,7 @@ function sourceSignature(
     source.filter ?? null,
     field,
     source.labelField,
+    source.labelTemplate ?? null,
   ]);
 }
 
@@ -191,7 +193,7 @@ export class DisplayNamesService {
         group.source,
         group.field,
         [...group.values],
-        [group.source.labelField],
+        lookupLabelFieldsOf(group.source),
       );
       // 讀得到那筆、但顯示欄因受保護被省略 → 不算「現名可用」(不在表裡 = 快照 + available false)
       labels.set(
@@ -201,7 +203,7 @@ export class DisplayNamesService {
             .filter((record) => hasLabelField(record, group.source.labelField))
             .map((record) => [
               String(lookupValueOf(record, group.field)),
-              lookupLabelOf(record, group.source.labelField),
+              lookupDisplayLabelOf(record, group.source),
             ]),
         ),
       );

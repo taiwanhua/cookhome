@@ -324,10 +324,15 @@ query ModuleListColumns($moduleKey: String!) {
       width
       order
     }
+    builtin {
+      form
+      status
+      createdBy
+    }
   }
 }
 
-# SetModuleListColumnsInput: { moduleKey, columns: [{ kind, key, formKey?, width, order }] }
+# SetModuleListColumnsInput: { moduleKey, columns: [{ kind, key, formKey?, width, order }], builtin?: { form, status, createdBy } }
 # root 整份覆蓋;欄位要在共用表單目前版本且不是受保護欄位,否則 VALIDATION_FAILED(fields: ["columns.N"])
 mutation SetModuleListColumns($input: SetModuleListColumnsInput!) {
   setModuleListColumns(input: $input) {
@@ -338,6 +343,11 @@ mutation SetModuleListColumns($input: SetModuleListColumnsInput!) {
       formKey
       width
       order
+    }
+    builtin {
+      form
+      status
+      createdBy
     }
   }
 }

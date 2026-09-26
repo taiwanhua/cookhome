@@ -1059,6 +1059,19 @@ export enum ModuleEngine {
   Form = 'FORM'
 }
 
+export type ModuleListBuiltinColumns = {
+  __typename?: 'ModuleListBuiltinColumns';
+  createdBy: Scalars['Boolean']['output'];
+  form: Scalars['Boolean']['output'];
+  status: Scalars['Boolean']['output'];
+};
+
+export type ModuleListBuiltinColumnsInput = {
+  createdBy: Scalars['Boolean']['input'];
+  form: Scalars['Boolean']['input'];
+  status: Scalars['Boolean']['input'];
+};
+
 export type ModuleListColumn = {
   __typename?: 'ModuleListColumn';
   formKey?: Maybe<Scalars['ID']['output']>;
@@ -1084,6 +1097,7 @@ export enum ModuleListColumnKind {
 
 export type ModuleListColumnsPayload = {
   __typename?: 'ModuleListColumnsPayload';
+  builtin: ModuleListBuiltinColumns;
   columns: Array<ModuleListColumn>;
   moduleKey: Scalars['String']['output'];
 };
@@ -2384,6 +2398,7 @@ export type SetModuleIconInput = {
 };
 
 export type SetModuleListColumnsInput = {
+  builtin?: InputMaybe<ModuleListBuiltinColumnsInput>;
   columns: Array<ModuleListColumnInput>;
   moduleKey: Scalars['String']['input'];
 };
@@ -3516,14 +3531,14 @@ export type ModuleListColumnsQueryVariables = Exact<{
 }>;
 
 
-export type ModuleListColumnsQuery = { __typename?: 'Query', moduleListColumns: { __typename?: 'ModuleListColumnsPayload', moduleKey: string, columns: Array<{ __typename?: 'ModuleListColumn', kind: ModuleListColumnKind, key: string, formKey?: string | null, width: number, order: number }> } };
+export type ModuleListColumnsQuery = { __typename?: 'Query', moduleListColumns: { __typename?: 'ModuleListColumnsPayload', moduleKey: string, columns: Array<{ __typename?: 'ModuleListColumn', kind: ModuleListColumnKind, key: string, formKey?: string | null, width: number, order: number }>, builtin: { __typename?: 'ModuleListBuiltinColumns', form: boolean, status: boolean, createdBy: boolean } } };
 
 export type SetModuleListColumnsMutationVariables = Exact<{
   input: SetModuleListColumnsInput;
 }>;
 
 
-export type SetModuleListColumnsMutation = { __typename?: 'Mutation', setModuleListColumns: { __typename?: 'ModuleListColumnsPayload', moduleKey: string, columns: Array<{ __typename?: 'ModuleListColumn', kind: ModuleListColumnKind, key: string, formKey?: string | null, width: number, order: number }> } };
+export type SetModuleListColumnsMutation = { __typename?: 'Mutation', setModuleListColumns: { __typename?: 'ModuleListColumnsPayload', moduleKey: string, columns: Array<{ __typename?: 'ModuleListColumn', kind: ModuleListColumnKind, key: string, formKey?: string | null, width: number, order: number }>, builtin: { __typename?: 'ModuleListBuiltinColumns', form: boolean, status: boolean, createdBy: boolean } } };
 
 export type FormEngineModulesQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -7017,6 +7032,11 @@ export const ModuleListColumnsDocument = `
       width
       order
     }
+    builtin {
+      form
+      status
+      createdBy
+    }
   }
 }
     `;
@@ -7054,6 +7074,11 @@ export const SetModuleListColumnsDocument = `
       formKey
       width
       order
+    }
+    builtin {
+      form
+      status
+      createdBy
     }
   }
 }

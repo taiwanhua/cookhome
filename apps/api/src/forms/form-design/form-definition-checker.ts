@@ -6,6 +6,9 @@ import {
   type FormDefinition,
   type LookupSourceDescriptor,
   type ValidationReport,
+  hasLabelTemplate,
+  lookupTemplateFieldOf,
+  templatePlaceholdersOf,
   validateDefinition,
 } from "@repo/domain/form";
 import { recheckRegexSafety } from "@repo/domain/form-regex-safety";
@@ -23,6 +26,41 @@ import type { FormDefinitionInput } from "./dto/form-design.input";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * `form_submission` 來源的顯示模板精確到「這張表單」:`{{value.<key>}}` 的 key 要在該表單目前版本的
+ * 非受保護欄位內(登錄表是所有來源表單的聯集,domain 檢查器只驗到聯集;已報過的佔位符不重報)。
+ */
+function checkSubmissionTemplate(
+  source: LookupSourceDescriptor,
+  catalog: Readonly<Record<string, unknown>>,
+  location: Record<string, unknown>,
+  report: ValidationReport,
+): void {
+  if (!hasLabelTemplate(source)) {
+    return;
+  }
+  for (const name of new Set(templatePlaceholdersOf(source.labelTemplate))) {
+    const field = lookupTemplateFieldOf(source.provider, name);
+    const reported = report.errors.some(
+      (issue) =>
+        issue.code === "LOOKUP_TEMPLATE_UNKNOWN_PLACEHOLDER" &&
+        issue.message.includes(`{{${name}}}`) &&
+        issue.location.fieldKey === location.fieldKey &&
+        issue.location.prefillIndex === location.prefillIndex,
+    );
+    if (field !== null && !(field in catalog) && !reported) {
+      report.errors.push({
+        code: "LOOKUP_TEMPLATE_UNKNOWN_PLACEHOLDER",
+        message: `表單 ${String(source.formKey)} 目前的版本沒有可用的欄位 ${field},顯示模板不能用 {{${name}}}`,
+        location: {
+          ...location,
+          property: `${String(location.property)}.labelTemplate`,
+        },
+      });
+    }
+  }
 }
 
 /**
@@ -203,6 +241,7 @@ export class FormDefinitionChecker {
           });
         }
       }
+      checkSubmissionTemplate(source, catalog, location, report);
     }
   }
 }

@@ -46,6 +46,19 @@ export class ModuleListColumn {
   order!: number;
 }
 
+/** 內建欄(表單 / 狀態 / 建立者)各自顯不顯示;沒設定過全為 true。 */
+@ObjectType()
+export class ModuleListBuiltinColumns {
+  @Field(() => Boolean)
+  form!: boolean;
+
+  @Field(() => Boolean)
+  status!: boolean;
+
+  @Field(() => Boolean)
+  createdBy!: boolean;
+}
+
 /** 列表欄位配置(`modules.settings.list`)。 */
 @ObjectType()
 export class ModuleListColumnsPayload {
@@ -55,6 +68,10 @@ export class ModuleListColumnsPayload {
   /** 依 `order` 排好;沒設定過為空陣列(前端用預設欄)。 */
   @Field(() => [ModuleListColumn])
   columns!: ModuleListColumn[];
+
+  /** 內建欄的顯示開關(`settings.list.builtin`,沒存過 = 全開)。 */
+  @Field(() => ModuleListBuiltinColumns)
+  builtin!: ModuleListBuiltinColumns;
 }
 
 @InputType()
@@ -76,6 +93,18 @@ export class ModuleListColumnInput {
   order!: number;
 }
 
+@InputType()
+export class ModuleListBuiltinColumnsInput {
+  @Field(() => Boolean)
+  form!: boolean;
+
+  @Field(() => Boolean)
+  status!: boolean;
+
+  @Field(() => Boolean)
+  createdBy!: boolean;
+}
+
 /** 整份覆蓋某表單模組的列表欄位配置(root)。 */
 @InputType()
 export class SetModuleListColumnsInput {
@@ -85,4 +114,8 @@ export class SetModuleListColumnsInput {
   /** 空陣列 = 清掉配置(回到前端預設欄)。 */
   @Field(() => [ModuleListColumnInput])
   columns!: ModuleListColumnInput[];
+
+  /** 內建欄開關;缺席 / null = 保留目前存的(沒存過 = 全開)。 */
+  @Field(() => ModuleListBuiltinColumnsInput, { nullable: true })
+  builtin?: ModuleListBuiltinColumnsInput | null;
 }

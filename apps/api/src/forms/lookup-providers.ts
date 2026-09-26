@@ -9,6 +9,7 @@ import {
   type LookupSourceDescriptor,
   formatTemporal,
   optionLabelOf,
+  renderLookupLabel,
   semanticValueOf,
   temporalIsoOf,
 } from "@repo/domain/form";
@@ -170,6 +171,18 @@ export function lookupLabelOf(
     return value.map((item) => textOf(item)).join("、");
   }
   return textOf(value);
+}
+
+/**
+ * 一筆的顯示名(Spec §5「lookup 來源」`labelTemplate`):來源描述有顯示模板就套
+ * (每個佔位符取該欄的顯示名 / 值,讀不到的換空字串),沒模板或套出空的 → `labelField`。
+ * 讀取時要的欄位用 `@repo/domain/form` 的 `lookupLabelFieldsOf(source)`。
+ */
+export function lookupDisplayLabelOf(
+  record: LookupRecord,
+  source: LookupSourceDescriptor,
+): string | null {
+  return renderLookupLabel(source, (field) => lookupLabelOf(record, field));
 }
 
 /** 純量轉文字;物件(不該出現在顯示欄)回空字串。 */
