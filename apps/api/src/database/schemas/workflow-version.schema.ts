@@ -51,6 +51,14 @@ export class WorkflowVersion {
   @Prop({ type: [MongooseSchema.Types.Mixed], default: null })
   edges!: WorkflowEdge[] | null;
 
+  /**
+   * 設計器的「檢查用表單」(表單 key;選填、null = 沒選):設計時對照的表單,
+   * `field` 審核者來源的欄位選單、`skipWhen` 的欄位選單與檢查器都對它的**目前版本**。
+   * 存草稿時一併存、發布快照保留、以某版為基底開草稿 / fork 時帶過去;送出時仍以綁定的表單為準。
+   */
+  @Prop({ type: String, default: null })
+  checkFormKey!: string | null;
+
   /** 發布時必填。 */
   @Prop({ type: String, default: null })
   changelog!: string | null;

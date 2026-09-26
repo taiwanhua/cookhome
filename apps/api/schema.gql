@@ -339,6 +339,11 @@ input DeleteRoleInput {
   id: ID!
 }
 
+input DeleteWorkflowVersionDraftInput {
+  expectedDraftRevision: Int!
+  workflowKey: ID!
+}
+
 type DemoItemOne {
   abilities: DemoItemOneAbilities!
   attachment: DemoItemOneAttachment
@@ -1033,6 +1038,7 @@ type Mutation {
   deleteOrg(input: DeleteOrgInput!): DeletePayload!
   deleteRetiredPermission(input: DeleteRetiredPermissionInput!): DeleteRetiredPermissionPayload!
   deleteRole(input: DeleteRoleInput!): DeletePayload!
+  deleteWorkflowVersionDraft(input: DeleteWorkflowVersionDraftInput!): WorkflowPayload!
   forkForm(input: ForkFormInput!): FormPayload!
   forkWorkflow(input: ForkWorkflowInput!): WorkflowPayload!
   grantRoleUsers(input: GrantRoleUsersInput!): RoleUsersPayload!
@@ -1905,6 +1911,7 @@ type WorkflowDecisionModel {
 }
 
 input WorkflowDefinitionInput {
+  checkFormKey: ID
   edges: [WorkflowEdgeInput!]
   steps: [JSONObject!]!
 }
@@ -2117,6 +2124,7 @@ type WorkflowValidationReport {
 type WorkflowVersionModel {
   baseVersion: Int
   changelog: String
+  checkFormKey: ID
   draftRevision: Int!
   edges: [WorkflowEdgeModel!]
   id: ID!

@@ -197,6 +197,10 @@ export class WorkflowVersionModel {
   @Field(() => [WorkflowEdgeModel], { nullable: true })
   edges!: WorkflowEdgeModel[] | null;
 
+  /** 設計器的「檢查用表單」(表單 key);沒選 = null。發布快照保留、開草稿 / fork 帶過去。 */
+  @Field(() => ID, { nullable: true })
+  checkFormKey!: string | null;
+
   @Field(() => String, { nullable: true })
   changelog!: string | null;
 

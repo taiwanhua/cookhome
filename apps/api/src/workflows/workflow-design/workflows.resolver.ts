@@ -10,6 +10,7 @@ import {
   AssignWorkflowToTenantsInput,
   CreateWorkflowInput,
   CreateWorkflowVersionDraftInput,
+  DeleteWorkflowVersionDraftInput,
   ForkWorkflowInput,
   PublishWorkflowVersionInput,
   RevokeWorkflowFromTenantInput,
@@ -195,6 +196,18 @@ export class WorkflowsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<WorkflowVersionPayload> {
     return this.versions.saveDraft(await this.access.factsOf(operator), input);
+  }
+
+  /** 刪除草稿;回刪完之後的流程(`hasDraft` = false)。 */
+  @RequirePermission(WORKFLOWS_PERMISSIONS.edit)
+  @Mutation(() => WorkflowPayload)
+  async deleteWorkflowVersionDraft(
+    @Args("input") input: DeleteWorkflowVersionDraftInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<WorkflowPayload> {
+    const facts = await this.access.factsOf(operator);
+    const workflow = await this.versions.deleteDraft(facts, input);
+    return { workflow: await this.service.get(facts, workflow.key) };
   }
 
   @RequirePermission(WORKFLOWS_PERMISSIONS.publish)
