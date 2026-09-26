@@ -4,13 +4,16 @@ import {
   type BindFormWorkflowMutationVariables,
   type CreateWorkflowMutationVariables,
   type CreateWorkflowVersionDraftMutationVariables,
+  type DeleteWorkflowVersionDraftMutationVariables,
   type ForkWorkflowMutationVariables,
   type FormFieldsFragment,
   type FormWorkflowOptionsQuery,
   type PublishWorkflowVersionMutationVariables,
   type SaveWorkflowVersionDraftMutationVariables,
   type UnbindFormWorkflowMutationVariables,
+  type ValidateWorkflowVersionQueryVariables,
   type WorkflowFieldsFragment,
+  type WorkflowValidationFieldsFragment,
   type WorkflowVersionFieldsFragment,
   type WorkflowVersionQueryVariables,
   WorkflowVersionStatus,
@@ -24,6 +27,7 @@ import { STAMP, workflowFragment } from "./workflow-fixtures";
 
 export type WorkflowDesignOperation =
   | "SaveWorkflowVersionDraft"
+  | "DeleteWorkflowVersionDraft"
   | "PublishWorkflowVersion"
   | "CreateWorkflow"
   | "BindFormWorkflow";
@@ -40,12 +44,16 @@ export interface WorkflowDesignWorldOptions {
   /** 表單管理的表單(綁定後寫回 `workflowBinding`) */
   forms?: FormFieldsFragment[];
   failures?: Partial<Record<WorkflowDesignOperation, FormFailure>>;
+  /** 「檢查」鈕(`validateWorkflowVersion`)回的結果;沒給 = 沒有問題 */
+  validation?: WorkflowValidationFieldsFragment;
 }
 
 export interface WorkflowDesignWorld {
   handlers: Parameters<typeof import("./server").server.use>;
   inputs: {
     saveDraft: SaveWorkflowVersionDraftMutationVariables["input"][];
+    deleteDraft: DeleteWorkflowVersionDraftMutationVariables["input"][];
+    validate: ValidateWorkflowVersionQueryVariables["input"][];
     publish: PublishWorkflowVersionMutationVariables["input"][];
     createDraft: CreateWorkflowVersionDraftMutationVariables["input"][];
     createWorkflow: CreateWorkflowMutationVariables["input"][];
@@ -78,6 +86,8 @@ export const workflowDesignWorld = (
   const failures = options.failures ?? {};
   const inputs: WorkflowDesignWorld["inputs"] = {
     saveDraft: [],
+    deleteDraft: [],
+    validate: [],
     publish: [],
     createDraft: [],
     createWorkflow: [],
@@ -154,9 +164,13 @@ export const workflowDesignWorld = (
         data: { workflowVersions: { items, totalCount: items.length } },
       });
     }),
-    api.query("ValidateWorkflowVersion", () =>
-      HttpResponse.json({ data: { validateWorkflowVersion: EMPTY_REPORT } }),
-    ),
+    api.query("ValidateWorkflowVersion", ({ variables }) => {
+      const { input } = variables as ValidateWorkflowVersionQueryVariables;
+      inputs.validate.push(input);
+      return HttpResponse.json({
+        data: { validateWorkflowVersion: options.validation ?? EMPTY_REPORT },
+      });
+    }),
     api.mutation("CreateWorkflow", ({ variables }) => {
       const { input } = variables as CreateWorkflowMutationVariables;
       inputs.createWorkflow.push(input);
@@ -237,6 +251,7 @@ export const workflowDesignWorld = (
         baseVersion: input.baseVersion ?? null,
         steps: base?.steps ?? [],
         edges: base?.edges ?? null,
+        checkFormKey: base?.checkFormKey ?? null,
         changelog: null,
         publishedAt: null,
         publishedBy: null,
@@ -271,6 +286,10 @@ export const workflowDesignWorld = (
       Object.assign(draft, {
         steps: input.definition.steps,
         edges: input.definition.edges ?? null,
+        // 缺席 = 不動、null = 清掉(同 api)
+        ...(input.definition.checkFormKey !== undefined && {
+          checkFormKey: input.definition.checkFormKey,
+        }),
         draftRevision: draft.draftRevision + 1,
       });
       return HttpResponse.json({
@@ -281,6 +300,32 @@ export const workflowDesignWorld = (
           },
         },
       });
+    }),
+    api.mutation("DeleteWorkflowVersionDraft", ({ variables }) => {
+      const { input } =
+        variables as DeleteWorkflowVersionDraftMutationVariables;
+      inputs.deleteDraft.push(input);
+      const failure = fail("DeleteWorkflowVersionDraft");
+      if (failure !== null) {
+        return failure;
+      }
+      const workflow = findWorkflow(input.workflowKey);
+      const draft = draftOf(input.workflowKey);
+      if (workflow === undefined || draft === undefined) {
+        return graphqlError("CONFLICT" as AuthErrorCode, "CONFLICT", {
+          reason: "DRAFT_MISSING",
+        });
+      }
+      if (draft.draftRevision !== input.expectedDraftRevision) {
+        return graphqlError("CONFLICT" as AuthErrorCode, "CONFLICT", {
+          reason: "DRAFT_REVISION_MISMATCH",
+        });
+      }
+      versions[input.workflowKey] = versionsOf(input.workflowKey).filter(
+        (item) => item !== draft,
+      );
+      workflow.hasDraft = false;
+      return workflowPayload("deleteWorkflowVersionDraft", workflow);
     }),
     api.mutation("PublishWorkflowVersion", ({ variables }) => {
       const { input } = variables as PublishWorkflowVersionMutationVariables;

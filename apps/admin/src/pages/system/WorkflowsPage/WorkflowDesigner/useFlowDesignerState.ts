@@ -15,17 +15,23 @@ import type { FlowOpResult } from "@/lib/workflow/flow-ops";
 const fingerprintOf = definitionFingerprint;
 
 /**
- * 設計器的編輯狀態:段落串(`flow-model.ts`)、選中的節點、上一個被拒絕的操作,與「有沒有未存的變更」
- * (與上次存檔的定義比對,不是比有沒有按過東西)。
+ * 設計器的編輯狀態:段落串(`flow-model.ts`)、「檢查用表單」、選中的節點、上一個被拒絕的操作,
+ * 與「有沒有未存的變更」(與上次存檔的定義 + 檢查用表單比對,不是比有沒有按過東西)。
  *
  * 草稿的結構表示不了(`parseFlow` 回 null:手改過的 JSON、舊資料)時 `flow` 為 null,
  * 設計器改成唯讀顯示原定義與檢查結果,不去猜使用者要的是什麼。
  */
-export const useFlowDesignerState = (initial: WorkflowDefinition) => {
+export const useFlowDesignerState = (
+  initial: WorkflowDefinition,
+  initialCheckFormKey: string | null,
+) => {
   const [flow, setFlow] = useState<Flow | null>(() => parseFlow(initial));
   const [savedFingerprint, setSavedFingerprint] = useState(() =>
     fingerprintOf(initial),
   );
+  const [checkFormKey, setCheckFormKey] = useState(initialCheckFormKey);
+  const [savedCheckFormKey, setSavedCheckFormKey] =
+    useState(initialCheckFormKey);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [opError, setOpError] = useState<FlowOpError | null>(null);
   const definition = useMemo(
@@ -33,11 +39,15 @@ export const useFlowDesignerState = (initial: WorkflowDefinition) => {
     [flow, initial],
   );
   const isDirty =
-    flow !== null && fingerprintOf(definition) !== savedFingerprint;
+    flow !== null &&
+    (fingerprintOf(definition) !== savedFingerprint ||
+      checkFormKey !== savedCheckFormKey);
 
   return {
     flow,
     definition,
+    checkFormKey,
+    setCheckFormKey,
     isDirty,
     selectedKey,
     opError,
@@ -61,8 +71,9 @@ export const useFlowDesignerState = (initial: WorkflowDefinition) => {
     update: (next: Flow) => {
       setFlow(next);
     },
-    markSaved: (saved: WorkflowDefinition) => {
+    markSaved: (saved: WorkflowDefinition, savedCheckForm: string | null) => {
       setSavedFingerprint(fingerprintOf(saved));
+      setSavedCheckFormKey(savedCheckForm);
     },
   };
 };

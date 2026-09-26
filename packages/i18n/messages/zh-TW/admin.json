@@ -1988,7 +1988,8 @@
       "ASSIGNEE_NOT_ELIGIBLE": "這個人不能審核這張單(已停用、不在本組織,或是申請人自己)。",
       "NOT_FOUND": "找不到這筆資料,可能已被刪除,或不在你看得到的範圍內。",
       "VALIDATION_FAILED": "有欄位填寫不正確,請修正後再試。",
-      "UNEXPECTED": "操作失敗,請稍後再試。"
+      "UNEXPECTED": "操作失敗,請稍後再試。",
+      "DRAFT_MISSING": "草稿已不存在(可能已被刪除或發布),請重新載入。"
     },
     "list": {
       "region": "流程清單",
@@ -2085,7 +2086,10 @@
         "PUBLISHING": "發布中",
         "PUBLISHED": "已發布",
         "RETIRED": "已退役"
-      }
+      },
+      "view": "檢視 v{version}",
+      "baseOnViewing": "以 v{version} 為基底開新草稿",
+      "deleteDraft": "刪除草稿"
     },
     "publish": {
       "title": "發布草稿",
@@ -2125,7 +2129,7 @@
       "revision": "草稿修訂 {revision}",
       "dirty": "有未存的變更",
       "checkForm": "檢查用表單",
-      "checkFormHint": "跳過條件的欄位選項與檢查以它的目前版本為準",
+      "checkFormHint": "設計時用來對照的表單:列出可選的欄位、驗證審核者欄位與跳過條件。實際送出時以綁定的表單為準,綁定時會再驗一次。",
       "checkFormNone": "不指定",
       "appendStep": "在最後加一關",
       "save": "存草稿",
@@ -2136,7 +2140,16 @@
       "newStep": "關卡 {n}",
       "newJoin": "匯合",
       "moveToBranch": "移到「{join}」第 {n} 條分支",
-      "catalogTruncated": "表單或角色超過 100 筆,清單已截斷,請縮小範圍。"
+      "catalogTruncated": "表單或角色超過 100 筆,清單已截斷,請縮小範圍。",
+      "check": "檢查",
+      "checking": "檢查中…",
+      "viewing": "檢視 v{version}(唯讀)",
+      "viewingHint": "正在檢視 v{version}(唯讀):不能修改、不能存。要改請以這一版為基底開新草稿。",
+      "viewingHasDraft": "已經有草稿了:要以這一版為基底,請先發布或刪除目前的草稿。",
+      "viewingSelectHint": "點流程圖上的關卡或匯合節點看它的設定(唯讀)。",
+      "viewingCanvas": "v{version} 的流程圖",
+      "viewingProperties": "屬性(唯讀)",
+      "closeViewing": "關閉檢視"
     },
     "opErrors": {
       "FORK_NEEDS_SOURCE": "分流前面一定要有一個審核關卡:先刪掉或移動整組分流。",
@@ -2174,7 +2187,7 @@
       },
       "allowReturn": "允許退回修改",
       "skipWhen": "跳過條件",
-      "skipNeedsCheckForm": "先在上方選「檢查用表單」,跳過條件才有欄位可選。",
+      "skipNeedsCheckForm": "請先選上方的「檢查用表單」:跳過條件的欄位來自它。",
       "actions": "關卡操作",
       "insertAfter": "在後面加一關",
       "fork": "從此關分流",
@@ -2183,7 +2196,9 @@
       "moveDown": "下移",
       "delete": "刪除此關",
       "moveTo": "移到分支",
-      "moveToPlaceholder": "選擇分支"
+      "moveToPlaceholder": "選擇分支",
+      "needsCheckForm": "請先選檢查用表單",
+      "skipWhenUnset": "未設定"
     },
     "join": {
       "region": "匯合節點「{name}」",
@@ -2225,14 +2240,15 @@
       "placeholderFrom": "來源的佔位:{placeholder}",
       "role": "角色",
       "roleUnset": "未選擇",
-      "form": "表單",
-      "formUnset": "未選擇",
       "field": "欄位",
       "fieldUnset": "未選擇",
-      "fieldHint": "只列「使用者」引用欄;審核者 = 送出時這個欄位選的人。",
+      "fieldHint": "從檢查用表單的「使用者」引用欄選(不列受保護欄位);審核者 = 送出時這個欄位選的人。",
       "level": "第幾層",
       "levelHint": "從申請所屬組織往上找,第 1 層 = 最近的一組主管。",
-      "levelOption": "第 {level} 層"
+      "levelOption": "第 {level} 層",
+      "needsCheckForm": "請先選檢查用表單",
+      "fieldCurrent": "目前:{form} / {field}",
+      "fieldOtherForm": "這一關原本指向表單「{form}」;改選欄位會換成檢查用表單的欄位。"
     },
     "userPicker": {
       "option": "{name}({account})",
@@ -2276,6 +2292,28 @@
         "cancel": "取消",
         "confirm": "確定"
       }
+    },
+    "deleteDraft": {
+      "title": "刪除草稿",
+      "body": "刪除後這份草稿就不見了;已發布與已退役的版本不受影響,之後可以再以任一版開新草稿。",
+      "dirty": "設計器裡還有未存的變更,也會一起丟掉。",
+      "cancel": "取消",
+      "confirm": "刪除",
+      "success": "已刪除草稿"
+    },
+    "check": {
+      "region": "完整檢查",
+      "title": "完整檢查結果",
+      "noCheckForm": "請先選檢查用表單才能驗欄位(結構類檢查照跑)。",
+      "stale": "流程或檢查用表單在檢查後有修改,請重新檢查。",
+      "passed": "沒有錯誤或警告。",
+      "summary": "錯誤 {errors} 個、警告 {warnings} 個(點一筆定位到那一關)",
+      "wholeFlow": "整個流程",
+      "step": "{name}",
+      "stepIssues": "「{name}」的問題",
+      "error": "錯誤",
+      "warning": "警告",
+      "serverFailed": "完整檢查沒有跑完({reason}),下面只列即時檢查的結果。"
     }
   }
 }

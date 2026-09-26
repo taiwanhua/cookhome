@@ -52,6 +52,8 @@ export interface ExpressionNodeEditorProps {
   /** 這個節點在樹裡的位置(無障礙名稱與檢查器定位用;根為空字串) */
   path: string;
   depth: number;
+  /** 沒有任何欄位可選時,欄位下拉顯示的提示(見 `ExpressionPicker`) */
+  emptyFieldsLabel?: string;
 }
 
 /** 換節點種類時的起點值:取這個位置第一個型別對得上的選項。 */
@@ -120,6 +122,7 @@ export const ExpressionNodeEditor = ({
   fieldTypeOf,
   path,
   depth,
+  emptyFieldsLabel,
 }: ExpressionNodeEditorProps) => {
   const t = useTranslations("admin.forms.expression");
   const options = positionOptionsOf(position, fields);
@@ -170,10 +173,17 @@ export const ExpressionNodeEditor = ({
           <SelectField
             label={t("field")}
             value={varPathOf(value)}
-            options={fieldChoices.map((field) => ({
-              value: field.key,
-              label: `${field.label}(${field.key})`,
-            }))}
+            disabled={
+              fieldChoices.length === 0 && emptyFieldsLabel !== undefined
+            }
+            options={
+              fieldChoices.length === 0 && emptyFieldsLabel !== undefined
+                ? [{ value: varPathOf(value), label: emptyFieldsLabel }]
+                : fieldChoices.map((field) => ({
+                    value: field.key,
+                    label: `${field.label}(${field.key})`,
+                  }))
+            }
             onChange={(next) => {
               onChange(fieldNode(next));
             }}
@@ -270,6 +280,9 @@ export const ExpressionNodeEditor = ({
                         fieldTypeOf={fieldTypeOf}
                         path={childPathOf(path, operator, index)}
                         depth={depth + 1}
+                        {...(emptyFieldsLabel !== undefined && {
+                          emptyFieldsLabel,
+                        })}
                       />
                     )}
                   </Box>

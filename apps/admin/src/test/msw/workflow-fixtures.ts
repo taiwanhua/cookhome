@@ -268,6 +268,7 @@ export const workflowVersionFragment = (
   baseVersion: null,
   steps: definition.steps.map((step): Record<string, unknown> => ({ ...step })),
   edges: definition.edges ?? null,
+  checkFormKey: null,
   changelog: null,
   publishedAt: null,
   publishedBy: null,

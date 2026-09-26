@@ -14,6 +14,8 @@ export interface JoinPanelProps {
   onAddBranch: () => void;
   onInsertAfter: () => void;
   onRemoveParallel: () => void;
+  /** 唯讀檢視舊版本:名稱不能改、沒有操作鈕 */
+  isReadonly?: boolean;
 }
 
 /**
@@ -28,6 +30,7 @@ export const JoinPanel = ({
   onAddBranch,
   onInsertAfter,
   onRemoveParallel,
+  isReadonly = false,
 }: JoinPanelProps) => {
   const t = useTranslations("admin.workflows.join");
 
@@ -47,6 +50,7 @@ export const JoinPanel = ({
         label={t("name")}
         value={join.name}
         size="small"
+        disabled={isReadonly}
         onChange={(event) => {
           onRename(event.target.value);
         }}
@@ -56,22 +60,24 @@ export const JoinPanel = ({
           {message}
         </Typography>
       ))}
-      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
-        <Button size="small" variant="outlined" onClick={onAddBranch}>
-          {t("addBranch")}
-        </Button>
-        <Button size="small" variant="outlined" onClick={onInsertAfter}>
-          {t("insertAfter")}
-        </Button>
-        <Button
-          size="small"
-          variant="text"
-          color="error"
-          onClick={onRemoveParallel}
-        >
-          {t("removeParallel")}
-        </Button>
-      </Stack>
+      {!isReadonly && (
+        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
+          <Button size="small" variant="outlined" onClick={onAddBranch}>
+            {t("addBranch")}
+          </Button>
+          <Button size="small" variant="outlined" onClick={onInsertAfter}>
+            {t("insertAfter")}
+          </Button>
+          <Button
+            size="small"
+            variant="text"
+            color="error"
+            onClick={onRemoveParallel}
+          >
+            {t("removeParallel")}
+          </Button>
+        </Stack>
+      )}
     </Stack>
   );
 };
