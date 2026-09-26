@@ -16,9 +16,9 @@ import { Table } from "@repo/ui/table";
 import { Tag, type TagTone } from "@repo/ui/tag";
 import { Typography } from "@repo/ui/typography";
 
-import { useDateTimeText } from "@/hooks/useDateTimeText";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
+import { useTemporalText } from "@/hooks/useTemporalText";
 import { definitionOf } from "@/lib/workflow/definition";
 import { workflowVersionDiff } from "@/lib/workflow/version-diff";
 import { workflowErrorOf } from "@/lib/workflow/workflow-errors";
@@ -55,7 +55,7 @@ export const WorkflowVersionPanel = ({
 }: WorkflowVersionPanelProps) => {
   const t = useTranslations("admin.workflows.versions");
   const tErrors = useTranslations("admin.workflows.errors");
-  const dateTimeText = useDateTimeText();
+  const temporalText = useTemporalText();
   const { session } = useSession();
   const [isPublishing, setIsPublishing] = useState(false);
   const [isRetiring, setIsRetiring] = useState(false);
@@ -256,7 +256,7 @@ export const WorkflowVersionPanel = ({
               item.publishedAt === null || item.publishedAt === undefined
                 ? "—"
                 : t("publishedLine", {
-                    at: dateTimeText(item.publishedAt),
+                    at: temporalText(item.publishedAt, "datetime"),
                     user: item.publishedBy?.name ?? "—",
                   }),
           },

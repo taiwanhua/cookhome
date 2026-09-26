@@ -8,7 +8,7 @@ import { Stack } from "@repo/ui/stack";
 import { Tag } from "@repo/ui/tag";
 import { Typography } from "@repo/ui/typography";
 
-import { useDateTimeText } from "@/hooks/useDateTimeText";
+import { useTemporalText } from "@/hooks/useTemporalText";
 
 import { RevisionDiff } from "./RevisionDiff";
 
@@ -31,7 +31,8 @@ export const RevisionHistory = ({
   onViewRevision,
 }: RevisionHistoryProps) => {
   const t = useTranslations("admin.formEngine.detail");
-  const dateTimeText = useDateTimeText();
+  // 修訂時間以目前修訂的時區顯示(草稿沒有 ctx → 租戶時區)
+  const temporalText = useTemporalText(submission.ctx?.timezone);
   const [diffRevision, setDiffRevision] = useState<number | null>(null);
   const revisions = submission.revisions.toSorted(
     (a, b) => b.revision - a.revision,
@@ -56,7 +57,7 @@ export const RevisionHistory = ({
                 {t("revisionLine", {
                   revision: entry.revision,
                   user: entry.user?.name ?? "—",
-                  at: dateTimeText(entry.at),
+                  at: temporalText(entry.at, "datetime"),
                 })}
               </Typography>
               {isViewed ? (

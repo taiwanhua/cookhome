@@ -1,4 +1,9 @@
-import { type FieldDef, optionLabelOf } from "@repo/domain/form";
+import {
+  DEFAULT_TENANT_TIMEZONE,
+  type FieldDef,
+  formatTemporal,
+  optionLabelOf,
+} from "@repo/domain/form";
 
 import { isRedactedValue } from "./definition";
 
@@ -27,8 +32,8 @@ export interface FormValueRenderContext {
   /** 上傳欄的下載(詳情頁給;列表不給就只顯示檔名) */
   onDownload?: (field: FieldDef) => void;
   /**
-   * 日期時間欄的顯示時區(那一筆的 `ctx.timezone` = 租戶時區);不給 = 瀏覽器時區。
-   * 格式化在元件端走 `useFormatter`(`FormValue`),本檔的純文字版只回原本的 ISO 字串。
+   * 日期 / 日期時間欄的顯示時區(唯讀檢視 = 那次修訂的 `ctx.timezone`;填寫中 = 租戶時區)。
+   * 元件端(`FormValue`)沒給時由 `useTemporalText` 補讀者的租戶時區;本檔的純函式沒給時用預設時區。
    */
   timezone?: string;
 }
@@ -101,6 +106,15 @@ export const displayTextOf = (ctx: FormValueRenderContext): string => {
     }
     case "upload": {
       result = uploadNameOf(value);
+      break;
+    }
+    case "date":
+    case "datetime": {
+      // 時點(ISO)→ 那個時區的 `YYYY-MM-DD` / `YYYY-MM-DD HH:mm`
+      result = formatTemporal(value, {
+        type: field.type,
+        timezone: ctx.timezone ?? DEFAULT_TENANT_TIMEZONE,
+      });
       break;
     }
     default: {

@@ -22,7 +22,7 @@ const CREATE_PATH = `${SHOPPING_ROUTES.createPage}/shopping_list`;
 const EDIT_PATH = `${SHOPPING_ROUTES.editPage}/sub-1`;
 const VIEW_PATH = `${SHOPPING_ROUTES.viewPage}/sub-1`;
 
-/** 數量預設 2、預算預設 = 數量 × 單價、送達時間(日期時間欄)。 */
+/** 數量預設 2、預算預設 = 數量 × 單價、送達時間(日期時間欄)、採購日(日期欄)。 */
 const defaultsDefinition = (): FormDefinition => ({
   fields: [
     field("item", "品項", "text"),
@@ -46,6 +46,7 @@ const defaultsDefinition = (): FormDefinition => ({
     field("deliver_at", "送達時間", "datetime", {
       widget: { kind: "dateTimePicker" },
     }),
+    field("buy_on", "採購日", "date", { widget: { kind: "datePicker" } }),
   ],
   layout: {
     sections: [
@@ -62,11 +63,12 @@ const defaultsDefinition = (): FormDefinition => ({
             ],
           },
           { cols: [{ fieldKey: "deliver_at", span: 12 }] },
+          { cols: [{ fieldKey: "buy_on", span: 12 }] },
         ],
       },
     ],
   },
-  summaryMap: { title: "item" },
+  summaryMap: { title: "item", date: "buy_on" },
   prefills: [],
 });
 
@@ -74,7 +76,7 @@ const defaultsDefinition = (): FormDefinition => ({
 const EDITABLE = {
   canEdit: true,
   canDelete: true,
-  canEditField: ["item", "qty", "unit_price", "budget", "deliver_at"],
+  canEditField: ["item", "qty", "unit_price", "budget", "deliver_at", "buy_on"],
   canWithdraw: false,
   canVoid: false,
   canCopy: false,
@@ -182,7 +184,11 @@ describe("表單模組:欄位預設值與日期時間", () => {
     const picker = await screen.findByRole("group", { name: "送達時間" });
     expect(picker).toHaveTextContent("2026-03-01 09:30");
     // MUI X 的日曆按鈕在轉場中是 pointer-events: none,以 fireEvent 點(同 ui 的 DateTimePicker 測試)
-    fireEvent.click(screen.getByRole("button", { name: /choose date/i }));
+    fireEvent.click(
+      within(picker.parentElement ?? document.body).getByRole("button", {
+        name: /choose date/i,
+      }),
+    );
     fireEvent.click(await screen.findByRole("gridcell", { name: "15" }));
     await user.keyboard("{Escape}");
 
@@ -191,7 +197,44 @@ describe("表單模組:欄位預設值與日期時間", () => {
       expect(world.inputs.saveFormDraft).toHaveLength(1);
     });
     expect(world.inputs.saveFormDraft[0]?.values).toMatchObject({
+      // DateTimePicker 照舊送 ISO(UTC,秒);api 存成 Date
       deliver_at: "2026-03-15T01:30:00Z",
+    });
+  });
+
+  it("日期欄:選 09-26 送出台北當地 00:00 的 ISO(2026-09-25T16:00Z)", async () => {
+    const { user, world } = renderShopping({
+      path: EDIT_PATH,
+      world: worldWith([
+        submissionFragment({
+          status: FormSubmissionStatus.Draft,
+          revision: 0,
+          revisions: [],
+          summary: null,
+          submittedAt: null,
+          ctx: null,
+          // 台北 09-01 00:00
+          values: { item: "牛奶", buy_on: "2026-08-31T16:00:00.000Z" },
+          abilities: EDITABLE,
+        }),
+      ]),
+    });
+
+    const picker = await screen.findByRole("group", { name: "採購日" });
+    expect(picker).toHaveTextContent("2026-09-01");
+    fireEvent.click(
+      within(picker.parentElement ?? document.body).getByRole("button", {
+        name: /choose date/i,
+      }),
+    );
+    fireEvent.click(await screen.findByRole("gridcell", { name: "26" }));
+
+    await user.click(screen.getByRole("button", { name: "存草稿" }));
+    await waitFor(() => {
+      expect(world.inputs.saveFormDraft).toHaveLength(1);
+    });
+    expect(world.inputs.saveFormDraft[0]?.values).toMatchObject({
+      buy_on: "2026-09-25T16:00:00.000Z",
     });
   });
 
@@ -231,8 +274,12 @@ describe("表單模組:欄位預設值與日期時間", () => {
     const diff = await within(history).findByRole("table", {
       name: "修訂 2 的差異",
     });
-    expect(within(diff).getByText(/10:30/)).toBeInTheDocument();
-    expect(within(diff).getByText(/11:30/)).toBeInTheDocument();
+    expect(within(diff).getByText("2026-03-01 10:30")).toBeInTheDocument();
+    expect(within(diff).getByText("2026-03-01 11:30")).toBeInTheDocument();
+    // 修訂時間也以那一筆的時區印到分鐘
+    expect(
+      within(history).getByText(/修訂 2 · — · 2026-01-06 09:00/),
+    ).toBeInTheDocument();
   });
 
   it("列表:送出過的列用那次的時區、草稿列用讀者的租戶時區", async () => {
@@ -248,7 +295,12 @@ describe("表單模組:欄位預設值與日期時間", () => {
               userId: "user-1",
               orgId: "org-1",
             },
-            summary: { title: "已送出", date: null, amount: null },
+            // 摘要槽日期對日期欄:存的是東京 09-26 00:00 的時點
+            summary: {
+              title: "已送出",
+              date: "2026-09-25T15:00:00.000Z",
+              amount: null,
+            },
             values: { item: "已送出", deliver_at: "2026-03-01T01:30:00Z" },
           }),
           submissionFragment({
@@ -278,6 +330,13 @@ describe("表單模組:欄位預設值與日期時間", () => {
               width: 200,
               order: 1,
             },
+            {
+              kind: ModuleListColumnKind.Slot,
+              key: "date",
+              formKey: null,
+              width: 140,
+              order: 2,
+            },
           ],
         },
       },
@@ -298,25 +357,38 @@ describe("表單模組:欄位預設值與日期時間", () => {
     const draft = within(grid).getByText("還沒送出").closest("tr");
     await waitFor(() => {
       expect(
-        within(done as HTMLElement).getByText(/10:30/),
+        within(done as HTMLElement).getByText("2026-03-01 10:30"),
       ).toBeInTheDocument();
     });
-    expect(within(draft as HTMLElement).getByText(/9:30/)).toBeInTheDocument();
+    expect(
+      within(done as HTMLElement).getByText("2026-09-26"),
+    ).toBeInTheDocument();
+    expect(
+      within(draft as HTMLElement).getByText("2026-03-01 09:30"),
+    ).toBeInTheDocument();
   });
 
-  it("詳情:日期時間以那一筆的時區依語系格式化", async () => {
+  it("詳情:日期印 YYYY-MM-DD、日期時間印 YYYY-MM-DD HH:mm(那一筆的時區)", async () => {
     renderShopping({
       path: VIEW_PATH,
       world: worldWith([
         submissionFragment({
-          values: { item: "牛奶", deliver_at: "2026-03-01T01:30:00Z" },
+          values: {
+            item: "牛奶",
+            deliver_at: "2026-03-01T01:30:00Z",
+            buy_on: "2026-09-25T16:00:00.000Z",
+          },
         }),
       ]),
     });
 
     const label = await screen.findByText("送達時間");
     const cell = label.parentElement ?? document.body;
-    expect(within(cell).getByText(/9:30/)).toBeInTheDocument();
+    expect(within(cell).getByText("2026-03-01 09:30")).toBeInTheDocument();
     expect(within(cell).queryByText("2026-03-01T01:30:00Z")).toBeNull();
+    const dayLabel = screen.getByText("採購日");
+    expect(
+      within(dayLabel.parentElement ?? document.body).getByText("2026-09-26"),
+    ).toBeInTheDocument();
   });
 });

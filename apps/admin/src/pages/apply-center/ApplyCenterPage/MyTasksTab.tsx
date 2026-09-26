@@ -14,9 +14,9 @@ import { Stack } from "@repo/ui/stack";
 import { Tag, type TagTone } from "@repo/ui/tag";
 
 import type { ApplicableModule } from "@/hooks/useApplicableForms";
-import { useDateTimeText } from "@/hooks/useDateTimeText";
 import { useModuleRoutes } from "@/hooks/useModuleRoutes";
 import { useMyTasks } from "@/hooks/useMyTasks";
+import { useTemporalText } from "@/hooks/useTemporalText";
 
 import { APPLY_CENTER_VIEW_PAGE_KEY } from "../apply-center-keys";
 import { ApplyCenterFilters } from "./ApplyCenterFilters";
@@ -48,7 +48,7 @@ export const MyTasksTab = ({ modules }: MyTasksTabProps) => {
   const t = useTranslations("admin.applyCenter.tasks");
   const navigate = useNavigate();
   const routeOf = useModuleRoutes();
-  const dateTimeText = useDateTimeText();
+  const temporalText = useTemporalText();
   const [moduleKey, setModuleKey] = useState<string | null>(null);
   const [formKey, setFormKey] = useState<string | null>(null);
   const [done, setDone] = useState<DoneFilter>("pending");
@@ -106,7 +106,7 @@ export const MyTasksTab = ({ modules }: MyTasksTabProps) => {
       key: "createdAt",
       header: t("createdAt"),
       width: 170,
-      accessor: (row) => dateTimeText(row.createdAt),
+      accessor: (row) => temporalText(row.createdAt, "datetime"),
     },
     {
       key: "actions",

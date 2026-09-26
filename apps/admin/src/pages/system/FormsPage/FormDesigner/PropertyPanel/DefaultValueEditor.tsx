@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { useTranslations } from "use-intl";
 
 import {
+  DEFAULT_TENANT_TIMEZONE,
   FIELD_EXPRESSION_TYPES,
   type FieldDef,
   type FieldDefault,
@@ -18,7 +19,9 @@ import { Typography } from "@repo/ui/typography";
 
 import { ExpressionPicker } from "@/components/form-engine/ExpressionPicker/ExpressionPicker";
 import { widgetOf } from "@/components/form-engine/widgets/widget-registry";
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { initialExpressionOf } from "@/lib/form-engine/expression-options";
+import { localDayInstantOf, localDayTextOf } from "@/lib/form-engine/local-day";
 import { scalarText } from "@/lib/form-engine/value-text";
 
 export interface DefaultValueEditorProps {
@@ -167,9 +170,12 @@ const ChoiceDefault = ({ field, formKey, constant, onChange }: PartProps) => {
   );
 };
 
-/** 固定值的輸入元件:日期 / 日期時間用選擇器,其餘用輸入框。 */
+/**
+ * 固定值的輸入元件:日期 / 日期時間用選擇器(日期存選的那天在租戶時區 00:00 的 ISO),其餘用輸入框。
+ */
 const ConstantInput = ({ field, constant, onChange }: PartProps) => {
   const t = useTranslations("admin.forms.property");
+  const timezone = useTenantTimezone() ?? DEFAULT_TENANT_TIMEZONE;
   const text = typeof constant === "string" ? constant : null;
   const set = (value: unknown) => {
     onChange({ kind: "constant", value });
@@ -178,8 +184,10 @@ const ConstantInput = ({ field, constant, onChange }: PartProps) => {
     return (
       <DatePicker
         label={t("defaultConstant")}
-        value={text}
-        onChange={set}
+        value={localDayTextOf(constant, timezone)}
+        onChange={(next) => {
+          set(localDayInstantOf(next, timezone));
+        }}
         size="small"
       />
     );

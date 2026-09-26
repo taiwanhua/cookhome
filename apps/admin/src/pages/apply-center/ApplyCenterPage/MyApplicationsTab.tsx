@@ -11,12 +11,12 @@ import { Stack } from "@repo/ui/stack";
 
 import { SubmissionStatusTag } from "@/components/workflow/SubmissionStatusTag";
 import type { ApplicableModule } from "@/hooks/useApplicableForms";
-import { useDateTimeText } from "@/hooks/useDateTimeText";
 import { useModuleRoutes } from "@/hooks/useModuleRoutes";
 import {
   type MyApplication,
   useMyApplications,
 } from "@/hooks/useMyApplications";
+import { useTemporalText } from "@/hooks/useTemporalText";
 
 import {
   APPLY_CENTER_VIEW_PAGE_KEY,
@@ -58,7 +58,7 @@ export const MyApplicationsTab = ({ modules }: MyApplicationsTabProps) => {
   const tStatus = useTranslations("admin.approval.submissionStatus");
   const navigate = useNavigate();
   const routeOf = useModuleRoutes();
-  const dateTimeText = useDateTimeText();
+  const temporalText = useTemporalText();
   const [moduleKey, setModuleKey] = useState<string | null>(null);
   const [formKey, setFormKey] = useState<string | null>(null);
   const [status, setStatus] = useState<FormSubmissionStatus | null>(null);
@@ -153,7 +153,7 @@ export const MyApplicationsTab = ({ modules }: MyApplicationsTabProps) => {
       accessor: (row) =>
         row.submittedAt === null || row.submittedAt === undefined
           ? "—"
-          : dateTimeText(row.submittedAt),
+          : temporalText(row.submittedAt, "datetime"),
     },
     {
       key: "actions",

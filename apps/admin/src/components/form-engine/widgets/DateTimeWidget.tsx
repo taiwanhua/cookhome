@@ -1,4 +1,4 @@
-import { normalizeDateTime } from "@repo/domain/form";
+import { temporalIsoOf } from "@repo/domain/form";
 import { DateTimePicker } from "@repo/ui/date-time-picker";
 
 import { scalarText } from "@/lib/form-engine/value-text";
@@ -7,10 +7,10 @@ import type { WidgetProps } from "./widget-types";
 
 /** `rules.min` / `max` 收任何時區的 ISO 8601;給選擇器前先收成 UTC,不合法就不限。 */
 const limitOf = (raw: unknown): string | undefined =>
-  normalizeDateTime(raw) ?? undefined;
+  temporalIsoOf(raw) ?? undefined;
 
 /**
- * 日期時間欄(`datetime` → `dateTimePicker`,Spec 6a §5):存 ISO 8601 UTC(`YYYY-MM-DDTHH:mm:ssZ`),
+ * 日期時間欄(`datetime` → `dateTimePicker`,Spec 6a §5):值是時點(收發 ISO 8601,api 存 Mongo `Date`),
  * 以**租戶時區**輸入與顯示(`context.timezone`,填寫端取自 `me.currentOrg.timezone`;唯讀檢視用那次修訂的時區)。
  */
 export const DateTimeWidget = ({
@@ -22,7 +22,7 @@ export const DateTimeWidget = ({
   hasError,
   context,
 }: WidgetProps) => {
-  const text = scalarText(value);
+  const text = temporalIsoOf(value) ?? scalarText(value);
   const min = limitOf(field.rules?.min);
   const max = limitOf(field.rules?.max);
 
