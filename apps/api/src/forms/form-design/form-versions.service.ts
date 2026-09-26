@@ -359,13 +359,16 @@ export class FormVersionsService {
     if (!updated) {
       throw notFoundError(`Form not found: ${input.formKey}`);
     }
-    await this.audit.record(operator, {
-      action: FORM_VERSION_AUDIT.retire,
-      targetType: FORM_VERSION_TARGET,
-      ...(retired ? { targetId: retired._id } : {}),
-      before: { formKey: form.key, currentVersion: form.currentVersion },
-      after: { currentVersion: null },
-    });
+    // 重複退役(兩步都已是目標狀態、什麼都沒改)不寫稽核
+    if (retired || form.currentVersion !== null) {
+      await this.audit.record(operator, {
+        action: FORM_VERSION_AUDIT.retire,
+        targetType: FORM_VERSION_TARGET,
+        ...(retired ? { targetId: retired._id } : {}),
+        before: { formKey: form.key, currentVersion: form.currentVersion },
+        after: { currentVersion: null },
+      });
+    }
     return updated;
   }
 
@@ -380,7 +383,7 @@ export class FormVersionsService {
   ): Promise<FormPreviewPayload> {
     const form = await this.access.requireReadableForm(facts, input.formKey);
     const isDraft = input.version === null || input.version === undefined;
-    const draft = await this.versions.findOne(
+    const target = await this.versions.findOne(
       facts.operator,
       isDraft
         ? { formKey: form.key, status: "draft" }
@@ -390,7 +393,7 @@ export class FormVersionsService {
             status: { $in: ["published", "retired"] },
           },
     );
-    if (!draft) {
+    if (!target) {
       throw notFoundError(
         `Form version not found: ${form.key}@${String(input.version ?? "draft")}`,
       );
@@ -407,17 +410,17 @@ export class FormVersionsService {
       gate: designerGate,
       moduleKey: form.moduleKey,
       formKey: form.key,
-      fields: draft.fields,
+      fields: target.fields,
       base: {},
       sent: input.values ?? {},
       previous: null,
       ctx,
       mode: "complete",
     });
-    const summary = computeSummary(draft, values, { submittedAt: ctx.now });
+    const summary = computeSummary(target, values, { submittedAt: ctx.now });
     return {
       values,
-      fieldStates: fieldStatesOf(draft.fields, values, ctx, designerGate),
+      fieldStates: fieldStatesOf(target.fields, values, ctx, designerGate),
       summary: {
         title: summary.title,
         date: temporalIsoOf(summary.date),

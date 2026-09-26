@@ -26,7 +26,14 @@ export const DateTimeWidget = ({
   context,
 }: WidgetProps) => {
   if (isReadOnly) {
-    return <ReadOnlyField field={field} value={value} context={context} />;
+    return (
+      <ReadOnlyField
+        field={field}
+        value={value}
+        context={context}
+        helperText={helperText}
+      />
+    );
   }
   const text = temporalIsoOf(value) ?? scalarText(value);
   const min = limitOf(field.rules?.min);

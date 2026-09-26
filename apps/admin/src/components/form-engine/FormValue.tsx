@@ -15,7 +15,7 @@ import {
  */
 export const FormValue = (ctx: FormValueRenderContext) => {
   const { onDownload, field, value } = ctx;
-  // 日期 / 日期時間:時點以那一筆的時區(沒給 = 讀者的租戶時區)印 YYYY-MM-DD / YYYY-MM-DD HH:mm
+  // 日期 / 日期時間:時點以呼叫端給的時區(沒給 = 讀者的租戶時區)印 YYYY-MM-DD / YYYY-MM-DD HH:mm
   const temporalText = useTemporalText(ctx.timezone);
   const text =
     (field.type === "date" || field.type === "datetime") &&

@@ -2,6 +2,7 @@ import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import { type ReactNode, useMemo } from "react";
 
 import {
+  DEFAULT_TENANT_TIMEZONE,
   type ExpressionContext,
   type FieldDef,
   type FormDefinition,
@@ -16,6 +17,7 @@ import { Grid } from "@repo/ui/grid";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { fieldMapOf } from "@/lib/form-engine/definition";
 import { designIdOf } from "@/lib/form-engine/design-definition";
 import { designFieldId } from "@/lib/form-engine/design-ids";
@@ -116,13 +118,19 @@ export const FormRenderer = ({
   );
 
   // 日期 / 日期時間欄的輸入與顯示時區 = 讀者現在的租戶時區:呼叫端給的 `context.timezone`,
-  // 沒給就用表達式 ctx 的時區(填寫端兩者相同)。唯讀檢視的修訂 `ctx.timezone` 只用於重算條件,不決定顯示
+  // 沒給時:唯讀 = 讀者的租戶時區(修訂的 `ctx.timezone` 只用於重算條件,不決定顯示;申請中心詳情這類
+  // 沒帶時區的呼叫端也對);填寫 / 預覽 = 表達式 ctx 的時區(兩者本來就相同)
+  const tenantTimezone = useTenantTimezone();
   const cellContext = useMemo(
     () => ({
       ...context,
-      timezone: context.timezone ?? expressionContext.timezone,
+      timezone:
+        context.timezone ??
+        (mode === "readonly"
+          ? (tenantTimezone ?? DEFAULT_TENANT_TIMEZONE)
+          : expressionContext.timezone),
     }),
-    [context, expressionContext.timezone],
+    [context, mode, tenantTimezone, expressionContext.timezone],
   );
 
   const handleChange = (fieldKey: string, value: unknown) => {

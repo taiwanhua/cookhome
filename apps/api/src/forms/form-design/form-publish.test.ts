@@ -105,6 +105,14 @@ describe("表單發布(四步、冪等重試、版本)", () => {
       .toArray();
   }
 
+  /** 這張表單的「退役目前版本」稽核筆數。 */
+  function retireAuditsOf(formKey: string): Promise<number> {
+    return connection.collection("audit_logs").countDocuments({
+      action: "form-version.retire",
+      "before.formKey": formKey,
+    });
+  }
+
   async function versionsOf(formKey: string): Promise<VersionRow[]> {
     const data = await ok<{
       formVersions: { items: VersionRow[] };
@@ -544,7 +552,8 @@ describe("表單發布(四步、冪等重試、版本)", () => {
     });
     expect(codeOf(create)).toBe("FORBIDDEN");
     expect(extensionsOf(create).reason).toBe("FORM_NOT_AVAILABLE");
-    // 同一版再退役一次 = 已是目標狀態,視為完成(冪等,不 409)
+    // 同一版再退役一次 = 已是目標狀態,視為完成(冪等,不 409),什麼都沒改所以不寫稽核
+    expect(await retireAuditsOf("pub_retire")).toBe(1);
     const again = await ok<{ retireCurrentVersion: { form: unknown } }>(
       api,
       token,
@@ -554,6 +563,7 @@ describe("表單發布(四步、冪等重試、版本)", () => {
     expect(again.retireCurrentVersion.form).toMatchObject({
       currentVersion: null,
     });
+    expect(await retireAuditsOf("pub_retire")).toBe(1);
     // 從來沒發布過的版號 → 409
     const missing = await call(api, token, RETIRE_CURRENT, {
       input: { formKey: "pub_retire", expectedVersion: 9 },

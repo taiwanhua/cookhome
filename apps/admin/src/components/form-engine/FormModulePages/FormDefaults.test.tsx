@@ -283,7 +283,7 @@ describe("表單模組:欄位預設值與日期時間", () => {
     ).toBeInTheDocument();
   });
 
-  it("列表:送出過的列用那次的時區、草稿列用讀者的租戶時區", async () => {
+  it("列表:送出過的列與草稿列都用讀者的租戶時區(台北),不用修訂的時區(東京)", async () => {
     renderShopping({
       path: SHOPPING_ROUTES.list,
       world: {
@@ -296,7 +296,7 @@ describe("表單模組:欄位預設值與日期時間", () => {
               userId: "user-1",
               orgId: "org-1",
             },
-            // 摘要槽日期對日期欄:存的是東京 09-26 00:00 的時點
+            // 摘要槽日期對日期欄:存的是東京 09-26 00:00 的時點(= 台北 09-25 23:00)
             summary: {
               title: "已送出",
               date: "2026-09-25T15:00:00.000Z",
@@ -358,11 +358,11 @@ describe("表單模組:欄位預設值與日期時間", () => {
     const draft = within(grid).getByText("還沒送出").closest("tr");
     await waitFor(() => {
       expect(
-        within(done as HTMLElement).getByText("2026-03-01 10:30"),
+        within(done as HTMLElement).getByText("2026-03-01 09:30"),
       ).toBeInTheDocument();
     });
     expect(
-      within(done as HTMLElement).getByText("2026-09-26"),
+      within(done as HTMLElement).getByText("2026-09-25"),
     ).toBeInTheDocument();
     expect(
       within(draft as HTMLElement).getByText("2026-03-01 09:30"),

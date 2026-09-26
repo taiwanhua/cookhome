@@ -22,7 +22,14 @@ export const TextWidget = ({
   context,
 }: WidgetProps) => {
   if (isReadOnly) {
-    return <ReadOnlyField field={field} value={value} context={context} />;
+    return (
+      <ReadOnlyField
+        field={field}
+        value={value}
+        context={context}
+        helperText={helperText}
+      />
+    );
   }
   const isMultiline = field.type === "multiline";
   const rows =

@@ -103,6 +103,11 @@ export const UploadWidget = ({
             {name === "" ? tRenderer("empty") : name}
           </Typography>
         )}
+        {helperText !== undefined && (
+          <Typography variant="caption" color="text.secondary">
+            {helperText}
+          </Typography>
+        )}
       </Stack>
     );
   }

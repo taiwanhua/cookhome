@@ -44,6 +44,7 @@ export const ChoiceWidget = (props: WidgetProps) => {
         field={field}
         value={value}
         context={props.context}
+        helperText={helperText}
         {...(props.display !== undefined && { display: props.display })}
       />
     );

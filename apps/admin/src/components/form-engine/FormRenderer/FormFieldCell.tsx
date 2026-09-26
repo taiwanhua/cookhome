@@ -68,9 +68,11 @@ export const FormFieldCell = ({
   }
 
   let helperText: string | undefined = help === "" ? undefined : help;
-  if (state.readonlyReason === "permission") {
+  // 唯讀檢視保留欄位說明,但不附唯讀原因(整頁都是唯讀,不是這一欄特別改不了)
+  const reason = isReadOnly ? null : state.readonlyReason;
+  if (reason === "permission") {
     helperText = t("readonlyPermission");
-  } else if (state.readonlyReason === "condition") {
+  } else if (reason === "condition") {
     helperText = t("readonlyCondition");
   }
   if (errorMessage !== undefined && errorMessage !== null) {
@@ -86,8 +88,7 @@ export const FormFieldCell = ({
     isDisabled: !isReadOnly && state.readonly,
     isReadOnly,
     isDesign: mode === "design",
-    // 唯讀檢視不附說明與唯讀原因(整頁都是唯讀,不是這一欄特別改不了)
-    ...(!isReadOnly && helperText !== undefined && { helperText }),
+    ...(helperText !== undefined && { helperText }),
     hasError: errorMessage !== undefined && errorMessage !== null,
     context,
     ...(display !== undefined && { display }),

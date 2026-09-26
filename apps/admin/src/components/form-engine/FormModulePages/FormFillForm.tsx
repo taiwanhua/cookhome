@@ -13,7 +13,7 @@ import { Typography } from "@repo/ui/typography";
 
 import { useFillValues } from "@/hooks/useFillValues";
 import type { FieldPermissionFacts } from "@/lib/form-engine/field-states";
-import type { FormError } from "@/lib/form-engine/form-errors";
+import { type FormError, isCapacityError } from "@/lib/form-engine/form-errors";
 
 import { FormRenderer } from "../FormRenderer/FormRenderer";
 import { LookupDialog } from "../LookupDialog/LookupDialog";
@@ -125,7 +125,9 @@ export const FormFillForm = ({
         onChange={fill.change}
         fieldErrors={error?.fieldErrors ?? []}
       />
+      {/* 容量上限(修訂次數 / 文件大小)已由 Snackbar 告知,這裡不重複 */}
       {error !== null &&
+        !isCapacityError(error) &&
         (error.code === "CONFLICT" ? (
           <Alert
             severity="warning"

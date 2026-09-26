@@ -107,7 +107,7 @@ export const FormSubmissionList = ({
       )
       .find((label) => label !== undefined) ?? fieldKey;
   /**
-   * 摘要槽的一格:「日期」是時點(ISO),以那一筆的時區格式化 —— 對到日期欄印 `YYYY-MM-DD`,
+   * 摘要槽的一格:「日期」是時點(ISO),以讀者的租戶時區格式化 —— 對到日期欄印 `YYYY-MM-DD`,
    * 對到日期時間欄或沒對(= 送出時間)印到分鐘;其他槽照字。
    */
   const slotText = (
@@ -148,8 +148,8 @@ export const FormSubmissionList = ({
         );
         // 引用的欄位在那一筆的版本不存在(或是別張表單的欄位)→「—」
         let node: ReactNode = valueText.empty;
-        // 送出過的用那次的時區;草稿(沒有 ctx)用讀者的租戶時區
-        const timezone = row.ctx?.timezone ?? tenantTimezone ?? undefined;
+        // 一律用讀者的租戶時區(修訂的 ctx 時區不決定顯示)
+        const timezone = tenantTimezone ?? undefined;
         if (cell.kind === "slot") {
           node =
             cell.value === null

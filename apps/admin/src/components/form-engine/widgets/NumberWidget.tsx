@@ -22,7 +22,14 @@ export const NumberWidget = ({
 }: WidgetProps) => {
   if (isReadOnly) {
     // 唯讀:顯示值帶單位(「30 元」)
-    return <ReadOnlyField field={field} value={value} context={context} />;
+    return (
+      <ReadOnlyField
+        field={field}
+        value={value}
+        context={context}
+        helperText={helperText}
+      />
+    );
   }
   const unit = scalarText(field.widget.unit);
 

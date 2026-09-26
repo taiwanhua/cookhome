@@ -72,6 +72,7 @@ export const ReferenceField = ({
         field={field}
         value={value}
         context={context}
+        helperText={helperText}
         {...(display !== undefined && { display })}
       />
     );

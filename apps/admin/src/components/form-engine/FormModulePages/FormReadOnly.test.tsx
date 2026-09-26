@@ -65,6 +65,13 @@ const everyType = (): FormDefinition => {
       source: { provider: "user", labelField: "name" },
     }),
     field("receipt", "收據", "upload", { widget: { kind: "upload" } }),
+    // 修訂時間(2026-01-05)早於 06-01:「晚到提醒」不顯示、「早鳥備註」顯示(讀者的現在已晚於它)
+    field("late_note", "晚到提醒", "text", {
+      visibleWhen: { ">": [{ now: [] }, "2026-06-01T00:00:00.000Z"] },
+    }),
+    field("early_note", "早鳥備註", "text", {
+      visibleWhen: { "<": [{ now: [] }, "2026-06-01T00:00:00.000Z"] },
+    }),
   ];
   return {
     fields,
@@ -96,7 +103,8 @@ const renderEveryType = () =>
             item: "牛奶",
             note: "早上送",
             price: "30",
-            total: "60",
+            // 公式會算出 30 × 2 = 60;唯讀照存值顯示,不重算
+            total: "99",
             urgent: true,
             checked: false,
             buy_on: "2026-09-25T16:00:00.000Z",
@@ -106,12 +114,21 @@ const renderEveryType = () =>
             tags: ["organic", "cold"],
             category: { value: "drink", label: "飲料(舊名)" },
             owner: { id: "user-9", label: "阿明(送出時)" },
+            late_note: "晚點到",
+            early_note: "早點到",
             receipt: {
               path: "forms/receipt.pdf",
               name: "receipt.pdf",
               size: 1024,
               contentType: "application/pdf",
             },
+          },
+          // 送出那次的租戶時區是紐約;讀者現在的租戶時區是台北(`me.currentOrg.timezone`)
+          ctx: {
+            at: "2026-01-05T02:00:00.000Z",
+            timezone: "America/New_York",
+            userId: "user-1",
+            orgId: "org-1",
           },
           displayValues: [
             {
@@ -129,7 +146,7 @@ const renderEveryType = () =>
   });
 
 describe("表單模組詳情頁:唯讀 = 同一套填寫元件走 readOnly(不是停用)", () => {
-  it("每種欄位型別都是可讀的唯讀欄位:文字不停用、數字帶單位、選項顯示 label、日期以租戶時區印", async () => {
+  it("每種欄位型別都是可讀的唯讀欄位:不重算存值、選項顯示 label、日期以讀者租戶時區印、條件用修訂 ctx", async () => {
     renderEveryType();
 
     const item = await screen.findByRole("textbox", { name: "品項" });
@@ -137,13 +154,14 @@ describe("表單模組詳情頁:唯讀 = 同一套填寫元件走 readOnly(不�
       ["品項", "牛奶"],
       ["備註", "早上送"],
       ["單價", "30 元"],
-      ["總價", "60 元"],
+      ["總價", "99 元"],
       ["採購日", "2026-09-26"],
       ["送達時間", "2026-03-01 09:30"],
       ["分類", "飲品"],
       ["付款", "現金"],
       ["標籤", "有機、冷藏"],
     ];
+    // 日期以讀者的租戶時區(台北)印:紐約會是 2026-09-25 與 2026-02-28 20:30
     for (const [label, value] of expected) {
       const box = screen.getByRole("textbox", { name: label });
       expect(box).toHaveValue(value);
@@ -164,6 +182,12 @@ describe("表單模組詳情頁:唯讀 = 同一套填寫元件走 readOnly(不�
     expect(
       document.querySelectorAll("input:disabled, textarea:disabled"),
     ).toHaveLength(0);
+
+    // 條件用該修訂的 ctx(ctx.now = 當時),不用讀者的現在
+    expect(screen.queryByRole("textbox", { name: "晚到提醒" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "早鳥備註" })).toHaveValue(
+      "早點到",
+    );
 
     // 分區是有框的卡片 + 標題列
     const section = screen.getByRole("region", { name: "全部欄位" });

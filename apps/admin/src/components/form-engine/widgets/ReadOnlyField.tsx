@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslations } from "use-intl";
 
 import type { FieldDef } from "@repo/domain/form";
@@ -18,6 +19,8 @@ export interface ReadOnlyFieldProps {
   context: WidgetContext;
   /** 類別 / lookup 選項與引用欄的顯示名(現名或快照) */
   display?: readonly FormDisplayItemLike[];
+  /** 欄位說明(help);唯讀檢視照樣顯示,不附唯讀原因 */
+  helperText?: ReactNode;
 }
 
 /**
@@ -31,6 +34,7 @@ export const ReadOnlyField = ({
   value,
   context,
   display,
+  helperText,
 }: ReadOnlyFieldProps) => {
   const t = useTranslations("admin.formEngine.renderer");
   const temporalText = useTemporalText(context.timezone);
@@ -56,6 +60,7 @@ export const ReadOnlyField = ({
       value={text}
       fullWidth
       size="small"
+      {...(helperText !== undefined && { helperText })}
       {...(field.type === "multiline" && { multiline: true })}
       slotProps={{ htmlInput: { readOnly: true } }}
     />
