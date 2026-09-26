@@ -97,7 +97,7 @@
 
 - **定義**以 `definition: { steps, edges?, checkFormKey? }` 進出:`steps` 是 `StepDef` 的 JSON(含 `kind: review | join`),`edges` 缺席 / `null` / 空陣列都存 `null`(= 直線)。`workflow-definition-input.ts` 只做型別整形、不判對錯(保留會被檢查器指出的東西),草稿讀寫、fork、發布快照、版本讀取原樣保留節點 `kind` 與連線。
 - **檢查用表單**(`workflow_versions.checkFormKey`,選填):設計器對照的表單,存草稿一併存、發布快照保留、以某版開草稿與 fork 帶過去、版本讀取回傳。草稿的檢查結果、`validateWorkflowVersion`(外層 `checkFormKey` 沒給時)與發布前的檢查器都以它的目前版本驗 `skipWhen`;沒選時照舊用第一個 `field` 來源的表單。它只影響設計時的檢查 —— 送出與綁定時檢查仍以綁定的表單為準。
-- **刪除草稿**(`deleteWorkflowVersionDraft`):帶 `expectedDraftRevision`;發布進行中 / 中斷時 `CONFLICT`(`PUBLISH_IN_PROGRESS`)。軟刪除(ADR-0007)並把 `status` 一併移出 `draft`(改成 `retired`):部分唯一索引「一個流程至多一份草稿」含已軟刪除的文件,不移開就再也開不了新草稿;已軟刪除的文件任何查詢都看不到。已發布 / 退役的版本不受影響。
+- **刪除草稿**(`deleteWorkflowVersionDraft`):帶 `expectedDraftRevision`;發布進行中 / 中斷時 `CONFLICT`(`PUBLISH_IN_PROGRESS`)。**硬刪**那筆草稿(`BaseRepository.hardDeleteOne`,條件與刪除同一次寫入):草稿從未發布,沒有實例 / 任務引用它;軟刪除會佔住「一個流程至多一份草稿」的部分唯一索引,改成 `retired` 又會把「發布過」的語意弄髒。刪前的整份內容(`steps`、`edges`、`checkFormKey`、`draftRevision`、`baseVersion`)寫進稽核 `workflow-version.delete-draft` 的 `before`,需要時從稽核回看。已發布 / 退役的版本不受影響。
 - **檢查器**(`workflow-definition-checker.ts`)組好 `validateWorkflowDefinition` 要的目錄:共用 / 客製、本租戶的角色與使用者、`field` 來源表單與「檢查用表單」的**目前版本**欄位(共用流程只認共用表單;客製流程認共用表單與自己租戶的客製表單)。存草稿照收(錯誤隨 `validation` 回),發布有錯 → `VALIDATION_FAILED` + `issues`。共用流程含 `users` → `USERS_IN_SHARED`;客製流程的 `role` 沒填 / 不是本租戶的角色 → `ROLE_ID_MISSING` / `ROLE_NOT_IN_TENANT`。
 - **退役目前版本 / 改版 / 收回分派**:進行中的實例照常走完(實例記自己的 `(workflowKey, workflowVersion)`),只影響新送出。
 
@@ -301,11 +301,11 @@ input 欄位的缺席 / `null`:
 
 ## 稽核
 
-| action                                                                                                        | targetType          | 記什麼                                                                                         |
-| ------------------------------------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------- |
-| `workflow.create` / `.update` / `.fork` / `.assign` / `.revoke`                                               | `workflow`          | key、名稱、fork 來源、分派的租戶                                                               |
-| `workflow-version.create-draft` / `.save-draft` / `.delete-draft` / `.publish` / `.retry-publish` / `.retire` | `workflow_version`  | workflowKey、版號、draftRevision、changelog、檢查用表單;刪草稿記刪前的修訂號、基底版本、關卡數 |
-| `form.bind-workflow` / `form.unbind-workflow`                                                                 | `form`              | 綁定前後的流程                                                                                 |
-| `task.decide` / `task.reassign`                                                                               | `workflow_task`     | 決定種類 / 改派前後的承辦人                                                                    |
-| `task.add-assignee` / `instance.retry-advance`                                                                | `workflow_instance` | 關卡、taskKey、新增的人                                                                        |
-| `submission.submit` / `.withdraw` / `.void` / `.copy`                                                         | `form_submission`   | 修訂號、流程版本、作廢理由、複製來源(**不記值**)                                               |
+| action                                                                                                        | targetType          | 記什麼                                                                                     |
+| ------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------ |
+| `workflow.create` / `.update` / `.fork` / `.assign` / `.revoke`                                               | `workflow`          | key、名稱、fork 來源、分派的租戶                                                           |
+| `workflow-version.create-draft` / `.save-draft` / `.delete-draft` / `.publish` / `.retry-publish` / `.retire` | `workflow_version`  | workflowKey、版號、draftRevision、changelog、檢查用表單;刪草稿的 `before` 記刪前的整份定義 |
+| `form.bind-workflow` / `form.unbind-workflow`                                                                 | `form`              | 綁定前後的流程                                                                             |
+| `task.decide` / `task.reassign`                                                                               | `workflow_task`     | 決定種類 / 改派前後的承辦人                                                                |
+| `task.add-assignee` / `instance.retry-advance`                                                                | `workflow_instance` | 關卡、taskKey、新增的人                                                                    |
+| `submission.submit` / `.withdraw` / `.void` / `.copy`                                                         | `form_submission`   | 修訂號、流程版本、作廢理由、複製來源(**不記值**)                                           |

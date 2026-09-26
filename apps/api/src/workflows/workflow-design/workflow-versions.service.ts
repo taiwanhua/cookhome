@@ -53,12 +53,6 @@ import {
 
 const EMPTY_DEFINITION: WorkflowDefinition = { steps: [], edges: null };
 
-/**
- * 刪除草稿時移到的狀態:軟刪除的文件仍佔部分唯一索引(`status: "draft"` 至多一筆),
- * 所以狀態一併移出 `draft`。已軟刪除的文件任何查詢都看不到,這個值只為了讓出索引。
- */
-const DELETED_DRAFT_STATUS = "retired";
-
 /** 開草稿 / fork 要複製的內容:定義(節點與連線)+ 設計器的「檢查用表單」。 */
 export interface DraftContent {
   definition: WorkflowDefinition;
@@ -304,8 +298,9 @@ export class WorkflowVersionsService {
 
   /**
    * 刪除草稿(`expectedDraftRevision` 樂觀鎖;發布進行中 / 中斷時不可 → `PUBLISH_IN_PROGRESS`)。
-   * 軟刪除(ADR-0007)並把狀態移出 `draft`(見 `DELETED_DRAFT_STATUS`)。已發布 / 退役的版本不受影響,
-   * 之後可再以任一版開新草稿。
+   * **硬刪**(`hardDeleteOne`):草稿從未發布,沒有實例 / 任務引用它;軟刪除會佔住「至多一份草稿」的
+   * 部分唯一索引,改成 `retired` 又會把「發布過」的語意弄髒。刪前的整份內容寫進稽核的 `before`,
+   * 需要時從稽核回看。已發布 / 退役的版本不受影響,之後可再以任一版開新草稿。
    */
   async deleteDraft(
     facts: FormOperatorFacts,
@@ -318,15 +313,11 @@ export class WorkflowVersionsService {
       input.workflowKey,
     );
     await this.publisher.assertNotPublishing(operator, workflow);
-    const deleted = await this.versions.findOneAndUpdate(
-      operator,
-      {
-        workflowKey: workflow.key,
-        status: "draft",
-        draftRevision: input.expectedDraftRevision,
-      },
-      { $set: { status: DELETED_DRAFT_STATUS, deletedAt: new Date() } },
-    );
+    const deleted = await this.versions.hardDeleteOne(operator, {
+      workflowKey: workflow.key,
+      status: "draft",
+      draftRevision: input.expectedDraftRevision,
+    });
     if (!deleted) {
       const draft = await this.versions.findOne(operator, {
         workflowKey: workflow.key,
@@ -346,12 +337,13 @@ export class WorkflowVersionsService {
       action: WORKFLOW_VERSION_AUDIT.deleteDraft,
       targetType: WORKFLOW_VERSION_TARGET,
       targetId: deleted._id,
+      // 草稿被整筆抹掉:整份定義留在稽核,需要時可回看
       before: {
         workflowKey: workflow.key,
-        draftRevision: input.expectedDraftRevision,
+        draftRevision: deleted.draftRevision,
         baseVersion: deleted.baseVersion,
-        stepCount: deleted.steps.length,
-        edgeCount: deleted.edges?.length ?? 0,
+        steps: deleted.steps,
+        edges: deleted.edges ?? null,
         checkFormKey: deleted.checkFormKey ?? null,
       },
     });

@@ -127,7 +127,7 @@ describe("流程草稿:刪除與檢查用表單", () => {
   });
 
   describe("deleteWorkflowVersionDraft", () => {
-    it("修訂號不符 → DRAFT_REVISION_MISMATCH;相符 → 軟刪除、hasDraft = false、寫稽核,之後可再開草稿", async () => {
+    it("修訂號不符 → DRAFT_REVISION_MISMATCH;相符 → 硬刪、hasDraft = false、稽核記整份定義,之後可再開草稿", async () => {
       const key = nextKey("delete_draft");
       await publishWorkflow(world, key, { steps: [managerStep("boss")] });
       const draft = await ok<{
@@ -175,20 +175,22 @@ describe("流程草稿:刪除與檢查用表單", () => {
       expect(published.workflowVersion.workflowVersion.status).toBe(
         "PUBLISHED",
       );
-      // 軟刪除:文件還在、帶 deletedAt
+      // 硬刪:文件整筆不在(連已刪除的都查不到)
       const raw = await api.connection
         .collection("workflow_versions")
         .findOne({ _id: new Types.ObjectId(draftRow.id) });
-      expect(raw?.deletedAt).toBeInstanceOf(Date);
+      expect(raw).toBeNull();
       const audit = await api.connection.collection("audit_logs").findOne({
         action: "workflow-version.delete-draft",
-        targetId: raw?._id,
+        targetId: new Types.ObjectId(draftRow.id),
       });
       expect(audit?.before).toMatchObject({
         workflowKey: key,
         draftRevision: saved.draftRevision,
         baseVersion: 1,
-        stepCount: 2,
+        steps: [{ key: "boss" }, { key: "boss2" }],
+        edges: null,
+        checkFormKey: null,
       });
 
       const again = await call(api, world.admin.token, DELETE_WORKFLOW_DRAFT, {
