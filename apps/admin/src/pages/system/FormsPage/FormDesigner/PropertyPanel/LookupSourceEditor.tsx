@@ -74,8 +74,9 @@ export const LookupSourceEditor = ({
   hasValueField,
 }: LookupSourceEditorProps) => {
   const t = useTranslations("admin.forms.lookupSource");
+  const tForms = useTranslations("admin.forms");
   const isSubmission = value.provider === FORM_SUBMISSION_PROVIDER;
-  const forms = usePublishedForms(isSubmission);
+  const { forms, isTruncated } = usePublishedForms(isSubmission);
   const fieldOptions = useLookupFieldOptions(value);
   const isPending = fieldOptions === null;
 
@@ -103,13 +104,16 @@ export const LookupSourceEditor = ({
           label={t("form")}
           value={value.formKey ?? UNSET}
           displayEmpty
-          helperText={t("formHint")}
+          helperText={isTruncated ? t("formTruncated") : t("formHint")}
           options={[
             { value: UNSET, label: t("formUnset") },
             ...withCurrent(
               forms.map((form) => ({
                 value: form.key,
-                label: `${form.name}(${form.key})`,
+                label: tForms("labelWithKey", {
+                  label: form.name,
+                  key: form.key,
+                }),
               })),
               value.formKey,
             ),

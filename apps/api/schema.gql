@@ -65,7 +65,9 @@ input BindFormWorkflowInput {
   workflowKey: ID!
 }
 
-"""阻擋清單篩選:阻擋 / 需要推進"""
+"""
+阻擋清單篩選:阻擋 / 需要推進
+"""
 enum BlockedInstancesFilter {
   BLOCKED
   NEEDS_ADVANCE
@@ -75,7 +77,9 @@ input BlockedInstancesInput {
   filter: BlockedInstancesFilter!
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -203,7 +207,9 @@ input DataScopeAudienceInput {
   type: DataScopeAudienceType!
 }
 
-"""套用對象:全部人 / 指定角色 / 指定組織 / 指定使用者"""
+"""
+套用對象:全部人 / 指定角色 / 指定組織 / 指定使用者
+"""
 enum DataScopeAudienceType {
   ALL
   ORG
@@ -211,7 +217,9 @@ enum DataScopeAudienceType {
   USER
 }
 
-"""多條規則命中同一操作者時的頂層合成:OR = 聯集(命中越多看得越多)、AND = 交集"""
+"""
+多條規則命中同一操作者時的頂層合成:OR = 聯集(命中越多看得越多)、AND = 交集
+"""
 enum DataScopeCombineOp {
   AND
   OR
@@ -222,7 +230,9 @@ type DataScopeFieldOption {
   value: String!
 }
 
-"""可篩欄位的型別;決定 UI 出哪些運算子與值來源(ADR-0008 的表,翻譯器不認識個別欄位)"""
+"""
+可篩欄位的型別;決定 UI 出哪些運算子與值來源(ADR-0008 的表,翻譯器不認識個別欄位)
+"""
 enum DataScopeFieldType {
   DATE
   ENUM
@@ -399,7 +409,9 @@ type DemoItemOnePayload {
   item: DemoItemOne!
 }
 
-"""示範項目狀態(草稿 / 已發布 / 已封存);資料範圍規則的 enum 欄位,選項正本在模組 seed"""
+"""
+示範項目狀態(草稿 / 已發布 / 已封存);資料範圍規則的 enum 欄位,選項正本在模組 seed
+"""
 enum DemoItemOneStatus {
   ARCHIVED
   DRAFT
@@ -442,7 +454,9 @@ input DemoItemsOneInput {
   keyword: String
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -458,7 +472,9 @@ input DemoItemsTwoInput {
   keyword: String
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -729,14 +745,18 @@ type FormSubmissionRevisionMeta {
   user: FormUserRef
 }
 
-"""提交列表的排序(預設送出時間新到舊;草稿沒有送出時間,排在最後)"""
+"""
+提交列表的排序(預設送出時間新到舊;草稿沒有送出時間,排在最後)
+"""
 enum FormSubmissionSort {
   SUBMITTED_AT_ASC
   SUBMITTED_AT_DESC
   UPDATED_AT_DESC
 }
 
-"""提交狀態:草稿 / 審核中 / 已退回 / 已撤回 / 已完成 / 已駁回 / 已作廢(不綁流程的表單送出即完成)"""
+"""
+提交狀態:草稿 / 審核中 / 已退回 / 已撤回 / 已完成 / 已駁回 / 已作廢(不綁流程的表單送出即完成)
+"""
 enum FormSubmissionStatus {
   COMPLETED
   DRAFT
@@ -759,7 +779,9 @@ input FormSubmissionsInput {
   moduleKey: String!
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
   sort: FormSubmissionSort = SUBMITTED_AT_DESC
   status: FormSubmissionStatus
@@ -813,7 +835,9 @@ type FormVersionPayload {
   validation: FormValidationReport
 }
 
-"""表單版本狀態:草稿 / 發布中(中斷可重試)/ 已發布(供新增)/ 已退役"""
+"""
+表單版本狀態:草稿 / 發布中(中斷可重試)/ 已發布(供新增)/ 已退役
+"""
 enum FormVersionStatus {
   DRAFT
   PUBLISHED
@@ -850,7 +874,9 @@ input FormsInput {
   moduleKey: String
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -876,7 +902,9 @@ input IngredientInput {
   name: String!
 }
 
-"""任意 JSON 物件(資料範圍的條件樹;形狀見 apps/api/src/data-scope/data-scope-rule.ts)"""
+"""
+任意 JSON 物件(資料範圍的條件樹;形狀見 apps/api/src/data-scope/data-scope-rule.ts)
+"""
 scalar JSONObject
 
 input LoginInput {
@@ -950,7 +978,9 @@ type ModuleAdminPayload {
   module: ModuleAdminNode!
 }
 
-"""模組頁面怎麼組裝:FIXED=固定欄位模組(手寫頁面)、FORM=表單模組(頁面由表單引擎組裝)"""
+"""
+模組頁面怎麼組裝:FIXED=固定欄位模組(手寫頁面)、FORM=表單模組(頁面由表單引擎組裝)
+"""
 enum ModuleEngine {
   FIXED
   FORM
@@ -972,7 +1002,9 @@ input ModuleListColumnInput {
   width: Int!
 }
 
-"""列表欄位的種類:摘要槽 / 表單欄位"""
+"""
+列表欄位的種類:摘要槽 / 表單欄位
+"""
 enum ModuleListColumnKind {
   FIELD
   SLOT
@@ -992,7 +1024,9 @@ type ModuleOption {
   sidebarType: ModuleSidebarType!
 }
 
-"""側欄呈現型別:GROUP=可展開群組(非連結)、LINK=模組連結、HIDDEN=隱藏頁(有路由但不出現在側欄)"""
+"""
+側欄呈現型別:GROUP=可展開群組(非連結)、LINK=模組連結、HIDDEN=隱藏頁(有路由但不出現在側欄)
+"""
 enum ModuleSidebarType {
   GROUP
   HIDDEN
@@ -1009,29 +1043,41 @@ type Mutation {
   addStepAssignee(input: AddStepAssigneeInput!): WorkflowTaskPayload!
   assignFormToTenants(input: AssignFormToTenantsInput!): FormPayload!
   assignUserRoles(input: AssignUserRolesInput!): UserPayload!
-  assignWorkflowToTenants(input: AssignWorkflowToTenantsInput!): WorkflowPayload!
+  assignWorkflowToTenants(
+    input: AssignWorkflowToTenantsInput!
+  ): WorkflowPayload!
   bindFormWorkflow(input: BindFormWorkflowInput!): FormPayload!
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
-  copySubmissionToDraft(input: CopySubmissionToDraftInput!): FormSubmissionPayload!
+  copySubmissionToDraft(
+    input: CopySubmissionToDraftInput!
+  ): FormSubmissionPayload!
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
   createDemoItemOne(input: CreateDemoItemOneInput!): DemoItemOnePayload!
   createDemoItemTwo(input: CreateDemoItemTwoInput!): DemoItemTwoPayload!
   createField(input: CreateFieldInput!): FieldPayload!
   createForm(input: CreateFormInput!): FormPayload!
   createFormDraft(input: CreateFormDraftInput!): FormSubmissionPayload!
-  createFormVersionDraft(input: CreateFormVersionDraftInput!): FormVersionPayload!
+  createFormVersionDraft(
+    input: CreateFormVersionDraftInput!
+  ): FormVersionPayload!
   createRecipe(input: CreateRecipeInput!): Recipe!
   createRole(input: CreateRoleInput!): RolePayload!
   createUploadUrl(input: CreateUploadUrlInput!): UploadUrlPayload!
   createUser(input: CreateUserInput!): UserPayload!
   createWorkflow(input: CreateWorkflowInput!): WorkflowPayload!
-  createWorkflowVersionDraft(input: CreateWorkflowVersionDraftInput!): WorkflowVersionPayload!
+  createWorkflowVersionDraft(
+    input: CreateWorkflowVersionDraftInput!
+  ): WorkflowVersionPayload!
   decideTask(input: DecideTaskInput!): WorkflowTaskPayload!
   deleteDemoItemOne(input: DeleteDemoItemOneInput!): DeleteDemoItemOnePayload!
   deleteDemoItemTwo(input: DeleteDemoItemTwoInput!): DeleteDemoItemTwoPayload!
-  deleteFormSubmission(input: DeleteFormSubmissionInput!): DeleteFormSubmissionPayload!
+  deleteFormSubmission(
+    input: DeleteFormSubmissionInput!
+  ): DeleteFormSubmissionPayload!
   deleteOrg(input: DeleteOrgInput!): DeletePayload!
-  deleteRetiredPermission(input: DeleteRetiredPermissionInput!): DeleteRetiredPermissionPayload!
+  deleteRetiredPermission(
+    input: DeleteRetiredPermissionInput!
+  ): DeleteRetiredPermissionPayload!
   deleteRole(input: DeleteRoleInput!): DeletePayload!
   forkForm(input: ForkFormInput!): FormPayload!
   forkWorkflow(input: ForkWorkflowInput!): WorkflowPayload!
@@ -1042,40 +1088,58 @@ type Mutation {
   moveOrg(input: MoveOrgInput!): OrgPayload!
   provisionTenant(input: ProvisionTenantInput!): ProvisionTenantPayload!
   publishFormVersion(input: PublishFormVersionInput!): FormVersionPayload!
-  publishWorkflowVersion(input: PublishWorkflowVersionInput!): WorkflowVersionPayload!
+  publishWorkflowVersion(
+    input: PublishWorkflowVersionInput!
+  ): WorkflowVersionPayload!
   reassignTask(input: ReassignTaskInput!): WorkflowTaskPayload!
   refresh: RefreshPayload!
-  requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
+  requestPasswordReset(
+    input: RequestPasswordResetInput!
+  ): RequestPasswordResetPayload!
   retireCurrentVersion(input: FormKeyInput!): FormPayload!
   retireCurrentWorkflowVersion(input: WorkflowKeyInput!): WorkflowPayload!
-  retryAdvanceInstance(input: RetryAdvanceInstanceInput!): WorkflowInstancePayload!
+  retryAdvanceInstance(
+    input: RetryAdvanceInstanceInput!
+  ): WorkflowInstancePayload!
   retryPublishFormVersion(input: FormKeyInput!): FormVersionPayload!
   retryPublishWorkflowVersion(input: WorkflowKeyInput!): WorkflowVersionPayload!
   revokeFormFromTenant(input: RevokeFormFromTenantInput!): FormPayload!
   revokeRoleUsers(input: RevokeRoleUsersInput!): RoleUsersPayload!
-  revokeTenantProvision(input: RevokeTenantProvisionInput!): RevokeTenantProvisionPayload!
-  revokeWorkflowFromTenant(input: RevokeWorkflowFromTenantInput!): WorkflowPayload!
+  revokeTenantProvision(
+    input: RevokeTenantProvisionInput!
+  ): RevokeTenantProvisionPayload!
+  revokeWorkflowFromTenant(
+    input: RevokeWorkflowFromTenantInput!
+  ): WorkflowPayload!
   saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!
   saveFormDraft(input: SaveFormDraftInput!): FormSubmissionPayload!
   saveFormVersionDraft(input: SaveFormVersionDraftInput!): FormVersionPayload!
   saveRoleMatrix(input: SaveRoleMatrixInput!): RoleMatrixPayload!
-  saveWorkflowVersionDraft(input: SaveWorkflowVersionDraftInput!): WorkflowVersionPayload!
+  saveWorkflowVersionDraft(
+    input: SaveWorkflowVersionDraftInput!
+  ): WorkflowVersionPayload!
   setDemoItemOneEnabled(input: SetDemoItemOneEnabledInput!): DemoItemOnePayload!
   setDemoItemTwoEnabled(input: SetDemoItemTwoEnabledInput!): DemoItemTwoPayload!
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setModuleIcon(input: SetModuleIconInput!): ModuleAdminPayload!
-  setModuleListColumns(input: SetModuleListColumnsInput!): ModuleListColumnsPayload!
+  setModuleListColumns(
+    input: SetModuleListColumnsInput!
+  ): ModuleListColumnsPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setOrgManagers(input: SetOrgManagersInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
-  setPermissionEnabled(input: SetPermissionEnabledInput!): PermissionAdminPayload!
+  setPermissionEnabled(
+    input: SetPermissionEnabledInput!
+  ): PermissionAdminPayload!
   setRoleEnabled(input: SetRoleEnabledInput!): RolePayload!
   setTenantFormEnabled(input: SetTenantFormEnabledInput!): FormPayload!
   setUserEnabled(input: SetUserEnabledInput!): UserPayload!
   setUserOrgs(input: SetUserOrgsInput!): SetUserOrgsPayload!
-  submitFormSubmission(input: SubmitFormSubmissionInput!): FormSubmissionPayload!
+  submitFormSubmission(
+    input: SubmitFormSubmissionInput!
+  ): FormSubmissionPayload!
   switchOrg(input: SwitchOrgInput!): SwitchOrgPayload!
   transferOrgOwner(input: TransferOrgOwnerInput!): OrgPayload!
   unbindFormWorkflow(input: UnbindFormWorkflowInput!): FormPayload!
@@ -1083,7 +1147,9 @@ type Mutation {
   updateDemoItemTwo(input: UpdateDemoItemTwoInput!): DemoItemTwoPayload!
   updateField(input: UpdateFieldInput!): FieldPayload!
   updateForm(input: UpdateFormInput!): FormPayload!
-  updateFormSubmission(input: UpdateFormSubmissionInput!): FormSubmissionPayload!
+  updateFormSubmission(
+    input: UpdateFormSubmissionInput!
+  ): FormSubmissionPayload!
   updateOrg(input: UpdateOrgInput!): OrgPayload!
   updateRole(input: UpdateRoleInput!): RolePayload!
   updateUser(input: UpdateUserInput!): UserPayload!
@@ -1097,7 +1163,9 @@ input MyApplicationsInput {
   moduleKey: String
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
   status: FormSubmissionStatus
 }
@@ -1115,7 +1183,9 @@ input MyTasksInput {
   moduleKey: String
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -1150,7 +1220,9 @@ input OrgMembersInput {
   keyword: String
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -1175,7 +1247,9 @@ type OrgPayload {
   org: Org!
 }
 
-"""租戶頂層的使用者可見範圍開關(ADR-0005;未設視為 OWN)"""
+"""
+租戶頂層的使用者可見範圍開關(ADR-0005;未設視為 OWN)
+"""
 enum OrgVisibility {
   OWN
   SUBTREE
@@ -1245,7 +1319,11 @@ type Query {
   formLookupRecord(input: FormLookupRecordInput!): FormLookupRecordPayload!
   formRuntimeVersion(formKey: ID!, version: Int!): FormVersionPayload!
   formSubmission(id: ID!, revision: Int): FormSubmissionPayload!
-  formSubmissionAttachmentUrl(fieldKey: String!, id: ID!, revision: Int): FormSubmissionAttachmentUrlPayload!
+  formSubmissionAttachmentUrl(
+    fieldKey: String!
+    id: ID!
+    revision: Int
+  ): FormSubmissionAttachmentUrlPayload!
   formSubmissions(input: FormSubmissionsInput!): FormSubmissionsPayload!
   formVersion(formKey: ID!, version: Int): FormVersionPayload!
   formVersions(formKey: ID!): FormVersionsPayload!
@@ -1268,14 +1346,19 @@ type Query {
   retiredFormPermissions: RetiredFormPermissionsPayload!
   role(id: ID!): RolePayload!
   roleMatrix(roleId: ID!): RoleMatrixPayload!
-  roleUserCandidates(input: RoleUserCandidatesInput!, roleId: ID!): RoleUserCandidatesPayload!
+  roleUserCandidates(
+    input: RoleUserCandidatesInput!
+    roleId: ID!
+  ): RoleUserCandidatesPayload!
   roleUsers(input: RoleUsersInput!, roleId: ID!): RoleUsersPayload!
   roles(input: RolesInput!): RolesPayload!
   tenantModuleOptions: [ModuleOption!]!
   user(id: ID!): User!
   users(input: UsersInput!): UsersPayload!
   validateFormVersion(input: ValidateFormVersionInput!): FormValidationReport!
-  validateWorkflowVersion(input: ValidateWorkflowVersionInput!): WorkflowValidationReport!
+  validateWorkflowVersion(
+    input: ValidateWorkflowVersionInput!
+  ): WorkflowValidationReport!
   workflow(key: ID!): WorkflowPayload!
   workflowInstance(id: ID!): WorkflowInstancePayload!
   workflowVersion(version: Int, workflowKey: ID!): WorkflowVersionPayload!
@@ -1393,7 +1476,9 @@ type RoleGrant {
   permissionKeys: [String!]!
 }
 
-"""角色種類(種子 / 預設角色 / 自建);規則表見 docs/modules/role-manager.md"""
+"""
+角色種類(種子 / 預設角色 / 自建);規則表見 docs/modules/role-manager.md
+"""
 enum RoleKind {
   CUSTOM
   SYSTEM
@@ -1443,7 +1528,9 @@ type RolePayload {
   role: Role!
 }
 
-"""所屬組織移除後角色失去資格的原因(ADR-0003)"""
+"""
+所屬組織移除後角色失去資格的原因(ADR-0003)
+"""
 enum RoleUnqualifiedReason {
   NO_REMAINING_SUBTREE_SUPPORT
   OWNED_BY_REMOVED_ORG
@@ -1474,7 +1561,9 @@ input RoleUserCandidatesInput {
   keyword: String
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -1493,7 +1582,9 @@ type RoleUserOrg {
 input RoleUsersInput {
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -1510,7 +1601,9 @@ input RolesInput {
   ownerOrgId: ID
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -1745,7 +1838,9 @@ input UpdateWorkflowInput {
   name: String!
 }
 
-"""上傳用途:決定物件路徑前綴與所需權限(ADR-0010)"""
+"""
+上傳用途:決定物件路徑前綴與所需權限(ADR-0010)
+"""
 enum UploadPurpose {
   DEMO_ATTACHMENT
   DEMO_COVER
@@ -1780,7 +1875,9 @@ input UserActivationInput {
   mode: UserActivationMode! = EMAIL
 }
 
-"""新增使用者的啟用方式(ADR-0009:啟用信 / 初始密碼)"""
+"""
+新增使用者的啟用方式(ADR-0009:啟用信 / 初始密碼)
+"""
 enum UserActivationMode {
   EMAIL
   PASSWORD
@@ -1791,7 +1888,9 @@ type UserOrg {
   name: String!
 }
 
-"""移除所屬組織時角色授予的處理方式(ADR-0003,radio 三檔)"""
+"""
+移除所屬組織時角色授予的處理方式(ADR-0003,radio 三檔)
+"""
 enum UserOrgRemovalPolicy {
   KEEP_ALL
   REVOKE_ALL_UNQUALIFIED
@@ -1822,7 +1921,9 @@ input UsersInput {
   orgId: ID
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 
@@ -1883,13 +1984,17 @@ type WorkflowBoundForm {
   moduleKey: String
 }
 
-"""決定被接受 / 此關已結束或任務已變更(前端提示並重載)"""
+"""
+決定被接受 / 此關已結束或任務已變更(前端提示並重載)
+"""
 enum WorkflowDecideResult {
   ACCEPTED
   STEP_CLOSED
 }
 
-"""核准 / 駁回(理由必填)/ 退回修改(理由必填,該關要允許退回)"""
+"""
+核准 / 駁回(理由必填)/ 退回修改(理由必填,該關要允許退回)
+"""
 enum WorkflowDecision {
   APPROVE
   REJECT
@@ -1971,7 +2076,9 @@ type WorkflowInstancePayload {
   instance: WorkflowInstanceModel!
 }
 
-"""流程實例狀態:連結中 / 審核中 / 阻擋 / 核准 / 駁回 / 退回 / 撤回 / 被取代"""
+"""
+流程實例狀態:連結中 / 審核中 / 阻擋 / 核准 / 駁回 / 退回 / 撤回 / 被取代
+"""
 enum WorkflowInstanceStatus {
   APPROVED
   BLOCKED
@@ -2054,7 +2161,9 @@ type WorkflowPlanItemModel {
   taskKey: String!
 }
 
-"""關卡狀態:還沒進 / 跳過 / 進行中 / 完成 / 被終止"""
+"""
+關卡狀態:還沒進 / 跳過 / 進行中 / 完成 / 被終止
+"""
 enum WorkflowStepStatus {
   ACTIVE
   COMPLETED
@@ -2091,7 +2200,9 @@ type WorkflowTaskPayload {
   task: WorkflowTaskModel!
 }
 
-"""任務狀態:待處理 / 核准 / 駁回 / 退回 / 晚到(不影響結果)/ 取消 / 承辦人失效"""
+"""
+任務狀態:待處理 / 核准 / 駁回 / 退回 / 晚到(不影響結果)/ 取消 / 承辦人失效
+"""
 enum WorkflowTaskStatus {
   APPROVED
   BLOCKED
@@ -2133,7 +2244,9 @@ type WorkflowVersionPayload {
   workflowVersion: WorkflowVersionModel!
 }
 
-"""流程版本狀態:草稿 / 發布中 / 已發布 / 已退役"""
+"""
+流程版本狀態:草稿 / 發布中 / 已發布 / 已退役
+"""
 enum WorkflowVersionStatus {
   DRAFT
   PUBLISHED
@@ -2150,7 +2263,9 @@ input WorkflowsInput {
   keyword: String
   page: Int = 1
 
-  """每頁筆數,上限 100"""
+  """
+  每頁筆數,上限 100
+  """
   pageSize: Int = 20
 }
 

@@ -58,6 +58,12 @@ export type DateDiffUnit = (typeof DATE_DIFF_UNITS)[number];
 export const DEFAULT_DATE_DIFF_UNIT: DateDiffUnit = "days";
 
 /**
+ * 設計器單位下拉目前開放的單位:計算器還只算日曆日,小時 / 分鐘選了也會照天算。
+ * #482 接上計算後開放(改成 `DATE_DIFF_UNITS`)。
+ */
+export const PICKABLE_DATE_DIFF_UNITS: readonly DateDiffUnit[] = ["days"];
+
+/**
  * 一個參數位置要什麼:
  * - `types`:這幾種型別之一(`null` = 不限)
  * - `sameAs`:與第 `index` 個參數同型別(比較的右邊、`if` 的「否則」)

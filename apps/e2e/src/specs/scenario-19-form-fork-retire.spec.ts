@@ -79,7 +79,7 @@ test("劇本 19:以分派來的表單為基底建客製表單並發布;退役目
     detail.getByRole("button", { name: "存草稿" }),
     "SaveFormVersionDraft",
   );
-  await detail.getByRole("tab", { name: "版本" }).click();
+  await detail.getByRole("tab", { name: "表單版本" }).click();
   const versions = detail.getByRole("table", { name: "版本清單" });
   await versions.getByRole("button", { name: "發布" }).click();
   const publishDialog = admin.getByRole("dialog", { name: "發布新版本" });

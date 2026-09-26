@@ -53,6 +53,7 @@ const UNSET = "";
  */
 export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
   const t = useTranslations("admin.forms.options");
+  const tForms = useTranslations("admin.forms");
   const { session } = useSession();
   const options = value ?? emptyOf("static");
   const items = options.kind === "static" ? options.items : [];
@@ -63,7 +64,10 @@ export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
   const categoryOptions = (categories.data?.fieldCategories.items ?? []).map(
     (category) => ({
       value: category.key,
-      label: `${category.name}(${category.key})`,
+      label: tForms("labelWithKey", {
+        label: category.name,
+        key: category.key,
+      }),
     }),
   );
 

@@ -148,6 +148,20 @@ describe("表單管理:設計器修正(失焦、key 重複、面板依型別)", 
     );
     expect(labels).not.toContain("數量二");
     expect(labels).toContain("數量");
+    // 內部 id 只活在設計器裡:送出去的欄位與版面每一格都不帶 `_id`
+    const saved = world.inputs.saveFormVersionDraft.at(0);
+    for (const item of saved?.fields ?? []) {
+      expect(item).not.toHaveProperty("_id");
+    }
+    const layout = saved?.layout as
+      { sections: { rows: { cols: object[] }[] }[] } | undefined;
+    const cols = (layout?.sections ?? []).flatMap((section) =>
+      section.rows.flatMap((row) => row.cols),
+    );
+    expect(cols.length).toBeGreaterThan(0);
+    for (const col of cols) {
+      expect(col).not.toHaveProperty("_id");
+    }
   });
 
   it("面板依型別:文字有格式、多行有列數沒有格式、數字有單位;計算欄位沒有鎖定條件", async () => {

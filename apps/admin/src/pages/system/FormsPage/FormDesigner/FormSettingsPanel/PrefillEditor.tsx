@@ -16,6 +16,7 @@ import {
   type LookupFieldOption,
   useLookupFieldOptions,
 } from "../PropertyPanel/useLookupCatalog";
+import { useRowIds } from "../PropertyPanel/useRowIds";
 
 export interface PrefillEditorProps {
   prefill: Prefill;
@@ -57,6 +58,8 @@ export const PrefillEditor = ({
 }: PrefillEditorProps) => {
   const t = useTranslations("admin.forms.prefill");
   const catalog = useLookupFieldOptions(prefill.source);
+  // 對應表的列以穩定內部 id 當 React key(不用內容:換欄位時整列重掛會失焦)
+  const rows = useRowIds(prefill.mapping.length);
   const targets = fields.filter(
     (field) => field.valueSource.kind === "input" && field.type !== "reference",
   );
@@ -104,7 +107,7 @@ export const PrefillEditor = ({
         const target = targets.find((field) => field.key === entry.fieldKey);
         return (
           <Stack
-            key={`${String(position)}-${entry.fieldKey}`}
+            key={rows.ids[position]}
             direction="row"
             spacing={1}
             sx={{ alignItems: "center" }}
@@ -148,6 +151,7 @@ export const PrefillEditor = ({
               variant="text"
               size="small"
               onClick={() => {
+                rows.removed(position);
                 onChange({
                   ...prefill,
                   mapping: prefill.mapping.filter(
@@ -167,6 +171,7 @@ export const PrefillEditor = ({
           size="small"
           disabled={targets.length === 0}
           onClick={() => {
+            rows.added();
             onChange({
               ...prefill,
               mapping: [

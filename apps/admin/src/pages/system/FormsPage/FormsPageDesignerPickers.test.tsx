@@ -1,7 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import type { FormDefinition } from "@repo/domain/form";
 import { FormVersionStatus } from "@repo/graphql";
 
 import {
@@ -14,34 +13,17 @@ import {
 
 import {
   addField,
+  defaultDesignOptions,
   findDesigner,
   openSelect,
   pickOption,
   preloadFormsPage,
   renderFormsPage,
   selectField,
+  smallDraft,
 } from "./forms-page-test-support";
 
 preloadFormsPage();
-
-/**
- * 只有一個「品項」欄的小草稿:這一組測試只操作屬性面板的下拉,畫布越小每一步重繪越快
- * (全套並行時 CPU 被搶,整張購物單的畫布會把單一測試的 15 秒吃光)。
- */
-const smallDraft = (): FormDefinition => ({
-  fields: [field("item", "品項", "text")],
-  layout: {
-    sections: [
-      {
-        key: "basic",
-        title: "採購內容",
-        rows: [{ cols: [{ fieldKey: "item", span: 12 }] }],
-      },
-    ],
-  },
-  summaryMap: { title: "item" },
-  prefills: [],
-});
 
 /** 已發布 v1 多一個受保護的「成本」:其他表單拿它當來源時,欄位目錄不列它。 */
 const renderWithProtectedPublished = () => {
@@ -247,7 +229,7 @@ describe("表單管理:型別導向的表達式選擇器(表 B)", () => {
     });
   });
 
-  it("公式參數依型別過濾:乘法的參數只列數字欄;換成日期差出現單位下拉,產生第三參數", async () => {
+  it("公式參數依型別過濾:乘法的參數只列數字欄;換成日期差出現單位下拉(先只有天),產生第三參數", async () => {
     const { user, world } = renderFormsPage();
     await findDesigner();
     await selectField(user, "總價", "total");
@@ -276,14 +258,48 @@ describe("表單管理:型別導向的表達式選擇器(表 B)", () => {
       "運算",
     ]);
     await user.keyboard("{Escape}");
-    await pickOption(user, "單位", "小時", formula);
+    // 單位先只開放「天」(#482 接上小時 / 分鐘的計算後才開放)
+    expect(await openSelect(user, "單位", formula)).toEqual(["天"]);
+    await user.click(screen.getByRole("option", { name: "天" }));
 
     const fields = await savedFields(user, world);
     expect(fields.find((item) => item.key === "total")).toMatchObject({
       valueSource: {
         kind: "computed",
-        expr: { dateDiff: [null, null, "hours"] },
+        expr: { dateDiff: [null, null, "days"] },
       },
     });
+  });
+});
+
+describe("表單管理:條件的自我引用", () => {
+  it("鎖定條件列出自己、顯示條件不列自己", async () => {
+    const draft = smallDraft();
+    draft.fields.push(field("qty", "數量", "number"));
+    draft.layout.sections[0]?.rows.push({
+      cols: [{ fieldKey: "qty", span: 12 }],
+    });
+    const { user } = renderFormsPage({
+      ...defaultDesignOptions(),
+      versions: {
+        [SHOPPING_FORM_KEY]: [versionFragment(draft, { baseVersion: 1 })],
+      },
+    });
+    await findDesigner();
+    await selectField(user, "品項", "item");
+
+    const fieldChoicesIn = async (name: string): Promise<string[]> => {
+      const group = screen.getByRole("group", { name });
+      await user.click(within(group).getByRole("button", { name: "設定" }));
+      await pickOption(user, "節點種類(==.0)", "欄位", group);
+      return openSelect(user, "欄位", group);
+    };
+
+    expect(await fieldChoicesIn("鎖定條件(成立時此欄位不可修改)")).toEqual([
+      "品項(item)",
+      "數量(qty)",
+    ]);
+    await user.keyboard("{Escape}");
+    expect(await fieldChoicesIn("顯示條件")).toEqual(["數量(qty)"]);
   });
 });

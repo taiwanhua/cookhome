@@ -54,15 +54,22 @@ export interface PublishedFormOption {
   currentVersion: number;
 }
 
+export interface PublishedForms {
+  forms: PublishedFormOption[];
+  /** 表單總數超過一次取的上限(100):清單不完整,畫面提示「清單已截斷」 */
+  isTruncated: boolean;
+}
+
 /** 本租戶看得到、有已發布版本的表單(`enabled` = 只有選了「表單提交」才查)。 */
-export const usePublishedForms = (enabled: boolean): PublishedFormOption[] => {
+export const usePublishedForms = (enabled: boolean): PublishedForms => {
   const { session } = useSession();
   const forms = useFormsQuery(
     session.client,
     { input: { keyword: "", page: 1, pageSize: FORMS_PAGE_SIZE } },
     { enabled },
   );
-  return (forms.data?.forms.items ?? []).flatMap((form) =>
+  const items = forms.data?.forms.items ?? [];
+  const published = items.flatMap((form) =>
     form.currentVersion === null || form.currentVersion === undefined
       ? []
       : [
@@ -73,6 +80,10 @@ export const usePublishedForms = (enabled: boolean): PublishedFormOption[] => {
           },
         ],
   );
+  return {
+    forms: published,
+    isTruncated: (forms.data?.forms.totalCount ?? 0) > items.length,
+  };
 };
 
 /**
@@ -83,9 +94,10 @@ export const useLookupFieldOptions = (
   source: LookupSourceDescriptor,
 ): LookupFieldOption[] | null => {
   const t = useTranslations("admin.forms.lookupSource");
+  const tForms = useTranslations("admin.forms");
   const { session } = useSession();
   const isSubmission = source.provider === FORM_SUBMISSION_PROVIDER;
-  const forms = usePublishedForms(isSubmission);
+  const { forms } = usePublishedForms(isSubmission);
   const form = isSubmission
     ? forms.find((candidate) => candidate.key === source.formKey)
     : undefined;
@@ -119,7 +131,7 @@ export const useLookupFieldOptions = (
       .filter((field) => !isProtected(protections.get(field.key)))
       .map((field) => ({
         value: field.key,
-        label: `${field.label}(${field.key})`,
+        label: tForms("labelWithKey", { label: field.label, key: field.key }),
         type: field.type,
       })),
   ];

@@ -1,6 +1,7 @@
 import { beforeAll } from "@jest/globals";
 import { screen, within } from "@testing-library/react";
 
+import type { FormDefinition } from "@repo/domain/form";
 import { FormVersionStatus } from "@repo/graphql";
 
 import { authWorld } from "@/test/msw/auth-handlers";
@@ -12,6 +13,7 @@ import {
 import {
   FORMS_ROUTE,
   SHOPPING_FORM_KEY,
+  field,
   formFragment,
   formsModules,
   shoppingDefinition,
@@ -53,6 +55,39 @@ export const defaultDesignOptions = (): FormDesignWorldOptions => ({
     ],
   },
 });
+
+/**
+ * 只有一個「品項」欄的小草稿:只操作元件面板 / 屬性面板的測試用它,畫布越小每一步重繪越快
+ * (全套並行時 CPU 被搶,整張購物單的畫布會把單一測試的 15 秒吃光;TEST-08)。
+ */
+export const smallDraft = (): FormDefinition => ({
+  fields: [field("item", "品項", "text")],
+  layout: {
+    sections: [
+      {
+        key: "basic",
+        title: "採購內容",
+        rows: [{ cols: [{ fieldKey: "item", span: 12 }] }],
+      },
+    ],
+  },
+  summaryMap: { title: "item" },
+  prefills: [],
+});
+
+/** 草稿換成小草稿(已發布 v1 照舊是整張購物單)。 */
+export const smallDesignOptions = (): FormDesignWorldOptions => {
+  const options = defaultDesignOptions();
+  return {
+    ...options,
+    versions: {
+      [SHOPPING_FORM_KEY]: [
+        versionFragment(smallDraft(), { baseVersion: 1 }),
+        ...(options.versions?.[SHOPPING_FORM_KEY] ?? []).slice(1),
+      ],
+    },
+  };
+};
 
 export const renderFormsPage = (
   options: FormDesignWorldOptions = defaultDesignOptions(),

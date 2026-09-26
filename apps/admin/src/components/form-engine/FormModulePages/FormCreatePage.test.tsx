@@ -43,6 +43,8 @@ describe("表單模組新增頁(預設組裝)", () => {
       qty: "3",
       unit_price: "40",
     });
+    // 計算欄位由後端算,前端不送它的值
+    expect(draft.values).not.toHaveProperty("total");
     expect(world.inputs.submitFormSubmission[0]?.expectedEditVersion).toBe(1);
     // 送出後到詳情頁
     await waitFor(() => {

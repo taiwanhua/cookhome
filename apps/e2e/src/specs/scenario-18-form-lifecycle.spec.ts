@@ -66,7 +66,7 @@ test("劇本 18:root 建表單、設計、發布、分派;員工填寫送出,列
   );
 
   // 步驟 3:版本 → 發布(填變更說明)
-  await detail.getByRole("tab", { name: "版本" }).click();
+  await detail.getByRole("tab", { name: "表單版本" }).click();
   const versions = detail.getByRole("table", { name: "版本清單" });
   await versions.getByRole("button", { name: "發布" }).click();
   const publishDialog = rootPage.getByRole("dialog", { name: "發布新版本" });

@@ -1221,6 +1221,7 @@
     }
   },
   "forms": {
+    "labelWithKey": "{label}({key})",
     "loading": "載入中",
     "empty": "選一張表單以檢視設計與版本",
     "errors": {
@@ -1527,6 +1528,7 @@
       },
       "form": "表單",
       "formHint": "只列看得到且已發布過的表單",
+      "formTruncated": "表單超過 100 張,清單已截斷:只列前 100 張中已發布過的表單",
       "formUnset": "請選表單",
       "labelField": "顯示欄",
       "labelFieldHint": "選資料時,清單上顯示哪一欄",
@@ -2018,8 +2020,8 @@
       "assignedTo": "已分派給:{tenants}",
       "boundForms": "綁定的表單:{forms}",
       "tabs": "流程內容",
-      "tabDesign": "設計",
-      "tabVersions": "版本"
+      "tabDesign": "流程設計",
+      "tabVersions": "流程版本"
     },
     "nameDialog": {
       "createTitle": "建立流程",

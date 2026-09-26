@@ -1221,6 +1221,7 @@
     }
   },
   "forms": {
+    "labelWithKey": "{label} ({key})",
     "loading": "Loading",
     "empty": "Select a form to see its design and versions",
     "errors": {
@@ -1527,6 +1528,7 @@
       },
       "form": "Form",
       "formHint": "Only forms you can see that have a published version",
+      "formTruncated": "More than 100 forms: the list is truncated to published forms among the first 100",
       "formUnset": "Choose a form",
       "labelField": "Display field",
       "labelFieldHint": "Which column the picker list shows",
@@ -2018,8 +2020,8 @@
       "assignedTo": "Assigned to: {tenants}",
       "boundForms": "Bound forms: {forms}",
       "tabs": "Workflow",
-      "tabDesign": "Design",
-      "tabVersions": "Versions"
+      "tabDesign": "Workflow design",
+      "tabVersions": "Workflow versions"
     },
     "nameDialog": {
       "createTitle": "Create workflow",

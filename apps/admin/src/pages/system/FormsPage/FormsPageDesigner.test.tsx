@@ -2,10 +2,10 @@ import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
 import {
-  defaultDesignOptions,
   findDesigner,
   preloadFormsPage,
   renderFormsPage,
+  smallDesignOptions,
 } from "./forms-page-test-support";
 
 preloadFormsPage();
@@ -14,7 +14,7 @@ const canvas = () => screen.getByRole("region", { name: "畫布" });
 
 describe("表單管理:設計器", () => {
   it("從元件面板加欄位、改顯示名稱、存草稿帶 expectedDraftRevision", async () => {
-    const { user, world } = renderFormsPage();
+    const { user, world } = renderFormsPage(smallDesignOptions());
     const palette = await findDesigner();
 
     await user.click(
@@ -39,7 +39,7 @@ describe("表單管理:設計器", () => {
 
   it("草稿已被別人改過(409)→ 提示重新載入", async () => {
     const { user } = renderFormsPage({
-      ...defaultDesignOptions(),
+      ...smallDesignOptions(),
       failures: {
         SaveFormVersionDraft: {
           code: "CONFLICT",

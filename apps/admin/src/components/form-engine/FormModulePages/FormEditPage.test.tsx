@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@jest/globals";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 
 import { SHOPPING_ROUTES, submissionFragment } from "@/test/msw/form-fixtures";
 
 import {
   defaultRuntimeOptions,
   renderShopping,
+  shoppingForm,
 } from "./form-module-test-support";
 
 const EDIT_PATH = `${SHOPPING_ROUTES.editPage}/sub-1`;
@@ -83,5 +84,21 @@ describe("表單模組編輯頁(預設組裝)", () => {
     expect(
       screen.getByText("你看得到這個欄位,但沒有修改它的權限。"),
     ).toBeInTheDocument();
+  });
+
+  it("頁籤模板的系統佔位符:編輯頁的頁籤標題也套 {{form}} / {{applicant}}", async () => {
+    renderShopping({
+      path: EDIT_PATH,
+      world: {
+        ...defaultRuntimeOptions(),
+        moduleForms: [
+          { ...shoppingForm, tabLabelTemplate: "{{applicant}} 的{{form}}" },
+        ],
+        submissions: [submissionFragment()],
+      },
+    });
+
+    const tabs = await screen.findByRole("tablist", { name: "路由頁籤" });
+    expect(await within(tabs).findByText(/小華 的購物單/)).toBeInTheDocument();
   });
 });
