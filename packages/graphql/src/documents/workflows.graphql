@@ -306,6 +306,8 @@ query BlockedInstances($input: BlockedInstancesInput!) {
     totalCount
     page
     pageSize
+    # NEEDS_ADVANCE 候選超過 200 筆時為 true:只檢查了最久沒動的那一批
+    truncated
   }
 }
 

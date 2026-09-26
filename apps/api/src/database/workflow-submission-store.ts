@@ -42,6 +42,21 @@ export type SubmissionFilter = mongo.Filter<StoredSubmission>;
 
 type SubmissionUpdate = mongo.UpdateFilter<StoredSubmission>;
 
+/**
+ * **允許注入 / 引用這個 store 的檔案**(相對 `apps/api/src/`;ADR-0005「例外出口」登記的範圍):
+ * 審核流程的引擎、讀取授權與申請中心。`workflow-submission-store.test.ts` 掃整個 src 斷言沒有其他檔案
+ * 引用它 —— 新增呼叫端要先在 ADR-0005 登記、再加進這裡。
+ */
+export const WORKFLOW_SUBMISSION_STORE_CALLERS: readonly string[] = [
+  "database/database.module.ts",
+  "workflows/apply-center/apply-center.service.ts",
+  "workflows/workflow-engine/instance-writes.ts",
+  "workflows/workflow-engine/step-entry.service.ts",
+  "workflows/workflow-engine/submission-read-access.service.ts",
+  "workflows/workflow-engine/task-actions.service.ts",
+  "workflows/workflow-engine/workflow-engine.service.ts",
+];
+
 /** 列表的排序 / 分頁。 */
 export interface SubmissionPage {
   sort: Record<string, 1 | -1>;

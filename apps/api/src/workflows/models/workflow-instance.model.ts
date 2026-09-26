@@ -372,6 +372,13 @@ export class WorkflowInstancesPayload {
 
   @Field(() => Int)
   pageSize!: number;
+
+  /**
+   * `NEEDS_ADVANCE` 的候選超過上限(200 筆)只檢查了最久沒動的那一批:true = 還有沒檢查到的,
+   * 處理完這批再查一次。`BLOCKED` 一律 false。
+   */
+  @Field(() => Boolean)
+  truncated!: boolean;
 }
 
 @ObjectType()

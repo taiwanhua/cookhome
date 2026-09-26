@@ -31,18 +31,27 @@ import { WorkflowEngineService } from "./workflow-engine.service";
 export interface InstanceViewer {
   actorId: Types.ObjectId | null;
   canManage: boolean;
+  /**
+   * 只回標題槽(阻擋清單 / 流程管理者的處置回傳):流程管理者不一定讀得到提交內容,
+   * 摘要只給辨識用的標題,不給日期 / 金額(Spec §3「流程管理者:實例與任務摘要,不含提交內容」)。
+   */
+  titleOnly?: boolean;
 }
 
 function summaryOf(
   summary: InstanceRecord["summary"],
+  titleOnly = false,
 ): FormSubmissionSummary | null {
-  return summary
-    ? {
+  if (!summary) {
+    return null;
+  }
+  return titleOnly
+    ? { title: summary.title, date: null, amount: null }
+    : {
         title: summary.title,
         date: summary.date,
         amount: summary.amount ?? null,
-      }
-    : null;
+      };
 }
 
 function nonNull<T>(value: T | null): value is T {
@@ -111,7 +120,7 @@ export class WorkflowPresenter {
       workflowName: await this.workflowNameOf(instance),
       workflowVersion: instance.workflowVersion,
       status: instance.status as WorkflowInstanceStatusEnum,
-      summary: summaryOf(instance.summary),
+      summary: summaryOf(instance.summary, viewer.titleOnly === true),
       applicant: userRefOf(instance.createdBy, names),
       activeStepKeys: [...instance.activeStepKeys],
       steps: definition.steps.map((node) => {
@@ -166,7 +175,7 @@ export class WorkflowPresenter {
           }
         : null,
       editVersion: instance.editVersion,
-      myTasks: await this.taskModels(myTasks),
+      myTasks: await this.taskModels(myTasks, viewer.titleOnly === true),
       abilities: {
         canWithdraw: isApplicant && isLive && !hasDecisions,
         canManage: viewer.canManage,
@@ -180,6 +189,7 @@ export class WorkflowPresenter {
   /** 一批任務 → 對外形狀(實例、表單、模組名稱批次讀)。 */
   async taskModels(
     tasks: readonly WorkflowTaskRecord[],
+    titleOnly = false,
   ): Promise<WorkflowTaskModel[]> {
     const instances = new Map<string, InstanceRecord>();
     const definitions = new Map<string, WorkflowDefinition>();
@@ -221,7 +231,7 @@ export class WorkflowPresenter {
           name: null,
         },
         applicant: instance ? userRefOf(instance.createdBy, names) : null,
-        summary: instance ? summaryOf(instance.summary) : null,
+        summary: instance ? summaryOf(instance.summary, titleOnly) : null,
         instanceStatus: (instance?.status ??
           "running") as WorkflowInstanceStatusEnum,
         decidedAt: task.decidedAt,

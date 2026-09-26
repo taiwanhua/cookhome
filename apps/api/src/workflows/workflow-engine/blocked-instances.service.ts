@@ -22,6 +22,9 @@ import type { InstanceRecord } from "./instance-writes";
 import { WorkflowEngineService } from "./workflow-engine.service";
 import { WorkflowPresenter } from "./workflow-presenter.service";
 
+/** 「需要推進」一次最多 dry-run 這麼多筆候選(超過回 `truncated: true`,處理完再查)。 */
+export const NEEDS_ADVANCE_CANDIDATE_LIMIT = 200;
+
 /** `linking` 超過這麼久沒連上提交,列進「需要推進」(Spec §6)。 */
 const LINKING_STALE_MS = 10 * 60 * 1000;
 
@@ -58,15 +61,22 @@ export class BlockedInstancesService {
       MAX_PAGE_SIZE,
       Math.max(1, input.pageSize ?? DEFAULT_PAGE_SIZE),
     );
-    const matched =
+    const { matched, truncated } =
       input.filter === BlockedInstancesFilter.BLOCKED
-        ? await this.instances.findMany(
-            systemContext(),
-            { tenantId, status: "blocked" },
-            { sort: { updatedAt: 1, _id: 1 } },
-          )
+        ? {
+            matched: await this.instances.findMany(
+              systemContext(),
+              { tenantId, status: "blocked" },
+              { sort: { updatedAt: 1, _id: 1 } },
+            ),
+            truncated: false,
+          }
         : await this.needingAdvance(tenantId);
-    const viewer = { actorId: facts.operator.actorId, canManage: true };
+    const viewer = {
+      actorId: facts.operator.actorId,
+      canManage: true,
+      titleOnly: true,
+    };
     const items = [];
     for (const instance of matched.slice(
       (page - 1) * pageSize,
@@ -74,12 +84,16 @@ export class BlockedInstancesService {
     )) {
       items.push(await this.presenter.instanceModel(instance, viewer));
     }
-    return { items, totalCount: matched.length, page, pageSize };
+    return { items, totalCount: matched.length, page, pageSize, truncated };
   }
 
+  /**
+   * 先以狀態預篩候選(進行中 / `linking` / 終局未收尾 / 任務仍待處理或阻擋),依最久沒動的排序、
+   * 取上限筆數,再逐筆 dry-run 判斷表。候選超過上限 → `truncated: true`。
+   */
   private async needingAdvance(
     tenantId: Types.ObjectId,
-  ): Promise<InstanceRecord[]> {
+  ): Promise<{ matched: InstanceRecord[]; truncated: boolean }> {
     const context = systemContext();
     const openTasks = await this.tasks.findMany(tenantId, {
       status: { $in: ["pending", "blocked"] },
@@ -97,11 +111,15 @@ export class BlockedInstancesService {
           { _id: { $in: openTasks.map((task) => task.instanceId) } },
         ],
       },
-      { sort: { updatedAt: 1, _id: 1 } },
+      {
+        sort: { updatedAt: 1, _id: 1 },
+        limit: NEEDS_ADVANCE_CANDIDATE_LIMIT + 1,
+      },
     );
+    const truncated = candidates.length > NEEDS_ADVANCE_CANDIDATE_LIMIT;
     const staleBefore = Date.now() - LINKING_STALE_MS;
     const result: InstanceRecord[] = [];
-    for (const instance of candidates) {
+    for (const instance of candidates.slice(0, NEEDS_ADVANCE_CANDIDATE_LIMIT)) {
       if (instance.status === "linking") {
         if (instance.createdAt.getTime() < staleBefore) {
           result.push(instance);
@@ -114,6 +132,6 @@ export class BlockedInstancesService {
         result.push(instance);
       }
     }
-    return result;
+    return { matched: result, truncated };
   }
 }

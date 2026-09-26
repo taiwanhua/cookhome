@@ -276,6 +276,42 @@ describe("審核流程引擎:平行分支", () => {
     expect(confirmTasks).toHaveLength(1);
   });
 
+  it("兩個推進讀到同一份快照(在第一個實例寫入前插進重試推進)→ 後啟動的那個 CAS 失敗,匯合與確認關只啟動一次", async () => {
+    await useWorkflow(world, nextKey("purchase_two_advances"), purchase());
+    const submitted = await submitLeave(world);
+    await decideOn(world, staff(0), submitted.id, "APPROVE");
+    await decideOn(world, staff(1), submitted.id, "APPROVE");
+    await decideOn(world, staff(4), submitted.id, "APPROVE");
+    await decideOn(world, staff(5), submitted.id, "APPROVE");
+    const before = await currentInstance(world, submitted.id);
+    let isInterleaved = false;
+    const restore = interleaveAt(api, "action:updateInstance", async () => {
+      isInterleaved = true;
+      await retryAdvance(world, before.id);
+    });
+    try {
+      await decideOn(world, staff(6), submitted.id, "APPROVE");
+    } finally {
+      restore();
+    }
+    expect(isInterleaved).toBe(true);
+    const instance = await currentInstance(world, submitted.id);
+    expect(instance.activeStepKeys).toEqual(["confirm"]);
+    expect(
+      instance.history.filter(
+        (event) =>
+          event.kind === "step_completed" && event.stepKey === "purchase",
+      ),
+    ).toHaveLength(1);
+    expect(
+      instance.history.filter(
+        (event) => event.kind === "step_entered" && event.stepKey === "confirm",
+      ),
+    ).toHaveLength(1);
+    const tasks = await rawTasks(world.connection, instance.id);
+    expect(tasks.filter((task) => task.stepKey === "confirm")).toHaveLength(1);
+  });
+
   it("匯合後中斷再重試 → 匯合與其後關卡只啟動一次", async () => {
     await useWorkflow(world, nextKey("purchase_interrupt"), purchase());
     const submitted = await submitLeave(world);

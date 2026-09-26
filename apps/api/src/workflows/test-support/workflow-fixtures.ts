@@ -372,6 +372,7 @@ const INSTANCE_FIELDS = /* GraphQL */ `
     status
     summary {
       title
+      date
     }
     activeStepKeys
     steps {
@@ -482,6 +483,7 @@ export const BLOCKED_INSTANCES = /* GraphQL */ `
         ...InstanceFields
       }
       totalCount
+      truncated
     }
   }
 `;
@@ -679,7 +681,7 @@ export interface InstanceRow {
   workflowKey: string;
   workflowVersion: number;
   status: string;
-  summary: { title: string | null } | null;
+  summary: { title: string | null; date: string | null } | null;
   activeStepKeys: string[];
   steps: {
     stepKey: string;

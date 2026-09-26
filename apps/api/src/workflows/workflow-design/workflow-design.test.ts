@@ -443,6 +443,42 @@ describe("流程設計與綁定", () => {
         input: { formKey: changing, workflowKey: missing },
       });
       expect(issueCodes(missingBind, "problem")).toEqual(["FIELD_MISSING"]);
+      // 欄位改成指到組織(不是 reference(user)):綁定擋 FIELD_NOT_USER_REFERENCE
+      const orgRef = nextKey("org_ref_form");
+      await sharedForm(orgRef, [
+        field("title", "text"),
+        field("approver", "reference", {
+          source: { provider: "user", labelField: "name" },
+        }),
+      ]);
+      const notUser = nextKey("field_not_user");
+      await publishWorkflow(world, notUser, {
+        steps: [
+          reviewStep("pick", {
+            kind: "field",
+            formKey: orgRef,
+            fieldKey: "approver",
+          }),
+        ],
+      });
+      await publishDefinition(
+        api,
+        world.root,
+        orgRef,
+        definitionOf([
+          field("title", "text"),
+          field("approver", "reference", {
+            source: { provider: "org", labelField: "name" },
+          }),
+        ]),
+        1,
+      );
+      const notUserBind = await call(api, world.admin.token, BIND, {
+        input: { formKey: orgRef, workflowKey: notUser },
+      });
+      expect(issueCodes(notUserBind, "problem")).toEqual([
+        "FIELD_NOT_USER_REFERENCE",
+      ]);
       // users 不在本租戶(別的租戶的人):發布只是警告,綁定擋下
       const outsiderTenant = await createOrg(world.connection, {
         name: "別的租戶",

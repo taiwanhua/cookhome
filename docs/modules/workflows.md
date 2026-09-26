@@ -34,6 +34,51 @@
 - `workflow_instances` 是模組資料表(掛 `moduleData`),引擎一律以**系統上下文 + 明確的 `tenantId` / id 條件**讀寫(資料範圍規則對它不套);審核者的讀取走 `canReadSubmissionRevision`。
 - 引擎對 `form_submissions` 的讀寫走 `database/workflow-submission-store.ts`(原生 collection、每個方法強制 `tenantId`):審核者與背景推進不在申請人組織的可見範圍內,而資料範圍規則可以對「全部操作者」生效,經 `FormSubmissionsRepository` 會把系統讀取也收窄。寫入只有引擎的條件同步(「提交仍指向本實例 + 修訂號相符 + 審核中」)。
 
+## 狀態機
+
+三組狀態各自一個欄位;**實例是權威**,提交與任務的狀態都由推進依實例同步(判斷表的單一正本是 `@repo/domain/workflow` 的 `advance.ts`,本節只列狀態與誰讓它轉)。
+
+### 提交(`form_submissions.status`,七值)
+
+| 狀態        | 意思                                                                 | 轉到                                                                                                                |
+| ----------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `draft`     | 存了沒送出;只屬於建立者                                              | 送出 → `reviewing`(綁流程)/ `completed`(不綁,6a);刪除                                                               |
+| `reviewing` | 有進行中的實例(`running` / `blocked`,後者 `blocked = true`);內容凍結 | 推進收尾:實例 `approved` → `completed`、`rejected` → `rejected`、`returned` → `returned`、`withdrawn` → `withdrawn` |
+| `returned`  | 被退回修改;申請人可改(`saveFormDraft`)                               | 再送出 → `reviewing`(修訂 +1、新實例);申請人本人刪除                                                                |
+| `withdrawn` | 申請人撤回(還沒有任何被接受的決定時)                                 | 同 `returned`                                                                                                       |
+| `completed` | 沒走過流程:送出即此、可再修改(6a);走過流程:核准、**鎖定**            | 走過流程 → 作廢 → `voided`;沒走過 → 修改(修訂 +1)/ 刪除                                                             |
+| `rejected`  | 被駁回;不可改、不可再送                                              | 刪除(模組 `delete`)                                                                                                 |
+| `voided`    | 核准後作廢;內容凍結                                                  | 複製為新單(建新的 `draft`,來源記 `replacedById`,只能複製一次)                                                       |
+
+提交同步只在「提交仍指向本實例、修訂號相符、狀態是 `reviewing`」時寫(被取代 / 已作廢的提交不會被舊實例改回)。`blocked` 旗標跟著實例的 `blocked` 走(列 5 / 8 / 8b)。
+
+### 實例(`workflow_instances.status`,八值)
+
+| 狀態         | 意思                                            | 轉到(誰)                                                                                                                                    |
+| ------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `linking`    | 送出第 2 步建立、提交還沒連上;不派單            | 第 4 步 → `running`;第 3 步從未成功 = 閒置文件,重送同修訂號依 `linkSource` 沿用或重置                                                       |
+| `running`    | 進行中                                          | 關卡阻擋 → `blocked`;全案核准三條件成立 → `approved`(與最後節點完成同一次 CAS);有效駁回 / 退回 → `rejected` / `returned`;撤回 → `withdrawn` |
+| `blocked`    | 進行中,至少一個 active 關卡阻擋(其他關卡照常審) | 可解除(列 8)→ `running`;其餘同 `running`                                                                                                    |
+| `approved`   | 全案核准(終局)                                  | 推進收尾(列 2):任務投影、提交 `completed`、`finishedAt`、結果信                                                                             |
+| `rejected`   | 全案駁回(終局;`outcome` 記採用的那筆決定)       | 收尾同上(提交 `rejected`)                                                                                                                   |
+| `returned`   | 退回修改(終局)                                  | 收尾同上(提交 `returned`);申請人再送出 → `superseded`                                                                                       |
+| `withdrawn`  | 申請人撤回(終局)                                | 收尾同上(提交 `withdrawn`);再送出 → `superseded`                                                                                            |
+| `superseded` | 被下一個修訂的實例取代(終局)                    | 收尾只做自己的任務與歷程,不碰提交                                                                                                           |
+
+終局後不再啟動任何節點(所有啟動 CAS 都帶 `status ∈ [running, blocked]`)。關卡(`steps[].status`):`pending` → `active`(進關)/ `skipped`(跳過條件成立)→ `completed`(有效結果是完成)/ `terminated`(全案終局、撤回);匯合節點 `pending` → `completed`(入線全到齊即完成)。
+
+### 任務(`workflow_tasks.status`,七值;投影)
+
+| 狀態                                 | 意思                                                   |
+| ------------------------------------ | ------------------------------------------------------ |
+| `pending`                            | 等承辦人決定                                           |
+| `approved` / `rejected` / `returned` | 這個人被接受且算數的決定;關卡結束後保留                |
+| `late`                               | 決定被接受,但晚於同關(或其他分支)的終局決定,不影響結果 |
+| `cancelled`                          | 關卡結束 / 撤回 / 被取代 / 其他分支終局時仍未決定      |
+| `blocked`                            | 承辦人失效(停用 / 移出租戶),等改派                     |
+
+任務狀態**只由推進依實例重建**(判斷表列 7 的投影規則,`@repo/domain/workflow` 的 `projection.ts`):決定先原子寫進實例、推進再同步任務,任何時候以實例為準;改派改 `plan` 的承辦人後由推進同步 `assigneeId` 與 `previousAssigneeIds`。
+
 ## 可見、可改(設計端)
 
 判準只有一份:`apps/api/src/workflows/workflow-access.service.ts`(操作者事實沿用表單的 `FormAccessService.factsOf`)。
@@ -106,7 +151,7 @@
 
 - **再送出**(`returned` / `withdrawn`):申請人以 `saveFormDraft` 改內容(狀態不變),再 `submitFormSubmission` → 修訂 +1、新實例從起點開始、舊實例 `superseded`。
 - **作廢**(`voidSubmission`;綁流程且 `completed`;申請人本人或有該模組 `edit`;理由必填;不需審核)→ `voided`、稽核。
-- **複製為新單**(`copySubmissionToDraft`;來源 = 已作廢、讀者讀得到全部內容;目標 = 同表單目前可新增的版本):只複製讀者對來源有 `show`、目標版本有同 key 同型別的使用者填欄位、讀者對目標有 `edit` 的欄位;`computed` / `constant` 由目標版本重算;引用重驗來源可讀(`LookupProvidersService`),失效 → 清空並列在回傳的 `clearedFields`;附件以 `StorageService.copyPrivateObject` 複製一份歸新單;`clientRequestId` 去重;新草稿記 `copiedFrom`、來源記 `replacedById`。
+- **複製為新單**(`copySubmissionToDraft`;來源 = 已作廢、讀者讀得到全部內容;目標 = 同表單目前可新增的版本):只複製讀者對來源有 `show`、目標版本有同 key 同型別的使用者填欄位、讀者對目標有 `edit` 的欄位;`computed` / `constant` 由目標版本重算;引用重驗來源可讀(`LookupProvidersService`),失效 → 清空並列在回傳的 `clearedFields`;附件以 `StorageService.copyPrivateObject` 複製一份歸新單;`clientRequestId` 去重;新草稿記 `copiedFrom`、來源記 `replacedById`;來源已複製過(`replacedById` 有值)→ `CONFLICT`(`ALREADY_COPIED`,同 `clientRequestId` 的重送仍回同一筆);附件複製失敗也清空並列進 `clearedFields`。
 
 ## 讀取授權(`canReadSubmissionRevision`)
 
@@ -118,7 +163,7 @@
 | 申請人(`createdBy = 我`)                    | 自己的提交(單筆,含所有修訂與歷程);列表不放寬               |
 | 任務持有者(現在或曾經:含已取消、被改派走的) | **只有**他審的那幾個修訂的快照 + 那些實例的歷程;附件同範圍 |
 
-- 任務持有者讀提交:`revision` 省略 = 他可讀的修訂中最新的一個;摘要改用該修訂**實例上的快照**、`revisions` 只列可讀的、`abilities` 全為 false。讀不到的修訂 → `FORBIDDEN`。
+- 任務持有者讀提交:`revision` 省略 = 他可讀的修訂中最新的一個;摘要改用該修訂**實例上的快照**、`revisions` 只列可讀的、`abilities` 全為 false;提交層的現況(`currentInstanceId` / `blocked` / `voidedAt` / `voidReason` / `replacedById` / `copiedFrom`)一律不給(null / false)。讀不到的修訂 → `FORBIDDEN`。
 - `formRuntimeVersion`:沒有業務模組權限、但持有(或曾持有)這張表單任務的人也拿得到定義(申請中心詳情頁不經業務模組頁面權限)。
 - 以讀者的租戶為邊界找提交;停用 / 移出租戶的人本來就進不來。
 
@@ -144,7 +189,8 @@
 `workflow-engine/blocked-instances.service.ts`(`blockedInstances`,以操作者的租戶為邊界):
 
 - `BLOCKED`:實例 `status = blocked`。
-- `NEEDS_ADVANCE`:對候選實例跑一次判斷表(`WorkflowEngineService.planOf`,不寫入),還有動作 = 需要推進 —— 直接對應判斷表的列 2 / 4 / 4b / 4c / 5 / 5b / 6 / 7 / 8 / 8b 與資料矛盾;另加 `linking` 超過 10 分鐘。候選 = 進行中 + 終局未收尾(`finishedAt` 空)+ 任務仍待處理 / 阻擋的實例。
+- `NEEDS_ADVANCE`:先以狀態預篩候選、依最久沒動排序取最多 200 筆,再對它們跑一次判斷表(`WorkflowEngineService.planOf`,不寫入),還有動作 = 需要推進 —— 直接對應判斷表的列 2 / 4 / 4b / 4c / 5 / 5b / 6 / 7 / 8 / 8b 與資料矛盾;另加 `linking` 超過 10 分鐘。候選 = 進行中 + 終局未收尾(`finishedAt` 空)+ 任務仍待處理 / 阻擋的實例;超過 200 筆回 `truncated: true`(處理完這批再查)。
+- 清單與處置回傳(改派 / 新增審核者 / 重試推進)的摘要**只給標題**(`date` / `amount` 為 null):流程管理者不一定讀得到提交內容。
 
 ## admin 頁面
 

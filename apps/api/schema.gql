@@ -1999,6 +1999,7 @@ type WorkflowInstancesPayload {
   page: Int!
   pageSize: Int!
   totalCount: Int!
+  truncated: Boolean!
 }
 
 type WorkflowIssueModel {

@@ -45,6 +45,7 @@ import {
   type TaskRow,
   UNBIND,
   VOID,
+  WITHDRAW,
   WORKFLOW_INSTANCE,
   WORKFLOW_TEST_TIMEOUT_MS,
   type WfSubmissionRow,
@@ -255,6 +256,16 @@ describe("申請中心與讀取授權", () => {
         canDelete: false,
         canVoid: false,
       });
+      // 提交層的現況(目前實例、作廢、複製)不給只審過某修訂的人
+      expect(row).toMatchObject({
+        currentInstanceId: null,
+        blocked: false,
+        voidReason: null,
+        replacedById: null,
+        copiedFrom: null,
+      });
+      const own = await submission(world, world.applicant, submitted.id);
+      expect(own.currentInstanceId).not.toBeNull();
       const later = await call(api, reviewerA.token, SUBMISSION, {
         id: submitted.id,
         revision: 2,
@@ -479,7 +490,10 @@ describe("申請中心與讀取授權", () => {
         input: { formKey, tenantOrgIds: [String(world.tenant)] },
       });
       const key = nextKey("copy_flow");
-      await useWorkflow(world, key, { steps: [usersStep("one", [staff(0)])] });
+      const copyReviewer = await reviewerOnly();
+      await useWorkflow(world, key, {
+        steps: [usersStep("one", [copyReviewer])],
+      });
       await bindForm(world, key, formKey);
       const colleague = await person(
         api,
@@ -496,7 +510,7 @@ describe("申請中心與讀取授權", () => {
         extra: "舊欄位",
       });
       const submitted = await submitExisting(world, draft);
-      await decideOn(world, staff(0), submitted.id, "APPROVE");
+      await decideOn(world, copyReviewer, submitted.id, "APPROVE");
       const approved = await submission(world, world.applicant, submitted.id);
       // 沒有 edit 的別人不能作廢
       const outsider = await reviewerOnly();
@@ -576,7 +590,115 @@ describe("申請中心與讀取授權", () => {
       expect(again.copySubmissionToDraft.submission.id).toBe(fresh.id);
       const source = await submission(world, world.applicant, submitted.id);
       expect(source.replacedById).toBe(fresh.id);
+      // 審過這筆的人讀得到那個修訂,但看不到作廢理由與複製去向
+      const reviewerView = await submission(world, copyReviewer, submitted.id);
+      expect(reviewerView).toMatchObject({
+        voidReason: null,
+        replacedById: null,
+        currentInstanceId: null,
+      });
+      // 已複製過 → 第二次(不同 clientRequestId)擋下
+      const second = await call(api, world.applicant.token, COPY, {
+        input: { id: submitted.id, clientRequestId: nextKey("copy_again") },
+      });
+      expect(errorCode(second)).toBe("CONFLICT");
+      expect(errorReason(second)).toBe("ALREADY_COPIED");
+      const audit = await world.connection.collection("audit_logs").findOne({
+        action: "submission.copy",
+        targetId: new Types.ObjectId(fresh.id),
+      });
+      expect(audit?.after).toMatchObject({
+        sourceId: submitted.id,
+        newId: fresh.id,
+      });
       await bindForm(world, key, FORM_KEY);
+    });
+  });
+
+  describe("附件複製失敗與退回 / 撤回的刪除", () => {
+    it("複製為新單時附件複製失敗 → 該欄清空並列進 clearedFields,新單照建", async () => {
+      await useWorkflow(world, nextKey("copy_fail"), {
+        steps: [usersStep("one", [staff(4)])],
+      });
+      const submitted = await submitLeave(world, {
+        title: "附件會複製失敗",
+        days: 2,
+        attachment: uploadValue(randomUUID()),
+      });
+      await decideOn(world, staff(4), submitted.id, "APPROVE");
+      const approved = await submission(world, world.applicant, submitted.id);
+      await ok(api, world.applicant.token, VOID, {
+        input: {
+          id: submitted.id,
+          expectedEditVersion: approved.editVersion,
+          reason: "重來",
+        },
+      });
+      const storage = api.app.get(StorageService);
+      const spy = jest
+        .spyOn(storage, "copyPrivateObject")
+        .mockRejectedValue(new Error("模擬供應商失敗"));
+      let copied: WfSubmissionRow;
+      try {
+        const data = await ok<{
+          copySubmissionToDraft: { submission: WfSubmissionRow };
+        }>(api, world.applicant.token, COPY, {
+          input: { id: submitted.id, clientRequestId: nextKey("copy_fail") },
+        });
+        copied = data.copySubmissionToDraft.submission;
+      } finally {
+        spy.mockRestore();
+      }
+      expect(copied.status).toBe("DRAFT");
+      expect(copied.clearedFields).toEqual(["attachment"]);
+      expect(copied.values.attachment ?? null).toBeNull();
+      expect(copied.values.title).toBe("附件會複製失敗");
+    });
+
+    it("被退回 / 撤回的單:申請人本人可刪;有 delete 的別人不行;審核中不可刪", async () => {
+      await useWorkflow(world, nextKey("delete_returned"), {
+        steps: [usersStep("one", [staff(4)])],
+      });
+      const returned = await submitLeave(world);
+      await decideOn(world, staff(4), returned.id, "RETURN");
+      const byOther = await call(api, world.admin.token, DELETE_SUBMISSION, {
+        input: { id: returned.id },
+      });
+      expect(byOther.errors).toBeDefined();
+      const ownReturned = await submission(world, world.applicant, returned.id);
+      expect(ownReturned.abilities.canDelete).toBe(true);
+      await ok(api, world.applicant.token, DELETE_SUBMISSION, {
+        input: { id: returned.id },
+      });
+      const withdrawn = await submitLeave(world);
+      await ok(api, world.applicant.token, WITHDRAW, {
+        input: { id: withdrawn.id, expectedEditVersion: withdrawn.editVersion },
+      });
+      await ok(api, world.applicant.token, DELETE_SUBMISSION, {
+        input: { id: withdrawn.id },
+      });
+      const deleted = await world.connection
+        .collection("form_submissions")
+        .countDocuments({
+          _id: {
+            $in: [
+              new Types.ObjectId(returned.id),
+              new Types.ObjectId(withdrawn.id),
+            ],
+          },
+          deletedAt: { $ne: null },
+        });
+      expect(deleted).toBe(2);
+      const reviewing = await submitLeave(world);
+      const blocked = await call(
+        api,
+        world.applicant.token,
+        DELETE_SUBMISSION,
+        {
+          input: { id: reviewing.id },
+        },
+      );
+      expect(errorCode(blocked)).toBe("CONFLICT");
     });
   });
 
@@ -615,13 +737,20 @@ describe("申請中心與讀取授權", () => {
       expect(instance.status).toBe("BLOCKED");
       expect(await blockedFlagOf(world, submitted.id)).toBe(true);
       const blockedList = await ok<{
-        blockedInstances: { items: InstanceRow[] };
+        blockedInstances: { items: InstanceRow[]; truncated: boolean };
       }>(api, world.admin.token, BLOCKED_INSTANCES, {
         input: { filter: "BLOCKED", pageSize: 100 },
       });
       expect(
         blockedList.blockedInstances.items.map((item) => item.id),
       ).toContain(instance.id);
+      expect(blockedList.blockedInstances.truncated).toBe(false);
+      const listed = blockedList.blockedInstances.items.find(
+        (item) => item.id === instance.id,
+      );
+      // 流程管理者只看標題槽,不看日期 / 金額;申請人自己的詳情照給
+      expect(listed?.summary).toEqual({ title: "病假三天", date: null });
+      expect(instance.summary?.date).not.toBeNull();
       const tasks = await rawTasks(world.connection, instance.id);
       const [taskA, taskB] = tasks.map((task) => String(task._id));
       await ok(api, world.admin.token, REASSIGN, {

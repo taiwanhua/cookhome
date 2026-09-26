@@ -46,6 +46,7 @@ import {
   useWorkflow,
   usersStep,
 } from "../test-support/workflow-fixtures";
+import { WorkflowEngineHooks } from "./workflow-engine.service";
 
 jest.setTimeout(WORKFLOW_TEST_TIMEOUT_MS);
 
@@ -479,6 +480,17 @@ describe("審核流程引擎", () => {
         const retried = await submitExisting(world, row);
         expect(retried.status).toBe("REVIEWING");
         expect(retried.revision).toBe(1);
+        if (checkpoint !== "submit:instance-created") {
+          // 提交已連上(第 3 步後):重送走第 0 步接續,稽核標記 resumed
+          const resumed = await world.connection
+            .collection("audit_logs")
+            .countDocuments({
+              action: "submission.submit",
+              targetId: new Types.ObjectId(row.id),
+              "after.resumed": true,
+            });
+          expect(resumed).toBe(1);
+        }
         const instances = await rawInstances(world.connection, row.id);
         expect(instances).toHaveLength(1);
         expect(instances[0]?.status).toBe("running");
@@ -810,6 +822,41 @@ describe("審核流程引擎", () => {
       expect(second?.workflowKey).toBe(otherKey);
       await pendingTaskOf(world, staff(1), submitted.id);
     });
+  });
+
+  it("最後節點完成與全案核准在同一次更新:任何時刻都看不到「終點已完成但實例仍 running」", async () => {
+    await useWorkflow(world, nextKey("atomic_approve"), {
+      steps: [usersStep("one", [staff(0)]), usersStep("last", [staff(1)])],
+    });
+    const submitted = await submitLeave(world);
+    await decideOn(world, staff(0), submitted.id, "APPROVE");
+    const instance = await currentInstance(world, submitted.id);
+    const observed: { status: string; last: string }[] = [];
+    const hooks = api.app.get(WorkflowEngineHooks);
+    const spy = jest.spyOn(hooks, "reached").mockImplementation(async () => {
+      const raw = await world.connection
+        .collection("workflow_instances")
+        .findOne({ _id: new Types.ObjectId(instance.id) });
+      const steps = (raw?.steps ?? []) as { stepKey: string; status: string }[];
+      observed.push({
+        status: String(raw?.status),
+        last: steps.find((step) => step.stepKey === "last")?.status ?? "",
+      });
+    });
+    try {
+      await decideOn(world, staff(1), submitted.id, "APPROVE");
+    } finally {
+      spy.mockRestore();
+    }
+    expect(observed.length).toBeGreaterThan(0);
+    expect(
+      observed.filter(
+        (one) =>
+          one.last === "completed" &&
+          (one.status === "running" || one.status === "blocked"),
+      ),
+    ).toEqual([]);
+    expect(observed).toContainEqual({ status: "approved", last: "completed" });
   });
 
   describe("通知信(WORKFLOW_MAIL_ENABLED = true)", () => {

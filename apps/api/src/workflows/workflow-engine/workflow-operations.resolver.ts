@@ -56,7 +56,7 @@ export class WorkflowOperationsResolver {
       await this.access.factsOf(operator),
       input,
     );
-    const [model] = await this.presenter.taskModels([task]);
+    const [model] = await this.presenter.taskModels([task], true);
     if (!model) {
       throw new Error("改派後讀不到任務");
     }
@@ -73,7 +73,7 @@ export class WorkflowOperationsResolver {
       await this.access.factsOf(operator),
       input,
     );
-    const [model] = await this.presenter.taskModels([task]);
+    const [model] = await this.presenter.taskModels([task], true);
     if (!model) {
       throw new Error("新增審核者後讀不到任務");
     }
@@ -94,6 +94,7 @@ export class WorkflowOperationsResolver {
       instance: await this.presenter.instanceModel(instance, {
         actorId: operator.actorId,
         canManage: true,
+        titleOnly: true,
       }),
     };
   }
