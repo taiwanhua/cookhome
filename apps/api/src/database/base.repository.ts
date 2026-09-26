@@ -71,7 +71,8 @@ export interface UpdateOptions {
  * 所有資料存取的共用層(ADR-0005 / ADR-0007 / ADR-0011):
  * 每個公開方法都以操作者上下文開頭 — 租戶過濾、軟刪除排除、基礎欄位填寫全由 plugin 依此自動完成,
  * 個別功能不自己寫、也繞不過(api 內裸 `Model.xxx()` 由 ESLint 規則 `@repo/no-raw-model-query` 擋下)。
- * 刪除一律走 `softDeleteById`(ADR-0007);唯一的硬刪除是 `hardDeleteById`,只給補償刪除用。
+ * 刪除一律走 `softDeleteById`(ADR-0007);硬刪除只有 `hardDeleteById`(補償刪除)與
+ * `hardDeleteDraft`(從未對外生效的版本草稿,見該方法)。
  */
 export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
   constructor(protected readonly model: RepositoryModel<TSchema, TDocument>) {
@@ -334,6 +335,25 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
       { operator, includeDeleted: true },
     ).exec();
     return deletedCount > 0;
+  }
+
+  /**
+   * **條件硬刪一份版本草稿**(ADR-0007 第三種硬刪):條件與刪除在同一次寫入裡判斷(兩個請求同時來只有
+   * 一個刪得到),回被刪的文件、沒命中回 null。租戶過濾與軟刪除排除照常由 plugin 套上。
+   *
+   * 型別上強制條件帶 `status: "draft"` 與 `version: null` —— 只刪得到從未發布、沒有引用的草稿
+   * (`form_versions` / `workflow_versions`);刪之前的內容由呼叫端寫進稽核的 `before`。
+   * 其餘資料一律 `softDeleteById`。
+   */
+  async hardDeleteDraft(
+    operator: OperatorContext,
+    filter: RepositoryFilter<TSchema> & { status: "draft"; version: null },
+  ): Promise<Persisted<TDocument> | null> {
+    const document = await scopeQuery(
+      this.model.findOneAndDelete({ ...filter }),
+      { operator },
+    ).exec();
+    return document as Persisted<TDocument> | null;
   }
 
   /** 模組資料表另外鎖住 `moduleKey` / `tenantId`:兩者建立後不可經一般更新改動。 */

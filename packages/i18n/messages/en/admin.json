@@ -1988,7 +1988,8 @@
       "ASSIGNEE_NOT_ELIGIBLE": "This person cannot review it (disabled, not in the organization, or the applicant).",
       "NOT_FOUND": "Not found. It may have been deleted or is outside your scope.",
       "VALIDATION_FAILED": "Some fields are invalid. Please fix them and try again.",
-      "UNEXPECTED": "Something went wrong. Please try again later."
+      "UNEXPECTED": "Something went wrong. Please try again later.",
+      "DRAFT_MISSING": "The draft no longer exists (it may have been deleted or published). Please reload."
     },
     "list": {
       "region": "Workflow list",
@@ -2085,7 +2086,10 @@
         "PUBLISHING": "Publishing",
         "PUBLISHED": "Published",
         "RETIRED": "Retired"
-      }
+      },
+      "view": "View v{version}",
+      "baseOnViewing": "New draft based on v{version}",
+      "deleteDraft": "Delete draft"
     },
     "publish": {
       "title": "Publish draft",
@@ -2125,7 +2129,7 @@
       "revision": "Draft revision {revision}",
       "dirty": "Unsaved changes",
       "checkForm": "Form to check against",
-      "checkFormHint": "Skip-condition fields and checks use its current version",
+      "checkFormHint": "The form used for reference while designing: it lists the selectable fields and validates reviewer fields and skip conditions. Submissions use the bound form, which is validated again when binding.",
       "checkFormNone": "None",
       "appendStep": "Add a step at the end",
       "save": "Save draft",
@@ -2136,7 +2140,16 @@
       "newStep": "Step {n}",
       "newJoin": "Join",
       "moveToBranch": "Move to \"{join}\" branch {n}",
-      "catalogTruncated": "More than 100 forms or roles: the dropdowns are truncated. Please narrow the scope."
+      "catalogTruncated": "More than 100 forms or roles: the dropdowns are truncated. Please narrow the scope.",
+      "check": "Check",
+      "checking": "Checking…",
+      "viewing": "Viewing v{version} (read-only)",
+      "viewingHint": "You are viewing v{version} (read-only): it cannot be changed or saved. To change it, start a new draft based on this version.",
+      "viewingHasDraft": "A draft already exists: publish or delete it before basing a new draft on this version.",
+      "viewingSelectHint": "Click a step or merge node on the flow chart to see its settings (read-only).",
+      "viewingCanvas": "Flow chart of v{version}",
+      "viewingProperties": "Properties (read-only)",
+      "closeViewing": "Close"
     },
     "opErrors": {
       "FORK_NEEDS_SOURCE": "A fork needs a review step before it: delete or move the whole fork first.",
@@ -2174,7 +2187,7 @@
       },
       "allowReturn": "Allow returning for changes",
       "skipWhen": "Skip condition",
-      "skipNeedsCheckForm": "Pick a \"Form to check against\" above to choose fields for the skip condition.",
+      "skipNeedsCheckForm": "Select the check form above first: skip condition fields come from it.",
       "actions": "Step actions",
       "insertAfter": "Add a step after",
       "fork": "Fork from this step",
@@ -2183,7 +2196,11 @@
       "moveDown": "Move down",
       "delete": "Delete step",
       "moveTo": "Move to branch",
-      "moveToPlaceholder": "Choose a branch"
+      "moveToPlaceholder": "Choose a branch",
+      "needsCheckForm": "Select a check form first",
+      "skipWhenUnset": "Not set",
+      "checkFormLoading": "Loading the check form…",
+      "noUsableFields": "This form has no usable fields"
     },
     "join": {
       "region": "Join node \"{name}\"",
@@ -2225,14 +2242,16 @@
       "placeholderFrom": "Placeholder from the source: {placeholder}",
       "role": "Role",
       "roleUnset": "Not selected",
-      "form": "Form",
-      "formUnset": "Not selected",
       "field": "Field",
       "fieldUnset": "Not selected",
-      "fieldHint": "Only user reference fields; the reviewer is whoever the field holds at submit time.",
+      "fieldHint": "Pick a user reference field of the check form (protected fields are not listed); the reviewer is whoever that field selects on submission.",
       "level": "Level",
       "levelHint": "Searched upward from the submission's organization; level 1 = the nearest managers.",
-      "levelOption": "Level {level}"
+      "levelOption": "Level {level}",
+      "needsCheckForm": "Select a check form first",
+      "fieldCurrent": "Current: {form} / {field}",
+      "fieldOtherForm": "This step points to the form “{form}”; choosing a field switches it to the check form's field.",
+      "noCheckFormReadonly": "This version has no check form"
     },
     "userPicker": {
       "option": "{name} ({account})",
@@ -2276,6 +2295,28 @@
         "cancel": "Cancel",
         "confirm": "Confirm"
       }
+    },
+    "deleteDraft": {
+      "title": "Delete draft",
+      "body": "The draft will be gone. Published and retired versions are not affected; you can start a new draft from any version later.",
+      "dirty": "The designer has unsaved changes; they will be discarded too.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "success": "Draft deleted"
+    },
+    "check": {
+      "region": "Full check",
+      "title": "Full check results",
+      "noCheckForm": "No check form selected: without a form to compare against, skip conditions only get structure checks; the reviewer's form-field sources are still validated against their own forms.",
+      "stale": "The flow or check form changed after the check. Please check again.",
+      "passed": "No errors or warnings.",
+      "summary": "{errors} error(s), {warnings} warning(s) (click one to go to its step)",
+      "wholeFlow": "Whole flow",
+      "step": "{name}",
+      "stepIssues": "Issues of “{name}”",
+      "error": "Error",
+      "warning": "Warning",
+      "serverFailed": "The full check did not finish ({reason}); only the live check results are listed."
     }
   }
 }

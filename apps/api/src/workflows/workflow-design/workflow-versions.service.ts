@@ -14,6 +14,7 @@ import { FormUserNames } from "../../forms/form-mapper";
 import { retireCurrentVersion } from "../../versioning/version-lifecycle";
 import { WorkflowAccessService } from "../workflow-access.service";
 import {
+  checkFormKeyFromInput,
   definitionFromInput,
   definitionOfVersion,
 } from "../workflow-definition-input";
@@ -26,6 +27,7 @@ import {
 } from "../workflows-error";
 import type {
   CreateWorkflowVersionDraftInput,
+  DeleteWorkflowVersionDraftInput,
   SaveWorkflowVersionDraftInput,
   ValidateWorkflowVersionInput,
   WorkflowKeyInput,
@@ -51,10 +53,22 @@ import {
 
 const EMPTY_DEFINITION: WorkflowDefinition = { steps: [], edges: null };
 
+/** 開草稿 / fork 要複製的內容:定義(節點與連線)+ 設計器的「檢查用表單」。 */
+export interface DraftContent {
+  definition: WorkflowDefinition;
+  checkFormKey: string | null;
+}
+
+const EMPTY_CONTENT: DraftContent = {
+  definition: EMPTY_DEFINITION,
+  checkFormKey: null,
+};
+
 /**
  * 流程版本(設計端):讀、開草稿、存草稿、檢查器、退役目前版本;發布在 `WorkflowPublishService`。
  * 一個流程同時只有一份草稿(部分唯一索引);`draftRevision` 是存草稿與發布的樂觀鎖。
- * 定義(`steps` 含 `kind`、`edges`)在草稿讀寫、fork、發布快照、版本讀取之間**原樣保留**。
+ * 定義(`steps` 含 `kind`、`edges`)與「檢查用表單」(`checkFormKey`)在草稿讀寫、fork、發布快照、
+ * 版本讀取之間**原樣保留**。
  */
 @Injectable()
 export class WorkflowVersionsService {
@@ -140,7 +154,7 @@ export class WorkflowVersionsService {
         "DRAFT_EXISTS",
       );
     }
-    const base = await this.baseDefinitionOf(
+    const base = await this.baseContentOf(
       operator,
       workflow,
       input.baseVersion,
@@ -167,9 +181,10 @@ export class WorkflowVersionsService {
   async insertDraft(
     operator: OperatorContext,
     workflowKey: string,
-    definition: WorkflowDefinition,
+    content: DraftContent,
     baseVersion: number | null,
   ): Promise<WorkflowVersionRecord> {
+    const { definition, checkFormKey } = content;
     try {
       return await this.versions.create(operator, {
         workflowKey,
@@ -179,6 +194,7 @@ export class WorkflowVersionsService {
         baseVersion,
         steps: definition.steps,
         edges: definition.edges ?? null,
+        checkFormKey,
         changelog: null,
         publishedAt: null,
         publishedBy: null,
@@ -194,14 +210,14 @@ export class WorkflowVersionsService {
     }
   }
 
-  /** 基底版本的定義(複製節點與連線);不給 = 空白。 */
-  async baseDefinitionOf(
+  /** 基底版本的內容(複製節點、連線與檢查用表單);不給 = 空白。 */
+  async baseContentOf(
     operator: OperatorContext,
     workflow: WorkflowRecord,
     baseVersion: number | null | undefined,
-  ): Promise<WorkflowDefinition> {
+  ): Promise<DraftContent> {
     if (baseVersion === null || baseVersion === undefined) {
-      return EMPTY_DEFINITION;
+      return EMPTY_CONTENT;
     }
     const source = await this.versions.findOne(operator, {
       workflowKey: workflow.key,
@@ -214,7 +230,10 @@ export class WorkflowVersionsService {
         ["baseVersion"],
       );
     }
-    return definitionOfVersion(source);
+    return {
+      definition: definitionOfVersion(source),
+      checkFormKey: source.checkFormKey ?? null,
+    };
   }
 
   /** 存草稿(`expectedDraftRevision` 樂觀鎖);檢查器的錯草稿可以先存,隨 `validation` 回。 */
@@ -229,6 +248,7 @@ export class WorkflowVersionsService {
       input.workflowKey,
     );
     const definition = definitionFromInput(input.definition);
+    const checkFormKey = checkFormKeyFromInput(input.definition.checkFormKey);
     const updated = await this.versions.findOneAndUpdate(
       operator,
       {
@@ -237,7 +257,12 @@ export class WorkflowVersionsService {
         draftRevision: input.expectedDraftRevision,
       },
       {
-        $set: { steps: definition.steps, edges: definition.edges ?? null },
+        $set: {
+          steps: definition.steps,
+          edges: definition.edges ?? null,
+          // 缺席 = 不動已存的值(GQL-06;`docs/modules/workflows.md`「api 介面」)
+          ...(checkFormKey !== undefined && { checkFormKey }),
+        },
         $inc: { draftRevision: 1 },
       },
     );
@@ -265,9 +290,67 @@ export class WorkflowVersionsService {
         draftRevision: updated.draftRevision,
         stepCount: definition.steps.length,
         edgeCount: definition.edges?.length ?? 0,
+        checkFormKey: updated.checkFormKey ?? null,
       },
     });
     return this.payloadOf(facts, workflow, updated);
+  }
+
+  /**
+   * 刪除草稿(`expectedDraftRevision` 樂觀鎖;發布進行中 / 中斷時不可 → `PUBLISH_IN_PROGRESS`)。
+   * **硬刪**(`hardDeleteDraft`,ADR-0007 第三種):草稿從未發布,沒有實例 / 任務引用它;軟刪除會佔住「至多一份草稿」的
+   * 部分唯一索引,改成 `retired` 又會把「發布過」的語意弄髒。刪前的整份內容寫進稽核的 `before`,
+   * 需要時從稽核回看。已發布 / 退役的版本不受影響,之後可再以任一版開新草稿。
+   */
+  async deleteDraft(
+    facts: FormOperatorFacts,
+    input: DeleteWorkflowVersionDraftInput,
+  ): Promise<WorkflowRecord> {
+    this.access.assertPermission(facts, WORKFLOWS_PERMISSIONS.edit);
+    const operator = facts.operator;
+    const workflow = await this.access.requireWritable(
+      facts,
+      input.workflowKey,
+    );
+    // 先擋發布中斷;競態下(檢查後、刪除前剛好有人把草稿搶鎖成 publishing)條件刪不到,
+    // 會回 `DRAFT_MISSING` 而不是 `PUBLISH_IN_PROGRESS` —— 可接受:草稿確實已不在、不會誤刪,重新載入即見發布中
+    await this.publisher.assertNotPublishing(operator, workflow);
+    const deleted = await this.versions.hardDeleteDraft(operator, {
+      workflowKey: workflow.key,
+      status: "draft",
+      version: null,
+      draftRevision: input.expectedDraftRevision,
+    });
+    if (!deleted) {
+      const draft = await this.versions.findOne(operator, {
+        workflowKey: workflow.key,
+        status: "draft",
+      });
+      throw draft
+        ? workflowConflictError(
+            `Draft revision mismatch: expected ${String(input.expectedDraftRevision)}, actual ${String(draft.draftRevision)}`,
+            "DRAFT_REVISION_MISMATCH",
+          )
+        : workflowConflictError(
+            `Workflow ${workflow.key} has no draft`,
+            "DRAFT_MISSING",
+          );
+    }
+    await this.audit.record(operator, {
+      action: WORKFLOW_VERSION_AUDIT.deleteDraft,
+      targetType: WORKFLOW_VERSION_TARGET,
+      targetId: deleted._id,
+      // 草稿被整筆抹掉:整份定義留在稽核,需要時可回看
+      before: {
+        workflowKey: workflow.key,
+        draftRevision: deleted.draftRevision,
+        baseVersion: deleted.baseVersion,
+        steps: deleted.steps,
+        edges: deleted.edges ?? null,
+        checkFormKey: deleted.checkFormKey ?? null,
+      },
+    });
+    return workflow;
   }
 
   /** 設計器即時檢查,不落庫。 */
@@ -279,12 +362,16 @@ export class WorkflowVersionsService {
       facts,
       input.workflowKey,
     );
+    const checkFormKey =
+      checkFormKeyFromInput(input.checkFormKey) ??
+      checkFormKeyFromInput(input.definition.checkFormKey) ??
+      null;
     return toWorkflowValidationReport(
       await this.checker.check(
         facts,
         workflow,
         definitionFromInput(input.definition),
-        input.checkFormKey,
+        checkFormKey,
       ),
     );
   }
@@ -338,6 +425,7 @@ export class WorkflowVersionsService {
               facts,
               workflow,
               definitionOfVersion(record),
+              record.checkFormKey ?? null,
             ),
           )
         : null;

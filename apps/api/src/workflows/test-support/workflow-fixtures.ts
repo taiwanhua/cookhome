@@ -104,6 +104,7 @@ const VERSION_FIELDS = /* GraphQL */ `
       from
       to
     }
+    checkFormKey
     changelog
   }
 `;
@@ -220,6 +221,19 @@ export const SAVE_WORKFLOW_DRAFT = /* GraphQL */ `
           code
           stepKey
         }
+      }
+    }
+  }
+`;
+
+export const DELETE_WORKFLOW_DRAFT = /* GraphQL */ `
+  ${WORKFLOW_FIELDS}
+  mutation DeleteWorkflowVersionDraft(
+    $input: DeleteWorkflowVersionDraftInput!
+  ) {
+    deleteWorkflowVersionDraft(input: $input) {
+      workflow {
+        ...WorkflowFields
       }
     }
   }
@@ -656,6 +670,7 @@ export interface WorkflowVersionRow {
   draftRevision: number;
   steps: Record<string, unknown>[];
   edges: WorkflowEdge[] | null;
+  checkFormKey: string | null;
 }
 
 export interface TaskRow {
@@ -937,6 +952,8 @@ export function joinStep(key: string): StepDef {
 export interface DefinitionShape {
   steps: StepDef[];
   edges?: WorkflowEdge[] | null;
+  /** 缺席 = 存草稿時不送(不動已存的值) */
+  checkFormKey?: string | null;
 }
 
 /** 租戶管理員建客製流程 → 開草稿 → 存定義 → 發布;回發布後的版本。 */
@@ -1000,6 +1017,9 @@ export async function saveWorkflowDraft(
       definition: {
         steps: definition.steps,
         edges: definition.edges ?? null,
+        ...(definition.checkFormKey !== undefined && {
+          checkFormKey: definition.checkFormKey,
+        }),
       },
     },
   });

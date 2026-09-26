@@ -99,6 +99,20 @@ function stepOf(raw: unknown): StepDef {
 export interface DefinitionInput {
   steps: readonly Record<string, unknown>[];
   edges?: readonly { from: string; to: string }[] | null;
+  checkFormKey?: string | null;
+}
+
+/**
+ * 設計器送來的「檢查用表單」:缺席 = undefined(存草稿時不動已存的值);`null` / 空白 = null(清掉)。
+ */
+export function checkFormKeyFromInput(
+  value: string | null | undefined,
+): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const trimmed = value?.trim() ?? "";
+  return trimmed === "" ? null : trimmed;
 }
 
 /** 整形設計器送來的定義;`edges` 缺席 / `null` / 空陣列都存 `null`(= 直線)。 */

@@ -59,6 +59,8 @@ fragment WorkflowVersionFields on WorkflowVersionModel {
     from
     to
   }
+  # 設計器的「檢查用表單」(表單 key);沒選 = null
+  checkFormKey
   changelog
   publishedAt
   publishedBy {
@@ -193,7 +195,7 @@ mutation CreateWorkflowVersionDraft($input: CreateWorkflowVersionDraftInput!) {
   }
 }
 
-# SaveWorkflowVersionDraftInput: { workflowKey, expectedDraftRevision, definition: { steps, edges? } }
+# SaveWorkflowVersionDraftInput: { workflowKey, expectedDraftRevision, definition: { steps, edges?, checkFormKey? } }(checkFormKey 缺席 = 不動、null = 清掉)
 mutation SaveWorkflowVersionDraft($input: SaveWorkflowVersionDraftInput!) {
   saveWorkflowVersionDraft(input: $input) {
     workflowVersion {
@@ -224,6 +226,15 @@ mutation RetryPublishWorkflowVersion($input: WorkflowKeyInput!) {
 }
 
 # WorkflowKeyInput: { workflowKey };進行中的實例照常走完,只影響新送出
+# DeleteWorkflowVersionDraftInput: { workflowKey, expectedDraftRevision };發布中 → CONFLICT(PUBLISH_IN_PROGRESS)
+mutation DeleteWorkflowVersionDraft($input: DeleteWorkflowVersionDraftInput!) {
+  deleteWorkflowVersionDraft(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+
 mutation RetireCurrentWorkflowVersion($input: WorkflowKeyInput!) {
   retireCurrentWorkflowVersion(input: $input) {
     workflow {
