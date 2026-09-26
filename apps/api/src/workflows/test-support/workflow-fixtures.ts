@@ -380,6 +380,7 @@ const INSTANCE_FIELDS = /* GraphQL */ `
       kind
       status
       blocked
+      allowReturn
       plan {
         taskKey
         assignee {
@@ -389,6 +390,7 @@ const INSTANCE_FIELDS = /* GraphQL */ `
           id
         }
         assigneeState
+        taskId
       }
       decisions {
         taskKey
@@ -688,11 +690,14 @@ export interface InstanceRow {
     kind: string;
     status: string;
     blocked: boolean;
+    allowReturn: boolean;
     plan: {
       taskKey: string;
       assignee: { id: string };
       previousAssignees: { id: string }[];
       assigneeState: string;
+      /** 只有流程管理者拿得到(阻擋清單改派用);其他讀者 null */
+      taskId: string | null;
     }[];
     decisions: { taskKey: string; decision: string }[];
   }[];

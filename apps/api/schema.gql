@@ -1984,6 +1984,7 @@ enum WorkflowInstanceStatus {
 }
 
 type WorkflowInstanceStepModel {
+  allowReturn: Boolean!
   blocked: Boolean!
   decisions: [WorkflowDecisionModel!]!
   kind: String!
@@ -2049,6 +2050,7 @@ type WorkflowPlanItemModel {
   assignee: FormUserRef!
   assigneeState: String!
   previousAssignees: [FormUserRef!]!
+  taskId: ID
   taskKey: String!
 }
 

@@ -25,7 +25,8 @@ export interface FormListPanelProps {
 }
 
 /**
- * 表單管理左欄(Spec 6a §8 畫面 1):共用與客製表單、分派與啟用狀態、版本號。
+ * 表單管理左欄(Spec 6a §8 畫面 1):共用與客製表單、分派與啟用狀態、版本號;
+ * 租戶視角另標流程綁定(綁到哪個流程 / 「綁定的流程已失效」,Spec 6b §8 畫面 7)。
  * root 看全部共用表單;租戶看分派來的 + 自己的客製表單(範圍由 api 決定)。
  */
 export const FormListPanel = ({
@@ -121,6 +122,23 @@ export const FormListPanel = ({
                     <Tag tone="error" label={t("interrupted")} />
                   )}
                   {form.hasDraft && <Tag tone="grey" label={t("hasDraft")} />}
+                  {form.workflowBinding !== null &&
+                    form.workflowBinding !== undefined && (
+                      <Tag
+                        tone={
+                          form.workflowBinding.isValid ? "primary" : "error"
+                        }
+                        label={
+                          form.workflowBinding.isValid
+                            ? t("workflow", {
+                                name:
+                                  form.workflowBinding.workflowName ??
+                                  form.workflowBinding.workflowKey,
+                              })
+                            : t("workflowInvalid")
+                        }
+                      />
+                    )}
                 </Stack>
               </Stack>
             </ListItemButton>

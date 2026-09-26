@@ -60,10 +60,21 @@ fragment FormSubmissionFields on FormSubmissionModel {
   submittedAt
   createdAt
   updatedAt
+  # 審核流程(6b):進行中或最後一個實例(申請中心詳情頁的 id);null = 沒走過流程
+  currentInstanceId
+  # 實例被阻擋時 true(列表 chip「審核中(待處理)」)
+  blocked
+  voidedAt
+  voidReason
+  replacedById
+  copiedFrom
   abilities {
     canEdit
     canDelete
     canEditField
+    canWithdraw
+    canVoid
+    canCopy
   }
 }
 

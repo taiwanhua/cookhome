@@ -161,6 +161,7 @@
 | 版本(頁籤)             | 草稿與各版本、發布(changelog 必填)、發布中斷重試、退役目前版本、與上一版差異、以任一版本為基底開新草稿                                                                                                                                                                                                                                                                                                                                                                                 |
 | 分派跳窗               | 勾租戶 = 分派、取消勾 = 收回(只有平台)                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 以此為基底建新表單跳窗 | 選基底版本、填 key(建立後不可改)與名稱                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 流程綁定(右側標頭下)   | 租戶視角 + `system.forms.edit`:這張表單送出後走哪個流程(下拉只列可直接綁的 + 「不走流程」);不能直接綁的流程列出原因(第幾關、什麼問題),共用流程附「建客製流程」捷徑;改成「不走流程」先警告「進過審核的單再送出會被擋」;綁定指向已失效的流程標「綁定的流程已失效」。清單每列也標綁到哪個流程 / 已失效(`pages/system/FormsPage/WorkflowBinding/`,規則見 `docs/modules/workflows.md`「流程綁定」)                                                                                          |
 
 - 設計器的表達式一律用**結構化選擇器**(欄位 / 上下文 / 常數 / 運算,可巢狀),不做文字輸入。
 - 刪被引用的欄位:先列出草稿內引用它的表達式、摘要槽、帶入規則,以及草稿外的列表欄位配置(只提示);確認後只從草稿的 `fields[]` / `layout` 移除,引用處變成檢查器錯誤。刪分區二選一:欄位移到「未放置」或連同欄位刪除。
@@ -173,16 +174,16 @@
 
 ### 引擎零件與預設組裝
 
-| 零件                                                                              | 檔案(`apps/admin/src/`)                                                  |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `FormRenderer`(五種 `mode`)、設計模式的格子與放置區                               | `components/form-engine/FormRenderer/`                                   |
-| widget 登錄表(`widget.kind` → 元件)                                               | `components/form-engine/widgets/widget-registry.ts`                      |
-| `FormSubmissionList` / `FormSubmissionDetail`(含修訂紀錄與差異)                   | `components/form-engine/FormSubmissionList.tsx`、`FormSubmissionDetail/` |
-| `FormPicker` / `LookupDialog` / `ReferenceField`                                  | `components/form-engine/`                                                |
-| `renderValue(ctx)` / `FormValue`                                                  | `components/form-engine/render-value.ts`、`FormValue.tsx`                |
-| `formModulePages(moduleKey)` 與四個預設頁                                         | `components/form-engine/FormModulePages/`                                |
-| 純邏輯:欄位狀態(五種 mode)、欄位級權限來源、設計器操作、帶入、修訂差異            | `lib/form-engine/`                                                       |
-| `useModuleForms` / `useFormDraft` / `useFormSubmission` / `useFormRuntimeVersion` | `hooks/`                                                                 |
+| 零件                                                                                | 檔案(`apps/admin/src/`)                                                  |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `FormRenderer`(五種 `mode`;版面以 `@repo/ui/grid` 排 12 格)、設計模式的格子與放置區 | `components/form-engine/FormRenderer/`                                   |
+| widget 登錄表(`widget.kind` → 元件)                                                 | `components/form-engine/widgets/widget-registry.ts`                      |
+| `FormSubmissionList` / `FormSubmissionDetail`(含修訂紀錄與差異)                     | `components/form-engine/FormSubmissionList.tsx`、`FormSubmissionDetail/` |
+| `FormPicker` / `LookupDialog` / `ReferenceField`                                    | `components/form-engine/`                                                |
+| `renderValue(ctx)` / `FormValue`                                                    | `components/form-engine/render-value.ts`、`FormValue.tsx`                |
+| `formModulePages(moduleKey)` 與四個預設頁                                           | `components/form-engine/FormModulePages/`                                |
+| 純邏輯:欄位狀態(五種 mode)、欄位級權限來源、設計器操作、帶入、修訂差異              | `lib/form-engine/`                                                       |
+| `useModuleForms` / `useFormDraft` / `useFormSubmission` / `useFormRuntimeVersion`   | `hooks/`                                                                 |
 
 - 欄位級權限:已有提交 → 用 api 的 `fieldStates.redacted` 與 `abilities.canEditField`;新增、草稿還沒建 → 由持有的 `<模組>.show-/edit-<formKey>-<fieldKey>` 推(推錯只影響畫面,寫入仍由 api 守)。
 - 選項欄三種來源統一在 `components/form-engine/widgets/useFieldOptions.ts`:靜態清單讀定義、類別選項打 `formFieldOptions`(先取前 100 筆、前端比對關鍵字;api 回的 `totalCount` 大於取回筆數時,打字搜尋改送 api 的 `keyword`。沒有搜尋框的下拉 / 單選鈕只列前 100 筆)、lookup 打 `formLookup`(關鍵字送 api)。類別選項的查詢失敗時該欄只顯示既有值、改不了。

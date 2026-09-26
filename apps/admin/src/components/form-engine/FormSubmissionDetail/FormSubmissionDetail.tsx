@@ -3,7 +3,6 @@ import { useTranslations } from "use-intl";
 
 import type { FieldDef } from "@repo/domain/form";
 import {
-  FormSubmissionStatus,
   useFormSubmissionAttachmentUrlQuery,
   useFormSubmissionQuery,
 } from "@repo/graphql";
@@ -22,6 +21,7 @@ import {
 import { permissionsOfSubmission } from "@/lib/form-engine/field-permissions";
 import { formErrorOf } from "@/lib/form-engine/form-errors";
 
+import { SubmissionStatusTag } from "../../workflow/SubmissionStatusTag";
 import { FormRenderer } from "../FormRenderer/FormRenderer";
 import { RevisionHistory } from "./RevisionHistory";
 
@@ -124,11 +124,7 @@ export const FormSubmissionDetail = ({ id }: FormSubmissionDetailProps) => {
             version: base.version,
           })}
         </Typography>
-        {base.status === FormSubmissionStatus.Draft ? (
-          <Tag tone="warning" label={t("statusDraft")} />
-        ) : (
-          <Tag tone="success" label={t("statusCompleted")} />
-        )}
+        <SubmissionStatusTag status={base.status} blocked={base.blocked} />
         <Typography variant="body2" color="text.secondary">
           {t("createdBy", { name: base.createdBy?.name ?? "—" })}
         </Typography>

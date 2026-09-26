@@ -4,7 +4,13 @@ import {
   type WebSocketHandler,
 } from "msw";
 
-import { FormVersionStatus } from "@repo/graphql";
+import {
+  FormSubmissionStatus,
+  FormVersionStatus,
+  WorkflowInstanceStatus,
+  WorkflowStepStatus,
+  WorkflowVersionStatus,
+} from "@repo/graphql";
 
 import { authWorld } from "@/test/msw/auth-handlers";
 import { dataScopeTargets, savedRule } from "@/test/msw/data-scope-fixtures";
@@ -50,6 +56,24 @@ import {
 } from "@/test/msw/role-fixtures";
 import { roleWorld } from "@/test/msw/role-manager-handlers";
 import { userWorld } from "@/test/msw/user-manager-handlers";
+import { workflowDesignWorld } from "@/test/msw/workflow-design-handlers";
+import {
+  APPLICANT,
+  HR,
+  LEAVE_FORM_KEY,
+  MANAGER,
+  applicationRow,
+  instanceFragment,
+  instanceStep,
+  leaveDefinition,
+  leaveWorkflowDefinition,
+  planItem,
+  purchaseWorkflowDefinition,
+  taskFragment,
+  workflowFragment,
+  workflowVersionFragment,
+} from "@/test/msw/workflow-fixtures";
+import { workflowRuntimeWorld } from "@/test/msw/workflow-runtime-handlers";
 
 import {
   type MockView,
@@ -197,8 +221,18 @@ export const mockHandlers = ({
           currentVersion: 1,
           tabLabelTemplate: null,
         },
+        {
+          key: LEAVE_FORM_KEY,
+          name: "病假單",
+          moduleKey: "leave",
+          currentVersion: 1,
+          tabLabelTemplate: null,
+        },
       ],
-      versions: { [`${SHOPPING_FORM_KEY}@1`]: shoppingDefinition() },
+      versions: {
+        [`${SHOPPING_FORM_KEY}@1`]: shoppingDefinition(),
+        [`${LEAVE_FORM_KEY}@1`]: leaveDefinition(),
+      },
       submissions: [
         submissionFragment(),
         submissionFragment({
@@ -206,7 +240,188 @@ export const mockHandlers = ({
           summary: { title: "牛奶", date: null, amount: "120" },
           values: { item: "牛奶", qty: "3", unit_price: "40", total: "120" },
         }),
+        ...leaveSubmissions(),
       ],
     }).handlers,
+    // 審核流程:流程管理(直線的請假審核 + 平行的採購審核)、申請中心與詳情、阻擋清單
+    ...workflowDesignWorld(mockWorkflowDesign()).handlers,
+    ...workflowRuntimeWorld(mockWorkflowRuntime()).handlers,
   ];
 };
+
+/** 請假的兩筆提交:審核中(派給登入者小華)、已核准(可作廢)。 */
+const leaveSubmissions = () => [
+  submissionFragment({
+    id: "sub-leave-1",
+    moduleKey: "leave",
+    formKey: LEAVE_FORM_KEY,
+    formName: "病假單",
+    status: FormSubmissionStatus.Reviewing,
+    values: { kind: "病假", days: "3", reason: "病假三天", approver: null },
+    summary: { title: "病假三天", date: null, amount: null },
+    createdBy: APPLICANT,
+    currentInstanceId: "inst-1",
+    abilities: {
+      canEdit: false,
+      canDelete: false,
+      canEditField: [],
+      canWithdraw: false,
+      canVoid: false,
+      canCopy: false,
+    },
+  }),
+  submissionFragment({
+    id: "sub-leave-2",
+    moduleKey: "leave",
+    formKey: LEAVE_FORM_KEY,
+    formName: "病假單",
+    status: FormSubmissionStatus.Completed,
+    values: { kind: "事假", days: "1", reason: "事假一天", approver: null },
+    summary: { title: "事假一天", date: null, amount: null },
+    currentInstanceId: "inst-2",
+    abilities: {
+      canEdit: false,
+      canDelete: false,
+      canEditField: [],
+      canWithdraw: false,
+      canVoid: true,
+      canCopy: false,
+    },
+  }),
+];
+
+/** 申請中心 / 詳情 / 阻擋清單的假資料:一張待小華審核、一張採購單平行分支(採購那條阻擋)。 */
+const mockWorkflowRuntime = () => ({
+  instances: [
+    instanceFragment({ abilities: { canWithdraw: false, canManage: true } }),
+    instanceFragment({
+      id: "inst-2",
+      submissionId: "sub-leave-2",
+      status: WorkflowInstanceStatus.Blocked,
+      workflowKey: "purchase_review",
+      workflowName: "採購審核",
+      summary: { title: "事假一天", date: null, amount: null },
+      activeStepKeys: ["legal", "purchase"],
+      abilities: { canWithdraw: false, canManage: true },
+      steps: [
+        instanceStep("review", "原部門初審", {
+          status: WorkflowStepStatus.Completed,
+        }),
+        instanceStep("finance", "財務部審核", {
+          status: WorkflowStepStatus.Completed,
+        }),
+        instanceStep("legal", "法務部審核", {
+          mode: "all",
+          status: WorkflowStepStatus.Active,
+          plan: [planItem("legal-1", HR, { taskId: "task-legal-1" })],
+        }),
+        instanceStep("purchase", "採購部審核", {
+          status: WorkflowStepStatus.Active,
+          blocked: true,
+          plan: [
+            planItem("purchase-1", MANAGER, {
+              assigneeState: "invalid",
+              taskId: "task-purchase-1",
+            }),
+          ],
+        }),
+        instanceStep("merge", "三部門匯合", {
+          kind: "join",
+          mode: null,
+          allowReturn: false,
+        }),
+        instanceStep("confirm", "原部門確認"),
+      ],
+    }),
+  ],
+  tasks: [taskFragment({ id: "task-manager-1" })],
+  applications: [
+    applicationRow(),
+    applicationRow({
+      id: "sub-leave-2",
+      blocked: true,
+      summary: { title: "事假一天", date: null, amount: null },
+      currentInstanceId: "inst-2",
+      activeSteps: [
+        { stepKey: "legal", name: "法務部審核" },
+        { stepKey: "purchase", name: "採購部審核" },
+      ],
+    }),
+  ],
+  applicable: [
+    {
+      moduleKey: "leave",
+      moduleName: "請假",
+      forms: [
+        {
+          key: LEAVE_FORM_KEY,
+          name: "病假單",
+          moduleKey: "leave",
+          currentVersion: 1,
+          tabLabelTemplate: null,
+        },
+      ],
+    },
+  ],
+  blocked: { blocked: ["inst-2"], needsAdvance: ["inst-1"] },
+});
+
+/** 流程管理:直線的「請假審核」(綁了病假單)與平行的「採購審核」(共用,只有草稿)。 */
+const mockWorkflowDesign = () => ({
+  workflows: [
+    workflowFragment({
+      boundForms: [
+        { formKey: LEAVE_FORM_KEY, formName: "病假單", moduleKey: "leave" },
+      ],
+    }),
+    workflowFragment({
+      key: "purchase_review",
+      name: "採購審核",
+      isShared: true,
+      ownerOrgId: null,
+      hasDraft: true,
+    }),
+  ],
+  versions: {
+    leave_review: [
+      workflowVersionFragment(leaveWorkflowDefinition(), { baseVersion: 1 }),
+      workflowVersionFragment(leaveWorkflowDefinition(), {
+        id: "wv-leave-1",
+        version: 1,
+        status: WorkflowVersionStatus.Published,
+        changelog: "第一版",
+      }),
+    ],
+    purchase_review: [
+      workflowVersionFragment(purchaseWorkflowDefinition(), {
+        id: "wv-purchase-draft",
+        workflowKey: "purchase_review",
+      }),
+    ],
+  },
+  bindingOptions: {
+    [SHOPPING_FORM_KEY]: [
+      {
+        workflowKey: "leave_review",
+        workflowName: "請假審核",
+        isShared: false,
+        canBind: true,
+        issues: [],
+      },
+      {
+        workflowKey: "purchase_review",
+        workflowName: "採購審核",
+        isShared: true,
+        canBind: false,
+        issues: [
+          {
+            stepKey: "finance",
+            stepNumber: 2,
+            problem: "ROLE_IN_SHARED",
+            detail: "角色佔位",
+          },
+        ],
+      },
+    ],
+  },
+});

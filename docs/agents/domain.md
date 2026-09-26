@@ -52,6 +52,7 @@ engineering skills 在探索 codebase 時,應如何使用本 repo 的領域文�
    4. `storage-and-mail.md` — GCS 上傳與讀取、寄信
    5. `frontend-architecture.md` — admin 分層、殼、路由與頁籤、共版型、Snackbar、快取(寫前端前必讀)
    6. `form-engine.md` — 表單模組:骨架 seed vs 表單畫面管理、版本、分派 / 啟用、提交與修訂、欄位級權限、引擎零件與預設組裝
+   7. `workflow-engine.md` — 審核流程:流程 / 版本 / 分派 / 綁定、送出時檢查、實例是唯一權威與推進、分流 / 匯合、阻擋與改派、申請中心與讀取授權
 4. **需要「為什麼」時才讀 `docs/adr/`** — ADR 只記決策、理由、取捨與影響;每份檔頭指向對應的 concepts
 
 讀完 1–3 即有全貌。各模組的畫面、權限表、api 介面在 `docs/modules/<key>.md`。
@@ -65,7 +66,7 @@ concepts 讀完之後,接著照這個順序看「規則長成程式之後的樣�
 1. **[示範模組1](../modules/demo.sub.sample-one.md)** — 所有選配都打開的完整示範:三層模組樹、隱藏頁、欄位級權限、頁面自有權限、資料範圍目標、公開 / 私有雙路檔案、變更歷程
 2. **[示範模組2](../modules/demo.sample-two.md)** — 對照組:拿掉全部選配之後的**最小可行模組**(它「少了什麼」那張表就是選配清單)
 3. **[module-scaffold](./module-scaffold.md)** — 從上面兩支抽出來的藍本:要動哪些檔、照什麼順序、每一步的正本;欄位由使用者在後台設計的模組走同檔的「表單模組路線」(範例[購物清單](../modules/shopping-list.md))
-4. **[權限測試劇本](../testing/permission-scenarios.md)** — 19 條劇本,每條標明用哪一頁、哪個帳號、什麼步驟、預期什麼;新模組做完拿它自檢
+4. **[權限測試劇本](../testing/permission-scenarios.md)** — 24 條劇本,每條標明用哪一頁、哪個帳號、什麼步驟、預期什麼;新模組做完拿它自檢
 
 前端要動手之前先讀 `docs/concepts/frontend-architecture.md` 與 `DemoModuleConfig` 的逐項 JSDoc(前端藍本的規格)。
 

@@ -27,6 +27,17 @@ export interface FormListToolbarProps {
 
 const ALL = "" as const;
 
+/** 狀態篩選的七值(Spec 6b §6「提交狀態」),依生命週期排。 */
+const STATUS_ORDER: readonly FormSubmissionStatus[] = [
+  FormSubmissionStatus.Draft,
+  FormSubmissionStatus.Reviewing,
+  FormSubmissionStatus.Returned,
+  FormSubmissionStatus.Withdrawn,
+  FormSubmissionStatus.Completed,
+  FormSubmissionStatus.Rejected,
+  FormSubmissionStatus.Voided,
+];
+
 type StatusFilter = typeof ALL | FormSubmissionStatus;
 
 /** 表單模組列表的工具列(Spec 6a §8 畫面 8):搜尋(摘要標題)、依表單 / 狀態篩選、新增。 */
@@ -43,6 +54,7 @@ export const FormListToolbar = ({
   onCreate,
 }: FormListToolbarProps) => {
   const t = useTranslations("admin.formEngine.pages");
+  const tStatus = useTranslations("admin.approval.submissionStatus");
 
   return (
     <Stack
@@ -79,14 +91,13 @@ export const FormListToolbar = ({
         value={status ?? ALL}
         displayEmpty
         size="small"
-        sx={{ width: 160 }}
+        sx={{ width: 180 }}
         options={[
           { value: ALL, label: t("allStatuses") },
-          { value: FormSubmissionStatus.Draft, label: t("statusDraft") },
-          {
-            value: FormSubmissionStatus.Completed,
-            label: t("statusCompleted"),
-          },
+          ...STATUS_ORDER.map((value) => ({
+            value,
+            label: tStatus(value),
+          })),
         ]}
         onChange={(next) => {
           onStatusChange(next === ALL ? null : next);

@@ -1136,8 +1136,6 @@
       "total": "{total} in total",
       "form": "Form",
       "status": "Status",
-      "statusDraft": "Draft",
-      "statusCompleted": "Completed",
       "createdBy": "Created by",
       "actions": "Actions",
       "slots": {
@@ -1149,8 +1147,6 @@
     "detail": {
       "loading": "Loading",
       "formLine": "{form} (version {version})",
-      "statusDraft": "Draft",
-      "statusCompleted": "Completed",
       "createdBy": "Created by: {name}",
       "viewingRevision": "Viewing revision {revision}",
       "downloadFailed": "Could not get the file. Please try again later.",
@@ -1174,8 +1170,6 @@
       "allForms": "All forms",
       "statusFilter": "Status",
       "allStatuses": "All statuses",
-      "statusDraft": "Draft",
-      "statusCompleted": "Completed",
       "create": "+ New",
       "noFormsHint": "No forms are available to fill in right now.",
       "tableAria": "{module} list",
@@ -1189,7 +1183,9 @@
       "deleteTitle": "Delete this record?",
       "deleteBody": "“{label}” will be deleted. This cannot be undone.",
       "deleteConfirm": "Delete",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "void": "Void",
+      "voidOf": "Void \"{label}\""
     },
     "fill": {
       "loading": "Loading",
@@ -1203,7 +1199,9 @@
       "reload": "Reload",
       "draftSaved": "Draft saved.",
       "submitted": "Submitted.",
-      "changesSaved": "Changes saved."
+      "changesSaved": "Changes saved.",
+      "returnedHint": "This submission was returned for changes. Submitting again restarts the approval workflow from the first step.",
+      "withdrawnHint": "This submission was withdrawn. Submitting again restarts the approval workflow from the first step."
     },
     "errors": {
       "CONFLICT": "This record was updated by someone else. Please reload.",
@@ -1215,7 +1213,10 @@
       "NOT_FOUND": "Record not found. It may have been deleted or is outside your scope.",
       "VALIDATION_FAILED": "Some fields are invalid. Please fix them and try again.",
       "PERMISSION_NOT_DELETABLE": "This permission cannot be deleted right now.",
-      "UNEXPECTED": "Something went wrong. Please try again later."
+      "UNEXPECTED": "Something went wrong. Please try again later.",
+      "WORKFLOW_REMOVED": "The approval workflow of this form has been removed. Please contact your administrator.",
+      "WORKFLOW_UNPUBLISHED": "The approval workflow bound to this form is not published yet. Please contact your administrator.",
+      "WORKFLOW_MISCONFIGURED": "The approval workflow is misconfigured. Please contact your administrator."
     }
   },
   "forms": {
@@ -1247,7 +1248,9 @@
       "noVersion": "Not published",
       "disabled": "Disabled",
       "interrupted": "Publish interrupted",
-      "hasDraft": "Draft"
+      "hasDraft": "Draft",
+      "workflow": "Workflow: {name}",
+      "workflowInvalid": "Bound workflow is invalid"
     },
     "detail": {
       "region": "Form settings",
@@ -1651,6 +1654,564 @@
       "stay": "Keep designing",
       "discard": "Discard changes",
       "saveAndLeave": "Save draft first"
+    },
+    "binding": {
+      "region": "Workflow binding",
+      "label": "Approval workflow after submit",
+      "hint": "Only workflows that can be bound directly are listed. \"No workflow\" = completed on submit.",
+      "none": "No workflow",
+      "bound": "Workflow binding updated",
+      "unbound": "Workflow binding removed",
+      "invalid": "The bound workflow is invalid (revoked or missing): this form cannot be submitted now. Choose another workflow or remove the binding.",
+      "unbindableRegion": "Workflows that cannot be bound",
+      "unbindableTitle": "These workflows cannot be bound directly:",
+      "createCustom": "Create a custom workflow",
+      "issue": "Step {step}: {problem}",
+      "problems": {
+        "ROLE_IN_SHARED": "The reviewer is a role placeholder; create a custom workflow based on it and point it to your organization's role",
+        "USERS_IN_SHARED": "Shared workflows cannot name specific users",
+        "USER_NOT_IN_TENANT": "A named user is not in your organization",
+        "ROLE_NOT_IN_TENANT": "The role is not one of your organization's roles",
+        "FIELD_FORM_MISMATCH": "The reviewer comes from a field of another form",
+        "FIELD_MISSING": "The reviewer field does not exist in the current version of this form",
+        "FIELD_NOT_USER_REFERENCE": "The reviewer field is not a user reference"
+      },
+      "unbindDialog": {
+        "title": "Remove workflow binding",
+        "body": "After removing \"{workflow}\", new submissions skip approval; but submissions that already went through approval (e.g. returned ones) will be blocked when submitted again. Remove it?",
+        "cancel": "Cancel",
+        "confirm": "Remove binding"
+      }
+    }
+  },
+  "approval": {
+    "submissionStatus": {
+      "DRAFT": "Draft",
+      "REVIEWING": "In review",
+      "RETURNED": "Returned",
+      "WITHDRAWN": "Withdrawn",
+      "COMPLETED": "Completed",
+      "REJECTED": "Rejected",
+      "VOIDED": "Voided",
+      "reviewingBlocked": "In review (needs attention)"
+    },
+    "section": {
+      "region": "Approval",
+      "title": "Approval",
+      "loading": "Loading approval progress",
+      "workflowLine": "{workflow} (version {version}) · revision {revision}",
+      "activeSteps": "Current steps: {steps}",
+      "blocked": "A step has no valid reviewer; waiting for a workflow manager.",
+      "stepClosed": "This step has closed or the task changed; the latest state has been reloaded.",
+      "statuses": {
+        "LINKING": "Submitting",
+        "RUNNING": "In review",
+        "BLOCKED": "In review (needs attention)",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected",
+        "RETURNED": "Returned",
+        "WITHDRAWN": "Withdrawn",
+        "SUPERSEDED": "Superseded by a newer revision"
+      }
+    },
+    "progress": {
+      "region": "Step progress",
+      "title": "Step progress",
+      "row": "{name}: {state}",
+      "joinName": "Join ({name})",
+      "joined": "Joined",
+      "joinWaiting": "Waiting for all branches",
+      "blocked": "Needs attention",
+      "noAssignee": "No reviewer found",
+      "assigneeDecided": "{name} ({decision})",
+      "assigneeInvalid": "{name} (invalid)",
+      "statuses": {
+        "PENDING": "Not reached",
+        "ACTIVE": "In review",
+        "COMPLETED": "Passed",
+        "SKIPPED": "Skipped",
+        "TERMINATED": "Ended"
+      },
+      "modes": {
+        "any": "Any one approval passes",
+        "all": "All must approve"
+      }
+    },
+    "decisions": {
+      "approved": "approved",
+      "rejected": "rejected",
+      "returned": "returned"
+    },
+    "timeline": {
+      "region": "Approval history",
+      "title": "Approval history",
+      "comment": "Reason: {comment}",
+      "kinds": {
+        "started": "Submitted for approval",
+        "step_entered": "Entered \"{step}\"",
+        "step_skipped": "\"{step}\" skipped by its condition",
+        "task_created": "\"{step}\" assigned to {user}",
+        "approved": "{user} approved at \"{step}\"",
+        "rejected": "{user} rejected at \"{step}\"",
+        "returned": "{user} returned for changes at \"{step}\"",
+        "late": "{user} decided at \"{step}\" after the outcome (no effect)",
+        "step_completed": "\"{step}\" completed",
+        "join_waiting": "\"{step}\" waiting for other branches",
+        "blocked": "\"{step}\" needs attention (no valid reviewer)",
+        "unblocked": "\"{step}\" resumed",
+        "reassigned": "\"{step}\" reassigned from {user} to {toUser}",
+        "assignee_added": "\"{step}\" reviewer {toUser} added",
+        "withdrawn": "Withdrawn by the applicant",
+        "completed": "Approval completed",
+        "superseded": "Superseded by a resubmitted revision"
+      }
+    },
+    "decide": {
+      "region": "My review at \"{step}\"",
+      "prompt": "This submission is waiting for your review at \"{step}\".",
+      "stepClosed": "This step has closed or the task changed",
+      "cancel": "Cancel",
+      "reasonRequired": "Reason",
+      "reasonOptional": "Comment (optional)",
+      "reasonHint": "Rejecting or returning requires a reason; the applicant will see it.",
+      "buttons": {
+        "APPROVE": "Approve",
+        "REJECT": "Reject",
+        "RETURN": "Return for changes"
+      },
+      "titles": {
+        "APPROVE": "Approve \"{step}\"",
+        "REJECT": "Reject \"{step}\"",
+        "RETURN": "Return \"{step}\" for changes"
+      },
+      "bodies": {
+        "APPROVE": "Approving passes this step (for any-one steps, the other reviewers' tasks are cancelled).",
+        "REJECT": "Rejecting ends the whole submission; the applicant cannot change it and must start a new one.",
+        "RETURN": "The applicant can edit and resubmit; approval restarts from the first step."
+      },
+      "confirms": {
+        "APPROVE": "Approve",
+        "REJECT": "Reject",
+        "RETURN": "Return for changes"
+      },
+      "feedback": {
+        "APPROVE": "Approved",
+        "REJECT": "Rejected",
+        "RETURN": "Returned for changes"
+      }
+    },
+    "applicant": {
+      "withdraw": "Withdraw",
+      "void": "Void",
+      "copy": "Copy as new",
+      "voidedReason": "Void reason: {reason}",
+      "clearedFields": "New submission created; these fields were cleared because their sources are no longer valid: {fields}"
+    },
+    "dialog": {
+      "cancel": "Cancel"
+    },
+    "withdraw": {
+      "title": "Withdraw submission",
+      "body": "Withdrawing makes the submission editable again. You can only withdraw before anyone has reviewed it.",
+      "confirm": "Withdraw"
+    },
+    "void": {
+      "title": "Void this submission",
+      "body": "A voided submission is no longer in effect and cannot be edited. You can \"Copy as new\" and submit again.",
+      "reason": "Void reason",
+      "confirm": "Void"
+    },
+    "retry": {
+      "button": "Retry advance",
+      "success": "Advance retried"
+    },
+    "feedback": {
+      "withdrawSuccess": "Withdrawn",
+      "voidSuccess": "Voided",
+      "copySuccess": "Copied as a new submission"
+    }
+  },
+  "applyCenter": {
+    "tabs": "Apply center",
+    "tabMine": "My applications",
+    "tabTasks": "To review",
+    "total": "{total} in total",
+    "filters": {
+      "module": "Module",
+      "allModules": "All modules",
+      "form": "Form",
+      "allForms": "All forms"
+    },
+    "mine": {
+      "tableAria": "My applications",
+      "module": "Module",
+      "form": "Form",
+      "title": "Title",
+      "status": "Status",
+      "activeSteps": "Current steps",
+      "submittedAt": "Submitted",
+      "actions": "Actions",
+      "statusFilter": "Status",
+      "allStatuses": "All statuses",
+      "empty": "No applications yet",
+      "view": "View",
+      "viewOf": "View \"{label}\"",
+      "edit": "Continue editing",
+      "editOf": "Continue editing \"{label}\""
+    },
+    "tasks": {
+      "tableAria": "To review",
+      "module": "Module",
+      "form": "Form",
+      "title": "Title",
+      "applicant": "Applicant",
+      "step": "Step",
+      "status": "Status",
+      "createdAt": "Created",
+      "actions": "Actions",
+      "doneFilter": "Handling",
+      "pending": "Pending",
+      "done": "Handled",
+      "emptyPending": "Nothing waiting for your review",
+      "emptyDone": "Nothing handled yet",
+      "review": "Review",
+      "view": "View",
+      "openOf": "Open \"{label}\"",
+      "statuses": {
+        "PENDING": "Pending",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected",
+        "RETURNED": "Returned",
+        "LATE": "After outcome",
+        "CANCELLED": "Cancelled",
+        "BLOCKED": "Awaiting reassignment"
+      }
+    },
+    "newApplication": {
+      "open": "New application",
+      "title": "New application",
+      "module": "Module",
+      "form": "Form",
+      "cancel": "Cancel",
+      "confirm": "Fill it in",
+      "noCreatePage": "You don't have the create page of this module. Please contact your administrator."
+    },
+    "view": {
+      "loading": "Loading",
+      "back": "Back to apply center",
+      "meta": "{module} · {form} · applicant {applicant} · revision {revision}",
+      "snapshotUnavailable": "The content of this revision is not available."
+    }
+  },
+  "workflows": {
+    "loading": "Loading",
+    "empty": "No workflows yet",
+    "blockedLink": "Blocked list",
+    "errors": {
+      "CONFLICT": "This record was updated by someone else. Please reload.",
+      "DRAFT_REVISION_MISMATCH": "The draft was updated by someone else. Please reload.",
+      "PUBLISH_IN_PROGRESS": "The previous publish has not finished. Please retry publishing first.",
+      "HAS_DECISIONS": "Someone has already reviewed it; it cannot be withdrawn.",
+      "ALREADY_DECIDED": "This task has already been decided and cannot be reassigned.",
+      "ALREADY_IN_STEP": "This person is already in this step.",
+      "INSTANCE_CHANGED": "The approval state has changed. Please reload.",
+      "ALREADY_COPIED": "This submission has already been copied.",
+      "FORBIDDEN": "You don't have permission to do this.",
+      "ROOT_ONLY": "Only the platform can do this.",
+      "NOT_WORKFLOW_OWNER": "This workflow does not belong to your organization; create your own based on it.",
+      "TENANT_ONLY": "Workflow binding is set inside an organization.",
+      "WORKFLOW_UNPUBLISHED": "This workflow has no published version and cannot be bound.",
+      "ASSIGNEE_NOT_ELIGIBLE": "This person cannot review it (disabled, not in the organization, or the applicant).",
+      "NOT_FOUND": "Not found. It may have been deleted or is outside your scope.",
+      "VALIDATION_FAILED": "Some fields are invalid. Please fix them and try again.",
+      "UNEXPECTED": "Something went wrong. Please try again later."
+    },
+    "list": {
+      "region": "Workflow list",
+      "title": "Workflows",
+      "create": "Create workflow",
+      "search": "Search",
+      "searchPlaceholder": "Workflow name or key",
+      "loading": "Loading",
+      "empty": "No matching workflows",
+      "shared": "Shared",
+      "custom": "Custom",
+      "noVersion": "Unpublished",
+      "version": "Version {version}",
+      "assigned": "Assigned to {count}",
+      "interrupted": "Publish interrupted",
+      "hasDraft": "Has draft",
+      "boundForms": "Bound forms: {forms}"
+    },
+    "detail": {
+      "region": "Workflow",
+      "meta": "{key} · {kind}",
+      "shared": "Shared workflow",
+      "custom": "Custom workflow",
+      "forkedFrom": "Based on {key} version {version}",
+      "edit": "Rename",
+      "fork": "Create based on this",
+      "assign": "Assign",
+      "placeholderHint": "The role steps of this workflow only store placeholders, so forms cannot be bound to it directly; create a custom workflow based on it.",
+      "assignedTo": "Assigned to: {tenants}",
+      "boundForms": "Bound forms: {forms}",
+      "tabs": "Workflow",
+      "tabDesign": "Design",
+      "tabVersions": "Versions"
+    },
+    "nameDialog": {
+      "createTitle": "Create workflow",
+      "editTitle": "Rename",
+      "key": "Workflow key",
+      "keyHint": "Starts with a lowercase letter; lowercase letters, digits and underscores only. Cannot be changed later.",
+      "name": "Name",
+      "cancel": "Cancel",
+      "confirm": "Save",
+      "created": "Workflow created",
+      "updated": "Name updated"
+    },
+    "fork": {
+      "title": "Create a workflow based on \"{name}\"",
+      "placeholderHint": "After creating it, point the role steps to your organization's roles before publishing and binding.",
+      "baseVersion": "Base version",
+      "versionOption": "Version {version}",
+      "key": "New workflow key",
+      "keyHint": "Starts with a lowercase letter; lowercase letters, digits and underscores only. Cannot be changed later.",
+      "name": "Name",
+      "cancel": "Cancel",
+      "confirm": "Create",
+      "success": "Workflow created (with a draft)"
+    },
+    "assign": {
+      "title": "Assign \"{name}\"",
+      "body": "Checked organizations can see this workflow; unchecking revokes it (their new submissions are blocked, ongoing approvals finish as usual).",
+      "tenants": "Organizations",
+      "empty": "No organizations to assign",
+      "cancel": "Cancel",
+      "confirm": "Save",
+      "success": "Assignments updated"
+    },
+    "versions": {
+      "tableAria": "Workflow versions",
+      "version": "Version",
+      "status": "Status",
+      "changelog": "Changelog",
+      "publishedAt": "Published",
+      "actions": "Actions",
+      "empty": "No versions yet",
+      "draftLabel": "Draft (revision {revision})",
+      "versionLabel": "Version {version}",
+      "publishedLine": "{at} · {user}",
+      "publish": "Publish",
+      "retire": "Retire",
+      "baseOn": "New draft from version {version}",
+      "diff": "Diff with previous",
+      "diffRegion": "Version diff",
+      "diffTitle": "Diff with the previous version",
+      "diffAdded": "Added: {steps}",
+      "diffRemoved": "Removed: {steps}",
+      "diffChanged": "Changed: {steps}",
+      "diffStructure": "The fork / join structure changed",
+      "draftCreated": "New draft created",
+      "interrupted": "The previous publish was interrupted. Please retry.",
+      "retry": "Retry publish",
+      "retried": "Publish retried",
+      "statuses": {
+        "DRAFT": "Draft",
+        "PUBLISHING": "Publishing",
+        "PUBLISHED": "Published",
+        "RETIRED": "Retired"
+      }
+    },
+    "publish": {
+      "title": "Publish draft",
+      "body": "After publishing, new submissions of forms bound to this workflow use this version; ongoing approvals finish on their own version.",
+      "changelog": "Changelog",
+      "cancel": "Cancel",
+      "confirm": "Publish",
+      "success": "Version {version} published",
+      "unsavedWarning": "The designer has unsaved changes: the last saved draft will be published.",
+      "saveFirst": "Save draft first"
+    },
+    "retire": {
+      "title": "Retire current version",
+      "body": "After retiring, submissions of forms bound to this workflow are blocked (\"workflow not published\") until a new version is published; ongoing approvals finish as usual.",
+      "cancel": "Cancel",
+      "confirm": "Retire",
+      "success": "Current version retired"
+    },
+    "unsaved": {
+      "title": "Unsaved changes",
+      "body": "The workflow designer has unsaved changes that will be lost if you switch workflows.",
+      "stay": "Keep designing",
+      "discard": "Discard changes",
+      "saveAndLeave": "Save draft first"
+    },
+    "designer": {
+      "loading": "Loading",
+      "noDraft": "This workflow has no draft.",
+      "newDraft": "New draft",
+      "draftCreated": "New draft created",
+      "readonlyEmpty": "This workflow has no published version yet.",
+      "readonlyHint": "This is an assigned shared workflow and is read-only; create your own based on it to change it.",
+      "canvas": "Workflow diagram",
+      "properties": "Properties",
+      "selectHint": "Click a step or join node in the diagram to edit it. \"Fork from this step\" is in the step's properties.",
+      "unparseable": "The structure of this draft cannot be edited in the designer (it may have been edited by hand); only the check results are shown. Start a new draft from a published version.",
+      "revision": "Draft revision {revision}",
+      "dirty": "Unsaved changes",
+      "checkForm": "Form to check against",
+      "checkFormHint": "Skip-condition fields and checks use its current version",
+      "checkFormNone": "None",
+      "appendStep": "Add a step at the end",
+      "save": "Save draft",
+      "saved": "Draft saved",
+      "conflict": "The draft was updated by someone else. Please reload.",
+      "reload": "Reload",
+      "jsonPreview": "Workflow definition (JSON)",
+      "newStep": "Step {n}",
+      "newJoin": "Join",
+      "moveToBranch": "Move to \"{join}\" branch {n}",
+      "catalogTruncated": "More than 100 forms or roles: the dropdowns are truncated. Please narrow the scope."
+    },
+    "opErrors": {
+      "FORK_NEEDS_SOURCE": "A fork needs a review step before it: delete or move the whole fork first.",
+      "NESTED_FORK": "Branches cannot fork again.",
+      "ALREADY_FORKED": "This step already forks; use \"Add a branch\" on the join node.",
+      "BRANCH_WOULD_BE_EMPTY": "That would leave an empty branch; each branch needs at least one step.",
+      "LAST_STEP": "A workflow needs at least one step."
+    },
+    "node": {
+      "users": "{count} named users",
+      "role": "Role: {name}",
+      "field": "Form field: {form} · {field}",
+      "manager": "Manager level {level}",
+      "unset": "Not set",
+      "skipWhen": "Has skip condition",
+      "noReturn": "No return",
+      "join": "Join: {name}",
+      "issues": "{count} issues"
+    },
+    "step": {
+      "region": "Step \"{name}\"",
+      "title": "Review step",
+      "name": "Name",
+      "key": "Step key",
+      "keyHint": "Starts with a lowercase letter; cannot be changed after publishing.",
+      "keyLocked": "This step was published; its key cannot be changed.",
+      "mode": "Approval mode",
+      "modes": {
+        "any": "Any one approval passes",
+        "all": "All must approve"
+      },
+      "modeHints": {
+        "any": "One approval passes; one rejection rejects.",
+        "all": "Everyone must approve; one rejection rejects."
+      },
+      "allowReturn": "Allow returning for changes",
+      "skipWhen": "Skip condition",
+      "skipNeedsCheckForm": "Pick a \"Form to check against\" above to choose fields for the skip condition.",
+      "actions": "Step actions",
+      "insertAfter": "Add a step after",
+      "fork": "Fork from this step",
+      "addBranch": "Add a branch",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "delete": "Delete step",
+      "moveTo": "Move to branch",
+      "moveToPlaceholder": "Choose a branch"
+    },
+    "join": {
+      "region": "Join node \"{name}\"",
+      "title": "Join node",
+      "body": "System node: completes automatically when all {count} branches pass (or are skipped). No reviewers, no skip condition.",
+      "name": "Name",
+      "addBranch": "Add a branch",
+      "insertAfter": "Add a step after the join",
+      "removeParallel": "Delete the whole fork"
+    },
+    "forkDialog": {
+      "title": "Fork from \"{step}\"",
+      "body": "After this step passes, all branches are reviewed at the same time; they meet at the join node once every branch passes.",
+      "count": "Branches",
+      "countOption": "{count} branches",
+      "cancel": "Cancel",
+      "confirm": "Fork"
+    },
+    "issues": {
+      "region": "Check results",
+      "summary": "{errors} errors, {warnings} warnings (errors block publishing)",
+      "error": "Error",
+      "warning": "Warning"
+    },
+    "assignee": {
+      "region": "Reviewers",
+      "kind": "Reviewer source",
+      "kinds": {
+        "users": "Named users",
+        "role": "Role",
+        "field": "Form field",
+        "manager": "Manager"
+      },
+      "sharedHint": "Shared workflows cannot name users; roles are placeholders only.",
+      "users": "Users",
+      "usersHint": "On submit, the enabled users still in the organization receive tasks.",
+      "placeholder": "Role placeholder",
+      "placeholderHint": "e.g. \"HR\": each organization points it to its own role after creating a custom workflow.",
+      "placeholderFrom": "Placeholder from the source: {placeholder}",
+      "role": "Role",
+      "roleUnset": "Not selected",
+      "form": "Form",
+      "formUnset": "Not selected",
+      "field": "Field",
+      "fieldUnset": "Not selected",
+      "fieldHint": "Only user reference fields; the reviewer is whoever the field holds at submit time.",
+      "level": "Level",
+      "levelHint": "Searched upward from the submission's organization; level 1 = the nearest managers.",
+      "levelOption": "Level {level}"
+    },
+    "userPicker": {
+      "option": "{name} ({account})",
+      "loading": "Loading",
+      "empty": "No matching people",
+      "forbidden": "You don't have permission to view the user list",
+      "disabled": "Disabled"
+    },
+    "blocked": {
+      "title": "Blocked list",
+      "back": "Back to workflows",
+      "filters": "Filter",
+      "filterBlocked": "Blocked",
+      "filterNeedsAdvance": "Needs advance",
+      "truncated": "Too many submissions need advancing; only the least recently changed batch was checked. Handle them and refresh.",
+      "tableAria": "Blocked list",
+      "form": "Form",
+      "titleColumn": "Title",
+      "applicant": "Applicant",
+      "stuck": "Stuck at",
+      "since": "Last change",
+      "actions": "Actions",
+      "emptyBlocked": "Nothing is blocked",
+      "emptyNeedsAdvance": "Nothing needs advancing",
+      "total": "{total} in total",
+      "noAssignee": "\"{step}\" has no reviewer",
+      "invalidAssignee": "\"{step}\" {name} (invalid)",
+      "waitingAssignee": "\"{step}\" waiting for {name}",
+      "reassign": "Reassign",
+      "add": "Add reviewer",
+      "reassigned": "Reassigned",
+      "added": "Reviewer added",
+      "assignDialog": {
+        "reassignTitle": "Reassign \"{step}\"",
+        "addTitle": "Add a reviewer to \"{step}\"",
+        "reassignBody": "Reassign {from}'s task to:",
+        "addBody": "No reviewer was found for this step. Pick one:",
+        "user": "Reviewer",
+        "isApplicant": "The applicant cannot review",
+        "inStep": "Already in this step",
+        "cancel": "Cancel",
+        "confirm": "Confirm"
+      }
     }
   }
 }

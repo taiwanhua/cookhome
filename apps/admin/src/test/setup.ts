@@ -16,6 +16,10 @@ import {
   useSideNavStore,
 } from "../stores/useSideNavStore";
 import { useSnackbarStore } from "../stores/useSnackbarStore";
+import {
+  INITIAL_WORKFLOW_DRAFT,
+  useWorkflowDraftStore,
+} from "../stores/useWorkflowDraftStore";
 import { resetHelpFiles } from "./help-registry";
 import { server } from "./msw/server";
 
@@ -49,6 +53,8 @@ afterEach(() => {
   resetHelpFiles();
   // 表單設計器的「未存變更」回報也是模組層單例
   useDesignerDraftStore.setState({ formKey: null, isDirty: false, save: null });
+  // 流程設計器的「未存變更」回報同理
+  useWorkflowDraftStore.setState(INITIAL_WORKFLOW_DRAFT);
 });
 
 afterAll(() => {

@@ -16,6 +16,7 @@ import { Tabs } from "@repo/ui/tabs";
 import { Typography } from "@repo/ui/typography";
 
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
 import { formErrorOf } from "@/lib/form-engine/form-errors";
 
@@ -24,6 +25,8 @@ import { AssignFormDialog } from "./FormDialogs/AssignFormDialog";
 import { EditFormDialog } from "./FormDialogs/EditFormDialog";
 import { ForkFormDialog } from "./FormDialogs/ForkFormDialog";
 import { VersionPanel } from "./VersionPanel/VersionPanel";
+import { WorkflowBindingField } from "./WorkflowBinding/WorkflowBindingField";
+import { FORMS_PERMISSIONS } from "./forms-permissions";
 
 export interface FormDetailPanelProps {
   form: FormFieldsFragment;
@@ -36,7 +39,7 @@ type OpenDialog = "edit" | "fork" | "assign" | null;
 
 /**
  * 表單管理右欄(Spec 6a §8 畫面 1 的右側):表單資料、設計 / 版本兩個頁籤,以及
- * 編輯名稱與頁籤模板、以此為基底建新表單、分派租戶(root)、在本組織啟用(租戶)。
+ * 編輯名稱與頁籤模板、以此為基底建新表單、分派租戶(root)、在本組織啟用與流程綁定(租戶)。
  * 按鈕一律依 api 的 `form.abilities`(已含權限與「是不是自己的表單 / 站在哪裡」)。
  */
 export const FormDetailPanel = ({
@@ -49,6 +52,10 @@ export const FormDetailPanel = ({
   const { session } = useSession();
   const [tab, setTab] = useState<DetailTab>("design");
   const [dialog, setDialog] = useState<OpenDialog>(null);
+  const { hasPermission } = usePermissions();
+  // 流程綁定是租戶自己的設定(root 沒有表單綁定,api 回 TENANT_ONLY),且只對本組織**啟用中**的表單設
+  // (Spec 6b §8 畫面 7「每張啟用表單一個下拉」):租戶視角才有 `tenantEnabled`,停用的不給綁
+  const canBindWorkflow = form.tenantEnabled === true;
 
   const setEnabled = useSetTenantFormEnabledMutation(
     session.client,
@@ -142,6 +149,9 @@ export const FormDetailPanel = ({
               }
             />
           )}
+        {canBindWorkflow && hasPermission(FORMS_PERMISSIONS.edit) && (
+          <WorkflowBindingField form={form} onChanged={onChanged} />
+        )}
         {form.assignments.length > 0 && (
           <Typography variant="body2" color="text.secondary">
             {t("assignedTo", {

@@ -47,11 +47,11 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 
 | 你是     | 照這個順序讀                                                                                                                                                |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 新手     | 本頁 → `CONTEXT.md`(詞彙)→ `docs/concepts/` 六份(順序見下)→ 感興趣的 `docs/modules/<key>.md`                                                                |
+| 新手     | 本頁 → `CONTEXT.md`(詞彙)→ `docs/concepts/` 七份(順序見下)→ 感興趣的 `docs/modules/<key>.md`                                                                |
 | 開發者   | 新手路線 → `docs/standards/README.md`(只載入相關規範)→ `docs/agents/module-scaffold.md`(新增模組;要人機問答出規格卡用 `/module-scaffold`)→ 需要理由時讀 ADR |
 | AI agent | 新手路線 → `docs/agents/toolbox.md`(工具與環境)→ `docs/agents/issue-tracker.md`(票與 PR 流程)→ 依改動範圍載入規範                                           |
 
-concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-and-isolation` → `storage-and-mail` → `frontend-architecture` → `form-engine`。
+concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-and-isolation` → `storage-and-mail` → `frontend-architecture` → `form-engine` → `workflow-engine`。
 
 正本:`docs/agents/domain.md`「概念導讀」
 
@@ -68,13 +68,14 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/concepts/storage-and-mail.md`           | GCS 上傳與讀取、寄信                             | 模組要存檔或寄信           |
 | `docs/concepts/frontend-architecture.md`      | admin 分層、殼、路由、頁籤、共版型、快取         | 動 admin 前端              |
 | `docs/concepts/form-engine.md`                | 表單模組、版本、分派、提交、欄位級權限、引擎零件 | 動表單模組或表單引擎       |
+| `docs/concepts/workflow-engine.md`            | 審核流程、綁定、實例與推進、阻擋、申請中心       | 動審核流程或申請中心       |
 | `docs/adr/`                                   | 決策與理由(12 份)                                | 想知道「為什麼這樣做」     |
 | `docs/data-model.md`                          | collection 地圖                                  | 找某張表的用途與 schema 檔 |
 | `docs/architecture.md`                        | 技術棧、port、品質約束                           | 設定開發環境               |
 | `docs/modules/<key>.md`                       | 各模組的權限表、api 介面、畫面                   | 動某個模組                 |
 | `apps/admin/src/md/module-help/<key>.help.md` | 租戶使用者看的模組說明                           | 改模組的使用者文案         |
 | `docs/standards/README.md`                    | 程式碼規範索引(規則編號)                         | 寫或 review 程式碼         |
-| `docs/testing/permission-scenarios.md`        | 19 條權限驗收劇本                                | 驗收、寫 E2E               |
+| `docs/testing/permission-scenarios.md`        | 24 條權限驗收劇本                                | 驗收、寫 E2E               |
 | `docs/testing/handover-quiz.md`               | 接手自測題                                       | 讀完文件後自我檢查         |
 | `docs/agents/toolbox.md`                      | agent 的工具與環境須知                           | AI agent 開工前            |
 | `docs/agents/issue-tracker.md`                | issue、看板、PR 的流程                           | 開票、接票、交件           |
