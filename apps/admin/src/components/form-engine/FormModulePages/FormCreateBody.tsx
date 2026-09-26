@@ -18,6 +18,7 @@ import {
 
 import { FormFillForm } from "./FormFillForm";
 import type { FormModuleAccess } from "./useFormModuleAccess";
+import { useTabLabelRenderer } from "./useTabLabelRenderer";
 
 export interface FormCreateBodyProps {
   moduleKey: string;
@@ -71,6 +72,15 @@ export const FormCreateBody = ({
     () => liveContextOf(userId, orgId, now, timezone),
     [userId, orgId, now, timezone],
   );
+  // 頁籤 / 標題:以正在輸入的值即時算(`FormFillForm` 呼叫);建立者 = 自己
+  const tabLabelOf = useTabLabelRenderer({
+    moduleKey,
+    formKey: form.key,
+    formName: form.name,
+    definition,
+    action: "create",
+    applicantName: user?.name,
+  });
   const systemLabels = useMemo(
     () => ({ user: user?.name ?? null, org: user?.currentOrg?.name ?? null }),
     [user?.name, user?.currentOrg?.name],
@@ -118,6 +128,7 @@ export const FormCreateBody = ({
           void navigate(`${access.editRoute}/${draft.draft.id}`);
         }
       }}
+      tabLabelOf={tabLabelOf}
     />
   );
 };

@@ -80,7 +80,7 @@ describe("申請中心詳情頁(view-page)", () => {
     });
 
     expect(
-      await screen.findByRole("heading", { name: "病假三天" }),
+      await screen.findByRole("heading", { name: "檢視・病假三天" }),
     ).toBeInTheDocument();
     expect(await screen.findByDisplayValue("病假")).toBeInTheDocument();
     const rows = await progressRows();

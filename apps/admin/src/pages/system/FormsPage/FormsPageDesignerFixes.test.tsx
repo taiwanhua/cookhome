@@ -223,14 +223,14 @@ describe("表單管理:設計器修正(失焦、key 重複、面板依型別)", 
       name: "頁籤模板預覽",
     });
     // 留空 = 模組預設 {{title}}
-    expect(preview).toHaveTextContent("範例:病假申請");
+    expect(preview).toHaveTextContent("範例:檢視・病假申請");
 
     // user-event 的 `{{` 是字面的 `{`
     await user.type(
       within(dialog).getByRole("textbox", { name: "頁籤 / 標題模板" }),
       "{{{{title}} — {{{{date}}",
     );
-    expect(preview).toHaveTextContent("範例:病假申請 — 2026-03-12");
+    expect(preview).toHaveTextContent("範例:檢視・病假申請 — 2026-03-12");
 
     // 系統佔位符:可用清單列出來,{{form}} 用輸入框裡的表單名、{{applicant}} 用範例的建立者
     const placeholders = within(dialog).getByRole("list", {
@@ -244,6 +244,16 @@ describe("表單管理:設計器修正(失焦、key 重複、面板依型別)", 
     });
     await user.clear(template);
     await user.type(template, "{{{{form}} · {{{{applicant}}");
-    expect(preview).toHaveTextContent("範例:購物單 · 王小明");
+    expect(preview).toHaveTextContent("範例:檢視・購物單 · 王小明");
+
+    // {{action}} 有寫就照模板位置,不再自動加在最前面;欄位值從下拉挑欄位插入 {{value.<key>}}
+    await user.clear(template);
+    await user.type(template, "{{{{action}}:");
+    await user.click(
+      within(dialog).getByRole("combobox", { name: "插入欄位的值" }),
+    );
+    await user.click(await screen.findByRole("option", { name: "品項(item)" }));
+    expect(template).toHaveValue("{{action}}:{{value.item}}");
+    expect(preview).toHaveTextContent("範例:檢視:〈品項〉");
   });
 });

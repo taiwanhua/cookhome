@@ -535,7 +535,14 @@
       "addField": "+ 表單欄位",
       "cancel": "取消",
       "save": "儲存",
-      "saved": "已儲存列表欄位配置。"
+      "saved": "已儲存列表欄位配置。",
+      "builtin": "內建欄",
+      "builtinHint": "關掉的欄不會出現在列表上",
+      "builtinColumns": {
+        "form": "表單",
+        "status": "狀態",
+        "createdBy": "建立者"
+      }
     },
     "retired": {
       "open": "退役權限清理",
@@ -1189,7 +1196,12 @@
       "deleteConfirm": "確認刪除",
       "cancel": "取消",
       "void": "作廢",
-      "voidOf": "作廢「{label}」"
+      "voidOf": "作廢「{label}」",
+      "actions": {
+        "view": "檢視",
+        "edit": "編輯",
+        "create": "新增"
+      }
     },
     "fill": {
       "loading": "載入中",
@@ -1320,7 +1332,10 @@
         "date": "摘要的日期",
         "amount": "摘要的金額",
         "applicant": "建立者(顯示現在的名字)",
-        "form": "表單名稱"
+        "form": "表單名稱",
+        "module": "模組名稱",
+        "action": "頁面種類(檢視 / 編輯 / 新增);沒寫時自動加在最前面",
+        "value": "欄位的值(從下拉挑欄位插入)"
       },
       "sampleTitle": "病假申請",
       "sampleDate": "2026-03-12",
@@ -1331,7 +1346,14 @@
       "previewLabel": "頁籤模板預覽",
       "cancel": "取消",
       "confirm": "儲存",
-      "success": "已更新表單。"
+      "success": "已更新表單。",
+      "valueToken": "value.欄位 key",
+      "insertField": "插入欄位的值",
+      "insertFieldHint": "挑一個欄位,把它的值插到模板最後",
+      "insertFieldEmpty": "還沒有版本,沒有欄位可挑",
+      "sampleModule": "請假",
+      "sampleAction": "檢視",
+      "sampleValue": "〈{label}〉"
     },
     "versions": {
       "tableAria": "版本清單",
@@ -1585,7 +1607,11 @@
       "fixedFilterHint": "一定會套用的篩選,填寫的人改不了",
       "valueField": "值欄",
       "valueFieldHint": "選項存哪一欄的值;預設以資料的 id 為值",
-      "valueFieldId": "資料的 id(預設)"
+      "valueFieldId": "資料的 id(預設)",
+      "labelTemplate": "顯示模板(選填)",
+      "labelTemplateHint": "有填就用模板組顯示名(例:名稱 + Email),沒填用顯示欄",
+      "insertPlaceholder": "插入欄位",
+      "insertPlaceholderHint": "挑一個欄位,把它插到模板最後"
     },
     "rules": {
       "required": "必填",

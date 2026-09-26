@@ -1,7 +1,14 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { SHOPPING_ROUTES, submissionFragment } from "@/test/msw/form-fixtures";
+import { FormSubmissionStatus } from "@repo/graphql";
+
+import {
+  SHOPPING_FORM_KEY,
+  SHOPPING_ROUTES,
+  shoppingDefinition,
+  submissionFragment,
+} from "@/test/msw/form-fixtures";
 
 import {
   defaultRuntimeOptions,
@@ -100,5 +107,56 @@ describe("表單模組編輯頁(預設組裝)", () => {
 
     const tabs = await screen.findByRole("tablist", { name: "路由頁籤" });
     expect(await within(tabs).findByText(/小華 的購物單/)).toBeInTheDocument();
+  });
+
+  it("草稿的頁籤從正在輸入的值即時算:{{date}}(摘要槽對日期欄,租戶時區)與 {{value.<key>}};沒寫 {{action}} 加「編輯・」", async () => {
+    const base = shoppingDefinition();
+    const definition = {
+      ...base,
+      fields: [
+        ...base.fields,
+        {
+          key: "buy_day",
+          label: "採購日",
+          type: "date" as const,
+          widget: { kind: "datePicker" },
+          valueSource: { kind: "input" as const },
+        },
+      ],
+      summaryMap: { ...base.summaryMap, date: "buy_day" },
+    };
+    const { user } = renderShopping({
+      path: EDIT_PATH,
+      world: {
+        moduleForms: [
+          { ...shoppingForm, tabLabelTemplate: "{{date}} {{value.item}}" },
+        ],
+        versions: { [`${SHOPPING_FORM_KEY}@1`]: definition },
+        submissions: [
+          submissionFragment({
+            status: FormSubmissionStatus.Draft,
+            revision: 0,
+            ctx: null,
+            submittedAt: null,
+            summary: { title: null, date: null, amount: null },
+            values: {
+              ...submissionFragment().values,
+              buy_day: "2026-09-25T16:00:00.000Z",
+            },
+          }),
+        ],
+      },
+    });
+
+    const tabs = await screen.findByRole("tablist", { name: "路由頁籤" });
+    expect(
+      await within(tabs).findByText(/編輯・2026-09-26 雞蛋/),
+    ).toBeInTheDocument();
+    const item = await screen.findByRole("textbox", { name: "品項" });
+    await user.clear(item);
+    await user.type(item, "牛奶");
+    expect(
+      await within(tabs).findByText(/編輯・2026-09-26 牛奶/),
+    ).toBeInTheDocument();
   });
 });

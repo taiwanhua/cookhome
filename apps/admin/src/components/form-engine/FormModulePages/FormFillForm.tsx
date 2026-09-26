@@ -12,6 +12,7 @@ import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import { useFillValues } from "@/hooks/useFillValues";
+import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
 import type { FieldPermissionFacts } from "@/lib/form-engine/field-states";
 import { type FormError, isCapacityError } from "@/lib/form-engine/form-errors";
 
@@ -48,6 +49,8 @@ export interface FormFillFormProps {
   onCancel: () => void;
   /** 409 時的「重新載入」 */
   onReload: () => void;
+  /** 頁籤 / 標題:以正在輸入的值即時算(`useTabLabelRenderer`);不給就不動頁籤 */
+  tabLabelOf?: (values: StoredValues) => string | null;
 }
 
 /**
@@ -79,6 +82,7 @@ export const FormFillForm = ({
   onSubmit,
   onCancel,
   onReload,
+  tabLabelOf,
 }: FormFillFormProps) => {
   const t = useTranslations("admin.formEngine.fill");
   const tErrors = useTranslations("admin.formEngine.errors");
@@ -93,6 +97,7 @@ export const FormFillForm = ({
     ...(systemLabels !== undefined && { systemLabels }),
   });
   const { values } = fill;
+  useRouteTabItemLabel(tabLabelOf?.(values));
   const [isPrefilling, setIsPrefilling] = useState(false);
   const canPrefill = definition.prefills.length > 0;
 

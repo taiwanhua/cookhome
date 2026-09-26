@@ -83,7 +83,8 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
     });
 
     expect(
-      await screen.findByRole("heading", { name: "雞蛋" }),
+      // 標題從值即時算(摘要槽 title → 品項),沒寫 {{action}} 自動加「檢視・」
+      await screen.findByRole("heading", { name: "檢視・雞蛋" }),
     ).toBeInTheDocument();
     expect(await screen.findByRole("textbox", { name: "總價" })).toHaveValue(
       "999 元",

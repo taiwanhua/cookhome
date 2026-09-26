@@ -13,6 +13,7 @@ import { CircularProgress } from "@repo/ui/circular-progress";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useTabLabelRenderer } from "@/components/form-engine/FormModulePages/useTabLabelRenderer";
 import { FormRenderer } from "@/components/form-engine/FormRenderer/FormRenderer";
 import { ApprovalSection } from "@/components/workflow/ApprovalSection/ApprovalSection";
 import { SubmissionStatusTag } from "@/components/workflow/SubmissionStatusTag";
@@ -72,8 +73,22 @@ export const ApplyCenterViewPage = ({ routeParam }: ModulePageProps) => {
     () => (submission === null ? null : permissionsOfSubmission(submission)),
     [submission],
   );
+  // 頁籤 / 標題:與表單模組詳情頁同一個算法,以那個修訂的值、時區即時算
+  const tabLabelOf = useTabLabelRenderer({
+    moduleKey: instance?.moduleKey ?? "",
+    moduleName: instance?.moduleName,
+    formKey: instance?.formKey,
+    formName: instance?.formName,
+    definition: version.definition,
+    action: "view",
+    applicantName: instance?.applicant?.name,
+    timezone: submission?.ctx?.timezone,
+    submittedAt: submission?.submittedAt,
+  });
   const title =
-    instance?.summary?.title ?? instance?.formName ?? instance?.formKey ?? null;
+    instance === null
+      ? null
+      : (tabLabelOf(submission?.values) ?? instance.formKey);
   useRouteTabItemLabel(title);
 
   if (
