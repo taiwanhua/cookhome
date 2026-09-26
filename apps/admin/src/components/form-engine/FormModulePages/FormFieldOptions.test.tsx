@@ -250,7 +250,7 @@ describe("表單的類別選項欄與投影過的定義", () => {
         world: worldWith({ submissions: [redactedSubmission()] }),
       });
 
-      expect(await screen.findByText("飲品")).toBeInTheDocument();
+      expect(await screen.findByDisplayValue("飲品")).toBeInTheDocument();
       expect(screen.queryByText("內部總價")).toBeNull();
       expect(screen.queryByText("[redacted]")).toBeNull();
     });

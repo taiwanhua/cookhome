@@ -618,7 +618,8 @@ describe("表單發布(四步、冪等重試、版本)", () => {
     expect(failed.errors).toBeDefined();
     jest.restoreAllMocks();
     // 停在兩步之間:版本已退役、currentVersion 還指著它
-    expect((await versionsOf("pub_retire_retry"))[0]?.status).toBe("RETIRED");
+    const [halfway] = await versionsOf("pub_retire_retry");
+    expect(halfway?.status).toBe("RETIRED");
     expect(await getForm(api, token, "pub_retire_retry")).toMatchObject({
       currentVersion: 1,
     });

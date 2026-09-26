@@ -30,6 +30,7 @@ import {
   createSubmitted,
   definitionOf,
   field,
+  getForm,
   ok,
   publishDraft,
   publishNewForm,
@@ -358,7 +359,10 @@ describe("formFieldOptions 與 formRuntimeVersion 的讀者投影", () => {
       });
       expect(errorsOf(await optionsOf(staff.token, input))).toBeUndefined();
 
-      await ok(api, root, RETIRE_CURRENT, { input: { formKey: LIFECYCLE } });
+      const { currentVersion } = await getForm(api, root, LIFECYCLE);
+      await ok(api, root, RETIRE_CURRENT, {
+        input: { formKey: LIFECYCLE, expectedVersion: currentVersion },
+      });
       const retired = await optionsOf(staff.token, input);
       expect(retired.errors).toBeUndefined();
       expect(retired.data?.formFieldOptions.items).toContainEqual({

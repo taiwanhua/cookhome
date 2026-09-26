@@ -43,6 +43,22 @@ interface RawSubmission {
   revisions: RawRevision[];
 }
 
+/** 已完成修改的 input:只改標題,其餘照目前存的值送回。 */
+function updateOf(
+  raw: RawSubmission,
+  id: string,
+  title: string,
+): { input: Record<string, unknown> } {
+  return {
+    input: {
+      id,
+      expectedEditVersion: raw.editVersion,
+      expectedRevision: raw.revision,
+      values: { ...raw.values, title },
+    },
+  };
+}
+
 /**
  * `revisions[]` 上限(Spec 6a §4):每筆提交 ≤ 50 筆修訂、更新後的完整文件 BSON ≤ 8MB;
  * 超過 → `CONFLICT`(`REVISION_LIMIT` / `DOCUMENT_TOO_LARGE`),什麼都不寫。
@@ -82,17 +98,6 @@ describe("提交的修訂上限與文件容量上限", () => {
         { $set: { revisions, revision: count } },
       );
     return (await rawSubmission(connection, id)) as unknown as RawSubmission;
-  }
-
-  function updateOf(raw: RawSubmission, id: string, title: string) {
-    return {
-      input: {
-        id,
-        expectedEditVersion: raw.editVersion,
-        expectedRevision: raw.revision,
-        values: { ...raw.values, title },
-      },
-    };
   }
 
   beforeAll(async () => {

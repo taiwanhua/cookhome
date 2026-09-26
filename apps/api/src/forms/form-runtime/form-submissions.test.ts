@@ -32,6 +32,7 @@ import {
   editKey,
   extensionsOf,
   field,
+  getForm,
   getSubmission,
   nextRequestId,
   ok,
@@ -501,7 +502,10 @@ describe("表單提交:草稿 / 送出 / 修訂、四種寫入行為、樂觀鎖
       qty: 1,
       unit_price: "1",
     });
-    await ok(api, root, RETIRE_CURRENT, { input: { formKey: FORM } });
+    const { currentVersion } = await getForm(api, root, FORM);
+    await ok(api, root, RETIRE_CURRENT, {
+      input: { formKey: FORM, expectedVersion: currentVersion },
+    });
     const submitted = await submitDraft(api, staff.token, draft);
     expect(submitted.status).toBe("COMPLETED");
     const blocked = await call(api, staff.token, CREATE_FORM_DRAFT, {

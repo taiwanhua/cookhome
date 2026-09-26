@@ -85,8 +85,10 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
     expect(
       await screen.findByRole("heading", { name: "雞蛋" }),
     ).toBeInTheDocument();
-    expect(await screen.findByText("999 元")).toBeInTheDocument();
-    expect(screen.getByText("要放山")).toBeInTheDocument();
+    expect(await screen.findByRole("textbox", { name: "總價" })).toHaveValue(
+      "999 元",
+    );
+    expect(screen.getByRole("textbox", { name: "備註" })).toHaveValue("要放山");
     // 修訂的 ctx.now = 2026-01-05,條件「晚於 2026-06-01」不成立 → 不顯示(即使讀者的現在已晚於它)
     expect(screen.queryByText("晚到提醒")).toBeNull();
     // 受保護且讀者沒有 show:整格不渲染(不是顯示空值)
