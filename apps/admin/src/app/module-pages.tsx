@@ -1,11 +1,13 @@
 import { formModulePages } from "../components/form-engine/FormModulePages/form-module-pages";
 import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
-import { ApplyCenterPage } from "../pages/apply-center/ApplyCenterPage/ApplyCenterPage";
 import {
   APPLY_CENTER_MODULE_KEY,
   APPLY_CENTER_VIEW_PAGE_KEY,
 } from "../pages/apply-center/apply-center-keys";
-import { LazyApplyCenterViewPage } from "../pages/apply-center/lazy-apply-center-view-page";
+import {
+  LazyApplyCenterPage,
+  LazyApplyCenterViewPage,
+} from "../pages/apply-center/lazy-apply-center-view-page";
 import { SampleOneFormPage } from "../pages/demo/SampleOneFormPage/SampleOneFormPage";
 import { SampleOnePage } from "../pages/demo/SampleOnePage/SampleOnePage";
 import { SampleOneViewPage } from "../pages/demo/SampleOneViewPage/SampleOneViewPage";
@@ -28,7 +30,7 @@ import { RoleManagerPage } from "../pages/system/RoleManagerPage/RoleManagerPage
 import { ROLE_MANAGER_MODULE_KEY } from "../pages/system/RoleManagerPage/role-manager-permissions";
 import { UserManagerPage } from "../pages/system/UserManagerPage/UserManagerPage";
 import { USER_MANAGER_MODULE_KEY } from "../pages/system/UserManagerPage/user-manager-permissions";
-import { WorkflowBlockedPage } from "../pages/system/WorkflowBlockedPage/WorkflowBlockedPage";
+import { LazyWorkflowBlockedPage } from "../pages/system/WorkflowBlockedPage/lazy-workflow-blocked-page";
 import { LazyWorkflowsPage } from "../pages/system/WorkflowsPage/lazy-workflows-page";
 import {
   WORKFLOWS_BLOCKED_PAGE_KEY,
@@ -69,10 +71,10 @@ export const modulePages: ModulePageRegistry = {
   [DATA_SCOPE_MODULE_KEY]: DataScopePage,
   // 表單管理:懶載入(設計器不進首屏 bundle)
   [FORMS_MODULE_KEY]: LazyFormsPage,
-  // 審核流程(Spec 6b §8):流程管理(設計器懶載入)與阻擋清單、申請中心兩頁籤與詳情(詳情懶載入)
+  // 審核流程(Spec 6b §8):流程管理、阻擋清單、申請中心兩頁籤與詳情,全部懶載入(不進首屏 bundle)
   [WORKFLOWS_MODULE_KEY]: LazyWorkflowsPage,
-  [WORKFLOWS_BLOCKED_PAGE_KEY]: WorkflowBlockedPage,
-  [APPLY_CENTER_MODULE_KEY]: ApplyCenterPage,
+  [WORKFLOWS_BLOCKED_PAGE_KEY]: LazyWorkflowBlockedPage,
+  [APPLY_CENTER_MODULE_KEY]: LazyApplyCenterPage,
   [APPLY_CENTER_VIEW_PAGE_KEY]: LazyApplyCenterViewPage,
   // 表單模組(Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝;
   // 請假綁了流程時,詳情頁下方自動掛審核區塊(預設組裝含)

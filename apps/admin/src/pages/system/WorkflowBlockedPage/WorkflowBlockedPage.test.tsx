@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@jest/globals";
+import { beforeAll, describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
 import { WorkflowInstanceStatus, WorkflowStepStatus } from "@repo/graphql";
@@ -78,6 +78,11 @@ const renderBlocked = (world: WorkflowRuntimeWorldOptions) => {
   );
   return { ...renderApp({ path: BLOCKED_ROUTE }), world: runtime };
 };
+
+beforeAll(async () => {
+  // 懶載入的頁面先載進模組快取(TEST-08)
+  await import("./WorkflowBlockedPage");
+});
 
 describe("阻擋清單", () => {
   it("列出卡在哪、卡在誰(失效的承辦人 / 找不到審核者),不含提交內容", async () => {

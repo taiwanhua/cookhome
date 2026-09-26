@@ -9,3 +9,10 @@ export const LazyApplyCenterViewPage = lazy(() =>
     default: module.ApplyCenterViewPage,
   })),
 );
+
+/** 申請中心兩頁籤(DataTable 與虛擬捲動)同理懶載入,不進首屏 bundle。 */
+export const LazyApplyCenterPage = lazy(() =>
+  import("./ApplyCenterPage/ApplyCenterPage").then((module) => ({
+    default: module.ApplyCenterPage,
+  })),
+);

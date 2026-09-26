@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@jest/globals";
+import { beforeAll, describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
 import { FormSubmissionStatus, WorkflowTaskStatus } from "@repo/graphql";
@@ -16,6 +16,11 @@ import {
 } from "../apply-center-test-support";
 
 setupFakeViewport();
+
+beforeAll(async () => {
+  // 懶載入的頁面先載進模組快取(TEST-08)
+  await import("./ApplyCenterPage");
+});
 
 describe("申請中心", () => {
   it("我的申請:跨模組列出狀態 chip(含待處理)與目前關卡(平行時多個);依狀態篩選", async () => {
