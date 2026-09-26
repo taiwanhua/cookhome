@@ -1653,11 +1653,14 @@
     "expression": {
       "root": "根",
       "kind": "節點種類({path})",
+      "emptySlot": "請選節點種類",
+      "emptyMeansNull": "沒選 = 空值(判斷有沒有填)",
       "kinds": {
         "field": "欄位",
         "context": "系統值",
         "constant": "常數",
-        "operation": "運算"
+        "operation": "運算",
+        "empty": "請選節點種類"
       },
       "field": "欄位",
       "context": "系統值",
@@ -1695,6 +1698,7 @@
         "max": "最大值",
         "in": "包含於",
         "dateDiff": "日期差",
+        "dateAdd": "日期加減",
         "concat": "串接文字",
         "optionLabel": "選項顯示名",
         "now": "現在時間"
@@ -1705,9 +1709,12 @@
         "number": "數字",
         "boolean": "是否",
         "date": "日期",
+        "datetime": "日期時間",
         "list": "清單",
-        "null": "空值"
+        "option": "選項",
+        "optionList": "選項(多個)"
       },
+      "optionValue": "{field} 的選項",
       "constantValue": "值",
       "listValue": "值(以逗號分隔)",
       "unit": "單位",
@@ -1716,10 +1723,22 @@
         "hours": "小時",
         "minutes": "分鐘"
       },
+      "direction": "方向",
+      "directions": {
+        "before": "之前",
+        "after": "之後"
+      },
+      "calendarUnits": {
+        "days": "天",
+        "weeks": "週",
+        "months": "月",
+        "years": "年"
+      },
       "optionField": "選項欄位",
       "optionFieldUnset": "請選欄位",
       "booleanValue": "常數值(是 / 否)",
       "addArg": "+ 參數",
+      "addCondition": "+ 條件",
       "removeArg": "移除",
       "set": "設定",
       "clear": "清除",

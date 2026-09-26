@@ -1,8 +1,6 @@
-import { createElement } from "react";
 import { useTranslations } from "use-intl";
 
 import {
-  DEFAULT_TENANT_TIMEZONE,
   FIELD_EXPRESSION_TYPES,
   type FieldDef,
   type FieldDefault,
@@ -10,19 +8,13 @@ import {
   defaultKindsOf,
 } from "@repo/domain/form";
 import { Button } from "@repo/ui/button";
-import { DatePicker } from "@repo/ui/date-picker";
-import { DateTimePicker } from "@repo/ui/date-time-picker";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
-import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import { ExpressionPicker } from "@/components/form-engine/ExpressionPicker/ExpressionPicker";
-import { widgetOf } from "@/components/form-engine/widgets/widget-registry";
-import { useTenantTimezone } from "@/hooks/useTenantTimezone";
+import { TypedValueInput } from "@/components/form-engine/TypedValueInput/TypedValueInput";
 import { initialExpressionOf } from "@/lib/form-engine/expression-options";
-import { localDayInstantOf, localDayTextOf } from "@/lib/form-engine/local-day";
-import { scalarText } from "@/lib/form-engine/value-text";
 
 export interface DefaultValueEditorProps {
   field: FieldDef;
@@ -51,7 +43,9 @@ const referencePathOf = (value: FieldDefault | null | undefined): string => {
 
 /** 空值(沒選、清空)= 拿掉預設值,不存 `{ kind: "constant", value: null }`。 */
 const constantOf = (value: unknown): FieldDefault | null =>
-  value === null || value === "" ? null : { kind: "constant", value };
+  value === null || value === "" || (Array.isArray(value) && value.length === 0)
+    ? null
+    : { kind: "constant", value };
 
 /** 引用:只能系統值「填寫者 / 填寫者的組織」。 */
 const ReferenceDefault = ({ field, onChange }: PartProps) => {
@@ -79,81 +73,40 @@ const ReferenceDefault = ({ field, onChange }: PartProps) => {
 };
 
 /** 是否:固定值(是 / 否)。 */
-const BooleanDefault = ({ constant, onChange }: PartProps) => {
+const BooleanDefault = ({ field, constant, onChange }: PartProps) => {
   const t = useTranslations("admin.forms.property");
   return (
-    <SelectField<string>
+    <TypedValueInput
+      field={field}
       label={t("defaultValue")}
-      value={typeof constant === "boolean" ? String(constant) : NONE}
-      displayEmpty
-      options={[
-        { value: NONE, label: t("defaultKinds.none") },
-        { value: "true", label: t("defaultBoolean.true") },
-        { value: "false", label: t("defaultBoolean.false") },
-      ]}
+      value={constant}
+      emptyLabel={t("defaultKinds.none")}
       onChange={(next) => {
-        onChange(constantOf(next === NONE ? null : next === "true"));
+        onChange(constantOf(next));
       }}
-      size="small"
     />
   );
 };
 
-/** 單選 / 多選:靜態清單直接挑;類別 / 資料來源用填寫時的同一個選擇器挑(選項以已存的草稿查詢)。 */
+/** 單選 / 多選:從選項挑 —— 靜態清單直接挑;類別 / 資料來源用填寫時的同一個選擇器挑(選項以已存的草稿查詢)。 */
 const ChoiceDefault = ({ field, formKey, constant, onChange }: PartProps) => {
   const t = useTranslations("admin.forms.property");
-  const options = field.options;
-  if (options?.kind === "static") {
-    const items = options.items
-      .filter((item) => item.enabled)
-      .map((item) => ({ value: item.value, label: item.label }));
-    return field.type === "select" ? (
-      <SelectField<string>
+  const isStatic = field.options?.kind === "static";
+  return (
+    <Stack spacing={0.5}>
+      <TypedValueInput
+        field={field}
         label={t("defaultValue")}
-        value={typeof constant === "string" ? constant : NONE}
-        displayEmpty
-        options={[{ value: NONE, label: t("defaultKinds.none") }, ...items]}
+        value={constant}
+        formKey={formKey}
+        {...(isStatic
+          ? { emptyLabel: t("defaultKinds.none") }
+          : { helperText: t("defaultPickerHint") })}
         onChange={(next) => {
           onChange(constantOf(next));
         }}
-        size="small"
       />
-    ) : (
-      <SelectField<string>
-        label={t("defaultValue")}
-        multiple
-        value={
-          Array.isArray(constant)
-            ? constant.filter(
-                (item): item is string => typeof item === "string",
-              )
-            : []
-        }
-        options={items}
-        onChange={(picked) => {
-          onChange(constantOf(picked.length === 0 ? null : picked));
-        }}
-        size="small"
-      />
-    );
-  }
-  return (
-    <Stack spacing={0.5}>
-      {createElement(widgetOf(field.widget.kind), {
-        field: { ...field, label: t("defaultValue") },
-        value: constant,
-        onChange: (next: unknown) => {
-          onChange(
-            constantOf(Array.isArray(next) && next.length === 0 ? null : next),
-          );
-        },
-        isDisabled: false,
-        isDesign: false,
-        helperText: t("defaultPickerHint"),
-        hasError: false,
-        context: { formKey, version: null },
-      })}
-      {constant !== null && (
+      {!isStatic && constant !== null && (
         <Stack direction="row">
           <Button
             variant="text"
@@ -170,46 +123,16 @@ const ChoiceDefault = ({ field, formKey, constant, onChange }: PartProps) => {
   );
 };
 
-/**
- * 固定值的輸入元件:日期 / 日期時間用選擇器(日期存選的那天在租戶時區 00:00 的 ISO),其餘用輸入框。
- */
+/** 固定值的輸入元件:依型別(`TypedValueInput`;日期存選的那天在租戶時區 00:00 的 ISO)。 */
 const ConstantInput = ({ field, constant, onChange }: PartProps) => {
   const t = useTranslations("admin.forms.property");
-  const timezone = useTenantTimezone() ?? DEFAULT_TENANT_TIMEZONE;
-  const text = typeof constant === "string" ? constant : null;
-  const set = (value: unknown) => {
-    onChange({ kind: "constant", value });
-  };
-  if (field.type === "date") {
-    return (
-      <DatePicker
-        label={t("defaultConstant")}
-        value={localDayTextOf(constant, timezone)}
-        onChange={(next) => {
-          set(localDayInstantOf(next, timezone));
-        }}
-        size="small"
-      />
-    );
-  }
-  if (field.type === "datetime") {
-    return (
-      <DateTimePicker
-        label={t("defaultConstant")}
-        value={text}
-        onChange={set}
-        size="small"
-      />
-    );
-  }
   return (
-    <TextField
+    <TypedValueInput
+      field={field}
       label={t("defaultConstant")}
-      size="small"
-      type={field.type === "number" ? "number" : "text"}
-      value={scalarText(constant)}
-      onChange={(event) => {
-        set(event.target.value);
+      value={constant}
+      onChange={(value) => {
+        onChange({ kind: "constant", value });
       }}
     />
   );
@@ -257,6 +180,8 @@ const ScalarDefault = (props: PartProps) => {
           fields={fields.filter((candidate) => candidate.key !== field.key)}
           usage="formula"
           resultType={resultType}
+          resultField={field}
+          formKey={props.formKey}
           issues={exprIssues}
           onChange={(expr) => {
             onChange({ kind: "expression", expr: expr ?? null });

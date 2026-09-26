@@ -7,7 +7,7 @@ import { Typography } from "@repo/ui/typography";
 import type { WidgetProps } from "./widget-types";
 
 /**
- * 是否欄(`boolean` → `switch` / `checkbox`);標題在開關 / 勾選框前面。
+ * 是否欄(`boolean` → `switch` / `checkbox`);標題在開關 / 勾選框前面;必填 = 必須勾選(標題帶必填記號)。
  * 唯讀檢視:同一個開關 / 勾選框帶 `readOnly`(不是停用:照一般顏色顯示開 / 關,點了不會變)。
  */
 export const BooleanWidget = ({
@@ -52,6 +52,8 @@ export const BooleanWidget = ({
         control={control}
         label={field.label}
         labelPlacement="start"
+        // 必填 = 必須勾選(Spec 6a 表 A;未勾選送出由 api 以 REQUIRED 擋),標題帶必填記號
+        required={field.rules?.required === true}
         sx={{ alignSelf: "flex-start" }}
       />
       {helperText !== undefined && (

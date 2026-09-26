@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslations } from "use-intl";
 
 import {
@@ -5,19 +6,15 @@ import {
   type Expression,
   type FieldDef,
   type FieldTypeLookup,
-  OPERATOR_SIGNATURES,
-  expectedTypesAt,
-  paramSpecAt,
 } from "@repo/domain/form";
-import { Box } from "@repo/ui/box";
-import { Button } from "@repo/ui/button";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import {
-  EQUALITY_OPERATORS,
   type PickerPosition,
   type PositionOptions,
+  initialExpressionOf,
   positionOptionsOf,
 } from "@/lib/form-engine/expression-options";
 import {
@@ -25,7 +22,6 @@ import {
   type ExpressionNodeKind,
   PICKER_OPERATORS,
   type PickerOperator,
-  argsOf,
   constantDefaultOf,
   constantKindOf,
   contextNode,
@@ -34,64 +30,65 @@ import {
   operationNode,
   operatorOf,
   varPathOf,
-  withArgs,
   withOperator,
 } from "@/lib/form-engine/expression-tree";
 
 import { ConstantEditor } from "./ConstantEditor";
-import { SpecialArgEditor } from "./SpecialArgEditor";
+import { ExpressionGroup } from "./ExpressionGroup";
+// eslint-disable-next-line import-x/no-cycle -- 表達式樹本身遞迴:運算節點的參數又是節點;到期條件:無(遞迴結構)
+import { OperationArgs } from "./OperationArgs";
 
 export interface ExpressionNodeEditorProps {
   value: Expression;
   onChange: (value: Expression) => void;
   /** 可引用的欄位(呼叫端已依用途過濾:條件不含受保護欄位、顯示條件不含自己) */
   fields: readonly FieldDef[];
-  /** 這個位置要什麼型別、用途、是不是根(型別導向過濾) */
+  /** 這個位置要什麼型別、用途、是不是根、目標選項欄(型別導向過濾) */
   position: PickerPosition;
   fieldTypeOf: FieldTypeLookup;
   /** 這個節點在樹裡的位置(無障礙名稱與檢查器定位用;根為空字串) */
   path: string;
   depth: number;
+  /** 類別 / lookup 選項常數查詢用的表單 key(設計器 = 草稿) */
+  formKey: string;
   /** 沒有任何欄位可選時,欄位下拉顯示的提示(見 `ExpressionPicker`) */
   emptyFieldsLabel?: string;
 }
 
-/** 換節點種類時的起點值:取這個位置第一個型別對得上的選項。 */
-const NODE_DEFAULTS: Readonly<
-  Record<ExpressionNodeKind, (options: PositionOptions) => Expression>
-> = {
-  field: (options) => fieldNode(options.fields.at(0)?.key ?? ""),
-  context: (options) =>
-    contextNode(options.contexts.at(0) ?? CONTEXT_VAR_PATHS[0]),
-  operation: (options) => operationNode(options.operators.at(0) ?? "=="),
-  constant: (options) =>
-    constantDefaultOf(options.constants.at(0) ?? CONSTANT_KINDS[0]),
+/** 空位的下拉值(「請選節點種類」)。 */
+const EMPTY = "";
+
+/** 換節點種類時的起點值:取這個位置第一個型別對得上的選項;運算照位置的偏好(條件 → 等於)。 */
+const nodeDefaultOf = (
+  kind: ExpressionNodeKind,
+  options: PositionOptions,
+  position: PickerPosition,
+  timezone: string | undefined,
+): Expression => {
+  switch (kind) {
+    case "field": {
+      return fieldNode(options.fields.at(0)?.key ?? "");
+    }
+    case "context": {
+      return contextNode(options.contexts.at(0) ?? CONTEXT_VAR_PATHS[0]);
+    }
+    case "operation": {
+      const preferred = initialExpressionOf(position.expected);
+      return options.operators.includes(operatorOf(preferred) as PickerOperator)
+        ? preferred
+        : operationNode(options.operators.at(0) ?? "==");
+    }
+    case "constant": {
+      return constantDefaultOf(
+        options.constants.at(0) ?? CONSTANT_KINDS[0],
+        timezone,
+      );
+    }
+    case "empty": {
+      return null;
+    }
+  }
 };
-
-/** 設定第 `index` 個參數(位置還不存在時補 null;`dateDiff` 舊資料只有兩個參數時寫單位用)。 */
-const setArg = (
-  value: Expression,
-  index: number,
-  next: Expression,
-): Expression =>
-  withArgs(value, (args) => {
-    const padded = [
-      ...args,
-      ...Array.from(
-        { length: Math.max(0, index + 1 - args.length) },
-        () => null,
-      ),
-    ];
-    return padded.map((item, position) => (position === index ? next : item));
-  });
-
-const removeArg = (value: Expression, index: number): Expression =>
-  withArgs(value, (args) =>
-    args.filter((_item, position) => position !== index),
-  );
-
-const childPathOf = (path: string, operator: string, index: number): string =>
-  [path, operator, String(index)].filter((part) => part !== "").join(".");
 
 const isPickerOperator = (
   operator: string | null,
@@ -110,9 +107,9 @@ const withCurrent = <Item extends string>(
 
 /**
  * 表達式樹的一個節點(Spec 6a §5「表達式」+「表達式選擇器:型別導向(表 B)」):先選種類
- * (欄位 / 系統值 / 常數 / 運算),再選欄位 / 系統值 / 常數值 / 運算子;運算節點的每個參數遞迴是一個節點,
- * 各自帶該參數位置的**期望型別**往下傳,所以每一層只列型別對得上的東西。**不做文字輸入**,不會產生白名單外的
- * 運算子;深度、節點數、引用與循環仍由檢查器把關。
+ * (欄位 / 系統值 / 常數 / 運算;還沒選的參數是空位「請選節點種類」),再選欄位 / 系統值 / 常數值 / 運算子;
+ * 運算節點的參數由 `OperationArgs` 遞迴畫,巢狀的運算畫成帶框縮排群組(`ExpressionGroup`,標頭是運算子名)。
+ * **不做文字輸入**,不會產生白名單外的運算子;深度、節點數、引用與循環仍由檢查器把關。
  */
 export const ExpressionNodeEditor = ({
   value,
@@ -122,212 +119,159 @@ export const ExpressionNodeEditor = ({
   fieldTypeOf,
   path,
   depth,
+  formKey,
   emptyFieldsLabel,
 }: ExpressionNodeEditorProps) => {
   const t = useTranslations("admin.forms.expression");
+  const timezone = useTenantTimezone() ?? undefined;
   const options = positionOptionsOf(position, fields);
   const kind = nodeKindOf(value);
+  const isEmpty = kind === "empty";
   const at = path === "" ? t("root") : path;
   const operator = operatorOf(value);
-  const signature = isPickerOperator(operator)
-    ? OPERATOR_SIGNATURES[operator]
-    : undefined;
-  const args = argsOf(value);
-  // dateDiff 的舊資料只有兩個參數:單位位置照樣顯示(缺參數視為天)
-  const shownArgs =
-    operator === "dateDiff" && args.length < 3
-      ? [...args, ...Array.from({ length: 3 - args.length }, () => null)]
-      : args;
   const fieldChoices = fields.filter(
     (field) => options.fields.includes(field) || field.key === varPathOf(value),
   );
   const isFieldListEmpty =
     fieldChoices.length === 0 && emptyFieldsLabel !== undefined;
+  const kindChoices = isEmpty
+    ? options.kinds
+    : withCurrent(options.kinds, kind);
 
-  return (
+  const header = (
     <Stack
+      direction="row"
       spacing={1}
-      sx={{
-        pl: depth === 0 ? 0 : 1.5,
-        borderLeft: depth === 0 ? 0 : 2,
-        borderColor: "divider",
-      }}
+      sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}
     >
-      <Stack
-        direction="row"
-        spacing={1}
-        sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}
-      >
-        <SelectField<ExpressionNodeKind>
-          label={t("kind", { path: at })}
-          value={kind}
-          options={withCurrent(options.kinds, kind).map((item) => ({
+      <SelectField<ExpressionNodeKind | typeof EMPTY>
+        label={t("kind", { path: at })}
+        value={isEmpty ? EMPTY : kind}
+        displayEmpty={isEmpty}
+        {...(isEmpty &&
+          position.allowNull && { helperText: t("emptyMeansNull") })}
+        options={[
+          ...(isEmpty
+            ? [
+                {
+                  value: EMPTY as typeof EMPTY,
+                  label: t("emptySlot"),
+                  disabled: true,
+                },
+              ]
+            : []),
+          ...kindChoices.map((item) => ({
             value: item,
             label: t(`kinds.${item}`),
-          }))}
+          })),
+        ]}
+        onChange={(next) => {
+          if (next !== EMPTY) {
+            onChange(nodeDefaultOf(next, options, position, timezone));
+          }
+        }}
+        size="small"
+        sx={{ minWidth: 140 }}
+      />
+      {kind === "field" && (
+        <SelectField
+          label={t("field")}
+          value={varPathOf(value)}
+          disabled={isFieldListEmpty}
+          {...(isFieldListEmpty && varPathOf(value) !== ""
+            ? { helperText: emptyFieldsLabel }
+            : {})}
+          options={
+            isFieldListEmpty
+              ? // 目前值照樣顯示(不蓋成提示字);沒有值時才以提示字當唯一選項
+                [
+                  {
+                    value: varPathOf(value),
+                    label:
+                      varPathOf(value) === ""
+                        ? emptyFieldsLabel
+                        : varPathOf(value),
+                  },
+                ]
+              : fieldChoices.map((field) => ({
+                  value: field.key,
+                  label: `${field.label}(${field.key})`,
+                }))
+          }
           onChange={(next) => {
-            onChange(NODE_DEFAULTS[next](options));
+            onChange(fieldNode(next));
           }}
           size="small"
-          sx={{ minWidth: 120 }}
+          sx={{ minWidth: 160 }}
         />
-        {kind === "field" && (
-          <SelectField
-            label={t("field")}
-            value={varPathOf(value)}
-            disabled={isFieldListEmpty}
-            {...(isFieldListEmpty && varPathOf(value) !== ""
-              ? { helperText: emptyFieldsLabel }
-              : {})}
-            options={
-              isFieldListEmpty
-                ? // 目前值照樣顯示(不蓋成提示字);沒有值時才以提示字當唯一選項
-                  [
-                    {
-                      value: varPathOf(value),
-                      label:
-                        varPathOf(value) === ""
-                          ? emptyFieldsLabel
-                          : varPathOf(value),
-                    },
-                  ]
-                : fieldChoices.map((field) => ({
-                    value: field.key,
-                    label: `${field.label}(${field.key})`,
-                  }))
-            }
-            onChange={(next) => {
-              onChange(fieldNode(next));
-            }}
-            size="small"
-            sx={{ minWidth: 160 }}
-          />
-        )}
-        {kind === "context" && (
-          <SelectField<string>
-            label={t("context")}
-            value={varPathOf(value)}
-            options={withCurrent<string>(
-              options.contexts,
-              varPathOf(value),
-            ).map((item) => ({
-              value: item,
-              label: t(`contexts.${item}`),
-            }))}
-            onChange={(next) => {
-              onChange(contextNode(next));
-            }}
-            size="small"
-            sx={{ minWidth: 160 }}
-          />
-        )}
-        {kind === "operation" && (
-          <SelectField<string>
-            label={t("operator")}
-            value={operator ?? ""}
-            options={withCurrent<string>(options.operators, operator).map(
-              (item) => ({ value: item, label: t(`operators.${item}`) }),
-            )}
-            onChange={(next) => {
-              onChange(withOperator(value, next));
-            }}
-            size="small"
-            sx={{ minWidth: 160 }}
-          />
-        )}
-        {kind === "constant" && (
-          <ConstantEditor
-            value={value}
-            onChange={onChange}
-            kinds={withCurrent(options.constants, constantKindOf(value))}
-          />
-        )}
-      </Stack>
-      {kind === "operation" && isPickerOperator(operator) && (
-        <Box>
-          <Stack spacing={1}>
-            {shownArgs.map((arg, index) => {
-              const spec = paramSpecAt(operator, index);
-              const isRemovable =
-                spec === null ||
-                (signature?.rest !== undefined &&
-                  index >= signature.params.length);
-              return (
-                <Stack
-                  key={`${path}.${String(index)}`}
-                  direction="row"
-                  spacing={1}
-                  sx={{ alignItems: "flex-start" }}
-                >
-                  <Box sx={{ flex: 1 }}>
-                    {spec?.kind === "dateUnit" ||
-                    spec?.kind === "optionField" ? (
-                      <SpecialArgEditor
-                        kind={spec.kind}
-                        value={arg}
-                        fields={fields}
-                        onChange={(next) => {
-                          onChange(setArg(value, index, next));
-                        }}
-                      />
-                    ) : (
-                      <ExpressionNodeEditor
-                        value={arg}
-                        onChange={(next) => {
-                          onChange(setArg(value, index, next));
-                        }}
-                        fields={fields}
-                        position={{
-                          expected: expectedTypesAt(
-                            operator,
-                            index,
-                            args,
-                            position.expected,
-                            fieldTypeOf,
-                          ),
-                          usage: position.usage,
-                          isRoot: false,
-                          allowNull: EQUALITY_OPERATORS.includes(operator),
-                        }}
-                        fieldTypeOf={fieldTypeOf}
-                        path={childPathOf(path, operator, index)}
-                        depth={depth + 1}
-                        {...(emptyFieldsLabel !== undefined && {
-                          emptyFieldsLabel,
-                        })}
-                      />
-                    )}
-                  </Box>
-                  {isRemovable && (
-                    <Button
-                      variant="text"
-                      size="small"
-                      onClick={() => {
-                        onChange(removeArg(value, index));
-                      }}
-                    >
-                      {t("removeArg")}
-                    </Button>
-                  )}
-                </Stack>
-              );
-            })}
-            {signature?.rest !== undefined && (
-              <Stack direction="row">
-                <Button
-                  variant="text"
-                  size="small"
-                  onClick={() => {
-                    onChange(withArgs(value, (items) => [...items, null]));
-                  }}
-                >
-                  {t("addArg")}
-                </Button>
-              </Stack>
-            )}
-          </Stack>
-        </Box>
+      )}
+      {kind === "context" && (
+        <SelectField<string>
+          label={t("context")}
+          value={varPathOf(value)}
+          options={withCurrent<string>(options.contexts, varPathOf(value)).map(
+            (item) => ({ value: item, label: t(`contexts.${item}`) }),
+          )}
+          onChange={(next) => {
+            onChange(contextNode(next));
+          }}
+          size="small"
+          sx={{ minWidth: 160 }}
+        />
+      )}
+      {kind === "operation" && (
+        <SelectField<string>
+          label={t("operator")}
+          value={operator ?? ""}
+          options={withCurrent<string>(options.operators, operator).map(
+            (item) => ({ value: item, label: t(`operators.${item}`) }),
+          )}
+          onChange={(next) => {
+            onChange(withOperator(value, next));
+          }}
+          size="small"
+          sx={{ minWidth: 160 }}
+        />
+      )}
+      {kind === "constant" && (
+        <ConstantEditor
+          value={value}
+          onChange={onChange}
+          kinds={withCurrent(
+            options.constants,
+            constantKindOf(value, position.optionTarget !== null),
+          )}
+          optionTarget={position.optionTarget}
+          formKey={formKey}
+        />
       )}
     </Stack>
+  );
+
+  if (kind !== "operation" || !isPickerOperator(operator)) {
+    return header;
+  }
+  const body: ReactNode = (
+    <>
+      {header}
+      <OperationArgs
+        value={value}
+        operator={operator}
+        onChange={onChange}
+        fields={fields}
+        position={position}
+        fieldTypeOf={fieldTypeOf}
+        path={path}
+        depth={depth}
+        formKey={formKey}
+        {...(emptyFieldsLabel !== undefined && { emptyFieldsLabel })}
+      />
+    </>
+  );
+  // 根的運算不加框(外面已是選擇器本身);巢狀的運算畫成帶框縮排群組
+  return depth === 0 ? (
+    <Stack spacing={1}>{body}</Stack>
+  ) : (
+    <ExpressionGroup title={t(`operators.${operator}`)}>{body}</ExpressionGroup>
   );
 };

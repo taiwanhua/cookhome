@@ -141,6 +141,7 @@ export const DesignerWorkspace = ({
             {selected === null ? (
               <FormSettingsPanel
                 definition={definition}
+                form={{ key: form.key, name: form.name }}
                 issues={allIssues.filter(
                   (issue) => issue.location.fieldKey === undefined,
                 )}

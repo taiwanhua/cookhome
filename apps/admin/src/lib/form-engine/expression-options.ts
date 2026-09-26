@@ -8,8 +8,11 @@ import {
   type FieldDef,
   fieldProtections,
   isOperatorAccepted,
+  isOptionExpected,
   isProtected,
+  isSameOptionSource,
   isTypeAccepted,
+  paramSpecAt,
 } from "@repo/domain/form";
 
 import {
@@ -19,6 +22,8 @@ import {
   PICKER_OPERATORS,
   type PickerOperator,
   operationNode,
+  operatorOf,
+  varPathOf,
 } from "./expression-tree";
 
 /**
@@ -30,6 +35,8 @@ import {
  *   填寫者 / 填寫者的組織(文字位置)
  * - 條件(顯示條件、鎖定條件、自訂驗證、流程跳過條件):根要回**是 / 否**;常數不能單獨當根、
  *   系統值單獨當根也不行;四個系統值在型別對得上的裡層位置都可用
+ * - 選項欄公式:根(與 `if` 的然後 / 否則)要回「選項」—— 只列 `if`、同選項來源的欄位、從目標欄位選項挑的常數
+ * - 有**目標選項欄**的位置(選項欄公式、和選項欄比較 / `in` 的另一邊):文字 / 清單常數改成從它的選項挑
  */
 export type PickerUsage = "formula" | "condition";
 
@@ -39,8 +46,10 @@ export interface PickerPosition {
   expected: ExpectedTypes;
   usage: PickerUsage;
   isRoot: boolean;
-  /** 比較(等於 / 不等於)的參數可以放空值常數(`== null` 判空) */
+  /** 比較(等於 / 不等於)的參數:沒選 = 空值(`== null` 判空),空位顯示這個提示 */
   allowNull: boolean;
+  /** 目標選項欄:常數從它的選項挑;選項位置的欄位只列同選項來源的 */
+  optionTarget: FieldDef | null;
 }
 
 export interface PositionOptions {
@@ -58,15 +67,23 @@ const FORMULA_CONTEXTS = new Set<ContextPath>([
   "ctx.user.orgId",
 ]);
 
-const CONSTANT_TYPES: Readonly<
-  Record<Exclude<ConstantKind, "null">, ExpressionValueType>
-> = {
+const CONSTANT_TYPES: Readonly<Record<ConstantKind, ExpressionValueType>> = {
   text: "text",
   number: "number",
   boolean: "boolean",
   date: "date",
+  datetime: "datetime",
   list: "list",
+  option: "option",
+  optionList: "optionList",
 };
+
+/** 有目標選項欄時,文字 / 清單常數由選項常數取代;沒有時不列選項常數。 */
+const OPTION_REPLACED: ReadonlySet<ConstantKind> = new Set(["text", "list"]);
+const OPTION_KINDS: ReadonlySet<ConstantKind> = new Set([
+  "option",
+  "optionList",
+]);
 
 /** 比較運算子:參數可以是空值常數。 */
 export const EQUALITY_OPERATORS: readonly string[] = ["==", "!=", "===", "!=="];
@@ -79,11 +96,17 @@ export const positionOptionsOf = (
   position: PickerPosition,
   fields: readonly FieldDef[],
 ): PositionOptions => {
-  const { expected, usage, isRoot } = position;
+  const { expected, usage, isRoot, optionTarget } = position;
   const isConditionRoot = isRoot && usage === "condition";
+  const isOptionPosition = isOptionExpected(expected);
   const matchingFields = fields.filter((field) => {
     const type = fieldExpressionType(field);
-    return type !== null && isTypeAccepted(type, expected);
+    return (
+      type !== null &&
+      isTypeAccepted(type, expected) &&
+      (!isOptionPosition ||
+        (optionTarget !== null && isSameOptionSource(field, optionTarget)))
+    );
   });
   const contexts = isConditionRoot
     ? []
@@ -94,10 +117,12 @@ export const positionOptionsOf = (
       );
   const constants = isConditionRoot
     ? []
-    : CONSTANT_KINDS.filter((kind) =>
-        kind === "null"
-          ? position.allowNull
-          : isTypeAccepted(CONSTANT_TYPES[kind], expected),
+    : CONSTANT_KINDS.filter(
+        (kind) =>
+          isTypeAccepted(CONSTANT_TYPES[kind], expected) &&
+          (optionTarget === null
+            ? !OPTION_KINDS.has(kind)
+            : !OPTION_REPLACED.has(kind)),
       );
   const operators = PICKER_OPERATORS.filter((operator) =>
     isOperatorAccepted(operator, expected),
@@ -154,4 +179,58 @@ export const conditionFieldsOf = (
       (includeSelf || field.key !== selfKey) &&
       !isProtected(protections.get(field.key)),
   );
+};
+
+const OPTION_FIELD_TYPES: ReadonlySet<string> = new Set([
+  "select",
+  "multiSelect",
+]);
+
+/** 參數是不是「引用某個選項欄」的欄位節點;是就回那個欄位。 */
+const optionFieldOf = (
+  expr: Expression | undefined,
+  fields: readonly FieldDef[],
+): FieldDef | null => {
+  if (expr === undefined || operatorOf(expr) !== "var") {
+    return null;
+  }
+  const field = fields.find((candidate) => candidate.key === varPathOf(expr));
+  return field !== undefined && OPTION_FIELD_TYPES.has(field.type)
+    ? field
+    : null;
+};
+
+/** 兩兩比較、`in`:另一邊是選項欄時,這一邊的常數從它的選項挑。 */
+const PAIRED_OPERATORS: ReadonlySet<string> = new Set([
+  "==",
+  "!=",
+  "===",
+  "!==",
+  "in",
+]);
+
+/**
+ * 運算節點第 `index` 個參數的目標選項欄:
+ * - 「然後 / 否則」(`result`,或與它同型的 `sameAs`)在選項位置 → 沿用這個節點的目標
+ * - 等於 / 不等於 / `in`:另一邊引用選項欄 → 那個欄位(`leave == 病假`、`病假 in 標籤`)
+ */
+export const optionTargetAt = (
+  operator: PickerOperator,
+  index: number,
+  args: readonly Expression[],
+  position: PickerPosition,
+  fields: readonly FieldDef[],
+): FieldDef | null => {
+  const spec = paramSpecAt(operator, index);
+  const followsResult =
+    spec?.kind === "result" ||
+    (spec?.kind === "sameAs" &&
+      paramSpecAt(operator, spec.index)?.kind === "result");
+  if (followsResult && isOptionExpected(position.expected)) {
+    return position.optionTarget;
+  }
+  if (PAIRED_OPERATORS.has(operator) && index < 2) {
+    return optionFieldOf(args[1 - index], fields);
+  }
+  return null;
 };

@@ -21,7 +21,10 @@ import type { OperatorContext } from "../../database/operator-context";
 import { FieldCategoryOptionsService } from "../field-category-options.service";
 import type { FormOperatorFacts, FormRecord } from "../form-access.service";
 import { validationError } from "../forms-error";
-import { LookupProvidersService } from "../lookup-providers";
+import {
+  LookupProvidersService,
+  submissionCatalogOfFields,
+} from "../lookup-providers";
 import type { FormDefinitionInput } from "./dto/form-design.input";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -119,6 +122,8 @@ function sourcesOf(
  * 定義檢查器的 api 端(`@repo/domain/form` 的 `validateDefinition` + 只有 api 知道的登錄表):
  * 已發布過的欄位型別、欄位管理類別、lookup 登錄表、列表欄位配置;另外把 `form_submission`
  * 來源的欄位精確到「那張表單目前版本有沒有這欄」(登錄表只給得出各來源表單的聯集)。
+ * 來源是**這張表單自己**(從本表單先前的提交帶入,Spec §5「帶入」)時,欄位目錄用**這份草稿**的欄位,
+ * 不看已發布版(可能還沒發布);執行時照一般規則以那筆提交綁的版本判斷。
  */
 @Injectable()
 export class FormDefinitionChecker {
@@ -140,9 +145,14 @@ export class FormDefinitionChecker {
       .map(({ source }) => source)
       .filter(
         (source) =>
-          source.provider === FORM_SUBMISSION_PROVIDER && source.formKey,
+          source.provider === FORM_SUBMISSION_PROVIDER &&
+          source.formKey &&
+          source.formKey !== form.key,
       )
       .map((source) => source.formKey ?? "");
+    const selfCatalog = submissionCatalogOfFields(
+      definition.fields.filter((field) => isRecord(field)),
+    );
     const [previousFields, fieldCategoryKeys, lookupProviders, listColumns] =
       await Promise.all([
         this.previousFieldsOf(operator, form.key),
@@ -154,10 +164,21 @@ export class FormDefinitionChecker {
       regexSafety: recheckRegexSafety,
       previousFields,
       fieldCategoryKeys,
-      lookupProviders,
+      lookupProviders: {
+        ...lookupProviders,
+        [FORM_SUBMISSION_PROVIDER]: {
+          fields: {
+            ...lookupProviders[FORM_SUBMISSION_PROVIDER]?.fields,
+            ...selfCatalog,
+          },
+        },
+      },
       listColumnFieldKeys: listColumns,
     });
-    await this.checkSubmissionSources(facts, definition, sources, report);
+    await this.checkSubmissionSources(facts, definition, sources, report, {
+      formKey: form.key,
+      catalog: selfCatalog,
+    });
     return report;
   }
 
@@ -209,15 +230,16 @@ export class FormDefinitionChecker {
     definition: FormDefinition,
     sources: ReturnType<typeof sourcesOf>,
     report: ValidationReport,
+    self: { formKey: string; catalog: Record<string, unknown> },
   ): Promise<void> {
     for (const { source, location } of sources) {
       if (source.provider !== FORM_SUBMISSION_PROVIDER || !source.formKey) {
         continue;
       }
-      const catalog = await this.lookups.formSubmissionCatalog(
-        facts,
-        source.formKey,
-      );
+      const catalog =
+        source.formKey === self.formKey
+          ? self.catalog
+          : await this.lookups.formSubmissionCatalog(facts, source.formKey);
       const wanted = [source.labelField, source.valueField ?? "id"];
       const prefill =
         typeof location.prefillIndex === "number"

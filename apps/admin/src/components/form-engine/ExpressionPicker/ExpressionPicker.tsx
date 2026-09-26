@@ -7,6 +7,7 @@ import {
   type ExpressionValueType,
   type FieldDef,
   fieldTypeLookupOf,
+  isOptionExpected,
 } from "@repo/domain/form";
 import { Button } from "@repo/ui/button";
 import { Stack } from "@repo/ui/stack";
@@ -34,6 +35,13 @@ export interface ExpressionPickerProps {
   usage?: PickerUsage;
   /** 公式的根要回的型別(= 欄位的表達式型別) */
   resultType?: ExpressionValueType | null;
+  /**
+   * 公式所屬的欄位:選項欄(根型別是「選項」)的根與 `if` 的然後 / 否則只列同選項來源的欄位,
+   * 常數從它的選項挑
+   */
+  resultField?: FieldDef | null;
+  /** 類別 / lookup 選項常數查詢用的表單 key(設計器 = 草稿);不給 = 空字串(查不到選項) */
+  formKey?: string;
   /** 檢查器指到這個表達式的錯誤(就地顯示) */
   issues?: readonly string[];
   /** 沒有任何欄位可選時,欄位下拉顯示的提示(例:流程跳過條件「請先選檢查用表單」);不給 = 空清單 */
@@ -65,6 +73,8 @@ export const ExpressionPicker = ({
   fields,
   usage = "condition",
   resultType = null,
+  resultField = null,
+  formKey = "",
   issues = [],
   emptyFieldsLabel,
 }: ExpressionPickerProps) => {
@@ -107,7 +117,14 @@ export const ExpressionPicker = ({
             value={value}
             onChange={onChange}
             fields={fields}
-            position={{ expected, usage, isRoot: true, allowNull: false }}
+            position={{
+              expected,
+              usage,
+              isRoot: true,
+              allowNull: false,
+              optionTarget: isOptionExpected(expected) ? resultField : null,
+            }}
+            formKey={formKey}
             fieldTypeOf={fieldTypeOf}
             path=""
             depth={0}

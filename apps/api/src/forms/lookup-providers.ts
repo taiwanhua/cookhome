@@ -295,6 +295,22 @@ const EMPTY_PROVIDER: LookupProviderRuntime = {
 
 type SubmissionRecord = Persisted<FormSubmissionDocument>;
 
+/**
+ * 一份欄位定義當 `form_submission` 來源時可挑的欄位:摘要槽 + 非受保護欄位(因引用而受保護的計算欄位也不列)。
+ * 設計時的欄位目錄共用這一條:別的表單用它目前版本的欄位、自己(帶入來源可選自己)用草稿的欄位。
+ */
+export function submissionCatalogOfFields(
+  fields: readonly FieldDef[],
+): Record<string, FieldType> {
+  const catalog: Record<string, FieldType> = { ...SUMMARY_SLOT_FIELDS };
+  for (const field of fields) {
+    if (requiredShowKeys(fields, field.key).length === 0) {
+      catalog[field.key] = field.type;
+    }
+  }
+  return catalog;
+}
+
 /** 回 label 的欄位型別(選項與引用)。 */
 const LABELLED_TYPES: ReadonlySet<FieldType> = new Set([
   "select",
@@ -357,13 +373,7 @@ export class LookupProvidersService {
       formKey,
       version: form.currentVersion,
     });
-    const fields = version?.fields ?? [];
-    for (const field of fields) {
-      if (requiredShowKeys(fields, field.key).length === 0) {
-        catalog[field.key] = field.type;
-      }
-    }
-    return catalog;
+    return submissionCatalogOfFields(version?.fields ?? []);
   }
 
   search(
