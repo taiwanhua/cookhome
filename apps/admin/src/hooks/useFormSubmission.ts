@@ -13,6 +13,7 @@ import {
 
 import { type FormError, formErrorOf } from "@/lib/form-engine/form-errors";
 
+import { useCapacityErrorSnackbar } from "./useCapacityErrorSnackbar";
 import { useFormSubmissionCache } from "./useFormSubmissionCache";
 import { useSession } from "./useSession";
 
@@ -66,6 +67,7 @@ export const useFormSubmission = (
   const updateCache = useFormSubmissionCache();
   const [error, setError] = useState<FormError | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const announceCapacity = useCapacityErrorSnackbar();
 
   const query = useFormSubmissionQuery(
     session.client,
@@ -85,7 +87,9 @@ export const useFormSubmission = (
     try {
       return await action();
     } catch (error_) {
-      setError(formErrorOf(error_));
+      const failure = formErrorOf(error_);
+      setError(failure);
+      announceCapacity(failure);
       return null;
     } finally {
       setIsPending(false);

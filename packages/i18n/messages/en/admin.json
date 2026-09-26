@@ -1162,10 +1162,12 @@
       "diffAria": "Changes in revision {revision}",
       "diffField": "Field",
       "diffBefore": "Revision {revision}",
-      "diffAfter": "Revision {revision}"
+      "diffAfter": "Revision {revision}",
+      "close": "Close"
     },
     "pages": {
       "loading": "Loading",
+      "revisions": "Revisions",
       "search": "Search",
       "searchPlaceholder": "Title",
       "formFilter": "Form",
@@ -1218,7 +1220,9 @@
       "UNEXPECTED": "Something went wrong. Please try again later.",
       "WORKFLOW_REMOVED": "The approval workflow of this form has been removed. Please contact your administrator.",
       "WORKFLOW_UNPUBLISHED": "The approval workflow bound to this form is not published yet. Please contact your administrator.",
-      "WORKFLOW_MISCONFIGURED": "The approval workflow is misconfigured. Please contact your administrator."
+      "WORKFLOW_MISCONFIGURED": "The approval workflow is misconfigured. Please contact your administrator.",
+      "REVISION_LIMIT": "This record has reached its revision limit. Please create a new application.",
+      "DOCUMENT_TOO_LARGE": "This record has reached its size limit. Please reduce the content."
     }
   },
   "forms": {

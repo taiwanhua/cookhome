@@ -10,6 +10,8 @@ import {
   type StoredValues,
   fieldProtections,
 } from "@repo/domain/form";
+import { Box } from "@repo/ui/box";
+import { Card } from "@repo/ui/card";
 import { Grid } from "@repo/ui/grid";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
@@ -113,9 +115,13 @@ export const FormRenderer = ({
     [version, values, expressionContext, mode, permissions, serverState],
   );
 
-  // 日期時間欄以表達式 ctx 的時區(填寫 = 租戶時區、唯讀 = 那次修訂的時區)輸入與顯示
+  // 日期 / 日期時間欄的輸入與顯示時區 = 讀者現在的租戶時區:呼叫端給的 `context.timezone`,
+  // 沒給就用表達式 ctx 的時區(填寫端兩者相同)。唯讀檢視的修訂 `ctx.timezone` 只用於重算條件,不決定顯示
   const cellContext = useMemo(
-    () => ({ ...context, timezone: expressionContext.timezone }),
+    () => ({
+      ...context,
+      timezone: context.timezone ?? expressionContext.timezone,
+    }),
     [context, expressionContext.timezone],
   );
 
@@ -182,6 +188,40 @@ export const FormRenderer = ({
           ];
         });
 
+        if (!isDesign) {
+          // 填寫 / 預覽 / 唯讀:分區一個有框的卡片 + 標題列,三種模式版面一致(Spec 6a §8 畫面 9 / 11)
+          return (
+            <Card
+              key={section.key}
+              component="section"
+              variant="outlined"
+              aria-label={section.title}
+            >
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.25,
+                  borderBottom: 1,
+                  borderColor: "divider",
+                }}
+              >
+                <Typography variant="subtitle1" component="h2">
+                  {section.title}
+                </Typography>
+              </Box>
+              <Box sx={{ p: 2 }}>
+                <Grid
+                  container
+                  columns={LAYOUT_COLUMNS}
+                  spacing={SECTION_SPACING}
+                >
+                  {cells}
+                </Grid>
+              </Box>
+            </Card>
+          );
+        }
+
         return (
           <Stack
             key={section.key}
@@ -193,33 +233,23 @@ export const FormRenderer = ({
               <Typography variant="subtitle1" component="h2" sx={{ flex: 1 }}>
                 {section.title}
               </Typography>
-              {isDesign && design?.renderSectionActions?.(section)}
+              {design?.renderSectionActions?.(section)}
             </Stack>
-            {isDesign ? (
-              <SortableContext
-                items={cols.map((col) => designFieldId(col.cellId))}
-                strategy={rectSortingStrategy}
-              >
-                <Grid
-                  container
-                  columns={LAYOUT_COLUMNS}
-                  spacing={SECTION_SPACING}
-                >
-                  {cells}
-                  <Grid size={LAYOUT_COLUMNS}>
-                    <SectionDropZone sectionKey={section.key} />
-                  </Grid>
-                </Grid>
-              </SortableContext>
-            ) : (
+            <SortableContext
+              items={cols.map((col) => designFieldId(col.cellId))}
+              strategy={rectSortingStrategy}
+            >
               <Grid
                 container
                 columns={LAYOUT_COLUMNS}
                 spacing={SECTION_SPACING}
               >
                 {cells}
+                <Grid size={LAYOUT_COLUMNS}>
+                  <SectionDropZone sectionKey={section.key} />
+                </Grid>
               </Grid>
-            )}
+            </SortableContext>
           </Stack>
         );
       })}

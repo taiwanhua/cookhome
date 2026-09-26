@@ -3,8 +3,6 @@ import { useNavigate } from "react-router";
 import { useTranslations } from "use-intl";
 
 import type { FormDefinition } from "@repo/domain/form";
-import { Stack } from "@repo/ui/stack";
-import { Typography } from "@repo/ui/typography";
 
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useMe } from "@/hooks/useMe";
@@ -79,51 +77,47 @@ export const FormCreateBody = ({
   );
 
   return (
-    <Stack spacing={2.5}>
-      <Typography variant="h6" component="h1">
-        {t("createTitle", { form: form.name })}
-      </Typography>
-      <FormFillForm
-        definition={definition}
-        formKey={form.key}
-        version={form.currentVersion}
-        initialValues={{}}
-        recomputeDefaults
-        fillDefaultsOnMount
-        systemLabels={systemLabels}
-        mode="create"
-        permissions={permissions}
-        expressionContext={expressionContext}
-        isCompleted={false}
-        isPending={draft.isPending}
-        error={draft.error}
-        onSaveDraft={(values, touched) => {
-          void draft.saveDraft(values, touched).then((saved) => {
-            if (saved !== null) {
-              showSnackbar("success", t("draftSaved"));
-            }
-          });
-        }}
-        onSubmit={(values, touched) => {
-          void draft.submit(values, touched).then((submitted) => {
-            if (submitted === null) {
-              return;
-            }
-            showSnackbar("success", t("submitted"));
-            if (access.viewRoute === null) {
-              onLeave();
-            } else {
-              void navigate(`${access.viewRoute}/${submitted.id}`);
-            }
-          });
-        }}
-        onCancel={onLeave}
-        onReload={() => {
-          if (draft.draft !== null && access.editRoute !== null) {
-            void navigate(`${access.editRoute}/${draft.draft.id}`);
+    <FormFillForm
+      title={t("createTitle", { form: form.name })}
+      definition={definition}
+      formKey={form.key}
+      version={form.currentVersion}
+      initialValues={{}}
+      recomputeDefaults
+      fillDefaultsOnMount
+      systemLabels={systemLabels}
+      mode="create"
+      permissions={permissions}
+      expressionContext={expressionContext}
+      isCompleted={false}
+      isPending={draft.isPending}
+      error={draft.error}
+      onSaveDraft={(values, touched) => {
+        void draft.saveDraft(values, touched).then((saved) => {
+          if (saved !== null) {
+            showSnackbar("success", t("draftSaved"));
           }
-        }}
-      />
-    </Stack>
+        });
+      }}
+      onSubmit={(values, touched) => {
+        void draft.submit(values, touched).then((submitted) => {
+          if (submitted === null) {
+            return;
+          }
+          showSnackbar("success", t("submitted"));
+          if (access.viewRoute === null) {
+            onLeave();
+          } else {
+            void navigate(`${access.viewRoute}/${submitted.id}`);
+          }
+        });
+      }}
+      onCancel={onLeave}
+      onReload={() => {
+        if (draft.draft !== null && access.editRoute !== null) {
+          void navigate(`${access.editRoute}/${draft.draft.id}`);
+        }
+      }}
+    />
   );
 };

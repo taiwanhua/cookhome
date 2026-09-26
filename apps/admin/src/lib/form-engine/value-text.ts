@@ -32,7 +32,7 @@ export interface FormValueRenderContext {
   /** 上傳欄的下載(詳情頁給;列表不給就只顯示檔名) */
   onDownload?: (field: FieldDef) => void;
   /**
-   * 日期 / 日期時間欄的顯示時區(唯讀檢視 = 那次修訂的 `ctx.timezone`;填寫中 = 租戶時區)。
+   * 日期 / 日期時間欄的顯示時區(讀者的租戶時區;列表這種逐列不同的由呼叫端給)。
    * 元件端(`FormValue`)沒給時由 `useTemporalText` 補讀者的租戶時區;本檔的純函式沒給時用預設時區。
    */
   timezone?: string;

@@ -9,7 +9,8 @@ import {
 
 /**
  * 一格值(Spec 6a §8 `renderValue(ctx)` 的元件形;`render-value.ts` 的 `renderValue` 就是渲染它)。
- * 詳情頁、修訂差異、列表共用;文字規則在 `lib/form-engine/value-text.ts`。
+ * 只給表格格子用(列表、修訂差異);詳情頁的唯讀呈現是各 widget 的 readOnly 分支。
+ * 文字規則在 `lib/form-engine/value-text.ts`。
  * 上傳欄有 `onDownload` 時檔名是按鈕(簽名網址短效,點了才去要)。
  */
 export const FormValue = (ctx: FormValueRenderContext) => {

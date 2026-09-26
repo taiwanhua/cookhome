@@ -6,30 +6,41 @@ import { Typography } from "@repo/ui/typography";
 
 import type { WidgetProps } from "./widget-types";
 
-/** 是否欄(`boolean` → `switch` / `checkbox`);標題在開關 / 勾選框前面。 */
+/**
+ * 是否欄(`boolean` → `switch` / `checkbox`);標題在開關 / 勾選框前面。
+ * 唯讀檢視:同一個開關 / 勾選框帶 `readOnly`(不是停用:照一般顏色顯示開 / 關,點了不會變)。
+ */
 export const BooleanWidget = ({
   field,
   value,
   onChange,
   isDisabled,
+  isReadOnly = false,
   helperText,
   hasError,
 }: WidgetProps) => {
+  const change = (checked: boolean) => {
+    if (!isReadOnly) {
+      onChange(checked);
+    }
+  };
   const control =
     field.widget.kind === "checkbox" ? (
       <Checkbox
         checked={value === true}
         disabled={isDisabled}
+        readOnly={isReadOnly}
         onChange={(_event, checked) => {
-          onChange(checked);
+          change(checked);
         }}
       />
     ) : (
       <Switch
         checked={value === true}
         disabled={isDisabled}
+        readOnly={isReadOnly}
         onChange={(_event, checked) => {
-          onChange(checked);
+          change(checked);
         }}
       />
     );

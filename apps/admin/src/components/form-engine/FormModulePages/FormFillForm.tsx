@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslations } from "use-intl";
 
 import type {
@@ -9,6 +9,7 @@ import type {
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
 import { Stack } from "@repo/ui/stack";
+import { Typography } from "@repo/ui/typography";
 
 import { useFillValues } from "@/hooks/useFillValues";
 import type { FieldPermissionFacts } from "@/lib/form-engine/field-states";
@@ -18,6 +19,10 @@ import { FormRenderer } from "../FormRenderer/FormRenderer";
 import { LookupDialog } from "../LookupDialog/LookupDialog";
 
 export interface FormFillFormProps {
+  /** 頁面標題(「新增 — 表單名」);與「帶入資料」同一列 */
+  title: ReactNode;
+  /** 標題列下方的提示(被退回 / 已撤回的說明) */
+  notice?: ReactNode;
   definition: FormDefinition;
   formKey: string;
   version: number;
@@ -54,6 +59,8 @@ export interface FormFillFormProps {
  * 沒碰過的欄位依賴變了就重算預設值,碰過(改過、清空、帶入)就停。
  */
 export const FormFillForm = ({
+  title,
+  notice,
   definition,
   formKey,
   version,
@@ -90,9 +97,13 @@ export const FormFillForm = ({
   const canPrefill = definition.prefills.length > 0;
 
   return (
-    <Stack spacing={3}>
-      {canPrefill && (
-        <Stack direction="row">
+    <Stack spacing={2.5}>
+      {/* 標題列:標題靠左、「帶入資料」同一列靠右(Spec 6a §8 畫面 9) */}
+      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+        <Typography variant="h6" component="h1" sx={{ flex: 1, minWidth: 0 }}>
+          {title}
+        </Typography>
+        {canPrefill && (
           <Button
             variant="outlined"
             onClick={() => {
@@ -101,8 +112,9 @@ export const FormFillForm = ({
           >
             {t("prefill")}
           </Button>
-        </Stack>
-      )}
+        )}
+      </Stack>
+      {notice}
       <FormRenderer
         version={definition}
         values={values}

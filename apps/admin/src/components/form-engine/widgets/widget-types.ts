@@ -2,6 +2,8 @@ import type { ComponentType, ReactNode } from "react";
 
 import type { FieldDef } from "@repo/domain/form";
 
+import type { FormDisplayItemLike } from "@/lib/form-engine/value-text";
+
 /**
  * widget 登錄表的共同介面(Spec 6a §5:`type` 決定存什麼、`widget.kind` 決定怎麼畫)。
  * widget 收發的一律是**存值形狀**(§5「值的存法」):靜態選項存 value 字串、類別 / lookup 選項存
@@ -13,8 +15,8 @@ export interface WidgetContext {
   /** 已發布 / 退役版的版號;設計器預覽(草稿)為 null —— lookup 依它決定查哪一版的定義 */
   version: number | null;
   /**
-   * 日期時間欄輸入與顯示用的 IANA 時區(租戶時區;唯讀檢視是那次修訂的時區)。
-   * `FormRenderer` 由表達式的 `ctx.timezone` 帶入;不給 = 瀏覽器時區。
+   * 日期 / 日期時間欄輸入與顯示用的 IANA 時區 = **讀者現在的租戶時區**(填寫與唯讀檢視都是;
+   * 修訂的 `ctx.timezone` 只用於重算顯示 / 唯讀條件,不決定顯示)。不給 = 預設時區。
    */
   timezone?: string;
 }
@@ -23,14 +25,23 @@ export interface WidgetProps {
   field: FieldDef;
   value: unknown;
   onChange: (value: unknown) => void;
-  /** 唯讀(計算欄位、沒有欄位級 edit、`readonlyWhen`、設計 / 唯讀模式) */
+  /** 填寫中但不能改(沒有欄位級 edit、`readonlyWhen`):停用並附原因 */
   isDisabled: boolean;
+  /**
+   * 唯讀檢視(詳情頁,`FormRenderer` 的 `readonly` 模式):**不是停用** —— 文字不變灰、附件可下載、
+   * 選項 / 引用顯示 label(現名或快照),不查選項、不能改。不給 = false。
+   */
+  isReadOnly?: boolean;
   /** 設計模式:只畫外觀、不查選項 */
   isDesign: boolean;
   /** 欄位下方的說明(help、唯讀原因、api 回的錯誤) */
   helperText?: ReactNode;
   hasError: boolean;
   context: WidgetContext;
+  /** 唯讀檢視:類別 / lookup 選項與引用欄的顯示名(api 的 `displayValues`;現名或快照 + 來源不可用) */
+  display?: readonly FormDisplayItemLike[];
+  /** 唯讀檢視:上傳欄的下載(簽名網址短效,點了才去要) */
+  onDownload?: (field: FieldDef) => void;
 }
 
 export type WidgetComponent = ComponentType<WidgetProps>;

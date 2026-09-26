@@ -24,9 +24,21 @@ export const FORM_ERROR_CODES = [
   "NOT_FOUND",
   "VALIDATION_FAILED",
   "PERMISSION_NOT_DELETABLE",
+  "REVISION_LIMIT",
+  "DOCUMENT_TOO_LARGE",
 ] as const;
 
 export type FormErrorCode = (typeof FORM_ERROR_CODES)[number] | "UNEXPECTED";
+
+/**
+ * 提交的容量上限(`CONFLICT` + reason,Spec 6a §4 `revisions[]` 上限):不是「被別人更新」,重新載入也沒用,
+ * 所以細分成自己的碼、以 Snackbar 告知(修訂次數到頂 → 建新的申請;容量到頂 → 縮減內容)。
+ */
+const CAPACITY_CODES = ["REVISION_LIMIT", "DOCUMENT_TOO_LARGE"] as const;
+
+export const isCapacityError = (error: FormError | null): boolean =>
+  error !== null &&
+  (CAPACITY_CODES as readonly FormErrorCode[]).includes(error.code);
 
 /** `CONFLICT` 的 reason(樂觀鎖 / 搶鎖);`PERMISSION_NOT_DELETABLE` 的 reasons。 */
 export const FORM_ERROR_REASONS = [
@@ -89,6 +101,17 @@ const FORBIDDEN_REASONS: Partial<
   WORKFLOW_MISCONFIGURED: "WORKFLOW_MISCONFIGURED",
 };
 
+/** 通用碼 + reason → 本模組細分的碼(`FORBIDDEN` 的四種原因、`CONFLICT` 的容量上限)。 */
+const refinedCodeOf = (
+  code: string,
+  reason: string,
+): (typeof FORM_ERROR_CODES)[number] | undefined => {
+  if (code === "CONFLICT") {
+    return CAPACITY_CODES.find((capacity) => capacity === reason);
+  }
+  return code === "FORBIDDEN" ? FORBIDDEN_REASONS[reason] : undefined;
+};
+
 const extensionsOf = (error: unknown): Record<string, unknown> => {
   if (!(error instanceof ClientError)) {
     return {};
@@ -107,9 +130,7 @@ export const formErrorOf = (error: unknown): FormError => {
     codes: FORM_ERROR_CODES,
     reasons: FORM_ERROR_REASONS,
     refine: (code, reason) =>
-      code === "FORBIDDEN" && typeof reason === "string"
-        ? FORBIDDEN_REASONS[reason]
-        : undefined,
+      typeof reason === "string" ? refinedCodeOf(code, reason) : undefined,
   });
   const extensions = extensionsOf(error);
   const fieldErrors = Array.isArray(extensions.fieldErrors)

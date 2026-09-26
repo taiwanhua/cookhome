@@ -119,7 +119,24 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
       },
     });
 
-    const history = await screen.findByRole("region", { name: "修訂紀錄" });
+    // 頁面主體只有標題列與表單:版本 / 狀態 / 建立者與修訂清單都收在跳窗裡
+    await screen.findByRole("heading", { name: "雞蛋" });
+    expect(screen.queryByText("購物單(版本 1)")).toBeNull();
+    expect(screen.queryByRole("region", { name: "修訂紀錄" })).toBeNull();
+
+    // 「修訂紀錄」在「刪除」左邊
+    const open = screen.getByRole("button", { name: "修訂紀錄" });
+    const remove = screen.getByRole("button", { name: "刪除" });
+    expect(
+      open.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await user.click(open);
+
+    const dialog = await screen.findByRole("dialog", { name: "修訂紀錄" });
+    expect(within(dialog).getByText("購物單(版本 1)")).toBeInTheDocument();
+    expect(within(dialog).getByText("已完成")).toBeInTheDocument();
+    expect(within(dialog).getByText("建立者:小華")).toBeInTheDocument();
+    const history = within(dialog).getByRole("region", { name: "修訂紀錄" });
     expect(within(history).getByText(/修訂 2 · 阿明/)).toBeInTheDocument();
 
     await user.click(
@@ -132,6 +149,13 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
     expect(within(diff).getByText("數量")).toBeInTheDocument();
     expect(within(diff).getByText("總價")).toBeInTheDocument();
     expect(within(diff).queryByText("品項")).toBeNull();
+
+    // 切到修訂 1:關掉跳窗、主體換成那個修訂並標示
+    await user.click(
+      within(history).getByRole("button", { name: "檢視修訂 1" }),
+    );
+    expect(await screen.findByText("正在檢視修訂 1")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "修訂紀錄" })).toBeNull();
   });
 
   it("頁籤模板的系統佔位符:{{form}} = 表單名、{{applicant}} = 建立者現名", async () => {

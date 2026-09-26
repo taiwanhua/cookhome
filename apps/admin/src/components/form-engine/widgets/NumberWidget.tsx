@@ -2,6 +2,7 @@ import { TextField } from "@repo/ui/text-field";
 
 import { scalarText } from "@/lib/form-engine/value-text";
 
+import { ReadOnlyField } from "./ReadOnlyField";
 import type { WidgetProps } from "./widget-types";
 
 /**
@@ -14,9 +15,15 @@ export const NumberWidget = ({
   value,
   onChange,
   isDisabled,
+  isReadOnly = false,
   helperText,
   hasError,
+  context,
 }: WidgetProps) => {
+  if (isReadOnly) {
+    // 唯讀:顯示值帶單位(「30 元」)
+    return <ReadOnlyField field={field} value={value} context={context} />;
+  }
   const unit = scalarText(field.widget.unit);
 
   return (

@@ -7,8 +7,6 @@ import { FormSubmissionStatus, useFormSubmissionQuery } from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Card } from "@repo/ui/card";
 import { CircularProgress } from "@repo/ui/circular-progress";
-import { Stack } from "@repo/ui/stack";
-import { Typography } from "@repo/ui/typography";
 
 import { useFormRuntimeVersion } from "@/hooks/useFormRuntimeVersion";
 import { useFormSubmission } from "@/hooks/useFormSubmission";
@@ -117,70 +115,70 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
 
   return (
     <Card sx={{ flex: 1, minHeight: 0, overflow: "auto", px: 3, py: 2.5 }}>
-      <Stack spacing={2.5}>
-        <Typography variant="h6" component="h1">
-          {t("editTitle", { form: submission.formName ?? submission.formKey })}
-        </Typography>
-        {(submission.status === FormSubmissionStatus.Returned ||
-          submission.status === FormSubmissionStatus.Withdrawn) && (
-          <Alert severity="info">
-            {t(
-              submission.status === FormSubmissionStatus.Returned
-                ? "returnedHint"
-                : "withdrawnHint",
-            )}
-          </Alert>
-        )}
-        <FormFillForm
-          key={submission.editVersion}
-          definition={version.definition}
-          formKey={submission.formKey}
-          version={submission.version}
-          initialValues={submission.values}
-          initialTouched={submission.touched}
-          recomputeDefaults={isFreshDraft}
-          fillDefaultsOnMount={false}
-          systemLabels={{
-            user: user?.name ?? null,
-            org: user?.currentOrg?.name ?? null,
-          }}
-          mode="edit"
-          permissions={permissions ?? permissionsOfSubmission(submission)}
-          expressionContext={expressionContext}
-          isCompleted={isCompleted}
-          isPending={state.isPending}
-          error={state.error}
-          onSaveDraft={(values, touched) => {
-            void state.save(values, touched).then((saved) => {
-              if (saved !== null) {
-                showSnackbar(
-                  "success",
-                  isCompleted ? t("changesSaved") : t("draftSaved"),
-                );
-              }
-            });
-          }}
-          onSubmit={(values, touched) => {
-            void state.submit(values, touched).then((submitted) => {
-              if (submitted === null) {
-                return;
-              }
-              showSnackbar("success", t("submitted"));
-              if (access.viewRoute === null) {
-                leave();
-              } else {
-                void navigate(`${access.viewRoute}/${submitted.id}`);
-              }
-            });
-          }}
-          onCancel={leave}
-          onReload={() => {
-            void queryClient.invalidateQueries({
-              queryKey: useFormSubmissionQuery.getKey({ id }),
-            });
-          }}
-        />
-      </Stack>
+      <FormFillForm
+        key={submission.editVersion}
+        title={t("editTitle", {
+          form: submission.formName ?? submission.formKey,
+        })}
+        notice={
+          (submission.status === FormSubmissionStatus.Returned ||
+            submission.status === FormSubmissionStatus.Withdrawn) && (
+            <Alert severity="info">
+              {t(
+                submission.status === FormSubmissionStatus.Returned
+                  ? "returnedHint"
+                  : "withdrawnHint",
+              )}
+            </Alert>
+          )
+        }
+        definition={version.definition}
+        formKey={submission.formKey}
+        version={submission.version}
+        initialValues={submission.values}
+        initialTouched={submission.touched}
+        recomputeDefaults={isFreshDraft}
+        fillDefaultsOnMount={false}
+        systemLabels={{
+          user: user?.name ?? null,
+          org: user?.currentOrg?.name ?? null,
+        }}
+        mode="edit"
+        permissions={permissions ?? permissionsOfSubmission(submission)}
+        expressionContext={expressionContext}
+        isCompleted={isCompleted}
+        isPending={state.isPending}
+        error={state.error}
+        onSaveDraft={(values, touched) => {
+          void state.save(values, touched).then((saved) => {
+            if (saved !== null) {
+              showSnackbar(
+                "success",
+                isCompleted ? t("changesSaved") : t("draftSaved"),
+              );
+            }
+          });
+        }}
+        onSubmit={(values, touched) => {
+          void state.submit(values, touched).then((submitted) => {
+            if (submitted === null) {
+              return;
+            }
+            showSnackbar("success", t("submitted"));
+            if (access.viewRoute === null) {
+              leave();
+            } else {
+              void navigate(`${access.viewRoute}/${submitted.id}`);
+            }
+          });
+        }}
+        onCancel={leave}
+        onReload={() => {
+          void queryClient.invalidateQueries({
+            queryKey: useFormSubmissionQuery.getKey({ id }),
+          });
+        }}
+      />
     </Card>
   );
 };
