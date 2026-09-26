@@ -153,6 +153,8 @@ export const FlowCanvas = ({
         edgesFocusable={false}
         elementsSelectable
         fitView
+        // 關卡少的流程不要被放大到滿版:最多原尺寸,四周留白
+        fitViewOptions={{ maxZoom: 1, padding: 0.2 }}
         minZoom={0.3}
       >
         <Background />

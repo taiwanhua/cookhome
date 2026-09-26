@@ -60,14 +60,16 @@ const leave = (overrides: Parameters<typeof submissionFragment>[0] = {}) =>
 const renderLeave = (
   path: string,
   forms: FormRuntimeWorldOptions,
-  runtime: WorkflowRuntimeWorldOptions = { instances: [instanceFragment()] },
+  runtime?: WorkflowRuntimeWorldOptions,
 ) => {
   const formWorld = formRuntimeWorld({
     moduleForms: [leaveForm],
     versions: { [`${LEAVE_FORM_KEY}@1`]: leaveDefinition() },
     ...forms,
   });
-  const workflowWorld = workflowRuntimeWorld(runtime);
+  const workflowWorld = workflowRuntimeWorld(
+    runtime ?? { instances: [instanceFragment()] },
+  );
   server.use(
     ...authWorld({
       hasRefreshCookie: true,
