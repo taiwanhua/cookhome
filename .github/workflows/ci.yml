@@ -17,6 +17,8 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # 卡死保險:api 的 jest 曾因殘留 handle 在測試全過後不退出,整個 job 燒滿 6 小時(預設上限)才停
+    timeout-minutes: 30
 
     services:
       mongo:
@@ -107,8 +109,13 @@ jobs:
 
       # check-types 與 build 分兩步:next build 會清寫 .next,與 next typegen 同時跑會競態
       # MONGODB_URI:db-migrator 測試沿用本 job 的 MongoDB service container(本地無此變數時自起 mongodb-memory-server)
-      - name: lint / typecheck / test
-        run: pnpm exec turbo run lint check-types test ${{ steps.affected.outputs.filter }}
+      - name: lint / typecheck
+        run: pnpm exec turbo run lint check-types ${{ steps.affected.outputs.filter }} --log-order=stream
+
+      # 拆成獨立步驟才能只對 jest 傳參數:`--forceExit` 讓測試全過但有殘留 handle 時仍會退出,
+      # 並把偵測到的 handle 印進 log(api 開著 --detectOpenHandles);`--log-order=stream` 即時印出各套件輸出,卡在哪一眼可見
+      - name: test
+        run: pnpm exec turbo run test ${{ steps.affected.outputs.filter }} --log-order=stream -- --forceExit
         env:
           MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
 
