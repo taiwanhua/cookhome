@@ -18,8 +18,10 @@ import {
  *
  * 佔位符:摘要槽 `{{title}}` / `{{date}}` / `{{amount}}`、欄位 `{{value.<欄位key>}}`、系統 `{{applicant}}`(建立者現名)/
  * `{{form}}`(表單名)/ `{{module}}`(模組名)/ `{{action}}`(檢視 / 編輯 / 新增)。
- * 值的格式化同 `templateTextOf`:選項印 label、日期 / 日期時間依時區(`formatTemporal`)、數字照 `precision`。
- * **`{{action}}` 沒寫時自動加在最前面**,以「・」分隔(「檢視・王小明的病假單」);有寫就照模板位置。
+ * 值的格式化同 `templateTextOf`:選項印 label、日期 / 日期時間依**讀者現在的租戶時區**(`formatTemporal`;
+ * 修訂的 `ctx.timezone` 只用於重算條件,不用於顯示)、數字照 `precision`。
+ * **`{{action}}` 沒寫時自動加在最前面**(「檢視・王小明的病假單」;組法在字典 `admin.formEngine.pages.tabLabelWithAction`,
+ * 呼叫端以 `joinAction` 帶進來);有寫就照模板位置。
  */
 
 /** 模組層的預設模板:`formModulePages(moduleKey, { tabLabelTemplate })` 沒給時用它。 */
@@ -41,9 +43,6 @@ export type TabLabelPlaceholder = (typeof TAB_LABEL_PLACEHOLDERS)[number];
 /** 頁面種類(`{{action}}`)。 */
 export type TabLabelAction = "view" | "edit" | "create";
 
-/** 模板沒寫 `{{action}}` 時,自動加在最前面的分隔符。 */
-export const TAB_LABEL_ACTION_SEPARATOR = "・";
-
 /** 欄位值佔位符的寫法(設定畫面插入用)。 */
 export const valuePlaceholderOf = (fieldKey: string): string =>
   `{{value.${fieldKey}}}`;
@@ -62,6 +61,8 @@ export const tabLabelTemplateOf = (
 export interface ApplyTabLabelOptions {
   /** 頁面種類的顯示文字(「檢視」),`{{action}}` 用它,模板沒寫時自動加在最前面 */
   action: string;
+  /** 模板沒寫 `{{action}}` 時把頁面種類接在最前面(字典的 ICU 訊息,I18N-03:分隔符不寫死在程式) */
+  joinAction: (action: string, label: string) => string;
   /** 套出來是空的時改用它(表單名) */
   fallback?: string | null;
 }
@@ -73,7 +74,7 @@ export interface ApplyTabLabelOptions {
 export const applyTabLabelTemplate = (
   template: string,
   resolve: (name: string) => string | null | undefined,
-  { action, fallback }: ApplyTabLabelOptions,
+  { action, joinAction, fallback }: ApplyTabLabelOptions,
 ): string | null => {
   const hasAction = templatePlaceholdersOf(template).includes("action");
   const rendered = renderTemplate(template, (name) =>
@@ -83,9 +84,7 @@ export const applyTabLabelTemplate = (
   if (body === "") {
     return null;
   }
-  return hasAction || action === ""
-    ? body
-    : `${action}${TAB_LABEL_ACTION_SEPARATOR}${body}`;
+  return hasAction || action === "" ? body : joinAction(action, body);
 };
 
 /** 算一筆頁籤要的資料。 */
@@ -98,9 +97,11 @@ export interface TabLabelContext {
   moduleName?: string | null;
   /** 建立者現名 */
   applicantName?: string | null;
-  /** 頁面種類的顯示文字(「檢視」/「編輯」/「新增」) */
+  /** 頁面種類的顯示文字(「檢視」/「編輯」/「新增」;空字串 = 不加) */
   action: string;
-  /** 日期 / 日期時間的時區(唯讀歷史 = 該修訂 `ctx.timezone`;其餘 = 租戶時區) */
+  /** 模板沒寫 `{{action}}` 時把頁面種類接在最前面(字典的 ICU 訊息) */
+  joinAction: (action: string, label: string) => string;
+  /** 日期 / 日期時間的顯示時區 = 讀者現在的租戶時區(沒給 = 預設租戶時區) */
   timezone?: string | null;
   /** `summaryMap.date` 沒對欄位時 `{{date}}` 用的送出時間(ISO;草稿沒有) */
   submittedAt?: string | null;
@@ -171,6 +172,10 @@ export const renderTabLabel = (
       }
       return system[name];
     },
-    { action: context.action, fallback: context.formName },
+    {
+      action: context.action,
+      joinAction: context.joinAction,
+      fallback: context.formName,
+    },
   );
 };

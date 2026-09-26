@@ -60,12 +60,14 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
     () => (submission === null ? null : permissionsOfSubmission(submission)),
     [submission],
   );
-  // 頁籤 / 標題:以正在輸入的值即時算(`FormFillForm` 呼叫);日期用租戶時區
+  // 頁籤 / 標題:以正在輸入的值即時算(`FormFillForm` 呼叫);日期用租戶時區。
+  // 頁層不要再呼叫 `useRouteTabItemLabel`:會蓋掉 `FormFillForm` 設的即時值
   const tabLabelOf = useTabLabelRenderer({
     moduleKey,
     formKey: submission?.formKey,
     formName: submission?.formName,
     definition: version.definition,
+    isLoading: version.isLoading,
     action: "edit",
     applicantName: submission?.createdBy?.name,
     submittedAt: submission?.submittedAt,

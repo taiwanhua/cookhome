@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import { useTranslations } from "use-intl";
 
 import {
@@ -101,10 +101,15 @@ export const FormSubmissionList = ({
     DEFAULT_LIST_BUILTIN_COLUMNS;
   // 表頭:模組內各表單目前版本的定義(沒有資料列也要有欄位名)
   const { forms } = useModuleForms(moduleKey);
-  const currentRefs = forms.map((form) => ({
-    formKey: form.key,
-    version: form.currentVersion,
-  }));
+  // 以 useMemo 保持身分穩定:`useVersionDefinitions` 以它為 memo 依賴
+  const currentRefs = useMemo(
+    () =>
+      forms.map((form) => ({
+        formKey: form.key,
+        version: form.currentVersion,
+      })),
+    [forms],
+  );
   const currentDefinitionOf = useVersionDefinitions(currentRefs);
 
   const query = useFormSubmissionsQuery(session.client, {

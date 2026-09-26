@@ -73,22 +73,21 @@ export const ApplyCenterViewPage = ({ routeParam }: ModulePageProps) => {
     () => (submission === null ? null : permissionsOfSubmission(submission)),
     [submission],
   );
-  // 頁籤 / 標題:與表單模組詳情頁同一個算法,以那個修訂的值、時區即時算
+  // 頁籤 / 標題:與表單模組詳情頁同一個算法,以那個修訂的值即時算(日期用讀者的租戶時區);
+  // 實例、快照與定義都載到前先不給(頁籤維持模組名,不先用表單名算一次再換)
   const tabLabelOf = useTabLabelRenderer({
     moduleKey: instance?.moduleKey ?? "",
     moduleName: instance?.moduleName,
     formKey: instance?.formKey,
     formName: instance?.formName,
     definition: version.definition,
+    isLoading:
+      instance === null || submissionQuery.isLoading || version.isLoading,
     action: "view",
     applicantName: instance?.applicant?.name,
-    timezone: submission?.ctx?.timezone,
     submittedAt: submission?.submittedAt,
   });
-  const title =
-    instance === null
-      ? null
-      : (tabLabelOf(submission?.values) ?? instance.formKey);
+  const title = tabLabelOf(submission?.values);
   useRouteTabItemLabel(title);
 
   if (

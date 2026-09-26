@@ -24,8 +24,8 @@ export interface TabLabelSubject {
   definition: Pick<FormDefinition, "fields" | "summaryMap"> | null;
   action: TabLabelAction;
   applicantName?: string | null;
-  /** 唯讀歷史 = 該修訂的 `ctx.timezone`;沒給 = 讀者的租戶時區 */
-  timezone?: string | null;
+  /** 版本定義還在載入:先回 null(頁籤維持模組名),不先用表單名算一次再換 */
+  isLoading?: boolean;
   /** `{{date}}` 沒對欄位時用的送出時間(草稿沒有) */
   submittedAt?: string | null;
 }
@@ -37,7 +37,8 @@ export interface TabLabelRenderOptions {
 
 /**
  * 頁籤 / 標題的算法(`lib/form-engine/tab-label.ts` 的 `renderTabLabel`)綁好這一筆的脈絡,回 `(values) => 標題`:
- * 模板 = 表單的 `tabLabelTemplate`(`moduleForms` 讀得到時)→ 模組層模板;`{{action}}` 的文字與是 / 否從字典取。
+ * 模板 = 表單的 `tabLabelTemplate`(`moduleForms` 讀得到時)→ 模組層模板;`{{action}}` 的文字、接法與是 / 否從字典取;
+ * 日期依讀者現在的租戶時區。版本定義(`isLoading`)或 `moduleForms` 還在載入時回 null,頁籤維持模組名、不閃動。
  * 詳情頁直接以存值呼叫;新增 / 編輯頁交給 `FormFillForm` 以正在輸入的值呼叫。
  */
 export const useTabLabelRenderer = (
@@ -47,10 +48,14 @@ export const useTabLabelRenderer = (
   options?: TabLabelRenderOptions,
 ) => string | null) => {
   const t = useTranslations("admin.formEngine.pages.actions");
+  const tPages = useTranslations("admin.formEngine.pages");
   const tValue = useTranslations("admin.formEngine.renderer");
+  // 顯示一律用讀者現在的租戶時區(修訂的 `ctx.timezone` 只用於重算條件,Spec §5「值的存法」)
   const tenantTimezone = useTenantTimezone();
   const me = useMe();
-  const { forms } = useModuleForms(subject.moduleKey);
+  const { forms, isLoading: isFormsLoading } = useModuleForms(
+    subject.moduleKey,
+  );
   const template = tabLabelTemplateOf(
     formModuleOptionsOf(subject.moduleKey).tabLabelTemplate,
     forms.find((form) => form.key === subject.formKey)?.tabLabelTemplate,
@@ -63,16 +68,23 @@ export const useTabLabelRenderer = (
   const action = t(subject.action);
   const booleanText = { yes: tValue("yes"), no: tValue("no") };
 
+  const joinAction = (actionText: string, label: string) =>
+    tPages("tabLabelWithAction", { action: actionText, label });
+  const isLoading = subject.isLoading === true || isFormsLoading;
+
   return (values, options) =>
-    renderTabLabel(template, {
-      values,
-      definition: subject.definition,
-      formName: subject.formName ?? subject.formKey ?? null,
-      moduleName,
-      applicantName: subject.applicantName,
-      action: options?.withAction === false ? "" : action,
-      timezone: subject.timezone ?? tenantTimezone,
-      submittedAt: subject.submittedAt,
-      booleanText,
-    });
+    isLoading
+      ? null
+      : renderTabLabel(template, {
+          values,
+          definition: subject.definition,
+          formName: subject.formName ?? subject.formKey ?? null,
+          moduleName,
+          applicantName: subject.applicantName,
+          action: options?.withAction === false ? "" : action,
+          joinAction,
+          timezone: tenantTimezone,
+          submittedAt: subject.submittedAt,
+          booleanText,
+        });
 };

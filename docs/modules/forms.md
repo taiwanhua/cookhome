@@ -198,7 +198,7 @@
 | `{{form}}` / `{{module}}`               | 表單名 / 模組名                                                       |
 | `{{action}}`                            | 頁面種類:檢視 / 編輯 / 新增;**模板沒寫時自動加在最前面**,以「・」分隔 |
 
-值的格式化同 `@repo/domain/form` 的 `templateTextOf`:選項 / 引用印 label、日期 / 日期時間 `formatTemporal`(詳情 / 申請中心用該修訂的 `ctx.timezone`,其餘租戶時區)、數字照 `precision`、是 / 否印文字、讀不到(`"[redacted]"`)為空。套出來是空的退回表單名。表單模組新增 / 編輯 / 檢視頁與申請中心詳情頁都走 `components/form-engine/FormModulePages/useTabLabelRenderer.ts`;刪除確認的「這一筆」用同一個算法但不加頁面種類。表單編輯跳窗在模板下方列出可用佔位符,欄位值用「插入欄位的值」下拉挑欄位插入 `{{value.<key>}}`(欄位取目前版本,沒發布過取草稿),並即時顯示以範例資料套用的結果(留空以預設模板示範)。
+值的格式化同 `@repo/domain/form` 的 `templateTextOf`:選項 / 引用印 label、日期 / 日期時間 `formatTemporal`(一律讀者現在的租戶時區;修訂的 `ctx.timezone` 只用於重算條件)、數字照 `precision`、是 / 否印文字、讀不到(`"[redacted]"`)為空。套出來是空的退回表單名。表單模組新增 / 編輯 / 檢視頁與申請中心詳情頁都走 `components/form-engine/FormModulePages/useTabLabelRenderer.ts`(版本定義或 `moduleForms` 載到前回 null,頁籤維持模組名;自動加的頁面種類以字典 `admin.formEngine.pages.tabLabelWithAction` 組);刪除確認的「這一筆」用同一個算法但不加頁面種類。表單編輯跳窗在模板下方列出可用佔位符,欄位值用「插入欄位的值」下拉挑欄位插入 `{{value.<key>}}`(欄位取目前版本,沒發布過取草稿),並即時顯示以範例資料套用的結果(留空以預設模板示範)。
 
 - 設計器的表達式一律用**型別導向的結構化選擇器**(欄位 / 系統值 / 常數 / 運算,可巢狀),不做文字輸入:每個位置帶期望型別往下傳,只列型別對得上的東西(型別表正本 `@repo/domain/form` 的 `expression-types.ts`,過濾在 `lib/form-engine/expression-options.ts`)。公式的根 = 欄位型別;條件(顯示 / 鎖定條件、自訂驗證、流程跳過條件)的根 = 是 / 否,常數與系統值不能單獨當條件的根;條件不列受保護欄位。鎖定條件與自訂驗證可引用自己(「超過 5 就鎖住」),顯示條件不可。`dateDiff` 節點有單位下拉(天 / 小時 / 分鐘,預設天),產生第三參數。
 - 刪被引用的欄位:先列出草稿內引用它的表達式、摘要槽、帶入規則,以及草稿外的列表欄位配置(只提示);確認後只從草稿的 `fields[]` / `layout` 移除,引用處變成檢查器錯誤。刪分區二選一:欄位移到「未放置」或連同欄位刪除。

@@ -47,6 +47,7 @@ export const EditFormDialog = ({
   onSaved,
 }: EditFormDialogProps) => {
   const t = useTranslations("admin.forms.edit");
+  const tPages = useTranslations("admin.formEngine.pages");
   const tErrors = useTranslations("admin.forms.errors");
   const { session } = useSession();
   const [name, setName] = useState(form.name);
@@ -79,7 +80,12 @@ export const EditFormDialog = ({
       const field = fields.find((candidate) => candidate.key === fieldKey);
       return t("sampleValue", { label: field?.label ?? fieldKey });
     },
-    { action: t("sampleAction"), fallback: name.trim() },
+    {
+      action: t("sampleAction"),
+      joinAction: (action, label) =>
+        tPages("tabLabelWithAction", { action, label }),
+      fallback: name.trim(),
+    },
   );
 
   const update = useUpdateFormMutation(

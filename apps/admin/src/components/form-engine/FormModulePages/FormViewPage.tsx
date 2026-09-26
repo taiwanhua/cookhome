@@ -36,7 +36,7 @@ export const FormViewPage = ({ module, routeParam }: ModulePageProps) => {
   const { submission } = state;
   const [isDeleting, setIsDeleting] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  // 頁籤 / 標題:以那一筆的值與綁的版本即時算;日期用那一筆的時區(草稿 = 租戶時區)
+  // 頁籤 / 標題:以那一筆的值與綁的版本即時算;日期用讀者的租戶時區;定義載到前先不給(頁籤維持模組名)
   const version = useFormRuntimeVersion(
     submission?.formKey ?? null,
     submission?.version ?? null,
@@ -46,9 +46,9 @@ export const FormViewPage = ({ module, routeParam }: ModulePageProps) => {
     formKey: submission?.formKey,
     formName: submission?.formName,
     definition: version.definition,
+    isLoading: submission === null || version.isLoading,
     action: "view",
     applicantName: submission?.createdBy?.name,
-    timezone: submission?.ctx?.timezone,
     submittedAt: submission?.submittedAt,
   });
   const title = submission === null ? null : tabLabelOf(submission.values);

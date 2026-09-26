@@ -43,6 +43,7 @@ const context: TabLabelContext = {
   moduleName: "請假",
   applicantName: "王小明",
   action: "檢視",
+  joinAction: (action, label) => `${action}・${label}`,
   timezone: "Asia/Taipei",
 };
 
@@ -103,7 +104,10 @@ describe("頁籤 / 標題模板(前端即時算)", () => {
   it("套出來是空的退回表單名(仍加頁面種類);都沒有回 null", () => {
     expect(renderTabLabel("{{value.nope}}", context)).toBe("檢視・請假單");
     expect(
-      applyTabLabelTemplate("{{title}}", () => null, { action: "新增" }),
+      applyTabLabelTemplate("{{title}}", () => null, {
+        action: "新增",
+        joinAction: context.joinAction,
+      }),
     ).toBeNull();
   });
 

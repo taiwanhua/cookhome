@@ -1201,7 +1201,8 @@
         "view": "View",
         "edit": "Edit",
         "create": "New"
-      }
+      },
+      "tabLabelWithAction": "{action} · {label}"
     },
     "fill": {
       "loading": "Loading",

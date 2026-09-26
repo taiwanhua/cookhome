@@ -1201,7 +1201,8 @@
         "view": "檢視",
         "edit": "編輯",
         "create": "新增"
-      }
+      },
+      "tabLabelWithAction": "{action}・{label}"
     },
     "fill": {
       "loading": "載入中",
