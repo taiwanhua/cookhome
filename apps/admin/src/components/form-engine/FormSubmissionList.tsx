@@ -2,6 +2,10 @@ import type { ReactNode } from "react";
 import { useTranslations } from "use-intl";
 
 import {
+  DEFAULT_LIST_BUILTIN_COLUMNS,
+  type ListBuiltinColumns,
+} from "@repo/domain/form";
+import {
   type FormSubmissionFieldsFragment,
   type FormSubmissionStatus,
   ModuleListColumnKind,
@@ -14,6 +18,7 @@ import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useModuleForms } from "@/hooks/useModuleForms";
 import { useSession } from "@/hooks/useSession";
 import { useTemporalText } from "@/hooks/useTemporalText";
 import { useTenantTimezone } from "@/hooks/useTenantTimezone";
@@ -21,6 +26,7 @@ import { useVersionDefinitions } from "@/hooks/useVersionDefinitions";
 import {
   type ListColumnSpec,
   columnIdOf,
+  fieldColumnLabelOf,
   resolveListCell,
   sortedColumns,
 } from "@/lib/form-engine/list-columns";
@@ -44,6 +50,8 @@ export interface FormSubmissionListProps {
   onPageChange: (page: number) => void;
   /** 自訂欄;不給 = 模組的列表欄位配置(沒設定過 = 預設的標題 + 日期) */
   columns?: readonly ListColumnSpec[];
+  /** 內建欄(表單 / 狀態 / 建立者)的開關;不給 = 模組的列表欄位配置(自訂欄時 = 全開) */
+  builtin?: ListBuiltinColumns;
   pageSize?: number;
   /** 列尾的操作(檢視 / 編輯 / 刪除,由組裝頁決定) */
   renderActions?: (row: FormSubmissionRow) => ReactNode;
@@ -56,7 +64,9 @@ const DEFAULT_PAGE_SIZE = 20;
  * 提交列表(Spec 6a §8 `<FormSubmissionList moduleKey columns? …>`,`DataTable` + REACT-13 `render(ctx)`)。
  *
  * 欄位來自列表欄位配置(摘要槽或表單欄位);表單欄位的一格依**那一筆綁的版本**判斷:
- * 配置引用的欄位在那一版不存在(或是別張表單的欄位)→ 顯示「—」。範圍(可見範圍 + 資料範圍規則)由 api 套,
+ * 配置引用的欄位在那一版不存在(或是別張表單的欄位)→ 顯示「—」。表單欄位的表頭讀該表單**目前版本**的定義
+ * (沒有資料列也顯示欄位名;多張表單取第一個有該欄位的),再退到這一頁資料列的版本、最後才是 key。
+ * 內建欄「表單 / 狀態 / 建立者」依配置的開關顯示。範圍(可見範圍 + 資料範圍規則)由 api 套,
  * 別人的草稿不列;搜尋只比對摘要標題。
  */
 export const FormSubmissionList = ({
@@ -64,6 +74,7 @@ export const FormSubmissionList = ({
   filters,
   onPageChange,
   columns,
+  builtin,
   pageSize = DEFAULT_PAGE_SIZE,
   renderActions,
   "aria-label": ariaLabel,
@@ -82,6 +93,20 @@ export const FormSubmissionList = ({
   const specs = sortedColumns(
     columns ?? configured.data?.moduleListColumns.columns ?? [],
   );
+  const shown =
+    builtin ??
+    (columns === undefined
+      ? configured.data?.moduleListColumns.builtin
+      : undefined) ??
+    DEFAULT_LIST_BUILTIN_COLUMNS;
+  // 表頭:模組內各表單目前版本的定義(沒有資料列也要有欄位名)
+  const { forms } = useModuleForms(moduleKey);
+  const currentRefs = forms.flatMap((form) =>
+    form.currentVersion === null || form.currentVersion === undefined
+      ? []
+      : [{ formKey: form.key, version: form.currentVersion }],
+  );
+  const currentDefinitionOf = useVersionDefinitions(currentRefs);
 
   const query = useFormSubmissionsQuery(session.client, {
     input: {
@@ -96,16 +121,23 @@ export const FormSubmissionList = ({
   const rows = query.data?.formSubmissions.items ?? [];
   const totalCount = query.data?.formSubmissions.totalCount ?? 0;
   const definitionOf = useVersionDefinitions(rows);
-  /** 表單欄位欄的表頭:這一頁任一筆的版本裡找得到就用它的 label,否則顯示欄位 key。 */
-  const fieldLabelOf = (fieldKey: string): string =>
-    rows
-      .map(
-        (row) =>
-          definitionOf(row.formKey, row.version)?.fields.find(
-            (field) => field.key === fieldKey,
-          )?.label,
-      )
-      .find((label) => label !== undefined) ?? fieldKey;
+  /** 表單欄位欄的表頭:目前版本 → 這一頁資料列綁的版本 → 欄位 key。 */
+  const fieldLabelOf = (spec: ListColumnSpec): string =>
+    fieldColumnLabelOf(
+      spec,
+      currentRefs.map((ref) => ({
+        formKey: ref.formKey,
+        fields: currentDefinitionOf(ref.formKey, ref.version)?.fields,
+      })),
+    ) ??
+    fieldColumnLabelOf(
+      spec,
+      rows.map((row) => ({
+        formKey: row.formKey,
+        fields: definitionOf(row.formKey, row.version)?.fields,
+      })),
+    ) ??
+    spec.key;
   /**
    * 摘要槽的一格:「日期」是時點(ISO),以讀者的租戶時區格式化 —— 對到日期欄印 `YYYY-MM-DD`,
    * 對到日期時間欄或沒對(= 送出時間)印到分鐘;其他槽照字。
@@ -138,7 +170,7 @@ export const FormSubmissionList = ({
       header:
         spec.kind === ModuleListColumnKind.Slot
           ? t(`slots.${spec.key}`)
-          : fieldLabelOf(spec.key),
+          : fieldLabelOf(spec),
       width: spec.width,
       render: ({ row }) => {
         const cell = resolveListCell(
@@ -171,8 +203,7 @@ export const FormSubmissionList = ({
     }),
   );
 
-  const tableColumns: DataTableColumn<FormSubmissionRow>[] = [
-    ...configuredColumns,
+  const builtinColumns: DataTableColumn<FormSubmissionRow>[] = [
     {
       key: "form",
       header: t("form"),
@@ -193,6 +224,13 @@ export const FormSubmissionList = ({
       width: 140,
       render: ({ row }) => row.createdBy?.name ?? valueText.empty,
     },
+  ];
+
+  const tableColumns: DataTableColumn<FormSubmissionRow>[] = [
+    ...configuredColumns,
+    ...builtinColumns.filter(
+      (column) => shown[column.key as keyof ListBuiltinColumns],
+    ),
     ...(renderActions === undefined
       ? []
       : [

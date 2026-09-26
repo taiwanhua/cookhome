@@ -85,6 +85,44 @@ describe("表單模組列表頁(預設組裝)", () => {
     );
   });
 
+  it("沒有資料列時表頭仍是欄位名(讀表單目前版本);內建欄關掉的不顯示", async () => {
+    renderShopping({
+      path: SHOPPING_ROUTES.list,
+      world: {
+        ...defaultRuntimeOptions(),
+        submissions: [],
+        listColumns: {
+          [SHOPPING_LIST_KEY]: [
+            {
+              kind: ModuleListColumnKind.Field,
+              key: "qty",
+              formKey: null,
+              width: 120,
+              order: 0,
+            },
+          ],
+        },
+        listBuiltin: {
+          [SHOPPING_LIST_KEY]: { form: false, status: true, createdBy: false },
+        },
+      },
+    });
+
+    const grid = await table();
+    expect(
+      await within(grid).findByRole("columnheader", { name: /^數量/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(grid).getByRole("columnheader", { name: /^狀態/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(grid).queryByRole("columnheader", { name: /^表單/ }),
+    ).toBeNull();
+    expect(
+      within(grid).queryByRole("columnheader", { name: /^建立者/ }),
+    ).toBeNull();
+  });
+
   it("此刻可新增的表單只有一張:按新增直接進那張表單", async () => {
     const { user } = renderShopping({ path: SHOPPING_ROUTES.list });
 

@@ -243,6 +243,7 @@ describe("模組與權限:表單模組的列表欄位配置、退役權限清理
           order: 1,
         },
       ],
+      builtin: { form: true, status: true, createdBy: true },
     });
   });
 });

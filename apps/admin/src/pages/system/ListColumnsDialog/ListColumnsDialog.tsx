@@ -30,6 +30,7 @@ export const ListColumnsDialog = ({
   const { session } = useSession();
   const query = useModuleListColumnsQuery(session.client, { moduleKey });
   const columns = query.data?.moduleListColumns.columns;
+  const builtin = query.data?.moduleListColumns.builtin;
 
   return (
     <Dialog
@@ -41,12 +42,13 @@ export const ListColumnsDialog = ({
     >
       <Stack spacing={2}>
         <Alert severity="info">{t("moduleWide")}</Alert>
-        {columns === undefined ? (
+        {columns === undefined || builtin === undefined ? (
           <CircularProgress aria-label={t("loading")} />
         ) : (
           <ListColumnsEditor
             moduleKey={moduleKey}
             initial={columns}
+            initialBuiltin={builtin}
             onClose={onClose}
           />
         )}

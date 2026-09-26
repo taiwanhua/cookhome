@@ -32,6 +32,10 @@ describe("表單管理:所屬模組的列表欄位配置入口", () => {
       "目前沒有設定,列表使用預設欄(標題、日期)。",
     );
     await user.click(within(dialog).getByRole("button", { name: "+ 摘要槽" }));
+    // 內建欄各一個開關(預設全開):關掉「建立者」
+    const builtin = within(dialog).getByRole("group", { name: "內建欄" });
+    expect(within(builtin).getByRole("switch", { name: "表單" })).toBeChecked();
+    await user.click(within(builtin).getByRole("switch", { name: "建立者" }));
     await user.click(within(dialog).getByRole("button", { name: "儲存" }));
 
     await waitFor(() => {
@@ -46,6 +50,7 @@ describe("表單管理:所屬模組的列表欄位配置入口", () => {
               order: 0,
             },
           ],
+          builtin: { form: true, status: true, createdBy: false },
         },
       ]);
     });

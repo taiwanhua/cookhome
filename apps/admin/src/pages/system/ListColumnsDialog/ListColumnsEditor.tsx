@@ -3,6 +3,10 @@ import { useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
+  LIST_BUILTIN_COLUMNS,
+  type ListBuiltinColumns,
+} from "@repo/domain/form";
+import {
   ModuleListColumnKind,
   type SetModuleListColumnsMutation,
   useModuleListColumnsQuery,
@@ -10,7 +14,9 @@ import {
 } from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
 import { Button } from "@repo/ui/button";
+import { FormControlLabel } from "@repo/ui/form-control-label";
 import { Stack } from "@repo/ui/stack";
+import { Switch } from "@repo/ui/switch";
 import { Typography } from "@repo/ui/typography";
 
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
@@ -28,17 +34,21 @@ import { useListColumnCandidates } from "./useListColumnCandidates";
 export interface ListColumnsEditorProps {
   moduleKey: string;
   initial: readonly ListColumnSpec[];
+  /** 內建欄(表單 / 狀態 / 建立者)的開關 */
+  initialBuiltin: ListBuiltinColumns;
   onClose: () => void;
 }
 
 /**
- * 列表欄位配置的編輯(`modules.settings.list`,root 整份覆蓋):摘要槽或表單欄位、順序、寬度。
+ * 列表欄位配置的編輯(`modules.settings.list`,root 整份覆蓋):摘要槽或表單欄位、順序、寬度,
+ * 加內建欄「表單 / 狀態 / 建立者」各一個顯示開關。
  * 表單欄位只列共用表單目前版本的非受保護欄位;清空 = 回到預設欄(標題 + 日期)。
  * 表單改版後配置引用到那一筆版本沒有的欄位不自動清,列表那一格顯示「—」。
  */
 export const ListColumnsEditor = ({
   moduleKey,
   initial,
+  initialBuiltin,
   onClose,
 }: ListColumnsEditorProps) => {
   const t = useTranslations("admin.moduleManager.listColumns");
@@ -49,6 +59,11 @@ export const ListColumnsEditor = ({
   const [rows, setRows] = useState<ListColumnSpec[]>(() =>
     initial.toSorted((a, b) => a.order - b.order).map((row) => ({ ...row })),
   );
+  const [builtin, setBuiltin] = useState<ListBuiltinColumns>(() => ({
+    form: initialBuiltin.form,
+    status: initialBuiltin.status,
+    createdBy: initialBuiltin.createdBy,
+  }));
   const [error, setError] = useState<FormError | null>(null);
 
   const save = useSetModuleListColumnsMutation(
@@ -146,6 +161,28 @@ export const ListColumnsEditor = ({
           {t("addField")}
         </Button>
       </Stack>
+      <Stack spacing={0.25} role="group" aria-label={t("builtin")}>
+        <Typography variant="body2">{t("builtin")}</Typography>
+        <Stack direction="row" spacing={2}>
+          {LIST_BUILTIN_COLUMNS.map((column) => (
+            <FormControlLabel
+              key={column}
+              label={t(`builtinColumns.${column}`)}
+              control={
+                <Switch
+                  checked={builtin[column]}
+                  onChange={(_event, checked) => {
+                    setBuiltin({ ...builtin, [column]: checked });
+                  }}
+                />
+              }
+            />
+          ))}
+        </Stack>
+        <Typography variant="caption" color="text.secondary">
+          {t("builtinHint")}
+        </Typography>
+      </Stack>
       {error !== null && <Alert severity="error">{tErrors(error.code)}</Alert>}
       <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
         <Button variant="text" onClick={onClose}>
@@ -166,6 +203,7 @@ export const ListColumnsEditor = ({
                   width: row.width,
                   order,
                 })),
+                builtin,
               },
             });
           }}
