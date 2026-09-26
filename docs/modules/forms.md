@@ -103,7 +103,10 @@
 
 ## 列表欄位配置
 
-`modules.settings.list = { columns: [ { kind: "slot" | "field", key, formKey?, width, order } ] }`,root 整份覆蓋(`setModuleListColumns`,`form-design/module-list-columns.service.ts`)。寫入時驗:摘要槽 key 只能是 `title` / `date` / `amount`;表單欄位要存在於該模組**共用表單**目前版本,且在那些版本裡都**不是受保護欄位**(`formKey` 給了就只看那一張,沒給就看模組內全部);欄寬 40–2000;同一欄不能重複。空陣列 = 清掉配置、回前端預設欄。定義檢查器讀它出 `LIST_COLUMN_MISSING` 警告;表單改版後引用到不存在的欄位不自動清,前端顯示「—」。
+`modules.settings.list = { columns: [ { kind: "slot" | "field", key, formKey?, width, order } ], builtin: { form, status, createdBy } }`,root 整份覆蓋(`setModuleListColumns`,`form-design/module-list-columns.service.ts`)。寫入時驗:摘要槽 key 只能是 `title` / `date` / `amount`;表單欄位要存在於該模組**共用表單**目前版本,且在那些版本裡都**不是受保護欄位**(`formKey` 給了就只看那一張,沒給就看模組內全部);欄寬 40–2000;同一欄不能重複;`builtin` 三個鍵都要是 boolean。空陣列 = 清掉配置、回前端預設欄。定義檢查器讀它出 `LIST_COLUMN_MISSING` 警告;表單改版後引用到不存在的欄位不自動清,前端顯示「—」。
+
+- `builtin`:內建欄「表單 / 狀態 / 建立者」各自顯不顯示;沒存過(或某個鍵不是 boolean)= 顯示(`@repo/domain/form` 的 `listBuiltinColumnsOf`)。
+- 表單欄位欄的表頭讀該表單**目前版本**的定義(`moduleForms` 的 `currentVersion`;沒有資料列也顯示欄位名,欄位沒限定表單時取第一張有該欄位的),找不到再看這一頁資料列綁的版本,最後才顯示 key。
 
 ## 讀取投影
 
@@ -141,7 +144,17 @@
 | `form_submission` | 摘要槽(`title` / `date` / `amount`)+ 那張表單的欄位 | 受保護欄位要該表單該欄的 `show`                                                   | —             | 來源表單所屬模組的 `view` + 可見範圍 / 資料範圍;預設只列已完成 |
 
 - `form_submission` 來源回每一筆時,欄位依**那筆自己綁的版本**判斷:存在且非受保護 → 語意值(選項 / 引用另附 label);存在但受保護且沒有 `show` → **省略**;那一版沒有這個欄位 → `null`。
-- 設計時的欄位目錄 = 來源表單目前版本的非受保護欄位 + 摘要槽;檢查器以它驗 `labelField` / `valueField` / 帶入的來源欄位。
+- 設計時的欄位目錄 = 來源表單目前版本的非受保護欄位 + 摘要槽;檢查器以它驗 `labelField` / `valueField` / 帶入的來源欄位,以及 `labelTemplate` 的佔位符。
+- **顯示模板 `labelTemplate`**(來源描述的選填欄位):有值時顯示名由 api 組好回傳(`lookupDisplayLabelOf`;`formLookup` / `formLookupRecord` 的 `label`、引用與 lookup 選項寫進提交的快照 label、現名解析都走它),沒填、或套出來是空的 → 用 `labelField`。每個佔位符取該欄的顯示名(日期 / 日期時間依**讀者**租戶時區格式化、選項 / 引用印 label,同 `labels`),讀不到的(受保護省略、那版沒有)換空字串。佔位符(`@repo/domain/form` 的 `lookupTemplateFieldOf`):
+
+| provider          | 佔位符                                                                     |
+| ----------------- | -------------------------------------------------------------------------- |
+| `user`            | `{{name}}`、`{{account}}`、`{{email}}`、`{{id}}`                           |
+| `org`             | `{{name}}`、`{{slug}}`、`{{id}}`                                           |
+| `form_submission` | 摘要槽 `{{title}}` / `{{date}}` / `{{amount}}`、欄位 `{{value.<欄位key>}}` |
+
+佔位符對不到 provider 可回的欄位 → 檢查器錯誤 `LOOKUP_TEMPLATE_UNKNOWN_PLACEHOLDER`(定位 `…source.labelTemplate`);`form_submission` 的 `{{value.<key>}}` 另由 api 精確到該表單目前版本的非受保護欄位。
+
 - **新增一個來源**:`LOOKUP_PROVIDERS` 加宣告 → `LookupProvidersService.providerFor` 加實作(搜尋與依值取回都要套操作者的範圍)→ 本表補一列。
 
 ## 退役權限清理
@@ -174,15 +187,26 @@
 - 設計器內部以**穩定的內部 id**(`_id`)當欄位身分,`key` 只是資料:載入草稿時配 id、存草稿 / JSON 預覽 / 預覽時丟掉(`lib/form-engine/design-definition.ts`);選取、拖拉、改屬性、刪除都以 id 找欄位(`designer-ops.ts`),所以舊草稿 key 重複也刪得掉、不會改錯欄。改 key 當場擋格式、保留字與重複(輸入框標紅、不寫入),不等檢查器。
 - 屬性面板依型別只出現該有的設定(Spec 6a §5 表 A,`lib/form-engine/property-sections.ts`):上傳 / 引用欄位不顯示值來源;值來源是公式 / 固定值時隱藏鎖定條件、預設值、允許清單外的值(改成公式 / 固定值時定義裡的預設值一併拿掉);元件下拉只在有兩種以上畫法時出現,多行文字有列數、數字有單位;驗證規則裡上傳有「允許的檔型 / 大小上限(MB)」(`rules.accept` / `rules.maxSizeMb`,`lib/form-engine/upload-types.ts`,全勾 = 不存 `accept`);日期與日期時間有上下限(日期時間用選擇器、以租戶時區輸入)。自訂驗證可填錯誤訊息(`rules.customMessage`,不成立時顯示它)。
 - **預設值**編輯器(`FormDesigner/PropertyPanel/DefaultValueEditor.tsx`,種類正本 `@repo/domain/form` 的 `defaultKindsOf`):文字 / 多行 / 數字 / 日期 / 日期時間 = 不設 / 固定值 / 公式(公式用型別導向選擇器,根 = 欄位型別、不列自己);單選 / 多選從選項挑 —— 靜態清單直接挑,類別 / 資料來源用填寫時的同一個選擇器挑(選項以**已存的草稿**查詢,所以要先存草稿);是否 = 是 / 否;引用只列「填寫者 / 填寫者的組織」。
-- 類別、表單、欄位都用**下拉選**:類別從 `fieldCategories` 挑;lookup 來源「其他表單的資料」的表單從 `forms` 挑(看得到且有已發布版本),顯示欄 / 值欄 / 帶入的來源欄位從該表單目前版本(`formVersion`)的非受保護欄位 + 摘要槽挑(`FormDesigner/PropertyPanel/useLookupCatalog.ts`,與 api 的 `formSubmissionCatalog` 同一判準)。lookup 來源的設定照填表順序排:來源 → 表單(表單提交才有)→ 顯示欄(表單提交預設標題槽)→ 固定條件(使用者 / 組織「只列啟用中的」= `filter.enabled`;表單提交「只列已完成的」= `completedOnly`)→ 值欄(只有選項來源);帶入規則在前面多「規則名稱」、後面接對應表(本表單欄位只列使用者填的 ← 來源欄位只列 `isPrefillCompatible` 相容的)。
-- 頁籤 / 標題模板(`lib/form-engine/tab-label.ts`)的佔位符:摘要槽 `{{title}}` / `{{date}}` / `{{amount}}`,加系統佔位符 `{{applicant}}`(建立者現名,取提交的 `createdBy.name`)與 `{{form}}`(表單名,`formName`);詳情 / 編輯頁的路由頁籤標題都用 `tabLabelValuesOf(submission)`。表單編輯跳窗在模板下方列出可用佔位符,並即時顯示以範例資料套用的結果(留空以預設模板示範)。
+- 類別、表單、欄位都用**下拉選**:類別從 `fieldCategories` 挑;lookup 來源「其他表單的資料」的表單從 `forms` 挑(看得到且有已發布版本),顯示欄 / 值欄 / 帶入的來源欄位從該表單目前版本(`formVersion`)的非受保護欄位 + 摘要槽挑(`FormDesigner/PropertyPanel/useLookupCatalog.ts`,與 api 的 `formSubmissionCatalog` 同一判準)。lookup 來源的設定照填表順序排:來源 → 表單(表單提交才有)→ 顯示欄(表單提交預設標題槽)→ 顯示模板(選填;文字框 + 「插入欄位」下拉,`FormDesigner/PropertyPanel/LookupLabelTemplateInput.tsx`,表單提交的欄位插入 `{{value.<key>}}`、摘要槽插入 `{{title}}` 這類;清空 = 拿掉 `labelTemplate`)→ 固定條件(使用者 / 組織「只列啟用中的」= `filter.enabled`;表單提交「只列已完成的」= `completedOnly`)→ 值欄(只有選項來源);帶入規則在前面多「規則名稱」、後面接對應表(本表單欄位只列使用者填的 ← 來源欄位只列 `isPrefillCompatible` 相容的)。
+- 頁籤 / 標題模板(`lib/form-engine/tab-label.ts` 的 `renderTabLabel`):表單的 `tabLabelTemplate` 有值用它,否則用模組層模板(`formModulePages(moduleKey, { tabLabelTemplate })`,預設 `{{title}}`)。**前端從那筆資料的值即時算**,不讀後端存的 `summary`:摘要槽依那筆綁的版本 `summaryMap` 對到欄位取值;新增 / 編輯頁用正在輸入的值(`FormFillForm` 的 `tabLabelOf`),所以草稿也算得出來。佔位符:
+
+| 佔位符                                  | 值                                                                    |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `{{title}}` / `{{date}}` / `{{amount}}` | 摘要槽對到的欄位值;`{{date}}` 沒對欄位時 = 送出時間(草稿沒有 → 空)    |
+| `{{value.<欄位key>}}`                   | 該欄位的值                                                            |
+| `{{applicant}}`                         | 建立者現名(`createdBy.name`;新增頁 = 自己)                            |
+| `{{form}}` / `{{module}}`               | 表單名 / 模組名                                                       |
+| `{{action}}`                            | 頁面種類:檢視 / 編輯 / 新增;**模板沒寫時自動加在最前面**,以「・」分隔 |
+
+值的格式化同 `@repo/domain/form` 的 `templateTextOf`:選項 / 引用印 label、日期 / 日期時間 `formatTemporal`(詳情 / 申請中心用該修訂的 `ctx.timezone`,其餘租戶時區)、數字照 `precision`、是 / 否印文字、讀不到(`"[redacted]"`)為空。套出來是空的退回表單名。表單模組新增 / 編輯 / 檢視頁與申請中心詳情頁都走 `components/form-engine/FormModulePages/useTabLabelRenderer.ts`;刪除確認的「這一筆」用同一個算法但不加頁面種類。表單編輯跳窗在模板下方列出可用佔位符,欄位值用「插入欄位的值」下拉挑欄位插入 `{{value.<key>}}`(欄位取目前版本,沒發布過取草稿),並即時顯示以範例資料套用的結果(留空以預設模板示範)。
+
 - 設計器的表達式一律用**型別導向的結構化選擇器**(欄位 / 系統值 / 常數 / 運算,可巢狀),不做文字輸入:每個位置帶期望型別往下傳,只列型別對得上的東西(型別表正本 `@repo/domain/form` 的 `expression-types.ts`,過濾在 `lib/form-engine/expression-options.ts`)。公式的根 = 欄位型別;條件(顯示 / 鎖定條件、自訂驗證、流程跳過條件)的根 = 是 / 否,常數與系統值不能單獨當條件的根;條件不列受保護欄位。鎖定條件與自訂驗證可引用自己(「超過 5 就鎖住」),顯示條件不可。`dateDiff` 節點有單位下拉(天 / 小時 / 分鐘,預設天),產生第三參數。
 - 刪被引用的欄位:先列出草稿內引用它的表達式、摘要槽、帶入規則,以及草稿外的列表欄位配置(只提示);確認後只從草稿的 `fields[]` / `layout` 移除,引用處變成檢查器錯誤。刪分區二選一:欄位移到「未放置」或連同欄位刪除。
 - 存草稿 / 發布收到 `CONFLICT` → 「已被別人更新,請重新載入」。
 
 ### 模組與權限(`system.module-manager`)
 
-- 表單模組(`engine: FORM`)的右面板多一塊**列表欄位配置**(`setModuleListColumns`,`system.forms.edit` + 站在根組織):選摘要槽或表單欄位、排序、欄寬。
+- 表單模組(`engine: FORM`)的右面板多一塊**列表欄位配置**(`setModuleListColumns`,`system.forms.edit` + 站在根組織):選摘要槽或表單欄位、排序、欄寬,加內建欄「表單 / 狀態 / 建立者」各一個顯示開關。
 - 頁首「退役權限清理」(`system.module-manager.delete-retired-permission`):列 `retiredFormPermissions`(顯示權限 `name`、表單、欄位、使用筆數),刪除走三層檢查:`USED_BY_DRAFTS` 顯示筆數與版本、`CONFIRM_REQUIRED` 先確認再帶 `confirmCompletedUsage: true`。
 
 ### 引擎零件與預設組裝
@@ -218,6 +242,7 @@ GraphQL 文件:`packages/graphql/src/documents/forms.graphql`(設計)、`form-su
 
 input 欄位的缺席 / `null`:
 
+- `SetModuleListColumnsInput.builtin`:缺席 / `null` = 保留目前存的(沒存過 = 全開);有給就三個開關一起送(`form` / `status` / `createdBy`)。`ModuleListColumnsPayload.builtin` 一定有值(沒存過 = 全 `true`)。
 - `UpdateFormInput.name`:缺席或 `null` = 不動。`tabLabelTemplate`:缺席 = 不動、`null` 或空字串 = 清空(改回模組層模板)。
 - `CreateFormVersionDraftInput.baseVersion`:缺席 / `null` = 空白草稿。
 - `RetireCurrentVersionInput.expectedVersion`:必填,呼叫端當時看到的目前版本號(見「版本狀態與四步發布」的退役)。
