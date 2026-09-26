@@ -273,6 +273,17 @@ export async function openTaskInApplyCenter(
   );
 }
 
+/** 登入後直接開申請中心詳情頁(申請人看自己的單、通知信連結的形狀)。 */
+export async function openInstanceDetail(
+  page: Page,
+  person: WorkflowPerson,
+  instanceId: string,
+): Promise<void> {
+  await signInAgain(page, person.account, person.password);
+  await page.goto(`${APPLY_CENTER_ROUTE}/view-page/${instanceId}`);
+  await expect(stepProgress(page)).toBeVisible();
+}
+
 /** 審核區塊的關卡進度(`<ol aria-label="關卡進度">`)。 */
 export function stepProgress(page: Page): Locator {
   return page.getByRole("list", { name: "關卡進度" });

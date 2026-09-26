@@ -81,6 +81,8 @@
 | Draft/ReviewStepNode | 待回填 | 審核關卡卡片:名稱、審核者來源、會簽、跳過條件、不可退回;選中 `primary.main`、有錯 `error.main` 外框 |
 | Draft/JoinNode | 待回填 | 匯合節點菱形(系統節點,無屬性) |
 | Draft/StepEditor | 待回填 | 關卡屬性面板:名稱、key、審核者來源四種、會簽、允許退回、跳過條件、加關卡 / 分流 / 移動 / 刪除 |
+| Draft/JoinPanel | 待回填 | 匯合節點屬性面板:說明(系統節點、N 條分支都通過才完成)、名稱、加一條分支、在匯合後加一關、刪除整組分流 |
+| Draft/UsersField / UserPicker | 待回填 | 「指定使用者」多選(關鍵字丟回 api 查、已選的保留)與改派用的單選(停用 / 申請人 / 已在本關的人灰掉並就地寫原因) |
 | Draft/WorkflowVersionPanel | 待回填 | 流程版本面板:草稿與各版本列、發布、發布中斷重試、退役、與上一版差異 |
 | Screen / Admin 阻擋清單 | 待回填 | 隱藏頁 `system.workflows.blocked-page`:阻擋 / 需要推進頁籤、清單(表單、標題、申請人、卡在哪、最後變動)、改派 / 新增審核者 / 重試推進 |
 | Draft/WorkflowBindingField | 待回填 | 表單管理右側的流程綁定欄:下拉、不能直接綁的原因與「建客製流程」、「綁定的流程已失效」 |

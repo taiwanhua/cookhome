@@ -66,7 +66,7 @@ concepts 讀完之後,接著照這個順序看「規則長成程式之後的樣�
 1. **[示範模組1](../modules/demo.sub.sample-one.md)** — 所有選配都打開的完整示範:三層模組樹、隱藏頁、欄位級權限、頁面自有權限、資料範圍目標、公開 / 私有雙路檔案、變更歷程
 2. **[示範模組2](../modules/demo.sample-two.md)** — 對照組:拿掉全部選配之後的**最小可行模組**(它「少了什麼」那張表就是選配清單)
 3. **[module-scaffold](./module-scaffold.md)** — 從上面兩支抽出來的藍本:要動哪些檔、照什麼順序、每一步的正本;欄位由使用者在後台設計的模組走同檔的「表單模組路線」(範例[購物清單](../modules/shopping-list.md))
-4. **[權限測試劇本](../testing/permission-scenarios.md)** — 19 條劇本,每條標明用哪一頁、哪個帳號、什麼步驟、預期什麼;新模組做完拿它自檢
+4. **[權限測試劇本](../testing/permission-scenarios.md)** — 24 條劇本,每條標明用哪一頁、哪個帳號、什麼步驟、預期什麼;新模組做完拿它自檢
 
 前端要動手之前先讀 `docs/concepts/frontend-architecture.md` 與 `DemoModuleConfig` 的逐項 JSDoc(前端藍本的規格)。
 

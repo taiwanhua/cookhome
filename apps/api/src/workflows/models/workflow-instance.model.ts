@@ -144,6 +144,10 @@ export class WorkflowInstanceStepModel {
   @Field(() => String, { nullable: true })
   mode!: string | null;
 
+  /** 這一關可否「退回修改」(版本定義的 `allowReturn`,省略 = true);匯合節點為 false。 */
+  @Field(() => Boolean)
+  allowReturn!: boolean;
+
   @Field(() => WorkflowStepStatusEnum)
   status!: WorkflowStepStatusEnum;
 

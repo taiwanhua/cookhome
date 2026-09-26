@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "@jest/globals";
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 
 import { workflowFragment } from "@/test/msw/workflow-fixtures";
 import { setupReactFlowEnvironment } from "@/test/react-flow";
@@ -167,6 +167,33 @@ describe("流程管理:清單與設計器", () => {
     ).toHaveValue("人資");
     expect(
       within(canvas).getByRole("group", { name: "人資" }),
+    ).toBeInTheDocument();
+  });
+
+  it("鍵盤:聚焦節點按 Enter 就選中,屬性面板打開", async () => {
+    renderWorkflows();
+    const canvas = await findCanvas();
+    const node = canvas.querySelector<HTMLElement>(
+      '.react-flow__node[data-id="hr"]',
+    );
+    if (node === null) {
+      throw new Error("找不到人資節點");
+    }
+
+    node.focus();
+    fireEvent.keyDown(node, { key: "Enter" });
+
+    expect(
+      await within(propertiesPanel()).findByRole("textbox", { name: "名稱" }),
+    ).toHaveValue("人資");
+  });
+
+  it("表單超過一頁(100 筆)→ 提示清單已截斷", async () => {
+    renderWorkflows({ catalog: { formsTotal: 150 } });
+    await findCanvas();
+
+    expect(
+      await screen.findByText("表單或角色超過 100 筆,清單已截斷,請縮小範圍。"),
     ).toBeInTheDocument();
   });
 });

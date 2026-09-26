@@ -35,10 +35,12 @@ export const StepProgress = ({ instance }: StepProgressProps) => {
     if (step.blocked) {
       return { tone: "warning", label: t("blocked") };
     }
-    if (step.kind === "join") {
-      return step.status === WorkflowStepStatus.Completed
-        ? { tone: "success", label: t("joined") }
-        : { tone: "grey", label: t("joinWaiting") };
+    if (step.kind === "join" && step.status === WorkflowStepStatus.Completed) {
+      return { tone: "success", label: t("joined") };
+    }
+    // 匯合還沒到齊:實例還在跑才是「等待所有分支」;全案已終局(駁回 / 退回 / 撤回)就是「已結束」
+    if (step.kind === "join" && step.status !== WorkflowStepStatus.Terminated) {
+      return { tone: "grey", label: t("joinWaiting") };
     }
     return {
       tone: STEP_TONE[step.status],
@@ -66,7 +68,7 @@ export const StepProgress = ({ instance }: StepProgressProps) => {
       .join("、");
 
   return (
-    <Stack spacing={1} component="section" aria-label={t("region")}>
+    <Stack spacing={1} component="section">
       <Typography variant="subtitle2" component="h3">
         {t("title")}
       </Typography>

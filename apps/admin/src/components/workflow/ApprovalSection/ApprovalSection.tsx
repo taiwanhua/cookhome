@@ -138,6 +138,10 @@ export const ApprovalSection = ({
         <TaskActions
           key={task.id}
           task={task}
+          allowReturn={
+            instance.steps.find((step) => step.stepKey === task.stepKey)
+              ?.allowReturn ?? false
+          }
           onDecided={(closed) => {
             setIsStepClosed(closed);
             refresh(instance.id);

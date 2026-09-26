@@ -51,23 +51,23 @@ test("劇本 20:主管 + 人資兩級核准,主管從申請所屬組織往上找
   });
   expect(submitted.status).toBe("REVIEWING");
 
-  // 步驟 1:主管解析 —— 南港廚房沒有主管,往上一層找到南港店的主管;人資還沒拿到任務
+  // 前置(api 送出)後的預期:主管解析 —— 南港廚房沒有主管,往上一層找到南港店的主管;人資還沒拿到任務
   expect(await taskSubmissionIds(world.manager.token)).toContain(submitted.id);
   expect(await myTasks(world.hr.token)).toHaveLength(0);
 
-  // 步驟 2:主管 → 申請中心「待我審核」→ 打開 → 核准
+  // 步驟 1:主管 → 申請中心「待我審核」→ 打開 → 核准
   await openTaskInApplyCenter(page, world.manager, title);
   await expect(progressRow(page, "直屬主管", "審核中")).toBeVisible();
   await decideInUi(page, "核准");
   await expect(progressRow(page, "直屬主管", "已通過")).toBeVisible();
   await expect(progressRow(page, "人資", "審核中")).toBeVisible();
 
-  // 步驟 3:人資(角色來源)→ 核准 → 全案核准
+  // 步驟 2:人資(角色來源)→ 核准 → 全案核准
   await openTaskInApplyCenter(page, world.hr, title);
   await decideInUi(page, "核准");
   await expect(progressRow(page, "人資", "已通過")).toBeVisible();
 
-  // 步驟 4:申請人「我的申請」看到已完成
+  // 步驟 3:申請人「我的申請」看到已完成
   const row = await myApplicationRow(page, world.applicant, title);
   await expect(row.getByText("已完成")).toBeVisible();
   expect(await submissionStatus(world.applicant.token, submitted.id)).toBe(

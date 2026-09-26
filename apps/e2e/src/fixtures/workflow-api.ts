@@ -108,9 +108,14 @@ query WorkflowInstance($id: ID!) {
   workflowInstance(id: $id) {
     instance {
       id status activeStepKeys
-      steps { stepKey status blocked plan { taskKey assigneeState assignee { id } } }
+      steps { stepKey status blocked plan { taskKey assigneeState assignee { id } previousAssignees { id } } }
     }
   }
+}`;
+
+const MY_TASKS_ON_INSTANCE = `
+query MyTasksOnInstance($id: ID!) {
+  workflowInstance(id: $id) { instance { myTasks { taskKey status } } }
 }`;
 
 const SET_USER_ENABLED = `
@@ -155,6 +160,8 @@ export interface WorkflowInstance {
       taskKey: string;
       assigneeState: string;
       assignee: { id: string };
+      /** 被改派走的人(依改派順序) */
+      previousAssignees: { id: string }[];
     }[];
   }[];
 }
@@ -368,6 +375,19 @@ export async function formSubmission(
     formSubmission: { submission: WorkflowSubmission };
   }>(FORM_SUBMISSION, { id }, accessToken);
   return data.formSubmission.submission;
+}
+
+/** 某人在某個實例上的任務與狀態(含已取消的;「待我審核」清單不列取消的)。 */
+export async function myTasksOnInstance(
+  accessToken: string,
+  instanceId: string,
+): Promise<{ taskKey: string; status: string }[]> {
+  const data = await graphqlOk<{
+    workflowInstance: {
+      instance: { myTasks: { taskKey: string; status: string }[] };
+    };
+  }>(MY_TASKS_ON_INSTANCE, { id: instanceId }, accessToken);
+  return data.workflowInstance.instance.myTasks;
 }
 
 export async function myTasks(

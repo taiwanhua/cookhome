@@ -2,17 +2,17 @@ import { useMemo, useState } from "react";
 
 import type { WorkflowDefinition } from "@repo/domain/workflow";
 
-import { definitionInputOf } from "@/lib/workflow/definition";
 import {
   type Flow,
   type FlowOpError,
+  definitionFingerprint,
   parseFlow,
   toDefinition,
 } from "@/lib/workflow/flow-model";
 import type { FlowOpResult } from "@/lib/workflow/flow-ops";
 
-const fingerprintOf = (definition: WorkflowDefinition): string =>
-  JSON.stringify(definitionInputOf(definition));
+/** 與上次存檔比對的字串:節點 / 連線排序後比(陣列順序不同但圖一樣 = 沒改)。 */
+const fingerprintOf = definitionFingerprint;
 
 /**
  * 設計器的編輯狀態:段落串(`flow-model.ts`)、選中的節點、上一個被拒絕的操作,與「有沒有未存的變更」

@@ -4,6 +4,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { server } from "@/test/msw/server";
 import {
   leaveWorkflowDefinition,
+  purchaseWorkflowDefinition,
   workflowFragment,
   workflowVersionFragment,
 } from "@/test/msw/workflow-fixtures";
@@ -199,5 +200,48 @@ describe("流程管理:版本、發布擋錯、未存變更防呆", () => {
     expect(
       await screen.findByRole("heading", { name: "阻擋清單" }),
     ).toBeInTheDocument();
+  });
+
+  it("非設計器產生順序的定義(api / fork 建的平行流程,陣列與鍵順序不同)打開不算未存:換流程不跳窗", async () => {
+    const definition = purchaseWorkflowDefinition();
+    const shuffled = {
+      steps: definition.steps.toReversed(),
+      edges: definition.edges?.toReversed() ?? null,
+    };
+    const { user } = renderWorkflows({
+      world: {
+        workflows: [
+          workflowFragment({ key: "purchase_review", name: "採購審核" }),
+          workflowFragment({
+            key: "overtime_review",
+            name: "加班審核",
+            hasDraft: false,
+          }),
+        ],
+        versions: {
+          purchase_review: [
+            workflowVersionFragment(shuffled, {
+              workflowKey: "purchase_review",
+            }),
+          ],
+        },
+      },
+    });
+    const canvas = await screen.findByRole("region", { name: "流程圖" });
+    await within(canvas).findByRole("group", { name: "原部門初審" });
+    expect(screen.queryByText("有未存的變更")).not.toBeInTheDocument();
+
+    await user.click(
+      within(screen.getByRole("list", { name: "流程清單" })).getByText(
+        "加班審核",
+      ),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "加班審核" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "還有沒存的變更" }),
+    ).not.toBeInTheDocument();
   });
 });

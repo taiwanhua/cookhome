@@ -2,6 +2,7 @@ import {
   createWorkflowWorld,
   decideInUi,
   extraPerson,
+  openInstanceDetail,
   openTaskInApplyCenter,
   progressRow,
   reassignInBlockedList,
@@ -11,6 +12,7 @@ import {
 import { expect, test } from "../fixtures/test";
 import {
   approveAs,
+  myTasksOnInstance,
   publishCustomWorkflow,
   setUserEnabled,
   submissionStatus,
@@ -82,13 +84,13 @@ test("劇本 24:三部門平行審核,採購那條阻擋改派;全部通過後�
   });
   const instanceId = submitted.currentInstanceId ?? "";
 
-  // 步驟 1:原部門初審核准 → 三條分支同時派任
+  // 前置:原部門初審核准 → 三條分支同時派任
   await approveAs(own.token, submitted.id);
   for (const person of [fin1, fin2, leg1, leg2, pur1]) {
     expect(await taskSubmissionIds(person.token)).toContain(submitted.id);
   }
 
-  // 步驟 2:採購承辦人被停用 → 只有採購那條阻擋;財務(any 一人)與法務(all 兩人)照審
+  // 前置:採購承辦人被停用 → 只有採購那條阻擋;財務(any 一人)與法務(all 兩人)照審
   await setUserEnabled(tenant.tenantAdmin.token, pur1.userId, false);
   await approveAs(fin1.token, submitted.id);
   await approveAs(leg1.token, submitted.id);
@@ -96,14 +98,24 @@ test("劇本 24:三部門平行審核,採購那條阻擋改派;全部通過後�
   const waiting = await workflowInstance(world.applicant.token, instanceId);
   expect(waiting.status).toBe("BLOCKED");
   expect(waiting.activeStepKeys).toEqual(["purchase"]);
+  // 財務是 any:一人核准就過,第二人的任務取消(不是待處理)
+  expect(await myTasksOnInstance(fin2.token, instanceId)).toEqual([
+    expect.objectContaining({ status: "CANCELLED" }),
+  ]);
+  // 阻擋期間詳情頁的分支進度:財務 / 法務已通過、採購待處理、匯合還在等
+  await openInstanceDetail(page, world.applicant, instanceId);
+  await expect(progressRow(page, "財務部審核", "已通過")).toBeVisible();
+  await expect(progressRow(page, "法務部審核", "已通過")).toBeVisible();
+  await expect(progressRow(page, "採購部審核", "待處理")).toBeVisible();
+  await expect(progressRow(page, "三部門匯合", "等待所有分支")).toBeVisible();
 
-  // 步驟 3:+tenant 在阻擋清單把採購的任務改派給另一位採購 → 他核准 → 三條都通過、匯合
+  // 步驟 1:+tenant 在阻擋清單把採購的任務改派給另一位採購 → 他核准 → 三條都通過、匯合
   await reassignInBlockedList(page, tenant, title, pur2);
   await approveAs(pur2.token, submitted.id);
   const merged = await workflowInstance(world.applicant.token, instanceId);
   expect(merged.activeStepKeys).toEqual(["confirm"]);
 
-  // 步驟 4:原部門主任打開詳情:分支進度一目了然 → 核准(與初審是不同關卡、各自一個任務)
+  // 步驟 2:原部門主任打開詳情:分支進度一目了然 → 核准(與初審是不同關卡、各自一個任務)
   await openTaskInApplyCenter(page, own, title);
   await expect(progressRow(page, "財務部審核", "已通過")).toBeVisible();
   await expect(progressRow(page, "法務部審核", "已通過")).toBeVisible();

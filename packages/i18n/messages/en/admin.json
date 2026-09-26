@@ -2071,7 +2071,8 @@
       "jsonPreview": "Workflow definition (JSON)",
       "newStep": "Step {n}",
       "newJoin": "Join",
-      "moveToBranch": "Move to \"{join}\" branch {n}"
+      "moveToBranch": "Move to \"{join}\" branch {n}",
+      "catalogTruncated": "More than 100 forms or roles: the dropdowns are truncated. Please narrow the scope."
     },
     "opErrors": {
       "FORK_NEEDS_SOURCE": "A fork needs a review step before it: delete or move the whole fork first.",

@@ -23,6 +23,8 @@ import {
 /** 流程設計器 / 改派要借的目錄:表單(檢查用表單、表單欄位來源)、角色、使用者候選。 */
 export interface WorkflowCatalogOptions {
   users?: { id: string; name: string; account: string; enabled: boolean }[];
+  /** `forms` 回報的總筆數(沒給 = 實際筆數);大於一頁時設計器提示「清單已截斷」 */
+  formsTotal?: number;
 }
 
 export const catalogUsers = [
@@ -59,7 +61,12 @@ export const workflowCatalogHandlers = (
       ];
       return HttpResponse.json({
         data: {
-          forms: { items, totalCount: items.length, page: 1, pageSize: 100 },
+          forms: {
+            items,
+            totalCount: options.formsTotal ?? items.length,
+            page: 1,
+            pageSize: 100,
+          },
         },
       });
     }),

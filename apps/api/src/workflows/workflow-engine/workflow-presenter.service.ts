@@ -3,6 +3,7 @@ import type { Types } from "mongoose";
 
 import {
   type WorkflowDefinition,
+  allowsReturn,
   isJoinStep,
   stepOf,
 } from "@repo/domain/workflow";
@@ -142,6 +143,7 @@ export class WorkflowPresenter {
           name: node.name,
           kind: isJoinStep(node) ? "join" : "review",
           mode: isJoinStep(node) ? null : node.mode,
+          allowReturn: allowsReturn(node),
           status: (state?.status ?? "pending") as WorkflowStepStatusEnum,
           blocked: state?.blocked ?? false,
           plan: (state?.plan ?? []).map((item) => ({

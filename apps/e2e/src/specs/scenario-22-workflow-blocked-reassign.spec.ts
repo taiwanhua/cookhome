@@ -42,7 +42,7 @@ test("劇本 22:審核者停用 → 單被阻擋 → 流程管理者在阻擋清
     amount: 2,
   });
 
-  // 步驟 1:+tenant 停用主管 → 他的任務失效、這張單被阻擋
+  // 前置:+tenant 停用主管 → 他的任務失效、這張單被阻擋
   const disabled = await setUserEnabled(
     tenant.tenantAdmin.token,
     world.manager.userId,
@@ -53,7 +53,7 @@ test("劇本 22:審核者停用 → 單被阻擋 → 流程管理者在阻擋清
   expect(blocked.status).toBe("REVIEWING");
   expect(blocked.blocked).toBe(true);
 
-  // 步驟 2:+tenant → 阻擋清單 →「改派」→ 選副理 → 確定
+  // 步驟 1:+tenant → 阻擋清單 →「改派」→ 選副理 → 確定
   await reassignInBlockedList(page, tenant, title, world.deputy);
   await expect(page.getByText("目前沒有被阻擋的單")).toBeVisible();
   const instance = await workflowInstance(
@@ -62,8 +62,12 @@ test("劇本 22:審核者停用 → 單被阻擋 → 流程管理者在阻擋清
   );
   expect(instance.status).toBe("RUNNING");
   expect(instance.steps[0]?.plan[0]?.assignee.id).toBe(world.deputy.userId);
+  // 原承辦人記在改派紀錄(`previousAssignees`,曾持有的人仍可讀那個修訂)
+  expect(instance.steps[0]?.plan[0]?.previousAssignees).toEqual([
+    { id: world.manager.userId },
+  ]);
 
-  // 步驟 3:副理核准 → 完成
+  // 步驟 2:副理核准 → 完成
   await approveAs(world.deputy.token, submitted.id);
   expect(await submissionStatus(world.applicant.token, submitted.id)).toBe(
     "COMPLETED",

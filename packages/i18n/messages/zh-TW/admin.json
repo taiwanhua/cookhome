@@ -2071,7 +2071,8 @@
       "jsonPreview": "流程定義(JSON)",
       "newStep": "關卡 {n}",
       "newJoin": "匯合",
-      "moveToBranch": "移到「{join}」第 {n} 條分支"
+      "moveToBranch": "移到「{join}」第 {n} 條分支",
+      "catalogTruncated": "表單或角色超過 100 筆,清單已截斷,請縮小範圍。"
     },
     "opErrors": {
       "FORK_NEEDS_SOURCE": "分流前面一定要有一個審核關卡:先刪掉或移動整組分流。",

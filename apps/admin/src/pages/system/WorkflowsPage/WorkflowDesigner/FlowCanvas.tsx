@@ -102,6 +102,10 @@ export const FlowCanvas = ({
 
   const onNodesChange = (changes: NodeChange<WorkflowFlowNode>[]) => {
     for (const change of changes) {
+      // 鍵盤聚焦節點按 Enter / 空白鍵也是選取:React Flow 以 `select` 變更回報(受控模式不會自己改)
+      if (change.type === "select" && change.selected) {
+        onSelect(change.id);
+      }
       if (
         change.type === "position" &&
         change.dragging === true &&

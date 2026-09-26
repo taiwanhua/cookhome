@@ -40,6 +40,14 @@ export const LEAVE_ROUTES = {
   editPage: "/leave/edit-page",
 } as const;
 
+/** seed 的圖示 key(`@repo/ui` 圖示登錄表裡都有);隱藏頁沒有圖示。 */
+const ICON_BY_KEY: Partial<Record<string, string>> = {
+  system: "settings",
+  "system.workflows": "account-tree",
+  "apply-center": "mail",
+  [LEAVE_KEY]: "calendar",
+};
+
 const moduleOf = (
   id: string,
   key: string,
@@ -56,7 +64,7 @@ const moduleOf = (
   sidebarType,
   order: 4,
   route,
-  icon: null,
+  icon: ICON_BY_KEY[key] ?? null,
   permissions: [...permissions],
 });
 
@@ -283,6 +291,7 @@ export const instanceStep = (
   name,
   kind: "review",
   mode: "any",
+  allowReturn: true,
   status: WorkflowStepStatus.Pending,
   blocked: false,
   plan: [],

@@ -71,6 +71,8 @@ fragment WorkflowInstanceFields on WorkflowInstanceModel {
     name
     kind
     mode
+    # 這一關可否退回修改(匯合節點 false):審核區塊依它出不出現「退回修改」
+    allowReturn
     status
     blocked
     plan {

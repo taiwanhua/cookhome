@@ -198,6 +198,9 @@ export const FlowDesignerWorkspace = ({
         onCheckFormKeyChange={setCheckFormKey}
       />
       {!isEditable && <Alert severity="warning">{t("unparseable")}</Alert>}
+      {catalog.isTruncated && (
+        <Alert severity="info">{t("catalogTruncated")}</Alert>
+      )}
       {state.opError !== null && (
         <Alert severity="warning">{tOp(state.opError)}</Alert>
       )}

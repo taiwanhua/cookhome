@@ -9,6 +9,7 @@ import {
 
 import {
   type Flow,
+  definitionFingerprint,
   parseFlow,
   reviewStepsOf,
   toDefinition,
@@ -89,6 +90,41 @@ describe("段落串 ⇄ 版本定義", () => {
 
     expect(parsed).not.toBeNull();
     expect(toDefinition(parsed ?? []).edges).toEqual(definition.edges);
+  });
+
+  it("直線寫成單鏈 edges(A → B → C)也解析得了,且與 edges: null 的寫法視為同一份", () => {
+    const chain: WorkflowDefinition = {
+      steps: [step("a"), step("b"), step("c")],
+      edges: [
+        { from: "a", to: "b" },
+        { from: "b", to: "c" },
+      ],
+    };
+
+    const parsed = parseFlow(chain);
+
+    expect(parsed?.map((item) => item.type)).toEqual(["step", "step", "step"]);
+    expect(definitionFingerprint(toDefinition(parsed ?? []))).toBe(
+      definitionFingerprint(chain),
+    );
+  });
+
+  it("比對字串不看陣列順序與鍵順序:節點 / 連線打亂、同一關的屬性順序不同,仍視為沒改", () => {
+    const definition = toDefinition(purchaseFlow());
+    const shuffled: WorkflowDefinition = {
+      steps: definition.steps
+        .toReversed()
+        .map((item) => Object.fromEntries(Object.entries(item).toReversed()))
+        .map((item) => item as (typeof definition.steps)[number]),
+      edges: definition.edges?.toReversed() ?? null,
+    };
+
+    expect(definitionFingerprint(shuffled)).toBe(
+      definitionFingerprint(definition),
+    );
+    expect(definitionFingerprint(toDefinition(parseFlow(shuffled) ?? []))).toBe(
+      definitionFingerprint(definition),
+    );
   });
 
   it("匯合後沒有出線(三部門都過就結案)也解析得了", () => {

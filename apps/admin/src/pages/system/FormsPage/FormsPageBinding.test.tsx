@@ -162,4 +162,15 @@ describe("表單管理:流程綁定欄", () => {
     const list = screen.getByRole("list", { name: "表單清單" });
     expect(within(list).getByText("綁定的流程已失效")).toBeInTheDocument();
   });
+
+  it("本組織停用的表單不出現流程綁定欄", async () => {
+    renderBinding(tenantForm({ tenantEnabled: false }));
+
+    expect(
+      await screen.findByRole("switch", { name: "在本組織啟用" }),
+    ).not.toBeChecked();
+    expect(
+      screen.queryByRole("group", { name: "流程綁定" }),
+    ).not.toBeInTheDocument();
+  });
 });

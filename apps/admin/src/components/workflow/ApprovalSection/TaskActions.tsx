@@ -22,6 +22,8 @@ import { DecisionDialog } from "./DecisionDialog";
 
 export interface TaskActionsProps {
   task: WorkflowTaskFieldsFragment;
+  /** 這一關可否退回修改(實例關卡的 `allowReturn`);不行就不出現「退回修改」 */
+  allowReturn: boolean;
   /** 決定被接受(false)或此關已結束(true):重載實例、任務與提交 */
   onDecided: (isStepClosed: boolean) => void;
 }
@@ -37,7 +39,11 @@ const DECISIONS = [
  * (駁回 / 退回必填)。送出帶任務的 `editVersion`;api 回 `STEP_CLOSED`(此關已結束或任務已變更)
  * 不是錯誤 —— 提示「此關已結束」並重載。
  */
-export const TaskActions = ({ task, onDecided }: TaskActionsProps) => {
+export const TaskActions = ({
+  task,
+  allowReturn,
+  onDecided,
+}: TaskActionsProps) => {
   const t = useTranslations("admin.approval.decide");
   const tErrors = useTranslations("admin.workflows.errors");
   const { session } = useSession();
@@ -78,7 +84,9 @@ export const TaskActions = ({ task, onDecided }: TaskActionsProps) => {
         {t("prompt", { step: task.stepName })}
       </Typography>
       <Stack direction="row" spacing={1}>
-        {DECISIONS.map((item) => (
+        {DECISIONS.filter(
+          (item) => allowReturn || item !== WorkflowDecision.Return,
+        ).map((item) => (
           <Button
             key={item}
             variant={

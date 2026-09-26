@@ -239,7 +239,7 @@
 
 ### 審核區塊與表單模組
 
-- **審核區塊**(`components/workflow/ApprovalSection/`):表單模組的預設詳情頁在提交走過流程(`currentInstanceId` 有值)時掛在 `FormSubmissionDetail` 下方,申請中心詳情頁也用它。內容:實例狀態與流程版本、目前關卡、阻擋提示(流程管理者多一顆「重試推進」)、我的任務(核准 / 駁回 / 退回修改,理由在跳窗裡填,駁回 / 退回必填;`STEP_CLOSED` 提示「此關已結束」並重載)、申請人的撤回 / 作廢(理由必填)/ 複製為新單(成功後進新草稿的編輯頁,來源失效被清空的欄位就地提示)、關卡 / 分支進度(每個節點一列:派任的人與他的決定、失效標示、匯合等待中 / 已匯合)、時間軸(`history`,不列寄信標記)。只審過某個修訂的審核者讀不到提交現況,撤回 / 作廢 / 複製不出現。
+- **審核區塊**(`components/workflow/ApprovalSection/`):表單模組的預設詳情頁在提交走過流程(`currentInstanceId` 有值)時掛在 `FormSubmissionDetail` 下方,申請中心詳情頁也用它。內容:實例狀態與流程版本、目前關卡、阻擋提示(流程管理者多一顆「重試推進」)、我的任務(核准 / 駁回 / 退回修改 —— 關卡不允許退回(`allowReturn = false`)時沒有「退回修改」;理由在跳窗裡填,駁回 / 退回必填;`STEP_CLOSED` 提示「此關已結束」並重載)、申請人的撤回 / 作廢(理由必填)/ 複製為新單(成功後進新草稿的編輯頁,來源失效被清空的欄位就地提示)、關卡 / 分支進度(每個節點一列:派任的人與他的決定、失效標示、匯合等待中 / 已匯合 / 全案終局時已結束)、時間軸(`history`,不列寄信標記)。只審過某個修訂的審核者讀不到提交現況,撤回 / 作廢 / 複製不出現。
 - **表單模組列表**:狀態 chip 七值(`components/workflow/SubmissionStatusTag.tsx`,列表、詳情、申請中心共用),狀態篩選也是七值;綁流程的「已完成」api 回 `canEdit = false`,列上不出現「編輯」、改出現「作廢」(`canVoid`)。
 - **退回 / 撤回的單**以草稿方式改(`saveFormDraft`)再送出,編輯頁提示「改好再送出會重新審核」;送出時被擋下會顯示「流程已移除 / 尚未發布 / 設定有誤」。
 
@@ -278,6 +278,7 @@ input 欄位的缺席 / `null`:
 - `WorkflowTaskModel.summary` / `WorkflowInstanceModel.summary` 是**實例上的**快照(該修訂的標題槽),不是提交最新的摘要。
 - `WorkflowTaskPayload.result`:`decideTask` 回 `ACCEPTED` / `STEP_CLOSED`;改派 / 新增審核者一律 `ACCEPTED`。
 - `WorkflowPlanItemModel.taskId`:這一項對應的任務 id,**只給流程管理者**(`abilities.canManage`)—— 阻擋清單要對別人的任務改派(`reassignTask` 收 taskId);其他讀者一律 null,任務還沒建出來也是 null。
+- `WorkflowInstanceStepModel.allowReturn`:這一關可否退回修改(版本定義的 `allowReturn`,省略 = true;匯合節點 false)—— 審核區塊依它決定出不出現「退回修改」鈕;送出時 api 仍照驗(不允許 → `VALIDATION_FAILED`)。
 - `WorkflowModel.hasRolePlaceholder`:目前發布版含角色佔位(共用流程),租戶不能直接綁。`boundForms` 只有租戶視角有(本租戶的綁定);`assignments` 只有 root 視角的共用流程有。
 - **`abilities` 含權限**(業務模組那一種,前端直接用):`WorkflowAbilities`、`WorkflowInstanceAbilities`、`FormSubmissionAbilities` 的 `canWithdraw` / `canVoid` / `canCopy`(見 `docs/modules/forms.md`「api 介面」)。
 - `FormSubmissionModel.clearedFields`:只有 `copySubmissionToDraft` 的回傳有值。

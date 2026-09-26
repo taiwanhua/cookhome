@@ -75,7 +75,7 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/modules/<key>.md`                       | 各模組的權限表、api 介面、畫面                   | 動某個模組                 |
 | `apps/admin/src/md/module-help/<key>.help.md` | 租戶使用者看的模組說明                           | 改模組的使用者文案         |
 | `docs/standards/README.md`                    | 程式碼規範索引(規則編號)                         | 寫或 review 程式碼         |
-| `docs/testing/permission-scenarios.md`        | 19 條權限驗收劇本                                | 驗收、寫 E2E               |
+| `docs/testing/permission-scenarios.md`        | 24 條權限驗收劇本                                | 驗收、寫 E2E               |
 | `docs/testing/handover-quiz.md`               | 接手自測題                                       | 讀完文件後自我檢查         |
 | `docs/agents/toolbox.md`                      | agent 的工具與環境須知                           | AI agent 開工前            |
 | `docs/agents/issue-tracker.md`                | issue、看板、PR 的流程                           | 開票、接票、交件           |

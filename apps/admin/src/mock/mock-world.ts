@@ -325,7 +325,11 @@ const mockWorkflowRuntime = () => ({
             }),
           ],
         }),
-        instanceStep("merge", "三部門匯合", { kind: "join", mode: null }),
+        instanceStep("merge", "三部門匯合", {
+          kind: "join",
+          mode: null,
+          allowReturn: false,
+        }),
         instanceStep("confirm", "原部門確認"),
       ],
     }),

@@ -175,6 +175,52 @@ export const toDefinition = (flow: Flow): WorkflowDefinition => {
 
 const edgeIdOf = (edge: WorkflowEdge): string => `${edge.from}->${edge.to}`;
 
+/** 物件的鍵依字母排序(遞迴),讓「同內容、不同鍵順序」的 JSON 字串相同;`undefined` 與 `null` 視同。 */
+const canonical = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => canonical(item));
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined && item !== null)
+        .toSorted(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, canonical(item)]),
+    );
+  }
+  return value;
+};
+
+/**
+ * 一版定義「實際的連線」:有 `edges`(非空)就是它;沒有 = 直線,陣列順序兩兩相連。
+ * 直線版本可以寫成 `edges: null` 或一條單鏈,兩者語意相同(`@repo/domain/workflow` 的 `nextStepKeys`)。
+ */
+export const effectiveEdgesOf = (
+  definition: WorkflowDefinition,
+): WorkflowEdge[] =>
+  definition.edges !== null &&
+  definition.edges !== undefined &&
+  definition.edges.length > 0
+    ? definition.edges
+    : definition.steps.slice(1).map((step, index) => ({
+        from: definition.steps[index].key,
+        to: step.key,
+      }));
+
+/**
+ * 比對用的正規化字串:節點依 key 排序、連線用「實際的連線」排序。陣列順序不同(api / fork 建的平行定義)、
+ * 直線寫成 null 或單鏈,只要圖一樣就相同 —— 「有沒有未存的變更」靠它判斷。
+ */
+export const definitionFingerprint = (definition: WorkflowDefinition): string =>
+  JSON.stringify({
+    steps: definition.steps
+      .toSorted((a, b) => a.key.localeCompare(b.key))
+      .map((step) => canonical(step)),
+    edges: effectiveEdgesOf(definition)
+      .map((edge) => edgeIdOf(edge))
+      .toSorted((a, b) => a.localeCompare(b)),
+  });
+
 interface GraphIndex {
   byKey: ReadonlyMap<string, StepDef>;
   outOf: ReadonlyMap<string, string[]>;
@@ -270,13 +316,14 @@ const sameGraph = (
   edges: readonly WorkflowEdge[],
   seen: ReadonlySet<string>,
 ): boolean => {
-  const rebuilt = toDefinition(flow);
+  // 沒有分流時 `toDefinition` 輸出 `edges: null`(直線);比對用「實際的連線」,直線 = 陣列順序兩兩相連,
+  // 所以帶單鏈 `edges` 的直線版本(domain 認為合法)也對得上
   const rebuiltEdges = new Set(
-    (rebuilt.edges ?? []).map((edge) => edgeIdOf(edge)),
+    effectiveEdgesOf(toDefinition(flow)).map((edge) => edgeIdOf(edge)),
   );
   const originalEdges = new Set(edges.map((edge) => edgeIdOf(edge)));
   return (
-    rebuilt.steps.length === steps.length &&
+    allStepsOf(flow).length === steps.length &&
     steps.every((step) => seen.has(step.key)) &&
     rebuiltEdges.size === originalEdges.size &&
     [...originalEdges].every((id) => rebuiltEdges.has(id))

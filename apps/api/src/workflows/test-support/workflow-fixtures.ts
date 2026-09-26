@@ -380,6 +380,7 @@ const INSTANCE_FIELDS = /* GraphQL */ `
       kind
       status
       blocked
+      allowReturn
       plan {
         taskKey
         assignee {
@@ -689,6 +690,7 @@ export interface InstanceRow {
     kind: string;
     status: string;
     blocked: boolean;
+    allowReturn: boolean;
     plan: {
       taskKey: string;
       assignee: { id: string };

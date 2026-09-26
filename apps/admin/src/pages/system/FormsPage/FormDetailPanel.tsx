@@ -53,9 +53,9 @@ export const FormDetailPanel = ({
   const [tab, setTab] = useState<DetailTab>("design");
   const [dialog, setDialog] = useState<OpenDialog>(null);
   const { hasPermission } = usePermissions();
-  // 流程綁定是租戶自己的設定(root 沒有表單綁定,api 回 TENANT_ONLY):租戶視角才有 `tenantEnabled`
-  const isTenantView =
-    form.tenantEnabled !== null && form.tenantEnabled !== undefined;
+  // 流程綁定是租戶自己的設定(root 沒有表單綁定,api 回 TENANT_ONLY),且只對本組織**啟用中**的表單設
+  // (Spec 6b §8 畫面 7「每張啟用表單一個下拉」):租戶視角才有 `tenantEnabled`,停用的不給綁
+  const canBindWorkflow = form.tenantEnabled === true;
 
   const setEnabled = useSetTenantFormEnabledMutation(
     session.client,
@@ -149,7 +149,7 @@ export const FormDetailPanel = ({
               }
             />
           )}
-        {isTenantView && hasPermission(FORMS_PERMISSIONS.edit) && (
+        {canBindWorkflow && hasPermission(FORMS_PERMISSIONS.edit) && (
           <WorkflowBindingField form={form} onChanged={onChanged} />
         )}
         {form.assignments.length > 0 && (

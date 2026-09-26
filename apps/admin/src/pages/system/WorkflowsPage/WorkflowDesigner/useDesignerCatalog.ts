@@ -43,6 +43,9 @@ export const useFormFields = (
   );
 };
 
+/** 目錄一次抓幾筆(api 上限 100);超過就提示「清單已截斷」。 */
+const CATALOG_PAGE_SIZE = 100;
+
 /**
  * 設計器要的目錄:看得到的表單(「檢查用表單」、表單欄位來源)、本租戶的角色(客製流程的角色來源)。
  * 借表單管理的 `forms` 與角色管理的 `roles` 查詢(同一群管理員會有這兩把 view);拿不到就是空清單,
@@ -52,12 +55,12 @@ export const useDesignerCatalog = (isShared: boolean) => {
   const { session } = useSession();
   const forms = useFormsQuery(
     session.client,
-    { input: { page: 1, pageSize: 100 } },
+    { input: { page: 1, pageSize: CATALOG_PAGE_SIZE } },
     { retry: false },
   );
   const roles = useRolesQuery(
     session.client,
-    { input: { page: 1, pageSize: 100 } },
+    { input: { page: 1, pageSize: CATALOG_PAGE_SIZE } },
     { enabled: !isShared, retry: false },
   );
   const formItems = useMemo<CatalogForm[]>(
@@ -77,7 +80,12 @@ export const useDesignerCatalog = (isShared: boolean) => {
       })),
     [roles.data],
   );
+  const isTruncated =
+    (forms.data?.forms.totalCount ?? 0) > formItems.length ||
+    (roles.data?.roles.totalCount ?? 0) > roleItems.length;
   return {
+    /** 表單或角色超過一頁:下拉只列得到前 100 筆 */
+    isTruncated,
     forms: formItems,
     roles: roleItems,
     /** 角色清單拿到了才拿來檢查「不是本租戶的角色」(拿不到就交給 api) */

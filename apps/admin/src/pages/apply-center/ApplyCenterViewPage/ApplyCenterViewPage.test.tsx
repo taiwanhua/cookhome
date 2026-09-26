@@ -58,7 +58,11 @@ const parallelInstance = () =>
         status: WorkflowStepStatus.Active,
         blocked: true,
       }),
-      instanceStep("merge", "三部門匯合", { kind: "join", mode: null }),
+      instanceStep("merge", "三部門匯合", {
+        kind: "join",
+        mode: null,
+        allowReturn: false,
+      }),
       instanceStep("confirm", "原部門確認"),
     ],
   });
@@ -181,5 +185,45 @@ describe("申請中心詳情頁(view-page)", () => {
         screen.queryByRole("group", { name: "我在「直屬主管」的審核" }),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it("這一關不允許退回 → 不出現「退回修改」;全案終局時匯合節點顯示「已結束」", async () => {
+    renderApplyCenter({
+      path: `${APPLY_VIEW_ROUTE}/inst-1`,
+      runtime: {
+        ...defaultRuntime(),
+        instances: [
+          instanceFragment({
+            steps: [
+              instanceStep("manager", "直屬主管", {
+                status: WorkflowStepStatus.Active,
+                allowReturn: false,
+                plan: [planItem("manager-1", MANAGER)],
+              }),
+              instanceStep("merge", "三部門匯合", {
+                kind: "join",
+                mode: null,
+                allowReturn: false,
+                status: WorkflowStepStatus.Terminated,
+              }),
+            ],
+          }),
+        ],
+      },
+    });
+    const actions = await screen.findByRole("group", {
+      name: "我在「直屬主管」的審核",
+    });
+
+    expect(
+      within(actions).getByRole("button", { name: "核准" }),
+    ).toBeInTheDocument();
+    expect(
+      within(actions).queryByRole("button", { name: "退回修改" }),
+    ).not.toBeInTheDocument();
+    const rows = await progressRows();
+    expect(rows.map((row) => row.getAttribute("aria-label"))).toContain(
+      "三部門匯合:已結束",
+    );
   });
 });
