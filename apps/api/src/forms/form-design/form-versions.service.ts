@@ -41,6 +41,7 @@ import type {
 } from "../models/form-common.model";
 import type {
   CreateFormVersionDraftInput,
+  DeleteFormVersionDraftInput,
   FormKeyInput,
   PreviewFormVersionInput,
   SaveFormVersionDraftInput,
@@ -272,7 +273,59 @@ export class FormVersionsService {
     return {
       formVersion: await this.modelOf(operator, updated),
       validation: toValidationReport(report),
+      timezone: facts.timezone,
     };
+  }
+
+  /**
+   * 刪除草稿(`deleteFormVersionDraft`):條件 = 還是草稿、`draftRevision` 是讀到的那一份;
+   * 發布中(有 `publishing` 版本或發布中斷)不可。刪掉後可以再以任一版本為基底開新草稿。
+   *
+   * **硬刪**:`(formKey, status)` 的部分唯一索引含軟刪除的文件,留一筆殭屍草稿會讓這張表單永遠開不了
+   * 新草稿(同 `deleteRetiredPermission` 用 `hardDeleteById` 的理由)。先以條件更新把 `draftRevision`
+   * +1「認領」,同時來的存草稿就會 409,不會刪到別人剛存的內容;認領後硬刪失敗,草稿仍在、可再刪一次。
+   */
+  async deleteDraft(
+    facts: FormOperatorFacts,
+    input: DeleteFormVersionDraftInput,
+  ): Promise<FormRecord> {
+    const operator = facts.operator;
+    const form = await this.access.requireWritableForm(facts, input.formKey);
+    await this.publisher.assertNotPublishing(operator, form);
+    const claimed = await this.versions.findOneAndUpdate(
+      operator,
+      {
+        formKey: form.key,
+        status: "draft",
+        draftRevision: input.expectedDraftRevision,
+      },
+      { $inc: { draftRevision: 1 } },
+    );
+    if (!claimed) {
+      const draft = await this.versions.findOne(operator, {
+        formKey: form.key,
+        status: "draft",
+      });
+      throw draft
+        ? conflictError(
+            `Draft revision mismatch: expected ${String(input.expectedDraftRevision)}, actual ${String(draft.draftRevision)}`,
+            "DRAFT_REVISION_MISMATCH",
+          )
+        : conflictError(`Form ${form.key} has no draft`, "DRAFT_MISSING");
+    }
+    await this.audit.record(operator, {
+      action: FORM_VERSION_AUDIT.deleteDraft,
+      targetType: FORM_VERSION_TARGET,
+      targetId: claimed._id,
+      before: {
+        formKey: form.key,
+        draftRevision: input.expectedDraftRevision,
+        baseVersion: claimed.baseVersion,
+        fieldCount: claimed.fields.length,
+      },
+    });
+    await this.versions.hardDeleteById(operator, claimed._id);
+    return form;
   }
 
   /** 設計器即時檢查,不落庫。 */
@@ -378,6 +431,7 @@ export class FormVersionsService {
     return {
       formVersion: await this.modelOf(facts.operator, record),
       validation,
+      timezone: facts.timezone,
     };
   }
 

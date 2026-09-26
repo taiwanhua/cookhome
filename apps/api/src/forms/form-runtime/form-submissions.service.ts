@@ -8,6 +8,10 @@ import {
   type StoredValues,
   type SubmissionSummary,
   computeSummary,
+  defaultOrder,
+  defaultValueOf,
+  isEmptyValue,
+  referencedFieldKeys,
 } from "@repo/domain/form";
 
 import { AuditService } from "../../audit/audit.service";
@@ -51,7 +55,7 @@ import {
   notFoundError,
   validationError,
 } from "../forms-error";
-import { LookupProvidersService } from "../lookup-providers";
+import { LookupProvidersService, lookupLabelOf } from "../lookup-providers";
 import type { FormVersionPayload } from "../models/form-common.model";
 import { projectFieldsForReader } from "./definition-projection";
 import { DisplayNamesService } from "./display-names.service";
@@ -123,6 +127,19 @@ const SORTS: Readonly<Record<FormSubmissionSort, Record<string, 1 | -1>>> = {
   [FormSubmissionSort.SUBMITTED_AT_ASC]: { submittedAt: 1, _id: 1 },
   [FormSubmissionSort.UPDATED_AT_DESC]: { updatedAt: -1, _id: -1 },
 };
+
+/** 碰過的欄位 key:只留這一版「使用者填」的欄位、去重(前端送什麼都不會存進多餘的鍵)。 */
+function touchedKeysOf(
+  fields: readonly FieldDef[],
+  touched: readonly string[],
+): string[] {
+  const inputs = new Set(
+    fields
+      .filter((field) => field.valueSource.kind === "input")
+      .map((field) => field.key),
+  );
+  return [...new Set(touched)].filter((key) => inputs.has(key));
+}
 
 /** 一次送出 / 修改的上下文 → 表達式的 `ctx.*`(Spec §4 `revisions[].ctx`)。 */
 function expressionContextOf(ctx: FormRevision["ctx"]): ExpressionContext {
@@ -328,7 +345,7 @@ export class FormSubmissionsService {
       record.fields,
       gate,
     ) as unknown as Record<string, unknown>[];
-    return { formVersion, validation: null };
+    return { formVersion, validation: null, timezone: facts.timezone };
   }
 
   async list(
@@ -470,7 +487,7 @@ export class FormSubmissionsService {
       form,
       version,
       clientRequestId,
-      input.values ?? {},
+      { sent: input.values ?? {}, touched: input.touched ?? [] },
       null,
     );
     return this.single(facts, created);
@@ -478,6 +495,7 @@ export class FormSubmissionsService {
 
   /**
    * 建一筆草稿(新增 / 複製為新單共用):值照 6a 的寫入規則(草稿放寬完成資料所需的驗證);
+   * **預設值**(Spec §5「預設值」)在這裡算一次,只填使用者沒碰過、且送來 / 複製來的值是空的欄位。
    * 同一次請求的重試同時到、另一個先建好了 → 回那一筆。
    */
   private async insertDraft(
@@ -485,19 +503,30 @@ export class FormSubmissionsService {
     form: FormRecord,
     version: FormVersionRecord,
     clientRequestId: string,
-    sent: StoredValues,
+    initial: { sent: StoredValues; touched: readonly string[] },
     copiedFrom: Types.ObjectId | null,
   ): Promise<SubmissionRecord> {
     const operator = facts.operator;
+    const ctx = this.draftContext(facts);
+    const touched = touchedKeysOf(version.fields, initial.touched);
+    const defaults = await this.defaultsOf(
+      facts,
+      form,
+      version.fields,
+      initial.sent,
+      touched,
+      ctx,
+    );
     const values = await this.values.apply({
       facts,
       moduleKey: form.moduleKey,
       formKey: form.key,
       fields: version.fields,
-      base: {},
-      sent,
+      // 預設值同時當「既有值」:沒有 `edit` 的欄位(原因 3 保留既有值)也拿得到預設值、不會被判成改動
+      base: defaults,
+      sent: { ...initial.sent, ...defaults },
       previous: null,
-      ctx: this.draftContext(facts),
+      ctx,
       mode: "draft",
     });
     let created: SubmissionRecord;
@@ -515,6 +544,7 @@ export class FormSubmissionsService {
         clientRequestId,
         submittedAt: null,
         copiedFrom,
+        touched,
       });
     } catch (error) {
       if (isDuplicateKeyError(error)) {
@@ -567,7 +597,15 @@ export class FormSubmissionsService {
         status: record.status,
         editVersion: input.expectedEditVersion,
       },
-      { $set: { values }, $inc: { editVersion: 1 } },
+      {
+        $set: {
+          values,
+          ...(input.touched === null || input.touched === undefined
+            ? {}
+            : { touched: touchedKeysOf(version.fields, input.touched) }),
+        },
+        $inc: { editVersion: 1 },
+      },
     );
     if (!updated) {
       throw conflictError(
@@ -980,12 +1018,13 @@ export class FormSubmissionsService {
       sourceVersion.fields,
       target.fields,
     );
+    // 複製來的值 = 來源使用者填的值,視為碰過(預設值不覆蓋、填寫時也不跟著重算)
     const created = await this.insertDraft(
       facts,
       form,
       target,
       clientRequestId,
-      values,
+      { sent: values, touched: Object.keys(values) },
       source._id,
     );
     const isOwner =
@@ -1013,6 +1052,74 @@ export class FormSubmissionsService {
   }
 
   // ---- 內部 ----
+
+  /**
+   * 新草稿的預設值(只含這次要填的欄位):使用者沒碰過、送來的值是空的、操作者改得動的「使用者填」欄位。
+   * 公式引用到操作者讀不到的欄位(含依賴鏈)→ 不算、留空(Spec §5:引用受保護欄位的規則同計算欄位)。
+   * 引用欄的預設值(填寫者 / 填寫者的組織)在這裡重驗來源可讀並取 label;讀不到就留空。
+   */
+  private async defaultsOf(
+    facts: FormOperatorFacts,
+    form: FormRecord,
+    fields: readonly FieldDef[],
+    sent: StoredValues,
+    touched: readonly string[],
+    ctx: ExpressionContext,
+  ): Promise<StoredValues> {
+    const gate = fieldGateOf(facts, form.moduleKey, form.key);
+    const skipped = new Set(touched);
+    const working: StoredValues = { ...sent };
+    const defaults: StoredValues = {};
+    for (const field of defaultOrder(fields)) {
+      if (
+        skipped.has(field.key) ||
+        !isEmptyValue(working[field.key]) ||
+        !gate.canEdit(fields, field)
+      ) {
+        continue;
+      }
+      const refs =
+        field.default?.kind === "expression"
+          ? referencedFieldKeys(field.default.expr)
+          : [];
+      if (refs.some((key) => !gate.canShow(fields, key))) {
+        continue;
+      }
+      let value: unknown = defaultValueOf(field, fields, working, ctx) ?? null;
+      if (field.type === "reference" && value !== null) {
+        value = await this.referenceDefaultOf(facts, field, value);
+      }
+      if (value !== null) {
+        defaults[field.key] = value;
+        working[field.key] = value;
+      }
+    }
+    return defaults;
+  }
+
+  /** 引用欄預設值 `{ id }` → 重驗來源可讀並補 label;讀不到回 null。 */
+  private async referenceDefaultOf(
+    facts: FormOperatorFacts,
+    field: FieldDef,
+    value: unknown,
+  ): Promise<unknown> {
+    const id = (value as { id?: unknown }).id;
+    const source = field.source;
+    if (typeof id !== "string" || !source) {
+      return null;
+    }
+    const [record] = await this.lookups.findByValues(
+      facts,
+      source,
+      "id",
+      [id],
+      [source.labelField],
+      { publicOnly: true },
+    );
+    return record
+      ? { id, label: lookupLabelOf(record, source.labelField) }
+      : null;
+  }
 
   private requireClientRequestId(raw: string): string {
     const clientRequestId = raw.trim();
@@ -1473,6 +1580,7 @@ export class FormSubmissionsService {
         orgId: String(record.orgId),
         createdBy: userRefOf(record.createdBy, names),
         submittedAt: record.submittedAt,
+        touched: record.touched,
         createdAt: record.createdAt,
         updatedAt: record.updatedAt,
         ...workflowFieldsOf(record, restriction !== null),

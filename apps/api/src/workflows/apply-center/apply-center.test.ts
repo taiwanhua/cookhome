@@ -536,13 +536,19 @@ describe("申請中心與讀取授權", () => {
         voidReason: "日期填錯",
       });
       expect(voided.voidSubmission.submission.abilities.canCopy).toBe(true);
-      // 表單改版:extra 刪掉(目標版本沒有的欄位不複製)
+      // 表單改版:extra 刪掉(目標版本沒有的欄位不複製);title 加預設值(不覆蓋複製來的值)、
+      // 新欄位 memo 有預設值(來源沒有 → 填預設值)
       await publishDefinition(
         api,
         world.root,
         formKey,
         definitionOf([
-          field("title", "text"),
+          field("title", "text", {
+            default: { kind: "constant", value: "預設標題" },
+          }),
+          field("memo", "text", {
+            default: { kind: "constant", value: "新欄位的預設值" },
+          }),
           field("days", "number"),
           field("approver", "reference", {
             source: { provider: "user", labelField: "name" },
@@ -569,6 +575,7 @@ describe("申請中心與讀取授權", () => {
       expect(fresh.copiedFrom).toBe(submitted.id);
       expect(fresh.clearedFields).toEqual(["approver"]);
       expect(fresh.values.title).toBe("要作廢的");
+      expect(fresh.values.memo).toBe("新欄位的預設值");
       // 數字存十進位字串
       expect(fresh.values.days).toBe("3");
       expect(fresh.values.extra).toBeUndefined();

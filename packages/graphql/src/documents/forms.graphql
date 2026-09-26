@@ -142,6 +142,8 @@ query FormVersion($formKey: ID!, $version: Int) {
     validation {
       ...FormValidationFields
     }
+    # 租戶時區(設計器預覽的日期時間欄用)
+    timezone
   }
 }
 
@@ -202,6 +204,15 @@ mutation RetryPublishFormVersion($input: FormKeyInput!) {
 # FormKeyInput: { formKey };之後所有租戶都不能新增,再發布新版才恢復
 mutation RetireCurrentVersion($input: FormKeyInput!) {
   retireCurrentVersion(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
+# DeleteFormVersionDraftInput: { formKey, expectedDraftRevision };發布中不可,revision 不符 → CONFLICT
+mutation DeleteFormVersionDraft($input: DeleteFormVersionDraftInput!) {
+  deleteFormVersionDraft(input: $input) {
     form {
       ...FormFields
     }
