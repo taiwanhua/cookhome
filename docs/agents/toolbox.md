@@ -14,9 +14,10 @@
 6. [本機跑 E2E](#本機跑-e2e)
 7. [mock 模式](#mock-模式)
 8. [codegen 與資料庫(本機)](#codegen-與資料庫本機)
-9. [Claude Code skill 對照表](#claude-code-skill-對照表)
-10. [派工模板(給無 session 的 agent)](#派工模板給無-session-的-agent)
-11. [批次 release(指路)](#批次-release指路)
+9. [第三方依賴](#第三方依賴)
+10. [Claude Code skill 對照表](#claude-code-skill-對照表)
+11. [派工模板(給無 session 的 agent)](#派工模板給無-session-的-agent)
+12. [批次 release(指路)](#批次-release指路)
 
 ## gh:issue 與 PR
 
@@ -124,6 +125,21 @@
 | 本機還原資料庫(PowerShell) | `$env:RESET_ALLOW_ENV="dev"; $env:MONGODB_URI="mongodb://127.0.0.1:27017/cookhome-dev"; pnpm --filter @repo/db-migrator reset --mode=data --confirm=cookhome-dev` | `--mode=full` 會整庫重建                                                                                      |
 
 正本:`apps/api/package.json`、`packages/graphql/package.json`、`apps/db-migrator/package.json`、`apps/db-migrator/src/reset/reset-safety.ts`、`docs/env-registry.md`
+
+## 第三方依賴
+
+不是每個套件都列:這裡只記**為了某個功能特地引進、選型有講究**的依賴(誰用、為什麼是它、授權)。版本一律 `npm view <pkg> version` 查 registry,不照記憶寫,並對齊既有同家族套件的主 / 次版本。
+
+| 套件             | 版本(寫進 package.json) | 授權 | 誰用                                        | 用途                                                                   |
+| ---------------- | ----------------------- | ---- | ------------------------------------------- | ---------------------------------------------------------------------- |
+| `@xyflow/react`  | `^12.12.0`              | MIT  | `apps/admin`(流程設計器)                    | 畫流程圖(節點、連線、縮放);不開放自由拉線,節點是審核關卡卡片與匯合菱形 |
+| `@dagrejs/dagre` | `^3.1.1`                | MIT  | `apps/admin`(`lib/workflow/flow-layout.ts`) | 流程圖自動直式排版,節點位置不讓使用者手擺                              |
+
+- 兩者只在流程管理頁用,頁面懶載入,不進首屏 bundle。
+- React Flow 在 jest(jsdom)要 `ResizeObserver` / `DOMMatrixReadOnly` 替身(`apps/admin/src/test/react-flow.ts` 的 `setupReactFlowEnvironment()`);點節點用 `fireEvent.click`(d3-drag 的指標事件在 jsdom 會炸)。
+- 表單設計器的拖拉是 dnd-kit(`@dnd-kit/core`、`@dnd-kit/sortable`,MIT),測試替身在 `apps/admin/src/test/dnd-kit-double.tsx`。
+
+正本:`apps/admin/package.json`
 
 ## Claude Code skill 對照表
 

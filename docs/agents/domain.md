@@ -52,6 +52,7 @@ engineering skills 在探索 codebase 時,應如何使用本 repo 的領域文�
    4. `storage-and-mail.md` — GCS 上傳與讀取、寄信
    5. `frontend-architecture.md` — admin 分層、殼、路由與頁籤、共版型、Snackbar、快取(寫前端前必讀)
    6. `form-engine.md` — 表單模組:骨架 seed vs 表單畫面管理、版本、分派 / 啟用、提交與修訂、欄位級權限、引擎零件與預設組裝
+   7. `workflow-engine.md` — 審核流程:流程 / 版本 / 分派 / 綁定、送出時檢查、實例是唯一權威與推進、分流 / 匯合、阻擋與改派、申請中心與讀取授權
 4. **需要「為什麼」時才讀 `docs/adr/`** — ADR 只記決策、理由、取捨與影響;每份檔頭指向對應的 concepts
 
 讀完 1–3 即有全貌。各模組的畫面、權限表、api 介面在 `docs/modules/<key>.md`。
