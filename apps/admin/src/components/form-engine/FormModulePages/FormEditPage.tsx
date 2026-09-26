@@ -16,10 +16,15 @@ import { useMe } from "@/hooks/useMe";
 import { useModuleForms } from "@/hooks/useModuleForms";
 import { useSnackbar } from "@/hooks/useMutationFeedback";
 import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
+import { useTemporalText } from "@/hooks/useTemporalText";
 import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
 import { permissionsOfSubmission } from "@/lib/form-engine/field-permissions";
-import { tabLabelOf, tabLabelValuesOf } from "@/lib/form-engine/tab-label";
+import {
+  summaryDateTypeOf,
+  tabLabelOf,
+  tabLabelValuesOf,
+} from "@/lib/form-engine/tab-label";
 import type { ModulePageProps } from "@/lib/module-tree";
 
 import { FormFillForm } from "./FormFillForm";
@@ -66,6 +71,9 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
     () => (submission === null ? null : permissionsOfSubmission(submission)),
     [submission],
   );
+  // 頁籤的 {{date}}:以那一筆的時區(草稿 = 租戶時區)印日期 / 日期時間
+  const temporalText = useTemporalText(submission?.ctx?.timezone);
+  const dateType = summaryDateTypeOf(version.definition);
   const formTemplate =
     forms.find((form) => form.key === submission?.formKey)?.tabLabelTemplate ??
     null;
@@ -75,7 +83,9 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
       : (tabLabelOf(
           formModuleOptionsOf(moduleKey).tabLabelTemplate,
           formTemplate,
-          tabLabelValuesOf(submission),
+          tabLabelValuesOf(submission, (value) =>
+            temporalText(value, dateType),
+          ),
         ) ?? submission.formName),
   );
 

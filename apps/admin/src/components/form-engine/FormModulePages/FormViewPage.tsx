@@ -8,10 +8,16 @@ import { Card } from "@repo/ui/card";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useFormRuntimeVersion } from "@/hooks/useFormRuntimeVersion";
 import { useFormSubmission } from "@/hooks/useFormSubmission";
 import { useModuleForms } from "@/hooks/useModuleForms";
 import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
-import { tabLabelOf, tabLabelValuesOf } from "@/lib/form-engine/tab-label";
+import { useTemporalText } from "@/hooks/useTemporalText";
+import {
+  summaryDateTypeOf,
+  tabLabelOf,
+  tabLabelValuesOf,
+} from "@/lib/form-engine/tab-label";
 import type { ModulePageProps } from "@/lib/module-tree";
 
 import { ApprovalSection } from "../../workflow/ApprovalSection/ApprovalSection";
@@ -36,6 +42,13 @@ export const FormViewPage = ({ module, routeParam }: ModulePageProps) => {
   const state = useFormSubmission(id);
   const { submission } = state;
   const [isDeleting, setIsDeleting] = useState(false);
+  // 頁籤的 {{date}}:型別看那一版 `summaryMap.date` 對到的欄位,時區用那一筆的(草稿 = 租戶時區)
+  const version = useFormRuntimeVersion(
+    submission?.formKey ?? null,
+    submission?.version ?? null,
+  );
+  const temporalText = useTemporalText(submission?.ctx?.timezone);
+  const dateType = summaryDateTypeOf(version.definition);
 
   const formTemplate =
     forms.find((form) => form.key === submission?.formKey)?.tabLabelTemplate ??
@@ -46,7 +59,9 @@ export const FormViewPage = ({ module, routeParam }: ModulePageProps) => {
       : (tabLabelOf(
           formModuleOptionsOf(moduleKey).tabLabelTemplate,
           formTemplate,
-          tabLabelValuesOf(submission),
+          tabLabelValuesOf(submission, (value) =>
+            temporalText(value, dateType),
+          ),
         ) ??
         submission.formName ??
         submission.formKey);

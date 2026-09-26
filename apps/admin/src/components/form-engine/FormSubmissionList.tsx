@@ -24,6 +24,7 @@ import {
   resolveListCell,
   sortedColumns,
 } from "@/lib/form-engine/list-columns";
+import { summaryDateTypeOf } from "@/lib/form-engine/tab-label";
 
 import { SubmissionStatusTag } from "../workflow/SubmissionStatusTag";
 import { renderValue } from "./render-value";
@@ -118,13 +119,9 @@ export const FormSubmissionList = ({
     if (key !== "date") {
       return value;
     }
-    const definition = definitionOf(row.formKey, row.version);
-    const dateField = definition?.fields.find(
-      (field) => field.key === definition.summaryMap.date,
-    );
     return temporalText(
       value,
-      dateField?.type === "date" ? "date" : "datetime",
+      summaryDateTypeOf(definitionOf(row.formKey, row.version)),
       timezone,
     );
   };
