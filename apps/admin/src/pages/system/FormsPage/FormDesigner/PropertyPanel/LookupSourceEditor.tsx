@@ -84,6 +84,7 @@ export const LookupSourceEditor = ({
   const { forms, isTruncated } = usePublishedForms(isSubmission, selfForm);
   const fieldOptions = useLookupFieldOptions(value, selfForm);
   const isPending = fieldOptions === null;
+  const formHintKey = selfForm === null ? "formHint" : "formHintWithSelf";
 
   return (
     <Stack spacing={1.5}>
@@ -109,11 +110,7 @@ export const LookupSourceEditor = ({
           label={t("form")}
           value={value.formKey ?? UNSET}
           displayEmpty
-          helperText={
-            isTruncated
-              ? t("formTruncated")
-              : t(selfForm === null ? "formHint" : "formHintWithSelf")
-          }
+          helperText={t(isTruncated ? "formTruncated" : formHintKey)}
           options={[
             { value: UNSET, label: t("formUnset") },
             ...withCurrent(

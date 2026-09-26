@@ -166,7 +166,8 @@ describe("表單管理:固定值用依型別的輸入元件,存正確型別", ()
 });
 
 describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
-  it("日期加減:起用日期常數(選擇器,非原生日期輸入)、方向與單位是下拉", async () => {
+  // 分成兩案:全套並行時設計器頁的單一案例接近 15 秒上限(TEST-08)
+  it("日期加減:方向(之前 / 之後)與單位(天 / 週 / 月 / 年)是下拉", async () => {
     const { user, world } = renderBatch();
     await findDesigner();
     await selectField(user, "付款日", "paid_on");
@@ -184,7 +185,24 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
     ]);
     await user.click(screen.getByRole("option", { name: "月" }));
 
+    const fields = await savedFields(user, world);
+    expect(fields.find((item) => item.key === "paid_on")).toMatchObject({
+      valueSource: {
+        kind: "computed",
+        expr: { dateAdd: [null, "before", 1, "months"] },
+      },
+    });
+  });
+
+  it("日期常數:種類有日期 / 日期時間,用選擇器(不是原生日期輸入),存 { date: ISO }", async () => {
+    const { user, world } = renderBatch();
+    await findDesigner();
+    await selectField(user, "付款日", "paid_on");
+    await pickOption(user, "值的來源", "計算");
+    const formula = await screen.findByRole("group", { name: "公式" });
+    await pickRootOperator(user, formula, "日期加減");
     await pickOption(user, "節點種類(dateAdd.0)", "常數", formula);
+
     // 起的常數種類(數量那格也是常數,取第一個)
     const [startKind] = within(formula).getAllByRole("combobox", {
       name: "常數種類",
@@ -202,16 +220,17 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
     expect(document.querySelector('input[type="date"]')).toBeNull();
 
     const fields = await savedFields(user, world);
-    const expr = fields.find((item) => item.key === "paid_on")?.valueSource;
-    expect(expr).toMatchObject({
-      kind: "computed",
-      expr: {
-        dateAdd: [
-          { date: expect.stringMatching(/T\d{2}:00:00\.000Z$/) },
-          "before",
-          1,
-          "months",
-        ],
+    expect(fields.find((item) => item.key === "paid_on")).toMatchObject({
+      valueSource: {
+        kind: "computed",
+        expr: {
+          dateAdd: [
+            { date: expect.stringMatching(/T\d{2}:00:00\.000Z$/) },
+            "after",
+            1,
+            "days",
+          ],
+        },
       },
     });
   });
@@ -248,7 +267,7 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
     });
   });
 
-  it("單選的公式根是「選項」:只列如果 / 同來源欄位 / 選項常數,不列串接", async () => {
+  it("單選的公式根是「選項」:只列如果、選項常數從該欄位選項挑,不列串接", async () => {
     const { user, world } = renderBatch();
     await findDesigner();
     await selectField(user, "假別", "leave");
@@ -270,26 +289,27 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
     expect(await openSelect(user, "常數種類", formula)).toEqual(["選項"]);
     await user.keyboard("{Escape}");
     await pickOption(user, "假別 的選項", "特休", formula);
-    // 否則:欄位只列同選項來源的單選
-    await pickOption(user, "節點種類(if.2)", "欄位", formula);
-    await user.click(within(formula).getByRole("combobox", { name: "欄位" }));
-    const listbox = await screen.findByRole("listbox");
-    expect(
-      within(listbox)
-        .getAllByRole("option")
-        .map((option) => option.textContent),
-    ).toEqual(["上次假別(prev_leave)"]);
-    await user.keyboard("{Escape}");
 
     const fields = await savedFields(user, world);
     expect(fields.find((item) => item.key === "leave")).toMatchObject({
       valueSource: {
         kind: "computed",
-        expr: {
-          if: [{ "==": [null, null] }, "annual", { var: "prev_leave" }],
-        },
+        expr: { if: [{ "==": [null, null] }, "annual", null] },
       },
     });
+  });
+
+  it("單選公式的否則:欄位只列同選項來源的單選", async () => {
+    const { user } = renderBatch();
+    await findDesigner();
+    await selectField(user, "假別", "leave");
+    await pickOption(user, "值的來源", "計算");
+    const formula = await screen.findByRole("group", { name: "公式" });
+
+    await pickOption(user, "節點種類(if.2)", "欄位", formula);
+    expect(await openSelect(user, "欄位", formula)).toEqual([
+      "上次假別(prev_leave)",
+    ]);
   });
 });
 
