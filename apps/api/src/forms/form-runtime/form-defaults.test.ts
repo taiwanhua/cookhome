@@ -418,6 +418,10 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
             field("title", "text"),
             field("day", "date"),
             field("meeting", "datetime"),
+            // 預設值是固定日期(版本定義裡是 ISO):以租戶時區(東京)收斂成當地 00:00
+            field("due", "date", {
+              default: { kind: "constant", value: "2026-09-30T00:00:00+08:00" },
+            }),
             field("next_day", "date", {
               valueSource: {
                 kind: "computed",
@@ -442,12 +446,15 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
         day: "2026-09-25T15:00:00.000Z",
         meeting: "2026-09-26T05:30:00.000Z",
         next_day: "2026-09-25T15:00:00.000Z",
+        // 台北 9/30 00:00 = 東京 9/30 01:00 → 東京 9/30 00:00
+        due: "2026-09-29T15:00:00.000Z",
       });
       const rawDraft = await rawSubmission(connection, draft.id);
       const draftValues = rawDraft?.values as Record<string, unknown>;
       expect(draftValues.day).toBeInstanceOf(Date);
       expect(draftValues.meeting).toBeInstanceOf(Date);
       expect(draftValues.next_day).toBeInstanceOf(Date);
+      expect(draftValues.due).toEqual(new Date("2026-09-29T15:00:00.000Z"));
 
       const submitted = await submitDraft(api, staff.token, draft);
       expect(submitted.summary?.date).toBe("2026-09-25T15:00:00.000Z");

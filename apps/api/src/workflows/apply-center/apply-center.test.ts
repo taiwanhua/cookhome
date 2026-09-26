@@ -487,7 +487,13 @@ describe("申請中心與讀取授權", () => {
       await ok(api, world.root, CREATE_FORM, {
         input: { key: formKey, moduleKey: "leave", name: "複製測試" },
       });
-      await publishDefinition(api, world.root, formKey, definitionOf(v1), null);
+      await publishDefinition(
+        api,
+        world.root,
+        formKey,
+        definitionOf(v1, { summaryMap: { title: "title", date: "start" } }),
+        null,
+      );
       await ok(api, world.root, ASSIGN, {
         input: { formKey, tenantOrgIds: [String(world.tenant)] },
       });
@@ -514,6 +520,14 @@ describe("申請中心與讀取授權", () => {
         extra: "舊欄位",
       });
       const submitted = await submitExisting(world, draft);
+      // 送出建的流程實例:摘要槽 date(對日期欄)存 Mongo Date,和提交的摘要同一個時點
+      const instance = await world.connection
+        .collection("workflow_instances")
+        .findOne({ submissionId: new Types.ObjectId(submitted.id) });
+      const instanceDate = (instance?.summary as { date?: unknown } | null)
+        ?.date;
+      expect(instanceDate).toBeInstanceOf(Date);
+      expect((instanceDate as Date).toISOString()).toBe(draft.values.start);
       await decideOn(world, copyReviewer, submitted.id, "APPROVE");
       const approved = await submission(world, world.applicant, submitted.id);
       // 沒有 edit 的別人不能作廢
