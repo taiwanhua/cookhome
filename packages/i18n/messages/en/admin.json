@@ -515,6 +515,7 @@
     "listColumns": {
       "title": "List columns — {name}",
       "loading": "Loading configuration",
+      "moduleWide": "This setting affects the whole module's list: every form in the module shares the same list columns.",
       "body": "Choose summary slots or form fields for the list; form fields are the non-protected fields of shared forms' current versions.",
       "usingDefault": "Not configured: the list uses the default columns (title, date).",
       "row": "Column {index}",
@@ -1259,6 +1260,7 @@
       "edit": "Edit name and title",
       "fork": "New form from this",
       "assign": "Assign tenants",
+      "listColumns": "List columns",
       "tenantEnabled": "Enabled in this organization",
       "enabledOn": "Form enabled in this organization.",
       "enabledOff": "Form disabled in this organization.",
