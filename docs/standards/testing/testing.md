@@ -249,4 +249,4 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 
 - `apps/api/src/auth/password/password.test.ts` 的 `setPassword` describe 四案偶爾整組逾時(重跑即過;疑與 CI runner 慢 + argon2 雜湊有關)。重跑一次仍紅才算真的紅。
 - `apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx` 的「直接設定初始密碼」偶發紅過一次(重跑即過)。**只出現過一次,先記在這裡當觀察名單** —— 再紅就不是偶發,要照 TEST-10 的判準查是不是斷言方向錯(等待時機、非同步接力)。
-- `apps/admin/src/pages/system/FormsPage/FormsPageVersionViewer.test.tsx` 的「版本面板點「檢視」…預覽可以算」在本機全套並行時超過 15 秒逾時過一次(單獨跑綠)。**觀察名單** —— 再紅就拆案,或只操作屬性面板的步驟改用小草稿(一兩個欄位)降低重繪成本。
+- `apps/admin/src/pages/system/FormsPage/FormsPageVersionViewer.test.tsx` 原本一案走完「設計模式 + 預覽 + 關閉」,全套並行時超過 15 秒逾時兩次(本機一次、CI 一次;單獨跑綠),已拆成兩案(預覽另一案、輸入改 `fireEvent.change`)。**觀察名單** —— 拆完再紅就查等待時機(TEST-10),不是再放寬逾時。

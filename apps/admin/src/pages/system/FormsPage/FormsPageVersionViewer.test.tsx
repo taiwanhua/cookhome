@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { FormVersionStatus } from "@repo/graphql";
 
@@ -26,7 +26,8 @@ const openVersion = async (
 };
 
 describe("表單管理:唯讀檢視已發布的版本", () => {
-  it("版本面板點「檢視」:設計器唯讀打開那一版,照樣標示、不能改不能存,預覽可以算", async () => {
+  // 原本一案走完「設計模式 + 預覽 + 關閉」,全套並行時超過 15 秒;拆兩案(TEST-08 已知偶發)
+  it("版本面板點「檢視」:設計器唯讀打開那一版,照樣標示、不能改不能存;關閉後回到草稿", async () => {
     const { user } = renderFormsPage();
     const viewer = await openVersion(user);
 
@@ -44,26 +45,29 @@ describe("表單管理:唯讀檢視已發布的版本", () => {
       within(viewer).queryByRole("button", { name: "以 v1 為基底開新草稿" }),
     ).toBeNull();
 
+    await user.click(within(viewer).getByRole("button", { name: "關閉檢視" }));
+    expect(
+      await screen.findByRole("region", { name: "元件" }),
+    ).toBeInTheDocument();
+  });
+
+  it("唯讀檢視的預覽可以算(只前端算,沒有「以後端重算」)", async () => {
+    const { user } = renderFormsPage();
+    const viewer = await openVersion(user);
+
     await user.click(within(viewer).getByRole("tab", { name: "預覽" }));
     const preview = await within(viewer).findByRole("region", { name: "預覽" });
     expect(
       within(preview).queryByRole("button", { name: "以後端重算" }),
     ).toBeNull();
-    await user.type(
-      within(preview).getByRole("textbox", { name: "數量" }),
-      "2",
-    );
-    await user.type(
-      within(preview).getByRole("textbox", { name: "單價" }),
-      "15",
-    );
+    fireEvent.change(within(preview).getByRole("textbox", { name: "數量" }), {
+      target: { value: "2" },
+    });
+    fireEvent.change(within(preview).getByRole("textbox", { name: "單價" }), {
+      target: { value: "15" },
+    });
     expect(
       await within(preview).findByDisplayValue("30 元"),
-    ).toBeInTheDocument();
-
-    await user.click(within(viewer).getByRole("button", { name: "關閉檢視" }));
-    expect(
-      await screen.findByRole("region", { name: "元件" }),
     ).toBeInTheDocument();
   });
 
