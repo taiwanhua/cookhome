@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
+import type { FormDefinition } from "@repo/domain/form";
 import { FormVersionStatus } from "@repo/graphql";
 
 import {
@@ -23,6 +24,25 @@ import {
 
 preloadFormsPage();
 
+/**
+ * 只有一個「品項」欄的小草稿:這一組測試只操作屬性面板的下拉,畫布越小每一步重繪越快
+ * (全套並行時 CPU 被搶,整張購物單的畫布會把單一測試的 15 秒吃光)。
+ */
+const smallDraft = (): FormDefinition => ({
+  fields: [field("item", "品項", "text")],
+  layout: {
+    sections: [
+      {
+        key: "basic",
+        title: "採購內容",
+        rows: [{ cols: [{ fieldKey: "item", span: 12 }] }],
+      },
+    ],
+  },
+  summaryMap: { title: "item" },
+  prefills: [],
+});
+
 /** 已發布 v1 多一個受保護的「成本」:其他表單拿它當來源時,欄位目錄不列它。 */
 const renderWithProtectedPublished = () => {
   const published = shoppingDefinition();
@@ -44,7 +64,7 @@ const renderWithProtectedPublished = () => {
     ],
     versions: {
       [SHOPPING_FORM_KEY]: [
-        versionFragment(shoppingDefinition(), { baseVersion: 1 }),
+        versionFragment(smallDraft(), { baseVersion: 1 }),
         versionFragment(published, {
           id: `ver-${SHOPPING_FORM_KEY}-1`,
           version: 1,
@@ -68,7 +88,7 @@ const savedFields = async (
 
 describe("表單管理:類別 / 表單 / 欄位改用下拉選", () => {
   it("選項來源 = 欄位管理類別:從類別清單挑", async () => {
-    const { user, world } = renderFormsPage();
+    const { user, world } = renderWithProtectedPublished();
     await addField(user, "單選");
     await pickOption(user, "選項來源", "欄位管理類別");
 
