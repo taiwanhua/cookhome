@@ -65,6 +65,7 @@ import {
   WorkflowVersionSchema,
 } from "./schemas/workflow-version.schema";
 import { Workflow, WorkflowSchema } from "./schemas/workflow.schema";
+import { WorkflowSubmissionStore } from "./workflow-submission-store";
 import { WorkflowTasksRepository } from "./workflow-tasks.repository";
 import { WorkflowsRepository } from "./workflows.repository";
 
@@ -424,6 +425,12 @@ export class WorkflowInstancesRepository extends BaseRepository<
         new WorkflowTasksRepository(model),
     },
     {
+      provide: WorkflowSubmissionStore,
+      inject: [getModelToken(FormSubmission.name)],
+      useFactory: (model: Model<FormSubmission>) =>
+        new WorkflowSubmissionStore(model),
+    },
+    {
       provide: FormSubmissionUsageCounter,
       inject: [getModelToken(FormSubmission.name)],
       useFactory: (model: Model<FormSubmission>) =>
@@ -462,6 +469,7 @@ export class WorkflowInstancesRepository extends BaseRepository<
     FormVersionsRepository,
     FormSubmissionsRepository,
     FormSubmissionUsageCounter,
+    WorkflowSubmissionStore,
     RelationService,
     BusinessRelationshipsRepository,
     WorkflowsRepository,

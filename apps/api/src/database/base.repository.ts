@@ -61,6 +61,12 @@ export interface FindOptions {
   limit?: number;
 }
 
+/** 條件更新的額外選項。 */
+export interface UpdateOptions {
+  /** 陣列元素的篩選(`$[識別名]` 指到哪幾個元素;Mongo `arrayFilters`)。 */
+  arrayFilters?: Record<string, unknown>[];
+}
+
 /**
  * 所有資料存取的共用層(ADR-0005 / ADR-0007 / ADR-0011):
  * 每個公開方法都以操作者上下文開頭 — 租戶過濾、軟刪除排除、基礎欄位填寫全由 plugin 依此自動完成,
@@ -252,11 +258,15 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
    * **條件更新**:更新第一筆符合 `filter` 的資料並回傳更新後的文件,沒有符合者回 null。
    * 用途是樂觀鎖與搶鎖(「`editVersion` 還是我讀到的那個才寫」「草稿還在 draft 才改成 publishing」):
    * 條件與更新在同一次寫入裡判斷,兩個請求同時來只有一個會命中。欄位保護與範圍與 `updateById` 相同。
+   *
+   * `options.arrayFilters`:更新陣列裡**特定元素**時用(`steps.$[cur].decisions` 配
+   * `[{ "cur.stepKey": k }]`;流程實例的決定原子寫入,Spec 6b §6「決定」)。
    */
   async findOneAndUpdate(
     operator: OperatorContext,
     filter: RepositoryFilter<TSchema>,
     update: RepositoryUpdate<TSchema>,
+    options: UpdateOptions = {},
   ): Promise<Persisted<TDocument> | null> {
     assertUpdateLeavesProtectedPaths(
       this.model.modelName,
@@ -267,6 +277,9 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
       this.model.findOneAndUpdate({ ...filter }, update, {
         returnDocument: "after",
         runValidators: true,
+        ...(options.arrayFilters === undefined
+          ? {}
+          : { arrayFilters: options.arrayFilters }),
       }),
       { operator },
     ).exec();

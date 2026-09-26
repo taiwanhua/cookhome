@@ -89,7 +89,11 @@ function fakeBucket(): {
   const bucket: GcsBucket = {
     file: (name: string) => {
       files.push(name);
-      return { getSignedUrl, delete: deleteFile };
+      return {
+        getSignedUrl,
+        delete: deleteFile,
+        copy: () => Promise.resolve([]),
+      };
     },
   };
   return { bucket, getSignedUrl, deleteFile, files };

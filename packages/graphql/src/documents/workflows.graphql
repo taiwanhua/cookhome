@@ -1,0 +1,341 @@
+# 流程管理(system.workflows;規則正本 docs/modules/workflows.md)。
+#
+# 三件事在這裡就要看得懂:
+# 1. 定義以 `definition: { steps, edges }` 進出:`steps` 是 StepDef 的 JSON(含 `kind: review | join`),
+#    `edges` 為 null = 直線(陣列順序即流程)。形狀正本是 `@repo/domain/workflow`。存草稿與發布都帶
+#    `expectedDraftRevision`,不符 → CONFLICT(reason DRAFT_REVISION_MISMATCH)。
+# 2. 發布與表單同一套四步生命週期(沒有欄位級權限那一步):中斷時 `publishInterrupted` 為 true,
+#    RetryPublishWorkflowVersion 冪等重跑;中斷期間開草稿 / 退役 / 再發布 → CONFLICT(PUBLISH_IN_PROGRESS)。
+# 3. `abilities` 已含權限與「是不是自己的流程」判斷,前端直接用。
+
+fragment WorkflowFields on WorkflowModel {
+  id
+  key
+  name
+  isShared
+  ownerOrgId
+  ownerOrgName
+  forkedFrom {
+    workflowKey
+    version
+  }
+  currentVersion
+  hasDraft
+  publishInterrupted
+  # 目前發布版含角色佔位(共用流程):租戶不能直接綁,要以它為基底建客製流程
+  hasRolePlaceholder
+  # 只有 root 視角的共用流程有;其餘為空陣列
+  assignments {
+    tenantOrgId
+    tenantName
+  }
+  # 租戶視角:本租戶綁了這個流程的表單
+  boundForms {
+    formKey
+    formName
+    moduleKey
+  }
+  abilities {
+    canEdit
+    canPublish
+    canAssign
+    canFork
+  }
+  createdAt
+  updatedAt
+}
+
+fragment WorkflowVersionFields on WorkflowVersionModel {
+  id
+  workflowKey
+  # 草稿為 null
+  version
+  status
+  draftRevision
+  baseVersion
+  steps
+  # null = 直線
+  edges {
+    from
+    to
+  }
+  changelog
+  publishedAt
+  publishedBy {
+    id
+    name
+  }
+}
+
+fragment WorkflowValidationFields on WorkflowValidationReport {
+  errors {
+    code
+    message
+    stepKey
+    stepIndex
+    edgeIndex
+    property
+    exprPath
+  }
+  warnings {
+    code
+    message
+    stepKey
+    stepIndex
+    edgeIndex
+    property
+    exprPath
+  }
+}
+
+# WorkflowsInput: { keyword?, page?, pageSize? }
+query Workflows($input: WorkflowsInput!) {
+  workflows(input: $input) {
+    items {
+      ...WorkflowFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+
+query Workflow($key: ID!) {
+  workflow(key: $key) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+
+# CreateWorkflowInput: { key, name };站在根組織 = 共用流程、站在租戶內 = 客製流程(自動 org_workflow)
+mutation CreateWorkflow($input: CreateWorkflowInput!) {
+  createWorkflow(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+
+# UpdateWorkflowInput: { key, name }
+mutation UpdateWorkflow($input: UpdateWorkflowInput!) {
+  updateWorkflow(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+
+# ForkWorkflowInput: { sourceKey, sourceVersion, key, name }
+mutation ForkWorkflow($input: ForkWorkflowInput!) {
+  forkWorkflow(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+
+# AssignWorkflowToTenantsInput: { workflowKey, tenantOrgIds }(root)
+mutation AssignWorkflowToTenants($input: AssignWorkflowToTenantsInput!) {
+  assignWorkflowToTenants(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+
+# RevokeWorkflowFromTenantInput: { workflowKey, tenantOrgId }(root)
+mutation RevokeWorkflowFromTenant($input: RevokeWorkflowFromTenantInput!) {
+  revokeWorkflowFromTenant(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+
+# version 省略 = 草稿(附檢查器結果)
+query WorkflowVersion($workflowKey: ID!, $version: Int) {
+  workflowVersion(workflowKey: $workflowKey, version: $version) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+    validation {
+      ...WorkflowValidationFields
+    }
+  }
+}
+
+query WorkflowVersions($workflowKey: ID!) {
+  workflowVersions(workflowKey: $workflowKey) {
+    items {
+      ...WorkflowVersionFields
+    }
+    totalCount
+  }
+}
+
+# ValidateWorkflowVersionInput: { workflowKey, definition: { steps, edges? }, checkFormKey? }(不落庫)
+query ValidateWorkflowVersion($input: ValidateWorkflowVersionInput!) {
+  validateWorkflowVersion(input: $input) {
+    ...WorkflowValidationFields
+  }
+}
+
+# CreateWorkflowVersionDraftInput: { workflowKey, baseVersion? }
+mutation CreateWorkflowVersionDraft($input: CreateWorkflowVersionDraftInput!) {
+  createWorkflowVersionDraft(input: $input) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+    validation {
+      ...WorkflowValidationFields
+    }
+  }
+}
+
+# SaveWorkflowVersionDraftInput: { workflowKey, expectedDraftRevision, definition: { steps, edges? } }
+mutation SaveWorkflowVersionDraft($input: SaveWorkflowVersionDraftInput!) {
+  saveWorkflowVersionDraft(input: $input) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+    validation {
+      ...WorkflowValidationFields
+    }
+  }
+}
+
+# PublishWorkflowVersionInput: { workflowKey, expectedDraftRevision, changelog }
+mutation PublishWorkflowVersion($input: PublishWorkflowVersionInput!) {
+  publishWorkflowVersion(input: $input) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+  }
+}
+
+# WorkflowKeyInput: { workflowKey }
+mutation RetryPublishWorkflowVersion($input: WorkflowKeyInput!) {
+  retryPublishWorkflowVersion(input: $input) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+  }
+}
+
+# WorkflowKeyInput: { workflowKey };進行中的實例照常走完,只影響新送出
+mutation RetireCurrentWorkflowVersion($input: WorkflowKeyInput!) {
+  retireCurrentWorkflowVersion(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+
+# ---- 流程綁定(表單管理列表的流程綁定欄;租戶管理員,system.forms.edit) ----
+
+# BindFormWorkflowInput: { formKey, workflowKey };檢查不過 → VALIDATION_FAILED + extensions.issues
+mutation BindFormWorkflow($input: BindFormWorkflowInput!) {
+  bindFormWorkflow(input: $input) {
+    form {
+      key
+      workflowBinding {
+        workflowKey
+        workflowName
+        isValid
+      }
+    }
+  }
+}
+
+# UnbindFormWorkflowInput: { formKey };進過審核的單之後再送出會被擋(「流程已移除」)
+mutation UnbindFormWorkflow($input: UnbindFormWorkflowInput!) {
+  unbindFormWorkflow(input: $input) {
+    form {
+      key
+      workflowBinding {
+        workflowKey
+        workflowName
+        isValid
+      }
+    }
+  }
+}
+
+# 本租戶這張表單綁的流程;isValid = false → 「綁定的流程已失效」
+query FormWorkflowBindingOf($key: ID!) {
+  form(key: $key) {
+    form {
+      key
+      workflowBinding {
+        workflowKey
+        workflowName
+        isValid
+      }
+    }
+  }
+}
+
+# 流程下拉:本租戶看得到且已發布的流程,canBind = 可直接綁;不能綁的看 issues(ROLE_IN_SHARED → 建客製流程)
+query FormWorkflowOptions($formKey: ID!) {
+  formWorkflowOptions(formKey: $formKey) {
+    items {
+      workflowKey
+      workflowName
+      isShared
+      canBind
+      issues {
+        stepKey
+        stepNumber
+        problem
+        detail
+      }
+    }
+    totalCount
+  }
+}
+
+# ---- 阻擋清單(system.workflows.blocked-page.reassign) ----
+
+# BlockedInstancesInput: { filter: BLOCKED | NEEDS_ADVANCE, page?, pageSize? };摘要不含提交內容
+query BlockedInstances($input: BlockedInstancesInput!) {
+  blockedInstances(input: $input) {
+    items {
+      ...WorkflowInstanceFields
+    }
+    totalCount
+    page
+    pageSize
+    # NEEDS_ADVANCE 候選超過 200 筆時為 true:只檢查了最久沒動的那一批
+    truncated
+  }
+}
+
+# ReassignTaskInput: { taskId, toUserId }
+mutation ReassignTask($input: ReassignTaskInput!) {
+  reassignTask(input: $input) {
+    task {
+      ...WorkflowTaskFields
+    }
+    result
+  }
+}
+
+# AddStepAssigneeInput: { instanceId, stepKey, userId }(只對解析為空而阻擋的關卡)
+mutation AddStepAssignee($input: AddStepAssigneeInput!) {
+  addStepAssignee(input: $input) {
+    task {
+      ...WorkflowTaskFields
+    }
+    result
+  }
+}
+
+# RetryAdvanceInstanceInput: { instanceId }
+mutation RetryAdvanceInstance($input: RetryAdvanceInstanceInput!) {
+  retryAdvanceInstance(input: $input) {
+    instance {
+      ...WorkflowInstanceFields
+    }
+  }
+}

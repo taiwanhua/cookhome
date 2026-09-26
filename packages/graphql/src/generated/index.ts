@@ -1,6 +1,6 @@
 import { GraphQLClient } from 'graphql-request';
 type RequestInit = { headers?: HeadersInit };
-import { useMutation, useQuery, UseMutationOptions, UseQueryOptions } from '@tanstack/react-query';
+import { useQuery, useMutation, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
 export type Maybe<T> = T | null;
 export type InputMaybe<T> = Maybe<T>;
 export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
@@ -40,6 +40,42 @@ export type AddOrgMembersPayload = {
   skippedUserIds: Array<Scalars['ID']['output']>;
 };
 
+export type AddStepAssigneeInput = {
+  instanceId: Scalars['ID']['input'];
+  stepKey: Scalars['String']['input'];
+  userId: Scalars['ID']['input'];
+};
+
+export type ApplicableModuleForms = {
+  __typename?: 'ApplicableModuleForms';
+  forms: Array<FormSummary>;
+  moduleKey: Scalars['String']['output'];
+  moduleName?: Maybe<Scalars['String']['output']>;
+};
+
+export type ApplicationActiveStep = {
+  __typename?: 'ApplicationActiveStep';
+  name: Scalars['String']['output'];
+  stepKey: Scalars['String']['output'];
+};
+
+export type ApplicationItem = {
+  __typename?: 'ApplicationItem';
+  activeSteps: Array<ApplicationActiveStep>;
+  blocked: Scalars['Boolean']['output'];
+  currentInstanceId?: Maybe<Scalars['ID']['output']>;
+  formKey: Scalars['ID']['output'];
+  formName?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  moduleKey: Scalars['String']['output'];
+  moduleName?: Maybe<Scalars['String']['output']>;
+  revision: Scalars['Int']['output'];
+  status: FormSubmissionStatus;
+  submittedAt?: Maybe<Scalars['DateTime']['output']>;
+  summary?: Maybe<FormSubmissionSummary>;
+  updatedAt: Scalars['DateTime']['output'];
+};
+
 export type AssignFormToTenantsInput = {
   formKey: Scalars['ID']['input'];
   tenantOrgIds: Array<Scalars['ID']['input']>;
@@ -50,6 +86,29 @@ export type AssignUserRolesInput = {
   userId: Scalars['ID']['input'];
 };
 
+export type AssignWorkflowToTenantsInput = {
+  tenantOrgIds: Array<Scalars['ID']['input']>;
+  workflowKey: Scalars['ID']['input'];
+};
+
+export type BindFormWorkflowInput = {
+  formKey: Scalars['ID']['input'];
+  workflowKey: Scalars['ID']['input'];
+};
+
+/** 阻擋清單篩選:阻擋 / 需要推進 */
+export enum BlockedInstancesFilter {
+  Blocked = 'BLOCKED',
+  NeedsAdvance = 'NEEDS_ADVANCE'
+}
+
+export type BlockedInstancesInput = {
+  filter: BlockedInstancesFilter;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
 export type ChangePasswordInput = {
   currentPassword: Scalars['String']['input'];
   newPassword: Scalars['String']['input'];
@@ -58,6 +117,11 @@ export type ChangePasswordInput = {
 export type ChangePasswordPayload = {
   __typename?: 'ChangePasswordPayload';
   success: Scalars['Boolean']['output'];
+};
+
+export type CopySubmissionToDraftInput = {
+  clientRequestId: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
 };
 
 export type CreateChildOrgInput = {
@@ -143,6 +207,16 @@ export type CreateUserInput = {
   orgIds: Array<Scalars['ID']['input']>;
   phone?: InputMaybe<Scalars['String']['input']>;
   roleIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+};
+
+export type CreateWorkflowInput = {
+  key: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+export type CreateWorkflowVersionDraftInput = {
+  baseVersion?: InputMaybe<Scalars['Int']['input']>;
+  workflowKey: Scalars['ID']['input'];
 };
 
 export type DataScopeAudience = {
@@ -234,6 +308,13 @@ export type DataScopeTargetField = {
 export type DataScopeTargetsPayload = {
   __typename?: 'DataScopeTargetsPayload';
   targets: Array<DataScopeTarget>;
+};
+
+export type DecideTaskInput = {
+  comment?: InputMaybe<Scalars['String']['input']>;
+  decision: WorkflowDecision;
+  expectedEditVersion: Scalars['Int']['input'];
+  taskId: Scalars['ID']['input'];
 };
 
 export type DeleteDemoItemOneInput = {
@@ -487,6 +568,13 @@ export type ForkFormInput = {
   sourceVersion: Scalars['Int']['input'];
 };
 
+export type ForkWorkflowInput = {
+  key: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  sourceKey: Scalars['ID']['input'];
+  sourceVersion: Scalars['Int']['input'];
+};
+
 export type FormAbilities = {
   __typename?: 'FormAbilities';
   canAssign: Scalars['Boolean']['output'];
@@ -632,6 +720,7 @@ export type FormModel = {
   tabLabelTemplate?: Maybe<Scalars['String']['output']>;
   tenantEnabled?: Maybe<Scalars['Boolean']['output']>;
   updatedAt: Scalars['DateTime']['output'];
+  workflowBinding?: Maybe<FormWorkflowBinding>;
 };
 
 export type FormPayload = {
@@ -649,9 +738,12 @@ export type FormPreviewPayload = {
 
 export type FormSubmissionAbilities = {
   __typename?: 'FormSubmissionAbilities';
+  canCopy: Scalars['Boolean']['output'];
   canDelete: Scalars['Boolean']['output'];
   canEdit: Scalars['Boolean']['output'];
   canEditField: Array<Scalars['String']['output']>;
+  canVoid: Scalars['Boolean']['output'];
+  canWithdraw: Scalars['Boolean']['output'];
 };
 
 export type FormSubmissionAttachmentUrlPayload = {
@@ -670,9 +762,13 @@ export type FormSubmissionContext = {
 export type FormSubmissionModel = {
   __typename?: 'FormSubmissionModel';
   abilities: FormSubmissionAbilities;
+  blocked: Scalars['Boolean']['output'];
+  clearedFields: Array<Scalars['String']['output']>;
+  copiedFrom?: Maybe<Scalars['ID']['output']>;
   createdAt: Scalars['DateTime']['output'];
   createdBy?: Maybe<FormUserRef>;
   ctx?: Maybe<FormSubmissionContext>;
+  currentInstanceId?: Maybe<Scalars['ID']['output']>;
   displayValues: Array<FormDisplayValue>;
   editVersion: Scalars['Int']['output'];
   fieldStates: Array<FormFieldState>;
@@ -681,6 +777,7 @@ export type FormSubmissionModel = {
   id: Scalars['ID']['output'];
   moduleKey: Scalars['String']['output'];
   orgId: Scalars['ID']['output'];
+  replacedById?: Maybe<Scalars['ID']['output']>;
   revision: Scalars['Int']['output'];
   revisions: Array<FormSubmissionRevisionMeta>;
   status: FormSubmissionStatus;
@@ -690,6 +787,8 @@ export type FormSubmissionModel = {
   values: Scalars['JSONObject']['output'];
   version: Scalars['Int']['output'];
   viewedRevision: Scalars['Int']['output'];
+  voidReason?: Maybe<Scalars['String']['output']>;
+  voidedAt?: Maybe<Scalars['DateTime']['output']>;
 };
 
 export type FormSubmissionPayload = {
@@ -711,10 +810,15 @@ export enum FormSubmissionSort {
   UpdatedAtDesc = 'UPDATED_AT_DESC'
 }
 
-/** 提交狀態:草稿 / 已完成(6a 送出即完成) */
+/** 提交狀態:草稿 / 審核中 / 已退回 / 已撤回 / 已完成 / 已駁回 / 已作廢(不綁流程的表單送出即完成) */
 export enum FormSubmissionStatus {
   Completed = 'COMPLETED',
-  Draft = 'DRAFT'
+  Draft = 'DRAFT',
+  Rejected = 'REJECTED',
+  Returned = 'RETURNED',
+  Reviewing = 'REVIEWING',
+  Voided = 'VOIDED',
+  Withdrawn = 'WITHDRAWN'
 }
 
 export type FormSubmissionSummary = {
@@ -800,6 +904,28 @@ export enum FormVersionStatus {
 export type FormVersionsPayload = {
   __typename?: 'FormVersionsPayload';
   items: Array<FormVersionModel>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type FormWorkflowBinding = {
+  __typename?: 'FormWorkflowBinding';
+  isValid: Scalars['Boolean']['output'];
+  workflowKey: Scalars['ID']['output'];
+  workflowName?: Maybe<Scalars['String']['output']>;
+};
+
+export type FormWorkflowOption = {
+  __typename?: 'FormWorkflowOption';
+  canBind: Scalars['Boolean']['output'];
+  isShared: Scalars['Boolean']['output'];
+  issues: Array<WorkflowBindingIssueModel>;
+  workflowKey: Scalars['ID']['output'];
+  workflowName: Scalars['String']['output'];
+};
+
+export type FormWorkflowOptionsPayload = {
+  __typename?: 'FormWorkflowOptionsPayload';
+  items: Array<FormWorkflowOption>;
   totalCount: Scalars['Int']['output'];
 };
 
@@ -974,9 +1100,13 @@ export type MoveOrgInput = {
 export type Mutation = {
   __typename?: 'Mutation';
   addOrgMembers: AddOrgMembersPayload;
+  addStepAssignee: WorkflowTaskPayload;
   assignFormToTenants: FormPayload;
   assignUserRoles: UserPayload;
+  assignWorkflowToTenants: WorkflowPayload;
+  bindFormWorkflow: FormPayload;
   changePassword: ChangePasswordPayload;
+  copySubmissionToDraft: FormSubmissionPayload;
   createChildOrg: OrgPayload;
   createDemoItemOne: DemoItemOnePayload;
   createDemoItemTwo: DemoItemTwoPayload;
@@ -988,6 +1118,9 @@ export type Mutation = {
   createRole: RolePayload;
   createUploadUrl: UploadUrlPayload;
   createUser: UserPayload;
+  createWorkflow: WorkflowPayload;
+  createWorkflowVersionDraft: WorkflowVersionPayload;
+  decideTask: WorkflowTaskPayload;
   deleteDemoItemOne: DeleteDemoItemOnePayload;
   deleteDemoItemTwo: DeleteDemoItemTwoPayload;
   deleteFormSubmission: DeleteFormSubmissionPayload;
@@ -995,6 +1128,7 @@ export type Mutation = {
   deleteRetiredPermission: DeleteRetiredPermissionPayload;
   deleteRole: DeletePayload;
   forkForm: FormPayload;
+  forkWorkflow: WorkflowPayload;
   grantRoleUsers: RoleUsersPayload;
   login: LoginPayload;
   logout: LogoutPayload;
@@ -1002,17 +1136,24 @@ export type Mutation = {
   moveOrg: OrgPayload;
   provisionTenant: ProvisionTenantPayload;
   publishFormVersion: FormVersionPayload;
+  publishWorkflowVersion: WorkflowVersionPayload;
+  reassignTask: WorkflowTaskPayload;
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
   retireCurrentVersion: FormPayload;
+  retireCurrentWorkflowVersion: WorkflowPayload;
+  retryAdvanceInstance: WorkflowInstancePayload;
   retryPublishFormVersion: FormVersionPayload;
+  retryPublishWorkflowVersion: WorkflowVersionPayload;
   revokeFormFromTenant: FormPayload;
   revokeRoleUsers: RoleUsersPayload;
   revokeTenantProvision: RevokeTenantProvisionPayload;
+  revokeWorkflowFromTenant: WorkflowPayload;
   saveDataScopeRule: SaveDataScopeRulePayload;
   saveFormDraft: FormSubmissionPayload;
   saveFormVersionDraft: FormVersionPayload;
   saveRoleMatrix: RoleMatrixPayload;
+  saveWorkflowVersionDraft: WorkflowVersionPayload;
   setDemoItemOneEnabled: DemoItemOnePayload;
   setDemoItemTwoEnabled: DemoItemTwoPayload;
   setFieldEnabled: FieldPayload;
@@ -1031,6 +1172,7 @@ export type Mutation = {
   submitFormSubmission: FormSubmissionPayload;
   switchOrg: SwitchOrgPayload;
   transferOrgOwner: OrgPayload;
+  unbindFormWorkflow: FormPayload;
   updateDemoItemOne: DemoItemOnePayload;
   updateDemoItemTwo: DemoItemTwoPayload;
   updateField: FieldPayload;
@@ -1039,11 +1181,19 @@ export type Mutation = {
   updateOrg: OrgPayload;
   updateRole: RolePayload;
   updateUser: UserPayload;
+  updateWorkflow: WorkflowPayload;
+  voidSubmission: FormSubmissionPayload;
+  withdrawSubmission: FormSubmissionPayload;
 };
 
 
 export type MutationAddOrgMembersArgs = {
   input: AddOrgMembersInput;
+};
+
+
+export type MutationAddStepAssigneeArgs = {
+  input: AddStepAssigneeInput;
 };
 
 
@@ -1057,8 +1207,23 @@ export type MutationAssignUserRolesArgs = {
 };
 
 
+export type MutationAssignWorkflowToTenantsArgs = {
+  input: AssignWorkflowToTenantsInput;
+};
+
+
+export type MutationBindFormWorkflowArgs = {
+  input: BindFormWorkflowInput;
+};
+
+
 export type MutationChangePasswordArgs = {
   input: ChangePasswordInput;
+};
+
+
+export type MutationCopySubmissionToDraftArgs = {
+  input: CopySubmissionToDraftInput;
 };
 
 
@@ -1117,6 +1282,21 @@ export type MutationCreateUserArgs = {
 };
 
 
+export type MutationCreateWorkflowArgs = {
+  input: CreateWorkflowInput;
+};
+
+
+export type MutationCreateWorkflowVersionDraftArgs = {
+  input: CreateWorkflowVersionDraftInput;
+};
+
+
+export type MutationDecideTaskArgs = {
+  input: DecideTaskInput;
+};
+
+
 export type MutationDeleteDemoItemOneArgs = {
   input: DeleteDemoItemOneInput;
 };
@@ -1152,6 +1332,11 @@ export type MutationForkFormArgs = {
 };
 
 
+export type MutationForkWorkflowArgs = {
+  input: ForkWorkflowInput;
+};
+
+
 export type MutationGrantRoleUsersArgs = {
   input: GrantRoleUsersInput;
 };
@@ -1177,6 +1362,16 @@ export type MutationPublishFormVersionArgs = {
 };
 
 
+export type MutationPublishWorkflowVersionArgs = {
+  input: PublishWorkflowVersionInput;
+};
+
+
+export type MutationReassignTaskArgs = {
+  input: ReassignTaskInput;
+};
+
+
 export type MutationRequestPasswordResetArgs = {
   input: RequestPasswordResetInput;
 };
@@ -1187,8 +1382,23 @@ export type MutationRetireCurrentVersionArgs = {
 };
 
 
+export type MutationRetireCurrentWorkflowVersionArgs = {
+  input: WorkflowKeyInput;
+};
+
+
+export type MutationRetryAdvanceInstanceArgs = {
+  input: RetryAdvanceInstanceInput;
+};
+
+
 export type MutationRetryPublishFormVersionArgs = {
   input: FormKeyInput;
+};
+
+
+export type MutationRetryPublishWorkflowVersionArgs = {
+  input: WorkflowKeyInput;
 };
 
 
@@ -1204,6 +1414,11 @@ export type MutationRevokeRoleUsersArgs = {
 
 export type MutationRevokeTenantProvisionArgs = {
   input: RevokeTenantProvisionInput;
+};
+
+
+export type MutationRevokeWorkflowFromTenantArgs = {
+  input: RevokeWorkflowFromTenantInput;
 };
 
 
@@ -1224,6 +1439,11 @@ export type MutationSaveFormVersionDraftArgs = {
 
 export type MutationSaveRoleMatrixArgs = {
   input: SaveRoleMatrixInput;
+};
+
+
+export type MutationSaveWorkflowVersionDraftArgs = {
+  input: SaveWorkflowVersionDraftInput;
 };
 
 
@@ -1317,6 +1537,11 @@ export type MutationTransferOrgOwnerArgs = {
 };
 
 
+export type MutationUnbindFormWorkflowArgs = {
+  input: UnbindFormWorkflowInput;
+};
+
+
 export type MutationUpdateDemoItemOneArgs = {
   input: UpdateDemoItemOneInput;
 };
@@ -1354,6 +1579,47 @@ export type MutationUpdateRoleArgs = {
 
 export type MutationUpdateUserArgs = {
   input: UpdateUserInput;
+};
+
+
+export type MutationUpdateWorkflowArgs = {
+  input: UpdateWorkflowInput;
+};
+
+
+export type MutationVoidSubmissionArgs = {
+  input: VoidSubmissionInput;
+};
+
+
+export type MutationWithdrawSubmissionArgs = {
+  input: WithdrawSubmissionInput;
+};
+
+export type MyApplicationsInput = {
+  formKey?: InputMaybe<Scalars['ID']['input']>;
+  moduleKey?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+  status?: InputMaybe<FormSubmissionStatus>;
+};
+
+export type MyApplicationsPayload = {
+  __typename?: 'MyApplicationsPayload';
+  items: Array<ApplicationItem>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
+export type MyTasksInput = {
+  done?: InputMaybe<Scalars['Boolean']['input']>;
+  formKey?: InputMaybe<Scalars['ID']['input']>;
+  moduleKey?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type Org = {
@@ -1465,8 +1731,16 @@ export type PublishFormVersionInput = {
   formKey: Scalars['ID']['input'];
 };
 
+export type PublishWorkflowVersionInput = {
+  changelog: Scalars['String']['input'];
+  expectedDraftRevision: Scalars['Int']['input'];
+  workflowKey: Scalars['ID']['input'];
+};
+
 export type Query = {
   __typename?: 'Query';
+  applicableForms: Array<ApplicableModuleForms>;
+  blockedInstances: WorkflowInstancesPayload;
   dataScopeRule: DataScopeRulePayload;
   dataScopeTargets: DataScopeTargetsPayload;
   demoItemOne: DemoItemOnePayload;
@@ -1487,11 +1761,14 @@ export type Query = {
   formSubmissions: FormSubmissionsPayload;
   formVersion: FormVersionPayload;
   formVersions: FormVersionsPayload;
+  formWorkflowOptions: FormWorkflowOptionsPayload;
   forms: FormsPayload;
   me: Me;
   moduleForms: Array<FormSummary>;
   moduleListColumns: ModuleListColumnsPayload;
   moduleTree: Array<ModuleAdminNode>;
+  myApplications: MyApplicationsPayload;
+  myTasks: WorkflowTasksPayload;
   org: Org;
   orgManagerCandidates: Array<UserSummary>;
   orgMemberCandidates: OrgMembersPayload;
@@ -1510,6 +1787,17 @@ export type Query = {
   user: User;
   users: UsersPayload;
   validateFormVersion: FormValidationReport;
+  validateWorkflowVersion: WorkflowValidationReport;
+  workflow: WorkflowPayload;
+  workflowInstance: WorkflowInstancePayload;
+  workflowVersion: WorkflowVersionPayload;
+  workflowVersions: WorkflowVersionsPayload;
+  workflows: WorkflowsPayload;
+};
+
+
+export type QueryBlockedInstancesArgs = {
+  input: BlockedInstancesInput;
 };
 
 
@@ -1608,6 +1896,11 @@ export type QueryFormVersionsArgs = {
 };
 
 
+export type QueryFormWorkflowOptionsArgs = {
+  formKey: Scalars['ID']['input'];
+};
+
+
 export type QueryFormsArgs = {
   input: FormsInput;
 };
@@ -1620,6 +1913,16 @@ export type QueryModuleFormsArgs = {
 
 export type QueryModuleListColumnsArgs = {
   moduleKey: Scalars['String']['input'];
+};
+
+
+export type QueryMyApplicationsArgs = {
+  input: MyApplicationsInput;
+};
+
+
+export type QueryMyTasksArgs = {
+  input: MyTasksInput;
 };
 
 
@@ -1697,6 +2000,42 @@ export type QueryValidateFormVersionArgs = {
   input: ValidateFormVersionInput;
 };
 
+
+export type QueryValidateWorkflowVersionArgs = {
+  input: ValidateWorkflowVersionInput;
+};
+
+
+export type QueryWorkflowArgs = {
+  key: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkflowInstanceArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkflowVersionArgs = {
+  version?: InputMaybe<Scalars['Int']['input']>;
+  workflowKey: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkflowVersionsArgs = {
+  workflowKey: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkflowsArgs = {
+  input: WorkflowsInput;
+};
+
+export type ReassignTaskInput = {
+  taskId: Scalars['ID']['input'];
+  toUserId: Scalars['ID']['input'];
+};
+
 export type Recipe = {
   __typename?: 'Recipe';
   cookMinutes: Scalars['Int']['output'];
@@ -1753,6 +2092,10 @@ export type RetiredPermissionUsage = {
   draftVersions: Array<Scalars['Int']['output']>;
 };
 
+export type RetryAdvanceInstanceInput = {
+  instanceId: Scalars['ID']['input'];
+};
+
 export type RevokeFormFromTenantInput = {
   formKey: Scalars['ID']['input'];
   tenantOrgId: Scalars['ID']['input'];
@@ -1773,6 +2116,11 @@ export type RevokeTenantProvisionPayload = {
   revokedOwnerUserId?: Maybe<Scalars['ID']['output']>;
   revokedRoleId?: Maybe<Scalars['ID']['output']>;
   success: Scalars['Boolean']['output'];
+};
+
+export type RevokeWorkflowFromTenantInput = {
+  tenantOrgId: Scalars['ID']['input'];
+  workflowKey: Scalars['ID']['input'];
 };
 
 export type Role = {
@@ -1972,6 +2320,12 @@ export type SaveRoleMatrixInput = {
   roleId: Scalars['ID']['input'];
 };
 
+export type SaveWorkflowVersionDraftInput = {
+  definition: WorkflowDefinitionInput;
+  expectedDraftRevision: Scalars['Int']['input'];
+  workflowKey: Scalars['ID']['input'];
+};
+
 export type SetDemoItemOneEnabledInput = {
   enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
@@ -2081,6 +2435,10 @@ export type TransferOrgOwnerInput = {
   orgId: Scalars['ID']['input'];
 };
 
+export type UnbindFormWorkflowInput = {
+  formKey: Scalars['ID']['input'];
+};
+
 export type UnqualifiedRole = {
   __typename?: 'UnqualifiedRole';
   ownerOrgId?: Maybe<Scalars['ID']['output']>;
@@ -2152,6 +2510,11 @@ export type UpdateUserInput = {
   nationalId?: InputMaybe<Scalars['String']['input']>;
   nickname?: InputMaybe<Scalars['String']['input']>;
   phone?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateWorkflowInput = {
+  key: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
 };
 
 /** 上傳用途:決定物件路徑前綴與所需權限(ADR-0010) */
@@ -2255,6 +2618,417 @@ export type ValidateFormVersionInput = {
   prefills: Array<Scalars['JSONObject']['input']>;
   summaryMap: Scalars['JSONObject']['input'];
 };
+
+export type ValidateWorkflowVersionInput = {
+  checkFormKey?: InputMaybe<Scalars['ID']['input']>;
+  definition: WorkflowDefinitionInput;
+  workflowKey: Scalars['ID']['input'];
+};
+
+export type VoidSubmissionInput = {
+  expectedEditVersion: Scalars['Int']['input'];
+  id: Scalars['ID']['input'];
+  reason: Scalars['String']['input'];
+};
+
+export type WithdrawSubmissionInput = {
+  expectedEditVersion: Scalars['Int']['input'];
+  id: Scalars['ID']['input'];
+};
+
+export type WorkflowAbilities = {
+  __typename?: 'WorkflowAbilities';
+  canAssign: Scalars['Boolean']['output'];
+  canEdit: Scalars['Boolean']['output'];
+  canFork: Scalars['Boolean']['output'];
+  canPublish: Scalars['Boolean']['output'];
+};
+
+export type WorkflowAssignment = {
+  __typename?: 'WorkflowAssignment';
+  tenantName?: Maybe<Scalars['String']['output']>;
+  tenantOrgId: Scalars['ID']['output'];
+};
+
+export type WorkflowBindingIssueModel = {
+  __typename?: 'WorkflowBindingIssueModel';
+  detail: Scalars['String']['output'];
+  problem: Scalars['String']['output'];
+  stepKey: Scalars['String']['output'];
+  stepNumber: Scalars['Int']['output'];
+};
+
+export type WorkflowBoundForm = {
+  __typename?: 'WorkflowBoundForm';
+  formKey: Scalars['ID']['output'];
+  formName?: Maybe<Scalars['String']['output']>;
+  moduleKey?: Maybe<Scalars['String']['output']>;
+};
+
+/** 決定被接受 / 此關已結束或任務已變更(前端提示並重載) */
+export enum WorkflowDecideResult {
+  Accepted = 'ACCEPTED',
+  StepClosed = 'STEP_CLOSED'
+}
+
+/** 核准 / 駁回(理由必填)/ 退回修改(理由必填,該關要允許退回) */
+export enum WorkflowDecision {
+  Approve = 'APPROVE',
+  Reject = 'REJECT',
+  Return = 'RETURN'
+}
+
+export type WorkflowDecisionModel = {
+  __typename?: 'WorkflowDecisionModel';
+  at: Scalars['DateTime']['output'];
+  comment?: Maybe<Scalars['String']['output']>;
+  decision: Scalars['String']['output'];
+  taskKey: Scalars['String']['output'];
+  user: FormUserRef;
+};
+
+export type WorkflowDefinitionInput = {
+  edges?: InputMaybe<Array<WorkflowEdgeInput>>;
+  steps: Array<Scalars['JSONObject']['input']>;
+};
+
+export type WorkflowEdgeInput = {
+  from: Scalars['String']['input'];
+  to: Scalars['String']['input'];
+};
+
+export type WorkflowEdgeModel = {
+  __typename?: 'WorkflowEdgeModel';
+  from: Scalars['String']['output'];
+  to: Scalars['String']['output'];
+};
+
+export type WorkflowForkSourceModel = {
+  __typename?: 'WorkflowForkSourceModel';
+  version: Scalars['Int']['output'];
+  workflowKey: Scalars['ID']['output'];
+};
+
+export type WorkflowHistoryEventModel = {
+  __typename?: 'WorkflowHistoryEventModel';
+  at: Scalars['DateTime']['output'];
+  comment?: Maybe<Scalars['String']['output']>;
+  kind: Scalars['String']['output'];
+  result?: Maybe<Scalars['String']['output']>;
+  stepKey?: Maybe<Scalars['String']['output']>;
+  taskKey?: Maybe<Scalars['String']['output']>;
+  toUser?: Maybe<FormUserRef>;
+  user?: Maybe<FormUserRef>;
+};
+
+export type WorkflowInstanceAbilities = {
+  __typename?: 'WorkflowInstanceAbilities';
+  canManage: Scalars['Boolean']['output'];
+  canWithdraw: Scalars['Boolean']['output'];
+};
+
+export type WorkflowInstanceModel = {
+  __typename?: 'WorkflowInstanceModel';
+  abilities: WorkflowInstanceAbilities;
+  activeStepKeys: Array<Scalars['String']['output']>;
+  applicant?: Maybe<FormUserRef>;
+  createdAt: Scalars['DateTime']['output'];
+  editVersion: Scalars['Int']['output'];
+  finishedAt?: Maybe<Scalars['DateTime']['output']>;
+  formKey: Scalars['ID']['output'];
+  formName?: Maybe<Scalars['String']['output']>;
+  formVersion: Scalars['Int']['output'];
+  history: Array<WorkflowHistoryEventModel>;
+  id: Scalars['ID']['output'];
+  moduleKey: Scalars['String']['output'];
+  moduleName?: Maybe<Scalars['String']['output']>;
+  myTasks: Array<WorkflowTaskModel>;
+  outcome?: Maybe<WorkflowOutcomeModel>;
+  revision: Scalars['Int']['output'];
+  status: WorkflowInstanceStatus;
+  steps: Array<WorkflowInstanceStepModel>;
+  submissionId: Scalars['ID']['output'];
+  summary?: Maybe<FormSubmissionSummary>;
+  updatedAt: Scalars['DateTime']['output'];
+  workflowKey: Scalars['ID']['output'];
+  workflowName?: Maybe<Scalars['String']['output']>;
+  workflowVersion: Scalars['Int']['output'];
+};
+
+export type WorkflowInstancePayload = {
+  __typename?: 'WorkflowInstancePayload';
+  instance: WorkflowInstanceModel;
+};
+
+/** 流程實例狀態:連結中 / 審核中 / 阻擋 / 核准 / 駁回 / 退回 / 撤回 / 被取代 */
+export enum WorkflowInstanceStatus {
+  Approved = 'APPROVED',
+  Blocked = 'BLOCKED',
+  Linking = 'LINKING',
+  Rejected = 'REJECTED',
+  Returned = 'RETURNED',
+  Running = 'RUNNING',
+  Superseded = 'SUPERSEDED',
+  Withdrawn = 'WITHDRAWN'
+}
+
+export type WorkflowInstanceStepModel = {
+  __typename?: 'WorkflowInstanceStepModel';
+  blocked: Scalars['Boolean']['output'];
+  decisions: Array<WorkflowDecisionModel>;
+  kind: Scalars['String']['output'];
+  mode?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  plan: Array<WorkflowPlanItemModel>;
+  status: WorkflowStepStatus;
+  stepKey: Scalars['String']['output'];
+};
+
+export type WorkflowInstancesPayload = {
+  __typename?: 'WorkflowInstancesPayload';
+  items: Array<WorkflowInstanceModel>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+  truncated: Scalars['Boolean']['output'];
+};
+
+export type WorkflowIssueModel = {
+  __typename?: 'WorkflowIssueModel';
+  code: Scalars['String']['output'];
+  edgeIndex?: Maybe<Scalars['Int']['output']>;
+  exprPath?: Maybe<Scalars['String']['output']>;
+  message: Scalars['String']['output'];
+  property?: Maybe<Scalars['String']['output']>;
+  stepIndex?: Maybe<Scalars['Int']['output']>;
+  stepKey?: Maybe<Scalars['String']['output']>;
+};
+
+export type WorkflowKeyInput = {
+  workflowKey: Scalars['ID']['input'];
+};
+
+export type WorkflowModel = {
+  __typename?: 'WorkflowModel';
+  abilities: WorkflowAbilities;
+  assignments: Array<WorkflowAssignment>;
+  boundForms: Array<WorkflowBoundForm>;
+  createdAt: Scalars['DateTime']['output'];
+  currentVersion?: Maybe<Scalars['Int']['output']>;
+  forkedFrom?: Maybe<WorkflowForkSourceModel>;
+  hasDraft: Scalars['Boolean']['output'];
+  hasRolePlaceholder: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  isShared: Scalars['Boolean']['output'];
+  key: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  ownerOrgId?: Maybe<Scalars['ID']['output']>;
+  ownerOrgName?: Maybe<Scalars['String']['output']>;
+  publishInterrupted: Scalars['Boolean']['output'];
+  updatedAt: Scalars['DateTime']['output'];
+};
+
+export type WorkflowOutcomeModel = {
+  __typename?: 'WorkflowOutcomeModel';
+  kind: Scalars['String']['output'];
+  stepKey: Scalars['String']['output'];
+  taskKey: Scalars['String']['output'];
+};
+
+export type WorkflowPayload = {
+  __typename?: 'WorkflowPayload';
+  workflow: WorkflowModel;
+};
+
+export type WorkflowPlanItemModel = {
+  __typename?: 'WorkflowPlanItemModel';
+  assignee: FormUserRef;
+  assigneeState: Scalars['String']['output'];
+  previousAssignees: Array<FormUserRef>;
+  taskKey: Scalars['String']['output'];
+};
+
+/** 關卡狀態:還沒進 / 跳過 / 進行中 / 完成 / 被終止 */
+export enum WorkflowStepStatus {
+  Active = 'ACTIVE',
+  Completed = 'COMPLETED',
+  Pending = 'PENDING',
+  Skipped = 'SKIPPED',
+  Terminated = 'TERMINATED'
+}
+
+export type WorkflowTaskModel = {
+  __typename?: 'WorkflowTaskModel';
+  applicant?: Maybe<FormUserRef>;
+  assignee: FormUserRef;
+  comment?: Maybe<Scalars['String']['output']>;
+  createdAt: Scalars['DateTime']['output'];
+  decidedAt?: Maybe<Scalars['DateTime']['output']>;
+  editVersion: Scalars['Int']['output'];
+  formKey: Scalars['ID']['output'];
+  formName?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  instanceId: Scalars['ID']['output'];
+  instanceStatus: WorkflowInstanceStatus;
+  moduleKey: Scalars['String']['output'];
+  moduleName?: Maybe<Scalars['String']['output']>;
+  revision: Scalars['Int']['output'];
+  status: WorkflowTaskStatus;
+  stepKey: Scalars['String']['output'];
+  stepName: Scalars['String']['output'];
+  submissionId: Scalars['ID']['output'];
+  summary?: Maybe<FormSubmissionSummary>;
+  taskKey: Scalars['String']['output'];
+};
+
+export type WorkflowTaskPayload = {
+  __typename?: 'WorkflowTaskPayload';
+  result: WorkflowDecideResult;
+  task: WorkflowTaskModel;
+};
+
+/** 任務狀態:待處理 / 核准 / 駁回 / 退回 / 晚到(不影響結果)/ 取消 / 承辦人失效 */
+export enum WorkflowTaskStatus {
+  Approved = 'APPROVED',
+  Blocked = 'BLOCKED',
+  Cancelled = 'CANCELLED',
+  Late = 'LATE',
+  Pending = 'PENDING',
+  Rejected = 'REJECTED',
+  Returned = 'RETURNED'
+}
+
+export type WorkflowTasksPayload = {
+  __typename?: 'WorkflowTasksPayload';
+  items: Array<WorkflowTaskModel>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
+export type WorkflowValidationReport = {
+  __typename?: 'WorkflowValidationReport';
+  errors: Array<WorkflowIssueModel>;
+  warnings: Array<WorkflowIssueModel>;
+};
+
+export type WorkflowVersionModel = {
+  __typename?: 'WorkflowVersionModel';
+  baseVersion?: Maybe<Scalars['Int']['output']>;
+  changelog?: Maybe<Scalars['String']['output']>;
+  draftRevision: Scalars['Int']['output'];
+  edges?: Maybe<Array<WorkflowEdgeModel>>;
+  id: Scalars['ID']['output'];
+  publishedAt?: Maybe<Scalars['DateTime']['output']>;
+  publishedBy?: Maybe<FormUserRef>;
+  status: WorkflowVersionStatus;
+  steps: Array<Scalars['JSONObject']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+  workflowKey: Scalars['ID']['output'];
+};
+
+export type WorkflowVersionPayload = {
+  __typename?: 'WorkflowVersionPayload';
+  validation?: Maybe<WorkflowValidationReport>;
+  workflowVersion: WorkflowVersionModel;
+};
+
+/** 流程版本狀態:草稿 / 發布中 / 已發布 / 已退役 */
+export enum WorkflowVersionStatus {
+  Draft = 'DRAFT',
+  Published = 'PUBLISHED',
+  Publishing = 'PUBLISHING',
+  Retired = 'RETIRED'
+}
+
+export type WorkflowVersionsPayload = {
+  __typename?: 'WorkflowVersionsPayload';
+  items: Array<WorkflowVersionModel>;
+  totalCount: Scalars['Int']['output'];
+};
+
+export type WorkflowsInput = {
+  keyword?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  /** 每頁筆數,上限 100 */
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type WorkflowsPayload = {
+  __typename?: 'WorkflowsPayload';
+  items: Array<WorkflowModel>;
+  page: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalCount: Scalars['Int']['output'];
+};
+
+export type WorkflowTaskFieldsFragment = { __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null };
+
+export type WorkflowInstanceFieldsFragment = { __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } };
+
+export type MyApplicationsQueryVariables = Exact<{
+  input: MyApplicationsInput;
+}>;
+
+
+export type MyApplicationsQuery = { __typename?: 'Query', myApplications: { __typename?: 'MyApplicationsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'ApplicationItem', id: string, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, status: FormSubmissionStatus, blocked: boolean, revision: number, currentInstanceId?: string | null, submittedAt?: string | null, updatedAt: string, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, activeSteps: Array<{ __typename?: 'ApplicationActiveStep', stepKey: string, name: string }> }> } };
+
+export type ApplicableFormsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ApplicableFormsQuery = { __typename?: 'Query', applicableForms: Array<{ __typename?: 'ApplicableModuleForms', moduleKey: string, moduleName?: string | null, forms: Array<{ __typename?: 'FormSummary', key: string, name: string, moduleKey: string, currentVersion: number, tabLabelTemplate?: string | null }> }> };
+
+export type MyTasksQueryVariables = Exact<{
+  input: MyTasksInput;
+}>;
+
+
+export type MyTasksQuery = { __typename?: 'Query', myTasks: { __typename?: 'WorkflowTasksPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }> } };
+
+export type WorkflowInstanceQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type WorkflowInstanceQuery = { __typename?: 'Query', workflowInstance: { __typename?: 'WorkflowInstancePayload', instance: { __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } } } };
+
+export type DecideTaskMutationVariables = Exact<{
+  input: DecideTaskInput;
+}>;
+
+
+export type DecideTaskMutation = { __typename?: 'Mutation', decideTask: { __typename?: 'WorkflowTaskPayload', result: WorkflowDecideResult, task: { __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null } } };
+
+export type FormSubmissionWorkflowFieldsFragment = { __typename?: 'FormSubmissionModel', id: string, status: FormSubmissionStatus, revision: number, editVersion: number, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, clearedFields: Array<string>, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } };
+
+export type FormSubmissionWorkflowStateQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+  revision?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type FormSubmissionWorkflowStateQuery = { __typename?: 'Query', formSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, status: FormSubmissionStatus, revision: number, editVersion: number, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, clearedFields: Array<string>, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+
+export type WithdrawSubmissionMutationVariables = Exact<{
+  input: WithdrawSubmissionInput;
+}>;
+
+
+export type WithdrawSubmissionMutation = { __typename?: 'Mutation', withdrawSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, status: FormSubmissionStatus, revision: number, editVersion: number, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, clearedFields: Array<string>, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+
+export type VoidSubmissionMutationVariables = Exact<{
+  input: VoidSubmissionInput;
+}>;
+
+
+export type VoidSubmissionMutation = { __typename?: 'Mutation', voidSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, status: FormSubmissionStatus, revision: number, editVersion: number, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, clearedFields: Array<string>, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+
+export type CopySubmissionToDraftMutationVariables = Exact<{
+  input: CopySubmissionToDraftInput;
+}>;
+
+
+export type CopySubmissionToDraftMutation = { __typename?: 'Mutation', copySubmissionToDraft: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, status: FormSubmissionStatus, revision: number, editVersion: number, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, clearedFields: Array<string>, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canDelete: boolean, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type LoginMutationVariables = Exact<{
   input: LoginInput;
@@ -3051,7 +3825,319 @@ export type AssignUserRolesMutationVariables = Exact<{
 
 export type AssignUserRolesMutation = { __typename?: 'Mutation', assignUserRoles: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, ownerOrgId?: string | null, ownerOrgName?: string | null, outOfScope: boolean }> } } };
 
+export type WorkflowFieldsFragment = { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } };
 
+export type WorkflowVersionFieldsFragment = { __typename?: 'WorkflowVersionModel', id: string, workflowKey: string, version?: number | null, status: WorkflowVersionStatus, draftRevision: number, baseVersion?: number | null, steps: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, edges?: Array<{ __typename?: 'WorkflowEdgeModel', from: string, to: string }> | null, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null };
+
+export type WorkflowValidationFieldsFragment = { __typename?: 'WorkflowValidationReport', errors: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }>, warnings: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }> };
+
+export type WorkflowsQueryVariables = Exact<{
+  input: WorkflowsInput;
+}>;
+
+
+export type WorkflowsQuery = { __typename?: 'Query', workflows: { __typename?: 'WorkflowsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } }> } };
+
+export type WorkflowQueryVariables = Exact<{
+  key: Scalars['ID']['input'];
+}>;
+
+
+export type WorkflowQuery = { __typename?: 'Query', workflow: { __typename?: 'WorkflowPayload', workflow: { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } } } };
+
+export type CreateWorkflowMutationVariables = Exact<{
+  input: CreateWorkflowInput;
+}>;
+
+
+export type CreateWorkflowMutation = { __typename?: 'Mutation', createWorkflow: { __typename?: 'WorkflowPayload', workflow: { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } } } };
+
+export type UpdateWorkflowMutationVariables = Exact<{
+  input: UpdateWorkflowInput;
+}>;
+
+
+export type UpdateWorkflowMutation = { __typename?: 'Mutation', updateWorkflow: { __typename?: 'WorkflowPayload', workflow: { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } } } };
+
+export type ForkWorkflowMutationVariables = Exact<{
+  input: ForkWorkflowInput;
+}>;
+
+
+export type ForkWorkflowMutation = { __typename?: 'Mutation', forkWorkflow: { __typename?: 'WorkflowPayload', workflow: { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } } } };
+
+export type AssignWorkflowToTenantsMutationVariables = Exact<{
+  input: AssignWorkflowToTenantsInput;
+}>;
+
+
+export type AssignWorkflowToTenantsMutation = { __typename?: 'Mutation', assignWorkflowToTenants: { __typename?: 'WorkflowPayload', workflow: { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } } } };
+
+export type RevokeWorkflowFromTenantMutationVariables = Exact<{
+  input: RevokeWorkflowFromTenantInput;
+}>;
+
+
+export type RevokeWorkflowFromTenantMutation = { __typename?: 'Mutation', revokeWorkflowFromTenant: { __typename?: 'WorkflowPayload', workflow: { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } } } };
+
+export type WorkflowVersionQueryVariables = Exact<{
+  workflowKey: Scalars['ID']['input'];
+  version?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type WorkflowVersionQuery = { __typename?: 'Query', workflowVersion: { __typename?: 'WorkflowVersionPayload', workflowVersion: { __typename?: 'WorkflowVersionModel', id: string, workflowKey: string, version?: number | null, status: WorkflowVersionStatus, draftRevision: number, baseVersion?: number | null, steps: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, edges?: Array<{ __typename?: 'WorkflowEdgeModel', from: string, to: string }> | null, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }, validation?: { __typename?: 'WorkflowValidationReport', errors: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }>, warnings: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }> } | null } };
+
+export type WorkflowVersionsQueryVariables = Exact<{
+  workflowKey: Scalars['ID']['input'];
+}>;
+
+
+export type WorkflowVersionsQuery = { __typename?: 'Query', workflowVersions: { __typename?: 'WorkflowVersionsPayload', totalCount: number, items: Array<{ __typename?: 'WorkflowVersionModel', id: string, workflowKey: string, version?: number | null, status: WorkflowVersionStatus, draftRevision: number, baseVersion?: number | null, steps: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, edges?: Array<{ __typename?: 'WorkflowEdgeModel', from: string, to: string }> | null, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }> } };
+
+export type ValidateWorkflowVersionQueryVariables = Exact<{
+  input: ValidateWorkflowVersionInput;
+}>;
+
+
+export type ValidateWorkflowVersionQuery = { __typename?: 'Query', validateWorkflowVersion: { __typename?: 'WorkflowValidationReport', errors: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }>, warnings: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }> } };
+
+export type CreateWorkflowVersionDraftMutationVariables = Exact<{
+  input: CreateWorkflowVersionDraftInput;
+}>;
+
+
+export type CreateWorkflowVersionDraftMutation = { __typename?: 'Mutation', createWorkflowVersionDraft: { __typename?: 'WorkflowVersionPayload', workflowVersion: { __typename?: 'WorkflowVersionModel', id: string, workflowKey: string, version?: number | null, status: WorkflowVersionStatus, draftRevision: number, baseVersion?: number | null, steps: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, edges?: Array<{ __typename?: 'WorkflowEdgeModel', from: string, to: string }> | null, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }, validation?: { __typename?: 'WorkflowValidationReport', errors: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }>, warnings: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }> } | null } };
+
+export type SaveWorkflowVersionDraftMutationVariables = Exact<{
+  input: SaveWorkflowVersionDraftInput;
+}>;
+
+
+export type SaveWorkflowVersionDraftMutation = { __typename?: 'Mutation', saveWorkflowVersionDraft: { __typename?: 'WorkflowVersionPayload', workflowVersion: { __typename?: 'WorkflowVersionModel', id: string, workflowKey: string, version?: number | null, status: WorkflowVersionStatus, draftRevision: number, baseVersion?: number | null, steps: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, edges?: Array<{ __typename?: 'WorkflowEdgeModel', from: string, to: string }> | null, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }, validation?: { __typename?: 'WorkflowValidationReport', errors: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }>, warnings: Array<{ __typename?: 'WorkflowIssueModel', code: string, message: string, stepKey?: string | null, stepIndex?: number | null, edgeIndex?: number | null, property?: string | null, exprPath?: string | null }> } | null } };
+
+export type PublishWorkflowVersionMutationVariables = Exact<{
+  input: PublishWorkflowVersionInput;
+}>;
+
+
+export type PublishWorkflowVersionMutation = { __typename?: 'Mutation', publishWorkflowVersion: { __typename?: 'WorkflowVersionPayload', workflowVersion: { __typename?: 'WorkflowVersionModel', id: string, workflowKey: string, version?: number | null, status: WorkflowVersionStatus, draftRevision: number, baseVersion?: number | null, steps: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, edges?: Array<{ __typename?: 'WorkflowEdgeModel', from: string, to: string }> | null, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null } } };
+
+export type RetryPublishWorkflowVersionMutationVariables = Exact<{
+  input: WorkflowKeyInput;
+}>;
+
+
+export type RetryPublishWorkflowVersionMutation = { __typename?: 'Mutation', retryPublishWorkflowVersion: { __typename?: 'WorkflowVersionPayload', workflowVersion: { __typename?: 'WorkflowVersionModel', id: string, workflowKey: string, version?: number | null, status: WorkflowVersionStatus, draftRevision: number, baseVersion?: number | null, steps: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, edges?: Array<{ __typename?: 'WorkflowEdgeModel', from: string, to: string }> | null, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null } } };
+
+export type RetireCurrentWorkflowVersionMutationVariables = Exact<{
+  input: WorkflowKeyInput;
+}>;
+
+
+export type RetireCurrentWorkflowVersionMutation = { __typename?: 'Mutation', retireCurrentWorkflowVersion: { __typename?: 'WorkflowPayload', workflow: { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } } } };
+
+export type BindFormWorkflowMutationVariables = Exact<{
+  input: BindFormWorkflowInput;
+}>;
+
+
+export type BindFormWorkflowMutation = { __typename?: 'Mutation', bindFormWorkflow: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', key: string, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+
+export type UnbindFormWorkflowMutationVariables = Exact<{
+  input: UnbindFormWorkflowInput;
+}>;
+
+
+export type UnbindFormWorkflowMutation = { __typename?: 'Mutation', unbindFormWorkflow: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', key: string, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+
+export type FormWorkflowBindingOfQueryVariables = Exact<{
+  key: Scalars['ID']['input'];
+}>;
+
+
+export type FormWorkflowBindingOfQuery = { __typename?: 'Query', form: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', key: string, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+
+export type FormWorkflowOptionsQueryVariables = Exact<{
+  formKey: Scalars['ID']['input'];
+}>;
+
+
+export type FormWorkflowOptionsQuery = { __typename?: 'Query', formWorkflowOptions: { __typename?: 'FormWorkflowOptionsPayload', totalCount: number, items: Array<{ __typename?: 'FormWorkflowOption', workflowKey: string, workflowName: string, isShared: boolean, canBind: boolean, issues: Array<{ __typename?: 'WorkflowBindingIssueModel', stepKey: string, stepNumber: number, problem: string, detail: string }> }> } };
+
+export type BlockedInstancesQueryVariables = Exact<{
+  input: BlockedInstancesInput;
+}>;
+
+
+export type BlockedInstancesQuery = { __typename?: 'Query', blockedInstances: { __typename?: 'WorkflowInstancesPayload', totalCount: number, page: number, pageSize: number, truncated: boolean, items: Array<{ __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } }> } };
+
+export type ReassignTaskMutationVariables = Exact<{
+  input: ReassignTaskInput;
+}>;
+
+
+export type ReassignTaskMutation = { __typename?: 'Mutation', reassignTask: { __typename?: 'WorkflowTaskPayload', result: WorkflowDecideResult, task: { __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null } } };
+
+export type AddStepAssigneeMutationVariables = Exact<{
+  input: AddStepAssigneeInput;
+}>;
+
+
+export type AddStepAssigneeMutation = { __typename?: 'Mutation', addStepAssignee: { __typename?: 'WorkflowTaskPayload', result: WorkflowDecideResult, task: { __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null } } };
+
+export type RetryAdvanceInstanceMutationVariables = Exact<{
+  input: RetryAdvanceInstanceInput;
+}>;
+
+
+export type RetryAdvanceInstanceMutation = { __typename?: 'Mutation', retryAdvanceInstance: { __typename?: 'WorkflowInstancePayload', instance: { __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } } } };
+
+
+export const WorkflowTaskFieldsFragmentDoc = `
+    fragment WorkflowTaskFields on WorkflowTaskModel {
+  id
+  instanceId
+  submissionId
+  revision
+  moduleKey
+  moduleName
+  formKey
+  formName
+  stepKey
+  stepName
+  taskKey
+  status
+  assignee {
+    id
+    name
+  }
+  applicant {
+    id
+    name
+  }
+  summary {
+    title
+    date
+    amount
+  }
+  instanceStatus
+  decidedAt
+  comment
+  editVersion
+  createdAt
+}
+    `;
+export const WorkflowInstanceFieldsFragmentDoc = `
+    fragment WorkflowInstanceFields on WorkflowInstanceModel {
+  id
+  submissionId
+  revision
+  moduleKey
+  moduleName
+  formKey
+  formName
+  formVersion
+  workflowKey
+  workflowName
+  workflowVersion
+  status
+  summary {
+    title
+    date
+    amount
+  }
+  applicant {
+    id
+    name
+  }
+  activeStepKeys
+  steps {
+    stepKey
+    name
+    kind
+    mode
+    status
+    blocked
+    plan {
+      taskKey
+      assignee {
+        id
+        name
+      }
+      previousAssignees {
+        id
+        name
+      }
+      assigneeState
+    }
+    decisions {
+      taskKey
+      user {
+        id
+        name
+      }
+      decision
+      comment
+      at
+    }
+  }
+  history {
+    at
+    kind
+    stepKey
+    taskKey
+    user {
+      id
+      name
+    }
+    toUser {
+      id
+      name
+    }
+    comment
+    result
+  }
+  outcome {
+    kind
+    stepKey
+    taskKey
+  }
+  editVersion
+  myTasks {
+    ...WorkflowTaskFields
+  }
+  abilities {
+    canWithdraw
+    canManage
+  }
+  createdAt
+  updatedAt
+  finishedAt
+}
+    ${WorkflowTaskFieldsFragmentDoc}`;
+export const FormSubmissionWorkflowFieldsFragmentDoc = `
+    fragment FormSubmissionWorkflowFields on FormSubmissionModel {
+  id
+  status
+  revision
+  editVersion
+  currentInstanceId
+  blocked
+  voidedAt
+  voidReason
+  replacedById
+  copiedFrom
+  clearedFields
+  abilities {
+    canEdit
+    canDelete
+    canWithdraw
+    canVoid
+    canCopy
+  }
+}
+    `;
 export const DemoItemOneFieldsFragmentDoc = `
     fragment DemoItemOneFields on DemoItemOne {
   id
@@ -3405,6 +4491,401 @@ export const RoleUsersFieldsFragmentDoc = `
   }
 }
     ${RoleFieldsFragmentDoc}`;
+export const WorkflowFieldsFragmentDoc = `
+    fragment WorkflowFields on WorkflowModel {
+  id
+  key
+  name
+  isShared
+  ownerOrgId
+  ownerOrgName
+  forkedFrom {
+    workflowKey
+    version
+  }
+  currentVersion
+  hasDraft
+  publishInterrupted
+  hasRolePlaceholder
+  assignments {
+    tenantOrgId
+    tenantName
+  }
+  boundForms {
+    formKey
+    formName
+    moduleKey
+  }
+  abilities {
+    canEdit
+    canPublish
+    canAssign
+    canFork
+  }
+  createdAt
+  updatedAt
+}
+    `;
+export const WorkflowVersionFieldsFragmentDoc = `
+    fragment WorkflowVersionFields on WorkflowVersionModel {
+  id
+  workflowKey
+  version
+  status
+  draftRevision
+  baseVersion
+  steps
+  edges {
+    from
+    to
+  }
+  changelog
+  publishedAt
+  publishedBy {
+    id
+    name
+  }
+}
+    `;
+export const WorkflowValidationFieldsFragmentDoc = `
+    fragment WorkflowValidationFields on WorkflowValidationReport {
+  errors {
+    code
+    message
+    stepKey
+    stepIndex
+    edgeIndex
+    property
+    exprPath
+  }
+  warnings {
+    code
+    message
+    stepKey
+    stepIndex
+    edgeIndex
+    property
+    exprPath
+  }
+}
+    `;
+export const MyApplicationsDocument = `
+    query MyApplications($input: MyApplicationsInput!) {
+  myApplications(input: $input) {
+    items {
+      id
+      moduleKey
+      moduleName
+      formKey
+      formName
+      status
+      blocked
+      revision
+      summary {
+        title
+        date
+        amount
+      }
+      currentInstanceId
+      activeSteps {
+        stepKey
+        name
+      }
+      submittedAt
+      updatedAt
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    `;
+
+export const useMyApplicationsQuery = <
+      TData = MyApplicationsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: MyApplicationsQueryVariables,
+      options?: Omit<UseQueryOptions<MyApplicationsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyApplicationsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<MyApplicationsQuery, TError, TData>(
+      {
+    queryKey: ['MyApplications', variables],
+    queryFn: fetcher<MyApplicationsQuery, MyApplicationsQueryVariables>(client, MyApplicationsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useMyApplicationsQuery.getKey = (variables: MyApplicationsQueryVariables) => ['MyApplications', variables];
+
+
+useMyApplicationsQuery.fetcher = (client: GraphQLClient, variables: MyApplicationsQueryVariables, headers?: RequestInit['headers']) => fetcher<MyApplicationsQuery, MyApplicationsQueryVariables>(client, MyApplicationsDocument, variables, headers);
+
+export const ApplicableFormsDocument = `
+    query ApplicableForms {
+  applicableForms {
+    moduleKey
+    moduleName
+    forms {
+      key
+      name
+      moduleKey
+      currentVersion
+      tabLabelTemplate
+    }
+  }
+}
+    `;
+
+export const useApplicableFormsQuery = <
+      TData = ApplicableFormsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: ApplicableFormsQueryVariables,
+      options?: Omit<UseQueryOptions<ApplicableFormsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ApplicableFormsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ApplicableFormsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ApplicableForms'] : ['ApplicableForms', variables],
+    queryFn: fetcher<ApplicableFormsQuery, ApplicableFormsQueryVariables>(client, ApplicableFormsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useApplicableFormsQuery.getKey = (variables?: ApplicableFormsQueryVariables) => variables === undefined ? ['ApplicableForms'] : ['ApplicableForms', variables];
+
+
+useApplicableFormsQuery.fetcher = (client: GraphQLClient, variables?: ApplicableFormsQueryVariables, headers?: RequestInit['headers']) => fetcher<ApplicableFormsQuery, ApplicableFormsQueryVariables>(client, ApplicableFormsDocument, variables, headers);
+
+export const MyTasksDocument = `
+    query MyTasks($input: MyTasksInput!) {
+  myTasks(input: $input) {
+    items {
+      ...WorkflowTaskFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    ${WorkflowTaskFieldsFragmentDoc}`;
+
+export const useMyTasksQuery = <
+      TData = MyTasksQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: MyTasksQueryVariables,
+      options?: Omit<UseQueryOptions<MyTasksQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyTasksQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<MyTasksQuery, TError, TData>(
+      {
+    queryKey: ['MyTasks', variables],
+    queryFn: fetcher<MyTasksQuery, MyTasksQueryVariables>(client, MyTasksDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useMyTasksQuery.getKey = (variables: MyTasksQueryVariables) => ['MyTasks', variables];
+
+
+useMyTasksQuery.fetcher = (client: GraphQLClient, variables: MyTasksQueryVariables, headers?: RequestInit['headers']) => fetcher<MyTasksQuery, MyTasksQueryVariables>(client, MyTasksDocument, variables, headers);
+
+export const WorkflowInstanceDocument = `
+    query WorkflowInstance($id: ID!) {
+  workflowInstance(id: $id) {
+    instance {
+      ...WorkflowInstanceFields
+    }
+  }
+}
+    ${WorkflowInstanceFieldsFragmentDoc}`;
+
+export const useWorkflowInstanceQuery = <
+      TData = WorkflowInstanceQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: WorkflowInstanceQueryVariables,
+      options?: Omit<UseQueryOptions<WorkflowInstanceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkflowInstanceQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<WorkflowInstanceQuery, TError, TData>(
+      {
+    queryKey: ['WorkflowInstance', variables],
+    queryFn: fetcher<WorkflowInstanceQuery, WorkflowInstanceQueryVariables>(client, WorkflowInstanceDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useWorkflowInstanceQuery.getKey = (variables: WorkflowInstanceQueryVariables) => ['WorkflowInstance', variables];
+
+
+useWorkflowInstanceQuery.fetcher = (client: GraphQLClient, variables: WorkflowInstanceQueryVariables, headers?: RequestInit['headers']) => fetcher<WorkflowInstanceQuery, WorkflowInstanceQueryVariables>(client, WorkflowInstanceDocument, variables, headers);
+
+export const DecideTaskDocument = `
+    mutation DecideTask($input: DecideTaskInput!) {
+  decideTask(input: $input) {
+    task {
+      ...WorkflowTaskFields
+    }
+    result
+  }
+}
+    ${WorkflowTaskFieldsFragmentDoc}`;
+
+export const useDecideTaskMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<DecideTaskMutation, TError, DecideTaskMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<DecideTaskMutation, TError, DecideTaskMutationVariables, TContext>(
+      {
+    mutationKey: ['DecideTask'],
+    mutationFn: (variables?: DecideTaskMutationVariables) => fetcher<DecideTaskMutation, DecideTaskMutationVariables>(client, DecideTaskDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useDecideTaskMutation.fetcher = (client: GraphQLClient, variables: DecideTaskMutationVariables, headers?: RequestInit['headers']) => fetcher<DecideTaskMutation, DecideTaskMutationVariables>(client, DecideTaskDocument, variables, headers);
+
+export const FormSubmissionWorkflowStateDocument = `
+    query FormSubmissionWorkflowState($id: ID!, $revision: Int) {
+  formSubmission(id: $id, revision: $revision) {
+    submission {
+      ...FormSubmissionWorkflowFields
+    }
+  }
+}
+    ${FormSubmissionWorkflowFieldsFragmentDoc}`;
+
+export const useFormSubmissionWorkflowStateQuery = <
+      TData = FormSubmissionWorkflowStateQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormSubmissionWorkflowStateQueryVariables,
+      options?: Omit<UseQueryOptions<FormSubmissionWorkflowStateQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormSubmissionWorkflowStateQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormSubmissionWorkflowStateQuery, TError, TData>(
+      {
+    queryKey: ['FormSubmissionWorkflowState', variables],
+    queryFn: fetcher<FormSubmissionWorkflowStateQuery, FormSubmissionWorkflowStateQueryVariables>(client, FormSubmissionWorkflowStateDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormSubmissionWorkflowStateQuery.getKey = (variables: FormSubmissionWorkflowStateQueryVariables) => ['FormSubmissionWorkflowState', variables];
+
+
+useFormSubmissionWorkflowStateQuery.fetcher = (client: GraphQLClient, variables: FormSubmissionWorkflowStateQueryVariables, headers?: RequestInit['headers']) => fetcher<FormSubmissionWorkflowStateQuery, FormSubmissionWorkflowStateQueryVariables>(client, FormSubmissionWorkflowStateDocument, variables, headers);
+
+export const WithdrawSubmissionDocument = `
+    mutation WithdrawSubmission($input: WithdrawSubmissionInput!) {
+  withdrawSubmission(input: $input) {
+    submission {
+      ...FormSubmissionWorkflowFields
+    }
+  }
+}
+    ${FormSubmissionWorkflowFieldsFragmentDoc}`;
+
+export const useWithdrawSubmissionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<WithdrawSubmissionMutation, TError, WithdrawSubmissionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<WithdrawSubmissionMutation, TError, WithdrawSubmissionMutationVariables, TContext>(
+      {
+    mutationKey: ['WithdrawSubmission'],
+    mutationFn: (variables?: WithdrawSubmissionMutationVariables) => fetcher<WithdrawSubmissionMutation, WithdrawSubmissionMutationVariables>(client, WithdrawSubmissionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useWithdrawSubmissionMutation.fetcher = (client: GraphQLClient, variables: WithdrawSubmissionMutationVariables, headers?: RequestInit['headers']) => fetcher<WithdrawSubmissionMutation, WithdrawSubmissionMutationVariables>(client, WithdrawSubmissionDocument, variables, headers);
+
+export const VoidSubmissionDocument = `
+    mutation VoidSubmission($input: VoidSubmissionInput!) {
+  voidSubmission(input: $input) {
+    submission {
+      ...FormSubmissionWorkflowFields
+    }
+  }
+}
+    ${FormSubmissionWorkflowFieldsFragmentDoc}`;
+
+export const useVoidSubmissionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<VoidSubmissionMutation, TError, VoidSubmissionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<VoidSubmissionMutation, TError, VoidSubmissionMutationVariables, TContext>(
+      {
+    mutationKey: ['VoidSubmission'],
+    mutationFn: (variables?: VoidSubmissionMutationVariables) => fetcher<VoidSubmissionMutation, VoidSubmissionMutationVariables>(client, VoidSubmissionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useVoidSubmissionMutation.fetcher = (client: GraphQLClient, variables: VoidSubmissionMutationVariables, headers?: RequestInit['headers']) => fetcher<VoidSubmissionMutation, VoidSubmissionMutationVariables>(client, VoidSubmissionDocument, variables, headers);
+
+export const CopySubmissionToDraftDocument = `
+    mutation CopySubmissionToDraft($input: CopySubmissionToDraftInput!) {
+  copySubmissionToDraft(input: $input) {
+    submission {
+      ...FormSubmissionWorkflowFields
+    }
+  }
+}
+    ${FormSubmissionWorkflowFieldsFragmentDoc}`;
+
+export const useCopySubmissionToDraftMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CopySubmissionToDraftMutation, TError, CopySubmissionToDraftMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CopySubmissionToDraftMutation, TError, CopySubmissionToDraftMutationVariables, TContext>(
+      {
+    mutationKey: ['CopySubmissionToDraft'],
+    mutationFn: (variables?: CopySubmissionToDraftMutationVariables) => fetcher<CopySubmissionToDraftMutation, CopySubmissionToDraftMutationVariables>(client, CopySubmissionToDraftDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCopySubmissionToDraftMutation.fetcher = (client: GraphQLClient, variables: CopySubmissionToDraftMutationVariables, headers?: RequestInit['headers']) => fetcher<CopySubmissionToDraftMutation, CopySubmissionToDraftMutationVariables>(client, CopySubmissionToDraftDocument, variables, headers);
+
 export const LoginDocument = `
     mutation Login($input: LoginInput!) {
   login(input: $input) {
@@ -7184,3 +8665,762 @@ export const useAssignUserRolesMutation = <
 
 
 useAssignUserRolesMutation.fetcher = (client: GraphQLClient, variables: AssignUserRolesMutationVariables, headers?: RequestInit['headers']) => fetcher<AssignUserRolesMutation, AssignUserRolesMutationVariables>(client, AssignUserRolesDocument, variables, headers);
+
+export const WorkflowsDocument = `
+    query Workflows($input: WorkflowsInput!) {
+  workflows(input: $input) {
+    items {
+      ...WorkflowFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+    ${WorkflowFieldsFragmentDoc}`;
+
+export const useWorkflowsQuery = <
+      TData = WorkflowsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: WorkflowsQueryVariables,
+      options?: Omit<UseQueryOptions<WorkflowsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkflowsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<WorkflowsQuery, TError, TData>(
+      {
+    queryKey: ['Workflows', variables],
+    queryFn: fetcher<WorkflowsQuery, WorkflowsQueryVariables>(client, WorkflowsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useWorkflowsQuery.getKey = (variables: WorkflowsQueryVariables) => ['Workflows', variables];
+
+
+useWorkflowsQuery.fetcher = (client: GraphQLClient, variables: WorkflowsQueryVariables, headers?: RequestInit['headers']) => fetcher<WorkflowsQuery, WorkflowsQueryVariables>(client, WorkflowsDocument, variables, headers);
+
+export const WorkflowDocument = `
+    query Workflow($key: ID!) {
+  workflow(key: $key) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+    ${WorkflowFieldsFragmentDoc}`;
+
+export const useWorkflowQuery = <
+      TData = WorkflowQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: WorkflowQueryVariables,
+      options?: Omit<UseQueryOptions<WorkflowQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkflowQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<WorkflowQuery, TError, TData>(
+      {
+    queryKey: ['Workflow', variables],
+    queryFn: fetcher<WorkflowQuery, WorkflowQueryVariables>(client, WorkflowDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useWorkflowQuery.getKey = (variables: WorkflowQueryVariables) => ['Workflow', variables];
+
+
+useWorkflowQuery.fetcher = (client: GraphQLClient, variables: WorkflowQueryVariables, headers?: RequestInit['headers']) => fetcher<WorkflowQuery, WorkflowQueryVariables>(client, WorkflowDocument, variables, headers);
+
+export const CreateWorkflowDocument = `
+    mutation CreateWorkflow($input: CreateWorkflowInput!) {
+  createWorkflow(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+    ${WorkflowFieldsFragmentDoc}`;
+
+export const useCreateWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateWorkflowMutation, TError, CreateWorkflowMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateWorkflowMutation, TError, CreateWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateWorkflow'],
+    mutationFn: (variables?: CreateWorkflowMutationVariables) => fetcher<CreateWorkflowMutation, CreateWorkflowMutationVariables>(client, CreateWorkflowDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateWorkflowMutation.fetcher = (client: GraphQLClient, variables: CreateWorkflowMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateWorkflowMutation, CreateWorkflowMutationVariables>(client, CreateWorkflowDocument, variables, headers);
+
+export const UpdateWorkflowDocument = `
+    mutation UpdateWorkflow($input: UpdateWorkflowInput!) {
+  updateWorkflow(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+    ${WorkflowFieldsFragmentDoc}`;
+
+export const useUpdateWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateWorkflowMutation, TError, UpdateWorkflowMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateWorkflowMutation, TError, UpdateWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateWorkflow'],
+    mutationFn: (variables?: UpdateWorkflowMutationVariables) => fetcher<UpdateWorkflowMutation, UpdateWorkflowMutationVariables>(client, UpdateWorkflowDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateWorkflowMutation.fetcher = (client: GraphQLClient, variables: UpdateWorkflowMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateWorkflowMutation, UpdateWorkflowMutationVariables>(client, UpdateWorkflowDocument, variables, headers);
+
+export const ForkWorkflowDocument = `
+    mutation ForkWorkflow($input: ForkWorkflowInput!) {
+  forkWorkflow(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+    ${WorkflowFieldsFragmentDoc}`;
+
+export const useForkWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ForkWorkflowMutation, TError, ForkWorkflowMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ForkWorkflowMutation, TError, ForkWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['ForkWorkflow'],
+    mutationFn: (variables?: ForkWorkflowMutationVariables) => fetcher<ForkWorkflowMutation, ForkWorkflowMutationVariables>(client, ForkWorkflowDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useForkWorkflowMutation.fetcher = (client: GraphQLClient, variables: ForkWorkflowMutationVariables, headers?: RequestInit['headers']) => fetcher<ForkWorkflowMutation, ForkWorkflowMutationVariables>(client, ForkWorkflowDocument, variables, headers);
+
+export const AssignWorkflowToTenantsDocument = `
+    mutation AssignWorkflowToTenants($input: AssignWorkflowToTenantsInput!) {
+  assignWorkflowToTenants(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+    ${WorkflowFieldsFragmentDoc}`;
+
+export const useAssignWorkflowToTenantsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<AssignWorkflowToTenantsMutation, TError, AssignWorkflowToTenantsMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<AssignWorkflowToTenantsMutation, TError, AssignWorkflowToTenantsMutationVariables, TContext>(
+      {
+    mutationKey: ['AssignWorkflowToTenants'],
+    mutationFn: (variables?: AssignWorkflowToTenantsMutationVariables) => fetcher<AssignWorkflowToTenantsMutation, AssignWorkflowToTenantsMutationVariables>(client, AssignWorkflowToTenantsDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useAssignWorkflowToTenantsMutation.fetcher = (client: GraphQLClient, variables: AssignWorkflowToTenantsMutationVariables, headers?: RequestInit['headers']) => fetcher<AssignWorkflowToTenantsMutation, AssignWorkflowToTenantsMutationVariables>(client, AssignWorkflowToTenantsDocument, variables, headers);
+
+export const RevokeWorkflowFromTenantDocument = `
+    mutation RevokeWorkflowFromTenant($input: RevokeWorkflowFromTenantInput!) {
+  revokeWorkflowFromTenant(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+    ${WorkflowFieldsFragmentDoc}`;
+
+export const useRevokeWorkflowFromTenantMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RevokeWorkflowFromTenantMutation, TError, RevokeWorkflowFromTenantMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RevokeWorkflowFromTenantMutation, TError, RevokeWorkflowFromTenantMutationVariables, TContext>(
+      {
+    mutationKey: ['RevokeWorkflowFromTenant'],
+    mutationFn: (variables?: RevokeWorkflowFromTenantMutationVariables) => fetcher<RevokeWorkflowFromTenantMutation, RevokeWorkflowFromTenantMutationVariables>(client, RevokeWorkflowFromTenantDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRevokeWorkflowFromTenantMutation.fetcher = (client: GraphQLClient, variables: RevokeWorkflowFromTenantMutationVariables, headers?: RequestInit['headers']) => fetcher<RevokeWorkflowFromTenantMutation, RevokeWorkflowFromTenantMutationVariables>(client, RevokeWorkflowFromTenantDocument, variables, headers);
+
+export const WorkflowVersionDocument = `
+    query WorkflowVersion($workflowKey: ID!, $version: Int) {
+  workflowVersion(workflowKey: $workflowKey, version: $version) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+    validation {
+      ...WorkflowValidationFields
+    }
+  }
+}
+    ${WorkflowVersionFieldsFragmentDoc}
+${WorkflowValidationFieldsFragmentDoc}`;
+
+export const useWorkflowVersionQuery = <
+      TData = WorkflowVersionQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: WorkflowVersionQueryVariables,
+      options?: Omit<UseQueryOptions<WorkflowVersionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkflowVersionQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<WorkflowVersionQuery, TError, TData>(
+      {
+    queryKey: ['WorkflowVersion', variables],
+    queryFn: fetcher<WorkflowVersionQuery, WorkflowVersionQueryVariables>(client, WorkflowVersionDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useWorkflowVersionQuery.getKey = (variables: WorkflowVersionQueryVariables) => ['WorkflowVersion', variables];
+
+
+useWorkflowVersionQuery.fetcher = (client: GraphQLClient, variables: WorkflowVersionQueryVariables, headers?: RequestInit['headers']) => fetcher<WorkflowVersionQuery, WorkflowVersionQueryVariables>(client, WorkflowVersionDocument, variables, headers);
+
+export const WorkflowVersionsDocument = `
+    query WorkflowVersions($workflowKey: ID!) {
+  workflowVersions(workflowKey: $workflowKey) {
+    items {
+      ...WorkflowVersionFields
+    }
+    totalCount
+  }
+}
+    ${WorkflowVersionFieldsFragmentDoc}`;
+
+export const useWorkflowVersionsQuery = <
+      TData = WorkflowVersionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: WorkflowVersionsQueryVariables,
+      options?: Omit<UseQueryOptions<WorkflowVersionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkflowVersionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<WorkflowVersionsQuery, TError, TData>(
+      {
+    queryKey: ['WorkflowVersions', variables],
+    queryFn: fetcher<WorkflowVersionsQuery, WorkflowVersionsQueryVariables>(client, WorkflowVersionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useWorkflowVersionsQuery.getKey = (variables: WorkflowVersionsQueryVariables) => ['WorkflowVersions', variables];
+
+
+useWorkflowVersionsQuery.fetcher = (client: GraphQLClient, variables: WorkflowVersionsQueryVariables, headers?: RequestInit['headers']) => fetcher<WorkflowVersionsQuery, WorkflowVersionsQueryVariables>(client, WorkflowVersionsDocument, variables, headers);
+
+export const ValidateWorkflowVersionDocument = `
+    query ValidateWorkflowVersion($input: ValidateWorkflowVersionInput!) {
+  validateWorkflowVersion(input: $input) {
+    ...WorkflowValidationFields
+  }
+}
+    ${WorkflowValidationFieldsFragmentDoc}`;
+
+export const useValidateWorkflowVersionQuery = <
+      TData = ValidateWorkflowVersionQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ValidateWorkflowVersionQueryVariables,
+      options?: Omit<UseQueryOptions<ValidateWorkflowVersionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ValidateWorkflowVersionQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ValidateWorkflowVersionQuery, TError, TData>(
+      {
+    queryKey: ['ValidateWorkflowVersion', variables],
+    queryFn: fetcher<ValidateWorkflowVersionQuery, ValidateWorkflowVersionQueryVariables>(client, ValidateWorkflowVersionDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useValidateWorkflowVersionQuery.getKey = (variables: ValidateWorkflowVersionQueryVariables) => ['ValidateWorkflowVersion', variables];
+
+
+useValidateWorkflowVersionQuery.fetcher = (client: GraphQLClient, variables: ValidateWorkflowVersionQueryVariables, headers?: RequestInit['headers']) => fetcher<ValidateWorkflowVersionQuery, ValidateWorkflowVersionQueryVariables>(client, ValidateWorkflowVersionDocument, variables, headers);
+
+export const CreateWorkflowVersionDraftDocument = `
+    mutation CreateWorkflowVersionDraft($input: CreateWorkflowVersionDraftInput!) {
+  createWorkflowVersionDraft(input: $input) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+    validation {
+      ...WorkflowValidationFields
+    }
+  }
+}
+    ${WorkflowVersionFieldsFragmentDoc}
+${WorkflowValidationFieldsFragmentDoc}`;
+
+export const useCreateWorkflowVersionDraftMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateWorkflowVersionDraftMutation, TError, CreateWorkflowVersionDraftMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateWorkflowVersionDraftMutation, TError, CreateWorkflowVersionDraftMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateWorkflowVersionDraft'],
+    mutationFn: (variables?: CreateWorkflowVersionDraftMutationVariables) => fetcher<CreateWorkflowVersionDraftMutation, CreateWorkflowVersionDraftMutationVariables>(client, CreateWorkflowVersionDraftDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateWorkflowVersionDraftMutation.fetcher = (client: GraphQLClient, variables: CreateWorkflowVersionDraftMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateWorkflowVersionDraftMutation, CreateWorkflowVersionDraftMutationVariables>(client, CreateWorkflowVersionDraftDocument, variables, headers);
+
+export const SaveWorkflowVersionDraftDocument = `
+    mutation SaveWorkflowVersionDraft($input: SaveWorkflowVersionDraftInput!) {
+  saveWorkflowVersionDraft(input: $input) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+    validation {
+      ...WorkflowValidationFields
+    }
+  }
+}
+    ${WorkflowVersionFieldsFragmentDoc}
+${WorkflowValidationFieldsFragmentDoc}`;
+
+export const useSaveWorkflowVersionDraftMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SaveWorkflowVersionDraftMutation, TError, SaveWorkflowVersionDraftMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SaveWorkflowVersionDraftMutation, TError, SaveWorkflowVersionDraftMutationVariables, TContext>(
+      {
+    mutationKey: ['SaveWorkflowVersionDraft'],
+    mutationFn: (variables?: SaveWorkflowVersionDraftMutationVariables) => fetcher<SaveWorkflowVersionDraftMutation, SaveWorkflowVersionDraftMutationVariables>(client, SaveWorkflowVersionDraftDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSaveWorkflowVersionDraftMutation.fetcher = (client: GraphQLClient, variables: SaveWorkflowVersionDraftMutationVariables, headers?: RequestInit['headers']) => fetcher<SaveWorkflowVersionDraftMutation, SaveWorkflowVersionDraftMutationVariables>(client, SaveWorkflowVersionDraftDocument, variables, headers);
+
+export const PublishWorkflowVersionDocument = `
+    mutation PublishWorkflowVersion($input: PublishWorkflowVersionInput!) {
+  publishWorkflowVersion(input: $input) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+  }
+}
+    ${WorkflowVersionFieldsFragmentDoc}`;
+
+export const usePublishWorkflowVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<PublishWorkflowVersionMutation, TError, PublishWorkflowVersionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<PublishWorkflowVersionMutation, TError, PublishWorkflowVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['PublishWorkflowVersion'],
+    mutationFn: (variables?: PublishWorkflowVersionMutationVariables) => fetcher<PublishWorkflowVersionMutation, PublishWorkflowVersionMutationVariables>(client, PublishWorkflowVersionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+usePublishWorkflowVersionMutation.fetcher = (client: GraphQLClient, variables: PublishWorkflowVersionMutationVariables, headers?: RequestInit['headers']) => fetcher<PublishWorkflowVersionMutation, PublishWorkflowVersionMutationVariables>(client, PublishWorkflowVersionDocument, variables, headers);
+
+export const RetryPublishWorkflowVersionDocument = `
+    mutation RetryPublishWorkflowVersion($input: WorkflowKeyInput!) {
+  retryPublishWorkflowVersion(input: $input) {
+    workflowVersion {
+      ...WorkflowVersionFields
+    }
+  }
+}
+    ${WorkflowVersionFieldsFragmentDoc}`;
+
+export const useRetryPublishWorkflowVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RetryPublishWorkflowVersionMutation, TError, RetryPublishWorkflowVersionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RetryPublishWorkflowVersionMutation, TError, RetryPublishWorkflowVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['RetryPublishWorkflowVersion'],
+    mutationFn: (variables?: RetryPublishWorkflowVersionMutationVariables) => fetcher<RetryPublishWorkflowVersionMutation, RetryPublishWorkflowVersionMutationVariables>(client, RetryPublishWorkflowVersionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRetryPublishWorkflowVersionMutation.fetcher = (client: GraphQLClient, variables: RetryPublishWorkflowVersionMutationVariables, headers?: RequestInit['headers']) => fetcher<RetryPublishWorkflowVersionMutation, RetryPublishWorkflowVersionMutationVariables>(client, RetryPublishWorkflowVersionDocument, variables, headers);
+
+export const RetireCurrentWorkflowVersionDocument = `
+    mutation RetireCurrentWorkflowVersion($input: WorkflowKeyInput!) {
+  retireCurrentWorkflowVersion(input: $input) {
+    workflow {
+      ...WorkflowFields
+    }
+  }
+}
+    ${WorkflowFieldsFragmentDoc}`;
+
+export const useRetireCurrentWorkflowVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RetireCurrentWorkflowVersionMutation, TError, RetireCurrentWorkflowVersionMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RetireCurrentWorkflowVersionMutation, TError, RetireCurrentWorkflowVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['RetireCurrentWorkflowVersion'],
+    mutationFn: (variables?: RetireCurrentWorkflowVersionMutationVariables) => fetcher<RetireCurrentWorkflowVersionMutation, RetireCurrentWorkflowVersionMutationVariables>(client, RetireCurrentWorkflowVersionDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRetireCurrentWorkflowVersionMutation.fetcher = (client: GraphQLClient, variables: RetireCurrentWorkflowVersionMutationVariables, headers?: RequestInit['headers']) => fetcher<RetireCurrentWorkflowVersionMutation, RetireCurrentWorkflowVersionMutationVariables>(client, RetireCurrentWorkflowVersionDocument, variables, headers);
+
+export const BindFormWorkflowDocument = `
+    mutation BindFormWorkflow($input: BindFormWorkflowInput!) {
+  bindFormWorkflow(input: $input) {
+    form {
+      key
+      workflowBinding {
+        workflowKey
+        workflowName
+        isValid
+      }
+    }
+  }
+}
+    `;
+
+export const useBindFormWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<BindFormWorkflowMutation, TError, BindFormWorkflowMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<BindFormWorkflowMutation, TError, BindFormWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['BindFormWorkflow'],
+    mutationFn: (variables?: BindFormWorkflowMutationVariables) => fetcher<BindFormWorkflowMutation, BindFormWorkflowMutationVariables>(client, BindFormWorkflowDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useBindFormWorkflowMutation.fetcher = (client: GraphQLClient, variables: BindFormWorkflowMutationVariables, headers?: RequestInit['headers']) => fetcher<BindFormWorkflowMutation, BindFormWorkflowMutationVariables>(client, BindFormWorkflowDocument, variables, headers);
+
+export const UnbindFormWorkflowDocument = `
+    mutation UnbindFormWorkflow($input: UnbindFormWorkflowInput!) {
+  unbindFormWorkflow(input: $input) {
+    form {
+      key
+      workflowBinding {
+        workflowKey
+        workflowName
+        isValid
+      }
+    }
+  }
+}
+    `;
+
+export const useUnbindFormWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UnbindFormWorkflowMutation, TError, UnbindFormWorkflowMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UnbindFormWorkflowMutation, TError, UnbindFormWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['UnbindFormWorkflow'],
+    mutationFn: (variables?: UnbindFormWorkflowMutationVariables) => fetcher<UnbindFormWorkflowMutation, UnbindFormWorkflowMutationVariables>(client, UnbindFormWorkflowDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUnbindFormWorkflowMutation.fetcher = (client: GraphQLClient, variables: UnbindFormWorkflowMutationVariables, headers?: RequestInit['headers']) => fetcher<UnbindFormWorkflowMutation, UnbindFormWorkflowMutationVariables>(client, UnbindFormWorkflowDocument, variables, headers);
+
+export const FormWorkflowBindingOfDocument = `
+    query FormWorkflowBindingOf($key: ID!) {
+  form(key: $key) {
+    form {
+      key
+      workflowBinding {
+        workflowKey
+        workflowName
+        isValid
+      }
+    }
+  }
+}
+    `;
+
+export const useFormWorkflowBindingOfQuery = <
+      TData = FormWorkflowBindingOfQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormWorkflowBindingOfQueryVariables,
+      options?: Omit<UseQueryOptions<FormWorkflowBindingOfQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormWorkflowBindingOfQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormWorkflowBindingOfQuery, TError, TData>(
+      {
+    queryKey: ['FormWorkflowBindingOf', variables],
+    queryFn: fetcher<FormWorkflowBindingOfQuery, FormWorkflowBindingOfQueryVariables>(client, FormWorkflowBindingOfDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormWorkflowBindingOfQuery.getKey = (variables: FormWorkflowBindingOfQueryVariables) => ['FormWorkflowBindingOf', variables];
+
+
+useFormWorkflowBindingOfQuery.fetcher = (client: GraphQLClient, variables: FormWorkflowBindingOfQueryVariables, headers?: RequestInit['headers']) => fetcher<FormWorkflowBindingOfQuery, FormWorkflowBindingOfQueryVariables>(client, FormWorkflowBindingOfDocument, variables, headers);
+
+export const FormWorkflowOptionsDocument = `
+    query FormWorkflowOptions($formKey: ID!) {
+  formWorkflowOptions(formKey: $formKey) {
+    items {
+      workflowKey
+      workflowName
+      isShared
+      canBind
+      issues {
+        stepKey
+        stepNumber
+        problem
+        detail
+      }
+    }
+    totalCount
+  }
+}
+    `;
+
+export const useFormWorkflowOptionsQuery = <
+      TData = FormWorkflowOptionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormWorkflowOptionsQueryVariables,
+      options?: Omit<UseQueryOptions<FormWorkflowOptionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormWorkflowOptionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormWorkflowOptionsQuery, TError, TData>(
+      {
+    queryKey: ['FormWorkflowOptions', variables],
+    queryFn: fetcher<FormWorkflowOptionsQuery, FormWorkflowOptionsQueryVariables>(client, FormWorkflowOptionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormWorkflowOptionsQuery.getKey = (variables: FormWorkflowOptionsQueryVariables) => ['FormWorkflowOptions', variables];
+
+
+useFormWorkflowOptionsQuery.fetcher = (client: GraphQLClient, variables: FormWorkflowOptionsQueryVariables, headers?: RequestInit['headers']) => fetcher<FormWorkflowOptionsQuery, FormWorkflowOptionsQueryVariables>(client, FormWorkflowOptionsDocument, variables, headers);
+
+export const BlockedInstancesDocument = `
+    query BlockedInstances($input: BlockedInstancesInput!) {
+  blockedInstances(input: $input) {
+    items {
+      ...WorkflowInstanceFields
+    }
+    totalCount
+    page
+    pageSize
+    truncated
+  }
+}
+    ${WorkflowInstanceFieldsFragmentDoc}`;
+
+export const useBlockedInstancesQuery = <
+      TData = BlockedInstancesQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: BlockedInstancesQueryVariables,
+      options?: Omit<UseQueryOptions<BlockedInstancesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<BlockedInstancesQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<BlockedInstancesQuery, TError, TData>(
+      {
+    queryKey: ['BlockedInstances', variables],
+    queryFn: fetcher<BlockedInstancesQuery, BlockedInstancesQueryVariables>(client, BlockedInstancesDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useBlockedInstancesQuery.getKey = (variables: BlockedInstancesQueryVariables) => ['BlockedInstances', variables];
+
+
+useBlockedInstancesQuery.fetcher = (client: GraphQLClient, variables: BlockedInstancesQueryVariables, headers?: RequestInit['headers']) => fetcher<BlockedInstancesQuery, BlockedInstancesQueryVariables>(client, BlockedInstancesDocument, variables, headers);
+
+export const ReassignTaskDocument = `
+    mutation ReassignTask($input: ReassignTaskInput!) {
+  reassignTask(input: $input) {
+    task {
+      ...WorkflowTaskFields
+    }
+    result
+  }
+}
+    ${WorkflowTaskFieldsFragmentDoc}`;
+
+export const useReassignTaskMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ReassignTaskMutation, TError, ReassignTaskMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ReassignTaskMutation, TError, ReassignTaskMutationVariables, TContext>(
+      {
+    mutationKey: ['ReassignTask'],
+    mutationFn: (variables?: ReassignTaskMutationVariables) => fetcher<ReassignTaskMutation, ReassignTaskMutationVariables>(client, ReassignTaskDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useReassignTaskMutation.fetcher = (client: GraphQLClient, variables: ReassignTaskMutationVariables, headers?: RequestInit['headers']) => fetcher<ReassignTaskMutation, ReassignTaskMutationVariables>(client, ReassignTaskDocument, variables, headers);
+
+export const AddStepAssigneeDocument = `
+    mutation AddStepAssignee($input: AddStepAssigneeInput!) {
+  addStepAssignee(input: $input) {
+    task {
+      ...WorkflowTaskFields
+    }
+    result
+  }
+}
+    ${WorkflowTaskFieldsFragmentDoc}`;
+
+export const useAddStepAssigneeMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<AddStepAssigneeMutation, TError, AddStepAssigneeMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<AddStepAssigneeMutation, TError, AddStepAssigneeMutationVariables, TContext>(
+      {
+    mutationKey: ['AddStepAssignee'],
+    mutationFn: (variables?: AddStepAssigneeMutationVariables) => fetcher<AddStepAssigneeMutation, AddStepAssigneeMutationVariables>(client, AddStepAssigneeDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useAddStepAssigneeMutation.fetcher = (client: GraphQLClient, variables: AddStepAssigneeMutationVariables, headers?: RequestInit['headers']) => fetcher<AddStepAssigneeMutation, AddStepAssigneeMutationVariables>(client, AddStepAssigneeDocument, variables, headers);
+
+export const RetryAdvanceInstanceDocument = `
+    mutation RetryAdvanceInstance($input: RetryAdvanceInstanceInput!) {
+  retryAdvanceInstance(input: $input) {
+    instance {
+      ...WorkflowInstanceFields
+    }
+  }
+}
+    ${WorkflowInstanceFieldsFragmentDoc}`;
+
+export const useRetryAdvanceInstanceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<RetryAdvanceInstanceMutation, TError, RetryAdvanceInstanceMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<RetryAdvanceInstanceMutation, TError, RetryAdvanceInstanceMutationVariables, TContext>(
+      {
+    mutationKey: ['RetryAdvanceInstance'],
+    mutationFn: (variables?: RetryAdvanceInstanceMutationVariables) => fetcher<RetryAdvanceInstanceMutation, RetryAdvanceInstanceMutationVariables>(client, RetryAdvanceInstanceDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useRetryAdvanceInstanceMutation.fetcher = (client: GraphQLClient, variables: RetryAdvanceInstanceMutationVariables, headers?: RequestInit['headers']) => fetcher<RetryAdvanceInstanceMutation, RetryAdvanceInstanceMutationVariables>(client, RetryAdvanceInstanceDocument, variables, headers);

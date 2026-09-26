@@ -5,13 +5,20 @@ import type { FormSubmission } from "./schemas/form-submission.schema";
 
 /** 某張表單的某幾個版本,被多少提交用到(依狀態分)。 */
 export interface FormSubmissionUsage {
-  /** 草稿(6b 起含審核中):有任何一筆就擋下刪除。 */
+  /** 還在填 / 還在審(草稿、審核中、被退回、已撤回):有任何一筆就擋下刪除。 */
   draftCount: number;
   draftVersions: number[];
-  /** 已完成:要使用者確認才刪。 */
+  /** 只剩歷史提交(已完成、已駁回、已作廢,內容不會再改):要使用者確認才刪。 */
   completedCount: number;
   completedVersions: number[];
 }
+
+/** 終局、內容不會再改的狀態(Spec 6b §6):與已完成同一層,警告確認後可刪。 */
+const HISTORICAL_STATUSES: ReadonlySet<string> = new Set([
+  "completed",
+  "rejected",
+  "voided",
+]);
 
 interface UsageRow {
   _id: { status: string; version: number };
@@ -61,11 +68,11 @@ export class FormSubmissionUsageCounter {
     const drafts = new Set<number>();
     const completed = new Set<number>();
     for (const row of rows) {
-      if (row._id.status === "completed") {
+      if (HISTORICAL_STATUSES.has(row._id.status)) {
         usage.completedCount += row.count;
         completed.add(row._id.version);
       } else {
-        // 草稿與日後的審核中都算「還在填 / 還在審」:擋下
+        // 草稿 / 審核中 / 被退回 / 已撤回都還會再寫:擋下
         usage.draftCount += row.count;
         drafts.add(row._id.version);
       }

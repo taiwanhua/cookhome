@@ -14,15 +14,24 @@ import {
   FormUserRef,
 } from "../../models/form-common.model";
 
-/** 提交狀態(成員值即落庫字串;與購物清單 seed 的資料範圍 `status` 選項一一對應)。 */
+/**
+ * 提交狀態(成員值即落庫字串;正本 `@repo/domain/workflow` 的 `SUBMISSION_STATUSES`;
+ * 與請假 seed 的資料範圍 `status` 選項一一對應,購物清單只用到草稿 / 已完成)。
+ */
 export enum FormSubmissionStatusEnum {
   DRAFT = "draft",
+  REVIEWING = "reviewing",
+  RETURNED = "returned",
+  WITHDRAWN = "withdrawn",
   COMPLETED = "completed",
+  REJECTED = "rejected",
+  VOIDED = "voided",
 }
 
 registerEnumType(FormSubmissionStatusEnum, {
   name: "FormSubmissionStatus",
-  description: "提交狀態:草稿 / 已完成(6a 送出即完成)",
+  description:
+    "提交狀態:草稿 / 審核中 / 已退回 / 已撤回 / 已完成 / 已駁回 / 已作廢(不綁流程的表單送出即完成)",
 });
 
 /** 列表排序。 */
@@ -120,9 +129,21 @@ export class FormSubmissionAbilities {
   @Field(() => Boolean)
   canEdit!: boolean;
 
-  /** 草稿:建立者本人 + 模組 `create`;已完成:模組 `delete`。 */
+  /** 草稿:建立者本人 + 模組 `create`;不綁流程的已完成 / 已駁回:模組 `delete`。 */
   @Field(() => Boolean)
   canDelete!: boolean;
+
+  /** 撤回:申請人本人、審核中(是否已有審核意見以實例的 `abilities.canWithdraw` 為準)。 */
+  @Field(() => Boolean)
+  canWithdraw!: boolean;
+
+  /** 作廢:綁流程且已核准(`completed` + 走過流程);申請人本人或有模組 `edit`。 */
+  @Field(() => Boolean)
+  canVoid!: boolean;
+
+  /** 複製為新單:已作廢;讀得到這筆且可新增該表單(模組 `create`)。 */
+  @Field(() => Boolean)
+  canCopy!: boolean;
 
   /**
    * 權限層面改得動的欄位 key(使用者填的欄位、看得到、有 `edit-…`(若該欄設了));
@@ -203,6 +224,35 @@ export class FormSubmissionModel {
 
   @Field(() => GraphQLISODateTime)
   updatedAt!: Date;
+
+  /** 進行中或最後一個流程實例;null = 沒走過流程(`completed` 後可修改)。 */
+  @Field(() => ID, { nullable: true })
+  currentInstanceId!: string | null;
+
+  /** 實例被阻擋(列表 chip 顯示「審核中(待處理)」)。 */
+  @Field(() => Boolean)
+  blocked!: boolean;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  voidedAt!: Date | null;
+
+  @Field(() => String, { nullable: true })
+  voidReason!: string | null;
+
+  /** 「複製為新單」建出的那筆。 */
+  @Field(() => ID, { nullable: true })
+  replacedById!: string | null;
+
+  /** 這筆草稿是從哪一筆複製來的。 */
+  @Field(() => ID, { nullable: true })
+  copiedFrom!: string | null;
+
+  /**
+   * 複製為新單時被清空的欄位(來源的引用已讀不到);只有 `copySubmissionToDraft` 的回傳有值,
+   * 其他讀取為空陣列。
+   */
+  @Field(() => [String])
+  clearedFields!: string[];
 
   @Field(() => FormSubmissionAbilities)
   abilities!: FormSubmissionAbilities;

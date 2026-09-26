@@ -122,6 +122,10 @@ export class FormSubmission {
   @Prop({ type: Types.ObjectId, default: null })
   replacedById!: Types.ObjectId | null;
 
+  /** 這筆草稿是「複製為新單」從哪一筆複製來的(`copySubmissionToDraft`);一般新增為 null。 */
+  @Prop({ type: Types.ObjectId, default: null })
+  copiedFrom!: Types.ObjectId | null;
+
   /** 模組 key(`tenantScopePlugin` 的 `moduleData` 宣告;= 綁的表單的 `moduleKey`)。 */
   moduleKey!: string;
 
