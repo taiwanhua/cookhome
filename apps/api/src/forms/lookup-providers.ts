@@ -7,8 +7,10 @@ import {
   type FieldType,
   type LookupProviderRegistry,
   type LookupSourceDescriptor,
+  formatTemporal,
   optionLabelOf,
   semanticValueOf,
+  temporalIsoOf,
 } from "@repo/domain/form";
 
 import type { Persisted } from "../database/base.repository";
@@ -226,6 +228,43 @@ function labelTextOf(label: unknown): string | null {
     return label.map(String).join("、");
   }
   return typeof label === "string" ? label : null;
+}
+
+/**
+ * 表單欄位的顯示名:選項 / 引用 → label;日期 / 日期時間 → 以讀者的租戶時區格式化
+ * (`YYYY-MM-DD` / `YYYY-MM-DD HH:mm`,值本身是 ISO 語意值);其他型別沒有(undefined)。
+ */
+function fieldLabelOf(
+  field: FieldDef,
+  stored: unknown,
+  timezone: string,
+): string | null | undefined {
+  if (LABELLED_TYPES.has(field.type)) {
+    return labelTextOf(optionLabelOf(field, stored));
+  }
+  if (field.type === "date" || field.type === "datetime") {
+    return temporalIsoOf(stored) === null
+      ? null
+      : formatTemporal(stored, { type: field.type, timezone });
+  }
+  return undefined;
+}
+
+/** 摘要槽:`date` 存 `Date` → 值回 ISO(同日期欄的語意值)、顯示名印日期;其他槽照存、沒有顯示名。 */
+function summarySlotOf(
+  summary: Record<string, unknown>,
+  name: string,
+  timezone: string,
+): { value: unknown; label?: string | null } {
+  if (name !== "date") {
+    return { value: summary[name] ?? null };
+  }
+  const value = temporalIsoOf(summary.date);
+  return {
+    value,
+    label:
+      value === null ? null : formatTemporal(value, { type: "date", timezone }),
+  };
 }
 
 const EMPTY_PROVIDER: LookupProviderRuntime = {
@@ -598,7 +637,11 @@ export class LookupProvidersService {
           continue;
         }
         if (name in SUMMARY_SLOT_FIELDS) {
-          values[name] = summary[name] ?? null;
+          const slot = summarySlotOf(summary, name, facts.timezone);
+          values[name] = slot.value;
+          if (slot.label !== undefined) {
+            labels[name] = slot.label;
+          }
           continue;
         }
         const field = byKey.get(name);
@@ -615,8 +658,9 @@ export class LookupProvidersService {
         }
         const stored = record.values[name];
         values[name] = semanticValueOf(field, stored);
-        if (LABELLED_TYPES.has(field.type)) {
-          labels[name] = labelTextOf(optionLabelOf(field, stored));
+        const label = fieldLabelOf(field, stored, facts.timezone);
+        if (label !== undefined) {
+          labels[name] = label;
         }
       }
       return { id: String(record._id), values, labels };

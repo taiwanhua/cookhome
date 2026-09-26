@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
+import { DEFAULT_TENANT_TIMEZONE } from "@repo/domain/form";
 import { hasPermission } from "@repo/domain/permission";
 
 import type { Persisted } from "../database/base.repository";
@@ -23,8 +24,8 @@ import { forbiddenError, notFoundError, validationError } from "./forms-error";
 
 export type FormRecord = Persisted<FormDocument>;
 
-/** 租戶沒設時區時的預設(`orgs.settings.timezone`;表達式的日期差以它的日曆日計)。 */
-export const DEFAULT_TIMEZONE = "Asia/Taipei";
+/** 租戶沒設時區時的預設(`orgs.settings.timezone`;正本是 domain 的 `DEFAULT_TENANT_TIMEZONE`)。 */
+export const DEFAULT_TIMEZONE = DEFAULT_TENANT_TIMEZONE;
 
 /**
  * 一位操作者在這次請求裡、表單引擎要用的事實(一次算好,各 service 共用):

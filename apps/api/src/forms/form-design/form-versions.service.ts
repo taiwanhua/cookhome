@@ -4,6 +4,7 @@ import {
   type ExpressionContext,
   type FormDefinition,
   computeSummary,
+  temporalIsoOf,
 } from "@repo/domain/form";
 
 import { AuditService } from "../../audit/audit.service";
@@ -405,7 +406,7 @@ export class FormVersionsService {
       fieldStates: fieldStatesOf(draft.fields, values, ctx, designerGate),
       summary: {
         title: summary.title,
-        date: summary.date,
+        date: temporalIsoOf(summary.date),
         amount: summary.amount ?? null,
       },
       fieldErrors: issues,

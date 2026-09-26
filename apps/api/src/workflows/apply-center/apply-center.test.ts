@@ -476,6 +476,7 @@ describe("申請中心與讀取授權", () => {
       const v1 = [
         field("title", "text"),
         field("days", "number"),
+        field("start", "date"),
         field("approver", "reference", {
           source: { provider: "user", labelField: "name" },
         }),
@@ -506,6 +507,7 @@ describe("申請中心與讀取授權", () => {
       const draft = await createDraft(api, world.applicant.token, formKey, {
         title: "要作廢的",
         days: 3,
+        start: "2026-09-26T00:00:00+08:00",
         approver: { id: String(colleague.userId), label: null },
         attachment,
         scan: uploadValue(randomUUID()),
@@ -552,6 +554,7 @@ describe("申請中心與讀取授權", () => {
             default: { kind: "constant", value: "新欄位的預設值" },
           }),
           field("days", "number"),
+          field("start", "date"),
           field("approver", "reference", {
             source: { provider: "user", labelField: "name" },
           }),
@@ -582,6 +585,15 @@ describe("申請中心與讀取授權", () => {
       expect(fresh.values.memo).toBe("新欄位的預設值");
       // 數字存十進位字串
       expect(fresh.values.days).toBe("3");
+      // 日期:複製來的仍存 Date(GraphQL 讀回同一個 ISO 時點)
+      expect(fresh.values.start).toMatch(/^2026-09-2\dT\d{2}:00:00\.000Z$/);
+      expect(fresh.values.start).toBe(approved.values.start);
+      const rawCopy = await world.connection
+        .collection("form_submissions")
+        .findOne({ _id: new Types.ObjectId(fresh.id) });
+      expect((rawCopy?.values as Record<string, unknown>).start).toBeInstanceOf(
+        Date,
+      );
       expect(fresh.values.extra).toBeUndefined();
       const copiedPath = (fresh.values.attachment as { path: string }).path;
       expect(copiedPath).not.toBe(attachment.path);
