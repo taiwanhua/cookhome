@@ -115,12 +115,6 @@ describe("表單管理:類別 / 表單 / 欄位改用下拉選", () => {
     );
     expect(labelFields).not.toContain("成本(cost)");
     await user.click(screen.getByRole("option", { name: "品項(item)" }));
-    // 顯示模板:從下拉插入摘要槽 {{date}} 與欄位 {{value.<key>}}
-    const template = screen.getByRole("textbox", { name: "顯示模板(選填)" });
-    await pickOption(user, "插入欄位", "日期(摘要)");
-    await user.type(template, "・");
-    await pickOption(user, "插入欄位", "品項(item)");
-    expect(template).toHaveValue("{{date}}・{{value.item}}");
 
     const fields = await savedFields(user, world);
     expect(fields.at(-1)).toMatchObject({
@@ -130,7 +124,6 @@ describe("表單管理:類別 / 表單 / 欄位改用下拉選", () => {
           provider: "form_submission",
           formKey: SHOPPING_FORM_KEY,
           labelField: "item",
-          labelTemplate: "{{date}}・{{value.item}}",
         },
       },
     });

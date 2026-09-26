@@ -245,9 +245,22 @@ describe("表單管理:設計器修正(失焦、key 重複、面板依型別)", 
     await user.clear(template);
     await user.type(template, "{{{{form}} · {{{{applicant}}");
     expect(preview).toHaveTextContent("範例:檢視・購物單 · 王小明");
+  });
 
-    // {{action}} 有寫就照模板位置,不再自動加在最前面;欄位值從下拉挑欄位插入 {{value.<key>}}
-    await user.clear(template);
+  // 與上一案分開:同一案走完全部步驟,全套並行時會超過 15 秒(TEST-08 已知偶發)
+  it("表單編輯跳窗:{{action}} 照模板位置;欄位值從下拉挑欄位插入 {{value.<key>}}", async () => {
+    const { user } = renderFormsPage();
+    await findDesigner();
+    await user.click(screen.getByRole("button", { name: "編輯名稱與標題" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "編輯名稱與標題",
+    });
+    const preview = within(dialog).getByRole("status", {
+      name: "頁籤模板預覽",
+    });
+    const template = within(dialog).getByRole("textbox", {
+      name: "頁籤 / 標題模板",
+    });
     await user.type(template, "{{{{action}}:");
     await user.click(
       within(dialog).getByRole("combobox", { name: "插入欄位的值" }),
