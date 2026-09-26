@@ -59,7 +59,10 @@ const MS_PER_MINUTE = 60_000;
 const MS_PER_HOUR = 3_600_000;
 const MS_PER_DAY = 86_400_000;
 
-/** 是不是帶時區的 ISO 8601 日期時間字串(且是真的時點)。 */
+/**
+ * 是不是帶時區的 ISO 8601 日期時間字串(且是真的時點)。日期段要是存在的日期:
+ * `Date.parse` 會把 2/30 默默滾到 3/2,所以字面的年月日另外驗(`parseLocalDate`)。
+ */
 export function isDateTimeString(value: unknown): value is string {
   if (typeof value !== "string") {
     return false;
@@ -68,6 +71,7 @@ export function isDateTimeString(value: unknown): value is string {
   return (
     zone !== null &&
     LOCAL_DATE_TIME.test(value.slice(0, zone.index)) &&
+    parseLocalDate(value.slice(0, 10)) !== null &&
     !Number.isNaN(Date.parse(value))
   );
 }
