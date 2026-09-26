@@ -902,7 +902,6 @@ export type FormVersionModel = {
 export type FormVersionPayload = {
   __typename?: 'FormVersionPayload';
   formVersion: FormVersionModel;
-  timezone?: Maybe<Scalars['String']['output']>;
   validation?: Maybe<FormValidationReport>;
 };
 
@@ -1029,6 +1028,7 @@ export type MeOrg = {
   id: Scalars['ID']['output'];
   logoUrl?: Maybe<Scalars['String']['output']>;
   name: Scalars['String']['output'];
+  timezone: Scalars['String']['output'];
 };
 
 export type ModuleAdminNode = {
@@ -3082,7 +3082,7 @@ export type SwitchOrgMutation = { __typename?: 'Mutation', switchOrg: { __typena
 export type MeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type MeQuery = { __typename?: 'Query', me: { __typename?: 'Me', id: string, account: string, name: string, email: string, nickname?: string | null, mustChangePassword: boolean, currentOrg?: { __typename?: 'MeOrg', id: string, name: string, logoUrl?: string | null } | null, orgs: Array<{ __typename?: 'MeOrg', id: string, name: string }>, modules: Array<{ __typename?: 'MeModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, route?: string | null, icon?: string | null, permissions: Array<string> }> } };
+export type MeQuery = { __typename?: 'Query', me: { __typename?: 'Me', id: string, account: string, name: string, email: string, nickname?: string | null, mustChangePassword: boolean, currentOrg?: { __typename?: 'MeOrg', id: string, name: string, logoUrl?: string | null, timezone: string } | null, orgs: Array<{ __typename?: 'MeOrg', id: string, name: string }>, modules: Array<{ __typename?: 'MeModule', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, order: number, route?: string | null, icon?: string | null, permissions: Array<string> }> } };
 
 export type RequestPasswordResetMutationVariables = Exact<{
   input: RequestPasswordResetInput;
@@ -3278,7 +3278,7 @@ export type FormRuntimeVersionQueryVariables = Exact<{
 }>;
 
 
-export type FormRuntimeVersionQuery = { __typename?: 'Query', formRuntimeVersion: { __typename?: 'FormVersionPayload', timezone?: string | null, formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>> } } };
+export type FormRuntimeVersionQuery = { __typename?: 'Query', formRuntimeVersion: { __typename?: 'FormVersionPayload', formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>> } } };
 
 export type FormSubmissionsQueryVariables = Exact<{
   input: FormSubmissionsInput;
@@ -3407,7 +3407,7 @@ export type FormVersionQueryVariables = Exact<{
 }>;
 
 
-export type FormVersionQuery = { __typename?: 'Query', formVersion: { __typename?: 'FormVersionPayload', timezone?: string | null, formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }, validation?: { __typename?: 'FormValidationReport', errors: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }>, warnings: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }> } | null } };
+export type FormVersionQuery = { __typename?: 'Query', formVersion: { __typename?: 'FormVersionPayload', formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }, validation?: { __typename?: 'FormValidationReport', errors: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }>, warnings: Array<{ __typename?: 'FormDefinitionIssue', code: string, message: string, location: Record<string, unknown> }> } | null } };
 
 export type FormVersionsQueryVariables = Exact<{
   formKey: Scalars['ID']['input'];
@@ -5030,6 +5030,7 @@ export const MeDocument = `
       id
       name
       logoUrl
+      timezone
     }
     orgs {
       id
@@ -5939,7 +5940,6 @@ useModuleFormsQuery.fetcher = (client: GraphQLClient, variables: ModuleFormsQuer
 export const FormRuntimeVersionDocument = `
     query FormRuntimeVersion($formKey: ID!, $version: Int!) {
   formRuntimeVersion(formKey: $formKey, version: $version) {
-    timezone
     formVersion {
       id
       formKey
@@ -6500,7 +6500,6 @@ export const FormVersionDocument = `
     validation {
       ...FormValidationFields
     }
-    timezone
   }
 }
     ${FormVersionFieldsFragmentDoc}

@@ -13,7 +13,7 @@ const MB = 1024 * 1024;
 
 describe("@repo/domain/form 上傳欄的檔型 / 大小上限", () => {
   const pdfOnly = field("proof", "upload", {
-    widget: { kind: "upload", accept: ["application/pdf"], maxSizeMb: 2 },
+    rules: { accept: ["application/pdf"], maxSizeMb: 2 },
   });
 
   it("沒設 = 平台上限;設了只收窄", () => {
@@ -46,7 +46,7 @@ describe("@repo/domain/form 上傳欄的檔型 / 大小上限", () => {
       definitionOf([
         field("title", "text"),
         field("proof", "upload", {
-          widget: { kind: "upload", accept: ["text/html"], maxSizeMb: 50 },
+          rules: { accept: ["text/html"], maxSizeMb: 50 },
         }),
       ]),
       { regexSafety: recheckRegexSafety },
@@ -54,8 +54,8 @@ describe("@repo/domain/form 上傳欄的檔型 / 大小上限", () => {
     expect(
       report.errors.map((issue) => [issue.code, issue.location.property]),
     ).toEqual([
-      ["UPLOAD_LIMIT_INVALID", "widget.accept"],
-      ["UPLOAD_LIMIT_INVALID", "widget.maxSizeMb"],
+      ["UPLOAD_LIMIT_INVALID", "rules.accept"],
+      ["UPLOAD_LIMIT_INVALID", "rules.maxSizeMb"],
     ]);
   });
 });

@@ -28,7 +28,7 @@ import { expressionsOf } from "./validate-expressions";
  * - `optionLabel` 只能指選項欄(單選 / 多選)或引用欄
  *
  * 推不出型別的節點(`null` 常數、未知欄位、上傳欄以外的空值)不報;形狀有問題的表達式由形狀段報,
- * 這裡整個跳過(避免同一個錯誤報兩次)。日期與日期時間互通(`isTypeAccepted`)。
+ * 這裡整個跳過(避免同一個錯誤報兩次)。日期與日期時間互通(`isTypeAccepted`),比較運算子兩邊除外。
  */
 
 const TYPE_LABELS: Readonly<Record<ExpressionValueType, string>> = {

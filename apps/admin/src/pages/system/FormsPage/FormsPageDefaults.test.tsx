@@ -135,6 +135,108 @@ describe("表單管理:預設值、上傳上限、刪除草稿", () => {
     });
   });
 
+  it("多選的預設值從靜態選項挑多個", async () => {
+    const options = defaultDesignOptions();
+    const draft = defaultsDraft();
+    const { user, world } = renderFormsPage({
+      ...options,
+      versions: {
+        [SHOPPING_FORM_KEY]: [
+          versionFragment(
+            {
+              ...draft,
+              fields: [
+                ...draft.fields,
+                field("tags", "標籤", "multiSelect", {
+                  widget: { kind: "checkboxGroup" },
+                  options: {
+                    kind: "static",
+                    items: [
+                      { value: "a", label: "甲", order: 1, enabled: true },
+                      { value: "b", label: "乙", order: 2, enabled: true },
+                      { value: "c", label: "丙", order: 3, enabled: true },
+                    ],
+                  },
+                }),
+              ],
+              layout: {
+                sections: draft.layout.sections.map((section) => ({
+                  ...section,
+                  rows: [
+                    ...section.rows,
+                    { cols: [{ fieldKey: "tags", span: 12 }] },
+                  ],
+                })),
+              },
+            },
+            { baseVersion: 1 },
+          ),
+          ...(options.versions?.[SHOPPING_FORM_KEY] ?? []).slice(1),
+        ],
+      },
+    });
+    await findDesigner();
+    await selectField(user, "標籤", "tags");
+    expect(await openSelect(user, "預設值")).toEqual(["甲", "乙", "丙"]);
+    await user.click(screen.getByRole("option", { name: "甲" }));
+    await user.click(screen.getByRole("option", { name: "丙" }));
+    await user.keyboard("{Escape}");
+
+    const fields = await savedFields(user, world);
+    expect(fields.find((item) => item.key === "tags")).toMatchObject({
+      default: { kind: "constant", value: ["a", "c"] },
+    });
+  });
+
+  it("類別選項的預設值用填寫時的選擇器挑(選項以草稿查)", async () => {
+    const options = defaultDesignOptions();
+    const draft = defaultsDraft();
+    const { user, world } = renderFormsPage(
+      {
+        ...options,
+        versions: {
+          [SHOPPING_FORM_KEY]: [
+            versionFragment(
+              {
+                ...draft,
+                fields: draft.fields.map((item) =>
+                  item.key === "kind"
+                    ? {
+                        ...item,
+                        options: { kind: "fieldCategory", key: "leave-type" },
+                      }
+                    : item,
+                ),
+              },
+              { baseVersion: 1 },
+            ),
+            ...(options.versions?.[SHOPPING_FORM_KEY] ?? []).slice(1),
+          ],
+        },
+      },
+      undefined,
+      {
+        fieldOptions: {
+          kind: [
+            { value: "sick", label: "病假" },
+            { value: "annual", label: "特休" },
+          ],
+        },
+      },
+    );
+    await findDesigner();
+    await selectField(user, "假別", "kind");
+    await pickOption(user, "預設值", "特休");
+
+    const fields = await savedFields(user, world);
+    expect(fields.find((item) => item.key === "kind")).toMatchObject({
+      default: {
+        kind: "constant",
+        value: expect.objectContaining({ value: "annual" }),
+      },
+    });
+  });
+
   it("值來源改成固定值:預設值區塊消失、定義裡的預設值一併拿掉", async () => {
     const { user, world } = renderDefaults();
     await findDesigner();
@@ -151,7 +253,7 @@ describe("表單管理:預設值、上傳上限、刪除草稿", () => {
     expect(fields.find((item) => item.key === "item")?.default).toBeNull();
   });
 
-  it("上傳欄的檔型 / 大小上限存進 widget.accept / maxSizeMb", async () => {
+  it("上傳欄的檔型 / 大小上限存進 rules.accept / maxSizeMb", async () => {
     const { user, world } = renderDefaults();
     await addField(user, "上傳");
     // 預設全勾(= 平台允許的全部);取消 PNG
@@ -163,11 +265,11 @@ describe("表單管理:預設值、上傳上限、刪除草稿", () => {
     );
 
     const fields = await savedFields(user, world);
-    const widget = fields.at(-1)?.widget as
+    const rules = fields.at(-1)?.rules as
       { accept?: string[]; maxSizeMb?: number } | undefined;
-    expect(widget?.maxSizeMb).toBe(5);
-    expect(widget?.accept).toContain("application/pdf");
-    expect(widget?.accept).not.toContain("image/png");
+    expect(rules?.maxSizeMb).toBe(5);
+    expect(rules?.accept).toContain("application/pdf");
+    expect(rules?.accept).not.toContain("image/png");
   });
 
   it("版本面板「刪除草稿」:確認後帶讀到的 draftRevision 刪掉,清單不再有草稿", async () => {

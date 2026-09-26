@@ -1,6 +1,6 @@
 import { roundToPrecision, toDecimal } from "./decimal";
 import { evaluateCondition } from "./expression";
-import { normalizeDateTime } from "./temporal";
+import { normalizeDateTime, toZonedWallTime } from "./temporal";
 import type {
   ExpressionContext,
   FieldDef,
@@ -325,7 +325,11 @@ function issueOf(
 }
 
 /** number / date / datetime 的範圍;回第一個違反的規則,沒有回 null。 */
-function rangeIssue(field: FieldDef, value: unknown): ValueIssue | null {
+function rangeIssue(
+  field: FieldDef,
+  value: unknown,
+  timezone: string,
+): ValueIssue | null {
   const rules = field.rules ?? {};
   if (field.type === "number") {
     const decimal = toDecimal(value);
@@ -349,7 +353,9 @@ function rangeIssue(field: FieldDef, value: unknown): ValueIssue | null {
   if (field.type === "date") {
     return dateRangeIssue(field, value);
   }
-  return field.type === "datetime" ? dateTimeRangeIssue(field, value) : null;
+  return field.type === "datetime"
+    ? dateTimeRangeIssue(field, value, timezone)
+    : null;
 }
 
 /** date 的上下限:`YYYY-MM-DD` 的字碼序即日期序。 */
@@ -367,10 +373,17 @@ function dateRangeIssue(field: FieldDef, value: unknown): ValueIssue | null {
   return null;
 }
 
-/** datetime 的上下限:`rules.min` / `max` 是 ISO 8601(任何時區),以時點比較。 */
+/** 錯誤訊息用的時間:租戶時區的牆上時間(`2026-03-01 09:00(Asia/Taipei)`)。 */
+function wallTimeText(iso: string, timezone: string): string {
+  const wall = toZonedWallTime(iso, timezone);
+  return wall === null ? iso : `${wall.replace("T", " ")}(${timezone})`;
+}
+
+/** datetime 的上下限:`rules.min` / `max` 是 ISO 8601(任何時區),以時點比較;訊息以租戶時區顯示。 */
 function dateTimeRangeIssue(
   field: FieldDef,
   value: unknown,
+  timezone: string,
 ): ValueIssue | null {
   if (typeof value !== "string") {
     return null;
@@ -380,10 +393,18 @@ function dateTimeRangeIssue(
   const min = normalizeDateTime(rules.min);
   const max = normalizeDateTime(rules.max);
   if (min !== null && at < Date.parse(min)) {
-    return issueOf(field, "MIN", `「${field.label}」不可早於 ${min}`);
+    return issueOf(
+      field,
+      "MIN",
+      `「${field.label}」不可早於 ${wallTimeText(min, timezone)}`,
+    );
   }
   if (max !== null && at > Date.parse(max)) {
-    return issueOf(field, "MAX", `「${field.label}」不可晚於 ${max}`);
+    return issueOf(
+      field,
+      "MAX",
+      `「${field.label}」不可晚於 ${wallTimeText(max, timezone)}`,
+    );
   }
   return null;
 }
@@ -454,7 +475,8 @@ export function validateFieldRules(
         : issueOf(field, "REQUIRED", `「${field.label}」為必填`);
     }
   } else {
-    const issue = rangeIssue(field, value) ?? textIssue(field, value);
+    const issue =
+      rangeIssue(field, value, input.ctx.timezone) ?? textIssue(field, value);
     if (issue) {
       return issue;
     }

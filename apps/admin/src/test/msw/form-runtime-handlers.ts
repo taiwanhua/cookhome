@@ -170,8 +170,6 @@ export const formRuntimeWorld = (
         : HttpResponse.json({
             data: {
               formRuntimeVersion: {
-                // 租戶時區(api:orgs.settings.timezone,沒設 = Asia/Taipei)
-                timezone: "Asia/Taipei",
                 formVersion: {
                   id: `ver-${formKey}-${String(version)}`,
                   formKey,

@@ -15,7 +15,7 @@ export interface PropertySections {
   valueSource: boolean;
   /** 預設值(值來源 = 使用者填才有;上傳沒有) */
   defaultValue: boolean;
-  /** 元件設定:上傳欄的檔型 / 大小上限 */
+  /** 驗證規則:上傳欄的檔型 / 大小上限(`rules.accept` / `rules.maxSizeMb`) */
   uploadLimits: boolean;
   /** 選項來源(靜態 / 類別 / lookup) */
   options: boolean;

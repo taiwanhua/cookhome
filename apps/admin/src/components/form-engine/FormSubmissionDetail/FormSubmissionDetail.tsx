@@ -14,6 +14,7 @@ import { Typography } from "@repo/ui/typography";
 
 import { useFormRuntimeVersion } from "@/hooks/useFormRuntimeVersion";
 import { useSession } from "@/hooks/useSession";
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import {
   liveContextOf,
   revisionContextOf,
@@ -61,7 +62,7 @@ export const FormSubmissionDetail = ({ id }: FormSubmissionDetailProps) => {
     base?.formKey ?? null,
     base?.version ?? null,
   );
-  const tenantTimezone = version.timezone;
+  const tenantTimezone = useTenantTimezone();
   // 已完成:條件用那次修訂的 ctx;草稿(還沒有 ctx):用真正的現在 + 填寫者本人與那一筆的組織、租戶時區
   const expressionContext = useMemo(() => {
     if (shown === null) {

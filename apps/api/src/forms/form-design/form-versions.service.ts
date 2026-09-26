@@ -273,7 +273,6 @@ export class FormVersionsService {
     return {
       formVersion: await this.modelOf(operator, updated),
       validation: toValidationReport(report),
-      timezone: facts.timezone,
     };
   }
 
@@ -435,7 +434,6 @@ export class FormVersionsService {
     return {
       formVersion: await this.modelOf(facts.operator, record),
       validation,
-      timezone: facts.timezone,
     };
   }
 

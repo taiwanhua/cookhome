@@ -33,7 +33,7 @@ describe("@repo/domain/form 檢查器:表達式型別(表 B)", () => {
             and: [
               { var: "agree" },
               { in: ["sick", { var: "tags" }] },
-              { "<": [{ var: "start" }, { now: [] }] },
+              { "<": [{ var: "end" }, { now: [] }] },
             ],
           },
           readonlyWhen: { "!!": { var: "qty" } },
@@ -114,6 +114,37 @@ describe("@repo/domain/form 檢查器:表達式型別(表 B)", () => {
       ["EXPR_TYPE_MISMATCH", "b", "+.1"],
       ["EXPR_TYPE_MISMATCH", "c", "dateDiff.0.var"],
       ["EXPR_TYPE_MISMATCH", "d", "concat.0.var"],
+    ]);
+  });
+
+  it("比較運算子兩邊的日期與日期時間不互通(要比請用 dateDiff);dateDiff 兩種都收", () => {
+    const issues = errorsOf(
+      field("late", "boolean", {
+        valueSource: {
+          kind: "computed",
+          expr: { "<": [{ var: "start" }, { now: [] }] },
+        },
+      }),
+      field("same", "boolean", {
+        valueSource: {
+          kind: "computed",
+          expr: { "==": [{ var: "end" }, "2026-01-01"] },
+        },
+      }),
+      field("gap", "number", {
+        valueSource: {
+          kind: "computed",
+          expr: { dateDiff: [{ var: "start" }, { now: [] }, "minutes"] },
+        },
+      }),
+    ).map((issue) => [
+      issue.code,
+      issue.location.fieldKey,
+      issue.location.exprPath,
+    ]);
+    expect(issues).toEqual([
+      ["EXPR_TYPE_MISMATCH", "late", "<.1.now"],
+      ["EXPR_TYPE_MISMATCH", "same", "==.1"],
     ]);
   });
 

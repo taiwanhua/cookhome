@@ -142,8 +142,6 @@ query FormVersion($formKey: ID!, $version: Int) {
     validation {
       ...FormValidationFields
     }
-    # 租戶時區(設計器預覽的日期時間欄用)
-    timezone
   }
 }
 

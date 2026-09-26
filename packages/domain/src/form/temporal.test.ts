@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 
+import { recheckRegexSafety } from "../form-regex-safety";
 import { computeAll } from "./compute";
 import { evaluateCondition, evaluateExpression } from "./expression";
-import { CTX, field } from "./form-test-support";
+import { CTX, definitionOf, field } from "./form-test-support";
 import { computeSummary } from "./summary";
 import {
   fromZonedWallTime,
@@ -11,6 +12,7 @@ import {
   zonedMidnightOf,
 } from "./temporal";
 import type { Expression } from "./types";
+import { validateDefinition } from "./validate-definition";
 import { normalizeFieldValue, validateFieldRules } from "./values";
 
 const evaluate = (expr: Expression, values: Record<string, unknown> = {}) =>
@@ -57,6 +59,32 @@ describe("@repo/domain/form datetime:正規化(ISO 8601 UTC)", () => {
     expect(ruleOf("2026-02-28T23:59:59Z")).toBe("MIN");
     expect(ruleOf("2026-03-31T15:59:59Z")).toBeNull();
     expect(ruleOf("2026-03-31T16:00:00Z")).toBe("MAX");
+  });
+
+  it("超出上下限的訊息以租戶時區顯示;上下限格式不合法 → 檢查器 RULE_RANGE_INVALID", () => {
+    const limited = field("meeting", "datetime", {
+      rules: { min: "2026-03-01T00:00:00Z" },
+    });
+    expect(
+      validateFieldRules(limited, "2026-02-28T00:00:00Z", {
+        semantic: {},
+        ctx: CTX,
+        fields: [limited],
+        stored: {},
+      })?.message,
+    ).toBe("「meeting」不可早於 2026-03-01 08:00(Asia/Taipei)");
+    const report = validateDefinition(
+      definitionOf([
+        field("title", "text"),
+        field("meeting", "datetime", {
+          rules: { min: "2026-03-01 09:00", max: "2026-03-31T23:59+08:00" },
+        }),
+      ]),
+      { regexSafety: recheckRegexSafety },
+    );
+    expect(
+      report.errors.map((issue) => [issue.code, issue.location.property]),
+    ).toEqual([["RULE_RANGE_INVALID", "rules.min"]]);
   });
 
   it("租戶時區的牆上時間 ↔ 存值(台北 +08:00;無效回 null)", () => {

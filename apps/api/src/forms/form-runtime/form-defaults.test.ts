@@ -38,6 +38,7 @@ import {
   M,
   PUBLISH,
   SAVE_FORM_DRAFT,
+  SUBMIT,
   type SubmissionRow,
   type VersionRow,
   assignForm,
@@ -46,6 +47,7 @@ import {
   createDraft,
   createOperator,
   definitionOf,
+  editKey,
   extensionsOf,
   field,
   ok,
@@ -53,17 +55,17 @@ import {
   rawSubmission,
   rootToken,
   saveDefinition,
+  showKey,
   submitDraft,
 } from "../test-support/form-fixtures";
 
 jest.setTimeout(FORM_TEST_TIMEOUT_MS);
 
-const RUNTIME_VERSION = /* GraphQL */ `
-  query FormRuntimeVersion($formKey: ID!, $version: Int!) {
-    formRuntimeVersion(formKey: $formKey, version: $version) {
-      timezone
-      formVersion {
-        version
+const ME_TIMEZONE = /* GraphQL */ `
+  query MeTimezone {
+    me {
+      currentOrg {
+        timezone
       }
     }
   }
@@ -119,6 +121,107 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
   afterAll(async () => {
     await api.close();
   }, HOOK_TIMEOUT_MS);
+
+  it("me.currentOrg.timezone = 讀者當前組織的租戶時區(沒設 = Asia/Taipei)", async () => {
+    const data = await ok<{
+      me: { currentOrg: { timezone: string } | null };
+    }>(api, staff.token, ME_TIMEZONE);
+    expect(data.me.currentOrg?.timezone).toBe("Asia/Tokyo");
+    const rootData = await ok<{
+      me: { currentOrg: { timezone: string } | null };
+    }>(api, root, ME_TIMEZONE);
+    expect(rootData.me.currentOrg?.timezone).toBe("Asia/Taipei");
+  });
+
+  describe("預設值:讀不到 / 改不動就不填、送出照 rules 驗", () => {
+    beforeAll(async () => {
+      await publishNewForm(
+        api,
+        root,
+        "defaults_guarded",
+        definitionOf([
+          field("title", "text"),
+          // 受保護的固定值:沒有 show 的人讀不到
+          field("secret", "number", {
+            valueSource: { kind: "constant", value: 10 },
+            permission: { show: true, edit: false },
+          }),
+          field("doubled", "number", {
+            default: {
+              kind: "expression",
+              expr: { "*": [{ var: "secret" }, 2] },
+            },
+          }),
+          // 限定可改:沒有 edit-… 的人改不動
+          field("locked", "text", {
+            permission: { show: false, edit: true },
+            default: { kind: "constant", value: "預設" },
+          }),
+          field("code", "text", {
+            rules: { maxLength: 2 },
+            default: { kind: "constant", value: "ABCDEF" },
+          }),
+        ]),
+      );
+      await assignForm(api, root, "defaults_guarded", [tenant]);
+    }, HOOK_TIMEOUT_MS);
+
+    it("公式引用讀不到的受保護欄位 → 留空;有 show 的人算得出來", async () => {
+      const draft = await createDraft(api, staff.token, "defaults_guarded", {
+        title: "x",
+      });
+      expect(draft.values.doubled ?? null).toBeNull();
+
+      const reader = await createOperator(api, connection, {
+        orgId: tenant,
+        permissionKeys: [
+          M.view,
+          M.create,
+          M.edit,
+          showKey("defaults_guarded", "secret"),
+        ],
+      });
+      const readable = await createDraft(
+        api,
+        reader.token,
+        "defaults_guarded",
+        { title: "y" },
+      );
+      expect(readable.values.doubled).toBe("20");
+    });
+
+    it("沒有欄位級 edit 權限的欄位不填預設值;有 edit-… 的人照填", async () => {
+      const draft = await createDraft(api, staff.token, "defaults_guarded", {
+        title: "x",
+      });
+      expect(draft.values.locked ?? null).toBeNull();
+      const editor = await createOperator(api, connection, {
+        orgId: tenant,
+        permissionKeys: [
+          M.view,
+          M.create,
+          M.edit,
+          editKey("defaults_guarded", "locked"),
+        ],
+      });
+      const filled = await createDraft(api, editor.token, "defaults_guarded", {
+        title: "y",
+      });
+      expect(filled.values.locked).toBe("預設");
+    });
+
+    it("預設值違反 rules:草稿照存、送出被擋(當一般欄位驗)", async () => {
+      const draft = await createDraft(api, staff.token, "defaults_guarded", {
+        title: "x",
+      });
+      expect(draft.values.code).toBe("ABCDEF");
+      const blocked = await call(api, staff.token, SUBMIT, {
+        input: { id: draft.id, expectedEditVersion: draft.editVersion },
+      });
+      expect(codeOf(blocked)).toBe("VALIDATION_FAILED");
+      expect(JSON.stringify(extensionsOf(blocked))).toContain("MAX_LENGTH");
+    });
+  });
 
   describe("預設值(建草稿時由後端算)", () => {
     beforeAll(async () => {
@@ -250,15 +353,7 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
       await assignForm(api, root, "datetime_form", [tenant]);
     }, HOOK_TIMEOUT_MS);
 
-    it("存 UTC ISO(租戶時區輸入)、上下限、dateDiff 小時、摘要槽日期對日期時間欄;填寫端拿得到租戶時區", async () => {
-      const runtime = await ok<{
-        formRuntimeVersion: { timezone: string | null };
-      }>(api, staff.token, RUNTIME_VERSION, {
-        formKey: "datetime_form",
-        version: 1,
-      });
-      expect(runtime.formRuntimeVersion.timezone).toBe("Asia/Tokyo");
-
+    it("存 UTC ISO(租戶時區輸入)、上下限、dateDiff 小時、摘要槽日期對日期時間欄;修訂 ctx 記租戶時區", async () => {
       const draft = await createDraft(api, staff.token, "datetime_form", {
         title: "出差",
         start_at: "2026-03-01T09:00+09:00",
@@ -318,11 +413,7 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
         definitionOf([
           field("title", "text"),
           field("proof", "upload", {
-            widget: {
-              kind: "upload",
-              accept: ["application/pdf"],
-              maxSizeMb: 1,
-            },
+            rules: { accept: ["application/pdf"], maxSizeMb: 1 },
           }),
         ]),
       );
@@ -337,6 +428,23 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
       expect(rule.maxBytes).toBe(MAX_ATTACHMENT_UPLOAD_BYTES);
       expect(MAX_ATTACHMENT_UPLOAD_BYTES).toBe(
         FORM_UPLOAD_MAX_SIZE_MB * 1024 * 1024,
+      );
+    });
+
+    it("偽造 contentType(路徑是 .png、宣稱 application/pdf)→ UPLOAD_INVALID", async () => {
+      const forged = {
+        ...uploadOf("application/pdf", 1000, "png"),
+      };
+      const rejected = await call(api, staff.token, CREATE_FORM_DRAFT, {
+        input: {
+          formKey: "upload_limit_form",
+          clientRequestId: randomUUID(),
+          values: { title: "偽造", proof: forged },
+        },
+      });
+      expect(codeOf(rejected)).toBe("VALIDATION_FAILED");
+      expect(JSON.stringify(extensionsOf(rejected))).toContain(
+        "UPLOAD_INVALID",
       );
     });
 

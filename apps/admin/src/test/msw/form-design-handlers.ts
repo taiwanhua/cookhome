@@ -159,13 +159,7 @@ export const formDesignWorld = (
       return found === undefined
         ? notFound()
         : HttpResponse.json({
-            data: {
-              formVersion: {
-                formVersion: found,
-                validation: noIssues,
-                timezone: "Asia/Taipei",
-              },
-            },
+            data: { formVersion: { formVersion: found, validation: noIssues } },
           });
     }),
     api.mutation("SaveFormVersionDraft", ({ variables }) => {

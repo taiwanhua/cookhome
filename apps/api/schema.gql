@@ -822,7 +822,6 @@ type FormVersionModel {
 
 type FormVersionPayload {
   formVersion: FormVersionModel!
-  timezone: String
   validation: FormValidationReport
 }
 
@@ -941,6 +940,7 @@ type MeOrg {
   id: ID!
   logoUrl: String
   name: String!
+  timezone: String!
 }
 
 type ModuleAdminNode {

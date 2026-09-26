@@ -11,7 +11,7 @@ const limitOf = (raw: unknown): string | undefined =>
 
 /**
  * 日期時間欄(`datetime` → `dateTimePicker`,Spec 6a §5):存 ISO 8601 UTC(`YYYY-MM-DDTHH:mm:ssZ`),
- * 以**租戶時區**輸入與顯示(`context.timezone`,填寫端取自 `formRuntimeVersion.timezone`;唯讀檢視用那次修訂的時區)。
+ * 以**租戶時區**輸入與顯示(`context.timezone`,填寫端取自 `me.currentOrg.timezone`;唯讀檢視用那次修訂的時區)。
  */
 export const DateTimeWidget = ({
   field,

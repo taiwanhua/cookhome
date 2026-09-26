@@ -17,6 +17,7 @@ import { Typography } from "@repo/ui/typography";
 
 import { useDateTimeText } from "@/hooks/useDateTimeText";
 import { useSession } from "@/hooks/useSession";
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { useVersionDefinitions } from "@/hooks/useVersionDefinitions";
 import {
   type ListColumnSpec,
@@ -70,6 +71,7 @@ export const FormSubmissionList = ({
   const t = useTranslations("admin.formEngine.list");
   const tValue = useTranslations("admin.formEngine.renderer");
   const dateTimeText = useDateTimeText();
+  const tenantTimezone = useTenantTimezone();
   const { session } = useSession();
 
   const configured = useModuleListColumnsQuery(
@@ -127,7 +129,8 @@ export const FormSubmissionList = ({
         );
         // 引用的欄位在那一筆的版本不存在(或是別張表單的欄位)→「—」
         let node: ReactNode = valueText.empty;
-        const timezone = row.ctx?.timezone;
+        // 送出過的用那次的時區;草稿(沒有 ctx)用讀者的租戶時區
+        const timezone = row.ctx?.timezone ?? tenantTimezone ?? undefined;
         if (cell.kind === "slot") {
           // 摘要槽「日期」對到日期時間欄(或沒對 = 送出時間)時是 ISO 時點:以那一筆的時區格式化
           if (cell.value === null) {

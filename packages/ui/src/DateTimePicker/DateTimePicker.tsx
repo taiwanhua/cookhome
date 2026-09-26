@@ -1,3 +1,4 @@
+/* eslint-disable import-x/no-named-as-default-member -- dayjs 的發佈檔是 UMD,具名的 `extend` 在 node ESM(admin 的 jest)解析不到;MUI 的 AdapterDayjs 也是以預設匯出呼叫 `extend`。到期條件:dayjs 提供真正的 ESM 具名匯出 */
 "use client";
 
 import type { SxProps, Theme } from "@mui/material/styles";
@@ -12,10 +13,8 @@ import type { ReactNode } from "react";
 import "dayjs/locale/zh-tw";
 
 // MUI X 的 `timezone` 需要 dayjs 的 utc + timezone 外掛(擴充一次,對整個 dayjs 生效)
-/* eslint-disable import-x/no-named-as-default-member -- dayjs 的發佈檔是 UMD,具名的 `extend` 在 node ESM(admin 的 jest)解析不到;MUI 的 AdapterDayjs 也是以預設匯出呼叫 `extend`。到期條件:dayjs 提供真正的 ESM 具名匯出 */
 dayjs.extend(utcPlugin);
 dayjs.extend(timezonePlugin);
-/* eslint-enable import-x/no-named-as-default-member */
 
 /** 預設顯示格式(24 小時制,與 `DatePicker` 的 `YYYY-MM-DD` 同一族)。 */
 const DISPLAY_FORMAT = "YYYY-MM-DD HH:mm";

@@ -2,7 +2,7 @@ import type { FieldDef } from "./types";
 import type { ValueIssue } from "./values";
 
 /**
- * 上傳欄的檔型 / 大小上限(Spec 6a §5 表 A「檔型 / 大小上限」;設定放在 `widget.accept` / `widget.maxSizeMb`)。
+ * 上傳欄的檔型 / 大小上限(Spec 6a §5 表 A「檔型 / 大小上限」;設定放在 `rules.accept` / `rules.maxSizeMb`)。
  *
  * 平台上限是 api `storage/upload-rules.ts` 的 `FORM_ATTACHMENT`(api 有測試釘住兩邊一致);
  * 欄位只能**收窄**:檔型必須是平台允許的子集、大小不能超過平台上限。
@@ -36,7 +36,7 @@ export interface UploadLimits {
 
 /** 欄位設定的 `accept`(去掉不在平台清單的、轉小寫);沒設或設了空陣列 = 平台全部。 */
 function acceptOf(field: FieldDef): readonly string[] {
-  const raw = field.widget.accept;
+  const raw = field.rules?.accept;
   if (!Array.isArray(raw) || raw.length === 0) {
     return FORM_UPLOAD_CONTENT_TYPES;
   }
@@ -49,7 +49,7 @@ function acceptOf(field: FieldDef): readonly string[] {
 
 /** 欄位實際生效的上限(欄位設定與平台上限取嚴者)。 */
 export function uploadLimitsOf(field: FieldDef): UploadLimits {
-  const maxSizeMb = field.widget.maxSizeMb;
+  const maxSizeMb = field.rules?.maxSizeMb;
   const mb =
     typeof maxSizeMb === "number" && Number.isFinite(maxSizeMb) && maxSizeMb > 0
       ? Math.min(maxSizeMb, FORM_UPLOAD_MAX_SIZE_MB)

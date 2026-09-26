@@ -76,7 +76,6 @@ export const FormCreatePage = ({ module, routeParam }: ModulePageProps) => {
         moduleKey={moduleKey}
         form={form}
         definition={version.definition}
-        timezone={version.timezone}
         access={access}
         onLeave={backToList}
       />

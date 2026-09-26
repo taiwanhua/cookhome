@@ -16,6 +16,7 @@ import { useMe } from "@/hooks/useMe";
 import { useModuleForms } from "@/hooks/useModuleForms";
 import { useSnackbar } from "@/hooks/useMutationFeedback";
 import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
 import { permissionsOfSubmission } from "@/lib/form-engine/field-permissions";
 import { tabLabelOf, tabLabelValuesOf } from "@/lib/form-engine/tab-label";
@@ -56,7 +57,7 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
   const userId = user?.id ?? null;
   const orgId = user?.currentOrg?.id ?? null;
   // 權限與 ctx 以 useMemo 保持身分穩定:`FormRenderer` 以它們為 memo 依賴
-  const timezone = version.timezone;
+  const timezone = useTenantTimezone();
   const expressionContext = useMemo(
     () => liveContextOf(userId, orgId, now, timezone),
     [userId, orgId, now, timezone],

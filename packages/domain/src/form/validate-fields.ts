@@ -5,6 +5,7 @@ import {
   type LookupProviderRegistry,
   type WidgetRegistry,
 } from "./registry";
+import { normalizeDateTime } from "./temporal";
 import {
   FIELD_TYPES,
   type FieldDef,
@@ -71,11 +72,32 @@ export function validateFields(
     validateRules(field, context.regexSafety, collector);
     validateReference(field, context.lookupProviders, collector);
     validateUploadLimits(field, collector);
+    validateDateTimeRange(field, collector);
+  }
+}
+
+/** 日期時間欄的 `rules.min` / `max` 要是帶時區的 ISO 8601(不合法的上下限等於沒設,設計者會以為有效)。 */
+function validateDateTimeRange(
+  field: FieldDef,
+  collector: IssueCollector,
+): void {
+  if (field.type !== "datetime") {
+    return;
+  }
+  for (const key of ["min", "max"] as const) {
+    const raw = field.rules?.[key];
+    if (raw !== undefined && raw !== "" && normalizeDateTime(raw) === null) {
+      collector.error(
+        "RULE_RANGE_INVALID",
+        `「${field.label}」的${key === "min" ? "最早" : "最晚"}時間不是含時區的日期時間`,
+        { fieldKey: field.key, property: `rules.${key}` },
+      );
+    }
   }
 }
 
 /**
- * 上傳欄的檔型 / 大小上限(`widget.accept` / `widget.maxSizeMb`):只能收窄平台上限 ——
+ * 上傳欄的檔型 / 大小上限(`rules.accept` / `rules.maxSizeMb`):只能收窄平台上限 ——
  * 檔型必須在 `FORM_UPLOAD_CONTENT_TYPES` 內,大小是 0 以上、不超過 `FORM_UPLOAD_MAX_SIZE_MB` 的數字。
  */
 function validateUploadLimits(
@@ -85,7 +107,8 @@ function validateUploadLimits(
   if (field.type !== "upload") {
     return;
   }
-  const { accept, maxSizeMb } = field.widget;
+  const accept: unknown = field.rules?.accept;
+  const maxSizeMb: unknown = field.rules?.maxSizeMb;
   const allowed = new Set<string>(FORM_UPLOAD_CONTENT_TYPES);
   if (
     accept !== undefined &&
@@ -97,7 +120,7 @@ function validateUploadLimits(
     collector.error(
       "UPLOAD_LIMIT_INVALID",
       `「${field.label}」的允許檔型只能從平台允許的檔型中挑`,
-      { fieldKey: field.key, property: "widget.accept" },
+      { fieldKey: field.key, property: "rules.accept" },
     );
   }
   if (
@@ -110,7 +133,7 @@ function validateUploadLimits(
     collector.error(
       "UPLOAD_LIMIT_INVALID",
       `「${field.label}」的大小上限須大於 0、不超過 ${String(FORM_UPLOAD_MAX_SIZE_MB)} MB`,
-      { fieldKey: field.key, property: "widget.maxSizeMb" },
+      { fieldKey: field.key, property: "rules.maxSizeMb" },
     );
   }
 }

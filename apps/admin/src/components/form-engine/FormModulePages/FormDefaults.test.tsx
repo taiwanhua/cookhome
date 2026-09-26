@@ -2,16 +2,21 @@ import { describe, expect, it } from "@jest/globals";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import type { FormDefinition } from "@repo/domain/form";
-import { FormSubmissionStatus } from "@repo/graphql";
+import { FormSubmissionStatus, ModuleListColumnKind } from "@repo/graphql";
 
 import {
   SHOPPING_FORM_KEY,
+  SHOPPING_LIST_KEY,
   SHOPPING_ROUTES,
   field,
   submissionFragment,
 } from "@/test/msw/form-fixtures";
+import { setupFakeViewport } from "@/test/viewport";
 
 import { renderShopping, shoppingForm } from "./form-module-test-support";
+
+// 列表的 DataTable 是虛擬捲動,jsdom 沒有尺寸就一列都不畫
+setupFakeViewport();
 
 const CREATE_PATH = `${SHOPPING_ROUTES.createPage}/shopping_list`;
 const EDIT_PATH = `${SHOPPING_ROUTES.editPage}/sub-1`;
@@ -188,6 +193,115 @@ describe("表單模組:欄位預設值與日期時間", () => {
     expect(world.inputs.saveFormDraft[0]?.values).toMatchObject({
       deliver_at: "2026-03-15T01:30:00Z",
     });
+  });
+
+  it("修訂差異:日期時間以各修訂自己的時區(東京)顯示,不用讀者的租戶時區(台北)", async () => {
+    const { user } = renderShopping({
+      path: VIEW_PATH,
+      world: {
+        ...worldWith([
+          submissionFragment({
+            revision: 2,
+            revisions: [
+              { revision: 1, at: "2026-01-05T00:00:00.000Z", user: null },
+              { revision: 2, at: "2026-01-06T00:00:00.000Z", user: null },
+            ],
+            ctx: {
+              at: "2026-01-06T00:00:00.000Z",
+              timezone: "Asia/Tokyo",
+              userId: "user-1",
+              orgId: "org-1",
+            },
+            values: { item: "牛奶", deliver_at: "2026-03-01T02:30:00Z" },
+          }),
+        ]),
+        snapshots: {
+          "sub-1": {
+            1: { item: "牛奶", deliver_at: "2026-03-01T01:30:00Z" },
+            2: { item: "牛奶", deliver_at: "2026-03-01T02:30:00Z" },
+          },
+        },
+      },
+    });
+
+    const history = await screen.findByRole("region", { name: "修訂紀錄" });
+    await user.click(
+      within(history).getByRole("button", { name: "與前一修訂的差異" }),
+    );
+    const diff = await within(history).findByRole("table", {
+      name: "修訂 2 的差異",
+    });
+    expect(within(diff).getByText(/10:30/)).toBeInTheDocument();
+    expect(within(diff).getByText(/11:30/)).toBeInTheDocument();
+  });
+
+  it("列表:送出過的列用那次的時區、草稿列用讀者的租戶時區", async () => {
+    renderShopping({
+      path: SHOPPING_ROUTES.list,
+      world: {
+        ...worldWith([
+          submissionFragment({
+            id: "sub-done",
+            ctx: {
+              at: "2026-01-06T00:00:00.000Z",
+              timezone: "Asia/Tokyo",
+              userId: "user-1",
+              orgId: "org-1",
+            },
+            summary: { title: "已送出", date: null, amount: null },
+            values: { item: "已送出", deliver_at: "2026-03-01T01:30:00Z" },
+          }),
+          submissionFragment({
+            id: "sub-draft",
+            status: FormSubmissionStatus.Draft,
+            revision: 0,
+            revisions: [],
+            ctx: null,
+            submittedAt: null,
+            summary: { title: "還沒送出", date: null, amount: null },
+            values: { item: "還沒送出", deliver_at: "2026-03-01T01:30:00Z" },
+          }),
+        ]),
+        listColumns: {
+          [SHOPPING_LIST_KEY]: [
+            {
+              kind: ModuleListColumnKind.Slot,
+              key: "title",
+              formKey: null,
+              width: 200,
+              order: 0,
+            },
+            {
+              kind: ModuleListColumnKind.Field,
+              key: "deliver_at",
+              formKey: null,
+              width: 200,
+              order: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    const grid = await screen.findByRole(
+      "table",
+      { name: "購物清單清單" },
+      { timeout: 10_000 },
+    );
+    // 列表要接力載完(登入 → 模組 → 表單清單 → 欄位配置 → 提交清單),放寬等待
+    const doneCell = await within(grid).findByText(
+      "已送出",
+      {},
+      { timeout: 10_000 },
+    );
+    const done = doneCell.closest("tr");
+    const draft = within(grid).getByText("還沒送出").closest("tr");
+    await waitFor(() => {
+      expect(
+        within(done as HTMLElement).getByText(/10:30/),
+      ).toBeInTheDocument();
+    });
+    expect(within(draft as HTMLElement).getByText(/9:30/)).toBeInTheDocument();
   });
 
   it("詳情:日期時間以那一筆的時區依語系格式化", async () => {

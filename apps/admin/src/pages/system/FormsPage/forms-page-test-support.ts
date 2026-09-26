@@ -19,6 +19,7 @@ import {
   shoppingDefinition,
   versionFragment,
 } from "@/test/msw/form-fixtures";
+import type { FormRuntimeWorldOptions } from "@/test/msw/form-runtime-handlers";
 import { formRuntimeWorld } from "@/test/msw/form-runtime-handlers";
 import { server } from "@/test/msw/server";
 import { renderApp } from "@/test/render";
@@ -92,6 +93,8 @@ export const smallDesignOptions = (): FormDesignWorldOptions => {
 export const renderFormsPage = (
   options: FormDesignWorldOptions = defaultDesignOptions(),
   permissions: readonly string[] = FORMS_ALL,
+  /** 執行端的假 api(預覽與設計器裡的選項選擇器會打,例:類別選項 `fieldOptions`) */
+  runtime: FormRuntimeWorldOptions = {},
 ): ReturnType<typeof renderApp> & { world: FormDesignWorld } => {
   const world = formDesignWorld(options);
   server.use(
@@ -101,7 +104,7 @@ export const renderFormsPage = (
     }).handlers,
     ...world.handlers,
     // 預覽模式的帶入 / 選項會打執行端的查詢
-    ...formRuntimeWorld().handlers,
+    ...formRuntimeWorld(runtime).handlers,
   );
   return { ...renderApp({ path: FORMS_ROUTE }), world };
 };

@@ -1528,21 +1528,7 @@
       "defaultConstant": "Default",
       "defaultHint": "Filled in when a new entry starts. Until the filler changes this field, it is recalculated when the fields it references change.",
       "defaultPickerHint": "Pick with the same picker used when filling (options come from the saved draft)",
-      "defaultClear": "Clear default",
-      "uploadAccept": "Allowed file types",
-      "uploadTypes": {
-        "png": "PNG image",
-        "jpg": "JPEG image",
-        "webp": "WebP image",
-        "pdf": "PDF",
-        "doc": "Word (.doc)",
-        "docx": "Word (.docx)",
-        "xls": "Excel (.xls)",
-        "xlsx": "Excel (.xlsx)",
-        "zip": "ZIP"
-      },
-      "uploadMaxSize": "Size limit (MB)",
-      "uploadMaxSizeHint": "Empty = platform limit of {max} MB; can only be lowered"
+      "defaultClear": "Clear default"
     },
     "options": {
       "source": "Option source",
@@ -1617,7 +1603,21 @@
       "custom": "Custom validation (passes when true)",
       "customMessage": "Error message",
       "customMessageHint": "Shown when the condition is false; defaults to “Field doesn't match the rule”",
-      "dateTimeRangeHint": "ISO 8601 with a time zone, e.g. 2026-01-01T09:00+08:00"
+      "uploadAccept": "Allowed file types",
+      "uploadTypes": {
+        "png": "PNG image",
+        "jpg": "JPEG image",
+        "webp": "WebP image",
+        "pdf": "PDF",
+        "doc": "Word (.doc)",
+        "docx": "Word (.docx)",
+        "xls": "Excel (.xls)",
+        "xlsx": "Excel (.xlsx)",
+        "zip": "ZIP"
+      },
+      "uploadMaxSize": "Size limit (MB)",
+      "uploadMaxSizeHint": "Empty = platform limit of {max} MB; can only be lowered",
+      "dateTimeRangeZone": "Entered in {timezone} time"
     },
     "expression": {
       "root": "root",

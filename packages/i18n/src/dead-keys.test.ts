@@ -191,7 +191,7 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
       "`t(`defaultSystem.${…}`)`,由 `REFERENCE_DEFAULT_PATHS`(填寫者 / 填寫者的組織)換算",
   },
   {
-    key: "admin.forms.property.uploadTypes.",
+    key: "admin.forms.rules.uploadTypes.",
     reason:
       "`t(`uploadTypes.${group.key}`)`,key 取自 `lib/form-engine/upload-types.ts` 的 `UPLOAD_TYPE_GROUPS`",
   },

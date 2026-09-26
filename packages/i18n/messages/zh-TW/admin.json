@@ -1528,21 +1528,7 @@
       "defaultConstant": "預設的值",
       "defaultHint": "新增時自動填入;填寫的人還沒改過這欄前,它引用的欄位變了會跟著重算,改過就不再變。",
       "defaultPickerHint": "用填寫時的選擇器挑(選項以已存的草稿查詢)",
-      "defaultClear": "清除預設值",
-      "uploadAccept": "允許的檔型",
-      "uploadTypes": {
-        "png": "PNG 圖片",
-        "jpg": "JPEG 圖片",
-        "webp": "WebP 圖片",
-        "pdf": "PDF",
-        "doc": "Word(.doc)",
-        "docx": "Word(.docx)",
-        "xls": "Excel(.xls)",
-        "xlsx": "Excel(.xlsx)",
-        "zip": "ZIP"
-      },
-      "uploadMaxSize": "大小上限(MB)",
-      "uploadMaxSizeHint": "不填 = 平台上限 {max} MB;只能調小"
+      "defaultClear": "清除預設值"
     },
     "options": {
       "source": "選項來源",
@@ -1617,7 +1603,21 @@
       "custom": "自訂驗證(條件成立才通過)",
       "customMessage": "錯誤訊息",
       "customMessageHint": "條件不成立時顯示;沒填就顯示「欄位名 不符合規則」",
-      "dateTimeRangeHint": "含時區的 ISO 8601,例:2026-01-01T09:00+08:00"
+      "uploadAccept": "允許的檔型",
+      "uploadTypes": {
+        "png": "PNG 圖片",
+        "jpg": "JPEG 圖片",
+        "webp": "WebP 圖片",
+        "pdf": "PDF",
+        "doc": "Word(.doc)",
+        "docx": "Word(.docx)",
+        "xls": "Excel(.xls)",
+        "xlsx": "Excel(.xlsx)",
+        "zip": "ZIP"
+      },
+      "uploadMaxSize": "大小上限(MB)",
+      "uploadMaxSizeHint": "不填 = 平台上限 {max} MB;只能調小",
+      "dateTimeRangeZone": "以 {timezone} 的時間輸入"
     },
     "expression": {
       "root": "根",

@@ -12,6 +12,7 @@ import {
   defaultValueOf,
   isEmptyValue,
   referencedFieldKeys,
+  uploadLimitIssue,
 } from "@repo/domain/form";
 
 import { AuditService } from "../../audit/audit.service";
@@ -345,7 +346,7 @@ export class FormSubmissionsService {
       record.fields,
       gate,
     ) as unknown as Record<string, unknown>[];
-    return { formVersion, validation: null, timezone: facts.timezone };
+    return { formVersion, validation: null };
   }
 
   async list(
@@ -522,7 +523,8 @@ export class FormSubmissionsService {
       moduleKey: form.moduleKey,
       formKey: form.key,
       fields: version.fields,
-      // 預設值同時當「既有值」:沒有 `edit` 的欄位(原因 3 保留既有值)也拿得到預設值、不會被判成改動
+      // 預設值同時當「既有值」(`defaultsOf` 只算操作者改得動的欄位):`readonlyWhen` 一開始就成立的欄位
+      // (原因 4 保留既有值)也留得住預設值
       base: defaults,
       sent: { ...initial.sent, ...defaults },
       previous: null,
@@ -1193,6 +1195,10 @@ export class FormSubmissionsService {
     }
     if (field.type === "upload") {
       const upload = value as Record<string, unknown>;
+      // 目標版本的欄位上限改窄了、舊附件不符 → 清空該欄(列進 clearedFields),不擋整張複製
+      if (uploadLimitIssue(field, upload) !== null) {
+        return undefined;
+      }
       try {
         const path = await this.storage.copyPrivateObject(
           typeof upload.path === "string" ? upload.path : null,

@@ -480,6 +480,7 @@ describe("申請中心與讀取授權", () => {
           source: { provider: "user", labelField: "name" },
         }),
         field("attachment", "upload"),
+        field("scan", "upload"),
         field("extra", "text"),
       ];
       await ok(api, world.root, CREATE_FORM, {
@@ -507,6 +508,7 @@ describe("申請中心與讀取授權", () => {
         days: 3,
         approver: { id: String(colleague.userId), label: null },
         attachment,
+        scan: uploadValue(randomUUID()),
         extra: "舊欄位",
       });
       const submitted = await submitExisting(world, draft);
@@ -537,7 +539,7 @@ describe("申請中心與讀取授權", () => {
       });
       expect(voided.voidSubmission.submission.abilities.canCopy).toBe(true);
       // 表單改版:extra 刪掉(目標版本沒有的欄位不複製);title 加預設值(不覆蓋複製來的值)、
-      // 新欄位 memo 有預設值(來源沒有 → 填預設值)
+      // 新欄位 memo 有預設值(來源沒有 → 填預設值);scan 改成只收 PNG(舊的 PDF 不符 → 清空)
       await publishDefinition(
         api,
         world.root,
@@ -554,6 +556,7 @@ describe("申請中心與讀取授權", () => {
             source: { provider: "user", labelField: "name" },
           }),
           field("attachment", "upload"),
+          field("scan", "upload", { rules: { accept: ["image/png"] } }),
         ]),
         1,
       );
@@ -573,7 +576,8 @@ describe("申請中心與讀取授權", () => {
       const fresh = copied.copySubmissionToDraft.submission;
       expect(fresh.status).toBe("DRAFT");
       expect(fresh.copiedFrom).toBe(submitted.id);
-      expect(fresh.clearedFields).toEqual(["approver"]);
+      expect(fresh.clearedFields).toEqual(["approver", "scan"]);
+      expect(fresh.values.scan ?? null).toBeNull();
       expect(fresh.values.title).toBe("要作廢的");
       expect(fresh.values.memo).toBe("新欄位的預設值");
       // 數字存十進位字串

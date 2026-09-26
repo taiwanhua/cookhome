@@ -29,11 +29,5 @@ export const useFormRuntimeVersion = (
     () => (raw === undefined ? null : definitionOf(raw)),
     [raw],
   );
-  return {
-    definition,
-    /** 租戶時區(日期時間欄的輸入 / 顯示、表達式的 `ctx.timezone`);還沒載到為 null */
-    timezone: query.data?.formRuntimeVersion.timezone ?? null,
-    isLoading: query.isLoading,
-    error: query.error,
-  };
+  return { definition, isLoading: query.isLoading, error: query.error };
 };

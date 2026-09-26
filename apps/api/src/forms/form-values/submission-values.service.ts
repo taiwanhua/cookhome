@@ -282,8 +282,9 @@ export class SubmissionValuesService {
   }
 
   /**
-   * 上傳欄:只收本 API 簽出來的路徑,檔型 / 大小照 `FORM_ATTACHMENT` 的規則,再套**欄位自己的**
-   * 檔型 / 大小上限(`widget.accept` / `widget.maxSizeMb`,只能收窄)。
+   * 上傳欄:只收本 API 簽出來的路徑,檔型 / 大小照 `FORM_ATTACHMENT` 的規則(宣稱的檔型要與路徑副檔名一致),
+   * 再套**欄位自己的**檔型 / 大小上限(`rules.accept` / `rules.maxSizeMb`,只能收窄)。欄位上限在**存草稿與送出**
+   * 兩處驗,不在上傳完成那一步;大小是前端申報的值(以 GCS metadata 驗實際大小另開票)。
    *
    * - 草稿(上傳完成後存草稿):驗這次換上的新檔(與存的值相同的不重驗)
    * - 送出 / 已完成修改:驗「與上一個已完成修訂不同」的檔 —— 草稿時存下、送出前版本改窄了上限的也擋得到;
@@ -314,10 +315,14 @@ export class SubmissionValuesService {
           ? value.contentType.toLowerCase()
           : "";
       const size = typeof value.size === "number" ? value.size : -1;
+      // 宣稱的檔型要與路徑的副檔名對得上(路徑是本 API 依申報檔型簽出來的,副檔名由它決定):
+      // 不能只信前端送的 contentType —— 否則上傳一個 .png、存值時宣稱 application/pdf 就繞過欄位的檔型限制
+      const extension = path.slice(path.lastIndexOf(".") + 1);
       if (
         !isOwnedUploadPath(path) ||
         !path.startsWith(`${FORM_UPLOAD_PREFIX}/`) ||
         !(contentType in rule.extensions) ||
+        rule.extensions[contentType] !== extension ||
         size < 0 ||
         size > rule.maxBytes ||
         (typeof value.name === "string" &&

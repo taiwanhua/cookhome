@@ -11,6 +11,7 @@ import { useMe } from "@/hooks/useMe";
 import type { ModuleFormSummary } from "@/hooks/useModuleForms";
 import { useSnackbar } from "@/hooks/useMutationFeedback";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
 import {
   permissionsFromHeld,
@@ -24,8 +25,6 @@ export interface FormCreateBodyProps {
   moduleKey: string;
   form: ModuleFormSummary;
   definition: FormDefinition;
-  /** 租戶時區(`formRuntimeVersion.timezone`);null = 還沒拿到,先用瀏覽器時區 */
-  timezone: string | null;
   access: FormModuleAccess;
   onLeave: () => void;
 }
@@ -39,7 +38,6 @@ export const FormCreateBody = ({
   moduleKey,
   form,
   definition,
-  timezone,
   access,
   onLeave,
 }: FormCreateBodyProps) => {
@@ -51,6 +49,7 @@ export const FormCreateBody = ({
   const draft = useFormDraft(form.key);
   const [now] = useState(() => new Date());
   const user = me.data?.me;
+  const timezone = useTenantTimezone();
 
   // 權限與 ctx 以 useMemo 保持身分穩定:`FormRenderer` 以它們為 memo 依賴
   const held = useMemo(

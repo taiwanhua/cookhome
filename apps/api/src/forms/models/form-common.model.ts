@@ -129,13 +129,6 @@ export class FormVersionPayload {
   /** 草稿的檢查器結果(存草稿、讀草稿時附上;已發布版為 null)。 */
   @Field(() => FormValidationReport, { nullable: true })
   validation!: FormValidationReport | null;
-
-  /**
-   * 操作者的租戶時區(IANA;`orgs.settings.timezone`,沒設 = `Asia/Taipei`)。
-   * 填寫端與設計器預覽以它輸入 / 顯示日期時間、算表達式的 `ctx.timezone`;發布 / 重試回傳時為 null。
-   */
-  @Field(() => String, { nullable: true })
-  timezone?: string | null;
 }
 
 /** 一欄在這次渲染的狀態(後端依條件與讀者權限算好)。 */

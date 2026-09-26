@@ -96,18 +96,18 @@ export interface FieldRules {
   custom?: Expression;
   /** `custom` 不成立時顯示的錯誤訊息;沒填用預設文字「X 不符合規則」。 */
   customMessage?: string;
+  /**
+   * 只有 `upload`:允許的檔型(MIME,如 `application/pdf`、`image/png`);不設 = 平台允許的全部。
+   * 必須是平台上傳政策允許的檔型之一(`FORM_UPLOAD_CONTENT_TYPES`),只能收窄。
+   */
+  accept?: readonly string[];
+  /** 只有 `upload`:單檔大小上限(MB);不設 = 平台上限(`FORM_UPLOAD_MAX_SIZE_MB`),只能調小。 */
+  maxSizeMb?: number;
 }
 
 export interface FieldWidget {
   /** admin 元件登錄表的 key。 */
   kind: string;
-  /**
-   * 只有 `upload`:允許的檔型(MIME,如 `application/pdf`、`image/png`);不設 = 平台允許的全部。
-   * 必須是平台上傳政策允許的檔型之一(`FORM_UPLOAD_CONTENT_TYPES`)。
-   */
-  accept?: readonly string[];
-  /** 只有 `upload`:單檔大小上限(MB);不設 = 平台上限(`FORM_UPLOAD_MAX_SIZE_MB`)。 */
-  maxSizeMb?: number;
   /** 只管長相的設定(`unit`、`placeholder`、`rows`…)。 */
   [setting: string]: unknown;
 }

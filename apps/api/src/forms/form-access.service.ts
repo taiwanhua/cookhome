@@ -110,6 +110,21 @@ export class FormAccessService {
     };
   }
 
+  /** 某個組織所屬租戶的時區(`me.currentOrg.timezone`);組織讀不到 → 預設。 */
+  async timezoneOfOrg(
+    operator: OperatorContext,
+    orgId: Types.ObjectId,
+  ): Promise<string> {
+    const org = await this.orgs.findById(orgReader(operator), orgId);
+    if (!org) {
+      return DEFAULT_TIMEZONE;
+    }
+    return this.timezoneOf(
+      operator,
+      tenantIdOfOrg({ _id: org._id, ancestors: org.ancestors }),
+    );
+  }
+
   /** 租戶時區:租戶頂層的 `settings.timezone`(字串才算);根組織或沒設 → 預設。 */
   private async timezoneOf(
     operator: OperatorContext,

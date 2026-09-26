@@ -16,6 +16,7 @@ import { LookupDialog } from "@/components/form-engine/LookupDialog/LookupDialog
 import { useFillValues } from "@/hooks/useFillValues";
 import { useMe } from "@/hooks/useMe";
 import { useSession } from "@/hooks/useSession";
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
 import { OPEN_PERMISSIONS } from "@/lib/form-engine/field-states";
 import { formErrorOf } from "@/lib/form-engine/form-errors";
@@ -27,8 +28,6 @@ export interface DesignerPreviewProps {
   isDirty: boolean;
   /** 唯讀檢視已發布 / 已退役的版本時是它的版號;草稿為 null(只有草稿能「以後端重算」) */
   version?: number | null;
-  /** 租戶時區(`formVersion.timezone`);不給 = 瀏覽器時區 */
-  timezone?: string | null;
 }
 
 type PreviewResult = PreviewFormVersionQuery["previewFormVersion"];
@@ -43,7 +42,6 @@ export const DesignerPreview = ({
   definition,
   isDirty,
   version = null,
-  timezone = null,
 }: DesignerPreviewProps) => {
   const t = useTranslations("admin.forms.preview");
   const tErrors = useTranslations("admin.forms.errors");
@@ -55,6 +53,7 @@ export const DesignerPreview = ({
   const [isPrefilling, setIsPrefilling] = useState(false);
   const [now] = useState(() => new Date());
   const user = me.data?.me;
+  const timezone = useTenantTimezone();
   const expressionContext = liveContextOf(
     user?.id ?? null,
     user?.currentOrg?.id ?? null,
