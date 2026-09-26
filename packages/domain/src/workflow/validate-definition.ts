@@ -40,6 +40,11 @@ export interface ValidateWorkflowOptions {
    * 不給時改用定義裡第一個 `field` 來源的表單;兩者都沒有 → 只檢查表達式形狀。
    */
   checkFormFields?: readonly FieldDef[] | null;
+  /**
+   * 設計器選的「檢查用表單」key 對不到可用的表單(不存在、看不到或沒有目前版本):出一筆
+   * `CHECK_FORM_UNAVAILABLE`,跳過條件只檢查形狀 —— 不拿別張表單硬比,免得冒出一堆 `SKIP_UNKNOWN_FIELD`。
+   */
+  unavailableCheckFormKey?: string;
 }
 
 /**
@@ -58,7 +63,17 @@ export function validateWorkflowDefinition(
   }
   checkKeys(steps, collector);
   const isGraph = hasEdges(definition);
-  const skipFields = skipWhenFieldsOf(definition, options);
+  if (options.unavailableCheckFormKey !== undefined) {
+    collector.error(
+      "CHECK_FORM_UNAVAILABLE",
+      `檢查用表單 ${options.unavailableCheckFormKey} 不存在、看不到或還沒有發布版本,跳過條件無法對照欄位`,
+      { property: "checkFormKey" },
+    );
+  }
+  const skipFields =
+    options.unavailableCheckFormKey === undefined
+      ? skipWhenFieldsOf(definition, options)
+      : null;
   for (const [stepIndex, step] of steps.entries()) {
     const location: WorkflowIssueLocation = { stepKey: step.key, stepIndex };
     if (!(STEP_KINDS as readonly string[]).includes(step.kind ?? "review")) {

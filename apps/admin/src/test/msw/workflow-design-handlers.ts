@@ -28,6 +28,7 @@ import { STAMP, workflowFragment } from "./workflow-fixtures";
 export type WorkflowDesignOperation =
   | "SaveWorkflowVersionDraft"
   | "DeleteWorkflowVersionDraft"
+  | "ValidateWorkflowVersion"
   | "PublishWorkflowVersion"
   | "CreateWorkflow"
   | "BindFormWorkflow";
@@ -167,6 +168,10 @@ export const workflowDesignWorld = (
     api.query("ValidateWorkflowVersion", ({ variables }) => {
       const { input } = variables as ValidateWorkflowVersionQueryVariables;
       inputs.validate.push(input);
+      const failure = fail("ValidateWorkflowVersion");
+      if (failure !== null) {
+        return failure;
+      }
       return HttpResponse.json({
         data: { validateWorkflowVersion: options.validation ?? EMPTY_REPORT },
       });

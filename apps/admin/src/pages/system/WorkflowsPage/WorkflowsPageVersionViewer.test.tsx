@@ -71,6 +71,36 @@ describe("流程管理:唯讀檢視已發布的版本", () => {
     ).toHaveValue("人資部");
   });
 
+  it("唯讀檢視按「檢查」:送那一版的定義與它存的檢查用表單,結果面板照列", async () => {
+    const options = defaultDesignOptions();
+    const { user, world } = renderWorkflows({
+      world: {
+        ...options,
+        versions: {
+          leave_review: (options.versions?.leave_review ?? []).map((item) =>
+            item.version === 1 ? { ...item, checkFormKey: "sick_leave" } : item,
+          ),
+        },
+      },
+    });
+    await findCanvas();
+    const viewer = await openVersion(user);
+
+    await user.click(within(viewer).getByRole("button", { name: "檢查" }));
+
+    expect(
+      await within(viewer).findByRole("region", { name: "完整檢查" }),
+    ).toBeInTheDocument();
+    expect(world.inputs.validate).toHaveLength(1);
+    expect(world.inputs.validate[0]).toMatchObject({
+      workflowKey: "leave_review",
+      checkFormKey: "sick_leave",
+    });
+    expect(
+      within(viewer).getByRole("combobox", { name: "檢查用表單" }),
+    ).toHaveAttribute("aria-disabled", "true");
+  });
+
   it("沒有草稿時:唯讀檢視旁「以 v1 為基底開新草稿」", async () => {
     const options = defaultDesignOptions();
     const { user, world } = renderWorkflows({

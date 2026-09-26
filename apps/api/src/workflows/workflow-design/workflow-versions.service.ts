@@ -298,7 +298,7 @@ export class WorkflowVersionsService {
 
   /**
    * 刪除草稿(`expectedDraftRevision` 樂觀鎖;發布進行中 / 中斷時不可 → `PUBLISH_IN_PROGRESS`)。
-   * **硬刪**(`hardDeleteOne`):草稿從未發布,沒有實例 / 任務引用它;軟刪除會佔住「至多一份草稿」的
+   * **硬刪**(`hardDeleteDraft`,ADR-0007 第三種):草稿從未發布,沒有實例 / 任務引用它;軟刪除會佔住「至多一份草稿」的
    * 部分唯一索引,改成 `retired` 又會把「發布過」的語意弄髒。刪前的整份內容寫進稽核的 `before`,
    * 需要時從稽核回看。已發布 / 退役的版本不受影響,之後可再以任一版開新草稿。
    */
@@ -312,10 +312,13 @@ export class WorkflowVersionsService {
       facts,
       input.workflowKey,
     );
+    // 先擋發布中斷;競態下(檢查後、刪除前剛好有人把草稿搶鎖成 publishing)條件刪不到,
+    // 會回 `DRAFT_MISSING` 而不是 `PUBLISH_IN_PROGRESS` —— 可接受:草稿確實已不在、不會誤刪,重新載入即見發布中
     await this.publisher.assertNotPublishing(operator, workflow);
-    const deleted = await this.versions.hardDeleteOne(operator, {
+    const deleted = await this.versions.hardDeleteDraft(operator, {
       workflowKey: workflow.key,
       status: "draft",
+      version: null,
       draftRevision: input.expectedDraftRevision,
     });
     if (!deleted) {

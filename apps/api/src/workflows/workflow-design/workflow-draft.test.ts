@@ -5,6 +5,7 @@ import {
   type AuthTestApp,
   startAuthTestApp,
 } from "../../auth/test-support/auth-app";
+import { createOrg } from "../../auth/test-support/fixtures";
 import {
   ASSIGN,
   CREATE_FORM,
@@ -15,6 +16,7 @@ import {
   publishDefinition,
 } from "../../forms/test-support/form-fixtures";
 import {
+  ASSIGN_WORKFLOW,
   CREATE_WORKFLOW,
   CREATE_WORKFLOW_DRAFT,
   DELETE_WORKFLOW_DRAFT,
@@ -28,6 +30,7 @@ import {
   type World,
   errorCode,
   errorReason,
+  person,
   publishWorkflow,
   reviewStep,
   saveWorkflowDraft,
@@ -257,6 +260,87 @@ describe("流程草稿:刪除與檢查用表單", () => {
     });
   });
 
+  describe("deleteWorkflowVersionDraft:租戶邊界", () => {
+    it("租戶刪分派來的共用流程草稿 → NOT_WORKFLOW_OWNER,草稿還在", async () => {
+      const key = nextKey("shared_draft");
+      await ok(api, world.root, CREATE_WORKFLOW, {
+        input: { key, name: `共用 ${key}` },
+      });
+      const first = await ok<{
+        createWorkflowVersionDraft: { workflowVersion: WorkflowVersionRow };
+      }>(api, world.root, CREATE_WORKFLOW_DRAFT, {
+        input: { workflowKey: key, baseVersion: null },
+      });
+      const saved = await saveWorkflowDraft(
+        world,
+        key,
+        { steps: [managerStep("boss")] },
+        first.createWorkflowVersionDraft.workflowVersion.draftRevision,
+        world.root,
+      );
+      await ok(api, world.root, PUBLISH_WORKFLOW, {
+        input: {
+          workflowKey: key,
+          expectedDraftRevision: saved.draftRevision,
+          changelog: "共用第一版",
+        },
+      });
+      await ok(api, world.root, ASSIGN_WORKFLOW, {
+        input: { workflowKey: key, tenantOrgIds: [String(world.tenant)] },
+      });
+      const draft = await ok<{
+        createWorkflowVersionDraft: { workflowVersion: WorkflowVersionRow };
+      }>(api, world.root, CREATE_WORKFLOW_DRAFT, {
+        input: { workflowKey: key, baseVersion: 1 },
+      });
+      const revision =
+        draft.createWorkflowVersionDraft.workflowVersion.draftRevision;
+
+      const blocked = await call(
+        api,
+        world.admin.token,
+        DELETE_WORKFLOW_DRAFT,
+        {
+          input: { workflowKey: key, expectedDraftRevision: revision },
+        },
+      );
+
+      expect(errorCode(blocked)).toBe("FORBIDDEN");
+      expect(errorReason(blocked)).toBe("NOT_WORKFLOW_OWNER");
+      const still = await ok<VersionResult>(api, world.root, WORKFLOW_VERSION, {
+        workflowKey: key,
+      });
+      expect(still.workflowVersion.workflowVersion.draftRevision).toBe(
+        revision,
+      );
+    });
+
+    it("另一個租戶刪本租戶客製流程的草稿 → 被擋(看不到),草稿還在", async () => {
+      const key = nextKey("custom_draft");
+      const draft = await createWithDraft(key);
+      const otherTenant = await createOrg(api.connection, { name: "別的租戶" });
+      const otherAdmin = await person(
+        api,
+        api.connection,
+        otherTenant,
+        otherTenant,
+        {
+          moduleKeys: ["system", "system.workflows"],
+          permissionKeys: ["system.workflows.*"],
+        },
+      );
+
+      const blocked = await call(api, otherAdmin.token, DELETE_WORKFLOW_DRAFT, {
+        input: { workflowKey: key, expectedDraftRevision: draft.draftRevision },
+      });
+
+      expect(blocked.errors).toBeDefined();
+      expect(["NOT_FOUND", "FORBIDDEN"]).toContain(errorCode(blocked));
+      const still = await readDraft(key);
+      expect(still.workflowVersion.draftRevision).toBe(draft.draftRevision);
+    });
+  });
+
   describe("checkFormKey", () => {
     it("存草稿一併存;缺席不動、null 清掉;草稿的檢查結果對它驗跳過條件", async () => {
       const key = nextKey("check_form");
@@ -307,6 +391,33 @@ describe("流程草稿:刪除與檢查用表單", () => {
         switched.draftRevision,
       );
       expect(cleared.checkFormKey).toBeNull();
+    });
+
+    it("檢查用表單對不到(不存在)→ CHECK_FORM_UNAVAILABLE 擋發布,不冒出 SKIP_UNKNOWN_FIELD", async () => {
+      const key = nextKey("check_missing");
+      const draft = await createWithDraft(key);
+      const saved = await saveWorkflowDraft(
+        world,
+        key,
+        {
+          steps: [managerStep("boss", { skipWhen: SKIP_SHORT })],
+          checkFormKey: "no_such_form",
+        },
+        draft.draftRevision,
+      );
+      const read = await readDraft(key);
+      expect(read.validation?.errors.map((issue) => issue.code)).toEqual([
+        "CHECK_FORM_UNAVAILABLE",
+      ]);
+      const blocked = await call(api, world.admin.token, PUBLISH_WORKFLOW, {
+        input: {
+          workflowKey: key,
+          expectedDraftRevision: saved.draftRevision,
+          changelog: "對不到",
+        },
+      });
+      expect(errorCode(blocked)).toBe("VALIDATION_FAILED");
+      expect(issueCodes(blocked)).toEqual(["CHECK_FORM_UNAVAILABLE"]);
     });
 
     it("發布檢查用它:對不上的檢查用表單擋發布;發布快照保留;以此版開草稿與 fork 都帶過去", async () => {

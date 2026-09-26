@@ -18,6 +18,26 @@ import type { FormOperatorFacts } from "../../forms/form-access.service";
 import { TenantDirectoryService } from "../tenant-directory.service";
 
 /**
+ * 檢查用表單的選項:對得到目前版本 → 以它的欄位驗跳過條件;表單不存在、看不到或沒有目前版本 →
+ * `CHECK_FORM_UNAVAILABLE`(擋發布),跳過條件只驗形狀。
+ */
+function checkFormOptionsOf(
+  checkFormKey: string | null,
+  forms: ReadonlyMap<string, readonly FieldDef[] | null>,
+): Pick<
+  ValidateWorkflowOptions,
+  "checkFormFields" | "unavailableCheckFormKey"
+> {
+  if (checkFormKey === null) {
+    return {};
+  }
+  const fields = forms.get(checkFormKey);
+  return fields === undefined || fields === null
+    ? { unavailableCheckFormKey: checkFormKey }
+    : { checkFormFields: fields };
+}
+
+/**
  * 流程定義檢查器的 api 端(Spec 6b §5「定義檢查器」):規則正本是 `@repo/domain/workflow` 的
  * `validateWorkflowDefinition`,這裡只把它要的目錄從資料庫組好 ——
  * 共用 / 客製、本租戶的角色與使用者、`field` 來源表單與「檢查用表單」的**目前版本**欄位。
@@ -81,9 +101,7 @@ export class WorkflowDefinitionChecker {
             users: await this.directory.userFacts(tenantId, userIds),
           }),
       forms,
-      ...(checkFormKey === null
-        ? {}
-        : { checkFormFields: forms.get(checkFormKey) ?? [] }),
+      ...checkFormOptionsOf(checkFormKey, forms),
     };
   }
 

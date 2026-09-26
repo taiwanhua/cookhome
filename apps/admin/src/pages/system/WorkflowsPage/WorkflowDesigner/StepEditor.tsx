@@ -61,6 +61,21 @@ export interface StepEditorProps {
  * 跳過條件(6a 表達式選擇器,欄位來自「檢查用表單」)、允許退回;以及加關卡 / 從此關分流 / 移動 / 刪除。
  * 移動也有按鈕版(上移、下移、移到某條分支),拖拉之外鍵盤也做得到。
  */
+/** 欄位下拉沒東西可選時說明為什麼:沒選檢查用表單 / 表單還在載入 / 選了但沒有可用欄位。 */
+const emptyFieldsReasonOf = (
+  checkFormKey: string | null,
+  checkFormFields: readonly FieldDef[] | null,
+  usableCount: number,
+): "needsCheckForm" | "checkFormLoading" | "noUsableFields" | null => {
+  if (checkFormKey === null) {
+    return "needsCheckForm";
+  }
+  if (checkFormFields === null) {
+    return "checkFormLoading";
+  }
+  return usableCount === 0 ? "noUsableFields" : null;
+};
+
 export const StepEditor = ({
   step,
   onChange,
@@ -83,6 +98,13 @@ export const StepEditor = ({
   onDelete,
 }: StepEditorProps) => {
   const t = useTranslations("admin.workflows.step");
+  const skipFields = conditionFieldsOf(checkFormFields ?? [], null, true);
+  const emptyReason = emptyFieldsReasonOf(
+    checkFormKey,
+    checkFormFields,
+    skipFields.length,
+  );
+  const emptyFieldsLabel = emptyReason === null ? undefined : t(emptyReason);
 
   return (
     <Stack
@@ -163,7 +185,7 @@ export const StepEditor = ({
         </Stack>
       ) : (
         <>
-          {checkFormFields === null && (
+          {checkFormKey === null && (
             <Typography variant="caption" color="text.secondary">
               {t("skipNeedsCheckForm")}
             </Typography>
@@ -171,9 +193,9 @@ export const StepEditor = ({
           <ExpressionPicker
             label={t("skipWhen")}
             value={step.skipWhen ?? undefined}
-            fields={conditionFieldsOf(checkFormFields ?? [], null, true)}
+            fields={skipFields}
             usage="condition"
-            emptyFieldsLabel={t("needsCheckForm")}
+            {...(emptyFieldsLabel !== undefined && { emptyFieldsLabel })}
             onChange={(skipWhen) => {
               onChange({ ...step, skipWhen });
             }}

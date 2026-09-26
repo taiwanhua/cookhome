@@ -258,31 +258,6 @@ describe("BaseRepository(ADR-0005 租戶隔離 / ADR-0007 基礎欄位;對真 Mo
         demoItems.updateById(asMember, created._id, { name: "死而復生" }),
       ).resolves.toBeNull();
     });
-
-    it("hardDeleteOne:條件命中才整筆刪掉並回被刪的文件;沒命中回 null;看不到的組織刪不到", async () => {
-      const created = await demoItems.create(asMember, { name: "草稿" });
-      const outsider = operator({ visibleOrgIds: [new Types.ObjectId()] });
-
-      await expect(
-        demoItems.hardDeleteOne(asMember, { _id: created._id, name: "別的" }),
-      ).resolves.toBeNull();
-      await expect(
-        demoItems.hardDeleteOne(outsider, { _id: created._id }),
-      ).resolves.toBeNull();
-
-      const removed = await demoItems.hardDeleteOne(asMember, {
-        _id: created._id,
-        name: "草稿",
-      });
-      expect(removed?.name).toBe("草稿");
-      await expect(
-        demoItems.findMany(
-          asMember,
-          { _id: created._id },
-          { includeDeleted: true },
-        ),
-      ).resolves.toEqual([]);
-    });
   });
 
   describe("寫入保護與根組織(ADR-0005)", () => {

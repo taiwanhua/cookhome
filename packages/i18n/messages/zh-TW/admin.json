@@ -2198,7 +2198,9 @@
       "moveTo": "移到分支",
       "moveToPlaceholder": "選擇分支",
       "needsCheckForm": "請先選檢查用表單",
-      "skipWhenUnset": "未設定"
+      "skipWhenUnset": "未設定",
+      "checkFormLoading": "檢查用表單載入中…",
+      "noUsableFields": "此表單沒有可用欄位"
     },
     "join": {
       "region": "匯合節點「{name}」",
@@ -2248,7 +2250,8 @@
       "levelOption": "第 {level} 層",
       "needsCheckForm": "請先選檢查用表單",
       "fieldCurrent": "目前:{form} / {field}",
-      "fieldOtherForm": "這一關原本指向表單「{form}」;改選欄位會換成檢查用表單的欄位。"
+      "fieldOtherForm": "這一關原本指向表單「{form}」;改選欄位會換成檢查用表單的欄位。",
+      "noCheckFormReadonly": "這一版沒有指定檢查用表單"
     },
     "userPicker": {
       "option": "{name}({account})",
@@ -2304,7 +2307,7 @@
     "check": {
       "region": "完整檢查",
       "title": "完整檢查結果",
-      "noCheckForm": "請先選檢查用表單才能驗欄位(結構類檢查照跑)。",
+      "noCheckForm": "沒有選檢查用表單:跳過條件沒有對照表單時只做結構檢查;審核者的表單欄位來源仍以各自的表單驗。",
       "stale": "流程或檢查用表單在檢查後有修改,請重新檢查。",
       "passed": "沒有錯誤或警告。",
       "summary": "錯誤 {errors} 個、警告 {warnings} 個(點一筆定位到那一關)",

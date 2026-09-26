@@ -72,7 +72,7 @@ export interface UpdateOptions {
  * 每個公開方法都以操作者上下文開頭 — 租戶過濾、軟刪除排除、基礎欄位填寫全由 plugin 依此自動完成,
  * 個別功能不自己寫、也繞不過(api 內裸 `Model.xxx()` 由 ESLint 規則 `@repo/no-raw-model-query` 擋下)。
  * 刪除一律走 `softDeleteById`(ADR-0007);硬刪除只有 `hardDeleteById`(補償刪除)與
- * `hardDeleteOne`(從未對外生效的草稿,見該方法)。
+ * `hardDeleteDraft`(從未對外生效的版本草稿,見該方法)。
  */
 export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
   constructor(protected readonly model: RepositoryModel<TSchema, TDocument>) {
@@ -338,16 +338,16 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
   }
 
   /**
-   * **條件硬刪一筆**:條件與刪除在同一次寫入裡判斷(兩個請求同時來只有一個刪得到),回被刪的文件、
-   * 沒命中回 null。租戶過濾與軟刪除排除照常由 plugin 套上。
+   * **條件硬刪一份版本草稿**(ADR-0007 第三種硬刪):條件與刪除在同一次寫入裡判斷(兩個請求同時來只有
+   * 一個刪得到),回被刪的文件、沒命中回 null。租戶過濾與軟刪除排除照常由 plugin 套上。
    *
-   * 只准用在**從未對外生效、沒有任何引用**的文件 —— 目前是版本表的草稿(`deleteWorkflowVersionDraft`):
-   * 草稿沒發布過,實例、任務都不指向它;軟刪除會佔住「至多一份草稿」的部分唯一索引,改狀態又會污染
-   * 版本的語意。刪之前的內容由呼叫端寫進稽核的 `before`。其餘資料一律 `softDeleteById`。
+   * 型別上強制條件帶 `status: "draft"` 與 `version: null` —— 只刪得到從未發布、沒有引用的草稿
+   * (`form_versions` / `workflow_versions`);刪之前的內容由呼叫端寫進稽核的 `before`。
+   * 其餘資料一律 `softDeleteById`。
    */
-  async hardDeleteOne(
+  async hardDeleteDraft(
     operator: OperatorContext,
-    filter: RepositoryFilter<TSchema>,
+    filter: RepositoryFilter<TSchema> & { status: "draft"; version: null },
   ): Promise<Persisted<TDocument> | null> {
     const document = await scopeQuery(
       this.model.findOneAndDelete({ ...filter }),

@@ -141,6 +141,8 @@ export const ExpressionNodeEditor = ({
   const fieldChoices = fields.filter(
     (field) => options.fields.includes(field) || field.key === varPathOf(value),
   );
+  const isFieldListEmpty =
+    fieldChoices.length === 0 && emptyFieldsLabel !== undefined;
 
   return (
     <Stack
@@ -173,12 +175,22 @@ export const ExpressionNodeEditor = ({
           <SelectField
             label={t("field")}
             value={varPathOf(value)}
-            disabled={
-              fieldChoices.length === 0 && emptyFieldsLabel !== undefined
-            }
+            disabled={isFieldListEmpty}
+            {...(isFieldListEmpty && varPathOf(value) !== ""
+              ? { helperText: emptyFieldsLabel }
+              : {})}
             options={
-              fieldChoices.length === 0 && emptyFieldsLabel !== undefined
-                ? [{ value: varPathOf(value), label: emptyFieldsLabel }]
+              isFieldListEmpty
+                ? // 目前值照樣顯示(不蓋成提示字);沒有值時才以提示字當唯一選項
+                  [
+                    {
+                      value: varPathOf(value),
+                      label:
+                        varPathOf(value) === ""
+                          ? emptyFieldsLabel
+                          : varPathOf(value),
+                    },
+                  ]
                 : fieldChoices.map((field) => ({
                     value: field.key,
                     label: `${field.label}(${field.key})`,

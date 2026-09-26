@@ -4,6 +4,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import {
   leaveWorkflowDefinition,
   reviewStep,
+  workflowFragment,
   workflowVersionFragment,
 } from "@/test/msw/workflow-fixtures";
 import { setupReactFlowEnvironment } from "@/test/react-flow";
@@ -85,6 +86,45 @@ describe("流程管理:檢查用表單與「檢查」", () => {
     expect(world.inputs.saveDraft[0]?.definition.checkFormKey).toBeNull();
   });
 
+  it("新草稿(修訂 0)預設第一張綁定的表單;存過、存了 null 的草稿不預設", async () => {
+    const bound = [
+      { formKey: "sick_leave", formName: "病假單", moduleKey: "leave" },
+    ];
+    const withRevision = (draftRevision: number) => {
+      const options = defaultDesignOptions();
+      const [draft, ...rest] = options.versions?.leave_review ?? [];
+      return {
+        ...options,
+        workflows: [workflowFragment({ boundForms: bound })],
+        versions: {
+          leave_review: [
+            workflowVersionFragment(leaveWorkflowDefinition(), {
+              ...draft,
+              draftRevision,
+              checkFormKey: null,
+            }),
+            ...rest,
+          ],
+        },
+      };
+    };
+    const fresh = renderWorkflows({ world: withRevision(0) });
+    await findCanvas();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("combobox", { name: "檢查用表單" }),
+      ).toHaveTextContent("病假單");
+    });
+    expect(screen.queryByText("有未存的變更")).toBeNull();
+    fresh.unmount();
+
+    renderWorkflows({ world: withRevision(2) });
+    await findCanvas();
+    expect(
+      screen.getByRole("combobox", { name: "檢查用表單" }),
+    ).toHaveTextContent("不指定");
+  });
+
   it("沒選檢查用表單:欄位下拉顯示「請先選檢查用表單」;按「檢查」提示欄位沒驗、結構照跑", async () => {
     const { user, world } = renderWorkflows();
     const canvas = await findCanvas();
@@ -97,13 +137,15 @@ describe("流程管理:檢查用表單與「檢查」", () => {
 
     const result = await screen.findByRole("region", { name: "完整檢查" });
     expect(
-      within(result).getByText("請先選檢查用表單才能驗欄位(結構類檢查照跑)。"),
+      within(result).getByText(
+        "沒有選檢查用表單:跳過條件沒有對照表單時只做結構檢查;審核者的表單欄位來源仍以各自的表單驗。",
+      ),
     ).toBeInTheDocument();
     expect(world.inputs.validate).toHaveLength(1);
     expect(world.inputs.validate[0]?.checkFormKey).toBeNull();
   });
 
-  it("沒選檢查用表單:已設的跳過條件,欄位下拉顯示「請先選檢查用表單」而不是空清單", async () => {
+  it("沒選檢查用表單:已設的跳過條件保留目前欄位,下方提示「請先選檢查用表單」", async () => {
     const options = defaultDesignOptions();
     const [, ...rest] = options.versions?.leave_review ?? [];
     renderWorkflows({
@@ -136,8 +178,10 @@ describe("流程管理:檢查用表單與「檢查」", () => {
       name: "跳過條件",
     });
     const field = within(skip).getByRole("combobox", { name: "欄位" });
-    expect(field).toHaveTextContent("請先選檢查用表單");
+    // 目前的值不被提示字蓋掉
+    expect(field).toHaveTextContent("days");
     expect(field).toHaveAttribute("aria-disabled", "true");
+    expect(within(skip).getByText("請先選檢查用表單")).toBeInTheDocument();
   });
 
   it("檢查結果依關卡列出;點一筆定位到那一關(選取節點、打開屬性面板)", async () => {
@@ -171,7 +215,7 @@ describe("流程管理:檢查用表單與「檢查」", () => {
     });
     expect(
       within(result).queryByText(
-        "請先選檢查用表單才能驗欄位(結構類檢查照跑)。",
+        "沒有選檢查用表單:跳過條件沒有對照表單時只做結構檢查;審核者的表單欄位來源仍以各自的表單驗。",
       ),
     ).toBeNull();
     await user.click(

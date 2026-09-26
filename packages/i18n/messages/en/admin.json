@@ -2198,7 +2198,9 @@
       "moveTo": "Move to branch",
       "moveToPlaceholder": "Choose a branch",
       "needsCheckForm": "Select a check form first",
-      "skipWhenUnset": "Not set"
+      "skipWhenUnset": "Not set",
+      "checkFormLoading": "Loading the check form…",
+      "noUsableFields": "This form has no usable fields"
     },
     "join": {
       "region": "Join node \"{name}\"",
@@ -2248,7 +2250,8 @@
       "levelOption": "Level {level}",
       "needsCheckForm": "Select a check form first",
       "fieldCurrent": "Current: {form} / {field}",
-      "fieldOtherForm": "This step points to the form “{form}”; choosing a field switches it to the check form's field."
+      "fieldOtherForm": "This step points to the form “{form}”; choosing a field switches it to the check form's field.",
+      "noCheckFormReadonly": "This version has no check form"
     },
     "userPicker": {
       "option": "{name} ({account})",
@@ -2304,7 +2307,7 @@
     "check": {
       "region": "Full check",
       "title": "Full check results",
-      "noCheckForm": "Select a check form to validate fields (structure checks still run).",
+      "noCheckForm": "No check form selected: without a form to compare against, skip conditions only get structure checks; the reviewer's form-field sources are still validated against their own forms.",
       "stale": "The flow or check form changed after the check. Please check again.",
       "passed": "No errors or warnings.",
       "summary": "{errors} error(s), {warnings} warning(s) (click one to go to its step)",

@@ -48,7 +48,8 @@ export interface FlowDesignerWorkspaceProps {
  * 流程設計器本體(Spec 6b §8 畫面 3):流程圖 + 屬性面板 + 檢查器 + JSON 預覽。
  * 檢查器即時跑 `@repo/domain/workflow` 的 `validateWorkflowDefinition`(與 api 同一份),錯誤定位到關卡;
  * 「檢查」鈕另跑 api 的完整檢查、結果面板依關卡列出。「檢查用表單」隨草稿存(`checkFormKey`),
- * 草稿沒存過時預設第一張綁定的表單。存草稿帶 `expectedDraftRevision`。有沒有未存的變更回報給 `useWorkflowDraftStore`
+ * 新草稿(`draftRevision === 0`)沒有值時預設第一張綁定的表單;存過的草稿照存的值。
+ * 存草稿帶 `expectedDraftRevision`。有沒有未存的變更回報給 `useWorkflowDraftStore`
  * (換流程攔截、發布跳窗提示),關分頁 / 重新整理由 `useUnsavedGuard` 問。
  */
 export const FlowDesignerWorkspace = ({
@@ -61,9 +62,12 @@ export const FlowDesignerWorkspace = ({
   const t = useTranslations("admin.workflows.designer");
   const tOp = useTranslations("admin.workflows.opErrors");
   const initial = useMemo(() => definitionOf(draft), [draft]);
+  // 新草稿(還沒存過)才預設第一張綁定的表單;存過的草稿照存的值(存了 null = 明確不指定)
   const state = useFlowDesignerState(
     initial,
-    checkFormKeyOf(draft) ?? workflow.boundForms.at(0)?.formKey ?? null,
+    draft.draftRevision === 0
+      ? (checkFormKeyOf(draft) ?? workflow.boundForms.at(0)?.formKey ?? null)
+      : checkFormKeyOf(draft),
   );
   const { definition, checkFormKey } = state;
   const saving = useWorkflowDraftSave({

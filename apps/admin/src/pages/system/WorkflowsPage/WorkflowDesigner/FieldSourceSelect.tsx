@@ -66,7 +66,15 @@ export const FieldSourceSelect = ({
           size="small"
           disabled
           helperText={t("fieldHint")}
-          options={[{ value: "", label: t("needsCheckForm") }]}
+          options={[
+            {
+              value: "",
+              // 唯讀檢視改不了檢查用表單,不叫人「先選」
+              label: isDisabled
+                ? t("noCheckFormReadonly")
+                : t("needsCheckForm"),
+            },
+          ]}
           onChange={ignoreChange}
         />
         {hasCurrent && (
