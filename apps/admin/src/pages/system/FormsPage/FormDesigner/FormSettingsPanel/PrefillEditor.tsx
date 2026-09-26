@@ -1,12 +1,22 @@
 import { useTranslations } from "use-intl";
 
-import type { FieldDef, Prefill } from "@repo/domain/form";
+import {
+  type FieldDef,
+  type Prefill,
+  isPrefillCompatible,
+} from "@repo/domain/form";
 import { Button } from "@repo/ui/button";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
+import { Typography } from "@repo/ui/typography";
 
 import { LookupSourceEditor } from "../PropertyPanel/LookupSourceEditor";
+import {
+  type LookupFieldOption,
+  useLookupFieldOptions,
+} from "../PropertyPanel/useLookupCatalog";
+import { useRowIds } from "../PropertyPanel/useRowIds";
 
 export interface PrefillEditorProps {
   prefill: Prefill;
@@ -16,9 +26,28 @@ export interface PrefillEditorProps {
   onRemove: () => void;
 }
 
+const UNSET = "";
+
+/** 來源欄位的選項:只列能帶進目標欄位的(型別相容,與檢查器同一支 `isPrefillCompatible`);目前的值照樣列出。 */
+const sourceChoicesOf = (
+  catalog: readonly LookupFieldOption[],
+  target: FieldDef | undefined,
+  current: string,
+): { value: string; label: string }[] => {
+  const compatible = catalog.filter(
+    (option) =>
+      target === undefined || isPrefillCompatible(option.type, target.type),
+  );
+  const choices = compatible.map(({ value, label }) => ({ value, label }));
+  return current === UNSET || choices.some((choice) => choice.value === current)
+    ? choices
+    : [...choices, { value: current, label: current }];
+};
+
 /**
- * 一條帶入規則(Spec 6a §5「帶入」):顯示名、來源、對應表(來源欄位 → 本表單欄位)。
- * 目標只能是「使用者填」的欄位(不能帶進計算 / 固定值 / 引用);型別相容與來源欄位存在由檢查器驗。
+ * 一條帶入規則(Spec 6a §5「帶入」),照填寫時的四步排:規則名稱(帶入跳窗的來源下拉顯示它)→ 來源 / 表單 /
+ * 顯示欄 / 固定條件(`LookupSourceEditor`)→ 對應表。對應表每列兩個下拉:本表單欄位只列「使用者填」的
+ * (不能帶進計算 / 固定值 / 引用)← 來源欄位只列型別相容的。來源欄位存在與型別相容仍由檢查器把關。
  */
 export const PrefillEditor = ({
   prefill,
@@ -28,9 +57,23 @@ export const PrefillEditor = ({
   onRemove,
 }: PrefillEditorProps) => {
   const t = useTranslations("admin.forms.prefill");
+  const catalog = useLookupFieldOptions(prefill.source);
+  // 對應表的列以穩定內部 id 當 React key(不用內容:換欄位時整列重掛會失焦)
+  const rows = useRowIds(prefill.mapping.length);
   const targets = fields.filter(
     (field) => field.valueSource.kind === "input" && field.type !== "reference",
   );
+  const setMapping = (
+    position: number,
+    patch: Partial<Prefill["mapping"][number]>,
+  ) => {
+    onChange({
+      ...prefill,
+      mapping: prefill.mapping.map((item, at) =>
+        at === position ? { ...item, ...patch } : item,
+      ),
+    });
+  };
 
   return (
     <Stack
@@ -42,6 +85,7 @@ export const PrefillEditor = ({
         label={t("label")}
         size="small"
         value={prefill.label}
+        helperText={t("labelHint")}
         onChange={(event) => {
           onChange({ ...prefill, label: event.target.value });
         }}
@@ -53,71 +97,86 @@ export const PrefillEditor = ({
           onChange({ ...prefill, source });
         }}
       />
-      {prefill.mapping.map((entry, position) => (
-        <Stack
-          key={`${String(position)}-${entry.fieldKey}`}
-          direction="row"
-          spacing={1}
-          sx={{ alignItems: "center" }}
-        >
-          <TextField
-            label={t("sourceField")}
-            size="small"
-            value={entry.sourceField}
-            onChange={(event) => {
-              onChange({
-                ...prefill,
-                mapping: prefill.mapping.map((item, at) =>
-                  at === position
-                    ? { ...item, sourceField: event.target.value }
-                    : item,
-                ),
-              });
-            }}
-          />
-          <SelectField
-            label={t("targetField")}
-            value={entry.fieldKey}
-            options={targets.map((field) => ({
-              value: field.key,
-              label: `${field.label}(${field.key})`,
-            }))}
-            onChange={(fieldKey) => {
-              onChange({
-                ...prefill,
-                mapping: prefill.mapping.map((item, at) =>
-                  at === position ? { ...item, fieldKey } : item,
-                ),
-              });
-            }}
-            size="small"
-            sx={{ minWidth: 160 }}
-          />
-          <Button
-            variant="text"
-            size="small"
-            onClick={() => {
-              onChange({
-                ...prefill,
-                mapping: prefill.mapping.filter((_item, at) => at !== position),
-              });
-            }}
+      <Stack spacing={0.25}>
+        <Typography variant="body2">{t("mapping")}</Typography>
+        <Typography variant="caption" color="text.secondary">
+          {t("mappingHint")}
+        </Typography>
+      </Stack>
+      {prefill.mapping.map((entry, position) => {
+        const target = targets.find((field) => field.key === entry.fieldKey);
+        return (
+          <Stack
+            key={rows.ids[position]}
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: "center" }}
           >
-            {t("removeMapping")}
-          </Button>
-        </Stack>
-      ))}
+            <SelectField
+              label={t("targetField")}
+              value={entry.fieldKey}
+              displayEmpty
+              options={[
+                { value: UNSET, label: t("targetUnset") },
+                ...targets.map((field) => ({
+                  value: field.key,
+                  label: `${field.label}(${field.key})`,
+                })),
+              ]}
+              onChange={(fieldKey) => {
+                setMapping(position, { fieldKey });
+              }}
+              size="small"
+              sx={{ minWidth: 140 }}
+            />
+            <Typography aria-hidden>←</Typography>
+            <SelectField
+              label={t("sourceField")}
+              value={catalog === null ? UNSET : entry.sourceField}
+              displayEmpty
+              disabled={catalog === null}
+              options={[
+                { value: UNSET, label: t("sourceFieldUnset") },
+                ...(catalog === null
+                  ? []
+                  : sourceChoicesOf(catalog, target, entry.sourceField)),
+              ]}
+              onChange={(sourceField) => {
+                setMapping(position, { sourceField });
+              }}
+              size="small"
+              sx={{ minWidth: 140 }}
+            />
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => {
+                rows.removed(position);
+                onChange({
+                  ...prefill,
+                  mapping: prefill.mapping.filter(
+                    (_item, at) => at !== position,
+                  ),
+                });
+              }}
+            >
+              {t("removeMapping")}
+            </Button>
+          </Stack>
+        );
+      })}
       <Stack direction="row" spacing={1}>
         <Button
           variant="text"
           size="small"
           disabled={targets.length === 0}
           onClick={() => {
+            rows.added();
             onChange({
               ...prefill,
               mapping: [
                 ...prefill.mapping,
-                { sourceField: "", fieldKey: targets.at(0)?.key ?? "" },
+                { sourceField: UNSET, fieldKey: targets.at(0)?.key ?? UNSET },
               ],
             });
           }}

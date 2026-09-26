@@ -1,19 +1,26 @@
 import {
   DEFAULT_WIDGET_REGISTRY,
   type FieldDef,
+  type FieldKeyCheck,
   type FieldType,
-  type FormDefinition,
   LAYOUT_COLUMNS,
   type LayoutCol,
-  type LayoutSection,
-  layoutFieldKeys,
+  checkFieldKey,
 } from "@repo/domain/form";
+
+import type {
+  DesignCol,
+  DesignDefinition,
+  DesignField,
+  DesignSection,
+} from "./design-definition";
 
 /**
  * 設計器對草稿定義的操作(純函式,設計器與測試共用;Spec 6a §5、§8「設計器其他規則」)。
  *
- * 版面以「每個分區一串欄位」操作:拖拉只改順序與所屬分區,列(`rows`)依 `span` 由左而右重新裝箱
- * (一列加總不超過 12 格),所以拖拉之後不會出現超過 12 格的列。
+ * **欄位的身分是內部 id(`_id`,見 `design-definition.ts`)**,不是 key:選取、拖拉、改屬性、刪除都以 id
+ * 找欄位,所以 key 重複或改到一半也不會改錯欄、刪不掉。版面以「每個分區一串欄位」操作:拖拉只改順序與
+ * 所屬分區,列(`rows`)依 `span` 由左而右重新裝箱(一列加總不超過 12 格),所以拖拉之後不會出現超過 12 格的列。
  *
  * **刪欄位只動草稿的 `fields[]` 與 `layout`**:公式、條件、摘要槽、帶入規則若還引用它,
  * 就變成檢查器錯誤(定位到引用處)由設計者手動修,這裡不自動改、不自動清。
@@ -22,13 +29,15 @@ import {
 export const DEFAULT_SPAN = 6;
 
 /** 分區裡的欄位(依版面順序)。 */
-export const sectionCols = (section: LayoutSection): LayoutCol[] =>
+export const sectionCols = (section: DesignSection): DesignCol[] =>
   section.rows.flatMap((row) => row.cols);
 
 /** 一串欄位依 span 裝箱成列。 */
-export const packRows = (cols: readonly LayoutCol[]): LayoutSection["rows"] => {
-  const rows: LayoutSection["rows"] = [];
-  let current: LayoutCol[] = [];
+export const packRows = <Col extends LayoutCol>(
+  cols: readonly Col[],
+): { cols: Col[] }[] => {
+  const rows: { cols: Col[] }[] = [];
+  let current: Col[] = [];
   let used = 0;
   for (const col of cols) {
     if (current.length > 0 && used + col.span > LAYOUT_COLUMNS) {
@@ -46,9 +55,9 @@ export const packRows = (cols: readonly LayoutCol[]): LayoutSection["rows"] => {
 };
 
 const withSectionCols = (
-  section: LayoutSection,
-  cols: readonly LayoutCol[],
-): LayoutSection => ({ ...section, rows: packRows(cols) });
+  section: DesignSection,
+  cols: readonly DesignCol[],
+): DesignSection => ({ ...section, rows: packRows(cols) });
 
 /** 下一個沒用過的 key(`<prefix>_<n>`)。 */
 export const nextKey = (prefix: string, used: Iterable<string>): string => {
@@ -83,24 +92,24 @@ export const newFieldOf = (
 
 export interface PlaceTarget {
   sectionKey: string;
-  /** 放在這個欄位前面;null = 放在分區最後 */
-  beforeKey: string | null;
+  /** 放在這個欄位(內部 id)前面;null = 放在分區最後 */
+  beforeId: string | null;
 }
 
 const placeCol = (
-  sections: readonly LayoutSection[],
-  col: LayoutCol,
+  sections: readonly DesignSection[],
+  col: DesignCol,
   target: PlaceTarget,
-): LayoutSection[] =>
+): DesignSection[] =>
   sections.map((section) => {
     if (section.key !== target.sectionKey) {
       return section;
     }
     const cols = sectionCols(section);
     const index =
-      target.beforeKey === null
+      target.beforeId === null
         ? -1
-        : cols.findIndex((item) => item.fieldKey === target.beforeKey);
+        : cols.findIndex((item) => item._id === target.beforeId);
     const next =
       index === -1
         ? [...cols, col]
@@ -109,30 +118,54 @@ const placeCol = (
   });
 
 const withoutCol = (
-  sections: readonly LayoutSection[],
-  fieldKey: string,
-): LayoutSection[] =>
+  sections: readonly DesignSection[],
+  fieldId: string,
+): DesignSection[] =>
   sections.map((section) =>
     withSectionCols(
       section,
-      sectionCols(section).filter((col) => col.fieldKey !== fieldKey),
+      sectionCols(section).filter((col) => col._id !== fieldId),
     ),
   );
 
+const mapCol = (
+  definition: DesignDefinition,
+  fieldId: string,
+  update: (col: DesignCol) => DesignCol,
+): DesignDefinition["layout"] => ({
+  sections: definition.layout.sections.map((section) =>
+    withSectionCols(
+      section,
+      sectionCols(section).map((col) =>
+        col._id === fieldId ? update(col) : col,
+      ),
+    ),
+  ),
+});
+
 const colOf = (
-  sections: readonly LayoutSection[],
-  fieldKey: string,
-): LayoutCol | undefined =>
+  sections: readonly DesignSection[],
+  fieldId: string,
+): DesignCol | undefined =>
   sections
     .flatMap((section) => sectionCols(section))
-    .find((col) => col.fieldKey === fieldKey);
+    .find((col) => col._id === fieldId);
+
+/** 以內部 id 找欄位。 */
+export const fieldById = (
+  definition: DesignDefinition,
+  fieldId: string | null,
+): DesignField | undefined =>
+  fieldId === null
+    ? undefined
+    : definition.fields.find((field) => field._id === fieldId);
 
 export const addField = (
-  definition: FormDefinition,
-  field: FieldDef,
+  definition: DesignDefinition,
+  field: DesignField,
   target: PlaceTarget | null,
-): FormDefinition => {
-  const col = { fieldKey: field.key, span: DEFAULT_SPAN };
+): DesignDefinition => {
+  const col = { fieldKey: field.key, span: DEFAULT_SPAN, _id: field._id };
   return {
     ...definition,
     fields: [...definition.fields, field],
@@ -147,18 +180,20 @@ export const addField = (
 
 /** 拖拉:移到某分區的某欄之前(或分區最後);欄寬沿用。沒放進版面的欄位從「未放置」拉進來也走這裡。 */
 export const moveField = (
-  definition: FormDefinition,
-  fieldKey: string,
+  definition: DesignDefinition,
+  fieldId: string,
   target: PlaceTarget,
-): FormDefinition => {
-  if (target.beforeKey === fieldKey) {
+): DesignDefinition => {
+  const field = fieldById(definition, fieldId);
+  if (target.beforeId === fieldId || field === undefined) {
     return definition;
   }
-  const col = colOf(definition.layout.sections, fieldKey) ?? {
-    fieldKey,
+  const col = colOf(definition.layout.sections, fieldId) ?? {
+    fieldKey: field.key,
     span: DEFAULT_SPAN,
+    _id: fieldId,
   };
-  const sections = withoutCol(definition.layout.sections, fieldKey);
+  const sections = withoutCol(definition.layout.sections, fieldId);
   return {
     ...definition,
     layout: { sections: placeCol(sections, col, target) },
@@ -167,63 +202,72 @@ export const moveField = (
 
 /** 只從草稿的 `fields[]` 與 `layout` 移除;引用處不動(Spec §5「草稿裡刪欄位」)。 */
 export const removeField = (
-  definition: FormDefinition,
-  fieldKey: string,
-): FormDefinition => ({
+  definition: DesignDefinition,
+  fieldId: string,
+): DesignDefinition => ({
   ...definition,
-  fields: definition.fields.filter((field) => field.key !== fieldKey),
-  layout: { sections: withoutCol(definition.layout.sections, fieldKey) },
+  fields: definition.fields.filter((field) => field._id !== fieldId),
+  layout: { sections: withoutCol(definition.layout.sections, fieldId) },
 });
 
-/** 改一個欄位的定義;改 key 時版面跟著改(公式等引用不改 —— 變成檢查器錯誤)。 */
+/** 改一個欄位的定義(以內部 id 找);改 key 時版面跟著改(公式等引用不改 —— 變成檢查器錯誤)。 */
 export const updateField = (
-  definition: FormDefinition,
-  fieldKey: string,
+  definition: DesignDefinition,
+  fieldId: string,
   next: FieldDef,
-): FormDefinition => ({
+): DesignDefinition => ({
   ...definition,
   fields: definition.fields.map((field) =>
-    field.key === fieldKey ? next : field,
+    field._id === fieldId ? { ...next, _id: fieldId } : field,
   ),
-  layout: {
-    sections: definition.layout.sections.map((section) =>
-      withSectionCols(
-        section,
-        sectionCols(section).map((col) =>
-          col.fieldKey === fieldKey ? { ...col, fieldKey: next.key } : col,
-        ),
-      ),
-    ),
-  },
+  layout: mapCol(definition, fieldId, (col) => ({
+    ...col,
+    fieldKey: next.key,
+  })),
 });
 
 export const setFieldSpan = (
-  definition: FormDefinition,
-  fieldKey: string,
+  definition: DesignDefinition,
+  fieldId: string,
   span: number,
-): FormDefinition => ({
+): DesignDefinition => ({
   ...definition,
-  layout: {
-    sections: definition.layout.sections.map((section) =>
-      withSectionCols(
-        section,
-        sectionCols(section).map((col) =>
-          col.fieldKey === fieldKey ? { ...col, span } : col,
-        ),
-      ),
-    ),
-  },
+  layout: mapCol(definition, fieldId, (col) => ({ ...col, span })),
 });
 
 export const spanOf = (
-  definition: FormDefinition,
-  fieldKey: string,
-): number | null => colOf(definition.layout.sections, fieldKey)?.span ?? null;
+  definition: DesignDefinition,
+  fieldId: string,
+): number | null => colOf(definition.layout.sections, fieldId)?.span ?? null;
+
+/** 改 key 被擋的原因:格式不符 / 保留字 / 與別的欄位重複。 */
+export type FieldKeyProblem =
+  Extract<FieldKeyCheck, { valid: false }>["reason"] | "duplicate";
+
+/**
+ * 改 key 當場擋(Spec 6a §5 表 A 下方:「改 `key` 時當場擋重複與格式錯誤,不等檢查器」):
+ * 回 null = 可以寫入;否則回原因,呼叫端標紅、不寫入。
+ */
+export const fieldKeyProblemOf = (
+  definition: DesignDefinition,
+  fieldId: string,
+  key: string,
+): FieldKeyProblem | null => {
+  const check = checkFieldKey(key);
+  if (!check.valid) {
+    return check.reason;
+  }
+  return definition.fields.some(
+    (field) => field._id !== fieldId && field.key === key,
+  )
+    ? "duplicate"
+    : null;
+};
 
 export const addSection = (
-  definition: FormDefinition,
+  definition: DesignDefinition,
   title: string,
-): FormDefinition => ({
+): DesignDefinition => ({
   ...definition,
   layout: {
     sections: [
@@ -241,10 +285,10 @@ export const addSection = (
 });
 
 export const renameSection = (
-  definition: FormDefinition,
+  definition: DesignDefinition,
   sectionKey: string,
   title: string,
-): FormDefinition => ({
+): DesignDefinition => ({
   ...definition,
   layout: {
     sections: definition.layout.sections.map((section) =>
@@ -257,22 +301,22 @@ export const renameSection = (
 export type RemoveSectionMode = "unplace" | "withFields";
 
 export const removeSection = (
-  definition: FormDefinition,
+  definition: DesignDefinition,
   sectionKey: string,
   mode: RemoveSectionMode,
-): FormDefinition => {
+): DesignDefinition => {
   const section = definition.layout.sections.find(
     (candidate) => candidate.key === sectionKey,
   );
   if (section === undefined) {
     return definition;
   }
-  const removed = new Set(sectionCols(section).map((col) => col.fieldKey));
+  const removed = new Set(sectionCols(section).map((col) => col._id));
   return {
     ...definition,
     fields:
       mode === "withFields"
-        ? definition.fields.filter((field) => !removed.has(field.key))
+        ? definition.fields.filter((field) => !removed.has(field._id))
         : definition.fields,
     layout: {
       sections: definition.layout.sections.filter(
@@ -283,9 +327,13 @@ export const removeSection = (
 };
 
 /** 還沒放進版面的欄位(`constant` 可以不放,不列)。 */
-export const unplacedFields = (definition: FormDefinition): FieldDef[] => {
-  const placed = new Set(layoutFieldKeys(definition.layout));
+export const unplacedFields = (definition: DesignDefinition): DesignField[] => {
+  const placed = new Set(
+    definition.layout.sections.flatMap((section) =>
+      sectionCols(section).map((col) => col._id),
+    ),
+  );
   return definition.fields.filter(
-    (field) => !placed.has(field.key) && field.valueSource.kind !== "constant",
+    (field) => !placed.has(field._id) && field.valueSource.kind !== "constant",
   );
 };

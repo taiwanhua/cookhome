@@ -8,11 +8,7 @@ import {
 } from "@dnd-kit/core";
 import { useTranslations } from "use-intl";
 
-import type {
-  FieldType,
-  FormDefinition,
-  LayoutSection,
-} from "@repo/domain/form";
+import type { FieldType } from "@repo/domain/form";
 import { IconButton } from "@repo/ui/icon-button";
 import { DeleteIcon } from "@repo/ui/icons";
 import { Stack } from "@repo/ui/stack";
@@ -20,6 +16,10 @@ import { TextField } from "@repo/ui/text-field";
 import { Tooltip } from "@repo/ui/tooltip";
 
 import { FormRenderer } from "@/components/form-engine/FormRenderer/FormRenderer";
+import type {
+  DesignDefinition,
+  DesignSection,
+} from "@/lib/form-engine/design-definition";
 import { parseDesignId } from "@/lib/form-engine/design-ids";
 import { type PlaceTarget, sectionCols } from "@/lib/form-engine/designer-ops";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
@@ -31,13 +31,14 @@ const DRAG_START_DISTANCE = 6;
 
 export interface DesignerCanvasProps {
   formKey: string;
-  definition: FormDefinition;
-  selectedFieldKey: string | null;
-  onSelectField: (fieldKey: string) => void;
+  /** 設計器內部的定義(欄位帶內部 id;選取、拖拉都以 id 認欄位) */
+  definition: DesignDefinition;
+  selectedFieldId: string | null;
+  onSelectField: (fieldId: string) => void;
   onAddField: (type: FieldType, target: PlaceTarget) => void;
-  onMoveField: (fieldKey: string, target: PlaceTarget) => void;
+  onMoveField: (fieldId: string, target: PlaceTarget) => void;
   onRenameSection: (sectionKey: string, title: string) => void;
-  onRemoveSection: (section: LayoutSection) => void;
+  onRemoveSection: (section: DesignSection) => void;
 }
 
 const DESIGN_CONTEXT = liveContextOf(null, null, new Date(0));
@@ -50,7 +51,7 @@ const DESIGN_CONTEXT = liveContextOf(null, null, new Date(0));
 export const DesignerCanvas = ({
   formKey,
   definition,
-  selectedFieldKey,
+  selectedFieldId,
   onSelectField,
   onAddField,
   onMoveField,
@@ -67,17 +68,17 @@ export const DesignerCanvas = ({
   const targetOf = (overId: string): PlaceTarget | null => {
     const over = parseDesignId(overId);
     if (over?.kind === "section") {
-      return { sectionKey: over.key, beforeKey: null };
+      return { sectionKey: over.key, beforeId: null };
     }
     if (over?.kind !== "field") {
       return null;
     }
     const section = definition.layout.sections.find((candidate) =>
-      sectionCols(candidate).some((col) => col.fieldKey === over.key),
+      sectionCols(candidate).some((col) => col._id === over.key),
     );
     return section === undefined
       ? null
-      : { sectionKey: section.key, beforeKey: over.key };
+      : { sectionKey: section.key, beforeId: over.key };
   };
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
@@ -117,45 +118,54 @@ export const DesignerCanvas = ({
           context={{ formKey, version: null }}
           expressionContext={DESIGN_CONTEXT}
           design={{
-            selectedFieldKey,
+            selectedFieldId,
             onSelectField,
-            renderSectionActions: (section) => (
-              <Stack
-                direction="row"
-                spacing={0.5}
-                sx={{ alignItems: "center" }}
-              >
-                <TextField
-                  label={t("sectionTitle")}
-                  size="small"
-                  value={section.title}
-                  onChange={(event) => {
-                    onRenameSection(section.key, event.target.value);
-                  }}
-                />
-                <Tooltip title={t("removeSection")} describeChild={false}>
-                  <IconButton
-                    size="small"
-                    aria-label={t("removeSectionOf", { title: section.title })}
-                    onClick={() => {
-                      onRemoveSection(section);
-                    }}
+            renderSectionActions: (layoutSection) => {
+              const section = definition.layout.sections.find(
+                (candidate) => candidate.key === layoutSection.key,
+              );
+              return (
+                section !== undefined && (
+                  <Stack
+                    direction="row"
+                    spacing={0.5}
+                    sx={{ alignItems: "center" }}
                   >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Stack>
-            ),
+                    <TextField
+                      label={t("sectionTitle")}
+                      size="small"
+                      value={section.title}
+                      onChange={(event) => {
+                        onRenameSection(section.key, event.target.value);
+                      }}
+                    />
+                    <Tooltip title={t("removeSection")} describeChild={false}>
+                      <IconButton
+                        size="small"
+                        aria-label={t("removeSectionOf", {
+                          title: section.title,
+                        })}
+                        onClick={() => {
+                          onRemoveSection(section);
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                )
+              );
+            },
           }}
         />
         <UnplacedFields
           definition={definition}
-          selectedFieldKey={selectedFieldKey}
+          selectedFieldId={selectedFieldId}
           onSelectField={onSelectField}
-          onPlace={(fieldKey) => {
+          onPlace={(fieldId) => {
             const first = definition.layout.sections.at(0);
             if (first !== undefined) {
-              onMoveField(fieldKey, { sectionKey: first.key, beforeKey: null });
+              onMoveField(fieldId, { sectionKey: first.key, beforeId: null });
             }
           }}
         />

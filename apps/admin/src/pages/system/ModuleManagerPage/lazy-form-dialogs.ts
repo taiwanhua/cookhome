@@ -5,7 +5,7 @@ import { lazy } from "react";
  * (`@repo/domain/form`:JSONLogic + decimal),而模組與權限頁本身在首屏 bundle 裡 —— 按了才載。
  */
 export const LazyListColumnsDialog = lazy(() =>
-  import("./ListColumnsDialog/ListColumnsDialog").then((module) => ({
+  import("../ListColumnsDialog/ListColumnsDialog").then((module) => ({
     default: module.ListColumnsDialog,
   })),
 );

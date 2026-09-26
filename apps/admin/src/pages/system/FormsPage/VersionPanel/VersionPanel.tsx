@@ -30,6 +30,8 @@ export interface VersionPanelProps {
   form: FormFieldsFragment;
   /** 寫入成功後(清單、單張、版本、草稿都要重查) */
   onChanged: () => void;
+  /** 「檢視」已發布 / 已退役的版本:設計頁籤以唯讀設計器打開那一版 */
+  onView: (version: number) => void;
 }
 
 const STATUS_TONE: Record<FormVersionStatus, TagTone> = {
@@ -41,10 +43,15 @@ const STATUS_TONE: Record<FormVersionStatus, TagTone> = {
 
 /**
  * 版本面板(Spec 6a §8 畫面 3):草稿 / 發布(含中斷重試)/ 退役目前版本、changelog、
- * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿。按鈕依 `form.abilities.canEdit`;
+ * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿、「檢視」任一已發布 / 已退役版本(唯讀設計器)。
+ * 按鈕依 `form.abilities.canEdit`;
  * 發布中斷時只剩「重試發布」(api 在中斷期間擋開草稿 / 退役 / 再發布)。
  */
-export const VersionPanel = ({ form, onChanged }: VersionPanelProps) => {
+export const VersionPanel = ({
+  form,
+  onChanged,
+  onView,
+}: VersionPanelProps) => {
   const t = useTranslations("admin.forms.versions");
   const dateTimeText = useDateTimeText();
   const tErrors = useTranslations("admin.forms.errors");
@@ -98,6 +105,17 @@ export const VersionPanel = ({ form, onChanged }: VersionPanelProps) => {
       item.status === FormVersionStatus.Retired;
     return (
       <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
+        {isBase && item.version !== null && item.version !== undefined && (
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => {
+              onView(item.version ?? 0);
+            }}
+          >
+            {t("view", { version: item.version })}
+          </Button>
+        )}
         {canEdit && !isLocked && isDraft && (
           <Button
             size="small"

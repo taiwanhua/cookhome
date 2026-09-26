@@ -1,7 +1,6 @@
 import { useTranslations } from "use-intl";
 
 import {
-  ALLOW_CUSTOM_WIDGETS,
   type FieldDef,
   type FieldRules,
   TEXT_FORMATS,
@@ -14,11 +13,14 @@ import { Switch } from "@repo/ui/switch";
 import { TextField } from "@repo/ui/text-field";
 
 import { ExpressionPicker } from "@/components/form-engine/ExpressionPicker/ExpressionPicker";
+import type { PropertySections } from "@/lib/form-engine/property-sections";
 import { scalarText } from "@/lib/form-engine/value-text";
 
 export interface RulesEditorProps {
   field: FieldDef;
+  /** 自訂驗證可引用的欄位(不含受保護欄位;可含自己) */
   fields: readonly FieldDef[];
+  sections: PropertySections;
   onChange: (rules: FieldRules) => void;
   customIssues: readonly string[];
 }
@@ -44,20 +46,21 @@ const numberOrEmpty = (text: string): number | "" =>
   text.trim() === "" ? "" : Number(text);
 
 /**
- * 驗證規則(Spec 6a §5 `rules`):必填、範圍(number / date)、長度與正則 / 內建格式(text)、
- * `allowCustom`(只有 autocomplete 類 widget)、自訂驗證(表達式,回 false 即錯)。
+ * 驗證規則(Spec 6a §5 `rules`,哪些出現照表 A `sections`):必填、範圍(數字 / 日期)、長度(單行 / 多行文字)、
+ * 內建格式或正則 + 訊息(只有單行文字)、`allowCustom`(只有可搜尋類 widget、值來源 = 使用者填)、
+ * 自訂驗證(條件成立才通過,不成立顯示 `customMessage`)。
  * 正則要搭錯誤訊息、與內建格式二擇一、不安全的正則由檢查器指出(`PATTERN_*`)。
  */
 export const RulesEditor = ({
   field,
   fields,
+  sections,
   onChange,
   customIssues,
 }: RulesEditorProps) => {
   const t = useTranslations("admin.forms.rules");
   const rules = field.rules ?? {};
-  const isText = field.type === "text" || field.type === "multiline";
-  const hasRange = field.type === "number" || field.type === "date";
+  const hasRange = sections.numberRange || sections.dateRange;
 
   return (
     <Stack spacing={1.5}>
@@ -92,40 +95,34 @@ export const RulesEditor = ({
           />
         </Stack>
       )}
-      {isText && (
+      {sections.lengthRange && (
+        <Stack direction="row" spacing={1}>
+          <TextField
+            label={t("minLength")}
+            size="small"
+            type="number"
+            value={scalarText(rules.minLength)}
+            onChange={(event) => {
+              onChange(
+                withRule(rules, "minLength", numberOrEmpty(event.target.value)),
+              );
+            }}
+          />
+          <TextField
+            label={t("maxLength")}
+            size="small"
+            type="number"
+            value={scalarText(rules.maxLength)}
+            onChange={(event) => {
+              onChange(
+                withRule(rules, "maxLength", numberOrEmpty(event.target.value)),
+              );
+            }}
+          />
+        </Stack>
+      )}
+      {sections.textFormat && (
         <>
-          <Stack direction="row" spacing={1}>
-            <TextField
-              label={t("minLength")}
-              size="small"
-              type="number"
-              value={scalarText(rules.minLength)}
-              onChange={(event) => {
-                onChange(
-                  withRule(
-                    rules,
-                    "minLength",
-                    numberOrEmpty(event.target.value),
-                  ),
-                );
-              }}
-            />
-            <TextField
-              label={t("maxLength")}
-              size="small"
-              type="number"
-              value={scalarText(rules.maxLength)}
-              onChange={(event) => {
-                onChange(
-                  withRule(
-                    rules,
-                    "maxLength",
-                    numberOrEmpty(event.target.value),
-                  ),
-                );
-              }}
-            />
-          </Stack>
           <SelectField<TextFormat | typeof NO_FORMAT>
             label={t("format")}
             value={rules.format ?? NO_FORMAT}
@@ -161,7 +158,7 @@ export const RulesEditor = ({
           />
         </>
       )}
-      {ALLOW_CUSTOM_WIDGETS.includes(field.widget.kind) && (
+      {sections.allowCustom && (
         <FormControlLabel
           label={t("allowCustom")}
           control={
@@ -174,19 +171,35 @@ export const RulesEditor = ({
           }
         />
       )}
-      <ExpressionPicker
-        label={t("custom")}
-        value={rules.custom}
-        fields={fields}
-        issues={customIssues}
-        onChange={(custom) => {
-          onChange(
-            custom === null
-              ? withRule(rules, "custom", "")
-              : { ...rules, custom },
-          );
-        }}
-      />
+      {sections.custom && (
+        <>
+          <ExpressionPicker
+            label={t("custom")}
+            value={rules.custom}
+            fields={fields}
+            usage="condition"
+            issues={customIssues}
+            onChange={(custom) => {
+              onChange(
+                custom === null
+                  ? withRule(withRule(rules, "custom", ""), "customMessage", "")
+                  : { ...rules, custom },
+              );
+            }}
+          />
+          {rules.custom !== undefined && rules.custom !== null && (
+            <TextField
+              label={t("customMessage")}
+              size="small"
+              value={rules.customMessage ?? ""}
+              helperText={t("customMessageHint")}
+              onChange={(event) => {
+                onChange(withRule(rules, "customMessage", event.target.value));
+              }}
+            />
+          )}
+        </>
+      )}
     </Stack>
   );
 };

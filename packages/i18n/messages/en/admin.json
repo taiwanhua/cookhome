@@ -515,6 +515,7 @@
     "listColumns": {
       "title": "List columns — {name}",
       "loading": "Loading configuration",
+      "moduleWide": "This setting affects the whole module's list: every form in the module shares the same list columns.",
       "body": "Choose summary slots or form fields for the list; form fields are the non-protected fields of shared forms' current versions.",
       "usingDefault": "Not configured: the list uses the default columns (title, date).",
       "row": "Column {index}",
@@ -1100,7 +1101,7 @@
     },
     "design": {
       "hasVisibleWhen": "Has visibility condition",
-      "hasReadonlyWhen": "Has read-only condition",
+      "hasReadonlyWhen": "Has lock condition",
       "computed": "Computed",
       "constant": "Constant",
       "protected": "Protected",
@@ -1220,6 +1221,7 @@
     }
   },
   "forms": {
+    "labelWithKey": "{label} ({key})",
     "loading": "Loading",
     "empty": "Select a form to see its design and versions",
     "errors": {
@@ -1259,13 +1261,14 @@
       "edit": "Edit name and title",
       "fork": "New form from this",
       "assign": "Assign tenants",
+      "listColumns": "List columns",
       "tenantEnabled": "Enabled in this organization",
       "enabledOn": "Form enabled in this organization.",
       "enabledOff": "Form disabled in this organization.",
       "assignedTo": "Assigned: {tenants}",
       "tabs": "Form settings tabs",
-      "tabDesign": "Design",
-      "tabVersions": "Versions"
+      "tabDesign": "Form design",
+      "tabVersions": "Form versions"
     },
     "create": {
       "title": "New form",
@@ -1304,7 +1307,23 @@
       "keyFixed": "The form key cannot be changed",
       "name": "Name",
       "template": "Tab / title template",
-      "templateHint": "Only summary slots, e.g. {{title}}; empty = module default",
+      "templateHint": "Empty = use the module's default template",
+      "placeholders": "Available placeholders",
+      "placeholderItem": "{token}: {name}",
+      "placeholderNames": {
+        "title": "Summary title",
+        "date": "Summary date",
+        "amount": "Summary amount",
+        "applicant": "Creator (current name)",
+        "form": "Form name"
+      },
+      "sampleTitle": "Sick leave request",
+      "sampleDate": "2026-03-12",
+      "sampleAmount": "1200",
+      "sampleApplicant": "Alex Wang",
+      "preview": "Example: {label}",
+      "previewEmpty": "Example: (empty — the tab shows the module name)",
+      "previewLabel": "Tab template preview",
       "cancel": "Cancel",
       "confirm": "Save",
       "success": "Form updated."
@@ -1329,6 +1348,7 @@
       "retire": "Retire current version",
       "baseOn": "New draft from v{version}",
       "diff": "Changes from previous",
+      "view": "View v{version}",
       "diffNone": "Same field definitions as the previous version.",
       "diffAdded": "Added: {fields}",
       "diffRemoved": "Removed: {fields}",
@@ -1364,6 +1384,10 @@
       "draftCreated": "Draft created.",
       "readonlyHint": "This form does not belong to your organization; you can only view the current version. Base a new form on it to make changes.",
       "readonlyEmpty": "This form has no published version yet.",
+      "viewing": "Viewing v{version} (read-only)",
+      "viewingHint": "Viewing v{version} (read-only): it can't be changed or saved. To change it, start a new draft based on this version.",
+      "closeViewing": "Close",
+      "viewingHasDraft": "A draft already exists: publish or discard it before starting a new draft from this version.",
       "mode": "Designer mode",
       "modeDesign": "Design",
       "modePreview": "Preview",
@@ -1419,6 +1443,11 @@
       "issues": "Check results for this field",
       "key": "Field key",
       "keyHint": "Lowercase letter first, then lowercase letters, digits or underscores; type cannot change after publishing",
+      "keyProblems": {
+        "format": "Invalid format: start with a lowercase letter; lowercase letters, digits and underscores only (max 40)",
+        "reserved": "This is a reserved word and can't be a field key",
+        "duplicate": "Another field already uses this key"
+      },
       "label": "Label",
       "type": "Type",
       "types": {
@@ -1433,6 +1462,8 @@
         "reference": "Reference"
       },
       "widget": "Widget",
+      "rows": "Rows",
+      "unit": "Unit",
       "widgets": {
         "textField": "Text input",
         "textArea": "Text area",
@@ -1461,7 +1492,7 @@
       "formula": "Formula",
       "constantValue": "Constant value",
       "visibleWhen": "Visible when",
-      "readonlyWhen": "Read-only when",
+      "readonlyWhen": "Lock condition (field can't be changed when true)",
       "permissionShow": "Protected (permission needed to see)",
       "permissionEdit": "Restricted edit (permission needed to change)",
       "permissionHint": "Each creates a field permission when published; grant it in the role permission matrix.",
@@ -1483,28 +1514,43 @@
       "remove": "Remove",
       "removeOf": "Remove option “{label}”",
       "add": "+ Add option",
-      "categoryKey": "Category key",
-      "categoryKeyHint": "Category key from field management"
+      "category": "Category",
+      "categoryHint": "A category from Field Manager",
+      "categoryUnset": "Choose a category"
     },
     "lookupSource": {
       "provider": "Data source",
+      "providerHint": "Where to look up records",
       "providers": {
         "user": "Users",
         "org": "Organizations",
-        "form_submission": "Other form data"
+        "form_submission": "Form submissions"
       },
-      "formKey": "Form key",
-      "formKeyHint": "Which form's data to look up",
+      "form": "Form",
+      "formHint": "Only forms you can see that have a published version",
+      "formTruncated": "More than 100 forms: the list is truncated to published forms among the first 100",
+      "formUnset": "Choose a form",
       "labelField": "Display field",
-      "labelFieldHint": "A summary slot (title / date / amount) or a field key of that form",
+      "labelFieldHint": "Which column the picker list shows",
+      "labelFieldPending": "Choose a form first",
       "fields": {
         "name": "Name",
         "account": "Account",
         "email": "Email",
         "slug": "Short code"
       },
+      "summarySlots": {
+        "title": "Title (summary)",
+        "date": "Date (summary)",
+        "amount": "Amount (summary)"
+      },
+      "fixedFilter": "Fixed condition (optional)",
+      "enabledOnly": "Enabled only",
+      "completedOnly": "Completed submissions only",
+      "fixedFilterHint": "Always applied; people filling the form can't change it",
       "valueField": "Value field",
-      "valueFieldHint": "Empty = use the record id"
+      "valueFieldHint": "Which column the option stores; defaults to the record id",
+      "valueFieldId": "Record id (default)"
     },
     "rules": {
       "required": "Required",
@@ -1523,19 +1569,21 @@
       "patternHint": "JavaScript regex (u flag); needs an error message; use either this or a built-in format",
       "patternMessage": "Pattern error message",
       "allowCustom": "Allow custom values",
-      "custom": "Custom validation"
+      "custom": "Custom validation (passes when true)",
+      "customMessage": "Error message",
+      "customMessageHint": "Shown when the condition is false; defaults to “Field doesn't match the rule”"
     },
     "expression": {
       "root": "root",
       "kind": "Node kind ({path})",
       "kinds": {
         "field": "Field",
-        "context": "Context",
+        "context": "System value",
         "constant": "Constant",
         "operation": "Operation"
       },
       "field": "Field",
-      "context": "Context",
+      "context": "System value",
       "contexts": {
         "ctx": {
           "now": "Now",
@@ -1569,7 +1617,7 @@
         "min": "Minimum",
         "max": "Maximum",
         "in": "Is in",
-        "dateDiff": "Days between",
+        "dateDiff": "Date difference",
         "concat": "Join text",
         "optionLabel": "Option label",
         "now": "Now"
@@ -1579,9 +1627,20 @@
         "text": "Text",
         "number": "Number",
         "boolean": "Yes / no",
+        "date": "Date",
+        "list": "List",
         "null": "Empty"
       },
       "constantValue": "Value",
+      "listValue": "Values (comma-separated)",
+      "unit": "Unit",
+      "units": {
+        "days": "Days",
+        "hours": "Hours",
+        "minutes": "Minutes"
+      },
+      "optionField": "Option field",
+      "optionFieldUnset": "Choose a field",
       "booleanValue": "Constant value (yes / no)",
       "addArg": "+ Argument",
       "removeArg": "Remove",
@@ -1604,9 +1663,14 @@
     },
     "prefill": {
       "rule": "Prefill rule {index}",
-      "label": "Label",
+      "label": "Rule name",
+      "labelHint": "Shown in the source dropdown of the prefill dialog",
+      "mapping": "Mapping",
+      "mappingHint": "Each row copies one source column into one field of this form (only compatible source columns are listed)",
       "sourceField": "Source field",
+      "sourceFieldUnset": "Choose a source field",
       "targetField": "Field in this form",
+      "targetUnset": "Choose a field",
       "addMapping": "+ Mapping",
       "removeMapping": "Remove",
       "remove": "Delete this rule"
@@ -1622,7 +1686,7 @@
           "expr": "Formula"
         },
         "visibleWhen": "Visible condition",
-        "readonlyWhen": "Read-only condition",
+        "readonlyWhen": "Lock condition",
         "rules": {
           "custom": "Custom validation"
         }
@@ -1956,8 +2020,8 @@
       "assignedTo": "Assigned to: {tenants}",
       "boundForms": "Bound forms: {forms}",
       "tabs": "Workflow",
-      "tabDesign": "Design",
-      "tabVersions": "Versions"
+      "tabDesign": "Workflow design",
+      "tabVersions": "Workflow versions"
     },
     "nameDialog": {
       "createTitle": "Create workflow",
