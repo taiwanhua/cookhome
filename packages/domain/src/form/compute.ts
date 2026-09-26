@@ -9,6 +9,7 @@ import type {
   FieldType,
   StoredValues,
 } from "./types";
+import { normalizeFieldValue } from "./values";
 
 /**
  * 計算欄位與固定值欄位的值(Spec §5:前端即時算供預覽,送出時後端重算並以後端為準)。
@@ -101,7 +102,7 @@ export function computeField(
   input: ComputeInput,
 ): unknown {
   if (field.valueSource.kind === "constant") {
-    return constantValueOf(field);
+    return constantValueOf(field, input.ctx.timezone);
   }
   if (field.valueSource.kind !== "computed") {
     return undefined;
@@ -126,16 +127,21 @@ export function computeField(
   );
 }
 
-/** 固定值欄位的存值:number 依 `precision` 取位(與計算結果同一條),其餘照定義值。 */
-function constantValueOf(field: FieldDef): unknown {
+/**
+ * 固定值欄位的存值:照欄位型別正規化(與使用者填的值同一條 `normalizeFieldValue`):number 依 `precision`
+ * 取位、是 / 否要是布林(字串 `"true"` 不收)、多選要是陣列、日期收斂成租戶時區當天 00:00 的 ISO;
+ * 型別不對 → null(檢查器 `DEFAULT_VALUE_INVALID` 同一個判準會先擋)。
+ */
+function constantValueOf(field: FieldDef, timezone: string): unknown {
   if (field.valueSource.kind !== "constant") {
     return null;
   }
-  const value = field.valueSource.value ?? null;
-  if (field.type === "number" && value !== null) {
-    return roundToPrecision(value, field.precision ?? 0);
-  }
-  return value;
+  const normalized = normalizeFieldValue(
+    field,
+    field.valueSource.value ?? null,
+    timezone,
+  );
+  return normalized.ok ? normalized.value : null;
 }
 
 /**
@@ -150,7 +156,7 @@ export function computeAll(
   const stored: StoredValues = { ...input.values };
   for (const field of fields) {
     if (field.valueSource.kind === "constant") {
-      results[field.key] = constantValueOf(field);
+      results[field.key] = constantValueOf(field, input.ctx.timezone);
       stored[field.key] = results[field.key];
     }
   }

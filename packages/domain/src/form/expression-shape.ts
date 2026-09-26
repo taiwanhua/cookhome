@@ -1,3 +1,4 @@
+import { isDateTimeString } from "./temporal";
 import type { Expression } from "./types";
 
 /**
@@ -30,6 +31,8 @@ export const EXPRESSION_OPERATORS = [
   "max",
   "in",
   "dateDiff",
+  "dateAdd",
+  "date",
   "concat",
   "optionLabel",
   "now",
@@ -194,6 +197,11 @@ function walk(
     countNode(walker, operatorPath);
     return;
   }
+  if (operator === "date") {
+    checkDateLiteral(argument, operatorPath, scan);
+    countNode(walker, operatorPath);
+    return;
+  }
   if (operator === "now") {
     scan.usesContext = true;
   }
@@ -267,6 +275,25 @@ function checkOptionLabel(
     return;
   }
   scan.refs.push({ fieldKey: target, path });
+}
+
+/**
+ * 日期常數 `{ "date": "<ISO>" }`:參數只能是帶時區的 ISO 字串(或包一層陣列),不可運算出來。
+ * 它把常數**標成日期型別**(當地那一天),比較時與日期時間混比會換成當地日再比。
+ */
+function checkDateLiteral(
+  argument: Expression,
+  path: string,
+  scan: ExpressionScan,
+): void {
+  const target = Array.isArray(argument) ? argument[0] : argument;
+  if (!isDateTimeString(target)) {
+    scan.issues.push({
+      problem: "INVALID_NODE",
+      path,
+      detail: "日期常數必須是含時區的 ISO 8601 字串",
+    });
+  }
 }
 
 /** 表達式引用到的欄位 key(去重);形狀有問題的節點不列。 */
