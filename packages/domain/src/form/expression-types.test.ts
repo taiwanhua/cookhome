@@ -54,7 +54,10 @@ describe("@repo/domain/form 表達式型別表(表 B)", () => {
     ).toBe("text");
     expect(inferExpressionType({ var: "ctx.now" }, typeOf)).toBe("datetime");
     expect(inferExpressionType({ var: "ctx.user.id" }, typeOf)).toBe("text");
-    expect(inferExpressionType("2026-01-01", typeOf)).toBe("date");
+    expect(inferExpressionType("2026-01-01T00:00:00.000Z", typeOf)).toBe(
+      "datetime",
+    );
+    expect(inferExpressionType("2026-01-01", typeOf)).toBe("text");
     expect(inferExpressionType(["a"], typeOf)).toBe("list");
     expect(inferExpressionType(null, typeOf)).toBeNull();
   });
@@ -86,12 +89,17 @@ describe("@repo/domain/form 表達式型別表(表 B)", () => {
 });
 
 describe("dateDiff 第三參數(單位):選擇器先產生,計算與檢查器不因多一個參數出錯", () => {
-  const expr = { dateDiff: [{ var: "start" }, "2026-01-11", "days"] };
+  const expr = {
+    dateDiff: [{ var: "start" }, "2026-01-10T16:00:00.000Z", "days"],
+  };
 
   it("形狀檢查沒有問題、計算照日曆日差", () => {
     expect(scanExpression(expr).issues).toEqual([]);
     expect(
-      evaluateExpression(expr, { values: { start: "2026-01-01" }, ctx: CTX }),
+      evaluateExpression(expr, {
+        values: { start: "2025-12-31T16:00:00.000Z" },
+        ctx: CTX,
+      }),
     ).toBe("10");
   });
 

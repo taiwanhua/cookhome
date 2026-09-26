@@ -6,50 +6,271 @@ import { evaluateCondition, evaluateExpression } from "./expression";
 import { CTX, definitionOf, field } from "./form-test-support";
 import { computeSummary } from "./summary";
 import {
-  fromZonedWallTime,
-  normalizeDateTime,
-  toZonedWallTime,
-  zonedMidnightOf,
+  addLocalCalendar,
+  compareLocalDay,
+  formatTemporal,
+  localDateOf,
+  parseLocalDate,
+  sameLocalDay,
+  startOfLocalDay,
+  toInstant,
+  toIso,
 } from "./temporal";
 import type { Expression } from "./types";
 import { validateDefinition } from "./validate-definition";
 import { normalizeFieldValue, validateFieldRules } from "./values";
 
+const TAIPEI = "Asia/Taipei";
+const NEW_YORK = "America/New_York";
+
 const evaluate = (expr: Expression, values: Record<string, unknown> = {}) =>
   evaluateExpression(expr, { values, ctx: CTX });
 
-describe("@repo/domain/form datetime:正規化(ISO 8601 UTC)", () => {
-  const meeting = field("meeting", "datetime");
+const iso = (instant: number | null) =>
+  instant === null ? null : toIso(instant);
 
-  it("帶時區的輸入一律存成 UTC、秒以下捨去", () => {
+describe("@repo/domain/form toInstant:單一入口", () => {
+  it("收 Date 與帶時區的 ISO 字串,回 ms", () => {
+    const at = Date.parse("2026-09-26T06:30:00Z");
+    expect(toInstant(new Date(at))).toBe(at);
+    expect(toInstant("2026-09-26T06:30:00Z")).toBe(at);
+    expect(toInstant("2026-09-26T14:30+08:00")).toBe(at);
+    expect(toInstant("2026-09-26T06:30:00.000Z")).toBe(at);
+  });
+
+  it("沒有時區、只有日期、不存在的時間、數字、Invalid Date → null", () => {
+    for (const value of [
+      "2026-09-26T14:30",
+      "2026-09-26",
+      "2026-13-01T00:00:00Z",
+      1_700_000_000_000,
+      new Date(Number.NaN),
+      null,
+      undefined,
+      "",
+    ]) {
+      expect(toInstant(value)).toBeNull();
+    }
+  });
+});
+
+describe("@repo/domain/form startOfLocalDay / localDateOf", () => {
+  it("台北選 09-26 → 2026-09-25T16:00:00.000Z,往返回同一天", () => {
+    const instant = startOfLocalDay({ year: 2026, month: 9, day: 26 }, TAIPEI);
+    expect(toIso(instant)).toBe("2026-09-25T16:00:00.000Z");
+    expect(localDateOf(instant, TAIPEI)).toEqual({
+      year: 2026,
+      month: 9,
+      day: 26,
+    });
+  });
+
+  it("同一個時點在紐約落在前一天(預期行為)", () => {
+    const instant = startOfLocalDay({ year: 2026, month: 9, day: 26 }, TAIPEI);
+    expect(localDateOf(instant, NEW_YORK)).toEqual({
+      year: 2026,
+      month: 9,
+      day: 25,
+    });
+  });
+
+  it("UTC 與負時區", () => {
+    expect(
+      toIso(startOfLocalDay({ year: 2026, month: 9, day: 26 }, "UTC")),
+    ).toBe("2026-09-26T00:00:00.000Z");
+    expect(
+      toIso(startOfLocalDay({ year: 2026, month: 9, day: 26 }, NEW_YORK)),
+    ).toBe("2026-09-26T04:00:00.000Z");
+    expect(
+      toIso(startOfLocalDay({ year: 2026, month: 1, day: 15 }, NEW_YORK)),
+    ).toBe("2026-01-15T05:00:00.000Z");
+  });
+
+  it("夏令時間切換日:紐約 3/8(開始)與 11/1(結束)的 00:00 都在切換前", () => {
+    expect(
+      toIso(startOfLocalDay({ year: 2026, month: 3, day: 8 }, NEW_YORK)),
+    ).toBe("2026-03-08T05:00:00.000Z");
+    expect(
+      toIso(startOfLocalDay({ year: 2026, month: 11, day: 1 }, NEW_YORK)),
+    ).toBe("2026-11-01T04:00:00.000Z");
+  });
+
+  it("午夜不存在的時區(聖地牙哥夏令時間在 00:00 開始)→ 當天第一個時點", () => {
+    const instant = startOfLocalDay(
+      { year: 2026, month: 9, day: 6 },
+      "America/Santiago",
+    );
+    expect(localDateOf(instant, "America/Santiago")).toEqual({
+      year: 2026,
+      month: 9,
+      day: 6,
+    });
+    expect(localDateOf(instant - 1000, "America/Santiago").day).toBe(5);
+  });
+
+  it("parseLocalDate:格式不對或不存在的日期 → null", () => {
+    expect(parseLocalDate("2026-02-28")).toEqual({
+      year: 2026,
+      month: 2,
+      day: 28,
+    });
+    expect(parseLocalDate("2026-02-30")).toBeNull();
+    expect(parseLocalDate("2026-9-1")).toBeNull();
+  });
+});
+
+describe("@repo/domain/form compareLocalDay / sameLocalDay", () => {
+  const dateValue = "2026-09-25T16:00:00.000Z"; // 台北 09-26 00:00
+  it("日期與日期時間互比:換成當地日期再比,不看時分秒", () => {
+    expect(compareLocalDay(dateValue, "2026-09-26T06:30:00Z", TAIPEI)).toBe(0);
+    expect(sameLocalDay(dateValue, "2026-09-26T15:59:59Z", TAIPEI)).toBe(true);
+    expect(compareLocalDay(dateValue, "2026-09-26T16:00:00Z", TAIPEI)).toBe(-1);
+    expect(compareLocalDay(new Date(dateValue), dateValue, TAIPEI)).toBe(0);
+    expect(compareLocalDay("2026-09-27T00:00:00Z", dateValue, TAIPEI)).toBe(1);
+  });
+
+  it("時區決定是哪一天:同兩個時點在紐約是不同天", () => {
+    expect(sameLocalDay(dateValue, "2026-09-26T06:30:00Z", NEW_YORK)).toBe(
+      false,
+    );
+  });
+
+  it("任一不是時點或時區不合法 → null", () => {
+    expect(compareLocalDay("2026-09-26", dateValue, TAIPEI)).toBeNull();
+    expect(compareLocalDay(dateValue, dateValue, "Not/AZone")).toBeNull();
+  });
+});
+
+const midnight = (year: number, month: number, day: number) =>
+  startOfLocalDay({ year, month, day }, TAIPEI);
+
+describe("@repo/domain/form addLocalCalendar", () => {
+  it("days / weeks 加減當地日期,仍是當地 00:00", () => {
+    expect(
+      iso(addLocalCalendar(midnight(2026, 9, 26), 7, "days", TAIPEI)),
+    ).toBe(iso(midnight(2026, 10, 3)));
+    expect(
+      iso(addLocalCalendar(midnight(2026, 9, 26), -2, "weeks", TAIPEI)),
+    ).toBe(iso(midnight(2026, 9, 12)));
+  });
+
+  it("月底溢出取該月最後一天(平年 / 閏年、加年)", () => {
+    expect(
+      iso(addLocalCalendar(midnight(2026, 1, 31), 1, "months", TAIPEI)),
+    ).toBe(iso(midnight(2026, 2, 28)));
+    expect(
+      iso(addLocalCalendar(midnight(2024, 1, 31), 1, "months", TAIPEI)),
+    ).toBe(iso(midnight(2024, 2, 29)));
+    expect(
+      iso(addLocalCalendar(midnight(2024, 2, 29), 1, "years", TAIPEI)),
+    ).toBe(iso(midnight(2025, 2, 28)));
+    expect(
+      iso(addLocalCalendar(midnight(2026, 3, 31), -1, "months", TAIPEI)),
+    ).toBe(iso(midnight(2026, 2, 28)));
+  });
+
+  it("日期時間:時分不變、跨夏令時間仍是當地同一時刻", () => {
+    expect(
+      iso(
+        addLocalCalendar(
+          Date.parse("2026-09-26T06:30:00Z"),
+          1,
+          "months",
+          TAIPEI,
+        ),
+      ),
+    ).toBe("2026-10-26T06:30:00.000Z");
+    // 紐約 3/7 12:00 EST + 1 天 = 3/8 12:00 EDT
+    expect(
+      iso(
+        addLocalCalendar(
+          Date.parse("2026-03-07T17:00:00Z"),
+          1,
+          "days",
+          NEW_YORK,
+        ),
+      ),
+    ).toBe("2026-03-08T16:00:00.000Z");
+  });
+});
+
+describe("@repo/domain/form formatTemporal", () => {
+  it("date 印 YYYY-MM-DD、datetime 印 YYYY-MM-DD HH:mm(依給的時區)", () => {
+    const value = "2026-09-26T06:30:00Z";
+    expect(formatTemporal(value, { type: "date", timezone: TAIPEI })).toBe(
+      "2026-09-26",
+    );
+    expect(formatTemporal(value, { type: "datetime", timezone: TAIPEI })).toBe(
+      "2026-09-26 14:30",
+    );
+    expect(
+      formatTemporal(new Date(value), { type: "datetime", timezone: NEW_YORK }),
+    ).toBe("2026-09-26 02:30");
+    expect(
+      formatTemporal("2026-09-25T16:00:00.000Z", {
+        type: "date",
+        timezone: NEW_YORK,
+      }),
+    ).toBe("2026-09-25");
+  });
+
+  it("空值 → 空字串;不是時點的字串原樣回;時區不合法以 UTC 顯示", () => {
+    expect(formatTemporal(null, { type: "date", timezone: TAIPEI })).toBe("");
+    expect(
+      formatTemporal("2026-09-26", { type: "date", timezone: TAIPEI }),
+    ).toBe("2026-09-26");
+    expect(
+      formatTemporal("2026-09-26T06:30:00Z", {
+        type: "datetime",
+        timezone: "Not/AZone",
+      }),
+    ).toBe("2026-09-26 06:30");
+  });
+});
+
+describe("@repo/domain/form date / datetime:正規化", () => {
+  const meeting = field("meeting", "datetime");
+  const day = field("day", "date");
+
+  it("datetime:帶時區的輸入一律存成 ISO(UTC)", () => {
     expect(normalizeFieldValue(meeting, "2026-03-01T09:30+08:00")).toEqual({
       ok: true,
-      value: "2026-03-01T01:30:00Z",
+      value: "2026-03-01T01:30:00.000Z",
     });
-    expect(normalizeFieldValue(meeting, "2026-03-01T01:30:15.987Z")).toEqual({
-      ok: true,
-      value: "2026-03-01T01:30:15Z",
-    });
+    expect(
+      normalizeFieldValue(meeting, new Date("2026-03-01T01:30:15.987Z")),
+    ).toEqual({ ok: true, value: "2026-03-01T01:30:15.987Z" });
     expect(normalizeFieldValue(meeting, "")).toEqual({ ok: true, value: null });
   });
 
+  it("date:給了租戶時區就收斂成當地那一天 00:00", () => {
+    expect(normalizeFieldValue(day, "2026-09-26T06:30:00Z", TAIPEI)).toEqual({
+      ok: true,
+      value: "2026-09-25T16:00:00.000Z",
+    });
+    expect(
+      normalizeFieldValue(day, "2026-09-25T16:00:00.000Z", TAIPEI),
+    ).toEqual({ ok: true, value: "2026-09-25T16:00:00.000Z" });
+  });
+
   it("沒有時區、只有日期、不存在的時間 → TYPE_INVALID", () => {
-    for (const raw of [
-      "2026-03-01T09:30",
-      "2026-03-01",
-      "2026-13-01T00:00:00Z",
-      1_700_000_000_000,
-    ]) {
-      const result = normalizeFieldValue(meeting, raw);
-      expect(result.ok).toBe(false);
+    for (const target of [meeting, day]) {
+      for (const raw of [
+        "2026-03-01T09:30",
+        "2026-03-01",
+        "2026-13-01T00:00:00Z",
+        1_700_000_000_000,
+      ]) {
+        expect(normalizeFieldValue(target, raw, TAIPEI).ok).toBe(false);
+      }
     }
   });
 
-  it("上下限(min / max)以時點比較", () => {
+  it("datetime 上下限(min / max)以時點比較", () => {
     const limited = field("meeting", "datetime", {
       rules: { min: "2026-03-01T00:00:00Z", max: "2026-03-31T23:59:59+08:00" },
     });
-    const ruleOf = (value: string) =>
+    const ruleOf = (value: unknown) =>
       validateFieldRules(limited, value, {
         semantic: {},
         ctx: CTX,
@@ -57,8 +278,25 @@ describe("@repo/domain/form datetime:正規化(ISO 8601 UTC)", () => {
         stored: {},
       })?.code ?? null;
     expect(ruleOf("2026-02-28T23:59:59Z")).toBe("MIN");
-    expect(ruleOf("2026-03-31T15:59:59Z")).toBeNull();
+    expect(ruleOf(new Date("2026-03-31T15:59:59Z"))).toBeNull();
     expect(ruleOf("2026-03-31T16:00:00Z")).toBe("MAX");
+  });
+
+  it("date 上下限以租戶時區的當地日期比較,訊息印日期", () => {
+    const limited = field("day", "date", {
+      rules: { max: "2026-01-31T16:00:00.000Z" }, // 台北 2026-02-01
+    });
+    const issueOf = (value: unknown) =>
+      validateFieldRules(limited, value, {
+        semantic: {},
+        ctx: CTX,
+        fields: [limited],
+        stored: {},
+      });
+    expect(issueOf("2026-01-31T16:00:00.000Z")).toBeNull();
+    expect(issueOf(new Date("2026-02-01T16:00:00.000Z"))?.message).toBe(
+      "「day」不可晚於 2026-02-01",
+    );
   });
 
   it("超出上下限的訊息以租戶時區顯示;上下限格式不合法 → 檢查器 RULE_RANGE_INVALID", () => {
@@ -79,35 +317,35 @@ describe("@repo/domain/form datetime:正規化(ISO 8601 UTC)", () => {
         field("meeting", "datetime", {
           rules: { min: "2026-03-01 09:00", max: "2026-03-31T23:59+08:00" },
         }),
+        field("day", "date", { rules: { max: "2026-03-31" } }),
       ]),
       { regexSafety: recheckRegexSafety },
     );
     expect(
-      report.errors.map((issue) => [issue.code, issue.location.property]),
-    ).toEqual([["RULE_RANGE_INVALID", "rules.min"]]);
-  });
-
-  it("租戶時區的牆上時間 ↔ 存值(台北 +08:00;無效回 null)", () => {
-    expect(fromZonedWallTime("2026-03-01T09:30", "Asia/Taipei")).toBe(
-      "2026-03-01T01:30:00Z",
-    );
-    expect(toZonedWallTime("2026-03-01T01:30:00Z", "Asia/Taipei")).toBe(
-      "2026-03-01T09:30",
-    );
-    expect(zonedMidnightOf("2026-03-01", "Asia/Taipei")).toBe(
-      Date.parse("2026-02-28T16:00:00Z"),
-    );
-    expect(fromZonedWallTime("nope", "Asia/Taipei")).toBeNull();
-    expect(normalizeDateTime("2026-03-01T09:30")).toBeNull();
+      report.errors.map((issue) => [
+        issue.code,
+        issue.location.fieldKey,
+        issue.location.property,
+      ]),
+    ).toEqual([
+      ["RULE_RANGE_INVALID", "meeting", "rules.min"],
+      ["RULE_RANGE_INVALID", "day", "rules.max"],
+    ]);
   });
 });
 
-describe("@repo/domain/form datetime:比較與計算", () => {
-  it("比較以時點:同一刻不同寫法相等、帶毫秒的 now 與存值可比大小", () => {
+describe("@repo/domain/form date / datetime:比較與計算", () => {
+  it("比較以時點:同一刻不同寫法相等、Date 與字串可比、帶毫秒的 now 與存值可比大小", () => {
     expect(
       evaluateCondition(
         { "==": [{ var: "at" }, "2026-03-01T09:00:00+08:00"] },
         { values: { at: "2026-03-01T01:00:00Z" }, ctx: CTX },
+      ),
+    ).toBe(true);
+    expect(
+      evaluateCondition(
+        { "==": [{ var: "at" }, "2026-03-01T01:00:00.000Z"] },
+        { values: { at: new Date("2026-03-01T01:00:00Z") }, ctx: CTX },
       ),
     ).toBe(true);
     // CTX.now = 2026-03-01T01:00:00.000Z
@@ -125,33 +363,50 @@ describe("@repo/domain/form datetime:比較與計算", () => {
     ).toBe(true);
   });
 
-  it("計算欄位回 now:存成 UTC 秒;日期結果視為租戶時區當天 00:00", () => {
+  it("計算欄位:datetime 回 ISO;date 收斂成租戶時區當天 00:00;存值是 Date 也收", () => {
     const stamped = field("stamped", "datetime", {
       valueSource: { kind: "computed", expr: { now: [] } },
     });
-    const dayStart = field("day_start", "datetime", {
-      valueSource: { kind: "computed", expr: "2026-03-05" },
+    const today = field("today", "date", {
+      valueSource: { kind: "computed", expr: { now: [] } },
     });
-    expect(computeAll([stamped, dayStart], { values: {}, ctx: CTX })).toEqual({
-      stamped: "2026-03-01T01:00:00Z",
-      day_start: "2026-03-04T16:00:00Z",
+    const copied = field("copied", "date", {
+      valueSource: { kind: "computed", expr: { var: "due" } },
+    });
+    const due = field("due", "date");
+    expect(
+      computeAll([stamped, today, copied, due], {
+        values: { due: new Date("2026-03-04T16:00:00.000Z") },
+        ctx: CTX,
+      }),
+    ).toEqual({
+      stamped: "2026-03-01T01:00:00.000Z",
+      today: "2026-02-28T16:00:00.000Z",
+      copied: "2026-03-04T16:00:00.000Z",
     });
   });
 
-  it("摘要槽 date 對日期時間欄時存 ISO 時間", () => {
+  it("摘要槽 date:對日期時間欄存 ISO、存值是 Date 也收;沒對欄位 = 送出時間", () => {
     const at = field("at", "datetime");
     expect(
       computeSummary(
         { fields: [at], summaryMap: { date: "at" } },
-        { at: "2026-03-01T01:00:00Z" },
+        { at: new Date("2026-03-01T01:00:00Z") },
         { submittedAt: "2026-04-01T00:00:00.000Z" },
       ).date,
-    ).toBe("2026-03-01T01:00:00Z");
+    ).toBe("2026-03-01T01:00:00.000Z");
+    expect(
+      computeSummary(
+        { fields: [at], summaryMap: {} },
+        {},
+        { submittedAt: "2026-04-01T00:00:00.000Z" },
+      ).date,
+    ).toBe("2026-04-01T00:00:00.000Z");
   });
 });
 
 describe("@repo/domain/form dateDiff 三種單位", () => {
-  it("days(預設):租戶時區的日曆日 —— 台北 3/1 23:30 到 3/2 00:10 = 1 天", () => {
+  it("days(預設):租戶時區的當地日期差 —— 台北 3/1 23:30 到 3/2 00:10 = 1 天", () => {
     const values = {
       from: "2026-03-01T15:30:00Z",
       to: "2026-03-01T16:10:00Z",
@@ -164,7 +419,16 @@ describe("@repo/domain/form dateDiff 三種單位", () => {
     ).toBe("1");
   });
 
-  it("hours:精確時間差,可有小數(90 分鐘 = 1.5 小時)", () => {
+  it("days:日期(當地 00:00)與日期時間互算", () => {
+    // 台北 3/1 00:00 → 台北 3/3 09:00
+    expect(
+      evaluate({
+        dateDiff: ["2026-02-28T16:00:00.000Z", "2026-03-03T01:00:00Z"],
+      }),
+    ).toBe("2");
+  });
+
+  it("hours:時點差,可有小數(90 分鐘 = 1.5 小時)", () => {
     expect(
       evaluate({
         dateDiff: ["2026-03-01T01:00:00Z", "2026-03-01T02:30:00Z", "hours"],
@@ -172,15 +436,19 @@ describe("@repo/domain/form dateDiff 三種單位", () => {
     ).toBe("1.5");
   });
 
-  it("minutes:日期視為租戶時區當天 00:00(台北 3/2 00:00 → 3/2 01:15 = 75 分)", () => {
+  it("minutes:日期是當地 00:00 的時點(台北 3/2 00:00 → 3/2 01:15 = 75 分)", () => {
     expect(
       evaluate({
-        dateDiff: ["2026-03-02", "2026-03-01T17:15:00Z", "minutes"],
+        dateDiff: [
+          "2026-03-01T16:00:00.000Z",
+          "2026-03-01T17:15:00Z",
+          "minutes",
+        ],
       }),
     ).toBe("75");
   });
 
-  it("認不得的單位或無效值 → null", () => {
+  it("認不得的單位、無效值、沒有時區的字串 → null", () => {
     expect(
       evaluate({
         dateDiff: ["2026-03-01T01:00:00Z", "2026-03-01T02:00:00Z", "weeks"],
@@ -189,5 +457,6 @@ describe("@repo/domain/form dateDiff 三種單位", () => {
     expect(
       evaluate({ dateDiff: [null, "2026-03-01T02:00:00Z", "hours"] }),
     ).toBeNull();
+    expect(evaluate({ dateDiff: ["2026-03-01", "2026-03-03"] })).toBeNull();
   });
 });

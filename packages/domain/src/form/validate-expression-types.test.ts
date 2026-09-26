@@ -117,7 +117,7 @@ describe("@repo/domain/form 檢查器:表達式型別(表 B)", () => {
     ]);
   });
 
-  it("比較運算子兩邊的日期與日期時間不互通(要比請用 dateDiff);dateDiff 兩種都收", () => {
+  it("比較運算子兩邊的日期與日期時間可混比(都是時點);ISO 常數是日期時間;dateDiff 兩種都收", () => {
     const issues = errorsOf(
       field("late", "boolean", {
         valueSource: {
@@ -128,7 +128,7 @@ describe("@repo/domain/form 檢查器:表達式型別(表 B)", () => {
       field("same", "boolean", {
         valueSource: {
           kind: "computed",
-          expr: { "==": [{ var: "end" }, "2026-01-01"] },
+          expr: { "==": [{ var: "end" }, "2026-01-01T00:00:00.000Z"] },
         },
       }),
       field("gap", "number", {
@@ -142,10 +142,7 @@ describe("@repo/domain/form 檢查器:表達式型別(表 B)", () => {
       issue.location.fieldKey,
       issue.location.exprPath,
     ]);
-    expect(issues).toEqual([
-      ["EXPR_TYPE_MISMATCH", "late", "<.1.now"],
-      ["EXPR_TYPE_MISMATCH", "same", "==.1"],
-    ]);
+    expect(issues).toEqual([]);
   });
 
   it("EXPR_DATE_DIFF_UNIT:單位只能是 days / hours / minutes", () => {

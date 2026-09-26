@@ -76,7 +76,11 @@ export function defaultValueOf(
     return undefined;
   }
   if (field.default.kind === "constant") {
-    const result = normalizeFieldValue(field, field.default.value);
+    const result = normalizeFieldValue(
+      field,
+      field.default.value,
+      ctx.timezone,
+    );
     return result.ok ? result.value : null;
   }
   let raw: unknown;

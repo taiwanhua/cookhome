@@ -1,10 +1,10 @@
 import { Decimal } from "decimal.js";
 
-import { isDateTimeString } from "./temporal";
+import { toInstant } from "./temporal";
 
 /**
  * 表達式的數值運算(Spec §5「數值」):中間過程**不取位**,只有最後依欄位 `precision` 四捨五入;
- * 除以零與空值 → `null`。另收日期的日曆日換算與文字串接。
+ * 除以零與空值 → `null`。另收比較(日期 / 日期時間比時點)與文字串接。
  */
 
 /**
@@ -97,8 +97,8 @@ export function textOf(value: unknown): string {
 }
 
 /**
- * 兩個值的順序:兩邊都是數值就比數值、兩邊都是日期時間就比時點,否則以**字碼**比文字
- * (`YYYY-MM-DD` 的字碼序即日期序)。
+ * 兩個值的順序:兩邊都是數值就比數值、兩邊都是時點(`Date` 或帶時區的 ISO 字串,`toInstant`)就比時點,
+ * 否則以**字碼**比文字。
  *
  * 不用 `localeCompare`:語系排序吃執行環境的 ICU 版本,前端即時算與後端重算可能不一致
  * (STRUCT-10 的同一個坑),而且和 JSONLogic 原生 `<` / `>` 的字碼序不同。
@@ -109,9 +109,11 @@ function orderOf(left: unknown, right: unknown): number {
   if (leftDecimal && rightDecimal) {
     return leftDecimal.comparedTo(rightDecimal);
   }
-  // 兩邊都是日期時間:比時點(`ctx.now` 帶毫秒、存值不帶,字碼序會把同一刻判成不同)
-  if (isDateTimeString(left) && isDateTimeString(right)) {
-    return Math.sign(Date.parse(left) - Date.parse(right));
+  // 兩邊都是時點:比時點(同一刻不同寫法、帶不帶毫秒,字碼序都會判成不同)
+  const leftInstant = toInstant(left);
+  const rightInstant = toInstant(right);
+  if (leftInstant !== null && rightInstant !== null) {
+    return Math.sign(leftInstant - rightInstant);
   }
   const leftText = textOf(left);
   const rightText = textOf(right);
@@ -149,8 +151,10 @@ export function looseEquals(left: unknown, right: unknown): boolean {
   if (leftDecimal && rightDecimal) {
     return leftDecimal.equals(rightDecimal);
   }
-  if (isDateTimeString(left) && isDateTimeString(right)) {
-    return Date.parse(left) === Date.parse(right);
+  const leftInstant = toInstant(left);
+  const rightInstant = toInstant(right);
+  if (leftInstant !== null && rightInstant !== null) {
+    return leftInstant === rightInstant;
   }
   return unwrapDecimal(left) == unwrapDecimal(right);
 }
@@ -164,57 +168,6 @@ export function strictEquals(left: unknown, right: unknown): boolean {
     );
   }
   return left === right;
-}
-
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
-const MS_PER_DAY = 86_400_000;
-
-/** 某時點在該時區的日曆日(`YYYY-MM-DD`);`YYYY-MM-DD` 本身視為已是日曆日;無效 → null。 */
-export function calendarDateOf(
-  value: unknown,
-  timezone: string,
-): string | null {
-  if (typeof value === "string" && DATE_ONLY.test(value)) {
-    return value;
-  }
-  if (typeof value !== "string" && !(value instanceof Date)) {
-    return null;
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  try {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(date);
-    const part = (type: string) =>
-      parts.find((item) => item.type === type)?.value ?? "";
-    return `${part("year")}-${part("month")}-${part("day")}`;
-  } catch {
-    // 時區字串不合法
-    return null;
-  }
-}
-
-/** 迄 − 起 的日曆日數(以該時區換算);任一無效 → null。 */
-export function calendarDayDiff(
-  start: unknown,
-  end: unknown,
-  timezone: string,
-): FormDecimalValue | null {
-  const from = calendarDateOf(start, timezone);
-  const to = calendarDateOf(end, timezone);
-  if (from === null || to === null) {
-    return null;
-  }
-  return new FormDecimal(
-    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
-      MS_PER_DAY,
-  );
 }
 
 /** 最終取位:數值四捨五入到 `precision` 位的十進位字串;不是數值 → null。 */

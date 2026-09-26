@@ -11,7 +11,7 @@
  * - `layout.ts`、`summary.ts`:版面換算、摘要槽快照
  * - `validate-*.ts`、`issues.ts`、`registry.ts`:定義檢查器與它的登錄表
  * - `values.ts`:提交值的型別正規化與規則驗證(存草稿只驗型別、送出再驗規則)
- * - `temporal.ts`:日期 / 日期時間(ISO UTC 存值、租戶時區換算、`dateDiff` 的精確差)
+ * - `temporal.ts`:日期 / 日期時間的單一入口(時點 `toInstant`、租戶時區的當地日期、日曆加減、`formatTemporal`)
  * - `defaults.ts`:欄位預設值的計算(api 建草稿填空欄、admin 沒碰過的欄位跟著重算)
  * - `upload.ts`:上傳欄的檔型 / 大小上限(平台上限 + 欄位收窄)
  */

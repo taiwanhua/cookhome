@@ -1,8 +1,8 @@
-import { FormDecimal, calendarDateOf, roundToPrecision } from "./decimal";
+import { FormDecimal, roundToPrecision } from "./decimal";
 import { computedOrder } from "./dependencies";
 import { evaluateRaw } from "./expression";
 import { semanticValuesOf } from "./semantic";
-import { instantOf, toStoredDateTime } from "./temporal";
+import { startOfLocalDayOf, toInstant, toIso } from "./temporal";
 import type {
   ExpressionContext,
   FieldDef,
@@ -18,8 +18,10 @@ import type {
 /**
  * 把表達式結果轉成該型別的**存值**,轉不了 → null:
  * - number:取到 `precision` 位的十進位字串
- * - date:收斂成 `YYYY-MM-DD`(以 `timezone` 換算日曆日)—— `now` 回的是 ISO 時間,不能原樣存進日期欄
- * - datetime:收斂成 UTC 存值(`YYYY-MM-DDTHH:mm:ssZ`);`YYYY-MM-DD` 視為租戶時區當天 00:00
+ * - date:時點收斂成 `timezone`(租戶時區)那一天 00:00 的 ISO —— `now` 回的是此刻,不能原樣存進日期欄
+ * - datetime:時點的 ISO(`toIso`)
+ *
+ * 日期 / 日期時間回 ISO 字串(JSON 形);api 存進 Mongo 前換成 `Date`。
  * - text / multiline:字串(decimal 不取位轉字串)
  */
 export function coerceComputedResult(
@@ -38,12 +40,9 @@ export function coerceComputedResult(
     case "boolean": {
       return typeof result === "boolean" ? result : null;
     }
-    case "date": {
-      return calendarDateOf(result, timezone);
-    }
+    case "date":
     case "datetime": {
-      const instant = instantOf(result, timezone);
-      return instant === null ? null : toStoredDateTime(new Date(instant));
+      return temporalResultOf(type, result, timezone);
     }
     case "text":
     case "multiline": {
@@ -61,6 +60,27 @@ export function coerceComputedResult(
     default: {
       return null;
     }
+  }
+}
+
+/** 日期 / 日期時間的結果;不是時點或時區不合法 → null。 */
+function temporalResultOf(
+  type: "date" | "datetime",
+  result: unknown,
+  timezone: string,
+): string | null {
+  const instant = toInstant(result);
+  if (instant === null) {
+    return null;
+  }
+  if (type === "datetime") {
+    return toIso(instant);
+  }
+  try {
+    return toIso(startOfLocalDayOf(instant, timezone));
+  } catch {
+    // 時區字串不合法
+    return null;
   }
 }
 

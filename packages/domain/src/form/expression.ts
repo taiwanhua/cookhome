@@ -3,7 +3,6 @@ import jsonLogic from "json-logic-js";
 
 import {
   FormDecimal,
-  calendarDayDiff,
   compareChain,
   decimalsOf,
   divide,
@@ -14,7 +13,7 @@ import {
 } from "./decimal";
 import { scanExpression } from "./expression-shape";
 import { optionLabelOf } from "./semantic";
-import { MS_PER_UNIT, instantDiffMs } from "./temporal";
+import { MS_PER_UNIT, instantDiffMs, localDayDiff } from "./temporal";
 import type {
   Expression,
   ExpressionContext,
@@ -111,19 +110,20 @@ function registerOperations(): void {
     },
     /**
      * `{ "dateDiff": [起, 迄, 單位] }` = 迄 − 起:
-     * - `days`(預設,缺參數也是):以 `ctx.timezone` 換算的**日曆日**數
-     * - `hours` / `minutes`:精確時間差(可有小數;`date` 視為租戶時區當天 00:00)
+     * - `days`(預設,缺參數也是):兩邊換成 `ctx.timezone` 的當地日期後的**日曆日**差
+     * - `hours` / `minutes`:時點差(可有小數;`date` 本來就是當地 00:00 的時點)
      *
      * 任一無效、單位不認得 → null。
      */
     dateDiff(start, end, unit = "days") {
       if (unit === "days") {
-        return calendarDayDiff(start, end, this.ctx.timezone);
+        const days = localDayDiff(start, end, this.ctx.timezone);
+        return days === null ? null : new FormDecimal(days);
       }
       if (unit !== "hours" && unit !== "minutes") {
         return null;
       }
-      const diff = instantDiffMs(start, end, this.ctx.timezone);
+      const diff = instantDiffMs(start, end);
       return diff === null
         ? null
         : new FormDecimal(diff).dividedBy(MS_PER_UNIT[unit]);

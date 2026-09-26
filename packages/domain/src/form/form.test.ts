@@ -95,10 +95,18 @@ describe("@repo/domain/form 摘要計算", () => {
           fields,
           summaryMap: { title: "kind", date: "day", amount: "amount" },
         },
-        { kind: "sick", day: "2026-03-01", amount: "120.50" },
+        {
+          kind: "sick",
+          day: new Date("2026-02-28T16:00:00.000Z"),
+          amount: "120.50",
+        },
         { submittedAt: "2026-03-02T00:00:00.000Z" },
       ),
-    ).toEqual({ title: "病假", date: "2026-03-01", amount: "120.50" });
+    ).toEqual({
+      title: "病假",
+      date: "2026-02-28T16:00:00.000Z",
+      amount: "120.50",
+    });
   });
 
   it("date 沒對欄位 = 送出時間;amount 沒對就不出現", () => {

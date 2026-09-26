@@ -2,11 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 
 import { CTX, field } from "./form-test-support";
 import type { FieldDef } from "./types";
-import {
-  isCalendarDate,
-  normalizeFieldValue,
-  validateFieldRules,
-} from "./values";
+import { normalizeFieldValue, validateFieldRules } from "./values";
 
 function normalized(target: FieldDef, raw: unknown): unknown {
   const result = normalizeFieldValue(target, raw);
@@ -57,9 +53,10 @@ describe("normalizeFieldValue:型別層(草稿也驗)", () => {
     });
   });
 
-  it("date 只收存在的 YYYY-MM-DD", () => {
-    expect(isCalendarDate("2026-02-28")).toBe(true);
-    expect(isCalendarDate("2026-02-30")).toBe(false);
+  it("date 只收帶時區的 ISO 時點(YYYY-MM-DD 不收)", () => {
+    expect(normalizeFieldValue(field("day", "date"), "2026-02-28").ok).toBe(
+      false,
+    );
     expect(normalizeFieldValue(field("day", "date"), "2026/02/01").ok).toBe(
       false,
     );
@@ -118,8 +115,8 @@ describe("validateFieldRules:完成資料所需的驗證", () => {
     );
     expect(
       ruleCode(
-        field("day", "date", { rules: { max: "2026-01-31" } }),
-        "2026-02-01",
+        field("day", "date", { rules: { max: "2026-01-30T16:00:00.000Z" } }),
+        "2026-01-31T16:00:00.000Z",
       ),
     ).toBe("MAX");
     expect(
