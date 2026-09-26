@@ -28,7 +28,7 @@ export interface DesignerPreviewProps {
   definition: FormDefinition;
   /** 草稿有未存的變更:後端預覽算的是已存的那一份 */
   isDirty: boolean;
-  /** 唯讀檢視已發布 / 已退役的版本時是它的版號;草稿為 null(只有草稿能「以後端重算」) */
+  /** 唯讀檢視已發布 / 已退役的版本時是它的版號(「以後端重算」算那一版);草稿為 null */
   version?: number | null;
 }
 
@@ -36,8 +36,9 @@ type PreviewResult = PreviewFormVersionQuery["previewFormVersion"];
 
 /**
  * 預覽模式(Spec 6a §8「設計模式 vs 預覽」):`FormRenderer` 的 `preview` 模式 —— 條件與計算前端即時跑、
- * 不套欄位級權限、輸入測試值、不建提交;「以後端重算」打 `previewFormVersion` 對**已存的草稿**算一次
- * (以後端為準:摘要槽、值錯誤)。預設值與填寫頁同一套:一打開就填好,沒碰過的欄位跟著依賴重算。
+ * 不套欄位級權限、輸入測試值、不建提交;「以後端重算」打 `previewFormVersion` 對**已存的草稿**
+ * (唯讀檢視歷史版本時是**那一版**,帶 `version`)算一次(以後端為準:摘要槽、值錯誤)。
+ * 預設值與填寫頁同一套:一打開就填好,沒碰過的欄位跟著依賴重算。
  */
 export const DesignerPreview = ({
   formKey,
@@ -84,7 +85,7 @@ export const DesignerPreview = ({
     setFailure(null);
     try {
       const payload = await usePreviewFormVersionQuery.fetcher(session.client, {
-        input: { formKey, values },
+        input: { formKey, values, ...(version !== null && { version }) },
       })();
       setResult(payload.previewFormVersion);
     } catch (error_) {
@@ -115,17 +116,15 @@ export const DesignerPreview = ({
             {t("prefill")}
           </Button>
         )}
-        {version === null && (
-          <Button
-            size="small"
-            disabled={isRunning}
-            onClick={() => {
-              void runOnServer();
-            }}
-          >
-            {t("runOnServer")}
-          </Button>
-        )}
+        <Button
+          size="small"
+          disabled={isRunning}
+          onClick={() => {
+            void runOnServer();
+          }}
+        >
+          {t("runOnServer")}
+        </Button>
       </Stack>
       <FormRenderer
         version={definition}

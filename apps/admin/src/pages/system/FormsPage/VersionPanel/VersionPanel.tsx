@@ -303,9 +303,10 @@ export const VersionPanel = ({
           }}
         />
       )}
-      {isRetiring && (
+      {isRetiring && typeof form.currentVersion === "number" && (
         <RetireDialog
           formKey={form.key}
+          expectedVersion={form.currentVersion}
           onClose={() => {
             setIsRetiring(false);
           }}

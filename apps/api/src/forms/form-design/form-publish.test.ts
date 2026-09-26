@@ -410,7 +410,7 @@ describe("表單發布(四步、冪等重試、版本)", () => {
 
     for (const [query, input] of [
       [CREATE_DRAFT, { formKey: "pub_blocked" }],
-      [RETIRE_CURRENT, { formKey: "pub_blocked" }],
+      [RETIRE_CURRENT, { formKey: "pub_blocked", expectedVersion: 1 }],
       [
         PUBLISH,
         { formKey: "pub_blocked", expectedDraftRevision: 1, changelog: "x" },
@@ -523,7 +523,7 @@ describe("表單發布(四步、冪等重試、版本)", () => {
       api,
       token,
       RETIRE_CURRENT,
-      { input: { formKey: "pub_retire" } },
+      { input: { formKey: "pub_retire", expectedVersion: 1 } },
     );
     expect(retired.retireCurrentVersion.form).toMatchObject({
       currentVersion: null,
@@ -544,11 +544,21 @@ describe("表單發布(四步、冪等重試、版本)", () => {
     });
     expect(codeOf(create)).toBe("FORBIDDEN");
     expect(extensionsOf(create).reason).toBe("FORM_NOT_AVAILABLE");
-    // 沒有目前版本時再退役 → 409
-    const again = await call(api, token, RETIRE_CURRENT, {
-      input: { formKey: "pub_retire" },
+    // 同一版再退役一次 = 已是目標狀態,視為完成(冪等,不 409)
+    const again = await ok<{ retireCurrentVersion: { form: unknown } }>(
+      api,
+      token,
+      RETIRE_CURRENT,
+      { input: { formKey: "pub_retire", expectedVersion: 1 } },
+    );
+    expect(again.retireCurrentVersion.form).toMatchObject({
+      currentVersion: null,
     });
-    expect(extensionsOf(again).reason).toBe("NO_CURRENT_VERSION");
+    // 從來沒發布過的版號 → 409
+    const missing = await call(api, token, RETIRE_CURRENT, {
+      input: { formKey: "pub_retire", expectedVersion: 9 },
+    });
+    expect(extensionsOf(missing).reason).toBe("NO_CURRENT_VERSION");
 
     await publishDefinition(
       api,
@@ -564,5 +574,64 @@ describe("表單發布(四步、冪等重試、版本)", () => {
       { moduleKey: MODULE_KEY },
     );
     expect(after.moduleForms.map((item) => item.key)).toContain("pub_retire");
+  });
+
+  it("退役帶舊的 expectedVersion:發布切換到新版之後 → 409,新版不受影響", async () => {
+    await publishNewForm(
+      api,
+      token,
+      "pub_retire_stale",
+      definitionOf(v1Fields),
+    );
+    await publishDefinition(
+      api,
+      token,
+      "pub_retire_stale",
+      definitionOf(v2Fields),
+      1,
+    );
+    const stale = await call(api, token, RETIRE_CURRENT, {
+      input: { formKey: "pub_retire_stale", expectedVersion: 1 },
+    });
+    expect(codeOf(stale)).toBe("CONFLICT");
+    expect(extensionsOf(stale).reason).toBe("CURRENT_VERSION_CHANGED");
+    expect(await getForm(api, token, "pub_retire_stale")).toMatchObject({
+      currentVersion: 2,
+    });
+    const versions = await versionsOf("pub_retire_stale");
+    expect(versions.find((item) => item.version === 2)?.status).toBe(
+      "PUBLISHED",
+    );
+  });
+
+  it("退役第一步成功、第二步失敗後重試:接著做完(冪等)", async () => {
+    await publishNewForm(
+      api,
+      token,
+      "pub_retire_retry",
+      definitionOf([field("title", "text")]),
+    );
+    failAt("retire-current");
+    const failed = await call(api, token, RETIRE_CURRENT, {
+      input: { formKey: "pub_retire_retry", expectedVersion: 1 },
+    });
+    expect(failed.errors).toBeDefined();
+    jest.restoreAllMocks();
+    // 停在兩步之間:版本已退役、currentVersion 還指著它
+    expect((await versionsOf("pub_retire_retry"))[0]?.status).toBe("RETIRED");
+    expect(await getForm(api, token, "pub_retire_retry")).toMatchObject({
+      currentVersion: 1,
+    });
+
+    const retried = await ok<{ retireCurrentVersion: { form: unknown } }>(
+      api,
+      token,
+      RETIRE_CURRENT,
+      { input: { formKey: "pub_retire_retry", expectedVersion: 1 } },
+    );
+    expect(retried.retireCurrentVersion.form).toMatchObject({
+      currentVersion: null,
+      publishInterrupted: false,
+    });
   });
 });

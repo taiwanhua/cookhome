@@ -199,8 +199,9 @@ mutation RetryPublishFormVersion($input: FormKeyInput!) {
   }
 }
 
-# FormKeyInput: { formKey };之後所有租戶都不能新增,再發布新版才恢復
-mutation RetireCurrentVersion($input: FormKeyInput!) {
+# RetireCurrentVersionInput: { formKey, expectedVersion };兩步冪等,currentVersion 已換成別版 → CONFLICT;
+# 之後所有租戶都不能新增,再發布新版才恢復
+mutation RetireCurrentVersion($input: RetireCurrentVersionInput!) {
   retireCurrentVersion(input: $input) {
     form {
       ...FormFields
@@ -224,7 +225,7 @@ query ValidateFormVersion($input: ValidateFormVersionInput!) {
   }
 }
 
-# PreviewFormVersionInput: { formKey, values? };對草稿跑計算與條件,不建提交
+# PreviewFormVersionInput: { formKey, values?, version? };對草稿(version 缺席)或指定的已發布 / 已退役版本跑計算與條件,不建提交
 query PreviewFormVersion($input: PreviewFormVersionInput!) {
   previewFormVersion(input: $input) {
     values

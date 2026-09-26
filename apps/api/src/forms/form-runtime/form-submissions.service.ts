@@ -83,6 +83,7 @@ import {
   type FormSubmissionsPayload,
   type FormSummary,
 } from "./models/form-submission.model";
+import { assertSubmissionCapacity } from "./revision-limits";
 
 type SubmissionRecord = Persisted<FormSubmissionDocument>;
 
@@ -594,6 +595,7 @@ export class FormSubmissionsService {
       ctx: this.draftContext(facts),
       mode: "draft",
     });
+    assertSubmissionCapacity(record, { set: { values } });
     const updated = await this.submissions.findOwnAndUpdate(
       facts.operator,
       {
@@ -679,6 +681,18 @@ export class FormSubmissionsService {
       }),
     );
     const route = await this.workflowSubmit.route(record);
+    // 容量上限:走流程 = 修訂 +1 並 push 快照;不走流程 = 第一次送出,修訂只剩這一筆
+    assertSubmissionCapacity(
+      record,
+      route.kind === "workflow"
+        ? {
+            set: { values, summary },
+            pushRevision: { revision: record.revision + 1, values, ctx },
+          }
+        : {
+            set: { values, summary, revisions: [{ revision: 1, values, ctx }] },
+          },
+    );
     if (route.kind === "workflow") {
       await this.workflowSubmit.submit(
         facts.operator,
@@ -782,6 +796,10 @@ export class FormSubmissionsService {
       }),
     );
     const revision = record.revision + 1;
+    assertSubmissionCapacity(record, {
+      set: { values, summary },
+      pushRevision: { revision, values, ctx },
+    });
     const updated = await this.submissions.findOneAndUpdate(
       facts.operator,
       {

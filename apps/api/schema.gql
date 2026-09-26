@@ -1061,7 +1061,7 @@ type Mutation {
   reassignTask(input: ReassignTaskInput!): WorkflowTaskPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
-  retireCurrentVersion(input: FormKeyInput!): FormPayload!
+  retireCurrentVersion(input: RetireCurrentVersionInput!): FormPayload!
   retireCurrentWorkflowVersion(input: WorkflowKeyInput!): WorkflowPayload!
   retryAdvanceInstance(input: RetryAdvanceInstanceInput!): WorkflowInstancePayload!
   retryPublishFormVersion(input: FormKeyInput!): FormVersionPayload!
@@ -1211,6 +1211,7 @@ type PermissionAdminPayload {
 input PreviewFormVersionInput {
   formKey: ID!
   values: JSONObject
+  version: Int
 }
 
 input ProvisionTenantInput {
@@ -1327,6 +1328,11 @@ input RequestPasswordResetInput {
 
 type RequestPasswordResetPayload {
   success: Boolean!
+}
+
+input RetireCurrentVersionInput {
+  expectedVersion: Int!
+  formKey: ID!
 }
 
 type RetiredFormPermission {
