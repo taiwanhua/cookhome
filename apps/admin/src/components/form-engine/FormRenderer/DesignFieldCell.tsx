@@ -10,12 +10,14 @@ import { Tag } from "@repo/ui/tag";
 import { designFieldId } from "@/lib/form-engine/design-ids";
 
 export interface DesignFieldCellProps {
+  /** 這一格的身分(設計器內部 id;拖拉與選取都用它,不用 key) */
+  cellId: string;
   field: FieldDef;
   protection: FieldProtection | undefined;
   /** 欄位 key → 顯示名(「因引用受保護欄位 X」列顯示名,不列 key) */
   labelOf: (fieldKey: string) => string;
   isSelected: boolean;
-  onSelect: (fieldKey: string) => void;
+  onSelect: (cellId: string) => void;
   children: ReactNode;
 }
 
@@ -25,6 +27,7 @@ export interface DesignFieldCellProps {
  */
 export const DesignFieldCell = ({
   field,
+  cellId,
   protection,
   labelOf,
   isSelected,
@@ -39,7 +42,7 @@ export const DesignFieldCell = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: designFieldId(field.key) });
+  } = useSortable({ id: designFieldId(cellId) });
 
   const badges: string[] = [];
   if (field.visibleWhen !== undefined && field.visibleWhen !== null) {
@@ -74,12 +77,12 @@ export const DesignFieldCell = ({
       aria-label={t("selectField", { label: field.label, key: field.key })}
       aria-describedby={attributes["aria-describedby"]}
       onClick={() => {
-        onSelect(field.key);
+        onSelect(cellId);
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          onSelect(field.key);
+          onSelect(cellId);
         }
       }}
       {...listeners}

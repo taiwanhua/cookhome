@@ -23,8 +23,11 @@ describe("表單模組新增頁(預設組裝)", () => {
     await user.type(screen.getByRole("textbox", { name: "數量" }), "3");
     await user.type(screen.getByRole("textbox", { name: "單價" }), "40");
 
-    // 計算欄位是唯讀的顯示值(不是輸入框),填完依賴就算出來
-    expect(await screen.findByText("120 元")).toBeInTheDocument();
+    // 計算欄位是有框的唯讀輸入框(不能改),填完依賴就算出來
+    expect(await screen.findByDisplayValue("120 元")).toBeInTheDocument();
+    const total = screen.getByRole("textbox", { name: "總價" });
+    expect(total).toHaveValue("120 元");
+    expect(total).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "備註" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "送出" }));

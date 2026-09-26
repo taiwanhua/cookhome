@@ -14,6 +14,7 @@ import type { FormDisplayItemLike } from "@/lib/form-engine/value-text";
 import { FormValue } from "../FormValue";
 import { widgetOf } from "../widgets/widget-registry";
 import type { WidgetContext } from "../widgets/widget-types";
+import { DerivedFieldCell } from "./DerivedFieldCell";
 
 export interface FormFieldCellProps {
   field: FieldDef;
@@ -30,7 +31,9 @@ export interface FormFieldCellProps {
 
 /**
  * 一欄(欄位級三態之後的「看得到」那兩態):
- * - 唯讀模式、計算 / 固定值欄位 → 標籤 + 顯示值(`FormValue`;計算欄位缺依賴時是「—」)
+ * - 唯讀模式 → 標籤 + 顯示值(`FormValue`)
+ * - 計算 / 固定值欄位(設計畫布、填寫、預覽)→ **有框的唯讀輸入框**(同其他停用欄位的外觀,Spec 6a §5 表 A 下方),
+ *   內容是顯示值(計算欄位缺依賴時是「—」)
  * - 其餘 → 登錄表的 widget;唯讀(沒有欄位級 edit、`readonlyWhen`)時停用並附原因
  */
 export const FormFieldCell = ({
@@ -45,11 +48,27 @@ export const FormFieldCell = ({
   onDownload,
 }: FormFieldCellProps) => {
   const t = useTranslations("admin.formEngine.renderer");
-  const isDisplayOnly =
-    mode === "readonly" ||
-    (mode !== "design" && state.readonlyReason === "computed");
+  const text = {
+    empty: t("empty"),
+    yes: t("yes"),
+    no: t("no"),
+    unavailable: t("sourceUnavailable"),
+  };
+  const help = field.help ?? "";
 
-  if (isDisplayOnly) {
+  if (mode !== "readonly" && field.valueSource.kind !== "input") {
+    return (
+      <DerivedFieldCell
+        field={field}
+        value={value}
+        text={text}
+        errorMessage={errorMessage ?? null}
+        {...(display !== undefined && { display })}
+      />
+    );
+  }
+
+  if (mode === "readonly") {
     return (
       <Stack spacing={0.25}>
         <Typography variant="caption" color="text.secondary">
@@ -61,26 +80,13 @@ export const FormFieldCell = ({
             value={value}
             {...(display !== undefined && { display })}
             {...(onDownload !== undefined && { onDownload })}
-            text={{
-              empty: t("empty"),
-              yes: t("yes"),
-              no: t("no"),
-              unavailable: t("sourceUnavailable"),
-            }}
+            text={text}
           />
         </Typography>
-        {mode !== "readonly" &&
-          field.help !== undefined &&
-          field.help !== null && (
-            <Typography variant="caption" color="text.secondary">
-              {field.help}
-            </Typography>
-          )}
       </Stack>
     );
   }
 
-  const help = field.help ?? "";
   let helperText: string | undefined = help === "" ? undefined : help;
   if (state.readonlyReason === "permission") {
     helperText = t("readonlyPermission");

@@ -22,7 +22,7 @@ preloadFormsPage();
 
 const canvas = () => screen.getByRole("region", { name: "畫布" });
 
-/** 設計器自己的「設計 / 預覽」切換(與右欄的「設計 / 版本」頁籤同名,限定在這一組)。 */
+/** 設計器自己的「設計 / 預覽」切換(限定在這一組;右欄頁籤叫「表單設計 / 表單版本」)。 */
 const modeTab = (name: "設計" | "預覽") =>
   within(screen.getByRole("tablist", { name: "設計器模式" })).getByRole("tab", {
     name,

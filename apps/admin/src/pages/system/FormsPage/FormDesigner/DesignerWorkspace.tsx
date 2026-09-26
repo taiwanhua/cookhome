@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
-import type { FieldType, LayoutSection } from "@repo/domain/form";
+import type { FieldType } from "@repo/domain/form";
 import {
   type FormFieldsFragment,
   type FormVersionFieldsFragment,
@@ -13,8 +13,14 @@ import { Stack } from "@repo/ui/stack";
 import { JsonPreview } from "@/components/JsonPreview";
 import { useSession } from "@/hooks/useSession";
 import { definitionOf, rawOf } from "@/lib/form-engine/definition";
+import type { DesignSection } from "@/lib/form-engine/design-definition";
 import type { DesignerIssue } from "@/lib/form-engine/designer-issues";
-import { sectionCols, spanOf } from "@/lib/form-engine/designer-ops";
+import {
+  fieldById,
+  fieldKeyProblemOf,
+  sectionCols,
+  spanOf,
+} from "@/lib/form-engine/designer-ops";
 import {
   fieldReferences,
   sectionReferences,
@@ -53,18 +59,18 @@ export const DesignerWorkspace = ({
   const t = useTranslations("admin.forms.designer");
   const { session } = useSession();
   const state = useDesignerState(definitionOf(draft));
-  const { definition, report } = state;
+  const { definition, output, report } = state;
   const saving = useDesignerSave({
     formKey: form.key,
     initialRevision: draft.draftRevision,
-    definition,
+    definition: output,
     isDirty: state.isDirty,
     markSaved: state.markSaved,
     onSaved,
   });
   const [mode, setMode] = useState<DesignerMode>("design");
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [removingSection, setRemovingSection] = useState<LayoutSection | null>(
+  const [removingSection, setRemovingSection] = useState<DesignSection | null>(
     null,
   );
   const listColumns = useModuleListColumnsQuery(session.client, {
@@ -75,19 +81,15 @@ export const DesignerWorkspace = ({
   )
     .filter((column) => [null, undefined, form.key].includes(column.formKey))
     .map((column) => column.key);
-  const selected =
-    definition.fields.find((field) => field.key === state.selectedFieldKey) ??
-    null;
+  const selected = fieldById(definition, state.selectedFieldId) ?? null;
   const allIssues = [...report.errors, ...report.warnings];
 
   /** 點檢查結果定位:有欄位就選它;其餘(摘要槽、帶入規則、版面格)回到表單設定。 */
   const locate = (issue: DesignerIssue) => {
     setMode("design");
-    state.select(issue.location.fieldKey ?? null);
+    state.selectByKey(issue.location.fieldKey ?? null);
   };
-  const deletingField = definition.fields.find(
-    (field) => field.key === deleting,
-  );
+  const deletingField = fieldById(definition, deleting);
 
   return (
     <Stack spacing={2}>
@@ -106,7 +108,7 @@ export const DesignerWorkspace = ({
       {mode === "preview" ? (
         <DesignerPreview
           formKey={form.key}
-          definition={definition}
+          definition={output}
           isDirty={state.isDirty}
         />
       ) : (
@@ -122,7 +124,7 @@ export const DesignerWorkspace = ({
           <DesignerCanvas
             formKey={form.key}
             definition={definition}
-            selectedFieldKey={state.selectedFieldKey}
+            selectedFieldId={state.selectedFieldId}
             onSelectField={state.select}
             onAddField={(type, target) => {
               state.add(type, t(`types.${type}`), target, t("newSection"));
@@ -142,24 +144,28 @@ export const DesignerWorkspace = ({
                 issues={allIssues.filter(
                   (issue) => issue.location.fieldKey === undefined,
                 )}
-                onChange={state.setDefinition}
+                onChange={state.patchSettings}
               />
             ) : (
               <FieldPropertyPanel
+                key={selected._id}
                 field={selected}
                 fields={definition.fields}
-                span={spanOf(definition, selected.key)}
+                span={spanOf(definition, selected._id)}
                 issues={allIssues.filter(
                   (issue) => issue.location.fieldKey === selected.key,
                 )}
+                keyProblemOf={(key) =>
+                  fieldKeyProblemOf(definition, selected._id, key)
+                }
                 onChange={(next) => {
-                  state.update(selected.key, next);
+                  state.update(selected._id, next);
                 }}
                 onSpanChange={(span) => {
-                  state.setSpan(selected.key, span);
+                  state.setSpan(selected._id, span);
                 }}
                 onDelete={() => {
-                  setDeleting(selected.key);
+                  setDeleting(selected._id);
                 }}
                 onBack={() => {
                   state.select(null);
@@ -175,7 +181,7 @@ export const DesignerWorkspace = ({
         onLocate={locate}
       />
       <JsonPreview
-        value={rawOf(definition)}
+        value={rawOf(output)}
         label={t("jsonPreview")}
         maxHeight={320}
       />
@@ -183,7 +189,7 @@ export const DesignerWorkspace = ({
         <DeleteFieldDialog
           field={deletingField}
           references={fieldReferences(
-            definition,
+            output,
             deletingField.key,
             listColumnFieldKeys,
           )}
@@ -191,7 +197,7 @@ export const DesignerWorkspace = ({
             setDeleting(null);
           }}
           onConfirm={() => {
-            state.remove(deletingField.key);
+            state.remove(deletingField._id);
             setDeleting(null);
           }}
         />
@@ -200,7 +206,7 @@ export const DesignerWorkspace = ({
         <DeleteSectionDialog
           section={removingSection}
           references={sectionReferences(
-            definition,
+            output,
             sectionCols(removingSection).map((col) => col.fieldKey),
             listColumnFieldKeys,
           )}

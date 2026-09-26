@@ -8,13 +8,15 @@ import { Typography } from "@repo/ui/typography";
 
 import type { DesignerIssue } from "@/lib/form-engine/designer-issues";
 
+import type { DefinitionSettingsPatch } from "../useDesignerState";
 import { PrefillEditor } from "./PrefillEditor";
 
 export interface FormSettingsPanelProps {
   definition: FormDefinition;
   /** 摘要槽與帶入規則的檢查器錯誤(`location.summarySlot` / `prefillIndex`) */
   issues: readonly DesignerIssue[];
-  onChange: (definition: FormDefinition) => void;
+  /** 只改摘要槽 / 帶入規則(欄位與版面由設計器本身管) */
+  onChange: (patch: DefinitionSettingsPatch) => void;
 }
 
 const SLOTS: readonly SummarySlot[] = ["title", "date", "amount"];
@@ -54,7 +56,6 @@ export const FormSettingsPanel = ({
           ]}
           onChange={(fieldKey) => {
             onChange({
-              ...definition,
               summaryMap: {
                 ...definition.summaryMap,
                 [slot]: fieldKey === UNSET ? null : fieldKey,
@@ -75,7 +76,6 @@ export const FormSettingsPanel = ({
             fields={definition.fields}
             onChange={(next) => {
               onChange({
-                ...definition,
                 prefills: definition.prefills.map((item, at) =>
                   at === index ? next : item,
                 ),
@@ -83,7 +83,6 @@ export const FormSettingsPanel = ({
             }}
             onRemove={() => {
               onChange({
-                ...definition,
                 prefills: definition.prefills.filter(
                   (_item, at) => at !== index,
                 ),
@@ -109,7 +108,6 @@ export const FormSettingsPanel = ({
           size="small"
           onClick={() => {
             onChange({
-              ...definition,
               prefills: [
                 ...definition.prefills,
                 {

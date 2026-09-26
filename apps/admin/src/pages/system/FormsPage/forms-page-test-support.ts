@@ -1,5 +1,5 @@
 import { beforeAll } from "@jest/globals";
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 
 import { FormVersionStatus } from "@repo/graphql";
 
@@ -73,3 +73,57 @@ export const renderFormsPage = (
 
 /** 等設計器載完草稿(元件面板出現)。 */
 export const findDesigner = () => screen.findByRole("region", { name: "元件" });
+
+type TestUser = ReturnType<typeof renderFormsPage>["user"];
+
+/** 設計器畫布。 */
+export const canvas = () => screen.getByRole("region", { name: "畫布" });
+
+/** 點畫布上的欄位選它(屬性面板換成它)。 */
+export const selectField = async (
+  user: TestUser,
+  label: string,
+  key: string,
+): Promise<void> => {
+  await user.click(
+    within(canvas()).getByRole("button", {
+      name: `選取欄位「${label}」(${key})`,
+    }),
+  );
+};
+
+/** 從元件面板加一個欄位(`typeLabel` = 面板上的型別名,如「單選」);加完會選中它。 */
+export const addField = async (
+  user: TestUser,
+  typeLabel: string,
+): Promise<void> => {
+  const palette = await findDesigner();
+  await user.click(
+    within(palette).getByRole("button", { name: `新增${typeLabel}欄位` }),
+  );
+  await screen.findByRole("textbox", { name: "顯示名稱" });
+};
+
+/** 打開 SelectField(以無障礙名稱找 combobox),回傳展開的選項文字。 */
+export const openSelect = async (
+  user: TestUser,
+  name: string,
+  scope: HTMLElement = document.body,
+): Promise<string[]> => {
+  await user.click(within(scope).getByRole("combobox", { name }));
+  const listbox = await screen.findByRole("listbox");
+  return within(listbox)
+    .getAllByRole("option")
+    .map((option) => option.textContent);
+};
+
+/** 在 SelectField 選一項。 */
+export const pickOption = async (
+  user: TestUser,
+  name: string,
+  option: string,
+  scope: HTMLElement = document.body,
+): Promise<void> => {
+  await openSelect(user, name, scope);
+  await user.click(screen.getByRole("option", { name: option }));
+};

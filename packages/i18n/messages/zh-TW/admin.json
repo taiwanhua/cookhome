@@ -1100,7 +1100,7 @@
     },
     "design": {
       "hasVisibleWhen": "有顯示條件",
-      "hasReadonlyWhen": "有唯讀條件",
+      "hasReadonlyWhen": "有鎖定條件",
       "computed": "計算欄位",
       "constant": "固定值",
       "protected": "受保護",
@@ -1264,8 +1264,8 @@
       "enabledOff": "已在本組織停用這張表單。",
       "assignedTo": "已分派:{tenants}",
       "tabs": "表單設定頁籤",
-      "tabDesign": "設計",
-      "tabVersions": "版本"
+      "tabDesign": "表單設計",
+      "tabVersions": "表單版本"
     },
     "create": {
       "title": "建立表單",
@@ -1305,6 +1305,12 @@
       "name": "名稱",
       "template": "頁籤 / 標題模板",
       "templateHint": "只能引用摘要槽,例如 {{title}};留空 = 用模組預設",
+      "sampleTitle": "病假申請",
+      "sampleDate": "2026-03-12",
+      "sampleAmount": "1200",
+      "preview": "範例:{label}",
+      "previewEmpty": "範例:(空白,頁籤會顯示模組名稱)",
+      "previewLabel": "頁籤模板預覽",
       "cancel": "取消",
       "confirm": "儲存",
       "success": "已更新表單。"
@@ -1419,6 +1425,11 @@
       "issues": "這個欄位的檢查結果",
       "key": "欄位 key",
       "keyHint": "小寫英文開頭,只能用小寫英文、數字、底線;發布後不可改型別",
+      "keyProblems": {
+        "format": "格式不符:小寫英文開頭,只能用小寫英文、數字、底線(最長 40)",
+        "reserved": "這是保留字,不能當欄位 key",
+        "duplicate": "與其他欄位的 key 重複"
+      },
       "label": "顯示名稱",
       "type": "型別",
       "types": {
@@ -1433,6 +1444,8 @@
         "reference": "引用"
       },
       "widget": "元件",
+      "rows": "列數",
+      "unit": "單位",
       "widgets": {
         "textField": "單行輸入框",
         "textArea": "多行輸入框",
@@ -1461,7 +1474,7 @@
       "formula": "公式",
       "constantValue": "固定值",
       "visibleWhen": "顯示條件",
-      "readonlyWhen": "唯讀條件",
+      "readonlyWhen": "鎖定條件(成立時此欄位不可修改)",
       "permissionShow": "受保護(要權限才看得到)",
       "permissionEdit": "限定可改(要權限才能改)",
       "permissionHint": "發布時會各建一筆欄位級權限,在角色的權限矩陣授予。",
@@ -1483,28 +1496,42 @@
       "remove": "移除",
       "removeOf": "移除選項「{label}」",
       "add": "+ 新增選項",
-      "categoryKey": "類別 key",
-      "categoryKeyHint": "欄位管理裡的類別 key"
+      "category": "類別",
+      "categoryHint": "欄位管理裡的類別",
+      "categoryUnset": "請選類別"
     },
     "lookupSource": {
       "provider": "資料來源",
+      "providerHint": "要從哪裡找資料",
       "providers": {
         "user": "使用者",
         "org": "組織",
-        "form_submission": "其他表單的資料"
+        "form_submission": "表單提交"
       },
-      "formKey": "表單 key",
-      "formKeyHint": "要從哪張表單的資料查",
+      "form": "表單",
+      "formHint": "只列看得到且已發布過的表單",
+      "formUnset": "請選表單",
       "labelField": "顯示欄",
-      "labelFieldHint": "摘要槽(title / date / amount)或該表單的欄位 key",
+      "labelFieldHint": "選資料時,清單上顯示哪一欄",
+      "labelFieldPending": "先選表單",
       "fields": {
         "name": "名稱",
         "account": "帳號",
         "email": "Email",
         "slug": "短碼"
       },
+      "summarySlots": {
+        "title": "標題(摘要)",
+        "date": "日期(摘要)",
+        "amount": "金額(摘要)"
+      },
+      "fixedFilter": "固定條件(選填)",
+      "enabledOnly": "只列啟用中的",
+      "completedOnly": "只列已完成的提交",
+      "fixedFilterHint": "一定會套用的篩選,填寫的人改不了",
       "valueField": "值欄",
-      "valueFieldHint": "留空 = 以資料的 id 為值"
+      "valueFieldHint": "選項存哪一欄的值;預設以資料的 id 為值",
+      "valueFieldId": "資料的 id(預設)"
     },
     "rules": {
       "required": "必填",
@@ -1523,19 +1550,21 @@
       "patternHint": "JavaScript 正則(固定 u flag),要搭配錯誤訊息;與內建格式二擇一",
       "patternMessage": "正則錯誤訊息",
       "allowCustom": "允許自訂值",
-      "custom": "自訂驗證"
+      "custom": "自訂驗證(條件成立才通過)",
+      "customMessage": "錯誤訊息",
+      "customMessageHint": "條件不成立時顯示;沒填就顯示「欄位名 不符合規則」"
     },
     "expression": {
       "root": "根",
       "kind": "節點種類({path})",
       "kinds": {
         "field": "欄位",
-        "context": "上下文",
+        "context": "系統值",
         "constant": "常數",
         "operation": "運算"
       },
       "field": "欄位",
-      "context": "上下文",
+      "context": "系統值",
       "contexts": {
         "ctx": {
           "now": "現在時間",
@@ -1569,7 +1598,7 @@
         "min": "最小值",
         "max": "最大值",
         "in": "包含於",
-        "dateDiff": "日期差(天)",
+        "dateDiff": "日期差",
         "concat": "串接文字",
         "optionLabel": "選項顯示名",
         "now": "現在時間"
@@ -1579,9 +1608,20 @@
         "text": "文字",
         "number": "數字",
         "boolean": "是否",
+        "date": "日期",
+        "list": "清單",
         "null": "空值"
       },
       "constantValue": "值",
+      "listValue": "值(以逗號分隔)",
+      "unit": "單位",
+      "units": {
+        "days": "天",
+        "hours": "小時",
+        "minutes": "分鐘"
+      },
+      "optionField": "選項欄位",
+      "optionFieldUnset": "請選欄位",
       "booleanValue": "常數值(是 / 否)",
       "addArg": "+ 參數",
       "removeArg": "移除",
@@ -1604,9 +1644,14 @@
     },
     "prefill": {
       "rule": "帶入規則 {index}",
-      "label": "顯示名",
+      "label": "規則名稱",
+      "labelHint": "填寫時「帶入資料」跳窗的來源下拉顯示這個名稱",
+      "mapping": "對應表",
+      "mappingHint": "每一列:把來源的哪一欄帶進本表單的哪一欄(來源欄位只列型別合得上的)",
       "sourceField": "來源欄位",
+      "sourceFieldUnset": "請選來源欄位",
       "targetField": "本表單欄位",
+      "targetUnset": "請選欄位",
       "addMapping": "+ 對應",
       "removeMapping": "移除",
       "remove": "刪除這條規則"
@@ -1622,7 +1667,7 @@
           "expr": "公式"
         },
         "visibleWhen": "顯示條件",
-        "readonlyWhen": "唯讀條件",
+        "readonlyWhen": "鎖定條件",
         "rules": {
           "custom": "自訂驗證"
         }

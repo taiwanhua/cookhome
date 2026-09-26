@@ -1,17 +1,18 @@
 import { useTranslations } from "use-intl";
 
-import type { FormDefinition } from "@repo/domain/form";
 import { Button } from "@repo/ui/button";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import type { DesignDefinition } from "@/lib/form-engine/design-definition";
 import { unplacedFields } from "@/lib/form-engine/designer-ops";
 
 export interface UnplacedFieldsProps {
-  definition: FormDefinition;
-  selectedFieldKey: string | null;
-  onSelectField: (fieldKey: string) => void;
-  onPlace: (fieldKey: string) => void;
+  definition: DesignDefinition;
+  /** 選中欄位的內部 id */
+  selectedFieldId: string | null;
+  onSelectField: (fieldId: string) => void;
+  onPlace: (fieldId: string) => void;
 }
 
 /**
@@ -21,7 +22,7 @@ export interface UnplacedFieldsProps {
  */
 export const UnplacedFields = ({
   definition,
-  selectedFieldKey,
+  selectedFieldId,
   onSelectField,
   onPlace,
 }: UnplacedFieldsProps) => {
@@ -37,16 +38,16 @@ export const UnplacedFields = ({
       <Typography variant="subtitle2">{t("unplaced")}</Typography>
       {fields.map((field) => (
         <Stack
-          key={field.key}
+          key={field._id}
           direction="row"
           spacing={1}
           sx={{ alignItems: "center" }}
         >
           <Button
-            variant={selectedFieldKey === field.key ? "contained" : "outlined"}
+            variant={selectedFieldId === field._id ? "contained" : "outlined"}
             size="small"
             onClick={() => {
-              onSelectField(field.key);
+              onSelectField(field._id);
             }}
           >
             {`${field.label}(${field.key})`}
@@ -56,7 +57,7 @@ export const UnplacedFields = ({
               variant="text"
               size="small"
               onClick={() => {
-                onPlace(field.key);
+                onPlace(field._id);
               }}
             >
               {t("place")}

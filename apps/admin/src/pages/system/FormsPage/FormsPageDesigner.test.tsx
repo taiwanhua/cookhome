@@ -89,7 +89,9 @@ describe("表單管理:設計器", () => {
       "15",
     );
 
-    expect(await within(preview).findByText("30 元")).toBeInTheDocument();
+    expect(
+      await within(preview).findByDisplayValue("30 元"),
+    ).toBeInTheDocument();
     expect(
       within(preview).getByRole("textbox", { name: "備註" }),
     ).toBeInTheDocument();

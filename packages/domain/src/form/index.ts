@@ -6,6 +6,7 @@
  * - `keys.ts`:表單 key、欄位 key(含保留字)、租戶短碼的格式(不依賴外部套件)
  * - `semantic.ts`:存值 → 語意值(表達式 `var` 看到的)與選項顯示名
  * - `expression-shape.ts` / `expression.ts`:表達式白名單與上限、JSONLogic + decimal 計算器
+ * - `expression-types.ts`:表達式型別表(運算子參數 / 回傳、欄位與系統值的型別;設計器型別導向選擇器用)
  * - `compute.ts` / `dependencies.ts`:計算欄位求值(拓樸順序、最終取位)、受保護依賴鏈
  * - `layout.ts`、`summary.ts`:版面換算、摘要槽快照
  * - `validate-*.ts`、`issues.ts`、`registry.ts`:定義檢查器與它的登錄表
@@ -15,6 +16,7 @@ export * from "./compute";
 export * from "./dependencies";
 export * from "./expression";
 export * from "./expression-shape";
+export * from "./expression-types";
 export * from "./issues";
 export * from "./keys";
 export * from "./layout";
@@ -28,4 +30,5 @@ export {
   FORM_SUBMISSION_PROVIDER,
   PATTERN_FLAGS,
   type RegexSafetyCheck,
+  isPrefillCompatible,
 } from "./validate-fields";

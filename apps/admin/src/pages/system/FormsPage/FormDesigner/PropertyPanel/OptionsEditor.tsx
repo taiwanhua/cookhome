@@ -1,6 +1,7 @@
 import { useTranslations } from "use-intl";
 
 import type { FieldOptions, StaticOptionItem } from "@repo/domain/form";
+import { useFieldCategoriesQuery } from "@repo/graphql";
 import { Button } from "@repo/ui/button";
 import { Checkbox } from "@repo/ui/checkbox";
 import { IconButton } from "@repo/ui/icon-button";
@@ -10,9 +11,11 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Tooltip } from "@repo/ui/tooltip";
 
+import { useSession } from "@/hooks/useSession";
 import { nextKey } from "@/lib/form-engine/designer-ops";
 
 import { LookupSourceEditor } from "./LookupSourceEditor";
+import { useRowIds } from "./useRowIds";
 
 export interface OptionsEditorProps {
   value: FieldOptions | null | undefined;
@@ -41,13 +44,28 @@ const emptyOf = (kind: SourceKind): FieldOptions => {
   }
 };
 
+const UNSET = "";
+
 /**
  * 選項欄的三種來源(Spec 6a §5「`options` 三種來源」):靜態清單逐列加 value / label(可停用、依列順序排)、
- * 欄位管理類別填類別 key、lookup 來源選 provider / 顯示欄 / 值欄。value 重複、類別不存在等由檢查器報錯。
+ * 欄位管理類別**從類別清單下拉挑**(`fieldCategories`)、lookup 來源選 provider / 表單 / 顯示欄 / 值欄。
+ * value 重複等由檢查器報錯。靜態清單的列以**穩定內部 id** 當 React key(`useRowIds`),改 value 不會整列重掛失焦。
  */
 export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
   const t = useTranslations("admin.forms.options");
+  const { session } = useSession();
   const options = value ?? emptyOf("static");
+  const items = options.kind === "static" ? options.items : [];
+  const rows = useRowIds(items.length);
+  const categories = useFieldCategoriesQuery(session.client, undefined, {
+    enabled: options.kind === "fieldCategory",
+  });
+  const categoryOptions = (categories.data?.fieldCategories.items ?? []).map(
+    (category) => ({
+      value: category.key,
+      label: `${category.name}(${category.key})`,
+    }),
+  );
 
   const setItems = (items: StaticOptionItem[]) => {
     onChange({
@@ -74,7 +92,7 @@ export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
         <Stack spacing={1} role="group" aria-label={t("items")}>
           {options.items.map((item, index) => (
             <Stack
-              key={`${String(index)}-${item.value}`}
+              key={rows.ids[index]}
               direction="row"
               spacing={1}
               sx={{ alignItems: "center" }}
@@ -129,6 +147,7 @@ export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
                   size="small"
                   aria-label={t("removeOf", { label: item.label })}
                   onClick={() => {
+                    rows.removed(index);
                     setItems(
                       options.items.filter((_entry, at) => at !== index),
                     );
@@ -148,6 +167,7 @@ export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
                   "option",
                   options.items.map((item) => item.value),
                 );
+                rows.added();
                 setItems([
                   ...options.items,
                   { value: value_, label: value_, order: 0, enabled: true },
@@ -160,14 +180,23 @@ export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
         </Stack>
       )}
       {options.kind === "fieldCategory" && (
-        <TextField
-          label={t("categoryKey")}
-          size="small"
+        <SelectField<string>
+          label={t("category")}
           value={options.key}
-          helperText={t("categoryKeyHint")}
-          onChange={(event) => {
-            onChange({ kind: "fieldCategory", key: event.target.value });
+          displayEmpty
+          helperText={t("categoryHint")}
+          options={[
+            { value: UNSET, label: t("categoryUnset") },
+            ...categoryOptions,
+            ...(options.key === UNSET ||
+            categoryOptions.some((option) => option.value === options.key)
+              ? []
+              : [{ value: options.key, label: options.key }]),
+          ]}
+          onChange={(key) => {
+            onChange({ kind: "fieldCategory", key });
           }}
+          size="small"
         />
       )}
       {options.kind === "lookup" && (
