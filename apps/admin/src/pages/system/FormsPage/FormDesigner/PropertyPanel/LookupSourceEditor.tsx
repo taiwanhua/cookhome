@@ -109,7 +109,11 @@ export const LookupSourceEditor = ({
           label={t("form")}
           value={value.formKey ?? UNSET}
           displayEmpty
-          helperText={isTruncated ? t("formTruncated") : t("formHint")}
+          helperText={
+            isTruncated
+              ? t("formTruncated")
+              : t(selfForm === null ? "formHint" : "formHintWithSelf")
+          }
           options={[
             { value: UNSET, label: t("formUnset") },
             ...withCurrent(

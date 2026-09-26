@@ -191,6 +191,16 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
       "`t(`units.${unit}`)`,unit 取自 `DATE_DIFF_UNITS`(`dateDiff` 的單位)",
   },
   {
+    key: "admin.forms.expression.directions.",
+    reason:
+      "`t(`directions.${direction}`)`,direction 取自 `DATE_ADD_DIRECTIONS`(`dateAdd` 的方向)",
+  },
+  {
+    key: "admin.forms.expression.calendarUnits.",
+    reason:
+      "`t(`calendarUnits.${unit}`)`,unit 取自 `LOCAL_CALENDAR_UNITS`(`dateAdd` 的日曆單位)",
+  },
+  {
     key: "admin.forms.property.defaultKinds.",
     reason:
       "`t(`defaultKinds.${item}`)`,item 取自 `defaultKindsOf(type)`(固定值 / 公式;`none` 直接引用)",

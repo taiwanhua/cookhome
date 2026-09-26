@@ -17,6 +17,8 @@ export interface ExpressionGroupProps {
  */
 export const ExpressionGroup = ({ title, children }: ExpressionGroupProps) => (
   <Box
+    role="group"
+    aria-label={title}
     sx={{
       border: 1,
       borderColor: "divider",
