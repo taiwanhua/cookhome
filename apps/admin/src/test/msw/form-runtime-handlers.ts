@@ -170,6 +170,8 @@ export const formRuntimeWorld = (
         : HttpResponse.json({
             data: {
               formRuntimeVersion: {
+                // 租戶時區(api:orgs.settings.timezone,沒設 = Asia/Taipei)
+                timezone: "Asia/Taipei",
                 formVersion: {
                   id: `ver-${formKey}-${String(version)}`,
                   formKey,
@@ -279,6 +281,7 @@ export const formRuntimeWorld = (
         revision: 0,
         revisions: [],
         values: input.values ?? {},
+        touched: input.touched ?? [],
         summary: null,
         submittedAt: null,
         editVersion: 1,
@@ -302,6 +305,7 @@ export const formRuntimeWorld = (
       }
       Object.assign(target, {
         values: input.values,
+        ...(input.touched != null && { touched: input.touched }),
         editVersion: target.editVersion + 1,
       });
       return payload("saveFormDraft", target);

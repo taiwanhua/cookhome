@@ -56,9 +56,10 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
   const userId = user?.id ?? null;
   const orgId = user?.currentOrg?.id ?? null;
   // 權限與 ctx 以 useMemo 保持身分穩定:`FormRenderer` 以它們為 memo 依賴
+  const timezone = version.timezone;
   const expressionContext = useMemo(
-    () => liveContextOf(userId, orgId, now),
-    [userId, orgId, now],
+    () => liveContextOf(userId, orgId, now, timezone),
+    [userId, orgId, now, timezone],
   );
   const permissions = useMemo(
     () => (submission === null ? null : permissionsOfSubmission(submission)),
@@ -98,6 +99,10 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
   }
 
   const isCompleted = submission.status === FormSubmissionStatus.Completed;
+  // 預設值只在「還沒送出過的草稿」跟著依賴重算;送出過(退回 / 撤回 / 已完成)不再動使用者的值
+  const isFreshDraft =
+    submission.status === FormSubmissionStatus.Draft &&
+    submission.revision === 0;
 
   return (
     <Card sx={{ flex: 1, minHeight: 0, overflow: "auto", px: 3, py: 2.5 }}>
@@ -121,14 +126,21 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
           formKey={submission.formKey}
           version={submission.version}
           initialValues={submission.values}
+          initialTouched={submission.touched}
+          recomputeDefaults={isFreshDraft}
+          fillDefaultsOnMount={false}
+          systemLabels={{
+            user: user?.name ?? null,
+            org: user?.currentOrg?.name ?? null,
+          }}
           mode="edit"
           permissions={permissions ?? permissionsOfSubmission(submission)}
           expressionContext={expressionContext}
           isCompleted={isCompleted}
           isPending={state.isPending}
           error={state.error}
-          onSaveDraft={(values) => {
-            void state.save(values).then((saved) => {
+          onSaveDraft={(values, touched) => {
+            void state.save(values, touched).then((saved) => {
               if (saved !== null) {
                 showSnackbar(
                   "success",
@@ -137,8 +149,8 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
               }
             });
           }}
-          onSubmit={(values) => {
-            void state.submit(values).then((submitted) => {
+          onSubmit={(values, touched) => {
+            void state.submit(values, touched).then((submitted) => {
               if (submitted === null) {
                 return;
               }

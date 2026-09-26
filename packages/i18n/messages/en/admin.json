@@ -1086,7 +1086,8 @@
       "optionsUnavailable": "Options are unavailable; only the existing value is shown.",
       "loading": "Loading…",
       "noOptions": "No matching options",
-      "uploadHint": "PDF / Office / images / ZIP, up to 20MB",
+      "uploadHintLimited": "{types}, up to {size} MB",
+      "uploadRejected": "File type or size not allowed: {types}, up to {size} MB.",
       "uploading": "Uploading…",
       "uploadFailed": "Upload failed. Please try again.",
       "removeFile": "Remove file"
@@ -1349,6 +1350,7 @@
       "baseOn": "New draft from v{version}",
       "diff": "Changes from previous",
       "view": "View v{version}",
+      "deleteDraft": "Delete draft",
       "diffNone": "Same field definitions as the previous version.",
       "diffAdded": "Added: {fields}",
       "diffRemoved": "Removed: {fields}",
@@ -1359,6 +1361,13 @@
       "retry": "Retry publish",
       "retried": "Publish completed.",
       "publishedLine": "{at} · {user}"
+    },
+    "deleteDraft": {
+      "title": "Delete the draft?",
+      "body": "The draft and any unsaved designer changes are discarded. Published versions are not affected; you can start a new draft from any version later.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "success": "Draft deleted."
     },
     "publish": {
       "title": "Publish a new version",
@@ -1403,6 +1412,7 @@
         "multiline": "Long text",
         "number": "Number",
         "date": "Date",
+        "datetime": "Date & time",
         "select": "Single choice",
         "multiSelect": "Multiple choice",
         "boolean": "Yes / no",
@@ -1455,6 +1465,7 @@
         "multiline": "Long text",
         "number": "Number",
         "date": "Date",
+        "datetime": "Date & time",
         "select": "Single choice",
         "multiSelect": "Multiple choice",
         "boolean": "Yes / no",
@@ -1469,6 +1480,7 @@
         "textArea": "Text area",
         "number": "Number input",
         "datePicker": "Date picker",
+        "dateTimePicker": "Date-time picker",
         "dropdown": "Dropdown",
         "radio": "Radio buttons",
         "autocomplete": "Searchable dropdown",
@@ -1497,7 +1509,40 @@
       "permissionEdit": "Restricted edit (permission needed to change)",
       "permissionHint": "Each creates a field permission when published; grant it in the role permission matrix.",
       "delete": "Delete field",
-      "backToSettings": "← Form settings"
+      "backToSettings": "← Form settings",
+      "defaultValue": "Default value",
+      "defaultKinds": {
+        "none": "None",
+        "constant": "Fixed value",
+        "expression": "Formula"
+      },
+      "defaultSystem": {
+        "user": "Filler",
+        "org": "Filler's organization"
+      },
+      "defaultBoolean": {
+        "true": "Yes",
+        "false": "No"
+      },
+      "defaultFormula": "Default formula",
+      "defaultConstant": "Default",
+      "defaultHint": "Filled in when a new entry starts. Until the filler changes this field, it is recalculated when the fields it references change.",
+      "defaultPickerHint": "Pick with the same picker used when filling (options come from the saved draft)",
+      "defaultClear": "Clear default",
+      "uploadAccept": "Allowed file types",
+      "uploadTypes": {
+        "png": "PNG image",
+        "jpg": "JPEG image",
+        "webp": "WebP image",
+        "pdf": "PDF",
+        "doc": "Word (.doc)",
+        "docx": "Word (.docx)",
+        "xls": "Excel (.xls)",
+        "xlsx": "Excel (.xlsx)",
+        "zip": "ZIP"
+      },
+      "uploadMaxSize": "Size limit (MB)",
+      "uploadMaxSizeHint": "Empty = platform limit of {max} MB; can only be lowered"
     },
     "options": {
       "source": "Option source",
@@ -1571,7 +1616,8 @@
       "allowCustom": "Allow custom values",
       "custom": "Custom validation (passes when true)",
       "customMessage": "Error message",
-      "customMessageHint": "Shown when the condition is false; defaults to “Field doesn't match the rule”"
+      "customMessageHint": "Shown when the condition is false; defaults to “Field doesn't match the rule”",
+      "dateTimeRangeHint": "ISO 8601 with a time zone, e.g. 2026-01-01T09:00+08:00"
     },
     "expression": {
       "root": "root",

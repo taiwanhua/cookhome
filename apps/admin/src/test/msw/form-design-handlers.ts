@@ -2,6 +2,7 @@ import { HttpResponse } from "msw";
 
 import {
   type CreateFormVersionDraftMutationVariables,
+  type DeleteFormVersionDraftMutationVariables,
   type DeleteRetiredPermissionMutationVariables,
   type FormFieldsFragment,
   type FormVersionFieldsFragment,
@@ -27,6 +28,7 @@ export type FormDesignOperation =
   | "PublishFormVersion"
   | "CreateForm"
   | "DeleteRetiredPermission"
+  | "DeleteFormVersionDraft"
   | "SetModuleListColumns";
 
 type RetiredPermission =
@@ -50,6 +52,7 @@ export interface FormDesignWorld {
     saveFormVersionDraft: SaveFormVersionDraftMutationVariables["input"][];
     publishFormVersion: PublishFormVersionMutationVariables["input"][];
     createFormVersionDraft: CreateFormVersionDraftMutationVariables["input"][];
+    deleteFormVersionDraft: DeleteFormVersionDraftMutationVariables["input"][];
     deleteRetiredPermission: DeleteRetiredPermissionMutationVariables["input"][];
     setModuleListColumns: SetModuleListColumnsMutationVariables["input"][];
     previewFormVersion: PreviewFormVersionQueryVariables["input"][];
@@ -74,6 +77,7 @@ export const formDesignWorld = (
     saveFormVersionDraft: [],
     publishFormVersion: [],
     createFormVersionDraft: [],
+    deleteFormVersionDraft: [],
     deleteRetiredPermission: [],
     setModuleListColumns: [],
     previewFormVersion: [],
@@ -155,7 +159,13 @@ export const formDesignWorld = (
       return found === undefined
         ? notFound()
         : HttpResponse.json({
-            data: { formVersion: { formVersion: found, validation: noIssues } },
+            data: {
+              formVersion: {
+                formVersion: found,
+                validation: noIssues,
+                timezone: "Asia/Taipei",
+              },
+            },
           });
     }),
     api.mutation("SaveFormVersionDraft", ({ variables }) => {
@@ -222,6 +232,33 @@ export const formDesignWorld = (
         data: {
           createFormVersionDraft: { formVersion: draft, validation: noIssues },
         },
+      });
+    }),
+    api.mutation("DeleteFormVersionDraft", ({ variables }) => {
+      const { input } = variables as DeleteFormVersionDraftMutationVariables;
+      inputs.deleteFormVersionDraft.push(input);
+      const failure = fail("DeleteFormVersionDraft");
+      if (failure !== null) {
+        return failure;
+      }
+      const draft = draftOf(input.formKey);
+      const form = forms.find((item) => item.key === input.formKey);
+      if (draft === undefined || form === undefined) {
+        return graphqlError("CONFLICT" as AuthErrorCode, "CONFLICT", {
+          reason: "DRAFT_MISSING",
+        });
+      }
+      if (draft.draftRevision !== input.expectedDraftRevision) {
+        return graphqlError("CONFLICT" as AuthErrorCode, "CONFLICT", {
+          reason: "DRAFT_REVISION_MISMATCH",
+        });
+      }
+      versions[input.formKey] = versionsOf(input.formKey).filter(
+        (item) => item !== draft,
+      );
+      form.hasDraft = false;
+      return HttpResponse.json({
+        data: { deleteFormVersionDraft: { form } },
       });
     }),
     api.mutation("PublishFormVersion", ({ variables }) => {

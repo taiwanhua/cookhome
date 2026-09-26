@@ -317,11 +317,15 @@ export class FormVersionsService {
       action: FORM_VERSION_AUDIT.deleteDraft,
       targetType: FORM_VERSION_TARGET,
       targetId: claimed._id,
+      // 刪掉的整份定義留在稽核(硬刪後唯一的紀錄;定義不含提交的值)
       before: {
         formKey: form.key,
         draftRevision: input.expectedDraftRevision,
         baseVersion: claimed.baseVersion,
-        fieldCount: claimed.fields.length,
+        fields: claimed.fields,
+        layout: claimed.layout,
+        summaryMap: claimed.summaryMap,
+        prefills: claimed.prefills,
       },
     });
     await this.versions.hardDeleteById(operator, claimed._id);

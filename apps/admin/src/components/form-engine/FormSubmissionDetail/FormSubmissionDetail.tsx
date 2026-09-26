@@ -57,22 +57,28 @@ export const FormSubmissionDetail = ({ id }: FormSubmissionDetailProps) => {
       ? base
       : (viewed.data?.formSubmission.submission ?? null);
   const [now] = useState(() => new Date());
-  // 已完成:條件用那次修訂的 ctx;草稿(還沒有 ctx):用真正的現在 + 填寫者本人與那一筆的組織
+  const version = useFormRuntimeVersion(
+    base?.formKey ?? null,
+    base?.version ?? null,
+  );
+  const tenantTimezone = version.timezone;
+  // 已完成:條件用那次修訂的 ctx;草稿(還沒有 ctx):用真正的現在 + 填寫者本人與那一筆的組織、租戶時區
   const expressionContext = useMemo(() => {
     if (shown === null) {
       return null;
     }
     return shown.ctx === null || shown.ctx === undefined
-      ? liveContextOf(shown.createdBy?.id ?? null, shown.orgId, now)
+      ? liveContextOf(
+          shown.createdBy?.id ?? null,
+          shown.orgId,
+          now,
+          tenantTimezone,
+        )
       : revisionContextOf(shown.ctx);
-  }, [shown, now]);
+  }, [shown, now, tenantTimezone]);
   const permissions = useMemo(
     () => (shown === null ? null : permissionsOfSubmission(shown)),
     [shown],
-  );
-  const version = useFormRuntimeVersion(
-    base?.formKey ?? null,
-    base?.version ?? null,
   );
 
   const download = async (field: FieldDef) => {

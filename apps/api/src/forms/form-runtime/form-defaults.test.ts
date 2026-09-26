@@ -485,6 +485,8 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
         formKey: "delete_draft_form",
         draftRevision,
         baseVersion: 1,
+        fields: [expect.objectContaining({ key: "title" })],
+        summaryMap: { title: "title" },
       });
       // 刪掉後再刪 → 沒有草稿
       const missing = await call(api, root, DELETE_VERSION_DRAFT, {

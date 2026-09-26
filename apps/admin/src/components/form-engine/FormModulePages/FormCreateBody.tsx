@@ -24,6 +24,8 @@ export interface FormCreateBodyProps {
   moduleKey: string;
   form: ModuleFormSummary;
   definition: FormDefinition;
+  /** 租戶時區(`formRuntimeVersion.timezone`);null = 還沒拿到,先用瀏覽器時區 */
+  timezone: string | null;
   access: FormModuleAccess;
   onLeave: () => void;
 }
@@ -37,6 +39,7 @@ export const FormCreateBody = ({
   moduleKey,
   form,
   definition,
+  timezone,
   access,
   onLeave,
 }: FormCreateBodyProps) => {
@@ -68,8 +71,12 @@ export const FormCreateBody = ({
   const userId = user?.id ?? null;
   const orgId = user?.currentOrg?.id ?? null;
   const expressionContext = useMemo(
-    () => liveContextOf(userId, orgId, now),
-    [userId, orgId, now],
+    () => liveContextOf(userId, orgId, now, timezone),
+    [userId, orgId, now, timezone],
+  );
+  const systemLabels = useMemo(
+    () => ({ user: user?.name ?? null, org: user?.currentOrg?.name ?? null }),
+    [user?.name, user?.currentOrg?.name],
   );
 
   return (
@@ -82,21 +89,24 @@ export const FormCreateBody = ({
         formKey={form.key}
         version={form.currentVersion}
         initialValues={{}}
+        recomputeDefaults
+        fillDefaultsOnMount
+        systemLabels={systemLabels}
         mode="create"
         permissions={permissions}
         expressionContext={expressionContext}
         isCompleted={false}
         isPending={draft.isPending}
         error={draft.error}
-        onSaveDraft={(values) => {
-          void draft.saveDraft(values).then((saved) => {
+        onSaveDraft={(values, touched) => {
+          void draft.saveDraft(values, touched).then((saved) => {
             if (saved !== null) {
               showSnackbar("success", t("draftSaved"));
             }
           });
         }}
-        onSubmit={(values) => {
-          void draft.submit(values).then((submitted) => {
+        onSubmit={(values, touched) => {
+          void draft.submit(values, touched).then((submitted) => {
             if (submitted === null) {
               return;
             }

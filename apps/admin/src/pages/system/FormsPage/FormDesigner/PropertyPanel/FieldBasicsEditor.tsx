@@ -1,6 +1,10 @@
 import { useTranslations } from "use-intl";
 
-import { type FieldDef, LAYOUT_COLUMNS } from "@repo/domain/form";
+import {
+  FORM_UPLOAD_MAX_SIZE_MB,
+  type FieldDef,
+  LAYOUT_COLUMNS,
+} from "@repo/domain/form";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
@@ -8,6 +12,12 @@ import { TextField } from "@repo/ui/text-field";
 import { widgetKindsFor } from "@/components/form-engine/widgets/widget-registry";
 import type { FieldKeyProblem } from "@/lib/form-engine/designer-ops";
 import type { PropertySections } from "@/lib/form-engine/property-sections";
+import {
+  UPLOAD_TYPE_GROUPS,
+  type UploadTypeGroupKey,
+  acceptOfGroups,
+  acceptedGroupsOf,
+} from "@/lib/form-engine/upload-types";
 import { scalarText } from "@/lib/form-engine/value-text";
 
 import { FieldKeyInput } from "./FieldKeyInput";
@@ -44,7 +54,8 @@ const withWidgetSetting = (
 
 /**
  * 欄位基本屬性(Spec 6a §5 表 A 前兩列):key(改的當下擋格式、保留字、重複)、標題、說明、寬度(12 格制)、
- * 元件(該型別有兩種以上畫法才出現)與元件設定(多行文字的列數、數字的單位)、小數位數(只有數字)。
+ * 元件(該型別有兩種以上畫法才出現)與元件設定(多行文字的列數、數字的單位、上傳的檔型 / 大小上限)、
+ * 小數位數(只有數字)。
  */
 export const FieldBasicsEditor = ({
   field,
@@ -116,6 +127,44 @@ export const FieldBasicsEditor = ({
             onChange(withWidgetSetting(field, "unit", event.target.value));
           }}
         />
+      )}
+      {sections.uploadLimits && (
+        <>
+          <SelectField<UploadTypeGroupKey>
+            label={t("uploadAccept")}
+            multiple
+            value={acceptedGroupsOf(field)}
+            options={UPLOAD_TYPE_GROUPS.map((group) => ({
+              value: group.key,
+              label: t(`uploadTypes.${group.key}`),
+            }))}
+            onChange={(keys) => {
+              onChange(
+                withWidgetSetting(field, "accept", acceptOfGroups(keys)),
+              );
+            }}
+            size="small"
+          />
+          <TextField
+            label={t("uploadMaxSize")}
+            size="small"
+            type="number"
+            helperText={t("uploadMaxSizeHint", {
+              max: FORM_UPLOAD_MAX_SIZE_MB,
+            })}
+            value={scalarText(field.widget.maxSizeMb)}
+            onChange={(event) => {
+              const text = event.target.value.trim();
+              onChange(
+                withWidgetSetting(
+                  field,
+                  "maxSizeMb",
+                  text === "" ? "" : Number(text),
+                ),
+              );
+            }}
+          />
+        </>
       )}
       {span !== null && (
         <SelectField

@@ -18,12 +18,17 @@ export default defineConfig({
          * 不產生瀑布),但每次部署後回訪的人不必重抓 MUI / React;
          * ②每個 chunk 都壓到 500 kB 以下,vite 的大小提醒才回到「有事才叫」的狀態
          * (所以不用調 `build.chunkSizeWarningLimit` 把提醒關掉)。
-         * `@mui/x-*`(tree-view / date-pickers)自己就佔 440 kB,要與 `@mui/material` 分開才過線。
+         * `@mui/x-*`(tree-view / date-pickers)自己就佔 440 kB,要與 `@mui/material` 分開才過線;
+         * #482 加了日期時間選擇器後 date-pickers 再長一截,與 tree-view 各自一個 chunk。
          * 真正要減少初次載入量的是路由層的 `React.lazy`,那是另一件事。
          * 命名對齊 rolldown 1.2 的新名字 `codeSplitting`(舊名 `advancedChunks` 已 deprecated)。
          */
         codeSplitting: {
           groups: [
+            {
+              name: "mui-x-date-pickers",
+              test: /[\\/]node_modules[\\/]@mui[\\/]x-date-pickers[\\/]/,
+            },
             { name: "mui-x", test: /[\\/]node_modules[\\/]@mui[\\/]x-/ },
             {
               name: "mui-icons",

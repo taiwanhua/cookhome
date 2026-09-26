@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "use-intl";
 
+import { isDateTimeString } from "@repo/domain/form";
 import {
   type FormSubmissionFieldsFragment,
   type FormSubmissionStatus,
@@ -14,6 +15,7 @@ import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useDateTimeText } from "@/hooks/useDateTimeText";
 import { useSession } from "@/hooks/useSession";
 import { useVersionDefinitions } from "@/hooks/useVersionDefinitions";
 import {
@@ -67,6 +69,7 @@ export const FormSubmissionList = ({
 }: FormSubmissionListProps) => {
   const t = useTranslations("admin.formEngine.list");
   const tValue = useTranslations("admin.formEngine.renderer");
+  const dateTimeText = useDateTimeText();
   const { session } = useSession();
 
   const configured = useModuleListColumnsQuery(
@@ -124,8 +127,16 @@ export const FormSubmissionList = ({
         );
         // 引用的欄位在那一筆的版本不存在(或是別張表單的欄位)→「—」
         let node: ReactNode = valueText.empty;
+        const timezone = row.ctx?.timezone;
         if (cell.kind === "slot") {
-          node = cell.value ?? valueText.empty;
+          // 摘要槽「日期」對到日期時間欄(或沒對 = 送出時間)時是 ISO 時點:以那一筆的時區格式化
+          if (cell.value === null) {
+            node = valueText.empty;
+          } else {
+            node = isDateTimeString(cell.value)
+              ? dateTimeText(cell.value, timezone)
+              : cell.value;
+          }
         } else if (cell.kind === "field") {
           node = renderValue({
             field: cell.field,
@@ -134,6 +145,7 @@ export const FormSubmissionList = ({
               row.displayValues.find((entry) => entry.fieldKey === spec.key)
                 ?.items ?? [],
             text: valueText,
+            ...(timezone !== undefined && { timezone }),
           });
         }
         return node;

@@ -1,6 +1,7 @@
 import type { FieldDef } from "@repo/domain/form";
 import { TextField } from "@repo/ui/text-field";
 
+import { useDateTimeText } from "@/hooks/useDateTimeText";
 import {
   type FormDisplayItemLike,
   type FormValueRenderContext,
@@ -14,6 +15,8 @@ export interface DerivedFieldCellProps {
   text: FormValueRenderContext["text"];
   /** api 回的值錯誤(計算結果不合規則,例:必填的總額算不出來) */
   errorMessage?: string | null;
+  /** 日期時間欄的顯示時區 */
+  timezone?: string;
 }
 
 /**
@@ -26,7 +29,9 @@ export const DerivedFieldCell = ({
   display,
   text,
   errorMessage,
+  timezone,
 }: DerivedFieldCellProps) => {
+  const dateTimeText = useDateTimeText();
   const hasError = errorMessage !== undefined && errorMessage !== null;
   const help = field.help ?? "";
   const helperText = hasError ? errorMessage : help;
@@ -34,12 +39,16 @@ export const DerivedFieldCell = ({
   return (
     <TextField
       label={field.label}
-      value={displayTextOf({
-        field,
-        value,
-        text,
-        ...(display !== undefined && { display }),
-      })}
+      value={
+        field.type === "datetime" && typeof value === "string" && value !== ""
+          ? dateTimeText(value, timezone)
+          : displayTextOf({
+              field,
+              value,
+              text,
+              ...(display !== undefined && { display }),
+            })
+      }
       disabled
       fullWidth
       size="small"

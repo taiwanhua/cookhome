@@ -13,8 +13,10 @@ export interface PropertySections {
   widgetUnit: boolean;
   /** 值來源(使用者填 / 公式 / 固定值);上傳只能使用者填、引用只能使用者選,不顯示 */
   valueSource: boolean;
-  /** 預設值(值來源 = 使用者填才有;上傳沒有)—— 編輯器由預設值的票提供,這裡先定位置 */
+  /** 預設值(值來源 = 使用者填才有;上傳沒有) */
   defaultValue: boolean;
+  /** 元件設定:上傳欄的檔型 / 大小上限 */
+  uploadLimits: boolean;
   /** 選項來源(靜態 / 類別 / lookup) */
   options: boolean;
   /** 引用欄位的資料來源(必填) */
@@ -49,11 +51,12 @@ export const propertySectionsOf = (
     widgetUnit: type === "number",
     valueSource: !FIXED_SOURCE_TYPES.has(type),
     defaultValue: isInput && type !== "upload",
+    uploadLimits: type === "upload",
     options: isChoice,
     referenceSource: type === "reference",
     lengthRange: type === "text" || type === "multiline",
     numberRange: type === "number",
-    dateRange: type === "date",
+    dateRange: type === "date" || type === "datetime",
     textFormat: type === "text",
     allowCustom:
       isInput && isChoice && allowCustomWidgets.includes(field.widget.kind),

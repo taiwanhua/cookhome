@@ -68,7 +68,9 @@
 
 **退役目前版本**:先 `published → retired`、再 `currentVersion → null`;中斷時再呼叫一次會接著做完(版本已退役就只補後一筆)。`currentVersion` 的兩處寫入(退役、發布步驟 4c)都是條件更新 `{ currentVersion: 讀到的值 }`,讀到之後被別人改了 → `CONFLICT`(`CURRENT_VERSION_CHANGED`),不蓋掉。
 
-**存草稿**:檢查器的錯草稿可以先存(隨 payload 的 `validation` 回);只有正則不合法 / 可能造成 ReDoS 的不收(存草稿與發布都驗過 ReDoS 才收)。
+**存草稿**:檢查器的錯草稿可以先存(隨 payload 的 `validation` 回);只有正則不合法 / 可能造成 ReDoS 的不收(存草稿與發布都驗過 ReDoS 才收)。檢查器包含表達式的**型別檢查**(`@repo/domain/form` 的 `validate-expression-types.ts`,與設計器選擇器同一張型別表 `expression-types.ts`):公式 / 預設值公式的根 = 欄位型別、條件 / 自訂驗證的根 = 是 / 否、每個參數位置型別相符(`EXPR_TYPE_MISMATCH`)、`dateDiff` 單位只能 `days` / `hours` / `minutes`(`EXPR_DATE_DIFF_UNIT`);以及預設值規則(`DEFAULT_*`)與上傳欄上限(`UPLOAD_LIMIT_INVALID`)。這些錯存草稿照收、發布擋。
+
+**刪除草稿**(`deleteFormVersionDraft(input: { formKey, expectedDraftRevision })`):發布中(有 `publishing` 版本或發布中斷)→ `CONFLICT` `PUBLISH_IN_PROGRESS`;`draftRevision` 不符 → `DRAFT_REVISION_MISMATCH`、沒有草稿 → `DRAFT_MISSING`。先以條件更新把 `draftRevision` +1「認領」(同時來的存草稿因此 409,不會刪到別人剛存的內容),寫稽核(`before` 記整份定義與 `draftRevision`),再**硬刪**那一筆 —— `(formKey, status)` 的部分唯一索引含軟刪除的文件,軟刪會讓這張表單永遠開不了新草稿;草稿從未發布、沒有提交綁它,硬刪沒有懸空引用。刪掉後可再以任一版本為基底開新草稿。
 
 **ReDoS 檢查注入**:`validateDefinition` 的 `regexSafety` 是必填選項;實作 `recheckRegexSafety`(recheck,固定純 JS 後端)在獨立子路徑 `@repo/domain/form-regex-safety`,不在 `@repo/domain/form` 裡 —— recheck 瀏覽器版約 2.9 MB,放在 `form` 會跟著渲染器進 admin 首屏 bundle。api 的 `form-definition-checker.ts` 直接 import 它;admin 設計器以動態 `import()` 懶載入(`lib/form-engine/regex-safety-loader.ts`,模組層 promise 快取、失敗清掉下次重試),正則改動停手 300ms 才檢查、過期結果丟掉;還沒有結果時檢查結果區顯示「正則檢查中」,載入失敗顯示「存草稿時再檢查」的警告 —— 兩種情況都先不把正則判成不安全(存草稿 / 發布時 api 照驗)。
 
@@ -88,7 +90,10 @@
 - 「沒動」的判定比**識別**而不是整個物件:選項比 value(多選比集合、不看順序)、引用比 id、上傳比 path、數字比數值;沒送算沒動;原樣送回 `"[redacted]"` 只有在讀者**真的看不到**這欄時才算沒動,看得到的人送它就是一般的值、照型別驗證。
 - **存草稿放寬的只有完成資料所需的驗證**(必填 / 範圍 / 長度 / 格式 / custom / 選項是否還在);守門照常(403、computed 由後端算、隱藏清空),另驗型別與表達式可算。
 - 送出與已完成修改時,類別 / lookup 選項與引用**重取 label 寫快照**(引用重驗來源可讀);快照的 label **只取來源的非受保護欄位**(不看送出的人有沒有 show:快照存在非受保護的欄位裡,來源欄位之後改成受保護時,不能把值帶進來)。與上一個已完成修訂相同的值保留原快照(來源停用或刪除不擋整筆修改)。label 重取後再算一次計算欄位,`optionLabel` 看到的是新快照。
-- 上傳欄只收本 API 簽出來的 `form/` 路徑(`FORM_ATTACHMENT` 用途,私有 bucket;檔型與大小同示範模組的附件)。
+- 上傳欄只收本 API 簽出來的 `form/` 路徑(`FORM_ATTACHMENT` 用途,私有 bucket;檔型與大小同示範模組的附件),再套**欄位自己的**上限 `widget.accept` / `widget.maxSizeMb`(只能收窄平台上限;平台清單的正本在 api `storage/upload-rules.ts`,`@repo/domain/form` 的 `FORM_UPLOAD_CONTENT_TYPES` / `FORM_UPLOAD_MAX_SIZE_MB` 是它的鏡像,api 測試釘住兩邊一致)。存草稿驗這次換上的新檔;送出 / 已完成修改驗「與上一個已完成修訂不同」的檔(草稿時存下、送出前版本改窄上限的也擋得到;已完成修改時沒換的舊檔不擋)。不符 → `VALIDATION_FAILED` `UPLOAD_INVALID`。
+- **預設值**(`FieldDef.default`,只有使用者填的欄位):建草稿(`createFormDraft`、`copySubmissionToDraft`)時由後端算一次(`@repo/domain/form` 的 `defaults.ts`),只填**沒碰過**(不在 `touched`)、送來 / 複製來的值是空的、操作者**改得動**的欄位;公式引用到操作者讀不到的欄位(含依賴鏈)→ 不算、留空;引用欄的預設值(填寫者 / 填寫者的組織)重驗來源可讀並取 label。複製為新單時複製來的欄位都算碰過(預設值不覆蓋來源值)。預設值填進去之後就是一般的值:照寫入規則走、送出時照 `rules` 驗。
+- **`touched[]`**:使用者碰過的欄位 key。`createFormDraft` / `saveFormDraft` 的 `touched`(缺席 = 保留目前存的;只收這一版使用者填的欄位、去重);admin 填寫時沒碰過的欄位依賴變了就重算預設值,碰過就停(只在還沒送出過的草稿;送出過的單不再動)。
+- **日期時間**(`datetime`):存 ISO 8601 UTC(`YYYY-MM-DDTHH:mm:ssZ`,秒以下捨去;收任何帶時區的 ISO,不帶時區的拒收 `TYPE_INVALID`),以**租戶時區**輸入與顯示(`formRuntimeVersion` / `formVersion` 回 `timezone`);`rules.min` / `max` 以時點比;比較運算兩邊都是日期時間時比時點;`dateDiff` 的 `hours` / `minutes` 是精確差(`date` 視為租戶時區當天 00:00),`days` 是租戶時區的日曆日差。摘要槽 `date` 也可對日期時間欄(存 ISO 時點)。
 - `values` / `summary` / `revision` / `revisions[]` / `editVersion` 在**同一次**條件更新寫入(條件含 `editVersion`,已完成修改另含 `revision`)。
 
 **設計器預覽**(`previewFormVersion`):「不套欄位級權限」只指**本表單**的欄位(閘門對本表單全開);引用與 lookup 選項的來源照樣用操作者真實的權限 —— 否則設計者可以在草稿裡放一個引用欄、把顯示欄指到別張表單的受保護欄位,再用預覽讀出原值。
@@ -158,13 +163,14 @@
 | 表單清單               | 搜尋;每列名稱、key、模組、共用 / 客製、目前版本或「無發布版本」、停用、發布中斷、有草稿;「+ 建立表單」(共用表單,只有站在根組織才建得成,租戶收到 `ROOT_ONLY`)                                                                                                                                                                                                                                                                                                                                                                                                   |
 | 右側標頭               | 編輯名稱與頁籤模板(`abilities.canEdit`)、以此為基底建新表單(`canFork`)、分派租戶(`canAssign`)、所屬模組的列表欄位配置(站在根組織 + `system.forms.edit`;與「模組與權限」共用 `pages/system/ListColumnsDialog/`,仍存 `modules.settings.list`,編輯器頂端註明「此設定影響整個模組的列表」)、在本租戶啟用開關(`canSetEnabled`)                                                                                                                                                                                                                                      |
 | 表單設計(頁籤)         | 元件面板 / 畫布(`FormRenderer` 設計模式,dnd-kit 拖拉;計算 / 固定值欄位畫成有框的唯讀輸入框,是 / 否欄位標題在元件前面)/ 屬性面板 / JSON 預覽 / 檢查結果(點擊定位);表單設定(摘要槽、帶入規則);存草稿帶 `expectedDraftRevision`;「預覽」切 `preview` 模式(即時跑條件與計算,「以後端重算」後以 `previewFormVersion` 回的值與顯示 / 唯讀為準)。**未存的變更不會無聲消失**:「表單設計 / 表單版本」兩頁籤都保持掛載;有未存變更時換表單先跳窗(留在設計 / 放棄變更 / 先存草稿);發布跳窗提示「發布的是上次存的草稿」並提供先存(狀態經 `stores/useDesignerDraftStore.ts`) |
-| 表單版本(頁籤)         | 草稿與各版本、發布(changelog 必填)、發布中斷重試、退役目前版本、與上一版差異、以任一版本為基底開新草稿、「檢視」已發布 / 已退役版本(設計頁籤換成唯讀設計器 `FormDesigner/VersionViewer.tsx`:`formVersion(formKey, version)`,設計模式照樣標示、不能改不能存,「預覽」只在前端算,旁邊「以此為基底開新草稿」;草稿的設計器照樣掛著)                                                                                                                                                                                                                                 |
+| 表單版本(頁籤)         | 草稿與各版本、發布(changelog 必填)、發布中斷重試、退役目前版本、刪除草稿(確認跳窗,帶讀到的 `draftRevision`;發布中不可)、與上一版差異、以任一版本為基底開新草稿、「檢視」已發布 / 已退役版本(設計頁籤換成唯讀設計器 `FormDesigner/VersionViewer.tsx`:`formVersion(formKey, version)`,設計模式照樣標示、不能改不能存,「預覽」只在前端算,旁邊「以此為基底開新草稿」;草稿的設計器照樣掛著)                                                                                                                                                                         |
 | 分派跳窗               | 勾租戶 = 分派、取消勾 = 收回(只有平台)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 以此為基底建新表單跳窗 | 選基底版本、填 key(建立後不可改)與名稱                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | 流程綁定(右側標頭下)   | 租戶視角 + `system.forms.edit`:這張表單送出後走哪個流程(下拉只列可直接綁的 + 「不走流程」);不能直接綁的流程列出原因(第幾關、什麼問題),共用流程附「建客製流程」捷徑;改成「不走流程」先警告「進過審核的單再送出會被擋」;綁定指向已失效的流程標「綁定的流程已失效」。清單每列也標綁到哪個流程 / 已失效(`pages/system/FormsPage/WorkflowBinding/`,規則見 `docs/modules/workflows.md`「流程綁定」)                                                                                                                                                                  |
 
 - 設計器內部以**穩定的內部 id**(`_id`)當欄位身分,`key` 只是資料:載入草稿時配 id、存草稿 / JSON 預覽 / 預覽時丟掉(`lib/form-engine/design-definition.ts`);選取、拖拉、改屬性、刪除都以 id 找欄位(`designer-ops.ts`),所以舊草稿 key 重複也刪得掉、不會改錯欄。改 key 當場擋格式、保留字與重複(輸入框標紅、不寫入),不等檢查器。
-- 屬性面板依型別只出現該有的設定(Spec 6a §5 表 A,`lib/form-engine/property-sections.ts`):上傳 / 引用欄位不顯示值來源;值來源是公式 / 固定值時隱藏鎖定條件、預設值、允許清單外的值;元件下拉只在有兩種以上畫法時出現,多行文字有列數、數字有單位。自訂驗證可填錯誤訊息(`rules.customMessage`,不成立時顯示它)。
+- 屬性面板依型別只出現該有的設定(Spec 6a §5 表 A,`lib/form-engine/property-sections.ts`):上傳 / 引用欄位不顯示值來源;值來源是公式 / 固定值時隱藏鎖定條件、預設值、允許清單外的值(改成公式 / 固定值時定義裡的預設值一併拿掉);元件下拉只在有兩種以上畫法時出現,多行文字有列數、數字有單位、上傳有「允許的檔型 / 大小上限(MB)」(`lib/form-engine/upload-types.ts`,全勾 = 不存 `accept`);日期與日期時間有上下限(日期時間填含時區的 ISO 8601)。自訂驗證可填錯誤訊息(`rules.customMessage`,不成立時顯示它)。
+- **預設值**編輯器(`FormDesigner/PropertyPanel/DefaultValueEditor.tsx`,種類正本 `@repo/domain/form` 的 `defaultKindsOf`):文字 / 多行 / 數字 / 日期 / 日期時間 = 不設 / 固定值 / 公式(公式用型別導向選擇器,根 = 欄位型別、不列自己);單選 / 多選從選項挑 —— 靜態清單直接挑,類別 / 資料來源用填寫時的同一個選擇器挑(選項以**已存的草稿**查詢,所以要先存草稿);是否 = 是 / 否;引用只列「填寫者 / 填寫者的組織」。
 - 類別、表單、欄位都用**下拉選**:類別從 `fieldCategories` 挑;lookup 來源「其他表單的資料」的表單從 `forms` 挑(看得到且有已發布版本),顯示欄 / 值欄 / 帶入的來源欄位從該表單目前版本(`formVersion`)的非受保護欄位 + 摘要槽挑(`FormDesigner/PropertyPanel/useLookupCatalog.ts`,與 api 的 `formSubmissionCatalog` 同一判準)。lookup 來源的設定照填表順序排:來源 → 表單(表單提交才有)→ 顯示欄(表單提交預設標題槽)→ 固定條件(使用者 / 組織「只列啟用中的」= `filter.enabled`;表單提交「只列已完成的」= `completedOnly`)→ 值欄(只有選項來源);帶入規則在前面多「規則名稱」、後面接對應表(本表單欄位只列使用者填的 ← 來源欄位只列 `isPrefillCompatible` 相容的)。
 - 頁籤 / 標題模板(`lib/form-engine/tab-label.ts`)的佔位符:摘要槽 `{{title}}` / `{{date}}` / `{{amount}}`,加系統佔位符 `{{applicant}}`(建立者現名,取提交的 `createdBy.name`)與 `{{form}}`(表單名,`formName`);詳情 / 編輯頁的路由頁籤標題都用 `tabLabelValuesOf(submission)`。表單編輯跳窗在模板下方列出可用佔位符,並即時顯示以範例資料套用的結果(留空以預設模板示範)。
 - 設計器的表達式一律用**型別導向的結構化選擇器**(欄位 / 系統值 / 常數 / 運算,可巢狀),不做文字輸入:每個位置帶期望型別往下傳,只列型別對得上的東西(型別表正本 `@repo/domain/form` 的 `expression-types.ts`,過濾在 `lib/form-engine/expression-options.ts`)。公式的根 = 欄位型別;條件(顯示 / 鎖定條件、自訂驗證、流程跳過條件)的根 = 是 / 否,常數與系統值不能單獨當條件的根;條件不列受保護欄位。鎖定條件與自訂驗證可引用自己(「超過 5 就鎖住」),顯示條件不可。`dateDiff` 節點有單位下拉(天 / 小時 / 分鐘,預設天),產生第三參數。
@@ -190,6 +196,8 @@
 | `useModuleForms` / `useFormDraft` / `useFormSubmission` / `useFormRuntimeVersion`   | `hooks/`                                                                 |
 
 - 欄位級權限:已有提交 → 用 api 的 `fieldStates.redacted` 與 `abilities.canEditField`;新增、草稿還沒建 → 由持有的 `<模組>.show-/edit-<formKey>-<fieldKey>` 推(推錯只影響畫面,寫入仍由 api 守)。
+- 預設值與「碰過」旗標在 `hooks/useFillValues.ts`(填寫頁與設計器預覽共用;計算在 `lib/form-engine/form-defaults.ts`):新增頁一打開就填預設值;改到的欄位(含帶入)記為碰過,其餘有預設值、改得動、公式引用都讀得到的欄位依目前的值重算;存草稿時 `touched` 一併送出。引用欄的預設值畫面上先用登入者名稱 / 當前組織名稱當 label,送出時 api 重取。
+- 日期時間欄:`DateTimeWidget`(`@repo/ui/date-time-picker`)以 `WidgetContext.timezone` 輸入與顯示(`FormRenderer` 由表達式 `ctx.timezone` 帶入:填寫 = 租戶時區、唯讀 = 那次修訂的時區);列表 / 詳情 / 計算欄位的顯示走 `useDateTimeText`(`useFormatter`,給時區);摘要槽「日期」是 ISO 時點時一併格式化。
 - 選項欄三種來源統一在 `components/form-engine/widgets/useFieldOptions.ts`:靜態清單讀定義、類別選項打 `formFieldOptions`(先取前 100 筆、前端比對關鍵字;api 回的 `totalCount` 大於取回筆數時,打字搜尋改送 api 的 `keyword`。沒有搜尋框的下拉 / 單選鈕只列前 100 筆)、lookup 打 `formLookup`(關鍵字送 api)。類別選項的查詢失敗時該欄只顯示既有值、改不了。
 - 定義裡標 `redacted: true` 的欄位(`formRuntimeVersion` 的骨架)一律當讀不到、整格不渲染(`lib/form-engine/field-states.ts`、`field-permissions.ts`);骨架省略了公式,所以「只因依賴而受保護」的計算欄位靠這個旗標,不靠權限 key 推。
 
@@ -197,7 +205,7 @@
 
 GraphQL 文件:`packages/graphql/src/documents/forms.graphql`(設計)、`form-submissions.graphql`(執行)。
 
-**設計端**(`@RequirePermission` 守端點,「是不是自己的表單 / 站在哪裡」在 service):`forms`、`form`、`formVersion(formKey, version?)`(省略 = 草稿)、`formVersions`、`validateFormVersion`、`previewFormVersion`(兩者是 query,不落庫)、`createForm`、`updateForm`、`forkForm`、`createFormVersionDraft`、`saveFormVersionDraft`、`publishFormVersion`、`retryPublishFormVersion`、`retireCurrentVersion`、`assignFormToTenants`、`revokeFormFromTenant`、`setTenantFormEnabled`、`retiredFormPermissions`、`deleteRetiredPermission`、`setModuleListColumns`(`system.forms.edit` + 站在根組織)。`moduleListColumns(moduleKey)` 給該模組的使用者讀(有 view / create / edit 任一)。
+**設計端**(`@RequirePermission` 守端點,「是不是自己的表單 / 站在哪裡」在 service):`forms`、`form`、`formVersion(formKey, version?)`(省略 = 草稿)、`formVersions`、`validateFormVersion`、`previewFormVersion`(兩者是 query,不落庫)、`createForm`、`updateForm`、`forkForm`、`createFormVersionDraft`、`saveFormVersionDraft`、`deleteFormVersionDraft`(`system.forms.edit`;見「版本狀態與四步發布」的刪除草稿)、`publishFormVersion`、`retryPublishFormVersion`、`retireCurrentVersion`、`assignFormToTenants`、`revokeFormFromTenant`、`setTenantFormEnabled`、`retiredFormPermissions`、`deleteRetiredPermission`、`setModuleListColumns`(`system.forms.edit` + 站在根組織)。`moduleListColumns(moduleKey)` 給該模組的使用者讀(有 view / create / edit 任一)。
 
 **執行端**(模組是執行期的,service 依該模組的 `view` / `create` / `edit` / `delete` 判,錯誤與 `@RequirePermission` 同一種):`moduleForms(moduleKey)`、`formRuntimeVersion(formKey, version)`、`formSubmissions`、`formSubmission(id, revision?)`、`formSubmissionAttachmentUrl(id, fieldKey, revision?)`、`createFormDraft`、`saveFormDraft`、`submitFormSubmission`、`updateFormSubmission`、`deleteFormSubmission`、`formLookup`、`formLookupRecord`、`formFieldOptions`(類別選項,見上)。綁了審核流程的表單另有 `withdrawSubmission`、`voidSubmission`、`copySubmissionToDraft`(規則見 `docs/modules/workflows.md`)。
 
@@ -207,7 +215,8 @@ input 欄位的缺席 / `null`:
 
 - `UpdateFormInput.name`:缺席或 `null` = 不動。`tabLabelTemplate`:缺席 = 不動、`null` 或空字串 = 清空(改回模組層模板)。
 - `CreateFormVersionDraftInput.baseVersion`:缺席 / `null` = 空白草稿。
-- `SaveFormDraftInput.values` / `UpdateFormSubmissionInput.values`:**整張表單的狀態**,缺席的欄位 = 清空;看不到的欄位不送或原樣送回 `"[redacted]"` 都算沒動。`CreateFormDraftInput.values` 缺席 = 空白。
+- `SaveFormDraftInput.values` / `UpdateFormSubmissionInput.values`:**整張表單的狀態**,缺席的欄位 = 清空;看不到的欄位不送或原樣送回 `"[redacted]"` 都算沒動。`CreateFormDraftInput.values` 缺席 = 空白(沒碰過且空著的欄位由後端填預設值)。
+- `CreateFormDraftInput.touched`:缺席 / `null` = 都沒碰過。`SaveFormDraftInput.touched`:缺席 / `null` = 保留目前存的,有值 = 整份取代(只收這一版使用者填的欄位)。
 - `FormFieldOptionsInput`:`version` 缺席 = 草稿(同下一條);`keyword` 缺席 / 空字串 = 全部(比對顯示名與值,不分大小寫);`pageSize` 預設 100(上限 100)。
 - `FormLookupInput.version`:缺席 = 草稿(設計器預覽,要 `system.forms.view` 且讀得到這張表單);有值 = 已發布或已退役版(要該模組的 `create` 或 `edit`)。`target` 的 `fieldKey` / `prefillIndex` 恰給一個。
 
@@ -216,6 +225,8 @@ input 欄位的缺席 / `null`:
 - `FormSubmissionModel.values`:讀者沒有 `show` 的欄位是字串 `"[redacted]"`(不是 `null`),前端依 `fieldStates.redacted` 判斷,不要拿值猜。`displayValues` 只有類別 / lookup 選項與引用欄;`available: false` = 來源已刪或讀者無權,顯示快照 label + 「(來源不可用)」。
 - `formRuntimeVersion` 的 `fields`:讀者讀不到的欄位是骨架且 `redacted: true`(見「讀取投影」);`redacted` 缺席 = 完整定義。
 - `FormLookupRecord.values`:受保護且無權的欄位**省略**(鍵不存在),那筆版本沒有的欄位為 `null`。
+- `FormSubmissionModel.touched`:使用者碰過的欄位 key(草稿填寫時用);一定有值(沒有 = 空陣列)。
+- `FormVersionPayload.timezone`:操作者的租戶時區(IANA;`orgs.settings.timezone`,沒設 = `Asia/Taipei`),`formRuntimeVersion`、`formVersion`、`createFormVersionDraft`、`saveFormVersionDraft` 回;發布 / 重試發布回 `null`。
 - `FormModel.tenantEnabled`:站在租戶內時本租戶的開關,root 視角為 `null`;`assignments` 只有 root 視角的共用表單有。
 - **`abilities` 含權限**(業務模組那一種,前端直接用,不再與 `usePermissions` 相乘):`FormAbilities` 已含 `system.forms.*` 權限與「是不是自己的表單 / 站在哪裡」;`FormSubmissionAbilities.canEdit` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成:`edit`(走過流程的已完成為 false);`canDelete` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成 / 已駁回:`delete`;`canWithdraw` = 建立者、審核中;`canVoid` = 走過流程的已完成、建立者或 `edit`;`canCopy` = 已作廢 + `create`;`canEditField` = 權限層面改得動的欄位(條件唯讀看 `fieldStates.readonly`)。只審過某修訂的讀者一律 false。
 
@@ -235,10 +246,10 @@ input 欄位的缺席 / `null`:
 
 ## 稽核
 
-| action                                                                                           | targetType        | 記什麼                                           |
-| ------------------------------------------------------------------------------------------------ | ----------------- | ------------------------------------------------ |
-| `form.create` / `form.update` / `form.fork` / `form.assign` / `form.revoke` / `form.set-enabled` | `form`            | key、名稱、分派的租戶、開關前後                  |
-| `form-version.create-draft` / `.save-draft` / `.publish` / `.retry-publish` / `.retire`          | `form_version`    | formKey、版號、draftRevision、changelog          |
-| `submission.create-draft` / `.save-draft` / `.submit` / `.update` / `.delete`                    | `form_submission` | 修訂號、editVersion(**不記值**:可能含受保護欄位) |
-| `permission.delete-retired`                                                                      | `permission`      | key、name、被解除的角色綁定數、已完成的使用筆數  |
-| `module.set-list-columns`                                                                        | `module`          | 配置前後的欄位清單                               |
+| action                                                                                                    | targetType        | 記什麼                                                                 |
+| --------------------------------------------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------- |
+| `form.create` / `form.update` / `form.fork` / `form.assign` / `form.revoke` / `form.set-enabled`          | `form`            | key、名稱、分派的租戶、開關前後                                        |
+| `form-version.create-draft` / `.save-draft` / `.publish` / `.retry-publish` / `.retire` / `.delete-draft` | `form_version`    | formKey、版號、draftRevision、changelog;刪除草稿的 `before` 記整份定義 |
+| `submission.create-draft` / `.save-draft` / `.submit` / `.update` / `.delete`                             | `form_submission` | 修訂號、editVersion(**不記值**:可能含受保護欄位)                       |
+| `permission.delete-retired`                                                                               | `permission`      | key、name、被解除的角色綁定數、已完成的使用筆數                        |
+| `module.set-list-columns`                                                                                 | `module`          | 配置前後的欄位清單                                                     |

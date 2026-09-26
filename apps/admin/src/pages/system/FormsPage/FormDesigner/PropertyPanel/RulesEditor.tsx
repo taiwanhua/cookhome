@@ -46,7 +46,8 @@ const numberOrEmpty = (text: string): number | "" =>
   text.trim() === "" ? "" : Number(text);
 
 /**
- * 驗證規則(Spec 6a §5 `rules`,哪些出現照表 A `sections`):必填、範圍(數字 / 日期)、長度(單行 / 多行文字)、
+ * 驗證規則(Spec 6a §5 `rules`,哪些出現照表 A `sections`):必填、範圍(數字 / 日期 / 日期時間;
+ * 日期時間填含時區的 ISO 8601)、長度(單行 / 多行文字)、
  * 內建格式或正則 + 訊息(只有單行文字)、`allowCustom`(只有可搜尋類 widget、值來源 = 使用者填)、
  * 自訂驗證(條件成立才通過,不成立顯示 `customMessage`)。
  * 正則要搭錯誤訊息、與內建格式二擇一、不安全的正則由檢查器指出(`PATTERN_*`)。
@@ -80,6 +81,9 @@ export const RulesEditor = ({
           <TextField
             label={t("min")}
             size="small"
+            {...(field.type === "datetime" && {
+              helperText: t("dateTimeRangeHint"),
+            })}
             value={scalarText(rules.min)}
             onChange={(event) => {
               onChange(withRule(rules, "min", event.target.value.trim()));
@@ -88,6 +92,9 @@ export const RulesEditor = ({
           <TextField
             label={t("max")}
             size="small"
+            {...(field.type === "datetime" && {
+              helperText: t("dateTimeRangeHint"),
+            })}
             value={scalarText(rules.max)}
             onChange={(event) => {
               onChange(withRule(rules, "max", event.target.value.trim()));
