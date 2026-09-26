@@ -101,11 +101,10 @@ export const FormSubmissionList = ({
     DEFAULT_LIST_BUILTIN_COLUMNS;
   // 表頭:模組內各表單目前版本的定義(沒有資料列也要有欄位名)
   const { forms } = useModuleForms(moduleKey);
-  const currentRefs = forms.flatMap((form) =>
-    form.currentVersion === null || form.currentVersion === undefined
-      ? []
-      : [{ formKey: form.key, version: form.currentVersion }],
-  );
+  const currentRefs = forms.map((form) => ({
+    formKey: form.key,
+    version: form.currentVersion,
+  }));
   const currentDefinitionOf = useVersionDefinitions(currentRefs);
 
   const query = useFormSubmissionsQuery(session.client, {

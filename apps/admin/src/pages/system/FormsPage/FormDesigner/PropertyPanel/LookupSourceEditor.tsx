@@ -10,6 +10,7 @@ import { Stack } from "@repo/ui/stack";
 import { Switch } from "@repo/ui/switch";
 import { Typography } from "@repo/ui/typography";
 
+import { LookupLabelTemplateInput } from "./LookupLabelTemplateInput";
 import {
   type LookupFieldOption,
   defaultLabelFieldOf,
@@ -64,7 +65,7 @@ const withFixedFilter = (
 
 /**
  * lookup 來源描述的編輯(`options.source`、`reference.source`、`prefills[].source`;Spec 6a §5「lookup 來源」)。
- * 照填表時的順序排:來源 → 表單(只有表單提交)→ 顯示欄 → 固定條件(選填)→ 值欄(只有選項來源);
+ * 照填表時的順序排:來源 → 表單(只有表單提交)→ 顯示欄 → 顯示模板(選填)→ 固定條件(選填)→ 值欄(只有選項來源);
  * 每一格中文標籤 + 一句說明,**全部用下拉選**(表單只列本租戶看得到且有已發布版本的,欄位從該表單目前版本挑,
  * `useLookupCatalog.ts`)。provider 以 api 的登錄表為準(`apps/api/src/forms/lookup-providers.ts`)。
  */
@@ -140,6 +141,11 @@ export const LookupSourceEditor = ({
           onChange({ ...value, labelField });
         }}
         size="small"
+      />
+      <LookupLabelTemplateInput
+        value={value}
+        fieldOptions={fieldOptions}
+        onChange={onChange}
       />
       <Stack spacing={0.25}>
         <Typography variant="body2">{t("fixedFilter")}</Typography>
