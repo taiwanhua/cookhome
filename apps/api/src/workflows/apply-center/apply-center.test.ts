@@ -15,6 +15,7 @@ import {
   FORM_SUBMISSIONS,
   UPDATE_SUBMISSION,
   call,
+  column,
   createDraft,
   definitionOf,
   field,
@@ -648,6 +649,64 @@ describe("申請中心與讀取授權", () => {
         sourceId: submitted.id,
         newId: fresh.id,
       });
+      await bindForm(world, key, FORM_KEY);
+    });
+
+    it("複製為新單:明細列每一列換新的 rowId", async () => {
+      const formKey = nextKey("copy_array");
+      await ok(api, world.root, CREATE_FORM, {
+        input: { key: formKey, moduleKey: "leave", name: "明細複製" },
+      });
+      await publishDefinition(
+        api,
+        world.root,
+        formKey,
+        definitionOf([
+          field("title", "text"),
+          field("items", "array", {
+            columns: [column("name", "text"), column("qty", "number")],
+          }),
+        ]),
+        null,
+      );
+      await ok(api, world.root, ASSIGN, {
+        input: { formKey, tenantOrgIds: [String(world.tenant)] },
+      });
+      const key = nextKey("copy_array_flow");
+      const reviewer = await reviewerOnly();
+      await useWorkflow(world, key, { steps: [usersStep("one", [reviewer])] });
+      await bindForm(world, key, formKey);
+      const rows = [
+        { rowId: randomUUID(), name: "甲", qty: 1 },
+        { rowId: randomUUID(), name: "乙", qty: 2 },
+      ];
+      const draft = await createDraft(api, world.applicant.token, formKey, {
+        title: "有明細的單",
+        items: rows,
+      });
+      const submitted = await submitExisting(world, draft);
+      await decideOn(world, reviewer, submitted.id, "APPROVE");
+      const approved = await submission(world, world.applicant, submitted.id);
+      await ok(api, world.applicant.token, VOID, {
+        input: {
+          id: submitted.id,
+          expectedEditVersion: approved.editVersion,
+          reason: "重開",
+        },
+      });
+      const copied = await ok<{
+        copySubmissionToDraft: { submission: WfSubmissionRow };
+      }>(api, world.applicant.token, COPY, {
+        input: { id: submitted.id, clientRequestId: nextKey("copy_array") },
+      });
+      const copiedIds = (
+        copied.copySubmissionToDraft.submission.values.items as {
+          rowId: string;
+        }[]
+      ).map((row) => row.rowId);
+      expect(
+        copiedIds.filter((id) => rows.some((row) => row.rowId === id)),
+      ).toEqual([]);
       await bindForm(world, key, FORM_KEY);
     });
   });

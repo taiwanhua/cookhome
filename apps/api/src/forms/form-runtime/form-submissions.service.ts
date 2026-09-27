@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
@@ -7,6 +9,7 @@ import {
   type FormDefinition,
   type StoredValues,
   type SubmissionSummary,
+  arrayRowsOf,
   computeSummary,
   defaultOrder,
   defaultValueOf,
@@ -1197,12 +1200,18 @@ export class FormSubmissionsService {
     return { values, cleared };
   }
 
-  /** 一欄的複製值:引用失效、附件複製不成 → undefined(清空並列在 `clearedFields`)。 */
+  /**
+   * 一欄的複製值:引用失效、附件複製不成 → undefined(清空並列在 `clearedFields`)。
+   * 明細列每一列換新的 `rowId`(新單的列與來源的列是不同的列;子欄照目標版本的定義正規化)。
+   */
   private async copiedValueOf(
     facts: FormOperatorFacts,
     field: FieldDef,
     value: unknown,
   ): Promise<unknown> {
+    if (field.type === "array") {
+      return arrayRowsOf(value).map((row) => ({ ...row, rowId: randomUUID() }));
+    }
     if (field.type === "reference") {
       const id = (value as { id?: unknown }).id;
       const source = field.source;

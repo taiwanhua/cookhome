@@ -304,7 +304,11 @@ export function submissionCatalogOfFields(
 ): Record<string, FieldType> {
   const catalog: Record<string, FieldType> = { ...SUMMARY_SLOT_FIELDS };
   for (const field of fields) {
-    if (requiredShowKeys(fields, field.key).length === 0) {
+    // 明細欄(與它的子路徑)不能當引用 / 帶入 / 選項的來源欄位
+    if (
+      field.type !== "array" &&
+      requiredShowKeys(fields, field.key).length === 0
+    ) {
       catalog[field.key] = field.type;
     }
   }
@@ -676,7 +680,7 @@ export class LookupProvidersService {
           continue;
         }
         const field = byKey.get(name);
-        if (!field) {
+        if (!field || field.type === "array") {
           values[name] = null;
           continue;
         }

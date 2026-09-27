@@ -4,6 +4,9 @@ import {
   type FieldDef,
   type LookupSourceDescriptor,
   type StoredValues,
+  arrayColumnsOf,
+  arrayRowsOf,
+  columnPathOf,
   lookupLabelFieldsOf,
 } from "@repo/domain/form";
 
@@ -63,6 +66,44 @@ function storedItemsOf(field: FieldDef, stored: unknown): StoredItem[] {
   });
 }
 
+/** 要解析顯示名的一格:一般欄位本身,或明細子欄(`items.status`,值 = 各列該子欄的值)。 */
+interface DisplayTarget {
+  field: FieldDef;
+  stored: unknown;
+}
+
+/**
+ * 一筆提交要解析顯示名的目標:一般欄位照舊;明細欄的類別選項子欄攤成一個 `<明細 key>.<子欄 key>` 的目標,
+ * 值 = 各列該子欄的值(去重)。被遮蔽的明細(`"[redacted]"`)沒有列,不解析。
+ */
+function displayTargetsOf(entry: DisplayNameEntry): DisplayTarget[] {
+  return entry.fields.flatMap((field): DisplayTarget[] => {
+    if (field.type !== "array") {
+      return [{ field, stored: entry.values[field.key] }];
+    }
+    const rows = arrayRowsOf(entry.values[field.key]);
+    return arrayColumnsOf(field)
+      .filter((column) => column.type === "select")
+      .map((column) => {
+        const seen = new Set<string>();
+        const cells = rows
+          .map((row) => row[column.key])
+          .filter((cell) => {
+            const identity = JSON.stringify(cell ?? null);
+            if (cell === null || cell === undefined || seen.has(identity)) {
+              return false;
+            }
+            seen.add(identity);
+            return true;
+          });
+        return {
+          field: { ...column, key: columnPathOf(field.key, column.key) },
+          stored: cells.length === 0 ? null : cells,
+        };
+      });
+  });
+}
+
 /** 一個 lookup 來源描述的識別(同一個來源的值一次查完)。 */
 function sourceSignature(
   source: LookupSourceDescriptor,
@@ -117,9 +158,9 @@ function groupsOf(entries: readonly DisplayNameEntry[]): {
   const categoryKeys = new Set<string>();
   const lookupGroups = new Map<string, LookupGroup>();
   for (const entry of entries) {
-    for (const field of entry.fields) {
+    for (const { field, stored } of displayTargetsOf(entry)) {
       const resolver = resolverOf(field);
-      const items = storedItemsOf(field, entry.values[field.key]);
+      const items = storedItemsOf(field, stored);
       if (!resolver || items.length === 0) {
         continue;
       }
@@ -148,6 +189,7 @@ function groupsOf(entries: readonly DisplayNameEntry[]): {
  *
  * **批次**(DataLoader 的做法,不逐列查):先把整頁每一筆、每一欄要解析的值依來源分組,
  * 每個類別 / 每個 lookup 來源只查一次,再分回各筆。靜態選項的 label 從該筆綁的版本定義取,不在這裡。
+ * 明細的類別選項子欄以 `fieldKey = "<明細 key>.<子欄 key>"` 回一組(各列的值合在一起)。
  */
 @Injectable()
 export class DisplayNamesService {
@@ -211,37 +253,39 @@ export class DisplayNamesService {
     const lookupLabels = await this.lookupLabels(facts, lookupGroups);
 
     return entries.map((entry) =>
-      entry.fields.flatMap((field): FormDisplayValue[] => {
-        const resolver = resolverOf(field);
-        const items = storedItemsOf(field, entry.values[field.key]);
-        if (!resolver || items.length === 0) {
-          return [];
-        }
-        const current =
-          resolver.kind === "category"
-            ? categoryLabels.get(resolver.key)
-            : lookupLabels.get(
-                sourceSignature(resolver.source, resolver.field),
-              );
-        return [
-          {
-            fieldKey: field.key,
-            items: items.map((item): FormDisplayItem => {
-              if (item.custom) {
-                return {
-                  value: item.value,
-                  label: item.label,
-                  available: true,
-                };
-              }
-              const name = current?.get(item.value);
-              return name === undefined
-                ? { value: item.value, label: item.label, available: false }
-                : { value: item.value, label: name, available: true };
-            }),
-          },
-        ];
-      }),
+      displayTargetsOf(entry).flatMap(
+        ({ field, stored }): FormDisplayValue[] => {
+          const resolver = resolverOf(field);
+          const items = storedItemsOf(field, stored);
+          if (!resolver || items.length === 0) {
+            return [];
+          }
+          const current =
+            resolver.kind === "category"
+              ? categoryLabels.get(resolver.key)
+              : lookupLabels.get(
+                  sourceSignature(resolver.source, resolver.field),
+                );
+          return [
+            {
+              fieldKey: field.key,
+              items: items.map((item): FormDisplayItem => {
+                if (item.custom) {
+                  return {
+                    value: item.value,
+                    label: item.label,
+                    available: true,
+                  };
+                }
+                const name = current?.get(item.value);
+                return name === undefined
+                  ? { value: item.value, label: item.label, available: false }
+                  : { value: item.value, label: name, available: true };
+              }),
+            },
+          ];
+        },
+      ),
     );
   }
 }
