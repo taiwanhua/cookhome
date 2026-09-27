@@ -133,6 +133,15 @@ export const createAppTheme = (
       MuiStack: {
         defaultProps: { useFlexGap: true },
       },
+      /*
+       * 勾選 / 開關的標籤外框左緣對齊輸入框(STYLE-09):MUI 預設 `margin-left: -11px`,
+       * 讓控制項凸出同一欄的 TextField 左緣。右邊 16px 照舊(並排時的間距)。
+       */
+      MuiFormControlLabel: {
+        styleOverrides: {
+          root: { marginLeft: 0 },
+        },
+      },
       MuiButton: {
         styleOverrides: {
           root: {
