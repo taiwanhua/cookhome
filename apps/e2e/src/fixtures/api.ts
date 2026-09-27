@@ -1056,11 +1056,11 @@ query ModuleForms($moduleKey: ID!) {
   moduleForms(moduleKey: $moduleKey) { key name currentVersion }
 }`;
 
-/** 表單模組範例(seed `apps/db-migrator/seeds/modules/shopping-list.ts`)。 */
-export const SHOPPING_LIST = "shopping-list";
-export const SHOPPING_LIST_ROUTE = "/shopping-list";
-export const SHOPPING_CREATE_ROUTE = `${SHOPPING_LIST_ROUTE}/create-page`;
-export const SHOPPING_VIEW_ROUTE = `${SHOPPING_LIST_ROUTE}/view-page`;
+/** 示範表單(頂層)(seed `apps/db-migrator/seeds/modules/demo-form.ts`):劇本 18 / 19 用。 */
+export const DEMO_FORM = "demo-form";
+export const DEMO_FORM_ROUTE = "/demo-form";
+export const DEMO_FORM_CREATE_ROUTE = `${DEMO_FORM_ROUTE}/create-page`;
+export const DEMO_FORM_VIEW_ROUTE = `${DEMO_FORM_ROUTE}/view-page`;
 export const FORMS_ROUTE = "/system/forms";
 
 /** 表單 key:小寫開頭、只允許小寫 / 數字 / 底線(場景字尾是隨機 hex,前面補固定字母)。 */
@@ -1110,7 +1110,7 @@ export async function publishSharedForm(
 ): Promise<void> {
   await graphqlOk(
     CREATE_FORM,
-    { input: { key: input.key, moduleKey: SHOPPING_LIST, name: input.name } },
+    { input: { key: input.key, moduleKey: DEMO_FORM, name: input.name } },
     rootToken,
   );
   const draft = await graphqlOk<{
@@ -1149,11 +1149,11 @@ export async function publishSharedForm(
   );
 }
 
-/** 此刻可以在購物清單新增的表單 key。 */
+/** 此刻可以在示範表單(頂層)新增的表單 key。 */
 export async function moduleFormKeys(accessToken: string): Promise<string[]> {
   const data = await graphqlOk<{ moduleForms: { key: string }[] }>(
     MODULE_FORMS,
-    { moduleKey: SHOPPING_LIST },
+    { moduleKey: DEMO_FORM },
     accessToken,
   );
   return data.moduleForms.map((form) => form.key);

@@ -1,15 +1,15 @@
 import { ROOT_ACCOUNT, ROOT_PASSWORD } from "../config";
 import {
+  DEMO_FORM_ROUTE,
+  DEMO_FORM_VIEW_ROUTE,
   FORMS_ROUTE,
-  SHOPPING_LIST_ROUTE,
-  SHOPPING_VIEW_ROUTE,
   formKeyOf,
 } from "../fixtures/api";
 import {
   clickAndWaitForOperation,
+  createButton,
   expectCreateEnabled,
-  grantShoppingList,
-  shoppingCreateButton,
+  grantDemoForm,
 } from "../fixtures/scenario-forms";
 import { expect, test } from "../fixtures/test";
 import { chooseOption, pageArea, signIn } from "../fixtures/ui";
@@ -17,8 +17,8 @@ import { chooseOption, pageArea, signIn } from "../fixtures/ui";
 /**
  * 劇本 18 — 表單生命週期(建立 → 設計 → 發布 → 分派 → 填寫 → 列表 / 詳情)
  * 正本:`docs/testing/permission-scenarios.md`「劇本 18」。
- * 用哪一頁:表單管理(root)+ 購物清單列表 / 新增 / 詳情(+user)。
- * 前置(走 api):「客服」角色另勾購物清單的四個動作(`grantShoppingList`)。
+ * 用哪一頁:表單管理(root)+ 示範表單(頂層)列表 / 新增 / 詳情(+user)。
+ * 前置(走 api):「客服」角色另勾示範表單(頂層)的四個動作(`grantDemoForm`)。
  */
 test("劇本 18:root 建表單、設計、發布、分派;員工填寫送出,列表與詳情看得到", async ({
   page,
@@ -26,7 +26,7 @@ test("劇本 18:root 建表單、設計、發布、分派;員工填寫送出,列
   tenant,
 }) => {
   test.setTimeout(180_000);
-  await grantShoppingList(tenant);
+  await grantDemoForm(tenant);
   const formKey = formKeyOf("e2e18", tenant.slug);
   const formName = `購物單-${tenant.slug}`;
   const itemLabel = "品項";
@@ -39,7 +39,7 @@ test("劇本 18:root 建表單、設計、發布、分派;員工填寫送出,列
   const createDialog = rootPage.getByRole("dialog", { name: "建立表單" });
   await createDialog.getByRole("textbox", { name: "表單 key" }).fill(formKey);
   await createDialog.getByRole("textbox", { name: "名稱" }).fill(formName);
-  await chooseOption(rootPage, "所屬模組", "購物清單");
+  await chooseOption(rootPage, "所屬模組", "示範表單(頂層)");
   await clickAndWaitForOperation(
     rootPage,
     createDialog.getByRole("button", { name: "建立" }),
@@ -79,9 +79,9 @@ test("劇本 18:root 建表單、設計、發布、分派;員工填寫送出,列
   await expect(versions.getByText("v1", { exact: true })).toBeVisible();
   await expect(versions.getByText("已發布")).toBeVisible();
 
-  // 分派之前:+user 在購物清單沒有可填的表單 → 新增鈕停用
+  // 分派之前:+user 在示範表單(頂層)沒有可填的表單 → 新增鈕停用
   await signIn(page, tenant.member.account, tenant.member.password);
-  await page.goto(SHOPPING_LIST_ROUTE);
+  await page.goto(DEMO_FORM_ROUTE);
   await expectCreateEnabled(page, false);
 
   // 步驟 4:root →「分派租戶」→ 勾租戶A → 儲存
@@ -96,10 +96,10 @@ test("劇本 18:root 建表單、設計、發布、分派;員工填寫送出,列
     "AssignFormToTenants",
   );
 
-  // 步驟 5:+user → 購物清單 →「+ 新增」(只有這一張 → 直接進填寫頁)→ 填寫 → 送出
-  await page.goto(SHOPPING_LIST_ROUTE);
+  // 步驟 5:+user → 示範表單(頂層) →「+ 新增」(只有這一張 → 直接進填寫頁)→ 填寫 → 送出
+  await page.goto(DEMO_FORM_ROUTE);
   await expectCreateEnabled(page, true);
-  await shoppingCreateButton(page).click();
+  await createButton(page).click();
   await expect(
     pageArea(page).getByRole("heading", { name: `新增 — ${formName}` }),
   ).toBeVisible();
@@ -113,14 +113,14 @@ test("劇本 18:root 建表單、設計、發布、分派;員工填寫送出,列
   );
 
   // 送出後到詳情頁:標題 = 摘要槽(填的值)、狀態已完成、值看得到
-  await page.waitForURL((url) => url.pathname.startsWith(SHOPPING_VIEW_ROUTE));
+  await page.waitForURL((url) => url.pathname.startsWith(DEMO_FORM_VIEW_ROUTE));
   await expect(
     pageArea(page).getByRole("heading", { name: itemValue }),
   ).toBeVisible();
   await expect(pageArea(page).getByText("已完成")).toBeVisible();
 
   // 步驟 6:回列表,那一筆的標題欄就是填的值,狀態已完成
-  await page.goto(SHOPPING_LIST_ROUTE);
+  await page.goto(DEMO_FORM_ROUTE);
   const row = pageArea(page).getByRole("row").filter({ hasText: itemValue });
   await expect(row).toBeVisible();
   await expect(row.getByText("已完成")).toBeVisible();

@@ -1,8 +1,8 @@
 import {
+  DEMO_FORM_CREATE_ROUTE,
+  DEMO_FORM_ROUTE,
+  DEMO_FORM_VIEW_ROUTE,
   FORMS_ROUTE,
-  SHOPPING_CREATE_ROUTE,
-  SHOPPING_LIST_ROUTE,
-  SHOPPING_VIEW_ROUTE,
   createFormDraftRaw,
   formKeyOf,
   moduleFormKeys,
@@ -12,9 +12,9 @@ import {
 import { errorCodeOf, errorReasonOf } from "../fixtures/graphql";
 import {
   clickAndWaitForOperation,
+  createButton,
   expectCreateEnabled,
-  grantShoppingList,
-  shoppingCreateButton,
+  grantDemoForm,
 } from "../fixtures/scenario-forms";
 import { expect, test } from "../fixtures/test";
 import { pageArea, signIn } from "../fixtures/ui";
@@ -22,8 +22,8 @@ import { pageArea, signIn } from "../fixtures/ui";
 /**
  * 劇本 19 — 客製副本與退役目前版本
  * 正本:`docs/testing/permission-scenarios.md`「劇本 19」。
- * 用哪一頁:表單管理(+tenant)+ 購物清單新增(+user)。
- * 前置(走 api):root 建共用表單、發布、分派給租戶A;「客服」角色另勾購物清單的四個動作。
+ * 用哪一頁:表單管理(+tenant)+ 示範表單(頂層)新增(+user)。
+ * 前置(走 api):root 建共用表單、發布、分派給租戶A;「客服」角色另勾示範表單(頂層)的四個動作。
  */
 test("劇本 19:以分派來的表單為基底建客製表單並發布;退役目前版本後不能再新增", async ({
   page,
@@ -42,7 +42,7 @@ test("劇本 19:以分派來的表單為基底建客製表單並發布;退役目
     definition: oneTextFieldDefinition("item", "品項"),
     tenantOrgIds: [tenant.tenantOrgId],
   });
-  await grantShoppingList(tenant);
+  await grantDemoForm(tenant);
 
   // 步驟 1:+tenant → 表單管理 → 選分派來的表單 →「以此為基底建新表單」
   const admin = rootPage;
@@ -93,9 +93,9 @@ test("劇本 19:以分派來的表單為基底建客製表單並發布;退役目
 
   // 步驟 3:+user →「+ 新增」:共用與客製都在選單裡;選客製表單,看得到加的欄位,填寫送出
   await signIn(page, tenant.member.account, tenant.member.password);
-  await page.goto(SHOPPING_LIST_ROUTE);
+  await page.goto(DEMO_FORM_ROUTE);
   await expectCreateEnabled(page, true);
-  await shoppingCreateButton(page).click();
+  await createButton(page).click();
   const picker = page.getByRole("dialog", { name: "選擇要填寫的表單" });
   await expect(picker.getByText(sharedName, { exact: true })).toBeVisible();
   await picker.getByText(customName, { exact: true }).click();
@@ -109,7 +109,7 @@ test("劇本 19:以分派來的表單為基底建客製表單並發布;退役目
     pageArea(page).getByRole("button", { name: "送出" }),
     "SubmitFormSubmission",
   );
-  await page.waitForURL((url) => url.pathname.startsWith(SHOPPING_VIEW_ROUTE));
+  await page.waitForURL((url) => url.pathname.startsWith(DEMO_FORM_VIEW_ROUTE));
 
   // 步驟 4:+tenant → 客製表單的「版本」→「退役目前版本」並確認
   await versions.getByRole("button", { name: "退役目前版本" }).click();
@@ -122,14 +122,14 @@ test("劇本 19:以分派來的表單為基底建客製表單並發布;退役目
 
   // 步驟 5:+user 再按「+ 新增」:客製表單不在選單裡(只剩共用表單 → 直接進它的填寫頁)
   expect(await moduleFormKeys(tenant.member.token)).toEqual([sharedKey]);
-  await page.goto(SHOPPING_LIST_ROUTE);
+  await page.goto(DEMO_FORM_ROUTE);
   await expectCreateEnabled(page, true);
-  await shoppingCreateButton(page).click();
+  await createButton(page).click();
   await expect(
     pageArea(page).getByRole("heading", { name: `新增 — ${sharedName}` }),
   ).toBeVisible();
   // 直接打客製表單的新增網址 → 說明現在不能新增
-  await page.goto(`${SHOPPING_CREATE_ROUTE}/${customKey}`);
+  await page.goto(`${DEMO_FORM_CREATE_ROUTE}/${customKey}`);
   await expect(
     pageArea(page).getByText("這張表單目前不能新增", { exact: false }),
   ).toBeVisible();
@@ -139,7 +139,7 @@ test("劇本 19:以分派來的表單為基底建客製表單並發布;退役目
   expect(errorReasonOf(denied)).toBe("FORM_NOT_AVAILABLE");
 
   // 已送出的那一筆照常看得到
-  await page.goto(SHOPPING_LIST_ROUTE);
+  await page.goto(DEMO_FORM_ROUTE);
   await expect(
     pageArea(page).getByRole("row").filter({ hasText: itemValue }),
   ).toBeVisible();

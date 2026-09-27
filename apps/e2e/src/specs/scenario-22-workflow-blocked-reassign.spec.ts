@@ -29,7 +29,7 @@ test("劇本 22:審核者停用 → 單被阻擋 → 流程管理者在阻擋清
   const world = await createWorkflowWorld(tenant, { formName: "病假單" });
   await publishCustomWorkflow(tenant.tenantAdmin.token, {
     key: `leave_${tenant.slug}`,
-    name: "請假審核",
+    name: "病假審核",
     definition: {
       steps: [reviewStep("manager", "主管審核", usersOf(world.manager))],
       edges: null,
