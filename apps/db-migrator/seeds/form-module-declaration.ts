@@ -1,0 +1,127 @@
+import type { ModuleIconKey } from "@repo/domain/module-icon";
+
+import {
+  type ModuleSeedDeclaration,
+  permissionKey,
+} from "./module-declaration";
+
+/**
+ * 表單提交狀態的資料範圍選項(值對照 `form_submissions.status`)。
+ * 每個表單模組都給完整七種:任何一個表單模組都可能被綁上審核流程。
+ */
+export const FORM_SUBMISSION_STATUS_OPTIONS = [
+  { value: "draft", label: "草稿" },
+  { value: "reviewing", label: "審核中" },
+  { value: "returned", label: "已退回" },
+  { value: "withdrawn", label: "已撤回" },
+  { value: "completed", label: "已完成" },
+  { value: "rejected", label: "已駁回" },
+  { value: "voided", label: "已作廢" },
+];
+
+export interface FormModuleSpec {
+  key: string;
+  name: string;
+  /** 掛在哪個節點底下;null = 頂層。父節點須由別的宣告檔先宣告(`seeds/modules.ts` 的順序)。 */
+  parentKey: string | null;
+  /** 本層的路由段(完整路徑由祖先的 route 串起來)。 */
+  route: string;
+  order: number;
+  icon: ModuleIconKey;
+  description: string;
+}
+
+/**
+ * 表單模組(`engine: "form"`)的 seed 骨架:主節點 + 三個 `-page` 隱藏頁 + 四筆個別權限 +
+ * `form_submissions` 的資料範圍目標。
+ *
+ * 骨架照固定欄位模組的宣告方式;差別只在 `engine: "form"`:頁面由表單引擎組裝、資料存所有表單模組
+ * 共用的 `form_submissions`,資料範圍目標的 `moduleKey` 由 seed runner 填本模組 key
+ * (同一張表可以有多個表單模組各一個目標)。表單、流程與綁定都是執行期資料,不在 seed:
+ * 由根組織與租戶在畫面上建。
+ */
+export function formModuleDeclaration(
+  spec: FormModuleSpec,
+): ModuleSeedDeclaration {
+  const { key, name } = spec;
+  return {
+    nodes: [
+      {
+        key,
+        name,
+        sidebarType: "link",
+        parentKey: spec.parentKey,
+        order: spec.order,
+        route: spec.route,
+        icon: spec.icon,
+        engine: "form",
+        description: spec.description,
+      },
+      {
+        key: `${key}.view-page`,
+        name: "詳情",
+        sidebarType: "hidden",
+        parentKey: key,
+        order: 1,
+        route: "view-page",
+      },
+      {
+        key: `${key}.create-page`,
+        name: "新增",
+        sidebarType: "hidden",
+        parentKey: key,
+        order: 2,
+        route: "create-page",
+      },
+      {
+        key: `${key}.edit-page`,
+        name: "編輯",
+        sidebarType: "hidden",
+        parentKey: key,
+        order: 3,
+        route: "edit-page",
+      },
+    ],
+    permissions: [
+      {
+        key: permissionKey(key, "view"),
+        moduleKey: key,
+        name: "檢視",
+        description: "看列表與單筆資料、進入詳情頁",
+      },
+      {
+        key: permissionKey(key, "create"),
+        moduleKey: key,
+        name: "新增",
+        description: "進入新增頁的按鈕 + 新增 API",
+      },
+      {
+        key: permissionKey(key, "edit"),
+        moduleKey: key,
+        name: "編輯",
+        description: "進入編輯頁的按鈕 + 編輯 API(綁流程的單核准後只能作廢)",
+      },
+      {
+        key: permissionKey(key, "delete"),
+        moduleKey: key,
+        name: "刪除",
+        description: "列表的刪除按鈕 + 刪除 API",
+      },
+    ],
+    // collection 固定 form_submissions;moduleKey 由 runner 填本模組 key。
+    // 欄位目錄 = 基礎欄位(程式自動附加)+ 提交狀態;表單自訂欄位進條件不在此範圍
+    dataScopeTarget: {
+      collection: "form_submissions",
+      name,
+      description: `${name}的表單提交(form_submissions 裡 moduleKey = ${key} 的資料)`,
+      fields: [
+        {
+          name: "status",
+          label: "狀態",
+          type: "enum",
+          options: FORM_SUBMISSION_STATUS_OPTIONS,
+        },
+      ],
+    },
+  };
+}
