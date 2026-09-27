@@ -79,7 +79,8 @@ export function toCategoryModel(category: CategoryRecord): FieldCategoryModel {
  * 寫入(新增 / 改名 / 停用)是**根組織專屬**:權限 `system.field-manager.category-ops.manage-categories`
  * 掛在 isRootOnly 的權限容器下(模板扣除),再加「站在根組織」—— 與租戶作業同一個判斷點
  * (`OwnerProtectionService.isRootOperator`),權限可能經角色被帶到別的組織。
- * 類別不可刪、`key` 建立後不可改(表單定義以 key 引用);系統類別不可停用。
+ * 類別不可刪、`key` 建立後不可改(表單定義以 key 引用);系統類別在畫面完全唯讀(不可改名 / 說明、不可停用;
+ * 名稱與說明由 seed 維護,改了下次部署也會被蓋回去)。
  */
 @Injectable()
 export class FieldCategoriesService {
@@ -150,13 +151,19 @@ export class FieldCategoriesService {
     return toCategoryModel(created);
   }
 
-  /** 改名 / 說明;系統類別也可以改,但下次 seed 會把名稱 / 說明同步回宣告值。 */
+  /** 改名 / 說明;系統類別唯讀(`SYSTEM_CATEGORY`)—— 名稱 / 說明由 seed 維護。 */
   async update(
     operator: OperatorContext,
     input: UpdateFieldCategoryInput,
   ): Promise<FieldCategoryModel> {
     await this.assertRootOperator(operator, AUDIT_UPDATE);
     const current = await this.mustFind(operator, input.id);
+    if (current.isSystem) {
+      throw forbiddenError(
+        `system field category is read-only: ${current.key}`,
+        "SYSTEM_CATEGORY",
+      );
+    }
     const set: Record<string, unknown> = {};
     const unset: Record<string, string> = {};
     const before: Record<string, unknown> = {};

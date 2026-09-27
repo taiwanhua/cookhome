@@ -109,34 +109,42 @@ describe("欄位管理頁:類別作業", () => {
     expect(screen.getByRole("button", { name: "新增" })).toBeInTheDocument();
   });
 
-  it("系統類別:可編輯名稱(key 唯讀),沒有「停用類別」", async () => {
-    const { user, fake } = renderPage({ permissions: CATEGORY_MANAGER });
+  it("系統類別唯讀:沒有「編輯類別」也沒有「停用類別」", async () => {
+    const { user } = renderPage({ permissions: CATEGORY_MANAGER });
     await selectCategory(user, "性別");
 
     expect(
+      within(optionsPanel()).queryByRole("button", { name: "編輯類別" }),
+    ).not.toBeInTheDocument();
+    expect(
       within(optionsPanel()).queryByRole("button", { name: "停用類別" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("root 建的類別:可改名稱與說明(key 唯讀)", async () => {
+    const { user, fake } = renderPage({ permissions: CATEGORY_MANAGER });
+    await selectCategory(user, "料理類型");
+
     await user.click(
       within(optionsPanel()).getByRole("button", { name: "編輯類別" }),
     );
-
     expect(screen.getByLabelText("類別 key")).toBeDisabled();
-    expect(screen.getByLabelText("類別 key")).toHaveValue("gender");
+    expect(screen.getByLabelText("類別 key")).toHaveValue("cuisine");
     const nameInput = screen.getByLabelText("類別名稱 *");
     await user.clear(nameInput);
-    await user.type(nameInput, "生理性別");
+    await user.type(nameInput, "菜系");
     await user.click(screen.getByRole("button", { name: "儲存" }));
 
     await waitFor(() => {
       expect(fake.inputs.updateFieldCategory).toEqual([
         {
-          id: "cat-gender",
-          name: "生理性別",
-          description: "使用者資料的性別選項",
+          id: "cat-cuisine",
+          name: "菜系",
+          description: "營運上臨時需要的分類",
         },
       ]);
     });
-    expect(await categoryItem("生理性別")).toBeInTheDocument();
+    expect(await categoryItem("菜系")).toBeInTheDocument();
   });
 
   it("停用 / 啟用 root 建的類別:直接送出,清單重查後標籤跟著變", async () => {

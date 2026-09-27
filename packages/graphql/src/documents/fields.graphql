@@ -53,7 +53,7 @@ mutation CreateFieldCategory($input: CreateFieldCategoryInput!) {
 }
 
 # UpdateFieldCategoryInput: { id, name, description };key 不在 input 內(建立後不可改)。
-# name 缺席 = 不動;description 缺席 = 不動、null = 清空
+# name 缺席 = 不動;description 缺席 = 不動、null = 清空;系統類別 → FORBIDDEN reason SYSTEM_CATEGORY
 mutation UpdateFieldCategory($input: UpdateFieldCategoryInput!) {
   updateFieldCategory(input: $input) {
     category {

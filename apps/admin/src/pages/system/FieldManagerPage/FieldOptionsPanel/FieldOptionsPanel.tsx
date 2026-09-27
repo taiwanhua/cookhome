@@ -33,7 +33,7 @@ export interface FieldOptionsPanelProps {
 /**
  * 右欄選項區(Figma Options 90:227):標題「<類別名> — 選項」+「新增自訂選項」+ 表格。
  * 新增鈕依 `system.field-manager.create` 出現與否(ADR-0011:沒有權限的動作不顯示)。
- * 類別作業(`manage-categories`)的按鈕也在這一列:系統類別沒有「停用類別」(不可停用),
+ * 類別作業(`manage-categories`)的按鈕也在這一列:系統類別唯讀,沒有「編輯類別」與「停用類別」,
  * 停用的類別可再啟用;停用不另開確認 —— 可逆,且只影響表單設計器的類別清單。
  */
 export const FieldOptionsPanel = ({
@@ -78,7 +78,7 @@ export const FieldOptionsPanel = ({
             ? t("noCategory")
             : t("title", { category: category.name })}
         </Typography>
-        {canManageCategories && category !== null && (
+        {canManageCategories && category !== null && !category.isSystem && (
           <Button variant="text" size="small" onClick={onEditCategory}>
             {tCategory("edit")}
           </Button>

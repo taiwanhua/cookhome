@@ -44,7 +44,7 @@ export const FIELD_FORBIDDEN_REASONS = [
   "SEED_GLOBAL_SWITCH",
   /** 看得到、但不是自己這一層加的自訂選項(上層或下層組織加的,#264)。 */
   "NOT_OWNER",
-  /** 停用 seed 宣告的系統類別(底座 / 模組固定要用,不可停用;啟用可以)。 */
+  /** 改名 / 停用 seed 宣告的系統類別(由 seed 維護,畫面唯讀;啟用可以)。 */
   "SYSTEM_CATEGORY",
   /** 類別作業(新增 / 改名 / 停用類別)只能站在根組織做;權限可能經角色被帶到別的組織。 */
   "ROOT_ONLY",
@@ -54,7 +54,7 @@ export type FieldForbiddenReason = (typeof FIELD_FORBIDDEN_REASONS)[number];
 
 /**
  * 有登入但做了不被允許的事(GQL-04 `FORBIDDEN`):改種子選項、碰別的組織的自訂選項、
- * 停用系統類別、不在根組織做類別作業。
+ * 改名或停用系統類別、不在根組織做類別作業。
  */
 export function forbiddenError(
   message: string,

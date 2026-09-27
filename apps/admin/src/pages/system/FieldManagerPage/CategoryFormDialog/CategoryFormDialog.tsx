@@ -50,7 +50,7 @@ const keyProblemOf = (
 };
 
 /**
- * 新增 / 編輯欄位類別(`manage-categories`)。
+ * 新增 / 編輯欄位類別(`manage-categories`;只開給 root 在畫面建的類別,系統類別唯讀)。
  *
  * 兩種模式差在 **key**:建立後不可改(表單定義以它引用類別),所以編輯時唯讀顯示、也不進
  * `updateFieldCategory` 的 input。新增時 key 的格式(`@repo/domain/form` 的
@@ -196,7 +196,7 @@ export const CategoryFormDialog = ({
           }}
         />
         <Typography variant="caption" color="text.secondary">
-          {category?.isSystem === true ? t("systemHint") : t("createHint")}
+          {t("createHint")}
         </Typography>
         {errorCode !== null && errorCode !== "FIELD_CATEGORY_KEY_DUPLICATE" && (
           <Alert severity="error">{tErrors(errorCode)}</Alert>

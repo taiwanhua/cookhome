@@ -56,7 +56,7 @@
 
 示範畫面上的「甜點」是租戶自訂選項的示意,**不是種子**。
 
-- 系統類別的名稱與說明是「每次都 seed 的欄位」:在本頁改了,下次 seed 會同步回宣告值(說明沒宣告即 `null`)。
+- 系統類別的名稱與說明是「每次都 seed 的欄位」,由 seed 維護(說明沒宣告即 `null`),所以在本頁**完全唯讀**:`updateFieldCategory` 對它回 `FORBIDDEN` + `SYSTEM_CATEGORY`。
 - `reset --mode=data`:root 在畫面建的類別(key 不在 seed 宣告裡)算人建資料,一起刪(ADR-0002「還原」)。
 
 正本:`apps/api/src/database/schemas/field-category.schema.ts`、`apps/api/src/database/schemas/field.schema.ts`、`apps/db-migrator/seeds/field-categories.ts`、`apps/db-migrator/seeds/fields.ts`
@@ -96,7 +96,7 @@
 ### 類別
 
 - 類別 `key`:kebab-case(小寫英數、單一 `-` 分隔、不含 `.`),最長 40,與種子 key 同一套(`@repo/domain/form` 的 `FIELD_CATEGORY_KEY_PATTERN`);唯一(含停用的類別);**建立後不可改**(表單定義以 key 引用類別,種子選項的 key 是 `<類別 key>.<value>`)。
-- 類別不可刪;系統類別**不可停用**(啟用可以 —— 認養時可能帶著停用狀態)。
+- 類別不可刪;系統類別**唯讀**:不可改名 / 說明、不可停用(啟用可以 —— 認養時可能帶著停用狀態)。
 - **停用只影響表單設計器**:類別清單(`fieldCategories(input: { enabledOnly: true })`)不列、不能新選。既有欄位用到停用類別時照常顯示:執行期的選項查詢(`formFieldOptions`、送出驗值、顯示名解析)不看類別的 `enabled`,發布檢查器的類別 key 集合也含停用的類別。欄位管理頁照樣列出停用的類別(灰掉、標「已停用」),選項照常可管。
 
 ### 其他
@@ -123,7 +123,7 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 
 **欄位語意**(GQL-07:正本在此,前端引用不另寫解釋)
 
-- `FieldCategory.isSystem`:`true` = seed 宣告的系統類別(不可停用);`false` = root 在畫面新增的。
+- `FieldCategory.isSystem`:`true` = seed 宣告的系統類別(唯讀:不可改名 / 說明、不可停用);`false` = root 在畫面新增的。
 - `FieldCategory.enabled`:`false` = 表單設計器的類別清單不列;既有欄位照常顯示、執行期選項照常查。
 - `Field.ownerOrg`:加這筆的組織 `{ id, name }`;**`null` = 全域種子**(`orgId = null`)。畫面「來源」欄的文案由前端組(`null` → 「全域」、有值 → 「<ownerOrg.name> 自訂」)。**組織名稱一律由 api 給** —— 合併清單含上層 / 下層組織加的選項,前端拿 session 的當前組織名會把別人的標成自己的。
 - `Field.isOwn`:這筆是不是**當前組織**這一層加的(`orgId = 操作者的當前組織`)。
@@ -152,7 +152,7 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 - **改不動的列反灰不隱藏**:上層 / 下層組織加的選項整列以 `text.disabled` 呈現、開關 disabled,操作欄顯示「由 <組織名> 管理」並以原生 `title` 說明原因。看得到但動不了,跟「這個動作我沒有權限」是兩回事。
 - 前端不推「根組織視角」:每一列能不能切由 api 的 `canToggleEnabled` 決定。
 - **類別作業**只看 `manage-categories` 權限(租戶管理員模板拿不到,所以不必另判視角):左欄標題列的「+ 新增類別」、右欄標題列的「編輯類別」與「停用類別 / 啟用類別」。彈窗在 `CategoryFormDialog/`:新增時 key 的格式與唯一(對照已載入的全部類別)當場擋、送出鈕停用;api 回的 `FIELD_CATEGORY_KEY_DUPLICATE` 同樣標在 key 欄位;編輯時 key 唯讀。停用 / 啟用直接送、不另開確認(可逆)。
-- 左欄每個類別:系統類別標 `Tag`「系統」;停用的類別名稱以 `text.disabled` 呈現並標「已停用」。系統類別沒有「停用類別」鈕(停用的系統類別仍給「啟用類別」)。
+- 左欄每個類別:系統類別標 `Tag`「系統」;停用的類別名稱以 `text.disabled` 呈現並標「已停用」。系統類別沒有「編輯類別」與「停用類別」鈕(停用的系統類別仍給「啟用類別」)。
 - 表單設計器的類別下拉(`FormDesigner/PropertyPanel/OptionsEditor.tsx`)帶 `enabledOnly: true`;已選了停用類別的欄位,下拉以 key 顯示那一個值。
 
 正本:`apps/admin/src/pages/system/FieldManagerPage/`(`field-source.ts`、`FieldOptionsPanel/FieldOptionsTable.tsx`、`field-manager-error.ts`)
@@ -167,7 +167,7 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 | mutation 碰**看得到但不是自己這一層加的**自訂選項(上層或下層組織加的)                   | `FORBIDDEN` + `extensions.reason = "NOT_OWNER"`               |
 | 類別或選項不在合併清單 / 可見範圍內(不透露它存在)                                       | `NOT_FOUND`                                                   |
 | 新增類別的 `key` 已存在(含停用的類別)                                                   | `FIELD_CATEGORY_KEY_DUPLICATE`(`extensions.fields = ["key"]`) |
-| 停用系統類別                                                                            | `FORBIDDEN` + `extensions.reason = "SYSTEM_CATEGORY"`         |
+| 改名 / 停用系統類別                                                                     | `FORBIDDEN` + `extensions.reason = "SYSTEM_CATEGORY"`         |
 | 類別作業不是站在根組織做(權限可能經角色被帶到別的組織)                                  | `FORBIDDEN` + `extensions.reason = "ROOT_ONLY"`               |
 | id 格式不對、`label` / `value` / 類別 `name` 空白、類別 `key` 格式不符                  | `VALIDATION_FAILED`                                           |
 

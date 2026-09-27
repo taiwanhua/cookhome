@@ -73,7 +73,7 @@ export interface FieldWorld {
  *   `SEED_READ_ONLY` / `SEED_GLOBAL_SWITCH`;別的組織加的 → reason `NOT_OWNER`
  * - `createField` 的 `value` 與同類別的**繼承鏈**(全域 / 上層 / 自己)重複 → `FIELD_VALUE_DUPLICATE`
  * - 類別作業:`key` 格式不符 → `VALIDATION_FAILED`、重複(含停用的)→ `FIELD_CATEGORY_KEY_DUPLICATE`、
- *   停用系統類別 → `FORBIDDEN` + reason `SYSTEM_CATEGORY`;`fieldCategories(input.enabledOnly)` 只回啟用的
+ *   改名 / 停用系統類別 → `FORBIDDEN` + reason `SYSTEM_CATEGORY`;`fieldCategories(input.enabledOnly)` 只回啟用的
  */
 export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
   const {
@@ -278,6 +278,12 @@ const categoryHandlers = (
       const target = findCategory(input.id);
       if (target === undefined) {
         return notFoundError();
+      }
+      // 系統類別由 seed 維護,畫面唯讀(api 同一條規則)
+      if (target.isSystem) {
+        return graphqlError("FORBIDDEN", "FORBIDDEN", {
+          reason: "SYSTEM_CATEGORY",
+        });
       }
       if (input.name !== undefined && input.name !== null) {
         target.name = input.name;

@@ -310,17 +310,15 @@ describe("欄位類別:root 新增 / 改名 / 停用(GraphQL 端點 + 真 MongoD
       });
     });
 
-    it("系統類別可改名;key 不在 input 內,送 key 一律被 schema 擋下(建立後不可改)", async () => {
+    it("系統類別唯讀:改名 → FORBIDDEN + reason SYSTEM_CATEGORY;key 不在 input 內,送 key 一律被 schema 擋下", async () => {
       const renamed = await api.graphql<UpdateData>(
         UPDATE,
         { input: { id: String(genderCategoryId), name: "性別(改)" } },
         { accessToken: rootToken },
       );
-      expect(renamed.errors).toBeUndefined();
-      expect(renamed.data?.updateFieldCategory.category).toMatchObject({
-        key: "gender",
-        name: "性別(改)",
-        isSystem: true,
+      expect(renamed.errors?.[0]?.extensions).toMatchObject({
+        code: "FORBIDDEN",
+        reason: "SYSTEM_CATEGORY",
       });
 
       const withKey = await api.graphql<UpdateData>(
@@ -331,15 +329,8 @@ describe("欄位類別:root 新增 / 改名 / 停用(GraphQL 端點 + 真 MongoD
       expect(withKey.errors).toBeDefined();
       const stored = await connection
         .collection("field_categories")
-        .findOne<{ key: string }>({ _id: genderCategoryId });
-      expect(stored?.key).toBe("gender");
-
-      // 還原名稱,不影響其他測試檔的假設
-      await api.graphql<UpdateData>(
-        UPDATE,
-        { input: { id: String(genderCategoryId), name: "性別" } },
-        { accessToken: rootToken },
-      );
+        .findOne<{ key: string; name: string }>({ _id: genderCategoryId });
+      expect(stored).toMatchObject({ key: "gender", name: "性別" });
     });
 
     it("不存在的類別 → NOT_FOUND;id 格式不對 → VALIDATION_FAILED", async () => {

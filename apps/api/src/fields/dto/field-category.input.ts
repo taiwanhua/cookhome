@@ -29,7 +29,7 @@ export class CreateFieldCategoryInput {
 }
 
 /**
- * 改類別名稱 / 說明(系統類別也可改,但下次 seed 會同步回宣告值)。`key` 不在此 —— 建立後不可改。
+ * 改類別名稱 / 說明(只限 root 在畫面建的類別;系統類別 → `FORBIDDEN` + `SYSTEM_CATEGORY`)。`key` 不在此 —— 建立後不可改。
  * 缺席 / null 語意(GQL-06):`name` 缺席 = 不動;`description` 缺席 = 不動、`null` = 清空。
  */
 @InputType()

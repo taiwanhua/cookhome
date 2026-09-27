@@ -837,7 +837,7 @@
       "seedNotice": "Categories are maintained by the system (read-only)",
       "loading": "Loading field categories",
       "create": "+ Add category",
-      "manageNotice": "Categories tagged \"System\" ship with the system and cannot be disabled; categories added here can be renamed or disabled.",
+      "manageNotice": "Categories tagged \"System\" are maintained by the system and cannot be changed; categories added here can be renamed or disabled.",
       "systemTag": "System",
       "disabledTag": "Disabled"
     },
@@ -889,7 +889,6 @@
       "name": "Category name",
       "description": "Description",
       "createHint": "Categories cannot be deleted. Disable one you no longer use: the form designer stops listing it, and fields already using it keep working.",
-      "systemHint": "This is a system category: its name and description return to the defaults on system updates, and it cannot be disabled.",
       "submit": "Add",
       "save": "Save",
       "cancel": "Cancel"
