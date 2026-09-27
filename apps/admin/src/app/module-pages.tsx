@@ -42,11 +42,14 @@ import type { ModulePageRegistry } from "./guards/ModuleRoute/ModuleRoute";
 /** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
 export const OVERVIEW_MODULE_KEY = "overview";
 
-/** 購物清單:表單模組範例(seed 正本 apps/db-migrator/seeds/modules/shopping-list.ts,`engine: "form"`)。 */
-export const SHOPPING_LIST_MODULE_KEY = "shopping-list";
+/** 示範表單(頂層):表單模組掛在側欄頂層(seed 正本 apps/db-migrator/seeds/modules/demo-form.ts,`engine: "form"`)。 */
+export const DEMO_FORM_MODULE_KEY = "demo-form";
 
-/** 請假:綁審核流程的表單模組範例(seed 正本 apps/db-migrator/seeds/modules/leave.ts,`engine: "form"`)。 */
-export const LEAVE_MODULE_KEY = "leave";
+/** 示範表單(群組內):表單模組掛在 `demo` 群組底下(seed 正本 apps/db-migrator/seeds/modules/demo.form.ts,`engine: "form"`)。 */
+export const DEMO_GROUP_FORM_MODULE_KEY = "demo.form";
+
+/** 示範表單(次群組內):表單模組掛在 `demo.sub` 次群組底下(seed 正本 apps/db-migrator/seeds/modules/demo.sub.form.ts,`engine: "form"`)。 */
+export const DEMO_SUB_GROUP_FORM_MODULE_KEY = "demo.sub.form";
 
 /**
  * 模組 key → 頁面元件(組裝層,STRUCT-03):各模組實作時在此登記;
@@ -77,10 +80,11 @@ export const modulePages: ModulePageRegistry = {
   [WORKFLOWS_BLOCKED_PAGE_KEY]: LazyWorkflowBlockedPage,
   [APPLY_CENTER_MODULE_KEY]: LazyApplyCenterPage,
   [APPLY_CENTER_VIEW_PAGE_KEY]: LazyApplyCenterViewPage,
-  // 表單模組(Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝;
-  // 請假綁了流程時,詳情頁下方自動掛審核區塊(預設組裝含)
-  ...formModulePages(SHOPPING_LIST_MODULE_KEY),
-  ...formModulePages(LEAVE_MODULE_KEY),
+  // 三個示範表單模組(頂層 / 群組內 / 次群組內;Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝;
+  // 表單綁了流程時,詳情頁下方自動掛審核區塊(預設組裝含)
+  ...formModulePages(DEMO_FORM_MODULE_KEY),
+  ...formModulePages(DEMO_GROUP_FORM_MODULE_KEY),
+  ...formModulePages(DEMO_SUB_GROUP_FORM_MODULE_KEY),
 };
 
 /**

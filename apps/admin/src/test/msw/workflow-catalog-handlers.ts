@@ -13,9 +13,9 @@ import { formFragment } from "./form-fixtures";
 import { api } from "./server";
 import {
   APPLICANT,
+  DEMO_GROUP_FORM_KEY,
   HR,
   LEAVE_FORM_KEY,
-  LEAVE_KEY,
   MANAGER,
   leaveDefinition,
 } from "./workflow-fixtures";
@@ -54,8 +54,8 @@ export const workflowCatalogHandlers = (
         formFragment({
           key: LEAVE_FORM_KEY,
           name: "病假單",
-          moduleKey: LEAVE_KEY,
-          moduleName: "請假",
+          moduleKey: DEMO_GROUP_FORM_KEY,
+          moduleName: "示範表單(群組內)",
           hasDraft: false,
         }),
       ];

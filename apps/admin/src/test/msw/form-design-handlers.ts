@@ -129,8 +129,8 @@ export const formDesignWorld = (
             modules: [
               {
                 id: "m-shop",
-                key: "shopping-list",
-                name: "購物清單",
+                key: "demo-form",
+                name: "示範表單(頂層)",
                 engine: ModuleEngine.Form,
               },
               {

@@ -44,7 +44,7 @@ export const batchDraft = (): FormDefinition => {
       widget: { kind: "datePicker" },
       valueSource: { kind: "constant", value: TAIPEI_0901 },
     }),
-    field("leave", "假別", "select", {
+    field("demo.form", "假別", "select", {
       widget: { kind: "dropdown" },
       options: LEAVE_OPTIONS,
     }),

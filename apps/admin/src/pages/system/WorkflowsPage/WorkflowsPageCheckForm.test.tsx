@@ -88,7 +88,7 @@ describe("流程管理:檢查用表單與「檢查」", () => {
 
   it("新草稿(修訂 0)預設第一張綁定的表單;存過、存了 null 的草稿不預設", async () => {
     const bound = [
-      { formKey: "sick_leave", formName: "病假單", moduleKey: "leave" },
+      { formKey: "sick_leave", formName: "病假單", moduleKey: "demo.form" },
     ];
     const withRevision = (draftRevision: number) => {
       const options = defaultDesignOptions();

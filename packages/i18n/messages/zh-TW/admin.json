@@ -1372,7 +1372,7 @@
       "insertField": "插入欄位的值",
       "insertFieldHint": "挑一個欄位,把它的值插到模板最後",
       "insertFieldEmpty": "還沒有版本,沒有欄位可挑",
-      "sampleModule": "請假",
+      "sampleModule": "示範表單",
       "sampleAction": "檢視",
       "sampleValue": "〈{label}〉"
     },

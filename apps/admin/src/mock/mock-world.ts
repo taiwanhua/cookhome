@@ -197,7 +197,7 @@ export const mockHandlers = ({
     ),
     // 示範模組2 三頁(#321):兩支示範模組的端點各自獨立,沒有共用端點要去重
     ...demoTwoWorld({ items: demoTwoItems }).handlers,
-    // 表單引擎:表單管理(一張共用表單,已發布 v1 + 一份草稿)與購物清單(兩筆提交);
+    // 表單引擎:表單管理(一張共用表單,已發布 v1 + 一份草稿)與示範表單(頂層)(兩筆提交);
     // 設計器「類別」下拉的 `FieldCategories` 讓給欄位管理(共用端點,正本只留一份)
     ...withoutOperations(
       formDesignWorld({
@@ -221,14 +221,14 @@ export const mockHandlers = ({
         {
           key: SHOPPING_FORM_KEY,
           name: "購物單",
-          moduleKey: "shopping-list",
+          moduleKey: "demo-form",
           currentVersion: 1,
           tabLabelTemplate: null,
         },
         {
           key: LEAVE_FORM_KEY,
           name: "病假單",
-          moduleKey: "leave",
+          moduleKey: "demo.form",
           currentVersion: 1,
           tabLabelTemplate: null,
         },
@@ -247,17 +247,17 @@ export const mockHandlers = ({
         ...leaveSubmissions(),
       ],
     }).handlers,
-    // 審核流程:流程管理(直線的請假審核 + 平行的採購審核)、申請中心與詳情、阻擋清單
+    // 審核流程:流程管理(直線的病假審核 + 平行的採購審核)、申請中心與詳情、阻擋清單
     ...workflowDesignWorld(mockWorkflowDesign()).handlers,
     ...workflowRuntimeWorld(mockWorkflowRuntime()).handlers,
   ];
 };
 
-/** 請假的兩筆提交:審核中(派給登入者小華)、已核准(可作廢)。 */
+/** 示範表單(群組內)的兩筆提交:審核中(派給登入者小華)、已核准(可作廢)。 */
 const leaveSubmissions = () => [
   submissionFragment({
     id: "sub-leave-1",
-    moduleKey: "leave",
+    moduleKey: "demo.form",
     formKey: LEAVE_FORM_KEY,
     formName: "病假單",
     status: FormSubmissionStatus.Reviewing,
@@ -276,7 +276,7 @@ const leaveSubmissions = () => [
   }),
   submissionFragment({
     id: "sub-leave-2",
-    moduleKey: "leave",
+    moduleKey: "demo.form",
     formKey: LEAVE_FORM_KEY,
     formName: "病假單",
     status: FormSubmissionStatus.Completed,
@@ -354,13 +354,13 @@ const mockWorkflowRuntime = () => ({
   ],
   applicable: [
     {
-      moduleKey: "leave",
-      moduleName: "請假",
+      moduleKey: "demo.form",
+      moduleName: "示範表單(群組內)",
       forms: [
         {
           key: LEAVE_FORM_KEY,
           name: "病假單",
-          moduleKey: "leave",
+          moduleKey: "demo.form",
           currentVersion: 1,
           tabLabelTemplate: null,
         },
@@ -370,12 +370,12 @@ const mockWorkflowRuntime = () => ({
   blocked: { blocked: ["inst-2"], needsAdvance: ["inst-1"] },
 });
 
-/** 流程管理:直線的「請假審核」(綁了病假單)與平行的「採購審核」(共用,只有草稿)。 */
+/** 流程管理:直線的「病假審核」(綁了病假單)與平行的「採購審核」(共用,只有草稿)。 */
 const mockWorkflowDesign = () => ({
   workflows: [
     workflowFragment({
       boundForms: [
-        { formKey: LEAVE_FORM_KEY, formName: "病假單", moduleKey: "leave" },
+        { formKey: LEAVE_FORM_KEY, formName: "病假單", moduleKey: "demo.form" },
       ],
     }),
     workflowFragment({
@@ -407,7 +407,7 @@ const mockWorkflowDesign = () => ({
     [SHOPPING_FORM_KEY]: [
       {
         workflowKey: "leave_review",
-        workflowName: "請假審核",
+        workflowName: "病假審核",
         isShared: false,
         canBind: true,
         issues: [],

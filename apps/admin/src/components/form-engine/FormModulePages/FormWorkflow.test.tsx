@@ -12,13 +12,13 @@ import {
 import { server } from "@/test/msw/server";
 import {
   APPLICANT,
+  DEMO_GROUP_FORM_KEY,
+  DEMO_GROUP_FORM_ROUTES,
   LEAVE_FORM_KEY,
-  LEAVE_KEY,
-  LEAVE_ROUTES,
   applyCenterModules,
+  demoGroupFormModules,
   instanceFragment,
   leaveDefinition,
-  leaveModules,
 } from "@/test/msw/workflow-fixtures";
 import {
   type WorkflowRuntimeWorldOptions,
@@ -39,7 +39,7 @@ beforeAll(async () => {
 const leaveForm = {
   key: LEAVE_FORM_KEY,
   name: "病假單",
-  moduleKey: LEAVE_KEY,
+  moduleKey: DEMO_GROUP_FORM_KEY,
   currentVersion: 1,
   tabLabelTemplate: null,
 };
@@ -47,7 +47,7 @@ const leaveForm = {
 const leave = (overrides: Parameters<typeof submissionFragment>[0] = {}) =>
   submissionFragment({
     id: "sub-leave-1",
-    moduleKey: LEAVE_KEY,
+    moduleKey: DEMO_GROUP_FORM_KEY,
     formKey: LEAVE_FORM_KEY,
     formName: "病假單",
     values: { kind: "病假", days: "3", reason: "病假三天", approver: null },
@@ -73,7 +73,10 @@ const renderLeave = (
   server.use(
     ...authWorld({
       hasRefreshCookie: true,
-      modules: [...leaveModules([`${LEAVE_KEY}.*`]), ...applyCenterModules()],
+      modules: [
+        ...demoGroupFormModules([`${DEMO_GROUP_FORM_KEY}.*`]),
+        ...applyCenterModules(),
+      ],
     }).handlers,
     ...formWorld.handlers,
     ...workflowWorld.handlers,
@@ -90,7 +93,7 @@ describe("表單模組 × 審核流程", () => {
       FormSubmissionStatus.Rejected,
       FormSubmissionStatus.Voided,
     ];
-    const { user, forms } = renderLeave(LEAVE_ROUTES.list, {
+    const { user, forms } = renderLeave(DEMO_GROUP_FORM_ROUTES.list, {
       submissions: [
         ...statuses.map((status, index) =>
           leave({
@@ -129,7 +132,9 @@ describe("表單模組 × 審核流程", () => {
       ],
     });
 
-    const table = await screen.findByRole("table", { name: /請假/ });
+    const table = await screen.findByRole("table", {
+      name: /示範表單\(群組內\)/,
+    });
     for (const label of [
       "審核中",
       "已退回",
@@ -166,7 +171,7 @@ describe("表單模組 × 審核流程", () => {
 
   it("詳情頁掛審核區塊;申請人在還沒人審前可撤回", async () => {
     const { user, forms } = renderLeave(
-      `${LEAVE_ROUTES.viewPage}/sub-leave-1`,
+      `${DEMO_GROUP_FORM_ROUTES.viewPage}/sub-leave-1`,
       {
         submissions: [
           leave({
@@ -206,7 +211,7 @@ describe("表單模組 × 審核流程", () => {
 
   it("已作廢的單「複製為新單」→ 進該模組編輯頁;被清空的欄位提示在來源頁", async () => {
     const { user, forms } = renderLeave(
-      `${LEAVE_ROUTES.viewPage}/sub-leave-1`,
+      `${DEMO_GROUP_FORM_ROUTES.viewPage}/sub-leave-1`,
       {
         submissions: [
           leave({
@@ -247,7 +252,7 @@ describe("表單模組 × 審核流程", () => {
 
   it("被退回的單:編輯頁提示改完再送會重審,以草稿方式存(saveFormDraft)並送出", async () => {
     const { user, forms } = renderLeave(
-      `${LEAVE_ROUTES.editPage}/sub-leave-1`,
+      `${DEMO_GROUP_FORM_ROUTES.editPage}/sub-leave-1`,
       {
         submissions: [
           leave({

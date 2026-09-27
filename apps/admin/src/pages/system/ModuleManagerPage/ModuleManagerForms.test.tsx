@@ -36,11 +36,11 @@ import {
 
 const shoppingNode: TestModuleAdminNode = {
   id: "m-shop",
-  key: "shopping-list",
-  name: "購物清單",
+  key: "demo-form",
+  name: "示範表單(頂層)",
   parentId: null,
   sidebarType: ModuleSidebarType.Link,
-  route: "shopping-list",
+  route: "demo-form",
   order: 3,
   description: null,
   icon: null,
@@ -63,9 +63,9 @@ const retiredPermission = (
   drafts: number,
   completed: number,
 ) => ({
-  key: `shopping-list.show-shopping_list-${fieldKey}`,
+  key: `demo-form.show-shopping_list-${fieldKey}`,
   name,
-  moduleKey: "shopping-list",
+  moduleKey: "demo-form",
   formKey: SHOPPING_FORM_KEY,
   formName: "購物單",
   fieldKey,
@@ -92,11 +92,11 @@ const render = (permissions: readonly string[]) => {
       retiredPermission("old_tag", "購物單 / 舊標籤 可見", 0, 0),
     ],
     retiredOutcomes: {
-      "shopping-list.show-shopping_list-old_price": {
+      "demo-form.show-shopping_list-old_price": {
         code: "PERMISSION_NOT_DELETABLE",
         extensions: { reasons: ["USED_BY_DRAFTS"], usage: usage(1, 3) },
       },
-      "shopping-list.show-shopping_list-old_note": {
+      "demo-form.show-shopping_list-old_note": {
         code: "PERMISSION_NOT_DELETABLE",
         extensions: { reasons: ["CONFIRM_REQUIRED"], usage: usage(0, 2) },
       },
@@ -151,7 +151,7 @@ describe("模組與權限:表單模組的列表欄位配置、退役權限清理
       expect(design.inputs.deleteRetiredPermission).toHaveLength(3);
     });
     expect(design.inputs.deleteRetiredPermission[2]).toEqual({
-      permissionKey: "shopping-list.show-shopping_list-old_note",
+      permissionKey: "demo-form.show-shopping_list-old_note",
       confirmCompletedUsage: true,
     });
     await waitFor(() => {
@@ -179,7 +179,7 @@ describe("模組與權限:表單模組的列表欄位配置、退役權限清理
       expect(within(dialog).queryByText("購物單 / 舊標籤 可見")).toBeNull();
     });
     expect(design.inputs.deleteRetiredPermission).toEqual([
-      { permissionKey: "shopping-list.show-shopping_list-old_tag" },
+      { permissionKey: "demo-form.show-shopping_list-old_tag" },
     ]);
     expect(
       within(dialog).queryByRole("button", { name: "確認刪除" }),
@@ -206,12 +206,12 @@ describe("模組與權限:表單模組的列表欄位配置、退役權限清理
     const { user, design } = render([...FULL_PERMISSIONS, "system.forms.edit"]);
     await waitForTree();
 
-    await clickNode(user, "購物清單");
+    await clickNode(user, "示範表單(頂層)");
     await user.click(
       await within(detail()).findByRole("button", { name: "設定列表欄位" }),
     );
     const dialog = await screen.findByRole("dialog", {
-      name: "列表欄位配置 — 購物清單",
+      name: "列表欄位配置 — 示範表單(頂層)",
     });
     await within(dialog).findByText(
       "目前沒有設定,列表使用預設欄(標題、日期)。",
@@ -232,7 +232,7 @@ describe("模組與權限:表單模組的列表欄位配置、退役權限清理
       expect(design.inputs.setModuleListColumns).toHaveLength(1);
     });
     expect(design.inputs.setModuleListColumns[0]).toEqual({
-      moduleKey: "shopping-list",
+      moduleKey: "demo-form",
       columns: [
         { kind: ModuleListColumnKind.Slot, key: "title", width: 180, order: 0 },
         {

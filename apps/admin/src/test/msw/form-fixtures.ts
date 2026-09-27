@@ -16,17 +16,17 @@ import type { TestModule } from "./auth-handlers";
  * 表單引擎的測試夾具(形狀以 api 的回傳為準:`apps/api/src/forms/**\/*.test.ts` 的斷言、
  * `packages/graphql/src/documents/forms.graphql` / `form-submissions.graphql` 的 fragment;TEST-08 / TEST-12)。
  *
- * 範例表單「購物清單」(`shopping_list`,掛在 `shopping-list` 模組):品項(必填)、數量、單價、
+ * 範例表單「購物單」(`shopping_list`,掛在 `demo-form` 模組):品項(必填)、數量、單價、
  * 總價(計算:數量 × 單價)、備註(數量 > 0 才顯示)、採購人(帶入目標)、內部備註(限定可改,帶入目標)。
  */
-export const SHOPPING_LIST_KEY = "shopping-list";
+export const DEMO_FORM_KEY = "demo-form";
 export const SHOPPING_FORM_KEY = "shopping_list";
 
-export const SHOPPING_ROUTES = {
-  list: "/shopping-list",
-  viewPage: "/shopping-list/view-page",
-  createPage: "/shopping-list/create-page",
-  editPage: "/shopping-list/edit-page",
+export const DEMO_FORM_ROUTES = {
+  list: "/demo-form",
+  viewPage: "/demo-form/view-page",
+  createPage: "/demo-form/create-page",
+  editPage: "/demo-form/edit-page",
 } as const;
 
 export const FORMS_ROUTE = "/system/forms";
@@ -51,44 +51,44 @@ const moduleOf = (
   permissions: [...permissions],
 });
 
-/** `me.modules`:購物清單 + 三個隱藏頁(seed `shopping-list.ts` 的形狀);權限全掛在列表那一層。 */
-export const shoppingListModules = (
+/** `me.modules`:示範表單(頂層)+ 三個隱藏頁(seed `demo-form.ts` 的形狀);權限全掛在列表那一層。 */
+export const demoFormModules = (
   permissions: readonly string[],
 ): TestModule[] => [
   moduleOf(
     "m-shop",
-    SHOPPING_LIST_KEY,
-    "購物清單",
+    DEMO_FORM_KEY,
+    "示範表單(頂層)",
     null,
     ModuleSidebarType.Link,
-    SHOPPING_ROUTES.list,
+    DEMO_FORM_ROUTES.list,
     permissions,
   ),
   moduleOf(
     "m-shop-view",
-    `${SHOPPING_LIST_KEY}.view-page`,
+    `${DEMO_FORM_KEY}.view-page`,
     "詳情",
     "m-shop",
     ModuleSidebarType.Hidden,
-    SHOPPING_ROUTES.viewPage,
+    DEMO_FORM_ROUTES.viewPage,
     [],
   ),
   moduleOf(
     "m-shop-create",
-    `${SHOPPING_LIST_KEY}.create-page`,
+    `${DEMO_FORM_KEY}.create-page`,
     "新增",
     "m-shop",
     ModuleSidebarType.Hidden,
-    SHOPPING_ROUTES.createPage,
+    DEMO_FORM_ROUTES.createPage,
     [],
   ),
   moduleOf(
     "m-shop-edit",
-    `${SHOPPING_LIST_KEY}.edit-page`,
+    `${DEMO_FORM_KEY}.edit-page`,
     "編輯",
     "m-shop",
     ModuleSidebarType.Hidden,
-    SHOPPING_ROUTES.editPage,
+    DEMO_FORM_ROUTES.editPage,
     [],
   ),
 ];
@@ -230,8 +230,8 @@ export const formFragment = (
 ): FormFieldsFragment => ({
   id: `form-${overrides.key ?? SHOPPING_FORM_KEY}`,
   key: SHOPPING_FORM_KEY,
-  moduleKey: SHOPPING_LIST_KEY,
-  moduleName: "購物清單",
+  moduleKey: DEMO_FORM_KEY,
+  moduleName: "示範表單(頂層)",
   name: "購物單",
   isShared: true,
   ownerOrgId: null,
@@ -260,7 +260,7 @@ export const submissionFragment = (
   overrides: Partial<FormSubmissionFieldsFragment> = {},
 ): FormSubmissionFieldsFragment => ({
   id: "sub-1",
-  moduleKey: SHOPPING_LIST_KEY,
+  moduleKey: DEMO_FORM_KEY,
   formKey: SHOPPING_FORM_KEY,
   formName: "購物單",
   version: 1,
