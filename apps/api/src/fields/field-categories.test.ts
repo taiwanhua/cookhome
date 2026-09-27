@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
-import type { Connection, Types } from "mongoose";
+import { type Connection, Types } from "mongoose";
 
 import {
   type AuthTestApp,
@@ -411,6 +411,60 @@ describe("欄位類別:root 新增 / 改名 / 停用(GraphQL 端點 + 真 MongoD
         { accessToken: rootToken },
       );
       expect(enable.errors).toBeUndefined();
+    });
+  });
+
+  describe("停用中的系統類別與空操作", () => {
+    it("認養時保留停用的系統類別:setFieldCategoryEnabled(true) 成功並記稽核", async () => {
+      // seed 認養時 enabled 是初始 seed 值、保留原值:直接把一個系統類別改成停用模擬那個狀態
+      const demoId = await findCategoryId(connection, "demo-category");
+      await connection
+        .collection("field_categories")
+        .updateOne({ _id: demoId }, { $set: { enabled: false } });
+
+      const result = await api.graphql<SetEnabledData>(
+        SET_ENABLED,
+        { input: { id: String(demoId), enabled: true } },
+        { accessToken: rootToken },
+      );
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.setFieldCategoryEnabled.category).toMatchObject({
+        key: "demo-category",
+        isSystem: true,
+        enabled: true,
+      });
+      const audit = await latestAudit("field-category.set-enabled");
+      expect(audit).toMatchObject({
+        before: { enabled: false },
+        after: { enabled: true },
+      });
+      expect(String(audit?.targetId)).toBe(String(demoId));
+    });
+
+    it("沒有實際變更(已是目標狀態、update 沒帶任何欄位)不寫稽核", async () => {
+      const category = await mustCreate("noop", "空操作");
+      const auditCount = () =>
+        connection.collection("audit_logs").countDocuments({
+          action: {
+            $in: ["field-category.update", "field-category.set-enabled"],
+          },
+          targetId: new Types.ObjectId(category.id),
+        });
+
+      const sameState = await api.graphql<SetEnabledData>(
+        SET_ENABLED,
+        { input: { id: category.id, enabled: true } },
+        { accessToken: rootToken },
+      );
+      expect(sameState.errors).toBeUndefined();
+      const empty = await api.graphql<UpdateData>(
+        UPDATE,
+        { input: { id: category.id } },
+        { accessToken: rootToken },
+      );
+      expect(empty.errors).toBeUndefined();
+      expect(empty.data?.updateFieldCategory.category.name).toBe("空操作");
+      expect(await auditCount()).toBe(0);
     });
   });
 

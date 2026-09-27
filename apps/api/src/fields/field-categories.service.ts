@@ -183,6 +183,10 @@ export class FieldCategoriesService {
         set.description = description;
       }
     }
+    if (Object.keys(set).length === 0 && Object.keys(unset).length === 0) {
+      // 什麼都沒送(或送的值與現況無從比較的缺席):不寫入、不記稽核
+      return toCategoryModel(current);
+    }
     const updated = await this.categories.updateById(operator, current._id, {
       ...(Object.keys(set).length > 0 ? { $set: set } : {}),
       ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
@@ -212,6 +216,10 @@ export class FieldCategoriesService {
         `system field category cannot be disabled: ${current.key}`,
         "SYSTEM_CATEGORY",
       );
+    }
+    if (current.enabled === input.enabled) {
+      // 已是目標狀態:冪等,不寫入、不記稽核
+      return toCategoryModel(current);
     }
     const updated = await this.categories.updateById(operator, current._id, {
       $set: { enabled: input.enabled },
@@ -248,15 +256,12 @@ export class FieldCategoriesService {
     return found;
   }
 
-  /** 與租戶作業同一個判準(`tenant-ops.service.ts` 的 `assertRootOperator`)。 */
+  /** 判準是 `OwnerProtectionService.canActAsRoot`(與租戶作業、資料範圍共用一份)。 */
   private async assertRootOperator(
     operator: OperatorContext,
     action: string,
   ): Promise<void> {
-    if (
-      !(await this.ownerProtection.isRootOperator(operator)) ||
-      operator.managedOrgIds !== "all"
-    ) {
+    if (!(await this.ownerProtection.canActAsRoot(operator))) {
       throw forbiddenError(
         `${action} is only available from the root org`,
         "ROOT_ONLY",

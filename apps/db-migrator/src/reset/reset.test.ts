@@ -344,7 +344,7 @@ afterAll(async () => {
 }, 60_000);
 
 describe("reset --mode=data(對真 MongoDB)", () => {
-  it("只刪人建的資料:seed 文件與人改過的 enabled / icon 原封不動,示範項目補回,事後重跑 seed 為 0 / 0 / K", async () => {
+  it("只刪人建的資料:seed 文件與人改過的 enabled / icon 原封不動,示範項目補回,事後重跑 seed 為 0 / 0 / 0 / K", async () => {
     const databaseUri = createTestDatabaseUri("data-dev");
     await prepareDatabase(databaseUri);
 

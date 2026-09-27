@@ -178,7 +178,7 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 ## 稽核
 
 選項:動作 `field.create` / `field.edit` / `field.toggle-enabled`,`targetType` 一律 `field`。
-類別:動作 `field-category.create` / `field-category.update` / `field-category.set-enabled`,`targetType` 一律 `field-category`。
+類別:動作 `field-category.create` / `field-category.update` / `field-category.set-enabled`,`targetType` 一律 `field-category`。沒有實際變更(已是目標狀態、`update` 沒帶任何欄位)不寫入、不記稽核。
 
 正本:`apps/api/src/fields/fields.service.ts`、`apps/api/src/fields/field-categories.service.ts`
 
