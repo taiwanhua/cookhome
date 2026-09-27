@@ -70,20 +70,22 @@
 
 ## pnpm / turbo:建置、測試、格式
 
-| 情境                          | 指令                                                                                           | 提醒                                                                                |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 新 worktree 第一件事          | `pnpm install`                                                                                 | 純文件票也要(沒裝就沒有 prettier)                                                   |
-| 讓 `@repo/*` 型別解得開       | `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`     | 程式票開工必做;db-migrator 的票也要                                                 |
-| 整包驗收測試                  | `pnpm exec turbo run test --filter=@repo/admin`(`@repo/api`、`@repo/ui`、`@repo/domain`… 同理) | filter 寫全名;turbo 會先 build 依賴                                                 |
-| 單檔測試:admin                | `cd apps/admin` → `pnpm run test -- <路徑片段>`                                                | script 已帶 `--experimental-vm-modules`,不要用 `pnpm exec jest`                     |
-| 單檔測試:api                  | `cd apps/api` → `pnpm run test -- <路徑片段>`                                                  | 要下旗標時 jest 30 是 `--testPathPatterns`(複數)                                    |
-| 單檔測試:ui                   | `cd packages/ui` → `pnpm run test -- <路徑片段>`                                               | 同 admin                                                                            |
-| 取 `origin/main` 的測試數基準 | 在 main 的 checkout 進 package 目錄直接 `pnpm run test`                                        | 不要用 turbo:快取跨 worktree 共用,會拿到別人跑的舊結果(TEST-08「測試數的基準」)     |
-| 交件前 lint / 型別            | 進各 package 目錄:`pnpm run lint`、`pnpm run check-types`                                      | **理由**:turbo 快取命中時只是重播舊 log,本機綠、CI 仍可能被 type-aware warning 擋下 |
-| 全 repo 型別                  | `pnpm exec turbo run check-types`                                                              | 同上,看到 `cache hit` 不代表驗過本次改動                                            |
-| 格式化 / 檢查                 | `pnpm format` / `pnpm run format:check`                                                        | 涵蓋 md / ts / tsx / js / json / yaml;改根 scripts 時直接跑 script 本人             |
-| help.md 有沒有被打包          | `pnpm --filter @repo/admin build` → `pnpm --filter @repo/admin check:help-bundle`              | 新增 / 改 help.md 的票交件前跑;Dockerfile 也跑這一步                                |
-| 查套件最新版                  | `npm view <pkg> version`                                                                       | 不照記憶寫版本號                                                                    |
+| 情境                          | 指令                                                                                                                                       | 提醒                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| 新 worktree 第一件事          | `pnpm install`                                                                                                                             | 純文件票也要(沒裝就沒有 prettier)                                                                              |
+| 讓 `@repo/*` 型別解得開       | `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`                                                 | 程式票開工必做;db-migrator 的票也要                                                                            |
+| 整包驗收測試                  | `pnpm exec turbo run test --filter=@repo/admin`(`@repo/api`、`@repo/ui`、`@repo/domain`… 同理)                                             | filter 寫全名;turbo 會先 build 依賴                                                                            |
+| 單檔測試:admin                | `pnpm --filter @repo/admin exec node --experimental-vm-modules node_modules/jest/bin/jest.js --maxWorkers=2 --testPathPatterns <路徑片段>` | 就是 package `test` script 本人再加旗標;不要 `pnpm exec jest`(少了 `--experimental-vm-modules`,ESM 測試直接炸) |
+| 單檔測試:api                  | `pnpm --filter @repo/api exec jest --passWithNoTests --detectOpenHandles --maxWorkers=2 --testPathPatterns <路徑片段>`                     | api 的 `test` script 就是直接呼叫 `jest`(CJS preset,不需要 `--experimental-vm-modules`)                        |
+| 單檔測試:ui                   | `pnpm --filter @repo/ui exec node --experimental-vm-modules node_modules/jest/bin/jest.js --maxWorkers=2 --testPathPatterns <路徑片段>`    | 同 admin                                                                                                       |
+| 取 `origin/main` 的測試數基準 | 在 main 的 checkout 進 package 目錄直接 `pnpm run test`                                                                                    | 不要用 turbo:快取跨 worktree 共用,會拿到別人跑的舊結果(TEST-08「測試數的基準」)                                |
+| 交件前 lint / 型別            | 進各 package 目錄:`pnpm run lint`、`pnpm run check-types`                                                                                  | **理由**:turbo 快取命中時只是重播舊 log,本機綠、CI 仍可能被 type-aware warning 擋下                            |
+| 全 repo 型別                  | `pnpm exec turbo run check-types`                                                                                                          | 同上,看到 `cache hit` 不代表驗過本次改動                                                                       |
+| 格式化 / 檢查                 | `pnpm format` / `pnpm run format:check`                                                                                                    | 涵蓋 md / ts / tsx / js / json / yaml;改根 scripts 時直接跑 script 本人                                        |
+| help.md 有沒有被打包          | `pnpm --filter @repo/admin build` → `pnpm --filter @repo/admin check:help-bundle`                                                          | 新增 / 改 help.md 的票交件前跑;Dockerfile 也跑這一步                                                           |
+| 查套件最新版                  | `npm view <pkg> version`                                                                                                                   | 不照記憶寫版本號                                                                                               |
+
+單檔測試的旗標(`--maxWorkers`、`--testPathPatterns`)一律照上表的 `pnpm --filter <pkg> exec …` 寫法下,**不要寫成 `pnpm run test -- --maxWorkers=2 <路徑片段>`**:pnpm 會把 `--` 原樣傳給 script,jest 把 `--` 之後的東西全當成路徑 pattern,旗標沒生效、只是多了一個比對不到的 pattern(輸出是 `Ran all test suites matching --maxWorkers=2|<路徑片段>`)。只給路徑片段、不帶旗標時,進 package 目錄 `pnpm run test <路徑片段>` 也行。jest 30 的參數是 `--testPathPatterns`(複數),單數是 29 以前的名字。
 
 正本:根 `package.json`、`apps/admin/package.json`、`apps/api/package.json`、`packages/ui/package.json`、`turbo.json`、`docs/standards/testing/testing.md`(TEST-08)
 
