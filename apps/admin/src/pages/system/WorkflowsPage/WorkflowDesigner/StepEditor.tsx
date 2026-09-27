@@ -195,6 +195,7 @@ export const StepEditor = ({
             value={step.skipWhen ?? undefined}
             fields={skipFields}
             usage="condition"
+            formKey={checkFormKey ?? ""}
             {...(emptyFieldsLabel !== undefined && { emptyFieldsLabel })}
             onChange={(skipWhen) => {
               onChange({ ...step, skipWhen });

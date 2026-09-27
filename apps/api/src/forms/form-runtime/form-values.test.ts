@@ -492,6 +492,108 @@ describe("表單的值:語意值、引用快照、現名 / 快照、lookup 以�
     });
   });
 
+  it("帶入來源可以是自己:設計時以草稿欄位檢查(還沒發布也行),執行時以那筆提交綁的版本回值", async () => {
+    await ok(api, root, CREATE_FORM, {
+      input: { key: "self_form", moduleKey: MODULE_KEY, name: "自己帶自己" },
+    });
+    const selfSource = {
+      provider: "form_submission",
+      formKey: "self_form",
+      labelField: "title",
+    };
+    const selfDefinition = (mappedFrom: string) =>
+      definitionOf([field("title", "text"), field("note", "text")], {
+        prefills: [
+          {
+            label: "從上一張帶入",
+            source: selfSource,
+            mapping: [{ sourceField: mappedFrom, fieldKey: "note" }],
+          },
+        ],
+      });
+    const report = await ok<{
+      validateFormVersion: {
+        errors: { code: string; location: Record<string, unknown> }[];
+      };
+    }>(api, root, VALIDATE_VERSION, {
+      input: { formKey: "self_form", ...selfDefinition("note") },
+    });
+    // 從沒發布過:欄位目錄用這份草稿的欄位,note 找得到
+    expect(report.validateFormVersion.errors).toEqual([]);
+    const unknown = await ok<{
+      validateFormVersion: {
+        errors: { code: string; location: Record<string, unknown> }[];
+      };
+    }>(api, root, VALIDATE_VERSION, {
+      input: { formKey: "self_form", ...selfDefinition("missing") },
+    });
+    expect(unknown.validateFormVersion.errors).toContainEqual(
+      expect.objectContaining({
+        location: expect.objectContaining({ prefillIndex: 0 }),
+      }),
+    );
+
+    // 選項來源指到自己不走草稿目錄:照一般規則看已發布版(還沒發布 = 只有摘要槽),note 找不到
+    const optionSelf = await ok<{
+      validateFormVersion: {
+        errors: { code: string; location: Record<string, unknown> }[];
+      };
+    }>(api, root, VALIDATE_VERSION, {
+      input: {
+        formKey: "self_form",
+        ...definitionOf([
+          field("title", "text"),
+          field("note", "text"),
+          field("pick", "select", {
+            widget: { kind: "dropdown" },
+            options: {
+              kind: "lookup",
+              source: { ...selfSource, labelField: "note" },
+            },
+          }),
+        ]),
+      },
+    });
+    expect(optionSelf.validateFormVersion.errors).toContainEqual(
+      expect.objectContaining({
+        code: "LOOKUP_UNKNOWN_FIELD",
+        location: expect.objectContaining({ fieldKey: "pick" }),
+      }),
+    );
+
+    await publishDefinition(
+      api,
+      root,
+      "self_form",
+      selfDefinition("note"),
+      null,
+    );
+    await assignForm(api, root, "self_form", [tenant]);
+    const earlier = await createSubmitted(api, staff.token, "self_form", {
+      title: "上一張",
+      note: "上次的備註",
+    });
+    const data = await ok<{ formLookup: { items: LookupRow[] } }>(
+      api,
+      staff.token,
+      FORM_LOOKUP,
+      {
+        input: {
+          formKey: "self_form",
+          version: 1,
+          target: { prefillIndex: 0 },
+        },
+      },
+    );
+    expect(data.formLookup.items).toContainEqual(
+      expect.objectContaining({
+        id: earlier.id,
+        label: "上一張",
+        values: { note: "上次的備註" },
+      }),
+    );
+  });
+
   it("上傳欄:只收本 API 簽出來的 form/ 路徑;附件網址要看得到這筆、看得到這一欄才簽", async () => {
     await publishNewForm(
       api,

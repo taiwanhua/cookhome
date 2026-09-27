@@ -1554,6 +1554,7 @@
       "defaultFormula": "預設值公式",
       "defaultConstant": "預設的值",
       "defaultHint": "新增時自動填入;填寫的人還沒改過這欄前,它引用的欄位變了會跟著重算,改過就不再變。",
+      "optionDisabled": "{label}(已停用)",
       "defaultPickerHint": "用填寫時的選擇器挑(選項以已存的草稿查詢)",
       "defaultClear": "清除預設值"
     },
@@ -1586,6 +1587,7 @@
       },
       "form": "表單",
       "formHint": "只列看得到且已發布過的表單",
+      "formHintWithSelf": "只列看得到且已發布過的表單,另可選這張表單自己(從之前填過的單帶入)",
       "formTruncated": "表單超過 100 張,清單已截斷:只列前 100 張中已發布過的表單",
       "formUnset": "請選表單",
       "labelField": "顯示欄",
@@ -1653,11 +1655,15 @@
     "expression": {
       "root": "根",
       "kind": "節點種類({path})",
+      "clearToNull": "清空(= 空值)",
+      "emptySlot": "請選節點種類",
+      "emptyMeansNull": "沒選 = 空值(判斷有沒有填)",
       "kinds": {
         "field": "欄位",
         "context": "系統值",
         "constant": "常數",
-        "operation": "運算"
+        "operation": "運算",
+        "empty": "請選節點種類"
       },
       "field": "欄位",
       "context": "系統值",
@@ -1695,6 +1701,7 @@
         "max": "最大值",
         "in": "包含於",
         "dateDiff": "日期差",
+        "dateAdd": "日期加減",
         "concat": "串接文字",
         "optionLabel": "選項顯示名",
         "now": "現在時間"
@@ -1705,9 +1712,12 @@
         "number": "數字",
         "boolean": "是否",
         "date": "日期",
+        "datetime": "日期時間",
         "list": "清單",
-        "null": "空值"
+        "option": "選項",
+        "optionList": "選項(多個)"
       },
+      "optionValue": "{field} 的選項",
       "constantValue": "值",
       "listValue": "值(以逗號分隔)",
       "unit": "單位",
@@ -1716,10 +1726,21 @@
         "hours": "小時",
         "minutes": "分鐘"
       },
+      "direction": "方向",
+      "directions": {
+        "before": "之前",
+        "after": "之後"
+      },
+      "calendarUnits": {
+        "days": "天",
+        "weeks": "週",
+        "months": "月",
+        "years": "年"
+      },
       "optionField": "選項欄位",
       "optionFieldUnset": "請選欄位",
-      "booleanValue": "常數值(是 / 否)",
       "addArg": "+ 參數",
+      "addCondition": "+ 條件",
       "removeArg": "移除",
       "set": "設定",
       "clear": "清除",

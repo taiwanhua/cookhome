@@ -326,7 +326,7 @@ function matchesFormat(format: string, value: string): boolean {
 }
 
 function issueOf(
-  field: FieldDef,
+  field: Pick<FieldDef, "key">,
   code: ValueIssueCode,
   message: string,
 ): ValueIssue {
@@ -460,7 +460,29 @@ function textIssue(field: FieldDef, value: unknown): ValueIssue | null {
 }
 
 /**
- * 完成資料所需的驗證(Spec §5 表的最右欄):必填、範圍、長度、正則 / 格式、`rules.custom`。
+ * 必填欄位的值沒過必填時的錯誤(呼叫端已確認 `rules.required`):空值 → 必填(計算欄位算成空 = 無法計算);
+ * 是 / 否欄位「必填 = 必須勾選」(Spec 表 A):`false` 與沒填都是「必須勾選」。
+ * 表單層與明細子欄共用這一支。過了回 null。
+ */
+export function requiredIssueOf(
+  field: Pick<FieldDef, "key" | "label" | "type" | "valueSource">,
+  value: unknown,
+): ValueIssue | null {
+  const isEmpty = isEmptyValue(value);
+  if (field.valueSource.kind === "computed" && isEmpty) {
+    return issueOf(field, "NOT_COMPUTABLE", `「${field.label}」無法計算`);
+  }
+  if (field.type === "boolean" && (isEmpty || value === false)) {
+    return issueOf(field, "REQUIRED", `「${field.label}」必須勾選`);
+  }
+  return isEmpty
+    ? issueOf(field, "REQUIRED", `「${field.label}」為必填`)
+    : null;
+}
+
+/**
+ * 完成資料所需的驗證(Spec §5 表的最右欄):必填(是 / 否欄位 = 必須勾選,`false` 不過)、範圍、長度、
+ * 正則 / 格式、`rules.custom`。
  * `value` 是**已正規化**的存值;計算欄位算成 null 且必填 → `NOT_COMPUTABLE`(「X 無法計算」)。
  * 回第一個違反的規則;全過回 null。
  */
@@ -470,13 +492,11 @@ export function validateFieldRules(
   input: RuleEvaluationInput,
 ): ValueIssue | null {
   const rules = field.rules ?? {};
-  if (isEmptyValue(value)) {
-    if (rules.required) {
-      return field.valueSource.kind === "computed"
-        ? issueOf(field, "NOT_COMPUTABLE", `「${field.label}」無法計算`)
-        : issueOf(field, "REQUIRED", `「${field.label}」為必填`);
-    }
-  } else {
+  const missing = rules.required ? requiredIssueOf(field, value) : null;
+  if (missing) {
+    return missing;
+  }
+  if (!isEmptyValue(value)) {
     const issue =
       rangeIssue(field, value, input.ctx.timezone) ?? textIssue(field, value);
     if (issue) {

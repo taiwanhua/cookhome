@@ -13,6 +13,7 @@ import { Typography } from "@repo/ui/typography";
 import { LookupLabelTemplateInput } from "./LookupLabelTemplateInput";
 import {
   type LookupFieldOption,
+  type SelfFormCatalog,
   defaultLabelFieldOf,
   useLookupFieldOptions,
   usePublishedForms,
@@ -23,6 +24,8 @@ export interface LookupSourceEditorProps {
   onChange: (value: LookupSourceDescriptor) => void;
   /** 值欄只在「選項來源 = lookup」出現(帶入規則、引用欄位不需要) */
   hasValueField: boolean;
+  /** 目前在設計的表單:給了就能選自己當來源(帶入規則),欄位目錄用草稿的欄位 */
+  selfForm?: SelfFormCatalog | null;
 }
 
 const UNSET = "";
@@ -73,13 +76,15 @@ export const LookupSourceEditor = ({
   value,
   onChange,
   hasValueField,
+  selfForm = null,
 }: LookupSourceEditorProps) => {
   const t = useTranslations("admin.forms.lookupSource");
   const tForms = useTranslations("admin.forms");
   const isSubmission = value.provider === FORM_SUBMISSION_PROVIDER;
-  const { forms, isTruncated } = usePublishedForms(isSubmission);
-  const fieldOptions = useLookupFieldOptions(value);
+  const { forms, isTruncated } = usePublishedForms(isSubmission, selfForm);
+  const fieldOptions = useLookupFieldOptions(value, selfForm);
   const isPending = fieldOptions === null;
+  const formHintKey = selfForm === null ? "formHint" : "formHintWithSelf";
 
   return (
     <Stack spacing={1.5}>
@@ -105,7 +110,7 @@ export const LookupSourceEditor = ({
           label={t("form")}
           value={value.formKey ?? UNSET}
           displayEmpty
-          helperText={isTruncated ? t("formTruncated") : t("formHint")}
+          helperText={t(isTruncated ? "formTruncated" : formHintKey)}
           options={[
             { value: UNSET, label: t("formUnset") },
             ...withCurrent(

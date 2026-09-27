@@ -26,8 +26,9 @@ const withTwoForms = () => {
 };
 
 describe("表單管理:設計器未存的變更不會無聲消失", () => {
-  it("切到「版本」再切回來,改動還在;發布跳窗提示發布的是上次存的草稿,可先存再發布", async () => {
-    const { user, world } = renderFormsPage();
+  // 分成兩案:三張設計器票疊起來後,全套並行時單一案例接近 15 秒上限(TEST-08)
+  it("切到「版本」再切回來,改動還在;發布跳窗提示發布的是上次存的草稿", async () => {
+    const { user } = renderFormsPage();
     const palette = await findDesigner();
     await user.click(
       within(palette).getByRole("button", { name: "新增數字欄位" }),
@@ -41,6 +42,28 @@ describe("表單管理:設計器未存的變更不會無聲消失", () => {
     expect(
       within(dialog).getByText("設計器有未存的變更:發布的是上次存的草稿。"),
     ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "發布新版本" })).toBeNull();
+    });
+
+    await user.click(screen.getByRole("tab", { name: "表單設計" }));
+    expect(
+      await screen.findByRole("button", { name: /\(field_1\)/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/有未儲存的變更/)).toBeInTheDocument();
+  });
+
+  it("發布跳窗「先存草稿」再發布:帶剛存完的修訂號", async () => {
+    const { user, world } = renderFormsPage();
+    const palette = await findDesigner();
+    await user.click(
+      within(palette).getByRole("button", { name: "新增數字欄位" }),
+    );
+    await user.click(screen.getByRole("tab", { name: "表單版本" }));
+    const versions = await screen.findByRole("table", { name: "版本清單" });
+    await user.click(within(versions).getByRole("button", { name: "發布" }));
+    const dialog = await screen.findByRole("dialog", { name: "發布新版本" });
 
     await user.click(within(dialog).getByRole("button", { name: "先存草稿" }));
     await waitFor(() => {

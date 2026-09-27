@@ -9,6 +9,8 @@ import { normalizeFieldValue } from "./values";
  * - 各型別能用的種類:文字 / 多行 / 數字 / 日期 / 日期時間 = 固定或公式;單選 / 多選 = 從選項挑(固定);
  *   是 / 否 = 固定;引用 = 只能系統值「填寫者 / 填寫者的組織」
  * - 固定值要是該型別的合法值;靜態選項的值必須在選項清單內
+ * - 值來源「固定值」(`valueSource.value`)同一套判準(`CONSTANT_VALUE_INVALID`):計算時照型別正規化,
+ *   型別不對會變成 null,所以在檢查器就擋
  *
  * 公式的形狀、引用、自我引用、循環與根型別由表達式段(`validate-expressions.ts`、
  * `validate-expression-types.ts`)以 `default.expr` 槽檢查。
@@ -73,7 +75,53 @@ export function validateDefaults(
     if (fallback !== undefined && fallback !== null) {
       validateDefault(field, fallback, collector);
     }
+    if (field.valueSource.kind === "constant") {
+      validateFixedValue(field, field.valueSource.value, collector);
+    }
   }
+}
+
+/** 值來源「固定值」:型別不合法或不在靜態選項內 → `CONSTANT_VALUE_INVALID`。 */
+function validateFixedValue(
+  field: FieldDef,
+  value: unknown,
+  collector: IssueCollector,
+): void {
+  const problem = constantProblemOf(field, value);
+  if (problem !== null) {
+    collector.error(
+      "CONSTANT_VALUE_INVALID",
+      problem === "type"
+        ? `「${field.label}」的固定值不是這個型別的合法值`
+        : `「${field.label}」的固定值必須從選項裡挑`,
+      { fieldKey: field.key, property: "valueSource.value" },
+    );
+  }
+}
+
+/** 固定的值(預設值或固定值)有什麼問題:型別不合法 / 不在靜態選項內;沒問題回 null。 */
+function constantProblemOf(
+  field: FieldDef,
+  value: unknown,
+): "type" | "option" | null {
+  const normalized = normalizeFieldValue(field, value);
+  if (!normalized.ok) {
+    return "type";
+  }
+  if (
+    (field.type === "select" || field.type === "multiSelect") &&
+    field.options?.kind === "static" &&
+    normalized.value !== null
+  ) {
+    const values = new Set(field.options.items.map((item) => item.value));
+    const picked = Array.isArray(normalized.value)
+      ? normalized.value
+      : [normalized.value];
+    if (picked.some((item) => !values.has(String(optionValueOf(item))))) {
+      return "option";
+    }
+  }
+  return null;
 }
 
 function validateDefault(
@@ -134,31 +182,14 @@ function validateConstantDefault(
   value: unknown,
   collector: IssueCollector,
 ): void {
-  const location = { fieldKey: field.key, property: "default.value" };
-  const normalized = normalizeFieldValue(field, value);
-  if (!normalized.ok) {
+  const problem = constantProblemOf(field, value);
+  if (problem !== null) {
     collector.error(
       "DEFAULT_VALUE_INVALID",
-      `「${field.label}」的預設值不是這個型別的合法值`,
-      location,
+      problem === "type"
+        ? `「${field.label}」的預設值不是這個型別的合法值`
+        : `「${field.label}」的預設值必須從選項裡挑`,
+      { fieldKey: field.key, property: "default.value" },
     );
-    return;
-  }
-  if (
-    (field.type === "select" || field.type === "multiSelect") &&
-    field.options?.kind === "static" &&
-    normalized.value !== null
-  ) {
-    const values = new Set(field.options.items.map((item) => item.value));
-    const picked = Array.isArray(normalized.value)
-      ? normalized.value
-      : [normalized.value];
-    if (picked.some((item) => !values.has(String(optionValueOf(item))))) {
-      collector.error(
-        "DEFAULT_VALUE_INVALID",
-        `「${field.label}」的預設值必須從選項裡挑`,
-        location,
-      );
-    }
   }
 }

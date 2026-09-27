@@ -1,26 +1,39 @@
 import { useTranslations } from "use-intl";
 
 import {
+  DATE_ADD_DIRECTIONS,
   DEFAULT_DATE_DIFF_UNIT,
   type DateDiffUnit,
   type Expression,
   type FieldDef,
+  LOCAL_CALENDAR_UNITS,
+  type LiteralParamKind,
   PICKABLE_DATE_DIFF_UNITS,
+  isCalendarUnit,
+  isDateAddDirection,
   isDateDiffUnit,
 } from "@repo/domain/form";
 import { SelectField } from "@repo/ui/select-field";
 
+/** 選擇器畫成下拉的字面值參數(日期常數的 ISO 由常數編輯處理,不在這裡)。 */
+export type SpecialArgKind = Exclude<LiteralParamKind, "dateLiteral">;
+
 export interface SpecialArgEditorProps {
-  /** `dateUnit` = `dateDiff` 的單位;`optionField` = `optionLabel` 要取顯示名的選項欄位 */
-  kind: "dateUnit" | "optionField";
+  /**
+   * `dateUnit` = `dateDiff` 的單位;`dateDirection` / `calendarUnit` = `dateAdd` 的方向 / 日曆單位;
+   * `optionField` = `optionLabel` 要取顯示名的選項欄位
+   */
+  kind: SpecialArgKind;
   value: Expression | undefined;
   onChange: (value: Expression) => void;
   fields: readonly FieldDef[];
 }
 
+const SMALL = { size: "small", sx: { minWidth: 120 } } as const;
+
 /**
  * 不是一般值的參數位置(Spec 6a §5 表 B):`dateDiff` 的單位下拉(天 = 日曆日、小時 / 分鐘 = 精確差;
- * 缺參數視為天)、
+ * 缺參數視為天)、`dateAdd` 的方向(之前 / 之後)與日曆單位(天 / 週 / 月 / 年)下拉、
  * `optionLabel` 的選項欄位下拉(只列單選 / 多選欄,存欄位 key 字串)。
  */
 export const SpecialArgEditor = ({
@@ -35,6 +48,7 @@ export const SpecialArgEditor = ({
   if (kind === "dateUnit") {
     return (
       <SelectField<DateDiffUnit>
+        {...SMALL}
         label={t("unit")}
         value={isDateDiffUnit(value) ? value : DEFAULT_DATE_DIFF_UNIT}
         options={PICKABLE_DATE_DIFF_UNITS.map((unit) => ({
@@ -42,8 +56,34 @@ export const SpecialArgEditor = ({
           label: t(`units.${unit}`),
         }))}
         onChange={onChange}
-        size="small"
-        sx={{ minWidth: 120 }}
+      />
+    );
+  }
+  if (kind === "dateDirection") {
+    return (
+      <SelectField<string>
+        {...SMALL}
+        label={t("direction")}
+        value={isDateAddDirection(value) ? value : "after"}
+        options={DATE_ADD_DIRECTIONS.map((direction) => ({
+          value: direction,
+          label: t(`directions.${direction}`),
+        }))}
+        onChange={onChange}
+      />
+    );
+  }
+  if (kind === "calendarUnit") {
+    return (
+      <SelectField<string>
+        {...SMALL}
+        label={t("unit")}
+        value={isCalendarUnit(value) ? value : "days"}
+        options={LOCAL_CALENDAR_UNITS.map((unit) => ({
+          value: unit,
+          label: t(`calendarUnits.${unit}`),
+        }))}
+        onChange={onChange}
       />
     );
   }

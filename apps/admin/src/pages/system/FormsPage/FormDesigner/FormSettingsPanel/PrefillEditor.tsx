@@ -14,6 +14,7 @@ import { Typography } from "@repo/ui/typography";
 import { LookupSourceEditor } from "../PropertyPanel/LookupSourceEditor";
 import {
   type LookupFieldOption,
+  type SelfFormCatalog,
   useLookupFieldOptions,
 } from "../PropertyPanel/useLookupCatalog";
 import { useRowIds } from "../PropertyPanel/useRowIds";
@@ -22,6 +23,8 @@ export interface PrefillEditorProps {
   prefill: Prefill;
   index: number;
   fields: readonly FieldDef[];
+  /** 目前在設計的表單(key / 名稱):來源可選自己,欄位目錄用草稿欄位(`fields`) */
+  form: { key: string; name: string };
   onChange: (prefill: Prefill) => void;
   onRemove: () => void;
 }
@@ -53,11 +56,13 @@ export const PrefillEditor = ({
   prefill,
   index,
   fields,
+  form,
   onChange,
   onRemove,
 }: PrefillEditorProps) => {
   const t = useTranslations("admin.forms.prefill");
-  const catalog = useLookupFieldOptions(prefill.source);
+  const self: SelfFormCatalog = { key: form.key, name: form.name, fields };
+  const catalog = useLookupFieldOptions(prefill.source, self);
   // 對應表的列以穩定內部 id 當 React key(不用內容:換欄位時整列重掛會失焦)
   const rows = useRowIds(prefill.mapping.length);
   const targets = fields.filter(
@@ -93,6 +98,7 @@ export const PrefillEditor = ({
       <LookupSourceEditor
         value={prefill.source}
         hasValueField={false}
+        selfForm={self}
         onChange={(source) => {
           onChange({ ...prefill, source });
         }}

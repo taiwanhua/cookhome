@@ -36,9 +36,9 @@ describe("@repo/domain/form 表達式型別表(表 B)", () => {
     }
   });
 
-  it("欄位型別:多選 = 清單、引用 = 文字、上傳不可進表達式", () => {
+  it("欄位型別:多選 = 選項(多個)、引用 = 文字、上傳不可進表達式", () => {
     expect(typeOf("qty")).toBe("number");
-    expect(typeOf("tags")).toBe("list");
+    expect(typeOf("tags")).toBe("optionList");
     expect(typeOf("approver")).toBe("text");
     expect(typeOf("proof")).toBeNull();
     expect(typeOf("missing")).toBeNull();

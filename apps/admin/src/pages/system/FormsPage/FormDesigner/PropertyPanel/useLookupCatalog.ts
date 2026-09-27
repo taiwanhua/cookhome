@@ -19,6 +19,8 @@ import { useSession } from "@/hooks/useSession";
  * - `form_submission`:表單 = 本租戶看得到(`forms` 查詢本來就依視角過濾)且**有已發布版本**的表單;
  *   欄位目錄 = 摘要槽 + 該表單**目前版本**的非受保護欄位(因引用而受保護的計算欄位也不列)—— 與 api 的
  *   `formSubmissionCatalog` 同一個判準
+ * - 帶入規則另可選**目前這張表單**(`self`,即使還沒發布;Spec §5「帶入」:從本表單先前的提交帶入),
+ *   它的欄位目錄用**目前草稿**的欄位(同一個判準)
  *
  * 每個欄位帶型別,帶入對應表用它只列型別相容的來源欄位(`isPrefillCompatible`,與檢查器同一支)。
  */
@@ -51,7 +53,15 @@ export interface LookupFieldOption {
 export interface PublishedFormOption {
   key: string;
   name: string;
-  currentVersion: number;
+  /** 目前版本;目前這張表單還沒發布時為 null */
+  currentVersion: number | null;
+}
+
+/** 目前在設計的表單(帶入來源可選自己):欄位目錄用草稿的欄位。 */
+export interface SelfFormCatalog {
+  key: string;
+  name: string;
+  fields: readonly FieldDef[];
 }
 
 export interface PublishedForms {
@@ -60,8 +70,14 @@ export interface PublishedForms {
   isTruncated: boolean;
 }
 
-/** 本租戶看得到、有已發布版本的表單(`enabled` = 只有選了「表單提交」才查)。 */
-export const usePublishedForms = (enabled: boolean): PublishedForms => {
+/**
+ * 本租戶看得到、有已發布版本的表單(`enabled` = 只有選了「表單提交」才查);給了 `self` 時目前這張表單
+ * 一定在清單裡(即使還沒發布)。
+ */
+export const usePublishedForms = (
+  enabled: boolean,
+  self?: SelfFormCatalog | null,
+): PublishedForms => {
   const { session } = useSession();
   const forms = useFormsQuery(
     session.client,
@@ -80,27 +96,68 @@ export const usePublishedForms = (enabled: boolean): PublishedForms => {
           },
         ],
   );
+  const isSelfListed =
+    self === undefined ||
+    self === null ||
+    published.some((form) => form.key === self.key);
   return {
-    forms: published,
+    forms: isSelfListed
+      ? published
+      : [
+          { key: self.key, name: self.name, currentVersion: null },
+          ...published,
+        ],
     isTruncated: (forms.data?.forms.totalCount ?? 0) > items.length,
   };
 };
 
+/** 表單提交來源的欄位目錄:摘要槽 + 非受保護欄位(與 api `formSubmissionCatalog` 同一個判準)。 */
+const submissionCatalogOf = (
+  fields: readonly FieldDef[],
+  slotLabel: (slot: string) => string,
+  fieldLabel: (field: FieldDef) => string,
+): LookupFieldOption[] => {
+  const protections = fieldProtections(fields);
+  return [
+    ...Object.entries(SUMMARY_SLOT_TYPES).map(([slot, type]) => ({
+      value: slot,
+      label: slotLabel(slot),
+      type,
+    })),
+    ...fields
+      .filter((field) => !isProtected(protections.get(field.key)))
+      .map((field) => ({
+        value: field.key,
+        label: fieldLabel(field),
+        type: field.type,
+      })),
+  ];
+};
+
 /**
  * 來源可挑的欄位;`null` = 還挑不了(表單提交還沒選表單、欄位目錄載入中),呼叫端顯示停用的下拉。
- * 表單提交的欄位目錄查該表單目前版本(`formVersion`)。
+ * 表單提交的欄位目錄查該表單目前版本(`formVersion`);來源是目前這張表單(`self`)時用草稿的欄位。
  */
 export const useLookupFieldOptions = (
   source: LookupSourceDescriptor,
+  self?: SelfFormCatalog | null,
 ): LookupFieldOption[] | null => {
   const t = useTranslations("admin.forms.lookupSource");
   const tForms = useTranslations("admin.forms");
   const { session } = useSession();
   const isSubmission = source.provider === FORM_SUBMISSION_PROVIDER;
   const { forms } = usePublishedForms(isSubmission);
-  const form = isSubmission
-    ? forms.find((candidate) => candidate.key === source.formKey)
-    : undefined;
+  const selfForm =
+    isSubmission &&
+    self !== undefined &&
+    self !== null &&
+    self.key === source.formKey
+      ? self
+      : undefined;
+  const form =
+    isSubmission && selfForm === undefined
+      ? forms.find((candidate) => candidate.key === source.formKey)
+      : undefined;
   const version = useFormVersionQuery(
     session.client,
     { formKey: form?.key ?? "", version: form?.currentVersion ?? 0 },
@@ -115,24 +172,16 @@ export const useLookupFieldOptions = (
       type,
     }));
   }
+  const slotLabel = (slot: string) => t(`summarySlots.${slot}`);
+  const fieldLabel = (field: FieldDef) =>
+    tForms("labelWithKey", { label: field.label, key: field.key });
+  if (selfForm !== undefined) {
+    return submissionCatalogOf(selfForm.fields, slotLabel, fieldLabel);
+  }
   if (!isSubmission || version.data === undefined) {
     return null;
   }
   const fields = version.data.formVersion.formVersion
     .fields as unknown as FieldDef[];
-  const protections = fieldProtections(fields);
-  return [
-    ...Object.entries(SUMMARY_SLOT_TYPES).map(([slot, type]) => ({
-      value: slot,
-      label: t(`summarySlots.${slot}`),
-      type,
-    })),
-    ...fields
-      .filter((field) => !isProtected(protections.get(field.key)))
-      .map((field) => ({
-        value: field.key,
-        label: tForms("labelWithKey", { label: field.label, key: field.key }),
-        type: field.type,
-      })),
-  ];
+  return submissionCatalogOf(fields, slotLabel, fieldLabel);
 };

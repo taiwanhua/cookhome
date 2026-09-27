@@ -13,6 +13,8 @@ import { PrefillEditor } from "./PrefillEditor";
 
 export interface FormSettingsPanelProps {
   definition: FormDefinition;
+  /** 目前在設計的表單(帶入來源可選自己) */
+  form: { key: string; name: string };
   /** 摘要槽與帶入規則的檢查器錯誤(`location.summarySlot` / `prefillIndex`) */
   issues: readonly DesignerIssue[];
   /** 只改摘要槽 / 帶入規則(欄位與版面由設計器本身管) */
@@ -28,6 +30,7 @@ const UNSET = "";
  */
 export const FormSettingsPanel = ({
   definition,
+  form,
   issues,
   onChange,
 }: FormSettingsPanelProps) => {
@@ -74,6 +77,7 @@ export const FormSettingsPanel = ({
             prefill={prefill}
             index={index}
             fields={definition.fields}
+            form={form}
             onChange={(next) => {
               onChange({
                 prefills: definition.prefills.map((item, at) =>

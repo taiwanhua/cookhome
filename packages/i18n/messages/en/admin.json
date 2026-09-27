@@ -1554,6 +1554,7 @@
       "defaultFormula": "Default formula",
       "defaultConstant": "Default",
       "defaultHint": "Filled in when a new entry starts. Until the filler changes this field, it is recalculated when the fields it references change.",
+      "optionDisabled": "{label} (disabled)",
       "defaultPickerHint": "Pick with the same picker used when filling (options come from the saved draft)",
       "defaultClear": "Clear default"
     },
@@ -1586,6 +1587,7 @@
       },
       "form": "Form",
       "formHint": "Only forms you can see that have a published version",
+      "formHintWithSelf": "Lists forms you can see that have been published, plus this form itself (prefill from earlier submissions)",
       "formTruncated": "More than 100 forms: the list is truncated to published forms among the first 100",
       "formUnset": "Choose a form",
       "labelField": "Display field",
@@ -1653,11 +1655,15 @@
     "expression": {
       "root": "root",
       "kind": "Node kind ({path})",
+      "clearToNull": "Clear (= empty)",
+      "emptySlot": "Choose a node kind",
+      "emptyMeansNull": "Not chosen = empty (checks whether it is filled)",
       "kinds": {
         "field": "Field",
         "context": "System value",
         "constant": "Constant",
-        "operation": "Operation"
+        "operation": "Operation",
+        "empty": "Choose a node kind"
       },
       "field": "Field",
       "context": "System value",
@@ -1695,6 +1701,7 @@
         "max": "Maximum",
         "in": "Is in",
         "dateDiff": "Date difference",
+        "dateAdd": "Date add / subtract",
         "concat": "Join text",
         "optionLabel": "Option label",
         "now": "Now"
@@ -1705,9 +1712,12 @@
         "number": "Number",
         "boolean": "Yes / no",
         "date": "Date",
+        "datetime": "Date and time",
         "list": "List",
-        "null": "Empty"
+        "option": "Option",
+        "optionList": "Options (multiple)"
       },
+      "optionValue": "Option of {field}",
       "constantValue": "Value",
       "listValue": "Values (comma-separated)",
       "unit": "Unit",
@@ -1716,10 +1726,21 @@
         "hours": "Hours",
         "minutes": "Minutes"
       },
+      "direction": "Direction",
+      "directions": {
+        "before": "Before",
+        "after": "After"
+      },
+      "calendarUnits": {
+        "days": "Days",
+        "weeks": "Weeks",
+        "months": "Months",
+        "years": "Years"
+      },
       "optionField": "Option field",
       "optionFieldUnset": "Choose a field",
-      "booleanValue": "Constant value (yes / no)",
       "addArg": "+ Argument",
+      "addCondition": "+ Condition",
       "removeArg": "Remove",
       "set": "Set",
       "clear": "Clear",

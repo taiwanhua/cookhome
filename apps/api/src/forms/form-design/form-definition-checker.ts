@@ -21,7 +21,10 @@ import type { OperatorContext } from "../../database/operator-context";
 import { FieldCategoryOptionsService } from "../field-category-options.service";
 import type { FormOperatorFacts, FormRecord } from "../form-access.service";
 import { validationError } from "../forms-error";
-import { LookupProvidersService } from "../lookup-providers";
+import {
+  LookupProvidersService,
+  submissionCatalogOfFields,
+} from "../lookup-providers";
 import type { FormDefinitionInput } from "./dto/form-design.input";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -79,6 +82,19 @@ export function definitionOf(input: FormDefinitionInput): FormDefinition {
   };
 }
 
+/** 帶入規則的來源是這張表單自己(只有帶入規則的「自己」用草稿的欄位目錄)。 */
+function isSelfPrefill(
+  source: LookupSourceDescriptor,
+  location: Record<string, unknown>,
+  formKey: string,
+): boolean {
+  return (
+    source.provider === FORM_SUBMISSION_PROVIDER &&
+    source.formKey === formKey &&
+    typeof location.prefillIndex === "number"
+  );
+}
+
 /** 定義裡用到的所有 lookup 來源描述(選項、引用、帶入),附定位。 */
 function sourcesOf(
   definition: FormDefinition,
@@ -119,6 +135,9 @@ function sourcesOf(
  * 定義檢查器的 api 端(`@repo/domain/form` 的 `validateDefinition` + 只有 api 知道的登錄表):
  * 已發布過的欄位型別、欄位管理類別、lookup 登錄表、列表欄位配置;另外把 `form_submission`
  * 來源的欄位精確到「那張表單目前版本有沒有這欄」(登錄表只給得出各來源表單的聯集)。
+ * **帶入規則**的來源是這張表單自己(從本表單先前的提交帶入,Spec §5「帶入」)時,欄位目錄用**這份草稿**的
+ * 欄位,不看已發布版(可能還沒發布);執行時照一般規則以那筆提交綁的版本判斷。只限帶入:選項 / 引用來源
+ * 指到自己照一般規則(目前已發布版的欄位目錄;還沒發布 = 只有摘要槽),因為它們在填寫時查的就是已發布版的提交。
  */
 @Injectable()
 export class FormDefinitionChecker {
@@ -136,13 +155,26 @@ export class FormDefinitionChecker {
   ): Promise<ValidationReport> {
     const operator = facts.operator;
     const sources = sourcesOf(definition);
+    const selfPrefill = (
+      source: LookupSourceDescriptor,
+      location: Record<string, unknown>,
+    ) => isSelfPrefill(source, location, form.key);
     const submissionFormKeys = sources
-      .map(({ source }) => source)
       .filter(
-        (source) =>
-          source.provider === FORM_SUBMISSION_PROVIDER && source.formKey,
+        ({ source, location }) =>
+          source.provider === FORM_SUBMISSION_PROVIDER &&
+          source.formKey &&
+          !selfPrefill(source, location),
       )
-      .map((source) => source.formKey ?? "");
+      .map(({ source }) => source.formKey ?? "");
+    const hasSelfPrefill = sources.some(({ source, location }) =>
+      selfPrefill(source, location),
+    );
+    const selfCatalog = hasSelfPrefill
+      ? submissionCatalogOfFields(
+          definition.fields.filter((field) => isRecord(field)),
+        )
+      : {};
     const [previousFields, fieldCategoryKeys, lookupProviders, listColumns] =
       await Promise.all([
         this.previousFieldsOf(operator, form.key),
@@ -154,10 +186,21 @@ export class FormDefinitionChecker {
       regexSafety: recheckRegexSafety,
       previousFields,
       fieldCategoryKeys,
-      lookupProviders,
+      lookupProviders: {
+        ...lookupProviders,
+        [FORM_SUBMISSION_PROVIDER]: {
+          fields: {
+            ...lookupProviders[FORM_SUBMISSION_PROVIDER]?.fields,
+            ...selfCatalog,
+          },
+        },
+      },
       listColumnFieldKeys: listColumns,
     });
-    await this.checkSubmissionSources(facts, definition, sources, report);
+    await this.checkSubmissionSources(facts, definition, sources, report, {
+      formKey: form.key,
+      catalog: selfCatalog,
+    });
     return report;
   }
 
@@ -209,15 +252,15 @@ export class FormDefinitionChecker {
     definition: FormDefinition,
     sources: ReturnType<typeof sourcesOf>,
     report: ValidationReport,
+    self: { formKey: string; catalog: Record<string, unknown> },
   ): Promise<void> {
     for (const { source, location } of sources) {
       if (source.provider !== FORM_SUBMISSION_PROVIDER || !source.formKey) {
         continue;
       }
-      const catalog = await this.lookups.formSubmissionCatalog(
-        facts,
-        source.formKey,
-      );
+      const catalog = isSelfPrefill(source, location, self.formKey)
+        ? self.catalog
+        : await this.lookups.formSubmissionCatalog(facts, source.formKey);
       const wanted = [source.labelField, source.valueField ?? "id"];
       const prefill =
         typeof location.prefillIndex === "number"

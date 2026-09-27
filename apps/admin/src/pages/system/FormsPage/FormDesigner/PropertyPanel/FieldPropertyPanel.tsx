@@ -110,6 +110,7 @@ export const FieldPropertyPanel = ({
         <ValueSourceEditor
           field={field}
           fields={fields}
+          formKey={formKey}
           exprIssues={slotIssues("valueSource.expr")}
           onChange={(valueSource) => {
             // 預設值只屬於「使用者填」:改成公式 / 固定值時一併拿掉(否則檢查器報 DEFAULT_NOT_ALLOWED)
@@ -151,6 +152,7 @@ export const FieldPropertyPanel = ({
       )}
       <RulesEditor
         field={field}
+        formKey={formKey}
         fields={conditionFieldsOf(fields, field.key, true)}
         sections={sections}
         customIssues={slotIssues("rules.custom")}
@@ -163,6 +165,7 @@ export const FieldPropertyPanel = ({
         value={field.visibleWhen}
         fields={conditionFieldsOf(fields, field.key, false)}
         usage="condition"
+        formKey={formKey}
         issues={slotIssues("visibleWhen")}
         onChange={(visibleWhen) => {
           onChange({ ...field, visibleWhen });
@@ -174,6 +177,7 @@ export const FieldPropertyPanel = ({
           value={field.readonlyWhen}
           fields={conditionFieldsOf(fields, field.key, true)}
           usage="condition"
+          formKey={formKey}
           issues={slotIssues("readonlyWhen")}
           onChange={(readonlyWhen) => {
             onChange({ ...field, readonlyWhen });

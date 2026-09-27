@@ -253,8 +253,10 @@ describe("表單管理:型別導向的表達式選擇器(表 B)", () => {
     expect(
       within(formula).getByRole("combobox", { name: "單位" }),
     ).toHaveTextContent("天");
-    // 起 / 迄只列日期類:購物單沒有日期欄,剩系統值(現在時間)、日期常數、回日期的運算
+    // 起 / 迄只列日期類:購物單沒有日期欄,剩系統值(現在時間)、日期常數、回日期的運算;
+    // 還沒選的參數是空位(「請選節點種類」,不以空值常數占位)
     expect(await openSelect(user, "節點種類(dateDiff.0)", formula)).toEqual([
+      "請選節點種類",
       "系統值",
       "常數",
       "運算",
