@@ -232,8 +232,12 @@ describe("欄位類別:root 新增 / 改名 / 停用(GraphQL 端點 + 真 MongoD
         enabled: true,
       });
 
-      const keys = (await list(tenantManagerToken)).map((row) => row.key);
-      expect(keys.slice(0, 3)).toEqual(["gender", "demo-category", "cuisine"]);
+      const rows = await list(tenantManagerToken);
+      expect(rows.slice(0, 3).map((row) => row.key)).toEqual([
+        "gender",
+        "demo-category",
+        "cuisine",
+      ]);
 
       const audit = await latestAudit("field-category.create");
       expect(audit).toMatchObject({
@@ -367,9 +371,10 @@ describe("欄位類別:root 新增 / 改名 / 停用(GraphQL 端點 + 真 MongoD
         false,
       );
 
-      const designerKeys = (
-        await list(tenantManagerToken, { enabledOnly: true })
-      ).map((row) => row.key);
+      const designerRows = await list(tenantManagerToken, {
+        enabledOnly: true,
+      });
+      const designerKeys = designerRows.map((row) => row.key);
       expect(designerKeys).not.toContain("occasion");
       expect(designerKeys).toContain("gender");
 
@@ -390,9 +395,8 @@ describe("欄位類別:root 新增 / 改名 / 停用(GraphQL 端點 + 真 MongoD
         { accessToken: rootToken },
       );
       expect(enabled.data?.setFieldCategoryEnabled.category.enabled).toBe(true);
-      expect(
-        (await list(rootToken, { enabledOnly: true })).map((row) => row.key),
-      ).toContain("occasion");
+      const enabledRows = await list(rootToken, { enabledOnly: true });
+      expect(enabledRows.map((row) => row.key)).toContain("occasion");
     });
 
     it("系統類別不可停用 → FORBIDDEN + reason SYSTEM_CATEGORY;啟用(維持啟用)照常", async () => {
@@ -442,8 +446,8 @@ describe("欄位類別:root 新增 / 改名 / 停用(GraphQL 端點 + 真 MongoD
       );
       expect(toggled.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
 
-      const keys = (await list(rootToken)).map((row) => row.key);
-      expect(keys).not.toContain("tenant-made");
+      const rows = await list(rootToken);
+      expect(rows.map((row) => row.key)).not.toContain("tenant-made");
       const gender = await connection
         .collection("field_categories")
         .findOne<{ name: string }>({ _id: genderCategoryId });
