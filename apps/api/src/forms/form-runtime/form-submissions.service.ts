@@ -480,7 +480,13 @@ export class FormSubmissionsService {
   ): Promise<string> {
     const readable = await this.findReadable(facts, id, revision ?? null);
     const record = readable.record;
-    const version = await this.versionOf(facts.operator, record);
+    // 那個修訂自己的版本(舊版資料升級後,歷史修訂可能綁在較舊的版本)
+    const viewed = this.viewedRevision(record, readable.revision);
+    const version = await this.versionOf(facts.operator, {
+      _id: record._id,
+      formKey: record.formKey,
+      version: viewed.version,
+    });
     const field = version.fields.find(
       (candidate) => candidate.key === fieldKey,
     );
@@ -496,8 +502,8 @@ export class FormSubmissionsService {
         "FIELD_FORBIDDEN",
       );
     }
-    const values = this.viewedRevision(record, readable.revision).values;
-    const stored = values[fieldKey] as { path?: unknown } | null | undefined;
+    const stored = viewed.values[fieldKey] as
+      { path?: unknown } | null | undefined;
     const url = await this.storage.readUrlOf(
       typeof stored?.path === "string" ? stored.path : null,
     );
