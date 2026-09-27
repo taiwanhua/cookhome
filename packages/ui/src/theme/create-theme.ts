@@ -126,6 +126,13 @@ export const createAppTheme = (
     shadows: buildShadows() as Theme["shadows"],
     customShadows,
     components: {
+      /*
+       * Stack 一律用 gap 排間距(STYLE-09):MUI 預設的 margin 模式會把直接子元素的 margin 歸零,
+       * 並用第二個起的子元素的 margin 排欄距 —— 子元素自己寫的 `ml` / `mt` 無效、換行後首欄對不齊。
+       */
+      MuiStack: {
+        defaultProps: { useFlexGap: true },
+      },
       MuiButton: {
         styleOverrides: {
           root: {
