@@ -263,7 +263,8 @@ describe("舊版資料升級到新版", () => {
 
     await upgrade(staff.token, formKey, { title: "補標題" });
 
-    expect((await raw(completedId)).values.title).toBe("出差");
+    const stored = await raw(completedId);
+    expect(stored.values.title).toBe("出差");
   });
 
   it("不驗證:升級後缺必填欄位照樣改綁", async () => {
@@ -274,7 +275,8 @@ describe("舊版資料升級到新版", () => {
     expect(result.data?.upgradeFormSubmissions.upgraded).toEqual([
       { fromVersion: 1, count: 2 },
     ]);
-    expect((await raw(completedId)).values.added).toBeNull();
+    const stored = await raw(completedId);
+    expect(stored.values.added).toBeNull();
   });
 
   it("回各舊版本已升級的筆數", async () => {
@@ -307,7 +309,8 @@ describe("舊版資料升級到新版", () => {
 
     expect(codeOf(result)).toBe("CONFLICT");
     expect(extensionsOf(result).reason).toBe("FORM_HAS_WORKFLOW");
-    expect((await raw(completedId)).version).toBe(1);
+    const stored = await raw(completedId);
+    expect(stored.version).toBe(1);
   });
 
   it("沒有模組 edit → 403", async () => {
@@ -348,7 +351,8 @@ describe("舊版資料升級到新版", () => {
     } finally {
       spy.mockRestore();
     }
-    expect((await raw(completedId)).version).toBe(1);
+    const stored = await raw(completedId);
+    expect(stored.version).toBe(1);
   });
 
   it("冪等:再升級一次沒有要升級的", async () => {
