@@ -85,6 +85,45 @@ export const arrayRuntimeOptions = () => ({
   versions: { [`${SHOPPING_FORM_KEY}@1`]: arrayDefinition() },
 });
 
+/**
+ * 同 `arrayDefinition`,另加「不附明細」勾選框:勾了明細就被顯示條件隱藏(總價應當成空明細算)。
+ */
+export const hideableArrayDefinition = (): FormDefinition => {
+  const base = arrayDefinition();
+  const [section] = base.layout.sections;
+  return {
+    ...base,
+    fields: [
+      field("skip_lines", "不附明細", "boolean", {
+        widget: { kind: "checkbox" },
+      }),
+      ...base.fields.map((candidate) =>
+        candidate.key === "lines"
+          ? { ...candidate, visibleWhen: { "!": [{ var: "skip_lines" }] } }
+          : candidate,
+      ),
+    ],
+    layout: {
+      sections: section
+        ? [
+            {
+              ...section,
+              rows: [
+                { cols: [{ fieldKey: "skip_lines", span: 12 }] },
+                ...section.rows,
+              ],
+            },
+          ]
+        : [],
+    },
+  };
+};
+
+export const hideableArrayRuntimeOptions = () => ({
+  moduleForms: [shoppingForm],
+  versions: { [`${SHOPPING_FORM_KEY}@1`]: hideableArrayDefinition() },
+});
+
 /** 已完成的一筆:兩列明細。 */
 export const arraySubmission = () =>
   submissionFragment({

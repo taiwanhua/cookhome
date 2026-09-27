@@ -627,14 +627,20 @@ function conditionInputFromValues(
 
 /**
  * 以目前的值重算計算 / 固定值欄位(隱藏的維持 null);明細欄(不論送來的或保留的列)的列內公式子欄
- * 也在這裡依完整依賴圖重算。
+ * 也在這裡依完整依賴圖重算。隱藏的欄位以 `computeAll` 的 `hidden` 當 null 算(下游讀到 null,
+ * 與前端預覽的 `settleHidden` 同一條)。
  */
 function recompute(
   input: SubmissionWriteInput,
   classes: ReadonlyMap<string, FieldClass>,
   final: StoredValues,
 ): void {
-  const computed = computeOrThrow(input.fields, final, input.ctx);
+  const hidden = new Set(
+    [...classes].flatMap(([key, fieldClass]) =>
+      fieldClass === "hidden" ? [key] : [],
+    ),
+  );
+  const computed = computeOrThrow(input.fields, final, input.ctx, hidden);
   for (const field of input.fields) {
     const fieldClass = classes.get(field.key);
     const isComputedArray =
@@ -717,9 +723,14 @@ function computeOrThrow(
   fields: readonly FieldDef[],
   values: StoredValues,
   ctx: ExpressionContext,
+  hidden?: ReadonlySet<string>,
 ): Record<string, unknown> {
   try {
-    return computeAll(fields, { values, ctx });
+    return computeAll(fields, {
+      values,
+      ctx,
+      ...(hidden !== undefined && { hidden }),
+    });
   } catch (error) {
     if (error instanceof ComputedCycleError) {
       throw valuesInvalidError(
