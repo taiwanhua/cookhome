@@ -531,6 +531,30 @@ describe("表單的欄位級權限:投影 / 守門 / 依賴鏈 / 權限被刪 / 
       });
     });
 
+    it("1b. 被退回的單照樣擋;已作廢(終局)的單與已完成同一層 → 確認後可刪", async () => {
+      const submissions = connection.collection("form_submissions");
+      const filter = { formKey: CLEANUP, version: 1 };
+      await submissions.updateMany(filter, { $set: { status: "returned" } });
+      const returned = await call(api, root, DELETE_RETIRED_PERMISSION, {
+        input: { permissionKey: showKey(CLEANUP, "a") },
+      });
+      expect(extensionsOf(returned).reasons).toEqual(["USED_BY_DRAFTS"]);
+      await submissions.updateMany(filter, { $set: { status: "voided" } });
+      const voided = await call(api, root, DELETE_RETIRED_PERMISSION, {
+        input: { permissionKey: showKey(CLEANUP, "a") },
+      });
+      expect(extensionsOf(voided)).toMatchObject({
+        reasons: ["CONFIRM_REQUIRED"],
+        usage: { draftCount: 0, completedCount: 1, completedVersions: [1] },
+      });
+      await ok(api, root, DELETE_RETIRED_PERMISSION, {
+        input: {
+          permissionKey: showKey(CLEANUP, "a"),
+          confirmCompletedUsage: true,
+        },
+      });
+    });
+
     it("2. 只剩已完成的用到 → 要確認才刪;刪權限列與全部角色綁定並寫稽核", async () => {
       const permissionId = await findPermissionIdByKey(
         connection,
@@ -566,9 +590,10 @@ describe("表單的欄位級權限:投影 / 守門 / 依賴鏈 / 權限被刪 / 
           .collection("core_relationships")
           .countDocuments({ type: "role_permission", secondId: permissionId }),
       ).toBe(0);
-      const audit = await connection
-        .collection("audit_logs")
-        .findOne({ action: "permission.delete-retired" });
+      const audit = await connection.collection("audit_logs").findOne({
+        action: "permission.delete-retired",
+        "before.key": showKey(CLEANUP, "b"),
+      });
       expect(audit?.before).toMatchObject({
         key: showKey(CLEANUP, "b"),
         roleCount: 1,

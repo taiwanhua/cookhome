@@ -185,3 +185,38 @@ export class FormLookupRecordInput {
   @Field(() => ID)
   id!: string;
 }
+
+/** 撤回(申請人本人;審核中、還沒有任何被接受的審核意見)。 */
+@InputType()
+export class WithdrawSubmissionInput {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => Int)
+  expectedEditVersion!: number;
+}
+
+/** 作廢(綁流程且已核准;申請人本人或有模組 `edit`;不需審核)。 */
+@InputType()
+export class VoidSubmissionInput {
+  @Field(() => ID)
+  id!: string;
+
+  @Field(() => Int)
+  expectedEditVersion!: number;
+
+  /** 必填(去空白後不可為空)。 */
+  @Field(() => String)
+  reason!: string;
+}
+
+/** 複製為新單(來源 = 已作廢的提交;同表單目前可新增的版本)。 */
+@InputType()
+export class CopySubmissionToDraftInput {
+  @Field(() => ID)
+  id!: string;
+
+  /** 一次性 id(1–100 字);同一個重送回同一筆新草稿。 */
+  @Field(() => String)
+  clientRequestId!: string;
+}

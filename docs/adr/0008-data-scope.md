@@ -21,7 +21,9 @@
 - 動態值算不出對象時 fail-closed:命中不到任何資料。
 - 租戶差異化:套用對象指定組織指向租戶頂層即可,不需額外表。
 - 設定快取在記憶體(外層 collection、內層 moduleKey),儲存時作廢該 collection。
-- 例外出口兩個(建立者讀寫自己的表單提交、退役權限清理的跨租戶計數),登記在 ADR-0005「例外出口」。
+- 例外出口三個(建立者讀寫自己的表單提交、退役權限清理的跨租戶計數、審核流程對提交的系統讀寫),登記在 ADR-0005「例外出口」。
+- **對全員生效(套用對象 `all`)的規則也會收窄系統上下文**:系統上下文(`visibleOrgIds: "all"`、沒有角色與所屬組織)經 `BaseRepository` 讀模組資料表時,租戶保底放行、但對全員生效的規則照樣命中並收窄。所以「必須看到全部」的系統讀取不能靠系統上下文,只能走登記過的例外出口:`FormSubmissionUsageCounter`(退役權限清理的跨租戶計數)與 `WorkflowSubmissionStore`(審核流程,以 `tenantId` 為邊界)。
+- **`workflow_instances` 掛 `moduleData`(有 `moduleKey` / `tenantId`),但禁止替它登記資料範圍目標**:實例是審核流程的權威資料,審核者與背景推進一律以系統上下文 + 明確的 id / `tenantId` 讀寫,讀取授權走 `canReadSubmissionRevision`;替它設規則會讓推進讀不到實例而卡住。
 
 **理由**:
 

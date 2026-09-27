@@ -151,6 +151,27 @@ export abstract class StorageService {
     return true;
   }
 
+  /**
+   * 複製一個**私有**物件到同前綴的新路徑(`<前綴>/<新 uuid>.<副檔名>`),回新路徑(Spec 6b §6「複製為新單」:
+   * 附件複製一份歸新單)。與 `readUrlOf` 同一道把關:路徑不是本 API 簽出來的一律不複製、回 null。
+   * **呼叫端負責先驗「這個人看得到這筆資料嗎」**。供應商端的失敗原樣往外拋。
+   */
+  async copyPrivateObject(
+    objectPath: string | null | undefined,
+  ): Promise<string | null> {
+    const path = nonEmptyPath(objectPath);
+    if (path === undefined || !isOwnedUploadPath(path)) {
+      return null;
+    }
+    const slash = path.indexOf("/");
+    const dot = path.lastIndexOf(".");
+    const prefix = path.slice(0, slash);
+    const extension = dot > slash ? path.slice(dot + 1) : "";
+    const copied = `${prefix}/${randomUUID()}.${extension}`;
+    await this.duplicateObject(path, copied);
+    return copied;
+  }
+
   /** 簽一個只能以該 content type PUT 一次的上傳網址。 */
   protected abstract signUploadUrl(request: SignUploadRequest): Promise<string>;
 
@@ -162,6 +183,9 @@ export abstract class StorageService {
 
   /** 公開 bucket 上該物件的穩定 URL(不簽名)。 */
   protected abstract publicUrl(objectPath: string): string;
+
+  /** 在私有 bucket 內把物件複製到新路徑(來源已由 `copyPrivateObject` 驗過歸屬)。 */
+  protected abstract duplicateObject(from: string, to: string): Promise<void>;
 
   /** 把物件從 bucket 刪掉(路徑已由 `deleteObject` 驗過歸屬)。 */
   protected abstract removeObject(objectPath: string): Promise<void>;

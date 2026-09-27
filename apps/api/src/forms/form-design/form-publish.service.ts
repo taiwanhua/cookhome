@@ -7,6 +7,15 @@ import {
 } from "../../database/database.module";
 import type { OperatorContext } from "../../database/operator-context";
 import {
+  type LifecycleOwner,
+  type VersionLifecycleConfig,
+  assertNotPublishing,
+  interruptedPublishOf,
+  lockDraftForPublish,
+  repositoryVersionStore,
+  switchToPublished,
+} from "../../versioning/version-lifecycle";
+import {
   FormAccessService,
   type FormOperatorFacts,
   type FormRecord,
@@ -15,7 +24,6 @@ import type { FormVersionRecord } from "../form-mapper";
 import {
   conflictError,
   definitionInvalidError,
-  isDuplicateKeyError,
   validationError,
 } from "../forms-error";
 import type {
@@ -76,21 +84,12 @@ export class FormPublishService {
     operator: OperatorContext,
     form: FormRecord,
   ): Promise<PublishState> {
-    const candidates = await this.versions.findMany(
-      operator,
-      { formKey: form.key, status: { $in: ["publishing", "published"] } },
-      { sort: { version: -1 } },
-    );
-    const publishing = candidates.find(
-      (candidate) => candidate.status === "publishing",
-    );
-    if (publishing) {
-      return { interrupted: publishing };
-    }
-    const dangling = candidates.find(
-      (candidate) => candidate.version !== form.currentVersion,
-    );
-    return { interrupted: dangling ?? null };
+    return {
+      interrupted: await interruptedPublishOf(
+        this.lifecycle(operator),
+        ownerOf(form),
+      ),
+    };
   }
 
   /** 發布進行中(或中斷)→ `CONFLICT`(`PUBLISH_IN_PROGRESS`)。 */
@@ -98,13 +97,25 @@ export class FormPublishService {
     operator: OperatorContext,
     form: FormRecord,
   ): Promise<void> {
-    const { interrupted } = await this.stateOf(operator, form);
-    if (interrupted) {
-      throw conflictError(
-        `Form ${form.key} has an unfinished publish (version ${String(interrupted.version)})`,
-        "PUBLISH_IN_PROGRESS",
-      );
-    }
+    await assertNotPublishing(this.lifecycle(operator), ownerOf(form));
+  }
+
+  /** 表單版本的生命週期設定(`versioning/version-lifecycle.ts`;流程版本共用同一份骨架)。 */
+  lifecycle(
+    operator: OperatorContext,
+  ): VersionLifecycleConfig<FormVersionRecord> {
+    return {
+      keyField: "formKey",
+      versions: repositoryVersionStore(this.versions, operator),
+      switchCurrent: async (owner, expected, next) =>
+        (await this.forms.findOneAndUpdate(
+          operator,
+          { key: owner.key, currentVersion: expected },
+          { $set: { currentVersion: next } },
+        )) !== null,
+      conflict: (reason, message) => conflictError(message, reason),
+      reached: (checkpoint) => this.hooks.reached(checkpoint),
+    };
   }
 
   async publish(
@@ -147,37 +158,14 @@ export class FormPublishService {
     }
 
     // 步驟 2:搶鎖並配版號(草稿還是讀到的那一份才改;兩個發布同時來只有一個命中)
-    const [latest] = await this.versions.findMany(
-      operator,
-      { formKey: form.key, version: { $ne: null } },
-      { sort: { version: -1 }, limit: 1 },
+    const locked = await lockDraftForPublish(
+      this.lifecycle(operator),
+      ownerOf(form),
+      draft._id,
+      input.expectedDraftRevision,
+      changelog,
     );
-    const nextVersion = (latest?.version ?? 0) + 1;
-    let locked: FormVersionRecord | null;
-    try {
-      locked = await this.versions.findOneAndUpdate(
-        operator,
-        {
-          _id: draft._id,
-          status: "draft",
-          draftRevision: input.expectedDraftRevision,
-        },
-        { $set: { status: "publishing", version: nextVersion, changelog } },
-      );
-    } catch (error) {
-      // 同版號已被另一個發布配走(唯一索引):視同沒搶到
-      if (isDuplicateKeyError(error)) {
-        locked = null;
-      } else {
-        throw error;
-      }
-    }
-    if (!locked) {
-      throw conflictError(
-        `Form ${form.key} draft was changed or is being published`,
-        "DRAFT_REVISION_MISMATCH",
-      );
-    }
+    const nextVersion = locked.version;
     await this.audit.record(operator, {
       action: FORM_VERSION_AUDIT.publish,
       targetType: FORM_VERSION_TARGET,
@@ -216,62 +204,18 @@ export class FormPublishService {
     form: FormRecord,
     target: FormVersionRecord,
   ): Promise<FormVersionRecord> {
-    const version = target.version;
-    if (version === null) {
-      throw new Error(`發布中的版本沒有版號(formKey=${form.key})`);
-    }
     // 步驟 3:欄位級權限(`name` 用表單現在的名稱)
     await this.fieldPermissions.syncForVersion(operator, form, target.fields);
-
-    // 步驟 4a:這一版 publishing → published
-    let published = target;
-    if (target.status === "publishing") {
-      await this.hooks.reached("publish-version");
-      published =
-        (await this.versions.findOneAndUpdate(
-          operator,
-          { _id: target._id, status: "publishing" },
-          {
-            $set: {
-              status: "published",
-              publishedAt: new Date(),
-              publishedBy: operator.actorId,
-            },
-          },
-        )) ?? target;
-    }
-
-    // 步驟 4b:前一個(或殘留的)published → retired
-    const previous = await this.versions.findMany(operator, {
-      formKey: form.key,
-      status: "published",
-      _id: { $ne: target._id },
-    });
-    for (const record of previous) {
-      await this.hooks.reached("retire-previous");
-      await this.versions.findOneAndUpdate(
-        operator,
-        { _id: record._id, status: "published" },
-        { $set: { status: "retired" } },
-      );
-    }
-
-    // 步驟 4c:currentVersion 指向新版(最後一筆;寫完填寫者才看到新版)
-    if (form.currentVersion !== version) {
-      await this.hooks.reached("current-version");
-      // 條件更新:只在 currentVersion 還是讀到的那個時切換(避免蓋掉同時進行的退役 / 發布)
-      const switched = await this.forms.findOneAndUpdate(
-        operator,
-        { _id: form._id, currentVersion: form.currentVersion },
-        { $set: { currentVersion: version } },
-      );
-      if (!switched) {
-        throw conflictError(
-          `Form ${form.key} current version changed while publishing`,
-          "CURRENT_VERSION_CHANGED",
-        );
-      }
-    }
-    return published;
+    // 步驟 4:三筆切換
+    return switchToPublished(
+      this.lifecycle(operator),
+      ownerOf(form),
+      target,
+      operator.actorId,
+    );
   }
+}
+
+function ownerOf(form: FormRecord): LifecycleOwner {
+  return { key: form.key, currentVersion: form.currentVersion };
 }

@@ -1,0 +1,357 @@
+import { Injectable } from "@nestjs/common";
+
+import type { WorkflowDefinition } from "@repo/domain/workflow";
+
+import { AuditService } from "../../audit/audit.service";
+import { WorkflowVersionsRepository } from "../../database/database.module";
+import type { OperatorContext } from "../../database/operator-context";
+import {
+  type WorkflowRecord,
+  WorkflowsRepository,
+} from "../../database/workflows.repository";
+import type { FormOperatorFacts } from "../../forms/form-access.service";
+import { FormUserNames } from "../../forms/form-mapper";
+import { retireCurrentVersion } from "../../versioning/version-lifecycle";
+import { WorkflowAccessService } from "../workflow-access.service";
+import {
+  definitionFromInput,
+  definitionOfVersion,
+} from "../workflow-definition-input";
+import { WORKFLOWS_PERMISSIONS } from "../workflow-keys";
+import {
+  isDuplicateKey,
+  workflowConflictError,
+  workflowNotFoundError,
+  workflowValidationError,
+} from "../workflows-error";
+import type {
+  CreateWorkflowVersionDraftInput,
+  SaveWorkflowVersionDraftInput,
+  ValidateWorkflowVersionInput,
+  WorkflowKeyInput,
+} from "./dto/workflow-design.input";
+import type {
+  WorkflowValidationReport,
+  WorkflowVersionModel,
+  WorkflowVersionPayload,
+  WorkflowVersionsPayload,
+} from "./models/workflow.model";
+import { WorkflowDefinitionChecker } from "./workflow-definition-checker";
+import {
+  type WorkflowVersionRecord,
+  toWorkflowValidationReport,
+  toWorkflowVersionModel,
+} from "./workflow-mapper";
+import {
+  WORKFLOW_VERSION_AUDIT,
+  WORKFLOW_VERSION_TARGET,
+  WorkflowPublishService,
+  ownerOf,
+} from "./workflow-publish.service";
+
+const EMPTY_DEFINITION: WorkflowDefinition = { steps: [], edges: null };
+
+/**
+ * 流程版本(設計端):讀、開草稿、存草稿、檢查器、退役目前版本;發布在 `WorkflowPublishService`。
+ * 一個流程同時只有一份草稿(部分唯一索引);`draftRevision` 是存草稿與發布的樂觀鎖。
+ * 定義(`steps` 含 `kind`、`edges`)在草稿讀寫、fork、發布快照、版本讀取之間**原樣保留**。
+ */
+@Injectable()
+export class WorkflowVersionsService {
+  constructor(
+    private readonly workflows: WorkflowsRepository,
+    private readonly versions: WorkflowVersionsRepository,
+    private readonly access: WorkflowAccessService,
+    private readonly checker: WorkflowDefinitionChecker,
+    private readonly publisher: WorkflowPublishService,
+    private readonly userNames: FormUserNames,
+    private readonly audit: AuditService,
+  ) {}
+
+  /** 某一版;`version` 省略 = 草稿(附檢查器結果)。 */
+  async get(
+    facts: FormOperatorFacts,
+    workflowKey: string,
+    version: number | null | undefined,
+  ): Promise<WorkflowVersionPayload> {
+    const workflow = await this.access.requireReadable(facts, workflowKey);
+    const record =
+      version === null || version === undefined
+        ? await this.versions.findOne(facts.operator, {
+            workflowKey: workflow.key,
+            status: "draft",
+          })
+        : await this.versions.findOne(facts.operator, {
+            workflowKey: workflow.key,
+            version,
+          });
+    if (!record) {
+      throw workflowNotFoundError(
+        `Workflow version not found: ${workflowKey}@${String(version ?? "draft")}`,
+      );
+    }
+    return this.payloadOf(facts, workflow, record);
+  }
+
+  /** 版本面板:全部版本(草稿在最前,其餘新到舊)。 */
+  async list(
+    facts: FormOperatorFacts,
+    workflowKey: string,
+  ): Promise<WorkflowVersionsPayload> {
+    const workflow = await this.access.requireReadable(facts, workflowKey);
+    const records = await this.versions.findMany(
+      facts.operator,
+      { workflowKey: workflow.key },
+      { sort: { version: -1, _id: -1 } },
+    );
+    const ordered = [
+      ...records.filter((record) => record.version === null),
+      ...records.filter((record) => record.version !== null),
+    ];
+    const names = await this.userNames.load(
+      facts.operator,
+      ordered.map((record) => record.publishedBy),
+    );
+    return {
+      items: ordered.map((record) => toWorkflowVersionModel(record, names)),
+      totalCount: ordered.length,
+    };
+  }
+
+  /** 以任一版(已發布 / 退役)為基底開草稿;已有草稿 / 發布中 → `CONFLICT`。 */
+  async createDraft(
+    facts: FormOperatorFacts,
+    input: CreateWorkflowVersionDraftInput,
+  ): Promise<WorkflowVersionPayload> {
+    this.access.assertPermission(facts, WORKFLOWS_PERMISSIONS.edit);
+    const operator = facts.operator;
+    const workflow = await this.access.requireWritable(
+      facts,
+      input.workflowKey,
+    );
+    await this.publisher.assertNotPublishing(operator, workflow);
+    const existing = await this.versions.findOne(operator, {
+      workflowKey: workflow.key,
+      status: "draft",
+    });
+    if (existing) {
+      throw workflowConflictError(
+        `Workflow ${workflow.key} already has a draft`,
+        "DRAFT_EXISTS",
+      );
+    }
+    const base = await this.baseDefinitionOf(
+      operator,
+      workflow,
+      input.baseVersion,
+    );
+    const created = await this.insertDraft(
+      operator,
+      workflow.key,
+      base,
+      input.baseVersion ?? null,
+    );
+    await this.audit.record(operator, {
+      action: WORKFLOW_VERSION_AUDIT.createDraft,
+      targetType: WORKFLOW_VERSION_TARGET,
+      targetId: created._id,
+      after: {
+        workflowKey: workflow.key,
+        baseVersion: input.baseVersion ?? null,
+      },
+    });
+    return this.payloadOf(facts, workflow, created);
+  }
+
+  /** 建一份草稿(開草稿 / fork 共用);同流程已有草稿(部分唯一索引)→ `CONFLICT`。 */
+  async insertDraft(
+    operator: OperatorContext,
+    workflowKey: string,
+    definition: WorkflowDefinition,
+    baseVersion: number | null,
+  ): Promise<WorkflowVersionRecord> {
+    try {
+      return await this.versions.create(operator, {
+        workflowKey,
+        version: null,
+        status: "draft",
+        draftRevision: 0,
+        baseVersion,
+        steps: definition.steps,
+        edges: definition.edges ?? null,
+        changelog: null,
+        publishedAt: null,
+        publishedBy: null,
+      });
+    } catch (error) {
+      if (isDuplicateKey(error)) {
+        throw workflowConflictError(
+          `Workflow ${workflowKey} already has a draft`,
+          "DRAFT_EXISTS",
+        );
+      }
+      throw error;
+    }
+  }
+
+  /** 基底版本的定義(複製節點與連線);不給 = 空白。 */
+  async baseDefinitionOf(
+    operator: OperatorContext,
+    workflow: WorkflowRecord,
+    baseVersion: number | null | undefined,
+  ): Promise<WorkflowDefinition> {
+    if (baseVersion === null || baseVersion === undefined) {
+      return EMPTY_DEFINITION;
+    }
+    const source = await this.versions.findOne(operator, {
+      workflowKey: workflow.key,
+      version: baseVersion,
+      status: { $in: ["published", "retired"] },
+    });
+    if (!source) {
+      throw workflowValidationError(
+        `Version ${String(baseVersion)} of ${workflow.key} cannot be a base`,
+        ["baseVersion"],
+      );
+    }
+    return definitionOfVersion(source);
+  }
+
+  /** 存草稿(`expectedDraftRevision` 樂觀鎖);檢查器的錯草稿可以先存,隨 `validation` 回。 */
+  async saveDraft(
+    facts: FormOperatorFacts,
+    input: SaveWorkflowVersionDraftInput,
+  ): Promise<WorkflowVersionPayload> {
+    this.access.assertPermission(facts, WORKFLOWS_PERMISSIONS.edit);
+    const operator = facts.operator;
+    const workflow = await this.access.requireWritable(
+      facts,
+      input.workflowKey,
+    );
+    const definition = definitionFromInput(input.definition);
+    const updated = await this.versions.findOneAndUpdate(
+      operator,
+      {
+        workflowKey: workflow.key,
+        status: "draft",
+        draftRevision: input.expectedDraftRevision,
+      },
+      {
+        $set: { steps: definition.steps, edges: definition.edges ?? null },
+        $inc: { draftRevision: 1 },
+      },
+    );
+    if (!updated) {
+      const draft = await this.versions.findOne(operator, {
+        workflowKey: workflow.key,
+        status: "draft",
+      });
+      throw draft
+        ? workflowConflictError(
+            `Draft revision mismatch: expected ${String(input.expectedDraftRevision)}, actual ${String(draft.draftRevision)}`,
+            "DRAFT_REVISION_MISMATCH",
+          )
+        : workflowConflictError(
+            `Workflow ${workflow.key} has no draft`,
+            "DRAFT_MISSING",
+          );
+    }
+    await this.audit.record(operator, {
+      action: WORKFLOW_VERSION_AUDIT.saveDraft,
+      targetType: WORKFLOW_VERSION_TARGET,
+      targetId: updated._id,
+      after: {
+        workflowKey: workflow.key,
+        draftRevision: updated.draftRevision,
+        stepCount: definition.steps.length,
+        edgeCount: definition.edges?.length ?? 0,
+      },
+    });
+    return this.payloadOf(facts, workflow, updated);
+  }
+
+  /** 設計器即時檢查,不落庫。 */
+  async validate(
+    facts: FormOperatorFacts,
+    input: ValidateWorkflowVersionInput,
+  ): Promise<WorkflowValidationReport> {
+    const workflow = await this.access.requireReadable(
+      facts,
+      input.workflowKey,
+    );
+    return toWorkflowValidationReport(
+      await this.checker.check(
+        facts,
+        workflow,
+        definitionFromInput(input.definition),
+        input.checkFormKey,
+      ),
+    );
+  }
+
+  /**
+   * 退役目前版本:`published → retired`,再 `currentVersion → null`;中斷後再呼叫一次會接著做完。
+   * 進行中的實例照常走完(實例記的是自己的版本),只影響新送出。
+   */
+  async retireCurrent(
+    facts: FormOperatorFacts,
+    input: WorkflowKeyInput,
+  ): Promise<WorkflowRecord> {
+    this.access.assertPermission(facts, WORKFLOWS_PERMISSIONS.publish);
+    const operator = facts.operator;
+    const workflow = await this.access.requireWritable(
+      facts,
+      input.workflowKey,
+    );
+    const retired = await retireCurrentVersion(
+      this.publisher.lifecycle(operator, workflow),
+      ownerOf(workflow),
+    );
+    const updated = await this.workflows.findOne(workflow.tenantId, {
+      key: workflow.key,
+    });
+    if (!updated) {
+      throw workflowNotFoundError(`Workflow not found: ${workflow.key}`);
+    }
+    await this.audit.record(operator, {
+      action: WORKFLOW_VERSION_AUDIT.retire,
+      targetType: WORKFLOW_VERSION_TARGET,
+      ...(retired ? { targetId: retired._id } : {}),
+      before: {
+        workflowKey: workflow.key,
+        currentVersion: workflow.currentVersion,
+      },
+      after: { currentVersion: null },
+    });
+    return updated;
+  }
+
+  private async payloadOf(
+    facts: FormOperatorFacts,
+    workflow: WorkflowRecord,
+    record: WorkflowVersionRecord,
+  ): Promise<WorkflowVersionPayload> {
+    const validation =
+      record.status === "draft"
+        ? toWorkflowValidationReport(
+            await this.checker.check(
+              facts,
+              workflow,
+              definitionOfVersion(record),
+            ),
+          )
+        : null;
+    return {
+      workflowVersion: await this.modelOf(facts.operator, record),
+      validation,
+    };
+  }
+
+  private async modelOf(
+    operator: OperatorContext,
+    record: WorkflowVersionRecord,
+  ): Promise<WorkflowVersionModel> {
+    const names = await this.userNames.load(operator, [record.publishedBy]);
+    return toWorkflowVersionModel(record, names);
+  }
+}

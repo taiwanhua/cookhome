@@ -194,7 +194,9 @@ GraphQL 文件:`packages/graphql/src/documents/forms.graphql`(設計)、`form-su
 
 **設計端**(`@RequirePermission` 守端點,「是不是自己的表單 / 站在哪裡」在 service):`forms`、`form`、`formVersion(formKey, version?)`(省略 = 草稿)、`formVersions`、`validateFormVersion`、`previewFormVersion`(兩者是 query,不落庫)、`createForm`、`updateForm`、`forkForm`、`createFormVersionDraft`、`saveFormVersionDraft`、`publishFormVersion`、`retryPublishFormVersion`、`retireCurrentVersion`、`assignFormToTenants`、`revokeFormFromTenant`、`setTenantFormEnabled`、`retiredFormPermissions`、`deleteRetiredPermission`、`setModuleListColumns`(`system.forms.edit` + 站在根組織)。`moduleListColumns(moduleKey)` 給該模組的使用者讀(有 view / create / edit 任一)。
 
-**執行端**(模組是執行期的,service 依該模組的 `view` / `create` / `edit` / `delete` 判,錯誤與 `@RequirePermission` 同一種):`moduleForms(moduleKey)`、`formRuntimeVersion(formKey, version)`、`formSubmissions`、`formSubmission(id, revision?)`、`formSubmissionAttachmentUrl(id, fieldKey, revision?)`、`createFormDraft`、`saveFormDraft`、`submitFormSubmission`、`updateFormSubmission`、`deleteFormSubmission`、`formLookup`、`formLookupRecord`、`formFieldOptions`(類別選項,見上)。
+**執行端**(模組是執行期的,service 依該模組的 `view` / `create` / `edit` / `delete` 判,錯誤與 `@RequirePermission` 同一種):`moduleForms(moduleKey)`、`formRuntimeVersion(formKey, version)`、`formSubmissions`、`formSubmission(id, revision?)`、`formSubmissionAttachmentUrl(id, fieldKey, revision?)`、`createFormDraft`、`saveFormDraft`、`submitFormSubmission`、`updateFormSubmission`、`deleteFormSubmission`、`formLookup`、`formLookupRecord`、`formFieldOptions`(類別選項,見上)。綁了審核流程的表單另有 `withdrawSubmission`、`voidSubmission`、`copySubmissionToDraft`(規則見 `docs/modules/workflows.md`)。
+
+**提交狀態與審核流程**(6b):`FormSubmissionStatus` 七值(`DRAFT` / `REVIEWING` / `RETURNED` / `WITHDRAWN` / `COMPLETED` / `REJECTED` / `VOIDED`)。綁流程的表單送出不經 `COMPLETED`、直接 `REVIEWING`(`submitFormSubmission` 內走審核流程的寫入順序,送出時檢查擋下回 `FORBIDDEN` + reason);`RETURNED` / `WITHDRAWN` 由申請人以 `saveFormDraft` 改內容、再 `submitFormSubmission`(修訂 +1)。`formSubmissions` 列出草稿以外的所有狀態(草稿只給建立者);`updateFormSubmission` 只收**沒走過流程**的 `COMPLETED`(走過流程的核准後鎖定、只能作廢 → `CONFLICT` `STATUS_MISMATCH`);`deleteFormSubmission` 可刪草稿 / `RETURNED` / `WITHDRAWN`(建立者本人,`create`)、沒走過流程的 `COMPLETED` 與 `REJECTED`(`delete`),其他狀態 → `CONFLICT` `STATUS_MISMATCH`。單筆讀取與附件的授權是 `canReadSubmissionRevision`:建立者讀全部修訂;任務持有者只讀他審的修訂(`revision` 省略 = 其中最新的一個,摘要改用該修訂實例上的快照);`formRuntimeVersion` 對持有該表單任務的人也開放。
 
 input 欄位的缺席 / `null`:
 
@@ -210,7 +212,7 @@ input 欄位的缺席 / `null`:
 - `formRuntimeVersion` 的 `fields`:讀者讀不到的欄位是骨架且 `redacted: true`(見「讀取投影」);`redacted` 缺席 = 完整定義。
 - `FormLookupRecord.values`:受保護且無權的欄位**省略**(鍵不存在),那筆版本沒有的欄位為 `null`。
 - `FormModel.tenantEnabled`:站在租戶內時本租戶的開關,root 視角為 `null`;`assignments` 只有 root 視角的共用表單有。
-- **`abilities` 含權限**(業務模組那一種,前端直接用,不再與 `usePermissions` 相乘):`FormAbilities` 已含 `system.forms.*` 權限與「是不是自己的表單 / 站在哪裡」;`FormSubmissionAbilities.canEdit` = 草稿:建立者本人 + `create`、已完成:`edit`;`canDelete` = 草稿同 `canEdit`、已完成:`delete`;`canEditField` = 權限層面改得動的欄位(條件唯讀看 `fieldStates.readonly`)。
+- **`abilities` 含權限**(業務模組那一種,前端直接用,不再與 `usePermissions` 相乘):`FormAbilities` 已含 `system.forms.*` 權限與「是不是自己的表單 / 站在哪裡」;`FormSubmissionAbilities.canEdit` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成:`edit`(走過流程的已完成為 false);`canDelete` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成 / 已駁回:`delete`;`canWithdraw` = 建立者、審核中;`canVoid` = 走過流程的已完成、建立者或 `edit`;`canCopy` = 已作廢 + `create`;`canEditField` = 權限層面改得動的欄位(條件唯讀看 `fieldStates.readonly`)。只審過某修訂的讀者一律 false。
 
 ## 錯誤
 
@@ -221,7 +223,7 @@ input 欄位的缺席 / `null`:
 | `CONFLICT`                 | 樂觀鎖或搶鎖沒搶到(規格寫的「409」),`reason` 見下         | 提示「已被別人更新,請重新載入」;發布中斷時顯示「重試」 |
 | `PERMISSION_NOT_DELETABLE` | 退役權限清理的前置檢查未過;`extensions.reasons` + `usage` | 依 reasons 顯示原因;`CONFIRM_REQUIRED` 時跳確認再送    |
 
-- `CONFLICT` 的 `reason`:`DRAFT_REVISION_MISMATCH`、`DRAFT_EXISTS`、`DRAFT_MISSING`、`PUBLISH_IN_PROGRESS`、`PUBLISH_NOT_INTERRUPTED`、`NO_CURRENT_VERSION`、`CURRENT_VERSION_CHANGED`、`EDIT_VERSION_MISMATCH`、`REVISION_MISMATCH`、`STATUS_MISMATCH`、`CLIENT_REQUEST_REUSED`。
+- `CONFLICT` 的 `reason`:`DRAFT_REVISION_MISMATCH`、`DRAFT_EXISTS`、`DRAFT_MISSING`、`PUBLISH_IN_PROGRESS`、`PUBLISH_NOT_INTERRUPTED`、`NO_CURRENT_VERSION`、`CURRENT_VERSION_CHANGED`、`EDIT_VERSION_MISMATCH`、`REVISION_MISMATCH`、`STATUS_MISMATCH`、`CLIENT_REQUEST_REUSED`、`ALREADY_COPIED`(複製為新單:來源已複製過)。
 - `FORBIDDEN` 的 `reason`:`FIELD_FORBIDDEN`(附 `fieldKey`)、`FORM_NOT_AVAILABLE`、`NOT_FORM_OWNER`、`ROOT_ONLY`;端點層沒權限的 `FORBIDDEN` 沒有 reason。別人的草稿一律 `NOT_FOUND`(草稿只屬於建立者,不透露它存在)。
 - `PERMISSION_NOT_DELETABLE` 的 `reasons`:`NOT_DYNAMIC`、`NOT_RETIRED`、`USED_BY_DRAFTS`、`CONFIRM_REQUIRED`。
 - `VALIDATION_FAILED`:定義有錯 → `fields: ["definition"]` + `issues`(檢查器的 `DefinitionIssue[]`,每筆帶定位);值有錯 → `fields`(欄位 key)+ `fieldErrors`(`{ fieldKey, code, message }`,code 見 `@repo/domain/form` 的 `VALUE_ISSUE_CODES`);其他輸入錯誤照一般的 `fields`。

@@ -36,6 +36,8 @@ export const FORM_CONFLICT_REASONS = [
   "STATUS_MISMATCH",
   /** 同一個 `clientRequestId` 被拿去建另一張表單(或已被刪除),不能當成重試。 */
   "CLIENT_REQUEST_REUSED",
+  /** 複製為新單:這筆已經複製過(`replacedById` 有值),不能再複製一次。 */
+  "ALREADY_COPIED",
 ] as const;
 
 export type FormConflictReason = (typeof FORM_CONFLICT_REASONS)[number];

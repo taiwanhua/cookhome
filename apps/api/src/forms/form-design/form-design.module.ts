@@ -33,5 +33,7 @@ import { RetiredPermissionsResolver } from "./retired-permissions.resolver";
     ModuleListColumnsService,
     ModuleListColumnsResolver,
   ],
+  // 流程綁定(`workflows/workflow-design/`)回傳表單管理的 `FormPayload`,借用表單的組裝
+  exports: [FormsService],
 })
 export class FormDesignModule {}

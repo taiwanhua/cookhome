@@ -5,6 +5,7 @@ import type { OperatorContext } from "../../database/operator-context";
 import { FormAccessService } from "../form-access.service";
 import { FormVersionPayload } from "../models/form-common.model";
 import {
+  CopySubmissionToDraftInput,
   CreateFormDraftInput,
   DeleteFormSubmissionInput,
   FormFieldOptionsInput,
@@ -14,6 +15,8 @@ import {
   SaveFormDraftInput,
   SubmitFormSubmissionInput,
   UpdateFormSubmissionInput,
+  VoidSubmissionInput,
+  WithdrawSubmissionInput,
 } from "./dto/form-runtime.input";
 import { FormFieldOptionsService } from "./form-field-options.service";
 import { FormLookupService } from "./form-lookup.service";
@@ -174,6 +177,48 @@ export class FormSubmissionsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<DeleteFormSubmissionPayload> {
     return this.service.remove(await this.access.factsOf(operator), input);
+  }
+
+  /** 撤回(申請人本人;審核中、還沒有審核意見)。 */
+  @Mutation(() => FormSubmissionPayload)
+  async withdrawSubmission(
+    @Args("input") input: WithdrawSubmissionInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<FormSubmissionPayload> {
+    return {
+      submission: await this.service.withdraw(
+        await this.access.factsOf(operator),
+        input,
+      ),
+    };
+  }
+
+  /** 作廢(綁流程且已核准;理由必填、不需審核)。 */
+  @Mutation(() => FormSubmissionPayload)
+  async voidSubmission(
+    @Args("input") input: VoidSubmissionInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<FormSubmissionPayload> {
+    return {
+      submission: await this.service.voidSubmission(
+        await this.access.factsOf(operator),
+        input,
+      ),
+    };
+  }
+
+  /** 複製為新單(已作廢 → 新草稿;`submission.clearedFields` 列出失效被清空的引用欄位)。 */
+  @Mutation(() => FormSubmissionPayload)
+  async copySubmissionToDraft(
+    @Args("input") input: CopySubmissionToDraftInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<FormSubmissionPayload> {
+    return {
+      submission: await this.service.copyToDraft(
+        await this.access.factsOf(operator),
+        input,
+      ),
+    };
   }
 
   /** provider / filter 從版本定義取。 */
