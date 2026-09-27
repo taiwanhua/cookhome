@@ -54,6 +54,26 @@ describe("殼的內容區最小寬度(主題斷點;視窗更窄時由內容區�
     expect(globalThis.getComputedStyle(frame).overflow).toBe("hidden");
   });
 
+  it("側欄收合時模組樹那一格不捲動(不出 x 捲軸),展開時才垂直捲動", async () => {
+    server.use(
+      ...authWorld({ hasRefreshCookie: true, modules: superAdminModules })
+        .handlers,
+    );
+    const { user } = renderApp({ path: "/overview" });
+    const nav = await screen.findByRole("navigation", { name: "主選單" });
+    const content = within(nav).getByTestId("side-nav-content");
+
+    // 展開:選單長時這一格垂直捲動
+    expect(globalThis.getComputedStyle(content).overflowY).toBe("auto");
+
+    await user.click(within(nav).getByRole("button", { name: "收合側欄" }));
+    // 收合:`overflow-y: auto` 會連帶讓 x 方向也捲(圖示格比欄內寬多 1px),一律裁在欄內
+    const collapsed = globalThis.getComputedStyle(content);
+    expect(collapsed.overflowY).not.toBe("auto");
+    expect(collapsed.overflowX).not.toBe("auto");
+    expect(collapsed.overflow).toBe("hidden");
+  });
+
   it("表單管理(設計器頁)宣告 xl", async () => {
     renderFormsPage();
 
