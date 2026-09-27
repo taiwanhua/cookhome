@@ -12,6 +12,17 @@ preloadFormsPage();
 
 const canvas = () => screen.getByRole("region", { name: "畫布" });
 
+/** 選「數量」、按刪除欄位,回確認跳窗。 */
+const openDeleteQty = async (
+  user: ReturnType<typeof renderFormsPage>["user"],
+): Promise<HTMLElement> => {
+  await user.click(
+    within(canvas()).getByRole("button", { name: "選取欄位「數量」(qty)" }),
+  );
+  await user.click(await screen.findByRole("button", { name: "刪除欄位" }));
+  return screen.findByRole("dialog", { name: "刪除欄位「數量」?" });
+};
+
 describe("表單管理:設計器", () => {
   it("從元件面板加欄位、改顯示名稱、存草稿帶 expectedDraftRevision", async () => {
     const { user, world } = renderFormsPage(smallDesignOptions());
@@ -97,18 +108,11 @@ describe("表單管理:設計器", () => {
     ).toBeInTheDocument();
   });
 
-  it("刪被引用的欄位:先列出引用處、確認後只從草稿移除,引用處變成檢查器錯誤", async () => {
-    const { user, world } = renderFormsPage();
+  // 分成兩案:全套並行時單一案例在 CI 逾時 15 秒(TEST-08:一案只做一件事)
+  it("刪被引用的欄位:先列出引用處(公式、顯示條件)", async () => {
+    const { user } = renderFormsPage();
     await findDesigner();
-
-    await user.click(
-      within(canvas()).getByRole("button", { name: "選取欄位「數量」(qty)" }),
-    );
-    await user.click(await screen.findByRole("button", { name: "刪除欄位" }));
-
-    const dialog = await screen.findByRole("dialog", {
-      name: "刪除欄位「數量」?",
-    });
+    const dialog = await openDeleteQty(user);
     const references = within(dialog).getByRole("list", {
       name: "引用這個欄位的地方",
     });
@@ -118,7 +122,12 @@ describe("表單管理:設計器", () => {
     expect(
       within(references).getByText("欄位 note 的顯示條件"),
     ).toBeInTheDocument();
+  });
 
+  it("刪被引用的欄位:確認後只從草稿移除,引用處變成檢查器錯誤、公式不自動改", async () => {
+    const { user, world } = renderFormsPage();
+    await findDesigner();
+    const dialog = await openDeleteQty(user);
     await user.click(within(dialog).getByRole("button", { name: "刪除" }));
 
     expect(
