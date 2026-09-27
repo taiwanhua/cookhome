@@ -258,7 +258,7 @@ describe("模組與權限:表單模組的列表欄位配置、退役權限清理
         ?.textContent;
     };
 
-    expect(await engineOf("購物清單")).toBe("表單引擎");
+    expect(await engineOf(shoppingNode.name)).toBe("表單引擎");
     expect(await engineOf("使用者管理")).toBe("固定欄位");
     expect(await engineOf("系統管理")).toBeUndefined();
     expect(await engineOf("編輯")).toBeUndefined();
