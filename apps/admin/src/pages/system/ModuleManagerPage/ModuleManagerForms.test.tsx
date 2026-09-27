@@ -35,7 +35,7 @@ import {
 } from "./module-manager-test-support";
 
 const shoppingNode: TestModuleAdminNode = {
-  id: "m-shop",
+  id: "m-demo-form",
   key: "demo-form",
   name: "示範表單(頂層)",
   parentId: null,

@@ -19,12 +19,25 @@ const MIGRATION = path.join(
 const RUN_UP_DIRECTLY = `
 import { pathToFileURL } from "node:url";
 import { MongoClient } from "mongodb";
-const [uri, times, file] = process.argv.slice(1);
+const [uri, times, file, failOn = ""] = process.argv.slice(1);
 const client = await MongoClient.connect(uri);
+// failOn = collection 名:對它的第一個 deleteMany 丟錯,模擬遷移跑到一半中斷
+const failing = (db) => ({
+  collection: (name) => {
+    const collection = db.collection(name);
+    if (name !== failOn) return collection;
+    return new Proxy(collection, {
+      get: (target, key) =>
+        key === "deleteMany"
+          ? async () => { throw new Error("模擬中斷:" + name); }
+          : Reflect.get(target, key).bind?.(target) ?? Reflect.get(target, key),
+    });
+  },
+});
 try {
   const migration = await import(pathToFileURL(file).href);
   for (let round = 0; round < Number(times); round += 1) {
-    await migration.up(client.db());
+    await migration.up(failOn === "" ? client.db() : failing(client.db()));
   }
 } finally {
   await client.close();
@@ -48,7 +61,7 @@ async function openDatabase(databaseUri: string): Promise<Db> {
   return client.db();
 }
 
-function runUpDirectly(databaseUri: string, times: number) {
+function runUpDirectly(databaseUri: string, times: number, failOn = "") {
   return spawnSync(
     process.execPath,
     [
@@ -58,6 +71,7 @@ function runUpDirectly(databaseUri: string, times: number) {
       databaseUri,
       String(times),
       MIGRATION,
+      failOn,
     ],
     { cwd: PACKAGE_ROOT, encoding: "utf8" },
   );
@@ -418,4 +432,89 @@ describe("遷移:移除 shopping-list / leave 兩個舊表單模組", () => {
     ).toBe(4);
     expect(await database.collection("workflows").countDocuments()).toBe(2);
   }, 120_000);
+});
+
+describe("遷移:中途中斷後重跑仍刪乾淨", () => {
+  let database: Db;
+
+  beforeAll(async () => {
+    const databaseUri = databaseUriOf("interrupted");
+    database = await openDatabase(databaseUri);
+    await seedPreState(database);
+    // 跑到刪完關聯與實例、要刪 forms 時中斷:認流程用的 org_form_workflow / workflow_instances 已經沒了
+    const interrupted = runUpDirectly(databaseUri, 1, "forms");
+    expect(interrupted.status).not.toBe(0);
+    expect(interrupted.stderr).toContain("模擬中斷:forms");
+    const result = runUpDirectly(databaseUri, 1);
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+  }, 120_000);
+
+  it("舊模組的資料(含只屬於它們的流程)全部查不到;共用流程留著", async () => {
+    const counts = await countRetired(database);
+    expect(Object.values(counts).every((count) => count === 0)).toBe(true);
+    expect(
+      new Set(await database.collection("workflows").distinct("key")),
+    ).toEqual(new Set(["demo_form_review", "shared_review"]));
+  });
+});
+
+describe("遷移:沒有綁定的流程怎麼判", () => {
+  let database: Db;
+
+  beforeAll(async () => {
+    const databaseUri = databaseUriOf("workflow-criteria");
+    database = await openDatabase(databaseUri);
+    const cases: [string, string[]][] = [
+      // 沒被綁、只被其他模組的實例用過
+      ["other_only_review", [KEPT]],
+      // 沒被綁、舊模組與其他模組的實例都用過
+      ["mixed_review", ["leave", KEPT]],
+      // 沒被綁、只被舊模組的實例用過
+      ["retired_only_review", ["shopping-list"]],
+    ];
+    for (const [workflowKey, moduleKeys] of cases) {
+      await database
+        .collection("workflows")
+        .insertOne({ key: workflowKey, name: workflowKey });
+      await database
+        .collection("workflow_versions")
+        .insertOne({ workflowKey, version: 1 });
+      for (const moduleKey of moduleKeys) {
+        await database.collection("workflow_instances").insertOne({
+          moduleKey,
+          workflowKey,
+          formKey: `${moduleKey.replace("-", "_")}_form`,
+        });
+      }
+    }
+    const result = runUpDirectly(databaseUri, 1);
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+  }, 120_000);
+
+  it("只被其他模組的實例用過 → 保留;也被其他模組用過 → 保留", async () => {
+    expect(
+      new Set(await database.collection("workflows").distinct("key")),
+    ).toEqual(new Set(["other_only_review", "mixed_review"]));
+    expect(
+      new Set(
+        await database.collection("workflow_versions").distinct("workflowKey"),
+      ),
+    ).toEqual(new Set(["other_only_review", "mixed_review"]));
+  });
+
+  it("只被舊模組的實例用過、從沒綁過 → 刪(連同版本);舊模組的實例刪掉、其他模組的留著", async () => {
+    expect(
+      await database
+        .collection("workflows")
+        .countDocuments({ key: "retired_only_review" }),
+    ).toBe(0);
+    expect(
+      await database.collection("workflow_instances").distinct("moduleKey"),
+    ).toEqual([KEPT]);
+    expect(
+      await database.collection("workflow_instances").countDocuments(),
+    ).toBe(2);
+  });
 });

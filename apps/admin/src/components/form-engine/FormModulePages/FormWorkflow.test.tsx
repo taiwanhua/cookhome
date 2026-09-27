@@ -9,6 +9,7 @@ import {
   type FormRuntimeWorldOptions,
   formRuntimeWorld,
 } from "@/test/msw/form-runtime-handlers";
+import { demoGroupNode } from "@/test/msw/module-fixtures";
 import { server } from "@/test/msw/server";
 import {
   APPLICANT,
@@ -74,6 +75,7 @@ const renderLeave = (
     ...authWorld({
       hasRefreshCookie: true,
       modules: [
+        demoGroupNode,
         ...demoGroupFormModules([`${DEMO_GROUP_FORM_KEY}.*`]),
         ...applyCenterModules(),
       ],

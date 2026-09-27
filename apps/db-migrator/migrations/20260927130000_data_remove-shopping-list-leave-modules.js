@@ -15,6 +15,15 @@
  *   連同其 `workflow_versions` 與 `org_workflow`。流程本身不屬於任何模組,仍被其他表單綁定或使用的保留
  *
  * 冪等:全部是條件刪除,重跑找不到東西就什麼都不做。刪掉的資料無法還原,`down` 不做事。
+ *
+ * 刪除順序(中途失敗重跑仍刪得乾淨):流程的候選要靠 `org_form_workflow` 與 `workflow_instances` 認,
+ * 所以先刪流程這一側(`org_workflow` → `workflow_versions` → `workflows`),認流程用的
+ * `org_form_workflow` / `workflow_instances` 與 `forms`(認表單 key 用)放到最後。
+ *
+ * 刻意不處理(執行期資料的殘留引用,留給畫面上的既有檢查與人工處理):
+ * - 保留下來的流程,其版本定義的 `checkFormKey` 可能指向已刪的表單
+ * - 客製流程 / 客製表單的 `forkedFrom` 可能指向已刪的來源
+ * - 已刪提交的附件檔(儲存空間裡的物件)成為孤兒,不在這裡刪
  */
 
 /** 兩個 key 都只有小寫英數與 `-`,可以直接放進正規表示式。 */
@@ -129,31 +138,32 @@ export const up = async (db) => {
   const workflowIds = retiredWorkflows.map((workflow) => workflow._id);
   const workflowKeys = retiredWorkflows.map((workflow) => workflow.key);
 
-  // 業務關聯、執行期資料、表單與流程本身
+  // 先刪流程這一側:它們的候選要靠下面才刪的關聯與實例才認得出來
   await businessRelationships.deleteMany({
-    $or: [
-      {
-        type: { $in: ["org_form", "org_form_workflow"] },
-        secondId: { $in: formIds },
-      },
-      { type: "org_workflow", secondId: { $in: workflowIds } },
-    ],
+    type: "org_workflow",
+    secondId: { $in: workflowIds },
   });
+  await db
+    .collection("workflow_versions")
+    .deleteMany({ workflowKey: { $in: workflowKeys } });
+  await workflows.deleteMany({ _id: { $in: workflowIds } });
+
+  // 再刪表單這一側與執行期資料;認流程用的關聯、實例與認表單用的 forms 最後刪
   await db
     .collection("form_submissions")
     .deleteMany(moduleKeyFilter("moduleKey"));
-  await workflowInstances.deleteMany(moduleKeyFilter("moduleKey"));
   await db
     .collection("workflow_tasks")
     .deleteMany(moduleKeyFilter("moduleKey"));
   await db
     .collection("form_versions")
     .deleteMany({ formKey: { $in: formKeys } });
+  await businessRelationships.deleteMany({
+    type: { $in: ["org_form", "org_form_workflow"] },
+    secondId: { $in: formIds },
+  });
+  await workflowInstances.deleteMany(moduleKeyFilter("moduleKey"));
   await forms.deleteMany({ _id: { $in: formIds } });
-  await db
-    .collection("workflow_versions")
-    .deleteMany({ workflowKey: { $in: workflowKeys } });
-  await workflows.deleteMany({ _id: { $in: workflowIds } });
 };
 
 /**

@@ -128,7 +128,7 @@ export const formDesignWorld = (
           me: {
             modules: [
               {
-                id: "m-shop",
+                id: "m-demo-form",
                 key: "demo-form",
                 name: "示範表單(頂層)",
                 engine: ModuleEngine.Form,

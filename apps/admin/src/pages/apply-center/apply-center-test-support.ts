@@ -7,6 +7,7 @@ import {
   type FormRuntimeWorldOptions,
   formRuntimeWorld,
 } from "@/test/msw/form-runtime-handlers";
+import { demoGroupNode } from "@/test/msw/module-fixtures";
 import { server } from "@/test/msw/server";
 import {
   APPLICANT,
@@ -93,14 +94,14 @@ export interface ApplyCenterSetup {
   path: string;
   runtime?: WorkflowRuntimeWorldOptions;
   forms?: FormRuntimeWorldOptions;
-  leavePermissions?: readonly string[];
+  formModulePermissions?: readonly string[];
 }
 
 export const renderApplyCenter = ({
   path,
   runtime = defaultRuntime(),
   forms = defaultFormRuntime(),
-  leavePermissions = [`${DEMO_GROUP_FORM_KEY}.*`],
+  formModulePermissions = [`${DEMO_GROUP_FORM_KEY}.*`],
 }: ApplyCenterSetup): ReturnType<typeof renderApp> & {
   runtime: WorkflowRuntimeWorld;
   forms: FormRuntimeWorld;
@@ -112,7 +113,8 @@ export const renderApplyCenter = ({
       hasRefreshCookie: true,
       modules: [
         ...applyCenterModules(),
-        ...demoGroupFormModules(leavePermissions),
+        demoGroupNode,
+        ...demoGroupFormModules(formModulePermissions),
       ],
     }).handlers,
     ...workflowWorld.handlers,

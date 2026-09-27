@@ -131,7 +131,7 @@ export const demoGroupFormModules = (
   permissions: readonly string[],
 ): TestModule[] => [
   moduleOf(
-    "m-demo-form",
+    "m-demo-group-form",
     DEMO_GROUP_FORM_KEY,
     "示範表單(群組內)",
     "m-demo",
@@ -141,10 +141,10 @@ export const demoGroupFormModules = (
   ),
   ...(["view-page", "create-page", "edit-page"] as const).map((page) =>
     moduleOf(
-      `m-demo-form-${page}`,
+      `m-demo-group-form-${page}`,
       `${DEMO_GROUP_FORM_KEY}.${page}`,
       page,
-      "m-demo-form",
+      "m-demo-group-form",
       ModuleSidebarType.Hidden,
       `${DEMO_GROUP_FORM_ROUTES.list}/${page}`,
       [],
