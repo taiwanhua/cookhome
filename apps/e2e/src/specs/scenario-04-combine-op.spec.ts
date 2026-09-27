@@ -8,6 +8,7 @@ import {
 } from "../fixtures/api";
 import {
   DATA_SCOPE_ROUTE,
+  DEMO_ITEMS_ONE_COLLECTION,
   SAMPLE_ONE,
   SAMPLE_ONE_LIST_ROUTE,
 } from "../fixtures/demo-keys";
@@ -66,6 +67,8 @@ test("劇本 4:兩條都命中 +user 的規則,OR 取聯集、AND 取交集", as
   await signIn(page, tenant.member.account, tenant.member.password);
   await signIn(rootPage, ROOT_ACCOUNT, ROOT_PASSWORD);
   await rootPage.goto(DATA_SCOPE_ROUTE);
+  // 預設選中清單第一列(依模組 key 排序,示範表單排在示範模組1 之前),先點示範項目
+  await rootPage.getByText(DEMO_ITEMS_ONE_COLLECTION, { exact: true }).click();
   await expect(rootPage.getByText("規則 1")).toBeVisible();
   await expect(rootPage.getByText("規則 2")).toBeVisible();
 

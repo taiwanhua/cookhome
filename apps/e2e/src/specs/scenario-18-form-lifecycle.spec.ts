@@ -112,12 +112,15 @@ test("劇本 18:root 建表單、設計、發布、分派;員工填寫送出,列
     "SubmitFormSubmission",
   );
 
-  // 送出後到詳情頁:標題 = 摘要槽(填的值)、狀態已完成、值看得到
+  // 送出後到詳情頁:標題 = 摘要槽(填的值)、值看得到;狀態在「修訂紀錄」跳窗裡(已完成)
   await page.waitForURL((url) => url.pathname.startsWith(DEMO_FORM_VIEW_ROUTE));
   await expect(
     pageArea(page).getByRole("heading", { name: itemValue }),
   ).toBeVisible();
-  await expect(pageArea(page).getByText("已完成")).toBeVisible();
+  await pageArea(page).getByRole("button", { name: "修訂紀錄" }).click();
+  const history = page.getByRole("dialog");
+  await expect(history.getByText("已完成")).toBeVisible();
+  await history.getByRole("button", { name: "關閉" }).click();
 
   // 步驟 6:回列表,那一筆的標題欄就是填的值,狀態已完成
   await page.goto(DEMO_FORM_ROUTE);
