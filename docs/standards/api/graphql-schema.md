@@ -150,7 +150,7 @@ pnpm --filter @repo/api schema:generate
 pnpm --filter @repo/graphql generate
 ```
 
-api-only 的票也一樣:只改 schema 不重產第二段,型別會停在舊 schema,要等下一張 admin 票才更新。CI 的 verify job 有一步 `codegen 產物與 schema 一致(GQL-05)`,在 `@repo/api` 或 `@repo/graphql` 受影響時重跑這兩個指令再 `git diff --exit-code`,落後就紅。
+api-only 的票也一樣:只改 schema 不重產第二段,型別會停在舊 schema,要等下一張 admin 票才更新。CI 的 `format-codegen` job 有一步 `codegen 產物與 schema 一致(GQL-05)`,在 `@repo/api` 或 `@repo/graphql` 受影響時重跑這兩個指令再 `git diff --exit-code`,落後就紅。
 
 正本:`apps/api/scripts/generate-schema.ts`、`.github/workflows/ci.yml`(`codegen 產物與 schema 一致` 一步)
 

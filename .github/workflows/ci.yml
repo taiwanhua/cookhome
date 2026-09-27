@@ -14,17 +14,34 @@ concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-jobs:
-  verify:
-    runs-on: ubuntu-latest
-    # 卡死保險:api 的 jest 曾因殘留 handle 在測試全過後不退出,整個 job 燒滿 6 小時(預設上限)才停
-    timeout-minutes: 30
+# job 圖(牆鐘最短優先;各 job 各一台 runner,不再搶同一台的 CPU):
+#
+#   prepare ─┬─ format-codegen   格式檢查 + codegen 產物一致(GQL-05)
+#            ├─ lint-typecheck   turbo lint / check-types
+#            ├─ test-api-1 / 2   api 的 jest 分兩片(--shard)
+#            ├─ test-others      api 以外的 turbo test
+#            └─ build            turbo build(front 的 ISR 預渲染要活的 api)
+#   以上全部 ─→ verify           總結;PR 的必要檢查名稱就是它
+#
+# turbo 本機快取(.turbo/cache)用 actions/cache 在 run 之間保存:每個跑 turbo 的 job 各一把 key
+#(job 名 + commit),restore 退回同 lockfile 的最近一份,沒改到的 package 直接 cache hit。
+# 快取只加速、不改結果:turbo 的 hash 涵蓋輸入檔、env 與依賴,命中就是同一份產物。
+# E2E 不在這裡(e2e.yml 手動觸發)。
 
-    services:
-      mongo:
-        image: mongo:7
-        ports:
-          - 27017:27017
+jobs:
+  # 算受影響的 package,結果用 outputs 給下游 job 決定跑什麼 / 要不要跳過
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      packages: ${{ steps.affected.outputs.packages }}
+      filter: ${{ steps.affected.outputs.filter }}
+      others-filter: ${{ steps.affected.outputs.others-filter }}
+      any: ${{ steps.affected.outputs.any }}
+      api: ${{ steps.affected.outputs.api }}
+      others: ${{ steps.affected.outputs.others }}
+      front: ${{ steps.affected.outputs.front }}
+      codegen: ${{ steps.affected.outputs.codegen }}
 
     steps:
       - uses: actions/checkout@v4
@@ -38,13 +55,18 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # 只為了跑 turbo ls,不需要測試用的 mongod 二進位檔
       - name: 安裝依賴
         run: pnpm install --frozen-lockfile
+        env:
+          MONGOMS_DISABLE_POSTINSTALL: "1"
 
       # 只跑「這次 diff 改到的 package + 依賴它們的 package」(turbo 依 workspace 依賴圖推導:
       # 改 packages/ui 會連 admin / front / storybook 一起跑;改根設定或 lockfile 會全跑)。
       # base:PR 對 base 分支比;push 對推送前的分支 HEAD 比(等於這次合進來的內容)。
       # 改到 .github/** 或 base 拿不到(首推、force push)時退回全跑。
+      # 清單轉成明確的 `--filter=<pkg>` 字串往下傳(下游 job 不必再算 diff);
+      # others-filter 是同一份清單去掉 @repo/api(api 的測試由兩個 shard job 跑)。
       - name: 受影響的 package
         id: affected
         env:
@@ -57,30 +79,74 @@ jobs:
             all=true
           fi
           if [ "$all" = true ]; then
-            echo "filter=" >> "$GITHUB_OUTPUT"
-            echo "front=true" >> "$GITHUB_OUTPUT"
-            echo "codegen=true" >> "$GITHUB_OUTPUT"
+            list=$(pnpm exec turbo ls --output json | jq -r '.packages.items[].name' | grep -vx '//' | tr '\n' ' ' || true)
             echo "::notice::受影響範圍:全部(base 不可用或 .github 有改)"
           else
-            list=$(TURBO_SCM_BASE="$BASE" pnpm exec turbo ls --affected --output json | jq -r '.packages.items[].name' | tr '\n' ' ')
-            echo "filter=--affected" >> "$GITHUB_OUTPUT"
-            case " $list " in *" @repo/front "*) echo "front=true" >> "$GITHUB_OUTPUT" ;; *) echo "front=false" >> "$GITHUB_OUTPUT" ;; esac
-            case " $list " in *" @repo/api "*|*" @repo/graphql "*) echo "codegen=true" >> "$GITHUB_OUTPUT" ;; *) echo "codegen=false" >> "$GITHUB_OUTPUT" ;; esac
+            list=$(TURBO_SCM_BASE="$BASE" pnpm exec turbo ls --affected --output json | jq -r '.packages.items[].name' | grep -vx '//' | tr '\n' ' ' || true)
             echo "::notice::受影響的 package:${list:-(無)}"
           fi
-          echo "TURBO_SCM_BASE=$BASE" >> "$GITHUB_ENV"
+          filter=""
+          others=""
+          for p in $list; do
+            filter="$filter --filter=$p"
+            if [ "$p" != "@repo/api" ]; then others="$others --filter=$p"; fi
+          done
+          flag() { case " $list " in *" $1 "*) echo true ;; *) echo false ;; esac; }
+          api=$(flag @repo/api)
+          codegen=false
+          if [ "$api" = true ] || [ "$(flag @repo/graphql)" = true ]; then codegen=true; fi
+          {
+            echo "packages=$list"
+            echo "filter=$filter"
+            echo "others-filter=$others"
+            if [ -n "$filter" ]; then echo "any=true"; else echo "any=false"; fi
+            if [ -n "$others" ]; then echo "others=true"; else echo "others=false"; fi
+            echo "api=$api"
+            echo "front=$(flag @repo/front)"
+            echo "codegen=$codegen"
+          } >> "$GITHUB_OUTPUT"
 
-      # prettier 不經 turbo lint(各 workspace 的 lint 只跑 eslint,且根目錄 docs/ 不屬於任何 workspace),
-      # 獨立一步在最前面 fail-fast。範圍是全 repo 的 md + ts/tsx/js/json/yaml(#195 起,STRUCT-09)
+  # prettier 不經 turbo lint(各 workspace 的 lint 只跑 eslint,且根目錄 docs/ 不屬於任何 workspace),
+  # 範圍是全 repo 的 md + ts/tsx/js/json/yaml(STRUCT-09),所以不看受影響清單、每次都跑。
+  # codegen 一致性檢查(GQL-05)要起一次完整 AppModule,放在這個與其他 job 並行的 job,不壓在 prepare 的關鍵路徑上。
+  format-codegen:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # 不加 MONGOMS_DISABLE_POSTINSTALL:schema:generate 用 mongodb-memory-server 起 mongod
+      #(二進位在 pnpm install 的 postinstall 下載,見根 package.json 的 onlyBuiltDependencies)
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+
       - name: 格式檢查(prettier --check)
         run: pnpm run format:check
 
+      - name: turbo 快取
+        if: needs.prepare.outputs.codegen == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-format-codegen-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-format-codegen-
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
       # GQL-05:`apps/api/schema.gql` 與 `packages/graphql/src/generated` 都是產物。
-      # api-only 的票改了 resolver 卻沒重產時,型別要等下一張 admin 票才更新,之前沒有任何一步抓得到(#160)。
-      # 只在 api 或 graphql 受影響時跑:這步要起一次完整 AppModule + 一台 mongod,不是免費的
-      #(mongod 二進位在 pnpm install 的 postinstall 就下載好了,見根 package.json 的 onlyBuiltDependencies)。
+      # api-only 的票改了 resolver 卻沒重產時,型別要等下一張 admin 票才更新,之前沒有任何一步抓得到。
+      # 只在 api 或 graphql 受影響時跑。
       - name: codegen 產物與 schema 一致(GQL-05)
-        if: steps.affected.outputs.codegen == 'true'
+        if: needs.prepare.outputs.codegen == 'true'
         run: |
           # schema:generate 用 ts-node 直接載 api 原始碼,要先有 @repo/domain 的 dist 才解析得到 `@repo/domain/*`
           pnpm exec turbo run build --filter=@repo/domain
@@ -91,35 +157,212 @@ jobs:
             exit 1
           fi
 
+      # 快取是「還原 → 本次新增」的累積,存回前清掉 7 天前的項目,免得無限長大
+      - name: 修剪 turbo 快取
+        if: needs.prepare.outputs.codegen == 'true'
+        run: find .turbo/cache -type f -mtime +7 -delete 2>/dev/null || true
+
+  lint-typecheck:
+    needs: prepare
+    if: needs.prepare.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+        env:
+          MONGOMS_DISABLE_POSTINSTALL: "1"
+
+      - name: turbo 快取
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-lint-typecheck-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-lint-typecheck-
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      # `--log-order=stream` 即時印出各套件輸出,卡在哪一眼可見
+      - name: lint / typecheck
+        run: pnpm exec turbo run lint check-types ${{ needs.prepare.outputs.filter }} --log-order=stream
+
+      - name: 修剪 turbo 快取
+        run: find .turbo/cache -type f -mtime +7 -delete 2>/dev/null || true
+
+  # api 的測試最久(整合測試對真 MongoDB),用 jest 的 --shard 分兩台並行。
+  # 直接 exec jest 而不走 `pnpm run test -- …`(後者的參數會被 jest 當成路徑 pattern);
+  # 旗標與 apps/api/package.json 的 test script 相同,再加 --forceExit / --shard。
+  # api 的 jest 以 moduleNameMapper 直接吃 @repo/domain 原始碼,不必先 build 依賴,所以這裡不用 turbo。
+  test-api:
+    needs: prepare
+    if: needs.prepare.outputs.api == 'true'
+    name: test-api-${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+
+      # `--forceExit`:測試全過但有殘留 handle 時仍會退出,並把偵測到的 handle 印進 log(--detectOpenHandles)
+      - name: test(api 第 ${{ matrix.shard }} / 2 片)
+        run: pnpm --filter @repo/api exec jest --passWithNoTests --detectOpenHandles --forceExit --shard=${{ matrix.shard }}/2
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
+
+  # api 以外受影響 package 的測試(domain / ui / i18n / logger / db-migrator / admin …)
+  # MONGODB_URI:db-migrator 測試沿用本 job 的 MongoDB service container(本地無此變數時自起 mongodb-memory-server)
+  test-others:
+    needs: prepare
+    if: needs.prepare.outputs.others == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+
+      - name: turbo 快取
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-test-others-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-test-others-
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: test
+        run: pnpm exec turbo run test ${{ needs.prepare.outputs.others-filter }} --log-order=stream -- --forceExit
+        env:
+          MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
+
+      - name: 修剪 turbo 快取
+        run: find .turbo/cache -type f -mtime +7 -delete 2>/dev/null || true
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.any == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+        env:
+          MONGOMS_DISABLE_POSTINSTALL: "1"
+
+      - name: turbo 快取
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-build-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-build-
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
       # front 的 ISR 預渲染需要活的 api;front 沒被改到就不用起
       - name: 建置 api(front 的 ISR 預渲染需要活的 api)
-        if: steps.affected.outputs.front == 'true'
+        if: needs.prepare.outputs.front == 'true'
         run: pnpm exec turbo run build --filter=@repo/api
 
       - name: 啟動 api(接 CI 的拋棄式 MongoDB,空資料庫)
-        if: steps.affected.outputs.front == 'true'
+        if: needs.prepare.outputs.front == 'true'
         run: |
           node apps/api/dist/main.js &
           timeout 60 bash -c 'until curl -sf -X POST -H "Content-Type: application/json" -d "{\"query\":\"{__typename}\"}" http://127.0.0.1:5001/graphql -o /dev/null; do sleep 2; done'
         env:
           MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
           PORT: "5001"
-          # api 缺少 JWT_SECRET 即啟動失敗(#62);CI 只需一個假值讓 front 預渲染能打到 api
+          # api 缺少 JWT_SECRET 即啟動失敗;CI 只需一個假值讓 front 預渲染能打到 api
           JWT_SECRET: ci-only-jwt-secret
 
-      # check-types 與 build 分兩步:next build 會清寫 .next,與 next typegen 同時跑會競態
-      # MONGODB_URI:db-migrator 測試沿用本 job 的 MongoDB service container(本地無此變數時自起 mongodb-memory-server)
-      - name: lint / typecheck
-        run: pnpm exec turbo run lint check-types ${{ steps.affected.outputs.filter }} --log-order=stream
-
-      # 拆成獨立步驟才能只對 jest 傳參數:`--forceExit` 讓測試全過但有殘留 handle 時仍會退出,
-      # 並把偵測到的 handle 印進 log(api 開著 --detectOpenHandles);`--log-order=stream` 即時印出各套件輸出,卡在哪一眼可見
-      - name: test
-        run: pnpm exec turbo run test ${{ steps.affected.outputs.filter }} --log-order=stream -- --forceExit
-        env:
-          MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
-
       - name: build
-        run: pnpm exec turbo run build ${{ steps.affected.outputs.filter }}
+        run: pnpm exec turbo run build ${{ needs.prepare.outputs.filter }} --log-order=stream
         env:
           NEXT_PUBLIC_GRAPHQL_ENDPOINT: http://127.0.0.1:5001/graphql
+
+      - name: 修剪 turbo 快取
+        run: find .turbo/cache -type f -mtime +7 -delete 2>/dev/null || true
+
+  # 總結 job:名稱固定 `verify`(PR 的必要檢查),branch 設定不必跟著 job 拆分改。
+  # 被跳過(skipped:不在受影響清單)的 job 算過;任一 failure / cancelled 就紅,
+  # 哪一類壞看上面的 job 名稱即可。
+  verify:
+    needs:
+      [prepare, format-codegen, lint-typecheck, test-api, test-others, build]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: 彙整各 job 結果
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          PACKAGES: ${{ needs.prepare.outputs.packages }}
+        run: |
+          echo "受影響的 package:${PACKAGES:-(無)}"
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          bad=$(echo "$NEEDS" | jq -r '[to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key] | join(", ")')
+          if [ -n "$bad" ]; then
+            echo "::error::未通過的 job:$bad"
+            exit 1
+          fi
