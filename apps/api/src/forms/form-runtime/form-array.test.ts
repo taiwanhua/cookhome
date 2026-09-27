@@ -113,6 +113,19 @@ describe("明細列(array):計算 / 守門 / 保護傳遞 / 錯誤定位 / 修�
       permission: { show: false, edit: true },
       rules: { required: true },
     }),
+    field("multiplier", "number"),
+    field("packed", "array", {
+      columns: [
+        column("qty", "number"),
+        column("scaled", "number", {
+          valueSource: {
+            kind: "computed",
+            expr: { "*": [{ var: "row.qty" }, { var: "multiplier" }] },
+          },
+        }),
+      ],
+      permission: { show: false, edit: true },
+    }),
   ];
 
   const A = randomUUID();
@@ -135,7 +148,12 @@ describe("明細列(array):計算 / 守門 / 保護傳遞 / 錯誤定位 / 修�
         itemRow(B, { name: "香蕉", qty: 3, price: "1.2" }),
       ],
       costs: [{ rowId: randomUUID(), qty: 2 }],
-      checked: [{ rowId: randomUUID(), item: "已確認" }],
+      checked: [
+        { rowId: randomUUID(), item: "已確認" },
+        { rowId: randomUUID(), item: "已覆核" },
+      ],
+      multiplier: 2,
+      packed: [{ rowId: randomUUID(), qty: 3 }],
       ...overrides,
     };
   }
@@ -158,6 +176,7 @@ describe("明細列(array):計算 / 守門 / 保護傳遞 / 錯誤定位 / 修�
         ...base,
         showKey(FORM, "unit_cost"),
         editKey(FORM, "checked"),
+        editKey(FORM, "packed"),
       ],
     });
     plain = await createOperator(api, connection, {
@@ -311,6 +330,57 @@ describe("明細列(array):計算 / 守門 / 保護傳遞 / 錯誤定位 / 修�
       show_items: false,
     });
     expect(created.values.checked).toBeNull();
+  });
+
+  it("修訂遮蔽:沒有 show 的人讀以前的修訂,受保護明細也是 [redacted]", async () => {
+    const view = await getSubmission(api, plain.token, submission.id, 1);
+    expect(view.values.costs).toBe("[redacted]");
+  });
+
+  it("沒有 edit 的人只改列的順序 → 403", async () => {
+    const view = await getSubmission(api, plain.token, submission.id);
+    const result = await call(api, plain.token, UPDATE_SUBMISSION, {
+      input: {
+        id: view.id,
+        expectedEditVersion: view.editVersion,
+        expectedRevision: view.revision,
+        values: {
+          ...view.values,
+          checked: rowsOf(view, "checked").toReversed(),
+        },
+      },
+    });
+    expect(extensionsOf(result)).toMatchObject({
+      code: "FORBIDDEN",
+      fieldKey: "checked",
+    });
+  });
+
+  it("沒有 edit 的人不送明細:保留的列其列內公式子欄仍由後端重算", async () => {
+    const created = await createSubmitted(
+      api,
+      author.token,
+      FORM,
+      baseValues(),
+    );
+    const view = await getSubmission(api, plain.token, created.id);
+    const values: Record<string, unknown> = { ...view.values, multiplier: 5 };
+    Reflect.deleteProperty(values, "packed");
+    const updated = await ok<{
+      updateFormSubmission: { submission: SubmissionRow };
+    }>(api, plain.token, UPDATE_SUBMISSION, {
+      input: {
+        id: view.id,
+        expectedEditVersion: view.editVersion,
+        expectedRevision: view.revision,
+        values,
+      },
+    });
+    expect(
+      rowsOf(updated.updateFormSubmission.submission, "packed").map(
+        (row) => row.scaled,
+      ),
+    ).toEqual(["15"]);
   });
 
   it("修訂差異:以 rowId 對列標示新增 / 刪除 / 移動 / 改值", async () => {

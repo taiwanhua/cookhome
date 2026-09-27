@@ -49,7 +49,10 @@ export class FormFieldOptionsService {
       input,
     );
     // 明細子欄以 `<明細 key>.<子欄 key>` 指定;權限看整個明細欄(子欄沒有自己的權限)
-    const [fieldKey, columnKey] = input.fieldKey.split(".", 2);
+    // 只收 `<欄位 key>` 或 `<明細 key>.<子欄 key>` 兩種;多於兩段一律當不存在的欄位
+    const segments = input.fieldKey.split(".");
+    const [fieldKey, columnKey] =
+      segments.length <= 2 ? segments : [undefined, undefined];
     const field = version.fields.find(
       (candidate) => candidate.key === fieldKey,
     );

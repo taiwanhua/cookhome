@@ -4,11 +4,13 @@ import { Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
 import {
+  type ArrayColumnDef,
   type ExpressionContext,
   type FieldDef,
   type FormDefinition,
   type StoredValues,
   type SubmissionSummary,
+  arrayColumnsOf,
   arrayRowsOf,
   computeSummary,
   defaultOrder,
@@ -1190,7 +1192,12 @@ export class FormSubmissionsService {
       ) {
         continue;
       }
-      const copied = await this.copiedValueOf(facts, field, value);
+      const copied = await this.copiedValueOf(
+        facts,
+        field,
+        value,
+        from.columns ?? [],
+      );
       if (copied === undefined) {
         cleared.push(field.key);
       } else {
@@ -1202,15 +1209,31 @@ export class FormSubmissionsService {
 
   /**
    * 一欄的複製值:引用失效、附件複製不成 → undefined(清空並列在 `clearedFields`)。
-   * 明細列每一列換新的 `rowId`(新單的列與來源的列是不同的列;子欄照目標版本的定義正規化)。
+   * 明細列每一列換新的 `rowId`(新單的列與來源的列是不同的列);子欄逐格只留目標版本仍有、型別相同、
+   * 使用者填的子欄(同表單層欄位的做法),其餘丟掉。
    */
   private async copiedValueOf(
     facts: FormOperatorFacts,
     field: FieldDef,
     value: unknown,
+    sourceColumns: readonly ArrayColumnDef[] = [],
   ): Promise<unknown> {
     if (field.type === "array") {
-      return arrayRowsOf(value).map((row) => ({ ...row, rowId: randomUUID() }));
+      const kept = arrayColumnsOf(field).filter(
+        (column) =>
+          column.valueSource.kind === "input" &&
+          sourceColumns.some(
+            (source) =>
+              source.key === column.key && source.type === column.type,
+          ),
+      );
+      return arrayRowsOf(value).map((row) => {
+        const copied: Record<string, unknown> = { rowId: randomUUID() };
+        for (const column of kept) {
+          copied[column.key] = row[column.key] ?? null;
+        }
+        return copied;
+      });
     }
     if (field.type === "reference") {
       const id = (value as { id?: unknown }).id;
