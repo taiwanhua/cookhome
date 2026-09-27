@@ -14,7 +14,7 @@
 - 沒有模組節點,表單無處可掛、權限無處可綁;所以模組永遠由 seed 建,表單才是執行期的。
 - 一張表單只屬一個模組;要在別的模組用,以它為基底建新表單。
 
-正本:`apps/db-migrator/seeds/modules/shopping-list.ts`(範例)、`apps/api/src/forms/`
+正本:`apps/db-migrator/seeds/form-module-declaration.ts`(示範表單的共用骨架)、`apps/api/src/forms/`
 
 ## 表單的三種身分與可新增的交集
 

@@ -4,7 +4,7 @@ import { DEMO_GROUP_KEY } from "./demo.sub.sample-one";
 export const DEMO_GROUP_FORM_KEY = `${DEMO_GROUP_KEY}.form`;
 
 /**
- * 示範表單(群組內):表單模組掛在群組底下的示範(正本:docs/modules/forms.md「示範表單模組」)。
+ * 示範表單(群組內):表單模組掛在群組底下的示範(正本:docs/modules/demo-form.md)。
  * `demo` 群組由 demo.sub.sample-one.ts 宣告。seed 只開骨架;表單、流程與綁定由根組織在畫面上建。
  */
 export const demoGroupFormModule = formModuleDeclaration({

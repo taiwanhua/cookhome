@@ -3,7 +3,7 @@ import { formModuleDeclaration } from "../form-module-declaration";
 export const DEMO_FORM_KEY = "demo-form";
 
 /**
- * 示範表單(頂層):表單模組掛在側欄頂層的示範(正本:docs/modules/forms.md「示範表單模組」)。
+ * 示範表單(頂層):表單模組掛在側欄頂層的示範(正本:docs/modules/demo-form.md)。
  * seed 只開骨架;表單、流程與綁定由根組織在畫面上建。
  */
 export const demoFormModule = formModuleDeclaration({

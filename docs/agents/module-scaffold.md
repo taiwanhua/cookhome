@@ -233,14 +233,14 @@ pnpm --filter @repo/graphql generate
 
 ## 表單模組路線
 
-欄位、版面、版本由使用者在後台「表單管理」設計的模組(`engine: "form"`),**不寫 schema、api、設定物件**:只宣告骨架、登記預設組裝,其餘全走畫面。範例 [購物清單](../modules/shopping-list.md),規則正本 [forms](../modules/forms.md),概念見 `docs/concepts/form-engine.md`。
+欄位、版面、版本由使用者在後台「表單管理」設計的模組(`engine: "form"`),**不寫 schema、api、設定物件**:只宣告骨架、登記預設組裝,其餘全走畫面。範例 [示範表單](../modules/demo-form.md),規則正本 [forms](../modules/forms.md),概念見 `docs/concepts/form-engine.md`。
 
 | 步驟 | 做什麼                                                                                                                                                                                                                                                                 | 正本                                                     |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| 1    | seed 宣告:列表節點加 `engine: "form"`;三個隱藏頁 `view-page` / `create-page` / `edit-page`(用跳窗的不宣告對應的頁);四筆權限 `view / create / edit / delete`;`dataScopeTarget` 的 `collection` 固定 `form_submissions`、欄位目錄只放 `status`(`moduleKey` 由 runner 填) | `apps/db-migrator/seeds/modules/shopping-list.ts`        |
+| 1    | seed 宣告:列表節點加 `engine: "form"`;三個隱藏頁 `view-page` / `create-page` / `edit-page`(用跳窗的不宣告對應的頁);四筆權限 `view / create / edit / delete`;`dataScopeTarget` 的 `collection` 固定 `form_submissions`、欄位目錄只放 `status`(`moduleKey` 由 runner 填) | `apps/db-migrator/seeds/form-module-declaration.ts`      |
 | 2    | 登記頁面:`apps/admin/src/app/module-pages.tsx` 展開 `...formModulePages(<模組 key>)`(四頁全用預設)                                                                                                                                                                     | `apps/admin/src/components/form-engine/FormModulePages/` |
-| 3    | help.md:`apps/admin/src/md/module-help/<模組 key>.help.md`,照購物清單的通用說明改模組名與用途                                                                                                                                                                          | `apps/admin/src/md/module-help/shopping-list.help.md`    |
-| 4    | 模組文件:`docs/modules/<模組 key>.md`,照購物清單的結構                                                                                                                                                                                                                 | `docs/modules/shopping-list.md`                          |
+| 3    | help.md:`apps/admin/src/md/module-help/<模組 key>.help.md`,照示範表單的通用說明改模組名與用途                                                                                                                                                                          | `apps/admin/src/md/module-help/demo-form.help.md`        |
+| 4    | 模組文件:`docs/modules/<模組 key>.md`,照示範表單的結構                                                                                                                                                                                                                 | `docs/modules/demo-form.md`                              |
 | 5    | 部署後:平台在「表單管理」建共用表單 → 設計 → 發布 → 分派租戶;列表欄位配置在「模組與權限」設定                                                                                                                                                                          | `apps/admin/src/md/module-help/system.forms.help.md`     |
 
 **客製頁**:登記方式不變(模組 key → 頁面元件),想怎麼排都可以,表單相關的部分用引擎零件(`FormRenderer`、`FormSubmissionList`、`FormSubmissionDetail`、`useFormDraft`…)綁進去:

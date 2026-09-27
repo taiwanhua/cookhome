@@ -270,7 +270,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
       .flatMap((set) => set.entries.map((entry) => entry.key));
 
     // 正本:docs/modules/demo.sub.sample-one.md 家族模組樹 + demo.sample-two.md 模組節點
-    // + docs/modules/forms.md「示範表單模組」(頂層 / 群組內 / 次群組內)
+    // + docs/modules/demo-form.md(頂層 / 群組內 / 次群組內)
     expect(moduleKeys.filter((key) => key.startsWith("demo"))).toEqual([
       "demo",
       "demo.sub",
