@@ -68,6 +68,8 @@ fragment FormSubmissionFields on FormSubmissionModel {
   voidReason
   replacedById
   copiedFrom
+  # 使用者碰過的欄位(草稿填寫時:沒碰過的欄位依賴變動會重算預設值)
+  touched
   abilities {
     canEdit
     canDelete

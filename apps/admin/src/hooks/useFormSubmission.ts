@@ -33,11 +33,18 @@ export interface FormSubmissionState {
   submission: FormSubmissionFieldsFragment | null;
   isLoading: boolean;
   loadError: FormError | null;
-  /** 草稿 / 退回 / 撤回:存草稿;已完成:儲存修改(修訂 +1,帶 `expectedRevision`) */
-  save: (values: StoredValues) => Promise<FormSubmissionFieldsFragment | null>;
+  /**
+   * 草稿 / 退回 / 撤回:存草稿(`touched` = 使用者碰過的欄位,一併存);
+   * 已完成:儲存修改(修訂 +1,帶 `expectedRevision`;`touched` 不送)
+   */
+  save: (
+    values: StoredValues,
+    touched?: readonly string[],
+  ) => Promise<FormSubmissionFieldsFragment | null>;
   /** 草稿 / 退回 / 撤回:存 + 送出(一顆鈕;綁流程的會進審核) */
   submit: (
     values: StoredValues,
+    touched?: readonly string[],
   ) => Promise<FormSubmissionFieldsFragment | null>;
   remove: () => Promise<boolean>;
   isPending: boolean;
@@ -88,12 +95,14 @@ export const useFormSubmission = (
   const saveAsDraft = async (
     current: FormSubmissionFieldsFragment,
     values: StoredValues,
+    touched: readonly string[] | undefined,
   ): Promise<FormSubmissionFieldsFragment> => {
     const payload = await saveDraft.mutateAsync({
       input: {
         id: current.id,
         expectedEditVersion: current.editVersion,
         values,
+        ...(touched !== undefined && { touched: [...touched] }),
       },
     });
     return payload.saveFormDraft.submission;
@@ -114,24 +123,24 @@ export const useFormSubmission = (
     return payload.updateFormSubmission.submission;
   };
 
-  const save = (values: StoredValues) =>
+  const save = (values: StoredValues, touched?: readonly string[]) =>
     wrap(async () => {
       if (submission === null) {
         return null;
       }
       const next = isDraftLike(submission.status)
-        ? await saveAsDraft(submission, values)
+        ? await saveAsDraft(submission, values, touched)
         : await saveCompleted(submission, values);
       updateCache(next);
       return next;
     });
 
-  const submit = (values: StoredValues) =>
+  const submit = (values: StoredValues, touched?: readonly string[]) =>
     wrap(async () => {
       if (submission === null) {
         return null;
       }
-      const saved = await saveAsDraft(submission, values);
+      const saved = await saveAsDraft(submission, values, touched);
       const payload = await submitDraft.mutateAsync({
         input: { id: saved.id, expectedEditVersion: saved.editVersion },
       });

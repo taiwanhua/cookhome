@@ -208,6 +208,15 @@ mutation RetireCurrentVersion($input: FormKeyInput!) {
   }
 }
 
+# DeleteFormVersionDraftInput: { formKey, expectedDraftRevision };發布中不可,revision 不符 → CONFLICT
+mutation DeleteFormVersionDraft($input: DeleteFormVersionDraftInput!) {
+  deleteFormVersionDraft(input: $input) {
+    form {
+      ...FormFields
+    }
+  }
+}
+
 # ValidateFormVersionInput: { formKey, fields, layout, summaryMap, prefills };不落庫
 query ValidateFormVersion($input: ValidateFormVersionInput!) {
   validateFormVersion(input: $input) {

@@ -89,6 +89,13 @@ export class FormSubmission {
   @Prop({ type: Number, default: 0 })
   editVersion!: number;
 
+  /**
+   * 使用者**碰過**的欄位 key(Spec 6a §5「預設值」):存草稿時由前端一併送來;沒碰過的欄位
+   * 在填寫時會隨依賴重算預設值,碰過就停。只對草稿有意義,送出後不再變動。
+   */
+  @Prop({ type: [String], default: [] })
+  touched!: string[];
+
   /** `createFormDraft` 的一次性 id;`(createdBy, clientRequestId)` 唯一,重試回同一筆。 */
   @Prop({ type: String, required: true })
   clientRequestId!: string;

@@ -97,4 +97,29 @@ describe("屬性面板依型別(Spec 6a §5 表 A)", () => {
       options: true,
     });
   });
+
+  it("日期時間:有日期上下限、預設值;上傳:檔型 / 大小上限,沒有預設值", () => {
+    expect(
+      sectionsOf(
+        field("start_at", "開始時間", "datetime", {
+          widget: { kind: "dateTimePicker" },
+        }),
+      ),
+    ).toMatchObject({
+      dateRange: true,
+      numberRange: false,
+      defaultValue: true,
+      uploadLimits: false,
+    });
+    expect(
+      sectionsOf(
+        field("proof", "附件", "upload", { widget: { kind: "upload" } }),
+      ),
+    ).toMatchObject({
+      uploadLimits: true,
+      defaultValue: false,
+      valueSource: false,
+      dateRange: false,
+    });
+  });
 });

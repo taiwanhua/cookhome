@@ -65,7 +65,7 @@ export const testUser: MeQuery["me"] = {
   email: "root@cookhome.online",
   nickname: null,
   mustChangePassword: false,
-  currentOrg: { ...testOrg, logoUrl: null },
+  currentOrg: { ...testOrg, logoUrl: null, timezone: "Asia/Taipei" },
   orgs: [testOrg],
   modules: [overviewModule],
 };
@@ -168,7 +168,9 @@ export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
   const resetRequests: string[] = [];
   /** 所屬組織 → 當前組織(多一個現簽的商標網址)。 */
   const toCurrentOrg = (org: TestOrg | undefined): TestCurrentOrg | null =>
-    org === undefined ? null : { ...org, logoUrl: currentOrgLogoUrl };
+    org === undefined
+      ? null
+      : { ...org, logoUrl: currentOrgLogoUrl, timezone: "Asia/Taipei" };
 
   const me: MeQuery["me"] = {
     ...testUser,

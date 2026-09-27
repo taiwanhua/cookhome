@@ -6,6 +6,7 @@ import { FormAccessService } from "./form-access.service";
 import { FormUserNames } from "./form-mapper";
 import { SubmissionValuesService } from "./form-values/submission-values.service";
 import { LookupProvidersService } from "./lookup-providers";
+import { MeOrgTimezoneResolver } from "./me-org-timezone.resolver";
 
 /**
  * 表單引擎的共用零件(設計端 `FormDesignModule` 與執行端 `FormRuntimeModule` 都用):
@@ -20,6 +21,7 @@ import { LookupProvidersService } from "./lookup-providers";
     LookupProvidersService,
     SubmissionValuesService,
     FormUserNames,
+    MeOrgTimezoneResolver,
   ],
   exports: [
     FormAccessService,

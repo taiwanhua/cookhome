@@ -41,6 +41,7 @@ export const FORM_VERSION_AUDIT = {
   publish: "form-version.publish",
   retryPublish: "form-version.retry-publish",
   retire: "form-version.retire",
+  deleteDraft: "form-version.delete-draft",
 } as const;
 
 export const FORM_VERSION_TARGET = "form_version";

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslations } from "use-intl";
 
+import { uploadLimitsOf } from "@repo/domain/form";
 import { UploadPurpose, useCreateUploadUrlMutation } from "@repo/graphql";
 import { Button } from "@repo/ui/button";
 import { Stack } from "@repo/ui/stack";
@@ -8,29 +9,18 @@ import { Typography } from "@repo/ui/typography";
 import { UploadField } from "@repo/ui/upload-field";
 
 import { useSession } from "@/hooks/useSession";
+import { acceptedExtensionsText } from "@/lib/form-engine/upload-types";
 import { uploadNameOf } from "@/lib/form-engine/value-text";
 
 import type { WidgetProps } from "./widget-types";
 
-/** 與 api 的 `FORM_ATTACHMENT` 用途一致(檔型與上限同示範附件;正本 `createUploadUrl` 的說明)。 */
-const ACCEPT = [
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/zip",
-  "application/x-zip-compressed",
-] as const;
-
-const MAX_SIZE = 20 * 1024 * 1024;
+const BYTES_PER_MB = 1024 * 1024;
 
 /**
  * 上傳欄(`upload` → `upload`;ADR-0010 的三步:要簽名上傳票 → 瀏覽器直傳 bucket → 存
  * `{ path, name, size, contentType }`)。選了檔就上傳,存值換成新檔;按「移除」存 null。
+ * 檔型 / 大小依欄位設定(`widget.accept` / `maxSizeMb`,只能收窄平台上限;`uploadLimitsOf`),
+ * 不符的檔在選檔時就擋下並提示;api 存草稿與送出時再驗一次。
  * 下載走 `formSubmissionAttachmentUrl`(詳情頁,看得到這一欄才簽)。
  */
 export const UploadWidget = ({
@@ -47,11 +37,18 @@ export const UploadWidget = ({
   const createUploadUrl = useCreateUploadUrlMutation(session.client);
   const [isUploading, setIsUploading] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [rejected, setRejected] = useState(false);
   const name = uploadNameOf(value);
+  const limits = uploadLimitsOf(field);
+  const limitText = {
+    types: acceptedExtensionsText(field),
+    size: limits.maxBytes / BYTES_PER_MB,
+  };
 
   const upload = async (file: File) => {
     setIsUploading(true);
     setFailed(false);
+    setRejected(false);
     try {
       const { createUploadUrl: ticket } = await createUploadUrl.mutateAsync({
         input: {
@@ -81,7 +78,12 @@ export const UploadWidget = ({
     }
   };
 
-  const note = failed ? t("uploadFailed") : helperText;
+  let note = helperText;
+  if (rejected) {
+    note = t("uploadRejected", limitText);
+  } else if (failed) {
+    note = t("uploadFailed");
+  }
 
   return (
     <Stack spacing={0.5}>
@@ -90,10 +92,15 @@ export const UploadWidget = ({
       </Typography>
       {name === "" ? (
         <UploadField
-          accept={ACCEPT}
-          maxSize={MAX_SIZE}
+          accept={limits.accept}
+          maxSize={limits.maxBytes}
           isDisabled={isDisabled || isDesign || isUploading}
-          hint={isUploading ? t("uploading") : t("uploadHint")}
+          hint={
+            isUploading ? t("uploading") : t("uploadHintLimited", limitText)
+          }
+          onError={() => {
+            setRejected(true);
+          }}
           onChange={(file) => {
             if (file !== null) {
               void upload(file);
@@ -120,7 +127,7 @@ export const UploadWidget = ({
       {note !== undefined && (
         <Typography
           variant="caption"
-          color={hasError || failed ? "error" : "text.secondary"}
+          color={hasError || failed || rejected ? "error" : "text.secondary"}
         >
           {note}
         </Typography>

@@ -60,6 +60,11 @@ export const RevisionDiff = ({
     no: tValue("no"),
     unavailable: tValue("sourceUnavailable"),
   };
+  // 日期時間以各修訂自己的時區顯示(那次送出 / 修改時的租戶時區)
+  const timezoneOf = (source: typeof before) =>
+    source.ctx === null || source.ctx === undefined
+      ? {}
+      : { timezone: source.ctx.timezone };
   const displayOf = (source: typeof before, fieldKey: string) =>
     source.displayValues.find((entry) => entry.fieldKey === fieldKey)?.items ??
     [];
@@ -92,6 +97,7 @@ export const RevisionDiff = ({
               field={change.field}
               value={change.before}
               display={displayOf(before, change.field.key)}
+              {...timezoneOf(before)}
               text={text}
             />
           ),
@@ -104,6 +110,7 @@ export const RevisionDiff = ({
               field={change.field}
               value={change.after}
               display={displayOf(after, change.field.key)}
+              {...timezoneOf(after)}
               text={text}
             />
           ),

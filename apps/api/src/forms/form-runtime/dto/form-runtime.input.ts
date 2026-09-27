@@ -56,9 +56,13 @@ export class CreateFormDraftInput {
   @Field(() => String)
   clientRequestId!: string;
 
-  /** 初始值(帶入後直接建);缺席 = 空白。 */
+  /** 初始值(帶入後直接建);缺席 = 空白。沒碰過且空著的欄位由後端填預設值。 */
   @Field(() => GraphQLJSONObject, { nullable: true })
   values?: Record<string, unknown> | null;
+
+  /** 使用者碰過的欄位 key(預設值不再覆蓋它們);缺席 = 都沒碰過。 */
+  @Field(() => [String], { nullable: true })
+  touched?: string[] | null;
 }
 
 /**
@@ -74,6 +78,10 @@ export class SaveFormDraftInput {
 
   @Field(() => GraphQLJSONObject)
   values!: Record<string, unknown>;
+
+  /** 使用者碰過的欄位 key(整份取代);缺席 = 保留目前存的。 */
+  @Field(() => [String], { nullable: true })
+  touched?: string[] | null;
 }
 
 /** 送出草稿(以存的值全驗、重算、寫快照)。 */

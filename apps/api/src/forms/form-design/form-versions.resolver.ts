@@ -13,6 +13,7 @@ import {
 } from "../models/form-common.model";
 import {
   CreateFormVersionDraftInput,
+  DeleteFormVersionDraftInput,
   FormKeyInput,
   PreviewFormVersionInput,
   PublishFormVersionInput,
@@ -124,6 +125,18 @@ export class FormVersionsResolver {
   ): Promise<FormPayload> {
     const facts = await this.access.factsOf(operator);
     const form = await this.versions.retireCurrent(facts, input);
+    return { form: await this.forms.get(facts, form.key) };
+  }
+
+  /** 刪除草稿(版本面板「刪除草稿」);發布中不可,`expectedDraftRevision` 不符 → 409。 */
+  @RequirePermission(FORMS_PERMISSIONS.edit)
+  @Mutation(() => FormPayload)
+  async deleteFormVersionDraft(
+    @Args("input") input: DeleteFormVersionDraftInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<FormPayload> {
+    const facts = await this.access.factsOf(operator);
+    const form = await this.versions.deleteDraft(facts, input);
     return { form: await this.forms.get(facts, form.key) };
   }
 

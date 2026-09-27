@@ -329,6 +329,16 @@
         "default": "./dist/cjs/date-picker.js"
       }
     },
+    "./date-time-picker": {
+      "import": {
+        "types": "./dist/es/date-time-picker.d.mts",
+        "default": "./dist/es/date-time-picker.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/date-time-picker.d.ts",
+        "default": "./dist/cjs/date-time-picker.js"
+      }
+    },
     "./tooltip": {
       "import": {
         "types": "./dist/es/tooltip.d.mts",

@@ -279,6 +279,7 @@ export const formRuntimeWorld = (
         revision: 0,
         revisions: [],
         values: input.values ?? {},
+        touched: input.touched ?? [],
         summary: null,
         submittedAt: null,
         editVersion: 1,
@@ -302,6 +303,7 @@ export const formRuntimeWorld = (
       }
       Object.assign(target, {
         values: input.values,
+        ...(input.touched != null && { touched: input.touched }),
         editVersion: target.editVersion + 1,
       });
       return payload("saveFormDraft", target);

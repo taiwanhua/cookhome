@@ -133,6 +133,16 @@ export class PublishFormVersionInput {
   changelog!: string;
 }
 
+/** 刪除表單草稿(`expectedDraftRevision` 樂觀鎖;發布中不可)。 */
+@InputType()
+export class DeleteFormVersionDraftInput {
+  @Field(() => ID)
+  formKey!: string;
+
+  @Field(() => Int)
+  expectedDraftRevision!: number;
+}
+
 /** 只帶表單 key 的動作(重試發布、退役目前版本)。 */
 @InputType()
 export class FormKeyInput {

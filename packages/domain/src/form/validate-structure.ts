@@ -99,7 +99,7 @@ function checkLayoutCol(
   placed.set(col.fieldKey, path);
 }
 
-/** 摘要槽可對的欄位型別:`title` 只能文字或靜態選項;`date` 只能日期;`amount` 只能數字。 */
+/** 摘要槽可對的欄位型別:`title` 只能文字或靜態選項;`date` 只能日期或日期時間;`amount` 只能數字。 */
 function isSummaryCompatible(slot: SummarySlot, field: FieldDef): boolean {
   switch (slot) {
     case "title": {
@@ -109,7 +109,7 @@ function isSummaryCompatible(slot: SummarySlot, field: FieldDef): boolean {
       );
     }
     case "date": {
-      return field.type === "date";
+      return field.type === "date" || field.type === "datetime";
     }
     case "amount": {
       return field.type === "number";

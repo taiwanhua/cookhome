@@ -9,6 +9,7 @@ export const FIELD_TYPES = [
   "multiline",
   "number",
   "date",
+  "datetime",
   "select",
   "multiSelect",
   "boolean",
@@ -80,7 +81,7 @@ export type TextFormat = (typeof TEXT_FORMATS)[number];
 
 export interface FieldRules {
   required?: boolean;
-  /** number:數值(decimal 字串或數字);date:`YYYY-MM-DD`。 */
+  /** number:數值(decimal 字串或數字);date:`YYYY-MM-DD`;datetime:ISO 8601(存時換成 UTC)。 */
   min?: number | string;
   max?: number | string;
   minLength?: number;
@@ -95,6 +96,13 @@ export interface FieldRules {
   custom?: Expression;
   /** `custom` 不成立時顯示的錯誤訊息;沒填用預設文字「X 不符合規則」。 */
   customMessage?: string;
+  /**
+   * 只有 `upload`:允許的檔型(MIME,如 `application/pdf`、`image/png`);不設 = 平台允許的全部。
+   * 必須是平台上傳政策允許的檔型之一(`FORM_UPLOAD_CONTENT_TYPES`),只能收窄。
+   */
+  accept?: readonly string[];
+  /** 只有 `upload`:單檔大小上限(MB);不設 = 平台上限(`FORM_UPLOAD_MAX_SIZE_MB`),只能調小。 */
+  maxSizeMb?: number;
 }
 
 export interface FieldWidget {
@@ -111,6 +119,17 @@ export interface FieldPermission {
   edit: boolean;
 }
 
+/**
+ * 欄位預設值(Spec §5「預設值」):只有 `valueSource.kind = "input"` 的欄位有。
+ * - `constant`:固定值(存值形狀同該型別;單選 / 多選 = 選項值,靜態選項存 `value`、類別 / lookup 存 `{ value, label }`)
+ * - `expression`:公式,根節點型別 = 欄位型別;`reference` 只能 `ctx.user.id` / `ctx.user.orgId`
+ *
+ * 新增草稿時算一次;使用者沒碰過(`touched[]` 沒有它)前,依賴的欄位變了前端會重算。
+ */
+export type FieldDefault =
+  | { kind: "constant"; value: unknown }
+  | { kind: "expression"; expr: Expression };
+
 /** `form_versions.fields[]` 的一筆。 */
 export interface FieldDef {
   key: string;
@@ -124,6 +143,8 @@ export interface FieldDef {
   rules?: FieldRules | null;
   visibleWhen?: Expression;
   readonlyWhen?: Expression;
+  /** 預設值(只有使用者填的欄位;`upload` 沒有)。 */
+  default?: FieldDefault | null;
   permission?: FieldPermission | null;
   help?: string | null;
   /** 只有 `reference`:lookup 來源描述。 */

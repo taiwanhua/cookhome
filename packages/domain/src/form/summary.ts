@@ -6,7 +6,7 @@ import type { FieldDef, FormDefinition, StoredValues } from "./types";
  */
 export interface SubmissionSummary {
   title: string | null;
-  /** `YYYY-MM-DD` 或 ISO 時間;`summaryMap.date` 沒對欄位時 = 送出時間。 */
+  /** `YYYY-MM-DD`(對日期欄)或 ISO 時間(對日期時間欄);`summaryMap.date` 沒對欄位時 = 送出時間。 */
   date: string | null;
   /** 只有 `summaryMap.amount` 有對欄位時才有這個鍵(decimal 字串)。 */
   amount?: string | null;

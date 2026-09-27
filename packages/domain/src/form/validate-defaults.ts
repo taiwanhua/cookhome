@@ -1,0 +1,164 @@
+import type { IssueCollector } from "./issues";
+import type { FieldDef, FieldType } from "./types";
+import { normalizeFieldValue } from "./values";
+
+/**
+ * 檢查器的預設值段(Spec 6a §5「預設值」、表 A「預設值」列):
+ *
+ * - 只有「使用者填」的欄位能設;`upload` 沒有預設值
+ * - 各型別能用的種類:文字 / 多行 / 數字 / 日期 / 日期時間 = 固定或公式;單選 / 多選 = 從選項挑(固定);
+ *   是 / 否 = 固定;引用 = 只能系統值「填寫者 / 填寫者的組織」
+ * - 固定值要是該型別的合法值;靜態選項的值必須在選項清單內
+ *
+ * 公式的形狀、引用、自我引用、循環與根型別由表達式段(`validate-expressions.ts`、
+ * `validate-expression-types.ts`)以 `default.expr` 槽檢查。
+ */
+
+type DefaultKind = "constant" | "expression";
+
+const DEFAULT_KINDS: Readonly<Record<FieldType, readonly DefaultKind[]>> = {
+  text: ["constant", "expression"],
+  multiline: ["constant", "expression"],
+  number: ["constant", "expression"],
+  date: ["constant", "expression"],
+  datetime: ["constant", "expression"],
+  select: ["constant"],
+  multiSelect: ["constant"],
+  boolean: ["constant"],
+  upload: [],
+  reference: ["expression"],
+};
+
+/** 引用欄的預設值只能是這兩個系統值。 */
+export const REFERENCE_DEFAULT_PATHS = [
+  "ctx.user.id",
+  "ctx.user.orgId",
+] as const;
+
+/** 某型別的欄位能用哪幾種預設值(設計器面板與檢查器共用)。 */
+export function defaultKindsOf(type: FieldType): readonly DefaultKind[] {
+  return DEFAULT_KINDS[type];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** `{ var: "ctx.user.id" }` / `{ var: ["ctx.user.orgId"] }` 這種「只有一個系統值」的公式。 */
+function referenceDefaultPathOf(expr: unknown): string | null {
+  if (!isRecord(expr) || Object.keys(expr).length !== 1) {
+    return null;
+  }
+  const argument: unknown = expr.var;
+  const path: unknown = Array.isArray(argument)
+    ? (argument as unknown[])[0]
+    : argument;
+  return typeof path === "string" &&
+    (REFERENCE_DEFAULT_PATHS as readonly string[]).includes(path)
+    ? path
+    : null;
+}
+
+/** 選項欄的一個預設值的識別(靜態選項存 value 字串;類別 / lookup 存 `{ value, label }`)。 */
+function optionValueOf(item: unknown): unknown {
+  return isRecord(item) ? item.value : item;
+}
+
+export function validateDefaults(
+  fields: readonly FieldDef[],
+  collector: IssueCollector,
+): void {
+  for (const field of fields) {
+    const fallback: unknown = field.default;
+    if (fallback !== undefined && fallback !== null) {
+      validateDefault(field, fallback, collector);
+    }
+  }
+}
+
+function validateDefault(
+  field: FieldDef,
+  fallback: unknown,
+  collector: IssueCollector,
+): void {
+  const location = { fieldKey: field.key, property: "default" };
+  if (field.valueSource.kind !== "input" || field.type === "upload") {
+    collector.error(
+      "DEFAULT_NOT_ALLOWED",
+      field.type === "upload"
+        ? `上傳欄位「${field.label}」不能設預設值`
+        : `「${field.label}」不是使用者填的欄位,不能設預設值`,
+      location,
+    );
+    return;
+  }
+  const kind = isRecord(fallback) ? fallback.kind : undefined;
+  const kinds = DEFAULT_KINDS[field.type] as readonly unknown[];
+  if (!kinds.includes(kind)) {
+    collector.error(
+      "DEFAULT_KIND_INVALID",
+      `「${field.label}」的預設值不能用這種設定`,
+      location,
+    );
+    return;
+  }
+  if (kind === "constant") {
+    validateConstantDefault(
+      field,
+      (fallback as { value?: unknown }).value,
+      collector,
+    );
+    return;
+  }
+  const expr = (fallback as { expr?: unknown }).expr;
+  if (expr === undefined) {
+    collector.error(
+      "DEFAULT_KIND_INVALID",
+      `「${field.label}」的預設值公式是空的`,
+      location,
+    );
+  } else if (
+    field.type === "reference" &&
+    referenceDefaultPathOf(expr) === null
+  ) {
+    collector.error(
+      "DEFAULT_REFERENCE_INVALID",
+      `引用欄位「${field.label}」的預設值只能是「填寫者」或「填寫者的組織」`,
+      { ...location, exprSlot: "default.expr", exprPath: "" },
+    );
+  }
+}
+
+function validateConstantDefault(
+  field: FieldDef,
+  value: unknown,
+  collector: IssueCollector,
+): void {
+  const location = { fieldKey: field.key, property: "default.value" };
+  const normalized = normalizeFieldValue(field, value);
+  if (!normalized.ok) {
+    collector.error(
+      "DEFAULT_VALUE_INVALID",
+      `「${field.label}」的預設值不是這個型別的合法值`,
+      location,
+    );
+    return;
+  }
+  if (
+    (field.type === "select" || field.type === "multiSelect") &&
+    field.options?.kind === "static" &&
+    normalized.value !== null
+  ) {
+    const values = new Set(field.options.items.map((item) => item.value));
+    const picked = Array.isArray(normalized.value)
+      ? normalized.value
+      : [normalized.value];
+    if (picked.some((item) => !values.has(String(optionValueOf(item))))) {
+      collector.error(
+        "DEFAULT_VALUE_INVALID",
+        `「${field.label}」的預設值必須從選項裡挑`,
+        location,
+      );
+    }
+  }
+}

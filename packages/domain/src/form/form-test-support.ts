@@ -11,6 +11,7 @@ const DEFAULT_WIDGET: Record<FieldType, string> = {
   multiline: "textArea",
   number: "number",
   date: "datePicker",
+  datetime: "dateTimePicker",
   select: "dropdown",
   multiSelect: "checkboxGroup",
   boolean: "switch",

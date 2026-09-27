@@ -13,9 +13,12 @@ import { Typography } from "@repo/ui/typography";
 
 import { FormRenderer } from "@/components/form-engine/FormRenderer/FormRenderer";
 import { LookupDialog } from "@/components/form-engine/LookupDialog/LookupDialog";
+import { useFillValues } from "@/hooks/useFillValues";
 import { useMe } from "@/hooks/useMe";
 import { useSession } from "@/hooks/useSession";
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
+import { OPEN_PERMISSIONS } from "@/lib/form-engine/field-states";
 import { formErrorOf } from "@/lib/form-engine/form-errors";
 
 export interface DesignerPreviewProps {
@@ -32,7 +35,7 @@ type PreviewResult = PreviewFormVersionQuery["previewFormVersion"];
 /**
  * 預覽模式(Spec 6a §8「設計模式 vs 預覽」):`FormRenderer` 的 `preview` 模式 —— 條件與計算前端即時跑、
  * 不套欄位級權限、輸入測試值、不建提交;「以後端重算」打 `previewFormVersion` 對**已存的草稿**算一次
- * (以後端為準:摘要槽、值錯誤)。
+ * (以後端為準:摘要槽、值錯誤)。預設值與填寫頁同一套:一打開就填好,沒碰過的欄位跟著依賴重算。
  */
 export const DesignerPreview = ({
   formKey,
@@ -44,13 +47,32 @@ export const DesignerPreview = ({
   const tErrors = useTranslations("admin.forms.errors");
   const { session } = useSession();
   const me = useMe();
-  const [values, setValues] = useState<StoredValues>({});
   const [result, setResult] = useState<PreviewResult | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isPrefilling, setIsPrefilling] = useState(false);
   const [now] = useState(() => new Date());
   const user = me.data?.me;
+  const timezone = useTenantTimezone();
+  const expressionContext = liveContextOf(
+    user?.id ?? null,
+    user?.currentOrg?.id ?? null,
+    now,
+    timezone,
+  );
+  const fill = useFillValues({
+    fields: definition.fields,
+    initialValues: {},
+    ctx: expressionContext,
+    permissions: OPEN_PERMISSIONS,
+    recomputeDefaults: true,
+    fillOnMount: true,
+    systemLabels: {
+      user: user?.name ?? null,
+      org: user?.currentOrg?.name ?? null,
+    },
+  });
+  const values: StoredValues = fill.values;
 
   const runOnServer = async () => {
     setIsRunning(true);
@@ -105,14 +127,10 @@ export const DesignerPreview = ({
         values={values}
         mode="preview"
         context={{ formKey, version }}
-        expressionContext={liveContextOf(
-          user?.id ?? null,
-          user?.currentOrg?.id ?? null,
-          now,
-        )}
+        expressionContext={expressionContext}
         onChange={(next) => {
           // 改了測試值,後端上一輪的結果就過期了:回到前端即時算,等下一次「以後端重算」
-          setValues(next);
+          fill.change(next);
           setResult(null);
         }}
         serverState={result}
@@ -139,7 +157,7 @@ export const DesignerPreview = ({
           values={values}
           canEdit={() => true}
           onApply={(patch) => {
-            setValues((current) => ({ ...current, ...patch }));
+            fill.change({ ...values, ...patch });
             setResult(null);
             setIsPrefilling(false);
           }}

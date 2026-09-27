@@ -293,6 +293,7 @@ export const submissionFragment = (
   voidReason: null,
   replacedById: null,
   copiedFrom: null,
+  touched: [],
   abilities: {
     canEdit: true,
     canDelete: true,

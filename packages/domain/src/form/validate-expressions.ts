@@ -38,11 +38,18 @@ interface SlotExpression {
   expr: Expression;
 }
 
-/** 欄位上所有有值的表達式(null / undefined = 沒設)。 */
+/** 欄位上所有有值的表達式(null / undefined = 沒設;預設值只算公式)。 */
 export function expressionsOf(field: FieldDef): SlotExpression[] {
   const slots: SlotExpression[] = [];
   if (field.valueSource.kind === "computed") {
     slots.push({ slot: "valueSource.expr", expr: field.valueSource.expr });
+  }
+  if (
+    field.default?.kind === "expression" &&
+    // 定義來自設計器送來的 JSON,型別保證不了公式一定在
+    (field.default as { expr?: unknown }).expr !== undefined
+  ) {
+    slots.push({ slot: "default.expr", expr: field.default.expr });
   }
   const optional: [ExpressionSlot, Expression | undefined][] = [
     ["visibleWhen", field.visibleWhen],
@@ -119,6 +126,13 @@ function validateOne(
         location,
       );
     }
+    if (slot === "default.expr" && ref.fieldKey === field.key) {
+      collector.error(
+        "DEFAULT_SELF",
+        `「${field.label}」的預設值公式不可引用自己`,
+        location,
+      );
+    }
     if (
       CONDITION_SLOTS.has(slot) &&
       isProtected(protections.get(ref.fieldKey))
@@ -159,10 +173,11 @@ function validateRequiredVisibility(
 }
 
 /**
- * 循環(含跨類型):欄位 A 的值依賴它的公式、顯示條件(隱藏即清空)與唯讀條件(唯讀即保留舊值)
- * 引用到的欄位。這三種邊合成一張圖,任何圈都是錯誤 — 例如「計算欄位 total 引用 qty、
- * qty 的顯示條件又引用 total」。自我引用:公式引用自己算循環;顯示條件引用自己另報
- * `EXPR_VISIBLE_SELF`;唯讀條件引用自己(「超過 5 就鎖住」)是合理用法,不算。
+ * 循環(含跨類型):欄位 A 的值依賴它的公式、預設值公式(沒碰過前跟著重算)、顯示條件(隱藏即清空)
+ * 與唯讀條件(唯讀即保留舊值)引用到的欄位。這四種邊合成一張圖,任何圈都是錯誤 — 例如「計算欄位
+ * total 引用 qty、qty 的顯示條件又引用 total」。自我引用:公式引用自己算循環;顯示條件引用自己另報
+ * `EXPR_VISIBLE_SELF`、預設值引用自己另報 `DEFAULT_SELF`;唯讀條件引用自己(「超過 5 就鎖住」)
+ * 是合理用法,不算。
  */
 function validateCycles(
   fields: readonly FieldDef[],

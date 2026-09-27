@@ -229,7 +229,7 @@ describe("表單管理:型別導向的表達式選擇器(表 B)", () => {
     });
   });
 
-  it("公式參數依型別過濾:乘法的參數只列數字欄;換成日期差出現單位下拉(先只有天),產生第三參數", async () => {
+  it("公式參數依型別過濾:乘法的參數只列數字欄;換成日期差出現單位下拉(天 / 小時 / 分鐘),產生第三參數", async () => {
     const { user, world } = renderFormsPage();
     await findDesigner();
     await selectField(user, "總價", "total");
@@ -258,15 +258,19 @@ describe("表單管理:型別導向的表達式選擇器(表 B)", () => {
       "運算",
     ]);
     await user.keyboard("{Escape}");
-    // 單位先只開放「天」(#482 接上小時 / 分鐘的計算後才開放)
-    expect(await openSelect(user, "單位", formula)).toEqual(["天"]);
-    await user.click(screen.getByRole("option", { name: "天" }));
+    // 三種單位都開放(#482:天 = 日曆日、小時 / 分鐘 = 精確差)
+    expect(await openSelect(user, "單位", formula)).toEqual([
+      "天",
+      "小時",
+      "分鐘",
+    ]);
+    await user.click(screen.getByRole("option", { name: "小時" }));
 
     const fields = await savedFields(user, world);
     expect(fields.find((item) => item.key === "total")).toMatchObject({
       valueSource: {
         kind: "computed",
-        expr: { dateDiff: [null, null, "days"] },
+        expr: { dateDiff: [null, null, "hours"] },
       },
     });
   });

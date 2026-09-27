@@ -18,6 +18,7 @@ import type { FieldKeyProblem } from "@/lib/form-engine/designer-ops";
 import { conditionFieldsOf } from "@/lib/form-engine/expression-options";
 import { propertySectionsOf } from "@/lib/form-engine/property-sections";
 
+import { DefaultValueEditor } from "./DefaultValueEditor";
 import { FieldBasicsEditor } from "./FieldBasicsEditor";
 import { LookupSourceEditor } from "./LookupSourceEditor";
 import { OptionsEditor } from "./OptionsEditor";
@@ -27,6 +28,8 @@ import { ValueSourceEditor } from "./ValueSourceEditor";
 export interface FieldPropertyPanelProps {
   field: FieldDef;
   fields: readonly FieldDef[];
+  /** 表單 key(類別 / 資料來源選項欄的預設值用填寫時的選擇器挑,要查這張表單的草稿) */
+  formKey: string;
   span: number | null;
   /** 檢查器指到這個欄位的錯誤與警告(點檢查結果定位到這裡) */
   issues: readonly DesignerIssue[];
@@ -47,6 +50,7 @@ export interface FieldPropertyPanelProps {
 export const FieldPropertyPanel = ({
   field,
   fields,
+  formKey,
   span,
   issues,
   keyProblemOf,
@@ -108,11 +112,26 @@ export const FieldPropertyPanel = ({
           fields={fields}
           exprIssues={slotIssues("valueSource.expr")}
           onChange={(valueSource) => {
-            onChange({ ...field, valueSource });
+            // 預設值只屬於「使用者填」:改成公式 / 固定值時一併拿掉(否則檢查器報 DEFAULT_NOT_ALLOWED)
+            onChange({
+              ...field,
+              valueSource,
+              ...(valueSource.kind !== "input" && { default: null }),
+            });
           }}
         />
       )}
-      {/* 預設值(值來源 = 使用者填才有,見 sections.defaultValue)的編輯器接在這裡 */}
+      {sections.defaultValue && (
+        <DefaultValueEditor
+          field={field}
+          fields={fields}
+          formKey={formKey}
+          exprIssues={slotIssues("default.expr")}
+          onChange={(fallback) => {
+            onChange({ ...field, default: fallback });
+          }}
+        />
+      )}
       {sections.options && (
         <OptionsEditor
           value={field.options}

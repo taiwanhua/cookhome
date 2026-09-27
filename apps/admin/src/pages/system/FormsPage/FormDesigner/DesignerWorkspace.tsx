@@ -151,6 +151,7 @@ export const DesignerWorkspace = ({
                 key={selected._id}
                 field={selected}
                 fields={definition.fields}
+                formKey={form.key}
                 span={spanOf(definition, selected._id)}
                 issues={allIssues.filter(
                   (issue) => issue.location.fieldKey === selected.key,
