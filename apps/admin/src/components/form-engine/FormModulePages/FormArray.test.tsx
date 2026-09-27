@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { SHOPPING_ROUTES } from "@/test/msw/form-fixtures";
+import { DEMO_FORM_ROUTES } from "@/test/msw/form-fixtures";
 
 import {
   arrayRuntimeOptions,
@@ -10,7 +10,7 @@ import {
 } from "./form-array-test-support";
 import { renderShopping } from "./form-module-test-support";
 
-const CREATE_PATH = `${SHOPPING_ROUTES.createPage}/shopping_list`;
+const CREATE_PATH = `${DEMO_FORM_ROUTES.createPage}/shopping_list`;
 
 type User = ReturnType<typeof renderShopping>["user"];
 
