@@ -134,7 +134,7 @@ const pickRootOperator = async (
 };
 
 describe("表單管理:固定值用依型別的輸入元件,存正確型別", () => {
-  it("是 / 否存布林、多選存陣列", async () => {
+  it("是 / 否存布林", async () => {
     const { user, world } = renderBatch();
     await findDesigner();
 
@@ -143,15 +143,22 @@ describe("表單管理:固定值用依型別的輸入元件,存正確型別", ()
     expect(await openSelect(user, "固定值")).toEqual(["是", "否"]);
     await user.click(screen.getByRole("option", { name: "是" }));
 
+    const fields = await savedFields(user, world);
+    expect(fields.find((item) => item.key === "flag")).toMatchObject({
+      valueSource: { kind: "constant", value: true },
+    });
+  });
+
+  it("多選存陣列", async () => {
+    const { user, world } = renderBatch();
+    await findDesigner();
+
     await selectField(user, "標籤", "tags");
     await pickOption(user, "值的來源", "固定值");
     await pickOption(user, "固定值", "特休");
     await user.keyboard("{Escape}");
 
     const fields = await savedFields(user, world);
-    expect(fields.find((item) => item.key === "flag")).toMatchObject({
-      valueSource: { kind: "constant", value: true },
-    });
     expect(fields.find((item) => item.key === "tags")).toMatchObject({
       valueSource: { kind: "constant", value: ["annual"] },
     });
@@ -278,8 +285,30 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
     });
   });
 
-  it("單選的公式根是「選項」:只列如果、選項常數從該欄位選項挑,不列串接", async () => {
+  it("單選公式的然後:常數種類只有「選項」,從該欄位選項挑", async () => {
     const { user, world } = renderBatch();
+    await findDesigner();
+    await selectField(user, "假別", "leave");
+    await pickOption(user, "值的來源", "計算");
+    const formula = await screen.findByRole("group", { name: "公式" });
+
+    // 然後:選項常數從「假別」的選項挑
+    await pickOption(user, "節點種類(if.1)", "常數", formula);
+    expect(await openSelect(user, "常數種類", formula)).toEqual(["選項"]);
+    await user.keyboard("{Escape}");
+    await pickOption(user, "假別 的選項", "特休", formula);
+
+    const fields = await savedFields(user, world);
+    expect(fields.find((item) => item.key === "leave")).toMatchObject({
+      valueSource: {
+        kind: "computed",
+        expr: { if: [{ "==": [null, null] }, "annual", null] },
+      },
+    });
+  });
+
+  it("單選的公式根的運算只列「如果…則…否則」", async () => {
+    const { user } = renderBatch();
     await findDesigner();
     await selectField(user, "假別", "leave");
     await pickOption(user, "值的來源", "計算");
@@ -294,20 +323,6 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
         .getAllByRole("option")
         .map((option) => option.textContent),
     ).toEqual(["如果…則…否則"]);
-    await user.keyboard("{Escape}");
-    // 然後:選項常數從「假別」的選項挑
-    await pickOption(user, "節點種類(if.1)", "常數", formula);
-    expect(await openSelect(user, "常數種類", formula)).toEqual(["選項"]);
-    await user.keyboard("{Escape}");
-    await pickOption(user, "假別 的選項", "特休", formula);
-
-    const fields = await savedFields(user, world);
-    expect(fields.find((item) => item.key === "leave")).toMatchObject({
-      valueSource: {
-        kind: "computed",
-        expr: { if: [{ "==": [null, null] }, "annual", null] },
-      },
-    });
   });
 
   it("單選公式的否則:欄位只列同選項來源的單選", async () => {
