@@ -16,7 +16,10 @@
  * - `temporal.ts`:日期 / 日期時間的單一入口(時點 `toInstant`、租戶時區的當地日期、日曆加減、`formatTemporal`)
  * - `defaults.ts`:欄位預設值的計算(api 建草稿填空欄、admin 沒碰過的欄位跟著重算)
  * - `upload.ts`:上傳欄的檔型 / 大小上限(平台上限 + 欄位收窄)
+ * - `array.ts` / `array-diff.ts`:明細列(`array`)的上限、子欄白名單、`rowId`、列數範圍與以 `rowId` 對列的修訂差異
  */
+export * from "./array";
+export * from "./array-diff";
 export * from "./compute";
 export * from "./defaults";
 export * from "./dependencies";

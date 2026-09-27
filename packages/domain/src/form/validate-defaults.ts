@@ -29,6 +29,8 @@ const DEFAULT_KINDS: Readonly<Record<FieldType, readonly DefaultKind[]>> = {
   boolean: ["constant"],
   upload: [],
   reference: ["expression"],
+  // 明細列第一版沒有預設值(整欄與子欄都沒有)
+  array: [],
 };
 
 /** 引用欄的預設值只能是這兩個系統值。 */

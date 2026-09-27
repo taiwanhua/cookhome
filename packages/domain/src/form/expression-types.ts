@@ -51,6 +51,8 @@ export const FIELD_EXPRESSION_TYPES: Readonly<
   boolean: "boolean",
   upload: null,
   reference: "text",
+  // 明細欄不能整個進表達式:表單層用彙總運算子讀它的子欄(`sumOf` / `countOf`…)
+  array: null,
 };
 
 /** 系統值(畫面上的「系統值」= `ctx.*`)的型別:現在時間 = 日期時間,其餘是文字。 */
@@ -112,6 +114,7 @@ export function isCalendarUnit(value: unknown): value is LocalCalendarUnit {
  * - `dateUnit`:`dateDiff` 的單位字串
  * - `dateDirection` / `calendarUnit`:`dateAdd` 的方向(`before` / `after`)與日曆單位字串
  * - `dateLiteral`:日期常數 `{ "date": ISO }` 的 ISO 字串
+ * - `arrayField` / `arrayColumn`:彙總運算子的明細欄 key 與 `number` 子欄 key 字串
  */
 export type ParamSpec =
   | { kind: "types"; types: ExpectedTypes }
@@ -121,7 +124,9 @@ export type ParamSpec =
   | { kind: "dateUnit" }
   | { kind: "dateDirection" }
   | { kind: "calendarUnit" }
-  | { kind: "dateLiteral" };
+  | { kind: "dateLiteral" }
+  | { kind: "arrayField" }
+  | { kind: "arrayColumn" };
 
 /** 不是一般值的參數位置(選擇器畫成下拉、檢查器另外驗字面值)。 */
 export type LiteralParamKind = Exclude<
@@ -168,6 +173,12 @@ const ORDERING: OperatorSignature = {
 const ARITHMETIC: OperatorSignature = {
   params: [NUMBERS, NUMBERS],
   rest: NUMBERS,
+  returns: "number",
+};
+
+/** 彙總:明細欄 key、`number` 子欄 key(皆字面)→ 數字。 */
+const AGGREGATE: OperatorSignature = {
+  params: [{ kind: "arrayField" }, { kind: "arrayColumn" }],
   returns: "number",
 };
 
@@ -227,6 +238,11 @@ export const OPERATOR_SIGNATURES: Readonly<
   // 日期常數:把 ISO 標成「日期」(選擇器的常數種類「日期」產生它,不在運算子清單裡)
   date: { params: [{ kind: "dateLiteral" }], returns: "date" },
   concat: { params: [TEXTS, TEXTS], rest: TEXTS, returns: "text" },
+  sumOf: AGGREGATE,
+  minOf: AGGREGATE,
+  maxOf: AGGREGATE,
+  avgOf: AGGREGATE,
+  countOf: { params: [{ kind: "arrayField" }], returns: "number" },
   optionLabel: { params: [{ kind: "optionField" }], returns: "text" },
   now: { params: [], returns: "datetime" },
 };
@@ -425,7 +441,9 @@ export function expectedTypesAt(
     case "dateUnit":
     case "dateDirection":
     case "calendarUnit":
-    case "dateLiteral": {
+    case "dateLiteral":
+    case "arrayField":
+    case "arrayColumn": {
       return [];
     }
   }

@@ -1,3 +1,5 @@
+import { arrayColumnsOf } from "./array";
+import { rowAwareTypeLookup } from "./expression";
 import { scanExpression } from "./expression-shape";
 import {
   type ExpectedTypes,
@@ -20,7 +22,11 @@ import {
   isTypeAccepted,
   paramSpecAt,
 } from "./expression-types";
-import type { ExpressionSlot, IssueCollector } from "./issues";
+import type {
+  DefinitionIssueLocation,
+  ExpressionSlot,
+  IssueCollector,
+} from "./issues";
 import type { Expression, FieldDef } from "./types";
 import { expressionsOf } from "./validate-expressions";
 
@@ -62,7 +68,10 @@ const SLOT_LABELS: Readonly<Record<ExpressionSlot, string>> = {
 const OPTION_LABEL_TYPES = new Set(["select", "multiSelect", "reference"]);
 
 interface TypeCheckContext {
+  /** 表達式所在的欄位(列內公式 = 那個子欄,當 FieldDef 用;訊息的標題取它) */
   field: FieldDef;
+  /** 列內公式:所在的明細欄 key(定位 = 明細欄 + 子欄) */
+  arrayKey?: string;
   /** 選項位置的目標欄位(選項欄公式 = 欄位自己);只在期望型別是 `option` / `optionList` 時有意義 */
   optionTarget: FieldDef;
   slot: ExpressionSlot;
@@ -117,6 +126,43 @@ export function validateExpressionTypes(
         "",
       );
     }
+    checkColumnExpressions(field, typeOf, fieldsByKey, collector);
+  }
+}
+
+/** 列內公式:根 = 子欄型別;`row.<子欄 key>` 的型別照同一個明細的子欄。 */
+function checkColumnExpressions(
+  field: FieldDef,
+  typeOf: FieldTypeLookup,
+  fieldsByKey: ReadonlyMap<string, FieldDef>,
+  collector: IssueCollector,
+): void {
+  const columns = arrayColumnsOf(field);
+  const columnTypeOf = rowAwareTypeLookup(typeOf, columns);
+  for (const column of columns) {
+    const source = column.valueSource as { kind?: unknown; expr?: unknown };
+    if (source.kind !== "computed" || source.expr === undefined) {
+      continue;
+    }
+    const expr = source.expr as Expression;
+    const expected = rootExpectedOf(column, "valueSource.expr");
+    if (expected === undefined || scanExpression(expr).issues.length > 0) {
+      continue;
+    }
+    checkNode(
+      {
+        field: column,
+        arrayKey: field.key,
+        optionTarget: column,
+        slot: "valueSource.expr",
+        typeOf: columnTypeOf,
+        fieldsByKey,
+        collector,
+      },
+      expr,
+      expected,
+      "",
+    );
   }
 }
 
@@ -143,6 +189,21 @@ function isEmptyComparison(operator: string, raw: Expression): boolean {
   return args.length > 0 && args.every((arg) => arg === null);
 }
 
+/** 錯誤定位:表單層 = 欄位;列內公式 = 明細欄 + 子欄。 */
+function locationOf(
+  context: TypeCheckContext,
+  path: string,
+): DefinitionIssueLocation {
+  return context.arrayKey === undefined
+    ? { fieldKey: context.field.key, exprSlot: context.slot, exprPath: path }
+    : {
+        fieldKey: context.arrayKey,
+        columnKey: context.field.key,
+        exprSlot: context.slot,
+        exprPath: path,
+      };
+}
+
 function mismatch(
   context: TypeCheckContext,
   path: string,
@@ -153,7 +214,7 @@ function mismatch(
   context.collector.error(
     "EXPR_TYPE_MISMATCH",
     `「${field.label}」的${SLOT_LABELS[slot]}在這個位置需要${describe(expected)},拿到的是${actual}`,
-    { fieldKey: field.key, exprSlot: slot, exprPath: path },
+    locationOf(context, path),
   );
 }
 
@@ -193,11 +254,7 @@ function checkNode(
     context.collector.error(
       "EXPR_COMPARISON_EMPTY",
       `「${context.field.label}」的${SLOT_LABELS[context.slot]}有一個比較兩邊都還沒選`,
-      {
-        fieldKey: context.field.key,
-        exprSlot: context.slot,
-        exprPath: operatorPath,
-      },
+      locationOf(context, operatorPath),
     );
     return;
   }
@@ -275,7 +332,7 @@ function checkLiteralArgument(
   context.collector.error(
     rule.code,
     `「${context.field.label}」的${SLOT_LABELS[context.slot]}:${rule.detail}`,
-    { fieldKey: context.field.key, exprSlot: context.slot, exprPath: path },
+    locationOf(context, path),
   );
 }
 
@@ -396,7 +453,7 @@ function checkOptionConstant(
     context.collector.error(
       "EXPR_OPTION_UNKNOWN",
       `「${context.field.label}」的${SLOT_LABELS[context.slot]}:${unknown.map((item) => JSON.stringify(item)).join("、")} 不是「${context.optionTarget.label}」的選項`,
-      { fieldKey: context.field.key, exprSlot: context.slot, exprPath: path },
+      locationOf(context, path),
     );
   }
 }
@@ -413,7 +470,7 @@ function checkOptionField(
     context.collector.error(
       "EXPR_TYPE_MISMATCH",
       `「${context.field.label}」的${SLOT_LABELS[context.slot]}:取選項名稱只能指單選 / 多選 / 引用欄位`,
-      { fieldKey: context.field.key, exprSlot: context.slot, exprPath: path },
+      locationOf(context, path),
     );
   }
 }

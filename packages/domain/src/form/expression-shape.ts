@@ -1,3 +1,8 @@
+import {
+  ARRAY_AGGREGATE_OPERATORS,
+  ROW_VAR_PREFIX,
+  isArrayAggregateOperator,
+} from "./array";
 import { isDateTimeString } from "./temporal";
 import type { Expression } from "./types";
 
@@ -36,6 +41,7 @@ export const EXPRESSION_OPERATORS = [
   "concat",
   "optionLabel",
   "now",
+  ...ARRAY_AGGREGATE_OPERATORS,
 ] as const;
 
 export type ExpressionOperator = (typeof EXPRESSION_OPERATORS)[number];
@@ -57,6 +63,9 @@ export const CONTEXT_VAR_PATHS = [
 /** 欄位的 `var` 路徑:單一段,不含 `.`(欄位 key 本來就不准有 `.`)。 */
 const FIELD_VAR_PATH = /^[a-z][a-z0-9_]*$/;
 
+/** 列內公式的 `var` 路徑:`row.<子欄 key>`(同一列的子欄;只在明細子欄的公式裡合法,由檢查器判)。 */
+const ROW_VAR_PATH = /^row\.[a-z][a-z0-9_]*$/;
+
 export type ExpressionShapeProblem =
   | "UNKNOWN_OPERATOR"
   | "INVALID_NODE"
@@ -71,15 +80,36 @@ export interface ExpressionShapeIssue {
   detail: string;
 }
 
-/** 表達式引用到的一個欄位(`var` 或 `optionLabel` 的欄位 key)。 */
+/**
+ * 表達式引用到的一個欄位:`var`、`optionLabel` 的欄位 key,或彙總運算子的明細欄 key
+ * (`via` 分辨是哪一種;依賴、受保護、引用檢查三種一視同仁,「不能直接 `var` 明細欄」只看 `var`)。
+ */
 export interface ExpressionFieldRef {
   fieldKey: string;
+  path: string;
+  via: "var" | "optionLabel" | "aggregate";
+}
+
+/** 列內公式的 `row.<子欄 key>` 引用。 */
+export interface ExpressionRowRef {
+  columnKey: string;
+  path: string;
+}
+
+/** 彙總運算子的一次使用:`{ "sumOf": ["items", "subtotal"] }`、`{ "countOf": ["items"] }`。 */
+export interface ExpressionAggregateRef {
+  operator: (typeof ARRAY_AGGREGATE_OPERATORS)[number];
+  arrayKey: string;
+  /** `countOf` 為 null */
+  columnKey: string | null;
   path: string;
 }
 
 export interface ExpressionScan {
   issues: ExpressionShapeIssue[];
   refs: ExpressionFieldRef[];
+  rowRefs: ExpressionRowRef[];
+  aggregates: ExpressionAggregateRef[];
   /** 用到 `ctx.*` 或 `now()` — 用來判斷「常數」表達式。 */
   usesContext: boolean;
 }
@@ -98,7 +128,13 @@ const OPERATOR_SET = new Set<string>(EXPRESSION_OPERATORS);
  * 任意惡意輸入(上萬層巢狀、超大陣列)都只回問題,不會爆堆疊、不會 throw。
  */
 export function scanExpression(expr: Expression): ExpressionScan {
-  const scan: ExpressionScan = { issues: [], refs: [], usesContext: false };
+  const scan: ExpressionScan = {
+    issues: [],
+    refs: [],
+    rowRefs: [],
+    aggregates: [],
+    usesContext: false,
+  };
   const walker: Walker = { scan, nodes: 0, aborted: false };
   walk(walker, expr, "", 0, false);
   return scan;
@@ -202,6 +238,11 @@ function walk(
     countNode(walker, operatorPath);
     return;
   }
+  if (isArrayAggregateOperator(operator)) {
+    checkAggregate(operator, argument, operatorPath, scan);
+    countNode(walker, operatorPath);
+    return;
+  }
   if (operator === "now") {
     scan.usesContext = true;
   }
@@ -249,15 +290,63 @@ function checkVar(
     scan.usesContext = true;
     return;
   }
+  if (ROW_VAR_PATH.test(target)) {
+    scan.rowRefs.push({
+      columnKey: target.slice(ROW_VAR_PREFIX.length),
+      path,
+    });
+    return;
+  }
   if (!FIELD_VAR_PATH.test(target)) {
     scan.issues.push({
       problem: "INVALID_VAR",
       path,
-      detail: `var 路徑 ${target} 不是欄位 key 也不是 ctx.*`,
+      detail: `var 路徑 ${target} 不是欄位 key、ctx.* 也不是 row.<子欄 key>`,
     });
     return;
   }
-  scan.refs.push({ fieldKey: target, path });
+  scan.refs.push({ fieldKey: target, path, via: "var" });
+}
+
+function isKeyLiteral(value: unknown): value is string {
+  return typeof value === "string" && FIELD_VAR_PATH.test(value);
+}
+
+/**
+ * 彙總運算子:參數都是**字面** key(不可運算出來)—— `sumOf` / `minOf` / `maxOf` / `avgOf` 兩個
+ * (明細欄 key、子欄 key),`countOf` 一個(明細欄 key)。明細欄與子欄存不存在、子欄是不是數字由檢查器判。
+ */
+function checkAggregate(
+  operator: (typeof ARRAY_AGGREGATE_OPERATORS)[number],
+  argument: Expression,
+  path: string,
+  scan: ExpressionScan,
+): void {
+  const args = Array.isArray(argument) ? argument : [argument];
+  const arity = operator === "countOf" ? 1 : 2;
+  const [arrayKey, columnKey] = args;
+  if (
+    args.length !== arity ||
+    !isKeyLiteral(arrayKey) ||
+    (arity === 2 && !isKeyLiteral(columnKey))
+  ) {
+    scan.issues.push({
+      problem: "INVALID_NODE",
+      path,
+      detail:
+        operator === "countOf"
+          ? "countOf 的參數必須是一個明細欄 key 常數"
+          : `${operator} 的參數必須是明細欄 key 與子欄 key 兩個常數`,
+    });
+    return;
+  }
+  scan.refs.push({ fieldKey: arrayKey, path, via: "aggregate" });
+  scan.aggregates.push({
+    operator,
+    arrayKey,
+    columnKey: arity === 2 && isKeyLiteral(columnKey) ? columnKey : null,
+    path,
+  });
 }
 
 function checkOptionLabel(
@@ -274,7 +363,7 @@ function checkOptionLabel(
     });
     return;
   }
-  scan.refs.push({ fieldKey: target, path });
+  scan.refs.push({ fieldKey: target, path, via: "optionLabel" });
 }
 
 /**
