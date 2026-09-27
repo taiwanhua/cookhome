@@ -296,10 +296,10 @@ describe("validateDefinition:選項、規則、widget、reference", () => {
         labelTemplate: "{{name}} {{value.name}} {{phone}}",
       },
     });
-    const submission = field("leave", "reference", {
+    const submission = field("absence", "reference", {
       source: {
         provider: "form_submission",
-        formKey: "leave",
+        formKey: "absence",
         labelField: "title",
         labelTemplate: "{{title}} {{date}} {{value.days}} {{days}} {{value.x}}",
       },
@@ -312,8 +312,8 @@ describe("validateDefinition:選項、規則、widget、reference", () => {
     ).toEqual([
       ["boss", expect.stringContaining("{{value.name}}")],
       ["boss", expect.stringContaining("{{phone}}")],
-      ["leave", expect.stringContaining("{{days}}")],
-      ["leave", expect.stringContaining("{{value.x}}")],
+      ["absence", expect.stringContaining("{{days}}")],
+      ["absence", expect.stringContaining("{{value.x}}")],
     ]);
     expect(issues[0]?.location.property).toBe("source.labelTemplate");
   });
