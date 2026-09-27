@@ -61,6 +61,7 @@
 - 值依型別存(選項 `{ value, label }`、引用 `{ id, label }`、上傳 `{ path, name, size, contentType }`、數字十進位字串、日期與日期時間存時點);表達式看到的是語意值(選項的 value、引用的 id、日期的 ISO 字串)。
 - **日期與日期時間都是時點**:`date` 是時間固定在當地 00:00 的 `datetime`,差別只在顯示精度。輸入時以租戶時區的當地日期(時間)換成 UTC 時點、存 Mongo `Date`;顯示時把時點換成要顯示的時區(填寫中 = 讀者的租戶時區、唯讀歷史 = 該修訂的 `ctx.timezone`),`date` 印 `YYYY-MM-DD`、`datetime` 印 `YYYY-MM-DD HH:mm` —— 前後端共用一個函式 `formatTemporal`。同一個時點在不同時區可能落在不同日期,這是預期行為;日期與日期時間互比、`dateDiff` 的天數、「今天」的邊界都換成租戶時區的當地日期再算。租戶改時區設定時,跨過午夜的既有日期會位移一天。正本:`packages/domain/src/form/temporal.ts`
 - **明細列**(`array`)= 一個欄位裝多列同結構的子欄位(採購品項、出差行程),每列有穩定的 `rowId`;子欄可用列內公式(`row.<子欄 key>`),表單層以彙總(`sumOf` / `countOf` / `minOf` / `maxOf` / `avgOf`)讀它;權限、顯示條件與「不能填的原因」都套在整個明細欄上,子欄引用受保護欄位時整欄受保護。細節見 `docs/modules/forms.md`「明細列」。
+- **被顯示條件隱藏的欄位當 null 算**(含明細整欄):下游公式讀到被隱藏的計算欄位也是 null;前端即時預覽與後端送出同一套語意(`packages/domain/src/form/visibility.ts` 的 `settleHidden`),預覽算出的值 = 送出後存的值。預設值計算不看顯示條件,兩端一致。
 - 使用者填的欄位可以有**預設值**(固定值或公式):建草稿時後端算一次、只填沒碰過的空欄;填寫時沒碰過的欄位依賴變了跟著重算,碰過(`touched[]`)就停。
 
 ## 欄位級權限與受保護依賴鏈
