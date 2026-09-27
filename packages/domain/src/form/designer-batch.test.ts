@@ -3,12 +3,13 @@ import { describe, expect, it } from "@jest/globals";
 import { recheckRegexSafety } from "../form-regex-safety";
 import { computeAll } from "./compute";
 import { evaluateCondition, evaluateExpression } from "./expression";
+import { isSameOptionSource } from "./expression-types";
 import { definitionOf, field } from "./form-test-support";
 import type { DefinitionIssue } from "./issues";
 import { semanticValuesOf } from "./semantic";
 import type { Expression, ExpressionContext, FieldDef } from "./types";
 import { validateDefinition } from "./validate-definition";
-import { validateFieldRules } from "./values";
+import { requiredIssueOf, validateFieldRules } from "./values";
 
 /** 台北 2026-09-26 14:30 */
 const CTX: ExpressionContext = {
@@ -366,5 +367,111 @@ describe("@repo/domain/form 檢查器:dateAdd 與日期常數", () => {
     expect(codesOf(errorsOf(due({ date: "2026-09-26" })))).toEqual([
       "EXPR_INVALID",
     ]);
+  });
+});
+
+const fixed = (key: string, type: FieldDef["type"], value: unknown) =>
+  field(key, type, { valueSource: { kind: "constant", value } });
+
+describe("@repo/domain/form 檢查器:固定值要是該型別的合法值(CONSTANT_VALUE_INVALID)", () => {
+  it('是 / 否給字串 "true"、多選給字串、日期給 YYYY-MM-DD → 報錯並定位到 valueSource.value', () => {
+    const issues = errorsOf(
+      fixed("flag", "boolean", "true"),
+      fixed("many", "multiSelect", "sick"),
+      fixed("day", "date", "2026-09-26"),
+    );
+    expect(codesOf(issues)).toEqual([
+      "CONSTANT_VALUE_INVALID",
+      "CONSTANT_VALUE_INVALID",
+      "CONSTANT_VALUE_INVALID",
+    ]);
+    expect(issues.map((issue) => issue.location)).toEqual([
+      { fieldKey: "flag", property: "valueSource.value" },
+      { fieldKey: "many", property: "valueSource.value" },
+      { fieldKey: "day", property: "valueSource.value" },
+    ]);
+  });
+
+  it("正確型別不報;靜態選項外的值報「必須從選項裡挑」", () => {
+    expect(
+      errorsOf(
+        fixed("flag", "boolean", true),
+        fixed("many", "multiSelect", ["sick"]),
+        fixed("day", "date", TAIPEI_0926),
+      ),
+    ).toEqual([]);
+    const [issue] = errorsOf(fixed("one", "select", "nope"));
+    expect(issue?.code).toBe("CONSTANT_VALUE_INVALID");
+    expect(issue?.message).toContain("必須從選項裡挑");
+  });
+});
+
+describe("@repo/domain/form 檢查器:比較兩邊都沒選(EXPR_COMPARISON_EMPTY)", () => {
+  it("「或」裡一個空比較 → 錯誤;一邊有值的判空(== null)合法", () => {
+    const issues = errorsOf(
+      field("flag", "boolean", {
+        visibleWhen: {
+          or: [{ "==": [{ var: "note" }, "x"] }, { "==": [null, null] }],
+        },
+        readonlyWhen: { "==": [{ var: "note" }, null] },
+      }),
+    );
+    expect(issues).toEqual([
+      expect.objectContaining({
+        code: "EXPR_COMPARISON_EMPTY",
+        location: expect.objectContaining({
+          fieldKey: "flag",
+          exprSlot: "visibleWhen",
+          exprPath: "or.1.==",
+        }),
+      }),
+    ]);
+  });
+});
+
+describe("@repo/domain/form 同一個選項來源(isSameOptionSource)", () => {
+  it("值為 undefined 的鍵與 labelTemplate 不算差別;顯示欄不同算不同", () => {
+    const source = { provider: "user", labelField: "name" };
+    expect(
+      isSameOptionSource(
+        { options: { kind: "lookup", source } },
+        {
+          options: {
+            kind: "lookup",
+            source: {
+              ...source,
+              valueField: undefined,
+              labelTemplate: "{{name}}",
+            } as typeof source,
+          },
+        },
+      ),
+    ).toBe(true);
+    expect(
+      isSameOptionSource(
+        { options: { kind: "lookup", source } },
+        {
+          options: {
+            kind: "lookup",
+            source: { ...source, labelField: "email" },
+          },
+        },
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("@repo/domain/form requiredIssueOf", () => {
+  it("是 / 否:null 與 false 都是「必須勾選」;計算欄算成空是「無法計算」", () => {
+    const agree = field("agree", "boolean", { rules: { required: true } });
+    expect(requiredIssueOf(agree, null)?.message).toBe("「agree」必須勾選");
+    expect(requiredIssueOf(agree, false)?.message).toBe("「agree」必須勾選");
+    expect(requiredIssueOf(agree, true)).toBeNull();
+    expect(
+      requiredIssueOf(
+        { ...agree, valueSource: { kind: "computed", expr: null } },
+        null,
+      )?.code,
+    ).toBe("NOT_COMPUTABLE");
   });
 });

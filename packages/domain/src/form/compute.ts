@@ -130,7 +130,7 @@ export function computeField(
 /**
  * 固定值欄位的存值:照欄位型別正規化(與使用者填的值同一條 `normalizeFieldValue`):number 依 `precision`
  * 取位、是 / 否要是布林(字串 `"true"` 不收)、多選要是陣列、日期收斂成租戶時區當天 00:00 的 ISO;
- * 型別不對 → null(檢查器 `DEFAULT_VALUE_INVALID` 同一個判準會先擋)。
+ * 型別不對 → null(檢查器以同一個判準報 `CONSTANT_VALUE_INVALID`,發布前擋下;存草稿照收,所以草稿預覽可能算成 null)。
  */
 function constantValueOf(field: FieldDef, timezone: string): unknown {
   if (field.valueSource.kind !== "constant") {

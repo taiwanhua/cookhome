@@ -326,7 +326,7 @@ function matchesFormat(format: string, value: string): boolean {
 }
 
 function issueOf(
-  field: FieldDef,
+  field: Pick<FieldDef, "key">,
   code: ValueIssueCode,
   message: string,
 ): ValueIssue {
@@ -460,18 +460,24 @@ function textIssue(field: FieldDef, value: unknown): ValueIssue | null {
 }
 
 /**
- * 必填沒過的錯誤:空值 → 必填(計算欄位 = 無法計算);是 / 否欄位「必填 = 必須勾選」(Spec 表 A),`false` 不過。
+ * 必填欄位的值沒過必填時的錯誤(呼叫端已確認 `rules.required`):空值 → 必填(計算欄位算成空 = 無法計算);
+ * 是 / 否欄位「必填 = 必須勾選」(Spec 表 A):`false` 與沒填都是「必須勾選」。
+ * 表單層與明細子欄共用這一支。過了回 null。
  */
-function requiredIssueOf(field: FieldDef, value: unknown): ValueIssue | null {
-  if (field.type === "boolean" && value === false) {
+export function requiredIssueOf(
+  field: Pick<FieldDef, "key" | "label" | "type" | "valueSource">,
+  value: unknown,
+): ValueIssue | null {
+  const isEmpty = isEmptyValue(value);
+  if (field.valueSource.kind === "computed" && isEmpty) {
+    return issueOf(field, "NOT_COMPUTABLE", `「${field.label}」無法計算`);
+  }
+  if (field.type === "boolean" && (isEmpty || value === false)) {
     return issueOf(field, "REQUIRED", `「${field.label}」必須勾選`);
   }
-  if (!isEmptyValue(value)) {
-    return null;
-  }
-  return field.valueSource.kind === "computed"
-    ? issueOf(field, "NOT_COMPUTABLE", `「${field.label}」無法計算`)
-    : issueOf(field, "REQUIRED", `「${field.label}」為必填`);
+  return isEmpty
+    ? issueOf(field, "REQUIRED", `「${field.label}」為必填`)
+    : null;
 }
 
 /**

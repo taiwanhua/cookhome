@@ -120,6 +120,29 @@ export function validateExpressionTypes(
   }
 }
 
+const COMPARISON_OPERATORS: ReadonlySet<string> = new Set([
+  "==",
+  "!=",
+  "===",
+  "!==",
+  "<",
+  ">",
+  "<=",
+  ">=",
+]);
+
+/**
+ * 比較兩邊都沒選(`{ "==": [null, null] }`):選擇器新建條件的預設,忘了填會讓「或」恆真 / 「且」恆假,
+ * 當錯誤擋發布(存草稿照收)。一邊有東西的 `x == null` 是合法的判空。
+ */
+function isEmptyComparison(operator: string, raw: Expression): boolean {
+  if (!COMPARISON_OPERATORS.has(operator)) {
+    return false;
+  }
+  const args: Expression[] = Array.isArray(raw) ? raw : [raw];
+  return args.length > 0 && args.every((arg) => arg === null);
+}
+
 function mismatch(
   context: TypeCheckContext,
   path: string,
@@ -164,6 +187,18 @@ function checkNode(
     OPERATOR_SIGNATURES as Readonly<Partial<Record<string, OperatorSignature>>>
   )[operator];
   if (signature === undefined) {
+    return;
+  }
+  if (isEmptyComparison(operator, expr[operator] ?? null)) {
+    context.collector.error(
+      "EXPR_COMPARISON_EMPTY",
+      `「${context.field.label}」的${SLOT_LABELS[context.slot]}有一個比較兩邊都還沒選`,
+      {
+        fieldKey: context.field.key,
+        exprSlot: context.slot,
+        exprPath: operatorPath,
+      },
+    );
     return;
   }
   const returns =

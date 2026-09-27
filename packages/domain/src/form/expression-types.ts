@@ -431,23 +431,41 @@ export function expectedTypesAt(
   }
 }
 
-/** 排好鍵序的 JSON(深比較用;鍵的先後不同不算不同)。 */
-function canonicalJson(value: unknown): string {
+/**
+ * 比「同一個選項來源」時不看的鍵:只影響顯示、不影響選項值(lookup 的 `labelTemplate` 顯示名模板)。
+ * 出現在任何一層都略過。
+ */
+const DISPLAY_ONLY_OPTION_KEYS: ReadonlySet<string> = new Set([
+  "labelTemplate",
+]);
+
+/**
+ * 排好鍵序的 JSON(深比較用;鍵的先後不同不算不同;值是 `undefined` 的鍵與 `omitted` 裡的鍵略過,
+ * 所以 `{ a: 1, b: undefined }` 與 `{ a: 1 }` 相同)。
+ */
+function canonicalJson(
+  value: unknown,
+  omitted: ReadonlySet<string> = new Set(),
+): string {
   if (Array.isArray(value)) {
-    return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+    return `[${value.map((item) => canonicalJson(item, omitted)).join(",")}]`;
   }
   if (typeof value === "object" && value !== null) {
     const record = value as Record<string, unknown>;
     return `{${Object.keys(record)
+      .filter((key) => record[key] !== undefined && !omitted.has(key))
       .toSorted((left, right) => (left < right ? -1 : 1))
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+      .map(
+        (key) =>
+          `${JSON.stringify(key)}:${canonicalJson(record[key], omitted)}`,
+      )
       .join(",")}}`;
   }
   return value === undefined ? "null" : JSON.stringify(value);
 }
 
 /**
- * 兩個選項欄是不是**同一個選項來源**(`options` 深比較相等):選項欄公式的根只收同來源的欄位
+ * 兩個選項欄是不是**同一個選項來源**(`options` 深比較相等;顯示用的 `labelTemplate` 與 `undefined` 的鍵不算):選項欄公式的根只收同來源的欄位
  * (Spec 表 B「計算欄位公式」列)。
  */
 export function isSameOptionSource(
@@ -455,7 +473,8 @@ export function isSameOptionSource(
   right: Pick<FieldDef, "options">,
 ): boolean {
   return (
-    canonicalJson(left.options ?? null) === canonicalJson(right.options ?? null)
+    canonicalJson(left.options ?? null, DISPLAY_ONLY_OPTION_KEYS) ===
+    canonicalJson(right.options ?? null, DISPLAY_ONLY_OPTION_KEYS)
   );
 }
 
