@@ -9,6 +9,8 @@ description: 新增後台 CRUD 模組(固定欄位模組)時用:plan 模式問�
 
 步驟正本是 `docs/agents/module-scaffold.md`(下稱**正本**)。本 skill 只管問什麼、照什麼順序做、做到哪算完;每一步的做法打開正本對應的節,不在這裡重寫。檔案路徑與規則編號的指路清單在 [references/pointers.md](references/pointers.md)。
 
+欄位由使用者在後台設計的**表單模組**不走本 skill:只要 seed 宣告 `engine: "form"` + 登記 `formModulePages`,步驟見正本的「表單模組路線」。
+
 藍本:示範模組2 是**最小可行模組**,下文的「預設」全部取自它;要選配就回示範模組1 對照(正本「示範模組 1 vs 2 差異對照表」)。
 
 ## 0. 選模式(第一個問題)

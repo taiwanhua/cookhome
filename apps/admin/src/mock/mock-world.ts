@@ -4,6 +4,8 @@ import {
   type WebSocketHandler,
 } from "msw";
 
+import { FormVersionStatus } from "@repo/graphql";
+
 import { authWorld } from "@/test/msw/auth-handlers";
 import { dataScopeTargets, savedRule } from "@/test/msw/data-scope-fixtures";
 import { dataScopeWorld } from "@/test/msw/data-scope-handlers";
@@ -18,6 +20,15 @@ import {
   upperOrg,
 } from "@/test/msw/field-fixtures";
 import { fieldWorld } from "@/test/msw/field-manager-handlers";
+import { formDesignWorld } from "@/test/msw/form-design-handlers";
+import {
+  SHOPPING_FORM_KEY,
+  formFragment,
+  shoppingDefinition,
+  submissionFragment,
+  versionFragment,
+} from "@/test/msw/form-fixtures";
+import { formRuntimeWorld } from "@/test/msw/form-runtime-handlers";
 import { moduleAdminTree } from "@/test/msw/module-admin-fixtures";
 import { moduleAdminWorld } from "@/test/msw/module-manager-handlers";
 import {
@@ -158,5 +169,40 @@ export const mockHandlers = ({
     ),
     // 示範模組2 三頁(#321):兩支示範模組的端點各自獨立,沒有共用端點要去重
     ...demoTwoWorld({ items: demoTwoItems }).handlers,
+    // 表單引擎:表單管理(一張共用表單,已發布 v1 + 一份草稿)與購物清單(兩筆提交)
+    ...formDesignWorld({
+      forms: [formFragment()],
+      versions: {
+        [SHOPPING_FORM_KEY]: [
+          versionFragment(shoppingDefinition(), { baseVersion: 1 }),
+          versionFragment(shoppingDefinition(), {
+            id: `ver-${SHOPPING_FORM_KEY}-1`,
+            version: 1,
+            status: FormVersionStatus.Published,
+            changelog: "第一版",
+          }),
+        ],
+      },
+    }).handlers,
+    ...formRuntimeWorld({
+      moduleForms: [
+        {
+          key: SHOPPING_FORM_KEY,
+          name: "購物單",
+          moduleKey: "shopping-list",
+          currentVersion: 1,
+          tabLabelTemplate: null,
+        },
+      ],
+      versions: { [`${SHOPPING_FORM_KEY}@1`]: shoppingDefinition() },
+      submissions: [
+        submissionFragment(),
+        submissionFragment({
+          id: "sub-2",
+          summary: { title: "牛奶", date: null, amount: "120" },
+          values: { item: "牛奶", qty: "3", unit_price: "40", total: "120" },
+        }),
+      ],
+    }).handlers,
   ];
 };

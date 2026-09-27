@@ -48,6 +48,26 @@
         "types": "./dist/cjs/form.d.cts",
         "default": "./dist/cjs/form.cjs"
       }
+    },
+    "./form-regex-safety": {
+      "import": {
+        "types": "./dist/es/form-regex-safety.d.ts",
+        "default": "./dist/es/form-regex-safety.js"
+      },
+      "require": {
+        "types": "./dist/cjs/form-regex-safety.d.cts",
+        "default": "./dist/cjs/form-regex-safety.cjs"
+      }
+    },
+    "./form-keys": {
+      "import": {
+        "types": "./dist/es/form-keys.d.ts",
+        "default": "./dist/es/form-keys.js"
+      },
+      "require": {
+        "types": "./dist/cjs/form-keys.d.cts",
+        "default": "./dist/cjs/form-keys.cjs"
+      }
     }
   },
   "typesVersions": {
@@ -63,6 +83,12 @@
       ],
       "form": [
         "./dist/es/form.d.ts"
+      ],
+      "form-regex-safety": [
+        "./dist/es/form-regex-safety.d.ts"
+      ],
+      "form-keys": [
+        "./dist/es/form-keys.d.ts"
       ]
     }
   },

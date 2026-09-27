@@ -1,4 +1,4 @@
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 
 import type {
   TestModuleAdminNode,
@@ -57,6 +57,8 @@ const node = (
   /** 側欄圖示(#288):預設不給,要對照初值表的節點各自用 `overrides` 指定 */
   icon: null,
   enabled: true,
+  /** 表單模組(`engine: FORM`)以 `overrides` 指定;其餘是固定欄位模組 */
+  engine: ModuleEngine.Fixed,
   permissions: [allPermission(key)],
   children: [],
   ...overrides,

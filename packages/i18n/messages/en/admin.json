@@ -466,7 +466,10 @@
       "icon": "Icon",
       "iconEmpty": "Not set (uses the default icon)",
       "none": "—",
-      "selfLockedHint": "This module manages the modules themselves and cannot be disabled"
+      "selfLockedHint": "This module manages the modules themselves and cannot be disabled",
+      "listColumns": "List columns",
+      "listColumnsHint": "Which columns this form module's list shows, their order and width",
+      "editListColumns": "Configure list columns"
     },
     "permissions": {
       "title": "Permissions",
@@ -499,6 +502,52 @@
       "FORBIDDEN": "Only the root organization can change module and permission availability.",
       "NOT_FOUND": "This module or permission no longer exists. Refresh the page.",
       "UNEXPECTED": "The action failed. Please try again later."
+    },
+    "listColumns": {
+      "title": "List columns — {name}",
+      "loading": "Loading configuration",
+      "body": "Choose summary slots or form fields for the list; form fields are the non-protected fields of shared forms' current versions.",
+      "usingDefault": "Not configured: the list uses the default columns (title, date).",
+      "row": "Column {index}",
+      "slot": "Summary slot",
+      "slots": {
+        "title": "Title",
+        "date": "Date",
+        "amount": "Amount"
+      },
+      "field": "Form field",
+      "missingField": "{key} (no longer in the current version)",
+      "width": "Width",
+      "up": "Up",
+      "down": "Down",
+      "remove": "Remove",
+      "addSlot": "+ Summary slot",
+      "addField": "+ Form field",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saved": "List columns saved."
+    },
+    "retired": {
+      "open": "Retired permissions",
+      "title": "Retired permissions",
+      "body": "Field permissions no longer used after a form published a new version. Usage is checked before deleting.",
+      "tableAria": "Retired field permissions",
+      "empty": "No retired field permissions",
+      "name": "Name",
+      "key": "key",
+      "usageHeader": "Usage",
+      "usage": "{drafts} drafts, {completed} completed",
+      "actions": "Actions",
+      "delete": "Delete",
+      "deleteOf": "Delete permission “{name}”",
+      "deleted": "Permission “{name}” deleted.",
+      "usedByDrafts": "{count} drafts ({versions}) still use “{name}”; it cannot be deleted.",
+      "confirmRequired": "Only {count} completed records ({versions}) use “{name}”. After deleting, only super administrators can see that field in them. Delete anyway?",
+      "confirmDelete": "Delete",
+      "notDeletable": "This permission can no longer be cleaned up. Please refresh the list.",
+      "failed": "Delete failed. Please try again later.",
+      "cancel": "Cancel",
+      "close": "Close"
     }
   },
   "moduleIcons": {
@@ -1018,6 +1067,582 @@
       "fields": {
         "name": "Please fill in the name."
       }
+    }
+  },
+  "formEngine": {
+    "widgets": {
+      "unselected": "Not selected",
+      "customOption": "Use “{value}”",
+      "optionsUnavailable": "Options are unavailable; only the existing value is shown.",
+      "loading": "Loading…",
+      "noOptions": "No matching options",
+      "uploadHint": "PDF / Office / images / ZIP, up to 20MB",
+      "uploading": "Uploading…",
+      "uploadFailed": "Upload failed. Please try again.",
+      "removeFile": "Remove file"
+    },
+    "renderer": {
+      "empty": "—",
+      "yes": "Yes",
+      "no": "No",
+      "sourceUnavailable": " (source unavailable)",
+      "readonlyPermission": "You can see this field but are not allowed to change it.",
+      "readonlyCondition": "This field is read-only right now."
+    },
+    "design": {
+      "hasVisibleWhen": "Has visibility condition",
+      "hasReadonlyWhen": "Has read-only condition",
+      "computed": "Computed",
+      "constant": "Constant",
+      "protected": "Protected",
+      "protectedVia": "Protected because it uses {fields}",
+      "selectField": "Select field “{label}” ({key})",
+      "dropHere": "Drop here to place at the end of this section"
+    },
+    "picker": {
+      "title": "Choose a form",
+      "listLabel": "Available forms",
+      "version": "Version {version}",
+      "cancel": "Cancel"
+    },
+    "lookup": {
+      "title": "Fill from existing data",
+      "source": "Source",
+      "search": "Search",
+      "results": "Results",
+      "noResults": "No matching records",
+      "selected": "Selected: {label}",
+      "back": "Choose again",
+      "mapping": "Fields to fill",
+      "noMapping": "This record has no fields you can fill in.",
+      "row": "{field} ← {source}: {value}",
+      "empty": "—",
+      "willOverwrite": "This field already has a value and will be overwritten.",
+      "apply": "Fill in",
+      "cancel": "Cancel"
+    },
+    "list": {
+      "tableAria": "Submissions",
+      "empty": "No data yet",
+      "total": "{total} in total",
+      "form": "Form",
+      "status": "Status",
+      "statusDraft": "Draft",
+      "statusCompleted": "Completed",
+      "createdBy": "Created by",
+      "actions": "Actions",
+      "slots": {
+        "title": "Title",
+        "date": "Date",
+        "amount": "Amount"
+      }
+    },
+    "detail": {
+      "loading": "Loading",
+      "formLine": "{form} (version {version})",
+      "statusDraft": "Draft",
+      "statusCompleted": "Completed",
+      "createdBy": "Created by: {name}",
+      "viewingRevision": "Viewing revision {revision}",
+      "downloadFailed": "Could not get the file. Please try again later.",
+      "revisions": "Revisions",
+      "revisionLine": "Revision {revision} · {user} · {at}",
+      "viewing": "Viewing",
+      "viewRevision": "View revision {revision}",
+      "showDiff": "Changes from previous revision",
+      "loadingDiff": "Loading changes",
+      "noChanges": "No changes from the previous revision (or only in fields you cannot see).",
+      "diffAria": "Changes in revision {revision}",
+      "diffField": "Field",
+      "diffBefore": "Revision {revision}",
+      "diffAfter": "Revision {revision}"
+    },
+    "pages": {
+      "loading": "Loading",
+      "search": "Search",
+      "searchPlaceholder": "Title",
+      "formFilter": "Form",
+      "allForms": "All forms",
+      "statusFilter": "Status",
+      "allStatuses": "All statuses",
+      "statusDraft": "Draft",
+      "statusCompleted": "Completed",
+      "create": "+ New",
+      "noFormsHint": "No forms are available to fill in right now.",
+      "tableAria": "{module} list",
+      "view": "View",
+      "edit": "Edit",
+      "delete": "Delete",
+      "viewOf": "View “{label}”",
+      "editOf": "Edit “{label}”",
+      "deleteOf": "Delete “{label}”",
+      "backToList": "← Back to list",
+      "deleteTitle": "Delete this record?",
+      "deleteBody": "“{label}” will be deleted. This cannot be undone.",
+      "deleteConfirm": "Delete",
+      "cancel": "Cancel"
+    },
+    "fill": {
+      "loading": "Loading",
+      "createTitle": "New — {form}",
+      "editTitle": "Edit — {form}",
+      "prefill": "Fill from existing data",
+      "saveDraft": "Save draft",
+      "submit": "Submit",
+      "saveChanges": "Save changes",
+      "cancel": "Cancel",
+      "reload": "Reload",
+      "draftSaved": "Draft saved.",
+      "submitted": "Submitted.",
+      "changesSaved": "Changes saved."
+    },
+    "errors": {
+      "CONFLICT": "This record was updated by someone else. Please reload.",
+      "FIELD_FORBIDDEN": "You are not allowed to change one of the fields; nothing was saved.",
+      "FORM_NOT_AVAILABLE": "This form cannot be filled in right now (it may be disabled, revoked or unpublished).",
+      "NOT_FORM_OWNER": "This form does not belong to your organization.",
+      "ROOT_ONLY": "Only the platform can do this.",
+      "FORBIDDEN": "You do not have permission to do this.",
+      "NOT_FOUND": "Record not found. It may have been deleted or is outside your scope.",
+      "VALIDATION_FAILED": "Some fields are invalid. Please fix them and try again.",
+      "PERMISSION_NOT_DELETABLE": "This permission cannot be deleted right now.",
+      "UNEXPECTED": "Something went wrong. Please try again later."
+    }
+  },
+  "forms": {
+    "loading": "Loading",
+    "empty": "Select a form to see its design and versions",
+    "errors": {
+      "CONFLICT": "This was updated by someone else. Please reload.",
+      "FIELD_FORBIDDEN": "You are not allowed to change one of the fields; nothing was saved.",
+      "FORM_NOT_AVAILABLE": "This form is not available right now.",
+      "NOT_FORM_OWNER": "This form does not belong to your organization; you can only view it or base a new form on it.",
+      "ROOT_ONLY": "Only a system administrator can do this. Base a new form on an assigned form instead.",
+      "FORBIDDEN": "You do not have permission to do this.",
+      "NOT_FOUND": "Form or version not found. It may have been deleted; please refresh.",
+      "VALIDATION_FAILED": "Some fields are invalid or the form definition still has errors. Please fix them and try again.",
+      "PERMISSION_NOT_DELETABLE": "This permission cannot be deleted right now.",
+      "UNEXPECTED": "Something went wrong. Please try again later."
+    },
+    "list": {
+      "region": "Forms",
+      "title": "Forms",
+      "create": "+ New form",
+      "search": "Search forms",
+      "searchPlaceholder": "Name or key",
+      "loading": "Loading forms",
+      "empty": "No forms yet",
+      "shared": "Shared",
+      "custom": "Custom",
+      "version": "v{version}",
+      "noVersion": "Not published",
+      "disabled": "Disabled",
+      "interrupted": "Publish interrupted",
+      "hasDraft": "Draft"
+    },
+    "detail": {
+      "region": "Form settings",
+      "meta": "key: {key} · module: {module}",
+      "forkedFrom": "Based on: {key} v{version}",
+      "edit": "Edit name and title",
+      "fork": "New form from this",
+      "assign": "Assign tenants",
+      "tenantEnabled": "Enabled in this organization",
+      "enabledOn": "Form enabled in this organization.",
+      "enabledOff": "Form disabled in this organization.",
+      "assignedTo": "Assigned: {tenants}",
+      "tabs": "Form settings tabs",
+      "tabDesign": "Design",
+      "tabVersions": "Versions"
+    },
+    "create": {
+      "title": "New form",
+      "key": "Form key",
+      "keyHint": "Cannot be changed later; lowercase letter first, then lowercase letters, digits or underscores",
+      "name": "Name",
+      "module": "Module",
+      "moduleUnset": "Choose one",
+      "cancel": "Cancel",
+      "confirm": "Create",
+      "success": "Form created."
+    },
+    "fork": {
+      "title": "New form based on “{name}”",
+      "baseVersion": "Base version",
+      "versionOption": "v{version}",
+      "key": "New form key",
+      "keyHint": "Cannot be changed later; suggested: <source key>_<org code>",
+      "name": "Name",
+      "cancel": "Cancel",
+      "confirm": "Create",
+      "success": "New form created with a draft based on that version."
+    },
+    "assign": {
+      "title": "Assign “{name}”",
+      "body": "Checked tenants can use this form (enabled by default); unchecking revokes it, existing data stays readable.",
+      "tenants": "Tenants",
+      "empty": "No tenants to assign",
+      "cancel": "Cancel",
+      "confirm": "Save",
+      "success": "Assignments updated."
+    },
+    "edit": {
+      "title": "Edit name and title",
+      "key": "Form key",
+      "keyFixed": "The form key cannot be changed",
+      "name": "Name",
+      "template": "Tab / title template",
+      "templateHint": "Only summary slots, e.g. {{title}}; empty = module default",
+      "cancel": "Cancel",
+      "confirm": "Save",
+      "success": "Form updated."
+    },
+    "versions": {
+      "tableAria": "Versions",
+      "empty": "No versions yet",
+      "version": "Version",
+      "status": "Status",
+      "changelog": "Changelog",
+      "publishedAt": "Published",
+      "actions": "Actions",
+      "draftLabel": "Draft (revision {revision})",
+      "versionLabel": "v{version}",
+      "statuses": {
+        "DRAFT": "Draft",
+        "PUBLISHING": "Publishing",
+        "PUBLISHED": "Published",
+        "RETIRED": "Retired"
+      },
+      "publish": "Publish",
+      "retire": "Retire current version",
+      "baseOn": "New draft from v{version}",
+      "diff": "Changes from previous",
+      "diffNone": "Same field definitions as the previous version.",
+      "diffAdded": "Added: {fields}",
+      "diffRemoved": "Removed: {fields}",
+      "diffChanged": "Changed: {fields}",
+      "newDraft": "New draft",
+      "draftCreated": "Draft created.",
+      "interrupted": "The last publish did not finish. Use “Retry publish” to complete it; new drafts, retiring and publishing are blocked until then.",
+      "retry": "Retry publish",
+      "retried": "Publish completed.",
+      "publishedLine": "{at} · {user}"
+    },
+    "publish": {
+      "title": "Publish a new version",
+      "body": "The version is frozen once published and used for all new data; the previous published version is retired automatically.",
+      "changelog": "Changelog",
+      "cancel": "Cancel",
+      "confirm": "Publish",
+      "success": "v{version} published.",
+      "unsavedWarning": "The designer has unsaved changes: the last saved draft will be published.",
+      "saveFirst": "Save draft first"
+    },
+    "retire": {
+      "title": "Retire the current version?",
+      "body": "No new data can be added with this form until a new version is published; existing data stays readable and existing drafts can still be submitted.",
+      "cancel": "Cancel",
+      "confirm": "Retire",
+      "success": "Current version retired."
+    },
+    "designer": {
+      "loading": "Loading draft",
+      "noDraft": "There is no draft.",
+      "newDraft": "New draft",
+      "draftCreated": "Draft created.",
+      "readonlyHint": "This form does not belong to your organization; you can only view the current version. Base a new form on it to make changes.",
+      "readonlyEmpty": "This form has no published version yet.",
+      "mode": "Designer mode",
+      "modeDesign": "Design",
+      "modePreview": "Preview",
+      "revision": "Draft revision {revision}",
+      "unsaved": "Draft revision {revision} · unsaved changes",
+      "save": "Save draft",
+      "saved": "Draft saved.",
+      "conflict": "The draft was updated by someone else. Please reload.",
+      "reload": "Reload",
+      "palette": "Components",
+      "types": {
+        "text": "Short text",
+        "multiline": "Long text",
+        "number": "Number",
+        "date": "Date",
+        "select": "Single choice",
+        "multiSelect": "Multiple choice",
+        "boolean": "Yes / no",
+        "upload": "Upload",
+        "reference": "Reference"
+      },
+      "addField": "Add {type} field",
+      "addSection": "+ Add section",
+      "newSection": "New section",
+      "canvas": "Canvas",
+      "sectionTitle": "Section title",
+      "removeSection": "Delete section",
+      "removeSectionOf": "Delete section “{title}”",
+      "unplaced": "Unplaced fields",
+      "place": "Place in layout",
+      "properties": "Properties",
+      "issues": "Check results",
+      "issueSummary": "Check results: {errors} errors, {warnings} warnings",
+      "error": "Error",
+      "warning": "Warning",
+      "jsonPreview": "JSON preview",
+      "copy": "Copy",
+      "copied": "Copied.",
+      "copyFailed": "Copy failed.",
+      "regexChecking": "Checking patterns…",
+      "regexUnavailable": "Pattern safety can't be checked right now; it will be checked when you save the draft.",
+      "categoryRequiredWarning": "“{label}” takes options from a field category and is required: people without field-management view permission can't get the options and won't be able to submit."
+    },
+    "preview": {
+      "region": "Preview",
+      "hint": "Enter test values to try conditions and formulas; nothing is saved.",
+      "dirtyHint": "Unsaved changes: the screen updates live, but “Recalculate on server” uses the saved draft.",
+      "prefill": "Fill from existing data",
+      "runOnServer": "Recalculate on server",
+      "serverSummary": "Server result — title: {title}, date: {date}, amount: {amount}; {errors} value errors"
+    },
+    "property": {
+      "title": "Field — {label}",
+      "issues": "Check results for this field",
+      "key": "Field key",
+      "keyHint": "Lowercase letter first, then lowercase letters, digits or underscores; type cannot change after publishing",
+      "label": "Label",
+      "type": "Type",
+      "types": {
+        "text": "Short text",
+        "multiline": "Long text",
+        "number": "Number",
+        "date": "Date",
+        "select": "Single choice",
+        "multiSelect": "Multiple choice",
+        "boolean": "Yes / no",
+        "upload": "Upload",
+        "reference": "Reference"
+      },
+      "widget": "Widget",
+      "widgets": {
+        "textField": "Text input",
+        "textArea": "Text area",
+        "number": "Number input",
+        "datePicker": "Date picker",
+        "dropdown": "Dropdown",
+        "radio": "Radio buttons",
+        "autocomplete": "Searchable dropdown",
+        "checkboxGroup": "Checkbox group",
+        "multiDropdown": "Multi-select dropdown",
+        "autocompleteMulti": "Searchable multi-select",
+        "switch": "Switch",
+        "checkbox": "Checkbox",
+        "upload": "Upload",
+        "referencePicker": "Search picker"
+      },
+      "span": "Width (of 12)",
+      "precision": "Decimal places",
+      "help": "Help text",
+      "valueSource": "Value source",
+      "sources": {
+        "input": "Entered by user",
+        "computed": "Computed",
+        "constant": "Constant"
+      },
+      "formula": "Formula",
+      "constantValue": "Constant value",
+      "visibleWhen": "Visible when",
+      "readonlyWhen": "Read-only when",
+      "permissionShow": "Protected (permission needed to see)",
+      "permissionEdit": "Restricted edit (permission needed to change)",
+      "permissionHint": "Each creates a field permission when published; grant it in the role permission matrix.",
+      "delete": "Delete field",
+      "backToSettings": "← Form settings"
+    },
+    "options": {
+      "source": "Option source",
+      "sources": {
+        "static": "Static list",
+        "fieldCategory": "Field category",
+        "lookup": "Data source"
+      },
+      "items": "Options",
+      "value": "Value",
+      "label": "Label",
+      "enabled": "Enabled",
+      "enabledOf": "Enable option “{label}”",
+      "remove": "Remove",
+      "removeOf": "Remove option “{label}”",
+      "add": "+ Add option",
+      "categoryKey": "Category key",
+      "categoryKeyHint": "Category key from field management"
+    },
+    "lookupSource": {
+      "provider": "Data source",
+      "providers": {
+        "user": "Users",
+        "org": "Organizations",
+        "form_submission": "Other form data"
+      },
+      "formKey": "Form key",
+      "formKeyHint": "Which form's data to look up",
+      "labelField": "Display field",
+      "labelFieldHint": "A summary slot (title / date / amount) or a field key of that form",
+      "fields": {
+        "name": "Name",
+        "account": "Account",
+        "email": "Email",
+        "slug": "Short code"
+      },
+      "valueField": "Value field",
+      "valueFieldHint": "Empty = use the record id"
+    },
+    "rules": {
+      "required": "Required",
+      "min": "Minimum",
+      "max": "Maximum",
+      "minLength": "Min length",
+      "maxLength": "Max length",
+      "format": "Built-in format",
+      "formatNone": "Any",
+      "formats": {
+        "email": "Email",
+        "phone": "Phone",
+        "url": "URL"
+      },
+      "pattern": "Pattern",
+      "patternHint": "JavaScript regex (u flag); needs an error message; use either this or a built-in format",
+      "patternMessage": "Pattern error message",
+      "allowCustom": "Allow custom values",
+      "custom": "Custom validation"
+    },
+    "expression": {
+      "root": "root",
+      "kind": "Node kind ({path})",
+      "kinds": {
+        "field": "Field",
+        "context": "Context",
+        "constant": "Constant",
+        "operation": "Operation"
+      },
+      "field": "Field",
+      "context": "Context",
+      "contexts": {
+        "ctx": {
+          "now": "Now",
+          "timezone": "Time zone",
+          "user": {
+            "id": "Filled by",
+            "orgId": "Filler's organization"
+          }
+        }
+      },
+      "operator": "Operation",
+      "operators": {
+        "if": "If … then … else",
+        "==": "Equals",
+        "!=": "Not equal",
+        "===": "Strictly equals",
+        "!==": "Strictly not equal",
+        "!": "Not",
+        "!!": "Has value",
+        "and": "And",
+        "or": "Or",
+        "<": "Less than",
+        ">": "Greater than",
+        "<=": "At most",
+        ">=": "At least",
+        "+": "Plus",
+        "-": "Minus",
+        "*": "Times",
+        "/": "Divided by",
+        "%": "Remainder",
+        "min": "Minimum",
+        "max": "Maximum",
+        "in": "Is in",
+        "dateDiff": "Days between",
+        "concat": "Join text",
+        "optionLabel": "Option label",
+        "now": "Now"
+      },
+      "constantKind": "Constant kind",
+      "constants": {
+        "text": "Text",
+        "number": "Number",
+        "boolean": "Yes / no",
+        "null": "Empty"
+      },
+      "constantValue": "Value",
+      "booleanValue": "Constant value (yes / no)",
+      "addArg": "+ Argument",
+      "removeArg": "Remove",
+      "set": "Set",
+      "clear": "Clear",
+      "json": "JSON of {label}"
+    },
+    "settings": {
+      "title": "Form settings",
+      "summaryHint": "Summary slots drive tab labels, lists and notifications: title is required, an unmapped date uses the submit time, amount is optional.",
+      "slots": {
+        "title": "Title",
+        "date": "Date",
+        "amount": "Amount"
+      },
+      "slotUnset": "Not mapped",
+      "prefills": "Prefill rules",
+      "addPrefill": "+ Add prefill rule",
+      "newPrefill": "Fill from existing data"
+    },
+    "prefill": {
+      "rule": "Prefill rule {index}",
+      "label": "Label",
+      "sourceField": "Source field",
+      "targetField": "Field in this form",
+      "addMapping": "+ Mapping",
+      "removeMapping": "Remove",
+      "remove": "Delete this rule"
+    },
+    "deleteField": {
+      "title": "Delete field “{label}”?",
+      "body": "It is removed from the draft's fields and layout only; the references below become check errors you need to fix.",
+      "references": "Where this field is used",
+      "noReferences": "Nothing else uses this field.",
+      "refExpression": "{slot} of field {field}",
+      "slots": {
+        "valueSource": {
+          "expr": "Formula"
+        },
+        "visibleWhen": "Visible condition",
+        "readonlyWhen": "Read-only condition",
+        "rules": {
+          "custom": "Custom validation"
+        }
+      },
+      "refSummary": "Summary slot “{slot}”",
+      "summarySlots": {
+        "title": "Title",
+        "date": "Date",
+        "amount": "Amount"
+      },
+      "refPrefill": "Prefill rule “{label}”",
+      "refListColumn": "The module's list columns (outside the draft; not changed)",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    },
+    "deleteSection": {
+      "title": "Delete section “{title}”?",
+      "body": "What should happen to the fields in this section?",
+      "mode": "Handling",
+      "unplace": "Move fields to unplaced",
+      "withFields": "Delete the fields too",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "withFieldsBody": "These references will become check errors that you need to fix:"
+    },
+    "unsaved": {
+      "title": "Unsaved changes",
+      "body": "The designer has unsaved changes; they will be lost if you switch to another form.",
+      "stay": "Keep designing",
+      "discard": "Discard changes",
+      "saveAndLeave": "Save draft first"
     }
   }
 }

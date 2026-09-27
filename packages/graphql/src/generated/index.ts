@@ -2655,26 +2655,31 @@ export type SetModuleListColumnsMutationVariables = Exact<{
 
 export type SetModuleListColumnsMutation = { __typename?: 'Mutation', setModuleListColumns: { __typename?: 'ModuleListColumnsPayload', moduleKey: string, columns: Array<{ __typename?: 'ModuleListColumn', kind: ModuleListColumnKind, key: string, formKey?: string | null, width: number, order: number }> } };
 
-export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
+export type FormEngineModulesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type FormEngineModulesQuery = { __typename?: 'Query', me: { __typename?: 'Me', modules: Array<{ __typename?: 'MeModule', id: string, key: string, name: string, engine: ModuleEngine }> } };
+
+export type ModuleAdminNodeFieldsFragment = { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> };
 
 export type ModuleTreeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ModuleTreeQuery = { __typename?: 'Query', moduleTree: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }> };
+export type ModuleTreeQuery = { __typename?: 'Query', moduleTree: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }> };
 
 export type SetModuleEnabledMutationVariables = Exact<{
   input: SetModuleEnabledInput;
 }>;
 
 
-export type SetModuleEnabledMutation = { __typename?: 'Mutation', setModuleEnabled: { __typename?: 'ModuleAdminPayload', module: { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> } } };
+export type SetModuleEnabledMutation = { __typename?: 'Mutation', setModuleEnabled: { __typename?: 'ModuleAdminPayload', module: { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> } } };
 
 export type SetModuleIconMutationVariables = Exact<{
   input: SetModuleIconInput;
 }>;
 
 
-export type SetModuleIconMutation = { __typename?: 'Mutation', setModuleIcon: { __typename?: 'ModuleAdminPayload', module: { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> } } };
+export type SetModuleIconMutation = { __typename?: 'Mutation', setModuleIcon: { __typename?: 'ModuleAdminPayload', module: { __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, children: Array<{ __typename?: 'ModuleAdminNode', id: string, key: string, name: string, parentId?: string | null, sidebarType: ModuleSidebarType, route?: string | null, order: number, description?: string | null, icon?: string | null, enabled: boolean, engine: ModuleEngine, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> }>, permissions: Array<{ __typename?: 'PermissionAdmin', id: string, key: string, name: string, description?: string | null, enabled: boolean }> } } };
 
 export type SetPermissionEnabledMutationVariables = Exact<{
   input: SetPermissionEnabledInput;
@@ -3177,6 +3182,7 @@ export const ModuleAdminNodeFieldsFragmentDoc = `
   description
   icon
   enabled
+  engine
   permissions {
     id
     key
@@ -5431,6 +5437,42 @@ export const useSetModuleListColumnsMutation = <
 
 
 useSetModuleListColumnsMutation.fetcher = (client: GraphQLClient, variables: SetModuleListColumnsMutationVariables, headers?: RequestInit['headers']) => fetcher<SetModuleListColumnsMutation, SetModuleListColumnsMutationVariables>(client, SetModuleListColumnsDocument, variables, headers);
+
+export const FormEngineModulesDocument = `
+    query FormEngineModules {
+  me {
+    modules {
+      id
+      key
+      name
+      engine
+    }
+  }
+}
+    `;
+
+export const useFormEngineModulesQuery = <
+      TData = FormEngineModulesQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: FormEngineModulesQueryVariables,
+      options?: Omit<UseQueryOptions<FormEngineModulesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormEngineModulesQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormEngineModulesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['FormEngineModules'] : ['FormEngineModules', variables],
+    queryFn: fetcher<FormEngineModulesQuery, FormEngineModulesQueryVariables>(client, FormEngineModulesDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormEngineModulesQuery.getKey = (variables?: FormEngineModulesQueryVariables) => variables === undefined ? ['FormEngineModules'] : ['FormEngineModules', variables];
+
+
+useFormEngineModulesQuery.fetcher = (client: GraphQLClient, variables?: FormEngineModulesQueryVariables, headers?: RequestInit['headers']) => fetcher<FormEngineModulesQuery, FormEngineModulesQueryVariables>(client, FormEngineModulesDocument, variables, headers);
 
 export const ModuleTreeDocument = `
     query ModuleTree {

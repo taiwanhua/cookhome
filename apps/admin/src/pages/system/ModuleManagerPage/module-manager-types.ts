@@ -1,4 +1,4 @@
-import type { ModuleSidebarType } from "@repo/graphql";
+import type { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 
 /**
  * `moduleTree` 的節點形狀(codegen 把遞迴展開成五層具名型別,無法直接遞迴走訪,
@@ -25,6 +25,8 @@ export interface ModuleAdminNodeLike {
   icon?: string | null;
   /** **這個節點自己的**停用狀態:停用連動子樹時子孫的值已一併落庫,不必回頭看祖先 */
   enabled: boolean;
+  /** `FORM` = 表單模組(頁面由表單引擎組裝;右側多一列「列表欄位配置」) */
+  engine?: ModuleEngine;
   permissions: readonly ModuleAdminPermissionLike[];
   children?: readonly ModuleAdminNodeLike[];
 }

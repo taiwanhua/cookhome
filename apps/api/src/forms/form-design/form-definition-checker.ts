@@ -8,6 +8,7 @@ import {
   type ValidationReport,
   validateDefinition,
 } from "@repo/domain/form";
+import { recheckRegexSafety } from "@repo/domain/form-regex-safety";
 
 import {
   FormVersionsRepository,
@@ -112,6 +113,7 @@ export class FormDefinitionChecker {
         this.listColumnFieldKeys(operator, form),
       ]);
     const report = validateDefinition(definition, {
+      regexSafety: recheckRegexSafety,
       previousFields,
       fieldCategoryKeys,
       lookupProviders,

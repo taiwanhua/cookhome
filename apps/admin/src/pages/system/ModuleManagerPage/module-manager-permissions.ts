@@ -15,7 +15,15 @@ export const MODULE_MANAGER_PERMISSIONS = {
    * 停用卻會讓所有租戶少掉整塊功能(正本 `docs/modules/module-manager.md` 權限表)。
    */
   setIcon: `${MODULE_MANAGER_MODULE_KEY}.set-icon`,
+  /** 退役權限清理(表單的欄位級權限;三層檢查由 api 做,docs/modules/forms.md「退役權限清理」) */
+  deleteRetiredPermission: `${MODULE_MANAGER_MODULE_KEY}.delete-retired-permission`,
 } as const;
+
+/**
+ * 表單模組的列表欄位配置:權限掛在表單管理(`system.forms.edit`),api 另守「站在根組織」
+ * (docs/modules/forms.md「列表欄位配置」)。
+ */
+export const LIST_COLUMNS_PERMISSION = "system.forms.edit";
 
 /**
  * 自鎖保護(前端,#233 未定案前的低成本防呆):

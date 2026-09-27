@@ -1013,3 +1013,167 @@ export function demoItemOneAttachmentUrlRaw(
     accessToken,
   );
 }
+
+/* ---- 劇本 18 / 19:表單引擎 ---- */
+/**
+ * 表單引擎的前置操作(劇本 18 / 19;正本 `packages/graphql/src/documents/forms.graphql`、
+ * `form-submissions.graphql`,這裡只抄 e2e 用到的欄位)。前置一律走 api(TEST-11):
+ * 劇本 19 的共用表單由 root 以 api 建好、發布、分派,畫面只跑客製與退役那一段。
+ */
+
+const CREATE_FORM = `
+mutation CreateForm($input: CreateFormInput!) {
+  createForm(input: $input) { form { key } }
+}`;
+
+const CREATE_FORM_VERSION_DRAFT = `
+mutation CreateFormVersionDraft($input: CreateFormVersionDraftInput!) {
+  createFormVersionDraft(input: $input) { formVersion { draftRevision } }
+}`;
+
+const SAVE_FORM_VERSION_DRAFT = `
+mutation SaveFormVersionDraft($input: SaveFormVersionDraftInput!) {
+  saveFormVersionDraft(input: $input) { formVersion { draftRevision } }
+}`;
+
+const PUBLISH_FORM_VERSION = `
+mutation PublishFormVersion($input: PublishFormVersionInput!) {
+  publishFormVersion(input: $input) { formVersion { version } }
+}`;
+
+const ASSIGN_FORM_TO_TENANTS = `
+mutation AssignFormToTenants($input: AssignFormToTenantsInput!) {
+  assignFormToTenants(input: $input) { form { key } }
+}`;
+
+const CREATE_FORM_DRAFT = `
+mutation CreateFormDraft($input: CreateFormDraftInput!) {
+  createFormDraft(input: $input) { submission { id status } }
+}`;
+
+const MODULE_FORMS = `
+query ModuleForms($moduleKey: ID!) {
+  moduleForms(moduleKey: $moduleKey) { key name currentVersion }
+}`;
+
+/** 表單模組範例(seed `apps/db-migrator/seeds/modules/shopping-list.ts`)。 */
+export const SHOPPING_LIST = "shopping-list";
+export const SHOPPING_LIST_ROUTE = "/shopping-list";
+export const SHOPPING_CREATE_ROUTE = `${SHOPPING_LIST_ROUTE}/create-page`;
+export const SHOPPING_VIEW_ROUTE = `${SHOPPING_LIST_ROUTE}/view-page`;
+export const FORMS_ROUTE = "/system/forms";
+
+/** 表單 key:小寫開頭、只允許小寫 / 數字 / 底線(場景字尾是隨機 hex,前面補固定字母)。 */
+export function formKeyOf(prefix: string, slug: string): string {
+  return `${prefix}_${slug}`.toLowerCase().replaceAll(/[^a-z0-9_]/g, "_");
+}
+
+/** 一個單行文字欄位、一個分區、摘要標題指向它 —— 檢查器沒有錯的最小定義。 */
+export function oneTextFieldDefinition(fieldKey: string, label: string) {
+  return {
+    fields: [
+      {
+        key: fieldKey,
+        label,
+        type: "text",
+        widget: { kind: "textField" },
+        valueSource: { kind: "input" },
+        options: null,
+        rules: { required: true },
+        permission: { show: false, edit: false },
+        help: null,
+      },
+    ],
+    layout: {
+      sections: [
+        {
+          key: "basic",
+          title: "內容",
+          rows: [{ cols: [{ fieldKey, span: 12 }] }],
+        },
+      ],
+    },
+    summaryMap: { title: fieldKey },
+    prefills: [],
+  };
+}
+
+/** root 建共用表單 → 開草稿 → 存定義 → 發布 → 分派給租戶(劇本 19 的前置)。 */
+export async function publishSharedForm(
+  rootToken: string,
+  input: {
+    key: string;
+    name: string;
+    definition: ReturnType<typeof oneTextFieldDefinition>;
+    tenantOrgIds: readonly string[];
+  },
+): Promise<void> {
+  await graphqlOk(
+    CREATE_FORM,
+    { input: { key: input.key, moduleKey: SHOPPING_LIST, name: input.name } },
+    rootToken,
+  );
+  const draft = await graphqlOk<{
+    createFormVersionDraft: { formVersion: { draftRevision: number } };
+  }>(CREATE_FORM_VERSION_DRAFT, { input: { formKey: input.key } }, rootToken);
+  const saved = await graphqlOk<{
+    saveFormVersionDraft: { formVersion: { draftRevision: number } };
+  }>(
+    SAVE_FORM_VERSION_DRAFT,
+    {
+      input: {
+        formKey: input.key,
+        expectedDraftRevision:
+          draft.createFormVersionDraft.formVersion.draftRevision,
+        ...input.definition,
+      },
+    },
+    rootToken,
+  );
+  await graphqlOk(
+    PUBLISH_FORM_VERSION,
+    {
+      input: {
+        formKey: input.key,
+        expectedDraftRevision:
+          saved.saveFormVersionDraft.formVersion.draftRevision,
+        changelog: "e2e 前置",
+      },
+    },
+    rootToken,
+  );
+  await graphqlOk(
+    ASSIGN_FORM_TO_TENANTS,
+    { input: { formKey: input.key, tenantOrgIds: [...input.tenantOrgIds] } },
+    rootToken,
+  );
+}
+
+/** 此刻可以在購物清單新增的表單 key。 */
+export async function moduleFormKeys(accessToken: string): Promise<string[]> {
+  const data = await graphqlOk<{ moduleForms: { key: string }[] }>(
+    MODULE_FORMS,
+    { moduleKey: SHOPPING_LIST },
+    accessToken,
+  );
+  return data.moduleForms.map((form) => form.key);
+}
+
+/** 原樣回傳的 `createFormDraft`(劇本 19:退役後 → `FORBIDDEN` + `FORM_NOT_AVAILABLE`)。 */
+export function createFormDraftRaw(
+  accessToken: string,
+  formKey: string,
+): Promise<
+  GraphqlResponse<{ createFormDraft: { submission: { id: string } } }>
+> {
+  return graphql<{ createFormDraft: { submission: { id: string } } }>(
+    CREATE_FORM_DRAFT,
+    {
+      input: {
+        formKey,
+        clientRequestId: `e2e-${formKey}-${String(Date.now())}`,
+      },
+    },
+    accessToken,
+  );
+}

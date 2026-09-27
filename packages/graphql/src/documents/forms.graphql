@@ -325,3 +325,15 @@ mutation SetModuleListColumns($input: SetModuleListColumnsInput!) {
     }
   }
 }
+
+# 建立共用表單時可選的表單模組:me.modules 裡 engine = FORM 的(站在根組織的超級管理員看得到全部)
+query FormEngineModules {
+  me {
+    modules {
+      id
+      key
+      name
+      engine
+    }
+  }
+}
