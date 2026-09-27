@@ -1,12 +1,15 @@
 import { Field, ID, Int, ObjectType } from "@nestjs/graphql";
 
-/** 欄位類別(全域種子,租戶不可自訂;新增類別走 code + PR)。 */
+/**
+ * 欄位類別(全域,租戶不可自訂)。兩種來源:seed 宣告的系統類別,與 root 在畫面新增的類別
+ * (`docs/modules/field-manager.md`「資料」)。
+ */
 @ObjectType("FieldCategory")
 export class FieldCategoryModel {
   @Field(() => ID)
   id!: string;
 
-  /** kebab-case 的種子 key(如 `gender`);前端做穩定識別用。 */
+  /** kebab-case 的類別 key(如 `gender`);表單定義以它引用類別,建立後不可改。 */
   @Field(() => String)
   key!: string;
 
@@ -15,6 +18,14 @@ export class FieldCategoryModel {
 
   @Field(() => String, { nullable: true })
   description!: string | null;
+
+  /** `true` = seed 宣告的系統類別(不可停用);`false` = root 在畫面新增的。 */
+  @Field(() => Boolean)
+  isSystem!: boolean;
+
+  /** 停用只影響表單設計器的類別清單與新選;既有欄位照常顯示。 */
+  @Field(() => Boolean)
+  enabled!: boolean;
 }
 
 /**

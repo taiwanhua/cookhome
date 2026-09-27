@@ -115,7 +115,7 @@ const SAMPLE_ONE_FAMILY = [
   `${SAMPLE_ONE}.edit-page`,
 ];
 /**
- * seed 的全部模組(總覽 1 + 系統管理群組 11 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4
+ * seed 的全部模組(總覽 1 + 系統管理群組 12 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4
  * + 申請中心一支 2 + 三個示範表單各 4)。
  */
 const ALL_SEEDED_MODULES = [
@@ -127,6 +127,7 @@ const ALL_SEEDED_MODULES = [
   "system.role-manager",
   "system.module-manager",
   "system.field-manager",
+  "system.field-manager.category-ops",
   "system.data-scope",
   "system.forms",
   "system.workflows",

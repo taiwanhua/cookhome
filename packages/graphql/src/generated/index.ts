@@ -145,6 +145,12 @@ export type CreateDemoItemTwoInput = {
   note?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type CreateFieldCategoryInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  key: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+};
+
 export type CreateFieldInput = {
   categoryId: Scalars['ID']['input'];
   description?: InputMaybe<Scalars['String']['input']>;
@@ -541,6 +547,10 @@ export type Field = {
   value: Scalars['String']['output'];
 };
 
+export type FieldCategoriesInput = {
+  enabledOnly?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
 export type FieldCategoriesPayload = {
   __typename?: 'FieldCategoriesPayload';
   items: Array<FieldCategory>;
@@ -550,9 +560,16 @@ export type FieldCategoriesPayload = {
 export type FieldCategory = {
   __typename?: 'FieldCategory';
   description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  isSystem: Scalars['Boolean']['output'];
   key: Scalars['String']['output'];
   name: Scalars['String']['output'];
+};
+
+export type FieldCategoryPayload = {
+  __typename?: 'FieldCategoryPayload';
+  category: FieldCategory;
 };
 
 export type FieldOwnerOrg = {
@@ -1138,6 +1155,7 @@ export type Mutation = {
   createDemoItemOne: DemoItemOnePayload;
   createDemoItemTwo: DemoItemTwoPayload;
   createField: FieldPayload;
+  createFieldCategory: FieldCategoryPayload;
   createForm: FormPayload;
   createFormDraft: FormSubmissionPayload;
   createFormVersionDraft: FormVersionPayload;
@@ -1185,6 +1203,7 @@ export type Mutation = {
   saveWorkflowVersionDraft: WorkflowVersionPayload;
   setDemoItemOneEnabled: DemoItemOnePayload;
   setDemoItemTwoEnabled: DemoItemTwoPayload;
+  setFieldCategoryEnabled: FieldCategoryPayload;
   setFieldEnabled: FieldPayload;
   setModuleEnabled: ModuleAdminPayload;
   setModuleIcon: ModuleAdminPayload;
@@ -1205,6 +1224,7 @@ export type Mutation = {
   updateDemoItemOne: DemoItemOnePayload;
   updateDemoItemTwo: DemoItemTwoPayload;
   updateField: FieldPayload;
+  updateFieldCategory: FieldCategoryPayload;
   updateForm: FormPayload;
   updateFormSubmission: FormSubmissionPayload;
   updateOrg: OrgPayload;
@@ -1273,6 +1293,11 @@ export type MutationCreateDemoItemTwoArgs = {
 
 export type MutationCreateFieldArgs = {
   input: CreateFieldInput;
+};
+
+
+export type MutationCreateFieldCategoryArgs = {
+  input: CreateFieldCategoryInput;
 };
 
 
@@ -1496,6 +1521,11 @@ export type MutationSetDemoItemTwoEnabledArgs = {
 };
 
 
+export type MutationSetFieldCategoryEnabledArgs = {
+  input: SetFieldCategoryEnabledInput;
+};
+
+
 export type MutationSetFieldEnabledArgs = {
   input: SetFieldEnabledInput;
 };
@@ -1593,6 +1623,11 @@ export type MutationUpdateDemoItemTwoArgs = {
 
 export type MutationUpdateFieldArgs = {
   input: UpdateFieldInput;
+};
+
+
+export type MutationUpdateFieldCategoryArgs = {
+  input: UpdateFieldCategoryInput;
 };
 
 
@@ -1873,6 +1908,11 @@ export type QueryDemoItemsOneArgs = {
 
 export type QueryDemoItemsTwoArgs = {
   input: DemoItemsTwoInput;
+};
+
+
+export type QueryFieldCategoriesArgs = {
+  input?: InputMaybe<FieldCategoriesInput>;
 };
 
 
@@ -2382,6 +2422,11 @@ export type SetDemoItemTwoEnabledInput = {
   id: Scalars['ID']['input'];
 };
 
+export type SetFieldCategoryEnabledInput = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
 export type SetFieldEnabledInput = {
   enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
@@ -2511,6 +2556,12 @@ export type UpdateDemoItemTwoInput = {
   id: Scalars['ID']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
   note?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateFieldCategoryInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateFieldInput = {
@@ -3249,10 +3300,35 @@ export type SetDemoItemTwoEnabledMutation = { __typename?: 'Mutation', setDemoIt
 
 export type FieldFieldsFragment = { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null };
 
-export type FieldCategoriesQueryVariables = Exact<{ [key: string]: never; }>;
+export type FieldCategoryFieldsFragment = { __typename?: 'FieldCategory', id: string, key: string, name: string, description?: string | null, isSystem: boolean, enabled: boolean };
+
+export type FieldCategoriesQueryVariables = Exact<{
+  input?: InputMaybe<FieldCategoriesInput>;
+}>;
 
 
-export type FieldCategoriesQuery = { __typename?: 'Query', fieldCategories: { __typename?: 'FieldCategoriesPayload', totalCount: number, items: Array<{ __typename?: 'FieldCategory', id: string, key: string, name: string, description?: string | null }> } };
+export type FieldCategoriesQuery = { __typename?: 'Query', fieldCategories: { __typename?: 'FieldCategoriesPayload', totalCount: number, items: Array<{ __typename?: 'FieldCategory', id: string, key: string, name: string, description?: string | null, isSystem: boolean, enabled: boolean }> } };
+
+export type CreateFieldCategoryMutationVariables = Exact<{
+  input: CreateFieldCategoryInput;
+}>;
+
+
+export type CreateFieldCategoryMutation = { __typename?: 'Mutation', createFieldCategory: { __typename?: 'FieldCategoryPayload', category: { __typename?: 'FieldCategory', id: string, key: string, name: string, description?: string | null, isSystem: boolean, enabled: boolean } } };
+
+export type UpdateFieldCategoryMutationVariables = Exact<{
+  input: UpdateFieldCategoryInput;
+}>;
+
+
+export type UpdateFieldCategoryMutation = { __typename?: 'Mutation', updateFieldCategory: { __typename?: 'FieldCategoryPayload', category: { __typename?: 'FieldCategory', id: string, key: string, name: string, description?: string | null, isSystem: boolean, enabled: boolean } } };
+
+export type SetFieldCategoryEnabledMutationVariables = Exact<{
+  input: SetFieldCategoryEnabledInput;
+}>;
+
+
+export type SetFieldCategoryEnabledMutation = { __typename?: 'Mutation', setFieldCategoryEnabled: { __typename?: 'FieldCategoryPayload', category: { __typename?: 'FieldCategory', id: string, key: string, name: string, description?: string | null, isSystem: boolean, enabled: boolean } } };
 
 export type FieldsQueryVariables = Exact<{
   categoryId: Scalars['ID']['input'];
@@ -4231,6 +4307,16 @@ export const FieldFieldsFragmentDoc = `
   isOwn
   canEdit
   canToggleEnabled
+}
+    `;
+export const FieldCategoryFieldsFragmentDoc = `
+    fragment FieldCategoryFields on FieldCategory {
+  id
+  key
+  name
+  description
+  isSystem
+  enabled
 }
     `;
 export const FormSubmissionFieldsFragmentDoc = `
@@ -5764,18 +5850,15 @@ export const useSetDemoItemTwoEnabledMutation = <
 useSetDemoItemTwoEnabledMutation.fetcher = (client: GraphQLClient, variables: SetDemoItemTwoEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetDemoItemTwoEnabledMutation, SetDemoItemTwoEnabledMutationVariables>(client, SetDemoItemTwoEnabledDocument, variables, headers);
 
 export const FieldCategoriesDocument = `
-    query FieldCategories {
-  fieldCategories {
+    query FieldCategories($input: FieldCategoriesInput) {
+  fieldCategories(input: $input) {
     items {
-      id
-      key
-      name
-      description
+      ...FieldCategoryFields
     }
     totalCount
   }
 }
-    `;
+    ${FieldCategoryFieldsFragmentDoc}`;
 
 export const useFieldCategoriesQuery = <
       TData = FieldCategoriesQuery,
@@ -5799,6 +5882,96 @@ useFieldCategoriesQuery.getKey = (variables?: FieldCategoriesQueryVariables) => 
 
 
 useFieldCategoriesQuery.fetcher = (client: GraphQLClient, variables?: FieldCategoriesQueryVariables, headers?: RequestInit['headers']) => fetcher<FieldCategoriesQuery, FieldCategoriesQueryVariables>(client, FieldCategoriesDocument, variables, headers);
+
+export const CreateFieldCategoryDocument = `
+    mutation CreateFieldCategory($input: CreateFieldCategoryInput!) {
+  createFieldCategory(input: $input) {
+    category {
+      ...FieldCategoryFields
+    }
+  }
+}
+    ${FieldCategoryFieldsFragmentDoc}`;
+
+export const useCreateFieldCategoryMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CreateFieldCategoryMutation, TError, CreateFieldCategoryMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CreateFieldCategoryMutation, TError, CreateFieldCategoryMutationVariables, TContext>(
+      {
+    mutationKey: ['CreateFieldCategory'],
+    mutationFn: (variables?: CreateFieldCategoryMutationVariables) => fetcher<CreateFieldCategoryMutation, CreateFieldCategoryMutationVariables>(client, CreateFieldCategoryDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCreateFieldCategoryMutation.fetcher = (client: GraphQLClient, variables: CreateFieldCategoryMutationVariables, headers?: RequestInit['headers']) => fetcher<CreateFieldCategoryMutation, CreateFieldCategoryMutationVariables>(client, CreateFieldCategoryDocument, variables, headers);
+
+export const UpdateFieldCategoryDocument = `
+    mutation UpdateFieldCategory($input: UpdateFieldCategoryInput!) {
+  updateFieldCategory(input: $input) {
+    category {
+      ...FieldCategoryFields
+    }
+  }
+}
+    ${FieldCategoryFieldsFragmentDoc}`;
+
+export const useUpdateFieldCategoryMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateFieldCategoryMutation, TError, UpdateFieldCategoryMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateFieldCategoryMutation, TError, UpdateFieldCategoryMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateFieldCategory'],
+    mutationFn: (variables?: UpdateFieldCategoryMutationVariables) => fetcher<UpdateFieldCategoryMutation, UpdateFieldCategoryMutationVariables>(client, UpdateFieldCategoryDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateFieldCategoryMutation.fetcher = (client: GraphQLClient, variables: UpdateFieldCategoryMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateFieldCategoryMutation, UpdateFieldCategoryMutationVariables>(client, UpdateFieldCategoryDocument, variables, headers);
+
+export const SetFieldCategoryEnabledDocument = `
+    mutation SetFieldCategoryEnabled($input: SetFieldCategoryEnabledInput!) {
+  setFieldCategoryEnabled(input: $input) {
+    category {
+      ...FieldCategoryFields
+    }
+  }
+}
+    ${FieldCategoryFieldsFragmentDoc}`;
+
+export const useSetFieldCategoryEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetFieldCategoryEnabledMutation, TError, SetFieldCategoryEnabledMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetFieldCategoryEnabledMutation, TError, SetFieldCategoryEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['SetFieldCategoryEnabled'],
+    mutationFn: (variables?: SetFieldCategoryEnabledMutationVariables) => fetcher<SetFieldCategoryEnabledMutation, SetFieldCategoryEnabledMutationVariables>(client, SetFieldCategoryEnabledDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetFieldCategoryEnabledMutation.fetcher = (client: GraphQLClient, variables: SetFieldCategoryEnabledMutationVariables, headers?: RequestInit['headers']) => fetcher<SetFieldCategoryEnabledMutation, SetFieldCategoryEnabledMutationVariables>(client, SetFieldCategoryEnabledDocument, variables, headers);
 
 export const FieldsDocument = `
     query Fields($categoryId: ID!) {
