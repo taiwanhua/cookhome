@@ -37,6 +37,7 @@ import type { WorkflowVersionRecord } from "./workflow-mapper";
 export const WORKFLOW_VERSION_AUDIT = {
   createDraft: "workflow-version.create-draft",
   saveDraft: "workflow-version.save-draft",
+  deleteDraft: "workflow-version.delete-draft",
   publish: "workflow-version.publish",
   retryPublish: "workflow-version.retry-publish",
   retire: "workflow-version.retire",
@@ -155,6 +156,7 @@ export class WorkflowPublishService {
       facts,
       workflow,
       definitionOfVersion(draft),
+      draft.checkFormKey ?? null,
     );
     if (report.errors.length > 0) {
       throw workflowDefinitionInvalidError(

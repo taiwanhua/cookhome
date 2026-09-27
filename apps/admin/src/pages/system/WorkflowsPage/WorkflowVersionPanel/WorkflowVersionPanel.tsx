@@ -23,12 +23,15 @@ import { definitionOf } from "@/lib/workflow/definition";
 import { workflowVersionDiff } from "@/lib/workflow/version-diff";
 import { workflowErrorOf } from "@/lib/workflow/workflow-errors";
 
+import { DeleteWorkflowDraftDialog } from "./DeleteWorkflowDraftDialog";
 import { PublishWorkflowDialog } from "./PublishWorkflowDialog";
 import { RetireWorkflowDialog } from "./RetireWorkflowDialog";
 
 export interface WorkflowVersionPanelProps {
   workflow: WorkflowFieldsFragment;
   onChanged: () => void;
+  /** 「檢視 vN」:設計頁籤以唯讀打開那一版 */
+  onView: (version: number) => void;
 }
 
 const STATUS_TONE: Record<WorkflowVersionStatus, TagTone> = {
@@ -42,12 +45,13 @@ type VersionRow = WorkflowVersionFieldsFragment;
 
 /**
  * 版本面板(Spec 6b §8 畫面 4,同表單版本面板):草稿 / 發布(含中斷重試)/ 退役目前版本、changelog、
- * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿。發布看 `abilities.canPublish`、
- * 開草稿看 `abilities.canEdit`;發布中斷時只剩「重試發布」。
+ * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿、檢視某一版(唯讀)、刪除草稿。
+ * 發布看 `abilities.canPublish`、開草稿與刪草稿看 `abilities.canEdit`;發布中斷時只剩「重試發布」。
  */
 export const WorkflowVersionPanel = ({
   workflow,
   onChanged,
+  onView,
 }: WorkflowVersionPanelProps) => {
   const t = useTranslations("admin.workflows.versions");
   const tErrors = useTranslations("admin.workflows.errors");
@@ -55,6 +59,7 @@ export const WorkflowVersionPanel = ({
   const { session } = useSession();
   const [isPublishing, setIsPublishing] = useState(false);
   const [isRetiring, setIsRetiring] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [diffOf, setDiffOf] = useState<number | null>(null);
   const versions = useWorkflowVersionsQuery(session.client, {
     workflowKey: workflow.key,
@@ -106,6 +111,17 @@ export const WorkflowVersionPanel = ({
       item.status === WorkflowVersionStatus.Retired;
     return (
       <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
+        {isBase && item.version !== null && item.version !== undefined && (
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => {
+              onView(item.version ?? 0);
+            }}
+          >
+            {t("view", { version: item.version })}
+          </Button>
+        )}
         {canPublish && !isLocked && isDraft && (
           <Button
             size="small"
@@ -114,6 +130,18 @@ export const WorkflowVersionPanel = ({
             }}
           >
             {t("publish")}
+          </Button>
+        )}
+        {canEdit && !isLocked && isDraft && (
+          <Button
+            size="small"
+            variant="text"
+            color="error"
+            onClick={() => {
+              setIsDeleting(true);
+            }}
+          >
+            {t("deleteDraft")}
           </Button>
         )}
         {canPublish && !isLocked && isCurrent && (
@@ -261,6 +289,19 @@ export const WorkflowVersionPanel = ({
           }}
           onPublished={() => {
             setIsPublishing(false);
+            onChanged();
+          }}
+        />
+      )}
+      {isDeleting && draft !== undefined && (
+        <DeleteWorkflowDraftDialog
+          workflowKey={workflow.key}
+          draftRevision={draft.draftRevision}
+          onClose={() => {
+            setIsDeleting(false);
+          }}
+          onDeleted={() => {
+            setIsDeleting(false);
             onChanged();
           }}
         />

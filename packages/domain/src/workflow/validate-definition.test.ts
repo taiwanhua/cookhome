@@ -211,6 +211,22 @@ describe("validateWorkflowDefinition:基本與審核者來源", () => {
     expect(codesOf(withSkip({ "<=": [{ var: "hours" }, 1] }))).toEqual([]);
   });
 
+  it("檢查用表單對不到(不存在 / 看不到 / 沒有目前版本)→ CHECK_FORM_UNAVAILABLE,跳過條件只驗形狀", () => {
+    const options = {
+      isShared: false,
+      unavailableCheckFormKey: "gone_form",
+      // 即使有 field 來源的表單可退回對照,也不拿它硬比
+      forms: new Map([["sick_leave", SICK_LEAVE_FIELDS]]),
+    };
+    expect(codesOf(withSkip({ "<=": [{ var: "hours" }, 1] }), options)).toEqual(
+      ["CHECK_FORM_UNAVAILABLE"],
+    );
+    expect(codesOf(withSkip({ regex: ["a", "b"] }), options)).toEqual([
+      "CHECK_FORM_UNAVAILABLE",
+      "SKIP_UNKNOWN_OPERATOR",
+    ]);
+  });
+
   it("所有關卡都可能被跳過 → 警告(可發布)", () => {
     const definition = {
       steps: [

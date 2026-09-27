@@ -95,7 +95,9 @@
 
 與表單版本**共用同一份生命週期**:`apps/api/src/versioning/version-lifecycle.ts`(`interruptedPublishOf` / `assertNotPublishing` / `lockDraftForPublish` / `switchToPublished` / `retireCurrentVersion`)。表單的 `FormPublishService` 與流程的 `WorkflowPublishService` 都只提供自己的設定(版本表、切換擁有者 `currentVersion` 的條件更新、`CONFLICT` 錯誤、檢查點)。流程少了欄位級權限那一步:檢查器 → 搶鎖配版號 → 三筆切換;中斷(`publishInterrupted`)時 `retryPublishWorkflowVersion` 從切換那步冪等重跑,期間開草稿 / 退役 / 再發布一律 `CONFLICT`(`PUBLISH_IN_PROGRESS`)。檢查點 `WorkflowPublishHooks`(測試在那裡注入失敗)。
 
-- **定義**以 `definition: { steps, edges? }` 進出:`steps` 是 `StepDef` 的 JSON(含 `kind: review | join`),`edges` 缺席 / `null` / 空陣列都存 `null`(= 直線)。`workflow-definition-input.ts` 只做型別整形、不判對錯(保留會被檢查器指出的東西),草稿讀寫、fork、發布快照、版本讀取原樣保留節點 `kind` 與連線。
+- **定義**以 `definition: { steps, edges?, checkFormKey? }` 進出:`steps` 是 `StepDef` 的 JSON(含 `kind: review | join`),`edges` 缺席 / `null` / 空陣列都存 `null`(= 直線)。`workflow-definition-input.ts` 只做型別整形、不判對錯(保留會被檢查器指出的東西),草稿讀寫、fork、發布快照、版本讀取原樣保留節點 `kind` 與連線。
+- **檢查用表單**(`workflow_versions.checkFormKey`,選填):設計器對照的表單,存草稿一併存、發布快照保留、以某版開草稿與 fork 帶過去、版本讀取回傳。草稿的檢查結果、`validateWorkflowVersion`(外層 `checkFormKey` 沒給時)與發布前的檢查器都以它的目前版本驗 `skipWhen`;沒選時照舊用第一個 `field` 來源的表單。選了但對不到可用的表單(不存在、看不到、沒有目前版本)→ `CHECK_FORM_UNAVAILABLE`(錯誤、擋發布),跳過條件只驗形狀,不拿別張表單硬比。它只影響設計時的檢查 —— 送出與綁定時檢查仍以綁定的表單為準。
+- **刪除草稿**(`deleteWorkflowVersionDraft`):帶 `expectedDraftRevision`;發布進行中 / 中斷時 `CONFLICT`(`PUBLISH_IN_PROGRESS`)。**硬刪**那筆草稿(`BaseRepository.hardDeleteDraft`,ADR-0007 第三種硬刪;條件與刪除同一次寫入):草稿從未發布,沒有實例 / 任務引用它;軟刪除會佔住「一個流程至多一份草稿」的部分唯一索引,改成 `retired` 又會把「發布過」的語意弄髒。刪前的整份內容(`steps`、`edges`、`checkFormKey`、`draftRevision`、`baseVersion`)寫進稽核 `workflow-version.delete-draft` 的 `before`,需要時從稽核回看。已發布 / 退役的版本不受影響。
 - **檢查器**(`workflow-definition-checker.ts`)組好 `validateWorkflowDefinition` 要的目錄:共用 / 客製、本租戶的角色與使用者、`field` 來源表單與「檢查用表單」的**目前版本**欄位(共用流程只認共用表單;客製流程認共用表單與自己租戶的客製表單)。存草稿照收(錯誤隨 `validation` 回),發布有錯 → `VALIDATION_FAILED` + `issues`。共用流程含 `users` → `USERS_IN_SHARED`;客製流程的 `role` 沒填 / 不是本租戶的角色 → `ROLE_ID_MISSING` / `ROLE_NOT_IN_TENANT`。
 - **退役目前版本 / 改版 / 收回分派**:進行中的實例照常走完(實例記自己的 `(workflowKey, workflowVersion)`),只影響新送出。
 
@@ -198,22 +200,25 @@
 
 `apps/admin/src/pages/system/WorkflowsPage/`(懶載入:React Flow、dagre、檢查器不進首屏)。左清單、右面板;頁首「阻擋清單」進隱藏頁(有 `system.workflows.blocked-page.reassign` 才出現)。
 
-| 畫面                 | 做什麼                                                                                                                                                                                                                                                           |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 流程清單             | 搜尋;每列名稱、key、共用 / 客製、目前版本或「未發布」、分派了幾個租戶(root 視角)、發布中斷、有草稿、綁定的表單(租戶視角);「建立流程」看 `system.workflows.create`(站在根組織 = 共用、租戶內 = 客製)                                                              |
-| 右側標頭             | 改名稱(`abilities.canEdit`)、以此為基底建流程(`canFork`)、分派(`canAssign`);分派來、含角色佔位的共用流程提示「以它為基底建客製流程」                                                                                                                             |
-| 設計(頁籤)           | 流程圖 + 屬性面板 + 檢查結果 + JSON 預覽;頂列有草稿修訂號、未存標示、「檢查用表單」、在最後加一關、存草稿(帶 `expectedDraftRevision`,`CONFLICT` → 提示並可重新載入)。改不動的流程(分派來的共用流程)只看目前版本的流程圖;沒有草稿時「開新草稿」(以目前版本為基底) |
-| 版本(頁籤)           | 草稿與各版本、發布(changelog 必填,`canPublish`)、發布中斷重試、退役目前版本、與上一版差異(以關卡 key 比:新增 / 移除 / 變更 + 分流結構有沒有變)、以任一版本為基底開新草稿                                                                                         |
-| 分派跳窗             | 勾租戶 = 分派、取消勾 = 收回(只有平台)                                                                                                                                                                                                                           |
-| 以此為基底建流程跳窗 | 選基底版本(已發布 / 已退役)、填 key(建立後不可改)與名稱;表單管理的「建客製流程」捷徑帶著來源流程進來,直接開這個跳窗                                                                                                                                              |
+| 畫面                 | 做什麼                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 流程清單             | 搜尋;每列名稱、key、共用 / 客製、目前版本或「未發布」、分派了幾個租戶(root 視角)、發布中斷、有草稿、綁定的表單(租戶視角);「建立流程」看 `system.workflows.create`(站在根組織 = 共用、租戶內 = 客製)                                                                                                                                                       |
+| 右側標頭             | 改名稱(`abilities.canEdit`)、以此為基底建流程(`canFork`)、分派(`canAssign`);分派來、含角色佔位的共用流程提示「以它為基底建客製流程」                                                                                                                                                                                                                      |
+| 設計(頁籤)           | 流程圖 + 屬性面板 + 檢查結果 + JSON 預覽;頂列有「檢查用表單」與「檢查」鈕、草稿修訂號、未存標示、在最後加一關、存草稿(帶 `expectedDraftRevision`,`CONFLICT` → 提示並可重新載入)。改不動的流程(分派來的共用流程)只看目前版本的流程圖;沒有草稿時「開新草稿」(以目前版本為基底)。版本面板「檢視 vN」時換成唯讀檢視(`FlowVersionViewer`),草稿的設計器照樣掛著 |
+| 版本(頁籤)           | 草稿與各版本、發布(changelog 必填,`canPublish`)、發布中斷重試、退役目前版本、與上一版差異(以關卡 key 比:新增 / 移除 / 變更 + 分流結構有沒有變)、以任一版本為基底開新草稿、檢視某一版(唯讀)、刪除草稿(確認跳窗;設計器有未存變更時提醒一起丟掉;`canEdit`)                                                                                                   |
+| 分派跳窗             | 勾租戶 = 分派、取消勾 = 收回(只有平台)                                                                                                                                                                                                                                                                                                                    |
+| 以此為基底建流程跳窗 | 選基底版本(已發布 / 已退役)、填 key(建立後不可改)與名稱;表單管理的「建客製流程」捷徑帶著來源流程進來,直接開這個跳窗                                                                                                                                                                                                                                       |
 
 **設計器**(`WorkflowDesigner/`):
 
 - **編輯模型是段落串**,不是自由連線:主線上的審核關卡,或「一組分流」(從前一個審核關卡分出 N 條分支、各一關或多關、匯到同一個匯合節點)。這個形狀本身就守住允許的結構(不巢狀、不交叉、分流 / 匯合配對),每個操作是「段落串 → 段落串」的純函式,結果不合形狀就拒絕並顯示原因(`lib/workflow/flow-model.ts`、`flow-ops.ts`)。存檔時才產生 `steps` / `edges`(沒有分流 = 直線,`edges: null`)。草稿的結構表示不了(手改過的定義)時改成唯讀,只看檢查結果。
 - **流程圖**用 React Flow(`@xyflow/react`)畫,節點位置由 `@dagrejs/dagre` 自動直式排版(`lib/workflow/flow-layout.ts`),使用者不手擺、**不開放自由拉線**。兩種節點:審核關卡卡片(名稱、來源、會簽、跳過條件、不可退回;有錯標紅)與匯合節點菱形(系統節點)。
 - **操作**:在後面加一關、從此關分流(選分支數,只有主線上還沒分流的關卡可以)、加一條分支、在匯合後加一關、刪除此關(連線自動接上;刪掉分支最後一關 = 刪那條分支,剩一條時收成直線)、刪除整組分流(連同匯合節點)。**移動**:拖審核關卡放開,依放開位置找最近的節點插在它前 / 後或匯合之後(`lib/workflow/flow-drop.ts`);鍵盤也做得到:屬性面板的「上移 / 下移 / 移到分支」。分流來源不能移、會留下空分支的移動被拒。
-- **屬性面板**:名稱、key(已發布過的關卡 key 鎖定,以草稿的基底版本為準)、審核者來源四種(指定使用者 / 角色 / 表單欄位 / 主管;共用流程不能指定使用者、角色只填佔位)、會簽、允許退回、跳過條件(表單引擎的結構化表達式選擇器,欄位來自「檢查用表單」的目前版本)。候選借既有查詢:角色 `roles`、使用者 `users`、表單 `forms` / `formVersion`,拿不到就是空清單,存草稿時 api 的檢查器照樣把關。
-- **檢查器**即時跑 `@repo/domain/workflow` 的 `validateWorkflowDefinition`(與 api 同一份),再併上次存草稿時 api 回的結果(api 有完整目錄;改過之後以即時為準,`lib/workflow/validation.ts`);每筆定位到關卡,點一下選中它。
+- **檢查用表單**(頂列,`CheckFormField`):設計時對照的表單 —— 列出可選的欄位、驗證審核者欄位與跳過條件;實際送出以綁定的表單為準,綁定時會再驗一次(這句說明就放在欄位旁)。隨草稿存(`checkFormKey`,換掉也算未存變更);新草稿(`draftRevision === 0`)沒有值時預設第一張綁定的表單;存過的草稿照存的值(存了 null = 明確不指定)。跳過條件的欄位下拉沒東西可選時說明原因:沒選檢查用表單 →「請先選檢查用表單」、載入中、選了但沒有可用欄位 →「此表單沒有可用欄位」;已設的欄位值照樣顯示。
+- **屬性面板**:名稱、key(已發布過的關卡 key 鎖定,以草稿的基底版本為準)、審核者來源四種(指定使用者 / 角色 / 表單欄位 / 主管;共用流程不能指定使用者、角色只填佔位)、會簽、允許退回、跳過條件(表單引擎的結構化表達式選擇器)。「表單欄位」來源與跳過條件的欄位都從檢查用表單的目前版本列(非受保護欄位;來源另限使用者型引用欄),選了欄位來源的表單就是檢查用表單;沒選檢查用表單時兩處欄位下拉顯示「請先選檢查用表單」。候選借既有查詢:角色 `roles`、使用者 `users`、表單 `forms` / `formVersion`,拿不到就是空清單,存草稿時 api 的檢查器照樣把關。
+- **檢查器**即時跑 `@repo/domain/workflow` 的 `validateWorkflowDefinition`(與 api 同一份;跳過條件與「表單欄位」來源對檢查用表單驗,`useLocalFlowReport.ts`),再併上次存草稿時 api 回的結果(api 有完整目錄;改過之後以即時為準,`lib/workflow/validation.ts`);每筆定位到關卡,點一下選中它。
+- **「檢查」鈕**(`useFlowCheck.ts`、`FlowCheckPanel.tsx`):把目前的定義與檢查用表單送 `validateWorkflowVersion`,併入即時檢查後依關卡列出錯誤 / 警告,點一筆選中那一關並打開屬性面板;之後又改過就提示重新檢查。沒選檢查用表單時提示:跳過條件沒有對照表單時只做結構檢查,審核者的表單欄位來源仍以各自的表單驗。api 失敗時降級只列即時結果並說明。
+- **唯讀檢視舊版本**(`FlowVersionViewer.tsx`):`workflowVersion(workflowKey, version)`;節點可選、屬性面板可看不可改(`StepEditor` / `JoinPanel` 的 `isReadonly`)、不能拖、沒有存草稿;即時檢查與「檢查」鈕照樣可用(檢查用表單用那一版存的);「以 vN 為基底開新草稿」只在改得動、沒有草稿、沒有發布中斷時出現,已有草稿只提示。
 - **未存的變更不會無聲消失**:「流程設計 / 流程版本」兩頁籤都保持掛載;有未存變更時換流程先跳窗(留在設計 / 放棄變更 / 先存草稿);發布跳窗提示「發布的是上次存的草稿」並提供先存;關分頁 / 重新整理由瀏覽器問(狀態經 `stores/useWorkflowDraftStore.ts`)。
 
 ### 阻擋清單(`system.workflows.blocked-page`)
@@ -257,7 +262,7 @@
 
 GraphQL 文件:`packages/graphql/src/documents/workflows.graphql`(設計、綁定、阻擋清單)、`apply-center.graphql`(申請中心、決定、提交的撤回 / 作廢 / 複製)。
 
-**設計端**(`@RequirePermission` 守端點,「是不是自己的流程 / 站在哪裡」在 service):`workflows`、`workflow`、`workflowVersion(workflowKey, version?)`(省略 = 草稿)、`workflowVersions`、`validateWorkflowVersion`(query,不落庫)、`createWorkflow`、`updateWorkflow`、`forkWorkflow`、`createWorkflowVersionDraft`、`saveWorkflowVersionDraft`、`publishWorkflowVersion`、`retryPublishWorkflowVersion`、`retireCurrentWorkflowVersion`、`assignWorkflowToTenants`、`revokeWorkflowFromTenant`。
+**設計端**(`@RequirePermission` 守端點,「是不是自己的流程 / 站在哪裡」在 service):`workflows`、`workflow`、`workflowVersion(workflowKey, version?)`(省略 = 草稿)、`workflowVersions`、`validateWorkflowVersion`(query,不落庫)、`createWorkflow`、`updateWorkflow`、`forkWorkflow`、`createWorkflowVersionDraft`、`saveWorkflowVersionDraft`、`deleteWorkflowVersionDraft`(回 `WorkflowPayload`)、`publishWorkflowVersion`、`retryPublishWorkflowVersion`、`retireCurrentWorkflowVersion`、`assignWorkflowToTenants`、`revokeWorkflowFromTenant`。
 
 **綁定**(`system.forms.edit`、站在租戶內):`bindFormWorkflow`、`unbindFormWorkflow`(回 `FormPayload`)、`formWorkflowOptions(formKey)`、`FormModel.workflowBinding`。
 
@@ -269,7 +274,8 @@ input 欄位的缺席 / `null`:
 
 - `CreateWorkflowVersionDraftInput.baseVersion`:缺席 / `null` = 空白草稿。
 - `WorkflowDefinitionInput.edges`:缺席 / `null` / 空陣列 = 直線(存 `null`)。
-- `ValidateWorkflowVersionInput.checkFormKey`:缺席 / `null` = 跳過條件對第一個 `field` 來源的表單驗;都沒有 → 只驗形狀。
+- `WorkflowDefinitionInput.checkFormKey`(存草稿):缺席 = 不動已存的值;`null` / 空字串 = 清掉(存 `null`)。
+- `ValidateWorkflowVersionInput.checkFormKey`:缺席 / `null` = 改看 `definition.checkFormKey`;兩者都沒有 = 跳過條件對第一個 `field` 來源的表單驗;都沒有 → 只驗形狀。
 - `DecideTaskInput.comment`:缺席 / `null` / 空白 = 沒有理由(駁回 / 退回時 → `VALIDATION_FAILED` `comment`)。
 - `MyApplicationsInput` / `MyTasksInput` 的篩選欄位缺席 = 不篩;`MyTasksInput.done` 缺席 = 待處理。
 
@@ -279,6 +285,7 @@ input 欄位的缺席 / `null`:
 - `WorkflowTaskPayload.result`:`decideTask` 回 `ACCEPTED` / `STEP_CLOSED`;改派 / 新增審核者一律 `ACCEPTED`。
 - `WorkflowPlanItemModel.taskId`:這一項對應的任務 id,**只給流程管理者**(`abilities.canManage`)—— 阻擋清單要對別人的任務改派(`reassignTask` 收 taskId);其他讀者一律 null,任務還沒建出來也是 null。
 - `WorkflowInstanceStepModel.allowReturn`:這一關可否退回修改(版本定義的 `allowReturn`,省略 = true;匯合節點 false)—— 審核區塊依它決定出不出現「退回修改」鈕;送出時 api 仍照驗(不允許 → `VALIDATION_FAILED`)。
+- `WorkflowVersionModel.checkFormKey`:設計器的檢查用表單(表單 key);沒選 / 舊資料 = null。
 - `WorkflowModel.hasRolePlaceholder`:目前發布版含角色佔位(共用流程),租戶不能直接綁。`boundForms` 只有租戶視角有(本租戶的綁定);`assignments` 只有 root 視角的共用流程有。
 - **`abilities` 含權限**(業務模組那一種,前端直接用):`WorkflowAbilities`、`WorkflowInstanceAbilities`、`FormSubmissionAbilities` 的 `canWithdraw` / `canVoid` / `canCopy`(見 `docs/modules/forms.md`「api 介面」)。
 - `FormSubmissionModel.clearedFields`:只有 `copySubmissionToDraft` 的回傳有值。
@@ -294,11 +301,11 @@ input 欄位的缺席 / `null`:
 
 ## 稽核
 
-| action                                                                                      | targetType          | 記什麼                                           |
-| ------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------ |
-| `workflow.create` / `.update` / `.fork` / `.assign` / `.revoke`                             | `workflow`          | key、名稱、fork 來源、分派的租戶                 |
-| `workflow-version.create-draft` / `.save-draft` / `.publish` / `.retry-publish` / `.retire` | `workflow_version`  | workflowKey、版號、draftRevision、changelog      |
-| `form.bind-workflow` / `form.unbind-workflow`                                               | `form`              | 綁定前後的流程                                   |
-| `task.decide` / `task.reassign`                                                             | `workflow_task`     | 決定種類 / 改派前後的承辦人                      |
-| `task.add-assignee` / `instance.retry-advance`                                              | `workflow_instance` | 關卡、taskKey、新增的人                          |
-| `submission.submit` / `.withdraw` / `.void` / `.copy`                                       | `form_submission`   | 修訂號、流程版本、作廢理由、複製來源(**不記值**) |
+| action                                                                                                        | targetType          | 記什麼                                                                                     |
+| ------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------ |
+| `workflow.create` / `.update` / `.fork` / `.assign` / `.revoke`                                               | `workflow`          | key、名稱、fork 來源、分派的租戶                                                           |
+| `workflow-version.create-draft` / `.save-draft` / `.delete-draft` / `.publish` / `.retry-publish` / `.retire` | `workflow_version`  | workflowKey、版號、draftRevision、changelog、檢查用表單;刪草稿的 `before` 記刪前的整份定義 |
+| `form.bind-workflow` / `form.unbind-workflow`                                                                 | `form`              | 綁定前後的流程                                                                             |
+| `task.decide` / `task.reassign`                                                                               | `workflow_task`     | 決定種類 / 改派前後的承辦人                                                                |
+| `task.add-assignee` / `instance.retry-advance`                                                                | `workflow_instance` | 關卡、taskKey、新增的人                                                                    |
+| `submission.submit` / `.withdraw` / `.void` / `.copy`                                                         | `form_submission`   | 修訂號、流程版本、作廢理由、複製來源(**不記值**)                                           |

@@ -9,6 +9,7 @@ import { Stack } from "@repo/ui/stack";
 import { Tabs } from "@repo/ui/tabs";
 import { Typography } from "@repo/ui/typography";
 
+import { FlowVersionViewer } from "./WorkflowDesigner/FlowVersionViewer";
 import { WorkflowDesigner } from "./WorkflowDesigner/WorkflowDesigner";
 import { AssignWorkflowDialog } from "./WorkflowDialogs/AssignWorkflowDialog";
 import { ForkWorkflowDialog } from "./WorkflowDialogs/ForkWorkflowDialog";
@@ -38,6 +39,8 @@ export const WorkflowDetailPanel = ({
 }: WorkflowDetailPanelProps) => {
   const t = useTranslations("admin.workflows.detail");
   const [tab, setTab] = useState<DetailTab>("design");
+  /** 版本面板「檢視 vN」:設計頁籤換成唯讀檢視,草稿的設計器照樣掛著(未存變更不丟) */
+  const [viewing, setViewing] = useState<number | null>(null);
   const [dialog, setDialog] = useState<OpenDialog>(() =>
     isForkRequested && workflow.abilities.canFork ? "fork" : null,
   );
@@ -141,10 +144,30 @@ export const WorkflowDetailPanel = ({
         />
         {/* 兩個頁籤都保持掛載、只切顯示:切到「版本」不能讓設計器卸載(未存的改動會無聲消失) */}
         <Box hidden={tab !== "design"}>
-          <WorkflowDesigner workflow={workflow} onChanged={onChanged} />
+          {viewing !== null && (
+            <FlowVersionViewer
+              key={viewing}
+              workflow={workflow}
+              version={viewing}
+              onClose={() => {
+                setViewing(null);
+              }}
+              onChanged={onChanged}
+            />
+          )}
+          <Box hidden={viewing !== null}>
+            <WorkflowDesigner workflow={workflow} onChanged={onChanged} />
+          </Box>
         </Box>
         <Box hidden={tab !== "versions"}>
-          <WorkflowVersionPanel workflow={workflow} onChanged={onChanged} />
+          <WorkflowVersionPanel
+            workflow={workflow}
+            onChanged={onChanged}
+            onView={(version) => {
+              setViewing(version);
+              setTab("design");
+            }}
+          />
         </Box>
       </Stack>
       {dialog === "edit" && (

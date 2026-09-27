@@ -181,7 +181,7 @@ export class WorkflowsService {
     const source = await this.access.requireReadable(facts, input.sourceKey);
     const key = requireWorkflowKey(input.key);
     const name = requireName(input.name);
-    const definition = await this.versionsService.baseDefinitionOf(
+    const content = await this.versionsService.baseContentOf(
       operator,
       source,
       input.sourceVersion,
@@ -192,7 +192,7 @@ export class WorkflowsService {
     };
     const created = await this.insertWorkflow(facts, key, name, forkedFrom);
     // 草稿寫入失敗時流程已建好:可再開草稿補上,不做補償刪除(同表單的 fork)
-    await this.versionsService.insertDraft(operator, key, definition, null);
+    await this.versionsService.insertDraft(operator, key, content, null);
     await this.audit.record(operator, {
       action: WORKFLOW_AUDIT.fork,
       targetType: WORKFLOW_TARGET,

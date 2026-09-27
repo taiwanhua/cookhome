@@ -20,8 +20,10 @@ export interface WorkflowDraftSaveInput {
   workflowKey: string;
   initialRevision: number;
   definition: WorkflowDefinition;
+  /** 設計器的「檢查用表單」(一併存進草稿) */
+  checkFormKey: string | null;
   isDirty: boolean;
-  markSaved: (saved: WorkflowDefinition) => void;
+  markSaved: (saved: WorkflowDefinition, checkFormKey: string | null) => void;
   onSaved: () => void;
 }
 
@@ -34,6 +36,7 @@ export const useWorkflowDraftSave = ({
   workflowKey,
   initialRevision,
   definition,
+  checkFormKey,
   isDirty,
   markSaved,
   onSaved,
@@ -55,19 +58,20 @@ export const useWorkflowDraftSave = ({
 
   const save = async (): Promise<number | null> => {
     const snapshot = definition;
+    const checkFormSnapshot = checkFormKey;
     setError(null);
     try {
       const payload = await mutation.mutateAsync({
         input: {
           workflowKey,
           expectedDraftRevision: revision,
-          definition: definitionInputOf(snapshot),
+          definition: definitionInputOf(snapshot, checkFormSnapshot),
         },
       });
       const saved = payload.saveWorkflowVersionDraft;
       setRevision(saved.workflowVersion.draftRevision);
       setServerReport(saved.validation ?? null);
-      markSaved(snapshot);
+      markSaved(snapshot, checkFormSnapshot);
       feedback.onSuccess(payload);
       onSaved();
       return saved.workflowVersion.draftRevision;

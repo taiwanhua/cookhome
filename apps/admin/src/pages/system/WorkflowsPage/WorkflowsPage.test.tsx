@@ -85,9 +85,11 @@ describe("流程管理:清單與設計器", () => {
     ).toBeInTheDocument();
   });
 
-  it("表單欄位:只列使用者引用欄;存草稿帶 expectedDraftRevision 與整份定義", async () => {
+  it("表單欄位:從檢查用表單只列使用者引用欄;存草稿帶 expectedDraftRevision、整份定義與檢查用表單", async () => {
     const { user, world } = renderWorkflows();
     const canvas = await findCanvas();
+    await user.click(screen.getByRole("combobox", { name: "檢查用表單" }));
+    await user.click(await screen.findByRole("option", { name: "病假單" }));
 
     clickNode(canvas, "人資");
     const panel = propertiesPanel();
@@ -95,8 +97,6 @@ describe("流程管理:清單與設計器", () => {
       within(panel).getByRole("combobox", { name: "審核者來源" }),
     );
     await user.click(await screen.findByRole("option", { name: "表單欄位" }));
-    await user.click(within(panel).getByRole("combobox", { name: "表單" }));
-    await user.click(await screen.findByRole("option", { name: "病假單" }));
     await user.click(within(panel).getByRole("combobox", { name: "欄位" }));
     expect(
       screen.queryByRole("option", { name: "天數" }),
@@ -117,6 +117,7 @@ describe("流程管理:清單與設計器", () => {
       key: "hr",
       assignee: { kind: "field", formKey: "sick_leave", fieldKey: "approver" },
     });
+    expect(saved.definition.checkFormKey).toBe("sick_leave");
   });
 
   it("共用流程不能選「指定使用者」,角色只能填佔位", async () => {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "use-intl";
 
-import { isJoinStep, validateWorkflowDefinition } from "@repo/domain/workflow";
+import { isJoinStep } from "@repo/domain/workflow";
 import type {
   WorkflowFieldsFragment,
   WorkflowVersionFieldsFragment,
@@ -13,19 +13,26 @@ import { Typography } from "@repo/ui/typography";
 
 import { JsonPreview } from "@/components/JsonPreview";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
-import { definitionInputOf, definitionOf } from "@/lib/workflow/definition";
+import {
+  checkFormKeyOf,
+  definitionInputOf,
+  definitionOf,
+} from "@/lib/workflow/definition";
 import { mergeReports } from "@/lib/workflow/validation";
 
 import { DesignerToolbar } from "./DesignerToolbar";
 import { FlowCanvas } from "./FlowCanvas";
+import { FlowCheckPanel } from "./FlowCheckPanel";
 import { FlowIssueList } from "./FlowIssueList";
 import { ForkDialog } from "./ForkDialog";
 import { JoinPanel } from "./JoinPanel";
 import { StepEditor } from "./StepEditor";
 import { useDesignerCatalog, useFormFields } from "./useDesignerCatalog";
 import { useFlowActions } from "./useFlowActions";
+import { useFlowCheck } from "./useFlowCheck";
 import { useFlowDesignerState } from "./useFlowDesignerState";
 import { useFlowNodeData } from "./useFlowNodeData";
+import { useLocalFlowReport } from "./useLocalFlowReport";
 import { useWorkflowDraftSave } from "./useWorkflowDraftSave";
 
 export interface FlowDesignerWorkspaceProps {
@@ -40,6 +47,8 @@ export interface FlowDesignerWorkspaceProps {
 /**
  * 流程設計器本體(Spec 6b §8 畫面 3):流程圖 + 屬性面板 + 檢查器 + JSON 預覽。
  * 檢查器即時跑 `@repo/domain/workflow` 的 `validateWorkflowDefinition`(與 api 同一份),錯誤定位到關卡;
+ * 「檢查」鈕另跑 api 的完整檢查、結果面板依關卡列出。「檢查用表單」隨草稿存(`checkFormKey`),
+ * 新草稿(`draftRevision === 0`)沒有值時預設第一張綁定的表單;存過的草稿照存的值。
  * 存草稿帶 `expectedDraftRevision`。有沒有未存的變更回報給 `useWorkflowDraftStore`
  * (換流程攔截、發布跳窗提示),關分頁 / 重新整理由 `useUnsavedGuard` 問。
  */
@@ -53,42 +62,38 @@ export const FlowDesignerWorkspace = ({
   const t = useTranslations("admin.workflows.designer");
   const tOp = useTranslations("admin.workflows.opErrors");
   const initial = useMemo(() => definitionOf(draft), [draft]);
-  const state = useFlowDesignerState(initial);
-  const { definition } = state;
+  // 新草稿(還沒存過)才預設第一張綁定的表單;存過的草稿照存的值(存了 null = 明確不指定)
+  const state = useFlowDesignerState(
+    initial,
+    draft.draftRevision === 0
+      ? (checkFormKeyOf(draft) ?? workflow.boundForms.at(0)?.formKey ?? null)
+      : checkFormKeyOf(draft),
+  );
+  const { definition, checkFormKey } = state;
   const saving = useWorkflowDraftSave({
     workflowKey: workflow.key,
     initialRevision: draft.draftRevision,
     definition,
+    checkFormKey,
     isDirty: state.isDirty,
     markSaved: state.markSaved,
     onSaved,
   });
   useUnsavedGuard(state.isDirty);
   const catalog = useDesignerCatalog(workflow.isShared);
-  const [checkFormKey, setCheckFormKey] = useState<string | null>(
-    workflow.boundForms.at(0)?.formKey ?? null,
-  );
   const checkFormFields = useFormFields(checkFormKey, catalog.forms);
-  const { tenantRoleIds } = catalog;
+  const local = useLocalFlowReport({
+    definition,
+    isShared: workflow.isShared,
+    tenantRoleIds: catalog.tenantRoleIds,
+    checkFormKey,
+    checkFormFields,
+  });
   const report = useMemo(
-    () =>
-      mergeReports(
-        validateWorkflowDefinition(definition, {
-          isShared: workflow.isShared,
-          ...(tenantRoleIds !== undefined && { tenantRoleIds }),
-          ...(checkFormFields !== null && { checkFormFields }),
-        }),
-        state.isDirty ? null : saving.serverReport,
-      ),
-    [
-      definition,
-      workflow.isShared,
-      tenantRoleIds,
-      checkFormFields,
-      state.isDirty,
-      saving.serverReport,
-    ],
+    () => mergeReports(local, state.isDirty ? null : saving.serverReport),
+    [local, state.isDirty, saving.serverReport],
   );
+  const check = useFlowCheck(workflow.key);
   const actions = useFlowActions(state);
   const dataOf = useFlowNodeData(
     definition,
@@ -151,6 +156,7 @@ export const FlowDesignerWorkspace = ({
         isShared={workflow.isShared}
         forms={catalog.forms}
         roles={catalog.roles}
+        checkFormKey={checkFormKey}
         checkFormFields={checkFormFields}
         issues={issuesOf(selected.key)}
         canFork={info.canFork}
@@ -195,8 +201,22 @@ export const FlowDesignerWorkspace = ({
         onAppendStep={actions.appendAtEnd}
         forms={catalog.forms}
         checkFormKey={checkFormKey}
-        onCheckFormKeyChange={setCheckFormKey}
+        onCheckFormKeyChange={state.setCheckFormKey}
+        onCheck={() => {
+          void check.run(definition, checkFormKey, local);
+        }}
+        isChecking={check.isChecking}
       />
+      {check.result !== null && (
+        <FlowCheckPanel
+          result={check.result}
+          error={check.error}
+          definition={definition}
+          checkFormKey={checkFormKey}
+          stepNameOf={stepNameOf}
+          onLocate={state.select}
+        />
+      )}
       {!isEditable && <Alert severity="warning">{t("unparseable")}</Alert>}
       {catalog.isTruncated && (
         <Alert severity="info">{t("catalogTruncated")}</Alert>

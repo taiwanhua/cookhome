@@ -97,6 +97,13 @@ export class WorkflowDefinitionInput {
 
   @Field(() => [WorkflowEdgeInput], { nullable: true })
   edges?: WorkflowEdgeInput[] | null;
+
+  /**
+   * 設計器的「檢查用表單」(表單 key)。存草稿:缺席 = 不動已存的值、`null` / 空字串 = 清掉;
+   * 檢查器(`validateWorkflowVersion`)在外層 `checkFormKey` 缺席時才看這裡。
+   */
+  @Field(() => ID, { nullable: true })
+  checkFormKey?: string | null;
 }
 
 @InputType()
@@ -125,6 +132,17 @@ export class PublishWorkflowVersionInput {
   changelog!: string;
 }
 
+/** 刪除草稿(`expectedDraftRevision` 樂觀鎖;發布進行中 / 中斷時不可)。 */
+@InputType()
+export class DeleteWorkflowVersionDraftInput {
+  @Field(() => ID)
+  workflowKey!: string;
+
+  /** 草稿目前的 `draftRevision`;不符 → `CONFLICT`(`DRAFT_REVISION_MISMATCH`)。 */
+  @Field(() => Int)
+  expectedDraftRevision!: number;
+}
+
 /** 設計器即時檢查(不落庫)。 */
 @InputType()
 export class ValidateWorkflowVersionInput {
@@ -134,7 +152,10 @@ export class ValidateWorkflowVersionInput {
   @Field(() => WorkflowDefinitionInput)
   definition!: WorkflowDefinitionInput;
 
-  /** 「檢查用表單」:跳過條件對它的目前版本驗;缺席 = 用第一個 `field` 來源的表單。 */
+  /**
+   * 「檢查用表單」:跳過條件對它的目前版本驗。缺席 / `null` 時改看 `definition.checkFormKey`;
+   * 兩者都沒有 = 用第一個 `field` 來源的表單。
+   */
   @Field(() => ID, { nullable: true })
   checkFormKey?: string | null;
 }

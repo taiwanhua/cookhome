@@ -27,8 +27,20 @@ export const definitionOf = (
         })),
 });
 
-/** 存草稿 / 檢查用的 input(`definition: { steps, edges }`)。 */
-export const definitionInputOf = (definition: WorkflowDefinition) => ({
+/** 版本的「檢查用表單」(舊資料沒有這一欄 = 沒選)。 */
+export const checkFormKeyOf = (version: {
+  checkFormKey?: string | null;
+}): string | null => version.checkFormKey ?? null;
+
+/**
+ * 存草稿 / 檢查用的 input(`definition: { steps, edges, checkFormKey? }`)。
+ * `checkFormKey` 不給 = 不送(api 不動已存的值);給 `null` = 清掉。
+ */
+export const definitionInputOf = (
+  definition: WorkflowDefinition,
+  checkFormKey?: string | null,
+) => ({
+  ...(checkFormKey !== undefined && { checkFormKey }),
   // GraphQL 的 `steps` 是 JSONObject 純量陣列
   steps: definition.steps.map((step): Record<string, unknown> => ({ ...step })),
   edges:

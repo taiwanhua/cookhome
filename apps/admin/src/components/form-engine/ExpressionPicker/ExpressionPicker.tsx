@@ -36,6 +36,8 @@ export interface ExpressionPickerProps {
   resultType?: ExpressionValueType | null;
   /** 檢查器指到這個表達式的錯誤(就地顯示) */
   issues?: readonly string[];
+  /** 沒有任何欄位可選時,欄位下拉顯示的提示(例:流程跳過條件「請先選檢查用表單」);不給 = 空清單 */
+  emptyFieldsLabel?: string;
 }
 
 const BOOLEAN_ROOT: ExpectedTypes = ["boolean"];
@@ -64,6 +66,7 @@ export const ExpressionPicker = ({
   usage = "condition",
   resultType = null,
   issues = [],
+  emptyFieldsLabel,
 }: ExpressionPickerProps) => {
   const t = useTranslations("admin.forms.expression");
   const isSet = value !== undefined && value !== null;
@@ -108,6 +111,7 @@ export const ExpressionPicker = ({
             fieldTypeOf={fieldTypeOf}
             path=""
             depth={0}
+            {...(emptyFieldsLabel !== undefined && { emptyFieldsLabel })}
           />
           <JsonPreview value={value} label={t("json", { label })} />
         </>

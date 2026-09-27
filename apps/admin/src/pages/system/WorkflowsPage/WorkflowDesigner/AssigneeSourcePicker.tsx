@@ -1,5 +1,6 @@
 import { useTranslations } from "use-intl";
 
+import type { FieldDef } from "@repo/domain/form";
 import {
   ASSIGNEE_KINDS,
   type AssigneeKind,
@@ -11,17 +12,22 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
+import { conditionFieldsOf } from "@/lib/form-engine/expression-options";
+
+import { FieldSourceSelect } from "./FieldSourceSelect";
 import { UsersField } from "./UsersField";
-import {
-  type CatalogForm,
-  type CatalogRole,
-  useFormFields,
-} from "./useDesignerCatalog";
+import type { CatalogForm, CatalogRole } from "./useDesignerCatalog";
 
 const MANAGER_LEVELS = [1, 2, 3, 4, 5] as const;
 
-/** 換來源種類時的起點(各自的必要欄位先給空值,檢查器會指出還沒填的)。 */
-const defaultSourceOf = (kind: AssigneeKind): AssigneeSource => {
+/**
+ * 換來源種類時的起點(各自的必要欄位先給空值,檢查器會指出還沒填的);
+ * 「表單欄位」的表單固定是檢查用表單。
+ */
+const defaultSourceOf = (
+  kind: AssigneeKind,
+  checkFormKey: string | null,
+): AssigneeSource => {
   switch (kind) {
     case "users": {
       return { kind, userIds: [] };
@@ -30,7 +36,7 @@ const defaultSourceOf = (kind: AssigneeKind): AssigneeSource => {
       return { kind, roleId: null, placeholder: null };
     }
     case "field": {
-      return { kind, formKey: "", fieldKey: "" };
+      return { kind, formKey: checkFormKey ?? "", fieldKey: "" };
     }
     case "manager": {
       return { kind, level: 1 };
@@ -43,15 +49,26 @@ export interface AssigneeSourcePickerProps {
   onChange: (value: AssigneeSource) => void;
   /** 共用流程:不能指定使用者、角色只能填佔位(Spec 6b §5「審核者來源」) */
   isShared: boolean;
+  /** 表單目錄(顯示表單名稱用) */
   forms: readonly CatalogForm[];
   roles: readonly CatalogRole[];
+  /** 「檢查用表單」與它目前版本的欄位:「表單欄位」來源從這裡選 */
+  checkFormKey: string | null;
+  checkFormFields: readonly FieldDef[] | null;
   isDisabled: boolean;
 }
+
+/** 「表單欄位」來源可選的欄:使用者型引用欄、非受保護欄位。 */
+const assigneeFieldsOf = (fields: readonly FieldDef[] | null): FieldDef[] =>
+  conditionFieldsOf(fields ?? [], null, true).filter((field) =>
+    isUserReferenceField(field),
+  );
 
 /**
  * 審核者來源的四種(Spec 6b §8 零件 `<AssigneeSourcePicker>`):指定使用者 / 角色 / 表單欄位 / 主管。
  * 共用流程的「角色」只存佔位名稱(租戶以它為基底建客製流程後,再指到自己的角色);
- * 「表單欄位」只能選使用者型的引用欄;「主管」從申請所屬組織往上找第幾層。
+ * 「表單欄位」從「檢查用表單」目前版本的使用者型引用欄選(沒選檢查用表單時提示先選);
+ * 「主管」從申請所屬組織往上找第幾層。
  */
 export const AssigneeSourcePicker = ({
   value,
@@ -59,14 +76,13 @@ export const AssigneeSourcePicker = ({
   isShared,
   forms,
   roles,
+  checkFormKey,
+  checkFormFields,
   isDisabled,
 }: AssigneeSourcePickerProps) => {
   const t = useTranslations("admin.workflows.assignee");
-  const fieldFormKey = value.kind === "field" ? value.formKey : null;
-  const fields = useFormFields(
-    fieldFormKey === "" ? null : fieldFormKey,
-    forms,
-  );
+  const formNameOf = (formKey: string): string =>
+    forms.find((form) => form.key === formKey)?.name ?? formKey;
 
   return (
     <Stack spacing={1.5} role="group" aria-label={t("region")}>
@@ -83,7 +99,7 @@ export const AssigneeSourcePicker = ({
         helperText={isShared ? t("sharedHint") : ""}
         onChange={(kind) => {
           if (kind !== value.kind) {
-            onChange(defaultSourceOf(kind));
+            onChange(defaultSourceOf(kind, checkFormKey));
           }
         }}
       />
@@ -132,39 +148,14 @@ export const AssigneeSourcePicker = ({
         </>
       )}
       {value.kind === "field" && (
-        <>
-          <SelectField
-            label={t("form")}
-            value={value.formKey}
-            displayEmpty
-            size="small"
-            disabled={isDisabled}
-            options={[
-              { value: "", label: t("formUnset") },
-              ...forms.map((form) => ({ value: form.key, label: form.name })),
-            ]}
-            onChange={(formKey) => {
-              onChange({ ...value, formKey, fieldKey: "" });
-            }}
-          />
-          <SelectField
-            label={t("field")}
-            value={value.fieldKey}
-            displayEmpty
-            size="small"
-            disabled={isDisabled || value.formKey === ""}
-            helperText={t("fieldHint")}
-            options={[
-              { value: "", label: t("fieldUnset") },
-              ...(fields ?? [])
-                .filter((field) => isUserReferenceField(field))
-                .map((field) => ({ value: field.key, label: field.label })),
-            ]}
-            onChange={(fieldKey) => {
-              onChange({ ...value, fieldKey });
-            }}
-          />
-        </>
+        <FieldSourceSelect
+          value={value}
+          onChange={onChange}
+          checkFormKey={checkFormKey}
+          choices={assigneeFieldsOf(checkFormFields)}
+          formNameOf={formNameOf}
+          isDisabled={isDisabled}
+        />
       )}
       {value.kind === "manager" && (
         <SelectField
