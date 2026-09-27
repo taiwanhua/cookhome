@@ -61,6 +61,21 @@ const sameFieldValue = (
   return arrayRowChanges(field, left, right).length === 0;
 };
 
+/**
+ * 兩個修訂綁的版本可能不同(舊版資料升級過):差異以**這一修訂**的欄位為準,再補上只在前一修訂版本裡有的欄位
+ * (升級時被丟掉的欄位,前一修訂有值、這一修訂沒有)。同一版時就是那一版的欄位。
+ */
+export const revisionFieldsOf = (
+  previousFields: readonly FieldDef[],
+  currentFields: readonly FieldDef[],
+): FieldDef[] => {
+  const currentKeys = new Set(currentFields.map((field) => field.key));
+  return [
+    ...currentFields,
+    ...previousFields.filter((field) => !currentKeys.has(field.key)),
+  ];
+};
+
 /** 前一修訂 → 這一修訂,依定義的欄位順序列出有變動的欄位。 */
 export const revisionChanges = (
   fields: readonly FieldDef[],

@@ -105,10 +105,6 @@ describe("明細列(錯誤 / 唯讀 / 手機)", () => {
           {
             ...submission,
             revision: 2,
-            revisions: [
-              { ...submission.revisions[0], revision: 1 },
-              { ...submission.revisions[0], revision: 2 },
-            ],
           },
         ],
         snapshots: {

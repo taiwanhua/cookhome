@@ -55,6 +55,11 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
       "`t(`genderOptions.${gender}`)`,gender 逐一取自 GraphQL 的 `Gender` 列舉",
   },
   {
+    key: "admin.forms.upgrade.skipReasons.",
+    reason:
+      "`t(`skipReasons.${reason}`)`,reason 是 api `upgradeFormSubmissions` 回的跳過原因(`FORM_UPGRADE_SKIP_REASONS`)",
+  },
+  {
     key: "admin.moduleIcons.",
     reason:
       "`tIcons(key)`,key 是 `@repo/ui` 圖示登錄表的 29 個短詞(I18N-01 的覆寫 prop)",

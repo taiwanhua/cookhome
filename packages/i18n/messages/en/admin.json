@@ -1178,7 +1178,8 @@
       "rowChange": "Change",
       "rowContent": "Row",
       "rowCells": "Changed cells",
-      "arrayDiffAria": "Line item changes of {label}"
+      "arrayDiffAria": "Line item changes of {label}",
+      "revisionUpgraded": "Upgraded to v{version}"
     },
     "pages": {
       "loading": "Loading",
@@ -1243,7 +1244,9 @@
       "WORKFLOW_UNPUBLISHED": "The approval workflow bound to this form is not published yet. Please contact your administrator.",
       "WORKFLOW_MISCONFIGURED": "The approval workflow is misconfigured. Please contact your administrator.",
       "REVISION_LIMIT": "This record has reached its revision limit. Please create a new application.",
-      "DOCUMENT_TOO_LARGE": "This record has reached its size limit. Please reduce the content."
+      "DOCUMENT_TOO_LARGE": "The revision history has reached its size limit and can no longer be edited.",
+      "FORM_HAS_WORKFLOW": "This form has an approval workflow in your organization; old data cannot be upgraded to a new version.",
+      "VERSION_NOT_PUBLISHED": "Data can only be upgraded to a published version. Please refresh."
     },
     "array": {
       "addRow": "+ Add row",
@@ -1272,7 +1275,9 @@
       "NOT_FOUND": "Form or version not found. It may have been deleted; please refresh.",
       "VALIDATION_FAILED": "Some fields are invalid or the form definition still has errors. Please fix them and try again.",
       "PERMISSION_NOT_DELETABLE": "This permission cannot be deleted right now.",
-      "UNEXPECTED": "Something went wrong. Please try again later."
+      "UNEXPECTED": "Something went wrong. Please try again later.",
+      "FORM_HAS_WORKFLOW": "This form has an approval workflow in your organization; old data cannot be upgraded to a new version.",
+      "VERSION_NOT_PUBLISHED": "Data can only be upgraded to a published version. Please refresh."
     },
     "list": {
       "region": "Forms",
@@ -1407,7 +1412,9 @@
       "interrupted": "The last publish did not finish. Use “Retry publish” to complete it; new drafts, retiring and publishing are blocked until then.",
       "retry": "Retry publish",
       "retried": "Publish completed.",
-      "publishedLine": "{at} · {user}"
+      "publishedLine": "{at} · {user}",
+      "upgrade": "Upgrade old data to this version",
+      "upgradeBlockedByWorkflow": "This form has an approval workflow in your organization; old data cannot be upgraded to a new version."
     },
     "deleteDraft": {
       "title": "Delete the draft?",
@@ -1903,6 +1910,40 @@
       },
       "formula": "Row formula",
       "rowField": "This row · {label}"
+    },
+    "upgrade": {
+      "title": "Upgrade old data to v{version}",
+      "steps": "Step {step} of 3: {name}",
+      "stepPlan": "Scope and fill values",
+      "stepConfirm": "Confirm",
+      "stepResult": "Result",
+      "loading": "Loading upgrade scope",
+      "groupsTitle": "Data to upgrade",
+      "groupLine": "v{version}: {count}",
+      "nothing": "Nothing to upgrade (all data is already on this version).",
+      "fillsTitle": "Fill values",
+      "fillsHint": "Values only go into fields that are empty on that record; existing values are kept. You can leave them blank. Upgrading does not check required fields or formats; records that break the rules must be completed the next time they are edited.",
+      "noFills": "This version has no fields to fill.",
+      "fillEmpty": "Leave empty",
+      "confirmBody": "{count} records will move to v{version}, and calculated fields and summaries will be recalculated. Completed records get one more revision.",
+      "confirmFillsTitle": "Fill values",
+      "confirmNoFills": "No fill values",
+      "resultUpgraded": "Upgraded",
+      "resultUpgradedLine": "v{version}: {count}",
+      "resultNoneUpgraded": "No data was upgraded.",
+      "resultSkipped": "Skipped",
+      "resultSkippedLine": "{reason}: {count}",
+      "skipReasons": {
+        "EDIT_CONFLICT": "Edited by someone else during the upgrade",
+        "DOCUMENT_TOO_LARGE": "Revision history reached its size limit",
+        "VALUES_INVALID": "Old values cannot be converted to the new version"
+      },
+      "cancel": "Cancel",
+      "next": "Next",
+      "back": "Back",
+      "confirm": "Upgrade",
+      "close": "Close",
+      "success": "Upgrade finished."
     }
   },
   "approval": {

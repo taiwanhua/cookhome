@@ -12,8 +12,8 @@ import {
   type FormLookupQuery,
   type FormLookupQueryVariables,
   type FormRuntimeVersionQueryVariables,
-  type FormSubmissionFieldsFragment,
   type FormSubmissionQueryVariables,
+  type FormSubmissionRevisionsQueryVariables,
   FormSubmissionStatus,
   type FormSubmissionsQueryVariables,
   FormVersionStatus,
@@ -28,8 +28,9 @@ import {
 import { rawOf } from "@/lib/form-engine/definition";
 
 import { type AuthErrorCode, graphqlError } from "./auth-handlers";
-import { submissionFragment } from "./form-fixtures";
+import { type MockSubmission, submissionFragment } from "./form-fixtures";
 import { submissionActionHandlers } from "./form-submission-action-handlers";
+import { fragmentOf, revisionsOf } from "./form-submission-revisions";
 import { api } from "./server";
 
 export type FormRuntimeOperation =
@@ -52,7 +53,8 @@ export interface FormRuntimeWorldOptions {
   moduleForms?: ModuleFormsQuery["moduleForms"];
   /** `<formKey>@<version>` → 定義 */
   versions?: Partial<Record<string, FormDefinition>>;
-  submissions?: FormSubmissionFieldsFragment[];
+  /** 提交(可另帶 `revisions`:修訂紀錄跳窗的清單;沒給 = 修訂 1..`revision` 都綁提交的版本) */
+  submissions?: MockSubmission[];
   /** 模組 key → 列表欄位配置(沒給 = 空陣列) */
   listColumns?: Record<string, ModuleListColumn[]>;
   /** 模組 key → 內建欄開關(沒給 = 全開) */
@@ -119,9 +121,7 @@ export const formRuntimeWorld = (
   } = options;
   const listColumns = options.listColumns ?? {};
   const listBuiltin = options.listBuiltin ?? {};
-  const state: FormSubmissionFieldsFragment[] = structuredClone(
-    options.submissions ?? [],
-  );
+  const state: MockSubmission[] = structuredClone(options.submissions ?? []);
   const inputs: FormRuntimeWorld["inputs"] = {
     createFormDraft: [],
     saveFormDraft: [],
@@ -148,9 +148,12 @@ export const formRuntimeWorld = (
   };
   const find = (id: string) => state.find((item) => item.id === id);
   /** 單筆 payload(`{ <操作名>: { submission } }`);型別交給各 handler 的回傳推導。 */
-  const payload = (name: string, submission: FormSubmissionFieldsFragment) =>
+  const payload = (name: string, submission: MockSubmission) =>
     HttpResponse.json<GraphQLResponseBody<Record<string, never>>>({
-      data: { [name]: { submission } } as Record<string, never>,
+      data: { [name]: { submission: fragmentOf(submission) } } as Record<
+        string,
+        never
+      >,
     });
 
   const handlers = [
@@ -203,7 +206,7 @@ export const formRuntimeWorld = (
       return HttpResponse.json({
         data: {
           formSubmissions: {
-            items,
+            items: items.map((item) => fragmentOf(item)),
             totalCount: items.length,
             page: input.page ?? 1,
             pageSize: input.pageSize ?? 20,
@@ -227,8 +230,29 @@ export const formRuntimeWorld = (
               ...item,
               values: snapshot,
               viewedRevision: revision ?? item.revision,
+              viewedVersion:
+                revisionsOf(item).find((entry) => entry.revision === revision)
+                  ?.version ?? item.version,
             },
       );
+    }),
+    api.query("FormSubmissionRevisions", ({ variables }) => {
+      const { id } = variables as FormSubmissionRevisionsQueryVariables;
+      const item = find(id);
+      if (item === undefined) {
+        return notFound();
+      }
+      return HttpResponse.json({
+        data: {
+          formSubmission: {
+            submission: {
+              id: item.id,
+              revision: item.revision,
+              revisions: revisionsOf(item),
+            },
+          },
+        },
+      });
     }),
     api.query("FormLookup", ({ variables }) => {
       const { input } = variables as FormLookupQueryVariables;

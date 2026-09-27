@@ -2,6 +2,7 @@ import type { FieldDef, FormDefinition } from "@repo/domain/form";
 import {
   type FormFieldsFragment,
   type FormSubmissionFieldsFragment,
+  type FormSubmissionRevisionsQuery,
   FormSubmissionStatus,
   type FormVersionFieldsFragment,
   FormVersionStatus,
@@ -258,9 +259,27 @@ export const formFragment = (
   ...overrides,
 });
 
+type RevisionMeta = NonNullable<
+  FormSubmissionRevisionsQuery["formSubmission"]["submission"]["revisions"]
+>[number];
+
+/**
+ * 修訂紀錄的一筆(`FormSubmissionRevisions` 回的形狀);`version` 沒給 = 提交的版本、`kind` 沒給 = null。
+ */
+export type MockRevisionMeta = Omit<RevisionMeta, "version" | "kind"> &
+  Partial<Pick<RevisionMeta, "version" | "kind">>;
+
+/**
+ * 假 api 存的一筆提交:fragment 之外另帶修訂紀錄(api 的 `revisions` 是 field resolver,只有修訂紀錄跳窗才查;
+ * 沒給 = 修訂 1..`revision` 都綁提交的版本)。
+ */
+export interface MockSubmission extends FormSubmissionFieldsFragment {
+  revisions?: MockRevisionMeta[];
+}
+
 export const submissionFragment = (
-  overrides: Partial<FormSubmissionFieldsFragment> = {},
-): FormSubmissionFieldsFragment => ({
+  overrides: Partial<MockSubmission> = {},
+): MockSubmission => ({
   id: "sub-1",
   moduleKey: DEMO_FORM_KEY,
   formKey: SHOPPING_FORM_KEY,
@@ -269,6 +288,7 @@ export const submissionFragment = (
   status: FormSubmissionStatus.Completed,
   revision: 1,
   viewedRevision: 1,
+  viewedVersion: 1,
   values: {
     item: "雞蛋",
     qty: "2",
@@ -282,7 +302,6 @@ export const submissionFragment = (
   displayValues: [],
   summary: { title: "雞蛋", date: STAMP, amount: "60" },
   ctx: { at: STAMP, timezone: "Asia/Taipei", userId: "user-1", orgId: "org-1" },
-  revisions: [{ revision: 1, at: STAMP, user: { id: "user-1", name: "小華" } }],
   editVersion: 2,
   orgId: "org-1",
   createdBy: { id: "user-1", name: "小華" },
