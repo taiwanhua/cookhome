@@ -70,6 +70,26 @@ const ATTACHMENT_URL = /* GraphQL */ `
   }
 `;
 
+const REVISIONS = /* GraphQL */ `
+  query Revisions($id: ID!) {
+    formSubmission(id: $id) {
+      submission {
+        revisions {
+          revision
+          kind
+          upgradedBy {
+            id
+          }
+          upgradedAt
+          user {
+            id
+          }
+        }
+      }
+    }
+  }
+`;
+
 const SAVE_DATA_SCOPE_RULE = /* GraphQL */ `
   mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
     saveDataScopeRule(input: $input) {
@@ -93,6 +113,7 @@ interface RawSubmission {
     revision: number;
     version?: number;
     values: Record<string, unknown>;
+    ctx: { at: Date };
   }[];
 }
 
@@ -356,6 +377,86 @@ describe("舊版資料升級的邊界", () => {
     );
 
     expect(url.formSubmissionAttachmentUrl.url).toContain(path);
+  });
+
+  describe("重算用那筆資料自己的 ctx(不是升級的操作者與此刻)", () => {
+    let boss: FormOperator;
+    let formKey: string;
+    let id: string;
+
+    beforeAll(async () => {
+      boss = await createOperator(api, connection, {
+        orgId: tenant,
+        permissionKeys: [M.view, M.create, M.edit],
+      });
+      const withNote = definitionOf([
+        field("title", "text"),
+        field("note", "text"),
+      ]);
+      ({ formKey, id } = await prepare(
+        withNote,
+        definitionOf([
+          field("title", "text"),
+          // 只有填寫者本人時顯示:用升級者的身分算會被判成隱藏而清空
+          field("note", "text", {
+            visibleWhen: {
+              "==": [{ var: "ctx.user.id" }, String(staff.userId)],
+            },
+          }),
+          field("who", "text", {
+            valueSource: { kind: "computed", expr: { var: "ctx.user.id" } },
+          }),
+          field("stamp", "datetime", {
+            valueSource: { kind: "computed", expr: { var: "ctx.now" } },
+          }),
+        ]),
+        { title: "出差", note: "保留" },
+      ));
+      await upgrade(formKey, 2, nextRequestId(), boss.token);
+    }, HOOK_TIMEOUT_MS);
+
+    it("引用 ctx.user.id 的計算欄位 = 填寫者,不是升級者", async () => {
+      const after = await raw(id);
+
+      expect(after.values.who).toBe(String(staff.userId));
+    });
+
+    it("引用 ctx.now 的計算欄位 = 那筆最後修訂的時間", async () => {
+      const after = await raw(id);
+
+      expect(after.values.stamp).toEqual(after.revisions[0]?.ctx.at);
+    });
+
+    it("依 ctx.user.id 的顯示條件照舊成立,值不被當成隱藏清空", async () => {
+      const after = await raw(id);
+
+      expect(after.values.note).toBe("保留");
+    });
+
+    it("修訂紀錄:升級那一筆帶升級者與時間,ctx 的人仍是填寫者", async () => {
+      const data = await ok<{
+        formSubmission: {
+          submission: {
+            revisions: {
+              revision: number;
+              kind: string | null;
+              upgradedBy: { id: string } | null;
+              upgradedAt: string | null;
+              user: { id: string } | null;
+            }[];
+          };
+        };
+      }>(api, staff.token, REVISIONS, { id });
+
+      const upgraded = data.formSubmission.submission.revisions[1];
+      expect(upgraded).toMatchObject({
+        revision: 2,
+        kind: "upgrade",
+        upgradedBy: { id: String(boss.userId) },
+        user: { id: String(staff.userId) },
+      });
+      expect(upgraded?.upgradedAt).toEqual(expect.any(String));
+    });
   });
 
   describe("資料範圍外的筆不升級", () => {

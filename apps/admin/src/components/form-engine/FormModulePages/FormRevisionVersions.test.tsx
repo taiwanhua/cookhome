@@ -71,8 +71,11 @@ const upgradedWorld = () => ({
           revision: 2,
           version: 2,
           kind: "upgrade",
+          // ctx 沿用上一筆(填寫者小華);升級的人與時間另記
           at: EARLY,
-          user: { id: "user-2", name: "阿明" },
+          user: { id: "user-1", name: "小華" },
+          upgradedBy: { id: "user-2", name: "阿明" },
+          upgradedAt: "2026-03-01T04:00:00.000Z",
         },
       ],
     }),
@@ -99,7 +102,7 @@ const openHistory = async (user: ReturnType<typeof renderShopping>["user"]) => {
 };
 
 describe("修訂紀錄用各修訂自己的版本渲染(舊版資料升級後)", () => {
-  it("升級產生的修訂標示升級到哪一版", async () => {
+  it("升級產生的修訂印升級者與升級時間、升級到第幾版", async () => {
     const { user } = renderShopping({
       path: `${DEMO_FORM_ROUTES.viewPage}/sub-1`,
       world: upgradedWorld(),
@@ -107,7 +110,11 @@ describe("修訂紀錄用各修訂自己的版本渲染(舊版資料升級後)",
 
     const history = await openHistory(user);
 
-    expect(within(history).getByText("升級到 v2")).toBeInTheDocument();
+    expect(
+      within(history).getByText(
+        "修訂 2 · 阿明 於 2026-03-01 12:00 升級到第 2 版",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("檢視修訂 1 用 v1 的定義渲染", async () => {

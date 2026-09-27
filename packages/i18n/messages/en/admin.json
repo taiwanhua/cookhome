@@ -1179,7 +1179,7 @@
       "rowContent": "Row",
       "rowCells": "Changed cells",
       "arrayDiffAria": "Line item changes of {label}",
-      "revisionUpgraded": "Upgraded to v{version}"
+      "revisionUpgradedLine": "Revision {revision} · {user} upgraded it to version {version} at {at}"
     },
     "pages": {
       "loading": "Loading",

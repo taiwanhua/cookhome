@@ -50,8 +50,13 @@ export interface FormRevision {
    */
   version?: number;
   values: StoredValues;
+  /** 條件 / 計算的上下文;升級產生的修訂沿用上一筆修訂的(升級不改變 `ctx.now` / `ctx.user` 算出的值)。 */
   ctx: FormRevisionContext;
   kind?: FormRevisionKind;
+  /** 只有升級產生的修訂有:誰升級(操作者)。 */
+  upgradedBy?: Types.ObjectId | null;
+  /** 只有升級產生的修訂有:什麼時候升級。 */
+  upgradedAt?: Date;
 }
 
 /** 修訂 r 用哪一版的定義渲染。 */

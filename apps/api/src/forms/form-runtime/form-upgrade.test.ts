@@ -102,7 +102,9 @@ interface RawRevision {
   version?: number;
   kind?: string;
   values: Record<string, unknown>;
-  ctx: { userId: Types.ObjectId | null };
+  ctx: { userId: Types.ObjectId | null; at: Date };
+  upgradedBy?: Types.ObjectId | null;
+  upgradedAt?: Date;
 }
 
 interface RawSubmission {
@@ -238,7 +240,10 @@ describe("舊版資料升級到新版", () => {
     expect(after.summary?.title).toBe("出差");
     expect(after.revisions.map((entry) => entry.version)).toEqual([1, 2]);
     expect(after.revisions[1]?.kind).toBe("upgrade");
-    expect(after.revisions[1]?.ctx.userId?.equals(staff.userId)).toBe(true);
+    // 升級的修訂沿用上一筆的 ctx,誰升級另記
+    expect(after.revisions[1]?.ctx).toEqual(after.revisions[0]?.ctx);
+    expect(after.revisions[1]?.upgradedBy?.equals(staff.userId)).toBe(true);
+    expect(after.revisions[1]?.upgradedAt).toBeInstanceOf(Date);
     expect(after.revisions[0]?.values.dropped).toBe("舊備註");
   });
 

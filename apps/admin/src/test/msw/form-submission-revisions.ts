@@ -27,4 +27,6 @@ export const revisionsOf = (submission: MockSubmission) =>
     ...entry,
     version: entry.version ?? submission.version,
     kind: entry.kind ?? null,
+    upgradedBy: entry.upgradedBy ?? null,
+    upgradedAt: entry.upgradedAt ?? null,
   }));

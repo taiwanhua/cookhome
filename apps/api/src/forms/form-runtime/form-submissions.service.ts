@@ -460,12 +460,14 @@ export class FormSubmissionsService {
     );
     const names = await this.userNames.load(
       facts.operator,
-      entries.map((item) => item.ctx.userId),
+      entries.flatMap((item) => [item.ctx.userId, item.upgradedBy ?? null]),
     );
     return entries.map((item) => ({
       revision: item.revision,
       version: revisionVersionOf(record, item),
       kind: item.kind ?? null,
+      upgradedBy: userRefOf(item.upgradedBy, names),
+      upgradedAt: item.upgradedAt ?? null,
       at: item.ctx.at,
       user: userRefOf(item.ctx.userId, names),
     }));

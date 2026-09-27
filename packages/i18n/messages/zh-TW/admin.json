@@ -1179,7 +1179,7 @@
       "rowContent": "列內容",
       "rowCells": "改了哪些格",
       "arrayDiffAria": "{label} 的明細差異",
-      "revisionUpgraded": "升級到 v{version}"
+      "revisionUpgradedLine": "修訂 {revision} · {user} 於 {at} 升級到第 {version} 版"
     },
     "pages": {
       "loading": "載入中",

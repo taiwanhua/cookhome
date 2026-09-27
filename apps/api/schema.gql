@@ -740,6 +740,8 @@ type FormSubmissionRevisionMeta {
   at: DateTime!
   kind: String
   revision: Int!
+  upgradedAt: DateTime
+  upgradedBy: FormUserRef
   user: FormUserRef
   version: Int!
 }

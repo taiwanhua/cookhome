@@ -140,6 +140,12 @@ query FormSubmissionRevisions($id: ID!) {
         revision
         version
         kind
+        # 升級產生的修訂:誰、何時升級(at / user 是沿用上一筆的 ctx)
+        upgradedBy {
+          id
+          name
+        }
+        upgradedAt
         at
         user {
           id

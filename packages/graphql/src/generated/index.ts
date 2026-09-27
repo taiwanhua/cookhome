@@ -814,6 +814,8 @@ export type FormSubmissionRevisionMeta = {
   at: Scalars['DateTime']['output'];
   kind?: Maybe<Scalars['String']['output']>;
   revision: Scalars['Int']['output'];
+  upgradedAt?: Maybe<Scalars['DateTime']['output']>;
+  upgradedBy?: Maybe<FormUserRef>;
   user?: Maybe<FormUserRef>;
   version: Scalars['Int']['output'];
 };
@@ -3368,7 +3370,7 @@ export type FormSubmissionRevisionsQueryVariables = Exact<{
 }>;
 
 
-export type FormSubmissionRevisionsQuery = { __typename?: 'Query', formSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, revision: number, revisions: Array<{ __typename?: 'FormSubmissionRevisionMeta', revision: number, version: number, kind?: string | null, at: string, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }> } } };
+export type FormSubmissionRevisionsQuery = { __typename?: 'Query', formSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, revision: number, revisions: Array<{ __typename?: 'FormSubmissionRevisionMeta', revision: number, version: number, kind?: string | null, upgradedAt?: string | null, at: string, upgradedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null }> } } };
 
 export type FormSubmissionAttachmentUrlQueryVariables = Exact<{
   id: Scalars['ID']['input'];
@@ -6140,6 +6142,11 @@ export const FormSubmissionRevisionsDocument = `
         revision
         version
         kind
+        upgradedBy {
+          id
+          name
+        }
+        upgradedAt
         at
         user {
           id

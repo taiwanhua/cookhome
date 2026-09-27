@@ -121,6 +121,14 @@ export class FormSubmissionRevisionMeta {
   @Field(() => String, { nullable: true })
   kind!: string | null;
 
+  /** 升級產生的修訂:誰升級(`at` / `user` 是沿用的 ctx,不是升級的人與時間)。 */
+  @Field(() => FormUserRef, { nullable: true })
+  upgradedBy!: FormUserRef | null;
+
+  /** 升級產生的修訂:什麼時候升級。 */
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  upgradedAt!: Date | null;
+
   @Field(() => GraphQLISODateTime)
   at!: Date;
 

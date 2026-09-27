@@ -266,8 +266,11 @@ type RevisionMeta = NonNullable<
 /**
  * 修訂紀錄的一筆(`FormSubmissionRevisions` 回的形狀);`version` 沒給 = 提交的版本、`kind` 沒給 = null。
  */
-export type MockRevisionMeta = Omit<RevisionMeta, "version" | "kind"> &
-  Partial<Pick<RevisionMeta, "version" | "kind">>;
+export type MockRevisionMeta = Omit<
+  RevisionMeta,
+  "version" | "kind" | "upgradedBy" | "upgradedAt"
+> &
+  Partial<Pick<RevisionMeta, "version" | "kind" | "upgradedBy" | "upgradedAt">>;
 
 /**
  * 假 api 存的一筆提交:fragment 之外另帶修訂紀錄(api 的 `revisions` 是 field resolver,只有修訂紀錄跳窗才查;

@@ -401,12 +401,8 @@ export class FormUpgradeService {
     }
     const source = await this.sourceOf(facts, record, sources);
     const at = new Date();
-    const ctx: FormRevision["ctx"] = {
-      at,
-      timezone: facts.timezone,
-      userId: facts.operator.actorId,
-      orgId: facts.operator.currentOrgId,
-    };
+    // 重算用這筆資料自己的上下文(不是操作者此刻):`ctx.now` / `ctx.user` 的計算欄位與條件升級後不變
+    const ctx = this.contextOf(facts, record);
     const target = upgrade.target;
     let values: StoredValues;
     try {
@@ -437,7 +433,7 @@ export class FormUpgradeService {
     const summary = isCompleted
       ? storedSummaryOf(
           computeSummary(definitionOf(target), values, {
-            submittedAt: (record.submittedAt ?? at).toISOString(),
+            submittedAt: (record.submittedAt ?? ctx.at).toISOString(),
           }),
         )
       : null;
@@ -446,8 +442,11 @@ export class FormUpgradeService {
       revision,
       version: upgrade.targetVersion,
       values,
+      // ctx 沿用上一筆修訂(歷史重算條件用);誰、何時升級另記
       ctx,
       kind: "upgrade",
+      upgradedBy: facts.operator.actorId,
+      upgradedAt: at,
     };
     try {
       assertSubmissionCapacity(
@@ -515,6 +514,26 @@ export class FormUpgradeService {
       return { kind: "skipped", reason: "EDIT_CONFLICT" };
     }
     return { kind: "upgraded", fromVersion: record.version };
+  }
+
+  /**
+   * 重算用的上下文 = 這筆資料自己的:已完成 = 最後一筆修訂的 `ctx`;草稿(沒有修訂)= 建立者、建立時間、
+   * 資料歸屬組織,時區用本租戶的(升級範圍限本租戶)。
+   */
+  private contextOf(
+    facts: FormOperatorFacts,
+    record: SubmissionRecord,
+  ): FormRevision["ctx"] {
+    const latest = record.revisions.at(-1);
+    if (latest) {
+      return latest.ctx;
+    }
+    return {
+      at: record.createdAt,
+      timezone: facts.timezone,
+      userId: record.createdBy,
+      orgId: record.orgId,
+    };
   }
 
   /** 這筆目前綁的版本定義(同一次升級內快取)。 */

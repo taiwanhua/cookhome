@@ -27,7 +27,7 @@ export interface RevisionHistoryProps {
  * 修訂紀錄清單(Spec 6a §8 畫面 11;放在詳情的「修訂紀錄」跳窗裡):已完成的提交每改一次修訂號 +1,
  * 每個修訂都留完整快照。每列「修訂 N、誰、什麼時候」(時間以讀者現在的租戶時區印),
  * 可切換檢視那個修訂(唯讀渲染的條件用它自己的 `ctx`、定義用它自己的版本),修訂 2 起可看與前一修訂的差異。
- * 舊版資料升級產生的修訂標「升級到 vN」。
+ * 舊版資料升級產生的修訂印「誰於何時升級到第 N 版」(用 `upgradedBy` / `upgradedAt`;那一筆的 ctx 沿用上一筆)。
  * 清單只在跳窗打開時查(`formSubmission.revisions`;列表與詳情不載入修訂)。
  */
 export const RevisionHistory = ({
@@ -64,18 +64,22 @@ export const RevisionHistory = ({
           <Stack key={entry.revision} spacing={1}>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <Typography variant="body2" sx={{ flex: 1 }}>
-                {t("revisionLine", {
-                  revision: entry.revision,
-                  user: entry.user?.name ?? "—",
-                  at: temporalText(entry.at, "datetime"),
-                })}
+                {entry.kind === "upgrade"
+                  ? t("revisionUpgradedLine", {
+                      revision: entry.revision,
+                      user: entry.upgradedBy?.name ?? "—",
+                      at: temporalText(
+                        entry.upgradedAt ?? entry.at,
+                        "datetime",
+                      ),
+                      version: entry.version,
+                    })
+                  : t("revisionLine", {
+                      revision: entry.revision,
+                      user: entry.user?.name ?? "—",
+                      at: temporalText(entry.at, "datetime"),
+                    })}
               </Typography>
-              {entry.kind === "upgrade" && (
-                <Tag
-                  tone="grey"
-                  label={t("revisionUpgraded", { version: entry.version })}
-                />
-              )}
               {isViewed ? (
                 <Tag tone="primary" label={t("viewing")} />
               ) : (
