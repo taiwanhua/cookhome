@@ -145,7 +145,7 @@
 
 - `form_submission` 來源回每一筆時,欄位依**那筆自己綁的版本**判斷:存在且非受保護 → 語意值(選項 / 引用另附 label);存在但受保護且沒有 `show` → **省略**;那一版沒有這個欄位 → `null`。
 - 設計時的欄位目錄 = 來源表單目前版本的非受保護欄位 + 摘要槽;檢查器以它驗 `labelField` / `valueField` / 帶入的來源欄位,以及 `labelTemplate` 的佔位符。
-- **顯示模板 `labelTemplate`**(來源描述的選填欄位):有值時顯示名由 api 組好回傳(`lookupDisplayLabelOf`;`formLookup` / `formLookupRecord` 的 `label`、引用與 lookup 選項寫進提交的快照 label、現名解析都走它),沒填、或套出來是空的 → 用 `labelField`。每個佔位符取該欄的顯示名(日期 / 日期時間依**讀者**租戶時區格式化、選項 / 引用印 label,同 `labels`),讀不到的(受保護省略、那版沒有)換空字串。佔位符(`@repo/domain/form` 的 `lookupTemplateFieldOf`):
+- **顯示模板 `labelTemplate`**(來源描述的選填欄位):有值時顯示名由 api 組好回傳(`lookupDisplayLabelOf`;`formLookup` / `formLookupRecord` 的 `label`、引用與 lookup 選項寫進提交的快照 label、現名解析都走它),沒填、或套出來是空的 → 用 `labelField`。每個佔位符取該欄的顯示名(日期 / 日期時間依**讀者**租戶時區格式化、選項 / 引用印 label,同 `labels`);那版沒有的欄位換空字串。**模板引用的欄位只要有一個讀不到**(依這次讀取的權限被省略,例 `user` 的 `email` 沒有 `system.user-manager.view`)→ 整串退回 `labelField`,不拼接、不留符號(`{{name}}({{email}})` 對沒權限的人顯示「王小明」)。三處一致:`formLookup`(操作者權限)、引用 / lookup 選項寫進提交的快照(固定 `publicOnly`,所以帶權限的欄位一律退回)、現名解析(讀者權限)。佔位符(`@repo/domain/form` 的 `lookupTemplateFieldOf`):
 
 | provider          | 佔位符                                                                     |
 | ----------------- | -------------------------------------------------------------------------- |

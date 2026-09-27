@@ -86,3 +86,41 @@ describe("顯示模板", () => {
     ).toBe("王小明");
   });
 });
+
+describe("lookup 顯示名:模板引用的欄位讀不到就整串退回 labelField", () => {
+  const source = {
+    provider: "user",
+    labelField: "name",
+    labelTemplate: "{{name}}({{email}})",
+  };
+
+  it("讀得到全部欄位 → 套模板", () => {
+    const texts: Record<string, string> = { name: "王小明", email: "w@x.com" };
+    expect(renderLookupLabel(source, (field) => texts[field])).toBe(
+      "王小明(w@x.com)",
+    );
+  });
+
+  it("有一個欄位讀不到(undefined)→ 只顯示 labelField,不留括號", () => {
+    expect(
+      renderLookupLabel(source, (field) =>
+        field === "name" ? "王小明" : undefined,
+      ),
+    ).toBe("王小明");
+  });
+
+  it("讀得到但沒值(null)→ 照套,換空字串", () => {
+    expect(
+      renderLookupLabel(
+        { ...source, labelTemplate: "{{name}} {{email}}" },
+        (field) => (field === "name" ? "王小明" : null),
+      ),
+    ).toBe("王小明");
+  });
+
+  it("沒模板且 labelField 沒值 → null", () => {
+    expect(
+      renderLookupLabel({ ...source, labelTemplate: null }, () => null),
+    ).toBeNull();
+  });
+});

@@ -191,24 +191,34 @@ export function lookupLabelFieldsOf(
 }
 
 /**
- * lookup 一筆的顯示名:有模板就套(每個佔位符取 `fieldText(來源欄位)`);套出來是空的、或沒模板 → 用 `labelField`。
- * `fieldText` 由呼叫端給(api 讀 provider 回的顯示名 / 值)。
+ * lookup 一筆的顯示名:有模板就套(每個佔位符取 `fieldText(來源欄位)`);沒模板、套出來是空的,
+ * 或**模板引用的欄位有任何一個讀不到**(`fieldText` 回 `undefined` = provider 因權限省略了那一欄)→ 整串用 `labelField`,
+ * 不拼接、不留符號(例 `{{name}}({{email}})` 對讀不到 Email 的人顯示「王小明」,不是「王小明()」)。
+ * `fieldText` 由呼叫端給:讀得到回顯示文字(沒值回 null → 換空字串),讀不到回 undefined。
  */
 export function renderLookupLabel(
   source: Pick<
     LookupSourceDescriptor,
     "provider" | "labelField" | "labelTemplate"
   >,
-  fieldText: (field: string) => string | null,
+  fieldText: (field: string) => string | null | undefined,
 ): string | null {
   if (hasLabelTemplate(source)) {
+    const unreadable: string[] = [];
     const label = renderTemplate(source.labelTemplate, (name) => {
       const field = lookupTemplateFieldOf(source.provider, name);
-      return field === null ? null : fieldText(field);
+      if (field === null) {
+        return null;
+      }
+      const text = fieldText(field);
+      if (text === undefined) {
+        unreadable.push(field);
+      }
+      return text;
     });
-    if (label !== "") {
+    if (unreadable.length === 0 && label !== "") {
       return label;
     }
   }
-  return fieldText(source.labelField);
+  return fieldText(source.labelField) ?? null;
 }

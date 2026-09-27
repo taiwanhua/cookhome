@@ -11,14 +11,17 @@ import {
   CREATE_FORM,
   FORM_LOOKUP,
   FORM_TEST_TIMEOUT_MS,
+  M,
   MODULE_KEY,
   PASSWORD,
   VALIDATE_VERSION,
   assignForm,
   call,
+  createOperator,
   createSubmitted,
   definitionOf,
   field,
+  getSubmission,
   ok,
   publishNewForm,
   rootToken,
@@ -129,6 +132,86 @@ describe("lookup 顯示模板與列表內建欄", () => {
         id: String(wang),
         label: "王小明(wang@x.com)",
       }),
+    ]);
+  });
+
+  it("模板引用的欄位讀不到就整串退回顯示欄:formLookup / 快照 / 現名解析三處一致", async () => {
+    const li = await createUser(connection, {
+      account: "li_tpl",
+      password: PASSWORD,
+      orgIds: [tenant],
+    });
+    await connection
+      .collection("users")
+      .updateOne({ _id: li }, { $set: { name: "李小華", email: "li@x.com" } });
+    await publishNewForm(
+      api,
+      root,
+      "tpl_ref",
+      definitionOf([
+        field("title", "text"),
+        field("who", "reference", {
+          widget: { kind: "referencePicker" },
+          source: {
+            provider: "user",
+            labelField: "name",
+            labelTemplate: "{{name}}({{email}})",
+          },
+        }),
+      ]),
+    );
+    await assignForm(api, root, "tpl_ref", [tenant]);
+    // 沒有使用者管理權限:讀不到 Email
+    const staff = await createOperator(api, connection, {
+      orgId: tenant,
+      permissionKeys: [M.view, M.create, M.edit],
+    });
+    const lookup = (token: string) =>
+      ok<{ formLookup: { items: LookupRow[] } }>(api, token, FORM_LOOKUP, {
+        input: {
+          formKey: "tpl_ref",
+          version: 1,
+          target: { fieldKey: "who" },
+          keyword: "li_tpl",
+        },
+      });
+
+    // (1) 有使用者管理權限的讀者:套模板;沒權限的讀者:只有顯示欄,不留括號
+    const byRoot = await lookup(root);
+    expect(byRoot.formLookup.items).toEqual([
+      expect.objectContaining({ id: String(li), label: "李小華(li@x.com)" }),
+    ]);
+    const byStaff = await lookup(staff.token);
+    expect(byStaff.formLookup.items).toEqual([
+      expect.objectContaining({ id: String(li), label: "李小華" }),
+    ]);
+
+    // (3) 快照一律只讀公開欄位(publicOnly):存「李小華」
+    const submitted = await createSubmitted(api, staff.token, "tpl_ref", {
+      title: "找人",
+      who: { id: String(li) },
+    });
+    expect(submitted.values.who).toEqual({ id: String(li), label: "李小華" });
+
+    // (2) 現名解析依讀者權限:沒權限 → 顯示欄
+    const shown = await getSubmission(api, staff.token, submitted.id);
+    expect(shown.displayValues).toEqual([
+      {
+        fieldKey: "who",
+        items: [{ value: String(li), label: "李小華", available: true }],
+      },
+    ]);
+
+    // (4) 來源使用者被刪:沒權限的讀者看到快照「李小華」+ 來源不可用
+    await connection
+      .collection("users")
+      .updateOne({ _id: li }, { $set: { deletedAt: new Date() } });
+    const removed = await getSubmission(api, staff.token, submitted.id);
+    expect(removed.displayValues).toEqual([
+      {
+        fieldKey: "who",
+        items: [{ value: String(li), label: "李小華", available: false }],
+      },
     ]);
   });
 
