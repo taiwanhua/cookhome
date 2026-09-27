@@ -356,7 +356,6 @@ describe("明細列(array):計算 / 守門 / 保護傳遞 / 錯誤定位 / 修�
       ),
     ).toEqual([
       [B, "kept", true, ["qty"]],
-      [A, "kept", true, []],
       [D, "added", false, []],
       [C, "removed", false, []],
     ]);

@@ -120,7 +120,7 @@
 - **保護傳遞**:欄位級 `show` / `edit` 套整個明細欄;任一子欄的列內公式直接或間接引用受保護欄位 → 整個明細欄沿依賴鏈受保護(讀取投影、修訂遮蔽、條件檢查同一套),彙總它的計算欄位也受保護(`computedDependenciesOf` 把明細欄的依賴算成它所有列內公式引用的表單層欄位)。
 - **送出 / 修改的快照**:單選子欄重驗(靜態清單要啟用中、類別重取 label 寫 `{ value, label }`),同一列同值保留原快照;日期 / 日期時間子欄存 Mongo `Date`。
 - **執行端查詢**:`formFieldOptions` 的 `fieldKey` 可以是 `<明細 key>.<子欄 key>`(權限看整個明細欄);`displayValues` 以同樣的 key 回類別子欄的現名(各列的值合在一組)。
-- **admin**:`components/form-engine/widgets/ArrayTableWidget/`:桌機表格、手機寬(< `sm`,`@repo/ui/media-query` 的 `useBreakpointDown`)每列一張卡片;列尾「複製」「刪除」、表尾「+ 新增一列」到 `maxRows` 停;每格錯誤以 `rowId` + `columnKey` 標在那一格、列數錯誤在表尾;唯讀檢視同一元件走 `isReadOnly`;設計模式畫表格外觀的占位。每一格的元件取自 `widgets/widget-registry-core.ts`(單值 widget;完整登錄表 `widget-registry.ts` 再加 `table`,拆兩支是為了不讓明細元件與登錄表互相 import)。設計器:屬性面板的「子欄位」清單(`PropertyPanel/ArrayColumnsEditor/`),點一個子欄整個面板換成它的縮小版(只列白名單內的設定,key 當場擋格式與同明細重複);列內公式的選擇器把同一列的其他子欄列成「本列・<標題>」(`row.<key>`);彙總的明細欄 / 數字子欄是下拉。修訂差異以 `rowId` 對列(`@repo/domain/form` 的 `arrayRowChanges`),標示新增 / 刪除 / 移動 / 改值(`FormSubmissionDetail/ArrayRevisionDiff.tsx`)。
+- **admin**:`components/form-engine/widgets/ArrayTableWidget/`:桌機表格、手機寬(< `sm`,`@repo/ui/media-query` 的 `useBreakpointDown`)每列一張卡片;列尾「複製」「刪除」、表尾「+ 新增一列」到 `maxRows` 停;每格錯誤以 `rowId` + `columnKey` 標在那一格、列數錯誤在表尾;唯讀檢視同一元件走 `isReadOnly`;設計模式畫表格外觀的占位。每一格的元件取自 `widgets/widget-registry-core.ts`(單值 widget;完整登錄表 `widget-registry.ts` 再加 `table`,拆兩支是為了不讓明細元件與登錄表互相 import)。設計器:屬性面板的「子欄位」清單(`PropertyPanel/ArrayColumnsEditor/`),點一個子欄整個面板換成它的縮小版(只列白名單內的設定,key 當場擋格式與同明細重複);列內公式的選擇器把同一列的其他子欄列成「本列・<標題>」(`row.<key>`);彙總的明細欄 / 數字子欄是下拉。修訂差異以 `rowId` 對列(`@repo/domain/form` 的 `arrayRowChanges`),標示新增 / 刪除 / 移動 / 改值;「移動」只標真正被搬的列(兩版共有的列取前一版順序的最長遞增子序列當作沒動,`[a, b, c] → [c, a, b]` 只有 c 是移動)(`FormSubmissionDetail/ArrayRevisionDiff.tsx`)。
 
 ## 列表欄位配置
 

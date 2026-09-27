@@ -9,7 +9,8 @@ import type { ArrayColumnDef, ArrayRowValue, FieldDef } from "./types";
  *
  * - 新增:後一版有、前一版沒有的 `rowId`
  * - 刪除:前一版有、後一版沒有的 `rowId`
- * - 移動:兩版都有的列,在「兩版共有的列」之間的先後順序變了(順序 = 陣列順序持久化)
+ * - 移動:兩版都有的列裡,**真正被搬動的**那幾列 —— 共有的列取前一版順序的最長遞增子序列(LIS)當作沒動,
+ *   其餘標移動;所以 `[a, b, c] → [c, a, b]` 只有 c 是移動(順序 = 陣列順序持久化)
  * - 改值:兩版都有的列,某些子欄的值不同(比識別:選項比 value、數字比數值、日期比時點)
  *
  * 一列可以同時移動又改值。沒有任何變動的列不列出。
@@ -49,6 +50,43 @@ function cellIdentity(column: ArrayColumnDef, value: unknown): string {
   return JSON.stringify(value);
 }
 
+/**
+ * 沒動的列:`order` 是共有列在後一版的順序、值是它在前一版的位置;取最長遞增子序列,
+ * 回傳留在原相對位置的 rowId(其餘都是被搬動的)。
+ */
+function unmovedRowIds(
+  commonAfter: readonly string[],
+  beforeIndex: ReadonlyMap<string, number>,
+): Set<string> {
+  const positions = commonAfter.map((id) => beforeIndex.get(id) ?? 0);
+  // tails[k] = 長度 k + 1 的遞增子序列結尾在 positions 的索引;previous 用來回溯
+  const tails: number[] = [];
+  const previous: number[] = Array.from({ length: positions.length }, () => -1);
+  for (const [index, position] of positions.entries()) {
+    let low = 0;
+    let high = tails.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if ((positions[tails[middle] ?? 0] ?? 0) < position) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    if (low > 0) {
+      previous[index] = tails[low - 1] ?? -1;
+    }
+    tails[low] = index;
+  }
+  const kept = new Set<string>();
+  let cursor = tails.at(-1) ?? -1;
+  while (cursor !== -1) {
+    kept.add(commonAfter[cursor] ?? "");
+    cursor = previous[cursor] ?? -1;
+  }
+  return kept;
+}
+
 export function arrayRowChanges(
   field: Pick<FieldDef, "type" | "columns">,
   before: unknown,
@@ -59,12 +97,15 @@ export function arrayRowChanges(
   const afterRows = arrayRowsOf(after);
   const beforeById = new Map(beforeRows.map((row) => [row.rowId, row]));
   const afterIds = new Set(afterRows.map((row) => row.rowId));
-  const commonBefore = beforeRows
-    .map((row) => row.rowId)
-    .filter((id) => afterIds.has(id));
+  const beforeIndex = new Map(
+    beforeRows
+      .filter((row) => afterIds.has(row.rowId))
+      .map((row, index) => [row.rowId, index]),
+  );
   const commonAfter = afterRows
     .map((row) => row.rowId)
     .filter((id) => beforeById.has(id));
+  const unmoved = unmovedRowIds(commonAfter, beforeIndex);
   const changes: ArrayRowChange[] = [];
   for (const row of afterRows) {
     const previous = beforeById.get(row.rowId);
@@ -79,8 +120,7 @@ export function arrayRowChanges(
       });
       continue;
     }
-    const isMoved =
-      commonBefore.indexOf(row.rowId) !== commonAfter.indexOf(row.rowId);
+    const isMoved = !unmoved.has(row.rowId);
     const changedColumns = columns
       .filter(
         (column) =>

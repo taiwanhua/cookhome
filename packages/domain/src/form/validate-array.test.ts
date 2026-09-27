@@ -62,6 +62,38 @@ describe("檢查器:明細列的定義", () => {
     });
   });
 
+  it("子欄 key 是保留字(row)", () => {
+    const [issue] = errorsOf(
+      [arrayField("items", [column("row", "text")])],
+      "ARRAY_COLUMN_KEY",
+    );
+    expect(issue?.message).toContain("保留字");
+  });
+
+  it("明細欄的值來源不是使用者填", () => {
+    const computedArray = arrayField("items", [qty], {
+      valueSource: { kind: "computed", expr: null },
+    });
+    const [issue] = errorsOf([computedArray], "ARRAY_FIELD_SETTING");
+    expect(issue?.location.property).toBe("valueSource");
+  });
+
+  it("子欄寬度不是正整數", () => {
+    const [issue] = errorsOf(
+      [arrayField("items", [column("note", "text", { width: 12.5 })])],
+      "ARRAY_COLUMN_SETTING",
+    );
+    expect(issue?.location.property).toBe("width");
+  });
+
+  it("minRows 不是整數", () => {
+    const [issue] = errorsOf(
+      [arrayField("items", [qty], { rules: { minRows: 1.5 } })],
+      "ARRAY_ROWS_INVALID",
+    );
+    expect(issue?.location.property).toBe("rules.minRows");
+  });
+
   it("子欄 key 重複", () => {
     expect(
       errorsOf(

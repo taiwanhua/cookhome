@@ -146,17 +146,24 @@ describe("明細列:以 rowId 對列的修訂差異", () => {
     ]);
   });
 
-  it("移動的列(順序變了)", () => {
+  it("移動的列:兩列互換時標其中一列", () => {
     const after = [before[1], before[0], before[2]];
     expect(
       arrayRowChanges(items, before, after).map((change) => [
         change.rowId,
         change.isMoved,
       ]),
-    ).toEqual([
-      [rowIdOf(2), true],
-      [rowIdOf(1), true],
-    ]);
+    ).toEqual([[rowIdOf(2), true]]);
+  });
+
+  it("移動的列:[a, b, c] → [c, a, b] 只有 c 是移動", () => {
+    const after = [before[2], before[0], before[1]];
+    expect(
+      arrayRowChanges(items, before, after).map((change) => [
+        change.rowId,
+        change.isMoved,
+      ]),
+    ).toEqual([[rowIdOf(3), true]]);
   });
 
   it("改值的格(數字比數值)", () => {
