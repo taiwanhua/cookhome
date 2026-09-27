@@ -139,6 +139,8 @@ expect(chain.slice(1, -1).filter((l) => l.scrolls)).toEqual([]); // 只有最內
 
 `Stack spacing` 會對每個直接子元素下 `& > :not(style):not(style) { margin: 0 }`,優先序高過子元素自己的 `sx`,所以 `ml` / `mt` 會被歸零 — 寫了縮排、lint 綠、測試綠、畫面沒縮排,是最難自己發現的一類(先例:開通彈窗的模組勾選縮排)。要位移就用 padding,或多包一層 `Box`。
 
+會換行的 row(`flexWrap: "wrap"`)一律加 `useFlexGap`,用 gap 不用 margin 對齊:margin 模式對第二個起的子元素下 `margin-left`,換行後新一行的首欄仍帶著它,和上一行對不齊;`useFlexGap` 下兩個方向都由 `gap` 給,`rowGap` 與 `spacing` 相同時不必再寫。
+
 ## STYLE-10 從呼叫端看 `sx`:只疊加、不覆蓋幾何
 
 app 端給 `@repo/ui` 元件傳 `sx` 時,只放與版面位置有關的值(`cursor`、`mt`、`flex`…);元件自己的幾何(高度、圓角、tone 色)由元件內的 `styled()` / theme `components` 決定(STYLE-07),呼叫端不要重設。需要不同尺寸或 tone 用元件的 props(`size`、`tone`),沒有就到 ui 加,不在呼叫端用 `sx` 硬改。
