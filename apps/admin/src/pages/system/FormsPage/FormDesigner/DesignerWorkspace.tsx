@@ -10,6 +10,7 @@ import {
 import { Box } from "@repo/ui/box";
 import { Stack } from "@repo/ui/stack";
 
+import { JsonPreview } from "@/components/JsonPreview";
 import { useSession } from "@/hooks/useSession";
 import { definitionOf, rawOf } from "@/lib/form-engine/definition";
 import type { DesignerIssue } from "@/lib/form-engine/designer-issues";
@@ -27,7 +28,6 @@ import { DesignerPreview } from "./DesignerPreview";
 import { type DesignerMode, DesignerToolbar } from "./DesignerToolbar";
 import { FormSettingsPanel } from "./FormSettingsPanel/FormSettingsPanel";
 import { IssueList } from "./IssueList";
-import { JsonPreview } from "./JsonPreview";
 import { FieldPropertyPanel } from "./PropertyPanel/FieldPropertyPanel";
 import { useDesignerSave } from "./useDesignerSave";
 import { useDesignerState } from "./useDesignerState";

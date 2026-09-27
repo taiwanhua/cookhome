@@ -1,0 +1,143 @@
+import { HttpResponse } from "msw";
+
+import {
+  type FormVersionQueryVariables,
+  FormVersionStatus,
+  RoleKind,
+  type UsersQueryVariables,
+} from "@repo/graphql";
+
+import { rawOf } from "@/lib/form-engine/definition";
+
+import { formFragment } from "./form-fixtures";
+import { api } from "./server";
+import {
+  APPLICANT,
+  HR,
+  LEAVE_FORM_KEY,
+  LEAVE_KEY,
+  MANAGER,
+  leaveDefinition,
+} from "./workflow-fixtures";
+
+/** 流程設計器 / 改派要借的目錄:表單(檢查用表單、表單欄位來源)、角色、使用者候選。 */
+export interface WorkflowCatalogOptions {
+  users?: { id: string; name: string; account: string; enabled: boolean }[];
+  /** `forms` 回報的總筆數(沒給 = 實際筆數);大於一頁時設計器提示「清單已截斷」 */
+  formsTotal?: number;
+}
+
+export const catalogUsers = [
+  { ...MANAGER, account: "manager", enabled: true },
+  { ...APPLICANT, account: "ming", enabled: true },
+  { ...HR, account: "hr", enabled: true },
+  { id: "user-4", name: "副理阿強", account: "deputy", enabled: true },
+  { id: "user-5", name: "離職的老王", account: "gone", enabled: false },
+];
+
+export const catalogRoles = [
+  { id: "role-hr", name: "人資" },
+  { id: "role-finance", name: "財務" },
+];
+
+/**
+ * 目錄的假 api(借的是表單管理 `forms` / `formVersion`、角色管理 `roles`、使用者管理 `users`):
+ * 只回設計器與改派跳窗要的形狀。mock 模式裡這幾個端點另有正本 world,這份只給流程頁的測試用。
+ */
+export const workflowCatalogHandlers = (
+  options: WorkflowCatalogOptions = {},
+) => {
+  const users = options.users ?? catalogUsers;
+  return [
+    api.query("Forms", () => {
+      const items = [
+        formFragment({
+          key: LEAVE_FORM_KEY,
+          name: "病假單",
+          moduleKey: LEAVE_KEY,
+          moduleName: "請假",
+          hasDraft: false,
+        }),
+      ];
+      return HttpResponse.json({
+        data: {
+          forms: {
+            items,
+            totalCount: options.formsTotal ?? items.length,
+            page: 1,
+            pageSize: 100,
+          },
+        },
+      });
+    }),
+    api.query("FormVersion", ({ variables }) => {
+      const { formKey } = variables as FormVersionQueryVariables;
+      return HttpResponse.json({
+        data: {
+          formVersion: {
+            formVersion: {
+              id: `ver-${formKey}-1`,
+              formKey,
+              version: 1,
+              status: FormVersionStatus.Published,
+              draftRevision: 1,
+              baseVersion: null,
+              ...rawOf(leaveDefinition()),
+              changelog: null,
+              publishedAt: null,
+              publishedBy: null,
+              createdAt: "2026-09-20T02:00:00.000Z",
+              updatedAt: "2026-09-20T02:00:00.000Z",
+            },
+            validation: { errors: [], warnings: [] },
+          },
+        },
+      });
+    }),
+    api.query("Roles", () => {
+      const items = catalogRoles.map((role) => ({
+        ...role,
+        description: null,
+        enabled: true,
+        kind: RoleKind.Custom,
+        abilities: {
+          canEdit: true,
+          canEditMatrix: true,
+          canToggleEnabled: true,
+          canDelete: true,
+        },
+        isSystem: false,
+        isTemplateCopy: false,
+        userCount: 1,
+        ownerOrg: { id: "org-1", name: "CookHome", tenantTop: null },
+      }));
+      return HttpResponse.json({
+        data: {
+          roles: { items, totalCount: items.length, page: 1, pageSize: 100 },
+        },
+      });
+    }),
+    api.query("Users", ({ variables }) => {
+      const { input } = variables as UsersQueryVariables;
+      const keyword = input.keyword?.trim() ?? "";
+      const items = users
+        .filter(
+          (user) =>
+            keyword === "" ||
+            user.name.includes(keyword) ||
+            user.account.includes(keyword),
+        )
+        .map((user) => ({
+          ...user,
+          email: `${user.account}@cookhome.online`,
+          orgs: [],
+          roles: [],
+        }));
+      return HttpResponse.json({
+        data: {
+          users: { items, totalCount: items.length, page: 1, pageSize: 50 },
+        },
+      });
+    }),
+  ];
+};

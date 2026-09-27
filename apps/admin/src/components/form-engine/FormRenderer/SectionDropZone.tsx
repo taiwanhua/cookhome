@@ -21,7 +21,6 @@ export const SectionDropZone = ({ sectionKey }: SectionDropZoneProps) => {
     <Box
       ref={setNodeRef}
       sx={{
-        gridColumn: "span 12",
         p: 1.5,
         borderRadius: 1,
         border: "1px dashed",

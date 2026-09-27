@@ -13,9 +13,8 @@ import { Stack } from "@repo/ui/stack";
 import { Switch } from "@repo/ui/switch";
 import { TextField } from "@repo/ui/text-field";
 
+import { ExpressionPicker } from "@/components/form-engine/ExpressionPicker/ExpressionPicker";
 import { scalarText } from "@/lib/form-engine/value-text";
-
-import { ExpressionPicker } from "../ExpressionPicker/ExpressionPicker";
 
 export interface RulesEditorProps {
   field: FieldDef;

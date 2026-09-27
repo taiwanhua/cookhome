@@ -5,11 +5,12 @@ import {
   type ExpressionContext,
   type FieldDef,
   type FormDefinition,
+  LAYOUT_COLUMNS,
   type LayoutSection,
   type StoredValues,
   fieldProtections,
 } from "@repo/domain/form";
-import { Box } from "@repo/ui/box";
+import { Grid } from "@repo/ui/grid";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
@@ -29,7 +30,7 @@ import type { WidgetContext } from "../widgets/widget-types";
 import { DesignFieldCell } from "./DesignFieldCell";
 import { FormFieldCell } from "./FormFieldCell";
 import { SectionDropZone } from "./SectionDropZone";
-import { cellSpanSx, sectionGridSx } from "./layout-grid";
+import { SECTION_SPACING, cellSize } from "./layout-grid";
 
 export interface FormRendererDesignProps {
   selectedFieldKey: string | null;
@@ -140,7 +141,11 @@ export const FormRenderer = ({
             />
           );
           return [
-            <Box key={field.key} sx={cellSpanSx(col.span)}>
+            <Grid
+              key={field.key}
+              size={cellSize(col.span)}
+              sx={{ minWidth: 0 }}
+            >
               {isDesign && design !== undefined ? (
                 <DesignFieldCell
                   field={field}
@@ -154,7 +159,7 @@ export const FormRenderer = ({
               ) : (
                 cell
               )}
-            </Box>,
+            </Grid>,
           ];
         });
 
@@ -176,13 +181,25 @@ export const FormRenderer = ({
                 items={cols.map((col) => designFieldId(col.fieldKey))}
                 strategy={rectSortingStrategy}
               >
-                <Box sx={sectionGridSx}>
+                <Grid
+                  container
+                  columns={LAYOUT_COLUMNS}
+                  spacing={SECTION_SPACING}
+                >
                   {cells}
-                  <SectionDropZone sectionKey={section.key} />
-                </Box>
+                  <Grid size={LAYOUT_COLUMNS}>
+                    <SectionDropZone sectionKey={section.key} />
+                  </Grid>
+                </Grid>
               </SortableContext>
             ) : (
-              <Box sx={sectionGridSx}>{cells}</Box>
+              <Grid
+                container
+                columns={LAYOUT_COLUMNS}
+                spacing={SECTION_SPACING}
+              >
+                {cells}
+              </Grid>
             )}
           </Stack>
         );

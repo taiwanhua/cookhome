@@ -7,7 +7,7 @@ import { Typography } from "@repo/ui/typography";
 
 import { operationNode } from "@/lib/form-engine/expression-tree";
 
-import { JsonPreview } from "../JsonPreview";
+import { JsonPreview } from "../../JsonPreview";
 import { ExpressionNodeEditor } from "./ExpressionNodeEditor";
 
 export interface ExpressionPickerProps {

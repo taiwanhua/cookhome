@@ -249,6 +249,8 @@ export const formFragment = (
     canSetEnabled: false,
     canFork: true,
   },
+  // api 在 root 視角與沒綁時回 null(docs/modules/workflows.md「流程綁定」)
+  workflowBinding: null,
   createdAt: STAMP,
   updatedAt: STAMP,
   ...overrides,
@@ -285,10 +287,19 @@ export const submissionFragment = (
   submittedAt: STAMP,
   createdAt: STAMP,
   updatedAt: STAMP,
+  currentInstanceId: null,
+  blocked: false,
+  voidedAt: null,
+  voidReason: null,
+  replacedById: null,
+  copiedFrom: null,
   abilities: {
     canEdit: true,
     canDelete: true,
     canEditField: ["item", "qty", "unit_price", "note", "buyer"],
+    canWithdraw: false,
+    canVoid: false,
+    canCopy: false,
   },
   ...overrides,
 });

@@ -28,7 +28,8 @@ import { formModuleKeyOf, useFormModuleAccess } from "./useFormModuleAccess";
 /**
  * 表單模組編輯頁(預設組裝;Spec 6a §8 畫面 9)。網址 `/<模組>/edit-page/<id>`:
  * - 草稿:存草稿 / 送出(建立者本人)
- * - 已完成:儲存修改(需 `edit` + `abilities.canEdit`),每改一次修訂 +1 並存完整快照
+ * - 已完成(沒走過流程):儲存修改(需 `edit` + `abilities.canEdit`),每改一次修訂 +1 並存完整快照
+ * - 被退回 / 已撤回(申請人本人):同草稿,改完再送出 = 修訂 +1、重新審核
  *
  * 寫入帶 `expectedEditVersion`(已完成另帶 `expectedRevision`);不符 → 提示「已被別人更新,請重新載入」,
  * 按「重新載入」重取這一筆、以新的值重新掛表單(REACT-08:表單以 `editVersion` 為 key)。
@@ -104,6 +105,16 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
         <Typography variant="h6" component="h1">
           {t("editTitle", { form: submission.formName ?? submission.formKey })}
         </Typography>
+        {(submission.status === FormSubmissionStatus.Returned ||
+          submission.status === FormSubmissionStatus.Withdrawn) && (
+          <Alert severity="info">
+            {t(
+              submission.status === FormSubmissionStatus.Returned
+                ? "returnedHint"
+                : "withdrawnHint",
+            )}
+          </Alert>
+        )}
         <FormFillForm
           key={submission.editVersion}
           definition={version.definition}

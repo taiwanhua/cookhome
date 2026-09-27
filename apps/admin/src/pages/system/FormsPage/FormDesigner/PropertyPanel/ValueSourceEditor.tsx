@@ -5,9 +5,8 @@ import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 
+import { ExpressionPicker } from "@/components/form-engine/ExpressionPicker/ExpressionPicker";
 import { scalarText } from "@/lib/form-engine/value-text";
-
-import { ExpressionPicker } from "../ExpressionPicker/ExpressionPicker";
 
 export interface ValueSourceEditorProps {
   field: FieldDef;

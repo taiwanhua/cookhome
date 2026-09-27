@@ -40,6 +40,12 @@ fragment FormFields on FormModel {
     canSetEnabled
     canFork
   }
+  # 本租戶這張表單綁的流程(root 視角與沒綁為 null);isValid = false → 「綁定的流程已失效」
+  workflowBinding {
+    workflowKey
+    workflowName
+    isValid
+  }
   createdAt
   updatedAt
 }

@@ -389,6 +389,16 @@
         "default": "./dist/cjs/tabs.js"
       }
     },
+    "./grid": {
+      "import": {
+        "types": "./dist/es/grid.d.mts",
+        "default": "./dist/es/grid.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/grid.d.ts",
+        "default": "./dist/cjs/grid.js"
+      }
+    },
     "./snackbar": {
       "import": {
         "types": "./dist/es/snackbar.d.mts",

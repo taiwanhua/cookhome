@@ -41,6 +41,11 @@ import {
 } from "@/test/msw/module-fixtures";
 import type { TestRole } from "@/test/msw/role-fixtures";
 import type { TestUser } from "@/test/msw/user-manager-handlers";
+import {
+  applyCenterModules,
+  leaveModules,
+  workflowsModules,
+} from "@/test/msw/workflow-fixtures";
 
 /**
  * mock 開發模式**自己的**夾具:`src/test/msw/` 沒有正本的那幾份。
@@ -210,6 +215,13 @@ export const modulesForView = (view: MockView): TestModule[] => [
     (module) => module.key === "system.forms",
   ),
   ...shoppingListModules(["shopping-list.*"]),
+  // 審核流程:流程管理 + 阻擋清單(掛在系統管理群組下)、申請中心 + 詳情、表單模組範例「請假」
+  ...workflowsModules(
+    ["system.workflows.*"],
+    ["system.workflows.blocked-page.reassign"],
+  ).filter((module) => module.key !== "system"),
+  ...applyCenterModules(),
+  ...leaveModules(["leave.*"]),
 ];
 
 /** `me.orgs`(組織切換器);第一個即 `me.currentOrg`。 */

@@ -3,6 +3,7 @@ import type { Types } from "mongoose";
 
 import {
   type WorkflowDefinition,
+  allowsReturn,
   isJoinStep,
   stepOf,
 } from "@repo/domain/workflow";
@@ -99,6 +100,16 @@ export class WorkflowPresenter {
             instanceId: instance._id,
             assigneeId: viewer.actorId,
           });
+    // 流程管理者要對別人的任務改派(`reassignTask` 收 taskId):只有他拿得到計畫項目的任務 id
+    const taskIdByKey = new Map<string, string>();
+    if (viewer.canManage && instance.tenantId !== null) {
+      const tasks = await this.tasks.findMany(instance.tenantId, {
+        instanceId: instance._id,
+      });
+      for (const task of tasks) {
+        taskIdByKey.set(task.taskKey, String(task._id));
+      }
+    }
     const isLive =
       instance.status === "running" || instance.status === "blocked";
     const hasDecisions = instance.steps.some(
@@ -132,6 +143,7 @@ export class WorkflowPresenter {
           name: node.name,
           kind: isJoinStep(node) ? "join" : "review",
           mode: isJoinStep(node) ? null : node.mode,
+          allowReturn: allowsReturn(node),
           status: (state?.status ?? "pending") as WorkflowStepStatusEnum,
           blocked: state?.blocked ?? false,
           plan: (state?.plan ?? []).map((item) => ({
@@ -144,6 +156,7 @@ export class WorkflowPresenter {
               .map((id) => userRefOf(id, names))
               .filter((ref) => nonNull(ref)),
             assigneeState: item.assigneeState,
+            taskId: taskIdByKey.get(item.taskKey) ?? null,
           })),
           decisions: (state?.decisions ?? []).map((decision) => ({
             taskKey: decision.taskKey,

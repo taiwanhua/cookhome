@@ -714,6 +714,8 @@ describe("申請中心與讀取授權", () => {
       const instance = await currentInstance(world, submitted.id);
       expect(instance.status).toBe("RUNNING");
       expect(stepOfRow(instance, "one").plan[0]?.assigneeState).toBe("invalid");
+      // 關卡可否退回從版本定義抄(省略 = true),審核區塊依它決定出不出現「退回修改」
+      expect(stepOfRow(instance, "one").allowReturn).toBe(true);
       const tasks = await rawTasks(world.connection, instance.id);
       expect(tasks.map((task) => task.status)).toEqual(["blocked", "pending"]);
       await decideOn(world, b, submitted.id, "APPROVE");
@@ -728,9 +730,13 @@ describe("申請中心與讀取授權", () => {
         await reviewerOnly(),
       ];
       await useWorkflow(world, nextKey("all_invalid"), {
-        steps: [usersStep("one", [a, b], { mode: "all" })],
+        steps: [usersStep("one", [a, b], { mode: "all", allowReturn: false })],
       });
       const submitted = await submitLeave(world);
+      expect(
+        stepOfRow(await currentInstance(world, submitted.id), "one")
+          .allowReturn,
+      ).toBe(false);
       await setEnabled(world, a, false);
       await setEnabled(world, b, false);
       let instance = await currentInstance(world, submitted.id);
@@ -753,6 +759,15 @@ describe("申請中心與讀取授權", () => {
       expect(instance.summary?.date).not.toBeNull();
       const tasks = await rawTasks(world.connection, instance.id);
       const [taskA, taskB] = tasks.map((task) => String(task._id));
+      // 流程管理者從阻擋清單就拿得到計畫項目的任務 id(改派要它);其他讀者一律 null
+      const listedPlan =
+        listed?.steps.find((one) => one.stepKey === "one")?.plan ?? [];
+      expect(listedPlan.map((item) => item.taskId)).toEqual(
+        tasks.map((task) => String(task._id)),
+      );
+      expect(
+        stepOfRow(instance, "one").plan.every((item) => item.taskId === null),
+      ).toBe(true);
       await ok(api, world.admin.token, REASSIGN, {
         input: { taskId: taskA, toUserId: String(c.userId) },
       });

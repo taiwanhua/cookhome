@@ -238,12 +238,7 @@ mutation RetireCurrentWorkflowVersion($input: WorkflowKeyInput!) {
 mutation BindFormWorkflow($input: BindFormWorkflowInput!) {
   bindFormWorkflow(input: $input) {
     form {
-      key
-      workflowBinding {
-        workflowKey
-        workflowName
-        isValid
-      }
+      ...FormFields
     }
   }
 }
@@ -252,26 +247,7 @@ mutation BindFormWorkflow($input: BindFormWorkflowInput!) {
 mutation UnbindFormWorkflow($input: UnbindFormWorkflowInput!) {
   unbindFormWorkflow(input: $input) {
     form {
-      key
-      workflowBinding {
-        workflowKey
-        workflowName
-        isValid
-      }
-    }
-  }
-}
-
-# 本租戶這張表單綁的流程;isValid = false → 「綁定的流程已失效」
-query FormWorkflowBindingOf($key: ID!) {
-  form(key: $key) {
-    form {
-      key
-      workflowBinding {
-        workflowKey
-        workflowName
-        isValid
-      }
+      ...FormFields
     }
   }
 }

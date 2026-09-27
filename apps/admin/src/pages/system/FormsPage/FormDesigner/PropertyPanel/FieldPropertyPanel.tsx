@@ -7,9 +7,9 @@ import { Stack } from "@repo/ui/stack";
 import { Switch } from "@repo/ui/switch";
 import { Typography } from "@repo/ui/typography";
 
+import { ExpressionPicker } from "@/components/form-engine/ExpressionPicker/ExpressionPicker";
 import type { DesignerIssue } from "@/lib/form-engine/designer-issues";
 
-import { ExpressionPicker } from "../ExpressionPicker/ExpressionPicker";
 import { FieldBasicsEditor } from "./FieldBasicsEditor";
 import { LookupSourceEditor } from "./LookupSourceEditor";
 import { OptionsEditor } from "./OptionsEditor";

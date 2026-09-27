@@ -99,6 +99,13 @@ export class WorkflowPlanItemModel {
   /** `invalid` = 承辦人停用 / 移出租戶(等改派)。 */
   @Field(() => String)
   assigneeState!: string;
+
+  /**
+   * 這一項對應的任務 id(`reassignTask` 要它)。**只給流程管理者**(`abilities.canManage`):
+   * 阻擋清單要對別人的任務改派;其他讀者一律 null,任務還沒建出來(計畫剛寫入)也是 null。
+   */
+  @Field(() => ID, { nullable: true })
+  taskId!: string | null;
 }
 
 @ObjectType()
@@ -136,6 +143,10 @@ export class WorkflowInstanceStepModel {
   /** 審核關卡的會簽模式(`any` / `all`);匯合節點為 null。 */
   @Field(() => String, { nullable: true })
   mode!: string | null;
+
+  /** 這一關可否「退回修改」(版本定義的 `allowReturn`,省略 = true);匯合節點為 false。 */
+  @Field(() => Boolean)
+  allowReturn!: boolean;
 
   @Field(() => WorkflowStepStatusEnum)
   status!: WorkflowStepStatusEnum;

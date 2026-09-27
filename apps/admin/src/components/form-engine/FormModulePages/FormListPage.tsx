@@ -6,6 +6,7 @@ import {
   type FormSubmissionStatus,
   useDeleteFormSubmissionMutation,
 } from "@repo/graphql";
+import { Button } from "@repo/ui/button";
 import { Card } from "@repo/ui/card";
 import { IconButton } from "@repo/ui/icon-button";
 import { DeleteIcon, EditIcon, ViewIcon } from "@repo/ui/icons";
@@ -18,6 +19,8 @@ import { useSession } from "@/hooks/useSession";
 import { type FormError, formErrorOf } from "@/lib/form-engine/form-errors";
 import type { ModulePageProps } from "@/lib/module-tree";
 
+import { ReasonDialog } from "../../workflow/ApprovalSection/ReasonDialog";
+import { useSubmissionActions } from "../../workflow/useSubmissionActions";
 import { FormPicker } from "../FormPicker";
 import {
   FormSubmissionList,
@@ -30,7 +33,8 @@ import { formModuleKeyOf, useFormModuleAccess } from "./useFormModuleAccess";
 /**
  * 表單模組列表頁(預設組裝;Spec 6a §8 畫面 8):搜尋、依表單 / 狀態篩選、分頁;
  * 新增鈕 —— 此刻可新增的表單一張 → 直接進、多張 → 先選(`FormPicker`)。
- * 列操作依 api 的 `abilities`(已含權限)與「有沒有綁那一頁」相乘。
+ * 列操作依 api 的 `abilities`(已含權限)與「有沒有綁那一頁」相乘:綁流程且已核准的單鎖定 ——
+ * 不出現「編輯」(api 的 `canEdit` 為 false)、改出現「作廢」(`canVoid`,Spec 6b §8 畫面 11)。
  */
 export const FormListPage = ({ module }: ModulePageProps) => {
   const moduleKey = formModuleKeyOf(module.key);
@@ -49,6 +53,8 @@ export const FormListPage = ({ module }: ModulePageProps) => {
     null,
   );
   const [deleteError, setDeleteError] = useState<FormError | null>(null);
+  const [voidTarget, setVoidTarget] = useState<FormSubmissionRow | null>(null);
+  const submissionActions = useSubmissionActions();
   const { session } = useSession();
   const updateCache = useFormSubmissionCache();
   // 刪除只要 id:不為了刪一筆再查整筆提交
@@ -105,6 +111,20 @@ export const FormListPage = ({ module }: ModulePageProps) => {
             <EditIcon fontSize="small" />
           </IconButton>
         </Tooltip>
+      )}
+      {row.abilities.canVoid && (
+        <Button
+          size="small"
+          variant="text"
+          color="error"
+          aria-label={t("voidOf", { label: labelOf(row) })}
+          onClick={() => {
+            submissionActions.clearError();
+            setVoidTarget(row);
+          }}
+        >
+          {t("void")}
+        </Button>
       )}
       {row.abilities.canDelete && (
         <Tooltip title={t("delete")} describeChild={false}>
@@ -166,6 +186,24 @@ export const FormListPage = ({ module }: ModulePageProps) => {
           }}
           onClose={() => {
             setIsPicking(false);
+          }}
+        />
+      )}
+      {voidTarget !== null && (
+        <ReasonDialog
+          namespace="admin.approval.void"
+          requiresReason
+          isSubmitting={submissionActions.isPending}
+          errorMessage={submissionActions.errorMessage}
+          onCancel={() => {
+            setVoidTarget(null);
+          }}
+          onConfirm={(reason) => {
+            void submissionActions.voidIt(voidTarget, reason).then((isDone) => {
+              if (isDone) {
+                setVoidTarget(null);
+              }
+            });
           }}
         />
       )}
