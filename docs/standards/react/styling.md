@@ -140,7 +140,7 @@ expect(chain.slice(1, -1).filter((l) => l.scrolls)).toEqual([]); // 只有最內
 `@repo/ui` 的主題把 `MuiStack` 的 `useFlexGap` 預設成 `true`(`packages/ui/src/theme/create-theme.ts`),所有 `Stack`(會不會換行都一樣)的 `spacing` 都由 `gap` 給,呼叫端不必、也不要再寫 `useFlexGap`;`rowGap` 與 `spacing` 相同時不必另寫。
 
 - **為什麼不用 MUI 預設的 margin 模式**:它對每個直接子元素下 `& > :not(style):not(style) { margin: 0 }`,再用第二個起的子元素的 `margin-top` / `margin-left` 排間距。子元素自己寫的 `ml` / `mt` 因此被歸零(寫了縮排、lint 綠、測試綠、畫面沒縮排);`flexWrap: "wrap"` 換行後,新一行的首欄仍帶著 `margin-left`,和上一行對不齊。
-- **gap 模式下子元素的 margin 會生效**:`ml: "auto"` 真的把按鈕組推到右邊、`mt` 真的位移,元件自帶的 margin(`FormControlLabel` 的左 -11px / 右 16px、瀏覽器給 `p` / `ul` / `h*` 的上下 margin)也照樣算進版面。子元素不要用 margin 排「兄弟之間」的間距,那是 `spacing` 的事;縮排用 padding,或多包一層 `Box`。
+- **gap 模式下子元素的 margin 會生效**:`ml: "auto"` 真的把按鈕組推到右邊、`mt` 真的位移,元件自帶的 margin(`ListItemText` 的上下 6px、瀏覽器給 `p` / `ul` / `h*` 的上下 margin)也照樣算進版面。`FormControlLabel` 的左 margin 由主題歸零(MUI 預設 -11px 會讓開關凸出同一欄輸入框的左緣),右邊 16px 照舊,呼叫端不必再補。子元素不要用 margin 排「兄弟之間」的間距,那是 `spacing` 的事;縮排用 padding,或多包一層 `Box`。
 - **不要寫 `useFlexGap={false}`**:回到 margin 模式等於把上面兩個坑帶回來。
 
 ## STYLE-10 從呼叫端看 `sx`:只疊加、不覆蓋幾何
