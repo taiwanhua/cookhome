@@ -37,7 +37,7 @@ export type OperationExpression = Record<string, Expression[]>;
 
 /**
  * 新建運算節點時預設幾個參數(變長運算子之後可再增減;`now` 沒有參數、`optionLabel` 參數是欄位 key 字串、
- * `dateDiff` 第三個是單位、`dateAdd` 是起 / 方向 / 數量 / 單位)。
+ * `dateDiff` 第三個是單位、`dateAdd` 是起 / 方向 / 數量 / 單位;彙總是明細欄 / 子欄兩個 key,`countOf` 只有明細欄)。
  */
 const DEFAULT_ARITY: Partial<Record<string, number>> = {
   "!": 1,
@@ -47,6 +47,7 @@ const DEFAULT_ARITY: Partial<Record<string, number>> = {
   optionLabel: 1,
   dateDiff: 3,
   dateAdd: 4,
+  countOf: 1,
 };
 
 /** 新建時就有值的參數位置(`dateDiff` 的單位預設天;`dateAdd` 預設「之後 1 天」)。 */

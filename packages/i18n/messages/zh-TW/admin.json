@@ -1170,7 +1170,15 @@
       "diffField": "欄位",
       "diffBefore": "修訂 {revision}",
       "diffAfter": "修訂 {revision}",
-      "close": "關閉"
+      "close": "關閉",
+      "rowAdded": "新增",
+      "rowRemoved": "刪除",
+      "rowMoved": "移動",
+      "rowChanged": "改值",
+      "rowChange": "標示",
+      "rowContent": "列內容",
+      "rowCells": "改了哪些格",
+      "arrayDiffAria": "{label} 的明細差異"
     },
     "pages": {
       "loading": "載入中",
@@ -1236,6 +1244,18 @@
       "WORKFLOW_MISCONFIGURED": "審核流程設定有誤,請聯絡管理員。",
       "REVISION_LIMIT": "修訂次數已達上限,請建立新的申請。",
       "DOCUMENT_TOO_LARGE": "資料容量已達上限,請縮減內容。"
+    },
+    "array": {
+      "addRow": "+ 新增一列",
+      "removeRow": "刪除",
+      "duplicateRow": "複製",
+      "removeRowAria": "刪除第 {index} 列",
+      "duplicateRowAria": "複製第 {index} 列",
+      "rowActions": "操作",
+      "rowTitle": "第 {index} 列",
+      "noRows": "尚未新增任何一列",
+      "designPlaceholder": "明細列(預覽時可新增列)",
+      "maxReached": "已達最多 {max} 列"
     }
   },
   "forms": {
@@ -1444,7 +1464,8 @@
         "multiSelect": "多選",
         "boolean": "是否",
         "upload": "上傳",
-        "reference": "引用"
+        "reference": "引用",
+        "array": "明細列"
       },
       "addField": "新增{type}欄位",
       "addSection": "+ 新增分區",
@@ -1465,7 +1486,8 @@
       "copied": "已複製。",
       "copyFailed": "複製失敗。",
       "regexChecking": "正則檢查中…",
-      "regexUnavailable": "目前無法即時檢查正則的安全性;存草稿時會再檢查。"
+      "regexUnavailable": "目前無法即時檢查正則的安全性;存草稿時會再檢查。",
+      "newColumn": "項目"
     },
     "preview": {
       "region": "預覽",
@@ -1497,7 +1519,8 @@
         "multiSelect": "多選",
         "boolean": "是否",
         "upload": "上傳",
-        "reference": "引用"
+        "reference": "引用",
+        "array": "明細列"
       },
       "widget": "元件",
       "rows": "列數",
@@ -1517,7 +1540,8 @@
         "switch": "開關",
         "checkbox": "勾選框",
         "upload": "上傳",
-        "referencePicker": "搜尋選擇器"
+        "referencePicker": "搜尋選擇器",
+        "table": "表格"
       },
       "span": "寬度(12 格)",
       "precision": "小數位數",
@@ -1556,7 +1580,8 @@
       "defaultHint": "新增時自動填入;填寫的人還沒改過這欄前,它引用的欄位變了會跟著重算,改過就不再變。",
       "optionDisabled": "{label}(已停用)",
       "defaultPickerHint": "用填寫時的選擇器挑(選項以已存的草稿查詢)",
-      "defaultClear": "清除預設值"
+      "defaultClear": "清除預設值",
+      "spanFixed": "明細列固定占滿 12 格"
     },
     "options": {
       "source": "選項來源",
@@ -1650,7 +1675,10 @@
       },
       "uploadMaxSize": "大小上限(MB)",
       "uploadMaxSizeHint": "不填 = 平台上限 {max} MB;只能調小",
-      "dateTimeRangeZone": "以 {timezone} 的時間輸入"
+      "dateTimeRangeZone": "以 {timezone} 的時間輸入",
+      "minRows": "最少列數",
+      "maxRows": "最多列數",
+      "rowsHint": "沒設最多列數 = {fallback} 列,上限 {max} 列;必填 = 至少一列"
     },
     "expression": {
       "root": "根",
@@ -1704,7 +1732,12 @@
         "dateAdd": "日期加減",
         "concat": "串接文字",
         "optionLabel": "選項顯示名",
-        "now": "現在時間"
+        "now": "現在時間",
+        "sumOf": "明細加總",
+        "countOf": "明細筆數",
+        "minOf": "明細最小",
+        "maxOf": "明細最大",
+        "avgOf": "明細平均"
       },
       "constantKind": "常數種類",
       "constants": {
@@ -1744,7 +1777,11 @@
       "removeArg": "移除",
       "set": "設定",
       "clear": "清除",
-      "json": "{label} 的 JSON"
+      "json": "{label} 的 JSON",
+      "arrayField": "明細欄",
+      "arrayFieldUnset": "請選明細欄",
+      "arrayColumn": "數字子欄位",
+      "arrayColumnUnset": "請選子欄位"
     },
     "settings": {
       "title": "表單設定",
@@ -1844,6 +1881,28 @@
         "cancel": "取消",
         "confirm": "解除綁定"
       }
+    },
+    "columns": {
+      "title": "子欄位",
+      "list": "子欄位清單",
+      "open": "設定子欄位「{label}」",
+      "required": "必填",
+      "widthOf": "寬 {width}px",
+      "remove": "刪除子欄位",
+      "removeOf": "刪除子欄位「{label}」",
+      "add": "+ 子欄位",
+      "newColumn": "項目",
+      "panel": "子欄位設定",
+      "panelTitle": "子欄位 — {label}",
+      "back": "← 回子欄位清單",
+      "width": "表格欄寬(px)",
+      "widthHint": "表格欄的最小寬;手機的卡片版面不適用",
+      "sources": {
+        "input": "使用者填",
+        "computed": "列內公式"
+      },
+      "formula": "列內公式",
+      "rowField": "本列・{label}"
     }
   },
   "approval": {

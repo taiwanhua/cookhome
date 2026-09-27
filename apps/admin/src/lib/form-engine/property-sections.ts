@@ -30,12 +30,43 @@ export interface PropertySections {
   allowCustom: boolean;
   /** 自訂驗證 + 錯誤訊息(是否、上傳沒有) */
   custom: boolean;
-  /** 鎖定條件(值來源 = 使用者填才有) */
+  /** 鎖定條件(值來源 = 使用者填才有;明細列沒有) */
   readonlyWhen: boolean;
+  /** 明細列的子欄位清單 */
+  arrayColumns: boolean;
+  /** 明細列的列數上下限(`rules.minRows` / `maxRows`) */
+  rowRange: boolean;
+  /** 版面寬度可選(明細列固定 12 格) */
+  span: boolean;
 }
 
 /** 值來源固定、不給選的型別。 */
 const FIXED_SOURCE_TYPES = new Set<FieldDef["type"]>(["upload", "reference"]);
+
+/**
+ * 明細列(Spec 6a §5 表 A 後):key、標題、說明、子欄位、列數上下限、顯示條件、欄位權限;
+ * 沒有值來源 / 預設值 / 鎖定條件 / 自訂驗證(第一版)。
+ */
+const ARRAY_SECTIONS: PropertySections = {
+  widget: false,
+  widgetRows: false,
+  widgetUnit: false,
+  valueSource: false,
+  defaultValue: false,
+  uploadLimits: false,
+  options: false,
+  referenceSource: false,
+  lengthRange: false,
+  numberRange: false,
+  dateRange: false,
+  textFormat: false,
+  allowCustom: false,
+  custom: false,
+  readonlyWhen: false,
+  arrayColumns: true,
+  rowRange: true,
+  span: false,
+};
 
 export const propertySectionsOf = (
   field: FieldDef,
@@ -43,6 +74,9 @@ export const propertySectionsOf = (
   allowCustomWidgets: readonly string[],
 ): PropertySections => {
   const { type } = field;
+  if (type === "array") {
+    return ARRAY_SECTIONS;
+  }
   const isInput = field.valueSource.kind === "input";
   const isChoice = type === "select" || type === "multiSelect";
   return {
@@ -62,5 +96,23 @@ export const propertySectionsOf = (
       isInput && isChoice && allowCustomWidgets.includes(field.widget.kind),
     custom: type !== "boolean" && type !== "upload",
     readonlyWhen: isInput,
+    arrayColumns: false,
+    rowRange: false,
+    span: true,
   };
 };
+
+/**
+ * 明細子欄的面板(縮小版,只列白名單內的設定):型別 / 元件 / 列數 / 自訂驗證 / 允許清單外 / 鎖定條件 / 預設值都沒有;
+ * 值來源只有「使用者填 / 列內公式」(另外處理)。
+ */
+export const columnSectionsOf = (type: FieldDef["type"]): PropertySections => ({
+  ...ARRAY_SECTIONS,
+  arrayColumns: false,
+  rowRange: false,
+  options: type === "select",
+  lengthRange: type === "text",
+  numberRange: type === "number",
+  dateRange: type === "date" || type === "datetime",
+  textFormat: type === "text",
+});

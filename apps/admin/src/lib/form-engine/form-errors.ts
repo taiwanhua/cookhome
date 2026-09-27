@@ -61,11 +61,16 @@ export const FORM_ERROR_REASONS = [
 
 export type FormErrorReason = (typeof FORM_ERROR_REASONS)[number];
 
-/** 值錯誤(`VALIDATION_FAILED` 的 `extensions.fieldErrors`)。 */
+/**
+ * 值錯誤(`VALIDATION_FAILED` 的 `extensions.fieldErrors`);明細列的格另帶 `rowId` + `columnKey`
+ * (列數不足 / 超過只有 `fieldKey`)。
+ */
 export interface FormFieldErrorLike {
   fieldKey: string;
   code: string;
   message: string;
+  rowId?: string;
+  columnKey?: string;
 }
 
 /** 定義錯誤(`VALIDATION_FAILED` + `fields: ["definition"]` 的 `extensions.issues`)。 */

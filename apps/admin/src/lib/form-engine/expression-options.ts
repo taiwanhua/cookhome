@@ -7,6 +7,7 @@ import {
   FIELD_EXPRESSION_TYPES,
   type FieldDef,
   fieldProtections,
+  isArrayAggregateOperator,
   isOperatorAccepted,
   isOptionExpected,
   isProtected,
@@ -124,8 +125,12 @@ export const positionOptionsOf = (
             ? !OPTION_KINDS.has(kind)
             : !OPTION_REPLACED.has(kind)),
       );
-  const operators = PICKER_OPERATORS.filter((operator) =>
-    isOperatorAccepted(operator, expected),
+  // 彙總只在定義裡有明細欄時才列(沒有明細可彙總)
+  const hasArray = fields.some((field) => field.type === "array");
+  const operators = PICKER_OPERATORS.filter(
+    (operator) =>
+      isOperatorAccepted(operator, expected) &&
+      (hasArray || !isArrayAggregateOperator(operator)),
   );
   const kinds: ExpressionNodeKind[] = [];
   if (matchingFields.length > 0) {

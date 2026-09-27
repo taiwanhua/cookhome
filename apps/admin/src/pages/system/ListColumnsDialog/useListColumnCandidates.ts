@@ -39,14 +39,20 @@ export const useListColumnCandidates = (moduleKey: string) => {
       return [];
     }
     const protections = fieldProtections(definition.fields);
-    return definition.fields
-      .filter((field) => !isProtected(protections.get(field.key)))
-      .map((field) => ({
-        formKey: form.key,
-        formName: form.name,
-        key: field.key,
-        label: field.label,
-      }));
+    return (
+      definition.fields
+        // 明細欄不能當列表欄(列表只顯示單值;api 同樣擋)
+        .filter(
+          (field) =>
+            field.type !== "array" && !isProtected(protections.get(field.key)),
+        )
+        .map((field) => ({
+          formKey: form.key,
+          formName: form.name,
+          key: field.key,
+          label: field.label,
+        }))
+    );
   });
 
   return { candidates, isLoading: forms.isLoading };

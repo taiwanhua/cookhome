@@ -115,7 +115,13 @@ export const DesignerWorkspace = ({
         <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start" }}>
           <ComponentPalette
             onAddField={(type: FieldType) => {
-              state.add(type, t(`types.${type}`), null, t("newSection"));
+              state.add(
+                type,
+                t(`types.${type}`),
+                null,
+                t("newSection"),
+                t("newColumn"),
+              );
             }}
             onAddSection={() => {
               state.addSection(t("newSection"));
@@ -127,7 +133,13 @@ export const DesignerWorkspace = ({
             selectedFieldId={state.selectedFieldId}
             onSelectField={state.select}
             onAddField={(type, target) => {
-              state.add(type, t(`types.${type}`), target, t("newSection"));
+              state.add(
+                type,
+                t(`types.${type}`),
+                target,
+                t("newSection"),
+                t("newColumn"),
+              );
             }}
             onMoveField={state.move}
             onRenameSection={state.renameSection}

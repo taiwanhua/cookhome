@@ -3,6 +3,7 @@ import {
   type ExpressionSlot,
   type FormDefinition,
   type SummarySlot,
+  arrayColumnsOf,
   referencedFieldKeys,
 } from "@repo/domain/form";
 
@@ -57,22 +58,43 @@ const refersTo = (expr: Expression | undefined, fieldKey: string): boolean => {
   }
 };
 
+const isReferencedByColumn = (
+  field: FormDefinition["fields"][number],
+  fieldKey: string,
+): boolean =>
+  arrayColumnsOf(field).some(
+    (column) =>
+      column.valueSource.kind === "computed" &&
+      refersTo(column.valueSource.expr, fieldKey),
+  );
+
+/** 一個欄位的表達式裡引用 `fieldKey` 的地方;明細的列內公式引用它 → 列成那個明細欄的「公式」。 */
+const expressionReferencesOf = (
+  field: FormDefinition["fields"][number],
+  fieldKey: string,
+): FieldReference[] => [
+  ...EXPRESSION_SLOTS.filter((slot) =>
+    refersTo(expressionAt(field, slot), fieldKey),
+  ).map((slot) => ({ kind: "expression" as const, fieldKey: field.key, slot })),
+  ...(isReferencedByColumn(field, fieldKey)
+    ? [
+        {
+          kind: "expression" as const,
+          fieldKey: field.key,
+          slot: "valueSource.expr" as const,
+        },
+      ]
+    : []),
+];
+
 export const fieldReferences = (
   definition: FormDefinition,
   fieldKey: string,
   listColumnFieldKeys: readonly string[] = [],
 ): FieldReference[] => {
-  const references: FieldReference[] = [];
-  for (const field of definition.fields) {
-    if (field.key === fieldKey) {
-      continue;
-    }
-    for (const slot of EXPRESSION_SLOTS) {
-      if (refersTo(expressionAt(field, slot), fieldKey)) {
-        references.push({ kind: "expression", fieldKey: field.key, slot });
-      }
-    }
-  }
+  const references: FieldReference[] = definition.fields
+    .filter((field) => field.key !== fieldKey)
+    .flatMap((field) => expressionReferencesOf(field, fieldKey));
   for (const slot of ["title", "date", "amount"] as const) {
     if (definition.summaryMap[slot] === fieldKey) {
       references.push({ kind: "summary", slot });

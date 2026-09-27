@@ -146,6 +146,11 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
     reason: "`t(`sources.${kind}`)`,kind 是 `ValueSource` 的三種",
   },
   {
+    key: "admin.forms.columns.sources.",
+    reason:
+      "`t(`sources.${kind}`)`,kind 取自明細子欄值來源的 `SOURCE_KINDS`(使用者填 / 列內公式)",
+  },
+  {
     key: "admin.forms.options.sources.",
     reason: "`t(`sources.${kind}`)`,kind 是 `FieldOptions` 的三種來源",
   },

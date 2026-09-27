@@ -66,7 +66,10 @@ export const PrefillEditor = ({
   // 對應表的列以穩定內部 id 當 React key(不用內容:換欄位時整列重掛會失焦)
   const rows = useRowIds(prefill.mapping.length);
   const targets = fields.filter(
-    (field) => field.valueSource.kind === "input" && field.type !== "reference",
+    (field) =>
+      field.valueSource.kind === "input" &&
+      field.type !== "reference" &&
+      field.type !== "array",
   );
   const setMapping = (
     position: number,

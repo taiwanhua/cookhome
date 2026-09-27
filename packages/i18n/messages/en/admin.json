@@ -1170,7 +1170,15 @@
       "diffField": "Field",
       "diffBefore": "Revision {revision}",
       "diffAfter": "Revision {revision}",
-      "close": "Close"
+      "close": "Close",
+      "rowAdded": "Added",
+      "rowRemoved": "Removed",
+      "rowMoved": "Moved",
+      "rowChanged": "Changed",
+      "rowChange": "Change",
+      "rowContent": "Row",
+      "rowCells": "Changed cells",
+      "arrayDiffAria": "Line item changes of {label}"
     },
     "pages": {
       "loading": "Loading",
@@ -1236,6 +1244,18 @@
       "WORKFLOW_MISCONFIGURED": "The approval workflow is misconfigured. Please contact your administrator.",
       "REVISION_LIMIT": "This record has reached its revision limit. Please create a new application.",
       "DOCUMENT_TOO_LARGE": "This record has reached its size limit. Please reduce the content."
+    },
+    "array": {
+      "addRow": "+ Add row",
+      "removeRow": "Delete",
+      "duplicateRow": "Duplicate",
+      "removeRowAria": "Delete row {index}",
+      "duplicateRowAria": "Duplicate row {index}",
+      "rowActions": "Actions",
+      "rowTitle": "Row {index}",
+      "noRows": "No rows yet",
+      "designPlaceholder": "Line items (add rows in preview)",
+      "maxReached": "Reached the maximum of {max} rows"
     }
   },
   "forms": {
@@ -1444,7 +1464,8 @@
         "multiSelect": "Multiple choice",
         "boolean": "Yes / no",
         "upload": "Upload",
-        "reference": "Reference"
+        "reference": "Reference",
+        "array": "Line items"
       },
       "addField": "Add {type} field",
       "addSection": "+ Add section",
@@ -1465,7 +1486,8 @@
       "copied": "Copied.",
       "copyFailed": "Copy failed.",
       "regexChecking": "Checking patterns…",
-      "regexUnavailable": "Pattern safety can't be checked right now; it will be checked when you save the draft."
+      "regexUnavailable": "Pattern safety can't be checked right now; it will be checked when you save the draft.",
+      "newColumn": "Item"
     },
     "preview": {
       "region": "Preview",
@@ -1497,7 +1519,8 @@
         "multiSelect": "Multiple choice",
         "boolean": "Yes / no",
         "upload": "Upload",
-        "reference": "Reference"
+        "reference": "Reference",
+        "array": "Line items"
       },
       "widget": "Widget",
       "rows": "Rows",
@@ -1517,7 +1540,8 @@
         "switch": "Switch",
         "checkbox": "Checkbox",
         "upload": "Upload",
-        "referencePicker": "Search picker"
+        "referencePicker": "Search picker",
+        "table": "Table"
       },
       "span": "Width (of 12)",
       "precision": "Decimal places",
@@ -1556,7 +1580,8 @@
       "defaultHint": "Filled in when a new entry starts. Until the filler changes this field, it is recalculated when the fields it references change.",
       "optionDisabled": "{label} (disabled)",
       "defaultPickerHint": "Pick with the same picker used when filling (options come from the saved draft)",
-      "defaultClear": "Clear default"
+      "defaultClear": "Clear default",
+      "spanFixed": "Line items always span 12 columns"
     },
     "options": {
       "source": "Option source",
@@ -1650,7 +1675,10 @@
       },
       "uploadMaxSize": "Size limit (MB)",
       "uploadMaxSizeHint": "Empty = platform limit of {max} MB; can only be lowered",
-      "dateTimeRangeZone": "Entered in {timezone} time"
+      "dateTimeRangeZone": "Entered in {timezone} time",
+      "minRows": "Minimum rows",
+      "maxRows": "Maximum rows",
+      "rowsHint": "No maximum = {fallback} rows, at most {max}; required = at least one row"
     },
     "expression": {
       "root": "root",
@@ -1704,7 +1732,12 @@
         "dateAdd": "Date add / subtract",
         "concat": "Join text",
         "optionLabel": "Option label",
-        "now": "Now"
+        "now": "Now",
+        "sumOf": "Sum of line items",
+        "countOf": "Count of line items",
+        "minOf": "Minimum of line items",
+        "maxOf": "Maximum of line items",
+        "avgOf": "Average of line items"
       },
       "constantKind": "Constant kind",
       "constants": {
@@ -1744,7 +1777,11 @@
       "removeArg": "Remove",
       "set": "Set",
       "clear": "Clear",
-      "json": "JSON of {label}"
+      "json": "JSON of {label}",
+      "arrayField": "Line items field",
+      "arrayFieldUnset": "Choose a line items field",
+      "arrayColumn": "Number column",
+      "arrayColumnUnset": "Choose a column"
     },
     "settings": {
       "title": "Form settings",
@@ -1844,6 +1881,28 @@
         "cancel": "Cancel",
         "confirm": "Remove binding"
       }
+    },
+    "columns": {
+      "title": "Columns",
+      "list": "Column list",
+      "open": "Edit column “{label}”",
+      "required": "Required",
+      "widthOf": "{width}px wide",
+      "remove": "Delete column",
+      "removeOf": "Delete column “{label}”",
+      "add": "+ Column",
+      "newColumn": "Item",
+      "panel": "Column settings",
+      "panelTitle": "Column — {label}",
+      "back": "← Back to columns",
+      "width": "Table column width (px)",
+      "widthHint": "Minimum width of the table column; not used in the mobile card layout",
+      "sources": {
+        "input": "Filled by user",
+        "computed": "Row formula"
+      },
+      "formula": "Row formula",
+      "rowField": "This row · {label}"
     }
   },
   "approval": {
