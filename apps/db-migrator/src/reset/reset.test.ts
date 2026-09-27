@@ -139,7 +139,7 @@ const relation = (
 /**
  * 灌一份「人建的資料」:開通一個租戶之後資料庫會多出來的那些
  * —— 租戶組織、租戶使用者、租戶副本角色與自建角色、它們的四種核心關聯、
- * 租戶自訂的欄位選項、資料範圍規則、人新增的示範項目,以及四張純業務表。
+ * 租戶自訂的欄位選項、root 在畫面建的欄位類別、資料範圍規則、人新增的示範項目,以及四張純業務表。
  */
 async function insertHumanData(database: Db): Promise<void> {
   const now = new Date();
@@ -207,6 +207,29 @@ async function insertHumanData(database: Db): Promise<void> {
         rootPermission?._id ?? new ObjectId(),
       ),
     ]);
+
+  // root 在欄位管理畫面新增的類別(isSystem false、seed 沒宣告)與它底下根組織加的選項
+  const { insertedId: rootCategoryId } = await database
+    .collection("field_categories")
+    .insertOne({
+      key: "cuisine",
+      name: "料理類型",
+      enabled: true,
+      isSystem: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+  await database.collection("fields").insertOne({
+    categoryId: rootCategoryId,
+    orgId: rootOrg?._id ?? null,
+    value: "spicy",
+    label: "辣味",
+    order: 1,
+    enabled: true,
+    isSystem: false,
+    createdAt: now,
+    updatedAt: now,
+  });
 
   await database.collection("fields").insertOne({
     categoryId: new ObjectId(),
@@ -348,11 +371,16 @@ describe("reset --mode=data(對真 MongoDB)", () => {
     // 租戶自訂的欄位選項被刪,seed 宣告的七筆留著(判準是 registry 的 key,不是 isSystem)
     expect(state.fields).toHaveLength(7);
     expect(state.fields.map((field) => field.label)).not.toContain("甜點");
+    expect(state.fields.map((field) => field.label)).not.toContain("辣味");
 
     // seed 管的設定留著(數量正本:src/seed/seed.test.ts 的模組 / 權限斷言)
-    expect(state.modules).toHaveLength(37);
-    expect(state.permissions).toHaveLength(111);
-    expect(state.fieldCategories).toHaveLength(2);
+    expect(state.modules).toHaveLength(38);
+    expect(state.permissions).toHaveLength(113);
+    // root 在畫面建的類別(isSystem false、key 不在 registry)算人建資料,一起刪
+    expect(state.fieldCategories.map((category) => category.key)).toEqual([
+      "demo-category",
+      "gender",
+    ]);
     expect(state.dataScopeTargets).toHaveLength(4);
 
     // 人改過的初始 seed 值欄位沒有被翻回宣告值(ADR-0002)
@@ -374,7 +402,7 @@ describe("reset --mode=data(對真 MongoDB)", () => {
     // 事後重跑 seed:完全冪等
     const rerun = runSeedCommand(databaseUri);
     expect(rerun.status).toBe(0);
-    expect(rerun.stdout).toMatch(/新增 0 \/ 更新 0 \/ 未變 [1-9]\d*/);
+    expect(rerun.stdout).toMatch(/新增 0 \/ 更新 0 \/ 認養 0 \/ 未變 [1-9]\d*/);
   }, 300_000);
 
   it("核心關聯只刪「任一端指向被刪文件」的那些:root ↔ 根組織、root ↔ 超級管理員、種子角色的綁定都留著", async () => {
@@ -433,7 +461,7 @@ describe("reset --mode=full(對真 MongoDB)", () => {
     expect(state.orgs.map((org) => org.key)).toEqual(["root"]);
     expect(state.users).toHaveLength(1);
     expect(state.roles).toHaveLength(2);
-    expect(state.modules).toHaveLength(37);
+    expect(state.modules).toHaveLength(38);
     expect(state.demoItemsOne).toHaveLength(5);
     expect(state.demoItemsTwo).toHaveLength(5);
     // 整庫 drop:純業務表連 collection 都不再存在

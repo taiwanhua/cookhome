@@ -34,7 +34,21 @@ export interface SeedDocumentSet {
    * 同 key 但不符 `match` 的文件不會被更新,insert 會被唯一索引擋下 —— 寧可 seed 失敗也不覆寫。
    */
   match?: Record<string, unknown>;
+  /**
+   * 認養(ADR-0002「seed 以 key 認養」):以識別鍵找不到既有文件時,改用「宣告裡的這幾個欄位(解析 seedRef 後)
+   * + `where`」找**人在畫面建的同一筆**;找到就把它轉成種子(寫上識別鍵、`isSystem: true`、
+   * 其餘宣告欄位以 seed 為準),`_id` 不動 —— 引用它的資料照舊。
+   * 用途是識別鍵不是人建時就有的那一類(`fields` 的種子 key 是 `<類別 key>.<value>`,畫面建的選項沒有 key)。
+   * 以識別鍵找到、但 `isSystem` 不是 `true` 的文件一律視為認養,不需要本欄位。
+   */
+  adoptBy?: SeedAdoptBy;
   entries: SeedDocument[];
+}
+
+/** `SeedDocumentSet.adoptBy`:`where` 的頂層值可以是 seedRef(執行時解析成該環境的 `_id`)。 */
+export interface SeedAdoptBy {
+  fields: string[];
+  where: Record<string, unknown>;
 }
 
 /** 所有 documents 種子表的預設「初始 seed 值的欄位」:enabled 開關 seed 只給初值,之後由人管理。 */

@@ -1,5 +1,5 @@
 /**
- * 表單 key、欄位 key、租戶短碼的格式(Spec 6a §1「key 的格式」)。
+ * 表單 key、欄位 key、租戶短碼、欄位類別 key 的格式(Spec 6a §1「key 的格式」)。
  *
  * **本檔不 import 任何外部套件**:admin 的租戶開通表單只要 `isValidOrgSlug`,
  * 不該因此把 JSONLogic / decimal / ReDoS 檢查器一起打包進來。
@@ -16,6 +16,14 @@ export const FIELD_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/;
 
 /** 租戶短碼(`orgs.slug`):小寫開頭,2–20 字。客製表單 key 的預設後綴。 */
 export const ORG_SLUG_PATTERN = /^[a-z][a-z0-9_]{1,19}$/;
+
+/**
+ * 欄位類別 key(`field_categories.key`,如 `gender`、`demo-category`):與種子 key 同一套 kebab-case
+ * (小寫英數、以單一 `-` 分隔、不含 `.`),最長 40。表單定義以它引用類別(`options.kind = "fieldCategory"`),
+ * 種子選項的 key 是 `<類別 key>.<value>`,所以類別 key 不准有 `.`。建立後不可改。
+ */
+export const FIELD_CATEGORY_KEY_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export const FIELD_CATEGORY_KEY_MAX_LENGTH = 40;
 
 /**
  * 欄位 key 保留字:表達式上下文(`ctx`、明細列內公式的 `row`)與提交的系統欄位,當欄位 key 會與它們混淆。
@@ -53,6 +61,13 @@ export function checkFieldKey(key: string): FieldKeyCheck {
     return { valid: false, reason: "format" };
   }
   return { valid: true };
+}
+
+export function isValidFieldCategoryKey(key: string): boolean {
+  return (
+    key.length <= FIELD_CATEGORY_KEY_MAX_LENGTH &&
+    FIELD_CATEGORY_KEY_PATTERN.test(key)
+  );
 }
 
 export function isValidFieldKey(key: string): boolean {

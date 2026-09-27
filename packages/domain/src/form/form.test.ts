@@ -9,6 +9,7 @@ import { field } from "./form-test-support";
 import {
   RESERVED_FIELD_KEYS,
   checkFieldKey,
+  isValidFieldCategoryKey,
   isValidFormKey,
   isValidOrgSlug,
 } from "./keys";
@@ -49,6 +50,19 @@ describe("@repo/domain/form key 規則", () => {
     expect(isValidOrgSlug("a".repeat(21))).toBe(false);
     expect(isValidOrgSlug("Good")).toBe(false);
     expect(isValidOrgSlug("good-food")).toBe(false);
+  });
+
+  it("欄位類別 key:kebab-case(同種子 key)、最長 40;不准 _、. 與大寫", () => {
+    expect(isValidFieldCategoryKey("gender")).toBe(true);
+    expect(isValidFieldCategoryKey("demo-category")).toBe(true);
+    expect(isValidFieldCategoryKey("a".repeat(40))).toBe(true);
+    expect(isValidFieldCategoryKey("a".repeat(41))).toBe(false);
+    expect(isValidFieldCategoryKey("demo_category")).toBe(false);
+    expect(isValidFieldCategoryKey("demo.category")).toBe(false);
+    expect(isValidFieldCategoryKey("Demo")).toBe(false);
+    expect(isValidFieldCategoryKey("demo--category")).toBe(false);
+    expect(isValidFieldCategoryKey("-demo")).toBe(false);
+    expect(isValidFieldCategoryKey("")).toBe(false);
   });
 });
 

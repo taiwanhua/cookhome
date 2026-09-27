@@ -4,6 +4,7 @@ import {
   seedRef,
 } from "../src/seed/seed-declaration";
 import { DEMO_CATEGORY_KEY, GENDER_CATEGORY_KEY } from "./field-categories";
+import { ROOT_ORG_KEY } from "./orgs";
 
 interface FieldOption {
   value: string;
@@ -34,10 +35,18 @@ function globalOptions(
 /**
  * 全域欄位選項(orgId=null,ADR-0005;seed 選項僅 enabled 可改、不可刪)。
  * 內容正本:docs/modules/field-manager.md「種子內容」— 示範畫面上的「甜點」是租戶自訂示意,不是種子。
+ *
+ * **認養**:root 在畫面建的選項沒有種子 key(`orgId` = 根組織),所以以 key 找不到時,
+ * 改找「同類別、同 value、根組織加的、`isSystem: false`」那一筆認養成全域種子(`_id` 不動);
+ * 租戶的自訂選項與 root 加的其他選項不碰。
  */
 export const fields: SeedDocumentSet = {
   kind: "documents",
   collection: "fields",
+  adoptBy: {
+    fields: ["categoryId", "value"],
+    where: { isSystem: false, orgId: seedRef("orgs", ROOT_ORG_KEY) },
+  },
   entries: [
     ...globalOptions(GENDER_CATEGORY_KEY, [
       { value: "male", label: "男" },
