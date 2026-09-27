@@ -20,7 +20,10 @@ import {
   FormSubmissionsRepository,
   FormVersionsRepository,
 } from "../../database/database.module";
-import type { FormRevision } from "../../database/schemas/form-submission.schema";
+import {
+  type FormRevision,
+  revisionVersionOf,
+} from "../../database/schemas/form-submission.schema";
 import { fieldGateOf } from "../field-permission-gate";
 import {
   FormAccessService,
@@ -123,14 +126,20 @@ export class FormUpgradeService {
         "clientRequestId",
       ]);
     }
-    const replayed = await this.replayOf(facts, input, clientRequestId);
+    const upgrade = await this.guard(facts, input.formKey, input.targetVersion);
+    const replayed = await this.replayOf(
+      facts,
+      upgrade,
+      input.targetVersion,
+      clientRequestId,
+    );
     if (replayed) {
       return replayed;
     }
-    const upgrade = await this.guard(facts, input.formKey, input.targetVersion);
     const groups = await this.groupsOf(facts, upgrade);
-    const fills = this.normalizedFills(
+    const fills = await this.normalizedFills(
       facts,
+      upgrade,
       await this.fillTargetsOf(facts, upgrade, groups),
       input.fills,
     );
@@ -286,27 +295,38 @@ export class FormUpgradeService {
     );
   }
 
-  /** 補值只收補值欄位、照型別正規化成存值;不合法 → `VALIDATION_FAILED`(`fieldErrors`)。 */
-  private normalizedFills(
+  /**
+   * 補值照型別正規化成存值,單選 / 多選再重取選項 label、驗選項存在(每欄一次);不合法 →
+   * `VALIDATION_FAILED`(`fieldErrors`)。不是目標版的使用者填欄位 → `VALIDATION_FAILED`(`fills`);
+   * 是目標版的使用者填欄位、但不在這一刻的補值清單內(計畫查完之後清單變了、或操作者改不動)→ 忽略。
+   */
+  private async normalizedFills(
     facts: FormOperatorFacts,
+    upgrade: UpgradeTarget,
     targets: readonly FieldDef[],
     fills: Record<string, unknown>,
-  ): StoredValues {
+  ): Promise<StoredValues> {
     const normalized: StoredValues = {};
     const issues: ValueIssue[] = [];
+    const fields: FieldDef[] = [];
     for (const [key, raw] of Object.entries(fills)) {
-      const field = targets.find((target) => target.key === key);
-      if (field === undefined) {
-        throw validationError(`Field ${key} is not an upgrade fill target`, [
-          "fills",
-        ]);
+      const isTargetInput = upgrade.target.fields.some(
+        (field) => field.key === key && field.valueSource.kind === "input",
+      );
+      if (!isTargetInput) {
+        throw validationError(
+          `Field ${key} is not an input field of the target version`,
+          ["fills"],
+        );
       }
-      if (raw === null || raw === undefined) {
+      const field = targets.find((target) => target.key === key);
+      if (field === undefined || raw === null || raw === undefined) {
         continue;
       }
       const result = normalizeFieldValue(field, raw, facts.timezone);
       if (result.ok) {
         normalized[key] = result.value;
+        fields.push(field);
       } else {
         issues.push(result.issue);
       }
@@ -314,13 +334,26 @@ export class FormUpgradeService {
     if (issues.length > 0) {
       throw valuesInvalidError(issues);
     }
-    return normalized;
+    const snapshot = await this.values.snapshotChoices(
+      facts,
+      fields,
+      normalized,
+    );
+    if (snapshot.issues.length > 0) {
+      throw valuesInvalidError(snapshot.issues);
+    }
+    return snapshot.values;
   }
 
-  /** 同 `(操作者, clientRequestId)` 已升級過 → 回那次的結果;拿去升級別的表單 / 版本 → 409。 */
+  /**
+   * 同一張表單、同 `(操作者, clientRequestId)` 已升級過 → 回那次記下的結果(守門之後才查;走稽核的
+   * `{ targetType, targetId }` 索引);同一個 id 拿去升級這張表單的另一版 → 409。
+   * 只保證資料不重複處理,不保證重送的結果與當下的資料一致(之後別人改的不會反映)。
+   */
   private async replayOf(
     facts: FormOperatorFacts,
-    input: UpgradeFormSubmissionsInput,
+    upgrade: UpgradeTarget,
+    targetVersion: number,
     clientRequestId: string,
   ): Promise<FormUpgradePayload | null> {
     const actorId = facts.operator.actorId;
@@ -328,23 +361,21 @@ export class FormUpgradeService {
       return null;
     }
     const log = await this.auditLogs.findOne(facts.operator, {
-      actorId,
+      targetType: "form",
+      targetId: upgrade.form._id,
       action: SUBMISSION_AUDIT.upgrade,
+      actorId,
       "after.clientRequestId": clientRequestId,
     });
     if (!log) {
       return null;
     }
     const after = (log.after ?? {}) as {
-      formKey?: string;
       targetVersion?: number;
       upgraded?: FormUpgradeGroup[];
       skipped?: FormUpgradePayload["skipped"];
     };
-    if (
-      after.formKey !== input.formKey ||
-      after.targetVersion !== input.targetVersion
-    ) {
+    if (after.targetVersion !== targetVersion) {
       throw conflictError(
         `clientRequestId ${clientRequestId} was already used`,
         "CLIENT_REQUEST_REUSED",
@@ -440,18 +471,35 @@ export class FormUpgradeService {
       editVersion: record.editVersion,
       currentInstanceId: null,
     };
+    // 還沒有 `version` 的舊修訂(遷移還沒跑到)在同一次條件更新補成改綁前的版本,否則改綁後會被當成新版渲染。
+    // 有要補的就整個 `revisions` 換掉(`$[legacy]` 與 `$push` 同一次更新會衝突;條件含 editVersion,不會蓋掉別人的)
+    const legacy = record.revisions.some((item) => item.version === undefined);
+    const revisionsUpdate = legacy
+      ? {
+          $set: {
+            revisions: [
+              ...record.revisions.map((item) => ({
+                ...item,
+                version: revisionVersionOf(record, item),
+              })),
+              entry,
+            ],
+          },
+        }
+      : { $push: { revisions: entry } };
     const updated = await this.submissions.findOneAndUpdate(
       facts.operator,
       filter,
       isCompleted
         ? {
+            ...revisionsUpdate,
             $set: {
               values,
               summary,
               revision,
               version: upgrade.targetVersion,
+              ...("$set" in revisionsUpdate ? revisionsUpdate.$set : {}),
             },
-            $push: { revisions: entry },
             $inc: { editVersion: 1 },
           }
         : {

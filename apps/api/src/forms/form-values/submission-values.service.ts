@@ -117,6 +117,35 @@ export class SubmissionValuesService {
   }
 
   /**
+   * 單選 / 多選欄的值重取選項 label 寫快照、驗選項存在(靜態清單比對啟用中的項目,類別 / lookup 查現況;
+   * 類別選項一次呼叫只查一次)。其他型別照原樣回。舊版資料升級的補值用:補值要先確定是能選的選項,
+   * 升級本身不驗規則。
+   */
+  async snapshotChoices(
+    facts: FormOperatorFacts,
+    fields: readonly FieldDef[],
+    values: StoredValues,
+  ): Promise<{ values: StoredValues; issues: ValueIssue[] }> {
+    const context: OptionContext = {
+      facts,
+      categories: new Map(),
+      issues: [],
+    };
+    const resolved: StoredValues = { ...values };
+    for (const field of fields) {
+      const value = values[field.key];
+      if (
+        (field.type === "select" || field.type === "multiSelect") &&
+        value !== null &&
+        value !== undefined
+      ) {
+        resolved[field.key] = await this.snapshotOf(field, value, context);
+      }
+    }
+    return { values: resolved, issues: context.issues };
+  }
+
+  /**
    * 同 `apply`,但值錯誤不丟、連同算好的值一起回(設計器預覽:「若此刻送出會出現的錯誤」)。
    * 型別錯誤與 403 守門照樣丟。
    */
