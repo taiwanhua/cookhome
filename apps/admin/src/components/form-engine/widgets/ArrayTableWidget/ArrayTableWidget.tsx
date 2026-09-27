@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslations } from "use-intl";
 
 import {
@@ -17,11 +18,15 @@ import {
   removeRowIn,
   setCellIn,
 } from "@/lib/form-engine/array-rows";
+import type { FormDisplayItemLike } from "@/lib/form-engine/value-text";
 
 import type { WidgetProps } from "../widget-types";
 import { ArrayRowCards } from "./ArrayRowCards";
 import { ArrayRowsTable } from "./ArrayRowsTable";
 import type { ArrayRowsViewProps } from "./array-rows-view";
+
+/** 沒有顯示名的格子共用同一個空陣列(memo 的格子才不會因為每次新的 `[]` 重繪)。 */
+const NO_DISPLAY: readonly FormDisplayItemLike[] = [];
 
 /**
  * 明細列(`array` → `table`,Spec 6a §5「明細列」):一個欄位裝多列同結構的子欄位。
@@ -56,9 +61,35 @@ export const ArrayTableWidget = ({
   const isFull = rows.length >= max;
   const footerErrors = errors.filter((error) => error.rowId === undefined);
 
-  const commit = (next: ArrayRowValue[]) => {
-    onChange(next);
-  };
+  // 回呼要穩定(格子與列動作是 memo 元件):以 ref 取最新的列與 onChange,只在事件裡讀
+  const latest = useRef({ rows, onChange });
+  useEffect(() => {
+    latest.current = { rows, onChange };
+  });
+  const update = useCallback(
+    (change: (current: ArrayRowValue[]) => ArrayRowValue[]) => {
+      latest.current.onChange(change(latest.current.rows));
+    },
+    [],
+  );
+  const onCellChange = useCallback(
+    (rowId: string, columnKey: string, next: unknown) => {
+      update((current) => setCellIn(current, rowId, columnKey, next));
+    },
+    [update],
+  );
+  const onDuplicate = useCallback(
+    (rowId: string) => {
+      update((current) => duplicateRowIn(current, rowId));
+    },
+    [update],
+  );
+  const onRemove = useCallback(
+    (rowId: string) => {
+      update((current) => removeRowIn(current, rowId));
+    },
+    [update],
+  );
 
   const view: ArrayRowsViewProps = {
     arrayKey: field.key,
@@ -75,16 +106,10 @@ export const ArrayTableWidget = ({
       errors.find(
         (error) => error.rowId === rowId && error.columnKey === columnKey,
       )?.message ?? null,
-    displayOf: (columnKey) => columnDisplay?.(columnKey) ?? [],
-    onCellChange: (rowId, columnKey, next) => {
-      commit(setCellIn(rows, rowId, columnKey, next));
-    },
-    onDuplicate: (rowId) => {
-      commit(duplicateRowIn(rows, rowId));
-    },
-    onRemove: (rowId) => {
-      commit(removeRowIn(rows, rowId));
-    },
+    displayOf: (columnKey) => columnDisplay?.(columnKey) ?? NO_DISPLAY,
+    onCellChange,
+    onDuplicate,
+    onRemove,
   };
 
   return (
@@ -105,7 +130,7 @@ export const ArrayTableWidget = ({
             size="small"
             disabled={!canEdit || isFull}
             onClick={() => {
-              commit([...rows, emptyRowOf(columns)]);
+              onChange([...rows, emptyRowOf(columns)]);
             }}
           >
             {t("addRow")}

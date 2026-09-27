@@ -65,14 +65,11 @@ export const ArrayRowCards = ({
               </Typography>
               {canEdit && (
                 <ArrayRowActions
+                  rowId={row.rowId}
                   index={index + 1}
                   canAdd={canAdd}
-                  onDuplicate={() => {
-                    onDuplicate(row.rowId);
-                  }}
-                  onRemove={() => {
-                    onRemove(row.rowId);
-                  }}
+                  onDuplicate={onDuplicate}
+                  onRemove={onRemove}
                 />
               )}
             </Stack>
@@ -83,16 +80,16 @@ export const ArrayRowCards = ({
                     key={column.key}
                     arrayKey={arrayKey}
                     column={column}
-                    row={row}
+                    rowId={row.rowId}
+                    value={row[column.key]}
                     context={context}
                     isDisabled={isDisabled}
                     isReadOnly={isReadOnly}
                     isDesign={isDesign}
+                    isLabelHidden={false}
                     errorMessage={cellError(row.rowId, column.key)}
                     display={displayOf(column.key)}
-                    onChange={(columnKey, next) => {
-                      onCellChange(row.rowId, columnKey, next);
-                    }}
+                    onCellChange={onCellChange}
                   />
                 ))}
               </Stack>

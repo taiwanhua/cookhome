@@ -62,6 +62,8 @@ export const EditFormDialog = ({
   );
   const fields = (version.data?.formVersion.formVersion.fields ??
     []) as unknown as FieldDef[];
+  // 明細欄沒有單一的值可以放進模板,不列
+  const insertable = fields.filter((field) => field.type !== "array");
   const samples: Record<string, string> = {
     title: t("sampleTitle"),
     date: t("sampleDate"),
@@ -161,13 +163,15 @@ export const EditFormDialog = ({
           label={t("insertField")}
           value={UNSET}
           displayEmpty
-          disabled={fields.length === 0}
+          disabled={insertable.length === 0}
           helperText={
-            fields.length === 0 ? t("insertFieldEmpty") : t("insertFieldHint")
+            insertable.length === 0
+              ? t("insertFieldEmpty")
+              : t("insertFieldHint")
           }
           options={[
             { value: UNSET, label: "—" },
-            ...fields.map((field) => ({
+            ...insertable.map((field) => ({
               value: field.key,
               label: `${field.label}(${field.key})`,
             })),

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 
-import { useBreakpointDown } from "./useMediaQuery";
+import { useBreakpointDown } from "./useBreakpointDown";
 
 const Probe = () => <span>{useBreakpointDown("sm") ? "手機" : "桌機"}</span>;
 

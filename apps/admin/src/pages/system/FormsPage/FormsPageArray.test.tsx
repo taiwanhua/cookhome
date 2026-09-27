@@ -33,6 +33,23 @@ describe("表單管理:設計器的明細列", () => {
     ).toBeInTheDocument();
   });
 
+  it("預覽可新增、刪除列", async () => {
+    const { user } = renderFormsPage(smallDesignOptions());
+    await addField(user, "明細列");
+    await user.click(
+      within(screen.getByRole("tablist", { name: "設計器模式" })).getByRole(
+        "tab",
+        { name: "預覽" },
+      ),
+    );
+    await user.click(await screen.findByRole("button", { name: "+ 新增一列" }));
+    await user.click(screen.getByRole("button", { name: "+ 新增一列" }));
+    await user.click(screen.getByRole("button", { name: "刪除第 1 列" }));
+
+    const table = screen.getByRole("table", { name: "明細列" });
+    expect(within(table).getAllByRole("row")).toHaveLength(2);
+  });
+
   it("子欄位面板只列白名單內的設定(沒有顯示條件、欄位權限、預設值)", async () => {
     const { user } = renderFormsPage(smallDesignOptions());
     const panel = await openDefaultColumn(user);

@@ -47,16 +47,16 @@ export const ArrayRowsTable = ({
       <ArrayCell
         arrayKey={arrayKey}
         column={column}
-        row={row}
+        rowId={row.rowId}
+        value={row[column.key]}
         context={context}
         isDisabled={isDisabled}
         isReadOnly={isReadOnly}
         isDesign={isDesign}
+        isLabelHidden
         errorMessage={cellError(row.rowId, column.key)}
         display={displayOf(column.key)}
-        onChange={(columnKey, next) => {
-          onCellChange(row.rowId, columnKey, next);
-        }}
+        onCellChange={onCellChange}
       />
     ),
   }));
@@ -68,14 +68,11 @@ export const ArrayRowsTable = ({
           width: ACTIONS_WIDTH,
           render: (row, ctx) => (
             <ArrayRowActions
+              rowId={row.rowId}
               index={ctx.index + 1}
               canAdd={canAdd}
-              onDuplicate={() => {
-                onDuplicate(row.rowId);
-              }}
-              onRemove={() => {
-                onRemove(row.rowId);
-              }}
+              onDuplicate={onDuplicate}
+              onRemove={onRemove}
             />
           ),
         },
