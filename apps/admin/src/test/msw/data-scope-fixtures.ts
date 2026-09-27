@@ -16,9 +16,9 @@ import type {
  *
  * **與 api 對齊的地方**:欄位目錄 = seed 宣告的業務欄位在前、底座自動掛入的六個基礎欄位殿後,
  * 型別與順序照 `apps/api/src/data-scope/data-scope.test.ts`「底座的六個基礎欄位」那條斷言。
- * **刻意與 seed 不同的地方**:現行 seed 的 `demo_items_one` 宣告 `fields: []`(只有基礎欄位),
- * 這裡多給一個 enum 欄位「狀態」— enum 的值來源要有東西可選才驗得到(設計稿 167:1867 也是這個例子);
- * 第二個目標 `demo_items_two` 只為了驗左清單的切換與「已設規則」標籤。
+ * **一列 = 一個模組**:目標以 `(collection, moduleKey)` 為識別鍵,後兩個目標是兩個表單模組
+ * 共用同一張 `form_submissions`(「請假」不在 seed 裡,只為了驗同一張表兩列、各自的規則);
+ * 它們只為了驗左清單的切換與「已設規則」標籤。
  */
 const baseFields: TestDataScopeTarget["fields"] = [
   {
@@ -67,7 +67,10 @@ const baseFields: TestDataScopeTarget["fields"] = [
 
 export const dataScopeTargets: TestDataScopeTarget[] = [
   {
+    id: "target-sample-one",
     collection: "demo_items_one",
+    moduleKey: "demo.sub.sample-one",
+    moduleName: "示範模組1",
     name: "示範項目",
     description: "示範模組1 的資料",
     // `hasRule` 由 handler 依目前存著的規則算(#246 的 1),夾具給預設值即可
@@ -87,9 +90,22 @@ export const dataScopeTargets: TestDataScopeTarget[] = [
     ],
   },
   {
-    collection: "demo_items_two",
-    name: "示範項目2",
-    description: "示範模組2 的資料",
+    id: "target-shopping-list",
+    collection: "form_submissions",
+    moduleKey: "shopping-list",
+    moduleName: "購物清單",
+    name: "購物清單",
+    description: "購物清單的表單提交",
+    hasRule: false,
+    fields: baseFields,
+  },
+  {
+    id: "target-leave",
+    collection: "form_submissions",
+    moduleKey: "leave",
+    moduleName: "請假",
+    name: "請假申請",
+    description: "請假的表單提交",
     hasRule: false,
     fields: baseFields,
   },
@@ -205,7 +221,9 @@ export const dataScopeRoles: TestRole[] = [
  * 客服只看自己建立的,且(組織不是台北分店 或 建立時間在 2026 年間)。
  */
 export const savedRule: TestDataScopeRule = {
+  targetId: "target-sample-one",
   collection: "demo_items_one",
+  moduleKey: "demo.sub.sample-one",
   combineOp: DataScopeCombineOp.Or,
   updatedAt: "2026-09-20T02:00:00.000Z",
   rules: [

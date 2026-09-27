@@ -1,4 +1,9 @@
-import type { ActionEmailInput, MailMessage } from "./mail.service";
+import type {
+  ActionEmailInput,
+  MailMessage,
+  WorkflowResultEmailInput,
+  WorkflowTaskEmailInput,
+} from "./mail.service";
 
 /*
  * 信件模板(文案繁中)。品牌文字 / 寄件人屬品牌元素,登記於 docs/branding.md(換品牌時逐列改)。
@@ -56,6 +61,63 @@ export function buildPasswordResetEmail(input: ActionEmailInput): MailMessage {
     to: input.to,
     link: input.link,
     subject: `【${BRAND_NAME}】重設密碼`,
+    text: paragraphs.join("\n\n"),
+    html: toHtml(paragraphs, input.link),
+  };
+}
+
+/** 審核任務通知(Spec 6b §7「通知信」):有新的審核任務,給審核者。內容只讀實例快照。 */
+export function buildWorkflowTaskEmail(
+  input: WorkflowTaskEmailInput,
+): MailMessage {
+  const subject = input.title
+    ? `${input.formName}:${input.title}`
+    : input.formName;
+  const paragraphs = [
+    `${input.name} 您好:`,
+    `您有一筆待審核的申請:「${subject}」(關卡:${input.stepName})。請開啟以下連結查看並審核:`,
+    input.link,
+    SIGNATURE,
+  ];
+  return {
+    kind: "workflow-task",
+    to: input.to,
+    link: input.link,
+    subject: `【${BRAND_NAME}】待審核:${subject}`,
+    text: paragraphs.join("\n\n"),
+    html: toHtml(paragraphs, input.link),
+  };
+}
+
+const RESULT_LABELS: Readonly<
+  Record<WorkflowResultEmailInput["result"], string>
+> = {
+  approved: "已核准",
+  rejected: "已駁回",
+  returned: "已退回修改",
+};
+
+/** 審核結果通知(核准 / 駁回 / 退回),給申請人;駁回 / 退回附理由。 */
+export function buildWorkflowResultEmail(
+  input: WorkflowResultEmailInput,
+): MailMessage {
+  const subject = input.title
+    ? `${input.formName}:${input.title}`
+    : input.formName;
+  const label = RESULT_LABELS[input.result];
+  const paragraphs = [
+    `${input.name} 您好:`,
+    `您的申請「${subject}」${label}。`,
+    ...(input.comment ? [`理由:${input.comment}`] : []),
+    "請開啟以下連結查看詳情:",
+    input.link,
+    SIGNATURE,
+  ];
+  return {
+    kind: "workflow-result",
+    to: input.to,
+    link: input.link,
+    subject: `【${BRAND_NAME}】申請${label}:${subject}`,
     text: paragraphs.join("\n\n"),
     html: toHtml(paragraphs, input.link),
   };

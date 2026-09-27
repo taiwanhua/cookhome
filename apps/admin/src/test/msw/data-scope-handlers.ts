@@ -30,7 +30,7 @@ export interface DataScopeFailure {
 
 export interface DataScopeWorldOptions {
   targets?: TestDataScopeTarget[];
-  /** 已存在的規則;沒列到的 collection 一律回 `rule: null`(尚無規則) */
+  /** 已存在的規則;沒列到的目標一律回 `rule: null`(尚無規則) */
   rules?: TestDataScopeRule[];
   roles?: TestRole[];
   users?: TestOrgUser[];
@@ -69,7 +69,7 @@ export const dataScopeWorld = (
   } = options;
 
   const inputs: DataScopeWorld["inputs"] = { saveDataScopeRule: [] };
-  const stored = new Map(rules.map((rule) => [rule.collection, rule]));
+  const stored = new Map(rules.map((rule) => [rule.targetId, rule]));
 
   const handlers = [
     api.query("DataScopeTargets", () =>
@@ -80,19 +80,19 @@ export const dataScopeWorld = (
           dataScopeTargets: {
             targets: targets.map((target) => ({
               ...target,
-              hasRule: (stored.get(target.collection)?.rules ?? []).length > 0,
+              hasRule: (stored.get(target.id)?.rules ?? []).length > 0,
             })),
           },
         },
       }),
     ),
     api.query("DataScopeRule", ({ variables }) => {
-      const { collection } = variables as DataScopeRuleQueryVariables;
-      if (!targets.some((target) => target.collection === collection)) {
+      const { targetId } = variables as DataScopeRuleQueryVariables;
+      if (!targets.some((target) => target.id === targetId)) {
         return fail("NOT_FOUND");
       }
       return HttpResponse.json({
-        data: { dataScopeRule: { rule: stored.get(collection) ?? null } },
+        data: { dataScopeRule: { rule: stored.get(targetId) ?? null } },
       });
     }),
     api.mutation("SaveDataScopeRule", ({ variables }) => {
@@ -102,13 +102,19 @@ export const dataScopeWorld = (
       if (failure !== undefined) {
         return fail(failure.code, failure.extensions ?? {});
       }
+      const target = targets.find((item) => item.id === input.targetId);
+      if (target === undefined) {
+        return fail("NOT_FOUND");
+      }
       const saved = {
-        collection: input.collection,
+        targetId: target.id,
+        collection: target.collection,
+        moduleKey: target.moduleKey,
         combineOp: input.combineOp ?? "OR",
         updatedAt: TIMESTAMP,
         rules: input.rules,
       } as TestDataScopeRule;
-      stored.set(input.collection, saved);
+      stored.set(target.id, saved);
       return HttpResponse.json({
         data: { saveDataScopeRule: { rule: saved } },
       });

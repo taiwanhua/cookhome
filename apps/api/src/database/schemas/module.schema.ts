@@ -8,6 +8,14 @@ export const MODULE_SIDEBAR_TYPES = ["group", "link", "hidden"] as const;
 
 export type ModuleSidebarType = (typeof MODULE_SIDEBAR_TYPES)[number];
 
+/**
+ * 模組頁面怎麼組裝:`fixed` = 固定欄位模組(module-scaffold 手寫頁面);
+ * `form` = 表單模組(頁面由表單引擎組裝,資料存 `form_submissions`)。
+ */
+export const MODULE_ENGINES = ["fixed", "form"] as const;
+
+export type ModuleEngine = (typeof MODULE_ENGINES)[number];
+
 /** 模組(全表種子資料):樹狀,物化路徑 ancestors。模組即頁面(ADR-0004)。 */
 @Schema({ collection: "modules", timestamps: true })
 export class Module {
@@ -66,6 +74,10 @@ export class Module {
   /** 受控 JSON 設定。 */
   @Prop({ type: MongooseSchema.Types.Mixed, default: {} })
   settings!: Record<string, unknown>;
+
+  /** 頁面組裝方式(見 `MODULE_ENGINES`);seed 宣告 `engine: "form"` 才是表單模組,其餘 `fixed`。 */
+  @Prop({ type: String, enum: MODULE_ENGINES, default: "fixed" })
+  engine!: ModuleEngine;
 }
 
 // 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引/plugin)

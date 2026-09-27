@@ -114,7 +114,10 @@ const SAMPLE_ONE_FAMILY = [
   `${SAMPLE_ONE}.create-page`,
   `${SAMPLE_ONE}.edit-page`,
 ];
-/** seed 的全部模組(總覽 1 + 系統管理群組 8 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4)。 */
+/**
+ * seed 的全部模組(總覽 1 + 系統管理群組 11 + 隱藏 api 樹 1 + 示範家族 6 + 示範模組2 一支 4
+ * + 購物清單一支 4 + 申請中心一支 2 + 請假一支 4)。
+ */
 const ALL_SEEDED_MODULES = [
   "overview",
   "system",
@@ -125,12 +128,25 @@ const ALL_SEEDED_MODULES = [
   "system.module-manager",
   "system.field-manager",
   "system.data-scope",
+  "system.forms",
+  "system.workflows",
+  "system.workflows.blocked-page",
   "api",
   ...SAMPLE_ONE_FAMILY,
   "demo.sample-two",
   "demo.sample-two.view-page",
   "demo.sample-two.create-page",
   "demo.sample-two.edit-page",
+  "shopping-list",
+  "shopping-list.view-page",
+  "shopping-list.create-page",
+  "shopping-list.edit-page",
+  "apply-center",
+  "apply-center.view-page",
+  "leave",
+  "leave.view-page",
+  "leave.create-page",
+  "leave.edit-page",
 ];
 
 describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePermission 守門(GraphQL 端點,對真 Nest app + 真 MongoDB)", () => {
@@ -386,6 +402,7 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
         "system.module-manager.view",
         "system.module-manager.toggle-enabled",
         "system.module-manager.set-icon",
+        "system.module-manager.delete-retired-permission",
       ]);
       expectSameMembers(byKey(modules, "system.data-scope").permissions, [
         "system.data-scope.*",

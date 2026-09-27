@@ -13,6 +13,18 @@ registerEnumType(ModuleSidebarType, {
     "側欄呈現型別:GROUP=可展開群組(非連結)、LINK=模組連結、HIDDEN=隱藏頁(有路由但不出現在側欄)",
 });
 
+/** 頁面組裝方式(module.schema.ts MODULE_ENGINES;GQL-01 enum 值 SCREAMING_SNAKE_CASE)。 */
+export enum ModuleEngine {
+  FIXED = "fixed",
+  FORM = "form",
+}
+
+registerEnumType(ModuleEngine, {
+  name: "ModuleEngine",
+  description:
+    "模組頁面怎麼組裝:FIXED=固定欄位模組(手寫頁面)、FORM=表單模組(頁面由表單引擎組裝)",
+});
+
 /**
  * `me.modules` 的一筆(ADR-0011 步驟 7):前端以 parentId 組樹、以 route 組「可進入路由集合」、
  * 以 permissions 組全域權限結構。
@@ -54,6 +66,10 @@ export class MeModule {
    */
   @Field(() => String, { nullable: true })
   icon!: string | null;
+
+  /** 頁面組裝方式(seed 宣告 `engine: "form"` 才是 FORM);admin 依它掛表單引擎的預設組裝。 */
+  @Field(() => ModuleEngine)
+  engine!: ModuleEngine;
 
   /** 此模組的有效權限 key(含 wildcard 展開後同層全部;含 `<key>.*` 本身)。 */
   @Field(() => [String])

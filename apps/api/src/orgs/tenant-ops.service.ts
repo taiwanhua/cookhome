@@ -32,8 +32,13 @@ import type {
   ProvisionTenantPayload,
   RevokeTenantProvisionPayload,
 } from "./models/tenant-ops.model";
-import { orgError, provisionNotRevokableError } from "./org-error";
+import {
+  orgError,
+  orgValidationError,
+  provisionNotRevokableError,
+} from "./org-error";
 import { type OrgRecord, isTenantTop, toOrg } from "./org-mapper";
+import { assertSlugFree, requireSlug, slugConflictOr } from "./org-slug";
 import { OrgsService } from "./orgs.service";
 import {
   OwnerProtectionService,
@@ -72,12 +77,8 @@ function requireText(value: string, field: string): string {
   return trimmed;
 }
 
-/** 輸入不合法(GQL-04 `VALIDATION_FAILED`):`extensions.fields` 讓前端標到對應的表單欄位。 */
-function validationError(message: string, fields: string[]) {
-  const error = orgError("VALIDATION_FAILED", message);
-  (error.extensions as Record<string, unknown>).fields = fields;
-  return error;
-}
+/** 輸入不合法(GQL-04 `VALIDATION_FAILED`,附 `extensions.fields`)。 */
+const validationError = orgValidationError;
 
 /** 商標只收本 API 自己簽出來的路徑(ADR-0010;與 `updateOrg` 同一條規則)。 */
 function ownedLogoPath(value: string | null | undefined): string | undefined {
@@ -215,9 +216,11 @@ export class TenantOpsService {
   ): Promise<ProvisionTenantPayload> {
     await this.assertRootOperator(operator, AUDIT_ACTIONS.provision);
     const name = requireText(input.name, "name");
+    const slug = requireSlug(input.slug);
     const account = requireText(input.adminAccount, "adminAccount");
     const email = requireText(input.adminEmail, "adminEmail");
     const logoPath = ownedLogoPath(input.logoPath);
+    await assertSlugFree(this.orgs, operator, slug);
     await this.assertAccountAndEmailFree(operator, account, email);
 
     const template = await this.templateRole(operator);
@@ -237,6 +240,7 @@ export class TenantOpsService {
       // 1. 租戶 Org:根組織的直接子組織
       const org = await this.orgs.create(operator, {
         name,
+        slug,
         parentId: rootOrg._id,
         ancestors: [rootOrg._id],
         enabled: true,
@@ -297,6 +301,7 @@ export class TenantOpsService {
         targetId: org._id,
         after: {
           name,
+          slug,
           adminAccount: account,
           adminEmail: email,
           ownerUserId: String(user._id),
@@ -317,7 +322,8 @@ export class TenantOpsService {
       };
     } catch (error) {
       await this.rollback(operator, created);
-      throw error;
+      // 同時開通同一個短碼:事前查過沒人用,由唯一索引擋下 → 與事前檢查同一個錯誤
+      throw slugConflictOr(error);
     }
   }
 

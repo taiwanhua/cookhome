@@ -8,6 +8,10 @@ import {
   startAuthTestApp,
 } from "../auth/test-support/auth-app";
 import { createOrg } from "../auth/test-support/fixtures";
+import {
+  SAMPLE_ONE_MODULE_KEY,
+  dataScopeTargetIdOf,
+} from "../data-scope/test-support/fixtures";
 import { DemoItemsOneRepository } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
@@ -503,7 +507,10 @@ describe("示範模組2(#319,GraphQL 端點 + 真 MongoDB)", () => {
         SAVE_DATA_SCOPE_RULE,
         {
           input: {
-            collection: "demo_items_one",
+            targetId: await dataScopeTargetIdOf(
+              api.connection,
+              SAMPLE_ONE_MODULE_KEY,
+            ),
             combineOp: "OR",
             rules: [{ audience: { type: "ALL" }, filter: ONLY_MINE }],
           },

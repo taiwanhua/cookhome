@@ -82,10 +82,23 @@ export class DataScopeTargetFieldModel {
 
 @ObjectType("DataScopeTarget")
 export class DataScopeTargetModel {
-  /** 資料目標的 collection 名(`demo_items_one`);規則與目標都以它為識別鍵。 */
+  /** 目標 id;`dataScopeRule` / `saveDataScopeRule` 以它指定目標(左清單的一列)。 */
+  @Field(() => ID)
+  id!: string;
+
+  /** 資料所在的 collection(`demo_items_one`);同一張表可以有多個模組各一個目標(如 `form_submissions`)。 */
   @Field()
   collection!: string;
 
+  /** 宣告這個目標的模組 key;目標以 `(collection, moduleKey)` 為識別鍵。 */
+  @Field()
+  moduleKey!: string;
+
+  /** 模組顯示名(左清單的主文字;模組已不存在時退回目標名稱)。 */
+  @Field()
+  moduleName!: string;
+
+  /** 目標名稱(seed 宣告的 `dataScopeTarget.name`,如「示範項目」)。 */
   @Field()
   name!: string;
 
@@ -130,8 +143,15 @@ export class DataScopeRuleEntryModel {
 
 @ObjectType("DataScopeRule")
 export class DataScopeRuleModel {
+  /** 規則所屬的目標(`DataScopeTarget.id`)。 */
+  @Field(() => ID)
+  targetId!: string;
+
   @Field()
   collection!: string;
+
+  @Field()
+  moduleKey!: string;
 
   @Field(() => DataScopeCombineOpEnum)
   combineOp!: DataScopeCombineOpEnum;

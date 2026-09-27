@@ -22,6 +22,8 @@ export interface GcsBucket {
   file(name: string): {
     getSignedUrl(options: GcsSignedUrlOptions): Promise<[string]>;
     delete(options?: GcsDeleteOptions): Promise<unknown>;
+    /** 複製到同一顆 bucket 的另一個物件名稱。 */
+    copy(destination: string): Promise<unknown>;
   };
 }
 
@@ -134,6 +136,13 @@ export class GcsStorageService extends StorageService {
   protected override async removeObject(objectPath: string): Promise<void> {
     // ignoreNotFound:換圖的舊物件可能早就被清掉(重試、手動刪),不算失敗
     await this.bucket.file(objectPath).delete({ ignoreNotFound: true });
+  }
+
+  protected override async duplicateObject(
+    from: string,
+    to: string,
+  ): Promise<void> {
+    await this.bucket.file(from).copy(to);
   }
 }
 

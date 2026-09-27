@@ -9,6 +9,10 @@ import {
 import { ActionToken, ActionTokenSchema } from "./action-token.schema";
 import { AuditLog, AuditLogSchema } from "./audit-log.schema";
 import {
+  BusinessRelationship,
+  BusinessRelationshipSchema,
+} from "./business-relationship.schema";
+import {
   CoreRelationship,
   CoreRelationshipSchema,
 } from "./core-relationship.schema";
@@ -46,6 +50,7 @@ const REGISTRY: { name: string; schema: Schema }[] = [
   { name: Module.name, schema: ModuleSchema },
   { name: Permission.name, schema: PermissionSchema },
   { name: CoreRelationship.name, schema: CoreRelationshipSchema },
+  { name: BusinessRelationship.name, schema: BusinessRelationshipSchema },
   { name: DataScopeRule.name, schema: DataScopeRuleSchema },
   { name: DataScopeTarget.name, schema: DataScopeTargetSchema },
   { name: FieldCategory.name, schema: FieldCategorySchema },
@@ -102,14 +107,17 @@ describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
   }, HOOK_TIMEOUT_MS);
 
   it("全部 collection 皆已建模並可建立索引", () => {
-    expect(indexesByModel.size).toBe(16);
+    expect(indexesByModel.size).toBe(17);
   });
 
-  it("orgs:unique(key sparse)+(parentId)+(ancestors)", () => {
+  it("orgs:unique(key sparse)+ unique(slug sparse)+(parentId)+(ancestors)", () => {
     const indexes = indexesOf(Org.name);
     const keyIndex = findIndex(indexes, { key: 1 });
     expect(keyIndex?.unique).toBe(true);
     expect(keyIndex?.sparse).toBe(true);
+    const slugIndex = findIndex(indexes, { slug: 1 });
+    expect(slugIndex?.unique).toBe(true);
+    expect(slugIndex?.sparse).toBe(true);
     expect(findIndex(indexes, { parentId: 1 })).toBeDefined();
     expect(findIndex(indexes, { ancestors: 1 })).toBeDefined();
   });
@@ -160,9 +168,24 @@ describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
     expect(findIndex(indexes, { type: 1, secondId: 1 })).toBeDefined();
   });
 
-  it("data_scope_rules / data_scope_targets:unique(collection)", () => {
+  it("business_relationships:unique(tenantId, type, firstId, secondId)", () => {
+    expect(
+      findIndex(indexesOf(BusinessRelationship.name), {
+        tenantId: 1,
+        type: 1,
+        firstId: 1,
+        secondId: 1,
+      })?.unique,
+    ).toBe(true);
+  });
+
+  it("data_scope_rules / data_scope_targets:unique(collection, moduleKey)", () => {
     for (const name of [DataScopeRule.name, DataScopeTarget.name]) {
-      expect(findIndex(indexesOf(name), { collection: 1 })?.unique).toBe(true);
+      const indexes = indexesOf(name);
+      expect(findIndex(indexes, { collection: 1, moduleKey: 1 })?.unique).toBe(
+        true,
+      );
+      expect(findIndex(indexes, { collection: 1 })).toBeUndefined();
     }
   });
 
@@ -181,11 +204,14 @@ describe("底座 collection 索引就位(對真 MongoDB 驗證)", () => {
     ).toBe(true);
   });
 
-  it("demo_items_one / two:(orgId, createdAt)", () => {
+  it("demo_items_one / two:(orgId, createdAt)+ 模組資料的(tenantId, moduleKey, createdAt)與(moduleKey, orgId)", () => {
     for (const name of [DemoItemOne.name, DemoItemTwo.name]) {
+      const indexes = indexesOf(name);
+      expect(findIndex(indexes, { orgId: 1, createdAt: 1 })).toBeDefined();
       expect(
-        findIndex(indexesOf(name), { orgId: 1, createdAt: 1 }),
+        findIndex(indexes, { tenantId: 1, moduleKey: 1, createdAt: 1 }),
       ).toBeDefined();
+      expect(findIndex(indexes, { moduleKey: 1, orgId: 1 })).toBeDefined();
     }
   });
 

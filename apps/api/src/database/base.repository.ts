@@ -1,5 +1,10 @@
 /* eslint-disable @repo/no-raw-model-query -- 此檔即過濾層本身:裸 Model 存取的唯一合法出口(ADR-0005);到期條件:無 */
-import type { Model, QueryFilter, Types, UpdateQuery } from "mongoose";
+import mongoose, {
+  type Model,
+  type QueryFilter,
+  type Types,
+  type UpdateQuery,
+} from "mongoose";
 
 import {
   OPERATOR_LOCAL_KEY,
@@ -12,7 +17,12 @@ import {
   TenantScopeError,
   getTenantScope,
 } from "./plugins/tenant-scope.plugin";
+import { BUSINESS_RELATIONSHIPS_COLLECTION } from "./schemas/business-relationship.schema";
 import { CORE_RELATIONSHIPS_COLLECTION } from "./schemas/core-relationship.schema";
+import { ORGS_COLLECTION } from "./schemas/org.schema";
+import { WORKFLOW_TASKS_COLLECTION } from "./schemas/workflow-task.schema";
+import { WORKFLOWS_COLLECTION } from "./schemas/workflow.schema";
+import { tenantIdOfOrg } from "./tenant-id";
 
 /** Model 型別參數固定為預設值(無 query helpers / instance methods / virtuals),只讓 hydrated 文件型別可推導。 */
 type NoExtras = Record<never, never>;
@@ -51,11 +61,18 @@ export interface FindOptions {
   limit?: number;
 }
 
+/** 條件更新的額外選項。 */
+export interface UpdateOptions {
+  /** 陣列元素的篩選(`$[識別名]` 指到哪幾個元素;Mongo `arrayFilters`)。 */
+  arrayFilters?: Record<string, unknown>[];
+}
+
 /**
  * 所有資料存取的共用層(ADR-0005 / ADR-0007 / ADR-0011):
  * 每個公開方法都以操作者上下文開頭 — 租戶過濾、軟刪除排除、基礎欄位填寫全由 plugin 依此自動完成,
  * 個別功能不自己寫、也繞不過(api 內裸 `Model.xxx()` 由 ESLint 規則 `@repo/no-raw-model-query` 擋下)。
- * 刪除一律走 `softDeleteById`(ADR-0007);唯一的硬刪除是 `hardDeleteById`,只給補償刪除用。
+ * 刪除一律走 `softDeleteById`(ADR-0007);硬刪除只有 `hardDeleteById`(補償刪除)與
+ * `hardDeleteDraft`(從未對外生效的版本草稿,見該方法)。
  */
 export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
   constructor(protected readonly model: RepositoryModel<TSchema, TDocument>) {
@@ -63,6 +80,23 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     if (model.collection.collectionName === CORE_RELATIONSHIPS_COLLECTION) {
       throw new TenantScopeError(
         `${model.modelName}:核心關聯不經 BaseRepository,請改用 RelationService(ADR-0001)`,
+      );
+    }
+    // 業務關聯以 tenantId 為邊界、不掛 tenantScope;只能經強制帶 tenantId 的專屬 repository
+    if (model.collection.collectionName === BUSINESS_RELATIONSHIPS_COLLECTION) {
+      throw new TenantScopeError(
+        `${model.modelName}:業務關聯不經 BaseRepository,請改用 BusinessRelationshipsRepository`,
+      );
+    }
+    // 流程與審核任務同樣以 tenantId 為邊界、不掛 tenantScope;只能經各自的專屬 repository
+    const tenantBoundRepositories: Record<string, string> = {
+      [WORKFLOWS_COLLECTION]: "WorkflowsRepository",
+      [WORKFLOW_TASKS_COLLECTION]: "WorkflowTasksRepository",
+    };
+    const dedicated = tenantBoundRepositories[model.collection.collectionName];
+    if (dedicated !== undefined) {
+      throw new TenantScopeError(
+        `${model.modelName}:以 tenantId 為邊界的表不經 BaseRepository,請改用 ${dedicated}`,
       );
     }
   }
@@ -110,6 +144,66 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     return this.findOne(operator, { _id: id }, options);
   }
 
+  /**
+   * 讀**操作者自己建立**的一筆:可見範圍照套,但不套資料範圍規則(ADR-0008),條件改成
+   * `createdBy = 操作者`(由插件加上,呼叫端無法放寬)。只給「建立者一律讀得到自己的單」這種
+   * 單筆讀取用(表單提交);列表不得使用。
+   */
+  findOwnById(
+    operator: OperatorContext,
+    id: Types.ObjectId | string,
+  ): Promise<Persisted<TDocument> | null> {
+    return this.findOwnOne(operator, { _id: id });
+  }
+
+  /** 同 `findOwnById`,以條件找(如 `(createdBy, clientRequestId)` 的冪等重試)。 */
+  async findOwnOne(
+    operator: OperatorContext,
+    filter: RepositoryFilter<TSchema>,
+    options: Pick<FindOptions, "includeDeleted"> = {},
+  ): Promise<Persisted<TDocument> | null> {
+    if (operator.actorId === null) {
+      return null;
+    }
+    const document = await scopeQuery(
+      this.model.findOne({ ...filter, createdBy: operator.actorId }),
+      {
+        operator,
+        ownRecordsOnly: true,
+        includeDeleted: options.includeDeleted,
+      },
+    ).exec();
+    return document as Persisted<TDocument> | null;
+  }
+
+  /**
+   * 條件更新**操作者自己建立**的一筆(範圍同 `findOwnById`:可見範圍照套、不套資料範圍規則)。
+   * 用途:草稿只屬於建立者,資料範圍規則把草稿擋在列表外時,建立者仍要能存 / 送 / 刪自己的草稿。
+   */
+  async findOwnAndUpdate(
+    operator: OperatorContext,
+    filter: RepositoryFilter<TSchema>,
+    update: RepositoryUpdate<TSchema>,
+  ): Promise<Persisted<TDocument> | null> {
+    if (operator.actorId === null) {
+      return null;
+    }
+    assertUpdateLeavesProtectedPaths(
+      this.model.modelName,
+      update,
+      this.protectedUpdatePaths(),
+    );
+    const document = await scopeQuery(
+      this.model.findOneAndUpdate(
+        { ...filter, createdBy: operator.actorId },
+        update,
+        { returnDocument: "after", runValidators: true },
+      ),
+      { operator, ownRecordsOnly: true },
+    ).exec();
+    return document as Persisted<TDocument> | null;
+  }
+
   count(
     operator: OperatorContext,
     filter: RepositoryFilter<TSchema> = {},
@@ -121,12 +215,17 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     }).exec();
   }
 
-  /** 建立資料:租戶資料自動寫入當前組織(ADR-0005),且不可寫入可見範圍外的組織。 */
+  /**
+   * 建立資料:租戶資料自動寫入當前組織(ADR-0005),且不可寫入可見範圍外的組織。
+   * 模組資料表(`moduleData`)另由後端推導 `tenantId`,呼叫端給的值一律忽略。
+   */
   async create(
     operator: OperatorContext,
     data: Partial<TSchema>,
   ): Promise<Persisted<TDocument>> {
-    const document = new this.model(this.withTenantOrg(operator, data));
+    const document = new this.model(
+      await this.withModuleTenant(this.withTenantOrg(operator, data)),
+    );
     document.$locals[OPERATOR_LOCAL_KEY] = operator;
     await document.save();
     return document as Persisted<TDocument>;
@@ -141,11 +240,47 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     id: Types.ObjectId | string,
     update: RepositoryUpdate<TSchema>,
   ): Promise<Persisted<TDocument> | null> {
-    assertUpdateLeavesProtectedPaths(this.model.modelName, update);
+    assertUpdateLeavesProtectedPaths(
+      this.model.modelName,
+      update,
+      this.protectedUpdatePaths(),
+    );
     const document = await scopeQuery(
       this.model.findOneAndUpdate({ _id: id }, update, {
         returnDocument: "after",
         runValidators: true,
+      }),
+      { operator },
+    ).exec();
+    return document as Persisted<TDocument> | null;
+  }
+
+  /**
+   * **條件更新**:更新第一筆符合 `filter` 的資料並回傳更新後的文件,沒有符合者回 null。
+   * 用途是樂觀鎖與搶鎖(「`editVersion` 還是我讀到的那個才寫」「草稿還在 draft 才改成 publishing」):
+   * 條件與更新在同一次寫入裡判斷,兩個請求同時來只有一個會命中。欄位保護與範圍與 `updateById` 相同。
+   *
+   * `options.arrayFilters`:更新陣列裡**特定元素**時用(`steps.$[cur].decisions` 配
+   * `[{ "cur.stepKey": k }]`;流程實例的決定原子寫入,Spec 6b §6「決定」)。
+   */
+  async findOneAndUpdate(
+    operator: OperatorContext,
+    filter: RepositoryFilter<TSchema>,
+    update: RepositoryUpdate<TSchema>,
+    options: UpdateOptions = {},
+  ): Promise<Persisted<TDocument> | null> {
+    assertUpdateLeavesProtectedPaths(
+      this.model.modelName,
+      update,
+      this.protectedUpdatePaths(),
+    );
+    const document = await scopeQuery(
+      this.model.findOneAndUpdate({ ...filter }, update, {
+        returnDocument: "after",
+        runValidators: true,
+        ...(options.arrayFilters === undefined
+          ? {}
+          : { arrayFilters: options.arrayFilters }),
       }),
       { operator },
     ).exec();
@@ -161,7 +296,11 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     filter: RepositoryFilter<TSchema>,
     update: RepositoryUpdate<TSchema>,
   ): Promise<number> {
-    assertUpdateLeavesProtectedPaths(this.model.modelName, update);
+    assertUpdateLeavesProtectedPaths(
+      this.model.modelName,
+      update,
+      this.protectedUpdatePaths(),
+    );
     const { modifiedCount } = await scopeQuery(
       this.model.updateMany({ ...filter }, update, { runValidators: true }),
       { operator },
@@ -198,6 +337,69 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     return deletedCount > 0;
   }
 
+  /**
+   * **條件硬刪一份版本草稿**(ADR-0007 第三種硬刪):條件與刪除在同一次寫入裡判斷(兩個請求同時來只有
+   * 一個刪得到),回被刪的文件、沒命中回 null。租戶過濾與軟刪除排除照常由 plugin 套上。
+   *
+   * 型別上強制條件帶 `status: "draft"` 與 `version: null` —— 只刪得到從未發布、沒有引用的草稿
+   * (`form_versions` / `workflow_versions`);刪之前的內容由呼叫端寫進稽核的 `before`。
+   * 其餘資料一律 `softDeleteById`。
+   */
+  async hardDeleteDraft(
+    operator: OperatorContext,
+    filter: RepositoryFilter<TSchema> & { status: "draft"; version: null },
+  ): Promise<Persisted<TDocument> | null> {
+    const document = await scopeQuery(
+      this.model.findOneAndDelete({ ...filter }),
+      { operator },
+    ).exec();
+    return document as Persisted<TDocument> | null;
+  }
+
+  /** 模組資料表另外鎖住 `moduleKey` / `tenantId`:兩者建立後不可經一般更新改動。 */
+  private protectedUpdatePaths(): readonly string[] {
+    return getTenantScope(this.model.schema)?.moduleData === true
+      ? [...PROTECTED_UPDATE_PATHS, ...MODULE_DATA_PROTECTED_PATHS]
+      : PROTECTED_UPDATE_PATHS;
+  }
+
+  /**
+   * 模組資料表的 `tenantId`:依 `orgId` 的祖先推導租戶頂層(`tenantIdOfOrg`),
+   * 覆蓋呼叫端給的任何值(GraphQL input 本來就不收,這裡再防一次內部呼叫端)。
+   *
+   * 組織以原生 collection 讀:`orgs` 掛的是治理類過濾(吃管理範圍),而建立業務資料的人
+   * 不一定管得到自己寫入的組織;可寫入與否已由 `withTenantOrg` 以可見範圍判過,這裡只取祖先。
+   * 讀不到組織 → 拋錯(fail-closed):那是資料損毀,不該靜默寫出一筆沒有租戶邊界的資料。
+   */
+  private async withModuleTenant(
+    data: Partial<TSchema>,
+  ): Promise<Partial<TSchema>> {
+    if (getTenantScope(this.model.schema)?.moduleData !== true) {
+      return data;
+    }
+    const orgId = (data as { orgId?: Types.ObjectId | string | null }).orgId;
+    if (orgId === undefined || orgId === null) {
+      throw new TenantScopeError(
+        `${this.model.modelName} 是模組資料,建立時需要所屬組織才能推導 tenantId`,
+      );
+    }
+    const org = await this.model.db
+      .collection<{ ancestors?: Types.ObjectId[] }>(ORGS_COLLECTION)
+      .findOne(
+        { _id: new mongoose.Types.ObjectId(String(orgId)) },
+        { projection: { ancestors: 1 } },
+      );
+    if (!org) {
+      throw new TenantScopeError(
+        `${this.model.modelName}:所屬組織 ${String(orgId)} 不存在,無法推導 tenantId`,
+      );
+    }
+    return {
+      ...data,
+      tenantId: tenantIdOfOrg({ _id: org._id, ancestors: org.ancestors ?? [] }),
+    };
+  }
+
   private withTenantOrg(
     operator: OperatorContext,
     data: Partial<TSchema>,
@@ -228,7 +430,17 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
 }
 
 /** 更新內容不得觸及的欄位:所屬組織(租戶隔離)與建立資訊(稽核)。 */
-const PROTECTED_UPDATE_PATHS = ["orgId", "createdBy", "createdAt"] as const;
+const PROTECTED_UPDATE_PATHS: readonly string[] = [
+  "orgId",
+  "createdBy",
+  "createdAt",
+];
+
+/** 模組資料表另外不得經一般更新改動的欄位(`tenantScopePlugin` 的 `moduleData`)。 */
+const MODULE_DATA_PROTECTED_PATHS: readonly string[] = [
+  "moduleKey",
+  "tenantId",
+];
 
 /**
  * 檢查 update 的頂層與各運算子(`$set` / `$unset` / `$setOnInsert` / `$rename`…)內
@@ -238,6 +450,7 @@ const PROTECTED_UPDATE_PATHS = ["orgId", "createdBy", "createdAt"] as const;
 function assertUpdateLeavesProtectedPaths(
   modelName: string,
   update: unknown,
+  protectedPaths: readonly string[],
 ): void {
   if (!update || typeof update !== "object") {
     return;
@@ -247,7 +460,7 @@ function assertUpdateLeavesProtectedPaths(
       ? Object.keys((value ?? {}) as Record<string, unknown>)
       : [key];
     const touched = paths.find((path) =>
-      PROTECTED_UPDATE_PATHS.some(
+      protectedPaths.some(
         (protectedPath) =>
           path === protectedPath || path.startsWith(`${protectedPath}.`),
       ),

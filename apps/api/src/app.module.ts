@@ -14,6 +14,8 @@ import { DataScopeModule } from "./data-scope/data-scope.module";
 import { DemoItemsOneModule } from "./demo-items-one/demo-items-one.module";
 import { DemoItemsTwoModule } from "./demo-items-two/demo-items-two.module";
 import { FieldsModule } from "./fields/fields.module";
+import { FormDesignModule } from "./forms/form-design/form-design.module";
+import { FormRuntimeModule } from "./forms/form-runtime/form-runtime.module";
 import { ModuleManagerModule } from "./modules/module-manager.module";
 import { OrgMembersModule } from "./orgs/org-members.module";
 import { OrgsModule } from "./orgs/orgs.module";
@@ -22,6 +24,9 @@ import { RecipesModule } from "./recipes/recipes.module";
 import { RolesModule } from "./roles/roles.module";
 import { StorageModule } from "./storage/storage.module";
 import { UsersModule } from "./users/users.module";
+import { ApplyCenterModule } from "./workflows/apply-center/apply-center.module";
+import { WorkflowDesignModule } from "./workflows/workflow-design/workflow-design.module";
+import { WorkflowEngineModule } from "./workflows/workflow-engine/workflow-engine.module";
 
 // GraphQL Sandbox 開關:本地開發(NODE_ENV 非 production)預設開;
 // 雲端預設關(不讓外人窺探 schema),dev/staging 環境以 GRAPHQL_SANDBOX=true 明確打開
@@ -69,6 +74,11 @@ const isSandboxEnabled =
     FieldsModule,
     DemoItemsOneModule,
     DemoItemsTwoModule,
+    FormDesignModule,
+    FormRuntimeModule,
+    WorkflowDesignModule,
+    WorkflowEngineModule,
+    ApplyCenterModule,
     RecipesModule,
   ],
 })

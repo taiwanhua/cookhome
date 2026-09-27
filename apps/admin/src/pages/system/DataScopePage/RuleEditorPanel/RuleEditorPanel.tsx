@@ -28,14 +28,15 @@ export interface RuleEditorPanelProps {
   userOptions: readonly PickerOption[];
   orgNodes: readonly OrgNodeLike[];
   orgOptions: readonly OrgOption[];
-  onSaved: (collection: string) => void;
+  /** 儲存成功後失效相關查詢(帶目標 id) */
+  onSaved: (targetId: string) => void;
   onDirtyChange: (isDirty: boolean) => void;
 }
 
 /**
  * 右欄規則編輯器(Figma RuleEditor 167:244):目標說明 + 預設提示 + 頂層合成 + 規則清單 + 儲存。
  *
- * **由頁面以 `key={collection}` 掛載**:切資料目標等於換一份草稿,重新掛載比在 effect 裡
+ * **由頁面以 `key={target.id}` 掛載**:切資料目標等於換一份草稿,重新掛載比在 effect 裡
  * 同步乾淨(REACT-06 / REACT-08)。
  */
 export const RuleEditorPanel = ({
@@ -80,7 +81,7 @@ export const RuleEditorPanel = ({
         <Stack spacing={0.25}>
           <Typography variant="subtitle1">
             {t("targetName", {
-              name: target.name,
+              name: target.moduleName,
               collection: target.collection,
             })}
           </Typography>

@@ -20,6 +20,7 @@ import type { OperatorContext } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
 import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import { PermissionResolver } from "../permission/permission-resolver";
+import { AssigneeInvalidationService } from "../workflows/workflow-engine/assignee-invalidation.service";
 import type { AssignUserRolesInput } from "./dto/assign-user-roles.input";
 import type { CreateUserInput } from "./dto/create-user.input";
 import type { SetUserEnabledInput } from "./dto/set-user-enabled.input";
@@ -121,6 +122,7 @@ export class UsersService {
     private readonly permissions: PermissionResolver,
     private readonly qualification: OrgQualificationService,
     private readonly ownerProtection: OwnerProtectionService,
+    private readonly assigneeInvalidation: AssigneeInvalidationService,
   ) {}
 
   // ---- 讀 ----
@@ -334,6 +336,10 @@ export class UsersService {
       );
     }
     if (user.enabled === input.enabled) {
+      if (!input.enabled) {
+        // 冪等補做:上一次停用後 hook 失敗時,再停用一次會把審核者失效補上
+        await this.assigneeInvalidation.onUserChanged(user._id);
+      }
       return this.decorateOne(operator, user);
     }
     const updated =
@@ -351,6 +357,11 @@ export class UsersService {
       before: { enabled: user.enabled },
       after: { enabled: input.enabled },
     });
+    if (!input.enabled) {
+      // 審核流程:他手上還沒決定的審核任務 → 承辦人失效(該關依會簽模式阻擋,等改派)。
+      // 放在稽核之後:hook 失敗時停用與稽核都已寫入,再停用一次會補做 hook
+      await this.assigneeInvalidation.onUserChanged(user._id);
+    }
     return this.decorateOne(operator, updated);
   }
 
@@ -461,6 +472,11 @@ export class UsersService {
           revokedRoleIds,
         },
       });
+    }
+    if (removed.length > 0) {
+      // 審核流程:被移出某個租戶(在那裡已沒有任何所屬組織)→ 他在那個租戶的待審任務承辦人失效。
+      // 放在稽核之後,hook 失敗不會留下「已移出卻沒稽核」
+      await this.assigneeInvalidation.onUserChanged(user._id);
     }
     return {
       user: await this.decorateOne(operator, user),

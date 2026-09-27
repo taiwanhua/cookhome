@@ -1,4 +1,4 @@
-import { Args, Mutation, Query, Resolver } from "@nestjs/graphql";
+import { Args, ID, Mutation, Query, Resolver } from "@nestjs/graphql";
 
 import { CurrentOperator } from "../auth/decorators";
 import type { OperatorContext } from "../database/operator-context";
@@ -34,10 +34,10 @@ export class DataScopeResolver {
   @RequirePermission("system.data-scope.view")
   @Query(() => DataScopeRulePayload, { name: "dataScopeRule" })
   async dataScopeRule(
-    @Args("collection") collection: string,
+    @Args("targetId", { type: () => ID }) targetId: string,
     @CurrentOperator() operator: OperatorContext,
   ): Promise<DataScopeRulePayload> {
-    return { rule: await this.service.findRule(operator, collection) };
+    return { rule: await this.service.findRule(operator, targetId) };
   }
 
   /** 整份覆蓋;不合法 → `RULE_INVALID`(附 `path` 與 `reason`)。 */

@@ -3,7 +3,11 @@ import { Schema as MongooseSchema } from "mongoose";
 
 import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 
-/** 資料範圍目標(全表種子資料,ADR-0008):「資料範圍」頁左側清單來源。 */
+/**
+ * 資料範圍目標(全表種子資料,ADR-0008):「資料範圍」頁左側清單來源,**一列 = 一個模組**。
+ * 識別鍵是 `(collection, moduleKey)`:同一張表(如所有表單模組共用的 `form_submissions`)
+ * 可以有多個模組各自一個目標、各自一份規則。
+ */
 // `collection` 為 base-schema 指定的欄位名;Mongoose 視其為保留字,明確放行
 @Schema({
   collection: "data_scope_targets",
@@ -11,9 +15,13 @@ import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
   suppressReservedKeysWarning: true,
 })
 export class DataScopeTarget {
-  /** unique(如 `demo_items_one`)。 */
+  /** 資料所在的 collection(如 `demo_items_one`);與 `moduleKey` 合為唯一鍵。 */
   @Prop({ type: String, required: true })
   collection!: string;
+
+  /** 宣告這個目標的模組 key(seed runner 填宣告檔所在模組;如 `demo.sub.sample-one`)。 */
+  @Prop({ type: String, required: true })
+  moduleKey!: string;
 
   /** 中文名(頁面顯示)。 */
   @Prop({ type: String, required: true })
@@ -36,6 +44,6 @@ export class DataScopeTarget {
 export const DataScopeTargetSchema =
   SchemaFactory.createForClass(DataScopeTarget);
 
-DataScopeTargetSchema.index({ collection: 1 }, { unique: true });
+DataScopeTargetSchema.index({ collection: 1, moduleKey: 1 }, { unique: true });
 // 基礎欄位(ADR-0007);全表種子資料,不掛 tenantScope
 DataScopeTargetSchema.plugin(baseFieldsPlugin);

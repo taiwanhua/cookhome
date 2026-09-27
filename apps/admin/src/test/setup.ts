@@ -7,6 +7,7 @@ import { defaultLocale } from "@repo/i18n";
 
 import { INITIAL_SESSION_SNAPSHOT } from "../lib/auth/session-store";
 import { LOCALE_STORAGE_KEY } from "../lib/locale";
+import { useDesignerDraftStore } from "../stores/useDesignerDraftStore";
 import { useLocaleStore } from "../stores/useLocaleStore";
 import { useSessionStore } from "../stores/useSessionStore";
 import {
@@ -15,6 +16,10 @@ import {
   useSideNavStore,
 } from "../stores/useSideNavStore";
 import { useSnackbarStore } from "../stores/useSnackbarStore";
+import {
+  INITIAL_WORKFLOW_DRAFT,
+  useWorkflowDraftStore,
+} from "../stores/useWorkflowDraftStore";
 import { resetHelpFiles } from "./help-registry";
 import { server } from "./msw/server";
 
@@ -46,6 +51,10 @@ afterEach(() => {
   useSnackbarStore.getState().reset();
   // 模組說明的假 registry 也是模組層單例(#197);改過的測試不影響下一個
   resetHelpFiles();
+  // 表單設計器的「未存變更」回報也是模組層單例
+  useDesignerDraftStore.setState({ formKey: null, isDirty: false, save: null });
+  // 流程設計器的「未存變更」回報同理
+  useWorkflowDraftStore.setState(INITIAL_WORKFLOW_DRAFT);
 });
 
 afterAll(() => {

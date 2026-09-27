@@ -2,7 +2,7 @@
 
 ## 用途
 
-讓根組織的系統管理員對「業務類」資料目標(目前是示範模組1 的 `demo_items_one`)設定額外的過濾規則:規則依「套用對象」(全部 / 指定角色 / 指定組織 / 指定使用者)命中操作者,再以條件樹過濾他查得到的資料。規則只會讓看到的資料**變少**,永遠疊在租戶隔離保底之內。機制本體見 ADR-0008,查詢時的合成順序見 ADR-0011。
+讓根組織的系統管理員對模組資料的資料目標(一個模組一個:示範模組1 的 `demo_items_one`、購物清單的 `form_submissions`)設定額外的過濾規則:規則依「套用對象」(全部 / 指定角色 / 指定組織 / 指定使用者)命中操作者,再以條件樹過濾他查得到的資料。規則只會讓看到的資料**變少**,永遠疊在租戶隔離保底之內。機制本體見 ADR-0008,查詢時的合成順序見 ADR-0011。
 
 正本:`docs/adr/0008-data-scope.md`、`docs/adr/0011-permission-resolution-flow.md`
 
@@ -32,9 +32,10 @@
 
 ## 資料
 
-- **`data_scope_rules`**:每個資料目標一份規則文件 —— `collection`(**unique 索引**)、`combineOp`(`AND` / `OR`)、`rules[{ audience, filter }]`。**沒有掛 `tenantScopePlugin`**:規則是全域設定,一個資料目標全站只有一份,由 root 維護、對所有租戶同時生效(「命中誰」由套用對象決定)。
-- **`data_scope_targets`**:資料目標目錄,來源是各模組 seed 的 `dataScopeTarget` 宣告(collection、中文名、描述、可篩欄位);基礎欄位由底座自動掛進欄位目錄,不必宣告。
-- **目前唯一的資料目標**:示範模組1 的 `demo_items_one`。它宣告了一個 enum 欄位 **`status`**(草稿 / 已發布 / 已封存),`value` 與 `demo-item-one.schema.ts` 的 `status` 一一對應 —— 沒有它,「enum 固定選項」這條在任何環境都驗不到。示範模組2 刻意不宣告,是對照組。
+- **`data_scope_rules`**:每個資料目標一份規則文件 —— `collection` + `moduleKey`(**`(collection, moduleKey)` unique 索引**)、`combineOp`(`AND` / `OR`)、`rules[{ audience, filter }]`。**沒有掛 `tenantScopePlugin`**:規則是全域設定,一個資料目標全站只有一份,由 root 維護、對所有租戶同時生效(「命中誰」由套用對象決定)。
+- **`data_scope_targets`**:資料目標目錄,**一個模組一個目標**,來源是各模組 seed 的 `dataScopeTarget` 宣告(collection、中文名、描述、可篩欄位);識別鍵 `(collection, moduleKey)`,`moduleKey` 由 seed runner 填宣告檔所在的模組。基礎欄位由底座自動掛進欄位目錄,不必宣告。
+- **同一張表可以有多個目標**:所有表單模組的資料都存在 `form_submissions`,每個表單模組各宣告一個目標(`collection` 固定 `form_submissions`),各自一份規則。表單模組的欄位目錄先給基礎欄位 + 提交狀態 `status`(草稿 / 已完成),表單自訂欄位不進條件。
+- **示範模組1 的目標**:`demo_items_one`。它宣告了一個 enum 欄位 **`status`**(草稿 / 已發布 / 已封存),`value` 與 `demo-item-one.schema.ts` 的 `status` 一一對應 —— 沒有它,「enum 固定選項」這條在任何環境都驗不到。示範模組2 刻意不宣告,是對照組。
 - 執行面快取:規則設定放記憶體快取,`saveDataScopeRule` 儲存時作廢。
 
 正本:`apps/api/src/database/schemas/data-scope-rule.schema.ts`、`apps/api/src/database/schemas/data-scope-target.schema.ts`、`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`(`dataScopeTarget`)
@@ -47,7 +48,7 @@
 
 BaseRepository 查詢時套用;GQL-07 的語意正本在此。
 
-- 規則只套**業務類** collection(`tenantScopePlugin({ kind: "business" })`);`users` / `orgs` 這類底座 / 治理資料不做資料範圍。
+- 規則只套**模組資料表**(`tenantScopePlugin({ moduleData: true })`,必為業務類);`users` / `orgs` 這類底座 / 治理資料,以及 `fields` / `audit_logs` / `customers` 這類業務類但非模組資料的表,不做資料範圍。
 - **沒有規則命中操作者 = 不過濾**(只剩租戶保底),不是「什麼都看不到」。
 - 規則永遠以 `$and` 疊在租戶保底之內 —— 規則只會讓看到的**變少**,保底不可關。
 - 規則套在 `SCOPED_QUERY_MIDDLEWARE` **整組**(與租戶保底同一組),**含寫入與刪除的查詢** —— 看不到的資料也改不到 / 刪不到。
@@ -57,6 +58,26 @@ BaseRepository 查詢時套用;GQL-07 的語意正本在此。
 - **`rules: []` 不等於「從來沒設定過」**:整份覆蓋成空陣列 = 這個目標沒有規則(執行面只剩租戶保底),但 `dataScopeRule` 仍回一份 `rules: []` 的文件;`rule = null` 專指從來沒設定過。
 - **規則是共用狀態**:因為規則不隨租戶隔離,自動化測試動到規則的劇本結尾一定要整份覆蓋成 `rules: []` 清乾淨,否則會污染同一個資料庫上跑的其他劇本(TEST-11)。
 
+### 依模組
+
+規則以 `(collection, moduleKey)` 為鍵,查詢時是**一張表**,所以在查詢中介層把該 collection 下**命中操作者的**規則依模組拼成一個 `$or`,再與租戶保底 `$and`:
+
+```js
+{
+  $or: [
+    { moduleKey: { $exists: true, $nin: ["leave", "expense"] } }, // 沒有規則命中操作者的模組:只看可見範圍
+    { $and: [{ moduleKey: "leave" }, 請假的規則] },
+    { $and: [{ moduleKey: "expense" }, 報銷的規則] },
+  ];
+}
+```
+
+- 某模組的規則沒有命中操作者(或那個模組根本沒設規則)→ 那個模組的資料維持只看可見範圍,不會被別的模組的規則影響。
+- 那一支要求 `moduleKey` **存在**:沒有 `moduleKey` 的文件(回填前的舊資料、所屬組織已不存在而沒回填的孤兒)在有規則命中操作者時看不到(fail-closed),不會從 `$nin` 溜過去。規則文件本身缺 `moduleKey` 的(回填前)不載入。
+- 固定欄位模組的表只有一個 `moduleKey`,結果等於「該模組的規則」本身。
+- 單筆 / 更新 / 刪除 / lookup 都走同一條路徑(同一組查詢中介層)。
+- 記憶體快取以 collection 為外層、`moduleKey` 為內層;`saveDataScopeRule` 儲存時作廢整個 collection。
+
 **條件樹**:條件列 = 欄位(依目錄)→ 運算子(依型別)→ 值(依值來源,含動態值【操作者本人】【操作者的所屬組織】);群組任意深、每層與頂層各有 AND / OR 切換。
 
 正本:`apps/api/src/data-scope/data-scope.service.ts`、`apps/api/src/database/plugins/data-scope-provider.ts`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`、`apps/api/src/database/base.repository.ts`
@@ -64,12 +85,15 @@ BaseRepository 查詢時套用;GQL-07 的語意正本在此。
 ## api 介面
 
 ```graphql
-dataScopeTargets: DataScopeTargetsPayload!                          # { targets: [DataScopeTarget!]! }
-dataScopeRule(collection: String!): DataScopeRulePayload!           # { rule: DataScopeRule }(rule = null → 從來沒設定過)
+dataScopeTargets: DataScopeTargetsPayload!                          # { targets: [DataScopeTarget!]! },依 moduleKey 排序
+dataScopeRule(targetId: ID!): DataScopeRulePayload!                 # { rule: DataScopeRule }(rule = null → 從來沒設定過)
 saveDataScopeRule(input: SaveDataScopeRuleInput!): SaveDataScopeRulePayload!   # { rule: DataScopeRule! }
 
 type DataScopeTarget {
-  collection: String! # 識別鍵(如 demo_items_one)
+  id: ID! # 讀寫規則以它指定目標(一列 = 一個模組)
+  collection: String! # 資料所在的 collection(如 demo_items_one;form_submissions 可有多列)
+  moduleKey: String! # 宣告這個目標的模組
+  moduleName: String! # 模組顯示名(左清單主文字;模組已不存在時退回 name)
   name: String!
   description: String
   fields: [DataScopeTargetField!]! # seed 宣告的業務欄位在前、基礎欄位殿後
@@ -85,7 +109,9 @@ type DataScopeTargetField {
 }
 
 type DataScopeRule {
+  targetId: ID!
   collection: String!
+  moduleKey: String!
   combineOp: DataScopeCombineOp! # AND / OR
   rules: [DataScopeRuleEntry!]!
   updatedAt: DateTime!
@@ -97,7 +123,7 @@ type DataScopeRuleEntry {
 }
 
 input SaveDataScopeRuleInput {
-  collection: String!
+  targetId: ID! # 不存在(或不是 ObjectId)→ NOT_FOUND
   combineOp: DataScopeCombineOp! = OR
   rules: [DataScopeRuleEntryInput!]! # 整份覆蓋;[] = 刪掉這個目標的規則
 }
@@ -161,7 +187,7 @@ input SaveDataScopeRuleInput {
 
 ## admin 頁面
 
-程式在 `apps/admin/src/pages/system/DataScopePage/`:`TargetListPanel.tsx`(左資料目標清單)、`RuleEditorPanel/`(右規則編輯器)、`DiscardChangesDialog.tsx`(未儲存離開確認)、`useDataScopeData.ts`(資料與 mutation)。
+程式在 `apps/admin/src/pages/system/DataScopePage/`:`TargetListPanel.tsx`(左資料目標清單,一列 = 一個模組:主文字模組名、副文字 collection)、`RuleEditorPanel/`(右規則編輯器)、`DiscardChangesDialog.tsx`(未儲存離開確認)、`useDataScopeData.ts`(資料與 mutation)。
 
 - 純函式在 `apps/admin/src/lib/`:`data-scope-rule.ts`(型別目錄、編輯器狀態 ↔ api JSON、條件樹增刪改)與 `data-scope-issues.ts`(本地驗證、`RULE_INVALID` 的 `path` → 標在哪一格)。**型別 → 運算子 → 值來源那張表在 admin 重寫了一份**(STRUCT-01 不能 import api),改動時兩邊一起改。
 - 條件樹節點**不帶自產 id**:位置(`rules[n]` + 往下的 `children[i]`)就是身分,與 api 回的 `path` 同一套座標。
@@ -169,7 +195,7 @@ input SaveDataScopeRuleInput {
 - 新群組**一定帶一條條件列**(空群組會被 `EMPTY_GROUP` 拒絕,不讓它先出現在畫面上)。
 - 動態值與靜態值在同一個「值」下拉裡(動態值排在最前面):選了動態值就取代整份靜態值,反之亦然。
 - **左清單的「已設規則」讀 `DataScopeTarget.hasRule`**(判準見「api 介面」)。
-- 未儲存就切換資料目標 → 放棄變更確認;`saveDataScopeRule` 成功後失效該 collection 的 `dataScopeRule` 與 `dataScopeTargets`。
+- 選中的目標以 id 記(`selectedTargetId`;同一個 collection 可能有好幾列)。未儲存就切換資料目標 → 放棄變更確認;`saveDataScopeRule` 成功後失效該目標的 `dataScopeRule` 與 `dataScopeTargets`。
 - 動作按鈕依 `system.data-scope.edit`,只有 `.view` 時整個編輯器唯讀。
 - 非根組織不在頁面判斷 —— 本模組 `isRootOnly`,租戶的 `me.modules` 裡沒有它,路由層就擋掉(ADR-0011)。
 
@@ -205,13 +231,13 @@ admin 的解讀集中在 `DataScopePage/data-scope-error.ts`。
 
 ## 稽核
 
-`saveDataScopeRule` 寫一筆 `data-scope.edit`,`targetType = "data_scope_rule"`,`targetId` 為該 collection 的規則文件。
+`saveDataScopeRule` 寫一筆 `data-scope.edit`,`targetType = "data_scope_rule"`,`targetId` 為該目標的規則文件;`after` 帶 `collection` / `moduleKey` / `combineOp` / `rules`。
 
 正本:`apps/api/src/data-scope/data-scope.service.ts`
 
 ## 測試
 
-- api:`apps/api/src/data-scope/data-scope.test.ts`(端點、根組織守門、`RULE_INVALID`、`hasRule`);執行面 `apps/api/src/database/data-scope-provider.test.ts`、`apps/api/src/database/base.repository.test.ts`、`apps/api/src/demo-items-one/demo-items-one-scope.test.ts`
+- api:`apps/api/src/data-scope/data-scope.test.ts`(端點、根組織守門、`RULE_INVALID`、`hasRule`、同 collection 兩個模組各自的規則);執行面 `apps/api/src/database/data-scope-provider.test.ts`、`apps/api/src/database/base.repository.test.ts`、`apps/api/src/demo-items-one/demo-items-one-scope.test.ts`
 - admin:`apps/admin/src/pages/system/DataScopePage/DataScopePage.test.tsx`、`DataScopeRuleEditor.test.tsx`、`apps/admin/src/lib/data-scope-rule.test.ts`
 - 劇本 E2E(`docs/testing/permission-scenarios.md`):劇本 2 資料範圍規則 `scenario-02-data-scope-rule.spec.ts`、劇本 3 未宣告對照 `scenario-03-undeclared-target.spec.ts`、劇本 4 頂層合成 OR / AND `scenario-04-combine-op.spec.ts`、劇本 16 租戶視角 `scenario-16-tenant-perspective.spec.ts`(皆在 `apps/e2e/src/specs/`)
 

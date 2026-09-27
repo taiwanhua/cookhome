@@ -7,10 +7,16 @@ import { InjectModel, MongooseModule, getModelToken } from "@nestjs/mongoose";
 import type { HydratedDocument, Model } from "mongoose";
 
 import { BaseRepository, type RepositoryModel } from "./base.repository";
+import { BusinessRelationshipsRepository } from "./business-relationships.repository";
+import { FormSubmissionUsageCounter } from "./form-submission-usage";
 import { getDataScopeRuleProvider } from "./plugins/data-scope-provider";
 import { RelationService } from "./relation.service";
 import { ActionToken, ActionTokenSchema } from "./schemas/action-token.schema";
 import { AuditLog, AuditLogSchema } from "./schemas/audit-log.schema";
+import {
+  BusinessRelationship,
+  BusinessRelationshipSchema,
+} from "./schemas/business-relationship.schema";
 import {
   CoreRelationship,
   CoreRelationshipSchema,
@@ -31,6 +37,12 @@ import {
   FieldCategorySchema,
 } from "./schemas/field-category.schema";
 import { Field, FieldSchema } from "./schemas/field.schema";
+import {
+  FormSubmission,
+  FormSubmissionSchema,
+} from "./schemas/form-submission.schema";
+import { FormVersion, FormVersionSchema } from "./schemas/form-version.schema";
+import { Form, FormSchema } from "./schemas/form.schema";
 import { Module as ModuleEntity, ModuleSchema } from "./schemas/module.schema";
 import { Org, OrgSchema } from "./schemas/org.schema";
 import { Permission, PermissionSchema } from "./schemas/permission.schema";
@@ -40,6 +52,22 @@ import {
 } from "./schemas/refresh-token.schema";
 import { Role, RoleSchema } from "./schemas/role.schema";
 import { User, UserSchema } from "./schemas/user.schema";
+import {
+  WorkflowInstance,
+  WorkflowInstanceSchema,
+} from "./schemas/workflow-instance.schema";
+import {
+  WorkflowTask,
+  WorkflowTaskSchema,
+} from "./schemas/workflow-task.schema";
+import {
+  WorkflowVersion,
+  WorkflowVersionSchema,
+} from "./schemas/workflow-version.schema";
+import { Workflow, WorkflowSchema } from "./schemas/workflow.schema";
+import { WorkflowSubmissionStore } from "./workflow-submission-store";
+import { WorkflowTasksRepository } from "./workflow-tasks.repository";
+import { WorkflowsRepository } from "./workflows.repository";
 
 export type UserDocument = HydratedDocument<User>;
 export type OrgDocument = HydratedDocument<Org>;
@@ -56,6 +84,11 @@ export type DemoItemOneDocument = HydratedDocument<DemoItemOne>;
 export type DemoItemTwoDocument = HydratedDocument<DemoItemTwo>;
 export type FieldDocument = HydratedDocument<Field>;
 export type FieldCategoryDocument = HydratedDocument<FieldCategory>;
+export type FormDocument = HydratedDocument<Form>;
+export type FormVersionDocument = HydratedDocument<FormVersion>;
+export type FormSubmissionDocument = HydratedDocument<FormSubmission>;
+export type WorkflowVersionDocument = HydratedDocument<WorkflowVersion>;
+export type WorkflowInstanceDocument = HydratedDocument<WorkflowInstance>;
 
 /** users(關聯歸屬資料:所屬組織走 org_user,資料層不自動過濾,ADR-0005)。 */
 @Injectable()
@@ -255,6 +288,76 @@ export class FieldCategoriesRepository extends BaseRepository<
   }
 }
 
+/** forms(表單;可見與否由 ownerOrgId + org_form 決定,不掛 tenantScope)。 */
+@Injectable()
+export class FormsRepository extends BaseRepository<Form, FormDocument> {
+  constructor(
+    @InjectModel(Form.name) model: RepositoryModel<Form, FormDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** form_versions(表單版本;跟著表單走,不掛 tenantScope)。 */
+@Injectable()
+export class FormVersionsRepository extends BaseRepository<
+  FormVersion,
+  FormVersionDocument
+> {
+  constructor(
+    @InjectModel(FormVersion.name)
+    model: RepositoryModel<FormVersion, FormVersionDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** form_submissions(模組資料表:可見範圍 + 資料範圍規則依 moduleKey 自動套用)。 */
+@Injectable()
+export class FormSubmissionsRepository extends BaseRepository<
+  FormSubmission,
+  FormSubmissionDocument
+> {
+  constructor(
+    @InjectModel(FormSubmission.name)
+    model: RepositoryModel<FormSubmission, FormSubmissionDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** workflow_versions(流程版本;跟著流程走,不掛 tenantScope)。 */
+@Injectable()
+export class WorkflowVersionsRepository extends BaseRepository<
+  WorkflowVersion,
+  WorkflowVersionDocument
+> {
+  constructor(
+    @InjectModel(WorkflowVersion.name)
+    model: RepositoryModel<WorkflowVersion, WorkflowVersionDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/**
+ * workflow_instances(流程實例;模組資料表,`moduleKey` / `tenantId` 由 plugin 宣告與推導)。
+ * 引擎的背景推進與審核者讀取不靠可見範圍(審核者不一定看得到申請人的組織):
+ * 呼叫端以明確的租戶邊界條件查,讀取授權走 `canReadSubmissionRevision`。
+ */
+@Injectable()
+export class WorkflowInstancesRepository extends BaseRepository<
+  WorkflowInstance,
+  WorkflowInstanceDocument
+> {
+  constructor(
+    @InjectModel(WorkflowInstance.name)
+    model: RepositoryModel<WorkflowInstance, WorkflowInstanceDocument>,
+  ) {
+    super(model);
+  }
+}
+
 /**
  * 資料層的 Nest 接線:把 BaseRepository 子類與 RelationService 註冊為 provider,
  * 功能模組只注入這些出口,不直接拿 Model(ESLint `@repo/no-raw-model-query`,ADR-0005)。
@@ -272,6 +375,7 @@ export class FieldCategoriesRepository extends BaseRepository<
       { name: Permission.name, schema: PermissionSchema },
       { name: AuditLog.name, schema: AuditLogSchema },
       { name: CoreRelationship.name, schema: CoreRelationshipSchema },
+      { name: BusinessRelationship.name, schema: BusinessRelationshipSchema },
       { name: Customer.name, schema: CustomerSchema },
       { name: DataScopeRule.name, schema: DataScopeRuleSchema },
       { name: DataScopeTarget.name, schema: DataScopeTargetSchema },
@@ -279,6 +383,13 @@ export class FieldCategoriesRepository extends BaseRepository<
       { name: DemoItemTwo.name, schema: DemoItemTwoSchema },
       { name: Field.name, schema: FieldSchema },
       { name: FieldCategory.name, schema: FieldCategorySchema },
+      { name: Form.name, schema: FormSchema },
+      { name: FormVersion.name, schema: FormVersionSchema },
+      { name: FormSubmission.name, schema: FormSubmissionSchema },
+      { name: Workflow.name, schema: WorkflowSchema },
+      { name: WorkflowVersion.name, schema: WorkflowVersionSchema },
+      { name: WorkflowInstance.name, schema: WorkflowInstanceSchema },
+      { name: WorkflowTask.name, schema: WorkflowTaskSchema },
     ]),
   ],
   providers: [
@@ -297,11 +408,45 @@ export class FieldCategoriesRepository extends BaseRepository<
     DemoItemsTwoRepository,
     FieldsRepository,
     FieldCategoriesRepository,
+    FormsRepository,
+    FormVersionsRepository,
+    FormSubmissionsRepository,
+    WorkflowVersionsRepository,
+    WorkflowInstancesRepository,
+    {
+      provide: WorkflowsRepository,
+      inject: [getModelToken(Workflow.name)],
+      useFactory: (model: Model<Workflow>) => new WorkflowsRepository(model),
+    },
+    {
+      provide: WorkflowTasksRepository,
+      inject: [getModelToken(WorkflowTask.name)],
+      useFactory: (model: Model<WorkflowTask>) =>
+        new WorkflowTasksRepository(model),
+    },
+    {
+      provide: WorkflowSubmissionStore,
+      inject: [getModelToken(FormSubmission.name)],
+      useFactory: (model: Model<FormSubmission>) =>
+        new WorkflowSubmissionStore(model),
+    },
+    {
+      provide: FormSubmissionUsageCounter,
+      inject: [getModelToken(FormSubmission.name)],
+      useFactory: (model: Model<FormSubmission>) =>
+        new FormSubmissionUsageCounter(model),
+    },
     {
       provide: RelationService,
       inject: [getModelToken(CoreRelationship.name)],
       useFactory: (model: Model<CoreRelationship>) =>
         new RelationService(model),
+    },
+    {
+      provide: BusinessRelationshipsRepository,
+      inject: [getModelToken(BusinessRelationship.name)],
+      useFactory: (model: Model<BusinessRelationship>) =>
+        new BusinessRelationshipsRepository(model),
     },
   ],
   exports: [
@@ -320,7 +465,17 @@ export class FieldCategoriesRepository extends BaseRepository<
     DemoItemsTwoRepository,
     FieldsRepository,
     FieldCategoriesRepository,
+    FormsRepository,
+    FormVersionsRepository,
+    FormSubmissionsRepository,
+    FormSubmissionUsageCounter,
+    WorkflowSubmissionStore,
     RelationService,
+    BusinessRelationshipsRepository,
+    WorkflowsRepository,
+    WorkflowVersionsRepository,
+    WorkflowInstancesRepository,
+    WorkflowTasksRepository,
   ],
 })
 export class DatabaseModule implements OnApplicationBootstrap {

@@ -28,6 +28,12 @@ export interface SeedDocumentSet {
    * 其餘欄位為「每次都 seed 的欄位」,每次同步回宣告值。未指定時採 runner 預設(`["enabled"]`)。
    */
   initialSeedValueFields?: string[];
+  /**
+   * 額外的比對條件:runner 找既有文件時用 `{ [keyField]: key, ...match }`。
+   * 用途是讓 seed 只碰「自己管的那一類」文件(`permissions` 以此排除 `source: "dynamic"`);
+   * 同 key 但不符 `match` 的文件不會被更新,insert 會被唯一索引擋下 —— 寧可 seed 失敗也不覆寫。
+   */
+  match?: Record<string, unknown>;
   entries: SeedDocument[];
 }
 

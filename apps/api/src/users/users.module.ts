@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { DatabaseModule } from "../database/database.module";
 import { OrgsModule } from "../orgs/orgs.module";
+import { WorkflowEngineModule } from "../workflows/workflow-engine/workflow-engine.module";
 import { OrgQualificationService } from "./org-qualification.service";
 import { UsersResolver } from "./users.resolver";
 import { UsersService } from "./users.service";
@@ -15,7 +16,8 @@ import { UsersService } from "./users.service";
  * 稽核與權限解析分別由 @Global 的 AuditModule / PermissionModule 提供。
  */
 @Module({
-  imports: [DatabaseModule, AuthModule, OrgsModule],
+  // 停用 / 移出租戶時的審核者失效 hook(`AssigneeInvalidationService`,Spec 6b §6)
+  imports: [DatabaseModule, AuthModule, OrgsModule, WorkflowEngineModule],
   providers: [UsersService, UsersResolver, OrgQualificationService],
   exports: [UsersService],
 })

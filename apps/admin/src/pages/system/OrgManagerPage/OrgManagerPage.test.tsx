@@ -295,6 +295,7 @@ describe("組織管理頁(/system/org-manager)", () => {
     expect(userBox).not.toBeChecked();
 
     await actor.type(screen.getByLabelText("租戶名稱 *"), "租戶 C");
+    await actor.type(screen.getByLabelText("租戶短碼 *"), "tenant_c");
     await actor.type(
       screen.getByLabelText("首任租戶管理員 Email *"),
       "admin@tenant-c.tw",
@@ -310,6 +311,7 @@ describe("組織管理頁(/system/org-manager)", () => {
       "system",
       "system.org-manager",
     ]);
+    expect(input.slug).toBe("tenant_c");
     // 帳號沒動過 → 預設帶入 Email
     expect(input.adminAccount).toBe("admin@tenant-c.tw");
     expect(input.adminEmail).toBe("admin@tenant-c.tw");

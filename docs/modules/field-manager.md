@@ -23,7 +23,7 @@
 
 | 權限 key                              | 它是哪一頁的什麼                                                                                                                                                                                                           |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `system.field-manager.view`           | 看類別與選項(來源欄:全域 / <組織名稱> 自訂)                                                                                                                                                                                |
+| `system.field-manager.view`           | 看類別與選項(來源欄:全域 / <組織名稱> 自訂)。表單引擎的填寫者經 `formFieldOptions` 讀類別選項,不需要本權限(`docs/modules/forms.md`「欄位管理類別選項」)                                                                    |
 | `system.field-manager.create`         | 「新增選項」+ API(本組織自訂,`orgId` = 當前組織;不可與上層繼承鏈同 `value`,見「規則」;Figma「Overlay / 新增選項」)                                                                                                         |
 | `system.field-manager.edit`           | 編輯自訂選項的 label / order / description + API(種子選項只能改 `enabled`;`value` 建立後不可改)                                                                                                                            |
 | `system.field-manager.toggle-enabled` | 停用 / 啟用選項 + API(選項不可刪)。**自訂選項只有加它的那一層切得動**(上層 / 下層看得到但 `FORBIDDEN` + `reason: NOT_OWNER`);**種子選項限根組織操作者**(那一筆 `orgId = null`,切下去是全域生效),租戶操作者切 → `FORBIDDEN` |

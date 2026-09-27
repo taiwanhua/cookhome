@@ -5,6 +5,7 @@ import { FormControlLabel } from "@repo/ui/form-control-label";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { Switch } from "@repo/ui/switch";
+import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import type { EditOrgFormState } from "./useEditOrgForm";
@@ -31,7 +32,8 @@ export interface TenantTopFieldsProps {
  *
  * 出現條件是兩件事同時成立:**這個組織是租戶頂層**(api 只讓這一層有擁有者與可見範圍)
  * **且操作者持對應的權限**:
- * - 擁有者轉移是根組織專屬(`tenant-ops.transfer-owner`),租戶管理員拿不到
+ * - 擁有者轉移是根組織專屬(`tenant-ops.transfer-owner`),租戶管理員拿不到;
+ *   租戶短碼同樣只有根組織改得動(api 以「站在根組織」守門),跟著同一把權限出現
  * - 可見範圍開關 2026-09-19 搬到組織管理層(`system.org-manager.set-visibility`,#187):
  *   租戶管理員模板自動取得,設得了自己的租戶;能設哪些由 api 以管理範圍守門
  */
@@ -46,6 +48,20 @@ export const TenantTopFields = ({
 
   return (
     <Stack spacing={2.25}>
+      {canTransferOwner && (
+        <TextField
+          label={t("slug")}
+          value={form.slug}
+          required
+          fullWidth
+          disabled={isDisabled}
+          error={form.isSlugInvalid}
+          helperText={form.isSlugInvalid ? t("slugInvalid") : t("slugHint")}
+          onChange={(event) => {
+            form.setSlug(event.target.value);
+          }}
+        />
+      )}
       {canTransferOwner && (
         <SelectField
           label={t("owner")}

@@ -420,6 +420,8 @@ export async function provisionTenantInUi(
   page: Page,
   input: {
     name: string;
+    /** 租戶短碼(`^[a-z][a-z0-9_]{1,19}$`、全域唯一) */
+    slug: string;
     adminEmail: string;
     adminAccount: string;
     uncheckModules: readonly string[];
@@ -431,6 +433,7 @@ export async function provisionTenantInUi(
   const nameField = dialog.getByLabel("租戶名稱");
   await expect(nameField).toBeVisible();
   await nameField.fill(input.name);
+  await dialog.getByLabel("租戶短碼").fill(input.slug);
   await dialog.getByLabel("首任租戶管理員 Email").fill(input.adminEmail);
   await dialog.getByLabel("首任租戶管理員帳號").fill(input.adminAccount);
   for (const moduleName of input.uncheckModules) {

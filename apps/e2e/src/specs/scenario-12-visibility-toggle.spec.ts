@@ -8,9 +8,9 @@ import {
   switchOrg,
 } from "../fixtures/api";
 import {
-  DEMO_ITEMS_ONE_COLLECTION,
   ORG_MANAGER_ROUTE,
   ROLE_MANAGER_ROUTE,
+  SAMPLE_ONE,
   SAMPLE_ONE_LIST_ROUTE,
   USER_MANAGER_ROUTE,
 } from "../fixtures/demo-keys";
@@ -56,7 +56,7 @@ test("劇本 12:可見性開關 ON → OFF → 業務資料收縮、角色授予
     tenant;
 
   // 前置 0:資料範圍規則是全站共用的一份 —— 先確定示範模組1 沒有任何規則,否則兩層收縮混在一起
-  const rule = await dataScopeRule(tenant.rootToken, DEMO_ITEMS_ONE_COLLECTION);
+  const rule = await dataScopeRule(tenant.rootToken, SAMPLE_ONE);
   expect(rule?.rules ?? []).toEqual([]);
 
   // 前置 1:共同前置的四筆(+user 南港 2 筆、+tenant 南港 1 筆 / 租戶頂層 1 筆)

@@ -115,7 +115,7 @@
 orgTree: [OrgNode!]!              # 管理範圍的森林;根 = 管理範圍的各頂點(可多根),範圍外不回傳
 org(id: ID!): Org!                # 範圍外視為不存在(NOT_FOUND);logoUrl 為現簽的短效網址
 createChildOrg(input: { parentId, name, description }): OrgPayload!
-updateOrg(input: { id, name, description, logoPath }): OrgPayload!
+updateOrg(input: { id, name, description, logoPath, slug }): OrgPayload!
 setOrgEnabled(input: { id, enabled }): OrgPayload!
 moveOrg(input: { id, newParentId }): OrgPayload!
 setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
@@ -126,8 +126,21 @@ deleteOrg(input: { id }): DeletePayload!
 - **`OrgNode.outOfScope` 恆為 false**:管理範圍外的組織根本不回傳;欄位保留是為了與使用者列的 `roles[].outOfScope` 命名一致、且不必同步改前端。`enabled` 是組織自己的停用狀態,兩者無關。
 - **每棵樹的樹根對外一律回 `parentId: null`**(它的上層不在樹上,給了前端也查不到),多根時每個根都是。因此前端**不能**拿 `OrgNode.parentId` 判斷「樹根是不是平台根組織」—— 那件事由 `org(樹根).isSystem` 回答。
 - **`OrgNode` 也帶 `ownerUserId`**(僅租戶頂層有值,其餘 null;同 `Org`):使用者管理頁靠它標出受擁有者保護的列,不必為了一個欄位再逐筆查 `org(id)`。
-- `Org.visibility` 與 `Org.ownerUserId` 只有租戶頂層有值(`orgs/org-mapper.ts`)。
+- `Org.visibility`、`Org.ownerUserId` 與 `Org.slug` 只有租戶頂層有值(`orgs/org-mapper.ts`)。
 - `updateOrg` 的 `logoPath`:**缺席 = 不動、`null` = 清空商標**(GQL-06)。
+- `updateOrg` 的 `slug`(租戶短碼):**缺席與 `null` 同義 = 不動**(短碼不可清空);只有根組織的操作者能改(其餘 `FORBIDDEN`),不是租戶頂層、格式不符(`^[a-z][a-z0-9_]{1,19}$`,正本 `@repo/domain/form` 的 `ORG_SLUG_PATTERN`)或已被別的租戶用 → `VALIDATION_FAILED`(`extensions.fields = ["slug"]`)。
+
+**主管**(`apps/api/src/orgs/org-managers.service.ts`;`core_relationships` 的 `org_manager`):
+
+```graphql
+org(id: ID!).managers: [UserSummary!]!                          # 設定順序;含停用的主管
+orgManagerCandidates(orgId: ID!, keyword: String): [UserSummary!]!   # 該組織所屬租戶裡啟用中的使用者(最多 50)
+setOrgManagers(input: { orgId, userIds }): OrgPayload!           # 整組取代;稽核 org.set-managers
+```
+
+- **守門**:`managers` 跟著讀得到的 `org(id)` 走;`orgManagerCandidates` 與 `setOrgManagers` 沿用 `system.org-manager.edit`(主管是組織資料的一部分,不另開權限)。組織不在管理範圍 → `NOT_FOUND`。
+- **`setOrgManagers` 整組取代**:名單就是之後的全部主管,空陣列 = 清空;名單沒變不寫也不留稽核。主管必須是**本租戶**的使用者(所屬組織在該組織的租戶子樹內;停用的可以留在名單上),否則 `VALIDATION_FAILED`(`fields = ["userIds"]`);根組織不屬於任何租戶,不能設主管(`fields = ["orgId"]`)。稽核 `org.set-managers` 的 `before` / `after` 是 `{ managerIds }`。
+- **主管解析** `OrgManagersService.resolveManagers(applicantId, submissionOrgId, tenantId, level)`(審核流程用,沒有 GraphQL 端點):起點 = 提交的 `orgId`、往上到提交的 `tenantId` 為止;第一個「剔除申請人後仍有主管」的組織 = 第 1 層,`level = 2` 再往上一組;只算啟用中、仍在本租戶的使用者;找不到 → 空陣列。純規則在 `@repo/domain/workflow` 的 `resolveManagersFrom`。
 
 **成員頁籤**(`apps/api/src/orgs/org-members.*.ts`,Nest 模組 `OrgMembersModule`):
 
@@ -147,12 +160,13 @@ addOrgMembers(input: { orgId, userIds }): AddOrgMembersPayload!                 
 
 ```graphql
 tenantModuleOptions: [ModuleOption!]!                  # 開通彈窗的模組勾選清單
-provisionTenant(input: { name, adminAccount, adminEmail, logoPath, moduleKeys }): ProvisionTenantPayload!
+provisionTenant(input: { name, slug, adminAccount, adminEmail, logoPath, moduleKeys }): ProvisionTenantPayload!
 revokeTenantProvision(input: { orgId }): RevokeTenantProvisionPayload!   # 撤銷開通
 transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 ```
 
 - 選項外的 `moduleKeys`(含根組織專屬模組)或一個都沒勾 → `VALIDATION_FAILED`(`extensions.fields` 指出欄位)。
+- `slug`(租戶短碼,必填):格式不符或已被用 → `VALIDATION_FAILED`(`extensions.fields = ["slug"]`);落庫到租戶頂層的 `orgs.slug`,客製表單 key 的預設後綴。
 - **`revokeTenantProvision` 回 `RevokeTenantProvisionPayload`**(`{ success, revokedOrgId, revokedOwnerUserId, revokedRoleId }`),不沿用 `DeletePayload` —— 後者是 orgs 較早留下的通用名,屬先例不是標準(GQL-02)。
 - **`OwnerProtectionService` 住在 `orgs/`**:判斷的主體是組織(`orgs.ownerUserId`、根組織例外),由 `OrgsModule` 匯出給 `UsersModule` 用,兩個模組不各寫一套。
 

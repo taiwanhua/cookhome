@@ -15,8 +15,8 @@ import { useDataScopeData } from "./useDataScopeData";
  * 資料範圍(模組 key `system.data-scope`,正本 `docs/modules/data-scope.md`;
  * Figma「Screen / Admin 資料範圍」166:318 + 註記卡 167:1901)。**根組織專屬**。
  *
- * 左選資料目標 → 右顯示該目標的說明、預設提示與規則編輯器。編輯器的草稿住在
- * `RuleEditorPanel`,靠 `key={collection}` 換目標時重新掛載;頁面只保管兩件跨兩邊的事:
+ * 左選資料目標(一列 = 一個模組)→ 右顯示該目標的說明、預設提示與規則編輯器。編輯器的草稿住在
+ * `RuleEditorPanel`,靠 `key={target.id}` 換目標時重新掛載;頁面只保管兩件跨兩邊的事:
  * 有沒有未儲存的變更、以及被它擋下來的那次切換。
  */
 export const DataScopePage = () => {
@@ -25,26 +25,24 @@ export const DataScopePage = () => {
 
   const [isDirty, setIsDirty] = useState(false);
   /** 有未儲存變更時被擋下來的目標;確認放棄後才真的切過去 */
-  const [pendingCollection, setPendingCollection] = useState<string | null>(
-    null,
-  );
+  const [pendingTargetId, setPendingTargetId] = useState<string | null>(null);
 
-  const handleSelectTarget = (collection: string) => {
-    if (collection === data.selectedCollection) {
+  const handleSelectTarget = (targetId: string) => {
+    if (targetId === data.selectedTargetId) {
       return;
     }
     if (isDirty) {
-      setPendingCollection(collection);
+      setPendingTargetId(targetId);
       return;
     }
-    data.selectTarget(collection);
+    data.selectTarget(targetId);
   };
 
   const confirmDiscard = () => {
-    if (pendingCollection !== null) {
-      data.selectTarget(pendingCollection);
+    if (pendingTargetId !== null) {
+      data.selectTarget(pendingTargetId);
     }
-    setPendingCollection(null);
+    setPendingTargetId(null);
     setIsDirty(false);
   };
 
@@ -54,7 +52,7 @@ export const DataScopePage = () => {
       <TargetListPanel
         targets={data.targets}
         isLoading={data.isTargetsLoading}
-        selectedCollection={data.selectedCollection}
+        selectedTargetId={data.selectedTargetId}
         onSelectTarget={handleSelectTarget}
       />
 
@@ -74,7 +72,7 @@ export const DataScopePage = () => {
         </Card>
       ) : (
         <RuleEditorPanel
-          key={data.target.collection}
+          key={data.target.id}
           target={data.target}
           rule={data.rule}
           canEdit={data.canEdit}
@@ -82,17 +80,17 @@ export const DataScopePage = () => {
           userOptions={data.userOptions}
           orgNodes={data.orgNodes}
           orgOptions={data.orgOptions}
-          onSaved={(collection) => {
-            void data.invalidate(collection);
+          onSaved={(targetId) => {
+            void data.invalidate(targetId);
           }}
           onDirtyChange={setIsDirty}
         />
       )}
 
-      {pendingCollection !== null && (
+      {pendingTargetId !== null && (
         <DiscardChangesDialog
           onCancel={() => {
-            setPendingCollection(null);
+            setPendingTargetId(null);
           }}
           onConfirm={confirmDiscard}
         />

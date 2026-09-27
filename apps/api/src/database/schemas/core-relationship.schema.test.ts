@@ -30,7 +30,7 @@ describe("core_relationships schema(ADR-0001)", () => {
     await database.close();
   }, HOOK_TIMEOUT_MS);
 
-  it("封閉 enum 完整清單 = ADR-0001 的五種,且五種皆可寫入", async () => {
+  it("封閉 enum 完整清單 = ADR-0001 的六種,且六種皆可寫入", async () => {
     // 完整清單的正本:ADR-0001(命名順序 Org > User > Role > Module > Permission)
     expect([...CORE_RELATIONSHIP_TYPES]).toEqual([
       "org_user",
@@ -38,6 +38,7 @@ describe("core_relationships schema(ADR-0001)", () => {
       "user_role",
       "role_module",
       "role_permission",
+      "org_manager",
     ]);
 
     for (const type of CORE_RELATIONSHIP_TYPES) {
@@ -47,7 +48,28 @@ describe("core_relationships schema(ADR-0001)", () => {
         secondId: new Types.ObjectId(),
       });
     }
-    await expect(model.countDocuments()).resolves.toBe(5);
+    await expect(model.countDocuments()).resolves.toBe(6);
+  });
+
+  it("org_manager:同一組織同一位主管只有一筆(唯一 (type, firstId, secondId, thirdId)),一個組織可多位", async () => {
+    const orgId = new Types.ObjectId();
+    const managerA = new Types.ObjectId();
+    await model.create({
+      type: "org_manager",
+      firstId: orgId,
+      secondId: managerA,
+    });
+    await model.create({
+      type: "org_manager",
+      firstId: orgId,
+      secondId: new Types.ObjectId(),
+    });
+    await expect(
+      model.create({ type: "org_manager", firstId: orgId, secondId: managerA }),
+    ).rejects.toMatchObject({ code: 11_000 });
+    await expect(
+      model.countDocuments({ type: "org_manager", firstId: orgId }),
+    ).resolves.toBe(2);
   });
 
   it("清單外的 type 被拒絕(封閉 enum)", async () => {

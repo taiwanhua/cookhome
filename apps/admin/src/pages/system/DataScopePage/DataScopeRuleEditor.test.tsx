@@ -16,8 +16,26 @@ import {
 const startRule = async (actor: {
   click: (element: Element) => Promise<void>;
 }) => {
-  await waitForEditor("示範項目(demo_items_one)");
+  await waitForEditor("示範模組1(demo_items_one)");
   await actor.click(screen.getByRole("button", { name: "+ 新增規則" }));
+};
+
+/** 新規則 → 根群組一條「草稿」→ 第二層「已發布」→ 第三層「草稿」。 */
+const buildThreeLevels = async (
+  actor: ReturnType<typeof renderPage>["user"],
+) => {
+  await startRule(actor);
+  await chooseOption(actor, comboboxAt("值"), "草稿");
+  await actor.keyboard("{Escape}");
+
+  // 第二層
+  await actor.click(screen.getAllByRole("button", { name: "+ 群組" })[0]);
+  await chooseOption(actor, comboboxAt("值", 1), "已發布");
+  await actor.keyboard("{Escape}");
+  // 第三層:子群組的「+ 群組」在 DOM 上排在根群組的前面(根的動作列在所有子節點之後)
+  await actor.click(screen.getAllByRole("button", { name: "+ 群組" })[0]);
+  await chooseOption(actor, comboboxAt("值", 2), "草稿");
+  await actor.keyboard("{Escape}");
 };
 
 describe("條件樹編輯器(資料範圍)", () => {
@@ -143,7 +161,7 @@ describe("條件樹編輯器(資料範圍)", () => {
       expect(fake.inputs.saveDataScopeRule).toHaveLength(1);
     });
     expect(fake.inputs.saveDataScopeRule[0]).toEqual({
-      collection: "demo_items_one",
+      targetId: "target-sample-one",
       combineOp: "OR",
       rules: [
         {
@@ -163,21 +181,10 @@ describe("條件樹編輯器(資料範圍)", () => {
     });
   });
 
-  it("巢狀群組最多三層:第三層不再給「+ 群組」,送出的 filter 也是三層", async () => {
-    const { user: actor, fake } = renderPage();
-    await startRule(actor);
-
-    await chooseOption(actor, comboboxAt("值"), "草稿");
-    await actor.keyboard("{Escape}");
-
-    // 第二層
-    await actor.click(screen.getAllByRole("button", { name: "+ 群組" })[0]);
-    await chooseOption(actor, comboboxAt("值", 1), "已發布");
-    await actor.keyboard("{Escape}");
-    // 第三層:子群組的「+ 群組」在 DOM 上排在根群組的前面(根的動作列在所有子節點之後)
-    await actor.click(screen.getAllByRole("button", { name: "+ 群組" })[0]);
-    await chooseOption(actor, comboboxAt("值", 2), "草稿");
-    await actor.keyboard("{Escape}");
+  // 分成兩案:全套並行時單一案例在 CI 逾時 15 秒(TEST-08:一案只做一件事);建三層的步驟共用 `buildThreeLevels`
+  it("巢狀群組最多三層:第三層不再給「+ 群組」,「+ 條件」還在", async () => {
+    const { user: actor } = renderPage();
+    await buildThreeLevels(actor);
 
     expect(
       within(editor()).getAllByRole("combobox", { name: "群組組合" }),
@@ -185,6 +192,11 @@ describe("條件樹編輯器(資料範圍)", () => {
     // 第三層的群組不再給「+ 群組」(UI 上限三層),但「+ 條件」還在
     expect(screen.getAllByRole("button", { name: "+ 群組" })).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "+ 條件" })).toHaveLength(3);
+  });
+
+  it("巢狀群組最多三層:送出的 filter 也是三層", async () => {
+    const { user: actor, fake } = renderPage();
+    await buildThreeLevels(actor);
 
     await actor.click(screen.getByRole("button", { name: "儲存" }));
     await waitFor(() => {
@@ -276,7 +288,7 @@ describe("條件樹編輯器(資料範圍)", () => {
     ).toBeInTheDocument();
   });
 
-  it("儲存成功後左清單的「已設規則」亮起來(該 collection 的規則被失效重查)", async () => {
+  it("儲存成功後左清單的「已設規則」亮起來(該目標的規則被失效重查)", async () => {
     const { user: actor } = renderPage();
     await startRule(actor);
 

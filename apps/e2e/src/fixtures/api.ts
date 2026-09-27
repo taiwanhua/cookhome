@@ -99,11 +99,16 @@ mutation UpdateDemoItemOne($input: UpdateDemoItemOneInput!) {
   updateDemoItemOne(input: $input) { item { id status } }
 }`;
 
+const DATA_SCOPE_TARGETS = `
+query DataScopeTargets { dataScopeTargets { targets { id moduleKey } } }`;
+
 const SAVE_DATA_SCOPE_RULE = `
 mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
   saveDataScopeRule(input: $input) {
     rule {
+      targetId
       collection
+      moduleKey
       combineOp
       rules { audience { type ids } filter }
     }
@@ -197,6 +202,8 @@ export async function provisionTenant(
   accessToken: string,
   input: {
     name: string;
+    /** 租戶短碼(`^[a-z][a-z0-9_]{1,19}$`、全域唯一) */
+    slug: string;
     adminAccount: string;
     adminEmail: string;
     moduleKeys: readonly string[];
@@ -381,36 +388,65 @@ export interface DataScopeRuleEntry {
 }
 
 export interface DataScopeRule {
+  targetId: string;
   collection: string;
+  moduleKey: string;
   combineOp: DataScopeCombineOp;
   rules: DataScopeRuleEntry[];
 }
 
 /**
- * **整份覆蓋**這個資料目標的規則(送出的就是之後生效的全部)。
+ * 某模組的資料目標 id(一個模組一個目標,`(collection, moduleKey)` 唯一;規則以 id 指定目標)。
+ * 目標清單是根組織專屬,所以要用 root 的 token。
+ */
+async function dataScopeTargetId(
+  accessToken: string,
+  moduleKey: string,
+): Promise<string> {
+  const data = await graphqlOk<{
+    dataScopeTargets: { targets: { id: string; moduleKey: string }[] };
+  }>(DATA_SCOPE_TARGETS, {}, accessToken);
+  const target = data.dataScopeTargets.targets.find(
+    (item) => item.moduleKey === moduleKey,
+  );
+  if (!target) {
+    throw new Error(`seed 沒有登記 ${moduleKey} 的資料範圍目標`);
+  }
+  return target.id;
+}
+
+/**
+ * **整份覆蓋**某模組這個資料目標的規則(送出的就是之後生效的全部)。
  * 根組織專屬:站在租戶裡即使持有權限也會拿到 `FORBIDDEN`,所以一律用 root 的 token。
  */
 export async function saveDataScopeRule(
   accessToken: string,
   input: {
-    collection: string;
+    moduleKey: string;
     combineOp: DataScopeCombineOp;
     rules: readonly DataScopeRuleEntry[];
   },
 ): Promise<DataScopeRule> {
+  const targetId = await dataScopeTargetId(accessToken, input.moduleKey);
   const data = await graphqlOk<{
     saveDataScopeRule: { rule: DataScopeRule };
-  }>(SAVE_DATA_SCOPE_RULE, { input }, accessToken);
+  }>(
+    SAVE_DATA_SCOPE_RULE,
+    {
+      input: { targetId, combineOp: input.combineOp, rules: input.rules },
+    },
+    accessToken,
+  );
   return data.saveDataScopeRule.rule;
 }
 
 /** 刪規則 = 整份覆蓋成空陣列(執行面只剩租戶保底)。 */
 export async function clearDataScopeRule(
   accessToken: string,
-  collection: string,
+  moduleKey: string,
 ): Promise<void> {
   await saveDataScopeRule(accessToken, {
-    collection,
+    moduleKey,
     combineOp: "OR",
     rules: [],
   });
@@ -621,10 +657,12 @@ export async function setUserOrgsWithPolicy(
 /* ---- 劇本 12(#399):可見性開關 ---- */
 
 const DATA_SCOPE_RULE = `
-query DataScopeRule($collection: String!) {
-  dataScopeRule(collection: $collection) {
+query DataScopeRule($targetId: ID!) {
+  dataScopeRule(targetId: $targetId) {
     rule {
+      targetId
       collection
+      moduleKey
       combineOp
       rules { audience { type ids } filter }
     }
@@ -643,11 +681,12 @@ mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
  */
 export async function dataScopeRule(
   accessToken: string,
-  collection: string,
+  moduleKey: string,
 ): Promise<DataScopeRule | null> {
+  const targetId = await dataScopeTargetId(accessToken, moduleKey);
   const data = await graphqlOk<{
     dataScopeRule: { rule: DataScopeRule | null };
-  }>(DATA_SCOPE_RULE, { collection }, accessToken);
+  }>(DATA_SCOPE_RULE, { targetId }, accessToken);
   return data.dataScopeRule.rule;
 }
 
@@ -971,6 +1010,170 @@ export function demoItemOneAttachmentUrlRaw(
   return graphql<{ demoItemOneAttachmentUrl: { url: string } }>(
     DEMO_ITEM_ONE_ATTACHMENT_URL,
     { id },
+    accessToken,
+  );
+}
+
+/* ---- 劇本 18 / 19:表單引擎 ---- */
+/**
+ * 表單引擎的前置操作(劇本 18 / 19;正本 `packages/graphql/src/documents/forms.graphql`、
+ * `form-submissions.graphql`,這裡只抄 e2e 用到的欄位)。前置一律走 api(TEST-11):
+ * 劇本 19 的共用表單由 root 以 api 建好、發布、分派,畫面只跑客製與退役那一段。
+ */
+
+const CREATE_FORM = `
+mutation CreateForm($input: CreateFormInput!) {
+  createForm(input: $input) { form { key } }
+}`;
+
+const CREATE_FORM_VERSION_DRAFT = `
+mutation CreateFormVersionDraft($input: CreateFormVersionDraftInput!) {
+  createFormVersionDraft(input: $input) { formVersion { draftRevision } }
+}`;
+
+const SAVE_FORM_VERSION_DRAFT = `
+mutation SaveFormVersionDraft($input: SaveFormVersionDraftInput!) {
+  saveFormVersionDraft(input: $input) { formVersion { draftRevision } }
+}`;
+
+const PUBLISH_FORM_VERSION = `
+mutation PublishFormVersion($input: PublishFormVersionInput!) {
+  publishFormVersion(input: $input) { formVersion { version } }
+}`;
+
+const ASSIGN_FORM_TO_TENANTS = `
+mutation AssignFormToTenants($input: AssignFormToTenantsInput!) {
+  assignFormToTenants(input: $input) { form { key } }
+}`;
+
+const CREATE_FORM_DRAFT = `
+mutation CreateFormDraft($input: CreateFormDraftInput!) {
+  createFormDraft(input: $input) { submission { id status } }
+}`;
+
+const MODULE_FORMS = `
+query ModuleForms($moduleKey: ID!) {
+  moduleForms(moduleKey: $moduleKey) { key name currentVersion }
+}`;
+
+/** 表單模組範例(seed `apps/db-migrator/seeds/modules/shopping-list.ts`)。 */
+export const SHOPPING_LIST = "shopping-list";
+export const SHOPPING_LIST_ROUTE = "/shopping-list";
+export const SHOPPING_CREATE_ROUTE = `${SHOPPING_LIST_ROUTE}/create-page`;
+export const SHOPPING_VIEW_ROUTE = `${SHOPPING_LIST_ROUTE}/view-page`;
+export const FORMS_ROUTE = "/system/forms";
+
+/** 表單 key:小寫開頭、只允許小寫 / 數字 / 底線(場景字尾是隨機 hex,前面補固定字母)。 */
+export function formKeyOf(prefix: string, slug: string): string {
+  return `${prefix}_${slug}`.toLowerCase().replaceAll(/[^a-z0-9_]/g, "_");
+}
+
+/** 一個單行文字欄位、一個分區、摘要標題指向它 —— 檢查器沒有錯的最小定義。 */
+export function oneTextFieldDefinition(fieldKey: string, label: string) {
+  return {
+    fields: [
+      {
+        key: fieldKey,
+        label,
+        type: "text",
+        widget: { kind: "textField" },
+        valueSource: { kind: "input" },
+        options: null,
+        rules: { required: true },
+        permission: { show: false, edit: false },
+        help: null,
+      },
+    ],
+    layout: {
+      sections: [
+        {
+          key: "basic",
+          title: "內容",
+          rows: [{ cols: [{ fieldKey, span: 12 }] }],
+        },
+      ],
+    },
+    summaryMap: { title: fieldKey },
+    prefills: [],
+  };
+}
+
+/** root 建共用表單 → 開草稿 → 存定義 → 發布 → 分派給租戶(劇本 19 的前置)。 */
+export async function publishSharedForm(
+  rootToken: string,
+  input: {
+    key: string;
+    name: string;
+    definition: ReturnType<typeof oneTextFieldDefinition>;
+    tenantOrgIds: readonly string[];
+  },
+): Promise<void> {
+  await graphqlOk(
+    CREATE_FORM,
+    { input: { key: input.key, moduleKey: SHOPPING_LIST, name: input.name } },
+    rootToken,
+  );
+  const draft = await graphqlOk<{
+    createFormVersionDraft: { formVersion: { draftRevision: number } };
+  }>(CREATE_FORM_VERSION_DRAFT, { input: { formKey: input.key } }, rootToken);
+  const saved = await graphqlOk<{
+    saveFormVersionDraft: { formVersion: { draftRevision: number } };
+  }>(
+    SAVE_FORM_VERSION_DRAFT,
+    {
+      input: {
+        formKey: input.key,
+        expectedDraftRevision:
+          draft.createFormVersionDraft.formVersion.draftRevision,
+        ...input.definition,
+      },
+    },
+    rootToken,
+  );
+  await graphqlOk(
+    PUBLISH_FORM_VERSION,
+    {
+      input: {
+        formKey: input.key,
+        expectedDraftRevision:
+          saved.saveFormVersionDraft.formVersion.draftRevision,
+        changelog: "e2e 前置",
+      },
+    },
+    rootToken,
+  );
+  await graphqlOk(
+    ASSIGN_FORM_TO_TENANTS,
+    { input: { formKey: input.key, tenantOrgIds: [...input.tenantOrgIds] } },
+    rootToken,
+  );
+}
+
+/** 此刻可以在購物清單新增的表單 key。 */
+export async function moduleFormKeys(accessToken: string): Promise<string[]> {
+  const data = await graphqlOk<{ moduleForms: { key: string }[] }>(
+    MODULE_FORMS,
+    { moduleKey: SHOPPING_LIST },
+    accessToken,
+  );
+  return data.moduleForms.map((form) => form.key);
+}
+
+/** 原樣回傳的 `createFormDraft`(劇本 19:退役後 → `FORBIDDEN` + `FORM_NOT_AVAILABLE`)。 */
+export function createFormDraftRaw(
+  accessToken: string,
+  formKey: string,
+): Promise<
+  GraphqlResponse<{ createFormDraft: { submission: { id: string } } }>
+> {
+  return graphql<{ createFormDraft: { submission: { id: string } } }>(
+    CREATE_FORM_DRAFT,
+    {
+      input: {
+        formKey,
+        clientRequestId: `e2e-${formKey}-${String(Date.now())}`,
+      },
+    },
     accessToken,
   );
 }

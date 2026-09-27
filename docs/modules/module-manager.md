@@ -21,11 +21,12 @@
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。綁定原則:綁「按鈕 / 欄位所在的那一頁」(ADR-0004)。
 
-| 權限 key                               | 它是哪一頁的什麼                                                                                                                                           |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `system.module-manager.view`           | 看模組樹與各模組的權限清單(唯讀)                                                                                                                           |
-| `system.module-manager.toggle-enabled` | 模組 / 權限的 `enabled` 切換 + API(停用父模組連動整棵子樹;停用權限 = 全域 kill switch,連超級管理員也不給;停用確認彈窗 Figma「Overlay / 停用模組確認」)     |
-| `system.module-manager.set-icon`       | 模組的側欄圖示選擇器 + API。**獨立於 `.toggle-enabled`**:換圖示只改側欄長相、隨時換得回來,停用卻會讓所有租戶少掉整塊功能,兩件事的後果差太遠,不共用一把鑰匙 |
+| 權限 key                                          | 它是哪一頁的什麼                                                                                                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system.module-manager.view`                      | 看模組樹與各模組的權限清單(唯讀)                                                                                                                                          |
+| `system.module-manager.toggle-enabled`            | 模組 / 權限的 `enabled` 切換 + API(停用父模組連動整棵子樹;停用權限 = 全域 kill switch,連超級管理員也不給;停用確認彈窗 Figma「Overlay / 停用模組確認」)                    |
+| `system.module-manager.set-icon`                  | 模組的側欄圖示選擇器 + API。**獨立於 `.toggle-enabled`**:換圖示只改側欄長相、隨時換得回來,停用卻會讓所有租戶少掉整塊功能,兩件事的後果差太遠,不共用一把鑰匙                |
+| `system.module-manager.delete-retired-permission` | 「退役權限清理」的刪除 + API:刪表單發布產生、已退役的欄位級權限(三層檢查:草稿仍用到擋下、只剩已完成要確認、沒人用直接刪;規則正本 `docs/modules/forms.md`「退役權限清理」) |
 
 模組本身 `isRootOnly`(seed 層),租戶管理員模板不含。
 
@@ -94,6 +95,7 @@ setPermissionEnabled(input: { id, enabled }): PermissionAdminPayload!
 | `ModuleAdminNode.route`       | 路由**只有自己那一段**(不是完整路徑;完整路徑由各層的 route 串起來)。`null` = 這個節點不對應任何畫面 ⇒ **`sidebarType = HIDDEN` 且 `route` 為 `null` 就是「權限容器」**。前端據此把它標成「權限容器」而不是「隱藏頁」           |
 | `ModuleAdminNode.children`    | 下層模組(側欄順序:`order` → `key`);葉節點為空陣列                                                                                                                                                                              |
 | `ModuleAdminNode.icon`        | 側欄圖示 key(白名單 `@repo/domain/module-icon`);`null` = 沒指定,側欄用預設圖示。`me.modules[].icon` 是同一個值、同一個語意                                                                                                     |
+| `ModuleAdminNode.engine`      | 頁面組裝方式:`FIXED` = 固定欄位模組、`FORM` = 表單模組(seed 宣告 `engine: "form"`,每次 seed 同步,頁面不能改)。`me.modules[].engine` 是同一個值                                                                                 |
 | `ModuleAdminNode.permissions` | 這個模組**這一層**宣告的全部權限(含已停用者);`<key>.*` 恆排最前,其餘依 key                                                                                                                                                     |
 | `PermissionAdmin.enabled`     | 全域 kill switch:false 時任何人都不再持有它,連超級管理員也不給、`X.*` 也展不出它(ADR-0011 步驟 4)                                                                                                                              |
 | `setModuleEnabled` 的回傳     | 被切換的模組**及其整棵子樹**的最新狀態(前端直接換掉樹上的這一枝)                                                                                                                                                               |

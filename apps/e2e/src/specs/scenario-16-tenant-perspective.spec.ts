@@ -56,6 +56,8 @@ function tenantIdentity(prefix: string) {
   const account = `${prefix}-${slug}`;
   return {
     name: `租戶${prefix.toUpperCase()}-${slug}`,
+    // 租戶短碼要小寫英文開頭;隨機字尾是 hex,前面補 prefix
+    tenantSlug: `${prefix}_${slug}`,
     account,
     email: `${account}@cookhome.test`,
   };
@@ -72,6 +74,7 @@ test("劇本 16:root 開通不勾示範群組的租戶 → 租戶管理員的側
   await rootPage.goto(ORG_MANAGER_ROUTE);
   await provisionTenantInUi(rootPage, {
     name: identity.name,
+    slug: identity.tenantSlug,
     adminEmail: identity.email,
     adminAccount: identity.account,
     uncheckModules: [DEMO_GROUP_NAME],
@@ -151,6 +154,7 @@ test("劇本 16:撤銷開通 —— 空的租戶照打名稱即抹掉三樣、�
   const empty = tenantIdentity("d");
   const emptyInput = {
     name: empty.name,
+    slug: empty.tenantSlug,
     adminAccount: empty.account,
     adminEmail: empty.email,
     moduleKeys,
@@ -160,6 +164,7 @@ test("劇本 16:撤銷開通 —— 空的租戶照打名稱即抹掉三樣、�
   const busy = tenantIdentity("e");
   const busyTenant = await provisionTenant(rootToken, {
     name: busy.name,
+    slug: busy.tenantSlug,
     adminAccount: busy.account,
     adminEmail: busy.email,
     moduleKeys,

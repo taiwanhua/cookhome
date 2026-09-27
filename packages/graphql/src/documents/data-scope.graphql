@@ -3,11 +3,16 @@
 # fields 已含底座自動掛入的基礎欄位(isBase = true:組織 / 建立者 / 更新者 / 建立、更新、刪除時間)。
 # 型別決定 UI:org / user → in、not-in(可選動態值);date → between / before / after;enum → in、not-in。
 # hasRule = 這個目標已設規則(有規則文件且 rules 非空);語意正本見 docs/modules/data-scope.md 的 api 介面節。
+# 一列 = 一個模組:目標以 (collection, moduleKey) 為識別鍵,同一張表(form_submissions)可以有多個模組各一列;
+# 讀寫規則都以 id 指定目標。
 
 query DataScopeTargets {
   dataScopeTargets {
     targets {
+      id
       collection
+      moduleKey
+      moduleName
       name
       description
       hasRule
@@ -26,10 +31,12 @@ query DataScopeTargets {
 }
 
 # rule = null 代表這個目標尚無規則(查詢只受租戶保底);rules[].filter 是條件樹 JSON,形狀見 api 正本
-query DataScopeRule($collection: String!) {
-  dataScopeRule(collection: $collection) {
+query DataScopeRule($targetId: ID!) {
+  dataScopeRule(targetId: $targetId) {
     rule {
+      targetId
       collection
+      moduleKey
       combineOp
       updatedAt
       rules {
@@ -48,7 +55,9 @@ query DataScopeRule($collection: String!) {
 mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
   saveDataScopeRule(input: $input) {
     rule {
+      targetId
       collection
+      moduleKey
       combineOp
       updatedAt
       rules {

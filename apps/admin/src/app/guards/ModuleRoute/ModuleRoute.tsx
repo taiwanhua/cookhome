@@ -1,5 +1,8 @@
-import { type ComponentType, useMemo } from "react";
+import { type ComponentType, Suspense, useMemo } from "react";
 import { Navigate, useLocation } from "react-router";
+import { useTranslations } from "use-intl";
+
+import { CircularProgress } from "@repo/ui/circular-progress";
 
 import { useMe } from "@/hooks/useMe";
 import {
@@ -32,6 +35,7 @@ export interface ModuleRouteProps {
  * - 其餘 → 無權限頁(明確提示是權限問題,不是壞掉)
  */
 export const ModuleRoute = ({ pages }: ModuleRouteProps) => {
+  const t = useTranslations("admin.app");
   const me = useMe();
   const { pathname } = useLocation();
   const modules = me.data?.me.modules;
@@ -48,7 +52,12 @@ export const ModuleRoute = ({ pages }: ModuleRouteProps) => {
   const matched = matchModuleRoute(routes, path);
   if (matched !== undefined) {
     const Page = pages[matched.module.key] ?? ModulePage;
-    return <Page module={matched.module} routeParam={matched.param} />;
+    // 懶載入的頁面(表單管理、表單模組預設組裝)在 chunk 到之前先顯示載入中
+    return (
+      <Suspense fallback={<CircularProgress aria-label={t("loading")} />}>
+        <Page module={matched.module} routeParam={matched.param} />
+      </Suspense>
+    );
   }
 
   const scope = path === "/" ? tree : findNavNode(tree, path)?.children;

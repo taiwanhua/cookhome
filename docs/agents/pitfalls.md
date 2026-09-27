@@ -56,6 +56,7 @@
 - **改了根 `package.json` 的 script(`format` 這類)但 `turbo run …` 仍 `cache hit`** → turbo 的 global hash 不含根 scripts;直接跑那個 script 本人(`pnpm run format:check`)。
 - **`pnpm exec jest` 直接炸** → admin / ui 的 jest 要 `--experimental-vm-modules`,一律走 `pnpm run test`(package 目錄內 `pnpm run test -- <路徑片段>`)。
 - **下 `--testPathPattern` 旗標沒作用** → jest 30 是複數 `--testPathPatterns`,`apps/api` 也一樣。
+- **`apps/api` 下 `pnpm run test -- --testPathPatterns x` 跑了整包、十幾分鐘沒輸出像卡住** → `--` 被原樣傳給 jest,過濾失效;api 只跑一支改用 `pnpm exec jest --testPathPatterns x`(api 的 jest 不需要 `--experimental-vm-modules`)。
 - **PostToolUse 的 ESLint 在「先加 import、下一次編輯才用到」的中間態報紅** → 把 import 與用到它的程式合成一次 Edit,或接受那一次紅、下一次編輯完自然轉綠;不要關 hook 或改 lint 設定。
 
 正本:`turbo.json`、`apps/admin/package.json`、`docs/standards/testing/testing.md`(TEST-08)

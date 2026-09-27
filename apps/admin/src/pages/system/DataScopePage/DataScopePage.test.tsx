@@ -12,24 +12,28 @@ import {
 } from "./data-scope-test-support";
 
 describe("資料範圍頁(/system/data-scope)", () => {
-  it("左清單列出種子宣告的資料目標,已經設過規則的掛「已設規則」;預設選第一個", async () => {
+  it("左清單一列 = 一個模組(主文字模組名、副文字 collection),已經設過規則的掛「已設規則」;預設選第一個", async () => {
     renderPage({ world: { rules: [savedRule] } });
 
-    await waitForEditor("示範項目(demo_items_one)");
+    await waitForEditor("示範模組1(demo_items_one)");
 
     const items = within(targetList()).getAllByRole("button");
-    expect(items[0]).toHaveTextContent("示範項目");
+    expect(items).toHaveLength(3);
+    expect(items[0]).toHaveTextContent("示範模組1");
     expect(items[0]).toHaveTextContent("demo_items_one");
     expect(items[0]).toHaveTextContent("已設規則");
-    // 第二個目標還沒有規則,不掛標籤
-    expect(items[1]).toHaveTextContent("示範項目2");
+    // 兩個表單模組共用 form_submissions,各自一列;還沒有規則,不掛標籤
+    expect(items[1]).toHaveTextContent("購物清單");
+    expect(items[1]).toHaveTextContent("form_submissions");
     expect(items[1]).not.toHaveTextContent("已設規則");
+    expect(items[2]).toHaveTextContent("請假");
+    expect(items[2]).toHaveTextContent("form_submissions");
   });
 
   it("右邊一定看得到「沒有規則 = 可見範圍內」的預設提示與保底說明", async () => {
     renderPage();
 
-    await waitForEditor("示範項目(demo_items_one)");
+    await waitForEditor("示範模組1(demo_items_one)");
     expect(
       within(editor()).getByText(/未命中任何規則的人 → 預設:可見範圍內/),
     ).toBeInTheDocument();
@@ -43,7 +47,7 @@ describe("資料範圍頁(/system/data-scope)", () => {
   it("已存在的規則讀回編輯器:頂層合成、套用對象與巢狀群組都還原", async () => {
     renderPage({ world: { rules: [savedRule] } });
 
-    await waitForEditor("示範項目(demo_items_one)");
+    await waitForEditor("示範模組1(demo_items_one)");
 
     expect(
       within(editor()).getByRole("combobox", { name: "規則合成" }),
@@ -71,12 +75,12 @@ describe("資料範圍頁(/system/data-scope)", () => {
   it("切換資料目標會換成那個目標的規則", async () => {
     const { user: actor } = renderPage({ world: { rules: [savedRule] } });
 
-    await waitForEditor("示範項目(demo_items_one)");
+    await waitForEditor("示範模組1(demo_items_one)");
     await actor.click(
-      within(targetList()).getByRole("button", { name: /示範項目2/ }),
+      within(targetList()).getByRole("button", { name: /購物清單/ }),
     );
 
-    await waitForEditor("示範項目2(demo_items_two)");
+    await waitForEditor("購物清單(form_submissions)");
     expect(
       within(editor()).queryByRole("combobox", { name: "套用對象" }),
     ).not.toBeInTheDocument();
@@ -85,10 +89,10 @@ describe("資料範圍頁(/system/data-scope)", () => {
   it("有未儲存的變更時切目標要先確認;「繼續編輯」留在原地,「放棄變更」才切過去", async () => {
     const { user: actor } = renderPage();
 
-    await waitForEditor("示範項目(demo_items_one)");
+    await waitForEditor("示範模組1(demo_items_one)");
     await actor.click(screen.getByRole("button", { name: "+ 新增規則" }));
     await actor.click(
-      within(targetList()).getByRole("button", { name: /示範項目2/ }),
+      within(targetList()).getByRole("button", { name: /購物清單/ }),
     );
 
     expect(await screen.findByText("放棄未儲存的變更?")).toBeInTheDocument();
@@ -97,15 +101,15 @@ describe("資料範圍頁(/system/data-scope)", () => {
       expect(screen.queryByText("放棄未儲存的變更?")).not.toBeInTheDocument();
     });
     expect(
-      within(editor()).getByText("示範項目(demo_items_one)"),
+      within(editor()).getByText("示範模組1(demo_items_one)"),
     ).toBeInTheDocument();
 
     await actor.click(
-      within(targetList()).getByRole("button", { name: /示範項目2/ }),
+      within(targetList()).getByRole("button", { name: /購物清單/ }),
     );
     await actor.click(await screen.findByRole("button", { name: "放棄變更" }));
 
-    await waitForEditor("示範項目2(demo_items_two)");
+    await waitForEditor("購物清單(form_submissions)");
   });
 
   it("只有檢視權限時,編輯器唯讀:新增 / 刪除 / 儲存都不出現", async () => {
@@ -114,7 +118,7 @@ describe("資料範圍頁(/system/data-scope)", () => {
       world: { rules: [savedRule] },
     });
 
-    await waitForEditor("示範項目(demo_items_one)");
+    await waitForEditor("示範模組1(demo_items_one)");
     for (const label of [
       "+ 新增規則",
       "刪除規則",

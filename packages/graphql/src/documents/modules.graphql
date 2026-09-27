@@ -16,6 +16,8 @@ fragment ModuleAdminNodeFields on ModuleAdminNode {
   # 側欄圖示 key(白名單 @repo/domain/module-icon);null = 用預設圖示
   icon
   enabled
+  # FORM = 表單模組(頁面由表單引擎組裝,右側多一塊「列表欄位配置」)
+  engine
   permissions {
     id
     key

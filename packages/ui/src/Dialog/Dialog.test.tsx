@@ -6,6 +6,17 @@ import { Button } from "../Button/Button";
 import { TextField } from "../TextField/TextField";
 import { Dialog } from "./Dialog";
 
+/** 彈窗的內容區(DialogContent)。 */
+const contentOf = (): Element => {
+  const content = screen
+    .getByRole("dialog")
+    .querySelector(".MuiDialogContent-root");
+  if (content === null) {
+    throw new Error("找不到 DialogContent");
+  }
+  return content;
+};
+
 describe("Dialog", () => {
   it("open 時把標題、內文與動作渲染進 portal", () => {
     render(
@@ -68,5 +79,21 @@ describe("Dialog", () => {
 
     expect(globalThis.getComputedStyle(content).paddingTop).not.toBe("0px");
     expect(screen.getByLabelText("租戶名稱")).toBeInTheDocument();
+  });
+
+  it("沒有動作列時,內容區自己留下內距(按鈕放在內文裡也不貼底);有動作列時由動作列留", () => {
+    const { rerender } = render(
+      <Dialog open title="列表欄位配置">
+        <Button>儲存</Button>
+      </Dialog>,
+    );
+    expect(globalThis.getComputedStyle(contentOf()).paddingBottom).toBe("20px");
+
+    rerender(
+      <Dialog open title="列表欄位配置" actions={<Button>儲存</Button>}>
+        內文
+      </Dialog>,
+    );
+    expect(globalThis.getComputedStyle(contentOf()).paddingBottom).toBe("0px");
   });
 });

@@ -10,6 +10,8 @@ import {
 } from "@/test/msw/auth-handlers";
 import {
   orgDetails,
+  orgManagerCandidates,
+  orgManagersByOrg,
   orgMemberCandidates,
   orgMembersByOrg,
   orgUsers,
@@ -122,6 +124,8 @@ export const renderPage = ({
     users: orgUsers,
     members: orgMembersByOrg,
     memberCandidates: orgMemberCandidates,
+    managers: orgManagersByOrg,
+    managerCandidates: orgManagerCandidates,
     moduleOptions: tenantModuleOptions,
     ...world,
   });

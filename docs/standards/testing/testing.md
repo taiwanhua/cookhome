@@ -28,7 +28,7 @@
 
 ## TEST-05 劇本 E2E 只手動跑,不進每個 PR 的 CI
 
-Playwright 的用途收斂成一件事:把 `docs/testing/permission-scenarios.md` 的 **17 條權限劇本**從人工驗收
+Playwright 的用途收斂成一件事:把 `docs/testing/permission-scenarios.md` 的 **24 條權限劇本**從人工驗收
 改成機器裁決。E2E 慢且脆、數量是成本,所以解法是「**寫了但不自動跑**」:
 
 - **跑的時機只有手動觸發**:本機 `pnpm e2e`、CI 是 `.github/workflows/e2e.yml`(只有 `workflow_dispatch`)。
@@ -103,7 +103,7 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
 
 - **Vite 專屬語法進不了 jest**:`import.meta.glob`(`?raw` 載入 md、圖片清單…)是 Vite 的編譯期轉換,jest 直接載入會 `(intermediate value).glob is not a function`。做法:**把 glob 包成一支只有 glob 的模組**(`lib/help-registry.ts`),測試用 `moduleNameMapper` 整支換成 `src/test/` 的假實作(介面相同,另給 `setXxx` / `resetXxx`,`setup.ts` 每個測試後歸零);判斷邏輯不要放進被換掉的那一層,抽成純函式另外測。**不要**逐檔 `jest.unstable_mockModule` — 殼的所有測試都會經過它,等於每個測試檔都要動
 - **jest 的 `moduleNameMapper` 也是先列的先贏**:`^@/lib/help-registry$` 這種精確鍵要排在通則 `^@/(.*)$` **前面**,否則被通則吃掉
-- **`React.lazy` + 動態 `import()` 不必 mock**:`browser-esm` preset 是 ESM 模式(`--experimental-vm-modules`),`import("@repo/ui/markdown")` 這種子路徑匯出在 jest 裡解得開,照常渲染。要改的只有斷言時機 —— 懶載入的內容多一個 `Suspense` tick,**該邊界底下的第一筆斷言一律用 `findBy*` / `waitFor`**(`await within(dialog).findByRole("heading", …)`),沿用 `getBy*` 會抓到 fallback 而紅;同一邊界底下後續的斷言不必再等。**不要斷言 fallback 本身**(chunk 常在同一個 tick 內就解析完,會偶發)
+- **`React.lazy` + 動態 `import()` 不必 mock**:`browser-esm` preset 是 ESM 模式(`--experimental-vm-modules`),`import("@repo/ui/markdown")` 這種子路徑匯出在 jest 裡解得開,照常渲染。要改的只有斷言時機 —— 懶載入的內容多一個 `Suspense` tick,**該邊界底下的第一筆斷言一律用 `findBy*` / `waitFor`**(`await within(dialog).findByRole("heading", …)`),沿用 `getBy*` 會抓到 fallback 而紅;同一邊界底下後續的斷言不必再等。**不要斷言 fallback 本身**(chunk 常在同一個 tick 內就解析完,會偶發)。**lazy 元件的頁面測試要先 preload**:在 `beforeAll` 裡 `await import(<lazy 載入的那支模組>)`,第一次載入依賴鏈的成本就不會算進 `findBy*` 的 5 秒與單一測試的 15 秒 —— 全套並行時 CPU 被搶,現載整條依賴鏈會逾時(#470)。先例 `app/AdminShell/AppBar/HelpButton.test.tsx`
 - **MSW 的假伺服器若有「連動 / 狀態」語意就實作進 handler**,不要回固定資料:停用模組連動子樹、儲存後重查要拿到新值這類驗收條件,對著無狀態的假伺服器根本驗不到,還容易寫出「對著比 api 寬鬆的假伺服器才會過」的測試。先例 `test/msw/module-manager-handlers.ts`
 - **多段接力載入的頁面**(先查清單 → 選中第一筆 → 再查它的細節)在測試裡要等兩段以上:把「等到第 n 段畫面就緒」抽成同資料夾 `<page>-test-support.ts` 的 async helper 共用,不要每個案子各寫一串 `findBy*`
 - **測試數的基準用「在 `origin/main` 跑一次」取得,不要沿用別的 PR 寫死的數字**:同一段多票並行時,別人先合的票會墊高基準,照抄舊數字會讓 PR 的「+N」對不上。**取基準時不要用 turbo**:快取跨 worktree 共用,同一份輸入別人跑過就 `cache hit, replaying logs`,結果可能根本沒印出來或印的是別人的。進 package 目錄直接跑 jest:
@@ -128,6 +128,8 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
 
 - **zustand `persist` 的 `setState` 會回寫 storage**:測「重新整理後狀態維持」時,直覺寫法 `useXStore.setState({ ... 預設值 })` + `rehydrate()` 會先把 localStorage 也覆寫成預設值,再讀回預設值 —— 看起來像「狀態沒被記住」,其實是測試自己把存檔抹掉了。正確順序是:**先把 storage 的內容存起來 → 歸零 store → 把存檔放回 storage → 才 `rehydrate()`**。另外 store 是模組層單例,`src/test/setup.ts` 要在每個測試後歸零(同語言 store 的理由)
 - **`graphqlError(code, message)` 的參數順序是「碼在前、訊息在後」**(寫反時 MSW 回的 `code` 是人話,前端分流不到、測試紅得莫名其妙):簽章 `graphqlError(code, message = code, extensions = {})`(`src/test/msw/auth-handlers.ts`),`message` 省略時等於 `code`,所以**大多數情況只傳第一個參數**(`graphqlError("FORBIDDEN")`)。要附 `reason` / `violations` 這類 `extensions` 才傳第三個。與 api 那側的 `GraphQLError(message, { extensions: { code } })` 順序相反,這是最容易寫反的地方
+- **頁面測試用到 `DataTable`(`@repo/ui/data-table`)要在檔案頂層呼叫 `setupFakeViewport()`**(`apps/admin/src/test/viewport.ts`):jsdom 不算版面,offsetHeight / offsetWidth 都是 0,虛擬捲動會以為看得到 0 列而一列都不畫 —— 看起來像 MSW 沒回資料。先例 `components/form-engine/FormModulePages/FormListPage.test.tsx`、`app/ModulePages.test.tsx`
+- **頁面測試用到 React Flow(`@xyflow/react`,流程設計器的流程圖)要在檔案頂層呼叫 `setupReactFlowEnvironment()`**(`apps/admin/src/test/react-flow.ts`):jsdom 沒有 `ResizeObserver` 與 `DOMMatrixReadOnly`,流程圖一掛就丟錯;替身只要「存在」—— 節點的 `width` / `height` 由設計器明給,不必真的量。兩個配套:①**點節點用 `fireEvent.click`,不要 `userEvent.click`**:節點掛了 d3-drag,userEvent 的指標事件會讓 d3 讀 `event.view.document` 而在 jsdom 炸掉(先例 `WorkflowsPage/workflows-page-test-support.ts` 的 `clickNode`);②**拖拉在 jsdom 模擬不了**,畫面測試走「上移 / 下移 / 移到分支」按鈕,放開時的放置規則另寫純函式測試(`lib/workflow/flow-drop.test.ts`)。鍵盤選取(聚焦節點按 Enter)可以用 `fireEvent.keyDown` 驗
 - **Autocomplete 的兩行選項一律用 `apps/admin/src/test/autocomplete.ts`**:`getByRole("option", { name })` 對兩行選項(主文字 + 次文字)的完整比對對不上 —— 無障礙名稱是兩行串起來的那一長串。共用 helper 有兩支:`openAutocomplete(actor, name)`(以無障礙名稱找 combobox、點開、回傳選項)與 `autocompleteOption(text)`(在展開的選單裡以**主文字**先比開頭、再比包含;找不到時把現有選項一起印出來)。新的呼叫端**直接用這兩支**,不要再各寫一份
 - **「閃一下」這種中間幀要用 msw 的 `delay("infinite")` 擋住**:儲存成功後的重取一旦回來,畫面就是最終狀態,`DATA-04` 那種「先寫快取、避免閃一下舊值」的行為在測試裡**根本來不及被觀察到**。做法是讓重取的那個 handler 永遠不回應(`await delay("infinite")`),中間那一幀就停在畫面上可以斷言;斷言完就結束該測試,不必收尾。要驗的是「寫入端有沒有把新值交給快取」,不是重取回來對不對
 - 輸出雜訊:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`
@@ -247,4 +249,4 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 
 - `apps/api/src/auth/password/password.test.ts` 的 `setPassword` describe 四案偶爾整組逾時(重跑即過;疑與 CI runner 慢 + argon2 雜湊有關)。重跑一次仍紅才算真的紅。
 - `apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx` 的「直接設定初始密碼」偶發紅過一次(重跑即過)。**只出現過一次,先記在這裡當觀察名單** —— 再紅就不是偶發,要照 TEST-10 的判準查是不是斷言方向錯(等待時機、非同步接力)。
-- `apps/admin/src/components/HelpButton/HelpButton.test.tsx` 的 Markdown 彈窗第一次紅、重跑即過(疑為 `React.lazy` 的等待時機)。同上是**觀察名單**:再紅一次就不算偶發,要照本檔 TEST-08 的「`React.lazy` + 動態 `import()`」那條檢查第一筆斷言是不是該換成 `findBy*` / `waitFor`。
+- `apps/admin/src/pages/system/FormsPage/FormsPageVersionViewer.test.tsx` 原本一案走完「設計模式 + 預覽 + 關閉」,全套並行時超過 15 秒逾時兩次(本機一次、CI 一次;單獨跑綠),已拆成兩案(預覽另一案、輸入改 `fireEvent.change`)。**觀察名單** —— 拆完再紅就查等待時機(TEST-10),不是再放寬逾時。 **新寫設計器頁(表單 / 流程設計器)的測試照此預防:一案只做一件事**(一個屬性分支、一次存草稿),只操作屬性面板的用小草稿(`smallDraft`);`FormsPageDefaults.test.tsx` 第一版把三個預設值分支放同一案,全套並行時就逾時,拆成一案一分支後穩定。

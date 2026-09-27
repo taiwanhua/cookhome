@@ -7,6 +7,10 @@ import {
   startAuthTestApp,
 } from "../auth/test-support/auth-app";
 import { createOrg } from "../auth/test-support/fixtures";
+import {
+  SAMPLE_ONE_MODULE_KEY,
+  dataScopeTargetIdOf,
+} from "../data-scope/test-support/fixtures";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import {
   DEMO_ITEM_ONE,
@@ -58,9 +62,13 @@ describe("示範模組1 範圍(#318,GraphQL 端點 + 真 MongoDB)", () => {
     rules: Record<string, unknown>[],
     combineOp: "AND" | "OR" = "OR",
   ): Promise<void> {
+    const targetId = await dataScopeTargetIdOf(
+      connection,
+      SAMPLE_ONE_MODULE_KEY,
+    );
     const result = await api.graphql(
       SAVE_DATA_SCOPE_RULE,
-      { input: { collection: "demo_items_one", combineOp, rules } },
+      { input: { targetId, combineOp, rules } },
       { accessToken: rootToken },
     );
     expect(result.errors).toBeUndefined();

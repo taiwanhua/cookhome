@@ -52,6 +52,7 @@ const MODULE_TREE = /* GraphQL */ `
     order
     description
     icon
+    engine
     enabled
     permissions {
       id
@@ -147,6 +148,7 @@ interface ModuleAdminNode {
   order: number;
   description: string | null;
   icon: string | null;
+  engine: string;
   enabled: boolean;
   permissions: PermissionAdmin[];
   children?: ModuleAdminNode[];
@@ -357,6 +359,9 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         "overview",
         "system",
         "demo",
+        "shopping-list",
+        "apply-center",
+        "leave",
         "api",
       ]);
       const system = byKey(tree, "system");
@@ -367,12 +372,17 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         MODULE_MANAGER,
         "system.field-manager",
         "system.data-scope",
+        "system.forms",
+        "system.workflows",
       ]);
       // 隱藏的純權限容器也在樹上(租戶作業掛在組織管理底下)
       expect(byKey(tree, "system.org-manager.tenant-ops")).toMatchObject({
         sidebarType: "HIDDEN",
         parentId: byKey(tree, "system.org-manager").id,
       });
+      // 頁面組裝方式:seed 宣告 engine: "form" 的購物清單是 FORM,其餘 FIXED
+      expect(byKey(tree, "shopping-list").engine).toBe("FORM");
+      expect(byKey(tree, "demo").engine).toBe("FIXED");
       // 隱藏的 api 樹是頂層節點(不是頁面,側欄看不到)
       expect(byKey(tree, "api")).toMatchObject({
         sidebarType: "HIDDEN",
@@ -404,11 +414,12 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
       const moduleManager = byKey(tree, MODULE_MANAGER);
       expect(moduleManager.permissions.map((one) => one.key)).toEqual([
         `${MODULE_MANAGER}.*`,
+        `${MODULE_MANAGER}.delete-retired-permission`,
         `${MODULE_MANAGER}.set-icon`,
         `${MODULE_MANAGER}.toggle-enabled`,
         `${MODULE_MANAGER}.view`,
       ]);
-      expect(moduleManager.permissions[2]).toMatchObject({
+      expect(moduleManager.permissions[3]).toMatchObject({
         key: `${MODULE_MANAGER}.toggle-enabled`,
         name: "停用 / 啟用",
         enabled: true,

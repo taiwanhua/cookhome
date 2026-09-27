@@ -1,4 +1,13 @@
+import { formModulePages } from "../components/form-engine/FormModulePages/form-module-pages";
 import { OverviewPage } from "../pages/OverviewPage/OverviewPage";
+import {
+  APPLY_CENTER_MODULE_KEY,
+  APPLY_CENTER_VIEW_PAGE_KEY,
+} from "../pages/apply-center/apply-center-keys";
+import {
+  LazyApplyCenterPage,
+  LazyApplyCenterViewPage,
+} from "../pages/apply-center/lazy-apply-center-view-page";
 import { SampleOneFormPage } from "../pages/demo/SampleOneFormPage/SampleOneFormPage";
 import { SampleOnePage } from "../pages/demo/SampleOnePage/SampleOnePage";
 import { SampleOneViewPage } from "../pages/demo/SampleOneViewPage/SampleOneViewPage";
@@ -11,6 +20,8 @@ import { DataScopePage } from "../pages/system/DataScopePage/DataScopePage";
 import { DATA_SCOPE_MODULE_KEY } from "../pages/system/DataScopePage/data-scope-permissions";
 import { FieldManagerPage } from "../pages/system/FieldManagerPage/FieldManagerPage";
 import { FIELD_MANAGER_MODULE_KEY } from "../pages/system/FieldManagerPage/field-manager-permissions";
+import { FORMS_MODULE_KEY } from "../pages/system/FormsPage/forms-permissions";
+import { LazyFormsPage } from "../pages/system/FormsPage/lazy-forms-page";
 import { ModuleManagerPage } from "../pages/system/ModuleManagerPage/ModuleManagerPage";
 import { MODULE_MANAGER_MODULE_KEY } from "../pages/system/ModuleManagerPage/module-manager-permissions";
 import { OrgManagerPage } from "../pages/system/OrgManagerPage/OrgManagerPage";
@@ -19,10 +30,23 @@ import { RoleManagerPage } from "../pages/system/RoleManagerPage/RoleManagerPage
 import { ROLE_MANAGER_MODULE_KEY } from "../pages/system/RoleManagerPage/role-manager-permissions";
 import { UserManagerPage } from "../pages/system/UserManagerPage/UserManagerPage";
 import { USER_MANAGER_MODULE_KEY } from "../pages/system/UserManagerPage/user-manager-permissions";
+import { LazyWorkflowBlockedPage } from "../pages/system/WorkflowBlockedPage/lazy-workflow-blocked-page";
+import { LazyWorkflowsPage } from "../pages/system/WorkflowsPage/lazy-workflows-page";
+import {
+  WORKFLOWS_BLOCKED_PAGE_KEY,
+  WORKFLOWS_MODULE_KEY,
+} from "../pages/system/workflows-permissions";
+import type { ShellMinWidth } from "./AdminShell/shell-geometry";
 import type { ModulePageRegistry } from "./guards/ModuleRoute/ModuleRoute";
 
 /** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
 export const OVERVIEW_MODULE_KEY = "overview";
+
+/** 購物清單:表單模組範例(seed 正本 apps/db-migrator/seeds/modules/shopping-list.ts,`engine: "form"`)。 */
+export const SHOPPING_LIST_MODULE_KEY = "shopping-list";
+
+/** 請假:綁審核流程的表單模組範例(seed 正本 apps/db-migrator/seeds/modules/leave.ts,`engine: "form"`)。 */
+export const LEAVE_MODULE_KEY = "leave";
 
 /**
  * 模組 key → 頁面元件(組裝層,STRUCT-03):各模組實作時在此登記;
@@ -46,4 +70,26 @@ export const modulePages: ModulePageRegistry = {
   [USER_MANAGER_MODULE_KEY]: UserManagerPage,
   [ROLE_MANAGER_MODULE_KEY]: RoleManagerPage,
   [DATA_SCOPE_MODULE_KEY]: DataScopePage,
+  // 表單管理:懶載入(設計器不進首屏 bundle)
+  [FORMS_MODULE_KEY]: LazyFormsPage,
+  // 審核流程(Spec 6b §8):流程管理、阻擋清單、申請中心兩頁籤與詳情,全部懶載入(不進首屏 bundle)
+  [WORKFLOWS_MODULE_KEY]: LazyWorkflowsPage,
+  [WORKFLOWS_BLOCKED_PAGE_KEY]: LazyWorkflowBlockedPage,
+  [APPLY_CENTER_MODULE_KEY]: LazyApplyCenterPage,
+  [APPLY_CENTER_VIEW_PAGE_KEY]: LazyApplyCenterViewPage,
+  // 表單模組(Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝;
+  // 請假綁了流程時,詳情頁下方自動掛審核區塊(預設組裝含)
+  ...formModulePages(SHOPPING_LIST_MODULE_KEY),
+  ...formModulePages(LEAVE_MODULE_KEY),
+};
+
+/**
+ * 模組 key → 內容區最小寬度的主題斷點(沒列 = 殼層預設 `lg`;`AdminShell/shell-geometry.ts`)。
+ * 設計器這種三欄工作區窄了會擠壞,宣告 `xl`:視窗比它窄時由內容區水平捲動。
+ */
+export const modulePageMinWidths: Readonly<Record<string, ShellMinWidth>> = {
+  // 表單管理:表單設計器(元件面板 / 畫布 / 屬性面板)
+  [FORMS_MODULE_KEY]: "xl",
+  // 流程管理:流程設計器(流程圖 + 關卡屬性)
+  [WORKFLOWS_MODULE_KEY]: "xl",
 };

@@ -13,7 +13,10 @@ import {
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
-import type { ModuleSidebarType } from "../database/schemas/module.schema";
+import type {
+  ModuleEngine,
+  ModuleSidebarType,
+} from "../database/schemas/module.schema";
 
 /** 超級管理員種子角色 key(apps/db-migrator/seeds/roles.ts;isSystem,解析時 bypass,ADR-0004)。 */
 export const SUPER_ADMIN_ROLE_KEY = "super-admin";
@@ -30,6 +33,8 @@ export interface ResolvedModule {
   route: string | null;
   /** 側欄圖示 key(白名單 `@repo/domain/module-icon`);null = 用預設圖示。 */
   icon: string | null;
+  /** 頁面組裝方式(`modules.engine`)。 */
+  engine: ModuleEngine;
   /** 有效權限 key(moduleId 等於此模組者)。 */
   permissions: string[];
 }
@@ -255,6 +260,8 @@ function assemble(
         order: module.order,
         route: fullRouteOf(module, byId),
         icon: module.icon,
+        // 欄位加上之前寫入、還沒被 migration 補值的文件,mongoose 讀出時套 schema default(fixed)
+        engine: module.engine,
         permissions: permissionKeys.toSorted((a, b) => a.localeCompare(b)),
       };
     })

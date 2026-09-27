@@ -100,6 +100,227 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
     reason: "同上:異動紀錄裡附件欄位的 api 欄位名",
   },
   {
+    key: "admin.formEngine.errors.",
+    reason:
+      "`tErrors(code)`,code 由 `lib/form-engine/form-errors.ts` 的 `formErrorOf` 從 api 錯誤碼換算",
+  },
+  {
+    key: "admin.formEngine.list.slots.",
+    reason:
+      "`t(`slots.${spec.key}`)`,key 是列表欄位配置的摘要槽(title / date / amount)",
+  },
+  {
+    key: "admin.moduleManager.listColumns.builtinColumns.",
+    reason:
+      "`t(`builtinColumns.${column}`)`,column 取自 `LIST_BUILTIN_COLUMNS`(列表內建欄 form / status / createdBy)",
+  },
+  {
+    key: "admin.formEngine.pages.actions.",
+    reason:
+      "`t(subject.action)`,action 是頁籤模板的頁面種類 `TabLabelAction`(view / edit / create)",
+  },
+  {
+    key: "admin.forms.errors.",
+    reason: "`tErrors(code)`,code 同 `formErrorOf` 的換算(表單管理頁)",
+  },
+  {
+    key: "admin.forms.versions.statuses.",
+    reason:
+      "`t(`statuses.${item.status}`)`,status 是 GraphQL 的 `FormVersionStatus`",
+  },
+  {
+    key: "admin.forms.designer.types.",
+    reason:
+      "`t(`types.${type}`)`,type 逐一取自 `@repo/domain/form` 的 `FIELD_TYPES`",
+  },
+  {
+    key: "admin.forms.property.types.",
+    reason: "同上:屬性面板顯示欄位的 `type`",
+  },
+  {
+    key: "admin.forms.property.widgets.",
+    reason: "`t(`widgets.${kind}`)`,kind 取自 widget 登錄表(`widgetKindsFor`)",
+  },
+  {
+    key: "admin.forms.property.sources.",
+    reason: "`t(`sources.${kind}`)`,kind 是 `ValueSource` 的三種",
+  },
+  {
+    key: "admin.forms.options.sources.",
+    reason: "`t(`sources.${kind}`)`,kind 是 `FieldOptions` 的三種來源",
+  },
+  {
+    key: "admin.forms.lookupSource.fields.",
+    reason: "`t(`fields.${field}`)`,field 是 lookup provider 可回的欄位",
+  },
+  {
+    key: "admin.forms.rules.formats.",
+    reason: "`t(`formats.${format}`)`,format 取自 `TEXT_FORMATS`",
+  },
+  {
+    key: "admin.forms.settings.slots.",
+    reason: "`t(`slots.${slot}`)`,slot 是摘要槽(title / date / amount)",
+  },
+  {
+    key: "admin.forms.deleteField.slots.",
+    reason: "`t(`slots.${reference.slot}`)`,slot 是 `ExpressionSlot`",
+  },
+  {
+    key: "admin.forms.deleteField.summarySlots.",
+    reason: "`t(`summarySlots.${reference.slot}`)`,slot 是摘要槽",
+  },
+  {
+    key: "admin.forms.expression.kinds.",
+    reason: "`t(`kinds.${item}`)`,item 是表達式節點種類",
+  },
+  {
+    key: "admin.forms.expression.contexts.",
+    reason: "`t(`contexts.${item}`)`,item 取自 `CONTEXT_VAR_PATHS`(`ctx.now`…)",
+  },
+  {
+    key: "admin.forms.expression.operators.",
+    reason: "`t(`operators.${item}`)`,item 取自 `EXPRESSION_OPERATORS`",
+  },
+  {
+    key: "admin.forms.expression.constants.",
+    reason: "`t(`constants.${item}`)`,item 是常數種類",
+  },
+  {
+    key: "admin.forms.expression.units.",
+    reason:
+      "`t(`units.${unit}`)`,unit 取自 `DATE_DIFF_UNITS`(`dateDiff` 的單位)",
+  },
+  {
+    key: "admin.forms.expression.directions.",
+    reason:
+      "`t(`directions.${direction}`)`,direction 取自 `DATE_ADD_DIRECTIONS`(`dateAdd` 的方向)",
+  },
+  {
+    key: "admin.forms.expression.calendarUnits.",
+    reason:
+      "`t(`calendarUnits.${unit}`)`,unit 取自 `LOCAL_CALENDAR_UNITS`(`dateAdd` 的日曆單位)",
+  },
+  {
+    key: "admin.forms.property.defaultKinds.",
+    reason:
+      "`t(`defaultKinds.${item}`)`,item 取自 `defaultKindsOf(type)`(固定值 / 公式;`none` 直接引用)",
+  },
+  {
+    key: "admin.forms.property.defaultSystem.",
+    reason:
+      "`t(`defaultSystem.${…}`)`,由 `REFERENCE_DEFAULT_PATHS`(填寫者 / 填寫者的組織)換算",
+  },
+  {
+    key: "admin.forms.rules.uploadTypes.",
+    reason:
+      "`t(`uploadTypes.${group.key}`)`,key 取自 `lib/form-engine/upload-types.ts` 的 `UPLOAD_TYPE_GROUPS`",
+  },
+  {
+    key: "admin.forms.property.keyProblems.",
+    reason:
+      "`t(`keyProblems.${problem}`)`,problem 是 `fieldKeyProblemOf` 回的原因(格式 / 保留字 / 重複)",
+  },
+  {
+    key: "admin.forms.edit.placeholderNames.",
+    reason:
+      "`t(`placeholderNames.${placeholder}`)`,placeholder 取自 `TAB_LABEL_PLACEHOLDERS`(頁籤模板佔位符)",
+  },
+  {
+    key: "admin.forms.lookupSource.summarySlots.",
+    reason:
+      "`t(`summarySlots.${slot}`)`,slot 是 `form_submission` 欄位目錄裡的摘要槽",
+  },
+  {
+    key: "admin.moduleManager.listColumns.slots.",
+    reason: "`t(`slots.${slot}`)`,slot 取自 `SUMMARY_SLOTS`",
+  },
+  {
+    key: "admin.approval.submissionStatus.",
+    reason:
+      "`t(status)` / `tStatus(value)`,status 是 GraphQL 的 `FormSubmissionStatus`(七值)",
+  },
+  {
+    key: "admin.approval.section.statuses.",
+    reason:
+      "`t(`statuses.${instance.status}`)`,status 是 `WorkflowInstanceStatus`",
+  },
+  {
+    key: "admin.approval.progress.statuses.",
+    reason: "`t(`statuses.${step.status}`)`,status 是 `WorkflowStepStatus`",
+  },
+  {
+    key: "admin.approval.progress.modes.",
+    reason: "`t(`modes.${step.mode}`)`,mode 是會簽模式(`any` / `all`)",
+  },
+  {
+    key: "admin.approval.decisions.",
+    reason:
+      "`tDecision(decision.decision)`,值是實例上的決定(`approved` / `rejected` / `returned`)",
+  },
+  {
+    key: "admin.approval.timeline.kinds.",
+    reason: "`t(`kinds.${event.kind}`)`,kind 是實例 `history` 的事件種類",
+  },
+  {
+    key: "admin.approval.decide.buttons.",
+    reason: "`t(`buttons.${item}`)`,item 是 GraphQL 的 `WorkflowDecision`",
+  },
+  {
+    key: "admin.approval.decide.titles.",
+    reason: "同上:決定跳窗的標題",
+  },
+  {
+    key: "admin.approval.decide.bodies.",
+    reason: "同上:決定跳窗的說明",
+  },
+  {
+    key: "admin.approval.decide.confirms.",
+    reason: "同上:決定跳窗的確認鈕",
+  },
+  {
+    key: "admin.approval.decide.feedback.",
+    reason:
+      "`t(`feedback.${variables.input.decision}`)`,送出的 `WorkflowDecision`",
+  },
+  {
+    key: "admin.applyCenter.tasks.statuses.",
+    reason:
+      "`t(`statuses.${row.status}`)`,status 是 GraphQL 的 `WorkflowTaskStatus`",
+  },
+  {
+    key: "admin.workflows.errors.",
+    reason:
+      "`tErrors(code)`,code 由 `lib/workflow/workflow-errors.ts` 的 `workflowErrorOf` 從 api 錯誤碼 / reason 換算",
+  },
+  {
+    key: "admin.workflows.versions.statuses.",
+    reason:
+      "`t(`statuses.${item.status}`)`,status 是 GraphQL 的 `WorkflowVersionStatus`",
+  },
+  {
+    key: "admin.workflows.opErrors.",
+    reason:
+      "`tOp(state.opError)`,值是 `lib/workflow/flow-model.ts` 的 `FlowOpError`",
+  },
+  {
+    key: "admin.workflows.step.modes.",
+    reason:
+      "`t(`modes.${mode}`)` / `tMode(step.mode)`,mode 取自 `APPROVAL_MODES`",
+  },
+  {
+    key: "admin.workflows.step.modeHints.",
+    reason: "`t(`modeHints.${step.mode}`)`,同上",
+  },
+  {
+    key: "admin.workflows.assignee.kinds.",
+    reason: "`t(`kinds.${kind}`)`,kind 取自 `ASSIGNEE_KINDS`",
+  },
+  {
+    key: "admin.forms.binding.problems.",
+    reason:
+      "`t(`problems.${issue.problem}`)`,problem 是 api 綁定時檢查的 `BindingIssue.problem`",
+  },
+  {
     key: "admin.demoSampleOne.form.categoryUnavailable",
     reason:
       "`SampleOneCategoryField` 用的 `t` 由 `shared/DemoForm` 經 context 傳入,兩者不在同一個資料夾",

@@ -56,6 +56,16 @@ export function orgError(code: OrgErrorCode, message: string): GraphQLError {
   return new GraphQLError(message, { extensions: { code } });
 }
 
+/** 輸入不合法(GQL-04 `VALIDATION_FAILED`):`extensions.fields` 讓前端標到對應的表單欄位。 */
+export function orgValidationError(
+  message: string,
+  fields: string[],
+): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: { code: "VALIDATION_FAILED", fields },
+  });
+}
+
 /** 刪除前置未過:`ORG_NOT_DELETABLE` + `extensions.reasons`(逐項列出,前端一次顯示全部)。 */
 export function orgNotDeletableError(
   reasons: readonly OrgNotDeletableReason[],

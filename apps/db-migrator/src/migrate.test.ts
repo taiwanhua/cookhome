@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 import path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
@@ -15,6 +16,11 @@ const MIGRATE_MONGO_BIN = path.join(
 );
 const DEMO_MIGRATION_FILENAME =
   "20260913120000_schema_changelog-filename-unique-index.js";
+
+/** migrations/ 底下全部遷移檔(依檔名 = 執行順序);新增遷移不必回頭改本檔的數字。 */
+const MIGRATION_FILENAMES = readdirSync(
+  path.join(PACKAGE_ROOT, "migrations"),
+).filter((fileName) => fileName.endsWith(".js"));
 
 /** 本地起 mongodb-memory-server;CI 沿用既有 MongoDB service container(MONGODB_URI)。 */
 let memoryServer: MongoMemoryServer | undefined;
@@ -102,7 +108,9 @@ describe("migrate 指令(對真 MongoDB)", () => {
 
     const { changelog, changelogIndexes } =
       await readDatabaseState(databaseUri);
-    expect(changelog).toHaveLength(1);
+    expect(changelog.map((entry) => entry.fileName as string)).toEqual(
+      MIGRATION_FILENAMES,
+    );
     expect(changelog[0]?.fileName).toBe(DEMO_MIGRATION_FILENAME);
     expect(changelog[0]?.appliedAt).toBeInstanceOf(Date);
 
@@ -124,20 +132,27 @@ describe("migrate 指令(對真 MongoDB)", () => {
     expect(secondRun.status).toBe(0);
 
     const secondState = await readDatabaseState(databaseUri);
-    expect(secondState.changelog).toHaveLength(1);
-    expect(secondState.changelog[0]?.appliedAt).toEqual(
-      firstState.changelog[0]?.appliedAt,
+    expect(secondState.changelog).toHaveLength(MIGRATION_FILENAMES.length);
+    const appliedAtOf = (entries: typeof firstState.changelog): unknown[] =>
+      entries.map((entry): unknown => entry.appliedAt);
+    expect(appliedAtOf(secondState.changelog)).toEqual(
+      appliedAtOf(firstState.changelog),
     );
   }, 120_000);
 
-  it("down 可還原示範遷移(up/down 成對走通)", async () => {
+  it("down 可逐支還原到空(up/down 成對走通;每次 down 退最後一支)", async () => {
     const databaseUri = createTestDatabaseUri("down");
 
     const upResult = runMigrateCommand("up", databaseUri);
     expect(upResult.status).toBe(0);
 
-    const downResult = runMigrateCommand("down", databaseUri);
-    expect(downResult.status).toBe(0);
+    for (const fileName of MIGRATION_FILENAMES) {
+      const downResult = runMigrateCommand("down", databaseUri);
+      expect({ fileName, status: downResult.status }).toEqual({
+        fileName,
+        status: 0,
+      });
+    }
 
     const { changelog, changelogIndexes } =
       await readDatabaseState(databaseUri);
