@@ -133,7 +133,8 @@ export const ApplyCenterViewPage = ({ routeParam }: ModulePageProps) => {
           <Stack
             direction="row"
             spacing={1}
-            sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}
+            useFlexGap
+            sx={{ alignItems: "center", flexWrap: "wrap" }}
           >
             <Typography variant="body2" color="text.secondary">
               {t("meta", {

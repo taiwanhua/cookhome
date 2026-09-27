@@ -107,7 +107,7 @@ export const VersionPanel = ({
       item.status === FormVersionStatus.Published ||
       item.status === FormVersionStatus.Retired;
     return (
-      <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
+      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
         {isBase && item.version !== null && item.version !== undefined && (
           <Button
             size="small"

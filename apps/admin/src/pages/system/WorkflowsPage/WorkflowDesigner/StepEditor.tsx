@@ -213,7 +213,8 @@ export const StepEditor = ({
           <Stack
             direction="row"
             spacing={1}
-            sx={{ flexWrap: "wrap", rowGap: 1 }}
+            useFlexGap
+            sx={{ flexWrap: "wrap" }}
           >
             <Button size="small" variant="outlined" onClick={onInsertAfter}>
               {t("insertAfter")}
@@ -232,7 +233,8 @@ export const StepEditor = ({
           <Stack
             direction="row"
             spacing={1}
-            sx={{ flexWrap: "wrap", rowGap: 1 }}
+            useFlexGap
+            sx={{ flexWrap: "wrap" }}
           >
             <Button
               size="small"

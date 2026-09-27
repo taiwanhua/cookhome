@@ -110,7 +110,7 @@ export const WorkflowVersionPanel = ({
       item.status === WorkflowVersionStatus.Published ||
       item.status === WorkflowVersionStatus.Retired;
     return (
-      <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
+      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
         {isBase && item.version !== null && item.version !== undefined && (
           <Button
             size="small"

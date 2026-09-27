@@ -110,7 +110,8 @@ export const DesignFieldCell = ({
           <Stack
             direction="row"
             spacing={0.5}
-            sx={{ flexWrap: "wrap", rowGap: 0.5 }}
+            useFlexGap
+            sx={{ flexWrap: "wrap" }}
           >
             {badges.map((badge) => (
               <Tag key={badge} tone="primary" label={badge} />

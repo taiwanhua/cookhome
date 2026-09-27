@@ -44,6 +44,7 @@ export const DesignerToolbar = ({
       <Stack
         direction="row"
         spacing={1.5}
+        useFlexGap
         sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}
       >
         <Tabs
