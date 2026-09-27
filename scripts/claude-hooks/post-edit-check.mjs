@@ -105,3 +105,5 @@ if (!typecheckOff && pkg.scripts?.["check-types"]) {
 }
 
 process.exit(0);
+
+// CI probe(#518 驗證用,不合併)
