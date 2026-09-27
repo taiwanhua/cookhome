@@ -442,7 +442,7 @@ describe("@repo/domain/form 同一個選項來源(isSameOptionSource)", () => {
               ...source,
               valueField: undefined,
               labelTemplate: "{{name}}",
-            } as typeof source,
+            },
           },
         },
       ),
