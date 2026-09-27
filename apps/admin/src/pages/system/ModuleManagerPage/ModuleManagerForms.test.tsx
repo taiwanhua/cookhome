@@ -246,4 +246,22 @@ describe("模組與權限:表單模組的列表欄位配置、退役權限清理
       builtin: { form: true, status: true, createdBy: true },
     });
   });
+
+  it("引擎:模組連結標出表單引擎或固定欄位;群組、隱藏頁、權限容器不顯示這一列", async () => {
+    const { user } = render(FULL_PERMISSIONS);
+    await waitForTree();
+
+    const engineOf = async (name: string) => {
+      await clickNode(user, name);
+      await within(detail()).findByText(name);
+      return within(detail()).queryByText("引擎")?.nextElementSibling
+        ?.textContent;
+    };
+
+    expect(await engineOf("購物清單")).toBe("表單引擎");
+    expect(await engineOf("使用者管理")).toBe("固定欄位");
+    expect(await engineOf("系統管理")).toBeUndefined();
+    expect(await engineOf("編輯")).toBeUndefined();
+    expect(await engineOf("API 能力")).toBeUndefined();
+  });
 });
