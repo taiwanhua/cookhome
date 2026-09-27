@@ -43,8 +43,8 @@ import type {
 import type {
   CreateFormVersionDraftInput,
   DeleteFormVersionDraftInput,
-  FormKeyInput,
   PreviewFormVersionInput,
+  RetireCurrentVersionInput,
   SaveFormVersionDraftInput,
   ValidateFormVersionInput,
 } from "./dto/form-design.input";
@@ -340,33 +340,41 @@ export class FormVersionsService {
     );
   }
 
-  /** 退役目前版本:`published → retired`,再 `currentVersion → null`;中斷後再呼叫一次會接著做完。 */
+  /**
+   * 退役目前版本(帶當時看到的 `expectedVersion`):`published → retired`,再 `currentVersion → null`;
+   * 每步已是目標狀態就算完成,中斷後再呼叫一次會接著做完;`currentVersion` 已指向別的版本 → 409。
+   */
   async retireCurrent(
     facts: FormOperatorFacts,
-    input: FormKeyInput,
+    input: RetireCurrentVersionInput,
   ): Promise<FormRecord> {
     const operator = facts.operator;
     const form = await this.access.requireWritableForm(facts, input.formKey);
     const retired = await retireCurrentVersion(
       this.publisher.lifecycle(operator),
       { key: form.key, currentVersion: form.currentVersion },
+      input.expectedVersion,
     );
     const updated = await this.forms.findById(operator, form._id);
     if (!updated) {
       throw notFoundError(`Form not found: ${input.formKey}`);
     }
-    await this.audit.record(operator, {
-      action: FORM_VERSION_AUDIT.retire,
-      targetType: FORM_VERSION_TARGET,
-      ...(retired ? { targetId: retired._id } : {}),
-      before: { formKey: form.key, currentVersion: form.currentVersion },
-      after: { currentVersion: null },
-    });
+    // 重複退役(兩步都已是目標狀態、什麼都沒改)不寫稽核
+    if (retired || form.currentVersion !== null) {
+      await this.audit.record(operator, {
+        action: FORM_VERSION_AUDIT.retire,
+        targetType: FORM_VERSION_TARGET,
+        ...(retired ? { targetId: retired._id } : {}),
+        before: { formKey: form.key, currentVersion: form.currentVersion },
+        after: { currentVersion: null },
+      });
+    }
     return updated;
   }
 
   /**
-   * 設計器「預覽」:對**草稿**跑計算與條件(以真正的現在與操作者本人為 `ctx`),不建提交。
+   * 設計器「預覽」:對**草稿**(`version` 缺席)或**指定的已發布 / 已退役版本**跑計算與條件
+   * (以真正的現在與操作者本人為 `ctx`),不建提交。版本面板檢視歷史版本時的預覽走後者。
    * 預覽不套欄位級權限(設計者看得到整張表單);「以某角色檢視」留給前端切換。
    */
   async preview(
@@ -374,12 +382,21 @@ export class FormVersionsService {
     input: PreviewFormVersionInput,
   ): Promise<FormPreviewPayload> {
     const form = await this.access.requireReadableForm(facts, input.formKey);
-    const draft = await this.versions.findOne(facts.operator, {
-      formKey: form.key,
-      status: "draft",
-    });
-    if (!draft) {
-      throw notFoundError(`Form ${form.key} has no draft`);
+    const isDraft = input.version === null || input.version === undefined;
+    const target = await this.versions.findOne(
+      facts.operator,
+      isDraft
+        ? { formKey: form.key, status: "draft" }
+        : {
+            formKey: form.key,
+            version: input.version,
+            status: { $in: ["published", "retired"] },
+          },
+    );
+    if (!target) {
+      throw notFoundError(
+        `Form version not found: ${form.key}@${String(input.version ?? "draft")}`,
+      );
     }
     // 「不套欄位級權限」只指**本表單**的欄位:閘門只對本表單全開;lookup / 引用的來源
     // 照樣用操作者真實的權限(否則設計者可以用預覽讀出別張表單的受保護欄位)
@@ -393,17 +410,17 @@ export class FormVersionsService {
       gate: designerGate,
       moduleKey: form.moduleKey,
       formKey: form.key,
-      fields: draft.fields,
+      fields: target.fields,
       base: {},
       sent: input.values ?? {},
       previous: null,
       ctx,
       mode: "complete",
     });
-    const summary = computeSummary(draft, values, { submittedAt: ctx.now });
+    const summary = computeSummary(target, values, { submittedAt: ctx.now });
     return {
       values,
-      fieldStates: fieldStatesOf(draft.fields, values, ctx, designerGate),
+      fieldStates: fieldStatesOf(target.fields, values, ctx, designerGate),
       summary: {
         title: summary.title,
         date: temporalIsoOf(summary.date),

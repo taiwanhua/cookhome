@@ -10,6 +10,7 @@ import { Typography } from "@repo/ui/typography";
 
 import { identityOf } from "@/lib/form-engine/value-text";
 
+import { ReadOnlyField } from "./ReadOnlyField";
 import {
   customOptionOf,
   optionOfStored,
@@ -27,14 +28,27 @@ import type { ChoiceOption, WidgetProps } from "./widget-types";
 export const ChoiceWidget = (props: WidgetProps) => {
   const { field, value, onChange, isDisabled, isDesign, helperText, hasError } =
     props;
+  const isReadOnly = props.isReadOnly ?? false;
   const t = useTranslations("admin.formEngine.widgets");
   const [keyword, setKeyword] = useState("");
+  // 唯讀檢視不查選項:顯示名來自 `displayValues`(現名 / 快照)與定義裡的靜態 label
   const source = useFieldOptions({
     field,
     context: props.context,
     keyword,
-    isDesign,
+    isDesign: isDesign || isReadOnly,
   });
+  if (isReadOnly) {
+    return (
+      <ReadOnlyField
+        field={field}
+        value={value}
+        context={props.context}
+        helperText={helperText}
+        {...(props.display !== undefined && { display: props.display })}
+      />
+    );
+  }
   const options = withCurrent(source.options, value === null ? [] : [value]);
   const current = identityOf(value);
   const kind = field.widget.kind;

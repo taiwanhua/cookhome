@@ -2,8 +2,6 @@ import { createElement } from "react";
 import { useTranslations } from "use-intl";
 
 import type { FieldDef } from "@repo/domain/form";
-import { Stack } from "@repo/ui/stack";
-import { Typography } from "@repo/ui/typography";
 
 import type {
   FieldUiState,
@@ -11,7 +9,6 @@ import type {
 } from "@/lib/form-engine/field-states";
 import type { FormDisplayItemLike } from "@/lib/form-engine/value-text";
 
-import { FormValue } from "../FormValue";
 import { widgetOf } from "../widgets/widget-registry";
 import type { WidgetContext } from "../widgets/widget-types";
 import { DerivedFieldCell } from "./DerivedFieldCell";
@@ -31,7 +28,8 @@ export interface FormFieldCellProps {
 
 /**
  * 一欄(欄位級三態之後的「看得到」那兩態):
- * - 唯讀模式 → 標籤 + 顯示值(`FormValue`)
+ * - 唯讀模式(詳情)→ **同一個 widget 走 `isReadOnly`**(Spec 6a §8 畫面 11:不是停用 —— 文字不變灰、
+ *   附件可下載、選項 / 引用顯示 label);計算 / 固定值欄位也一樣
  * - 計算 / 固定值欄位(設計畫布、填寫、預覽)→ **有框的唯讀輸入框**(同其他停用欄位的外觀,Spec 6a §5 表 A 下方),
  *   內容是顯示值(計算欄位缺依賴時是「—」)
  * - 其餘 → 登錄表的 widget;唯讀(沒有欄位級 edit、`readonlyWhen`)時停用並附原因
@@ -48,20 +46,20 @@ export const FormFieldCell = ({
   onDownload,
 }: FormFieldCellProps) => {
   const t = useTranslations("admin.formEngine.renderer");
-  const text = {
-    empty: t("empty"),
-    yes: t("yes"),
-    no: t("no"),
-    unavailable: t("sourceUnavailable"),
-  };
   const help = field.help ?? "";
+  const isReadOnly = mode === "readonly";
 
-  if (mode !== "readonly" && field.valueSource.kind !== "input") {
+  if (!isReadOnly && field.valueSource.kind !== "input") {
     return (
       <DerivedFieldCell
         field={field}
         value={value}
-        text={text}
+        text={{
+          empty: t("empty"),
+          yes: t("yes"),
+          no: t("no"),
+          unavailable: t("sourceUnavailable"),
+        }}
         errorMessage={errorMessage ?? null}
         {...(display !== undefined && { display })}
         {...(context.timezone !== undefined && { timezone: context.timezone })}
@@ -69,32 +67,12 @@ export const FormFieldCell = ({
     );
   }
 
-  if (mode === "readonly") {
-    return (
-      <Stack spacing={0.25}>
-        <Typography variant="caption" color="text.secondary">
-          {field.label}
-        </Typography>
-        <Typography variant="body2" component="div">
-          <FormValue
-            field={field}
-            value={value}
-            {...(display !== undefined && { display })}
-            {...(onDownload !== undefined && { onDownload })}
-            {...(context.timezone !== undefined && {
-              timezone: context.timezone,
-            })}
-            text={text}
-          />
-        </Typography>
-      </Stack>
-    );
-  }
-
   let helperText: string | undefined = help === "" ? undefined : help;
-  if (state.readonlyReason === "permission") {
+  // 唯讀檢視保留欄位說明,但不附唯讀原因(整頁都是唯讀,不是這一欄特別改不了)
+  const reason = isReadOnly ? null : state.readonlyReason;
+  if (reason === "permission") {
     helperText = t("readonlyPermission");
-  } else if (state.readonlyReason === "condition") {
+  } else if (reason === "condition") {
     helperText = t("readonlyCondition");
   }
   if (errorMessage !== undefined && errorMessage !== null) {
@@ -107,10 +85,13 @@ export const FormFieldCell = ({
     onChange: (next: unknown) => {
       onChange(field.key, next);
     },
-    isDisabled: state.readonly,
+    isDisabled: !isReadOnly && state.readonly,
+    isReadOnly,
     isDesign: mode === "design",
     ...(helperText !== undefined && { helperText }),
     hasError: errorMessage !== undefined && errorMessage !== null,
     context,
+    ...(display !== undefined && { display }),
+    ...(onDownload !== undefined && { onDownload }),
   });
 };

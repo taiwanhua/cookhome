@@ -11,6 +11,8 @@ import { formErrorOf } from "@/lib/form-engine/form-errors";
 
 export interface RetireDialogProps {
   formKey: string;
+  /** 打開跳窗時看到的目前版本:期間有人發布了新版 → 409,不會誤退新版 */
+  expectedVersion: number;
   onClose: () => void;
   onRetired: () => void;
 }
@@ -21,6 +23,7 @@ export interface RetireDialogProps {
  */
 export const RetireDialog = ({
   formKey,
+  expectedVersion,
   onClose,
   onRetired,
 }: RetireDialogProps) => {
@@ -52,7 +55,7 @@ export const RetireDialog = ({
             color="error"
             disabled={retire.isPending}
             onClick={() => {
-              retire.mutate({ input: { formKey } });
+              retire.mutate({ input: { formKey, expectedVersion } });
             }}
           >
             {t("confirm")}

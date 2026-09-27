@@ -317,7 +317,7 @@ export const RETRY_PUBLISH = /* GraphQL */ `
 
 export const RETIRE_CURRENT = /* GraphQL */ `
   ${FORM_FIELDS}
-  mutation RetireCurrentVersion($input: FormKeyInput!) {
+  mutation RetireCurrentVersion($input: RetireCurrentVersionInput!) {
     retireCurrentVersion(input: $input) {
       form {
         ...FormFields

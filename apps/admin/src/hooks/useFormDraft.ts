@@ -10,6 +10,7 @@ import {
 
 import { type FormError, formErrorOf } from "@/lib/form-engine/form-errors";
 
+import { useCapacityErrorSnackbar } from "./useCapacityErrorSnackbar";
 import { useFormSubmissionCache } from "./useFormSubmissionCache";
 import { useSession } from "./useSession";
 
@@ -47,6 +48,7 @@ export const useFormDraft = (formKey: string): FormDraftState => {
   const [draft, setDraft] = useState<FormSubmissionFieldsFragment | null>(null);
   const [error, setError] = useState<FormError | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const announceCapacity = useCapacityErrorSnackbar();
 
   const create = useCreateFormDraftMutation(session.client);
   const save = useSaveFormDraftMutation(session.client);
@@ -94,7 +96,9 @@ export const useFormDraft = (formKey: string): FormDraftState => {
       updateCache(current);
       return current;
     } catch (error_) {
-      setError(formErrorOf(error_));
+      const failure = formErrorOf(error_);
+      setError(failure);
+      announceCapacity(failure);
       updateCache(current);
       return null;
     } finally {

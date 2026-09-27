@@ -38,6 +38,10 @@ export const FORM_CONFLICT_REASONS = [
   "CLIENT_REQUEST_REUSED",
   /** 複製為新單:這筆已經複製過(`replacedById` 有值),不能再複製一次。 */
   "ALREADY_COPIED",
+  /** 這次寫入會讓修訂超過每筆 50 筆的上限;請建立新的申請。 */
+  "REVISION_LIMIT",
+  /** 這次寫入後的整份文件(值 + 全部修訂快照)會超過 8MB;請縮減內容。 */
+  "DOCUMENT_TOO_LARGE",
 ] as const;
 
 export type FormConflictReason = (typeof FORM_CONFLICT_REASONS)[number];

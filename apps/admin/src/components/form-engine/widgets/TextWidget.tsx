@@ -2,6 +2,7 @@ import { TextField } from "@repo/ui/text-field";
 
 import { scalarText } from "@/lib/form-engine/value-text";
 
+import { ReadOnlyField } from "./ReadOnlyField";
 import type { WidgetProps } from "./widget-types";
 
 const DEFAULT_ROWS = 3;
@@ -15,9 +16,21 @@ export const TextWidget = ({
   value,
   onChange,
   isDisabled,
+  isReadOnly = false,
   helperText,
   hasError,
+  context,
 }: WidgetProps) => {
+  if (isReadOnly) {
+    return (
+      <ReadOnlyField
+        field={field}
+        value={value}
+        context={context}
+        helperText={helperText}
+      />
+    );
+  }
   const isMultiline = field.type === "multiline";
   const rows =
     typeof field.widget.rows === "number" ? field.widget.rows : DEFAULT_ROWS;

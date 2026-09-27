@@ -82,7 +82,7 @@ describe("申請中心詳情頁(view-page)", () => {
     expect(
       await screen.findByRole("heading", { name: "病假三天" }),
     ).toBeInTheDocument();
-    expect(await screen.findByText("病假")).toBeInTheDocument();
+    expect(await screen.findByDisplayValue("病假")).toBeInTheDocument();
     const rows = await progressRows();
     expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([
       "原部門初審:已通過",

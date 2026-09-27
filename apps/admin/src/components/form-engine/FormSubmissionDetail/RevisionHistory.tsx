@@ -21,8 +21,9 @@ export interface RevisionHistoryProps {
 }
 
 /**
- * 修訂紀錄(Spec 6a §8 畫面 11):已完成的提交每改一次修訂號 +1,每個修訂都留完整快照。
- * 每列「修訂 N、誰、什麼時候」,可切換檢視那個修訂(唯讀渲染用它自己的 `ctx`),修訂 2 起可看與前一修訂的差異。
+ * 修訂紀錄清單(Spec 6a §8 畫面 11;放在詳情的「修訂紀錄」跳窗裡):已完成的提交每改一次修訂號 +1,
+ * 每個修訂都留完整快照。每列「修訂 N、誰、什麼時候」(時間以讀者現在的租戶時區印),
+ * 可切換檢視那個修訂(唯讀渲染的條件用它自己的 `ctx`),修訂 2 起可看與前一修訂的差異。
  */
 export const RevisionHistory = ({
   submission,
@@ -31,8 +32,7 @@ export const RevisionHistory = ({
   onViewRevision,
 }: RevisionHistoryProps) => {
   const t = useTranslations("admin.formEngine.detail");
-  // 修訂時間以目前修訂的時區顯示(草稿沒有 ctx → 租戶時區)
-  const temporalText = useTemporalText(submission.ctx?.timezone);
+  const temporalText = useTemporalText();
   const [diffRevision, setDiffRevision] = useState<number | null>(null);
   const revisions = submission.revisions.toSorted(
     (a, b) => b.revision - a.revision,
@@ -44,9 +44,6 @@ export const RevisionHistory = ({
 
   return (
     <Stack component="section" spacing={1} aria-label={t("revisions")}>
-      <Typography variant="subtitle1" component="h2">
-        {t("revisions")}
-      </Typography>
       {revisions.map((entry) => {
         const isViewed =
           (viewedRevision ?? submission.revision) === entry.revision;

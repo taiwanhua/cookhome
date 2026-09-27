@@ -9,13 +9,10 @@ import { Typography } from "@repo/ui/typography";
 import type { NavNode } from "@/lib/module-tree";
 import { useSideNavStore } from "@/stores/useSideNavStore";
 
+import { NAV_COLLAPSED_WIDTH, NAV_WIDTH } from "../shell-geometry";
 import { NavNodes } from "./NavNodes/NavNodes";
 import { NavRail } from "./NavRail/NavRail";
 import { SideNavToggle } from "./SideNavToggle";
-
-/** 側欄寬度(theme.spacing 單位;Figma AdminSideNav 240 寬、AdminSideNavCollapsed 246:64 為 64 寬)。 */
-const NAV_WIDTH = 30;
-const COLLAPSED_WIDTH = 8;
 
 /** 商標槽位的幾何(Figma AdminSideNav 的 logoImg 120:50:28×28、圓角 6)。 */
 const LOGO_SIZE = 28;
@@ -58,7 +55,7 @@ export const SideNav = ({
       aria-label={t("sideNav")}
       sx={{
         width: (theme) =>
-          theme.spacing(isCollapsed ? COLLAPSED_WIDTH : NAV_WIDTH),
+          theme.spacing(isCollapsed ? NAV_COLLAPSED_WIDTH : NAV_WIDTH),
         flexShrink: 0,
         // 殼釘死 100vh(#183):側欄自己是 column flex,只有模組樹那一格捲動,底部開關永遠看得到
         display: "flex",

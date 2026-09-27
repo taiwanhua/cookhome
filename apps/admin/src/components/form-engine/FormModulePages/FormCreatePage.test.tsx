@@ -92,7 +92,14 @@ describe("表單模組新增頁(預設組裝)", () => {
       },
     });
 
-    await user.click(await screen.findByRole("button", { name: "帶入資料" }));
+    // 「帶入資料」與標題同一列(標題列右側)
+    const prefill = await screen.findByRole("button", { name: "帶入資料" });
+    const title = screen.getByRole("heading", { name: "新增 — 購物單" });
+    expect(title.parentElement).toContainElement(prefill);
+    expect(
+      title.compareDocumentPosition(prefill) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await user.click(prefill);
     const dialog = await screen.findByRole("dialog", { name: "帶入資料" });
     await user.click(await within(dialog).findByText("阿明"));
 

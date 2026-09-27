@@ -1403,7 +1403,7 @@ export type MutationRequestPasswordResetArgs = {
 
 
 export type MutationRetireCurrentVersionArgs = {
-  input: FormKeyInput;
+  input: RetireCurrentVersionInput;
 };
 
 
@@ -1731,6 +1731,7 @@ export type PermissionAdminPayload = {
 export type PreviewFormVersionInput = {
   formKey: Scalars['ID']['input'];
   values?: InputMaybe<Scalars['JSONObject']['input']>;
+  version?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type ProvisionTenantInput = {
@@ -2088,6 +2089,11 @@ export type RequestPasswordResetInput = {
 export type RequestPasswordResetPayload = {
   __typename?: 'RequestPasswordResetPayload';
   success: Scalars['Boolean']['output'];
+};
+
+export type RetireCurrentVersionInput = {
+  expectedVersion: Scalars['Int']['input'];
+  formKey: Scalars['ID']['input'];
 };
 
 export type RetiredFormPermission = {
@@ -3445,7 +3451,7 @@ export type RetryPublishFormVersionMutationVariables = Exact<{
 export type RetryPublishFormVersionMutation = { __typename?: 'Mutation', retryPublishFormVersion: { __typename?: 'FormVersionPayload', formVersion: { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null } } };
 
 export type RetireCurrentVersionMutationVariables = Exact<{
-  input: FormKeyInput;
+  input: RetireCurrentVersionInput;
 }>;
 
 
@@ -6691,7 +6697,7 @@ export const useRetryPublishFormVersionMutation = <
 useRetryPublishFormVersionMutation.fetcher = (client: GraphQLClient, variables: RetryPublishFormVersionMutationVariables, headers?: RequestInit['headers']) => fetcher<RetryPublishFormVersionMutation, RetryPublishFormVersionMutationVariables>(client, RetryPublishFormVersionDocument, variables, headers);
 
 export const RetireCurrentVersionDocument = `
-    mutation RetireCurrentVersion($input: FormKeyInput!) {
+    mutation RetireCurrentVersion($input: RetireCurrentVersionInput!) {
   retireCurrentVersion(input: $input) {
     form {
       ...FormFields

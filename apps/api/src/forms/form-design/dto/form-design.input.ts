@@ -143,11 +143,21 @@ export class DeleteFormVersionDraftInput {
   expectedDraftRevision!: number;
 }
 
-/** 只帶表單 key 的動作(重試發布、退役目前版本)。 */
+/** 只帶表單 key 的動作(重試發布)。 */
 @InputType()
 export class FormKeyInput {
   @Field(() => ID)
   formKey!: string;
+}
+
+/** 退役目前版本:帶當時看到的版本號(`currentVersion` 已指向別的版本 → 409)。 */
+@InputType()
+export class RetireCurrentVersionInput {
+  @Field(() => ID)
+  formKey!: string;
+
+  @Field(() => Int)
+  expectedVersion!: number;
 }
 
 @InputType()
@@ -186,6 +196,10 @@ export class PreviewFormVersionInput {
   /** 測試值(欄位 key → 值);缺席的欄位當空值。 */
   @Field(() => GraphQLJSONObject, { nullable: true })
   values?: Record<string, unknown> | null;
+
+  /** 缺席或 null = 草稿;有值 = 該已發布 / 已退役版本(版本面板檢視歷史版本時的預覽)。 */
+  @Field(() => Int, { nullable: true })
+  version?: number | null;
 }
 
 @InputType()

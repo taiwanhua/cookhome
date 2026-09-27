@@ -36,6 +36,7 @@ import {
   WORKFLOWS_BLOCKED_PAGE_KEY,
   WORKFLOWS_MODULE_KEY,
 } from "../pages/system/workflows-permissions";
+import type { ShellMinWidth } from "./AdminShell/shell-geometry";
 import type { ModulePageRegistry } from "./guards/ModuleRoute/ModuleRoute";
 
 /** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
@@ -80,4 +81,15 @@ export const modulePages: ModulePageRegistry = {
   // 請假綁了流程時,詳情頁下方自動掛審核區塊(預設組裝含)
   ...formModulePages(SHOPPING_LIST_MODULE_KEY),
   ...formModulePages(LEAVE_MODULE_KEY),
+};
+
+/**
+ * 模組 key → 內容區最小寬度的主題斷點(沒列 = 殼層預設 `lg`;`AdminShell/shell-geometry.ts`)。
+ * 設計器這種三欄工作區窄了會擠壞,宣告 `xl`:視窗比它窄時由內容區水平捲動。
+ */
+export const modulePageMinWidths: Readonly<Record<string, ShellMinWidth>> = {
+  // 表單管理:表單設計器(元件面板 / 畫布 / 屬性面板)
+  [FORMS_MODULE_KEY]: "xl",
+  // 流程管理:流程設計器(流程圖 + 關卡屬性)
+  [WORKFLOWS_MODULE_KEY]: "xl",
 };

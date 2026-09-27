@@ -238,7 +238,7 @@ describe("表單模組:欄位預設值與日期時間", () => {
     });
   });
 
-  it("修訂差異:日期時間以各修訂自己的時區(東京)顯示,不用讀者的租戶時區(台北)", async () => {
+  it("修訂紀錄與差異:日期時間以讀者現在的租戶時區(台北)顯示,修訂的時區(東京)不決定顯示", async () => {
     const { user } = renderShopping({
       path: VIEW_PATH,
       world: {
@@ -267,6 +267,7 @@ describe("表單模組:欄位預設值與日期時間", () => {
       },
     });
 
+    await user.click(await screen.findByRole("button", { name: "修訂紀錄" }));
     const history = await screen.findByRole("region", { name: "修訂紀錄" });
     await user.click(
       within(history).getByRole("button", { name: "與前一修訂的差異" }),
@@ -274,15 +275,15 @@ describe("表單模組:欄位預設值與日期時間", () => {
     const diff = await within(history).findByRole("table", {
       name: "修訂 2 的差異",
     });
+    expect(within(diff).getByText("2026-03-01 09:30")).toBeInTheDocument();
     expect(within(diff).getByText("2026-03-01 10:30")).toBeInTheDocument();
-    expect(within(diff).getByText("2026-03-01 11:30")).toBeInTheDocument();
-    // 修訂時間也以那一筆的時區印到分鐘
+    // 修訂時間也以讀者的租戶時區印到分鐘
     expect(
-      within(history).getByText(/修訂 2 · — · 2026-01-06 09:00/),
+      within(history).getByText(/修訂 2 · — · 2026-01-06 08:00/),
     ).toBeInTheDocument();
   });
 
-  it("列表:送出過的列用那次的時區、草稿列用讀者的租戶時區", async () => {
+  it("列表:送出過的列與草稿列都用讀者的租戶時區(台北),不用修訂的時區(東京)", async () => {
     renderShopping({
       path: SHOPPING_ROUTES.list,
       world: {
@@ -295,7 +296,7 @@ describe("表單模組:欄位預設值與日期時間", () => {
               userId: "user-1",
               orgId: "org-1",
             },
-            // 摘要槽日期對日期欄:存的是東京 09-26 00:00 的時點
+            // 摘要槽日期對日期欄:存的是東京 09-26 00:00 的時點(= 台北 09-25 23:00)
             summary: {
               title: "已送出",
               date: "2026-09-25T15:00:00.000Z",
@@ -357,18 +358,18 @@ describe("表單模組:欄位預設值與日期時間", () => {
     const draft = within(grid).getByText("還沒送出").closest("tr");
     await waitFor(() => {
       expect(
-        within(done as HTMLElement).getByText("2026-03-01 10:30"),
+        within(done as HTMLElement).getByText("2026-03-01 09:30"),
       ).toBeInTheDocument();
     });
     expect(
-      within(done as HTMLElement).getByText("2026-09-26"),
+      within(done as HTMLElement).getByText("2026-09-25"),
     ).toBeInTheDocument();
     expect(
       within(draft as HTMLElement).getByText("2026-03-01 09:30"),
     ).toBeInTheDocument();
   });
 
-  it("詳情:日期印 YYYY-MM-DD、日期時間印 YYYY-MM-DD HH:mm(那一筆的時區)", async () => {
+  it("詳情:日期印 YYYY-MM-DD、日期時間印 YYYY-MM-DD HH:mm(讀者的租戶時區,唯讀欄位)", async () => {
     renderShopping({
       path: VIEW_PATH,
       world: worldWith([
@@ -382,13 +383,11 @@ describe("表單模組:欄位預設值與日期時間", () => {
       ]),
     });
 
-    const label = await screen.findByText("送達時間");
-    const cell = label.parentElement ?? document.body;
-    expect(within(cell).getByText("2026-03-01 09:30")).toBeInTheDocument();
-    expect(within(cell).queryByText("2026-03-01T01:30:00Z")).toBeNull();
-    const dayLabel = screen.getByText("採購日");
-    expect(
-      within(dayLabel.parentElement ?? document.body).getByText("2026-09-26"),
-    ).toBeInTheDocument();
+    const deliver = await screen.findByRole("textbox", { name: "送達時間" });
+    expect(deliver).toHaveValue("2026-03-01 09:30");
+    expect(deliver).toHaveAttribute("readonly");
+    expect(screen.getByRole("textbox", { name: "採購日" })).toHaveValue(
+      "2026-09-26",
+    );
   });
 });

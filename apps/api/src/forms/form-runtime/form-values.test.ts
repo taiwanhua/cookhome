@@ -51,6 +51,20 @@ const CREATE_UPLOAD_URL = /* GraphQL */ `
   }
 `;
 
+/** 預覽指定版本用:`total = qty × factor`(每一版 factor 不同,結果看得出算的是哪一版)。 */
+function doubled(factor: number): ReturnType<typeof definitionOf> {
+  return definitionOf([
+    field("title", "text"),
+    field("qty", "number"),
+    field("total", "number", {
+      valueSource: {
+        kind: "computed",
+        expr: { "*": [{ var: "qty" }, factor] },
+      },
+    }),
+  ]);
+}
+
 const ATTACHMENT_URL = /* GraphQL */ `
   query FormSubmissionAttachmentUrl($id: ID!, $fieldKey: String!) {
     formSubmissionAttachmentUrl(id: $id, fieldKey: $fieldKey) {
@@ -625,6 +639,35 @@ describe("表單的值:語意值、引用快照、現名 / 快照、lookup 以�
     expect(
       await connection.collection("form_submissions").countDocuments(),
     ).toBe(before);
+  });
+
+  it("設計器預覽帶 version:以那一版(已發布 / 已退役)的定義計算,不是草稿", async () => {
+    await publishNewForm(api, root, "preview_versions", doubled(2));
+    await publishDefinition(api, root, "preview_versions", doubled(3), 1);
+    await ok(api, root, CREATE_DRAFT, {
+      input: { formKey: "preview_versions", baseVersion: 2 },
+    });
+    await saveDefinition(api, root, "preview_versions", doubled(10), 0);
+    const totalOf = async (version: number | null): Promise<unknown> => {
+      const data = await ok<{
+        previewFormVersion: { values: Record<string, unknown> };
+      }>(api, root, PREVIEW_VERSION, {
+        input: {
+          formKey: "preview_versions",
+          values: { qty: 4 },
+          ...(version !== null && { version }),
+        },
+      });
+      return data.previewFormVersion.values.total;
+    };
+    // 版本 1 已退役、版本 2 是目前版本、草稿乘 10
+    expect(await totalOf(1)).toBe("8");
+    expect(await totalOf(2)).toBe("12");
+    expect(await totalOf(null)).toBe("40");
+    const missing = await call(api, root, PREVIEW_VERSION, {
+      input: { formKey: "preview_versions", version: 9, values: {} },
+    });
+    expect(codeOf(missing)).toBe("NOT_FOUND");
   });
 
   describe("引用的快照只取非受保護欄位;顯示欄被遮時標來源不可用", () => {

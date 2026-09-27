@@ -51,15 +51,12 @@ describe("表單管理:唯讀檢視已發布的版本", () => {
     ).toBeInTheDocument();
   });
 
-  it("唯讀檢視的預覽可以算(只前端算,沒有「以後端重算」)", async () => {
-    const { user } = renderFormsPage();
+  it("唯讀檢視的預覽可以算;「以後端重算」帶這一版的版號", async () => {
+    const { user, world } = renderFormsPage();
     const viewer = await openVersion(user);
 
     await user.click(within(viewer).getByRole("tab", { name: "預覽" }));
     const preview = await within(viewer).findByRole("region", { name: "預覽" });
-    expect(
-      within(preview).queryByRole("button", { name: "以後端重算" }),
-    ).toBeNull();
     fireEvent.change(within(preview).getByRole("textbox", { name: "數量" }), {
       target: { value: "2" },
     });
@@ -69,6 +66,16 @@ describe("表單管理:唯讀檢視已發布的版本", () => {
     expect(
       await within(preview).findByDisplayValue("30 元"),
     ).toBeInTheDocument();
+
+    await user.click(
+      within(preview).getByRole("button", { name: "以後端重算" }),
+    );
+    await waitFor(() => {
+      expect(world.inputs.previewFormVersion.at(-1)).toMatchObject({
+        formKey: SHOPPING_FORM_KEY,
+        version: 1,
+      });
+    });
   });
 
   it("沒有草稿時旁邊有「以此為基底開新草稿」", async () => {

@@ -2,6 +2,7 @@ import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import { type ReactNode, useMemo } from "react";
 
 import {
+  DEFAULT_TENANT_TIMEZONE,
   type ExpressionContext,
   type FieldDef,
   type FormDefinition,
@@ -10,10 +11,13 @@ import {
   type StoredValues,
   fieldProtections,
 } from "@repo/domain/form";
+import { Box } from "@repo/ui/box";
+import { Card } from "@repo/ui/card";
 import { Grid } from "@repo/ui/grid";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { fieldMapOf } from "@/lib/form-engine/definition";
 import { designIdOf } from "@/lib/form-engine/design-definition";
 import { designFieldId } from "@/lib/form-engine/design-ids";
@@ -113,10 +117,20 @@ export const FormRenderer = ({
     [version, values, expressionContext, mode, permissions, serverState],
   );
 
-  // 日期時間欄以表達式 ctx 的時區(填寫 = 租戶時區、唯讀 = 那次修訂的時區)輸入與顯示
+  // 日期 / 日期時間欄的輸入與顯示時區 = 讀者現在的租戶時區:呼叫端給的 `context.timezone`,
+  // 沒給時:唯讀 = 讀者的租戶時區(修訂的 `ctx.timezone` 只用於重算條件,不決定顯示;申請中心詳情這類
+  // 沒帶時區的呼叫端也對);填寫 / 預覽 = 表達式 ctx 的時區(兩者本來就相同)
+  const tenantTimezone = useTenantTimezone();
   const cellContext = useMemo(
-    () => ({ ...context, timezone: expressionContext.timezone }),
-    [context, expressionContext.timezone],
+    () => ({
+      ...context,
+      timezone:
+        context.timezone ??
+        (mode === "readonly"
+          ? (tenantTimezone ?? DEFAULT_TENANT_TIMEZONE)
+          : expressionContext.timezone),
+    }),
+    [context, mode, tenantTimezone, expressionContext.timezone],
   );
 
   const handleChange = (fieldKey: string, value: unknown) => {
@@ -182,6 +196,40 @@ export const FormRenderer = ({
           ];
         });
 
+        if (!isDesign) {
+          // 填寫 / 預覽 / 唯讀:分區一個有框的卡片 + 標題列,三種模式版面一致(Spec 6a §8 畫面 9 / 11)
+          return (
+            <Card
+              key={section.key}
+              component="section"
+              variant="outlined"
+              aria-label={section.title}
+            >
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.25,
+                  borderBottom: 1,
+                  borderColor: "divider",
+                }}
+              >
+                <Typography variant="subtitle1" component="h2">
+                  {section.title}
+                </Typography>
+              </Box>
+              <Box sx={{ p: 2 }}>
+                <Grid
+                  container
+                  columns={LAYOUT_COLUMNS}
+                  spacing={SECTION_SPACING}
+                >
+                  {cells}
+                </Grid>
+              </Box>
+            </Card>
+          );
+        }
+
         return (
           <Stack
             key={section.key}
@@ -193,33 +241,23 @@ export const FormRenderer = ({
               <Typography variant="subtitle1" component="h2" sx={{ flex: 1 }}>
                 {section.title}
               </Typography>
-              {isDesign && design?.renderSectionActions?.(section)}
+              {design?.renderSectionActions?.(section)}
             </Stack>
-            {isDesign ? (
-              <SortableContext
-                items={cols.map((col) => designFieldId(col.cellId))}
-                strategy={rectSortingStrategy}
-              >
-                <Grid
-                  container
-                  columns={LAYOUT_COLUMNS}
-                  spacing={SECTION_SPACING}
-                >
-                  {cells}
-                  <Grid size={LAYOUT_COLUMNS}>
-                    <SectionDropZone sectionKey={section.key} />
-                  </Grid>
-                </Grid>
-              </SortableContext>
-            ) : (
+            <SortableContext
+              items={cols.map((col) => designFieldId(col.cellId))}
+              strategy={rectSortingStrategy}
+            >
               <Grid
                 container
                 columns={LAYOUT_COLUMNS}
                 spacing={SECTION_SPACING}
               >
                 {cells}
+                <Grid size={LAYOUT_COLUMNS}>
+                  <SectionDropZone sectionKey={section.key} />
+                </Grid>
               </Grid>
-            )}
+            </SortableContext>
           </Stack>
         );
       })}

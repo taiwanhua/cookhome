@@ -7,13 +7,15 @@ import { Injectable } from "@nestjs/common";
  * - `publish-version`:這一版 `publishing → published`
  * - `retire-previous`:前一個 `published → retired`
  * - `current-version`:`forms.currentVersion` 指向新版(步驟 4 的最後一筆)
+ * - `retire-current`:退役目前版本的第 2 步(`forms.currentVersion → null`;第 1 步版本已改 `retired`)
  */
 export type PublishCheckpoint =
   | "permission"
   | "retire-permission"
   | "publish-version"
   | "retire-previous"
-  | "current-version";
+  | "current-version"
+  | "retire-current";
 
 /**
  * 發布的檢查點(正式環境什麼都不做)。

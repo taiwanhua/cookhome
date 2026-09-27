@@ -3,6 +3,7 @@ import { DateTimePicker } from "@repo/ui/date-time-picker";
 
 import { scalarText } from "@/lib/form-engine/value-text";
 
+import { ReadOnlyField } from "./ReadOnlyField";
 import type { WidgetProps } from "./widget-types";
 
 /** `rules.min` / `max` 收任何時區的 ISO 8601;給選擇器前先收成 UTC,不合法就不限。 */
@@ -11,17 +12,29 @@ const limitOf = (raw: unknown): string | undefined =>
 
 /**
  * 日期時間欄(`datetime` → `dateTimePicker`,Spec 6a §5):值是時點(收發 ISO 8601,api 存 Mongo `Date`),
- * 以**租戶時區**輸入與顯示(`context.timezone`,填寫端取自 `me.currentOrg.timezone`;唯讀檢視用那次修訂的時區)。
+ * 以**讀者現在的租戶時區**輸入與顯示(`context.timezone` = `me.currentOrg.timezone`;唯讀檢視也是)。
+ * 唯讀檢視印 `YYYY-MM-DD HH:mm`(`useTemporalText`)。
  */
 export const DateTimeWidget = ({
   field,
   value,
   onChange,
   isDisabled,
+  isReadOnly = false,
   helperText,
   hasError,
   context,
 }: WidgetProps) => {
+  if (isReadOnly) {
+    return (
+      <ReadOnlyField
+        field={field}
+        value={value}
+        context={context}
+        helperText={helperText}
+      />
+    );
+  }
   const text = temporalIsoOf(value) ?? scalarText(value);
   const min = limitOf(field.rules?.min);
   const max = limitOf(field.rules?.max);

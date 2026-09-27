@@ -1162,10 +1162,12 @@
       "diffAria": "修訂 {revision} 的差異",
       "diffField": "欄位",
       "diffBefore": "修訂 {revision}",
-      "diffAfter": "修訂 {revision}"
+      "diffAfter": "修訂 {revision}",
+      "close": "關閉"
     },
     "pages": {
       "loading": "載入中",
+      "revisions": "修訂紀錄",
       "search": "搜尋",
       "searchPlaceholder": "標題",
       "formFilter": "表單",
@@ -1218,7 +1220,9 @@
       "UNEXPECTED": "操作失敗,請稍後再試。",
       "WORKFLOW_REMOVED": "此表單的審核流程已移除,請聯絡管理員。",
       "WORKFLOW_UNPUBLISHED": "這張表單綁定的審核流程尚未發布,暫時不能送出,請聯絡管理員。",
-      "WORKFLOW_MISCONFIGURED": "審核流程設定有誤,請聯絡管理員。"
+      "WORKFLOW_MISCONFIGURED": "審核流程設定有誤,請聯絡管理員。",
+      "REVISION_LIMIT": "修訂次數已達上限,請建立新的申請。",
+      "DOCUMENT_TOO_LARGE": "資料容量已達上限,請縮減內容。"
     }
   },
   "forms": {

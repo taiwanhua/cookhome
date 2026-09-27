@@ -393,6 +393,7 @@ export class WorkflowVersionsService {
     const retired = await retireCurrentVersion(
       this.publisher.lifecycle(operator, workflow),
       ownerOf(workflow),
+      workflow.currentVersion,
     );
     const updated = await this.workflows.findOne(workflow.tenantId, {
       key: workflow.key,

@@ -17,6 +17,7 @@ import {
   FormKeyInput,
   PreviewFormVersionInput,
   PublishFormVersionInput,
+  RetireCurrentVersionInput,
   SaveFormVersionDraftInput,
   ValidateFormVersionInput,
 } from "./dto/form-design.input";
@@ -117,10 +118,11 @@ export class FormVersionsResolver {
     return { formVersion: toFormVersionModel(record, names), validation: null };
   }
 
+  /** 帶當時看到的版本號;兩步冪等(中斷後重呼叫會接著做完),`currentVersion` 已換成別版 → 409。 */
   @RequirePermission(FORMS_PERMISSIONS.edit)
   @Mutation(() => FormPayload)
   async retireCurrentVersion(
-    @Args("input") input: FormKeyInput,
+    @Args("input") input: RetireCurrentVersionInput,
     @CurrentOperator() operator: OperatorContext,
   ): Promise<FormPayload> {
     const facts = await this.access.factsOf(operator);

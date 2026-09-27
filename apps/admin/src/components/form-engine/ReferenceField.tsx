@@ -7,6 +7,7 @@ import { Autocomplete } from "@repo/ui/autocomplete";
 import { useSession } from "@/hooks/useSession";
 import { identityOf, scalarText } from "@/lib/form-engine/value-text";
 
+import { ReadOnlyField } from "./widgets/ReadOnlyField";
 import type { WidgetProps } from "./widgets/widget-types";
 
 /** 一次列幾筆(搜尋交給 api 的 keyword)。 */
@@ -40,10 +41,12 @@ export const ReferenceField = ({
   value,
   onChange,
   isDisabled,
+  isReadOnly = false,
   isDesign,
   helperText,
   hasError,
   context,
+  display,
 }: WidgetProps) => {
   const t = useTranslations("admin.formEngine.widgets");
   const { session } = useSession();
@@ -60,8 +63,20 @@ export const ReferenceField = ({
         pageSize: PAGE_SIZE,
       },
     },
-    { enabled: !isDesign && !isDisabled },
+    { enabled: !isDesign && !isDisabled && !isReadOnly },
   );
+  if (isReadOnly) {
+    // 唯讀檢視:顯示 `displayValues` 的現名(來源不可讀時快照 +「(來源不可用)」),不查來源
+    return (
+      <ReadOnlyField
+        field={field}
+        value={value}
+        context={context}
+        helperText={helperText}
+        {...(display !== undefined && { display })}
+      />
+    );
+  }
   const current = optionOfStored(value);
   const found: ReferenceOption[] = (lookup.data?.formLookup.items ?? []).map(
     (record) => ({ id: record.id, label: record.label ?? record.id }),

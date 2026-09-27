@@ -23,9 +23,12 @@ import { isDuplicateKeyError } from "../forms/forms-error";
  * 任何一步失敗,資料就停在那一步做到一半的樣子;重試從步驟 3 起重跑,每個寫入「已是目標狀態就跳過」。
  */
 
-/** 步驟 4 每一筆寫入前的檢查點(測試在這裡注入失敗;正式環境只記下來)。 */
+/**
+ * 步驟 4 每一筆寫入前的檢查點,與退役第 2 步(`currentVersion → null`)前的檢查點
+ * (測試在這裡注入失敗;正式環境只記下來)。
+ */
 export type VersionSwitchCheckpoint =
-  "publish-version" | "retire-previous" | "current-version";
+  "publish-version" | "retire-previous" | "current-version" | "retire-current";
 
 /** 生命週期會回的 `CONFLICT` 原因(表單與流程共用同一組語彙)。 */
 export type VersionConflictReason =
@@ -229,38 +232,68 @@ export async function switchToPublished<TVersion extends LifecycleVersion>(
 }
 
 /**
- * 退役目前版本:`published → retired`,再 `currentVersion → null`;中斷後再呼叫一次會接著做完
- * (版本已退役就只補後一筆)。回被退役的那一版(已退役過則為 null)。
+ * 退役目前版本(Spec 6a §6):呼叫端帶**當時看到的版本號** `expectedVersion`,固定順序兩步條件更新:
+ *
+ * 1. `{ version: expected, status: "published" } → retired`
+ * 2. 擁有者 `{ currentVersion: expected } → null`
+ *
+ * **冪等**:每一步「已是目標狀態」視為完成(版本已是 `retired`、`currentVersion` 已是 null),
+ * 兩步之間中斷後再呼叫一次會接著做完;只有 `currentVersion` 已指向別的版本(期間有人發布了新版)才
+ * `CURRENT_VERSION_CHANGED`。`expectedVersion` 為 null(呼叫端讀到的就沒有已發布版本)或那一版既不是
+ * 已發布也不是已退役 → `NO_CURRENT_VERSION`。回這次被退役的那一版(第 1 步先前已做完則為 null)。
  */
 export async function retireCurrentVersion<TVersion extends LifecycleVersion>(
   config: VersionLifecycleConfig<TVersion>,
   owner: LifecycleOwner,
+  expectedVersion: number | null,
 ): Promise<TVersion | null> {
   await assertNotPublishing(config, owner);
-  if (owner.currentVersion === null) {
+  if (expectedVersion === null) {
     throw config.conflict(
       "NO_CURRENT_VERSION",
       `${owner.key} has no current version`,
     );
   }
+  if (
+    owner.currentVersion !== null &&
+    owner.currentVersion !== expectedVersion
+  ) {
+    throw config.conflict(
+      "CURRENT_VERSION_CHANGED",
+      `${owner.key} current version is ${String(owner.currentVersion)}, expected ${String(expectedVersion)}`,
+    );
+  }
+  // 第 1 步:這一版 published → retired;沒命中時確認它已是 retired(上次做到一半)才算完成
   const retired = await config.versions.findOneAndUpdate(
     {
       [config.keyField]: owner.key,
-      version: owner.currentVersion,
+      version: expectedVersion,
       status: "published",
     },
     { $set: { status: "retired" } },
   );
-  const switched = await config.switchCurrent(
-    owner,
-    owner.currentVersion,
-    null,
-  );
-  if (!switched) {
-    throw config.conflict(
-      "CURRENT_VERSION_CHANGED",
-      `${owner.key} current version changed while retiring`,
+  if (!retired) {
+    const [record] = await config.versions.findMany(
+      { [config.keyField]: owner.key, version: expectedVersion },
+      { limit: 1 },
     );
+    if (record?.status !== "retired") {
+      throw config.conflict(
+        "NO_CURRENT_VERSION",
+        `${owner.key} version ${String(expectedVersion)} is not published`,
+      );
+    }
+  }
+  // 第 2 步:currentVersion expected → null(已是 null = 上次已做完)
+  if (owner.currentVersion === expectedVersion) {
+    await config.reached("retire-current");
+    const switched = await config.switchCurrent(owner, expectedVersion, null);
+    if (!switched) {
+      throw config.conflict(
+        "CURRENT_VERSION_CHANGED",
+        `${owner.key} current version changed while retiring`,
+      );
+    }
   }
   return retired;
 }
