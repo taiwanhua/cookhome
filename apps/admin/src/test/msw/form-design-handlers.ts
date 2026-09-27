@@ -5,6 +5,7 @@ import {
   type CreateFormVersionDraftMutationVariables,
   type DeleteFormVersionDraftMutationVariables,
   type DeleteRetiredPermissionMutationVariables,
+  type FieldCategoriesQueryVariables,
   type FormFieldsFragment,
   type FormVersionFieldsFragment,
   type FormVersionQueryVariables,
@@ -100,17 +101,17 @@ export const formDesignWorld = (
   const noIssues = { errors: [], warnings: [] };
 
   const handlers = [
-    // 屬性面板「欄位管理類別」的下拉(與欄位管理頁同一支查詢)
-    api.query("FieldCategories", () =>
-      HttpResponse.json({
-        data: {
-          fieldCategories: {
-            items: fieldCategories,
-            totalCount: fieldCategories.length,
-          },
-        },
-      }),
-    ),
+    // 屬性面板「欄位管理類別」的下拉(與欄位管理頁同一支查詢;設計器帶 `enabledOnly`,停用的類別不列)
+    api.query("FieldCategories", ({ variables }) => {
+      const { input } = variables as FieldCategoriesQueryVariables;
+      const items =
+        input?.enabledOnly === true
+          ? fieldCategories.filter((category) => category.enabled)
+          : fieldCategories;
+      return HttpResponse.json({
+        data: { fieldCategories: { items, totalCount: items.length } },
+      });
+    }),
     api.query("Forms", ({ variables }) => {
       const { input } = variables as FormsQueryVariables;
       const items = forms.filter(
