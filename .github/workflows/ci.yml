@@ -271,7 +271,9 @@ jobs:
         env:
           MONGOMS_DISABLE_POSTINSTALL: "1"
 
-      # 兩片產生的快取內容相同,共用一把 key(後存的那片存不進去只是警告)
+      # 兩片產生的快取內容相同,共用一把 key(後存的那片存不進去只是警告)。
+      # 自己的 key 找不到時先退回 lint-typecheck 的:兩者 build 依賴的 turbo hash 相同;
+      # 同一個依賴 build 在 test-others 算出的 hash 不同(實測;該 job 的 run 多了 env 與 `-- --forceExit`),退回它等於沒命中
       - name: turbo 快取
         uses: actions/cache@v4
         with:
@@ -279,6 +281,7 @@ jobs:
           key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-test-admin-${{ github.sha }}
           restore-keys: |
             turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-test-admin-
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-lint-typecheck-
             turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: build admin 的依賴
