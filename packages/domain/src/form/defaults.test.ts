@@ -50,8 +50,8 @@ describe("@repo/domain/form 預設值:計算", () => {
       qty: "2",
       budget: "3.0",
       applicant: { id: "user-1", label: null },
-      // CTX.now = 台北 3/1 09:00
-      due: "2026-03-01",
+      // CTX.now = 台北 3/1 09:00 → 當地 3/1 00:00
+      due: "2026-02-28T16:00:00.000Z",
     });
   });
 

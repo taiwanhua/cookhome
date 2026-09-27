@@ -12,6 +12,7 @@ import {
   defaultValueOf,
   isEmptyValue,
   referencedFieldKeys,
+  temporalIsoOf,
   uploadLimitIssue,
 } from "@repo/domain/form";
 
@@ -49,6 +50,7 @@ import {
 import { formModulePermission } from "../form-permission-keys";
 import { fieldStatesOf, projectValues } from "../form-values/field-states";
 import { SubmissionValuesService } from "../form-values/submission-values.service";
+import { storedSummaryOf } from "../form-values/temporal-values";
 import {
   conflictError,
   forbiddenError,
@@ -222,7 +224,7 @@ function summaryModelOf(summary: SubmissionSummary | null): {
   return summary
     ? {
         title: summary.title,
-        date: summary.date,
+        date: temporalIsoOf(summary.date),
         amount: summary.amount ?? null,
       }
     : null;
@@ -671,9 +673,11 @@ export class FormSubmissionsService {
       ctx: expressionContextOf(ctx),
       mode: "complete",
     });
-    const summary = computeSummary(definitionOf(version), values, {
-      submittedAt: (record.submittedAt ?? at).toISOString(),
-    });
+    const summary = storedSummaryOf(
+      computeSummary(definitionOf(version), values, {
+        submittedAt: (record.submittedAt ?? at).toISOString(),
+      }),
+    );
     const route = await this.workflowSubmit.route(record);
     if (route.kind === "workflow") {
       await this.workflowSubmit.submit(
@@ -772,9 +776,11 @@ export class FormSubmissionsService {
       ctx: expressionContextOf(ctx),
       mode: "complete",
     });
-    const summary = computeSummary(definitionOf(version), values, {
-      submittedAt: (record.submittedAt ?? at).toISOString(),
-    });
+    const summary = storedSummaryOf(
+      computeSummary(definitionOf(version), values, {
+        submittedAt: (record.submittedAt ?? at).toISOString(),
+      }),
+    );
     const revision = record.revision + 1;
     const updated = await this.submissions.findOneAndUpdate(
       facts.operator,

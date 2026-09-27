@@ -2,6 +2,7 @@ import {
   type FieldDef,
   type StoredValues,
   semanticValuesOf,
+  toInstant,
 } from "@repo/domain/form";
 
 const NUMERIC = /^(-?)(\d+)(?:\.(\d+))?$/;
@@ -56,7 +57,8 @@ function optionIdentity(value: unknown): unknown {
 
 /**
  * 兩個存值是不是「同一個值」(Spec §5 原因 3:無 `edit` 者送來的值與既有不同 → 403):
- * 比的是**識別**而不是整個物件 —— 選項比 value、引用比 id、上傳比 path、數字比數值;
+ * 比的是**識別**而不是整個物件 —— 選項比 value、引用比 id、上傳比 path、數字比數值、日期 / 日期時間比時點
+ * (存的是 `Date`、送來的是 ISO 字串);
  * 前端把 `{ value, label }` 送成 `"value"`、label 快照不同,都不算改動。
  */
 export function isSameStoredValue(
@@ -93,6 +95,11 @@ export function isSameStoredValue(
     case "number": {
       const normalized = canonicalNumber(a);
       return normalized !== null && normalized === canonicalNumber(b);
+    }
+    case "date":
+    case "datetime": {
+      const instant = toInstant(a);
+      return instant === null ? a === b : instant === toInstant(b);
     }
     default: {
       return a === b;

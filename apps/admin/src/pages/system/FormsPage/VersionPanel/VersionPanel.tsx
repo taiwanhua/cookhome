@@ -15,9 +15,9 @@ import { Stack } from "@repo/ui/stack";
 import { Table } from "@repo/ui/table";
 import { Tag, type TagTone } from "@repo/ui/tag";
 
-import { useDateTimeText } from "@/hooks/useDateTimeText";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
+import { useTemporalText } from "@/hooks/useTemporalText";
 import { definitionOf } from "@/lib/form-engine/definition";
 import { formErrorOf } from "@/lib/form-engine/form-errors";
 import { versionDiff } from "@/lib/form-engine/version-diff";
@@ -55,7 +55,7 @@ export const VersionPanel = ({
   onView,
 }: VersionPanelProps) => {
   const t = useTranslations("admin.forms.versions");
-  const dateTimeText = useDateTimeText();
+  const temporalText = useTemporalText();
   const tErrors = useTranslations("admin.forms.errors");
   const { session } = useSession();
   const [isPublishing, setIsPublishing] = useState(false);
@@ -262,7 +262,7 @@ export const VersionPanel = ({
               item.publishedAt === null || item.publishedAt === undefined
                 ? "—"
                 : t("publishedLine", {
-                    at: dateTimeText(item.publishedAt),
+                    at: temporalText(item.publishedAt, "datetime"),
                     user: item.publishedBy?.name ?? "—",
                   }),
           },

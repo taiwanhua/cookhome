@@ -84,9 +84,13 @@ describe("@repo/domain/form 表達式:上下文 ctx.* 與擴充函式", () => {
     expect(evaluate({ now: [] })).toBe(CTX.now);
   });
 
-  it("dateDiff 以租戶時區的日曆日計(台北 3/1 09:00 到 3/3 = 2 天)", () => {
-    expect(evaluate({ dateDiff: [{ now: [] }, "2026-03-03"] })).toBe("2");
-    expect(evaluate({ dateDiff: [{ var: "start" }, "2026-03-03"] })).toBeNull();
+  it("dateDiff 以租戶時區的日曆日計(台北 3/1 09:00 到 3/3 00:00 = 2 天)", () => {
+    expect(
+      evaluate({ dateDiff: [{ now: [] }, "2026-03-02T16:00:00.000Z"] }),
+    ).toBe("2");
+    expect(
+      evaluate({ dateDiff: [{ var: "start" }, "2026-03-02T16:00:00.000Z"] }),
+    ).toBeNull();
   });
 
   it("concat 串接,空值當空字串", () => {
@@ -195,7 +199,7 @@ describe("@repo/domain/form 表達式:文字比較與存值收斂", () => {
     ).toBe(true);
   });
 
-  it("date 型別的計算結果收斂成 YYYY-MM-DD(now 是 ISO 時間,以租戶時區換算)", () => {
+  it("date 型別的計算結果收斂成租戶時區當天 00:00 的 ISO(now 是此刻)", () => {
     // CTX.now = 2026-03-01T01:00Z,台北是 3/1 09:00
     expect(
       computeAll(
@@ -209,7 +213,7 @@ describe("@repo/domain/form 表達式:文字比較與存值收斂", () => {
           ctx: CTX,
         },
       ),
-    ).toEqual({ today: "2026-03-01" });
+    ).toEqual({ today: "2026-02-28T16:00:00.000Z" });
   });
 
   it("number 的固定值依 precision 取位", () => {

@@ -16,10 +16,12 @@ import { LookupDialog } from "@/components/form-engine/LookupDialog/LookupDialog
 import { useFillValues } from "@/hooks/useFillValues";
 import { useMe } from "@/hooks/useMe";
 import { useSession } from "@/hooks/useSession";
+import { useTemporalText } from "@/hooks/useTemporalText";
 import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
 import { OPEN_PERMISSIONS } from "@/lib/form-engine/field-states";
 import { formErrorOf } from "@/lib/form-engine/form-errors";
+import { summaryDateTypeOf } from "@/lib/form-engine/tab-label";
 
 export interface DesignerPreviewProps {
   formKey: string;
@@ -54,6 +56,9 @@ export const DesignerPreview = ({
   const [now] = useState(() => new Date());
   const user = me.data?.me;
   const timezone = useTenantTimezone();
+  const temporalText = useTemporalText();
+  // 摘要槽「日期」對到日期欄印日期,對日期時間欄或沒對(= 送出時間)印到分鐘
+  const summaryDateType = summaryDateTypeOf(definition);
   const expressionContext = liveContextOf(
     user?.id ?? null,
     user?.currentOrg?.id ?? null,
@@ -143,7 +148,10 @@ export const DesignerPreview = ({
         >
           {t("serverSummary", {
             title: result.summary.title ?? "—",
-            date: result.summary.date ?? "—",
+            date:
+              result.summary.date === null
+                ? "—"
+                : temporalText(result.summary.date, summaryDateType),
             amount: result.summary.amount ?? "—",
             errors: result.fieldErrors.length,
           })}

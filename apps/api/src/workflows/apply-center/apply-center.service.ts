@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { Types } from "mongoose";
 
+import { temporalIsoOf } from "@repo/domain/form";
 import { stepOf } from "@repo/domain/workflow";
 
 import { BusinessRelationshipsRepository } from "../../database/business-relationships.repository";
@@ -250,7 +251,7 @@ export class ApplyCenterService {
       summary: record.summary
         ? {
             title: record.summary.title,
-            date: record.summary.date,
+            date: temporalIsoOf(record.summary.date),
             amount: record.summary.amount ?? null,
           }
         : null,

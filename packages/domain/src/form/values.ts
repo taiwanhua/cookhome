@@ -1,6 +1,12 @@
 import { roundToPrecision, toDecimal } from "./decimal";
 import { evaluateCondition } from "./expression";
-import { normalizeDateTime, toZonedWallTime } from "./temporal";
+import {
+  compareLocalDay,
+  formatTemporal,
+  startOfLocalDayOf,
+  toInstant,
+  toIso,
+} from "./temporal";
 import type {
   ExpressionContext,
   FieldDef,
@@ -69,7 +75,6 @@ export interface StoredUpload {
 export type NormalizeResult =
   { ok: true; value: unknown } | { ok: false; issue: ValueIssue };
 
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const NUMERIC_STRING = /^-?\d+(?:\.\d+)?$/;
 
 /** 空值:null / undefined / 空字串 / 空陣列。必填判斷與正規化都以它為準。 */
@@ -95,17 +100,6 @@ function typeIssue(field: FieldDef, detail: string): NormalizeResult {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** `YYYY-MM-DD` 且是存在的日期(不接受 2026-02-30)。 */
-export function isCalendarDate(value: unknown): value is string {
-  if (typeof value !== "string" || !DATE_ONLY.test(value)) {
-    return false;
-  }
-  const date = new Date(`${value}T00:00:00Z`);
-  return (
-    !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
-  );
 }
 
 /**
@@ -211,18 +205,35 @@ function normalizeNumber(field: FieldDef, raw: unknown): NormalizeResult {
     : typeIssue(field, "須為數字");
 }
 
-/** 帶時區的 ISO 8601 日期時間 → UTC 存值(`YYYY-MM-DDTHH:mm:ssZ`,秒以下捨去)。 */
-function normalizeDateTimeValue(
+/**
+ * 日期 / 日期時間(Spec §5「值的存法」):收 `Date` 或帶時區的 ISO 8601 字串(沒有時區的字串、`YYYY-MM-DD` 拒收),
+ * 回 ISO 字串(`toIso`;api 存進 Mongo 前換成 `Date`)。`date` 有給 `timezone` 時收斂成當地那一天 00:00。
+ */
+function normalizeTemporal(
   field: FieldDef,
   raw: unknown,
+  timezone: string | undefined,
 ): NormalizeResult {
-  const value = normalizeDateTime(raw);
-  return value === null
-    ? typeIssue(field, "須為含時區的 ISO 8601 日期時間")
-    : { ok: true, value };
+  const instant = toInstant(raw);
+  if (instant === null) {
+    return typeIssue(field, "須為含時區的 ISO 8601 日期時間");
+  }
+  if (field.type !== "date" || timezone === undefined) {
+    return { ok: true, value: toIso(instant) };
+  }
+  try {
+    return { ok: true, value: toIso(startOfLocalDayOf(instant, timezone)) };
+  } catch {
+    // 時區字串不合法:不收斂,照時點存
+    return { ok: true, value: toIso(instant) };
+  }
 }
 
-type Normalizer = (field: FieldDef, raw: unknown) => NormalizeResult;
+type Normalizer = (
+  field: FieldDef,
+  raw: unknown,
+  timezone: string | undefined,
+) => NormalizeResult;
 
 /** 型別 → 正規化(空值已先處理掉)。 */
 const NORMALIZERS: Readonly<Record<FieldType, Normalizer>> = {
@@ -235,11 +246,8 @@ const NORMALIZERS: Readonly<Record<FieldType, Normalizer>> = {
       ? { ok: true, value: raw }
       : typeIssue(field, "須為文字"),
   number: normalizeNumber,
-  date: (field, raw) =>
-    isCalendarDate(raw)
-      ? { ok: true, value: raw }
-      : typeIssue(field, "須為 YYYY-MM-DD 日期"),
-  datetime: normalizeDateTimeValue,
+  date: normalizeTemporal,
+  datetime: normalizeTemporal,
   boolean: (field, raw) =>
     typeof raw === "boolean"
       ? { ok: true, value: raw }
@@ -252,12 +260,13 @@ const NORMALIZERS: Readonly<Record<FieldType, Normalizer>> = {
 
 /**
  * 型別層的正規化:送來的值 → 存值形狀(`Spec §5「值的存法」`)。空值一律收成 `null`。
- * number 取到 `precision` 位的十進位字串;date 必須是 `YYYY-MM-DD`;datetime 收帶時區的 ISO 8601、
- * 存成 UTC;其餘見各型別。
+ * number 取到 `precision` 位的十進位字串;date / datetime 收 `Date` 或帶時區的 ISO 8601、回 ISO 字串
+ * (`date` 在給了 `timezone`(租戶時區)時收斂成當地 00:00);其餘見各型別。
  */
 export function normalizeFieldValue(
   field: FieldDef,
   raw: unknown,
+  timezone?: string,
 ): NormalizeResult {
   if (isEmptyValue(raw)) {
     return { ok: true, value: null };
@@ -266,7 +275,7 @@ export function normalizeFieldValue(
     field.type
   ];
   return normalizer
-    ? normalizer(field, raw)
+    ? normalizer(field, raw, timezone)
     : typeIssue(field, "未知的欄位型別");
 }
 
@@ -350,60 +359,53 @@ function rangeIssue(
       );
     }
   }
-  if (field.type === "date") {
-    return dateRangeIssue(field, value);
-  }
-  return field.type === "datetime"
-    ? dateTimeRangeIssue(field, value, timezone)
+  return field.type === "date" || field.type === "datetime"
+    ? temporalRangeIssue(field, value, timezone)
     : null;
 }
 
-/** date 的上下限:`YYYY-MM-DD` 的字碼序即日期序。 */
-function dateRangeIssue(field: FieldDef, value: unknown): ValueIssue | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-  const rules = field.rules ?? {};
-  if (typeof rules.min === "string" && value < rules.min) {
-    return issueOf(field, "MIN", `「${field.label}」不可早於 ${rules.min}`);
-  }
-  if (typeof rules.max === "string" && value > rules.max) {
-    return issueOf(field, "MAX", `「${field.label}」不可晚於 ${rules.max}`);
-  }
-  return null;
-}
-
-/** 錯誤訊息用的時間:租戶時區的牆上時間(`2026-03-01 09:00(Asia/Taipei)`)。 */
-function wallTimeText(iso: string, timezone: string): string {
-  const wall = toZonedWallTime(iso, timezone);
-  return wall === null ? iso : `${wall.replace("T", " ")}(${timezone})`;
-}
-
-/** datetime 的上下限:`rules.min` / `max` 是 ISO 8601(任何時區),以時點比較;訊息以租戶時區顯示。 */
-function dateTimeRangeIssue(
+/**
+ * date / datetime 的上下限:`rules.min` / `max` 是帶時區的 ISO 8601。`date` 換成租戶時區的當地日期再比
+ * (不看時分秒)、`datetime` 比時點;訊息以租戶時區顯示(`2026-03-01` / `2026-03-01 09:00(Asia/Taipei)`)。
+ */
+function temporalRangeIssue(
   field: FieldDef,
   value: unknown,
   timezone: string,
 ): ValueIssue | null {
-  if (typeof value !== "string") {
+  const type = field.type === "date" ? "date" : "datetime";
+  const at = toInstant(value);
+  if (at === null) {
     return null;
   }
   const rules = field.rules ?? {};
-  const at = Date.parse(value);
-  const min = normalizeDateTime(rules.min);
-  const max = normalizeDateTime(rules.max);
-  if (min !== null && at < Date.parse(min)) {
+  const orderOf = (limit: unknown): number | null => {
+    const bound = toInstant(limit);
+    if (bound === null) {
+      return null;
+    }
+    return type === "date"
+      ? compareLocalDay(at, bound, timezone)
+      : Math.sign(at - bound);
+  };
+  const limitText = (limit: unknown): string => {
+    const text = formatTemporal(limit, { type, timezone });
+    return type === "date" ? text : `${text}(${timezone})`;
+  };
+  const belowMin = orderOf(rules.min);
+  if (belowMin !== null && belowMin < 0) {
     return issueOf(
       field,
       "MIN",
-      `「${field.label}」不可早於 ${wallTimeText(min, timezone)}`,
+      `「${field.label}」不可早於 ${limitText(rules.min)}`,
     );
   }
-  if (max !== null && at > Date.parse(max)) {
+  const aboveMax = orderOf(rules.max);
+  if (aboveMax !== null && aboveMax > 0) {
     return issueOf(
       field,
       "MAX",
-      `「${field.label}」不可晚於 ${wallTimeText(max, timezone)}`,
+      `「${field.label}」不可晚於 ${limitText(rules.max)}`,
     );
   }
   return null;

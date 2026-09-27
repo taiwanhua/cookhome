@@ -5,7 +5,7 @@ import {
   type LookupProviderRegistry,
   type WidgetRegistry,
 } from "./registry";
-import { normalizeDateTime } from "./temporal";
+import { toInstant } from "./temporal";
 import {
   FIELD_TYPES,
   type FieldDef,
@@ -76,20 +76,21 @@ export function validateFields(
   }
 }
 
-/** 日期時間欄的 `rules.min` / `max` 要是帶時區的 ISO 8601(不合法的上下限等於沒設,設計者會以為有效)。 */
+/** 日期 / 日期時間欄的 `rules.min` / `max` 要是帶時區的 ISO 8601(不合法的上下限等於沒設,設計者會以為有效)。 */
 function validateDateTimeRange(
   field: FieldDef,
   collector: IssueCollector,
 ): void {
-  if (field.type !== "datetime") {
+  if (field.type !== "date" && field.type !== "datetime") {
     return;
   }
+  const noun = field.type === "date" ? "日期" : "時間";
   for (const key of ["min", "max"] as const) {
     const raw = field.rules?.[key];
-    if (raw !== undefined && raw !== "" && normalizeDateTime(raw) === null) {
+    if (raw !== undefined && raw !== "" && toInstant(raw) === null) {
       collector.error(
         "RULE_RANGE_INVALID",
-        `「${field.label}」的${key === "min" ? "最早" : "最晚"}時間不是含時區的日期時間`,
+        `「${field.label}」的${key === "min" ? "最早" : "最晚"}${noun}不是含時區的日期時間`,
         { fieldKey: field.key, property: `rules.${key}` },
       );
     }

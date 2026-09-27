@@ -32,6 +32,7 @@ import {
   CREATE_DRAFT,
   CREATE_FORM,
   CREATE_FORM_DRAFT,
+  FORM_LOOKUP,
   FORM_TEST_TIMEOUT_MS,
   FORM_VERSIONS,
   type FormOperator,
@@ -40,12 +41,14 @@ import {
   SAVE_FORM_DRAFT,
   SUBMIT,
   type SubmissionRow,
+  UPDATE_SUBMISSION,
   type VersionRow,
   assignForm,
   call,
   codeOf,
   createDraft,
   createOperator,
+  createSubmitted,
   definitionOf,
   editKey,
   extensionsOf,
@@ -353,23 +356,23 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
       await assignForm(api, root, "datetime_form", [tenant]);
     }, HOOK_TIMEOUT_MS);
 
-    it("存 UTC ISO(租戶時區輸入)、上下限、dateDiff 小時、摘要槽日期對日期時間欄;修訂 ctx 記租戶時區", async () => {
+    it("存 Mongo Date(GraphQL 回 ISO)、上下限、dateDiff 小時、摘要槽日期對日期時間欄;修訂 ctx 記租戶時區", async () => {
       const draft = await createDraft(api, staff.token, "datetime_form", {
         title: "出差",
         start_at: "2026-03-01T09:00+09:00",
         end_at: "2026-03-01T11:30:00+09:00",
       });
       expect(draft.values).toMatchObject({
-        start_at: "2026-03-01T00:00:00Z",
-        end_at: "2026-03-01T02:30:00Z",
+        start_at: "2026-03-01T00:00:00.000Z",
+        end_at: "2026-03-01T02:30:00.000Z",
         hours: "2.5",
       });
       const raw = await rawSubmission(connection, draft.id);
-      expect((raw?.values as Record<string, unknown>).start_at).toBe(
-        "2026-03-01T00:00:00Z",
+      expect((raw?.values as Record<string, unknown>).start_at).toEqual(
+        new Date("2026-03-01T00:00:00Z"),
       );
       const submitted = await submitDraft(api, staff.token, draft);
-      expect(submitted.summary?.date).toBe("2026-03-01T00:00:00Z");
+      expect(submitted.summary?.date).toBe("2026-03-01T00:00:00.000Z");
       expect(submitted.ctx?.timezone).toBe("Asia/Tokyo");
 
       const noZone = await call(api, staff.token, CREATE_FORM_DRAFT, {
@@ -401,6 +404,147 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
       );
       expect(codeOf(blocked)).toBe("VALIDATION_FAILED");
       expect(JSON.stringify(extensionsOf(blocked))).toContain('"MIN"');
+    });
+  });
+
+  describe("date / datetime 存 Mongo Date", () => {
+    beforeAll(async () => {
+      await publishNewForm(
+        api,
+        root,
+        "temporal_form",
+        definitionOf(
+          [
+            field("title", "text"),
+            field("day", "date"),
+            field("meeting", "datetime"),
+            // 預設值是固定日期(版本定義裡是 ISO):以租戶時區(東京)收斂成當地 00:00
+            field("due", "date", {
+              default: { kind: "constant", value: "2026-09-30T00:00:00+08:00" },
+            }),
+            field("next_day", "date", {
+              valueSource: {
+                kind: "computed",
+                expr: { var: "meeting" },
+              },
+            }),
+          ],
+          { summaryMap: { title: "title", date: "day" } },
+        ),
+      );
+      await assignForm(api, root, "temporal_form", [tenant]);
+    }, HOOK_TIMEOUT_MS);
+
+    it("存進去是 Date(date 收斂成租戶時區當地 00:00),GraphQL 讀回 ISO;摘要槽、修訂快照都是 Date", async () => {
+      // 東京選 09-26 → 當地 00:00 = 2026-09-25T15:00Z;送的時點不是午夜也收斂回當天 00:00
+      const draft = await createDraft(api, staff.token, "temporal_form", {
+        title: "會議",
+        day: "2026-09-26T10:30:00+09:00",
+        meeting: "2026-09-26T14:30+09:00",
+      });
+      expect(draft.values).toMatchObject({
+        day: "2026-09-25T15:00:00.000Z",
+        meeting: "2026-09-26T05:30:00.000Z",
+        next_day: "2026-09-25T15:00:00.000Z",
+        // 台北 9/30 00:00 = 東京 9/30 01:00 → 東京 9/30 00:00
+        due: "2026-09-29T15:00:00.000Z",
+      });
+      const rawDraft = await rawSubmission(connection, draft.id);
+      const draftValues = rawDraft?.values as Record<string, unknown>;
+      expect(draftValues.day).toBeInstanceOf(Date);
+      expect(draftValues.meeting).toBeInstanceOf(Date);
+      expect(draftValues.next_day).toBeInstanceOf(Date);
+      expect(draftValues.due).toEqual(new Date("2026-09-29T15:00:00.000Z"));
+
+      const submitted = await submitDraft(api, staff.token, draft);
+      expect(submitted.summary?.date).toBe("2026-09-25T15:00:00.000Z");
+      const raw = await rawSubmission(connection, draft.id);
+      expect((raw?.summary as Record<string, unknown>).date).toEqual(
+        new Date("2026-09-25T15:00:00.000Z"),
+      );
+      const [snapshot] = raw?.revisions as {
+        values: Record<string, unknown>;
+      }[];
+      expect(snapshot?.values.day).toEqual(
+        new Date("2026-09-25T15:00:00.000Z"),
+      );
+
+      // 已完成修改:同值(ISO 送回)不算改動;改日期後新快照也是 Date,舊快照不動
+      const updated = await ok<{
+        updateFormSubmission: { submission: SubmissionRow };
+      }>(api, staff.token, UPDATE_SUBMISSION, {
+        input: {
+          id: submitted.id,
+          expectedEditVersion: submitted.editVersion,
+          expectedRevision: submitted.revision,
+          values: { ...submitted.values, day: "2026-09-27T00:00:00+09:00" },
+        },
+      });
+      expect(updated.updateFormSubmission.submission.values).toMatchObject({
+        day: "2026-09-26T15:00:00.000Z",
+      });
+      const revised = await rawSubmission(connection, draft.id);
+      const revisions = revised?.revisions as {
+        values: Record<string, unknown>;
+      }[];
+      expect(revisions.map((entry) => entry.values.day)).toEqual([
+        new Date("2026-09-25T15:00:00.000Z"),
+        new Date("2026-09-26T15:00:00.000Z"),
+      ]);
+      expect(revisions[1]?.values.meeting).toBeInstanceOf(Date);
+    });
+
+    it("lookup form_submission 來源:日期時間當顯示欄,以讀者的租戶時區印", async () => {
+      await publishNewForm(
+        api,
+        root,
+        "temporal_ref",
+        definitionOf([
+          field("title", "text"),
+          field("pick", "reference", {
+            source: {
+              provider: "form_submission",
+              formKey: "temporal_form",
+              labelField: "meeting",
+            },
+          }),
+        ]),
+      );
+      await assignForm(api, root, "temporal_ref", [tenant]);
+      await createSubmitted(api, staff.token, "temporal_form", {
+        title: "查得到",
+        day: "2026-10-01T00:00:00+09:00",
+        meeting: "2026-10-01T09:15:00+09:00",
+      });
+      const data = await ok<{
+        formLookup: {
+          items: { label: string | null; values: Record<string, unknown> }[];
+        };
+      }>(api, staff.token, FORM_LOOKUP, {
+        input: {
+          formKey: "temporal_ref",
+          version: 1,
+          target: { fieldKey: "pick" },
+          keyword: "查得到",
+        },
+      });
+      // 存的是 Date(00:15Z);顯示名 = 東京時區的 YYYY-MM-DD HH:mm
+      expect(data.formLookup.items.map((item) => item.label)).toEqual([
+        "2026-10-01 09:15",
+      ]);
+    });
+
+    it("只有日期、沒有時區的字串拒收(VALIDATION_FAILED)", async () => {
+      for (const day of ["2026-09-26", "2026-09-26T10:00"]) {
+        const result = await call(api, staff.token, CREATE_FORM_DRAFT, {
+          input: {
+            formKey: "temporal_form",
+            clientRequestId: randomUUID(),
+            values: { title: "x", day },
+          },
+        });
+        expect(codeOf(result)).toBe("VALIDATION_FAILED");
+      }
     });
   });
 

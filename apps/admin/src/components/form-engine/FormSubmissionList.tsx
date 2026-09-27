@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "use-intl";
 
-import { isDateTimeString } from "@repo/domain/form";
 import {
   type FormSubmissionFieldsFragment,
   type FormSubmissionStatus,
@@ -15,8 +14,8 @@ import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { useDateTimeText } from "@/hooks/useDateTimeText";
 import { useSession } from "@/hooks/useSession";
+import { useTemporalText } from "@/hooks/useTemporalText";
 import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { useVersionDefinitions } from "@/hooks/useVersionDefinitions";
 import {
@@ -25,6 +24,7 @@ import {
   resolveListCell,
   sortedColumns,
 } from "@/lib/form-engine/list-columns";
+import { summaryDateTypeOf } from "@/lib/form-engine/tab-label";
 
 import { SubmissionStatusTag } from "../workflow/SubmissionStatusTag";
 import { renderValue } from "./render-value";
@@ -70,7 +70,7 @@ export const FormSubmissionList = ({
 }: FormSubmissionListProps) => {
   const t = useTranslations("admin.formEngine.list");
   const tValue = useTranslations("admin.formEngine.renderer");
-  const dateTimeText = useDateTimeText();
+  const temporalText = useTemporalText();
   const tenantTimezone = useTenantTimezone();
   const { session } = useSession();
 
@@ -106,6 +106,25 @@ export const FormSubmissionList = ({
           )?.label,
       )
       .find((label) => label !== undefined) ?? fieldKey;
+  /**
+   * 摘要槽的一格:「日期」是時點(ISO),以那一筆的時區格式化 —— 對到日期欄印 `YYYY-MM-DD`,
+   * 對到日期時間欄或沒對(= 送出時間)印到分鐘;其他槽照字。
+   */
+  const slotText = (
+    key: string,
+    value: string,
+    row: FormSubmissionRow,
+    timezone: string | undefined,
+  ): string => {
+    if (key !== "date") {
+      return value;
+    }
+    return temporalText(
+      value,
+      summaryDateTypeOf(definitionOf(row.formKey, row.version)),
+      timezone,
+    );
+  };
   const valueText = {
     empty: tValue("empty"),
     yes: tValue("yes"),
@@ -132,14 +151,10 @@ export const FormSubmissionList = ({
         // 送出過的用那次的時區;草稿(沒有 ctx)用讀者的租戶時區
         const timezone = row.ctx?.timezone ?? tenantTimezone ?? undefined;
         if (cell.kind === "slot") {
-          // 摘要槽「日期」對到日期時間欄(或沒對 = 送出時間)時是 ISO 時點:以那一筆的時區格式化
-          if (cell.value === null) {
-            node = valueText.empty;
-          } else {
-            node = isDateTimeString(cell.value)
-              ? dateTimeText(cell.value, timezone)
-              : cell.value;
-          }
+          node =
+            cell.value === null
+              ? valueText.empty
+              : slotText(spec.key, cell.value, row, timezone);
         } else if (cell.kind === "field") {
           node = renderValue({
             field: cell.field,

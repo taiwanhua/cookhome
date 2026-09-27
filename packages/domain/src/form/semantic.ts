@@ -1,3 +1,4 @@
+import { temporalIsoOf } from "./temporal";
 import type { FieldDef, StoredValues } from "./types";
 
 /**
@@ -9,6 +10,7 @@ import type { FieldDef, StoredValues } from "./types";
  * | `multiSelect` | 上者的陣列                    | `value[]` |
  * | `reference`   | `{ id, label }`               | `id`      |
  * | `upload`      | `{ path, name, … }`           | `name`    |
+ * | `date` / `datetime` | `Date`(api)或 ISO 字串  | ISO 字串  |
  * | 其他          | 照存                          | 照存      |
  *
  * 所以 `{ "==": [{ "var": "leave_type" }, "sick"] }` 對 `{ value: "sick", label: "病假" }` 直接成立;
@@ -32,6 +34,11 @@ export function semanticValueOf(field: FieldDef, stored: unknown): unknown {
     }
     case "upload": {
       return propertyOf(stored, "name");
+    }
+    case "date":
+    case "datetime": {
+      // 表達式樹是純 JSON:時點一律以 ISO 字串比較 / 計算(api 讀出的 `Date` 在這裡轉)
+      return temporalIsoOf(stored);
     }
     default: {
       return stored;

@@ -28,6 +28,7 @@ import type { FormOperatorFacts } from "../form-access.service";
 import { forbiddenError, valuesInvalidError } from "../forms-error";
 import { LookupProvidersService, lookupLabelOf } from "../lookup-providers";
 import { REDACTED, isSameStoredValue, semanticOf } from "./stored-values";
+import { withStoredTemporals } from "./temporal-values";
 
 /**
  * 寫入的模式:
@@ -131,7 +132,8 @@ export class SubmissionValuesService {
       recompute(input, classes, final);
       this.validateRules(input, classes, final, issues);
     }
-    return { values: final, issues };
+    // 值正規化的出口:日期 / 日期時間一律存 Mongo `Date`(domain 一路用 ISO 字串算)
+    return { values: withStoredTemporals(input.fields, final), issues };
   }
 
   /**
@@ -226,7 +228,8 @@ export class SubmissionValuesService {
         normalized.set(field.key, REDACTED);
         continue;
       }
-      const result = normalizeFieldValue(field, raw);
+      // `date` 以租戶時區收斂成當地 00:00;不合法或沒有時區的字串 → TYPE_INVALID
+      const result = normalizeFieldValue(field, raw, input.ctx.timezone);
       if (result.ok) {
         normalized.set(field.key, result.value);
       } else {

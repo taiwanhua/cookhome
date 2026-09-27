@@ -1,4 +1,5 @@
 import { optionLabelOf } from "./semantic";
+import { temporalIsoOf } from "./temporal";
 import type { FieldDef, FormDefinition, StoredValues } from "./types";
 
 /**
@@ -6,8 +7,11 @@ import type { FieldDef, FormDefinition, StoredValues } from "./types";
  */
 export interface SubmissionSummary {
   title: string | null;
-  /** `YYYY-MM-DD`(對日期欄)或 ISO 時間(對日期時間欄);`summaryMap.date` 沒對欄位時 = 送出時間。 */
-  date: string | null;
+  /**
+   * 時點(對日期欄 = 當地 00:00、對日期時間欄 = 那一刻;`summaryMap.date` 沒對欄位時 = 送出時間)。
+   * `computeSummary` 回 ISO 字串;api 存進 Mongo 時是 `Date`(讀出時兩種都可能,輸出前用 `temporalIsoOf`)。
+   */
+  date: string | Date | null;
   /** 只有 `summaryMap.amount` 有對欄位時才有這個鍵(decimal 字串)。 */
   amount?: string | null;
 }
@@ -35,7 +39,9 @@ export function computeSummary(
 
   const summary: SubmissionSummary = {
     title: titleField ? titleOf(titleField, values[titleField.key]) : null,
-    date: dateField ? stringOrNull(values[dateField.key]) : options.submittedAt,
+    date: dateField
+      ? temporalIsoOf(values[dateField.key])
+      : temporalIsoOf(options.submittedAt),
   };
   if (amountField) {
     summary.amount = stringOrNull(values[amountField.key]);

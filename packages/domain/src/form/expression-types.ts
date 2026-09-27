@@ -179,35 +179,10 @@ export const OPERATOR_SIGNATURES: Readonly<
 
 const TEMPORAL_TYPES = new Set<ExpressionValueType>(["date", "datetime"]);
 
-/** 比較運算子(等不等於、大小):右邊要與左邊**完全同型**,日期與日期時間不互通。 */
-const COMPARISON_OPERATORS = new Set<string>([
-  "==",
-  "!=",
-  "===",
-  "!==",
-  "<",
-  ">",
-  "<=",
-  ">=",
-]);
-
-/**
- * 「嚴格」的期望型別(日期與日期時間不互通):`expectedTypesAt` 為比較運算子的右邊回的陣列會登記在這裡。
- * 以陣列身分登記(不改 `ExpectedTypes` 的形狀),設計器與檢查器拿到同一個陣列、判法自然一致。
- */
-const STRICT_EXPECTATIONS = new WeakSet<readonly ExpressionValueType[]>();
-
-function strictTypes(
-  types: readonly ExpressionValueType[],
-): readonly ExpressionValueType[] {
-  STRICT_EXPECTATIONS.add(types);
-  return types;
-}
-
 /**
  * `actual` 能不能放進要 `expected` 的位置:型別相同即可;日期與日期時間互通
- * (Spec 表 B:「現在時間」可放日期 / 日期時間位置,`dateDiff` 兩種都收)——
- * **比較運算子的右邊除外**:日期與日期時間比較會變成字串比較的怪結果,要求同型(要比請用 `dateDiff`)。
+ * (Spec 表 B:「現在時間」可放日期 / 日期時間位置,`dateDiff` 兩種都收;比較運算子兩邊也可混比 ——
+ * 兩者都是時點,日期是當地 00:00)。
  */
 export function isTypeAccepted(
   actual: ExpressionValueType,
@@ -216,11 +191,10 @@ export function isTypeAccepted(
   if (expected === null) {
     return true;
   }
-  const isStrict = STRICT_EXPECTATIONS.has(expected);
   return expected.some(
     (type) =>
       type === actual ||
-      (!isStrict && TEMPORAL_TYPES.has(type) && TEMPORAL_TYPES.has(actual)),
+      (TEMPORAL_TYPES.has(type) && TEMPORAL_TYPES.has(actual)),
   );
 }
 
@@ -242,11 +216,9 @@ export function paramSpecAt(
   return signature.params[index] ?? signature.rest ?? null;
 }
 
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
 /**
- * 常數的型別:`YYYY-MM-DD` 字串視為日期、帶時區的 ISO 日期時間字串視為日期時間、陣列視為清單;
- * null 沒有型別。
+ * 常數的型別:帶時區的 ISO 8601 字串視為日期時間(日期常數也是 ISO —— 當地 00:00 的時點;
+ * 日期與日期時間的位置互通)、陣列視為清單;null 沒有型別。
  */
 export function constantTypeOf(expr: Expression): ExpressionValueType | null {
   if (typeof expr === "number") {
@@ -256,9 +228,6 @@ export function constantTypeOf(expr: Expression): ExpressionValueType | null {
     return "boolean";
   }
   if (typeof expr === "string") {
-    if (DATE_PATTERN.test(expr)) {
-      return "date";
-    }
     return isDateTimeString(expr) ? "datetime" : "text";
   }
   return Array.isArray(expr) ? "list" : null;
@@ -334,7 +303,7 @@ export function fieldTypeLookupOf(
 
 /**
  * 運算節點第 `index` 個參數位置**要什麼型別**:
- * `sameAs` 看那個參數推得出的型別(推不出來就退回那個參數自己的限制;比較運算子的右邊是嚴格同型);
+ * `sameAs` 看那個參數推得出的型別(推不出來就退回那個參數自己的限制;日期與日期時間照 `isTypeAccepted` 互通);
  * `result` = 這個運算節點被期望的型別(`nodeExpected`);`optionField` / `dateUnit` 不是一般值,回空陣列。
  */
 export function expectedTypesAt(
@@ -367,9 +336,7 @@ export function expectedTypesAt(
           fieldTypeOf,
         );
       }
-      return COMPARISON_OPERATORS.has(operator)
-        ? strictTypes([inferred])
-        : [inferred];
+      return [inferred];
     }
     case "optionField":
     case "dateUnit": {

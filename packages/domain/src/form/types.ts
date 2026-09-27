@@ -81,7 +81,7 @@ export type TextFormat = (typeof TEXT_FORMATS)[number];
 
 export interface FieldRules {
   required?: boolean;
-  /** number:數值(decimal 字串或數字);date:`YYYY-MM-DD`;datetime:ISO 8601(存時換成 UTC)。 */
+  /** number:數值(decimal 字串或數字);date / datetime:帶時區的 ISO 8601(date = 當地 00:00 的時點)。 */
   min?: number | string;
   max?: number | string;
   minLength?: number;

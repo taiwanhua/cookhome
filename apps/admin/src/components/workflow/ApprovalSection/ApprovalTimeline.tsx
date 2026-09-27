@@ -4,7 +4,7 @@ import type { WorkflowInstanceFieldsFragment } from "@repo/graphql";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
-import { useDateTimeText } from "@/hooks/useDateTimeText";
+import { useTemporalText } from "@/hooks/useTemporalText";
 
 /** 不給使用者看的內部事件(寄信標記、重試推進的紀錄)。 */
 const HIDDEN_KINDS = new Set(["notified", "advance_retried"]);
@@ -19,7 +19,7 @@ export interface ApprovalTimelineProps {
  */
 export const ApprovalTimeline = ({ instance }: ApprovalTimelineProps) => {
   const t = useTranslations("admin.approval.timeline");
-  const dateTimeText = useDateTimeText();
+  const temporalText = useTemporalText();
   const stepName = (stepKey: string | null | undefined): string =>
     instance.steps.find((step) => step.stepKey === stepKey)?.name ??
     stepKey ??
@@ -50,7 +50,7 @@ export const ApprovalTimeline = ({ instance }: ApprovalTimelineProps) => {
                 color="text.secondary"
                 sx={{ minWidth: 132 }}
               >
-                {dateTimeText(event.at)}
+                {temporalText(event.at, "datetime")}
               </Typography>
               <Typography variant="body2">
                 {t(`kinds.${event.kind}`, {

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { Types } from "mongoose";
 
+import { temporalIsoOf } from "@repo/domain/form";
 import {
   type WorkflowDefinition,
   allowsReturn,
@@ -50,7 +51,7 @@ function summaryOf(
     ? { title: summary.title, date: null, amount: null }
     : {
         title: summary.title,
-        date: summary.date,
+        date: temporalIsoOf(summary.date),
         amount: summary.amount ?? null,
       };
 }
