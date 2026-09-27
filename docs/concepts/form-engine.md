@@ -77,9 +77,9 @@
 表單引擎是一組零件,不是固定頁面。`app/module-pages.tsx` 登記方式不變(模組 key → 頁面元件),引擎提供 `formModulePages(moduleKey)` 產出四個 key 的預設元件:
 
 ```ts
-...formModulePages(SHOPPING_LIST_MODULE_KEY),                        // 四頁全用預設
-...formModulePages(LEAVE_KEY), [LEAVE_KEY]: LeavePage,               // 列表頁客製、其餘預設
-[LEAVE_KEY]: LeavePage, [`${LEAVE_KEY}.view-page`]: LeaveViewPage,   // 全部自己來
+...formModulePages(DEMO_FORM_MODULE_KEY),                        // 四頁全用預設
+...formModulePages(OTHER_KEY), [OTHER_KEY]: OtherListPage,               // 列表頁客製、其餘預設
+[OTHER_KEY]: OtherListPage, [`${OTHER_KEY}.view-page`]: OtherViewPage,   // 全部自己來
 ```
 
 | 零件                                                    | 做什麼                                                                          |

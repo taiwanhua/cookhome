@@ -246,9 +246,9 @@ pnpm --filter @repo/graphql generate
 **客製頁**:登記方式不變(模組 key → 頁面元件),想怎麼排都可以,表單相關的部分用引擎零件(`FormRenderer`、`FormSubmissionList`、`FormSubmissionDetail`、`useFormDraft`…)綁進去:
 
 ```ts
-...formModulePages(LEAVE_KEY),                                      // 四頁全用預設
-...formModulePages(LEAVE_KEY), [LEAVE_KEY]: LeavePage,             // 列表頁客製、其餘預設(後寫的蓋掉前面的)
-[LEAVE_KEY]: LeavePage, [`${LEAVE_KEY}.view-page`]: LeaveViewPage, // 全部自己來;新增 / 編輯用跳窗(seed 不宣告 create-page / edit-page)
+...formModulePages(OTHER_KEY),                                      // 四頁全用預設
+...formModulePages(OTHER_KEY), [OTHER_KEY]: OtherListPage,             // 列表頁客製、其餘預設(後寫的蓋掉前面的)
+[OTHER_KEY]: OtherListPage, [`${OTHER_KEY}.view-page`]: OtherViewPage, // 全部自己來;新增 / 編輯用跳窗(seed 不宣告 create-page / edit-page)
 ```
 
 - 模組層的頁籤 / 標題模板以 `formModulePages(key, { tabLabelTemplate })` 給(預設 `{{title}}`)。
