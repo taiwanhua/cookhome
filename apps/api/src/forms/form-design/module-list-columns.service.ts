@@ -1,6 +1,12 @@
 import { Injectable } from "@nestjs/common";
 
-import { isValidFieldKey } from "@repo/domain/form";
+import {
+  LIST_BUILTIN_COLUMNS,
+  type ListBuiltinColumn,
+  type ListBuiltinColumns,
+  isValidFieldKey,
+  listBuiltinColumnsOf,
+} from "@repo/domain/form";
 
 import { AuditService } from "../../audit/audit.service";
 import {
@@ -63,7 +69,11 @@ export class ModuleListColumnsService {
       moduleKey,
     );
     this.access.assertRuntimeAccess(facts, moduleKey);
-    return { moduleKey, columns: columnsOf(module.settings) };
+    return {
+      moduleKey,
+      columns: columnsOf(module.settings),
+      builtin: builtinOf(module.settings),
+    };
   }
 
   async set(
@@ -120,19 +130,22 @@ export class ModuleListColumnsService {
       };
     });
     const before = columnsOf(module.settings);
+    const beforeBuiltin = builtinOf(module.settings);
+    const builtin = storedBuiltinOf(input.builtin, beforeBuiltin);
     await this.modules.updateById(facts.operator, module._id, {
-      $set: { "settings.list": { columns: stored } },
+      $set: { "settings.list": { columns: stored, builtin } },
     });
     await this.audit.record(facts.operator, {
       action: "module.set-list-columns",
       targetType: "module",
       targetId: module._id,
-      before: { columns: before },
-      after: { columns: stored },
+      before: { columns: before, builtin: beforeBuiltin },
+      after: { columns: stored, builtin },
     });
     return {
       moduleKey: input.moduleKey,
       columns: columnsOf({ list: { columns: stored } }),
+      builtin,
     };
   }
 
@@ -196,6 +209,36 @@ export class ModuleListColumnsService {
       );
     }
   }
+}
+
+/** `modules.settings.list.builtin` → 三個開關(沒存過 / 不認得的鍵 = 顯示)。 */
+function builtinOf(settings: Record<string, unknown>): ListBuiltinColumns {
+  const list = settings.list;
+  return listBuiltinColumnsOf(isRecord(list) ? list.builtin : undefined);
+}
+
+/**
+ * 要存的內建欄開關:缺席 / null = 保留目前的;有給就三個鍵都要是 boolean
+ * (GraphQL 型別已保證,這裡再守一次落庫形狀)。
+ */
+function storedBuiltinOf(
+  input: Partial<Record<ListBuiltinColumn, unknown>> | null | undefined,
+  current: ListBuiltinColumns,
+): ListBuiltinColumns {
+  if (input === null || input === undefined) {
+    return current;
+  }
+  const next = { ...current };
+  for (const column of LIST_BUILTIN_COLUMNS) {
+    const value = input[column];
+    if (typeof value !== "boolean") {
+      throw validationError(`builtin.${column} must be a boolean`, [
+        `builtin.${column}`,
+      ]);
+    }
+    next[column] = value;
+  }
+  return next;
 }
 
 /** `modules.settings.list.columns` → 對外形狀(不認得的項目略過),依 order 排。 */

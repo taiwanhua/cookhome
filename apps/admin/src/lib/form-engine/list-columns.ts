@@ -91,3 +91,35 @@ export const resolveListCell = (
     ? { kind: "missing" }
     : { kind: "field", field, value: row.values[column.key] ?? null };
 };
+
+/** 表頭要查的定義:表單 key + 那一版的欄位(還沒載到為 undefined)。 */
+export interface HeaderDefinition {
+  formKey: string;
+  fields: readonly FieldDef[] | undefined;
+}
+
+/**
+ * 表單欄位欄的表頭:依序在給的定義裡找第一個有這個欄位的(欄位限定了表單就只看那一張),回它的 label;
+ * 都沒有回 null。列表先查各表單**目前版本**(沒有資料列也顯示欄位名),再查這一頁資料列綁的版本。
+ */
+export const fieldColumnLabelOf = (
+  column: Pick<ListColumnSpec, "key" | "formKey">,
+  definitions: readonly HeaderDefinition[],
+): string | null => {
+  for (const definition of definitions) {
+    if (
+      column.formKey !== undefined &&
+      column.formKey !== null &&
+      column.formKey !== definition.formKey
+    ) {
+      continue;
+    }
+    const field = definition.fields?.find(
+      (candidate) => candidate.key === column.key,
+    );
+    if (field !== undefined) {
+      return field.label;
+    }
+  }
+  return null;
+};

@@ -7,7 +7,6 @@ import { CircularProgress } from "@repo/ui/circular-progress";
 
 import { useFormRuntimeVersion } from "@/hooks/useFormRuntimeVersion";
 import { type ModuleFormSummary, useModuleForms } from "@/hooks/useModuleForms";
-import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
 import type { ModulePageProps } from "@/lib/module-tree";
 
 import { FormPicker } from "../FormPicker";
@@ -33,7 +32,6 @@ export const FormCreatePage = ({ module, routeParam }: ModulePageProps) => {
     form?.key ?? null,
     form?.currentVersion ?? null,
   );
-  useRouteTabItemLabel(form?.name);
 
   const backToList = () => {
     if (access.listRoute !== null) {

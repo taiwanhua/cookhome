@@ -535,7 +535,14 @@
       "addField": "+ Form field",
       "cancel": "Cancel",
       "save": "Save",
-      "saved": "List columns saved."
+      "saved": "List columns saved.",
+      "builtin": "Built-in columns",
+      "builtinHint": "Columns switched off are hidden from the list",
+      "builtinColumns": {
+        "form": "Form",
+        "status": "Status",
+        "createdBy": "Created by"
+      }
     },
     "retired": {
       "open": "Retired permissions",
@@ -1189,7 +1196,13 @@
       "deleteConfirm": "Delete",
       "cancel": "Cancel",
       "void": "Void",
-      "voidOf": "Void \"{label}\""
+      "voidOf": "Void \"{label}\"",
+      "actions": {
+        "view": "View",
+        "edit": "Edit",
+        "create": "New"
+      },
+      "tabLabelWithAction": "{action} · {label}"
     },
     "fill": {
       "loading": "Loading",
@@ -1320,7 +1333,10 @@
         "date": "Summary date",
         "amount": "Summary amount",
         "applicant": "Creator (current name)",
-        "form": "Form name"
+        "form": "Form name",
+        "module": "Module name",
+        "action": "Page kind (view / edit / new); added at the front when omitted",
+        "value": "Field value (pick a field from the dropdown)"
       },
       "sampleTitle": "Sick leave request",
       "sampleDate": "2026-03-12",
@@ -1331,7 +1347,14 @@
       "previewLabel": "Tab template preview",
       "cancel": "Cancel",
       "confirm": "Save",
-      "success": "Form updated."
+      "success": "Form updated.",
+      "valueToken": "value.field key",
+      "insertField": "Insert a field value",
+      "insertFieldHint": "Pick a field to append its value to the template",
+      "insertFieldEmpty": "No version yet, no fields to pick",
+      "sampleModule": "Leave",
+      "sampleAction": "View",
+      "sampleValue": "<{label}>"
     },
     "versions": {
       "tableAria": "Versions",
@@ -1585,7 +1608,11 @@
       "fixedFilterHint": "Always applied; people filling the form can't change it",
       "valueField": "Value field",
       "valueFieldHint": "Which column the option stores; defaults to the record id",
-      "valueFieldId": "Record id (default)"
+      "valueFieldId": "Record id (default)",
+      "labelTemplate": "Display template (optional)",
+      "labelTemplateHint": "When set, the display name is built from the template (e.g. name + email); otherwise the display field is used",
+      "insertPlaceholder": "Insert a field",
+      "insertPlaceholderHint": "Pick a field to append it to the template"
     },
     "rules": {
       "required": "Required",

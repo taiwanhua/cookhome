@@ -1,5 +1,6 @@
 import { HttpResponse } from "msw";
 
+import { DEFAULT_LIST_BUILTIN_COLUMNS } from "@repo/domain/form";
 import {
   type CreateFormVersionDraftMutationVariables,
   type DeleteFormVersionDraftMutationVariables,
@@ -363,6 +364,7 @@ export const formDesignWorld = (
                 ...column,
                 formKey: column.formKey ?? null,
               })),
+              builtin: input.builtin ?? DEFAULT_LIST_BUILTIN_COLUMNS,
             },
           },
         })

@@ -11,23 +11,15 @@ import { CircularProgress } from "@repo/ui/circular-progress";
 import { useFormRuntimeVersion } from "@/hooks/useFormRuntimeVersion";
 import { useFormSubmission } from "@/hooks/useFormSubmission";
 import { useMe } from "@/hooks/useMe";
-import { useModuleForms } from "@/hooks/useModuleForms";
 import { useSnackbar } from "@/hooks/useMutationFeedback";
-import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
-import { useTemporalText } from "@/hooks/useTemporalText";
 import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import { liveContextOf } from "@/lib/form-engine/expression-context";
 import { permissionsOfSubmission } from "@/lib/form-engine/field-permissions";
-import {
-  summaryDateTypeOf,
-  tabLabelOf,
-  tabLabelValuesOf,
-} from "@/lib/form-engine/tab-label";
 import type { ModulePageProps } from "@/lib/module-tree";
 
 import { FormFillForm } from "./FormFillForm";
-import { formModuleOptionsOf } from "./form-module-options";
 import { formModuleKeyOf, useFormModuleAccess } from "./useFormModuleAccess";
+import { useTabLabelRenderer } from "./useTabLabelRenderer";
 
 /**
  * 表單模組編輯頁(預設組裝;Spec 6a §8 畫面 9)。網址 `/<模組>/edit-page/<id>`:
@@ -47,7 +39,6 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
   const me = useMe();
   const showSnackbar = useSnackbar();
   const access = useFormModuleAccess(moduleKey);
-  const { forms } = useModuleForms(moduleKey);
   const id = routeParam ?? "";
   const state = useFormSubmission(id);
   const { submission } = state;
@@ -69,23 +60,18 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
     () => (submission === null ? null : permissionsOfSubmission(submission)),
     [submission],
   );
-  // 頁籤的 {{date}}:以那一筆的時區(草稿 = 租戶時區)印日期 / 日期時間
-  const temporalText = useTemporalText(submission?.ctx?.timezone);
-  const dateType = summaryDateTypeOf(version.definition);
-  const formTemplate =
-    forms.find((form) => form.key === submission?.formKey)?.tabLabelTemplate ??
-    null;
-  useRouteTabItemLabel(
-    submission === null
-      ? null
-      : (tabLabelOf(
-          formModuleOptionsOf(moduleKey).tabLabelTemplate,
-          formTemplate,
-          tabLabelValuesOf(submission, (value) =>
-            temporalText(value, dateType),
-          ),
-        ) ?? submission.formName),
-  );
+  // 頁籤 / 標題:以正在輸入的值即時算(`FormFillForm` 呼叫);日期用租戶時區。
+  // 頁層不要再呼叫 `useRouteTabItemLabel`:會蓋掉 `FormFillForm` 設的即時值
+  const tabLabelOf = useTabLabelRenderer({
+    moduleKey,
+    formKey: submission?.formKey,
+    formName: submission?.formName,
+    definition: version.definition,
+    isLoading: version.isLoading,
+    action: "edit",
+    applicantName: submission?.createdBy?.name,
+    submittedAt: submission?.submittedAt,
+  });
 
   const leave = () => {
     if (access.listRoute !== null) {
@@ -178,6 +164,7 @@ export const FormEditPage = ({ module, routeParam }: ModulePageProps) => {
             queryKey: useFormSubmissionQuery.getKey({ id }),
           });
         }}
+        tabLabelOf={tabLabelOf}
       />
     </Card>
   );

@@ -969,6 +969,18 @@ enum ModuleEngine {
   FORM
 }
 
+type ModuleListBuiltinColumns {
+  createdBy: Boolean!
+  form: Boolean!
+  status: Boolean!
+}
+
+input ModuleListBuiltinColumnsInput {
+  createdBy: Boolean!
+  form: Boolean!
+  status: Boolean!
+}
+
 type ModuleListColumn {
   formKey: ID
   key: String!
@@ -992,6 +1004,7 @@ enum ModuleListColumnKind {
 }
 
 type ModuleListColumnsPayload {
+  builtin: ModuleListBuiltinColumns!
   columns: [ModuleListColumn!]!
   moduleKey: String!
 }
@@ -1606,6 +1619,7 @@ input SetModuleIconInput {
 }
 
 input SetModuleListColumnsInput {
+  builtin: ModuleListBuiltinColumnsInput
   columns: [ModuleListColumnInput!]!
   moduleKey: String!
 }

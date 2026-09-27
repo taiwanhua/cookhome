@@ -11,6 +11,7 @@ import {
   defaultOrder,
   defaultValueOf,
   isEmptyValue,
+  lookupLabelFieldsOf,
   referencedFieldKeys,
   temporalIsoOf,
   uploadLimitIssue,
@@ -58,7 +59,10 @@ import {
   notFoundError,
   validationError,
 } from "../forms-error";
-import { LookupProvidersService, lookupLabelOf } from "../lookup-providers";
+import {
+  LookupProvidersService,
+  lookupDisplayLabelOf,
+} from "../lookup-providers";
 import type { FormVersionPayload } from "../models/form-common.model";
 import { projectFieldsForReader } from "./definition-projection";
 import { DisplayNamesService } from "./display-names.service";
@@ -1139,12 +1143,10 @@ export class FormSubmissionsService {
       source,
       "id",
       [id],
-      [source.labelField],
+      lookupLabelFieldsOf(source),
       { publicOnly: true },
     );
-    return record
-      ? { id, label: lookupLabelOf(record, source.labelField) }
-      : null;
+    return record ? { id, label: lookupDisplayLabelOf(record, source) } : null;
   }
 
   private requireClientRequestId(raw: string): string {

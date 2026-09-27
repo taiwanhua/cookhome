@@ -269,6 +269,54 @@ describe("validateDefinition:選項、規則、widget、reference", () => {
     ).toEqual(["LOOKUP_UNKNOWN_FIELD", "LOOKUP_UNKNOWN_PROVIDER"]);
   });
 
+  it("lookup 顯示模板的佔位符要在 provider 可回的欄位內", () => {
+    const providers = {
+      user: { fields: { name: "text", email: "text" } },
+      form_submission: {
+        fields: {
+          title: "text",
+          date: "date",
+          amount: "number",
+          days: "number",
+        },
+      },
+    } as const;
+    const good = field("who", "reference", {
+      source: {
+        provider: "user",
+        labelField: "name",
+        labelTemplate: "{{name}}({{email}})",
+      },
+    });
+    const bad = field("boss", "reference", {
+      source: {
+        provider: "user",
+        labelField: "name",
+        labelTemplate: "{{name}} {{value.name}} {{phone}}",
+      },
+    });
+    const submission = field("leave", "reference", {
+      source: {
+        provider: "form_submission",
+        formKey: "leave",
+        labelField: "title",
+        labelTemplate: "{{title}} {{date}} {{value.days}} {{days}} {{value.x}}",
+      },
+    });
+    const issues = errorsOf(definitionOf([title, good, bad, submission]), {
+      lookupProviders: providers,
+    }).filter((issue) => issue.code === "LOOKUP_TEMPLATE_UNKNOWN_PLACEHOLDER");
+    expect(
+      issues.map((issue) => [issue.location.fieldKey, issue.message]),
+    ).toEqual([
+      ["boss", expect.stringContaining("{{value.name}}")],
+      ["boss", expect.stringContaining("{{phone}}")],
+      ["leave", expect.stringContaining("{{days}}")],
+      ["leave", expect.stringContaining("{{value.x}}")],
+    ]);
+    expect(issues[0]?.location.property).toBe("source.labelTemplate");
+  });
+
   it("allowCustom 配了不允許的 widget", () => {
     expect(
       codesOf(

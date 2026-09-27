@@ -1,6 +1,10 @@
 import { type GraphQLResponseBody, HttpResponse } from "msw";
 
-import type { FormDefinition } from "@repo/domain/form";
+import {
+  DEFAULT_LIST_BUILTIN_COLUMNS,
+  type FormDefinition,
+  type ListBuiltinColumns,
+} from "@repo/domain/form";
 import {
   type CreateFormDraftMutationVariables,
   type FormFieldOptionsQuery,
@@ -51,6 +55,8 @@ export interface FormRuntimeWorldOptions {
   submissions?: FormSubmissionFieldsFragment[];
   /** 模組 key → 列表欄位配置(沒給 = 空陣列) */
   listColumns?: Record<string, ModuleListColumn[]>;
+  /** 模組 key → 內建欄開關(沒給 = 全開) */
+  listBuiltin?: Record<string, ListBuiltinColumns>;
   lookupRecords?: FormLookupQuery["formLookup"]["items"];
   /** 欄位 key → `formFieldOptions` 回的類別選項(沒給 = 空清單) */
   fieldOptions?: Record<
@@ -112,6 +118,7 @@ export const formRuntimeWorld = (
     failures = {},
   } = options;
   const listColumns = options.listColumns ?? {};
+  const listBuiltin = options.listBuiltin ?? {};
   const state: FormSubmissionFieldsFragment[] = structuredClone(
     options.submissions ?? [],
   );
@@ -157,6 +164,7 @@ export const formRuntimeWorld = (
           moduleListColumns: {
             moduleKey,
             columns: listColumns[moduleKey] ?? [],
+            builtin: listBuiltin[moduleKey] ?? DEFAULT_LIST_BUILTIN_COLUMNS,
           },
         },
       });

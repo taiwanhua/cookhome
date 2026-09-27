@@ -9,6 +9,7 @@ import {
   type ValueIssue,
   computeAll,
   evaluateCondition,
+  lookupLabelFieldsOf,
   normalizeFieldValue,
   uploadLimitIssue,
   validateFieldRules,
@@ -26,7 +27,10 @@ import {
 import { type FieldGate, fieldGateOf } from "../field-permission-gate";
 import type { FormOperatorFacts } from "../form-access.service";
 import { forbiddenError, valuesInvalidError } from "../forms-error";
-import { LookupProvidersService, lookupLabelOf } from "../lookup-providers";
+import {
+  LookupProvidersService,
+  lookupDisplayLabelOf,
+} from "../lookup-providers";
 import { REDACTED, isSameStoredValue, semanticOf } from "./stored-values";
 import { withStoredTemporals } from "./temporal-values";
 
@@ -418,7 +422,7 @@ export class SubmissionValuesService {
             source,
             "id",
             [id],
-            [source.labelField],
+            lookupLabelFieldsOf(source),
             { publicOnly: true },
           );
     if (!record || !source) {
@@ -429,7 +433,7 @@ export class SubmissionValuesService {
       });
       return value;
     }
-    return { id: record.id, label: lookupLabelOf(record, source.labelField) };
+    return { id: record.id, label: lookupDisplayLabelOf(record, source) };
   }
 
   /**
@@ -494,10 +498,10 @@ export class SubmissionValuesService {
         source,
         valueField,
         [value],
-        [source.labelField, valueField],
+        [...lookupLabelFieldsOf(source), valueField],
         { publicOnly: true },
       );
-      return record ? lookupLabelOf(record, source.labelField) : undefined;
+      return record ? lookupDisplayLabelOf(record, source) : undefined;
     }
     return undefined;
   }

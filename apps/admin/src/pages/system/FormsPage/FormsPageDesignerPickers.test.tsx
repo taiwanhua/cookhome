@@ -136,8 +136,10 @@ describe("表單管理:類別 / 表單 / 欄位改用下拉選", () => {
     expect(within(rule).getByRole("textbox", { name: "規則名稱" })).toHaveValue(
       "從使用者帶入",
     );
-    // 沒有英文欄位名的平鋪文字框:規則名稱之外全是下拉
-    expect(within(rule).getAllByRole("textbox")).toHaveLength(1);
+    // 沒有英文欄位名的平鋪文字框:規則名稱與顯示模板(欄位從下拉插入)之外全是下拉
+    const boxes = within(rule).getAllByRole("textbox");
+    expect(boxes).toHaveLength(2);
+    expect(boxes[1]).toHaveAccessibleName("顯示模板(選填)");
 
     await user.click(
       within(rule).getAllByRole("combobox", { name: "本表單欄位" })[0],

@@ -110,6 +110,16 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
       "`t(`slots.${spec.key}`)`,key 是列表欄位配置的摘要槽(title / date / amount)",
   },
   {
+    key: "admin.moduleManager.listColumns.builtinColumns.",
+    reason:
+      "`t(`builtinColumns.${column}`)`,column 取自 `LIST_BUILTIN_COLUMNS`(列表內建欄 form / status / createdBy)",
+  },
+  {
+    key: "admin.formEngine.pages.actions.",
+    reason:
+      "`t(subject.action)`,action 是頁籤模板的頁面種類 `TabLabelAction`(view / edit / create)",
+  },
+  {
     key: "admin.forms.errors.",
     reason: "`tErrors(code)`,code 同 `formErrorOf` 的換算(表單管理頁)",
   },

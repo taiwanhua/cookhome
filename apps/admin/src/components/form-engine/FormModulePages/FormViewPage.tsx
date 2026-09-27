@@ -10,25 +10,18 @@ import { Typography } from "@repo/ui/typography";
 
 import { useFormRuntimeVersion } from "@/hooks/useFormRuntimeVersion";
 import { useFormSubmission } from "@/hooks/useFormSubmission";
-import { useModuleForms } from "@/hooks/useModuleForms";
 import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
-import { useTemporalText } from "@/hooks/useTemporalText";
-import {
-  summaryDateTypeOf,
-  tabLabelOf,
-  tabLabelValuesOf,
-} from "@/lib/form-engine/tab-label";
 import type { ModulePageProps } from "@/lib/module-tree";
 
 import { ApprovalSection } from "../../workflow/ApprovalSection/ApprovalSection";
 import { FormSubmissionDetail } from "../FormSubmissionDetail/FormSubmissionDetail";
 import { DeleteSubmissionDialog } from "./DeleteSubmissionDialog";
-import { formModuleOptionsOf } from "./form-module-options";
 import { formModuleKeyOf, useFormModuleAccess } from "./useFormModuleAccess";
+import { useTabLabelRenderer } from "./useTabLabelRenderer";
 
 /**
  * 表單模組詳情頁(預設組裝;Spec 6a §8 畫面 11)。網址 `/<模組>/view-page/<id>`。
- * 頁籤 / 標題 = 模組層模板套摘要槽,表單的 `tabLabelTemplate` 可覆寫;
+ * 頁籤 / 標題 = 模組層模板(表單的 `tabLabelTemplate` 可覆寫)以這一筆的值即時算(`useTabLabelRenderer`);
  * 編輯 / 刪除依 api 的 `abilities`(已含權限)與「有沒有綁編輯頁」相乘;「修訂紀錄」在刪除左邊,
  * 點開跳窗看表單 / 版本 / 狀態 / 建立者與修訂清單(頁面主體只留標題列與表單內容)。
  * 走過流程的單(`currentInstanceId` 有值)在詳情下方掛審核區塊(Spec 6b §8 畫面 10;客製頁自己放)。
@@ -38,35 +31,27 @@ export const FormViewPage = ({ module, routeParam }: ModulePageProps) => {
   const t = useTranslations("admin.formEngine.pages");
   const navigate = useNavigate();
   const access = useFormModuleAccess(moduleKey);
-  const { forms } = useModuleForms(moduleKey);
   const id = routeParam ?? "";
   const state = useFormSubmission(id);
   const { submission } = state;
   const [isDeleting, setIsDeleting] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  // 頁籤的 {{date}}:型別看那一版 `summaryMap.date` 對到的欄位,時區用那一筆的(草稿 = 租戶時區)
+  // 頁籤 / 標題:以那一筆的值與綁的版本即時算;日期用讀者的租戶時區;定義載到前先不給(頁籤維持模組名)
   const version = useFormRuntimeVersion(
     submission?.formKey ?? null,
     submission?.version ?? null,
   );
-  const temporalText = useTemporalText(submission?.ctx?.timezone);
-  const dateType = summaryDateTypeOf(version.definition);
-
-  const formTemplate =
-    forms.find((form) => form.key === submission?.formKey)?.tabLabelTemplate ??
-    null;
-  const title =
-    submission === null
-      ? null
-      : (tabLabelOf(
-          formModuleOptionsOf(moduleKey).tabLabelTemplate,
-          formTemplate,
-          tabLabelValuesOf(submission, (value) =>
-            temporalText(value, dateType),
-          ),
-        ) ??
-        submission.formName ??
-        submission.formKey);
+  const tabLabelOf = useTabLabelRenderer({
+    moduleKey,
+    formKey: submission?.formKey,
+    formName: submission?.formName,
+    definition: version.definition,
+    isLoading: submission === null || version.isLoading,
+    action: "view",
+    applicantName: submission?.createdBy?.name,
+    submittedAt: submission?.submittedAt,
+  });
+  const title = submission === null ? null : tabLabelOf(submission.values);
   useRouteTabItemLabel(title);
 
   const leave = () => {
@@ -142,7 +127,10 @@ export const FormViewPage = ({ module, routeParam }: ModulePageProps) => {
       </Stack>
       {isDeleting && submission !== null && (
         <DeleteSubmissionDialog
-          label={title ?? submission.formKey}
+          label={
+            tabLabelOf(submission.values, { withAction: false }) ??
+            submission.formKey
+          }
           isSubmitting={state.isPending}
           errorCode={state.error?.code ?? null}
           onCancel={() => {

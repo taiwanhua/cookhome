@@ -83,7 +83,8 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
     });
 
     expect(
-      await screen.findByRole("heading", { name: "雞蛋" }),
+      // 標題從值即時算(摘要槽 title → 品項),沒寫 {{action}} 自動加「檢視・」
+      await screen.findByRole("heading", { name: "檢視・雞蛋" }),
     ).toBeInTheDocument();
     expect(await screen.findByRole("textbox", { name: "總價" })).toHaveValue(
       "999 元",
@@ -122,7 +123,7 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
     });
 
     // 頁面主體只有標題列與表單:版本 / 狀態 / 建立者與修訂清單都收在跳窗裡
-    await screen.findByRole("heading", { name: "雞蛋" });
+    await screen.findByRole("heading", { name: "檢視・雞蛋" });
     expect(screen.queryByText("購物單(版本 1)")).toBeNull();
     expect(screen.queryByRole("region", { name: "修訂紀錄" })).toBeNull();
 

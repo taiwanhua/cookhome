@@ -1,9 +1,10 @@
 import { Injectable } from "@nestjs/common";
 
-import type {
-  FieldDef,
-  LookupSourceDescriptor,
-  Prefill,
+import {
+  type FieldDef,
+  type LookupSourceDescriptor,
+  type Prefill,
+  lookupLabelFieldsOf,
 } from "@repo/domain/form";
 
 import { FormVersionsRepository } from "../../database/database.module";
@@ -17,7 +18,7 @@ import { forbiddenError, notFoundError, validationError } from "../forms-error";
 import {
   LookupProvidersService,
   type LookupRecord,
-  lookupLabelOf,
+  lookupDisplayLabelOf,
   lookupValueOf,
 } from "../lookup-providers";
 import {
@@ -207,7 +208,7 @@ export class FormLookupService {
   private requestedFields(target: ResolvedTarget): string[] {
     return [
       ...new Set([
-        target.source.labelField,
+        ...lookupLabelFieldsOf(target.source),
         target.valueField,
         ...target.mappedFields,
       ]),
@@ -234,7 +235,8 @@ export class FormLookupService {
         typeof value === "string" || typeof value === "number"
           ? String(value)
           : null,
-      label: lookupLabelOf(record, target.source.labelField),
+      // 顯示模板在後端組好(日期已依讀者租戶時區格式化、選項用 label);沒模板用 labelField
+      label: lookupDisplayLabelOf(record, target.source),
       values,
     };
   }

@@ -9,6 +9,7 @@ import {
   type LookupSourceDescriptor,
   formatTemporal,
   optionLabelOf,
+  renderLookupLabel,
   semanticValueOf,
   temporalIsoOf,
 } from "@repo/domain/form";
@@ -170,6 +171,26 @@ export function lookupLabelOf(
     return value.map((item) => textOf(item)).join("、");
   }
   return textOf(value);
+}
+
+/** 這一欄有沒有回來(`id` 一律有;受保護或無權時 provider 省略那一欄 → false;那版沒有的欄位是 null,算有回)。 */
+export function hasLookupField(record: LookupRecord, field: string): boolean {
+  return field === "id" || field in record.labels || field in record.values;
+}
+
+/**
+ * 一筆的顯示名(Spec §5「lookup 來源」`labelTemplate`):來源描述有顯示模板就套(每個佔位符取該欄的顯示名 / 值);
+ * 模板引用的欄位**有任何一個讀不到**(依這次讀取的權限被省略)、沒模板或套出空的 → 整串用 `labelField`。
+ * 三處一致:`formLookup`(操作者權限)、引用 / lookup 選項的快照(`publicOnly`)、現名解析(讀者權限)。
+ * 讀取時要的欄位用 `@repo/domain/form` 的 `lookupLabelFieldsOf(source)`。
+ */
+export function lookupDisplayLabelOf(
+  record: LookupRecord,
+  source: LookupSourceDescriptor,
+): string | null {
+  return renderLookupLabel(source, (field) =>
+    hasLookupField(record, field) ? lookupLabelOf(record, field) : undefined,
+  );
 }
 
 /** 純量轉文字;物件(不該出現在顯示欄)回空字串。 */
