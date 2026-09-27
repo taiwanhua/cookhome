@@ -4,8 +4,11 @@ import { useTranslations } from "use-intl";
 
 import {
   type OrgQuery,
+  type UserSummaryFieldsFragment,
   useMoveOrgMutation,
+  useOrgManagersQuery,
   useOrgQuery,
+  useSetOrgManagersMutation,
   useSetOrgVisibilityMutation,
   useTransferOrgOwnerMutation,
   useUpdateOrgMutation,
@@ -28,6 +31,7 @@ import {
 } from "../org-manager-error";
 import type { OrgActionAbility, OrgDetail } from "../org-manager-types";
 import { useLogoUpload } from "../useLogoUpload";
+import { ManagerField } from "./ManagerField";
 import { type OwnerCandidate, TenantTopFields } from "./TenantTopFields";
 import { useEditOrgForm } from "./useEditOrgForm";
 
@@ -49,7 +53,7 @@ export interface EditOrgDialogProps {
  * 編輯組織(Figma 88:168):名稱、描述、上層組織(搬移)、商標,租戶頂層再多擁有者與可見範圍。
  *
  * 送出時**只打有變動的 mutation**,依序:商標上傳 → `updateOrg` → `moveOrg` →
- * `transferOrgOwner` → `setOrgVisibility`。任何一步失敗就停在那裡並顯示錯誤 —
+ * `transferOrgOwner` → `setOrgVisibility` → `setOrgManagers`(主管整組取代;根組織沒有這一欄)。任何一步失敗就停在那裡並顯示錯誤 —
  * 前面已成功的不回滾(它們各自是完整的動作、各自留了審計),重新送出只會補上還沒做的那幾步。
  */
 export const EditOrgDialog = ({
@@ -89,6 +93,27 @@ export const EditOrgDialog = ({
   const moveOrg = useMoveOrgMutation(session.client);
   const transferOwner = useTransferOrgOwnerMutation(session.client);
   const setVisibility = useSetOrgVisibilityMutation(session.client);
+  const setManagers = useSetOrgManagersMutation(session.client);
+
+  /**
+   * 主管名單:`OrgManagers` 載入前不給編輯(免得把「還沒載到」當成「清空」送出)。
+   * `pickedManagers` 為 null = 沒碰過,顯示目前名單;碰過才與目前名單比對要不要送。
+   */
+  const managersQuery = useOrgManagersQuery(
+    session.client,
+    { id: org.id },
+    { enabled: !org.isSystem },
+  );
+  const currentManagers = managersQuery.data?.org.managers;
+  const [pickedManagers, setPickedManagers] = useState<
+    UserSummaryFieldsFragment[] | null
+  >(null);
+  const shownManagers = pickedManagers ?? currentManagers ?? [];
+  const hasManagersChange =
+    pickedManagers !== null &&
+    currentManagers !== undefined &&
+    pickedManagers.map((manager) => manager.id).join(",") !==
+      currentManagers.map((manager) => manager.id).join(",");
 
   const isBusy = isSaving || isUploading;
 
@@ -140,6 +165,18 @@ export const EditOrgDialog = ({
       if (changes.hasVisibilityChange) {
         await setVisibility.mutateAsync({
           input: { orgId: org.id, visibility: form.visibility },
+        });
+      }
+      if (hasManagersChange) {
+        const payload = await setManagers.mutateAsync({
+          input: {
+            orgId: org.id,
+            userIds: shownManagers.map((manager) => manager.id),
+          },
+        });
+        // DATA-04 (a):回傳的名單直接換掉 `OrgManagers` 快取,詳情的「主管」列不必等重取
+        queryClient.setQueryData(useOrgManagersQuery.getKey({ id: org.id }), {
+          org: payload.setOrgManagers.org,
         });
       }
       feedback.onSuccess();
@@ -223,6 +260,14 @@ export const EditOrgDialog = ({
           initialPreviewUrl={org.logoUrl}
           isDisabled={isBusy}
         />
+        {!org.isSystem && (
+          <ManagerField
+            orgId={org.id}
+            value={shownManagers}
+            isDisabled={isBusy || currentManagers === undefined}
+            onChange={setPickedManagers}
+          />
+        )}
         {isTenantTop && (
           <TenantTopFields
             form={form}

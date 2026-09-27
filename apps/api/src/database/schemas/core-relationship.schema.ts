@@ -3,13 +3,18 @@ import { Schema as MongooseSchema, Types } from "mongoose";
 
 import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 
-/** 封閉 enum,完整清單正本:ADR-0001(命名順序 Org > User > Role > Module > Permission)。 */
+/**
+ * 封閉 enum,完整清單正本:ADR-0001(命名順序 Org > User > Role > Module > Permission)。
+ * `org_manager` 是命名規約的例外:第二方是 users,但語意是「該組織的主管」(職位制,一個組織可多位),
+ * 與成員關係 `org_user` 分開存。
+ */
 export const CORE_RELATIONSHIP_TYPES = [
   "org_user",
   "org_role",
   "user_role",
   "role_module",
   "role_permission",
+  "org_manager",
 ] as const;
 
 export type CoreRelationshipType = (typeof CORE_RELATIONSHIP_TYPES)[number];

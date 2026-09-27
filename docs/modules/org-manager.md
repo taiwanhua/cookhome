@@ -130,6 +130,18 @@ deleteOrg(input: { id }): DeletePayload!
 - `updateOrg` 的 `logoPath`:**缺席 = 不動、`null` = 清空商標**(GQL-06)。
 - `updateOrg` 的 `slug`(租戶短碼):**缺席與 `null` 同義 = 不動**(短碼不可清空);只有根組織的操作者能改(其餘 `FORBIDDEN`),不是租戶頂層、格式不符(`^[a-z][a-z0-9_]{1,19}$`,正本 `@repo/domain/form` 的 `ORG_SLUG_PATTERN`)或已被別的租戶用 → `VALIDATION_FAILED`(`extensions.fields = ["slug"]`)。
 
+**主管**(`apps/api/src/orgs/org-managers.service.ts`;`core_relationships` 的 `org_manager`):
+
+```graphql
+org(id: ID!).managers: [UserSummary!]!                          # 設定順序;含停用的主管
+orgManagerCandidates(orgId: ID!, keyword: String): [UserSummary!]!   # 該組織所屬租戶裡啟用中的使用者(最多 50)
+setOrgManagers(input: { orgId, userIds }): OrgPayload!           # 整組取代;稽核 org.set-managers
+```
+
+- **守門**:`managers` 跟著讀得到的 `org(id)` 走;`orgManagerCandidates` 與 `setOrgManagers` 沿用 `system.org-manager.edit`(主管是組織資料的一部分,不另開權限)。組織不在管理範圍 → `NOT_FOUND`。
+- **`setOrgManagers` 整組取代**:名單就是之後的全部主管,空陣列 = 清空;名單沒變不寫也不留稽核。主管必須是**本租戶**的使用者(所屬組織在該組織的租戶子樹內;停用的可以留在名單上),否則 `VALIDATION_FAILED`(`fields = ["userIds"]`);根組織不屬於任何租戶,不能設主管(`fields = ["orgId"]`)。稽核 `org.set-managers` 的 `before` / `after` 是 `{ managerIds }`。
+- **主管解析** `OrgManagersService.resolveManagers(applicantId, submissionOrgId, tenantId, level)`(審核流程用,沒有 GraphQL 端點):起點 = 提交的 `orgId`、往上到提交的 `tenantId` 為止;第一個「剔除申請人後仍有主管」的組織 = 第 1 層,`level = 2` 再往上一組;只算啟用中、仍在本租戶的使用者;找不到 → 空陣列。純規則在 `@repo/domain/workflow` 的 `resolveManagersFrom`。
+
 **成員頁籤**(`apps/api/src/orgs/org-members.*.ts`,Nest 模組 `OrgMembersModule`):
 
 ```graphql

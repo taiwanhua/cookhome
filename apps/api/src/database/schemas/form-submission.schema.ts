@@ -2,6 +2,10 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Schema as MongooseSchema, Types } from "mongoose";
 
 import type { StoredValues, SubmissionSummary } from "@repo/domain/form";
+import {
+  SUBMISSION_STATUSES,
+  type SubmissionStatus,
+} from "@repo/domain/workflow";
 
 import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
@@ -10,12 +14,18 @@ import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
 export const FORM_SUBMISSIONS_COLLECTION = "form_submissions";
 
 /**
- * 提交狀態(Spec 6a §6「提交」):`draft` 存了沒送出、可改可刪;`completed` 送出過(6a 送出即完成)。
- * 6b 會在中間插入審核狀態。與購物清單 seed 的資料範圍目標 `status` 選項一一對應。
+ * 提交狀態(Spec 6a §6 + 6b §6,單一欄位;正本是 `@repo/domain/workflow` 的 `SUBMISSION_STATUSES`):
+ * - `draft` 存了沒送出、可改可刪
+ * - `reviewing` 有進行中的實例(內容凍結在該修訂快照);`returned` / `withdrawn` 被退回 / 撤回,可改後再送
+ * - `completed` 不綁流程:送出即此、可再修改;綁流程(`currentInstanceId` 有值):實例核准、鎖定只能作廢
+ * - `rejected` 被駁回,不可改不可再送;`voided` 核准後作廢
+ *
+ * 綁流程的表單模組 seed(請假)的資料範圍目標 `status` 選項與它一一對應;
+ * 購物清單是不綁流程的對照組,只宣告 `draft` / `completed`。
  */
-export const FORM_SUBMISSION_STATUSES = ["draft", "completed"] as const;
+export const FORM_SUBMISSION_STATUSES = SUBMISSION_STATUSES;
 
-export type FormSubmissionStatus = (typeof FORM_SUBMISSION_STATUSES)[number];
+export type FormSubmissionStatus = SubmissionStatus;
 
 /**
  * 一次送出 / 修改的上下文(歷史檢視重算條件時轉成表達式的 `ctx.*`,不拿讀者現在的身分補值)。
@@ -86,6 +96,31 @@ export class FormSubmission {
   /** 第一次送出時間(= `revisions[0].ctx.at`);索引與列表排序用。 */
   @Prop({ type: Date, default: null })
   submittedAt!: Date | null;
+
+  /**
+   * 進行中或最後一個流程實例;**null = 沒走過流程**(`completed` 後可修改,6a);
+   * 有值 = 走過流程(`completed` 後鎖定、只能作廢)。
+   */
+  @Prop({ type: Types.ObjectId, default: null })
+  currentInstanceId!: Types.ObjectId | null;
+
+  /** 實例被阻擋時 true(列表 chip 顯示「審核中(待處理)」)。 */
+  @Prop({ type: Boolean, default: false })
+  blocked!: boolean;
+
+  /** 作廢時間 / 操作者 / 理由(`voided`)。 */
+  @Prop({ type: Date, default: null })
+  voidedAt!: Date | null;
+
+  @Prop({ type: Types.ObjectId, default: null })
+  voidedBy!: Types.ObjectId | null;
+
+  @Prop({ type: String, default: null })
+  voidReason!: string | null;
+
+  /** 「複製為新單」建出的那筆(選填)。 */
+  @Prop({ type: Types.ObjectId, default: null })
+  replacedById!: Types.ObjectId | null;
 
   /** 模組 key(`tenantScopePlugin` 的 `moduleData` 宣告;= 綁的表單的 `moduleKey`)。 */
   moduleKey!: string;

@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module";
 import { DatabaseModule } from "../database/database.module";
 import { StorageModule } from "../storage/storage.module";
+import { OrgManagersService } from "./org-managers.service";
 import { OrgsResolver } from "./orgs.resolver";
 import { OrgsService } from "./orgs.service";
 import { OwnerProtectionService } from "./owner-protection.service";
@@ -23,11 +24,12 @@ import { TenantOpsService } from "./tenant-ops.service";
   imports: [DatabaseModule, StorageModule, AuthModule],
   providers: [
     OrgsService,
+    OrgManagersService,
     OrgsResolver,
     OwnerProtectionService,
     TenantOpsService,
     TenantOpsResolver,
   ],
-  exports: [OrgsService, OwnerProtectionService],
+  exports: [OrgsService, OrgManagersService, OwnerProtectionService],
 })
 export class OrgsModule {}

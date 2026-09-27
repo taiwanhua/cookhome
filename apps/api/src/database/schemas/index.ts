@@ -19,3 +19,7 @@ export * from "./permission.schema";
 export * from "./refresh-token.schema";
 export * from "./role.schema";
 export * from "./user.schema";
+export * from "./workflow-instance.schema";
+export * from "./workflow-task.schema";
+export * from "./workflow-version.schema";
+export * from "./workflow.schema";

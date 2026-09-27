@@ -4,15 +4,24 @@ import { Schema as MongooseSchema, Types } from "mongoose";
 import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 
 /**
- * 業務關聯的種類(封閉 enum;命名照 ADR-0001 的 `<第一方 collection 單數>_<第二方 collection 單數>`)。
+ * 業務關聯的種類(封閉 enum;命名照 ADR-0001 的 `<第一方 collection 單數>_<第二方 collection 單數>`,
+ * 三方關聯接第三方)。
  *
- * | type       | tenantId        | firstId       | secondId | meta          |
- * | ---------- | --------------- | ------------- | -------- | ------------- |
- * | `org_form` | 租戶頂層 `orgs` | 同 `tenantId` | `forms`  | `{ enabled }` |
+ * | type                | tenantId        | firstId       | secondId    | thirdId     | meta          |
+ * | ------------------- | --------------- | ------------- | ----------- | ----------- | ------------- |
+ * | `org_form`          | 租戶頂層 `orgs` | 同 `tenantId` | `forms`     | null        | `{ enabled }` |
+ * | `org_workflow`      | 租戶頂層 `orgs` | 同 `tenantId` | `workflows` | null        | `{}`          |
+ * | `org_form_workflow` | 租戶頂層 `orgs` | 同 `tenantId` | `forms`     | `workflows` | `{}`          |
  *
- * `org_form` = 表單分派 / 啟用(`docs/data-model.md`「business_relationships」)。
+ * `org_form` = 表單分派 / 啟用;`org_workflow` = 流程分派;`org_form_workflow` = 流程綁定
+ * (租戶 × 表單 → 流程)。唯一性一律沿用 `(tenantId, type, firstId, secondId)`:同租戶同表單最多綁
+ * 一個流程,`thirdId` 不在鍵裡 → 多張表單可以綁同一個流程(`docs/data-model.md`「business_relationships」)。
  */
-export const BUSINESS_RELATIONSHIP_TYPES = ["org_form"] as const;
+export const BUSINESS_RELATIONSHIP_TYPES = [
+  "org_form",
+  "org_workflow",
+  "org_form_workflow",
+] as const;
 
 export type BusinessRelationshipType =
   (typeof BUSINESS_RELATIONSHIP_TYPES)[number];
@@ -37,15 +46,15 @@ export class BusinessRelationship {
   @Prop({ type: String, required: true, enum: BUSINESS_RELATIONSHIP_TYPES })
   type!: BusinessRelationshipType;
 
-  /** 命名順序在前者的 id(`org_form` 的 org = 租戶頂層)。 */
+  /** 命名順序在前者的 id(三種 type 都是租戶頂層 org)。 */
   @Prop({ type: Types.ObjectId, required: true })
   firstId!: Types.ObjectId;
 
-  /** 命名順序在後者的 id(`org_form` 的 form)。 */
+  /** 命名順序在後者的 id(`org_form` / `org_form_workflow` 的 form、`org_workflow` 的 workflow)。 */
   @Prop({ type: Types.ObjectId, required: true })
   secondId!: Types.ObjectId;
 
-  /** 保留欄位,暫不使用(同核心關聯)。 */
+  /** 三方關聯的第三方(`org_form_workflow` 的 workflow);其他 type 為 null。 */
   @Prop({ type: Types.ObjectId, default: null })
   thirdId!: Types.ObjectId | null;
 
