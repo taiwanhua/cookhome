@@ -1,4 +1,8 @@
-import { buildHelpRegistry } from "./module-help";
+import {
+  type HelpModule,
+  buildHelpRegistry,
+  resolveModuleHelp,
+} from "./module-help";
 
 /**
  * 打包進 bundle 的模組說明(#197):Vite 在 build 時把每份 `src/md/module-help/*.help.md`
@@ -16,6 +20,9 @@ const helpFiles = import.meta.glob("/src/md/module-help/*.help.md", {
 
 const registry = buildHelpRegistry(helpFiles);
 
-/** 模組 key → 說明內容(Markdown 原始碼);沒有對應的 help.md 時回 undefined。 */
-export const moduleHelpMarkdown = (moduleKey: string): string | undefined =>
-  registry.get(moduleKey);
+/**
+ * 模組 → 說明內容(Markdown 原始碼):專屬檔優先,表單模組退回通用檔(`resolveModuleHelp`);
+ * 都沒有時回 undefined。
+ */
+export const moduleHelpMarkdown = (module: HelpModule): string | undefined =>
+  resolveModuleHelp(registry, module);

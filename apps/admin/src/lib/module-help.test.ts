@@ -1,8 +1,12 @@
 import { describe, expect, it } from "@jest/globals";
 
+import { ModuleEngine } from "@repo/graphql";
+
 import {
+  FORM_MODULE_HELP_KEY,
   buildHelpRegistry,
   moduleKeyFromHelpPath,
+  resolveModuleHelp,
   stripLeadingTitle,
 } from "./module-help";
 
@@ -65,5 +69,40 @@ describe("buildHelpRegistry(glob 產物 → 模組 key 對照表)", () => {
     });
 
     expect([...registry.keys()]).toEqual(["ok"]);
+  });
+});
+
+describe("resolveModuleHelp(模組 → 用哪一份說明)", () => {
+  const registry = new Map([
+    [FORM_MODULE_HELP_KEY, "表單通用"],
+    ["form-special", "表單專屬"],
+    ["system.org-manager", "組織管理"],
+  ]);
+
+  it("專屬檔優先(表單模組也一樣)", () => {
+    expect(
+      resolveModuleHelp(registry, {
+        key: "form-special",
+        engine: ModuleEngine.Form,
+      }),
+    ).toBe("表單專屬");
+    expect(
+      resolveModuleHelp(registry, {
+        key: "system.org-manager",
+        engine: ModuleEngine.Fixed,
+      }),
+    ).toBe("組織管理");
+  });
+
+  it("表單模組沒有專屬檔 → 通用說明;固定欄位模組沒有 → undefined", () => {
+    expect(
+      resolveModuleHelp(registry, { key: "form-x", engine: ModuleEngine.Form }),
+    ).toBe("表單通用");
+    expect(
+      resolveModuleHelp(registry, {
+        key: "fixed-x",
+        engine: ModuleEngine.Fixed,
+      }),
+    ).toBeUndefined();
   });
 });

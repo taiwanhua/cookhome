@@ -1,4 +1,4 @@
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 
 import { type TestModule, overviewModule } from "./auth-handlers";
 
@@ -22,6 +22,7 @@ const link = (
   name,
   parentId,
   sidebarType: ModuleSidebarType.Link,
+  engine: ModuleEngine.Fixed,
   order,
   route,
   icon,

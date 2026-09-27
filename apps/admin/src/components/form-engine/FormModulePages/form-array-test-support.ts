@@ -90,7 +90,6 @@ export const arrayRuntimeOptions = () => ({
  */
 export const hideableArrayDefinition = (): FormDefinition => {
   const base = arrayDefinition();
-  const [section] = base.layout.sections;
   return {
     ...base,
     fields: [
@@ -104,17 +103,17 @@ export const hideableArrayDefinition = (): FormDefinition => {
       ),
     ],
     layout: {
-      sections: section
-        ? [
-            {
+      sections: base.layout.sections.map((section, index) =>
+        index === 0
+          ? {
               ...section,
               rows: [
                 { cols: [{ fieldKey: "skip_lines", span: 12 }] },
                 ...section.rows,
               ],
-            },
-          ]
-        : [],
+            }
+          : section,
+      ),
     },
   };
 };

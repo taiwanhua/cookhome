@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 
 import {
   type TestModule,
@@ -44,6 +44,7 @@ const modulesWith = (permissions: readonly string[]): TestModule[] => [
     name: "系統管理",
     parentId: null,
     sidebarType: ModuleSidebarType.Group,
+    engine: ModuleEngine.Fixed,
     order: 1,
     route: "/system",
     permissions: [],
@@ -54,6 +55,7 @@ const modulesWith = (permissions: readonly string[]): TestModule[] => [
     name: "組織管理",
     parentId: "m-system",
     sidebarType: ModuleSidebarType.Link,
+    engine: ModuleEngine.Fixed,
     order: 1,
     route: "/system/org-manager",
     permissions: permissions.includes(ORG_MANAGER_VIEW_PERMISSION)
@@ -66,6 +68,7 @@ const modulesWith = (permissions: readonly string[]): TestModule[] => [
     name: "使用者管理",
     parentId: "m-system",
     sidebarType: ModuleSidebarType.Link,
+    engine: ModuleEngine.Fixed,
     order: 2,
     route: "/system/user-manager",
     permissions: [],
@@ -76,6 +79,7 @@ const modulesWith = (permissions: readonly string[]): TestModule[] => [
     name: "角色管理",
     parentId: "m-system",
     sidebarType: ModuleSidebarType.Link,
+    engine: ModuleEngine.Fixed,
     order: 3,
     route: "/system/role-manager",
     permissions: permissions.filter((key) => key.startsWith(ROLE_PREFIX)),

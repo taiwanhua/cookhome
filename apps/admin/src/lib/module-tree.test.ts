@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 
 import {
   type ShellModule,
@@ -15,6 +15,7 @@ const system: ShellModule = {
   name: "系統管理",
   parentId: null,
   sidebarType: ModuleSidebarType.Group,
+  engine: ModuleEngine.Fixed,
   order: 1,
   route: "/system",
   permissions: ["system.*"],
@@ -25,6 +26,7 @@ const orgManager: ShellModule = {
   name: "組織管理",
   parentId: "m-system",
   sidebarType: ModuleSidebarType.Link,
+  engine: ModuleEngine.Fixed,
   order: 1,
   route: "/system/org-manager",
   permissions: ["system.org-manager.*"],
@@ -35,6 +37,7 @@ const userManager: ShellModule = {
   name: "使用者管理",
   parentId: "m-system",
   sidebarType: ModuleSidebarType.Link,
+  engine: ModuleEngine.Fixed,
   order: 2,
   route: "/system/user-manager",
   permissions: [],
@@ -45,6 +48,7 @@ const demo: ShellModule = {
   name: "示範群組",
   parentId: null,
   sidebarType: ModuleSidebarType.Group,
+  engine: ModuleEngine.Fixed,
   order: 2,
   route: "/demo",
   permissions: [],
@@ -55,6 +59,7 @@ const sampleTwo: ShellModule = {
   name: "示範模組2",
   parentId: "m-demo",
   sidebarType: ModuleSidebarType.Link,
+  engine: ModuleEngine.Fixed,
   order: 2,
   route: "/demo/sample-two",
   permissions: [],
@@ -65,6 +70,7 @@ const sampleTwoEditPage: ShellModule = {
   name: "編輯",
   parentId: "m-sample-two",
   sidebarType: ModuleSidebarType.Hidden,
+  engine: ModuleEngine.Fixed,
   order: 3,
   route: "/demo/sample-two/edit-page",
   permissions: [],
@@ -75,6 +81,7 @@ const apiTree: ShellModule = {
   name: "API 能力",
   parentId: null,
   sidebarType: ModuleSidebarType.Hidden,
+  engine: ModuleEngine.Fixed,
   order: 99,
   route: null,
   permissions: [],

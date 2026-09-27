@@ -2,6 +2,7 @@ import type { FormDefinition } from "@repo/domain/form";
 import type { ReviewStepDef, WorkflowDefinition } from "@repo/domain/workflow";
 import {
   FormSubmissionStatus,
+  ModuleEngine,
   ModuleSidebarType,
   type MyApplicationsQuery,
   type WorkflowFieldsFragment,
@@ -62,6 +63,7 @@ const moduleOf = (
   name,
   parentId,
   sidebarType,
+  engine: key === DEMO_GROUP_FORM_KEY ? ModuleEngine.Form : ModuleEngine.Fixed,
   order: 4,
   route,
   icon: ICON_BY_KEY[key] ?? null,
