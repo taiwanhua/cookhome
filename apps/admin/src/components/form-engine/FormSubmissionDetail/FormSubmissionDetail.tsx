@@ -174,6 +174,7 @@ export const FormSubmissionDetail = ({
             <Stack
               direction="row"
               spacing={1}
+              useFlexGap
               sx={{ alignItems: "center", flexWrap: "wrap" }}
             >
               <Typography variant="body2" color="text.secondary">

@@ -101,7 +101,8 @@ export const FormListPanel = ({
                 <Stack
                   direction="row"
                   spacing={0.5}
-                  sx={{ flexWrap: "wrap", rowGap: 0.5 }}
+                  useFlexGap
+                  sx={{ flexWrap: "wrap" }}
                 >
                   <Tag
                     tone={form.isShared ? "primary" : "grey"}

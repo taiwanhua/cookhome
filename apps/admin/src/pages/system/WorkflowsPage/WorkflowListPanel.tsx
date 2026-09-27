@@ -100,7 +100,8 @@ export const WorkflowListPanel = ({
                 <Stack
                   direction="row"
                   spacing={0.5}
-                  sx={{ flexWrap: "wrap", rowGap: 0.5 }}
+                  useFlexGap
+                  sx={{ flexWrap: "wrap" }}
                 >
                   <Tag
                     tone={workflow.isShared ? "primary" : "grey"}
