@@ -49,11 +49,11 @@
 
 ## 自動跑的 workflow
 
-| workflow                                 | 觸發                                                                                           | 看什麼                                                                                             |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **CI**(`ci.yml`)                         | PR 與 push 到 `main` / `dev` / `staging`;**只改文件時不跑**(`docs/**`、`*.md` 在 paths-ignore) | 格式檢查、codegen 產物與 schema 一致(GQL-05)、lint / typecheck / test、build(只跑受影響的 package) |
-| **Docs**(`docs.yml`)                     | 同上,但**只在改到 md 時跑**                                                                    | `prettier --check`                                                                                 |
-| **Project Status**(`project-status.yml`) | issue / PR 事件                                                                                | 自動移看板卡(規則見 issue-tracker「看板」)                                                         |
+| workflow                                 | 觸發                                                                                           | 看什麼                                                                                                                                                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CI**(`ci.yml`)                         | PR 與 push 到 `main` / `dev` / `staging`;**只改文件時不跑**(`docs/**`、`*.md` 在 paths-ignore) | 多 job 並行:`format-codegen`、`lint-typecheck`、`test-api-1` / `test-api-2`、`test-admin-1` / `test-admin-2`、`test-others`、`build`,總結在 `verify`(只跑受影響的 package;job 圖見 `docs/deployment.md`) |
+| **Docs**(`docs.yml`)                     | 同上,但**只在改到 md 時跑**                                                                    | `prettier --check`                                                                                                                                                                                       |
+| **Project Status**(`project-status.yml`) | issue / PR 事件                                                                                | 自動移看板卡(規則見 issue-tracker「看板」)                                                                                                                                                               |
 
 正本:`.github/workflows/ci.yml`、`.github/workflows/docs.yml`、`.github/workflows/project-status.yml`
 

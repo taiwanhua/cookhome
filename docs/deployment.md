@@ -67,7 +67,24 @@ main(= production)
 release 後:進行中的 feat 分支 rebase 到最新 main
 ```
 
-- **CI(ci.yml)**:所有 PR + push 到 `main`/`dev`/`staging` 自動驗證(lint/typecheck/test/build)
+- **CI(ci.yml)**:所有 PR + push 到 `main`/`dev`/`staging` 自動驗證;只改文件(`docs/**`、`*.md`)不跑,改由 `docs.yml` 做 md 的格式檢查
+  - **job 圖**:拆成多個 job 各佔一台 runner 並行(牆鐘最短優先,不再在同一台上搶 CPU):
+
+    ```
+    prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產物與 schema 一致(GQL-05)
+             ├─ lint-typecheck   turbo run lint check-types
+             ├─ test-api-1 / 2   api 的 jest 以 --shard=1/2、2/2 分兩片,各自一個 MongoDB service container
+             ├─ test-admin-1 / 2 admin 的 jest 同樣分兩片(先 turbo build admin 的依賴)
+             ├─ test-others      api / admin 以外的 turbo run test(domain / ui / i18n / logger / db-migrator …)
+             └─ build            turbo run build(front 受影響時先 build 並啟動 api,給 ISR 預渲染打)
+    以上全部 ─→ verify           總結:任一 job failure / cancelled 就紅,skipped 算過
+    ```
+
+  - **PR 的必要檢查只看 `verify`**,名稱沒變;紅的時候看是哪一個 job 紅,job 名稱就是壞的類別
+  - **受影響過濾**:`prepare` 用 `turbo ls --affected` 算出「改到的 package + 依賴它們的 package」,轉成 `--filter=<pkg>` 清單交給下游 job;api / admin 不在清單就跳過各自的兩個 shard,清單空就跳過 lint / test / build。改到 `.github/**` 或 base 拿不到(首推、force push)時退回全跑
+  - **turbo 快取**:`.turbo/cache` 用 `actions/cache` 在 run 之間保存,每個跑 turbo 的 job 各一把 key(lockfile hash + job 名 + commit),找不到時退回同 lockfile 的最近一份;沒改到的 package 的 lint / typecheck / build 直接 `cache hit`。存回前刪掉 7 天前的項目,快取才不會無限長大;lockfile 一變就從頭累積。api 的 shard 不走 turbo(jest 直接吃 `@repo/domain` 原始碼),也就沒有快取
+  - **本機重現某一片**:api 是 `pnpm --filter @repo/api exec jest --shard=1/2`;admin 是 `pnpm --filter @repo/admin exec node --experimental-vm-modules node_modules/jest/bin/jest.js --shard=1/2`(要先有依賴的 dist)。不能寫成 `pnpm run test -- --shard=1/2`,參數會被 jest 當成路徑 pattern
+  - 每個 job 都有 `timeout-minutes`(`prepare` 10、`verify` 5、其餘 20),卡死的 jest 不會燒到預設的 6 小時;E2E 不在 ci.yml(見下面「劇本 E2E」)
 - **CD(deploy.yml)**:**只能手動觸發,merge 不會自動部署**
   - UI:Actions → Deploy → Run workflow →「Use workflow from」選分支 + environment 選環境
   - CLI:`gh workflow run Deploy --ref dev -f environment=dev`(staging 同理;production 的 ref 是 `main`)
