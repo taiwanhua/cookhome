@@ -44,6 +44,7 @@ import {
   validationError,
 } from "../forms-error";
 import type { FormVersionPayload } from "../models/form-common.model";
+import { projectFieldsForReader } from "./definition-projection";
 import { DisplayNamesService } from "./display-names.service";
 import {
   type CreateFormDraftInput,
@@ -150,7 +151,10 @@ export class FormSubmissionsService {
     }));
   }
 
-  /** 填寫端讀某一版的定義(已發布或已退役;草稿不給)。 */
+  /**
+   * 填寫端讀某一版的定義(已發布或已退役;草稿不給)。依讀者權限投影:讀不到的欄位只回骨架
+   * (`definition-projection.ts`),受保護欄位的固定值、選項、說明不經網路層外流。
+   */
   async runtimeVersion(
     facts: FormOperatorFacts,
     formKey: string,
@@ -174,7 +178,13 @@ export class FormSubmissionsService {
     const names = await this.userNames.load(facts.operator, [
       record.publishedBy,
     ]);
-    return { formVersion: toFormVersionModel(record, names), validation: null };
+    const gate = fieldGateOf(facts, form.moduleKey, form.key);
+    const formVersion = toFormVersionModel(record, names);
+    formVersion.fields = projectFieldsForReader(
+      record.fields,
+      gate,
+    ) as unknown as Record<string, unknown>[];
+    return { formVersion, validation: null };
   }
 
   async list(

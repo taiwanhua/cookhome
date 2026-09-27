@@ -7,6 +7,7 @@ import type {
 } from "@repo/domain/form";
 
 import { FormVersionsRepository } from "../../database/database.module";
+import { fieldGateOf, requiredShowKeys } from "../field-permission-gate";
 import {
   FormAccessService,
   type FormOperatorFacts,
@@ -137,7 +138,8 @@ export class FormLookupService {
   }
 
   /**
-   * 讀版本定義並解析目標。已發布 / 退役版:要有該模組的 `create` 或 `edit`(填寫中才會查);
+   * 讀版本定義並解析目標。已發布 / 退役版:要有該模組的 `create` 或 `edit`(填寫中才會查),
+   * 目標是欄位時還要讀得到那一欄(欄位級 `show`,含依賴鏈);
    * 草稿(`version` 省略):設計器預覽,要表單管理的檢視且讀得到這張表單。
    */
   private async resolve(
@@ -180,6 +182,23 @@ export class FormLookupService {
     if (!version) {
       throw notFoundError(
         `Form version not found: ${form.key}@${String(input.version ?? "draft")}`,
+      );
+    }
+    const fieldKey = input.target.fieldKey;
+    // 讀不到這一欄(受保護沒有 show)的人不給候選資料;先於「有沒有 lookup 來源」判,
+    // 否則能從錯誤碼的差別推出這欄的定義(骨架省略了 `options` / `source`)
+    if (
+      !isDraft &&
+      fieldKey !== undefined &&
+      fieldKey !== null &&
+      version.fields.some((candidate) => candidate.key === fieldKey) &&
+      !fieldGateOf(facts, form.moduleKey, form.key).canShow(
+        version.fields,
+        fieldKey,
+      )
+    ) {
+      throw forbiddenError(
+        `Missing field permission: ${requiredShowKeys(version.fields, fieldKey).join(", ")}`,
       );
     }
     return targetOf(version.fields, version.prefills, input.target);

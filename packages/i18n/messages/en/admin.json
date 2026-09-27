@@ -1392,8 +1392,7 @@
       "copied": "Copied.",
       "copyFailed": "Copy failed.",
       "regexChecking": "Checking patterns…",
-      "regexUnavailable": "Pattern safety can't be checked right now; it will be checked when you save the draft.",
-      "categoryRequiredWarning": "“{label}” takes options from a field category and is required: people without field-management view permission can't get the options and won't be able to submit."
+      "regexUnavailable": "Pattern safety can't be checked right now; it will be checked when you save the draft."
     },
     "preview": {
       "region": "Preview",

@@ -1,28 +1,24 @@
 import type { FieldDef } from "@repo/domain/form";
-import {
-  useFieldCategoriesQuery,
-  useFieldsQuery,
-  useFormLookupQuery,
-} from "@repo/graphql";
+import { useFormFieldOptionsQuery, useFormLookupQuery } from "@repo/graphql";
 
-import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
 
 import type { ChoiceOption, WidgetContext } from "./widget-types";
 
-/** 欄位管理類別的選項掛在這把權限底下(api 正本 `fields.resolver.ts`)。 */
-const FIELD_MANAGER_VIEW = "system.field-manager.view";
-
 /** lookup 選項一次取幾筆(搜尋交給 api,`formLookup` 的 keyword)。 */
 const LOOKUP_PAGE_SIZE = 50;
+
+/**
+ * 類別選項一次取的筆數(`formFieldOptions` 的上限)。字典型的短清單通常一次取完、搜尋在前端比對;
+ * 超過這個數(`totalCount` 大於取回的筆數)時,打字搜尋改送 api 的 `keyword`,
+ * 沒打字時只列前 100 筆(下拉 / 單選鈕沒有搜尋框,也只看得到這 100 筆)。
+ */
+const CATEGORY_PAGE_SIZE = 100;
 
 export interface FieldOptions {
   options: readonly ChoiceOption[];
   isLoading: boolean;
-  /**
-   * 選項拿不到:類別選項要 `system.field-manager.view`(填寫端沒有專屬的類別選項端點),
-   * 沒有這把權限的人只看得到既有值、改不了 —— 與示範模組1 的分類欄同一個退路。
-   */
+  /** 選項拿不到(類別選項的查詢失敗):只顯示既有值、改不了。 */
   isUnavailable: boolean;
 }
 
@@ -38,7 +34,8 @@ export interface UseFieldOptionsInput {
 /**
  * 選項欄三種來源(Spec 6a §5「`options` 三種來源」)統一成 `ChoiceOption[]`:
  * - 靜態清單:定義裡的 items,停用的不列、依 `order` 排
- * - 欄位管理類別:合併範圍的當前選項,停用的不列;存 `{ value, label }`
+ * - 欄位管理類別:打 `formFieldOptions`(只帶「哪個版本的哪個欄位」,類別 key 由 api 從定義取;
+ *   合併範圍、只回啟用的);存 `{ value, label }`。不需要欄位管理的權限;超過 100 筆時搜尋改送 api
  * - lookup 來源:打 `formLookup`(只帶「哪個版本的哪個欄位」+ 關鍵字,provider / filter 由 api 從定義取)
  */
 export const useFieldOptions = ({
@@ -48,23 +45,32 @@ export const useFieldOptions = ({
   isDesign,
 }: UseFieldOptionsInput): FieldOptions => {
   const { session } = useSession();
-  const { hasPermission } = usePermissions();
   const source = field.options ?? null;
-  const categoryKey = source?.kind === "fieldCategory" ? source.key : null;
-  const canReadCategories = hasPermission(FIELD_MANAGER_VIEW);
 
-  const categories = useFieldCategoriesQuery(session.client, undefined, {
-    enabled: !isDesign && categoryKey !== null && canReadCategories,
-  });
-  const categoryId =
-    categories.data?.fieldCategories.items.find(
-      (category) => category.key === categoryKey,
-    )?.id ?? null;
-  const categoryFields = useFieldsQuery(
+  const categoryInput = {
+    formKey: context.formKey,
+    ...(context.version !== null && { version: context.version }),
+    fieldKey: field.key,
+    page: 1,
+    pageSize: CATEGORY_PAGE_SIZE,
+  };
+  const isCategory = !isDesign && source?.kind === "fieldCategory";
+  const categoryOptions = useFormFieldOptionsQuery(
     session.client,
-    { categoryId: categoryId ?? "" },
-    { enabled: !isDesign && categoryId !== null },
+    { input: categoryInput },
+    { enabled: isCategory },
   );
+  const firstPage = categoryOptions.data?.formFieldOptions;
+  const isTruncated =
+    firstPage !== undefined && firstPage.totalCount > firstPage.items.length;
+  const searchKeyword = keyword.trim();
+  const isSearchingCategory = isTruncated && searchKeyword !== "";
+  const categorySearch = useFormFieldOptionsQuery(
+    session.client,
+    { input: { ...categoryInput, keyword: searchKeyword } },
+    { enabled: isCategory && isSearchingCategory },
+  );
+  const categoryShown = isSearchingCategory ? categorySearch : categoryOptions;
 
   const lookup = useFormLookupQuery(
     session.client,
@@ -101,15 +107,15 @@ export const useFieldOptions = ({
     }
     case "fieldCategory": {
       return {
-        options: (categoryFields.data?.fields.items ?? [])
-          .filter((item) => item.enabled)
-          .map((item) => ({
+        options: (categoryShown.data?.formFieldOptions.items ?? []).map(
+          (item) => ({
             value: item.value,
             label: item.label,
             stored: { value: item.value, label: item.label },
-          })),
-        isLoading: categories.isLoading || categoryFields.isLoading,
-        isUnavailable: !isDesign && !canReadCategories,
+          }),
+        ),
+        isLoading: categoryShown.isLoading,
+        isUnavailable: !isDesign && categoryShown.isError,
       };
     }
     case "lookup": {

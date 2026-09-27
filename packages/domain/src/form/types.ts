@@ -126,6 +126,12 @@ export interface FieldDef {
   help?: string | null;
   /** 只有 `reference`:lookup 來源描述。 */
   source?: LookupSourceDescriptor | null;
+  /**
+   * 只出現在執行端讀到的定義(`formRuntimeVersion`):讀者讀不到這一欄時為 true,
+   * 此時只剩骨架(key / label / type / `widget.kind` / `valueSource.kind` / `permission`),
+   * 內容(固定值、公式、選項、規則、說明)已省略。設計端的定義沒有這個欄位。
+   */
+  redacted?: boolean;
 }
 
 export interface LayoutCol {

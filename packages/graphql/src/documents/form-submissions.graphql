@@ -85,7 +85,7 @@ query ModuleForms($moduleKey: ID!) {
   }
 }
 
-# 填寫 / 詳情渲染用的版本定義(已發布或已退役版)
+# 填寫 / 詳情渲染用的版本定義(已發布或已退役版);讀者讀不到的欄位只回骨架(redacted: true)
 query FormRuntimeVersion($formKey: ID!, $version: Int!) {
   formRuntimeVersion(formKey: $formKey, version: $version) {
     formVersion {
@@ -188,6 +188,20 @@ query FormLookup($input: FormLookupInput!) {
   formLookup(input: $input) {
     items {
       ...FormLookupRecordFields
+    }
+    totalCount
+    page
+    pageSize
+  }
+}
+
+# FormFieldOptionsInput: { formKey, version?, fieldKey, keyword?, page?, pageSize? }
+# 選項欄的欄位管理類別選項(只列啟用的);類別 key 從版本定義取,不需要欄位管理的權限
+query FormFieldOptions($input: FormFieldOptionsInput!) {
+  formFieldOptions(input: $input) {
+    items {
+      value
+      label
     }
     totalCount
     page
