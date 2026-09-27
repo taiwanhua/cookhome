@@ -1,3 +1,4 @@
+import { beforeAll } from "@jest/globals";
 import { screen } from "@testing-library/react";
 
 import { FormVersionStatus } from "@repo/graphql";
@@ -19,6 +20,17 @@ import {
 import { formRuntimeWorld } from "@/test/msw/form-runtime-handlers";
 import { server } from "@/test/msw/server";
 import { renderApp } from "@/test/render";
+
+/**
+ * 表單管理頁是 `React.lazy` 載入的(`lazy-forms-page.ts`,Suspense 在 `ModuleRoute`):第一次 `import()`
+ * 要在 jest ESM 裡現載設計器整條依賴鏈(dnd-kit、表達式選擇器、檢查器),全套並行時 CPU 被搶,
+ * 會把 `findDesigner` 的 5 秒吃光(#470)。每個表單管理頁測試檔在頂層呼叫一次,先載進模組快取(TEST-08)。
+ */
+export const preloadFormsPage = (): void => {
+  beforeAll(async () => {
+    await import("./FormsPage");
+  });
+};
 
 /**
  * 表單管理頁測試的共用場景:root(持 `system.forms.*`)、一張共用表單「購物單」,

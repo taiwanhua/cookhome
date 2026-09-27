@@ -14,8 +14,11 @@ import {
 import {
   defaultDesignOptions,
   findDesigner,
+  preloadFormsPage,
   renderFormsPage,
 } from "./forms-page-test-support";
+
+preloadFormsPage();
 
 const canvas = () => screen.getByRole("region", { name: "畫布" });
 
