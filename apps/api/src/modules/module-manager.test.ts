@@ -370,6 +370,7 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         MODULE_MANAGER,
         "system.field-manager",
         "system.data-scope",
+        "system.forms",
       ]);
       // 隱藏的純權限容器也在樹上(租戶作業掛在組織管理底下)
       expect(byKey(tree, "system.org-manager.tenant-ops")).toMatchObject({
@@ -410,11 +411,12 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
       const moduleManager = byKey(tree, MODULE_MANAGER);
       expect(moduleManager.permissions.map((one) => one.key)).toEqual([
         `${MODULE_MANAGER}.*`,
+        `${MODULE_MANAGER}.delete-retired-permission`,
         `${MODULE_MANAGER}.set-icon`,
         `${MODULE_MANAGER}.toggle-enabled`,
         `${MODULE_MANAGER}.view`,
       ]);
-      expect(moduleManager.permissions[2]).toMatchObject({
+      expect(moduleManager.permissions[3]).toMatchObject({
         key: `${MODULE_MANAGER}.toggle-enabled`,
         name: "停用 / 啟用",
         enabled: true,

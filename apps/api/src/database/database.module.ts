@@ -8,6 +8,7 @@ import type { HydratedDocument, Model } from "mongoose";
 
 import { BaseRepository, type RepositoryModel } from "./base.repository";
 import { BusinessRelationshipsRepository } from "./business-relationships.repository";
+import { FormSubmissionUsageCounter } from "./form-submission-usage";
 import { getDataScopeRuleProvider } from "./plugins/data-scope-provider";
 import { RelationService } from "./relation.service";
 import { ActionToken, ActionTokenSchema } from "./schemas/action-token.schema";
@@ -36,6 +37,12 @@ import {
   FieldCategorySchema,
 } from "./schemas/field-category.schema";
 import { Field, FieldSchema } from "./schemas/field.schema";
+import {
+  FormSubmission,
+  FormSubmissionSchema,
+} from "./schemas/form-submission.schema";
+import { FormVersion, FormVersionSchema } from "./schemas/form-version.schema";
+import { Form, FormSchema } from "./schemas/form.schema";
 import { Module as ModuleEntity, ModuleSchema } from "./schemas/module.schema";
 import { Org, OrgSchema } from "./schemas/org.schema";
 import { Permission, PermissionSchema } from "./schemas/permission.schema";
@@ -61,6 +68,9 @@ export type DemoItemOneDocument = HydratedDocument<DemoItemOne>;
 export type DemoItemTwoDocument = HydratedDocument<DemoItemTwo>;
 export type FieldDocument = HydratedDocument<Field>;
 export type FieldCategoryDocument = HydratedDocument<FieldCategory>;
+export type FormDocument = HydratedDocument<Form>;
+export type FormVersionDocument = HydratedDocument<FormVersion>;
+export type FormSubmissionDocument = HydratedDocument<FormSubmission>;
 
 /** users(關聯歸屬資料:所屬組織走 org_user,資料層不自動過濾,ADR-0005)。 */
 @Injectable()
@@ -260,6 +270,44 @@ export class FieldCategoriesRepository extends BaseRepository<
   }
 }
 
+/** forms(表單;可見與否由 ownerOrgId + org_form 決定,不掛 tenantScope)。 */
+@Injectable()
+export class FormsRepository extends BaseRepository<Form, FormDocument> {
+  constructor(
+    @InjectModel(Form.name) model: RepositoryModel<Form, FormDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** form_versions(表單版本;跟著表單走,不掛 tenantScope)。 */
+@Injectable()
+export class FormVersionsRepository extends BaseRepository<
+  FormVersion,
+  FormVersionDocument
+> {
+  constructor(
+    @InjectModel(FormVersion.name)
+    model: RepositoryModel<FormVersion, FormVersionDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** form_submissions(模組資料表:可見範圍 + 資料範圍規則依 moduleKey 自動套用)。 */
+@Injectable()
+export class FormSubmissionsRepository extends BaseRepository<
+  FormSubmission,
+  FormSubmissionDocument
+> {
+  constructor(
+    @InjectModel(FormSubmission.name)
+    model: RepositoryModel<FormSubmission, FormSubmissionDocument>,
+  ) {
+    super(model);
+  }
+}
+
 /**
  * 資料層的 Nest 接線:把 BaseRepository 子類與 RelationService 註冊為 provider,
  * 功能模組只注入這些出口,不直接拿 Model(ESLint `@repo/no-raw-model-query`,ADR-0005)。
@@ -285,6 +333,9 @@ export class FieldCategoriesRepository extends BaseRepository<
       { name: DemoItemTwo.name, schema: DemoItemTwoSchema },
       { name: Field.name, schema: FieldSchema },
       { name: FieldCategory.name, schema: FieldCategorySchema },
+      { name: Form.name, schema: FormSchema },
+      { name: FormVersion.name, schema: FormVersionSchema },
+      { name: FormSubmission.name, schema: FormSubmissionSchema },
     ]),
   ],
   providers: [
@@ -303,6 +354,15 @@ export class FieldCategoriesRepository extends BaseRepository<
     DemoItemsTwoRepository,
     FieldsRepository,
     FieldCategoriesRepository,
+    FormsRepository,
+    FormVersionsRepository,
+    FormSubmissionsRepository,
+    {
+      provide: FormSubmissionUsageCounter,
+      inject: [getModelToken(FormSubmission.name)],
+      useFactory: (model: Model<FormSubmission>) =>
+        new FormSubmissionUsageCounter(model),
+    },
     {
       provide: RelationService,
       inject: [getModelToken(CoreRelationship.name)],
@@ -332,6 +392,10 @@ export class FieldCategoriesRepository extends BaseRepository<
     DemoItemsTwoRepository,
     FieldsRepository,
     FieldCategoriesRepository,
+    FormsRepository,
+    FormVersionsRepository,
+    FormSubmissionsRepository,
+    FormSubmissionUsageCounter,
     RelationService,
     BusinessRelationshipsRepository,
   ],

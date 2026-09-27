@@ -155,7 +155,8 @@ export class ModuleManagerService {
     await this.assertRootOperator(operator, "moduleTree");
     const [modules, permissions] = await Promise.all([
       this.modules.findMany(operator, {}),
-      this.permissions.findMany(operator, {}),
+      // 已退役的欄位級權限另列在「退役權限清理」(`retiredFormPermissions`),不混進模組樹
+      this.permissions.findMany(operator, { retiredAt: null }),
     ]);
     return buildTree(modules, permissions);
   }
@@ -311,6 +312,7 @@ export class ModuleManagerService {
     const branch = [module, ...descendants];
     const permissions = await this.permissions.findMany(operator, {
       moduleId: { $in: branch.map((node) => node._id) },
+      retiredAt: null,
     });
     const [root] = buildTree(branch, permissions);
     if (!root) {

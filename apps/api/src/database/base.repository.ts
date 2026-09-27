@@ -124,6 +124,66 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     return this.findOne(operator, { _id: id }, options);
   }
 
+  /**
+   * 讀**操作者自己建立**的一筆:可見範圍照套,但不套資料範圍規則(ADR-0008),條件改成
+   * `createdBy = 操作者`(由插件加上,呼叫端無法放寬)。只給「建立者一律讀得到自己的單」這種
+   * 單筆讀取用(表單提交);列表不得使用。
+   */
+  findOwnById(
+    operator: OperatorContext,
+    id: Types.ObjectId | string,
+  ): Promise<Persisted<TDocument> | null> {
+    return this.findOwnOne(operator, { _id: id });
+  }
+
+  /** 同 `findOwnById`,以條件找(如 `(createdBy, clientRequestId)` 的冪等重試)。 */
+  async findOwnOne(
+    operator: OperatorContext,
+    filter: RepositoryFilter<TSchema>,
+    options: Pick<FindOptions, "includeDeleted"> = {},
+  ): Promise<Persisted<TDocument> | null> {
+    if (operator.actorId === null) {
+      return null;
+    }
+    const document = await scopeQuery(
+      this.model.findOne({ ...filter, createdBy: operator.actorId }),
+      {
+        operator,
+        ownRecordsOnly: true,
+        includeDeleted: options.includeDeleted,
+      },
+    ).exec();
+    return document as Persisted<TDocument> | null;
+  }
+
+  /**
+   * 條件更新**操作者自己建立**的一筆(範圍同 `findOwnById`:可見範圍照套、不套資料範圍規則)。
+   * 用途:草稿只屬於建立者,資料範圍規則把草稿擋在列表外時,建立者仍要能存 / 送 / 刪自己的草稿。
+   */
+  async findOwnAndUpdate(
+    operator: OperatorContext,
+    filter: RepositoryFilter<TSchema>,
+    update: RepositoryUpdate<TSchema>,
+  ): Promise<Persisted<TDocument> | null> {
+    if (operator.actorId === null) {
+      return null;
+    }
+    assertUpdateLeavesProtectedPaths(
+      this.model.modelName,
+      update,
+      this.protectedUpdatePaths(),
+    );
+    const document = await scopeQuery(
+      this.model.findOneAndUpdate(
+        { ...filter, createdBy: operator.actorId },
+        update,
+        { returnDocument: "after", runValidators: true },
+      ),
+      { operator, ownRecordsOnly: true },
+    ).exec();
+    return document as Persisted<TDocument> | null;
+  }
+
   count(
     operator: OperatorContext,
     filter: RepositoryFilter<TSchema> = {},
@@ -167,6 +227,31 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     );
     const document = await scopeQuery(
       this.model.findOneAndUpdate({ _id: id }, update, {
+        returnDocument: "after",
+        runValidators: true,
+      }),
+      { operator },
+    ).exec();
+    return document as Persisted<TDocument> | null;
+  }
+
+  /**
+   * **條件更新**:更新第一筆符合 `filter` 的資料並回傳更新後的文件,沒有符合者回 null。
+   * 用途是樂觀鎖與搶鎖(「`editVersion` 還是我讀到的那個才寫」「草稿還在 draft 才改成 publishing」):
+   * 條件與更新在同一次寫入裡判斷,兩個請求同時來只有一個會命中。欄位保護與範圍與 `updateById` 相同。
+   */
+  async findOneAndUpdate(
+    operator: OperatorContext,
+    filter: RepositoryFilter<TSchema>,
+    update: RepositoryUpdate<TSchema>,
+  ): Promise<Persisted<TDocument> | null> {
+    assertUpdateLeavesProtectedPaths(
+      this.model.modelName,
+      update,
+      this.protectedUpdatePaths(),
+    );
+    const document = await scopeQuery(
+      this.model.findOneAndUpdate({ ...filter }, update, {
         returnDocument: "after",
         runValidators: true,
       }),

@@ -54,6 +54,12 @@ export interface QueryScope {
   operator: OperatorContext;
   /** 是否連軟刪除(deletedAt 有值)的資料一起查(ADR-0007);預設不查。 */
   includeDeleted?: boolean;
+  /**
+   * 只查**操作者自己建立**的資料,且不套資料範圍規則(可見範圍照套):插件改為加上
+   * `createdBy = 操作者` 條件。唯一用途是表單提交的單筆讀取(建立者一律讀得到自己的單),
+   * 只能經 `BaseRepository.findOwnById` 設定。
+   */
+  ownRecordsOnly?: boolean;
 }
 
 /** Document `$locals` 上存放操作者上下文的鍵(save 中介層讀取)。 */

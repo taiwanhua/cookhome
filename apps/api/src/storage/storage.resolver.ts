@@ -32,6 +32,8 @@ const PURPOSE_PERMISSIONS: Readonly<Record<UploadPurpose, readonly string[]>> =
     // 示範模組1 的封面 / 附件都在「新增 / 編輯」兩個表單裡上傳(#318)
     [UploadPurpose.DEMO_COVER]: SAMPLE_ONE_WRITE,
     [UploadPurpose.DEMO_ATTACHMENT]: SAMPLE_ONE_WRITE,
+    // 表單的上傳欄:模組是執行期的,改由 `formModuleWriter` 判(任一表單模組的 create / edit)
+    [UploadPurpose.FORM_ATTACHMENT]: [],
   };
 
 /** 簽名上傳網址(ADR-0010);檔案直傳 GCS 不經過 API。 */
@@ -60,11 +62,22 @@ export class StorageResolver {
       // 防呆:全域 guard 已擋掉未登入,這裡只是讓型別與 PermissionGuard 一致
       throw authError("UNAUTHENTICATED", "Upload requires a login");
     }
-    const { permissionKeys } = await this.permissions.resolve(
+    const { permissionKeys, modules } = await this.permissions.resolve(
       operator.actorId,
       operator.currentOrgId,
     );
-    if (!allowed.some((key) => hasPermission(permissionKeys, key))) {
+    const isFormWriter =
+      purpose === UploadPurpose.FORM_ATTACHMENT &&
+      modules.some(
+        (module) =>
+          module.engine === "form" &&
+          (hasPermission(permissionKeys, `${module.key}.create`) ||
+            hasPermission(permissionKeys, `${module.key}.edit`)),
+      );
+    if (
+      !isFormWriter &&
+      !allowed.some((key) => hasPermission(permissionKeys, key))
+    ) {
       throw authError(
         "FORBIDDEN",
         `Missing permission for upload purpose ${purpose}(${allowed.join(" / ")})`,

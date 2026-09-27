@@ -11,6 +11,8 @@ export enum UploadPurpose {
   DEMO_COVER = "DEMO_COVER",
   /** 示範模組1 的附件:**私有** bucket,看時現簽(#318)。 */
   DEMO_ATTACHMENT = "DEMO_ATTACHMENT",
+  /** 表單提交的上傳欄(`type: "upload"`):**私有** bucket,讀取走簽名網址與欄位權限(Spec 6a §7)。 */
+  FORM_ATTACHMENT = "FORM_ATTACHMENT",
 }
 
 /**
@@ -26,6 +28,7 @@ export const UPLOAD_VISIBILITIES: Readonly<
   [UploadPurpose.ORG_LOGO]: "private",
   [UploadPurpose.DEMO_COVER]: "public",
   [UploadPurpose.DEMO_ATTACHMENT]: "private",
+  [UploadPurpose.FORM_ATTACHMENT]: "private",
 };
 
 /** 圖片類用途(商標、封面)的大小上限 2MB(ADR-0010)。 */
@@ -86,6 +89,11 @@ export const UPLOAD_RULES: Readonly<Record<UploadPurpose, UploadRule>> = {
     extensions: { ...IMAGE_EXTENSIONS, ...DOCUMENT_EXTENSIONS },
     maxBytes: MAX_ATTACHMENT_UPLOAD_BYTES,
   },
+  // 表單的上傳欄與示範模組的附件同一套檔型與上限
+  [UploadPurpose.FORM_ATTACHMENT]: {
+    extensions: { ...IMAGE_EXTENSIONS, ...DOCUMENT_EXTENSIONS },
+    maxBytes: MAX_ATTACHMENT_UPLOAD_BYTES,
+  },
 };
 
 /**
@@ -97,6 +105,7 @@ export const UPLOAD_PATH_PREFIXES: Readonly<Record<UploadPurpose, string>> = {
   [UploadPurpose.ORG_LOGO]: "org-logos",
   [UploadPurpose.DEMO_COVER]: "demo",
   [UploadPurpose.DEMO_ATTACHMENT]: "demo",
+  [UploadPurpose.FORM_ATTACHMENT]: "form",
 };
 
 const UUID_PATTERN =

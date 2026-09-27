@@ -11,6 +11,7 @@ export const ROLE_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.role-manager`;
 export const MODULE_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.module-manager`;
 export const FIELD_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.field-manager`;
 export const DATA_SCOPE_KEY = `${SYSTEM_GROUP_KEY}.data-scope`;
+export const FORMS_KEY = `${SYSTEM_GROUP_KEY}.forms`;
 
 /**
  * 治理模組(CONTEXT.md「治理模組」):管平台結構本身,隨底座出貨。
@@ -105,6 +106,19 @@ export const systemModules: ModuleSeedDeclaration = {
       icon: "filter",
       // 根組織專屬,租戶不可見(docs/modules/data-scope.md;ADR-0008)
       isRootOnly: true,
+    },
+    {
+      // 表單管理(docs/modules/forms.md):root 管共用表單、租戶管客製表單,**不是**根組織專屬;
+      // 分派 / 收回另由 api 以「站在根組織」守(同租戶作業的判準)
+      key: FORMS_KEY,
+      name: "表單管理",
+      sidebarType: "link",
+      parentKey: SYSTEM_GROUP_KEY,
+      order: 7,
+      route: "forms",
+      icon: "list",
+      description:
+        "表單的欄位、版本、發布、分派與啟用(表單模組的填報內容由此設計)",
     },
   ],
   // 個別權限(綁「按鈕 / 欄位所在的那一頁」,ADR-0004);正本 = 兩份模組文件的權限表
@@ -331,6 +345,48 @@ export const systemModules: ModuleSeedDeclaration = {
       moduleKey: FIELD_MANAGER_KEY,
       name: "停用 / 啟用",
       description: "停用 / 啟用選項 + API(種子與自訂皆可;選項不可刪)",
+    },
+    // 表單管理(docs/modules/forms.md 權限表)
+    {
+      key: permissionKey(FORMS_KEY, "view"),
+      moduleKey: FORMS_KEY,
+      name: "檢視",
+      description:
+        "看表單清單、版本與定義;設計器的檢查器與預覽(root 看全部,租戶看分派來的與自己的客製表單)",
+    },
+    {
+      key: permissionKey(FORMS_KEY, "create"),
+      moduleKey: FORMS_KEY,
+      name: "新增",
+      description:
+        "新增共用表單(只有根組織)、以某版本為基底建新表單 + API(key 建立後不可改)",
+    },
+    {
+      key: permissionKey(FORMS_KEY, "edit"),
+      moduleKey: FORMS_KEY,
+      name: "設計與發布",
+      description:
+        "改名稱、開草稿、存草稿、發布(含中斷重試)、退役目前版本 + API(只能動自己擁有的表單)",
+    },
+    {
+      key: permissionKey(FORMS_KEY, "assign"),
+      moduleKey: FORMS_KEY,
+      name: "分派",
+      description: "把共用表單分派給租戶 / 收回 + API(只有站在根組織才能用)",
+    },
+    {
+      key: permissionKey(FORMS_KEY, "set-enabled"),
+      moduleKey: FORMS_KEY,
+      name: "啟用 / 停用",
+      description:
+        "租戶內開關分派來的或自己的表單 + API(關了就不能新增,歷史照看)",
+    },
+    {
+      key: permissionKey(MODULE_MANAGER_KEY, "delete-retired-permission"),
+      moduleKey: MODULE_MANAGER_KEY,
+      name: "刪除退役權限",
+      description:
+        "刪除表單發布產生、已退役的欄位級權限 + API(三層檢查:草稿仍用到擋下、只剩已完成要確認、沒人用直接刪)",
     },
     // 資料範圍(docs/modules/data-scope.md 權限表;模組本身 isRootOnly)
     {

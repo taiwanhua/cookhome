@@ -15,14 +15,18 @@ import {
 import { AuditService } from "../audit/audit.service";
 import type { Persisted } from "../database/base.repository";
 import {
+  FormsRepository,
   type ModuleDocument,
   ModulesRepository,
+  OrgsRepository,
   type PermissionDocument,
   PermissionsRepository,
   RolesRepository,
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
+import { tenantIdOfOrg } from "../database/tenant-id";
+import { parseFieldPermissionKey } from "../forms/form-permission-keys";
 import { TENANT_ADMIN_ROLE_KEY } from "../orgs/owner-protection.service";
 import { ModuleSidebarType } from "../permission/models/me-module.model";
 import { PermissionResolver } from "../permission/permission-resolver";
@@ -91,6 +95,8 @@ export class RoleMatrixService {
     private readonly audit: AuditService,
     private readonly scope: RoleScopeService,
     private readonly resolver: PermissionResolver,
+    private readonly forms: FormsRepository,
+    private readonly orgs: OrgsRepository,
   ) {}
 
   /** 矩陣的讀取:顯示樹 + 這個角色在顯示樹內的綁定。 */
@@ -121,6 +127,7 @@ export class RoleMatrixService {
     input: SaveRoleMatrixInput,
   ): Promise<RoleMatrixPayload> {
     const role = await this.scope.loadManagedRole(operator, input.roleId);
+    await this.assertNoForeignFieldPermissions(operator, input.permissionKeys);
     // 種子角色的矩陣唯讀(#261 規則表):內容隨底座版本更新,改了會被下一次 seed 蓋回去
     if (isSeedRole(role)) {
       throw forbiddenError(
@@ -244,13 +251,21 @@ export class RoleMatrixService {
     const reader = globalReader(operator);
     const [allModules, allPermissions] = await Promise.all([
       this.modules.findMany(reader, {}),
-      this.permissions.findMany(reader, { enabled: true }),
+      // 已退役的欄位級權限(表單新版本不再宣告)不進矩陣:授了也沒有欄位用它;
+      // 既有的綁定照留(`currentGrant` 只認矩陣裡的 key,不會因此被清掉)
+      this.permissions.findMany(reader, { enabled: true, retiredAt: null }),
     ]);
     // 停用的模組(連子樹)與停用的權限不進矩陣:勾了也不生效(ADR-0011 的剔除規則)
     const liveModules = pruneDisabledSubtrees(allModules);
     const liveIds = new Set(liveModules.map((module) => String(module._id)));
-    const livePermissions = allPermissions.filter((permission) =>
-      liveIds.has(String(permission.moduleId)),
+    const foreign = await this.foreignFieldPermissionKeys(
+      operator,
+      allPermissions,
+    );
+    const livePermissions = allPermissions.filter(
+      (permission) =>
+        liveIds.has(String(permission.moduleId)) &&
+        !foreign.has(permission.key),
     );
     const fullTree = buildMatrixTree(liveModules, livePermissions);
 
@@ -289,6 +304,90 @@ export class RoleMatrixService {
         livePermissions.map((permission) => [permission.key, permission._id]),
       ),
     };
+  }
+
+  /**
+   * **別租戶客製表單的欄位級權限**(`source: dynamic`,key 拆得出 formKey,且那張表單的
+   * `ownerOrgId` 不是 null、也不是操作者的租戶):不進矩陣、也不准存。
+   * `PermissionResolver` 會把 `<模組>.*` 展開成該模組全部權限(含別租戶客製表單的 `show-` / `edit-`),
+   * 若不過濾,A 的租戶管理員就看得到、勾得到 B 的表單名與欄位名。根組織操作者(租戶 = null)只看得到
+   * 共用表單的欄位級權限。表單已不存在的動態權限一併擋下(fail-closed)。
+   */
+  private async foreignFieldPermissionKeys(
+    operator: OperatorContext,
+    permissions: readonly { key: string; source?: string }[],
+  ): Promise<Set<string>> {
+    const parsed = permissions
+      .filter((permission) => permission.source === "dynamic")
+      .map((permission) => ({
+        key: permission.key,
+        field: parseFieldPermissionKey(permission.key),
+      }));
+    const formKeys = [
+      ...new Set(
+        parsed.flatMap((entry) => (entry.field ? [entry.field.formKey] : [])),
+      ),
+    ];
+    const reader = globalReader(operator);
+    const forms =
+      formKeys.length === 0
+        ? []
+        : await this.forms.findMany(reader, { key: { $in: formKeys } });
+    const tenantId = await this.tenantIdOf(operator);
+    const allowed = new Set(
+      forms
+        .filter(
+          (form) =>
+            form.ownerOrgId === null ||
+            (tenantId !== null && form.ownerOrgId.equals(tenantId)),
+        )
+        .map((form) => form.key),
+    );
+    return new Set(
+      parsed
+        .filter((entry) => !entry.field || !allowed.has(entry.field.formKey))
+        .map((entry) => entry.key),
+    );
+  }
+
+  /** 送進來的 key 若是別租戶(或不存在)表單的欄位級權限 → `ROLE_OUT_OF_REACH`。 */
+  private async assertNoForeignFieldPermissions(
+    operator: OperatorContext,
+    keys: readonly string[],
+  ): Promise<void> {
+    if (!keys.some((key) => parseFieldPermissionKey(key) !== null)) {
+      return;
+    }
+    const permissions = await this.permissions.findMany(
+      globalReader(operator),
+      { key: { $in: [...keys] }, source: "dynamic" },
+    );
+    const foreign = await this.foreignFieldPermissionKeys(
+      operator,
+      permissions,
+    );
+    if (foreign.size > 0) {
+      throw roleError(
+        "ROLE_OUT_OF_REACH",
+        `Field permissions of another tenant's forms cannot be granted: ${[...foreign].join(", ")}`,
+      );
+    }
+  }
+
+  /** 操作者當前組織的租戶頂層;根組織 = null。 */
+  private async tenantIdOf(
+    operator: OperatorContext,
+  ): Promise<Types.ObjectId | null> {
+    if (!operator.currentOrgId) {
+      return null;
+    }
+    const org = await this.orgs.findById(
+      globalReader(operator),
+      operator.currentOrgId,
+    );
+    return org
+      ? tenantIdOfOrg({ _id: org._id, ancestors: org.ancestors })
+      : null;
   }
 
   /**
