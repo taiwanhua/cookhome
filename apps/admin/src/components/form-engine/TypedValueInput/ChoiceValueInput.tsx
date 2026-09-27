@@ -1,4 +1,5 @@
 import { createElement } from "react";
+import { useTranslations } from "use-intl";
 
 import type { FieldDef, FieldType } from "@repo/domain/form";
 import { SelectField } from "@repo/ui/select-field";
@@ -63,6 +64,21 @@ const reportedOf = (next: unknown, shape: TypedValueShape): unknown => {
 };
 
 /**
+ * 靜態選項:啟用的照列;目前的值是已停用的選項時仍列出(標「已停用」),才看得到舊值、也不會被默默清掉。
+ */
+const staticChoicesOf = (
+  items: readonly { value: string; label: string; enabled: boolean }[],
+  current: readonly string[],
+  disabledLabel: (label: string) => string,
+): { value: string; label: string }[] =>
+  items
+    .filter((item) => item.enabled || current.includes(item.value))
+    .map((item) => ({
+      value: item.value,
+      label: item.enabled ? item.label : disabledLabel(item.label),
+    }));
+
+/**
  * 從選項欄的選項挑值(`TypedValueInput` 的單選 / 多選分支):靜態選項直接下拉(存 value);
  * 類別 / lookup 用填寫時的選擇器挑(存值 `{ value, label }`,表達式常數只留 value)。
  */
@@ -78,15 +94,17 @@ export const ChoiceValueInput = ({
   helperText,
   timezone,
 }: ChoiceValueInputProps) => {
+  const t = useTranslations("admin.forms.property");
   const common = {
     label,
     size: "small" as const,
     ...(helperText !== undefined && { helperText }),
   };
   if (field.options?.kind === "static") {
-    const items = field.options.items
-      .filter((item) => item.enabled)
-      .map((item) => ({ value: item.value, label: item.label }));
+    const current = stringsOf(Array.isArray(value) ? value : [value]);
+    const items = staticChoicesOf(field.options.items, current, (label) =>
+      t("optionDisabled", { label }),
+    );
     if (isMultiple) {
       return (
         <SelectField<string>

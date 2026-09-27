@@ -55,6 +55,17 @@ const batchDraft = (): FormDefinition => {
       options: LEAVE_OPTIONS,
     }),
     field("paid_on", "付款日", "date", { widget: { kind: "datePicker" } }),
+    field("old_kind", "舊假別", "select", {
+      widget: { kind: "dropdown" },
+      options: {
+        kind: "static",
+        items: [
+          { value: "sick", label: "病假", order: 1, enabled: true },
+          { value: "old", label: "舊假", order: 2, enabled: false },
+        ],
+      },
+      valueSource: { kind: "constant", value: "old" },
+    }),
   ];
   return {
     fields,
@@ -310,6 +321,35 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
     expect(await openSelect(user, "欄位", formula)).toEqual([
       "上次假別(prev_leave)",
     ]);
+  });
+});
+
+describe("表單管理:review 補強", () => {
+  it("比較的參數選了欄位之後可以「清空(= 空值)」回到空位", async () => {
+    const { user, world } = renderBatch();
+    await findDesigner();
+    await selectField(user, "品項", "item");
+    const visible = screen.getByRole("group", { name: "顯示條件" });
+    await user.click(within(visible).getByRole("button", { name: "設定" }));
+    await pickOption(user, "節點種類(==.0)", "欄位", visible);
+    expect(await openSelect(user, "節點種類(==.0)", visible)).toContain(
+      "清空(= 空值)",
+    );
+    await user.click(screen.getByRole("option", { name: "清空(= 空值)" }));
+
+    const fields = await savedFields(user, world);
+    expect(fields.find((item) => item.key === "item")?.visibleWhen).toEqual({
+      "==": [null, null],
+    });
+  });
+
+  it("固定值是已停用的選項:仍列出並標「已停用」", async () => {
+    const { user } = renderBatch();
+    await findDesigner();
+    await user.click(await screen.findByRole("button", { name: /舊假別/ }));
+    expect(
+      await screen.findByRole("combobox", { name: "固定值" }),
+    ).toHaveTextContent("舊假(已停用)");
   });
 });
 

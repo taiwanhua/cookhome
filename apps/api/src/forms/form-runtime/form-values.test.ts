@@ -533,6 +533,34 @@ describe("表單的值:語意值、引用快照、現名 / 快照、lookup 以�
       }),
     );
 
+    // 選項來源指到自己不走草稿目錄:照一般規則看已發布版(還沒發布 = 只有摘要槽),note 找不到
+    const optionSelf = await ok<{
+      validateFormVersion: {
+        errors: { code: string; location: Record<string, unknown> }[];
+      };
+    }>(api, root, VALIDATE_VERSION, {
+      input: {
+        formKey: "self_form",
+        ...definitionOf([
+          field("title", "text"),
+          field("note", "text"),
+          field("pick", "select", {
+            widget: { kind: "dropdown" },
+            options: {
+              kind: "lookup",
+              source: { ...selfSource, labelField: "note" },
+            },
+          }),
+        ]),
+      },
+    });
+    expect(optionSelf.validateFormVersion.errors).toContainEqual(
+      expect.objectContaining({
+        code: "LOOKUP_UNKNOWN_FIELD",
+        location: expect.objectContaining({ fieldKey: "pick" }),
+      }),
+    );
+
     await publishDefinition(
       api,
       root,

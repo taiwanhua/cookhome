@@ -42,6 +42,12 @@ export const ValueSourceEditor = ({
   const source = field.valueSource;
   const others = fields.filter((candidate) => candidate.key !== field.key);
   const resultType = FIELD_EXPRESSION_TYPES[field.type];
+  // 類別 / 資料來源的選項以已存的草稿查詢:先存草稿才挑得到(同預設值)
+  const isPickedFromSaved =
+    (field.type === "select" || field.type === "multiSelect") &&
+    field.options !== null &&
+    field.options !== undefined &&
+    field.options.kind !== "static";
 
   return (
     <Stack spacing={1.5}>
@@ -89,6 +95,7 @@ export const ValueSourceEditor = ({
           label={t("constantValue")}
           value={source.value}
           formKey={formKey}
+          {...(isPickedFromSaved && { helperText: t("defaultPickerHint") })}
           onChange={(value) => {
             onChange({ kind: "constant", value });
           }}

@@ -1554,6 +1554,7 @@
       "defaultFormula": "Default formula",
       "defaultConstant": "Default",
       "defaultHint": "Filled in when a new entry starts. Until the filler changes this field, it is recalculated when the fields it references change.",
+      "optionDisabled": "{label} (disabled)",
       "defaultPickerHint": "Pick with the same picker used when filling (options come from the saved draft)",
       "defaultClear": "Clear default"
     },
@@ -1654,6 +1655,7 @@
     "expression": {
       "root": "root",
       "kind": "Node kind ({path})",
+      "clearToNull": "Clear (= empty)",
       "emptySlot": "Choose a node kind",
       "emptyMeansNull": "Not chosen = empty (checks whether it is filled)",
       "kinds": {

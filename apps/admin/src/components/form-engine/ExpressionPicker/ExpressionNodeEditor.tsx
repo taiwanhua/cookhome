@@ -106,6 +106,37 @@ const withCurrent = <Item extends string>(
     : [...items, current];
 
 /**
+ * 節點種類下拉的選項:空位時第一項是停用的「請選節點種類」;比較的參數(`allowNull`)選了東西之後
+ * 多一項「清空(= 空值)」回到空位(`== null` 判空)。
+ */
+const kindOptionsOf = (
+  kind: ExpressionNodeKind,
+  kinds: readonly ExpressionNodeKind[],
+  allowNull: boolean,
+  label: (key: string) => string,
+): {
+  value: ExpressionNodeKind | typeof EMPTY;
+  label: string;
+  disabled?: boolean;
+}[] => {
+  if (kind === "empty") {
+    return [
+      { value: EMPTY, label: label("emptySlot"), disabled: true },
+      ...kinds.map((item) => ({ value: item, label: label(`kinds.${item}`) })),
+    ];
+  }
+  return [
+    ...withCurrent(kinds, kind).map((item) => ({
+      value: item,
+      label: label(`kinds.${item}`),
+    })),
+    ...(allowNull
+      ? [{ value: "empty" as const, label: label("clearToNull") }]
+      : []),
+  ];
+};
+
+/**
  * 表達式樹的一個節點(Spec 6a §5「表達式」+「表達式選擇器:型別導向(表 B)」):先選種類
  * (欄位 / 系統值 / 常數 / 運算;還沒選的參數是空位「請選節點種類」),再選欄位 / 系統值 / 常數值 / 運算子;
  * 運算節點的參數由 `OperationArgs` 遞迴畫,巢狀的運算畫成帶框縮排群組(`ExpressionGroup`,標頭是運算子名)。
@@ -134,9 +165,12 @@ export const ExpressionNodeEditor = ({
   );
   const isFieldListEmpty =
     fieldChoices.length === 0 && emptyFieldsLabel !== undefined;
-  const kindChoices = isEmpty
-    ? options.kinds
-    : withCurrent(options.kinds, kind);
+  const kindOptions = kindOptionsOf(
+    kind,
+    options.kinds,
+    position.allowNull,
+    (key) => t(key),
+  );
 
   const header = (
     <Stack
@@ -150,21 +184,7 @@ export const ExpressionNodeEditor = ({
         displayEmpty={isEmpty}
         {...(isEmpty &&
           position.allowNull && { helperText: t("emptyMeansNull") })}
-        options={[
-          ...(isEmpty
-            ? [
-                {
-                  value: EMPTY as typeof EMPTY,
-                  label: t("emptySlot"),
-                  disabled: true,
-                },
-              ]
-            : []),
-          ...kindChoices.map((item) => ({
-            value: item,
-            label: t(`kinds.${item}`),
-          })),
-        ]}
+        options={kindOptions}
         onChange={(next) => {
           if (next !== EMPTY) {
             onChange(nodeDefaultOf(next, options, position, timezone));
