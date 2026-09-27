@@ -44,7 +44,7 @@ export const UserRowActions = ({
   const isToggleLocked = isOwnerProtected && user.enabled;
 
   return (
-    <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap" }}>
+    <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap" }}>
       {ability.canEdit && (
         <Button
           variant="text"

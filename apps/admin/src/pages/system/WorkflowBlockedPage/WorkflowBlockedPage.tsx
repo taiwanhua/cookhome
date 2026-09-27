@@ -86,7 +86,6 @@ export const WorkflowBlockedPage = () => {
             key={item.kind === "task" ? item.taskKey : `${item.stepKey}-empty`}
             direction="row"
             spacing={1}
-            useFlexGap
             sx={{ alignItems: "center", flexWrap: "wrap" }}
           >
             <Typography variant="body2">{itemText(item)}</Typography>

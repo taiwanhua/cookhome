@@ -107,12 +107,7 @@ export const DesignFieldCell = ({
         {/* 設計模式的欄位只畫外觀,輸入一律停用;點擊由外框接手 */}
         <Box sx={{ pointerEvents: "none" }}>{children}</Box>
         {badges.length > 0 && (
-          <Stack
-            direction="row"
-            spacing={0.5}
-            useFlexGap
-            sx={{ flexWrap: "wrap" }}
-          >
+          <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
             {badges.map((badge) => (
               <Tag key={badge} tone="primary" label={badge} />
             ))}

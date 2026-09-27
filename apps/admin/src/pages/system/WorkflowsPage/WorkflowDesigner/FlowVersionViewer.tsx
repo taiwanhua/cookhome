@@ -189,7 +189,6 @@ export const FlowVersionViewer = ({
       <Stack
         direction="row"
         spacing={1}
-        useFlexGap
         sx={{ alignItems: "flex-start", flexWrap: "wrap" }}
       >
         <CheckFormField
