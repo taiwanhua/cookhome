@@ -727,6 +727,7 @@ type FormSubmissionModel {
   values: JSONObject!
   version: Int!
   viewedRevision: Int!
+  viewedVersion: Int!
   voidReason: String
   voidedAt: DateTime
 }
@@ -737,8 +738,10 @@ type FormSubmissionPayload {
 
 type FormSubmissionRevisionMeta {
   at: DateTime!
+  kind: String
   revision: Int!
   user: FormUserRef
+  version: Int!
 }
 
 """提交列表的排序(預設送出時間新到舊;草稿沒有送出時間,排在最後)"""
@@ -790,6 +793,26 @@ type FormSummary {
   moduleKey: String!
   name: String!
   tabLabelTemplate: String
+}
+
+type FormUpgradeGroup {
+  count: Int!
+  fromVersion: Int!
+}
+
+type FormUpgradePayload {
+  skipped: [FormUpgradeSkip!]!
+  upgraded: [FormUpgradeGroup!]!
+}
+
+type FormUpgradePlan {
+  fillTargets: [JSONObject!]!
+  groups: [FormUpgradeGroup!]!
+}
+
+type FormUpgradeSkip {
+  count: Int!
+  reason: String!
 }
 
 type FormUserRef {
@@ -1116,6 +1139,7 @@ type Mutation {
   updateRole(input: UpdateRoleInput!): RolePayload!
   updateUser(input: UpdateUserInput!): UserPayload!
   updateWorkflow(input: UpdateWorkflowInput!): WorkflowPayload!
+  upgradeFormSubmissions(input: UpgradeFormSubmissionsInput!): FormUpgradePayload!
   voidSubmission(input: VoidSubmissionInput!): FormSubmissionPayload!
   withdrawSubmission(input: WithdrawSubmissionInput!): FormSubmissionPayload!
 }
@@ -1276,6 +1300,7 @@ type Query {
   formSubmission(id: ID!, revision: Int): FormSubmissionPayload!
   formSubmissionAttachmentUrl(fieldKey: String!, id: ID!, revision: Int): FormSubmissionAttachmentUrlPayload!
   formSubmissions(input: FormSubmissionsInput!): FormSubmissionsPayload!
+  formUpgradePlan(formKey: ID!, targetVersion: Int!): FormUpgradePlan!
   formVersion(formKey: ID!, version: Int): FormVersionPayload!
   formVersions(formKey: ID!): FormVersionsPayload!
   formWorkflowOptions(formKey: ID!): FormWorkflowOptionsPayload!
@@ -1779,6 +1804,13 @@ input UpdateUserInput {
 input UpdateWorkflowInput {
   key: ID!
   name: String!
+}
+
+input UpgradeFormSubmissionsInput {
+  clientRequestId: String!
+  fills: JSONObject!
+  formKey: ID!
+  targetVersion: Int!
 }
 
 """上傳用途:決定物件路徑前綴與所需權限(ADR-0010)"""

@@ -2,7 +2,7 @@ import { mongo } from "mongoose";
 
 import { conflictError } from "../forms-error";
 
-/** 每筆提交最多幾筆修訂(Spec 6a §4 `revisions[]` 上限)。 */
+/** 綁了流程的表單,每筆提交最多幾筆修訂(`revisions[]` 上限;沒綁流程的不限次數)。 */
 export const MAX_REVISIONS = 50;
 
 /**
@@ -17,17 +17,24 @@ export interface SubmissionWrite {
   pushRevision?: unknown;
 }
 
+/** 這筆提交的上限要不要算修訂次數。 */
+export interface CapacityRules {
+  /** 本租戶這張表單綁了流程(`org_form_workflow`):修訂次數 ≤ 50;沒綁流程不限次數。 */
+  isWorkflowBound: boolean;
+}
+
 /**
- * 寫入前的容量檢查(Spec 6a §4):以**更新後的完整文件**(含最新 `values`、全部 `revisions` 與
+ * 寫入前的容量檢查:以**更新後的完整文件**(含最新 `values`、全部 `revisions` 與
  * 這次要加的快照)估算,每次寫入前算、搭 `expectedEditVersion` 條件更新(估算與寫入之間被改了,
  * 條件更新自然不命中 → `EDIT_VERSION_MISMATCH`)。
  *
- * - 修訂筆數超過 50 → `CONFLICT`(`REVISION_LIMIT`)
- * - BSON 超過 8MB → `CONFLICT`(`DOCUMENT_TOO_LARGE`)
+ * - 綁流程的表單,修訂筆數超過 50 → `CONFLICT`(`REVISION_LIMIT`);沒綁流程的不算次數
+ * - BSON 超過 8MB → `CONFLICT`(`DOCUMENT_TOO_LARGE`),所有表單都套
  */
 export function assertSubmissionCapacity(
   record: { revisions: readonly unknown[] },
   write: SubmissionWrite,
+  rules: CapacityRules,
 ): void {
   const baseRevisions = Array.isArray(write.set.revisions)
     ? (write.set.revisions as unknown[])
@@ -36,7 +43,7 @@ export function assertSubmissionCapacity(
     write.pushRevision === undefined
       ? baseRevisions
       : [...baseRevisions, write.pushRevision];
-  if (revisions.length > MAX_REVISIONS) {
+  if (rules.isWorkflowBound && revisions.length > MAX_REVISIONS) {
     throw conflictError(
       `Submission already has ${String(baseRevisions.length)} revisions (limit ${String(MAX_REVISIONS)})`,
       "REVISION_LIMIT",

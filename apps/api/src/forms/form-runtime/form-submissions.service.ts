@@ -4,13 +4,11 @@ import { Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
 import {
-  type ArrayColumnDef,
   type ExpressionContext,
   type FieldDef,
   type FormDefinition,
   type StoredValues,
   type SubmissionSummary,
-  arrayColumnsOf,
   arrayRowsOf,
   computeSummary,
   defaultOrder,
@@ -19,11 +17,12 @@ import {
   lookupLabelFieldsOf,
   referencedFieldKeys,
   temporalIsoOf,
+  upgradeValues,
   uploadLimitIssue,
 } from "@repo/domain/form";
 
 import { AuditService } from "../../audit/audit.service";
-import type { Persisted } from "../../database/base.repository";
+import type { FindOptions, Persisted } from "../../database/base.repository";
 import {
   type FormSubmissionDocument,
   FormSubmissionsRepository,
@@ -31,9 +30,10 @@ import {
   FormsRepository,
 } from "../../database/database.module";
 import type { OperatorContext } from "../../database/operator-context";
-import type {
-  FormRevision,
-  FormSubmissionStatus,
+import {
+  type FormRevision,
+  type FormSubmissionStatus,
+  revisionVersionOf,
 } from "../../database/schemas/form-submission.schema";
 import { StorageService } from "../../storage/storage.service";
 import { InstanceWithdrawService } from "../../workflows/workflow-engine/instance-withdraw.service";
@@ -87,6 +87,7 @@ import {
 import {
   type DeleteFormSubmissionPayload,
   type FormSubmissionModel,
+  type FormSubmissionRevisionMeta,
   FormSubmissionSort,
   FormSubmissionStatusEnum,
   type FormSubmissionsPayload,
@@ -106,6 +107,7 @@ export const SUBMISSION_AUDIT = {
   withdraw: "submission.withdraw",
   void: "submission.void",
   copy: "submission.copy",
+  upgrade: "submission.upgrade",
 } as const;
 
 /** 申請人可以改內容(存草稿 / 再送出)的狀態:草稿、被退回、自己撤回(Spec 6b §6)。 */
@@ -133,6 +135,15 @@ interface ReadableSubmission {
 
 const SUBMISSION_TARGET = "form_submission";
 
+/**
+ * 列表與詳情的投影:`revisions[]` 只取最後一筆(目前修訂的 `ctx` 是條件上下文),不載入全部修訂快照;
+ * 修訂紀錄跳窗(`revisions` 欄位)與讀某個修訂才另外讀。
+ */
+const LATEST_REVISION_ONLY = { revisions: { $slice: -1 } };
+
+/** 修訂紀錄跳窗:全部修訂的 metadata(修訂號、版本、ctx、來由),不含值快照。 */
+const REVISION_METADATA_ONLY = { "revisions.values": 0 };
+
 const MAX_CLIENT_REQUEST_ID_LENGTH = 100;
 
 const SORTS: Readonly<Record<FormSubmissionSort, Record<string, 1 | -1>>> = {
@@ -142,7 +153,7 @@ const SORTS: Readonly<Record<FormSubmissionSort, Record<string, 1 | -1>>> = {
 };
 
 /** 碰過的欄位 key:只留這一版「使用者填」的欄位、去重(前端送什麼都不會存進多餘的鍵)。 */
-function touchedKeysOf(
+export function touchedKeysOf(
   fields: readonly FieldDef[],
   touched: readonly string[],
 ): string[] {
@@ -155,7 +166,9 @@ function touchedKeysOf(
 }
 
 /** 一次送出 / 修改的上下文 → 表達式的 `ctx.*`(Spec §4 `revisions[].ctx`)。 */
-function expressionContextOf(ctx: FormRevision["ctx"]): ExpressionContext {
+export function expressionContextOf(
+  ctx: FormRevision["ctx"],
+): ExpressionContext {
   return {
     now: new Date(ctx.at).toISOString(),
     timezone: ctx.timezone,
@@ -166,7 +179,12 @@ function expressionContextOf(ctx: FormRevision["ctx"]): ExpressionContext {
   };
 }
 
-function definitionOf(version: FormVersionRecord): FormDefinition {
+/** 版本定義快取的鍵。 */
+function versionKeyOf(formKey: string, version: number): string {
+  return `${formKey}@${String(version)}`;
+}
+
+export function definitionOf(version: FormVersionRecord): FormDefinition {
   return {
     fields: version.fields,
     layout: version.layout,
@@ -388,6 +406,7 @@ export class FormSubmissionsService {
     const [totalCount, records] = await Promise.all([
       this.submissions.count(facts.operator, filter),
       this.submissions.findMany(facts.operator, filter, {
+        select: LATEST_REVISION_ONLY,
         sort: SORTS[input.sort ?? FormSubmissionSort.SUBMITTED_AT_DESC],
         skip: (page - 1) * pageSize,
         limit: pageSize,
@@ -418,6 +437,38 @@ export class FormSubmissionsService {
       throw notFoundError(`Form submission not found: ${id}`);
     }
     return model;
+  }
+
+  /**
+   * 修訂紀錄(`FormSubmissionModel.revisions`,只有修訂紀錄跳窗問才讀):全部修訂的 metadata、不載入值快照;
+   * 只審過某些修訂的讀者只列那幾筆。每筆帶自己的版本(`revisions[r].version ?? submission.version`)。
+   */
+  async revisionEntries(
+    facts: FormOperatorFacts,
+    id: string,
+  ): Promise<FormSubmissionRevisionMeta[]> {
+    const readable = await this.findReadable(
+      facts,
+      id,
+      null,
+      REVISION_METADATA_ONLY,
+    );
+    const { record, restriction } = readable;
+    const entries = record.revisions.filter(
+      (item) =>
+        restriction === null || restriction.revisions.has(item.revision),
+    );
+    const names = await this.userNames.load(
+      facts.operator,
+      entries.map((item) => item.ctx.userId),
+    );
+    return entries.map((item) => ({
+      revision: item.revision,
+      version: revisionVersionOf(record, item),
+      kind: item.kind ?? null,
+      at: item.ctx.at,
+      user: userRefOf(item.ctx.userId, names),
+    }));
   }
 
   /** 私有附件的短效下載網址:看得到這筆、看得到這一欄(欄位級權限)才簽。 */
@@ -604,7 +655,12 @@ export class FormSubmissionsService {
       ctx: this.draftContext(facts),
       mode: "draft",
     });
-    assertSubmissionCapacity(record, { set: { values } });
+    // 存草稿不加修訂,只看容量
+    assertSubmissionCapacity(
+      record,
+      { set: { values } },
+      { isWorkflowBound: false },
+    );
     const updated = await this.submissions.findOwnAndUpdate(
       facts.operator,
       {
@@ -696,11 +752,23 @@ export class FormSubmissionsService {
       route.kind === "workflow"
         ? {
             set: { values, summary },
-            pushRevision: { revision: record.revision + 1, values, ctx },
+            pushRevision: {
+              revision: record.revision + 1,
+              version: record.version,
+              values,
+              ctx,
+            },
           }
         : {
-            set: { values, summary, revisions: [{ revision: 1, values, ctx }] },
+            set: {
+              values,
+              summary,
+              revisions: [
+                { revision: 1, version: record.version, values, ctx },
+              ],
+            },
           },
+      { isWorkflowBound: route.kind === "workflow" },
     );
     if (route.kind === "workflow") {
       await this.workflowSubmit.submit(
@@ -737,7 +805,7 @@ export class FormSubmissionsService {
           summary,
           status: "completed",
           revision: 1,
-          revisions: [{ revision: 1, values, ctx }],
+          revisions: [{ revision: 1, version: record.version, values, ctx }],
           submittedAt: at,
         },
         $inc: { editVersion: 1 },
@@ -805,10 +873,14 @@ export class FormSubmissionsService {
       }),
     );
     const revision = record.revision + 1;
-    assertSubmissionCapacity(record, {
-      set: { values, summary },
-      pushRevision: { revision, values, ctx },
-    });
+    assertSubmissionCapacity(
+      record,
+      {
+        set: { values, summary },
+        pushRevision: { revision, version: record.version, values, ctx },
+      },
+      { isWorkflowBound: await this.isWorkflowBound(facts, record) },
+    );
     const updated = await this.submissions.findOneAndUpdate(
       facts.operator,
       {
@@ -820,7 +892,9 @@ export class FormSubmissionsService {
       },
       {
         $set: { values, summary, revision },
-        $push: { revisions: { revision, values, ctx } },
+        $push: {
+          revisions: { revision, version: record.version, values, ctx },
+        },
         $inc: { editVersion: 1 },
       },
     );
@@ -1167,7 +1241,10 @@ export class FormSubmissionsService {
     return clientRequestId;
   }
 
-  /** 複製為新單要帶過去的值(見 `copyToDraft`);回值與被清空的引用欄位。 */
+  /**
+   * 複製為新單要帶過去的值(見 `copyToDraft`);回值與被清空的引用欄位。搬值規則與舊版資料升級共用
+   * `upgradeValues`(同 key 同型別的使用者填欄位、明細逐子欄),再篩讀者對來源有 `show`、對目標有 `edit` 的欄位。
+   */
   private async copiedValues(
     facts: FormOperatorFacts,
     source: SubmissionRecord,
@@ -1175,29 +1252,23 @@ export class FormSubmissionsService {
     targetFields: readonly FieldDef[],
   ): Promise<{ values: StoredValues; cleared: string[] }> {
     const gate = fieldGateOf(facts, source.moduleKey, source.formKey);
+    const carried = upgradeValues(
+      { fields: sourceFields },
+      { fields: targetFields },
+      source.values,
+    );
     const values: StoredValues = {};
     const cleared: string[] = [];
     for (const field of targetFields) {
-      const from = sourceFields.find(
-        (candidate) => candidate.key === field.key,
-      );
-      const value = source.values[field.key];
+      const value = carried[field.key];
       if (
-        from?.type !== field.type ||
-        field.valueSource.kind !== "input" ||
-        value === null ||
         value === undefined ||
         !gate.canShow(sourceFields, field.key) ||
         !gate.canEdit(targetFields, field)
       ) {
         continue;
       }
-      const copied = await this.copiedValueOf(
-        facts,
-        field,
-        value,
-        from.columns ?? [],
-      );
+      const copied = await this.copiedValueOf(facts, field, value);
       if (copied === undefined) {
         cleared.push(field.key);
       } else {
@@ -1209,31 +1280,15 @@ export class FormSubmissionsService {
 
   /**
    * 一欄的複製值:引用失效、附件複製不成 → undefined(清空並列在 `clearedFields`)。
-   * 明細列每一列換新的 `rowId`(新單的列與來源的列是不同的列);子欄逐格只留目標版本仍有、型別相同、
-   * 使用者填的子欄(同表單層欄位的做法),其餘丟掉。
+   * 明細列每一列換新的 `rowId`(新單的列與來源的列是不同的列;子欄已由 `upgradeValues` 篩過)。
    */
   private async copiedValueOf(
     facts: FormOperatorFacts,
     field: FieldDef,
     value: unknown,
-    sourceColumns: readonly ArrayColumnDef[] = [],
   ): Promise<unknown> {
     if (field.type === "array") {
-      const kept = arrayColumnsOf(field).filter(
-        (column) =>
-          column.valueSource.kind === "input" &&
-          sourceColumns.some(
-            (source) =>
-              source.key === column.key && source.type === column.type,
-          ),
-      );
-      return arrayRowsOf(value).map((row) => {
-        const copied: Record<string, unknown> = { rowId: randomUUID() };
-        for (const column of kept) {
-          copied[column.key] = row[column.key] ?? null;
-        }
-        return copied;
-      });
+      return arrayRowsOf(value).map((row) => ({ ...row, rowId: randomUUID() }));
     }
     if (field.type === "reference") {
       const id = (value as { id?: unknown }).id;
@@ -1331,11 +1386,10 @@ export class FormSubmissionsService {
     facts: FormOperatorFacts,
     id: string,
     revision: number | null,
+    select: FindOptions["select"] = LATEST_REVISION_ONLY,
   ): Promise<ReadableSubmission> {
     const objectId = toObjectId(id, "id");
-    const record =
-      (await this.submissions.findById(facts.operator, objectId)) ??
-      (await this.submissions.findOwnById(facts.operator, objectId));
+    const record = await this.findInScope(facts, objectId, select);
     const isOwner =
       record !== null &&
       facts.operator.actorId !== null &&
@@ -1344,6 +1398,12 @@ export class FormSubmissionsService {
       if (record.status === "draft" && !isOwner) {
         throw notFoundError(`Form submission not found: ${id}`);
       }
+      record.revisions = await this.revisionsToView(
+        facts,
+        record,
+        revision,
+        select,
+      );
       return { record, restriction: null, revision };
     }
     const stored = await this.readAccess.findInTenant(facts, objectId);
@@ -1374,6 +1434,40 @@ export class FormSubmissionsService {
       },
       revision: target,
     };
+  }
+
+  /**
+   * 讀某個修訂時只多取那一筆快照(列表 / 詳情的投影只有最後一筆);讀目前、或呼叫端給了別的投影 → 照讀到的。
+   */
+  private async revisionsToView(
+    facts: FormOperatorFacts,
+    record: SubmissionRecord,
+    revision: number | null,
+    select: FindOptions["select"],
+  ): Promise<FormRevision[]> {
+    if (revision === null || select !== LATEST_REVISION_ONLY) {
+      return record.revisions;
+    }
+    const one = await this.findInScope(facts, record._id, {
+      revisions: { $elemMatch: { revision } },
+    });
+    return one?.revisions ?? [];
+  }
+
+  /** 一般路徑(可見範圍 + 資料範圍規則)或「自己建立的」路徑找一筆(投影由呼叫端給)。 */
+  private async findInScope(
+    facts: FormOperatorFacts,
+    id: Types.ObjectId,
+    select: FindOptions["select"],
+  ): Promise<SubmissionRecord | null> {
+    return (
+      (await this.submissions.findById(facts.operator, id, { select })) ??
+      (await this.submissions.findOwnOne(
+        facts.operator,
+        { _id: id },
+        { select },
+      ))
+    );
   }
 
   private canViewModule(
@@ -1458,7 +1552,7 @@ export class FormSubmissionsService {
 
   private async versionOf(
     operator: OperatorContext,
-    record: SubmissionRecord,
+    record: Pick<SubmissionRecord, "_id" | "formKey" | "version">,
   ): Promise<FormVersionRecord> {
     const version = await this.versions.findOne(operator, {
       formKey: record.formKey,
@@ -1470,6 +1564,20 @@ export class FormSubmissionsService {
       );
     }
     return version;
+  }
+
+  /** 這筆提交所屬租戶的這張表單綁了流程嗎(修訂次數上限只對綁流程的表單)。 */
+  private async isWorkflowBound(
+    facts: FormOperatorFacts,
+    record: SubmissionRecord,
+  ): Promise<boolean> {
+    const form = await this.forms.findOne(facts.operator, {
+      key: record.formKey,
+    });
+    return (
+      form !== null &&
+      (await this.access.hasWorkflowBinding(record.tenantId, form._id))
+    );
   }
 
   /** 草稿的條件上下文:真正的現在與填寫者本人。 */
@@ -1489,12 +1597,16 @@ export class FormSubmissionsService {
     };
   }
 
-  /** 讀哪一個修訂的值與 ctx;`revision` 不存在 → `NOT_FOUND`。草稿回目前值、ctx 為 null。 */
+  /**
+   * 讀哪一個修訂的值、ctx 與渲染用的版本(`revisions[r].version ?? submission.version`);
+   * `revision` 不存在 → `NOT_FOUND`。目前 = 提交的值與版本、最後一筆修訂的 ctx(草稿為 null)。
+   */
   private viewedRevision(
     record: SubmissionRecord,
     revision: number | null,
   ): {
     revision: number;
+    version: number;
     values: StoredValues;
     ctx: FormRevision["ctx"] | null;
   } {
@@ -1502,6 +1614,7 @@ export class FormSubmissionsService {
       const latest = record.revisions.at(-1);
       return {
         revision: record.revision,
+        version: record.version,
         values: record.values,
         ctx: latest?.ctx ?? null,
       };
@@ -1512,7 +1625,12 @@ export class FormSubmissionsService {
         `Revision ${String(revision)} of submission ${String(record._id)} not found`,
       );
     }
-    return { revision, values: found.values, ctx: found.ctx };
+    return {
+      revision,
+      version: revisionVersionOf(record, found),
+      values: found.values,
+      ctx: found.ctx,
+    };
   }
 
   private async single(
@@ -1540,9 +1658,23 @@ export class FormSubmissionsService {
     const versionCache = new Map<string, FormVersionRecord>();
     const formNames = new Map<string, string | null>();
     for (const record of records) {
-      const cacheKey = `${record.formKey}@${String(record.version)}`;
-      if (!versionCache.has(cacheKey)) {
-        versionCache.set(cacheKey, await this.versionOf(operator, record));
+      // 目前的版本(能改哪些欄)與這次看的修訂自己的版本(渲染、投影);升級過的提交兩者可能不同
+      const versions = new Set([
+        record.version,
+        this.viewedRevision(record, revision).version,
+      ]);
+      for (const version of versions) {
+        const cacheKey = versionKeyOf(record.formKey, version);
+        if (!versionCache.has(cacheKey)) {
+          versionCache.set(
+            cacheKey,
+            await this.versionOf(operator, {
+              _id: record._id,
+              formKey: record.formKey,
+              version,
+            }),
+          );
+        }
       }
       if (!formNames.has(record.formKey)) {
         const form = await this.forms.findOne(operator, {
@@ -1551,21 +1683,19 @@ export class FormSubmissionsService {
         formNames.set(record.formKey, form?.name ?? null);
       }
     }
-    const userIds: (Types.ObjectId | null)[] = [];
-    for (const record of records) {
-      userIds.push(record.createdBy);
-      for (const entry of record.revisions) {
-        userIds.push(entry.ctx.userId);
-      }
-    }
-    const names = await this.userNames.load(operator, userIds);
+    const names = await this.userNames.load(
+      operator,
+      records.map((record) => record.createdBy),
+    );
 
     const prepared = records.map((record) => {
-      const version = versionCache.get(
-        `${record.formKey}@${String(record.version)}`,
-      );
-      const fields: readonly FieldDef[] = version?.fields ?? [];
       const viewed = this.viewedRevision(record, revision);
+      const fields: readonly FieldDef[] =
+        versionCache.get(versionKeyOf(record.formKey, viewed.version))
+          ?.fields ?? [];
+      const currentFields: readonly FieldDef[] =
+        versionCache.get(versionKeyOf(record.formKey, record.version))
+          ?.fields ?? [];
       const gate = fieldGateOf(facts, record.moduleKey, record.formKey);
       const conditionCtx = viewed.ctx
         ? expressionContextOf(viewed.ctx)
@@ -1578,6 +1708,7 @@ export class FormSubmissionsService {
       return {
         record,
         fields,
+        currentFields,
         viewed,
         gate,
         projected: projectValues(fields, viewed.values, gate),
@@ -1593,7 +1724,7 @@ export class FormSubmissionsService {
     );
 
     return prepared.map((entry, index): FormSubmissionModel => {
-      const { record, fields, viewed, gate } = entry;
+      const { record, currentFields, viewed, gate } = entry;
       const isOwner =
         facts.operator.actorId !== null &&
         record.createdBy?.equals(facts.operator.actorId) === true;
@@ -1630,16 +1761,7 @@ export class FormSubmissionsService {
               orgId: viewed.ctx.orgId ? String(viewed.ctx.orgId) : null,
             }
           : null,
-        revisions: record.revisions
-          .filter(
-            (item) =>
-              restriction === null || restriction.revisions.has(item.revision),
-          )
-          .map((item) => ({
-            revision: item.revision,
-            at: item.ctx.at,
-            user: userRefOf(item.ctx.userId, names),
-          })),
+        viewedVersion: viewed.version,
         editVersion: record.editVersion,
         orgId: String(record.orgId),
         createdBy: userRefOf(record.createdBy, names),
@@ -1652,8 +1774,8 @@ export class FormSubmissionsService {
         abilities: {
           ...abilities,
           canEditField: abilities.canEdit
-            ? fields
-                .filter((field) => gate.canEdit(fields, field))
+            ? currentFields
+                .filter((field) => gate.canEdit(currentFields, field))
                 .map((field) => field.key)
             : [],
         },

@@ -113,6 +113,14 @@ export class FormSubmissionRevisionMeta {
   @Field(() => Int)
   revision!: number;
 
+  /** 這個修訂填寫當時綁的版本(歷史修訂用它的定義渲染;舊資料 = 提交目前的版本)。 */
+  @Field(() => Int)
+  version!: number;
+
+  /** 修訂的來由:`upgrade` = 舊版資料升級到新版(改綁 + 補值 + 重算,不驗證);一般送出 / 修改為 null。 */
+  @Field(() => String, { nullable: true })
+  kind!: string | null;
+
   @Field(() => GraphQLISODateTime)
   at!: Date;
 
@@ -203,8 +211,19 @@ export class FormSubmissionModel {
   @Field(() => FormSubmissionContext, { nullable: true })
   ctx!: FormSubmissionContext | null;
 
+  /**
+   * 這次回傳的修訂用哪一版的定義渲染(`revisions[r].version ?? version`;目前 = `version`)。
+   * 舊版資料升級過的提交,歷史修訂可能綁在較舊的版本。
+   */
+  @Field(() => Int)
+  viewedVersion!: number;
+
+  /**
+   * 修訂紀錄(field resolver 惰性讀;列表與詳情不載入 `revisions[]`,只有修訂紀錄跳窗問才查)。
+   * 只審過某些修訂的讀者只列那幾筆。
+   */
   @Field(() => [FormSubmissionRevisionMeta])
-  revisions!: FormSubmissionRevisionMeta[];
+  revisions?: FormSubmissionRevisionMeta[];
 
   /** 寫入的樂觀鎖:存草稿 / 送出 / 修改都帶它當 `expectedEditVersion`。 */
   @Field(() => Int)

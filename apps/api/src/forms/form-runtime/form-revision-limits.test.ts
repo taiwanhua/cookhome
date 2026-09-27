@@ -60,7 +60,7 @@ function updateOf(
 }
 
 /**
- * `revisions[]` 上限(Spec 6a §4):每筆提交 ≤ 50 筆修訂、更新後的完整文件 BSON ≤ 8MB;
+ * `revisions[]` 上限:綁流程的表單每筆提交 ≤ 50 筆修訂(沒綁流程的不限次數)、更新後的完整文件 BSON ≤ 8MB;
  * 超過 → `CONFLICT`(`REVISION_LIMIT` / `DOCUMENT_TOO_LARGE`),什麼都不寫。
  * 前置狀態(已有 49 / 50 筆修訂、已有大快照)直接寫進 Mongo —— 走 GraphQL 改 50 次或送 8MB 的值
  * 只是在測 api 的請求大小,不是這條規則。
@@ -71,6 +71,27 @@ describe("提交的修訂上限與文件容量上限", () => {
   let staff: FormOperator;
 
   const FORM = "rev_limit";
+  const BOUND_FORM = "rev_limit_bound";
+  let tenant: Types.ObjectId;
+
+  /** 本租戶把這張表單綁上流程(直接寫 `org_form_workflow`;流程本身不影響修訂上限的判斷)。 */
+  async function bindWorkflow(formKey: string): Promise<void> {
+    const form = await connection
+      .collection("forms")
+      .findOne<{ _id: Types.ObjectId }>({ key: formKey });
+    if (!form) {
+      throw new Error(`表單 ${formKey} 不存在`);
+    }
+    await connection.collection("business_relationships").insertOne({
+      tenantId: tenant,
+      type: "org_form_workflow",
+      firstId: tenant,
+      secondId: form._id,
+      thirdId: new Types.ObjectId(),
+      meta: {},
+      deletedAt: null,
+    });
+  }
 
   /** 把一筆已送出的提交改成「已有 `count` 筆修訂」(每筆是第一筆快照的複本,可附上大字串)。 */
   async function seedRevisions(
@@ -104,7 +125,7 @@ describe("提交的修訂上限與文件容量上限", () => {
     api = await startAuthTestApp("cookhome-test-form-revision-limits");
     connection = api.connection;
     const root = await rootToken(api);
-    const tenant = await createOrg(connection, { name: "修訂上限租戶" });
+    tenant = await createOrg(connection, { name: "修訂上限租戶" });
     staff = await createOperator(api, connection, {
       orgId: tenant,
       permissionKeys: [M.view, M.create, M.edit],
@@ -116,16 +137,45 @@ describe("提交的修訂上限與文件容量上限", () => {
       definitionOf([field("title", "text"), field("note", "multiline")]),
     );
     await assignForm(api, root, FORM, [tenant]);
+    await publishNewForm(
+      api,
+      root,
+      BOUND_FORM,
+      definitionOf([field("title", "text"), field("note", "multiline")]),
+    );
+    await assignForm(api, root, BOUND_FORM, [tenant]);
   }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
     await api.close();
   }, HOOK_TIMEOUT_MS);
 
-  it(`第 ${String(MAX_REVISIONS)} 筆修訂還寫得進去;第 ${String(MAX_REVISIONS + 1)} 筆 → 409 REVISION_LIMIT,不寫入`, async () => {
+  it(`沒綁流程的表單不限修訂次數:已有 ${String(MAX_REVISIONS)} 筆修訂時第 ${String(MAX_REVISIONS + 1)} 筆照寫`, async () => {
     const submitted = await createSubmitted(api, staff.token, FORM, {
       title: "第一版",
     });
+    const seeded = await seedRevisions(submitted.id, MAX_REVISIONS);
+
+    const next = await ok<{
+      updateFormSubmission: { submission: SubmissionRow };
+    }>(
+      api,
+      staff.token,
+      UPDATE_SUBMISSION,
+      updateOf(seeded, submitted.id, "第五十一版"),
+    );
+
+    expect(next.updateFormSubmission.submission.revision).toBe(
+      MAX_REVISIONS + 1,
+    );
+  });
+
+  it(`綁流程的表單:第 ${String(MAX_REVISIONS)} 筆修訂還寫得進去;第 ${String(MAX_REVISIONS + 1)} 筆 → 409 REVISION_LIMIT,不寫入`, async () => {
+    // 先送出(那時還沒綁流程 = 不走流程的已完成、可修改),再綁流程
+    const submitted = await createSubmitted(api, staff.token, BOUND_FORM, {
+      title: "第一版",
+    });
+    await bindWorkflow(BOUND_FORM);
     const seeded = await seedRevisions(submitted.id, MAX_REVISIONS - 1);
 
     const last = await ok<{
