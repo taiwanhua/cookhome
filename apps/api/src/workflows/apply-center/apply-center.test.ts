@@ -48,6 +48,7 @@ import {
   VOID,
   WITHDRAW,
   WORKFLOW_INSTANCE,
+  WORKFLOW_MODULE,
   WORKFLOW_TEST_TIMEOUT_MS,
   type WfSubmissionRow,
   type World,
@@ -172,7 +173,7 @@ describe("申請中心與讀取授權", () => {
     return found;
   }
 
-  /** 只有申請中心權限的審核者(沒有請假模組的任何權限)。 */
+  /** 只有申請中心權限的審核者(沒有示範表單模組的任何權限)。 */
   /**
    * 明細列的複製為新單:建一張有明細的表單、送出、核准、作廢;`nextColumns` 給了就先發布新版(子欄改了)
    * 再複製。回複製出的新單的列與原本的列。
@@ -186,7 +187,7 @@ describe("申請中心與讀取授權", () => {
     const formKey = nextKey("copy_array");
     const columns = [column("name", "text"), column("qty", "number")];
     await ok(api, world.root, CREATE_FORM, {
-      input: { key: formKey, moduleKey: "leave", name: "明細複製" },
+      input: { key: formKey, moduleKey: WORKFLOW_MODULE, name: "明細複製" },
     });
     await publishDefinition(
       api,
@@ -382,7 +383,7 @@ describe("申請中心與讀取授權", () => {
       });
       expect(errorCode(second)).toBe("NOT_FOUND");
       const list = await call(api, reviewerA.token, FORM_SUBMISSIONS, {
-        input: { moduleKey: "leave", pageSize: 100 },
+        input: { moduleKey: WORKFLOW_MODULE, pageSize: 100 },
       });
       expect(errorCode(list)).toBe("FORBIDDEN");
     });
@@ -417,13 +418,13 @@ describe("申請中心與讀取授權", () => {
         world.kitchen,
         world.tenant,
         {
-          moduleKeys: [...PERSON_SCOPES.userModules, "shopping-list"],
-          permissionKeys: [...PERSON_SCOPES.userPermissions, "shopping-list.*"],
+          moduleKeys: [...PERSON_SCOPES.userModules, "demo-form"],
+          permissionKeys: [...PERSON_SCOPES.userPermissions, "demo-form.*"],
         },
       );
       const shoppingForm = nextKey("shopping_bound");
       await ok(api, world.root, CREATE_FORM, {
-        input: { key: shoppingForm, moduleKey: "shopping-list", name: "採購" },
+        input: { key: shoppingForm, moduleKey: "demo-form", name: "採購" },
       });
       await publishDefinition(
         api,
@@ -446,7 +447,7 @@ describe("申請中心與讀取授權", () => {
       const shopping = await submitExisting(world, shoppingDraft, both);
       const mine = await applications(both);
       expect(mine.map((row) => row.moduleKey).toSorted(byText)).toEqual(
-        ["leave", "shopping-list"].toSorted(byText),
+        [WORKFLOW_MODULE, "demo-form"].toSorted(byText),
       );
       expect(mine.every((row) => row.status === "REVIEWING")).toBe(true);
       expect(mine[0]?.activeSteps).toEqual([{ stepKey: "one" }]);
@@ -455,7 +456,7 @@ describe("申請中心與讀取授權", () => {
       }>(api, both.token, APPLICABLE_FORMS);
       expect(
         forms.applicableForms.map((group) => group.moduleKey).toSorted(byText),
-      ).toEqual(["leave", "shopping-list"].toSorted(byText));
+      ).toEqual([WORKFLOW_MODULE, "demo-form"].toSorted(byText));
       const tasks = await tasksOf(world, staff(0));
       expect(
         tasks
@@ -507,7 +508,13 @@ describe("申請中心與讀取授權", () => {
         api,
         world.applicant.token,
         FORM_SUBMISSIONS,
-        { input: { moduleKey: "leave", status: "REVIEWING", pageSize: 100 } },
+        {
+          input: {
+            moduleKey: WORKFLOW_MODULE,
+            status: "REVIEWING",
+            pageSize: 100,
+          },
+        },
       );
       expect(listed.formSubmissions.items.map((row) => row.id)).toContain(
         reviewing.id,
@@ -563,7 +570,7 @@ describe("申請中心與讀取授權", () => {
         field("extra", "text"),
       ];
       await ok(api, world.root, CREATE_FORM, {
-        input: { key: formKey, moduleKey: "leave", name: "複製測試" },
+        input: { key: formKey, moduleKey: WORKFLOW_MODULE, name: "複製測試" },
       });
       await publishDefinition(
         api,

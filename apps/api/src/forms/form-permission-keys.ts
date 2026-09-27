@@ -19,7 +19,7 @@ export const DELETE_RETIRED_PERMISSION =
   "system.module-manager.delete-retired-permission";
 export const MODULE_MANAGER_VIEW = "system.module-manager.view";
 
-/** 表單模組的四筆個別權限(seed 宣告的形狀;見 `seeds/modules/shopping-list.ts`)。 */
+/** 表單模組的四筆個別權限(seed 宣告的形狀;見 `seeds/form-module-declaration.ts`)。 */
 export type FormModuleAction = "view" | "create" | "edit" | "delete";
 
 export function formModulePermission(

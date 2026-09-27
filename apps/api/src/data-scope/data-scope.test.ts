@@ -427,19 +427,24 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
       // 依模組 key 排序;表單模組的目標 collection 固定 form_submissions
       expect(rows).toEqual([
         {
+          moduleKey: "demo-form",
+          moduleName: "示範表單(頂層)",
+          collection: "form_submissions",
+        },
+        {
+          moduleKey: "demo.form",
+          moduleName: "示範表單(群組內)",
+          collection: "form_submissions",
+        },
+        {
+          moduleKey: "demo.sub.form",
+          moduleName: "示範表單(次群組內)",
+          collection: "form_submissions",
+        },
+        {
           moduleKey: "demo.sub.sample-one",
           moduleName: "示範模組1",
           collection: "demo_items_one",
-        },
-        {
-          moduleKey: "leave",
-          moduleName: "請假",
-          collection: "form_submissions",
-        },
-        {
-          moduleKey: "shopping-list",
-          moduleName: "購物清單",
-          collection: "form_submissions",
         },
       ]);
     });
@@ -476,7 +481,10 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
         {},
         { accessToken: rootToken },
       );
-      const fields = result.data?.dataScopeTargets.targets[0]?.fields ?? [];
+      const fields =
+        result.data?.dataScopeTargets.targets.find(
+          (target) => target.moduleKey === "demo.sub.sample-one",
+        )?.fields ?? [];
       expect(fields[0]).toMatchObject({
         name: "status",
         label: "狀態",

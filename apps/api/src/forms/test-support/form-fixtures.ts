@@ -30,7 +30,7 @@ import { createRole } from "../../permission/test-support/fixtures";
 export const FORM_TEST_TIMEOUT_MS = 60_000;
 
 export const PASSWORD = ["form", "pass", "word"].join("-");
-export const MODULE_KEY = "shopping-list";
+export const MODULE_KEY = "demo-form";
 /** 表單模組的四筆個別權限。 */
 export const M = {
   view: `${MODULE_KEY}.view`,

@@ -627,7 +627,7 @@ describe("表單預設值、日期時間、上傳上限、型別檢查、刪除�
   describe("型別檢查接進檢查器", () => {
     it("存草稿允許(錯誤隨 validation 回)、發布擋下(DEFINITION_INVALID)", async () => {
       await ok(api, root, CREATE_FORM, {
-        input: { key: "typed_form", moduleKey: "shopping-list", name: "型別" },
+        input: { key: "typed_form", moduleKey: "demo-form", name: "型別" },
       });
       const draft = await ok<{
         createFormVersionDraft: { formVersion: VersionRow };

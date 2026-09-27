@@ -16,7 +16,7 @@ import {
 
 /**
  * 提交狀態(成員值即落庫字串;正本 `@repo/domain/workflow` 的 `SUBMISSION_STATUSES`;
- * 與請假 seed 的資料範圍 `status` 選項一一對應,購物清單只用到草稿 / 已完成)。
+ * 與表單模組 seed 的資料範圍 `status` 選項一一對應;不綁流程的表單只用到草稿 / 已完成)。
  */
 export enum FormSubmissionStatusEnum {
   DRAFT = "draft",
