@@ -46,8 +46,9 @@ describe("流程管理:清單與設計器", () => {
     ).toBeInTheDocument();
   });
 
-  it("點關卡 → 屬性面板;四種審核者來源都能選,存草稿帶 expectedDraftRevision 與整份定義", async () => {
-    const { user, world } = renderWorkflows();
+  // 審核者來源四種分三案驗(一案走完四種 + 存草稿,在全套並行的 CI 上會超過單一測試的 15 秒)
+  it("點關卡 → 屬性面板;角色與主管(第幾層)都能選", async () => {
+    const { user } = renderWorkflows();
     const canvas = await findCanvas();
 
     clickNode(canvas, "人資");
@@ -62,8 +63,37 @@ describe("流程管理:清單與設計器", () => {
     await user.click(await screen.findByRole("option", { name: "主管" }));
     await user.click(within(panel).getByRole("combobox", { name: "第幾層" }));
     await user.click(await screen.findByRole("option", { name: "第 2 層" }));
-    // 表單欄位 → 病假單的「代理主管」(只列使用者引用欄)
-    await user.click(kind);
+
+    expect(
+      within(panel).getByRole("combobox", { name: "第幾層" }),
+    ).toHaveTextContent("第 2 層");
+  });
+
+  it("指定使用者:客製流程可以選,出現使用者選擇器", async () => {
+    const { user } = renderWorkflows();
+    const canvas = await findCanvas();
+
+    clickNode(canvas, "人資");
+    const panel = propertiesPanel();
+    await user.click(
+      within(panel).getByRole("combobox", { name: "審核者來源" }),
+    );
+    await user.click(await screen.findByRole("option", { name: "指定使用者" }));
+
+    expect(
+      within(panel).getByRole("combobox", { name: "使用者" }),
+    ).toBeInTheDocument();
+  });
+
+  it("表單欄位:只列使用者引用欄;存草稿帶 expectedDraftRevision 與整份定義", async () => {
+    const { user, world } = renderWorkflows();
+    const canvas = await findCanvas();
+
+    clickNode(canvas, "人資");
+    const panel = propertiesPanel();
+    await user.click(
+      within(panel).getByRole("combobox", { name: "審核者來源" }),
+    );
     await user.click(await screen.findByRole("option", { name: "表單欄位" }));
     await user.click(within(panel).getByRole("combobox", { name: "表單" }));
     await user.click(await screen.findByRole("option", { name: "病假單" }));
@@ -71,18 +101,6 @@ describe("流程管理:清單與設計器", () => {
     expect(
       screen.queryByRole("option", { name: "天數" }),
     ).not.toBeInTheDocument();
-    await user.click(await screen.findByRole("option", { name: "代理主管" }));
-    // 指定使用者(客製流程可以)
-    await user.click(kind);
-    await user.click(await screen.findByRole("option", { name: "指定使用者" }));
-    expect(
-      within(panel).getByRole("combobox", { name: "使用者" }),
-    ).toBeInTheDocument();
-    await user.click(kind);
-    await user.click(await screen.findByRole("option", { name: "表單欄位" }));
-    await user.click(within(panel).getByRole("combobox", { name: "表單" }));
-    await user.click(await screen.findByRole("option", { name: "病假單" }));
-    await user.click(within(panel).getByRole("combobox", { name: "欄位" }));
     await user.click(await screen.findByRole("option", { name: "代理主管" }));
 
     await user.click(screen.getByRole("button", { name: "存草稿" }));

@@ -6,7 +6,7 @@ import { Typography } from "@repo/ui/typography";
 
 import type { WidgetProps } from "./widget-types";
 
-/** 是否欄(`boolean` → `switch` / `checkbox`)。 */
+/** 是否欄(`boolean` → `switch` / `checkbox`);標題在開關 / 勾選框前面。 */
 export const BooleanWidget = ({
   field,
   value,
@@ -36,7 +36,13 @@ export const BooleanWidget = ({
 
   return (
     <Stack spacing={0.25}>
-      <FormControlLabel control={control} label={field.label} />
+      {/* 標題在元件前面(Spec 6a §5 表 A 下方:是 / 否欄位的標題顯示在元件前面) */}
+      <FormControlLabel
+        control={control}
+        label={field.label}
+        labelPlacement="start"
+        sx={{ alignSelf: "flex-start" }}
+      />
       {helperText !== undefined && (
         <Typography
           variant="caption"

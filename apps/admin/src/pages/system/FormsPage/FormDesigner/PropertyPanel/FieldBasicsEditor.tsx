@@ -6,10 +6,17 @@ import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
 
 import { widgetKindsFor } from "@/components/form-engine/widgets/widget-registry";
+import type { FieldKeyProblem } from "@/lib/form-engine/designer-ops";
+import type { PropertySections } from "@/lib/form-engine/property-sections";
+import { scalarText } from "@/lib/form-engine/value-text";
+
+import { FieldKeyInput } from "./FieldKeyInput";
 
 export interface FieldBasicsEditorProps {
   field: FieldDef;
   span: number | null;
+  sections: PropertySections;
+  keyProblemOf: (key: string) => FieldKeyProblem | null;
   onChange: (field: FieldDef) => void;
   onSpanChange: (span: number) => void;
 }
@@ -20,13 +27,30 @@ const SPANS = Array.from(
 );
 const PRECISIONS = [0, 1, 2, 3, 4, 5, 6];
 
+/** 元件設定:空字串 = 拿掉這個設定(不存 `""` 進定義)。 */
+const withWidgetSetting = (
+  field: FieldDef,
+  setting: string,
+  value: unknown,
+): FieldDef => {
+  const widget = { ...field.widget };
+  if (value === "" || value === undefined) {
+    Reflect.deleteProperty(widget, setting);
+  } else {
+    widget[setting] = value;
+  }
+  return { ...field, widget };
+};
+
 /**
- * 欄位基本屬性:key(格式與保留字見檢查器;發布後改型別會報錯,改 key = 新欄位)、顯示名稱、
- * 元件(只列該型別可用的 widget)、寬度(12 格制)、小數位數(只有數字)、說明文字。
+ * 欄位基本屬性(Spec 6a §5 表 A 前兩列):key(改的當下擋格式、保留字、重複)、標題、說明、寬度(12 格制)、
+ * 元件(該型別有兩種以上畫法才出現)與元件設定(多行文字的列數、數字的單位)、小數位數(只有數字)。
  */
 export const FieldBasicsEditor = ({
   field,
   span,
+  sections,
+  keyProblemOf,
   onChange,
   onSpanChange,
 }: FieldBasicsEditorProps) => {
@@ -34,13 +58,11 @@ export const FieldBasicsEditor = ({
 
   return (
     <Stack spacing={1.5}>
-      <TextField
-        label={t("key")}
-        size="small"
+      <FieldKeyInput
         value={field.key}
-        helperText={t("keyHint")}
-        onChange={(event) => {
-          onChange({ ...field, key: event.target.value.trim() });
+        problemOf={keyProblemOf}
+        onCommit={(key) => {
+          onChange({ ...field, key });
         }}
       />
       <TextField
@@ -57,18 +79,44 @@ export const FieldBasicsEditor = ({
         value={t(`types.${field.type}`)}
         disabled
       />
-      <SelectField
-        label={t("widget")}
-        value={field.widget.kind}
-        options={widgetKindsFor(field.type).map((kind) => ({
-          value: kind,
-          label: t(`widgets.${kind}`),
-        }))}
-        onChange={(kind) => {
-          onChange({ ...field, widget: { ...field.widget, kind } });
-        }}
-        size="small"
-      />
+      {sections.widget && (
+        <SelectField
+          label={t("widget")}
+          value={field.widget.kind}
+          options={widgetKindsFor(field.type).map((kind) => ({
+            value: kind,
+            label: t(`widgets.${kind}`),
+          }))}
+          onChange={(kind) => {
+            onChange({ ...field, widget: { ...field.widget, kind } });
+          }}
+          size="small"
+        />
+      )}
+      {sections.widgetRows && (
+        <TextField
+          label={t("rows")}
+          size="small"
+          type="number"
+          value={scalarText(field.widget.rows)}
+          onChange={(event) => {
+            const text = event.target.value.trim();
+            onChange(
+              withWidgetSetting(field, "rows", text === "" ? "" : Number(text)),
+            );
+          }}
+        />
+      )}
+      {sections.widgetUnit && (
+        <TextField
+          label={t("unit")}
+          size="small"
+          value={scalarText(field.widget.unit)}
+          onChange={(event) => {
+            onChange(withWidgetSetting(field, "unit", event.target.value));
+          }}
+        />
+      )}
       {span !== null && (
         <SelectField
           label={t("span")}
@@ -83,7 +131,7 @@ export const FieldBasicsEditor = ({
           size="small"
         />
       )}
-      {field.type === "number" && (
+      {sections.numberRange && (
         <SelectField
           label={t("precision")}
           value={String(field.precision ?? 0)}

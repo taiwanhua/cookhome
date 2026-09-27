@@ -91,8 +91,10 @@ export interface FieldRules {
   format?: TextFormat;
   /** 只有 `autocomplete` / `autocompleteMulti` 可開。 */
   allowCustom?: boolean;
-  /** 表達式,回 false 即錯。 */
+  /** 表達式,成立才通過(回 false 即錯)。 */
   custom?: Expression;
+  /** `custom` 不成立時顯示的錯誤訊息;沒填用預設文字「X 不符合規則」。 */
+  customMessage?: string;
 }
 
 export interface FieldWidget {

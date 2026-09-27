@@ -71,6 +71,11 @@ export const DesignerToolbar = ({
           options={[
             { value: NONE, label: t("checkFormNone") },
             ...forms.map((form) => ({ value: form.key, label: form.name })),
+            // 預設值取自綁定表單,可能比表單目錄先到:目錄還沒載到時先列出目前值(否則下拉是空值、MUI 警告)
+            ...(checkFormKey === null ||
+            forms.some((form) => form.key === checkFormKey)
+              ? []
+              : [{ value: checkFormKey, label: checkFormKey }]),
           ]}
           onChange={(next) => {
             onCheckFormKeyChange(next === NONE ? null : next);

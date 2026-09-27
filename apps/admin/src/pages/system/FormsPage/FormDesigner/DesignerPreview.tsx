@@ -23,6 +23,8 @@ export interface DesignerPreviewProps {
   definition: FormDefinition;
   /** 草稿有未存的變更:後端預覽算的是已存的那一份 */
   isDirty: boolean;
+  /** 唯讀檢視已發布 / 已退役的版本時是它的版號;草稿為 null(只有草稿能「以後端重算」) */
+  version?: number | null;
 }
 
 type PreviewResult = PreviewFormVersionQuery["previewFormVersion"];
@@ -36,6 +38,7 @@ export const DesignerPreview = ({
   formKey,
   definition,
   isDirty,
+  version = null,
 }: DesignerPreviewProps) => {
   const t = useTranslations("admin.forms.preview");
   const tErrors = useTranslations("admin.forms.errors");
@@ -85,21 +88,23 @@ export const DesignerPreview = ({
             {t("prefill")}
           </Button>
         )}
-        <Button
-          size="small"
-          disabled={isRunning}
-          onClick={() => {
-            void runOnServer();
-          }}
-        >
-          {t("runOnServer")}
-        </Button>
+        {version === null && (
+          <Button
+            size="small"
+            disabled={isRunning}
+            onClick={() => {
+              void runOnServer();
+            }}
+          >
+            {t("runOnServer")}
+          </Button>
+        )}
       </Stack>
       <FormRenderer
         version={definition}
         values={values}
         mode="preview"
-        context={{ formKey, version: null }}
+        context={{ formKey, version }}
         expressionContext={liveContextOf(
           user?.id ?? null,
           user?.currentOrg?.id ?? null,
@@ -130,7 +135,7 @@ export const DesignerPreview = ({
         <LookupDialog
           definition={definition}
           formKey={formKey}
-          version={null}
+          version={version}
           values={values}
           canEdit={() => true}
           onApply={(patch) => {

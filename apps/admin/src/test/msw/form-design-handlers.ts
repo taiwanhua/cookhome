@@ -18,6 +18,7 @@ import {
 } from "@repo/graphql";
 
 import { type AuthErrorCode, graphqlError } from "./auth-handlers";
+import { fieldCategories } from "./field-fixtures";
 import type { FormFailure } from "./form-runtime-handlers";
 import { api } from "./server";
 
@@ -94,6 +95,17 @@ export const formDesignWorld = (
   const noIssues = { errors: [], warnings: [] };
 
   const handlers = [
+    // 屬性面板「欄位管理類別」的下拉(與欄位管理頁同一支查詢)
+    api.query("FieldCategories", () =>
+      HttpResponse.json({
+        data: {
+          fieldCategories: {
+            items: fieldCategories,
+            totalCount: fieldCategories.length,
+          },
+        },
+      }),
+    ),
     api.query("Forms", ({ variables }) => {
       const { input } = variables as FormsQueryVariables;
       const items = forms.filter(

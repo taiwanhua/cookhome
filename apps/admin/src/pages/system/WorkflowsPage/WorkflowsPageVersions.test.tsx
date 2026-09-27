@@ -60,7 +60,7 @@ describe("流程管理:版本、發布擋錯、未存變更防呆", () => {
       },
     });
     await findCanvas();
-    await user.click(screen.getByRole("tab", { name: "版本" }));
+    await user.click(screen.getByRole("tab", { name: "流程版本" }));
     await user.click(await screen.findByRole("button", { name: "發布" }));
     const dialog = await screen.findByRole("dialog", { name: "發布草稿" });
     await user.type(
@@ -83,7 +83,7 @@ describe("流程管理:版本、發布擋錯、未存變更防呆", () => {
       within(propertiesPanel()).getByRole("button", { name: "在後面加一關" }),
     );
 
-    await user.click(screen.getByRole("tab", { name: "版本" }));
+    await user.click(screen.getByRole("tab", { name: "流程版本" }));
     await user.click(await screen.findByRole("button", { name: "發布" }));
     const dialog = await screen.findByRole("dialog", { name: "發布草稿" });
     expect(

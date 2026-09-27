@@ -15,6 +15,7 @@ import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
 import { ExpressionPicker } from "@/components/form-engine/ExpressionPicker/ExpressionPicker";
+import { conditionFieldsOf } from "@/lib/form-engine/expression-options";
 import type { DropTarget } from "@/lib/workflow/flow-ops";
 
 import { AssigneeSourcePicker } from "./AssigneeSourcePicker";
@@ -146,7 +147,8 @@ export const StepEditor = ({
       <ExpressionPicker
         label={t("skipWhen")}
         value={step.skipWhen ?? undefined}
-        fields={checkFormFields ?? []}
+        fields={conditionFieldsOf(checkFormFields ?? [], null, true)}
+        usage="condition"
         onChange={(skipWhen) => {
           onChange({ ...step, skipWhen });
         }}

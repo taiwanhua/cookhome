@@ -16,7 +16,7 @@ const openVersions = async (
   user: ReturnType<typeof renderFormsPage>["user"],
 ) => {
   await findDesigner();
-  await user.click(screen.getByRole("tab", { name: "版本" }));
+  await user.click(screen.getByRole("tab", { name: "表單版本" }));
   return screen.findByRole("table", { name: "版本清單" });
 };
 

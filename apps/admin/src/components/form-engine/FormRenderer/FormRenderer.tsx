@@ -15,6 +15,7 @@ import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import { fieldMapOf } from "@/lib/form-engine/definition";
+import { designIdOf } from "@/lib/form-engine/design-definition";
 import { designFieldId } from "@/lib/form-engine/design-ids";
 import {
   type FieldPermissionFacts,
@@ -33,8 +34,9 @@ import { SectionDropZone } from "./SectionDropZone";
 import { SECTION_SPACING, cellSize } from "./layout-grid";
 
 export interface FormRendererDesignProps {
-  selectedFieldKey: string | null;
-  onSelectField: (fieldKey: string) => void;
+  /** 選中欄位的設計器內部 id(`design-definition.ts`;一般定義沒有 id 時用 key) */
+  selectedFieldId: string | null;
+  onSelectField: (fieldId: string) => void;
   /** 分區標題旁的操作(設計器:改名、刪分區) */
   renderSectionActions?: (section: LayoutSection) => ReactNode;
 }
@@ -86,6 +88,14 @@ export const FormRenderer = ({
   design,
 }: FormRendererProps) => {
   const byKey = useMemo(() => fieldMapOf(version.fields), [version.fields]);
+  // 版面格 → 欄位:設計器的定義以內部 id 對(key 重複也對得準),一般定義以 key 對
+  const byCell = useMemo(
+    () =>
+      new Map(
+        version.fields.map((field) => [designIdOf(field) ?? field.key, field]),
+      ),
+    [version.fields],
+  );
   const protections = useMemo(
     () => fieldProtections(version.fields),
     [version.fields],
@@ -114,10 +124,12 @@ export const FormRenderer = ({
       {version.layout.sections.map((section) => {
         const cols = section.rows
           .flatMap((row) => row.cols)
-          .filter((col) => byKey.has(col.fieldKey));
+          .map((col) => ({ ...col, cellId: designIdOf(col) ?? col.fieldKey }))
+          .filter((col) => byCell.has(col.cellId));
         const cells = cols.flatMap((col) => {
-          const field = byKey.get(col.fieldKey);
-          const state = resolved.states.get(col.fieldKey);
+          const field = byCell.get(col.cellId);
+          const state =
+            field === undefined ? undefined : resolved.states.get(field.key);
           if (field === undefined || state?.visible !== true) {
             return [];
           }
@@ -142,16 +154,17 @@ export const FormRenderer = ({
           );
           return [
             <Grid
-              key={field.key}
+              key={col.cellId}
               size={cellSize(col.span)}
               sx={{ minWidth: 0 }}
             >
               {isDesign && design !== undefined ? (
                 <DesignFieldCell
                   field={field}
+                  cellId={col.cellId}
                   protection={protections.get(field.key)}
                   labelOf={(key) => byKey.get(key)?.label ?? key}
-                  isSelected={design.selectedFieldKey === field.key}
+                  isSelected={design.selectedFieldId === col.cellId}
                   onSelect={design.onSelectField}
                 >
                   {cell}
@@ -178,7 +191,7 @@ export const FormRenderer = ({
             </Stack>
             {isDesign ? (
               <SortableContext
-                items={cols.map((col) => designFieldId(col.fieldKey))}
+                items={cols.map((col) => designFieldId(col.cellId))}
                 strategy={rectSortingStrategy}
               >
                 <Grid

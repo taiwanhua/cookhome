@@ -176,6 +176,26 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
     reason: "`t(`constants.${item}`)`,item 是常數種類",
   },
   {
+    key: "admin.forms.expression.units.",
+    reason:
+      "`t(`units.${unit}`)`,unit 取自 `DATE_DIFF_UNITS`(`dateDiff` 的單位)",
+  },
+  {
+    key: "admin.forms.property.keyProblems.",
+    reason:
+      "`t(`keyProblems.${problem}`)`,problem 是 `fieldKeyProblemOf` 回的原因(格式 / 保留字 / 重複)",
+  },
+  {
+    key: "admin.forms.edit.placeholderNames.",
+    reason:
+      "`t(`placeholderNames.${placeholder}`)`,placeholder 取自 `TAB_LABEL_PLACEHOLDERS`(頁籤模板佔位符)",
+  },
+  {
+    key: "admin.forms.lookupSource.summarySlots.",
+    reason:
+      "`t(`summarySlots.${slot}`)`,slot 是 `form_submission` 欄位目錄裡的摘要槽",
+  },
+  {
     key: "admin.moduleManager.listColumns.slots.",
     reason: "`t(`slots.${slot}`)`,slot 取自 `SUMMARY_SLOTS`",
   },

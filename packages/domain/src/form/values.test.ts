@@ -16,6 +16,19 @@ function normalized(target: FieldDef, raw: unknown): unknown {
   return result.value;
 }
 
+function ruleIssue(target: FieldDef, value: unknown) {
+  return validateFieldRules(target, value, {
+    semantic: { [target.key]: value },
+    ctx: CTX,
+    fields: [target],
+    stored: { [target.key]: value },
+  });
+}
+
+function ruleMessage(target: FieldDef, value: unknown): string | null {
+  return ruleIssue(target, value)?.message ?? null;
+}
+
 function ruleCode(target: FieldDef, value: unknown): string | null {
   return (
     validateFieldRules(target, value, {
@@ -137,5 +150,19 @@ describe("validateFieldRules:完成資料所需的驗證", () => {
     });
     expect(ruleCode(kind, "annual")).toBe("CUSTOM");
     expect(ruleCode(kind, "sick")).toBeNull();
+  });
+
+  it("rules.custom 不成立時顯示 customMessage;沒填用預設文字", () => {
+    const withMessage = field("kind", "select", {
+      rules: {
+        custom: { "==": [{ var: "kind" }, "sick"] },
+        customMessage: "只能選病假",
+      },
+    });
+    expect(ruleMessage(withMessage, "annual")).toBe("只能選病假");
+    const plain = field("kind", "select", {
+      rules: { custom: { "==": [{ var: "kind" }, "sick"] } },
+    });
+    expect(ruleMessage(plain, "annual")).toBe("「kind」不符合規則");
   });
 });

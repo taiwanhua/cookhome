@@ -133,4 +133,20 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
     expect(within(diff).getByText("總價")).toBeInTheDocument();
     expect(within(diff).queryByText("品項")).toBeNull();
   });
+
+  it("頁籤模板的系統佔位符:{{form}} = 表單名、{{applicant}} = 建立者現名", async () => {
+    renderShopping({
+      path: `${SHOPPING_ROUTES.viewPage}/sub-1`,
+      world: {
+        moduleForms: [
+          { ...shoppingForm, tabLabelTemplate: "{{form}} — {{applicant}}" },
+        ],
+        versions: { [`${SHOPPING_FORM_KEY}@1`]: shoppingDefinition() },
+        submissions: [submissionFragment()],
+      },
+    });
+
+    const tabs = await screen.findByRole("tablist", { name: "路由頁籤" });
+    expect(await within(tabs).findByText(/購物單 — 小華/)).toBeInTheDocument();
+  });
 });

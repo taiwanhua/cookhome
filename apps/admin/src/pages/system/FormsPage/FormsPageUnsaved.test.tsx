@@ -34,7 +34,7 @@ describe("表單管理:設計器未存的變更不會無聲消失", () => {
     );
     expect(await screen.findByText(/有未儲存的變更/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: "版本" }));
+    await user.click(screen.getByRole("tab", { name: "表單版本" }));
     const versions = await screen.findByRole("table", { name: "版本清單" });
     await user.click(within(versions).getByRole("button", { name: "發布" }));
     const dialog = await screen.findByRole("dialog", { name: "發布新版本" });
@@ -129,7 +129,9 @@ describe("表單管理:設計器未存的變更不會無聲消失", () => {
       "15",
     );
     // 前端即時算:30,數量 > 0 所以備註出現
-    expect(await within(preview).findByText("30 元")).toBeInTheDocument();
+    expect(
+      await within(preview).findByDisplayValue("30 元"),
+    ).toBeInTheDocument();
     expect(
       within(preview).getByRole("textbox", { name: "備註" }),
     ).toBeVisible();
@@ -138,7 +140,9 @@ describe("表單管理:設計器未存的變更不會無聲消失", () => {
       within(preview).getByRole("button", { name: "以後端重算" }),
     );
 
-    expect(await within(preview).findByText("999 元")).toBeInTheDocument();
+    expect(
+      await within(preview).findByDisplayValue("999 元"),
+    ).toBeInTheDocument();
     expect(within(preview).queryByRole("textbox", { name: "備註" })).toBeNull();
     expect(world.inputs.previewFormVersion[0]).toEqual({
       formKey: SHOPPING_FORM_KEY,

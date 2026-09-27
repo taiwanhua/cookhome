@@ -427,7 +427,11 @@ export function validateFieldRules(
       passed = false;
     }
     if (!passed) {
-      return issueOf(field, "CUSTOM", `「${field.label}」不符合規則`);
+      return issueOf(
+        field,
+        "CUSTOM",
+        rules.customMessage ?? `「${field.label}」不符合規則`,
+      );
     }
   }
   return null;
