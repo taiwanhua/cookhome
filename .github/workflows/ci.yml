@@ -19,7 +19,8 @@ concurrency:
 #   prepare ─┬─ format-codegen   格式檢查 + codegen 產物一致(GQL-05)
 #            ├─ lint-typecheck   turbo lint / check-types
 #            ├─ test-api-1 / 2   api 的 jest 分兩片(--shard)
-#            ├─ test-others      api 以外的 turbo test
+#            ├─ test-admin-1 / 2 admin 的 jest 分兩片(--shard)
+#            ├─ test-others      api / admin 以外的 turbo test
 #            └─ build            turbo build(front 的 ISR 預渲染要活的 api)
 #   以上全部 ─→ verify           總結;PR 的必要檢查名稱就是它
 #
@@ -39,6 +40,7 @@ jobs:
       others-filter: ${{ steps.affected.outputs.others-filter }}
       any: ${{ steps.affected.outputs.any }}
       api: ${{ steps.affected.outputs.api }}
+      admin: ${{ steps.affected.outputs.admin }}
       others: ${{ steps.affected.outputs.others }}
       front: ${{ steps.affected.outputs.front }}
       codegen: ${{ steps.affected.outputs.codegen }}
@@ -66,7 +68,7 @@ jobs:
       # base:PR 對 base 分支比;push 對推送前的分支 HEAD 比(等於這次合進來的內容)。
       # 改到 .github/** 或 base 拿不到(首推、force push)時退回全跑。
       # 清單轉成明確的 `--filter=<pkg>` 字串往下傳(下游 job 不必再算 diff);
-      # others-filter 是同一份清單去掉 @repo/api(api 的測試由兩個 shard job 跑)。
+      # others-filter 是同一份清單去掉 @repo/api 與 @repo/admin(這兩個的測試最久,各由兩個 shard job 跑)。
       - name: 受影響的 package
         id: affected
         env:
@@ -89,7 +91,7 @@ jobs:
           others=""
           for p in $list; do
             filter="$filter --filter=$p"
-            if [ "$p" != "@repo/api" ]; then others="$others --filter=$p"; fi
+            case "$p" in @repo/api | @repo/admin) ;; *) others="$others --filter=$p" ;; esac
           done
           flag() { case " $list " in *" $1 "*) echo true ;; *) echo false ;; esac; }
           api=$(flag @repo/api)
@@ -102,6 +104,7 @@ jobs:
             if [ -n "$filter" ]; then echo "any=true"; else echo "any=false"; fi
             if [ -n "$others" ]; then echo "others=true"; else echo "others=false"; fi
             echo "api=$api"
+            echo "admin=$(flag @repo/admin)"
             echo "front=$(flag @repo/front)"
             echo "codegen=$codegen"
           } >> "$GITHUB_OUTPUT"
@@ -239,7 +242,55 @@ jobs:
         env:
           MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
 
-  # api 以外受影響 package 的測試(domain / ui / i18n / logger / db-migrator / admin …)
+  # admin 的測試(約 600 案、單跑 5 分多)同樣用 jest 的 --shard 分兩台。
+  # admin 的 jest 吃依賴的 dist(與 turbo 的 test dependsOn ^build 一致),先用 turbo build 依賴(`^...` = 不含 admin 本身),
+  # 快取命中時幾秒就過;jest 的呼叫方式與 apps/admin/package.json 的 test script 相同。
+  test-admin:
+    needs: prepare
+    if: needs.prepare.outputs.admin == 'true'
+    name: test-admin-${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+        env:
+          MONGOMS_DISABLE_POSTINSTALL: "1"
+
+      # 兩片產生的快取內容相同,共用一把 key(後存的那片存不進去只是警告)
+      - name: turbo 快取
+        uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-test-admin-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-test-admin-
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - name: build admin 的依賴
+        run: pnpm exec turbo run build --filter=@repo/admin^... --log-order=stream
+
+      - name: test(admin 第 ${{ matrix.shard }} / 2 片)
+        run: pnpm --filter @repo/admin exec node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit --shard=${{ matrix.shard }}/2
+
+      - name: 修剪 turbo 快取
+        run: find .turbo/cache -type f -mtime +7 -delete 2>/dev/null || true
+
+  # api / admin 以外受影響 package 的測試(domain / ui / i18n / logger / db-migrator …)
   # MONGODB_URI:db-migrator 測試沿用本 job 的 MongoDB service container(本地無此變數時自起 mongodb-memory-server)
   test-others:
     needs: prepare
@@ -348,7 +399,15 @@ jobs:
   # 哪一類壞看上面的 job 名稱即可。
   verify:
     needs:
-      [prepare, format-codegen, lint-typecheck, test-api, test-others, build]
+      [
+        prepare,
+        format-codegen,
+        lint-typecheck,
+        test-api,
+        test-admin,
+        test-others,
+        build,
+      ]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
