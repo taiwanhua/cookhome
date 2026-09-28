@@ -78,6 +78,14 @@
     }
   },
   "shell": {
+    "userMenu": {
+      "appearance": "Appearance",
+      "modes": {
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
     "sideNav": "Main navigation",
     "collapseNav": "Collapse sidebar",
     "expandNav": "Expand sidebar",

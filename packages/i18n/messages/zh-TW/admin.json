@@ -78,6 +78,14 @@
     }
   },
   "shell": {
+    "userMenu": {
+      "appearance": "外觀",
+      "modes": {
+        "system": "跟隨系統",
+        "light": "亮",
+        "dark": "暗"
+      }
+    },
     "sideNav": "主選單",
     "collapseNav": "收合側欄",
     "expandNav": "展開側欄",

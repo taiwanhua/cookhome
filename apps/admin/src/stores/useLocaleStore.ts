@@ -35,7 +35,7 @@ const storage: PersistStorage<LocalePersisted> = {
   },
 };
 
-/** admin 的語言(I18N-05:不進 URL,記 localStorage);AppBar 語言切換器寫入、AppProviders 讀給 IntlProvider。 */
+/** admin 的語言(I18N-05:不進 URL,記 localStorage);頭像選單的「語言」寫入、AppProviders 讀給 IntlProvider。 */
 export const useLocaleStore = create<LocaleState>()(
   persist(
     (set) => ({
