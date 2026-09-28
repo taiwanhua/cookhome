@@ -29,12 +29,14 @@ import { fieldWorld } from "@/test/msw/field-manager-handlers";
 import { formDesignWorld } from "@/test/msw/form-design-handlers";
 import {
   SHOPPING_FORM_KEY,
+  field,
   formFragment,
   shoppingDefinition,
   submissionFragment,
   versionFragment,
 } from "@/test/msw/form-fixtures";
 import { formRuntimeWorld } from "@/test/msw/form-runtime-handlers";
+import { formUpgradeWorld } from "@/test/msw/form-upgrade-handlers";
 import { moduleAdminTree } from "@/test/msw/module-admin-fixtures";
 import { moduleAdminWorld } from "@/test/msw/module-manager-handlers";
 import {
@@ -216,6 +218,26 @@ export const mockHandlers = ({
       }).handlers,
       ["FieldCategories"],
     ),
+    // 版本面板「將舊版資料升級到此版」:計畫給兩個補值欄位(單選 / 日期),看得到補值依型別呈現
+    ...formUpgradeWorld({
+      plan: {
+        groups: [{ fromVersion: 1, count: 2 }],
+        fillTargets: [
+          field("priority", "優先順序", "select", {
+            widget: { kind: "dropdown" },
+            rules: { required: true },
+            options: {
+              kind: "static",
+              items: [
+                { value: "high", label: "高", order: 1, enabled: true },
+                { value: "low", label: "低", order: 2, enabled: true },
+              ],
+            },
+          }),
+          field("due", "到貨日", "date", { widget: { kind: "datePicker" } }),
+        ] as unknown as Record<string, unknown>[],
+      },
+    }).handlers,
     ...formRuntimeWorld({
       moduleForms: [
         {

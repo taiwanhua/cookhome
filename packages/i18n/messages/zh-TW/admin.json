@@ -1178,7 +1178,8 @@
       "rowChange": "標示",
       "rowContent": "列內容",
       "rowCells": "改了哪些格",
-      "arrayDiffAria": "{label} 的明細差異"
+      "arrayDiffAria": "{label} 的明細差異",
+      "revisionUpgradedLine": "修訂 {revision} · {user} 於 {at} 升級到第 {version} 版"
     },
     "pages": {
       "loading": "載入中",
@@ -1243,7 +1244,9 @@
       "WORKFLOW_UNPUBLISHED": "這張表單綁定的審核流程尚未發布,暫時不能送出,請聯絡管理員。",
       "WORKFLOW_MISCONFIGURED": "審核流程設定有誤,請聯絡管理員。",
       "REVISION_LIMIT": "修訂次數已達上限,請建立新的申請。",
-      "DOCUMENT_TOO_LARGE": "資料容量已達上限,請縮減內容。"
+      "DOCUMENT_TOO_LARGE": "修訂記錄已達容量上限,無法再修改。",
+      "FORM_HAS_WORKFLOW": "這張表單在本組織綁了審核流程,舊版資料不能升級到新版。",
+      "VERSION_NOT_PUBLISHED": "只能升級到已發布的版本,請重新整理。"
     },
     "array": {
       "addRow": "+ 新增一列",
@@ -1272,7 +1275,9 @@
       "NOT_FOUND": "找不到這張表單或版本,可能已被刪除,請重新整理。",
       "VALIDATION_FAILED": "有欄位填寫不正確,或表單定義還有錯誤,請修正後再試。",
       "PERMISSION_NOT_DELETABLE": "這個權限目前不能刪除。",
-      "UNEXPECTED": "操作失敗,請稍後再試。"
+      "UNEXPECTED": "操作失敗,請稍後再試。",
+      "FORM_HAS_WORKFLOW": "這張表單在本組織綁了審核流程,舊版資料不能升級到新版。",
+      "VERSION_NOT_PUBLISHED": "只能升級到已發布的版本,請重新整理。"
     },
     "list": {
       "region": "表單清單",
@@ -1407,7 +1412,9 @@
       "interrupted": "上次發布沒有完成。請按「重試發布」完成它;完成前不能開新草稿、退役或再發布。",
       "retry": "重試發布",
       "retried": "已完成發布。",
-      "publishedLine": "{at} · {user}"
+      "publishedLine": "{at} · {user}",
+      "upgrade": "將舊版資料升級到此版",
+      "upgradeBlockedByWorkflow": "這張表單在本組織綁了審核流程,舊版資料不能升級到新版。"
     },
     "deleteDraft": {
       "title": "刪除草稿?",
@@ -1903,6 +1910,40 @@
       },
       "formula": "列內公式",
       "rowField": "本列・{label}"
+    },
+    "upgrade": {
+      "title": "將舊版資料升級到 v{version}",
+      "steps": "步驟 {step} / 3:{name}",
+      "stepPlan": "升級範圍與補值",
+      "stepConfirm": "確認",
+      "stepResult": "結果",
+      "loading": "載入升級範圍",
+      "groupsTitle": "要升級的資料",
+      "groupLine": "v{version}:{count} 筆",
+      "nothing": "沒有需要升級的資料(都已是這一版)。",
+      "fillsTitle": "補值",
+      "fillsHint": "只填到「那一筆沒有值」的欄位,已有值不覆蓋;可以留空。升級不檢查必填與格式,不符規則的資料在下次編輯送出時才需要補齊。",
+      "noFills": "這一版沒有需要補值的欄位。",
+      "fillEmpty": "不補",
+      "confirmBody": "將把 {count} 筆資料改為 v{version},重算計算欄位與摘要;已完成的資料會多一筆修訂紀錄。",
+      "confirmFillsTitle": "補值",
+      "confirmNoFills": "不補值",
+      "resultUpgraded": "已升級",
+      "resultUpgradedLine": "v{version}:{count} 筆",
+      "resultNoneUpgraded": "沒有資料被升級。",
+      "resultSkipped": "跳過",
+      "resultSkippedLine": "{reason}:{count} 筆",
+      "skipReasons": {
+        "EDIT_CONFLICT": "升級時正好被別人修改",
+        "DOCUMENT_TOO_LARGE": "修訂記錄已達容量上限",
+        "VALUES_INVALID": "舊資料的值無法換算到新版"
+      },
+      "cancel": "取消",
+      "next": "下一步",
+      "back": "上一步",
+      "confirm": "開始升級",
+      "close": "關閉",
+      "success": "升級完成。"
     }
   },
   "approval": {

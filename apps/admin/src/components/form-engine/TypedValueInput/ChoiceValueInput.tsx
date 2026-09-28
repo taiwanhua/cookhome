@@ -17,6 +17,8 @@ export interface ChoiceValueInputProps {
   shape: TypedValueShape;
   isMultiple: boolean;
   formKey: string;
+  /** 查哪一版的選項定義;null = 草稿 */
+  version: number | null;
   emptyLabel?: string;
   helperText?: string;
   timezone: string;
@@ -90,6 +92,7 @@ export const ChoiceValueInput = ({
   shape,
   isMultiple,
   formKey,
+  version,
   emptyLabel,
   helperText,
   timezone,
@@ -146,6 +149,6 @@ export const ChoiceValueInput = ({
     isDesign: false,
     ...(helperText !== undefined && { helperText }),
     hasError: false,
-    context: { formKey, version: null, timezone },
+    context: { formKey, version, timezone },
   });
 };

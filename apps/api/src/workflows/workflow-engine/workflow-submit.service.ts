@@ -221,7 +221,12 @@ export class WorkflowSubmitService {
           submittedAt: record.submittedAt ?? content.at,
         },
         $push: {
-          revisions: { revision, values: content.values, ctx: content.ctx },
+          revisions: {
+            revision,
+            version: record.version,
+            values: content.values,
+            ctx: content.ctx,
+          },
         },
         $inc: { editVersion: 1 },
       },

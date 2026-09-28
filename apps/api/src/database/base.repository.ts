@@ -51,8 +51,11 @@ export type RepositoryUpdate<TSchema> = UpdateQuery<TSchema & BaseFields>;
 export interface FindOptions {
   /** 連軟刪除的資料一起查(ADR-0007);預設排除。 */
   includeDeleted?: boolean;
-  /** 投影;預設排除的欄位(如加密個資,ADR-0007)需在此明確以 `+欄位` 請求才回傳。 */
-  select?: string;
+  /**
+   * 投影;預設排除的欄位(如加密個資,ADR-0007)需在此明確以 `+欄位` 請求才回傳。
+   * 物件形式給陣列投影用(如 `{ revisions: { $slice: -1 } }`,只取最後一筆)。
+   */
+  select?: string | Record<string, unknown>;
   /** 排序(如 `{ createdAt: -1 }`);分頁清單要有穩定順序才不會漏筆 / 重複。 */
   sort?: Record<string, 1 | -1>;
   /** 跳過筆數(分頁:`(page - 1) * pageSize`)。 */
@@ -160,13 +163,16 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
   async findOwnOne(
     operator: OperatorContext,
     filter: RepositoryFilter<TSchema>,
-    options: Pick<FindOptions, "includeDeleted"> = {},
+    options: Pick<FindOptions, "includeDeleted" | "select"> = {},
   ): Promise<Persisted<TDocument> | null> {
     if (operator.actorId === null) {
       return null;
     }
     const document = await scopeQuery(
-      this.model.findOne({ ...filter, createdBy: operator.actorId }),
+      this.model.findOne(
+        { ...filter, createdBy: operator.actorId },
+        options.select,
+      ),
       {
         operator,
         ownRecordsOnly: true,

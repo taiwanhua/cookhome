@@ -43,14 +43,8 @@ fragment FormSubmissionFields on FormSubmissionModel {
     userId
     orgId
   }
-  revisions {
-    revision
-    at
-    user {
-      id
-      name
-    }
-  }
+  # 這次回傳的修訂用哪一版的定義渲染(升級過的提交,歷史修訂可能綁在較舊的版本)
+  viewedVersion
   editVersion
   orgId
   createdBy {
@@ -132,6 +126,32 @@ query FormSubmission($id: ID!, $revision: Int) {
   formSubmission(id: $id, revision: $revision) {
     submission {
       ...FormSubmissionFields
+    }
+  }
+}
+
+# 修訂紀錄(只有修訂紀錄跳窗才讀;列表與詳情不載入):每筆帶自己的版本與來由(kind = upgrade:舊版資料升級)
+query FormSubmissionRevisions($id: ID!) {
+  formSubmission(id: $id) {
+    submission {
+      id
+      revision
+      revisions {
+        revision
+        version
+        kind
+        # 升級產生的修訂:誰、何時升級(at / user 是沿用上一筆的 ctx)
+        upgradedBy {
+          id
+          name
+        }
+        upgradedAt
+        at
+        user {
+          id
+          name
+        }
+      }
     }
   }
 }

@@ -334,6 +334,25 @@ export class FormAccessService {
     return form;
   }
 
+  /**
+   * 這個租戶的這張表單綁了流程嗎(`org_form_workflow`,以租戶為邊界讀)。根組織(租戶 = null)沒有流程綁定。
+   * 用途:修訂次數上限只對綁流程的表單、舊版資料升級只限沒綁流程的表單。
+   */
+  async hasWorkflowBinding(
+    tenantId: Types.ObjectId | null,
+    formId: Types.ObjectId,
+  ): Promise<boolean> {
+    if (tenantId === null) {
+      return false;
+    }
+    const link = await this.relations.findOne(tenantId, {
+      type: "org_form_workflow",
+      firstId: tenantId,
+      secondId: formId,
+    });
+    return link !== null;
+  }
+
   /** 執行端讀表單定義:持有該模組任一個個別權限即可(看得到提交的人要能渲染它)。 */
   assertRuntimeAccess(facts: FormOperatorFacts, moduleKey: string): void {
     const actions: FormModuleAction[] = ["view", "create", "edit"];
