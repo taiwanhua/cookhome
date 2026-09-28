@@ -127,8 +127,11 @@ describe("申請中心的頁籤 badge 與側欄待審數(applyCenterCounts)", ()
     await user.click(within(nav).getByRole("button", { name: "收合側欄" }));
 
     const rail = within(nav).getByRole("link", { name: "申請中心" });
-    const [dot] = visibleBadges(rail);
-    expect(dot).toHaveClass("MuiBadge-dot");
-    expect(dot?.textContent).toBe("");
+    const dots = visibleBadges(rail);
+    expect(dots).toHaveLength(1);
+    expect(dots.every((dot) => dot.classList.contains("MuiBadge-dot"))).toBe(
+      true,
+    );
+    expect(dots.map((dot) => dot.textContent)).toEqual([""]);
   });
 });
