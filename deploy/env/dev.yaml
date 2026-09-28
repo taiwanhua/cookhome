@@ -8,11 +8,10 @@
 ADMIN_APP_URL: "https://erp-dev.cookhome.online"
 # refresh cookie 的 Domain(api-dev 與 erp-dev 同屬此網域)
 COOKIE_DOMAIN: ".cookhome.online"
-# 收件白名單(逗號分隔):dev 只寄給開發者,防誤寄真人
-MAIL_ALLOWLIST: "a0987837233@gmail.com,a0987837233+tenant@gmail.com,a0987837233+user@gmail.com"
+# MAIL_ALLOWLIST 不寫 = 不限收件人(三環境一致,使用者裁決)
 # GraphQL Sandbox / introspection:dev 開(其他環境不寫此鍵 = 關)
 GRAPHQL_SANDBOX: "true"
-# 審核流程通知信(任務建立 / 有結果):dev 開;staging / production 不寫此鍵 = 關(怕額度),仍受 MAIL_ALLOWLIST 約束
+# 審核流程通知信(任務建立 / 有結果):dev 開;staging / production 不寫此鍵 = 關(怕額度)
 WORKFLOW_MAIL_ENABLED: "true"
 # 檔案儲存的 GCS bucket(ADR-0010;未設 GCS_BUCKET_PRIVATE = 改用記錄用 adapter,不會真的上傳)
 GCS_BUCKET_PRIVATE: "cookhome-assets-dev"
