@@ -1,29 +1,29 @@
 # 十分鐘掌握底座
 
-CookHome 是家常食譜平台,底層是一套可複製到其他專案的多租戶後台底座。本頁是文件的入口:先看系統地圖,再看六個核心概念,最後照你的角色挑一條閱讀路線。
+CookHome 是家常食譜平台,底層是一套可複製到其他專案的多租戶後台底座。本頁是文件的入口:先看系統地圖,再看七個核心概念,最後照你的角色挑一條閱讀路線。
 
 ## 系統地圖
 
 Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 
-| 位置                                         | 做什麼                                                                       |
-| -------------------------------------------- | ---------------------------------------------------------------------------- |
-| `apps/api`                                   | NestJS + GraphQL + MongoDB;front 與 admin 都打它                             |
-| `apps/admin`                                 | Vite + React SPA 後台;殼、治理模組、示範模組                                 |
-| `apps/front`                                 | Next.js 前台(SEO、ISR)                                                       |
-| `apps/db-migrator`                           | 遷移、種子、還原(reset)工具;不部署,部署 api 後由 CI 呼叫                     |
-| `apps/e2e`                                   | Playwright 權限劇本;只手動觸發                                               |
-| `apps/storybook`                             | 設計系統目錄;stories 住在 `packages/ui`                                      |
-| `packages/ui`                                | 設計系統:tokens、主題、共用元件                                              |
-| `packages/graphql`                           | 讀 api 的 schema 產生型別與 TanStack Query hooks                             |
-| `packages/domain`                            | 前後端共用純邏輯:權限 key 與矩陣、密碼規則、模組圖示白名單、表單定義與檢查器 |
-| `packages/i18n`                              | 多語訊息檔                                                                   |
-| `packages/logger`                            | 共用 logger(唯一可用 `console` 的地方)                                       |
-| `packages/config-*`、`packages/jest-presets` | ESLint / Prettier / TypeScript / Jest 共用設定                               |
+| 位置                                         | 做什麼                                                                                                 |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `apps/api`                                   | NestJS + GraphQL + MongoDB;front 與 admin 都打它                                                       |
+| `apps/admin`                                 | Vite + React SPA 後台;殼、治理模組、表單引擎、審核流程、申請中心、示範模組                             |
+| `apps/front`                                 | Next.js 前台(SEO、ISR)                                                                                 |
+| `apps/db-migrator`                           | 遷移、種子、還原(reset)工具;不部署,部署 api 後由 CI 呼叫                                               |
+| `apps/e2e`                                   | Playwright 權限劇本;只手動觸發                                                                         |
+| `apps/storybook`                             | 設計系統目錄;stories 住在 `packages/ui`                                                                |
+| `packages/ui`                                | 設計系統:tokens、主題、共用元件                                                                        |
+| `packages/graphql`                           | 讀 api 的 schema 產生型別與 TanStack Query hooks                                                       |
+| `packages/domain`                            | 前後端共用純邏輯:權限 key 與矩陣、密碼規則、模組圖示白名單、表單定義 / 計算 / 檢查器、流程定義與檢查器 |
+| `packages/i18n`                              | 多語訊息檔                                                                                             |
+| `packages/logger`                            | 共用 logger(唯一可用 `console` 的地方)                                                                 |
+| `packages/config-*`、`packages/jest-presets` | ESLint / Prettier / TypeScript / Jest 共用設定                                                         |
 
 正本:`docs/architecture.md`、根目錄 `package.json`、`pnpm-workspace.yaml`
 
-## 六個核心概念
+## 七個核心概念
 
 **1. 租戶與組織。** 組織是一棵樹。根組織是平台營運方;根的直接子組織是一個租戶,底下可再分部門或分店。組織是所有租戶資料的隔離邊界。開通租戶會一次建好租戶頂層、角色副本與首任管理員。
 正本:`docs/concepts/accounts-and-tenants.md`、`apps/api/src/orgs/`
@@ -42,6 +42,9 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 
 **6. 稽核與儲存。** 模組層把變更寫進只增不改的 `audit_logs`。檔案由瀏覽器直傳 GCS,DB 存路徑、看時現簽;交易信件走 Resend。
 正本:`docs/concepts/authorization.md`「稽核」、`docs/concepts/storage-and-mail.md`、`apps/api/src/audit/`、`apps/api/src/storage/`
+
+**7. 表單模組與審核流程。** 欄位由使用者在後台設計的模組走表單引擎:表單版本化發布,提交綁版本、每次修改留完整修訂;表單可綁審核流程,送出後由流程實例推進關卡,申請人與審核者在申請中心操作。表單與流程是執行期資料(畫面上設計、分派給租戶),模組骨架仍由 seed 宣告。
+正本:`docs/concepts/form-engine.md`、`docs/concepts/workflow-engine.md`、`apps/api/src/forms/`、`apps/api/src/workflows/`
 
 ## 閱讀路線
 
@@ -79,6 +82,7 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/testing/handover-quiz.md`               | 接手自測題                                       | 讀完文件後自我檢查         |
 | `docs/agents/toolbox.md`                      | agent 的工具與環境須知                           | AI agent 開工前            |
 | `docs/agents/issue-tracker.md`                | issue、看板、PR 的流程                           | 開票、接票、交件           |
+| `docs/agents/pitfalls.md`                     | 指令與流程的已知坑                               | 指令跑出怪現象時           |
 | `docs/agents/module-scaffold.md`              | 新增 CRUD 模組的檔案清單與步驟                   | 新增模組                   |
 | `docs/agents/domain.md`                       | 領域文件怎麼用、概念導讀                         | 探索 codebase 前           |
 | `docs/agents/triage-labels.md`                | triage 標籤                                      | 分類 issue                 |

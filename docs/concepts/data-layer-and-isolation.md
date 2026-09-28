@@ -4,22 +4,23 @@
 
 ## 三類資料
 
-| 類別         | 判定                              | 過濾                              | 例                                                                                                     |
-| ------------ | --------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 租戶資料     | 有 `orgId`,掛 `tenantScopePlugin` | 自動過濾                          | `customers`、`fields`(租戶自訂)、`audit_logs`、`demo_items_*`、`form_submissions`;`orgs` 以 `_id` 判定 |
-| 全域資料     | 不掛 plugin                       | 不過濾                            | `modules`、`permissions`、`field_categories`、`data_scope_targets`                                     |
-| 關聯歸屬資料 | 沒有 `orgId`,歸屬走核心關聯       | 資料層不過濾;模組先查關聯再查本表 | `users`(經 `org_user`)、`roles`(經 `org_role`)                                                         |
+| 類別         | 判定                              | 過濾                              | 例                                                                                                                           |
+| ------------ | --------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 租戶資料     | 有 `orgId`,掛 `tenantScopePlugin` | 自動過濾                          | `customers`、`fields`(租戶自訂)、`audit_logs`、`demo_items_*`、`form_submissions`、`workflow_instances`;`orgs` 以 `_id` 判定 |
+| 全域資料     | 不掛 plugin                       | 不過濾                            | `modules`、`permissions`、`field_categories`、`data_scope_targets`                                                           |
+| 關聯歸屬資料 | 沒有 `orgId`,歸屬走核心關聯       | 資料層不過濾;模組先查關聯再查本表 | `users`(經 `org_user`)、`roles`(經 `org_role`)                                                                               |
 
-- 哪些 schema 掛了 plugin 由測試鎖定。
+- 哪些 schema 掛了 plugin、各屬治理類或業務類,由 `apps/api/src/database/schemas/base-plugins.schema.test.ts` 鎖定。
 - `fields` 掛 `allowGlobal`:`orgId = null` 的全域種子對所有人可見。
-- **模組資料表**:schema 明確開 `tenantScopePlugin({ moduleData: true })` 的租戶資料(`demo_items_one`、`demo_items_two`、`form_submissions`),多兩個欄位 `moduleKey`(必填;固定欄位模組寫死自己的 key,表單提交寫綁的模組)與 `tenantId`(依 `orgId` 的祖先推導的租戶頂層,根組織資料為 null;前端不可指定、一般更新不可改)。`tenantId` 只用於租戶邊界、索引與日後分片,**不決定可見範圍**(仍看 `orgId`)。資料範圍規則只套模組資料表。
-- **業務關聯**(`business_relationships`,目前只有 `org_form`)不掛 plugin:部門使用者的可見範圍不含租戶頂層,掛了就查不到本租戶的列。改以必填的 `tenantId` 為邊界,`BusinessRelationshipsRepository` 每個方法強制帶它(沒帶就拋錯;租戶內只能用自己的,根組織要明給)。
+- **模組資料表**:schema 明確開 `tenantScopePlugin({ moduleData: true })` 的租戶資料(`demo_items_one`、`demo_items_two`、`form_submissions`、`workflow_instances`),多兩個欄位 `moduleKey`(必填;固定欄位模組寫死自己的 key,表單提交與審核實例寫綁的模組)與 `tenantId`(依 `orgId` 的祖先推導的租戶頂層,根組織資料為 null;前端不可指定、一般更新不可改)。`tenantId` 只用於租戶邊界、索引與日後分片,**不決定可見範圍**(仍看 `orgId`)。資料範圍規則只套模組資料表,但 `workflow_instances` 禁止登記資料目標(ADR-0008)。
+- **以 `tenantId` 為邊界的表**:`business_relationships`(業務關聯:`org_form` 表單分派 / 啟用、`org_workflow` 流程分派、`org_form_workflow` 流程綁定)、`workflows`、`workflow_tasks` 不掛 plugin —— 部門使用者的可見範圍不含租戶頂層,審核者也不一定在申請人組織的可見範圍內,照可見範圍過濾會查不到。改以必填的 `tenantId` 為邊界,各自的專屬 repository(`BusinessRelationshipsRepository`、`WorkflowsRepository`、`WorkflowTasksRepository`)每個方法強制帶它(沒帶就拋錯;共用流程 / 根組織要明給 `null`)。
+- **表單與版本定義**:`forms`、`form_versions`、`workflow_versions` 不掛 plugin;誰看得到哪一份由服務層依所屬表單 / 流程的擁有者(`forms.ownerOrgId`、`workflows.tenantId`)與分派關聯判斷(如 `apps/api/src/forms/form-access.service.ts`),不是可見範圍。
 
 正本:`apps/api/src/database/plugins/tenant-scope.plugin.ts`、`apps/api/src/database/schemas/`
 
 ## 核心關聯
 
-五個實體(Org / User / Role / Module / Permission)之間的多對多,集中在一張 `core_relationships`。
+五個實體(Org / User / Role / Module / Permission)之間的多對多,集中在一張 `core_relationships`,`type` 是封閉的六種。`org_manager` 是命名規約的例外:第二方是使用者,語意是「該組織的主管」,與成員關係 `org_user` 分開存。
 
 | type              | first → second | 意思                 |
 | ----------------- | -------------- | -------------------- |
@@ -28,6 +29,7 @@
 | `user_role`       | 使用者 → 角色  | 角色授予             |
 | `role_module`     | 角色 → 模組    | 可進的頁             |
 | `role_permission` | 角色 → 權限    | 頁裡能用的           |
+| `org_manager`     | 組織 → 使用者  | 組織的主管(可多位)   |
 
 - 唯一出口是 `RelationService` 的具名方法(如 `addUserToOrg`、`assignRoleToUser`)。BaseRepository 建構時拒收這張表。
 - 讀不帶操作者上下文(權限解析要先讀關聯);寫帶上下文,填 `createdBy` / `updatedBy`。
@@ -43,7 +45,7 @@
 - 每張表由 `baseFieldsPlugin` 掛上 `createdAt`、`updatedAt`、`createdBy`、`updatedBy`、`deletedAt`。schema class 不宣告。
 - 刪除 = 寫 `deletedAt`。之後查詢預設排除;要看已刪除的明講 `includeDeleted`。
 - 已刪除的不能再更新。
-- 唯一的硬刪除 `hardDeleteById` 只給**補償刪除**用(本次請求剛建、尚未對外可見的文件)。其餘抹除走 cleanup migration。
+- 硬刪除只有四種:關聯的移除、補償刪除(`hardDeleteById`,本次請求剛建、尚未對外可見的文件)、從未發布的版本草稿(`hardDeleteDraft`)、退役的表單欄位級權限。清單與理由見 ADR-0007;其餘抹除走 cleanup migration。
 - `updateById` / `updateMany` 碰到 `orgId`、`createdBy`、`createdAt`(含子路徑)→ 拋錯。
 - 各表的偏好設定統一叫 `settings`,已知 key 在程式裡定義。
 - 高敏個資(`nationalId`)欄位級加密(AES-256-GCM,金鑰 `FIELD_ENCRYPTION_KEY`),預設不投影。
@@ -67,9 +69,11 @@ service 呼叫 BaseRepository.xxx(operator, …)
 - `create` 自動寫入當前組織;寫到範圍外 → 拋錯。
 - api 內裸 `Model.find` 由 ESLint 規則 `@repo/no-raw-model-query` 擋下。
 - 已知限制:`populate()` 的子查詢不帶上下文,關聯資料分兩次查。
-- **兩個登記在案的例外出口**(ADR-0005 / ADR-0008):
+- **三個登記在案的例外出口**(登記表在 ADR-0005「例外出口」):
   - `BaseRepository.findOwnById` / `findOwnOne` / `findOwnAndUpdate`:只給表單提交用 —— 建立者讀自己的單、寫自己的草稿。可見範圍照套、條件加 `createdBy = 操作者`,**不套資料範圍規則**(否則規則把草稿擋掉時,建立者連自己的草稿都送不出去)。列表不放寬。
   - `apps/api/src/database/form-submission-usage.ts`:退役欄位級權限清理的三層檢查要**跨全部租戶**計數提交(少算一筆草稿就會把還在用的權限刪掉),不經 BaseRepository;只回筆數與版本號,不回內容。
+  - `apps/api/src/database/workflow-submission-store.ts`:審核流程(引擎、讀取授權、申請中心)讀寫提交,不套可見範圍與資料範圍規則,以 `tenantId` 為邊界;允許呼叫它的檔案登記在該檔 `WORKFLOW_SUBMISSION_STORE_CALLERS`,由測試鎖定。
+- 對全員生效(套用對象 `all`)的資料範圍規則連系統上下文也會收窄,所以「必須看到全部」的系統讀取只能走上面登記過的出口(ADR-0008)。
 
 正本:`apps/api/src/database/base.repository.ts`、`apps/api/src/database/operator-context.ts`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`
 
@@ -138,6 +142,8 @@ BaseRepository 每個方法的第一個參數。四個集合各有用途,不可�
 
 - 部署 api 後依序跑 `migrate` → `seed`。不在 server 啟動時跑。
 - 種子欄位兩種:**每次都 seed**(預設,人改的會被拉回);**初始 seed 值**(欄位存在就不覆寫,預設 `enabled`,`modules` 另加 `icon`)。
+- **認養**:同一類資料允許人在畫面建(`isSystem: false`,如 root 在欄位管理新增的類別與選項)時,seed 宣告同一個 key 就把那一筆轉成種子 —— `isSystem` 改 true、宣告的欄位以 seed 為準、`_id` 不動。人建時沒有種子 key 的(欄位選項)由宣告的 `adoptBy` 指定怎麼找同一筆(同類別、同 value、根組織加的)。認養單向;沒宣告的人建資料 seed 不碰。
+- 執行摘要印「新增 / 更新 / 認養 / 未變」四種計數。
 - 可變欄位清空寫 `null`,不要 `$unset`。
 - key 是識別不是欄位;改 key = 新種一筆,要配 cleanup migration。
 - seed 不分環境;seed 以原生 driver 寫,不 import api。

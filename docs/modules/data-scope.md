@@ -34,11 +34,11 @@
 
 - **`data_scope_rules`**:每個資料目標一份規則文件 —— `collection` + `moduleKey`(**`(collection, moduleKey)` unique 索引**)、`combineOp`(`AND` / `OR`)、`rules[{ audience, filter }]`。**沒有掛 `tenantScopePlugin`**:規則是全域設定,一個資料目標全站只有一份,由 root 維護、對所有租戶同時生效(「命中誰」由套用對象決定)。
 - **`data_scope_targets`**:資料目標目錄,**一個模組一個目標**,來源是各模組 seed 的 `dataScopeTarget` 宣告(collection、中文名、描述、可篩欄位);識別鍵 `(collection, moduleKey)`,`moduleKey` 由 seed runner 填宣告檔所在的模組。基礎欄位由底座自動掛進欄位目錄,不必宣告。
-- **同一張表可以有多個目標**:所有表單模組的資料都存在 `form_submissions`,每個表單模組各宣告一個目標(`collection` 固定 `form_submissions`),各自一份規則。表單模組的欄位目錄先給基礎欄位 + 提交狀態 `status`(草稿 / 已完成),表單自訂欄位不進條件。
-- **示範模組1 的目標**:`demo_items_one`。它宣告了一個 enum 欄位 **`status`**(草稿 / 已發布 / 已封存),`value` 與 `demo-item-one.schema.ts` 的 `status` 一一對應 —— 沒有它,「enum 固定選項」這條在任何環境都驗不到。示範模組2 刻意不宣告,是對照組。
+- **同一張表可以有多個目標**:所有表單模組的資料都存在 `form_submissions`,每個表單模組各宣告一個目標(`collection` 固定 `form_submissions`),各自一份規則。表單模組的欄位目錄 = 基礎欄位 + 提交狀態 `status`(enum,七種:草稿 / 審核中 / 已退回 / 已撤回 / 已完成 / 已駁回 / 已作廢;任何一個表單模組都可能被綁流程,所以一律給全),表單自訂欄位不進條件。目標由 `form-module-declaration.ts` 統一產生。
+- **示範模組1 的目標**:`demo_items_one`。它宣告了一個 enum 欄位 **`status`**(草稿 / 已發布 / 已封存),`value` 與 `demo-item-one.schema.ts` 的 `status` 一一對應,權限劇本的「enum 固定選項」在這裡驗。示範模組2 刻意不宣告,是對照組。
 - 執行面快取:規則設定放記憶體快取,`saveDataScopeRule` 儲存時作廢。
 
-正本:`apps/api/src/database/schemas/data-scope-rule.schema.ts`、`apps/api/src/database/schemas/data-scope-target.schema.ts`、`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`(`dataScopeTarget`)
+正本:`apps/api/src/database/schemas/data-scope-rule.schema.ts`、`apps/api/src/database/schemas/data-scope-target.schema.ts`、`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`(`dataScopeTarget`)、`apps/db-migrator/seeds/form-module-declaration.ts`
 
 ## 規則
 
@@ -73,7 +73,7 @@ BaseRepository 查詢時套用;GQL-07 的語意正本在此。
 ```
 
 - 某模組的規則沒有命中操作者(或那個模組根本沒設規則)→ 那個模組的資料維持只看可見範圍,不會被別的模組的規則影響。
-- 那一支要求 `moduleKey` **存在**:沒有 `moduleKey` 的文件(回填前的舊資料、所屬組織已不存在而沒回填的孤兒)在有規則命中操作者時看不到(fail-closed),不會從 `$nin` 溜過去。規則文件本身缺 `moduleKey` 的(回填前)不載入。
+- 那一支要求 `moduleKey` **存在**:沒有 `moduleKey` 的文件(`data_module-data-fields` migration 回填前寫入的資料、所屬組織已不存在而沒回填的孤兒)在有規則命中操作者時看不到(fail-closed),不會從 `$nin` 溜過去。規則文件本身缺 `moduleKey` 的(回填前)不載入。
 - 固定欄位模組的表只有一個 `moduleKey`,結果等於「該模組的規則」本身。
 - 單筆 / 更新 / 刪除 / lookup 都走同一條路徑(同一組查詢中介層)。
 - 記憶體快取以 collection 為外層、`moduleKey` 為內層;`saveDataScopeRule` 儲存時作廢整個 collection。
@@ -181,7 +181,9 @@ input SaveDataScopeRuleInput {
 | `DATE` | `between` / `before` / `after` | `{ kind: "static", values: [ISO 日期] }`(`between` 剛好兩個,其餘一個);**無動態值**         |
 | `ENUM` | `in` / `not-in`                | `{ kind: "static", values: [seed 宣告的選項 value] }`;**無動態值**                         |
 
-`value.values` 一律是**字串陣列**(id、ISO 日期、enum value 都以字串送),型別轉換在 api 內完成。
+`value.values` 一律是**字串陣列**(id、日期、enum value 都以字串送),型別轉換在 api 內完成。
+
+**日期條件的比對時點**:admin 的 `DatePicker` 送 `YYYY-MM-DD`,api 以 `new Date(值)` 轉成**該日 UTC 00:00** 這個時點再與欄位(Mongo Date)比:`before` = `$lt`、`after` = `$gt`、`between` = `$gte` 起日 / `$lte` 迄日(兩端都是當日 UTC 00:00,迄日當天 00:00 之後的資料不含在內)。不依租戶時區換算。
 
 正本:`apps/api/src/data-scope/`(`data-scope.resolver.ts`、`data-scope-rule.ts`、`models/data-scope.model.ts`)、`apps/api/schema.gql`
 

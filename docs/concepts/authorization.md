@@ -13,7 +13,7 @@
 - 可進一頁 = 角色綁了那個模組(`role_module`)。
 - 頁裡能用什麼 = 角色綁的權限(`role_permission`)。
 - 側欄類型三種:`group`(可展開群組)、`link`(連結頁)、`hidden`(不在側欄)。
-- `hidden` 再分兩種:**隱藏頁**(有 route,key 以 `-page` 結尾,如編輯頁)與**權限容器**(無 route,如 `api` 樹、`system.org-manager.tenant-ops`)。
+- `hidden` 再分兩種:**隱藏頁**(有 route,key 以 `-page` 結尾,如編輯頁)與**權限容器**(無 route,如 `api` 樹、根組織專屬動作的 `system.org-manager.tenant-ops` / `system.field-manager.category-ops`)。
 - 停用父模組 = 整棵子樹停用。停用權限 = 全域 kill switch,連超級管理員也不給。
 
 正本:`apps/api/src/database/schemas/module.schema.ts`、`apps/api/src/database/schemas/permission.schema.ts`、`apps/db-migrator/seeds/modules/`
@@ -66,7 +66,7 @@ token → userId
 - 單一入口 `PermissionResolver.resolve`。`@RequirePermission` 守門與 `me.modules` 吃同一份結果,兩邊永遠一致。
 - 不快取。權限變更下一個請求就生效。
 - 當前組織不參與計算。
-- `me.modules` 每筆:`id`、`key`、`name`、`parentId`、`sidebarType`、`order`、`route`、`icon`、`permissions`。
+- `me.modules` 每筆:`id`、`key`、`name`、`parentId`、`sidebarType`、`order`、`route`、`icon`、`engine`(`FORM` = 表單模組,admin 依它掛表單引擎的預設組裝)、`permissions`。
 - `route` 是完整路徑(父段累加,如 `/demo/sub/sample-one`);權限容器為 `null`。
 - `permissions` 只放 moduleId 等於該模組的 key;持 `X.*` 時含 `X.*` 本身與展開後各筆。
 - 排序:`order` → `key`;前端以 `parentId` 組樹。

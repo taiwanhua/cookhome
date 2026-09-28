@@ -4,10 +4,10 @@
 
 ## 兩個 bucket
 
-| bucket                  | 讀取   | 用途                                     |
-| ----------------------- | ------ | ---------------------------------------- |
-| `cookhome-assets-<env>` | 私有   | 預設;登入後才看的檔(商標、附件)          |
-| `cookhome-public-<env>` | 公開讀 | 要 CDN、SEO、og:image 或給未登入者看的檔 |
+| bucket                  | 讀取   | 用途                                        |
+| ----------------------- | ------ | ------------------------------------------- |
+| `cookhome-assets-<env>` | 私有   | 預設;登入後才看的檔(商標、附件、表單上傳欄) |
+| `cookhome-public-<env>` | 公開讀 | 要 CDN、SEO、og:image 或給未登入者看的檔    |
 
 - 放哪一顆由**用途(`purpose`)**決定,不另給參數。
 - bucket 名稱由 `GCS_BUCKET_PRIVATE` / `GCS_BUCKET_PUBLIC` 設定。沒設私有 bucket → 改用記錄用 adapter(網址是假的,檔案不會真的上傳)。
@@ -24,9 +24,10 @@
 | `ORG_LOGO`        | 私有   | `org-logos` | png / jpg / webp                           | 2MB  | `system.org-manager.edit` 或 `…tenant-ops.provision` |
 | `DEMO_COVER`      | 公開   | `demo`      | png / jpg / webp                           | 2MB  | `demo.sub.sample-one.create` 或 `.edit`              |
 | `DEMO_ATTACHMENT` | 私有   | `demo`      | 圖片 + pdf / doc / docx / xls / xlsx / zip | 20MB | 同上                                                 |
+| `FORM_ATTACHMENT` | 私有   | `form`      | 同 `DEMO_ATTACHMENT`                       | 20MB | 任一表單模組(`engine = form`)的 `create` 或 `edit`   |
 
 - 三張表:`UPLOAD_VISIBILITIES`(bucket)、`UPLOAD_PATH_PREFIXES`(前綴)、`UPLOAD_RULES`(檔型與上限)。
-- 誰能要上傳票:`storage.resolver.ts` 的 `PURPOSE_PERMISSIONS`。
+- 誰能要上傳票:`storage.resolver.ts` 的 `PURPOSE_PERMISSIONS`;表單模組是執行期才有的,`FORM_ATTACHMENT` 改由 resolver 掃操作者的 `me.modules` 判斷。
 - 新模組要存檔:登記一個 purpose,四處各補一行。不碰基建。
 
 正本:`apps/api/src/storage/upload-rules.ts`、`apps/api/src/storage/storage.resolver.ts`
@@ -67,10 +68,11 @@
 
 - 私有檔的可取範圍 = 該筆資料的可查範圍。呼叫端先經 BaseRepository 查到那筆,再簽網址。
 - 例:`demoItemOneAttachmentUrl` 先 `mustFind`(含租戶保底與資料範圍規則),再 `readUrlOf`。
+- 表單上傳欄:`formSubmissionAttachmentUrl` 先確認讀得到那筆提交(與那個修訂)、那一欄是上傳欄、操作者過得了欄位級權限,才簽。
 - 商標只在客戶端問 `logoUrl` 時才簽。
 - 側欄商標:當前組織自己的;沒有就沿 `ancestors` 由近到遠找第一個有商標的上層。
 
-正本:`apps/api/src/storage/storage.service.ts`、`apps/api/src/demo-items-one/demo-items-one.service.ts`、`apps/api/src/auth/operator-context.service.ts`、`docs/testing/permission-scenarios.md` 劇本 11 / 15
+正本:`apps/api/src/storage/storage.service.ts`、`apps/api/src/demo-items-one/demo-items-one.service.ts`、`apps/api/src/forms/form-runtime/form-submissions.service.ts` 的 `attachmentUrl`、`apps/api/src/auth/operator-context.service.ts`、`docs/testing/permission-scenarios.md` 劇本 11 / 15
 
 ## 換檔與孤兒物件
 
@@ -90,15 +92,16 @@
 
 ## 交易信件
 
-| 項目     | 現況                                                         |
-| -------- | ------------------------------------------------------------ |
-| 供應商   | Resend(`RESEND_API_KEY`;沒設 → 記錄用 adapter,信印到 stdout) |
-| 寄件人   | `no-reply@cookhome.online`(SPF + DKIM)                       |
-| 介面     | `MailService.sendActivationEmail` / `sendPasswordResetEmail` |
-| 防誤寄   | `MAIL_ALLOWLIST`:有值時只寄名單內信箱;空 = 不限              |
-| 品牌文字 | 登記在 `docs/branding.md`                                    |
+| 項目     | 現況                                                                |
+| -------- | ------------------------------------------------------------------- |
+| 供應商   | Resend(`RESEND_API_KEY`;沒設 → 記錄用 adapter,信印到 stdout)        |
+| 寄件人   | `no-reply@cookhome.online`(SPF + DKIM)                              |
+| 介面     | `MailService`:啟用信、重設密碼信、審核流程的任務通知與結果通知      |
+| 防誤寄   | `MAIL_ALLOWLIST`:有值時只寄名單內信箱;空 = 不限。三個雲端環境都不設 |
+| 品牌文字 | 登記在 `docs/branding.md`                                           |
 
 - 換供應商只換 adapter,呼叫端不動。
+- 審核流程的通知信另受 `WORKFLOW_MAIL_ENABLED` 開關控制(`docs/modules/workflows.md`)。
 - 連結效期與單次使用見 `docs/concepts/accounts-and-tenants.md`「啟用與重設密碼連結」。
 
 正本:`apps/api/src/mail/mail.service.ts`、`apps/api/src/mail/mail.config.ts`、`apps/api/src/mail/mail.module.ts`、`apps/api/src/mail/mail-templates.ts`

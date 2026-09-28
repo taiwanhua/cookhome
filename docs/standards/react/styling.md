@@ -45,13 +45,17 @@ front/admin 只從 `@repo/ui` 拿元件;`@mui/*`、`@emotion/*` 由
 與 admin 其他勾選框一致(MUI 內建的那顆長得不一樣)。
 `as unknown as` 硬轉只是把錯誤推到執行期,而且下一版庫改型別就再撞一次。
 
-**MUI 圖示只經 `@repo/ui/icons` 的白名單登錄表**:`@mui/icons-material` 有上萬個圖示,
-`import { X } from "@mui/icons-material"` 或 app 直接相依都會把整包拖進 bundle。規則是
-`packages/ui/src/icons/module-icon-registry.ts` 的 `MODULE_ICONS`:每個圖示一行**單檔路徑**
-`import X from "@mui/icons-material/XOutlined"`(風格一律 Outlined),app 只用 `moduleIconOf(key)` 與
-`@repo/ui/module-icon-picker`。要多一個圖示就在表裡加一列(順帶在 Figma「Icons」頁加同名變體),
-不在 app 端 import —— `@mui/icons-material` 只列在 `packages/ui` 的 dependencies,apps 拿不到。
-29 個圖示在 admin bundle 的成本約 8 KB(未壓縮實測)。
+**MUI 圖示只在 `packages/ui` 以單檔路徑 import**:`@mui/icons-material` 有上萬個圖示,
+`import { X } from "@mui/icons-material"` 或 app 直接相依都會把整包拖進 bundle。`@mui/icons-material`
+只列在 `packages/ui` 的 dependencies,apps 拿不到;ui 內一律寫**單檔路徑**
+`import X from "@mui/icons-material/XOutlined"`(風格一律 Outlined)。app 拿圖示的出口有兩個:
+
+- **介面圖示**:`@repo/ui/icons` 的具名元件(`EditIcon`、`DeleteIcon`、`LightModeIcon`…),一個圖示一支檔,
+  出口在 `packages/ui/src/icons/index.ts`;
+- **模組圖示**:`packages/ui/src/icons/module-icon-registry.ts` 的 `MODULE_ICONS` 白名單登錄表(29 個,
+  在 admin bundle 約 8 KB 未壓縮),app 只用 `moduleIconOf(key)` 與 `@repo/ui/module-icon-picker`。
+
+要多一個圖示就在 ui 加一支(或在登錄表加一列),順帶在 Figma「Icons」頁加同名變體,不在 app 端 import。
 
 **從登錄表取出的圖示不要在 render 內宣告成變數**:`react-hooks/static-components`
 會把元件內的 `const Icon = moduleIconOf(key)` 判成「render 期間產生元件」而報錯 —— 登錄表這種
@@ -66,19 +70,26 @@ return createElement(moduleIconOf(module.icon), { fontSize: "small" });
 ```
 
 **目前已知缺的元件:沒有**(缺的期間用原生替代並在 PR 記一筆,不要在 app 裡直接 import MUI)。
-常被問到的幾個元件與入口(完整清單的正本是 `packages/ui/package.json` 的 `exports`):
+常被問到的元件與入口(完整清單的正本是 `packages/ui/package.json` 的 `exports`,每個子路徑對應
+`packages/ui/src/<子路徑>.ts` 出口檔與 `packages/ui/src/<元件>/`):
 
-| 元件                                                       | 入口                    | 程式正本                        |
-| ---------------------------------------------------------- | ----------------------- | ------------------------------- |
-| `Tooltip`                                                  | `@repo/ui/tooltip`      | `packages/ui/src/Tooltip/`      |
-| `Tabs`(頁內頁籤;殼的路由頁籤是另一個東西 `RouteTabs`)      | `@repo/ui/tabs`         | `packages/ui/src/Tabs/`         |
-| `Autocomplete`(輸入即搜尋、多選、分組、主 / 次文字)        | `@repo/ui/autocomplete` | `packages/ui/src/Autocomplete/` |
-| `SelectField`(表單下拉:浮動標籤 + helperText,見 REACT-11)  | `@repo/ui/select-field` | `packages/ui/src/SelectField/`  |
-| `EditIcon` / `DeleteIcon` / `ChevronDoubleLeft` / `…Right` | `@repo/ui/icons`        | `packages/ui/src/icons/`        |
+| 元件                                                      | 入口                                                 | 用在哪 / 規則                                 |
+| --------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
+| `Tooltip`                                                 | `@repo/ui/tooltip`                                   | 一切提示文字(REACT-10)                        |
+| `Tabs`                                                    | `@repo/ui/tabs`                                      | 頁內頁籤;殼的路由頁籤是另一個東西 `RouteTabs` |
+| `SelectField`                                             | `@repo/ui/select-field`                              | 表單下拉:浮動標籤 + helperText(REACT-11)      |
+| `Autocomplete`                                            | `@repo/ui/autocomplete`                              | 輸入即搜尋、多選、分組、主 / 次文字           |
+| `SegmentedControl`                                        | `@repo/ui/segmented-control`                         | 幾個互斥選項的分段按鈕(頭像選單的外觀、語言)  |
+| `Badge`                                                   | `@repo/ui/badge`                                     | 數字 / 小圓點提示(側欄待辦數)                 |
+| `DatePicker` / `DateTimePicker`                           | `@repo/ui/date-picker` / `@repo/ui/date-time-picker` | 日期、日期時間欄位                            |
+| `Table` / `DataTable`                                     | `@repo/ui/table` / `@repo/ui/data-table`             | 小表 / 大量資料列表(REACT-13、STYLE-11)       |
+| `Tag`                                                     | `@repo/ui/tag`                                       | 狀態標籤(tone)                                |
+| `Snackbar`                                                | `@repo/ui/snackbar`                                  | 只由 `SnackbarProvider` 渲染(DATA-06)         |
+| `useColorMode` / `AppThemeProvider`                       | `@repo/ui/app-theme-provider`                        | 外觀切換(STYLE-04)                            |
+| `useBreakpointDown`                                       | `@repo/ui/media-query`                               | JS 端需要知道斷點時(版面仍用 STYLE-03)        |
+| `EditIcon` / `DeleteIcon` / `ChevronDoubleLeftIcon` / `…` | `@repo/ui/icons`                                     | 介面圖示(見上方圖示規則)                      |
 
-`Tooltip` 的兩件事:admin 裡不再有原生 `title`(`OrgActionBar`、模組與權限頁的 self-lock 開關、
-AppBar 的「?」都用它);**disabled 元素要包 `span` 才收得到 hover 這件事由元件內部處理**,
-呼叫端不要再自己包一層。
+**disabled 元素要包 `span` 才收得到 hover 這件事由 `Tooltip` 內部處理**,呼叫端不要再自己包一層(REACT-10)。
 
 **「停用的選項」不能靠 Tooltip 說明原因**:MUI 對 `aria-disabled` 的
 Autocomplete 選項下 `pointer-events: none`,hover 根本不會觸發;把它改回 `auto` 又會讓停用的

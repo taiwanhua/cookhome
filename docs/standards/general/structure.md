@@ -32,7 +32,7 @@ apps/<app>/src/
 - **頁面一律資料夾**(路由 = 資料夾,`OverviewPage/OverviewPage.tsx`),即使目前只有一個檔;非頁面的單檔元件不開資料夾(GEN-01)。
 - **路由群組資料夾可放該群組共用的元件**:`pages/auth/AuthCard.tsx` 給四個登入線頁面用、之後 `pages/system/` 也可以放治理模組共用的東西;跨群組才上提到 `components/`。「同層頁面不互相 import」指的是頁面資料夾之間(`LoginPage/` 不 import `SetPasswordPage/` 的檔)。
 - **非 React 程式碼要碰 store**(如 `lib/auth/auth-fetch.ts` 要讀 access token、失效時 `clear()`):lib 不准 import `stores/`,改由 app 層把 store 實例注入(`createAuthSession(endpoint, useSessionStore)`),lib 只認 zustand 的 `StoreApi<T>` 介面(型別放 `lib/`)。先例 `apps/admin/src/lib/auth/auth-fetch.ts`。
-- **跨路由群組要共用就上提到 `components/`**,不要複製一份:`pages/auth/NewPasswordFields/` 的密碼欄位被 `pages/system/` 的新增使用者彈窗需要時,正確做法是搬到 `components/NewPasswordFields/`。現況:使用者管理的 `UserManagerPage/UserFormDialog/ActivationFields.tsx` 另有一份單欄位版的密碼規則提示,兩份待合併。
+- **跨路由群組要共用就上提到 `components/`**,不要複製一份:`pages/auth/NewPasswordFields/` 的密碼欄位若要給 `pages/system/` 的新增使用者彈窗用,正確做法是搬到 `components/NewPasswordFields/`。已知的重複:使用者管理的 `UserManagerPage/UserFormDialog/ActivationFields.tsx` 另有一份單欄位版的密碼規則提示,與 `NewPasswordFields` 待合併。
 - **`pages/` 為什麼取代 `features/`**:admin 的業務單位是模組(側欄每一項),「一個頁面 = 一個模組」已是產品定義(ADR-0004),不需要再一層沒定義的 feature。
 
 其他包的對應:`packages/ui` 沒有分層,`src/<Component>/<Component>.tsx` 平鋪(`theme/`、`icons/` 維持);`apps/front` 的 `app/` 是 Next.js 路由目錄(框架例外),其餘 `components / hooks / lib` 同上。front 沒有 `pages/` 層,**單一路由專用的元件放 `components/<RouteView>/`**(如 `components/HomeView/HomeView.tsx` + 它的子元件),路由檔 `app/**/page.tsx` 只剩組裝;兩個路由共用的才是一般的 `components/`。
@@ -102,7 +102,7 @@ re-export `matrix.ts`,若 `matrix.ts` 寫 `from "./index"` 就是 `import-x/no-c
 2. `src/<主題>.ts` 出口檔(對外 API 的那一行 `export`)
 3. `package.json` 的 `exports`;**被 api 消費的套件(目前只有 `@repo/domain`)再加一份同名的 `typesVersions`** — 它只為 api 那種 node10 / CommonJS 解析服務。`@repo/ui` **免除**(只被 admin / front 以 bundler 解析消費,`package.json` 裡本來就沒有 `typesVersions`,不要為了對稱補上)
 4. `package.json` 的 `dependencies`(包了新的外部庫時)+ 用到新版外部庫時先 `npm view <pkg> version` 查最新
-5. 登記 `docs/architecture.md` 的 packages 表:**`@repo/domain` 那列逐一列出子路徑,新增時要補上**;`@repo/ui` 那列**不列舉**子路徑(三十餘個,正本是 `package.json` 的 `exports`),只維持用途概述
+5. 登記 `docs/architecture.md` 的 packages 表:**`@repo/domain` 那列逐一列出子路徑,新增時要補上**;`@repo/ui` 那列**不列舉**子路徑(四十餘個,正本是 `package.json` 的 `exports`),只維持用途概述
 
 漏第 3 點的症狀是「本地 import 得到、`check-types` 在別的包紅」;漏第 5 點的症狀是 architecture.md 的子路徑列悄悄過期。
 
@@ -112,7 +112,7 @@ app 與 package 不同:它不出 `dist` 給別人 import,但**會被 turbo 排�
 
 1. `package.json`:`"name": "@repo/<name>"`、`"private": true`;scripts 至少 `lint`、`check-types`,有測試再加 `test`。**不要**宣告 `files` / `exports`(沒人 import 它)
 2. `tsconfig.json` extends `@repo/typescript-config/` 底下對應的那一份
-3. **eslint 設定檔的副檔名先看自己 `package.json` 有沒有 `"type": "module"`,不要照抄鄰居**:沒有(目前只有 `apps/api`)就**必須**寫 `eslint.config.mjs`,否則 node 會把它當 CommonJS 載入而炸;有就兩種都載得起來。現況是 `apps/admin` / `apps/front` 用 `.js`、`apps/api` / `apps/db-migrator` / `apps/e2e` 用 `.mjs`(後兩者其實有 `"type": "module"`,`.mjs` 只是沿用 api 的寫法)。**這個不一致是歷史的,不是 bug**,不要為了對齊去改既有的檔;新 app 挑一種、與性質最近的那個 app 一致即可(正本:各 app 的 `package.json` 與 `eslint.config.*`)
+3. **eslint 設定檔的副檔名先看自己 `package.json` 有沒有 `"type": "module"`,不要照抄鄰居**:沒有(目前只有 `apps/api`)就**必須**寫 `eslint.config.mjs`,否則 node 會把它當 CommonJS 載入而炸;有就兩種都載得起來。現況是 `apps/admin` / `apps/front` / `apps/storybook` 用 `.js`、`apps/api` / `apps/db-migrator` / `apps/e2e` 用 `.mjs`(db-migrator 與 e2e 其實有 `"type": "module"`,`.mjs` 只是沿用 api 的寫法)。這個不一致不是 bug,不要為了對齊去改既有的檔;新 app 挑一種、與性質最近的那個 app 一致即可(正本:各 app 的 `package.json` 與 `eslint.config.*`)
 4. `turbo.json`(`extends: ["//"]`)宣告自己的 `build` 輸出;**build 時烘進產物的環境變數一定要登記進 `env`**,見下一條
 5. 登記:`docs/architecture.md`、`docs/env-registry.md`(新變數)、CI 的 job 清單(如果它要進 `ci.yml`)
 

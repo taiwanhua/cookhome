@@ -51,12 +51,12 @@
 
 ## jest / turbo 快取
 
-- **`turbo run test` 回 `cache hit, replaying logs`,取到的 `origin/main` 測試數是別人跑的舊結果** → turbo 快取跨 worktree 共用;取基準要進 package 目錄直接跑 jest(`docs/standards/testing/testing.md` TEST-08「測試數的基準」)。
+- **`turbo run test` 回 `cache hit, replaying logs`,取到的 `origin/main` 測試數是別人先前跑的結果** → turbo 快取跨 worktree 共用;取基準要進 package 目錄直接跑 jest(`docs/standards/testing/testing.md` TEST-08「測試數的基準」)。
 - **本機 turbo 的 lint / check-types 綠、CI 卻被 type-aware warning 擋下** → 也是快取命中;交件前進 package 目錄跑 `pnpm run lint` 與 `pnpm run check-types`。
 - **改了根 `package.json` 的 script(`format` 這類)但 `turbo run …` 仍 `cache hit`** → turbo 的 global hash 不含根 scripts;直接跑那個 script 本人(`pnpm run format:check`)。
-- **`pnpm exec jest` 直接炸** → admin / ui 的 jest 要 `--experimental-vm-modules`,一律走 `pnpm run test`(package 目錄內 `pnpm run test -- <路徑片段>`)。
+- **`pnpm exec jest` 直接炸** → admin / ui 的 jest 要 `--experimental-vm-modules`:進 package 目錄 `pnpm run test <路徑片段>`(不加 `--`),要帶旗標就照 toolbox「pnpm / turbo」的 `pnpm --filter <pkg> exec node --experimental-vm-modules …` 寫法。
 - **下 `--testPathPattern` 旗標沒作用** → jest 30 是複數 `--testPathPatterns`,`apps/api` 也一樣。
-- **`apps/api` 下 `pnpm run test -- --testPathPatterns x` 跑了整包、十幾分鐘沒輸出像卡住** → `--` 被原樣傳給 jest,過濾失效;api 只跑一支改用 `pnpm exec jest --testPathPatterns x`(api 的 jest 不需要 `--experimental-vm-modules`)。
+- **`apps/api` 下 `pnpm run test -- --testPathPatterns x` 跑了整包、十幾分鐘沒輸出像卡住** → `--` 被原樣傳給 jest,過濾失效;api 只跑一支改用 `pnpm --filter @repo/api exec jest --testPathPatterns x`(api 的 jest 不需要 `--experimental-vm-modules`)。
 - **PostToolUse 的 ESLint 在「先加 import、下一次編輯才用到」的中間態報紅** → 把 import 與用到它的程式合成一次 Edit,或接受那一次紅、下一次編輯完自然轉綠;不要關 hook 或改 lint 設定。
 
 正本:`turbo.json`、`apps/admin/package.json`、`docs/standards/testing/testing.md`(TEST-08)
@@ -74,19 +74,20 @@
 - **force-push 之後 `mergeable` 回 `UNKNOWN`** → 等幾秒重查,不代表有衝突。
 - **剛開 PR 一個 check 都沒有** → Actions 可能在排隊,沒有 check 不等於失敗。
 - **`gh pr checks --required` 永遠非零退出、輪詢轉到逾時** → 免費方案沒有 required checks,不要加 `--required`;輪詢寫成單行 `until gh pr checks <n>; do sleep 30; done`。
-- **rebase 到 `origin/main` 解不掉衝突,衝突對象是「已合 `dev`、還沒 release」的 feat** → 疊分支:從那張 feat 分支切(已開工就把本票 commit `cherry-pick` 過去),PR 仍目標 `dev`、內文寫明疊在哪張之上,前票先合;不要 rebase 到 `dev`、不要把 `dev` merge 進來。
-- **rebase 後仍 `CONFLICTING`,但本地 `git merge-tree --write-tree origin/dev HEAD` 乾淨** → 交叉 merge base,實作者解不了;回報主流程 reset 該 base,base 更新後 `gh pr close <n>` → `gh pr reopen <n>` 才會重跑 CI。不要自己改 `dev` / `staging`。
-- **PR 卡移到 In Review 了,票卡卻還在 In Progress** → PR 卡與票卡是兩張卡,自動化只移 PR 卡;票卡照 issue-tracker 的指令手動移。
+- **rebase 到 `origin/main` 解不掉衝突,衝突對象是「已合 `dev`、還沒 release」的 feat** → 改成疊票:本票接到那張 feat 分支的尾端(已開工就用 `git rebase --onto <那張的分支> origin/main` 把本票 commit 搬過去),PR 仍目標 `dev`、內文寫明疊在哪張之上,前票先合。不從 `dev` 切、不 rebase 到 `dev`、不把 `dev` / `main` merge 進來(規則正本 deployment.md「分支模型」)。
+- **疊票鏈缺一個已單獨 release 的共通修正(CI、測試工具),CI 在鏈上紅** → 把那個 commit `cherry-pick` 到鏈的底部分支,其上的票 rebase 跟上;不 merge `dev` / `main`。
+- **rebase 後仍 `CONFLICTING`,但本地 `git merge-tree --write-tree origin/dev HEAD` 乾淨** → 交叉 merge base,實作者解不了;回報主流程 reset 該 base,base 更新後 `gh pr close <n>` → `gh pr reopen <n>` 才會重跑 CI(deployment.md「交叉 merge base」)。不要自己改 `dev` / `staging`。
+- **開了 PR,票卡卻還在 In Progress** → 自動化靠 PR 內文的 `Closes #<n>` / `Refs #<n>` 找票:內文沒寫、PR 是 draft(轉 ready 時才移)、或 PR 不是目標 `dev` 時都不會移;補上內文或照 issue-tracker「看板」的指令手動移。
 - **PR 合進 `dev` 後票沒有自動關** → `Closes #<n>` 只在合進預設分支 `main` 時生效;Released 時才關票。
 - **新開的「只手動觸發」workflow `gh workflow run` 叫不動** → `workflow_dispatch` 要求檔案已在 `main`;暫加 `push: branches: [<你的分支>]` 驗一次、綠了移除再開 PR(issue-tracker「新增一個只手動觸發的 workflow」)。
 
-正本:`.github/workflows/project-status.yml`、`.github/workflows/ci.yml`、`docs/deployment.md`(二、Release 步驟第 4、6 點)
+正本:`.github/workflows/project-status.yml`、`.github/workflows/ci.yml`、`docs/deployment.md`(二、「分支模型」「交叉 merge base」)
 
 ## 部署與產物
 
 - **部署成功,但 help.md / 字典這類跟著 build 烘進產物的檔案不在 bundle 裡** → 部署後開該環境 admin,DevTools 抓 `assets/index-*.js` 搜一個一定會出現的字串;新增這類資產時同步補 `.dockerignore` 例外與 Dockerfile 的產物檢查。
 - **改了 `.dockerignore` / Dockerfile,部署卻整個 build 被跳過** → 這兩個檔不屬於任何 package,`turbo ls --affected` 看不到;部署加 `-f force=true`。
-- **換了 `VITE_*` / `NEXT_PUBLIC_*` 的值重 build,產物裡還是舊值** → 變數沒登記進該 package `turbo.json` 的 `tasks.build.env`,build 直接 cache hit(STRUCT-08)。
+- **換了 `VITE_*` / `NEXT_PUBLIC_*` 的值重 build,產物裡還是前一個值** → 變數沒登記進該 package `turbo.json` 的 `tasks.build.env`,build 直接 cache hit(STRUCT-08)。
 - **front 部署出現 `Deployment rate limited`** → Vercel 帳號層級的額度,等回復再推,不要改 workflow。
 
 正本:`docs/deployment.md`、`apps/admin/Dockerfile`、`apps/admin/scripts/check-help-bundle.mjs`、`.dockerignore`

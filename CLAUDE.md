@@ -34,7 +34,7 @@ Issues 追蹤在 `taiwanhua/cookhome` 的 GitHub Issues,透過 `gh` CLI 操作�
 
 單一 context:repo 根目錄的 `CONTEXT.md` + `docs/adr/`(由 `/domain-modeling` 惰性建立)。見 `docs/agents/domain.md`。
 
-- 文件入口 → `docs/README.md`(系統地圖、六個核心概念、閱讀路線、文件目錄)
+- 文件入口 → `docs/README.md`(系統地圖、七個核心概念、閱讀路線、文件目錄)
 - 底座現況(是什麼 / 怎麼運作)→ `docs/concepts/`(七份,順序見 `docs/agents/domain.md`「概念導讀」);決策理由 → `docs/adr/`
 - agent 的工具與環境須知 → `docs/agents/toolbox.md`
 - **新增**一個後台 CRUD 模組 → `docs/agents/module-scaffold.md`(檔案清單 + 步驟 + 每步的正本;藍本是示範模組 1 / 2)

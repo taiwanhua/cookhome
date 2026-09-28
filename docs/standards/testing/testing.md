@@ -43,11 +43,11 @@ Playwright 的用途收斂成一件事:把 `docs/testing/permission-scenarios.md
 
 ## TEST-06 測試檔與受測物同層
 
-新測試放受測檔旁邊 `xxx.test.ts(x)`(如 `counter-button/index.test.tsx`);既有的 `__tests__/` 目錄沿用不強制搬。
+新測試放受測檔旁邊 `xxx.test.ts(x)`(如 `packages/ui/src/CounterButton/CounterButton.test.tsx`);既有的 `__tests__/` 目錄沿用不強制搬。
 
 ## TEST-07 api 的整合測試:打真的 GraphQL 端點,對真 MongoDB
 
-api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 打 `/graphql`(本地自起 mongodb-memory-server;CI 用 service container),驗回應與資料庫最終狀態。固定做法(先例:`apps/api/src/auth/auth.test.ts`、`test-support/auth-app.ts`):
+api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 打 `/graphql`(本地自起 mongodb-memory-server;CI 用 service container),驗回應與資料庫最終狀態。固定做法(先例:`apps/api/src/auth/auth.test.ts`、`apps/api/src/auth/test-support/auth-app.ts`):
 
 - **夾具**:測試開始前以**子行程**跑 db-migrator 的 `seed` 指令種資料(root 帳號、模組樹、權限、種子角色);STRUCT-01 禁 app 互 import,所以不能 import seed 的程式碼。額外的測試角色 / 使用者用 RelationService 具名方法或直接寫測試資料庫建(測試檔不受裸查詢禁令約束)
 - **信件不真寄**:注入記錄用的 `MailService` adapter,測試從它讀出 token 走下一步;api 未設 `RESEND_API_KEY` 時本來就是這個模式
@@ -55,43 +55,48 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 - 例外:某個能力在 GraphQL 端點上看不到(如守門器產出的操作者上下文)才允許經 `app.get(Service)` 從 DI 取出來驗 — 這是第二個接縫,PR 要說明理由
 - 執行:ts-jest 只轉譯不做型別檢查(`isolatedModules`),型別交給 `check-types`;整張 Nest 依賴圖做型別檢查會讓第一次啟動超過 5 分鐘
 
-## TEST-09 ui 元件測試:React Testing Library,斷言行為不只是不炸
-
-`packages/ui` 的元件測試用 `@testing-library/react` + `user-event` + `jest-dom`(版本與 admin 同,守版本統一策略),`src/test/setup.ts` 載入 jest-dom 並 `afterEach(cleanup)`。**preset 是 `browser-esm` 但覆寫 `testEnvironment: "jsdom"`**(設定在 `packages/ui/jest.config.mjs`,理由註解寫在那裡)。
-
-**ESM-only 依賴進 `packages/ui` 的兩步**(react-markdown / remark-gfm 這類只出 ESM 的套件,CJS 模式一 `require` 就是 `Unexpected token 'export'`):
-
-1. preset 換成 `@repo/jest-presets/browser-esm`(ts-jest ESM 模式);
-2. **把 `testEnvironment` 覆寫回原生 `jsdom`** — `browser-esm` 為了 MSW 用的是 `jest-fixed-jsdom`,它把 `Blob` / `File` 換成 Node 的版本,`URL.createObjectURL` 那類 API 會炸(`UploadField` 一次紅四個測試)。admin 需要 MSW,所以 admin 不做這個覆寫;ui 沒有 MSW,兩邊因此設定不同。每個元件至少驗:渲染出設計稿的結構、主要互動(點擊 / 勾選 / 關閉)會回報、disabled 時不回報。舊的「`createRoot` 不炸」冒煙測試不算數,碰到就改寫。MUI 9 的兩個陷阱:`Switch` 的 input 是 `role="switch"` 不是 `checkbox`;disabled 的核取框是 `pointer-events: none`,要驗「點下去也沒事」用 `userEvent.setup({ pointerEventsCheck: 0 })`。`inputProps` 已不被 Checkbox / Radio / Switch 消化(會漏到 DOM),改 `slotProps={{ input: … }}`。
-
-**驗「某個狀態有沒有換樣式」不要用 `getComputedStyle`,直接讀 CSS 規則**:jsdom 的 `getComputedStyle` **不比對 specificity**,只照樣式表順序套最後一條相符的規則,而且對 `+` 兄弟選擇器支援不完整。`Switch` 的停用態軌道色正好寫在 `.Mui-disabled + .MuiSwitch-track`,用 `getComputedStyle` 一律讀回 MUI 自己那條 —— 元件有沒有補停用色完全驗不出來,測試會假綠。改用 `packages/ui/src/test/css-rules.ts` 讀 emotion 實際產生的規則:
-
-```ts
-const root = container.querySelector(".MuiSwitch-root")!;
-const rules = cssRulesMatching(emotionClassOf(root), "Mui-disabled", "track");
-expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
-```
-
-`emotionClassOf(element)` 取該元素的 `css-…` 類別(用來把範圍收斂到自家元件),`cssRulesMatching(...needles)` 取選擇器同時含這幾段字串的規則,`declaredValue(rules, prop)` 取最後一條宣告的值(沒有任何規則宣告時回 `null`,正好拿來斷言「這個狀態沒有自己的樣式」)。**單純的後代選擇器**(如 Tree 依深度的縮排)`getComputedStyle` 讀得到,照常用即可。
-
-**數值型樣式值的斷言要照 emotion 實際寫出的字串**:MUI / emotion 只對**非零**數值補 `px`,`minHeight: 0` 寫出來是 `min-height: 0`,不是 `"0px"`。`expect(declaredValue(rules, "min-height")).toBe("0px")` 會紅得莫名其妙 —— 斷 `"0"`。同理 `lineHeight`、`flex`、`zIndex` 這類無單位屬性也不要自行加單位。
-
 ## TEST-08 admin 的元件測試:MSW 攔網路層 + React Testing Library
 
 先例:`apps/admin/src/test/`(`setup.ts` MSW 生命週期、`msw/server.ts`、`msw/auth-handlers.ts`、`render.tsx` 的 `renderApp()`),測試檔與元件同資料夾、同名 `.test.tsx`(GEN-01)。
 
-- preset 用 `@repo/jest-presets/browser-esm`(jsdom + Node 的 fetch / Request / Response / BroadcastChannel 全域給 MSW;ts-jest ESM 模式 — react-router 8、use-intl 4 只出 ESM);`packages/ui` 用同一個 preset 但覆寫 `testEnvironment`(TEST-09)
-- **httpOnly cookie 在 jsdom 看不到**,用 `authWorld({ hasRefreshCookie })` 這類旗標模擬「瀏覽器有沒有帶 cookie」並計數請求;MSW `server.use()` 的 handler **先列的先贏**
-- 渲染一律用 `renderApp()`(帶 Intl / Theme / QueryClient / Session / Router 的完整 providers),不裸 render 元件
-- 逾時有兩層:preset 的 `testTimeout` 15 秒(單一測試)之外,testing-library 的 `findBy*` / `waitFor` 預設只等 1 秒;`src/test/setup.ts` 已 `configure({ asyncUtilTimeout: 5000 })`,串三段查詢的頁面在 CI runner 上才不會偶發紅
-- jsdom 陷阱:`URL.createObjectURL` 在 `jest-fixed-jsdom` 會炸(補回來的是 Node 的 `URL`,只收 Node 的 `Blob`),測到上傳預覽的頁面要在測試檔 stub
-- **MUI 樹:點內容區只「選取」,展開 / 收合要點最前面的箭頭**(`@repo/ui/tree` 設了 `expansionTrigger="iconContainer"`):選取用 `userEvent.click(螢幕上那個節點的文字)`,展開用 `.MuiTreeItem-iconContainer`(`element.closest(".MuiTreeItem-content")?.querySelector(".MuiTreeItem-iconContainer")`)。先例 `packages/ui/src/Tree/Tree.test.tsx` 與兩份 `*-test-support.ts` 的 `clickNode` / `expandNode`(`OrgManagerPage`、`ModuleManagerPage`)。**連點父子兩層不會互相干擾** —— 點父不會把它收起來,同一個 `it` 可以連點父子兩層
-- **`pointer-events: none` 的 disabled 勾選框用 `fireEvent`,不要 `userEvent.click`**:MUI 對 disabled 的 Checkbox / Radio 設 `pointer-events: none`,`userEvent.click` 會**擲錯**(「unable to click element as it has or inherits pointer-events set to none」),看起來像元件壞了。要驗「點下去也沒事」時改 `fireEvent.click(box)`(先例 `packages/ui/src/Tree/Tree.test.tsx`),或依 TEST-09 的寫法用 `userEvent.setup({ pointerEventsCheck: 0 })`
-- **MSW 夾具的形狀以 api 測試的斷言為準**(`apps/api/src/**/*.test.ts` 裡有現成斷言可對照):`tenantTree` 夾具曾把樹根的 `parentId` 寫成有值,而 api 對樹根一律回 `null`,讓前端拿 `parentId` 判視角的 bug 在測試裡是對的
-- 頁面測試怎麼分檔:一頁一個 `<Page>.test.tsx` 放主流程;超過 `max-lines` 400 就依情境拆成 `<Page>Scope.test.tsx`、`<Page>Dialogs.test.tsx`…,共用的 world / 夾具 / helper 抽成同資料夾的 `<page>-test-support.ts`(kebab,非元件)
-- 跑法:**`pnpm exec turbo run test --filter=@repo/admin`**(turbo 會先 build `ui` / `graphql` / `domain`)。`pnpm --filter @repo/admin test` 不經 turbo、**不會 build 依賴**,新 checkout 或依賴改過就會炸型別
-- 逾時:`browser-esm` preset 已放寬 `testTimeout` 到 15 秒(CI runner 慢,jsdom + MSW + ts-jest ESM 的第一個測試要付暖機成本);個別測試不再自行加 timeout
-- **只跑一個測試檔**:**進那個 package 的目錄,跑 `pnpm run test -- <路徑片段>`**,三個包都一樣:
+### 環境與逾時
+
+- preset 用 `@repo/jest-presets/browser-esm`(jsdom + Node 的 fetch / Request / Response / BroadcastChannel 全域給 MSW;ts-jest ESM 模式 —— react-router、use-intl 只出 ESM);`packages/ui` 用同一個 preset 但覆寫 `testEnvironment`(TEST-09)。
+- 渲染一律用 `renderApp()`(帶 Intl / Theme / QueryClient / Session / Router 的完整 providers),不裸 render 元件。
+- **逾時有兩層**:preset 的 `testTimeout` 15 秒(單一測試;CI runner 慢,jsdom + MSW + ts-jest ESM 的第一個測試要付暖機成本),以及 testing-library 的 `findBy*` / `waitFor`(`src/test/setup.ts` 已 `configure({ asyncUtilTimeout: 5000 })`)。個別測試不自行加 timeout。
+- **httpOnly cookie 在 jsdom 看不到**,用 `authWorld({ hasRefreshCookie })` 這類旗標模擬「瀏覽器有沒有帶 cookie」並計數請求;MSW `server.use()` 的 handler **先列的先贏**。
+- **Vite 專屬語法進不了 jest**:`import.meta.glob`(`?raw` 載入 md、圖片清單…)是 Vite 的編譯期轉換,jest 直接載入會 `(intermediate value).glob is not a function`。做法:**把 glob 包成一支只有 glob 的模組**(`lib/help-registry.ts`),測試用 `moduleNameMapper` 整支換成 `src/test/` 的假實作(介面相同,另給 `setXxx` / `resetXxx`,`setup.ts` 每個測試後歸零);判斷邏輯不要放進被換掉的那一層,抽成純函式另外測。**不要**逐檔 `jest.unstable_mockModule` —— 殼的所有測試都會經過它,等於每個測試檔都要動。
+- **jest 的 `moduleNameMapper` 也是先列的先贏**:`^@/lib/help-registry$` 這種精確鍵要排在通則 `^@/(.*)$` **前面**,否則被通則吃掉(`apps/admin/jest.config.mjs`)。
+- **zustand store 是模組層單例**,`src/test/setup.ts` 要在每個測試後歸零。
+
+### 依元件而定的陷阱
+
+- **`React.lazy` + 動態 `import()` 不必 mock**:ESM 模式下 `import("@repo/ui/markdown")` 這種子路徑匯出在 jest 裡解得開,照常渲染。要改的只有斷言時機 —— 懶載入的內容多一個 `Suspense` tick,**該邊界底下的第一筆斷言一律用 `findBy*` / `waitFor`**(`await within(dialog).findByRole("heading", …)`),沿用 `getBy*` 會抓到 fallback 而紅;同一邊界底下後續的斷言不必再等。**不要斷言 fallback 本身**(chunk 常在同一個 tick 內就解析完,會偶發)。**lazy 元件的頁面測試要先 preload**:在 `beforeAll` 裡 `await import(<lazy 載入的那支模組>)`,第一次載入依賴鏈的成本就不會算進 `findBy*` 的 5 秒與單一測試的 15 秒 —— 全套並行時 CPU 被搶,現載整條依賴鏈會逾時。先例 `app/AdminShell/AppBar/HelpButton.test.tsx`。
+- **用到 `DataTable`(`@repo/ui/data-table`)的頁面測試要在檔案頂層呼叫 `setupFakeViewport()`**(`apps/admin/src/test/viewport.ts`):jsdom 不算版面,offsetHeight / offsetWidth 都是 0,虛擬捲動會以為看得到 0 列而一列都不畫 —— 看起來像 MSW 沒回資料。先例 `components/form-engine/FormModulePages/FormListPage.test.tsx`、`app/ModulePages.test.tsx`。
+- **用到 React Flow(`@xyflow/react`,流程設計器的流程圖)的頁面測試要在檔案頂層呼叫 `setupReactFlowEnvironment()`**(`apps/admin/src/test/react-flow.ts`):jsdom 沒有 `ResizeObserver` 與 `DOMMatrixReadOnly`,流程圖一掛就丟錯;替身只要「存在」—— 節點的 `width` / `height` 由設計器明給,不必真的量。兩個配套:①**點節點用 `fireEvent.click`,不要 `userEvent.click`**:節點掛了 d3-drag,userEvent 的指標事件會讓 d3 讀 `event.view.document` 而在 jsdom 炸掉(先例 `WorkflowsPage/workflows-page-test-support.ts` 的 `clickNode`);②**拖拉在 jsdom 模擬不了**,畫面測試走「上移 / 下移 / 移到分支」按鈕,放開時的放置規則另寫純函式測試(`lib/workflow/flow-drop.test.ts`)。鍵盤選取(聚焦節點按 Enter)可以用 `fireEvent.keyDown` 驗。
+- **MUI 樹:點內容區只「選取」,展開 / 收合要點最前面的箭頭**(`@repo/ui/tree` 設了 `expansionTrigger="iconContainer"`):選取用 `userEvent.click(螢幕上那個節點的文字)`,展開用 `.MuiTreeItem-iconContainer`(`element.closest(".MuiTreeItem-content")?.querySelector(".MuiTreeItem-iconContainer")`)。先例 `packages/ui/src/Tree/Tree.test.tsx` 與 `OrgManagerPage` / `ModuleManagerPage` 的 `*-test-support.ts` 的 `clickNode`。點父不會把它收起來,同一個 `it` 可以連點父子兩層。
+- **`pointer-events: none` 的 disabled 勾選框用 `fireEvent`,不要 `userEvent.click`**:MUI 對 disabled 的 Checkbox / Radio 設 `pointer-events: none`,`userEvent.click` 會**擲錯**(「unable to click element as it has or inherits pointer-events set to none」),看起來像元件壞了。要驗「點下去也沒事」時改 `fireEvent.click(box)`(先例 `packages/ui/src/Tree/Tree.test.tsx`),或依 TEST-09 的寫法用 `userEvent.setup({ pointerEventsCheck: 0 })`。
+- **Autocomplete 的兩行選項一律用 `apps/admin/src/test/autocomplete.ts`**:`getByRole("option", { name })` 對兩行選項(主文字 + 次文字)的完整比對對不上 —— 無障礙名稱是兩行串起來的那一長串。共用 helper 有兩支:`openAutocomplete(actor, name)`(以無障礙名稱找 combobox、點開、回傳選項)與 `autocompleteOption(text)`(在展開的選單裡以**主文字**先比開頭、再比包含;找不到時把現有選項一起印出來)。新的呼叫端**直接用這兩支**,不要再各寫一份。
+- **jsdom 的 `URL.createObjectURL` 在 `jest-fixed-jsdom` 會炸**(補回來的是 Node 的 `URL`,只收 Node 的 `Blob`),測到上傳預覽的頁面要在測試檔 stub(先例 `org-manager-test-support.ts` 的 `stubObjectUrl`)。
+- **zustand `persist` 的 `setState` 會回寫 storage**:測「重新整理後狀態維持」時,直覺寫法 `useXStore.setState({ ... 預設值 })` + `rehydrate()` 會先把 localStorage 也覆寫成預設值,再讀回預設值 —— 看起來像「狀態沒被記住」,其實是測試自己把存檔抹掉了。正確順序是:**先把 storage 的內容存起來 → 歸零 store → 把存檔放回 storage → 才 `rehydrate()`**。
+
+### MSW 夾具
+
+- **夾具的形狀以 api 測試的斷言為準**(`apps/api/src/**/*.test.ts` 裡有現成斷言可對照;TEST-12 在網路層的特例):例如 api 對樹根的 `parentId` 一律回 `null`,夾具寫成有值,前端拿 `parentId` 判視角的 bug 在測試裡就會是綠的。
+- **假伺服器若有「連動 / 狀態」語意就實作進 handler**,不要回固定資料:停用模組連動子樹、儲存後重查要拿到新值這類驗收條件,對著無狀態的假伺服器根本驗不到,還容易寫出「對著比 api 寬鬆的假伺服器才會過」的測試。先例 `test/msw/module-manager-handlers.ts`。
+- **`graphqlError(code, message)` 的參數順序是「碼在前、訊息在後」**:簽章 `graphqlError(code, message = code, extensions = {})`(`src/test/msw/auth-handlers.ts`),`message` 省略時等於 `code`,所以**大多數情況只傳第一個參數**(`graphqlError("FORBIDDEN")`),要附 `reason` / `violations` 這類 `extensions` 才傳第三個。與 api 那側的 `GraphQLError(message, { extensions: { code } })` 順序相反,寫反時 MSW 回的 `code` 是人話,前端分流不到。
+- **「閃一下」這種中間幀用 msw 的 `delay("infinite")` 擋住**:儲存成功後的重取一旦回來,畫面就是最終狀態,DATA-04 那種「先寫快取、避免閃一下舊值」的行為在測試裡**根本來不及被觀察到**。讓重取的那個 handler 永遠不回應(`await delay("infinite")`),中間那一幀就停在畫面上可以斷言;斷言完就結束該測試,不必收尾。要驗的是「寫入端有沒有把新值交給快取」,不是重取回來對不對。
+
+### 頁面測試怎麼分檔
+
+- 一頁一個 `<Page>.test.tsx` 放主流程;超過 `max-lines` 400 就依情境拆成 `<Page>Scope.test.tsx`、`<Page>Dialogs.test.tsx`…,共用的 world / 夾具 / helper 抽成同資料夾的 `<page>-test-support.ts`(kebab,非元件)。
+- **多段接力載入的頁面**(先查清單 → 選中第一筆 → 再查它的細節)在測試裡要等兩段以上:把「等到第 n 段畫面就緒」抽成 `<page>-test-support.ts` 的 async helper 共用,不要每個案子各寫一串 `findBy*`。
+- **設計器頁(表單 / 流程設計器)的測試一案只做一件事**(一個屬性分支、一次存草稿),只操作屬性面板的用小草稿(`forms-page-test-support.ts` 的 `smallDraft`)。一案串多個分支在全套並行時會超過 15 秒逾時,單獨跑卻是綠的。
+
+### 怎麼跑
+
+- **整包驗收**:`pnpm exec turbo run test --filter=@repo/admin`(turbo 會先 build `ui` / `graphql` / `domain`)。`pnpm --filter @repo/admin test` 不經 turbo、**不會 build 依賴**,新 checkout 或依賴改過就會炸型別。
+- **只跑一個測試檔**:進那個 package 的目錄,跑 `pnpm run test -- <路徑片段>`,三個包都一樣:
 
   ```
   cd apps/admin && pnpm run test -- UserManagerPage
@@ -99,40 +104,13 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
   cd apps/api && pnpm run test -- src/storage/storage.test.ts
   ```
 
-  三個坑:①**帶 `--filter` 的寫法行不通** —— `pnpm --filter @repo/admin test -- --testPathPatterns=X` 會把 `--` 一起傳進去,結果是 `No tests found`;②**不要 `pnpm exec jest`** —— 少了各包 `test` script 裡的 `--experimental-vm-modules`,ESM 測試直接炸,看起來像測試壞了;③真的要下旗標時,**jest 30 的參數是 `--testPathPatterns`(複數)**,`--testPathPattern`(單數)是 29 以前的名字,打錯會被當成未知旗標。整包驗收仍用上面的 turbo 指令
+  三個坑:①**帶 `--filter` 的寫法行不通** —— `pnpm --filter @repo/admin test -- --testPathPatterns=X` 會把 `--` 一起傳進去,結果是 `No tests found`;②**不要 `pnpm exec jest`** —— 少了各包 `test` script 裡的 `--experimental-vm-modules`,ESM 測試直接炸,看起來像測試壞了;③真的要下旗標時,**jest 30 的參數是 `--testPathPatterns`(複數)**,`--testPathPattern`(單數)是 29 以前的名字,打錯會被當成未知旗標。
 
-- **Vite 專屬語法進不了 jest**:`import.meta.glob`(`?raw` 載入 md、圖片清單…)是 Vite 的編譯期轉換,jest 直接載入會 `(intermediate value).glob is not a function`。做法:**把 glob 包成一支只有 glob 的模組**(`lib/help-registry.ts`),測試用 `moduleNameMapper` 整支換成 `src/test/` 的假實作(介面相同,另給 `setXxx` / `resetXxx`,`setup.ts` 每個測試後歸零);判斷邏輯不要放進被換掉的那一層,抽成純函式另外測。**不要**逐檔 `jest.unstable_mockModule` — 殼的所有測試都會經過它,等於每個測試檔都要動
-- **jest 的 `moduleNameMapper` 也是先列的先贏**:`^@/lib/help-registry$` 這種精確鍵要排在通則 `^@/(.*)$` **前面**,否則被通則吃掉
-- **`React.lazy` + 動態 `import()` 不必 mock**:`browser-esm` preset 是 ESM 模式(`--experimental-vm-modules`),`import("@repo/ui/markdown")` 這種子路徑匯出在 jest 裡解得開,照常渲染。要改的只有斷言時機 —— 懶載入的內容多一個 `Suspense` tick,**該邊界底下的第一筆斷言一律用 `findBy*` / `waitFor`**(`await within(dialog).findByRole("heading", …)`),沿用 `getBy*` 會抓到 fallback 而紅;同一邊界底下後續的斷言不必再等。**不要斷言 fallback 本身**(chunk 常在同一個 tick 內就解析完,會偶發)。**lazy 元件的頁面測試要先 preload**:在 `beforeAll` 裡 `await import(<lazy 載入的那支模組>)`,第一次載入依賴鏈的成本就不會算進 `findBy*` 的 5 秒與單一測試的 15 秒 —— 全套並行時 CPU 被搶,現載整條依賴鏈會逾時(#470)。先例 `app/AdminShell/AppBar/HelpButton.test.tsx`
-- **MSW 的假伺服器若有「連動 / 狀態」語意就實作進 handler**,不要回固定資料:停用模組連動子樹、儲存後重查要拿到新值這類驗收條件,對著無狀態的假伺服器根本驗不到,還容易寫出「對著比 api 寬鬆的假伺服器才會過」的測試。先例 `test/msw/module-manager-handlers.ts`
-- **多段接力載入的頁面**(先查清單 → 選中第一筆 → 再查它的細節)在測試裡要等兩段以上:把「等到第 n 段畫面就緒」抽成同資料夾 `<page>-test-support.ts` 的 async helper 共用,不要每個案子各寫一串 `findBy*`
-- **測試數的基準用「在 `origin/main` 跑一次」取得,不要沿用別的 PR 寫死的數字**:同一段多票並行時,別人先合的票會墊高基準,照抄舊數字會讓 PR 的「+N」對不上。**取基準時不要用 turbo**:快取跨 worktree 共用,同一份輸入別人跑過就 `cache hit, replaying logs`,結果可能根本沒印出來或印的是別人的。進 package 目錄直接跑 jest:
-
-  ```
-  cd packages/ui && pnpm run test
-  cd apps/admin && pnpm run test
-  ```
-
-  **取基準的那幾分鐘不要動工作樹**:jest 讀的是磁碟上當下的檔案,中途改檔會讓「基準」變成「基準 + 改到一半的自己」,而且看不出來。先把自己的改動做成一個 WIP commit 或切回乾淨的 `origin/main` 再跑。
-
-  `pnpm run test`(= 該包 `package.json` 的 `node --experimental-vm-modules node_modules/jest/bin/jest.js`)不經 turbo、快取不會誤命中。**不要用 `pnpm exec jest`**:少了 `--experimental-vm-modules`,ESM 測試直接炸,看起來像測試壞了。前提是依賴已 build 過(`pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`);驗收自己的改動仍用 turbo(輸入變了不會誤命中)
-
-  **這條通則化:交件前的 `lint` 與 `check-types` 也要進 package 目錄直接跑**:turbo 的快取跨 worktree 共用,「同一份輸入別人跑過就 replay」不只影響取基準 —— **在別的 worktree 已經跑綠過的輸入,在你這裡會直接 `cache hit` 而根本沒有執行**,type-aware 的 lint 警告因此漏到 CI 才被擋下。交件前這樣跑一次:
-
-  ```
-  cd apps/admin && pnpm run lint && pnpm run check-types
-  cd packages/ui && pnpm run lint && pnpm run check-types
-  ```
-
-  整包驗收仍用 turbo(`pnpm exec turbo run lint check-types`);「cache hit 不代表你的改動被驗過」這句對三個指令都成立(同 `docs/agents/pitfalls.md` 的 turbo 快取條目:root `package.json` 的 `scripts` 不在 global hash 內)
-
-- **zustand `persist` 的 `setState` 會回寫 storage**:測「重新整理後狀態維持」時,直覺寫法 `useXStore.setState({ ... 預設值 })` + `rehydrate()` 會先把 localStorage 也覆寫成預設值,再讀回預設值 —— 看起來像「狀態沒被記住」,其實是測試自己把存檔抹掉了。正確順序是:**先把 storage 的內容存起來 → 歸零 store → 把存檔放回 storage → 才 `rehydrate()`**。另外 store 是模組層單例,`src/test/setup.ts` 要在每個測試後歸零(同語言 store 的理由)
-- **`graphqlError(code, message)` 的參數順序是「碼在前、訊息在後」**(寫反時 MSW 回的 `code` 是人話,前端分流不到、測試紅得莫名其妙):簽章 `graphqlError(code, message = code, extensions = {})`(`src/test/msw/auth-handlers.ts`),`message` 省略時等於 `code`,所以**大多數情況只傳第一個參數**(`graphqlError("FORBIDDEN")`)。要附 `reason` / `violations` 這類 `extensions` 才傳第三個。與 api 那側的 `GraphQLError(message, { extensions: { code } })` 順序相反,這是最容易寫反的地方
-- **頁面測試用到 `DataTable`(`@repo/ui/data-table`)要在檔案頂層呼叫 `setupFakeViewport()`**(`apps/admin/src/test/viewport.ts`):jsdom 不算版面,offsetHeight / offsetWidth 都是 0,虛擬捲動會以為看得到 0 列而一列都不畫 —— 看起來像 MSW 沒回資料。先例 `components/form-engine/FormModulePages/FormListPage.test.tsx`、`app/ModulePages.test.tsx`
-- **頁面測試用到 React Flow(`@xyflow/react`,流程設計器的流程圖)要在檔案頂層呼叫 `setupReactFlowEnvironment()`**(`apps/admin/src/test/react-flow.ts`):jsdom 沒有 `ResizeObserver` 與 `DOMMatrixReadOnly`,流程圖一掛就丟錯;替身只要「存在」—— 節點的 `width` / `height` 由設計器明給,不必真的量。兩個配套:①**點節點用 `fireEvent.click`,不要 `userEvent.click`**:節點掛了 d3-drag,userEvent 的指標事件會讓 d3 讀 `event.view.document` 而在 jsdom 炸掉(先例 `WorkflowsPage/workflows-page-test-support.ts` 的 `clickNode`);②**拖拉在 jsdom 模擬不了**,畫面測試走「上移 / 下移 / 移到分支」按鈕,放開時的放置規則另寫純函式測試(`lib/workflow/flow-drop.test.ts`)。鍵盤選取(聚焦節點按 Enter)可以用 `fireEvent.keyDown` 驗
-- **Autocomplete 的兩行選項一律用 `apps/admin/src/test/autocomplete.ts`**:`getByRole("option", { name })` 對兩行選項(主文字 + 次文字)的完整比對對不上 —— 無障礙名稱是兩行串起來的那一長串。共用 helper 有兩支:`openAutocomplete(actor, name)`(以無障礙名稱找 combobox、點開、回傳選項)與 `autocompleteOption(text)`(在展開的選單裡以**主文字**先比開頭、再比包含;找不到時把現有選項一起印出來)。新的呼叫端**直接用這兩支**,不要再各寫一份
-- **「閃一下」這種中間幀要用 msw 的 `delay("infinite")` 擋住**:儲存成功後的重取一旦回來,畫面就是最終狀態,`DATA-04` 那種「先寫快取、避免閃一下舊值」的行為在測試裡**根本來不及被觀察到**。做法是讓重取的那個 handler 永遠不回應(`await delay("infinite")`),中間那一幀就停在畫面上可以斷言;斷言完就結束該測試,不必收尾。要驗的是「寫入端有沒有把新值交給快取」,不是重取回來對不對
-- 輸出雜訊:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`
+- **turbo 快取跨 worktree 共用**:同一份輸入在別的 worktree 跑過,在你這裡會直接 `cache hit, replaying logs`,根本沒有執行(root `package.json` 的 `scripts` 不在 global hash 內,見 `docs/agents/pitfalls.md`)。所以以下兩件事**進 package 目錄直接跑**,不經 turbo:
+  - **取測試數基準**:在 `origin/main` 上跑 `pnpm run test`(`cd packages/ui`、`cd apps/admin` 各一次),不要沿用別的 PR 寫死的數字 —— 多票並行時別人先合的票會墊高基準。取基準的那幾分鐘**不要動工作樹**:jest 讀的是磁碟上當下的檔案,中途改檔會讓基準混進改到一半的自己。先把改動做成 WIP commit 或切回乾淨的 `origin/main` 再跑;依賴要先 build 過(`pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`)。
+  - **交件前的 `lint` 與 `check-types`**:`cd apps/admin && pnpm run lint && pnpm run check-types`(`packages/ui` 同),否則 type-aware 的 lint 警告會漏到 CI 才被擋。整包驗收仍可用 turbo(`pnpm exec turbo run lint check-types`),但 cache hit 不代表你的改動被驗過。
+- **輸出雜訊**:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`。
+- CI 把 admin 的 jest 以 `--shard` 分兩台並行(`test-admin-1` / `test-admin-2`,`.github/workflows/ci.yml`)。
 
 ### mock 開發模式:用同一批夾具把 admin 跑在瀏覽器上
 
@@ -150,7 +128,7 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 - **看終端印出的 `Local:` 那一行為準**,不要憑記憶打網址;截圖前先在自己開的那個分頁上**確認畫面裡看得到自己這次的改動**(改了文案就找那句文案,改了版面就看那塊版面)。
 
 - 預設**自動登入 root**、落在總覽;側欄的組織 / 使用者 / 角色 / 模組與權限 / 欄位 / 資料範圍都有假資料
-- 網址參數:`?view=tenant` 切租戶管理員視角(少掉兩個 `isRootOnly` 模組、組織樹換成租戶那一棵)、`?auth=off` 停在登入頁(任何帳密都能登入)
+- 網址參數:`?view=tenant` 切租戶管理員視角(少掉「模組與權限」「資料範圍」兩個 `isRootOnly` 模組、組織樹換成租戶那一棵)、`?auth=off` 停在登入頁(任何帳密都能登入)
 - 深層網址與重新整理都可用(`vite.mock.config.ts` 把 HTML fallback 指到 `mock.html`)
 - **截圖**:瀏覽器開自己那個埠的網址 → 走到要驗的頁 → 截整個視窗(側欄 + 內容),PR 內文逐張寫明「哪一頁、什麼狀態」;彈窗類的改動要各截一張開啟前後
 - **會自動關掉的東西**(操作結果提示 Snackbar 那類,DATA-06)截不到時,在 console 把 `setTimeout` 暫時攔掉(`window.setTimeout = ((fn, ms) => ms > 1000 ? 0 : 原本的(fn, ms))`)再觸發一次,它就會停著等你截
@@ -163,6 +141,31 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 - **`msw/node` 在瀏覽器載不進去**:`src/test/msw/server.ts` 在模組層呼叫 `setupServer()`,mock 模式以 alias 換成 `src/mock/msw-node-stub.ts`(夾具只用到同檔的 `api`,`server` 僅出現在型別位置)。**不要為了 mock 模式去改 `src/test/msw/server.ts`** —— 那支是 jest 測試的正本
 
 正本:`apps/admin/package.json`(`dev:mock`)、`apps/admin/vite.mock.config.ts`、`apps/admin/src/mock/`
+
+## TEST-09 ui 元件測試:React Testing Library,斷言行為不只是不炸
+
+`packages/ui` 的元件測試用 `@testing-library/react` + `user-event` + `jest-dom`(版本與 admin 同,守版本統一策略),`src/test/setup.ts` 載入 jest-dom 並 `afterEach(cleanup)`。
+
+**jest 設定**(`packages/ui/jest.config.mjs`,理由註解寫在那裡):
+
+- **preset 是 `@repo/jest-presets/browser-esm`**(ts-jest ESM 模式):react-markdown / remark-gfm 這類只出 ESM 的套件,CJS 模式一 `require` 就是 `Unexpected token 'export'`。
+- **`testEnvironment` 覆寫回原生 `jsdom`**:`browser-esm` 為了 MSW 用的是 `jest-fixed-jsdom`,它把 `Blob` / `File` 換成 Node 的版本,`URL.createObjectURL` 那類 API 會炸(`UploadField` 的測試)。admin 需要 MSW,所以 admin 不做這個覆寫;ui 沒有 MSW,兩邊因此設定不同。
+
+**每個元件至少驗**:渲染出設計稿的結構、主要互動(點擊 / 勾選 / 關閉)會回報、disabled 時不回報。只驗「`createRoot` 不炸」的冒煙測試不算數,碰到就改寫。
+
+**MUI 9 的陷阱**:`Switch` 的 input 是 `role="switch"` 不是 `checkbox`;disabled 的核取框是 `pointer-events: none`,要驗「點下去也沒事」用 `userEvent.setup({ pointerEventsCheck: 0 })`;`inputProps` 已不被 Checkbox / Radio / Switch 消化(會漏到 DOM),改 `slotProps={{ input: … }}`。
+
+**驗「某個狀態有沒有換樣式」不要用 `getComputedStyle`,直接讀 CSS 規則**:jsdom 的 `getComputedStyle` **不比對 specificity**,只照樣式表順序套最後一條相符的規則,而且對 `+` 兄弟選擇器支援不完整。`Switch` 的停用態軌道色正好寫在 `.Mui-disabled + .MuiSwitch-track`,用 `getComputedStyle` 一律讀回 MUI 自己那條 —— 元件有沒有補停用色完全驗不出來,測試會假綠。改用 `packages/ui/src/test/css-rules.ts` 讀 emotion 實際產生的規則:
+
+```ts
+const root = container.querySelector(".MuiSwitch-root")!;
+const rules = cssRulesMatching(emotionClassOf(root), "Mui-disabled", "track");
+expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
+```
+
+`emotionClassOf(element)` 取該元素的 `css-…` 類別(用來把範圍收斂到自家元件),`cssRulesMatching(...needles)` 取選擇器同時含這幾段字串的規則,`declaredValue(rules, prop)` 取最後一條宣告的值(沒有任何規則宣告時回 `null`,正好拿來斷言「這個狀態沒有自己的樣式」)。**單純的後代選擇器**(如 Tree 依深度的縮排)`getComputedStyle` 讀得到,照常用即可。
+
+**數值型樣式值的斷言要照 emotion 實際寫出的字串**:MUI / emotion 只對**非零**數值補 `px`,`minHeight: 0` 寫出來是 `min-height: 0`,不是 `"0px"`。`expect(declaredValue(rules, "min-height")).toBe("0px")` 會紅得莫名其妙 —— 斷 `"0"`。同理 `lineHeight`、`flex`、`zIndex` 這類無單位屬性也不要自行加單位。
 
 ## TEST-10 時間相關的斷言:不可用呼叫「前」的 `Date.now()` 當上界
 
@@ -231,11 +234,11 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
     就是 https + 自簽憑證 + 公開網址指向真 GCS);改由 harness 用 app 自己的 `docker-compose.yml`,
     CI 與本機同一份檔。
 
-正本:`apps/e2e/src/fixtures/`、`apps/e2e/src/harness/`、`apps/e2e/README.md`
+  - **測試用的金鑰 / 憑證不入 repo,由 harness 每次現產**(`fakePrivateKey()`):放進 repo 的私鑰就算是假的,
+    也會被 secret scanning 當真的報。
+  - 假服務驗不到的行為(簽名網址過期)在 `permission-scenarios.md` 該劇本寫明「仍屬 dev 人工驗收」。
 
-- **測試用的金鑰 / 憑證不入 repo,由 harness 每次現產**(`fakePrivateKey()`):放進 repo 的私鑰就算是假的,
-  也會被 secret scanning 當真的報。
-- 假服務驗不到的行為(簽名網址過期)在 `permission-scenarios.md` 該劇本寫明「仍屬 dev 人工驗收」。
+正本:`apps/e2e/src/fixtures/`、`apps/e2e/src/harness/`、`apps/e2e/README.md`
 
 ## TEST-12 單元測試的夾具不得為了精簡而與正本資料的形狀分歧
 
@@ -247,6 +250,9 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 
 ## 已知偶發(CI 紅先對這裡)
 
-- `apps/api/src/auth/password/password.test.ts` 的 `setPassword` describe 四案偶爾整組逾時(重跑即過;疑與 CI runner 慢 + argon2 雜湊有關)。重跑一次仍紅才算真的紅。
-- `apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx` 的「直接設定初始密碼」偶發紅過一次(重跑即過)。**只出現過一次,先記在這裡當觀察名單** —— 再紅就不是偶發,要照 TEST-10 的判準查是不是斷言方向錯(等待時機、非同步接力)。
-- `apps/admin/src/pages/system/FormsPage/FormsPageVersionViewer.test.tsx` 原本一案走完「設計模式 + 預覽 + 關閉」,全套並行時超過 15 秒逾時兩次(本機一次、CI 一次;單獨跑綠),已拆成兩案(預覽另一案、輸入改 `fireEvent.change`)。**觀察名單** —— 拆完再紅就查等待時機(TEST-10),不是再放寬逾時。 **新寫設計器頁(表單 / 流程設計器)的測試照此預防:一案只做一件事**(一個屬性分支、一次存草稿),只操作屬性面板的用小草稿(`smallDraft`);`FormsPageDefaults.test.tsx` 第一版把三個預設值分支放同一案,全套並行時就逾時,拆成一案一分支後穩定。
+重跑一次仍紅才算真的紅;同一案再紅就不是偶發,照 TEST-10 的判準查斷言方向與等待時機,不是放寬逾時。
+
+- `apps/api/src/auth/password/password.test.ts` 的 `setPassword` 相關四案偶爾整組逾時(疑與 CI runner 慢 + argon2 雜湊有關)。
+- **觀察名單**(各只紅過一次、單獨跑綠):
+  - `apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx` 的「新增使用者:選『直接設定初始密碼』…」。
+  - `apps/admin/src/pages/system/FormsPage/FormsPageVersionViewer.test.tsx`:全套並行時逾時過;預防寫法見 TEST-08「設計器頁的測試一案只做一件事」。

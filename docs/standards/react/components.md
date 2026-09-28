@@ -26,7 +26,7 @@
 (決策見 ADR-0012:zustand 是唯一的跨元件狀態容器)
 
 1. 伺服器資料 → TanStack Query(codegen hooks),**不要**複製進 useState 或 store。
-2. URL 能表達的(頁碼、篩選、tab)→ URL(searchParams / router)。**admin 例外**:admin 有路由頁籤,`RouteTabs` 以 pathname 記頁籤、不處理 search,所以頁內篩選(頁碼、關鍵字、選中組織)在頁籤行為定案前留在頁面層的 `useState`,不進 URL。
+2. URL 能表達的(頁碼、篩選、tab)→ URL(searchParams / router)。**admin 例外**:admin 有路由頁籤,`RouteTabs` 以 pathname 記頁籤、不處理 search,所以頁內篩選(頁碼、關鍵字、選中組織)留在頁面層的 `useState`,不進 URL。
 3. 只有單一元件用 → `useState`。
 4. 跨元件的用戶端狀態(登入狀態、語言、路由頁籤…)→ **zustand**:`stores/useXxxStore.ts`,需要跨重新整理保留的用 `persist` middleware(sessionStorage / localStorage 由該狀態的規則決定)。
 5. context **只剩注入用**(theme、QueryClient、Intl provider、`AuthSession` 實例),不承載會變的狀態;redux / 自刻 `useSyncExternalStore` store 不用。注入用的 context 物件**與它的 hook 同檔、放 `hooks/`**(`hooks/useSession.ts` 同時匯出 `SessionContext` 與 `useSession`),provider 元件放 `app/providers/`。
@@ -36,14 +36,16 @@
 ❌ const LocaleContext = createContext<{ locale; setLocale }>(…)   // 承載狀態的 context
 ```
 
-`persist` 的兩個注意:①它預設寫 `{ state, version }` 的 JSON 封包,**沿用既有 storage key 與格式時**(`docs/branding.md` 登記的那些)要保住舊格式,不然既存值失效、既有測試的 storage 斷言也會壞;②key 依使用者分把(如頁籤的 `…:<userId>`)的,store 提供 `bind(userId)` 以 `persist.setOptions({ name }) + rehydrate()` 換 key,不要把 userId 寫死在 `name`。
+### `persist` 的兩件事
 
-注意①**先分辨既存格式是哪一種再決定怎麼寫**(兩種都寫成整份自訂 `PersistStorage` 是多繞一圈):
+**① 沿用既有 storage key 與格式時要保住舊格式**(`docs/branding.md` 登記的那些)。`persist` 預設寫 `{ state, version }` 的 JSON 封包,直接套上去會讓既存值失效、既有測試的 storage 斷言也會壞。先分辨既存格式是哪一種再決定怎麼寫:
 
 - **既存格式本來就是 `persist` 的 JSON 封包**(只是換了 storage 後端、換了 key、讀取時要多墊一層搬移)→ **只換 `StateStorage`**:自訂一個 `getItem` / `setItem` / `removeItem` 的三方法物件,用 `createJSONStorage(() => …)` 包起來交給 `persist`。序列化仍由 zustand 做,`version` / `migrate` 也照常運作。先例 `stores/useSideNavStore.ts`。
-- **既存格式不是 JSON 封包**(裸字串、舊版自己手寫的格式)→ 才整份自訂 `PersistStorage<S>`(`getItem` 要自己回 `{ state, version }`),因為序列化的形狀根本對不上。先例 `stores/useLocaleStore.ts`(localStorage 存的是 `"en"` 這種語言代碼字串)與 `stores/useRouteTabsStore.ts`。
+- **既存格式不是 JSON 封包**(裸字串、自己手寫的格式)→ 才整份自訂 `PersistStorage<S>`(`getItem` 要自己回 `{ state, version }`),因為序列化的形狀根本對不上。先例 `stores/useLocaleStore.ts`(localStorage 存的是 `"en"` 這種語言代碼字串)與 `stores/useRouteTabsStore.ts`。
 
 換句話說:`createJSONStorage` 管「存到哪」,`PersistStorage` 管「存成什麼形狀」;只有後者不對時才寫後者。
+
+**② key 依使用者分把的**(如頁籤的 `…:<userId>`),store 提供 `bind(userId)` 以 `persist.setOptions({ name }) + rehydrate()` 換 key,不要把 userId 寫死在 `name`。
 
 ## REACT-03 業務邏輯離開 JSX
 
@@ -84,7 +86,7 @@ render 期呼叫 store action **只允許冪等的初始化**(放 `useState` 的
 
 - 一個 `.tsx` 只匯出一個元件(檔名 = 元件名,GEN-01);同檔可以有它專用的小型 helper,但不能有第二個元件。
 - 300 行是**目標不是門檻**:301 行不算違規,重點是切得合理。拆法依序:子元件(放到同名資料夾底下,GEN-01)→ 有狀態的邏輯抽 hook(`useXxx.ts`,只有這個元件用就跟元件同資料夾)→ 純函式抽到 `lib/`(REACT-03)。
-- **300 與 400 都不計註解與空行**:與 lint 設定一致 —— `packages/config-eslint/frontend-style.js` 的 `max-lines` 是 `{ max: 400, skipBlankLines: true, skipComments: true }`,所以數的是**程式碼行**。純型別 + JSDoc 的介面檔(`pages/demo/shared/demo-module-config.ts` 檔案 314 行)實際程式碼遠低於 300,不算超標、也不必為了行數把註解搬走。判斷要不要拆時看 lint 報的數字,不看編輯器的行號。
+- **300 與 400 都不計註解與空行**:與 lint 設定一致 —— `packages/config-eslint/frontend-style.js` 的 `max-lines` 是 `{ max: 400, skipBlankLines: true, skipComments: true }`,所以數的是**程式碼行**。純型別 + JSDoc 的介面檔(如 `pages/demo/shared/demo-module-config.ts`,檔案超過 300 行)實際程式碼遠低於 300,不算超標、也不必為了行數把註解搬走。判斷要不要拆時看 lint 報的數字,不看編輯器的行號。
 - 400 行由 lint 擋,超過就一定要拆;300 到 400 之間的在 PR 說明為何不拆。
 
 ```
@@ -117,7 +119,7 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 ❌ <RichTreeView slots={{ item: (props) => <Row {...props} state={rows.get(props.itemId)} /> }} />
 ```
 
-**ui 包裝層的 props 分工**(同一個 PR 定的配套規則):**內容類**的 props(`labelSuffix`、`actions`、`disabled` — 這一列長什麼樣)跟著**節點資料**走;**狀態類**的 props(`selectedIds`、`expandedIds`、`indeterminateIds`、`disabledCheckIds`)是**扁平的 id 陣列**。理由是後者每勾一次就變,若塞回節點資料就得重建整棵 `items`,而重建 `items` 會讓底層元件重建內部 store —— 權限矩陣每點一下都要付那個代價。
+**ui 包裝層的 props 分工**:**內容類**的 props(`labelSuffix`、`actions`、`disabled` — 這一列長什麼樣)跟著**節點資料**走;**狀態類**的 props(`selectedIds`、`expandedIds`、`indeterminateIds`、`disabledCheckIds`)是**扁平的 id 陣列**。理由是後者每勾一次就變,若塞回節點資料就得重建整棵 `items`,而重建 `items` 會讓底層元件重建內部 store —— 權限矩陣每點一下都要付那個代價。
 
 ## REACT-10 提示文字一律用 `@repo/ui/tooltip`,不寫原生 `title`;預設 `describeChild`
 
@@ -131,7 +133,7 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 規則與呼叫端要知道的四件事:
 
 - **app 裡不要再寫原生 `title`**(STYLE-05 的元件牆同理):原生 `title` 的外觀不受 theme 控制、延遲不可調、觸控裝置看不到。
-- 真的需要提示**當名稱**時(圖示按鈕沒有可見文字)才明示 `describeChild={false}`,並在 PR 說明為什麼。記錄在案的例外:**側欄收合態的圖示列**(`SideNav/NavRail`)—— 每一格只有圖示、提示顯示的就是模組名稱,留 `describeChild` 為 `true` 會做出一個「沒有無障礙名稱、只有描述」的按鈕。判準是**「提示的文字念出來就是這顆元件的名字」**;只要元素本身已有可見文字(按鈕上有字、旁邊有 label),提示就是補充,維持預設。
+- 真的需要提示**當名稱**時(圖示按鈕沒有可見文字)才明示 `describeChild={false}`,並在 PR 說明為什麼。典型是**沒有可見文字的圖示按鈕**:側欄收合態的圖示列(`SideNav/NavRail`,提示就是模組名稱)、列表列尾的檢視 / 編輯 / 刪除圖示鈕、設計器裡的移除鈕 —— 留 `describeChild` 為 `true` 會做出一個「沒有無障礙名稱、只有描述」的按鈕。判準是**「提示的文字念出來就是這顆元件的名字」**;只要元素本身已有可見文字(按鈕上有字、旁邊有 label),提示就是補充,維持預設。
 - **disabled 子元素由元件內部包 `span`**(disabled 元素不發 hover 事件),呼叫端不要自己再包一層;可用的元素則直接掛在 child 上,`aria-describedby` 仍指向它本身。
 - `title` 傳 `""` / `undefined` 就不提示,所以條件式提示直接寫 `title={isLocked ? hint : ""}`,不要條件式地換掉整棵子樹。
 
@@ -155,7 +157,7 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 - `onChange` 收到的是**選項的 `value` 本身**(以 `options` 查表),`Value` 可以是 enum / 字面量聯集,呼叫端不再 `event.target.value as X`。
 - 多選用 `multiple`(選項自帶勾選框、`onChange` 依點選先後回整個陣列),收合摘要不合用時給 `renderValue`。
 - 需要搜尋、分組、次文字或 chip 時改用 `@repo/ui/autocomplete`(STYLE-05 的分工:選項少於十個、不需搜尋 → `SelectField`)。
-- **不適用**:殼的 AppBar 行內切換(語言、當前組織)是 `Draft/Select` 的 standard 變體、沒有標籤,仍用 `@repo/ui/select`;選單式動作(使用者選單)用 `@repo/ui/menu`。
+- 殼的當前組織切換器也是 `SelectField`(標籤「當前組織」)。**不適用**:幾個互斥選項、切了立刻生效的設定(頭像選單的外觀、語言)用 `@repo/ui/segmented-control`;選單式動作(登出)用 `@repo/ui/menu`。
 
 ## REACT-12 彈窗開著時,提示也要念得到:live region 不能是彈窗開啟前就在 body 裡的節點
 

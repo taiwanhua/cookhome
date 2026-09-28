@@ -2,7 +2,7 @@
 
 ## 用途
 
-管理表單下拉的選項:類別(如「性別」「示範分類」)有兩種來源 —— 開發者在 seed 宣告的系統類別,與 root 在本頁新增的類別;全域的種子選項由系統提供,各組織可在同一類別下加自己的「自訂選項」,並沿組織樹往下繼承給下層。選項不可刪(舊資料要對照),只能停用;停用只影響新填寫。業務模組(如示範模組1 的分類欄)從這裡讀合併後的選項清單。
+管理表單下拉的選項:類別(如「性別」「示範分類」)有兩種來源 —— 開發者在 seed 宣告的系統類別,與 root 在本頁新增的類別;全域的種子選項由系統提供,各組織可在同一類別下加自己的「自訂選項」,並沿組織樹往下繼承給下層。選項不可刪(既有資料要對照),只能停用;停用只影響新填寫。業務模組(如示範模組1 的分類欄)從這裡讀合併後的選項清單。
 
 正本:`docs/adr/0002-seed-data-vs-business-data.md`、`docs/adr/0005-multi-tenant-isolation.md`
 
@@ -37,7 +37,7 @@
 - **`field_categories`**:全域(不掛租戶過濾),依建立順序。`isSystem` 區分來源、`enabled` 是停用開關(初始 seed 值的欄位)。新增類別有**兩種方法,並列存在**:
   - **開發者在 seed 宣告**(`apps/db-migrator/seeds/field-categories.ts`,code + PR):跨環境同步,`isSystem: true`。適合底座 / 模組固定要用的類別 —— 程式碼以 key 引用它,每個環境都必須有。
   - **root 在本頁新增**(`createFieldCategory`):只在該環境,`isSystem: false`。適合營運上臨時需要的類別,不必發版。
-  - 畫面建的類別日後要固定下來,就在 seed 宣告**同一個 key**:seed 以 key **認養**那一筆(`isSystem` 改 true、名稱 / 說明以 seed 為準、`_id` 不動,表單版本的類別 key 與 `fields.categoryId` 的引用照舊);該類別下根組織加的、與 seed 宣告同 `value` 的選項一併認養成全域種子(租戶的自訂選項與根組織加的其他選項不動)。認養單向;seed 沒宣告的畫面類別一律不碰。
+  - 畫面建的類別日後要固定下來,就在 seed 宣告**同一個 key**:seed 以 key **認養**那一筆(`isSystem` 改 true、名稱 / 說明以 seed 為準、`_id` 不動,表單版本的類別 key 與 `fields.categoryId` 的引用都不受影響);該類別下根組織加的、與 seed 宣告同 `value` 的選項一併認養成全域種子(租戶的自訂選項與根組織加的其他選項不動)。認養單向;seed 沒宣告的畫面類別一律不碰。
 - **`fields`**:選項。`orgId` nullable —— `null` = 全域種子、有值 = 該組織的自訂選項。`(categoryId, orgId, value)` 唯一索引;`key` 選填、sparse unique。
 - **種子選項的 key**:`<類別 key>.<value>`(如 `gender.male`、`demo-category.side-dish`),只給冪等識別用;自訂選項沒有 key、以 `_id` 識別。production 第一次 seed 後不可改。
 - `enabled` 是 ADR-0002 的「初始 seed 值的欄位」:由人在系統內管理,seed 重跑不覆蓋。
@@ -109,7 +109,7 @@
 ## api 介面
 
 ```graphql
-fieldCategories(input: FieldCategoriesInput): FieldCategoriesPayload!  # 依建立順序(系統類別在前)
+fieldCategories(input: FieldCategoriesInput): FieldCategoriesPayload!  # 依建立順序(createdAt → _id)
 fields(categoryId: ID!): FieldsPayload!            # 合併清單(範圍與排序見「規則」)
 createField(input: CreateFieldInput!): FieldPayload!
 updateField(input: UpdateFieldInput!): FieldPayload!
@@ -153,7 +153,7 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 - 前端不推「根組織視角」:每一列能不能切由 api 的 `canToggleEnabled` 決定。
 - **類別作業**只看 `manage-categories` 權限(租戶管理員模板拿不到,所以不必另判視角):左欄標題列的「+ 新增類別」、右欄標題列的「編輯類別」與「停用類別 / 啟用類別」。彈窗在 `CategoryFormDialog/`:新增時 key 的格式與唯一(對照已載入的全部類別)當場擋、送出鈕停用;api 回的 `FIELD_CATEGORY_KEY_DUPLICATE` 同樣標在 key 欄位;編輯時 key 唯讀。停用 / 啟用直接送、不另開確認(可逆)。
 - 左欄每個類別:系統類別標 `Tag`「系統」;停用的類別名稱以 `text.disabled` 呈現並標「已停用」。系統類別沒有「編輯類別」與「停用類別」鈕(停用的系統類別仍給「啟用類別」)。
-- 表單設計器的類別下拉(`FormDesigner/PropertyPanel/OptionsEditor.tsx`)帶 `enabledOnly: true`;已選了停用類別的欄位,下拉以 key 顯示那一個值。
+- 表單設計器的類別下拉(`FormsPage/FormDesigner/PropertyPanel/OptionsEditor.tsx`)帶 `enabledOnly: true`;已選了停用類別的欄位,下拉以 key 顯示那一個值。
 
 正本:`apps/admin/src/pages/system/FieldManagerPage/`(`field-source.ts`、`FieldOptionsPanel/FieldOptionsTable.tsx`、`field-manager-error.ts`)
 

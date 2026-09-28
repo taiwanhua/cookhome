@@ -4,7 +4,9 @@
 
 ## 用途
 
-示範家族的完整示範。示範家族有三個目的:①底座模板 —— module-scaffold 產新模組的藍本;②權限測試場(劇本見 [docs/testing/permission-scenarios.md](../testing/permission-scenarios.md));③新專案 bootstrap 後的活教材。家族含兩個模組:本篇(完整示範:三層樹、隱藏頁、CRUD + wildcard、欄位級與頁面自有權限、資料範圍目標、雙路儲存)與 [示範模組2](./demo.sample-two.md)(對照組)。
+示範家族的完整示範。示範家族有三個目的:①底座模板 —— module-scaffold 產新模組的藍本;②權限測試場(劇本見 [docs/testing/permission-scenarios.md](../testing/permission-scenarios.md));③新專案 bootstrap 後的活教材。
+
+家族裡有兩個**固定欄位模組**:本篇(完整示範:三層樹、隱藏頁、CRUD + wildcard、欄位級與頁面自有權限、資料範圍目標、雙路儲存)與 [示範模組2](./demo.sample-two.md)(對照組)。`demo` / `demo.sub` 兩層群組也收著兩個**表單模組**(`demo.form`、`demo.sub.form`;另有一個掛頂層的 `demo-form`),示範表單模組在側欄各種位置的樣子,見 [示範表單](./demo-form.md)。本檔宣告兩層群組,其他示範模組都掛在它們底下。
 
 正本:`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`
 
@@ -21,6 +23,7 @@
 | `demo.sub.sample-one.create-page` | 新增示範項目                         | hidden       | `/demo/sub/sample-one/create-page`    | `*`、`show-tips`    |
 | `demo.sub.sample-one.edit-page`   | 編輯示範項目                         | hidden       | `/demo/sub/sample-one/edit-page/<id>` | `*`、`show-history` |
 | `demo.sample-two` 一支            | 見 [示範模組2](./demo.sample-two.md) |              |                                       |                     |
+| `demo.form`、`demo.sub.form` 兩支 | 見 [示範表單](./demo-form.md)        |              |                                       |                     |
 
 `delete` 無對應頁(列表動作 + 確認彈窗)—— 權限與頁面不必一一對應,本身即示範。
 
@@ -50,9 +53,9 @@
 
 **`demo_items_one`**:`name`、`category`(欄位管理「示範分類」的選項 value)、`status`(`draft` / `published` / `archived`,預設 `draft`)、`note`、`internalNote`(欄位級權限控)、`coverPath`(公開 bucket)、`attachmentPath`(私有 bucket)+ `attachmentName` / `attachmentSize` / `attachmentContentType`(附件原始檔名 / 大小 / 檔型)、`enabled` + 基礎欄位(ADR-0007)。
 
-**資料範圍目標(ADR-0008)**:seed 宣告 `dataScopeTarget`(collection = `demo_items_one`),落庫至 `data_scope_targets`。可篩業務欄位只有 **`status`(enum,選項 草稿 / 已發布 / 已封存)**,基礎欄位由程式自動附加。它是全平台唯一的 enum 資料範圍欄位 —— 沒有它,「enum 固定選項」這條規則在任何環境都驗不到;value 的正本是 seed 宣告,與 schema 的 `status` 一一對應。
+**資料範圍目標(ADR-0008)**:seed 宣告 `dataScopeTarget`(collection = `demo_items_one`),落庫至 `data_scope_targets`。可篩業務欄位只有 **`status`(enum,選項 草稿 / 已發布 / 已封存)**,基礎欄位由程式自動附加。它是固定欄位模組裡唯一的 enum 資料範圍欄位(表單模組的提交狀態是另一個,由 `form-module-declaration.ts` 統一產生),權限劇本的「enum 固定選項」規則在這裡驗;value 的正本是 seed 宣告,與 schema 的 `status` 一一對應。
 
-**連動 seed**:欄位管理新增全域類別「示範分類」+ 數個選項。
+**連動 seed**:欄位管理的系統類別「示範分類」(`demo-category`)與三個全域選項(主食 `staple` / 小菜 `side-dish` / 飲品 `drink`)。
 
 **Seed 與環境**:模組與權限全環境灌同一份(seed 不分環境);`enabled` 初始 true,production 要關閉就在「模組與權限」頁手動停用(初始 seed 值欄位,不會被下次 seed 翻回,ADR-0002);納入租戶管理員模板(非根組織專屬模組自動納入)。
 
@@ -134,7 +137,7 @@ input DemoItemsOneInput {
 
 - **`internalNote`**:沒有 `demo.sub.sample-one.show-internal-note` 時,api **不把這個欄位放進回傳物件**(GraphQL 因此序列化成 `null`),列表與單筆一致。「沒權限」與「沒填」在值上長得一樣,所以**前端依自己的權限集決定要不要渲染這個欄位**,不要拿值去猜。
 - **`abilities` 由 api 依操作者的有效權限集算好,每個旗標都已含權限判斷**:前端**直接用**,不要再與 `usePermissions` 相乘(同一條規則兩邊各算一次,對不起來就是畫面與 API 不一致)。與角色頁的 `RoleAbilities` 不同 —— 那組刻意不含權限 key,因為它表達的是「角色種類規則」。`canEditInternalNote` 為 false 但 `internalNote` 有值 = 看得到、改不動(唯讀)。
-- **`coverUrl` 是公開 bucket 的穩定 URL**(不簽名、不過期,可直接放 `<img src>`、可快取);**附件只給 `attachment { path, name, size, contentType }`**,下載要另外呼叫 `demoItemOneAttachmentUrl(id)` 現簽短效網址(ADR-0010 的雙路)。`name` / `size` / `contentType` 是寫入時前端申報的原始檔名 / bytes / 檔型,原樣回傳。**只存了路徑的舊附件三者皆為 `null`**:前端顯示檔名時退回物件路徑的最後一段(`<uuid>.<副檔名>`)、不顯示大小。
+- **`coverUrl` 是公開 bucket 的穩定 URL**(不簽名、不過期,可直接放 `<img src>`、可快取);**附件只給 `attachment { path, name, size, contentType }`**,下載要另外呼叫 `demoItemOneAttachmentUrl(id)` 現簽短效網址(ADR-0010 的雙路)。`name` / `size` / `contentType` 是寫入時前端申報的原始檔名 / bytes / 檔型,原樣回傳。**只存了路徑、沒有中繼資料的附件三者皆為 `null`**:前端顯示檔名時退回物件路徑的最後一段(`<uuid>.<副檔名>`)、不顯示大小。
 - **`categoryLabel`**:分類已被停用、或屬於操作者看不到的組織時為 `null`(`category` 仍原樣回)。
 - **`createdBy` 查不到那位使用者時一律回 `null`,不拋錯**:seed 的示範資料用假的 ObjectId 當建立者,真實環境也會有使用者被刪掉的情形;前端顯示「—」即可。
 
@@ -181,6 +184,8 @@ input DemoItemsOneInput {
 **表單欄位**:名稱、分類、狀態、備註、內部備註,加上封面與附件兩個上傳欄;**`enabled` 不在表單上**,它由 `setDemoItemOneEnabled` 單獨切換 —— **列表的「啟用」欄是開關**,改得動的那一列(`abilities.canEdit`)直接切、不另開確認,切完只重查當前這頁清單;改不動的列與詳情頁仍是唯讀標籤。開關是共版型的**選配**(設定物件的 `useSetEnabled`,示範模組2 同),不給的模組列表就維持標籤。
 
 **內部備註的三態**在表單上是 `hidden` / `readonly` / `editable`:沒有 `show-internal-note` 時**整欄不渲染**,而且 input 裡連這個鍵都不會出現(欄位一出現就要權限,送 `null` 也會被 `FIELD_FORBIDDEN` 擋)。
+
+**變更歷程的時間**顯示成「年-月-日 時:分」,用的是**瀏覽器當地時間**、格式不隨語言變(`demo-sample-one-view.ts` 的 `formatDateTime`),不走全站以讀者租戶時區顯示的 `formatTemporal`。
 
 **分類下拉的選項**來自 `fieldCategories` → `fields(categoryId)`,兩個端點都掛在 `system.field-manager.view` 底下。沒有那個權限時:列表不顯示分類篩選、表單的分類欄退成唯讀(保留原值並說明原因)。停用的選項不列入可選清單。
 
@@ -231,7 +236,7 @@ input DemoItemsOneInput {
 ## 平台視角備註
 
 - 示範家族全環境都有;要在某環境(例如 production)隱藏,由 root 在「模組與權限」頁停用,seed 不會翻回。
-- `status` 是全平台唯一的 enum 資料範圍欄位,拿掉或改名會讓「enum 固定選項」的規則與劇本失去驗證場地。
+- `status` 是固定欄位模組唯一的 enum 資料範圍欄位,拿掉或改名會讓權限劇本的「enum 固定選項」規則失去驗證場地。
 - 示範資料全部掛根組織、建立者是固定假 id,租戶帳號一登入列表是空的(見 [示範模組2「資料」](./demo.sample-two.md#資料) 的兩個已知限制)。
 
 正本:`apps/db-migrator/seeds/demo-items.ts`、`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`
