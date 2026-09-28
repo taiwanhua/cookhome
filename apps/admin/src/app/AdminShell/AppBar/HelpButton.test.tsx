@@ -1,8 +1,10 @@
 import { beforeAll, describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
+
 import { setHelpFiles } from "@/test/help-registry";
-import { authWorld } from "@/test/msw/auth-handlers";
+import { type TestModule, authWorld } from "@/test/msw/auth-handlers";
 import {
   sampleTwoModules,
   superAdminModules,
@@ -22,6 +24,20 @@ import { renderApp } from "@/test/render";
  * 整條依賴鏈,全套並行時 CPU 被搶,會把 `findBy*` 的 5 秒與單一測試的 15 秒吃光。放進 `beforeAll`
  * 先載完,元件裡的 `import()` 就直接拿到模組快取,測試只剩一個 `Suspense` tick 要等。
  */
+/** 沒有登記頁面的表單模組(殼顯示佔位頁,測試不必餵表單的 GraphQL handler)。 */
+const formModule = (key: string, name: string): TestModule => ({
+  id: `m-${key}`,
+  key,
+  name,
+  parentId: null,
+  sidebarType: ModuleSidebarType.Link,
+  engine: ModuleEngine.Form,
+  order: 9,
+  route: `/${key}`,
+  icon: null,
+  permissions: [`${key}.view`],
+});
+
 describe("模組說明「?」", () => {
   beforeAll(async () => {
     await import("@repo/ui/markdown");
@@ -87,6 +103,60 @@ describe("模組說明「?」", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "此頁尚無說明",
     );
+  });
+
+  it.each([
+    ["form-alpha", "採購申請"],
+    ["form-beta", "出差申請"],
+  ])(
+    "表單模組沒有專屬 help.md:退回表單模組通用說明,標題是模組名(%s)",
+    async (key, name) => {
+      server.use(
+        ...authWorld({
+          hasRefreshCookie: true,
+          modules: [formModule(key, name)],
+        }).handlers,
+      );
+
+      const { user } = renderApp({ path: `/${key}` });
+      const banner = await screen.findByRole("banner");
+      await user.click(
+        await within(banner).findByRole("button", { name: "模組說明" }),
+      );
+
+      const dialog = await screen.findByRole("dialog");
+      expect(dialog).toHaveTextContent(`模組說明 — ${name}`);
+      expect(
+        await within(dialog).findByText("填寫與查看申請單。"),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("表單模組有專屬 help.md:專屬檔優先", async () => {
+    setHelpFiles({
+      "/src/md/module-help/form-module.help.md":
+        "# 表單模組\n\n## 這個模組做什麼\n\n通用說明。",
+      "/src/md/module-help/form-alpha.help.md":
+        "# 採購申請\n\n## 這個模組做什麼\n\n採購專屬說明。",
+    });
+    server.use(
+      ...authWorld({
+        hasRefreshCookie: true,
+        modules: [formModule("form-alpha", "採購申請")],
+      }).handlers,
+    );
+
+    const { user } = renderApp({ path: "/form-alpha" });
+    const banner = await screen.findByRole("banner");
+    await user.click(
+      await within(banner).findByRole("button", { name: "模組說明" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText("採購專屬說明。"),
+    ).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent("通用說明。");
   });
 
   it("非模組路由(側欄一頁都進不去 → 無權限頁)不顯示「?」", async () => {

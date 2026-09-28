@@ -45,7 +45,7 @@ test/       測試支援
 | RouteTabs | 開過的路由各一個頁籤;可關閉、可拖曳排序、鍵盤可操作                                                              | `app/AdminShell/RouteTabs/`、`stores/useRouteTabsStore.ts` |
 | 側欄商標  | 當前組織的商標,沒有就繼承上層                                                                                    | `me.currentOrg.logoUrl`                                    |
 
-- 「?」說明的內容是 `apps/admin/src/md/module-help/<key>.help.md`,build 時打包;彈窗動態載入。
+- 「?」說明的內容是 `apps/admin/src/md/module-help/<key>.help.md`,build 時打包;彈窗動態載入。表單模組沒有專屬檔時用通用的 `form-module.help.md`。
 - 殼的設計稿節點登記在 `docs/branding.md`。
 
 正本:`apps/admin/src/app/AdminShell/`、`apps/admin/src/lib/module-tree.ts` 的 `buildNavTree`

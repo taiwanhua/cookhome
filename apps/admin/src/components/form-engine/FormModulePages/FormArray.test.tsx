@@ -5,6 +5,7 @@ import { DEMO_FORM_ROUTES } from "@/test/msw/form-fixtures";
 
 import {
   arrayRuntimeOptions,
+  hideableArrayRuntimeOptions,
   lineRow,
   linesTable,
 } from "./form-array-test-support";
@@ -89,6 +90,29 @@ describe("明細列(填寫)", () => {
     }[];
     expect(lines.map((line) => line.name)).toEqual(["蘋果", "蘋果"]);
     expect(new Set(lines.map((line) => line.rowId)).size).toBe(2);
+  });
+
+  it("明細被顯示條件隱藏:總價即時當空明細算(與後端存值一致),再顯示時列與總價照舊回來", async () => {
+    const { user } = renderShopping({
+      path: CREATE_PATH,
+      world: hideableArrayRuntimeOptions(),
+    });
+    await addRow(user);
+    await fillRow(user, 0, { qty: "2", price: "30" });
+    const total = screen.getByRole("textbox", { name: "總價" });
+    expect(total).toHaveValue("60");
+
+    await user.click(screen.getByRole("checkbox", { name: /不附明細/ }));
+
+    expect(screen.queryByRole("table", { name: "明細" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "總價" })).toHaveValue("0");
+
+    await user.click(screen.getByRole("checkbox", { name: /不附明細/ }));
+
+    expect(
+      within(lineRow(0)).getByRole("textbox", { name: "小計" }),
+    ).toHaveValue("60");
+    expect(screen.getByRole("textbox", { name: "總價" })).toHaveValue("60");
   });
 
   it("到 maxRows(2 列)就停:新增與複製都停用", async () => {

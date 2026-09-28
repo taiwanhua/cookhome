@@ -15,6 +15,9 @@
  *      `*.md`(該目錄只放模組說明),Vite 收的是 `*.help.md`;把 `x.help.md`
  *      改名成 `x.md` 會被這裡掃到卻不在 bundle 裡,立刻紅。
  *
+ * 另外,表單模組共用的通用說明 `form-module.help.md` 必須存在:表單模組沒有專屬檔時「?」退回它
+ * (`lib/module-help.ts` 的 `resolveModuleHelp`),它不見了所有表單模組的說明一起消失。
+ *
  * 比對方式:每份取第一個 `## ` 標題後的第一個非空行,前 12 個字當指紋。bundle 是
  * 壓縮過的 JS 字串,非 ASCII 可能被輸出成 `\uXXXX`,所以原字串與跳脫形式都試。
  */
@@ -26,6 +29,8 @@ const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const helpDir = join(appRoot, "src", "md", "module-help");
 const assetsDir = join(appRoot, "dist", "assets");
 const FINGERPRINT_LENGTH = 12;
+/** 一定要有的說明檔:表單模組的通用說明(沒有專屬檔的表單模組都用它)。 */
+const REQUIRED_HELP_FILES = ["form-module.help.md"];
 
 const fail = (message) => {
   console.error(`check:help-bundle ✗ ${message}`);
@@ -69,6 +74,11 @@ if (helpFiles === undefined) {
 }
 if (helpFiles.length === 0) {
   fail(`${helpDir} 一份 .md 都沒有 —— 是不是被 .dockerignore 排除了?`);
+}
+
+const absent = REQUIRED_HELP_FILES.filter((name) => !helpFiles.includes(name));
+if (absent.length > 0) {
+  fail(`缺少必要的說明檔 ${absent.join("、")} —— 表單模組沒有專屬說明時都靠它`);
 }
 
 const bundles = listFiles(assetsDir, ".js");

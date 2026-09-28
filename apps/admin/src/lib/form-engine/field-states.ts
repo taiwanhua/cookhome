@@ -3,11 +3,11 @@ import {
   type FieldDef,
   type FormDefinition,
   type StoredValues,
-  computeAll,
   evaluateCondition,
   fieldProtections,
   isProtected,
   semanticValuesOf,
+  settleHidden,
 } from "@repo/domain/form";
 
 import { isRedactedValue } from "./definition";
@@ -109,7 +109,9 @@ const isDerived = (field: FieldDef): boolean =>
  *
  * - `design`:不跑條件與計算,全部顯示、全部不可輸入
  * - `readonly`:**不重算、不清空**存值,只用傳進來的 `ctx`(該修訂的)重算顯示 / 唯讀條件
- * - 其餘:先算計算欄位,再以「存值 + 計算結果」的語意值算條件
+ * - 其餘:條件與計算一起收斂(`settleHidden`,與 api 寫入同一條):被顯示條件隱藏的欄位在計算輸入裡
+ *   當 null(明細整欄 null、彙總視為空),隱藏的計算欄位也是 null;條件以收斂後的值算。
+ *   只替換計算輸入,不清使用者的值:隱藏再顯示,原本填的值照舊回來(`onChange` 以傳入的 `values` 為底)
  */
 export const resolveFormState = ({
   definition,
@@ -148,14 +150,14 @@ export const resolveFormState = ({
     };
   }
 
-  const computed =
-    mode === "readonly" ? {} : computeAll(fields, { values, ctx });
+  const settled =
+    mode === "readonly" ? values : settleHidden(fields, { values, ctx }).values;
   const fromServer = Object.fromEntries(
     fields
       .filter((field) => isDerived(field) && serverState !== null)
       .map((field) => [field.key, serverState?.values[field.key] ?? null]),
   );
-  const shown: StoredValues = { ...values, ...computed, ...fromServer };
+  const shown: StoredValues = { ...settled, ...fromServer };
   const serverStates = new Map(
     (serverState?.fieldStates ?? []).map((state) => [state.key, state]),
   );

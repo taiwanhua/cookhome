@@ -45,7 +45,11 @@ export const AppBar = ({ me, title, module }: AppBarProps) => (
     </Typography>
     {/* 「?」模組說明彈窗(dis #18;Figma help-button I44:119;81:51):只有模組路由才有 */}
     {module !== undefined && (
-      <HelpButton moduleKey={module.key} moduleName={module.name} />
+      <HelpButton
+        moduleKey={module.key}
+        moduleName={module.name}
+        moduleEngine={module.engine}
+      />
     )}
     <Box sx={{ flex: 1 }} />
 

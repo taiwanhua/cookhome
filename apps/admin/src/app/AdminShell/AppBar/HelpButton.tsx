@@ -1,6 +1,7 @@
 import { Suspense, lazy, useState } from "react";
 import { useTranslations } from "use-intl";
 
+import type { ModuleEngine } from "@repo/graphql";
 import { Button } from "@repo/ui/button";
 import { CircularProgress } from "@repo/ui/circular-progress";
 import { Dialog } from "@repo/ui/dialog";
@@ -25,20 +26,26 @@ const LazyMarkdown = lazy(async () => {
 export interface HelpButtonProps {
   /** 目前模組的 key(`me.modules` 的 key);決定顯示哪一份 help.md */
   moduleKey: string;
-  /** 目前模組的名稱;彈窗標題用 */
+  /** 目前模組的名稱;彈窗標題用(表單模組共用通用說明時,靠它標出是哪個模組) */
   moduleName: string;
+  /** 目前模組的引擎;表單模組沒有專屬 help.md 時退回表單模組通用說明 */
+  moduleEngine: ModuleEngine;
 }
 
 /**
  * AppBar 的「?」模組說明(#197;Figma Draft/AdminAppBar 的 help-button I44:119;81:51
  * + Overlay / 模組說明 81:241 的 Draft/HelpDialog 95:235)。
  * 內容是 build 時打包進來的 `src/md/module-help/<模組 key>.help.md`(`lib/help-registry`),
- * 沒有對應檔案時按鈕 disabled 並在 hover 提示。
+ * 表單模組沒有專屬檔時用 `form-module.help.md`;都沒有時按鈕 disabled 並在 hover 提示。
  */
-export const HelpButton = ({ moduleKey, moduleName }: HelpButtonProps) => {
+export const HelpButton = ({
+  moduleKey,
+  moduleName,
+  moduleEngine,
+}: HelpButtonProps) => {
   const t = useTranslations("admin.shell.help");
   const [isOpen, setIsOpen] = useState(false);
-  const markdown = moduleHelpMarkdown(moduleKey);
+  const markdown = moduleHelpMarkdown({ key: moduleKey, engine: moduleEngine });
 
   return (
     <>

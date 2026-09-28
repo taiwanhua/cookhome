@@ -59,4 +59,4 @@
 
 ## 租戶使用者說明
 
-`apps/admin/src/md/module-help/demo-form.help.md`、`demo.form.help.md`、`demo.sub.form.help.md`(內容相同、只差標題;表單模組的通用說明,含審核流程,之後的表單模組可照抄)。
+三個示範表單都沒有專屬說明檔,「?」用表單模組通用說明 `apps/admin/src/md/module-help/form-module.help.md`(含審核流程;彈窗標題是各自的模組名)。表單模組不必各放一份說明;有特殊需求才加 `<模組 key>.help.md` 專屬檔,專屬檔優先(對應規則在 `apps/admin/src/lib/module-help.ts` 的 `resolveModuleHelp`)。

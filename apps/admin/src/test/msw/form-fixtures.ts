@@ -5,6 +5,7 @@ import {
   FormSubmissionStatus,
   type FormVersionFieldsFragment,
   FormVersionStatus,
+  ModuleEngine,
   ModuleSidebarType,
 } from "@repo/graphql";
 
@@ -45,6 +46,7 @@ const moduleOf = (
   name,
   parentId,
   sidebarType,
+  engine: key === DEMO_FORM_KEY ? ModuleEngine.Form : ModuleEngine.Fixed,
   order: 3,
   route,
   icon: null,

@@ -1,7 +1,7 @@
 import { expect } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 
 import {
   type TestModule,
@@ -47,6 +47,7 @@ export const modulesWith = (permissions: readonly string[]): TestModule[] => [
     name: "系統管理",
     parentId: null,
     sidebarType: ModuleSidebarType.Group,
+    engine: ModuleEngine.Fixed,
     order: 1,
     route: "/system",
     permissions: [],
@@ -57,6 +58,7 @@ export const modulesWith = (permissions: readonly string[]): TestModule[] => [
     name: "模組與權限",
     parentId: "m-system",
     sidebarType: ModuleSidebarType.Link,
+    engine: ModuleEngine.Fixed,
     order: 4,
     route: "/system/module-manager",
     permissions: [...permissions],

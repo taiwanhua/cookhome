@@ -1,5 +1,8 @@
+import { ModuleEngine } from "@repo/graphql";
+
 /**
- * 模組說明(`src/md/module-help/<模組 key>.help.md`)的純邏輯:檔名 → 模組 key、內容整理。
+ * 模組說明(`src/md/module-help/<模組 key>.help.md`)的純邏輯:檔名 → 模組 key、內容整理、
+ * 模組 → 該用哪一份(專屬檔優先,表單模組沒有專屬檔時退回通用檔)。
  * 真的去讀檔案的那一層在 `lib/help-registry.ts`(Vite 的 `import.meta.glob`,只有它碰得到打包器)。
  */
 
@@ -53,3 +56,28 @@ export const buildHelpRegistry = (
   }
   return registry;
 };
+
+/**
+ * 表單模組的通用說明(`form-module.help.md`)在對照表裡的 key。表單模組的畫面都由表單引擎組裝、
+ * 操作方式相同,所以不必各放一份;有特殊需求才加 `<模組 key>.help.md` 專屬檔。
+ */
+export const FORM_MODULE_HELP_KEY = "form-module";
+
+/** 查說明要用到的模組欄位(`me.modules` 的一筆)。 */
+export interface HelpModule {
+  key: string;
+  engine: ModuleEngine;
+}
+
+/**
+ * 模組 → 說明內容:專屬檔優先;沒有專屬檔、而且是表單模組(`engine` = FORM)→ 表單模組通用說明;
+ * 都沒有 → undefined(「?」停用)。彈窗標題由呼叫端用模組名,所以通用檔各模組共用也標得出是哪個模組。
+ */
+export const resolveModuleHelp = (
+  registry: ReadonlyMap<string, string>,
+  module: HelpModule,
+): string | undefined =>
+  registry.get(module.key) ??
+  (module.engine === ModuleEngine.Form
+    ? registry.get(FORM_MODULE_HELP_KEY)
+    : undefined);

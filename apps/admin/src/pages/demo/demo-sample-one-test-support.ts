@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 
 import { type TestModule, authWorld } from "@/test/msw/auth-handlers";
 import { demoHistory, demoItems } from "@/test/msw/demo-fixtures";
@@ -72,6 +72,7 @@ const module_ = (
   name,
   parentId,
   sidebarType,
+  engine: ModuleEngine.Fixed,
   order,
   route,
   icon: null,

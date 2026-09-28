@@ -15,7 +15,8 @@ import { normalizeFieldValue } from "./values";
 
 /**
  * 計算欄位與固定值欄位的值(Spec §5:前端即時算供預覽,送出時後端重算並以後端為準)。
- * 本檔只管「算」;隱藏清空、受保護守門等寫入規則由 api 依 Spec §5「不能填的四種原因」處理。
+ * 本檔只管「算」;受保護守門等寫入規則由 api 依 Spec §5「不能填的四種原因」處理。
+ * 被顯示條件隱藏的欄位在計算輸入裡一律是 null(`ComputeInput.hidden`;哪些欄位隱藏由 `settleHidden` 收斂)。
  */
 
 /**
@@ -91,6 +92,23 @@ export interface ComputeInput {
   /** 目前的存值(使用者輸入 + 既有值)。 */
   values: StoredValues;
   ctx: ExpressionContext;
+  /**
+   * 被 `visibleWhen` 隱藏的欄位 key:計算輸入裡當 null(明細整欄 null,彙總視為空),
+   * 它們自己也不算、結果一律 null(Spec §5「不能填的四種原因」順序 1)。不給 = 都顯示。
+   */
+  hidden?: ReadonlySet<string>;
+}
+
+/** 隱藏的欄位換成 null(回新物件,不改傳入的值);前端狀態不清,只在計算輸入替換。 */
+export function withHiddenAsNull(
+  values: StoredValues,
+  hidden: ReadonlySet<string>,
+): StoredValues {
+  const result: StoredValues = { ...values };
+  for (const key of hidden) {
+    result[key] = null;
+  }
+  return result;
 }
 
 /**
@@ -216,22 +234,28 @@ function computeNode(
  * 依**完整依賴圖**的拓樸順序算完全部計算欄位、明細的列內公式子欄與固定值欄位,
  * 回傳 `{ fieldKey: 存值 }`(只含這幾類欄位;有列內公式的明細欄回算好的整份列)。
  * 下游讀的是上游**取位後**的值(總額 = 各列取位後小計相加)。
+ * `input.hidden` 裡的欄位當 null 參與計算,本身也回 null。
  * 公式引用成圈 → `ComputedCycleError`(檢查器應先擋)。
  */
 export function computeAll(
   fields: readonly FieldDef[],
   input: ComputeInput,
 ): Record<string, unknown> {
+  const hidden = input.hidden ?? new Set<string>();
   const results: Record<string, unknown> = {};
-  const stored: StoredValues = { ...input.values };
+  const stored = withHiddenAsNull(input.values, hidden);
   for (const field of fields) {
     if (field.valueSource.kind === "constant") {
-      results[field.key] = constantValueOf(field, input.ctx.timezone);
+      results[field.key] = hidden.has(field.key)
+        ? null
+        : constantValueOf(field, input.ctx.timezone);
       stored[field.key] = results[field.key];
     }
   }
   for (const node of computeOrder(fields)) {
-    const value = computeNode(node, fields, stored, input);
+    const value = hidden.has(node.field.key)
+      ? null
+      : computeNode(node, fields, stored, input);
     results[node.field.key] = value;
     stored[node.field.key] = value;
   }
