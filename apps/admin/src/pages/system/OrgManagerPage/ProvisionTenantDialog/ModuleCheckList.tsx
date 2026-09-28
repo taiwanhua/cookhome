@@ -36,10 +36,7 @@ export const ModuleCheckList = ({
         {t("modules")}
       </Typography>
       {rows.map(({ option, depth }) => (
-        // 縮排用外層 Box 的 **padding**,不能用直接子元素的 `ml`:
-        // `Stack spacing` 會對每個直接子元素下 `& > :not(style):not(style) { margin: 0 }`,
-        // 那條選擇器的優先序高過子元素自己的 `sx`,`ml` 會被歸零 —
-        // 這就是 #183 驗收看到「勾選清單沒有縮排」的原因。
+        // 縮排用外層 Box 的 padding,排間距交給 Stack 的 gap(STYLE-09),子元素不帶 margin。
         // `data-depth` 讓測試不必去讀計算後的樣式就能斷言層級。
         <Box
           key={option.id}

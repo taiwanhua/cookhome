@@ -89,7 +89,6 @@ export const StepProgress = ({ instance }: StepProgressProps) => {
               <Stack
                 direction="row"
                 spacing={1}
-                useFlexGap
                 sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}
               >
                 <Typography variant="body2" sx={{ minWidth: 120 }}>

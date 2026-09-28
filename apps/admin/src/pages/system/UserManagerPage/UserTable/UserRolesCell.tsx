@@ -26,7 +26,6 @@ export const UserRolesCell = ({ user }: UserRolesCellProps) => {
     <Stack
       direction="row"
       spacing={0.5}
-      useFlexGap
       sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.75 }}
     >
       {user.roles.map((role, index) => (

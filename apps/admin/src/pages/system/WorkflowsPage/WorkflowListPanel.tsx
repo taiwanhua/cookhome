@@ -93,16 +93,13 @@ export const WorkflowListPanel = ({
               }}
             >
               <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                {/* ListItemText 自帶上下 6px margin;Stack 用 gap 後不再被歸零,這裡歸零維持列高 */}
                 <ListItemText
                   primary={workflow.name}
                   secondary={workflow.key}
+                  sx={{ my: 0 }}
                 />
-                <Stack
-                  direction="row"
-                  spacing={0.5}
-                  useFlexGap
-                  sx={{ flexWrap: "wrap" }}
-                >
+                <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
                   <Tag
                     tone={workflow.isShared ? "primary" : "grey"}
                     label={workflow.isShared ? t("shared") : t("custom")}

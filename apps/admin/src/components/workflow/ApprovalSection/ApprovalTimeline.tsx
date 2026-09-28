@@ -43,7 +43,6 @@ export const ApprovalTimeline = ({ instance }: ApprovalTimelineProps) => {
             <Stack
               direction="row"
               spacing={1.5}
-              useFlexGap
               sx={{ alignItems: "baseline", flexWrap: "wrap" }}
             >
               <Typography

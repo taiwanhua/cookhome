@@ -156,6 +156,16 @@ export const ModuleDetailPanel = ({
             </Typography>
           )}
         </ModuleDetailRow>
+        {/* 引擎只對有畫面的模組連結有意義;群組、隱藏頁、權限容器不顯示 */}
+        {module.sidebarType === ModuleSidebarType.Link && (
+          <ModuleDetailRow label={t("engine")}>
+            <Typography variant="body2">
+              {module.engine === ModuleEngine.Form
+                ? t("engineForm")
+                : t("engineFixed")}
+            </Typography>
+          </ModuleDetailRow>
+        )}
         <ModuleDetailRow label={t("order")}>
           <Typography variant="body2">{module.order}</Typography>
         </ModuleDetailRow>
