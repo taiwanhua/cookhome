@@ -2457,6 +2457,7 @@
       "levelOption": "第 {level} 層",
       "needsCheckForm": "請先選檢查用表單",
       "fieldCurrent": "目前:{form} / {field}",
+      "fieldNoChoices": "檢查用表單沒有「引用(使用者)」欄位;請先在表單設計器加一個資料來源為使用者的引用欄位並發布。",
       "fieldOtherForm": "這一關原本指向表單「{form}」;改選欄位會換成檢查用表單的欄位。",
       "noCheckFormReadonly": "這一版沒有指定檢查用表單"
     },

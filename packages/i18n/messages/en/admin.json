@@ -2457,6 +2457,7 @@
       "levelOption": "Level {level}",
       "needsCheckForm": "Select a check form first",
       "fieldCurrent": "Current: {form} / {field}",
+      "fieldNoChoices": "The check form has no “Reference (user)” field. Add a reference field whose data source is Users in the form designer, then publish it.",
       "fieldOtherForm": "This step points to the form “{form}”; choosing a field switches it to the check form's field.",
       "noCheckFormReadonly": "This version has no check form"
     },

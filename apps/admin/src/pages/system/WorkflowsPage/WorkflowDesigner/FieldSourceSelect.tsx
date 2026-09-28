@@ -19,6 +19,8 @@ export interface FieldSourceSelectProps {
   checkFormKey: string | null;
   /** 檢查用表單裡可選的欄(使用者型引用欄、非受保護) */
   choices: readonly FieldDef[];
+  /** 檢查用表單的欄位已載入(載入中不提示「沒有可選的欄位」) */
+  isLoaded: boolean;
   formNameOf: (formKey: string) => string;
   isDisabled: boolean;
 }
@@ -26,13 +28,14 @@ export interface FieldSourceSelectProps {
 /**
  * 審核者來源「表單欄位」的欄位下拉:欄位來自「檢查用表單」的目前版本;選了欄位,來源的表單就是檢查用表單。
  * 沒選檢查用表單 → 下拉只顯示「請先選檢查用表單」(不是空清單);這一關原本指向別張表單時註明,
- * 改選欄位就換成檢查用表單的欄位。
+ * 改選欄位就換成檢查用表單的欄位。檢查用表單沒有可選的欄時,下拉下方說明要先去表單設計器加一個。
  */
 export const FieldSourceSelect = ({
   value,
   onChange,
   checkFormKey,
   choices,
+  isLoaded,
   formNameOf,
   isDisabled,
 }: FieldSourceSelectProps) => {
@@ -107,6 +110,11 @@ export const FieldSourceSelect = ({
           onChange({ kind: "field", formKey: checkFormKey, fieldKey });
         }}
       />
+      {isLoaded && choices.length === 0 && !isDisabled && (
+        <Typography variant="caption" color="warning.main">
+          {t("fieldNoChoices")}
+        </Typography>
+      )}
       {isOnOtherForm && (
         <Typography variant="caption" color="warning.main">
           {t("fieldOtherForm", { form: formNameOf(value.formKey) })}
