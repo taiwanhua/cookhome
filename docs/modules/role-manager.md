@@ -13,7 +13,7 @@
 | `system.role-manager` | 角色管理 | link(清單 + 頁籤詳情頁) | 見權限表 |
 
 - 路由:`/system/role-manager`。沒有隱藏頁:所有動作都是頁上的彈窗或頁內頁籤。
-- Figma「角色管理」44:44:左清單(搜尋 + 分頁)+ 右頁籤(權限設定:矩陣 + 資料範圍 Radio;分配使用者);彈窗:新增 / 編輯角色、加入使用者 69:697、刪除 / 停用確認、放棄變更。頁籤用 `Draft/Tabs`(由 `Draft/Tab` 69:655 組成,登記見 `docs/branding.md`)。
+- Figma「角色管理」44:44:左清單(搜尋 + 分頁)+ 右頁籤(權限設定;分配使用者)。設計稿權限設定頁籤上的資料範圍 Radio 沒有實作 —— 資料範圍規則在獨立的 [資料範圍](./data-scope.md) 模組設定;彈窗:新增 / 編輯角色、加入使用者 69:697、刪除 / 停用確認、放棄變更。頁籤用 `Draft/Tabs`(由 `Draft/Tab` 69:655 組成,登記見 `docs/branding.md`)。
 
 正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/app/module-pages.tsx`
 
@@ -190,18 +190,19 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 
 ## 錯誤碼
 
-| 情境                                    | 回應                                            |
-| --------------------------------------- | ----------------------------------------------- |
-| 動到種子角色(改名 / 矩陣 / 停用 / 刪除) | `FORBIDDEN`,reason `SYSTEM_ROLE`                |
-| 非 root 停用預設角色                    | `FORBIDDEN`,reason `TEMPLATE_COPY_ROOT_ONLY`    |
-| 停用操作者自己正持有的角色              | `FORBIDDEN`,reason `SELF_LOCK`                  |
-| 擁有組織在管理範圍外(新增)              | `FORBIDDEN`                                     |
-| 自建角色仍有授予時刪除                  | `ROLE_NOT_DELETABLE` + `extensions.reasons`     |
-| 矩陣勾到操作者自己沒有的項目            | `ROLE_OUT_OF_REACH`                             |
-| 預設角色勾到模板沒有的項目(root 也擋)   | `ROLE_OUT_OF_REACH`,reason `TEMPLATE_CEILING`   |
-| 加入的使用者資格不符                    | `USER_NOT_ELIGIBLE` + `roleId` / `ownerOrgName` |
-| 移除擁有者的租戶管理員授予              | `OWNER_PROTECTED`                               |
-| 角色在管理範圍外                        | `NOT_FOUND`                                     |
+| 情境                                     | 回應                                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 動到種子角色(改名 / 矩陣 / 停用)         | `FORBIDDEN`,reason `SYSTEM_ROLE`                                                            |
+| 非 root 停用預設角色                     | `FORBIDDEN`,reason `TEMPLATE_COPY_ROOT_ONLY`                                                |
+| 停用操作者自己正持有的角色               | `FORBIDDEN`,reason `SELF_LOCK`                                                              |
+| 擁有組織在管理範圍外(新增)               | `FORBIDDEN`                                                                                 |
+| 刪除前置未過(仍有授予 / 種子 / 預設角色) | `ROLE_NOT_DELETABLE` + `extensions.reasons`(`HAS_GRANTS` / `SYSTEM_ROLE` / `TEMPLATE_COPY`) |
+| 矩陣勾到操作者自己沒有的項目             | `ROLE_OUT_OF_REACH`                                                                         |
+| 預設角色勾到模板沒有的項目(root 也擋)    | `ROLE_OUT_OF_REACH`,reason `TEMPLATE_CEILING`                                               |
+| 加入的使用者資格不符                     | `USER_NOT_ELIGIBLE` + `roleId` / `ownerOrgName`                                             |
+| 移除擁有者的租戶管理員授予               | `OWNER_PROTECTED`                                                                           |
+| 角色在管理範圍外                         | `NOT_FOUND`                                                                                 |
+| 名稱空白、id 不合法                      | `VALIDATION_FAILED` + `extensions.fields`                                                   |
 
 錯誤碼總表在 GQL-04。前端解讀集中在 `role-manager-error.ts`。
 

@@ -12,6 +12,6 @@ skills 以五個正規 triage 角色來溝通。本檔案把這些角色對應�
 
 當 skill 提到某個角色(例如「apply the AFK-ready triage label」),使用表中對應的標籤字串。
 
-若日後改用其他標籤詞彙,直接修改中間欄即可。
+若改用其他標籤詞彙,直接修改中間欄即可。標籤只當資格註記;票的狀態看 Project 看板的 Status 欄,不用標籤表示(見 [issue-tracker.md](./issue-tracker.md)「看板」)。
 
 正本:GitHub 上本 repo 的標籤(`gh label list`);skill 端的角色名見各 skill 的說明

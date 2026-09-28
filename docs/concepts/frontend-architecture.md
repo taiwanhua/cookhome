@@ -4,15 +4,15 @@
 
 ## 程式碼風格(admin / front / ui 同一套)
 
-| 項目           | 規則                                                          |
-| -------------- | ------------------------------------------------------------- |
-| 跨元件狀態     | zustand(`stores/`);context 只做注入(theme、QueryClient、Intl) |
-| 伺服器資料     | 只走 TanStack Query(`@repo/graphql` 的 codegen hooks)         |
-| URL 表達得了的 | 放 URL(admin 例外見 REACT-02)                                 |
-| 檔名           | 元件 `PascalCase.tsx`、hook `useXxx.ts`、其餘 kebab-case      |
-| 一檔一元件     | 有子元件才開同名資料夾;不用 `index.ts` barrel                 |
-| 寫法           | 箭頭函數;props 用 `export interface XxxProps`                 |
-| 檔案大小       | 目標 300 行,lint 上限 400                                     |
+| 項目           | 規則                                                                   |
+| -------------- | ---------------------------------------------------------------------- |
+| 跨元件狀態     | zustand(`stores/`);context 只做注入(theme、QueryClient、Intl、session) |
+| 伺服器資料     | 只走 TanStack Query(`@repo/graphql` 的 codegen hooks)                  |
+| URL 表達得了的 | 放 URL(admin 例外見 REACT-02)                                          |
+| 檔名           | 元件 `PascalCase.tsx`、hook `useXxx.ts`、其餘 kebab-case               |
+| 一檔一元件     | 有子元件才開同名資料夾;不用 `index.ts` barrel                          |
+| 寫法           | 箭頭函數;props 用 `export interface XxxProps`                          |
+| 檔案大小       | 目標 300 行,lint 上限 400(不計註解與空行)                              |
 
 - lint 規則集中在 `@repo/eslint-config/frontend-style`。
 - 框架強制的例外:Next.js `app/` 路由檔、ui 的 story 三件套。
@@ -24,10 +24,10 @@
 ```
 app/        組裝層:路由、守門、殼、providers(不含業務內容)
 pages/      一個頁面 = 一個模組;目錄照側欄樹長
-components/ 跨頁共用元件
+components/ 跨頁共用元件(含表單引擎、流程元件)
 hooks/      跨頁共用 hook
 stores/     zustand store
-lib/        純函式與基礎設施(auth、module-tree、route-tabs…)
+lib/        純函式與基礎設施(auth、module-tree、route-tabs、form-engine、workflow…)
 test/       測試支援
 ```
 
@@ -38,17 +38,47 @@ test/       測試支援
 
 ## 殼
 
-| 區塊      | 做什麼                                                                                                           | 程式                                                       |
-| --------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| SideNav   | `me.modules` 以 `parentId` 組樹;`group` 可展開、`link` 可點、`hidden` 不顯示;可收成 64px 圖示列(存 localStorage) | `app/AdminShell/SideNav/`、`stores/useSideNavStore.ts`     |
-| AppBar    | 組織切換器(改當前組織)、語系切換、「?」模組說明、使用者選單                                                      | `app/AdminShell/AppBar/`                                   |
-| RouteTabs | 開過的路由各一個頁籤;可關閉、可拖曳排序、鍵盤可操作                                                              | `app/AdminShell/RouteTabs/`、`stores/useRouteTabsStore.ts` |
-| 側欄商標  | 當前組織的商標,沒有就繼承上層                                                                                    | `me.currentOrg.logoUrl`                                    |
+殼 = 側欄 + AppBar + 路由頁籤列 + 內容區。`AdminShell` 等 `me` 載入後交給 `ShellLayout` 排版。
 
-- 「?」說明的內容是 `apps/admin/src/md/module-help/<key>.help.md`,build 時打包;彈窗動態載入。表單模組沒有專屬檔時用通用的 `form-module.help.md`。
+| 區塊      | 做什麼                                                                                                                                                                                              | 程式                                                             |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| SideNav   | `me.modules` 以 `parentId` 組樹;`group` 可展開、`link` 可點、`hidden` 不顯示;頂部是當前組織的商標(自己沒有就沿 `ancestors` 由近到遠繼承上層的商標,整條鏈都沒有才顯示組織名);可收合;模組列可掛待辦數 | `app/AdminShell/SideNav/`、`stores/useSideNavStore.ts`           |
+| AppBar    | 頁名、「?」模組說明、當前組織切換器、頭像選單                                                                                                                                                       | `app/AdminShell/AppBar/`                                         |
+| RouteTabs | 開過的路由各一個頁籤;可關閉、可拖曳排序、鍵盤可操作                                                                                                                                                 | `app/AdminShell/RouteTabs/`、`stores/useRouteTabsStore.ts`       |
+| 內容區    | `<main>`:高度由殼給、自己捲動;有最小寬度                                                                                                                                                            | `app/AdminShell/ShellLayout.tsx`、`AdminShell/shell-geometry.ts` |
+
 - 殼的設計稿節點登記在 `docs/branding.md`。
 
 正本:`apps/admin/src/app/AdminShell/`、`apps/admin/src/lib/module-tree.ts` 的 `buildNavTree`
+
+### 側欄
+
+- **兩種寬度**:展開 240px、收合成 64px 圖示列(`NavRail`)。收合態的群組以浮層展開子項;圖示格的提示就是模組名稱(REACT-10 的例外)。
+- 收合狀態存 localStorage,是這台瀏覽器的偏好,不分使用者。
+- 側欄只有模組樹那一格捲動,底部的收合開關永遠看得到。
+- **待辦數(badges)**:`ShellLayout` 傳入「模組 key → 數字」,數字大於 0 才顯示;展開態畫數字(`@repo/ui/badge`)、收合態畫小圓點。目前只有申請中心一項:待我處理的任務數,來自 `applyCenterCounts`(`hooks/useApplyCenterCounts.ts`)。沒有申請中心檢視權限時不發請求。進站取一次,之後由送出、審核、改派、撤回、作廢、刪除這些寫入主動失效重查,不輪詢。
+
+### 內容區的寬度與內距
+
+- **最小寬度**:只在 `sm` 以上套用。內容區最小寬度 = 主題斷點 − 側欄寬(隨收合狀態)− 左右內距。殼層預設 `lg`;表單管理與流程管理(兩個設計器)宣告 `xl`,登記在 `app/module-pages.tsx` 的 `modulePageMinWidths`。視窗比斷點窄時由 `<main>` 水平捲動,不擠壓內容;document 本身不出現水平捲軸。
+- **內距**:手機寬(< `sm`)8px,其餘 24px(`MAIN_PADDING`)。
+- **高度**:殼外框固定 `100vh`,`<main>` 以 `flex: 1` + `minHeight: 0` 取得確定的高度,頁面可以撐滿(STYLE-08)。
+
+正本:`apps/admin/src/app/AdminShell/shell-geometry.ts`、`apps/admin/src/app/AdminShell/ShellLayout.tsx`
+
+### AppBar 與頭像選單
+
+- **頁名**:目前網址對上的模組名。`/` 會立刻轉到第一個能進的頁面,標題留空;其他對不上模組的網址(包括群組路由)顯示「沒有權限進入此頁面」—— 群組路由會立刻轉到該群組第一個能進的頁面,群組底下一個都進不去時就停在無權限頁。
+- **「?」模組說明**:只有模組路由才有。內容是 `apps/admin/src/md/module-help/<key>.help.md`,build 時打包、彈窗動態載入;表單模組沒有專屬檔時用通用的 `form-module.help.md`;都沒有就停用。
+- **當前組織切換器**:`SelectField`;切換後換發 access token,並失效 `me`。
+- **頭像選單**(`Popover`):使用者卡(姓名、帳號 · 當前組織)、**外觀**與**語言**兩組 `SegmentedControl`(切了立刻生效、不關選單)、登出 / 登出所有裝置。用 `Popover` 而不用 `Menu`,是因為 `Menu` 按 Tab 就關、分段按鈕鍵盤到不了;只有登出兩項是 `MenuList`。
+
+### 外觀(跟隨系統 / 亮 / 暗)
+
+- 預設跟隨系統。選擇由 `@repo/ui` 的 `AppThemeProvider` 存 localStorage(`useColorMode` 讀寫,STYLE-04);另存亮 / 暗各用哪組配色。
+- **首幀腳本**:React 起來前先依 localStorage 把 `<html>` 的 class 設成 `light` / `dark`,重新整理時不會先閃亮色。腳本在 `lib/color-mode-init.ts`,由 `vite.config.ts` / `vite.mock.config.ts` 以 `transformIndexHtml` 注入 `index.html` 的 `<head>`;與 `AppThemeProvider` 用同一組 key 常數(`lib/color-mode.ts`)。不用 MUI 的 `InitColorSchemeScript`,因為 React 插入的內嵌 script 不會執行。
+
+正本:`apps/admin/src/lib/color-mode.ts`、`apps/admin/src/lib/color-mode-init.ts`、`packages/ui/src/AppThemeProvider/`
 
 ## 守門與路由
 
@@ -60,7 +90,7 @@ test/       測試支援
 
 - `RequireAuth`:未登入回登入頁;`me.mustChangePassword` 導去改密碼頁。
 - `ModuleRoute`:把網址對上 `me.modules`,決定顯示哪一頁。
-- 模組 key → 頁面元件登記在 `app/module-pages.tsx`;沒登記的模組顯示佔位頁。
+- 模組 key → 頁面元件登記在 `app/module-pages.tsx`;沒登記的模組顯示佔位頁。表單模組以 `formModulePages(<模組 key>)` 一次登記四頁(表單引擎的預設組裝)。
 
 正本:`apps/admin/src/app/routes.tsx`、`apps/admin/src/app/guards/`、`apps/admin/src/app/module-pages.tsx`
 
@@ -92,6 +122,7 @@ test/       測試支援
 | 頁內頁籤 | `@repo/ui/tabs`;同一網址內切換區塊 | 不是路由、不進頁籤列、狀態不進 URL                                                               |
 
 - 帶識別碼的詳情 / 編輯頁是**詳情子頁籤**:每筆一個,標籤「所屬模組名 — 項目名」。項目名由頁面拿到資料後經 `useRouteTabItemLabel` 提供,殼不查業務資料。
+- 表單模組與申請中心詳情的項目名由頁籤模板算出(`lib/form-engine/tab-label.ts` 的 `renderTabLabel`),見 `docs/modules/forms.md`。
 - 要能分享、重整回得來、出現在頁籤列 → 做成(隱藏頁)路由。只是同一筆資料的不同面向 → 頁內頁籤。
 
 正本:`apps/admin/src/lib/route-tabs.ts`、`apps/admin/src/app/AdminShell/RouteTabs/useRouteTabs.ts`、`apps/admin/src/hooks/useRouteTabItemLabel.ts`
@@ -105,12 +136,12 @@ test/       測試支援
 
 ## 表格兩種
 
-| 種類        | 用在哪                                                    | 入口                  |
-| ----------- | --------------------------------------------------------- | --------------------- |
-| `Table`     | 治理頁的小表、彈窗裡的表、有分頁的清單                    | `@repo/ui/table`      |
-| `DataTable` | 大量資料的列表:列虛擬捲動、欄寬拖拉、左右固定欄、表頭排序 | `@repo/ui/data-table` |
+| 種類        | 用在哪                                                    | 欄位渲染              | 入口                  |
+| ----------- | --------------------------------------------------------- | --------------------- | --------------------- |
+| `Table`     | 治理頁的小表、彈窗裡的表、有分頁的清單                    | `render(row, ctx)`    | `@repo/ui/table`      |
+| `DataTable` | 大量資料的列表:列虛擬捲動、欄寬拖拉、左右固定欄、表頭排序 | `render(ctx)`(可省略) | `@repo/ui/data-table` |
 
-- 兩者的欄位共用渲染簽章 `render(ctx)`(`ctx = { value, row, rows, index, column }`)。
+- 兩者的 `ctx` 是同一個型別 `CellRenderContext`(`{ value, row, rows, index, column }`)。
 
 正本:`docs/standards/react/components.md` REACT-13、`packages/ui/src/DataTable/`、`packages/ui/src/Table/`
 
@@ -126,6 +157,7 @@ test/       測試支援
 - 共用元件不認得任何模組的 GraphQL 型別。
 - 兩個實例:`SampleOneModule.tsx`(全選配)、`SampleTwoModule.tsx`(最小可行)。
 - 新增模組的完整步驟見 `docs/agents/module-scaffold.md`。
+- 欄位由使用者在後台自訂的模組不走共版型,走表單引擎(`docs/modules/forms.md`)。
 
 正本:`apps/admin/src/pages/demo/shared/demo-module-config.ts`、`apps/admin/src/pages/demo/shared/`
 
@@ -154,16 +186,19 @@ test/       測試支援
 
 正本:`apps/admin/src/hooks/useMe.ts`、`docs/standards/react/data-fetching.md` DATA-02 / DATA-04
 
-## 其他 zustand store
+## zustand store 與瀏覽器儲存
 
-| store               | 內容                     | 保存位置                       |
-| ------------------- | ------------------------ | ------------------------------ |
-| `useSessionStore`   | access token(只在記憶體) | 記憶體                         |
-| `useLocaleStore`    | 語系                     | localStorage                   |
-| `useSideNavStore`   | 側欄收合                 | localStorage(不分使用者)       |
-| `useRouteTabsStore` | 路由頁籤                 | sessionStorage(以使用者分 key) |
-| `useSnackbarStore`  | 目前那一則提示           | 記憶體                         |
+| store                   | 內容                       | 保存位置                       |
+| ----------------------- | -------------------------- | ------------------------------ |
+| `useSessionStore`       | access token(只在記憶體)   | 記憶體                         |
+| `useLocaleStore`        | 語言                       | localStorage                   |
+| `useSideNavStore`       | 側欄收合                   | localStorage(不分使用者)       |
+| `useRouteTabsStore`     | 路由頁籤                   | sessionStorage(以使用者分 key) |
+| `useSnackbarStore`      | 目前那一則提示             | 記憶體                         |
+| `useDesignerDraftStore` | 表單設計器有沒有未存的變更 | 記憶體                         |
+| `useWorkflowDraftStore` | 流程設計器有沒有未存的變更 | 記憶體                         |
 
+- 外觀不在 zustand:由 `AppThemeProvider` 存 localStorage(見上方「外觀」)。
 - 儲存鍵一律 `cookhome-admin-*`,登記在 `docs/branding.md`。
 
 正本:`apps/admin/src/stores/`

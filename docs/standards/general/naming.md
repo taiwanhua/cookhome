@@ -59,7 +59,7 @@
 ## GEN-05 自己命名時縮寫詞當一般單字;沿用外部庫的名稱不改
 
 ```ts
-✅ const apiUrl = …;  function createGraphqlClient() {}   // 自己命名
+✅ const apiUrl = …;  const toJsonString = …;           // 自己命名
 ✅ import { GraphQLClient } from "graphql-request";        // 外部庫,原樣沿用
 ❌ const APIURL = …;
 ```

@@ -60,6 +60,7 @@ refresh cookie 整個瀏覽器共用,所以「誰後登入,全部分頁跟著他
 - 使用者可屬多個組織(`org_user`),token 只帶一個**當前組織**。
 - 當前組織只決定兩件事:新資料寫到哪個組織、業務頁的預設篩選。不參與權限計算。
 - 使用者至少要有一個所屬組織(移除最後一個 → `LAST_ORG`)。
+- 組織可設主管(核心關聯 `org_manager`,一個組織可多位),審核流程以它解析「主管」審核者;在組織管理設定(`docs/modules/org-manager.md`)。
 
 正本:`apps/api/src/database/schemas/org.schema.ts`、`apps/api/src/auth/operator-context.service.ts`、`apps/api/src/users/users.service.ts`
 
@@ -96,12 +97,12 @@ refresh cookie 整個瀏覽器共用,所以「誰後登入,全部分頁跟著他
 
 根組織操作者(需 `system.org-manager.tenant-ops.provision`)在組織管理填表開通,系統自動:
 
-1. 建租戶頂層(根的直接子組織)。
+1. 建租戶頂層(根的直接子組織),寫入開通表單填的租戶短碼(`orgs.slug`,全站唯一,只有根組織能改)。
 2. 複製一份「租戶管理員」模板角色到租戶名下;只綁表單勾選的模組,每個模組各一筆 `*`。副本以 `roles.settings.templateKey = "tenant-admin"` 標記來源。
 3. 建首任租戶管理員帳號,綁 `org_user` 與 `user_role`。不設密碼,寄啟用信。
 4. 設 `orgs.ownerUserId` = 首任管理員(租戶擁有者)。
 
-- 模板 = 全部模組扣除根組織專屬(租戶作業、模組與權限、資料範圍),每個模組一筆 `*`。
+- 模板 = 全部模組扣除根組織專屬(模組與權限、資料範圍,以及權限容器租戶作業、類別作業),每個模組一筆 `*`。
 - 副本就是該租戶的天花板。seed 新增的模組只進模板,既有租戶的副本不會自動拿到。
 - 任一步失敗 → 反向補償刪除本次建的東西(Mongo 單節點沒有 transaction)。
 - 「新增子組織」是另一個輕量入口,不走這個流程。
@@ -140,7 +141,7 @@ refresh cookie 整個瀏覽器共用,所以「誰後登入,全部分頁跟著他
 
 - 單次使用、存雜湊,`action_tokens` 有 TTL index。
 - 啟用逾期走「忘記密碼」自助取得新連結。
-- 同組織內手動新增使用者時,可改用「初始密碼 + 首登強改」(`UserActivationMode.PASSWORD`)。
+- 在使用者管理新增使用者時,可改用「初始密碼 + 首登強改」(`UserActivationMode.PASSWORD`);預設仍是寄啟用信(`EMAIL`)。
 - 密碼流程三個入口與 admin 三頁的行為見 `docs/modules/user-manager.md`「密碼流程」。
 
 正本:`apps/api/src/auth/password/password.config.ts`、`apps/api/src/auth/password/action-token.service.ts`、`docs/env-registry.md`
