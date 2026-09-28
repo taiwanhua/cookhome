@@ -1,11 +1,16 @@
 import { HttpResponse } from "msw";
 
+import { isValidFieldCategoryKey } from "@repo/domain/form";
 import {
+  type CreateFieldCategoryMutationVariables,
   type CreateFieldMutationVariables,
   type FieldCategoriesQuery,
+  type FieldCategoriesQueryVariables,
   type FieldsQuery,
   type FieldsQueryVariables,
+  type SetFieldCategoryEnabledMutationVariables,
   type SetFieldEnabledMutationVariables,
+  type UpdateFieldCategoryMutationVariables,
   type UpdateFieldMutationVariables,
 } from "@repo/graphql";
 
@@ -17,7 +22,13 @@ export type TestFieldCategory =
 export type TestField = FieldsQuery["fields"]["items"][number];
 
 /** 會被指定失敗的操作(值是 `errors[0].extensions.code`)。 */
-export type FieldOperation = "CreateField" | "UpdateField" | "SetFieldEnabled";
+export type FieldOperation =
+  | "CreateField"
+  | "UpdateField"
+  | "SetFieldEnabled"
+  | "CreateFieldCategory"
+  | "UpdateFieldCategory"
+  | "SetFieldCategoryEnabled";
 
 export interface FieldWorldOptions {
   categories?: TestFieldCategory[];
@@ -40,9 +51,12 @@ export interface FieldWorld {
     createField: CreateFieldMutationVariables["input"][];
     updateField: UpdateFieldMutationVariables["input"][];
     setFieldEnabled: SetFieldEnabledMutationVariables["input"][];
+    createFieldCategory: CreateFieldCategoryMutationVariables["input"][];
+    updateFieldCategory: UpdateFieldCategoryMutationVariables["input"][];
+    setFieldCategoryEnabled: SetFieldCategoryEnabledMutationVariables["input"][];
   };
-  /** `fields` 被打到的次數(驗 invalidate 之後真的重新查了一次) */
-  calls: { fields: number };
+  /** `fields` / `fieldCategories` 被打到的次數(驗 invalidate 之後真的重新查了一次) */
+  calls: { fields: number; fieldCategories: number };
 }
 
 /**
@@ -58,6 +72,8 @@ export interface FieldWorld {
  * - `updateField` / `setFieldEnabled` 被擋時:種子 → `FORBIDDEN` + reason
  *   `SEED_READ_ONLY` / `SEED_GLOBAL_SWITCH`;別的組織加的 → reason `NOT_OWNER`
  * - `createField` 的 `value` 與同類別的**繼承鏈**(全域 / 上層 / 自己)重複 → `FIELD_VALUE_DUPLICATE`
+ * - 類別作業:`key` 格式不符 → `VALIDATION_FAILED`、重複(含停用的)→ `FIELD_CATEGORY_KEY_DUPLICATE`、
+ *   改名 / 停用系統類別 → `FORBIDDEN` + reason `SYSTEM_CATEGORY`;`fieldCategories(input.enabledOnly)` 只回啟用的
  */
 export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
   const {
@@ -69,12 +85,16 @@ export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
   } = options;
 
   const state: Record<string, TestField[]> = structuredClone(fieldsByCategory);
+  const categoryState: TestFieldCategory[] = structuredClone(categories);
   const inputs: FieldWorld["inputs"] = {
     createField: [],
     updateField: [],
     setFieldEnabled: [],
+    createFieldCategory: [],
+    updateFieldCategory: [],
+    setFieldCategoryEnabled: [],
   };
-  const calls = { fields: 0 };
+  const calls = { fields: 0, fieldCategories: 0 };
   let created = 0;
 
   const fail = (operation: FieldOperation) => {
@@ -102,16 +122,18 @@ export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
   };
 
   const handlers = [
-    api.query("FieldCategories", () =>
-      HttpResponse.json({
-        data: {
-          fieldCategories: {
-            items: categories,
-            totalCount: categories.length,
-          },
-        },
-      }),
-    ),
+    api.query("FieldCategories", ({ variables }) => {
+      const { input } = variables as FieldCategoriesQueryVariables;
+      calls.fieldCategories += 1;
+      const items =
+        input?.enabledOnly === true
+          ? categoryState.filter((category) => category.enabled)
+          : categoryState;
+      return HttpResponse.json({
+        data: { fieldCategories: { items, totalCount: items.length } },
+      });
+    }),
+    ...categoryHandlers(categoryState, inputs, fail),
     api.query("Fields", ({ variables }) => {
       const { categoryId } = variables as FieldsQueryVariables;
       calls.fields += 1;
@@ -202,4 +224,97 @@ export const fieldWorld = (options: FieldWorldOptions = {}): FieldWorld => {
   ];
 
   return { handlers: handlers as FieldWorld["handlers"], inputs, calls };
+};
+
+const notFoundError = () => graphqlError("NOT_FOUND" as AuthErrorCode);
+
+/** 類別作業的三個 mutation(寫回 `categoryState`,讓失效後的重查看得到新值)。 */
+const categoryHandlers = (
+  categoryState: TestFieldCategory[],
+  inputs: FieldWorld["inputs"],
+  fail: (operation: FieldOperation) => Response | null,
+) => {
+  const findCategory = (id: string) =>
+    categoryState.find((category) => category.id === id);
+
+  return [
+    api.mutation("CreateFieldCategory", ({ variables }) => {
+      const { input } = variables as CreateFieldCategoryMutationVariables;
+      inputs.createFieldCategory.push(input);
+      const failure = fail("CreateFieldCategory");
+      if (failure !== null) {
+        return failure;
+      }
+      if (!isValidFieldCategoryKey(input.key)) {
+        return graphqlError("VALIDATION_FAILED", "VALIDATION_FAILED", {
+          fields: ["key"],
+        });
+      }
+      if (categoryState.some((category) => category.key === input.key)) {
+        return graphqlError(
+          "FIELD_CATEGORY_KEY_DUPLICATE" as AuthErrorCode,
+          "FIELD_CATEGORY_KEY_DUPLICATE",
+          { fields: ["key"] },
+        );
+      }
+      const category: TestFieldCategory = {
+        id: `cat-new-${input.key}`,
+        key: input.key,
+        name: input.name,
+        description: input.description ?? null,
+        isSystem: false,
+        enabled: true,
+      };
+      categoryState.push(category);
+      return HttpResponse.json({ data: { createFieldCategory: { category } } });
+    }),
+    api.mutation("UpdateFieldCategory", ({ variables }) => {
+      const { input } = variables as UpdateFieldCategoryMutationVariables;
+      inputs.updateFieldCategory.push(input);
+      const failure = fail("UpdateFieldCategory");
+      if (failure !== null) {
+        return failure;
+      }
+      const target = findCategory(input.id);
+      if (target === undefined) {
+        return notFoundError();
+      }
+      // 系統類別由 seed 維護,畫面唯讀(api 同一條規則)
+      if (target.isSystem) {
+        return graphqlError("FORBIDDEN", "FORBIDDEN", {
+          reason: "SYSTEM_CATEGORY",
+        });
+      }
+      if (input.name !== undefined && input.name !== null) {
+        target.name = input.name;
+      }
+      if (input.description !== undefined) {
+        target.description = input.description;
+      }
+      return HttpResponse.json({
+        data: { updateFieldCategory: { category: target } },
+      });
+    }),
+    api.mutation("SetFieldCategoryEnabled", ({ variables }) => {
+      const { input } = variables as SetFieldCategoryEnabledMutationVariables;
+      inputs.setFieldCategoryEnabled.push(input);
+      const failure = fail("SetFieldCategoryEnabled");
+      if (failure !== null) {
+        return failure;
+      }
+      const target = findCategory(input.id);
+      if (target === undefined) {
+        return notFoundError();
+      }
+      if (target.isSystem && !input.enabled) {
+        return graphqlError("FORBIDDEN", "FORBIDDEN", {
+          reason: "SYSTEM_CATEGORY",
+        });
+      }
+      target.enabled = input.enabled;
+      return HttpResponse.json({
+        data: { setFieldCategoryEnabled: { category: target } },
+      });
+    }),
+  ];
 };

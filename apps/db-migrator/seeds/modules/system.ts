@@ -10,6 +10,7 @@ export const USER_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.user-manager`;
 export const ROLE_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.role-manager`;
 export const MODULE_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.module-manager`;
 export const FIELD_MANAGER_KEY = `${SYSTEM_GROUP_KEY}.field-manager`;
+export const CATEGORY_OPS_KEY = `${FIELD_MANAGER_KEY}.category-ops`;
 export const DATA_SCOPE_KEY = `${SYSTEM_GROUP_KEY}.data-scope`;
 export const FORMS_KEY = `${SYSTEM_GROUP_KEY}.forms`;
 export const WORKFLOWS_KEY = `${SYSTEM_GROUP_KEY}.workflows`;
@@ -97,6 +98,19 @@ export const systemModules: ModuleSeedDeclaration = {
       order: 5,
       route: "field-manager",
       icon: "label",
+    },
+    {
+      // 純權限容器(照 tenant-ops 的形狀):按鈕與彈窗仍在欄位管理頁上;
+      // 標 isRootOnly 讓租戶管理員模板整個模組被扣除(docs/modules/field-manager.md;ADR-0009)
+      key: CATEGORY_OPS_KEY,
+      name: "類別作業",
+      sidebarType: "hidden",
+      parentKey: FIELD_MANAGER_KEY,
+      order: 1,
+      isRootOnly: true,
+      icon: "category",
+      description:
+        "根組織專屬動作的權限容器:新增 / 改名 / 停用欄位類別(無路由、不在側欄)",
     },
     {
       key: DATA_SCOPE_KEY,
@@ -370,6 +384,14 @@ export const systemModules: ModuleSeedDeclaration = {
       moduleKey: FIELD_MANAGER_KEY,
       name: "停用 / 啟用",
       description: "停用 / 啟用選項 + API(種子與自訂皆可;選項不可刪)",
+    },
+    // 類別作業(根組織專屬;欄位管理權限表的最後一列)
+    {
+      key: permissionKey(CATEGORY_OPS_KEY, "manage-categories"),
+      moduleKey: CATEGORY_OPS_KEY,
+      name: "管理類別",
+      description:
+        "「新增類別」按鈕、類別的改名 / 說明 / 停用 + API(限站在根組織;系統類別不可停用、類別 key 建立後不可改、不可刪)",
     },
     // 表單管理(docs/modules/forms.md 權限表)
     {

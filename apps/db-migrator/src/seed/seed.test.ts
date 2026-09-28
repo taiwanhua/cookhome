@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { verify as verifyArgon2 } from "@node-rs/argon2";
-import { MongoClient, type ObjectId } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
@@ -280,8 +280,8 @@ describe("seed 指令(對真 MongoDB)", () => {
       expect(typeof role.name).toBe("string");
     }
 
-    // 摘要:新增 N / 更新 M / 未變 K(根組織 1 + 種子角色 2 至少 3 筆新增)
-    expect(result.stdout).toMatch(/新增 \d+ \/ 更新 0 \/ 未變 0/);
+    // 摘要:新增 N / 更新 M / 認養 A / 未變 K(根組織 1 + 種子角色 2 至少 3 筆新增)
+    expect(result.stdout).toMatch(/新增 \d+ \/ 更新 0 \/ 認養 0 \/ 未變 0/);
   }, 120_000);
 
   it("種子角色的擁有組織為根組織(org_role),重跑不重複建立", async () => {
@@ -326,7 +326,9 @@ describe("seed 指令(對真 MongoDB)", () => {
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
-    expect(secondRun.stdout).toMatch(/新增 0 \/ 更新 0 \/ 未變 [1-9]\d*/);
+    expect(secondRun.stdout).toMatch(
+      /新增 0 \/ 更新 0 \/ 認養 0 \/ 未變 [1-9]\d*/,
+    );
 
     const secondSnapshot = await readSeededDocuments(databaseUri);
     expect(secondSnapshot).toEqual(firstSnapshot);
@@ -340,14 +342,14 @@ describe("seed 指令(對真 MongoDB)", () => {
     });
     expect(firstRun.stderr).toBe("");
     expect(firstRun.status).toBe(0);
-    expect(firstRun.stdout).toContain("新增 2 / 更新 0 / 未變 0");
+    expect(firstRun.stdout).toContain("新增 2 / 更新 0 / 認養 0 / 未變 0");
 
     const secondRun = runSeedCommand(databaseUri, {
       registryPath: fixtureRegistryPath("seeds-v2"),
     });
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
-    expect(secondRun.stdout).toContain("新增 1 / 更新 1 / 未變 1");
+    expect(secondRun.stdout).toContain("新增 1 / 更新 1 / 認養 0 / 未變 1");
 
     const items = await withDatabase(databaseUri, (database) =>
       database
@@ -433,6 +435,144 @@ describe("欄位類別與全域選項種子(docs/modules/field-manager.md「種�
   }, 120_000);
 });
 
+describe("seed 以 key 認養 root 在畫面建的類別與選項(ADR-0002)", () => {
+  it("同 key 的畫面類別被認養:_id 不變、isSystem 改 true、名稱 / 說明以 seed 為準;根組織加的同 value 選項一併認養,其他選項與未宣告的類別不碰;摘要四種計數", async () => {
+    const databaseUri = createTestDatabaseUri("adopt");
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+
+    // root 在畫面建的形狀(api 的 createFieldCategory / createField):isSystem false、選項 orgId = 根組織、沒有種子 key
+    const planted = await withDatabase(databaseUri, async (database) => {
+      const now = new Date();
+      const rootOrg = await database
+        .collection<SeededDocument>("orgs")
+        .findOne({ key: "root" });
+      const tenantOrgId = new ObjectId();
+      const categories = database.collection("field_categories");
+      const cuisine = await categories.insertOne({
+        key: "cuisine",
+        name: "料理(畫面建)",
+        description: "root 寫的說明",
+        enabled: true,
+        isSystem: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const untouched = await categories.insertOne({
+        key: "flavor",
+        name: "口味(畫面建)",
+        enabled: false,
+        isSystem: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const option = (orgId: ObjectId | undefined, value: string) => ({
+        categoryId: cuisine.insertedId,
+        orgId,
+        value,
+        label: `${value}(畫面建)`,
+        order: 9,
+        enabled: false,
+        isSystem: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+      const fieldsCollection = database.collection("fields");
+      const rootSpicy = await fieldsCollection.insertOne(
+        option(rootOrg?._id, "spicy"),
+      );
+      const rootMild = await fieldsCollection.insertOne(
+        option(rootOrg?._id, "mild"),
+      );
+      const tenantSpicy = await fieldsCollection.insertOne(
+        option(tenantOrgId, "spicy"),
+      );
+      return {
+        cuisineId: cuisine.insertedId,
+        flavorId: untouched.insertedId,
+        rootSpicyId: rootSpicy.insertedId,
+        rootMildId: rootMild.insertedId,
+        tenantSpicyId: tenantSpicy.insertedId,
+      };
+    });
+
+    const adoptRun = runSeedCommand(databaseUri, {
+      registryPath: fixtureRegistryPath("seeds-adopt"),
+    });
+    expect(adoptRun.stderr).toBe("");
+    expect(adoptRun.status).toBe(0);
+    // 類別:demo-category 補說明 = 更新、cuisine = 認養、gender = 未變
+    expect(adoptRun.stdout).toContain(
+      "field_categories:新增 0 / 更新 1 / 認養 1 / 未變 1",
+    );
+    // 選項:cuisine.sweet = 新增、根組織的 spicy = 認養、七個種子選項未變
+    expect(adoptRun.stdout).toContain(
+      "fields:新增 1 / 更新 0 / 認養 1 / 未變 7",
+    );
+
+    const after = await withDatabase(databaseUri, async (database) => {
+      const categories =
+        database.collection<SeededDocument>("field_categories");
+      const fieldsCollection = database.collection<FieldDocument>("fields");
+      return {
+        cuisine: await categories.findOne({ key: "cuisine" }),
+        flavor: await categories.findOne({ _id: planted.flavorId }),
+        rootSpicy: await fieldsCollection.findOne({ _id: planted.rootSpicyId }),
+        rootMild: await fieldsCollection.findOne({ _id: planted.rootMildId }),
+        tenantSpicy: await fieldsCollection.findOne({
+          _id: planted.tenantSpicyId,
+        }),
+        sweet: await fieldsCollection.findOne({ key: "cuisine.sweet" }),
+      };
+    });
+
+    expect(after.cuisine?._id.equals(planted.cuisineId)).toBe(true);
+    expect(after.cuisine).toMatchObject({
+      name: "料理類型",
+      description: null,
+      isSystem: true,
+      enabled: true,
+    });
+    // 認養的選項:_id 不變(引用照舊)、轉成全域種子;enabled 是初始 seed 值的欄位,保留人設的值
+    expect(after.rootSpicy).toMatchObject({
+      key: "cuisine.spicy",
+      orgId: null,
+      label: "辣味",
+      order: 1,
+      isSystem: true,
+      enabled: false,
+    });
+    expect(after.rootSpicy?.categoryId?.equals(planted.cuisineId)).toBe(true);
+    expect(after.sweet?.categoryId?.equals(planted.cuisineId)).toBe(true);
+    // 根組織加的其他選項、租戶的同 value 選項、沒宣告的畫面類別:原封不動
+    expect(after.rootMild).toMatchObject({
+      isSystem: false,
+      label: "mild(畫面建)",
+    });
+    expect(after.rootMild).not.toHaveProperty("key");
+    expect(after.tenantSpicy).toMatchObject({
+      isSystem: false,
+      label: "spicy(畫面建)",
+    });
+    expect(after.tenantSpicy).not.toHaveProperty("key");
+    expect(after.flavor).toMatchObject({
+      key: "flavor",
+      name: "口味(畫面建)",
+      enabled: false,
+      isSystem: false,
+    });
+
+    // 認養單向、只發生一次:重跑全部未變
+    const rerun = runSeedCommand(databaseUri, {
+      registryPath: fixtureRegistryPath("seeds-adopt"),
+    });
+    expect(rerun.status).toBe(0);
+    expect(rerun.stdout).toContain(
+      "field_categories:新增 0 / 更新 0 / 認養 0 / 未變 3",
+    );
+    expect(rerun.stdout).toContain("fields:新增 0 / 更新 0 / 認養 0 / 未變 9");
+  }, 120_000);
+});
+
 describe("種子文件之間的引用(seedRef → 該環境的 _id)", () => {
   it("引用改指向另一筆種子後重跑:同步為新目標的 _id、計為 1 筆更新(以夾具 registry 驗證)", async () => {
     const databaseUri = createTestDatabaseUri("ref-change");
@@ -442,14 +582,14 @@ describe("種子文件之間的引用(seedRef → 該環境的 _id)", () => {
     });
     expect(firstRun.stderr).toBe("");
     expect(firstRun.status).toBe(0);
-    expect(firstRun.stdout).toContain("新增 3 / 更新 0 / 未變 0");
+    expect(firstRun.stdout).toContain("新增 3 / 更新 0 / 認養 0 / 未變 0");
 
     const secondRun = runSeedCommand(databaseUri, {
       registryPath: fixtureRegistryPath("seeds-ref-v2"),
     });
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
-    expect(secondRun.stdout).toContain("新增 0 / 更新 1 / 未變 2");
+    expect(secondRun.stdout).toContain("新增 0 / 更新 1 / 認養 0 / 未變 2");
 
     const { groupB, member } = await withDatabase(
       databaseUri,
@@ -661,17 +801,19 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     ]);
   }, 120_000);
 
-  it("示範家族 12 筆 + 組織管理 12 筆(9 + 租戶作業 3)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 4 筆 + 欄位管理 4 筆 + 資料範圍 2 筆 + 表單管理 5 筆 + 流程管理 7 筆 + 申請中心 1 筆 + 三個示範表單各 4 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 37 個模組各一筆 wildcard,共 111 筆", async () => {
+  it("示範家族 12 筆 + 組織管理 12 筆(9 + 租戶作業 3)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 4 筆 + 欄位管理 5 筆(4 + 類別作業 1)+ 資料範圍 2 筆 + 表單管理 5 筆 + 流程管理 7 筆 + 申請中心 1 筆 + 三個示範表單各 4 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 38 個模組各一筆 wildcard,共 113 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     const firstRun = runSeedCommand(databaseUri);
     expect(firstRun.status).toBe(0);
-    expect(firstRun.stdout).toContain("permissions:新增 111 / 更新 0 / 未變 0");
+    expect(firstRun.stdout).toContain(
+      "permissions:新增 113 / 更新 0 / 認養 0 / 未變 0",
+    );
     // 冪等:重跑 0 新增 / 0 更新 / 全部未變
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.status).toBe(0);
     expect(secondRun.stdout).toContain(
-      "permissions:新增 0 / 更新 0 / 未變 111",
+      "permissions:新增 0 / 更新 0 / 認養 0 / 未變 113",
     );
 
     const { modules, permissions } = await readSeededDocuments(databaseUri);
@@ -735,11 +877,13 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "system.module-manager.set-icon": "system.module-manager",
       "system.module-manager.delete-retired-permission":
         "system.module-manager",
-      // 正本:docs/modules/field-manager.md 權限表(4)
+      // 正本:docs/modules/field-manager.md 權限表(4 + 類別作業 1)
       "system.field-manager.view": "system.field-manager",
       "system.field-manager.create": "system.field-manager",
       "system.field-manager.edit": "system.field-manager",
       "system.field-manager.toggle-enabled": "system.field-manager",
+      "system.field-manager.category-ops.manage-categories":
+        "system.field-manager.category-ops",
       // 正本:docs/modules/data-scope.md 權限表(2;根組織專屬模組)
       "system.data-scope.view": "system.data-scope",
       "system.data-scope.edit": "system.data-scope",
@@ -774,8 +918,8 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     for (const module of modules) {
       expectedOwners[`${String(module.key)}.*`] = String(module.key);
     }
-    expect(modules).toHaveLength(37);
-    expect(permissions).toHaveLength(111);
+    expect(modules).toHaveLength(38);
+    expect(permissions).toHaveLength(113);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
       expect(permission).toMatchObject({
@@ -795,7 +939,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.status).toBe(0);
     expect(secondRun.stdout).toContain(
-      "data_scope_targets:新增 0 / 更新 0 / 未變 4",
+      "data_scope_targets:新增 0 / 更新 0 / 認養 0 / 未變 4",
     );
 
     const { dataScopeTargets } = await readSeededDocuments(databaseUri);
@@ -854,10 +998,10 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
     expect(secondRun.stdout).toContain(
-      "demo_items_one:新增 0 / 更新 0 / 未變 5",
+      "demo_items_one:新增 0 / 更新 0 / 認養 0 / 未變 5",
     );
     expect(secondRun.stdout).toContain(
-      "demo_items_two:新增 0 / 更新 0 / 未變 5",
+      "demo_items_two:新增 0 / 更新 0 / 認養 0 / 未變 5",
     );
 
     const { itemsOne, itemsTwo, rootOrg, demoOptionValues } =
@@ -932,7 +1076,9 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
-    expect(secondRun.stdout).toMatch(/新增 0 \/ 更新 0 \/ 未變 [1-9]\d*/);
+    expect(secondRun.stdout).toMatch(
+      /新增 0 \/ 更新 0 \/ 認養 0 \/ 未變 [1-9]\d*/,
+    );
 
     const { modules, roles } = await readSeededDocuments(databaseUri);
     expect(
@@ -1068,13 +1214,13 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
-    // 宣告的 111 筆全部未變;dynamic 那筆不在比對範圍內,不計入也不被動到
+    // 宣告的 113 筆全部未變;dynamic 那筆不在比對範圍內,不計入也不被動到
     expect(secondRun.stdout).toContain(
-      "permissions:新增 0 / 更新 0 / 未變 111",
+      "permissions:新增 0 / 更新 0 / 認養 0 / 未變 113",
     );
 
     const { permissions } = await readSeededDocuments(databaseUri);
-    expect(permissions).toHaveLength(112);
+    expect(permissions).toHaveLength(114);
     expect(
       permissions.find((permission) => permission.key === dynamicKey),
     ).toMatchObject({
@@ -1093,7 +1239,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     });
     expect(firstRun.stderr).toBe("");
     expect(firstRun.status).toBe(0);
-    expect(firstRun.stdout).toContain("新增 2 / 更新 0 / 未變 0");
+    expect(firstRun.stdout).toContain("新增 2 / 更新 0 / 認養 0 / 未變 0");
 
     // v2:alpha 的 enabled 改 false(初始 seed 值,不同步)、beta 的 name 改了(每次都 seed,同步)
     const secondRun = runSeedCommand(databaseUri, {
@@ -1101,7 +1247,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     });
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
-    expect(secondRun.stdout).toContain("新增 0 / 更新 1 / 未變 1");
+    expect(secondRun.stdout).toContain("新增 0 / 更新 1 / 認養 0 / 未變 1");
 
     const items = await withDatabase(databaseUri, (database) =>
       database
@@ -1141,19 +1287,23 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
     );
     const allModuleKeys = modules.map((module) => module.key);
     // 根組織專屬:模組與權限(system.module-manager)、資料範圍(system.data-scope)、
-    // 租戶作業(system.org-manager.tenant-ops,隱藏權限容器)— docs/modules/*.md
+    // 租戶作業(system.org-manager.tenant-ops)、類別作業(system.field-manager.category-ops)
+    // 兩個隱藏權限容器 — docs/modules/*.md
     const rootOnlyKeys = new Set([
       "system.module-manager",
       "system.data-scope",
       "system.org-manager.tenant-ops",
+      "system.field-manager.category-ops",
     ]);
     const tenantModuleKeys = allModuleKeys.filter(
       (key) => key !== undefined && !rootOnlyKeys.has(key),
     );
     expect(new Set(boundModuleKeys)).toEqual(new Set(tenantModuleKeys));
     expect(boundModuleKeys).toHaveLength(34);
-    // 租戶作業(開通、轉移擁有者)永遠不進模板(ADR-0009 第 3 步:整個 rootOnly 模組被扣除)
+    // 租戶作業(開通、轉移擁有者)與類別作業(管理類別)永遠不進模板
+    // (ADR-0009 第 3 步:整個 rootOnly 模組被扣除)
     expect(boundModuleKeys).not.toContain("system.org-manager.tenant-ops");
+    expect(boundModuleKeys).not.toContain("system.field-manager.category-ops");
     // 反面:可見範圍開關搬到組織管理層後,模板靠 `system.org-manager.*` 自動取得(#187 / ADR-0005)—
     // 模板不綁個別權限,所以這裡驗的是「它的擁有模組在模板綁的模組內」
     expect(boundModuleKeys).toContain("system.org-manager");
@@ -1173,6 +1323,13 @@ describe("種子角色綁定(ADR-0004 wildcard 只存 *、ADR-0009 模板扣除�
       new Set(tenantModuleKeys.map((key) => `${String(key)}.*`)),
     );
     expect(boundPermissionKeys).toHaveLength(34);
+    // 管理類別(新增 / 改名 / 停用類別)只給站在根組織的人:模板既不綁它的容器 wildcard,也不綁它本身
+    expect(boundPermissionKeys).not.toContain(
+      "system.field-manager.category-ops.*",
+    );
+    expect(boundPermissionKeys).not.toContain(
+      "system.field-manager.category-ops.manage-categories",
+    );
     // 6b:申請中心 view、流程管理全部、阻擋清單頁自有的改派,都由各層的 wildcard 涵蓋
     // (同層語意:`system.workflows.*` 不含 `blocked-page` 那一層,所以模板另有 `blocked-page.*`)
     for (const key of [

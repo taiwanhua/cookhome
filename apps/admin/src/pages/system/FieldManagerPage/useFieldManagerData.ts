@@ -28,6 +28,9 @@ export const useFieldManagerData = () => {
   const canToggleEnabled = hasPermission(
     FIELD_MANAGER_PERMISSIONS.toggleEnabled,
   );
+  const canManageCategories = hasPermission(
+    FIELD_MANAGER_PERMISSIONS.manageCategories,
+  );
 
   const [pickedCategoryId, setPickedCategoryId] = useState<string | null>(null);
 
@@ -49,8 +52,8 @@ export const useFieldManagerData = () => {
     fieldsQuery.data?.fields.items ?? [];
 
   /**
-   * 寫入成功後精準失效(DATA-02 / 04):只有當前類別的選項清單會變 ——
-   * 類別本身是種子、不會因為這頁的任何動作而改,`me` 也不受影響(欄位選項不進側欄)。
+   * 選項寫入成功後精準失效(DATA-02 / 04):只有當前類別的選項清單會變,
+   * `me` 也不受影響(欄位選項不進側欄)。
    */
   const invalidate = async () => {
     await queryClient.invalidateQueries({
@@ -60,10 +63,21 @@ export const useFieldManagerData = () => {
     });
   };
 
+  /**
+   * 類別寫入(新增 / 改名 / 停用)後失效類別清單:以 `FieldCategories` 為前綴,
+   * 本頁的全部清單與表單設計器的 `enabledOnly` 清單一起失效。選項清單不受影響。
+   */
+  const invalidateCategories = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: useFieldCategoriesQuery.getKey(),
+    });
+  };
+
   return {
     canCreate,
     canEdit,
     canToggleEnabled,
+    canManageCategories,
     categories,
     isCategoriesLoading: categoriesQuery.isLoading,
     selectedCategoryId,
@@ -72,5 +86,6 @@ export const useFieldManagerData = () => {
     fields,
     isFieldsLoading: fieldsQuery.isLoading,
     invalidate,
+    invalidateCategories,
   };
 };

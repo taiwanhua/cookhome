@@ -32,7 +32,18 @@ import { FIELD_MANAGER_PERMISSIONS } from "./field-manager-permissions";
  */
 
 export const VIEW_ONLY = [FIELD_MANAGER_PERMISSIONS.view];
-export const FULL_PERMISSIONS = Object.values(FIELD_MANAGER_PERMISSIONS);
+/** 欄位管理這一層的四筆(租戶管理員拿得到的全部);不含根組織專屬的管理類別。 */
+export const FULL_PERMISSIONS = [
+  FIELD_MANAGER_PERMISSIONS.view,
+  FIELD_MANAGER_PERMISSIONS.create,
+  FIELD_MANAGER_PERMISSIONS.edit,
+  FIELD_MANAGER_PERMISSIONS.toggleEnabled,
+];
+/** 站在根組織、另持 `category-ops.manage-categories`(新增 / 改名 / 停用類別)。 */
+export const CATEGORY_MANAGER = [
+  ...FULL_PERMISSIONS,
+  FIELD_MANAGER_PERMISSIONS.manageCategories,
+];
 
 /** 當前組織(`me.currentOrg`);來源欄的組織名稱改由 api 逐列帶回,不取自這裡(#264)。 */
 export const currentOrg: TestOrg = currentOrgFixture;

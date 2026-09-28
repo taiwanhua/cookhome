@@ -64,6 +64,17 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 
 正本:`apps/db-migrator/seeds/demo-items.ts`、`apps/db-migrator/seeds/registry.ts`
 
+### 1c 欄位管理類別(選配)
+
+模組的下拉要用欄位管理的類別(如示範模組1 的分類欄引用 `demo-category`)時,類別有兩種來法,並列存在、互不取代:
+
+- **開發者在 seed 宣告**:`apps/db-migrator/seeds/field-categories.ts` 加一筆(選項加在 `seeds/fields.ts`),走 code + PR,每次部署同步到三個環境。**底座或模組固定要用的類別走這條**—— 程式碼以 key 引用它,每個環境都必須有。
+- **root 在欄位管理畫面新增**:持 `system.field-manager.category-ops.manage-categories`、站在根組織,只存在於那個環境。適合營運上臨時需要的類別,不需要發版。
+
+畫面建的類別日後要固定下來,就在 seed 宣告**同一個 key**:下次 seed 以 key 認養那一筆(`isSystem` 改 true、名稱 / 說明以 seed 為準、`_id` 不動,已經引用它的表單照舊),不必搬資料。
+
+正本:`docs/modules/field-manager.md`「資料」、ADR-0002「seed 以 key 認養」
+
 ## 步驟 2:schema(基礎欄位 plugin、租戶過濾)
 
 新增 `apps/api/src/database/schemas/<entity>.schema.ts`,抄 `demo-item-two.schema.ts`:

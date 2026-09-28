@@ -60,11 +60,11 @@ apps/<app>/src/
 
 ## STRUCT-06 輸出與 log 依執行環境分三種,都不直接 `console.*`
 
-| 環境                         | 用什麼                                          | 為什麼                                                                                 |
-| ---------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------- |
-| CLI 工具(`apps/db-migrator`) | `process.stdout.write` / `process.stderr.write` | 摘要輸出(新增 N / 更新 M / 未變 K)就是它的介面;tsx 直跑的腳本不該依賴需先 build 的套件 |
-| api(NestJS)                  | Nest 內建 `Logger`(`new Logger(ClassName)`)     | 框架自帶等級、前綴與輸出管道,與 Nest 的啟動 log 一致;不另接 `@repo/logger`             |
-| front / admin(瀏覽器、Next)  | `@repo/logger`                                  | 全 repo 唯一允許碰 `console` 的地方,集中管理                                           |
+| 環境                         | 用什麼                                          | 為什麼                                                                                          |
+| ---------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| CLI 工具(`apps/db-migrator`) | `process.stdout.write` / `process.stderr.write` | 摘要輸出(新增 N / 更新 M / 認養 A / 未變 K)就是它的介面;tsx 直跑的腳本不該依賴需先 build 的套件 |
+| api(NestJS)                  | Nest 內建 `Logger`(`new Logger(ClassName)`)     | 框架自帶等級、前綴與輸出管道,與 Nest 的啟動 log 一致;不另接 `@repo/logger`                      |
+| front / admin(瀏覽器、Next)  | `@repo/logger`                                  | 全 repo 唯一允許碰 `console` 的地方,集中管理                                                    |
 
 `no-console` 一律開著;三種以外的寫法都算違規。
 

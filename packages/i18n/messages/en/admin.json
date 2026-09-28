@@ -835,7 +835,11 @@
     "categories": {
       "title": "Field categories",
       "seedNotice": "Categories are maintained by the system (read-only)",
-      "loading": "Loading field categories"
+      "loading": "Loading field categories",
+      "create": "+ Add category",
+      "manageNotice": "Categories tagged \"System\" are maintained by the system and cannot be changed; categories added here can be renamed or disabled.",
+      "systemTag": "System",
+      "disabledTag": "Disabled"
     },
     "options": {
       "region": "Field options",
@@ -876,11 +880,33 @@
       "save": "Save",
       "cancel": "Cancel"
     },
+    "categoryForm": {
+      "createTitle": "Add field category",
+      "editTitle": "Edit field category — {category}",
+      "key": "Category key",
+      "keyHint": "Lowercase letters and digits separated by - (e.g. cuisine-type); cannot be changed after creation.",
+      "keyInvalid": "Invalid format: use lowercase letters, digits and single hyphens only, up to 40 characters.",
+      "name": "Category name",
+      "description": "Description",
+      "createHint": "Categories cannot be deleted. Disable one you no longer use: the form designer stops listing it, and fields already using it keep working.",
+      "submit": "Add",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
+    "categoryActions": {
+      "edit": "Edit category",
+      "disable": "Disable category",
+      "enable": "Enable category"
+    },
     "feedback": {
       "createSuccess": "Option added.",
       "updateSuccess": "Option saved.",
       "enableSuccess": "Option enabled.",
-      "disableSuccess": "Option disabled."
+      "disableSuccess": "Option disabled.",
+      "categoryCreateSuccess": "Category added.",
+      "categoryUpdateSuccess": "Category saved.",
+      "categoryEnableSuccess": "Category enabled.",
+      "categoryDisableSuccess": "Category disabled. The form designer no longer lists it."
     },
     "errors": {
       "FIELD_VALUE_DUPLICATE": "This value is already used in this category. Pick another one.",
@@ -888,7 +914,10 @@
       "NOT_OWNER": "This option was added by another organisation. Only that organisation can change it.",
       "NOT_FOUND": "This category or option no longer exists. Refresh the page.",
       "VALIDATION_FAILED": "The form did not pass validation. Check it and try again.",
-      "UNEXPECTED": "The action failed. Please try again later."
+      "UNEXPECTED": "The action failed. Please try again later.",
+      "FIELD_CATEGORY_KEY_DUPLICATE": "This key is already used by another category (including disabled ones). Pick another one.",
+      "SYSTEM_CATEGORY": "System categories cannot be disabled.",
+      "ROOT_ONLY": "Only the system administrator can add, rename or disable field categories."
     }
   },
   "demoSampleOne": {

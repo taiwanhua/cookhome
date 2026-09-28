@@ -2,7 +2,7 @@
  * seed 指令入口(`pnpm --filter db-migrator seed`,正本:ADR-0002)。
  *
  * 以 tsx 直跑:讀 MONGODB_URI,依 registry 把種子冪等同步到該資料庫,
- * 最後輸出摘要「新增 N / 更新 M / 未變 K」;重跑第二次應為 0/0/K。
+ * 最後輸出摘要「新增 N / 更新 M / 認養 A / 未變 K」;重跑第二次應為 0/0/0/K。
  *
  * 可選第一個參數為 registry 檔路徑(預設 seeds/registry.ts),供測試以夾具 registry 驗證同步行為。
  * 連線、輸出與 registry 載入的共用部分見 `src/cli.ts`(reset 指令也用同一套)。

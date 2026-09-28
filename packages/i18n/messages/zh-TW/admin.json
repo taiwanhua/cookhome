@@ -835,7 +835,11 @@
     "categories": {
       "title": "欄位類別",
       "seedNotice": "類別由系統統一維護(唯讀)",
-      "loading": "載入欄位類別"
+      "loading": "載入欄位類別",
+      "create": "+ 新增類別",
+      "manageNotice": "標「系統」的類別由系統維護,不能修改;在這裡新增的類別可改名、停用。",
+      "systemTag": "系統",
+      "disabledTag": "已停用"
     },
     "options": {
       "region": "欄位選項",
@@ -876,11 +880,33 @@
       "save": "儲存",
       "cancel": "取消"
     },
+    "categoryForm": {
+      "createTitle": "新增欄位類別",
+      "editTitle": "編輯欄位類別 — {category}",
+      "key": "類別 key",
+      "keyHint": "小寫英文、數字,以 - 分隔(如 cuisine-type);建立後不能改。",
+      "keyInvalid": "格式不符:只能用小寫英文、數字與單一 -,最長 40 字。",
+      "name": "類別名稱",
+      "description": "說明",
+      "createHint": "類別不能刪除;不再使用時請停用,表單設計器就不會再列出它,已經用到它的欄位照常顯示。",
+      "submit": "新增",
+      "save": "儲存",
+      "cancel": "取消"
+    },
+    "categoryActions": {
+      "edit": "編輯類別",
+      "disable": "停用類別",
+      "enable": "啟用類別"
+    },
     "feedback": {
       "createSuccess": "已新增選項。",
       "updateSuccess": "已儲存選項。",
       "enableSuccess": "已啟用這個選項。",
-      "disableSuccess": "已停用這個選項。"
+      "disableSuccess": "已停用這個選項。",
+      "categoryCreateSuccess": "已新增類別。",
+      "categoryUpdateSuccess": "已儲存類別。",
+      "categoryEnableSuccess": "已啟用這個類別。",
+      "categoryDisableSuccess": "已停用這個類別,表單設計器不會再列出它。"
     },
     "errors": {
       "FIELD_VALUE_DUPLICATE": "這個值在這個類別已經有人用了,請換一個。",
@@ -888,7 +914,10 @@
       "NOT_OWNER": "這個選項是別的組織加的,只有加它的組織改得動。",
       "NOT_FOUND": "找不到這個類別或選項,可能已被移除,請重新整理。",
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
-      "UNEXPECTED": "操作失敗,請稍後再試。"
+      "UNEXPECTED": "操作失敗,請稍後再試。",
+      "FIELD_CATEGORY_KEY_DUPLICATE": "這個 key 已經有類別用了(含已停用的),請換一個。",
+      "SYSTEM_CATEGORY": "系統類別不能停用。",
+      "ROOT_ONLY": "欄位類別只能由系統管理員新增、改名或停用。"
     }
   },
   "demoSampleOne": {

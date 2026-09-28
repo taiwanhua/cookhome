@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
+  type SetFieldCategoryEnabledMutation,
   type SetFieldEnabledMutation,
+  useSetFieldCategoryEnabledMutation,
   useSetFieldEnabledMutation,
 } from "@repo/graphql";
 import { Alert } from "@repo/ui/alert";
@@ -11,6 +13,7 @@ import { Stack } from "@repo/ui/stack";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
+import { CategoryFormDialog } from "./CategoryFormDialog/CategoryFormDialog";
 import { CategoryListPanel } from "./CategoryListPanel";
 import { FieldFormDialog } from "./FieldFormDialog/FieldFormDialog";
 import { FieldOptionsPanel } from "./FieldOptionsPanel/FieldOptionsPanel";
@@ -25,7 +28,8 @@ import { useFieldManagerData } from "./useFieldManagerData";
  * 欄位管理(模組 key `system.field-manager`,正本 `docs/modules/field-manager.md`;
  * Figma「Screen / Admin 欄位管理」90:2、新增選項 211:176)。
  *
- * 左欄是全域種子類別(唯讀),右欄是所選類別的**合併清單** = 全域種子 + 上層組織自訂
+ * 左欄是欄位類別(系統類別 + root 在本頁新增的;新增 / 改名 / 停用限 `manage-categories`),
+ * 右欄是所選類別的**合併清單** = 全域種子 + 上層組織自訂
  * + 本組織自訂 + 可見範圍內的下層自訂(#264 規則表,正本見上述模組文件)。
  * 一列能做什麼由 api 逐列算好(`canEdit` / `canToggleEnabled`),前端只跟權限取交集;
  * 自訂選項可改 label / order / description,但 `value` 建立後不可改;選項一律不刪、只停用。
@@ -42,6 +46,10 @@ export const FieldManagerPage = () => {
     null,
   );
   const [pendingFieldId, setPendingFieldId] = useState<string | null>(null);
+  /** 類別彈窗:`"create"` = 新增;`"edit"` = 編輯目前選中的類別 */
+  const [categoryDialog, setCategoryDialog] = useState<
+    "create" | "edit" | null
+  >(null);
 
   const setFieldEnabled = useSetFieldEnabledMutation(
     session.client,
@@ -59,6 +67,24 @@ export const FieldManagerPage = () => {
       },
       onError: (error: unknown) => {
         setPendingFieldId(null);
+        setActionError(fieldManagerErrorOf(error).code);
+      },
+    }),
+  );
+
+  const setCategoryEnabled = useSetFieldCategoryEnabledMutation(
+    session.client,
+    useMutationFeedback<SetFieldCategoryEnabledMutation>({
+      success: (payload) =>
+        payload.setFieldCategoryEnabled.category.enabled
+          ? t("feedback.categoryEnableSuccess")
+          : t("feedback.categoryDisableSuccess"),
+      error: (error) => t(`errors.${fieldManagerErrorOf(error).code}`),
+      onSuccess: () => {
+        setActionError(null);
+        void data.invalidateCategories();
+      },
+      onError: (error: unknown) => {
         setActionError(fieldManagerErrorOf(error).code);
       },
     }),
@@ -82,6 +108,12 @@ export const FieldManagerPage = () => {
     void data.invalidate();
   };
 
+  const handleCategorySaved = () => {
+    setCategoryDialog(null);
+    setActionError(null);
+    void data.invalidateCategories();
+  };
+
   const isDialogOpen = isCreateOpen || editing !== null;
 
   return (
@@ -96,7 +128,12 @@ export const FieldManagerPage = () => {
           categories={data.categories}
           isLoading={data.isCategoriesLoading}
           selectedCategoryId={data.selectedCategoryId}
+          canManageCategories={data.canManageCategories}
           onSelectCategory={data.selectCategory}
+          onCreateCategory={() => {
+            setActionError(null);
+            setCategoryDialog("create");
+          }}
         />
         <FieldOptionsPanel
           category={data.selectedCategory}
@@ -105,7 +142,22 @@ export const FieldManagerPage = () => {
           canCreate={data.canCreate}
           canEdit={data.canEdit}
           canToggleEnabled={data.canToggleEnabled}
+          canManageCategories={data.canManageCategories}
+          isCategoryPending={setCategoryEnabled.isPending}
           pendingFieldId={pendingFieldId}
+          onEditCategory={() => {
+            setActionError(null);
+            setCategoryDialog("edit");
+          }}
+          onToggleCategory={(enabled) => {
+            if (data.selectedCategory === null) {
+              return;
+            }
+            setActionError(null);
+            setCategoryEnabled.mutate({
+              input: { id: data.selectedCategory.id, enabled },
+            });
+          }}
           onCreate={() => {
             setActionError(null);
             setIsCreateOpen(true);
@@ -125,6 +177,19 @@ export const FieldManagerPage = () => {
           {...(editing === null ? {} : { field: editing })}
           onClose={closeDialog}
           onSaved={handleSaved}
+        />
+      )}
+
+      {categoryDialog !== null && (
+        <CategoryFormDialog
+          categories={data.categories}
+          {...(categoryDialog === "edit" && data.selectedCategory !== null
+            ? { category: data.selectedCategory }
+            : {})}
+          onClose={() => {
+            setCategoryDialog(null);
+          }}
+          onSaved={handleCategorySaved}
         />
       )}
     </Stack>

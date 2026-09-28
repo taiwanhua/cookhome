@@ -69,14 +69,17 @@ const savedFields = async (
 };
 
 describe("表單管理:類別 / 表單 / 欄位改用下拉選", () => {
-  it("選項來源 = 欄位管理類別:從類別清單挑", async () => {
+  it("選項來源 = 欄位管理類別:從類別清單挑,停用的類別不列", async () => {
     const { user, world } = renderWithProtectedPublished();
     await addField(user, "單選");
     await pickOption(user, "選項來源", "欄位管理類別");
 
-    expect(await openSelect(user, "類別")).toEqual(
+    const listed = await openSelect(user, "類別");
+    expect(listed).toEqual(
       expect.arrayContaining(["性別(gender)", "示範分類(demo-category)"]),
     );
+    // 夾具的「料理類型」是停用的類別:設計器以 enabledOnly 查,下拉不列它
+    expect(listed).not.toContain("料理類型(cuisine)");
     await user.click(screen.getByRole("option", { name: "性別(gender)" }));
 
     const fields = await savedFields(user, world);

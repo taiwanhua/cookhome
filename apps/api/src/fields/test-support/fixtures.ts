@@ -147,6 +147,14 @@ export const FIELD_PERMISSIONS = [
 /** 模組樹要給完整(綁下層必綁上層,ADR-0011 步驟 3)。 */
 const FIELD_MODULES = ["system", "system.field-manager"];
 
+/** 類別作業(根組織專屬的權限容器)的權限與模組樹。 */
+export const MANAGE_CATEGORIES =
+  "system.field-manager.category-ops.manage-categories";
+export const CATEGORY_OPS_MODULES = [
+  ...FIELD_MODULES,
+  "system.field-manager.category-ops",
+];
+
 let accountSequence = 0;
 
 export async function login(
@@ -171,6 +179,7 @@ export async function createFieldManager(
   connection: Connection,
   orgId: Types.ObjectId,
   permissionKeys: string[] = FIELD_PERMISSIONS,
+  moduleKeys: string[] = FIELD_MODULES,
 ): Promise<string> {
   accountSequence += 1;
   const account = `field-manager-${String(accountSequence)}`;
@@ -182,7 +191,7 @@ export async function createFieldManager(
   await createRole(api.app, connection, {
     name: `欄位管理角色:${account}`,
     ownerOrgId: orgId,
-    moduleKeys: FIELD_MODULES,
+    moduleKeys,
     permissionKeys,
     assignTo: [userId],
   });
