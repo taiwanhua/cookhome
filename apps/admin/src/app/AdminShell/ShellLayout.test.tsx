@@ -14,17 +14,22 @@ const XL = 1536;
  * 內容區宣告的 CSS(emotion 插進 `<style>` 的規則原文)。jsdom 的 `getComputedStyle` 不套 `@media`
  * 也不算 `calc()`,所以直接讀宣告:非手機版面(`@media (min-width:600px)`)那條的 `min-width`。
  */
-const contentMinWidth = (): string => {
-  const classes = [...screen.getByTestId("shell-content").classList];
+const mediaRulesOf = (element: Element, minWidth: number): string => {
+  const classes = [...element.classList];
   const rules = [...document.styleSheets].flatMap((sheet) => [
     ...sheet.cssRules,
   ]);
   return rules
-    .filter((rule) => rule.cssText.startsWith("@media (min-width:600px)"))
+    .filter((rule) =>
+      rule.cssText.startsWith(`@media (min-width:${String(minWidth)}px)`),
+    )
     .map((rule) => rule.cssText)
     .filter((text) => classes.some((name) => text.includes(`.${name} `)))
     .join("\n");
 };
+
+const contentMinWidth = (): string =>
+  mediaRulesOf(screen.getByTestId("shell-content"), 600);
 
 describe("殼的內容區最小寬度(主題斷點;視窗更窄時由內容區水平捲動)", () => {
   it("殼層預設以 lg 為準,收合側欄後重算;水平捲動只在 <main>,外框不捲", async () => {
@@ -35,7 +40,7 @@ describe("殼的內容區最小寬度(主題斷點;視窗更窄時由內容區�
     const { user } = renderApp({ path: "/overview" });
     const nav = await screen.findByRole("navigation", { name: "主選單" });
 
-    // 斷點 − 側欄(30 單位)− 左右內距(8 單位)
+    // 斷點 − 側欄(30 單位)− 左右內距(非手機版面 3 單位 × 2)
     const expanded = contentMinWidth();
     expect(expanded).toContain(`${String(LG)}px`);
     expect(expanded).toContain("30 * var(--mui-spacing)");
@@ -45,8 +50,9 @@ describe("殼的內容區最小寬度(主題斷點;視窗更窄時由內容區�
     const collapsed = contentMinWidth();
     expect(collapsed).toContain(`${String(LG)}px`);
     expect(collapsed).not.toContain("30 * var(--mui-spacing)");
-    // 側欄(8 單位)與左右內距(8 單位)各一次
-    expect(collapsed.split("(8 * var(--mui-spacing))")).toHaveLength(3);
+    // 側欄(8 單位)與左右內距(6 單位)各一次
+    expect(collapsed.split("(8 * var(--mui-spacing))")).toHaveLength(2);
+    expect(collapsed.split("(6 * var(--mui-spacing))")).toHaveLength(2);
     // 水平捲動只發生在 <main>:它自己 overflow: auto,殼的外框 overflow: hidden(document 不捲)
     const main = screen.getByRole("main");
     expect(globalThis.getComputedStyle(main).overflow).toBe("auto");
@@ -71,6 +77,23 @@ describe("殼的內容區最小寬度(主題斷點;視窗更窄時由內容區�
     const collapsed = globalThis.getComputedStyle(content);
     expect(collapsed.overflowX).toBe("hidden");
     expect(collapsed.overflowY).toBe("auto");
+  });
+
+  it("<main> 內距:手機寬 8px(1 單位)、sm 起 24px(3 單位)", async () => {
+    server.use(
+      ...authWorld({ hasRefreshCookie: true, modules: superAdminModules })
+        .handlers,
+    );
+    renderApp({ path: "/overview" });
+    await screen.findByRole("navigation", { name: "主選單" });
+
+    const main = screen.getByRole("main");
+    // 響應式值各自在一條 @media 裡(xs = min-width:0px),jsdom 不套 @media,讀宣告原文
+    // (1 單位 MUI 直接寫成 var(--mui-spacing),不包 calc)
+    expect(mediaRulesOf(main, 0)).toContain("padding: var(--mui-spacing);");
+    expect(mediaRulesOf(main, 600)).toContain(
+      "padding: calc(3 * var(--mui-spacing));",
+    );
   });
 
   it("表單管理(設計器頁)宣告 xl", async () => {
