@@ -26,9 +26,13 @@ describe("@repo/domain/form key 規則", () => {
   });
 
   it("欄位 key:保留字與格式不符分得開", () => {
-    expect(RESERVED_FIELD_KEYS).toHaveLength(11);
+    expect(RESERVED_FIELD_KEYS).toHaveLength(12);
     expect(checkFieldKey("internal_amount")).toEqual({ valid: true });
     expect(checkFieldKey("status")).toEqual({
+      valid: false,
+      reason: "reserved",
+    });
+    expect(checkFieldKey("row")).toEqual({
       valid: false,
       reason: "reserved",
     });

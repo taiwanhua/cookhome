@@ -128,8 +128,15 @@ export const OperationArgs = ({
                   kind={spec.kind}
                   value={arg}
                   fields={fields}
+                  args={args}
                   onChange={(next) => {
-                    onChange(setArg(value, index, next));
+                    // 換明細欄時子欄一併清掉(舊的子欄不屬於新的明細)
+                    const updated = setArg(value, index, next);
+                    onChange(
+                      spec.kind === "arrayField" && args.length > 1
+                        ? setArg(updated, 1, null)
+                        : updated,
+                    );
                   }}
                 />
               ) : (

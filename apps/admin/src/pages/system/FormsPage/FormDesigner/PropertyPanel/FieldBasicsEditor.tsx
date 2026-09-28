@@ -4,6 +4,7 @@ import { type FieldDef, LAYOUT_COLUMNS } from "@repo/domain/form";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
+import { Typography } from "@repo/ui/typography";
 
 import { widgetKindsFor } from "@/components/form-engine/widgets/widget-registry";
 import type { FieldKeyProblem } from "@/lib/form-engine/designer-ops";
@@ -117,7 +118,12 @@ export const FieldBasicsEditor = ({
           }}
         />
       )}
-      {span !== null && (
+      {!sections.span && (
+        <Typography variant="caption" color="text.secondary">
+          {t("spanFixed")}
+        </Typography>
+      )}
+      {span !== null && sections.span && (
         <SelectField
           label={t("span")}
           value={String(span)}

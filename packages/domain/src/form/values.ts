@@ -1,3 +1,10 @@
+import {
+  MAX_ARRAY_ROWS,
+  arrayColumnsOf,
+  arrayRowLimitsOf,
+  arrayRowsOf,
+  isArrayRowId,
+} from "./array";
 import { roundToPrecision, toDecimal } from "./decimal";
 import { evaluateCondition } from "./expression";
 import {
@@ -8,6 +15,7 @@ import {
   toIso,
 } from "./temporal";
 import type {
+  ArrayRowValue,
   ExpressionContext,
   FieldDef,
   FieldType,
@@ -40,15 +48,23 @@ export const VALUE_ISSUE_CODES = [
   "SOURCE_UNAVAILABLE",
   "UPLOAD_INVALID",
   "CUSTOM",
+  "ARRAY_ROW_ID_INVALID",
+  "MIN_ROWS",
+  "MAX_ROWS",
 ] as const;
 
 export type ValueIssueCode = (typeof VALUE_ISSUE_CODES)[number];
 
-/** 一欄的值錯誤;`message` 是給填寫者看的繁中說明(`patternMessage` 有設就用它)。 */
+/**
+ * 一欄的值錯誤;`message` 是給填寫者看的繁中說明(`patternMessage` 有設就用它)。
+ * 明細列的錯誤另帶 `rowId` + `columnKey` 定位到格(列數不足 / 超過、`rowId` 不合法只有 `fieldKey`,顯示在表尾)。
+ */
 export interface ValueIssue {
   fieldKey: string;
   code: ValueIssueCode;
   message: string;
+  rowId?: string;
+  columnKey?: string;
 }
 
 /** 選項欄的存值(類別 / lookup 選項、`allowCustom` 自訂值;靜態選項只存 `value` 字串)。 */
@@ -229,6 +245,71 @@ function normalizeTemporal(
   }
 }
 
+function isRowIdIssue(field: FieldDef, index: number): NormalizeResult {
+  return {
+    ok: false,
+    issue: {
+      fieldKey: field.key,
+      code: "ARRAY_ROW_ID_INVALID",
+      message: `「${field.label}」第 ${String(index + 1)} 列的識別碼不正確或重複`,
+    },
+  };
+}
+
+/**
+ * 明細列:列的陣列,每列 `{ rowId, <子欄 key>: 值 }`。`rowId` 必須是 UUID 且同一明細內不重複
+ * (`ARRAY_ROW_ID_INVALID`);子欄的值照各自型別正規化(錯誤定位到 `rowId` + 子欄);列內公式的子欄
+ * 不收送來的值(存 null,由計算補);定義外的鍵丟掉;超過 `MAX_ARRAY_ROWS` 列 → 型別錯誤(草稿也擋)。
+ */
+function normalizeArray(
+  field: FieldDef,
+  raw: unknown,
+  timezone: string | undefined,
+): NormalizeResult {
+  if (!Array.isArray(raw)) {
+    return typeIssue(field, "須為明細列的清單");
+  }
+  if (raw.length > MAX_ARRAY_ROWS) {
+    return typeIssue(field, `最多 ${String(MAX_ARRAY_ROWS)} 列`);
+  }
+  const columns = arrayColumnsOf(field);
+  const seen = new Set<string>();
+  const rows: ArrayRowValue[] = [];
+  for (const [index, item] of raw.entries()) {
+    const rowId: unknown = isRecord(item) ? item.rowId : null;
+    if (
+      !isRecord(item) ||
+      !isArrayRowId(rowId) ||
+      seen.has(rowId.toLowerCase())
+    ) {
+      return isRowIdIssue(field, index);
+    }
+    seen.add(rowId.toLowerCase());
+    const row: ArrayRowValue = { rowId };
+    for (const column of columns) {
+      if (column.valueSource.kind !== "input") {
+        row[column.key] = null;
+        continue;
+      }
+      const result = normalizeFieldValue(column, item[column.key], timezone);
+      if (!result.ok) {
+        return {
+          ok: false,
+          issue: {
+            ...result.issue,
+            fieldKey: field.key,
+            rowId,
+            columnKey: column.key,
+          },
+        };
+      }
+      row[column.key] = result.value;
+    }
+    rows.push(row);
+  }
+  return { ok: true, value: rows };
+}
+
 type Normalizer = (
   field: FieldDef,
   raw: unknown,
@@ -256,6 +337,7 @@ const NORMALIZERS: Readonly<Record<FieldType, Normalizer>> = {
   multiSelect: normalizeMultiSelect,
   upload: normalizeUpload,
   reference: normalizeReference,
+  array: normalizeArray,
 };
 
 /**
@@ -524,4 +606,65 @@ export function validateFieldRules(
     }
   }
   return null;
+}
+
+/**
+ * 明細列的完成資料驗證(整欄需驗時才跑):列數(必填 = 至少一列,空白列也算;`minRows` / `maxRows`)
+ * 在表尾顯示(只有 `fieldKey`);每一格照子欄的 `rules` 驗(列內公式的子欄驗算出的結果,算成空且必填 →
+ * `NOT_COMPUTABLE`),錯誤帶 `rowId` + `columnKey`,每格獨立。
+ */
+export function validateArrayRules(
+  field: FieldDef,
+  value: unknown,
+  input: RuleEvaluationInput,
+): ValueIssue[] {
+  const rows = arrayRowsOf(value);
+  const rules = field.rules ?? {};
+  const { max } = arrayRowLimitsOf(field);
+  const minRows = typeof rules.minRows === "number" ? rules.minRows : 0;
+  const issues: ValueIssue[] = [];
+  if (rules.required === true && rows.length === 0) {
+    issues.push(issueOf(field, "REQUIRED", `「${field.label}」至少要有一列`));
+  } else if (rows.length < minRows) {
+    issues.push(
+      issueOf(
+        field,
+        "MIN_ROWS",
+        `「${field.label}」至少要有 ${String(minRows)} 列`,
+      ),
+    );
+  }
+  if (rows.length > max) {
+    issues.push(
+      issueOf(field, "MAX_ROWS", `「${field.label}」最多 ${String(max)} 列`),
+    );
+  }
+  const columns = arrayColumnsOf(field);
+  for (const row of rows) {
+    for (const column of columns) {
+      const issue = validateFieldRules(column, row[column.key] ?? null, input);
+      if (issue) {
+        issues.push({
+          ...issue,
+          fieldKey: field.key,
+          rowId: row.rowId,
+          columnKey: column.key,
+        });
+      }
+    }
+  }
+  return issues;
+}
+
+/** 一欄的完成資料驗證:明細列回全部格的錯誤,其餘型別回第一個違反的規則(0 或 1 筆)。 */
+export function validateValueRules(
+  field: FieldDef,
+  value: unknown,
+  input: RuleEvaluationInput,
+): ValueIssue[] {
+  if (field.type === "array") {
+    return validateArrayRules(field, value, input);
+  }
+  const issue = validateFieldRules(field, value, input);
+  return issue ? [issue] : [];
 }

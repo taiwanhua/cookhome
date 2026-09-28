@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 
 import type { FieldDef } from "@repo/domain/form";
 
+import type { FormFieldErrorLike } from "@/lib/form-engine/form-errors";
 import type { FormDisplayItemLike } from "@/lib/form-engine/value-text";
 
 /**
@@ -42,6 +43,13 @@ export interface WidgetProps {
   display?: readonly FormDisplayItemLike[];
   /** 唯讀檢視:上傳欄的下載(簽名網址短效,點了才去要) */
   onDownload?: (field: FieldDef) => void;
+  /**
+   * 明細列:這一欄的全部值錯誤(api 的 `fieldErrors`):有 `rowId` + `columnKey` 的標在那一格,
+   * 其餘(列數不足 / 超過)在表尾
+   */
+  errors?: readonly FormFieldErrorLike[];
+  /** 明細列唯讀:子欄的顯示名(`displayValues` 裡 `<明細 key>.<子欄 key>` 那一組) */
+  columnDisplay?: (columnKey: string) => readonly FormDisplayItemLike[];
 }
 
 export type WidgetComponent = ComponentType<WidgetProps>;

@@ -18,11 +18,12 @@ export const FIELD_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/;
 export const ORG_SLUG_PATTERN = /^[a-z][a-z0-9_]{1,19}$/;
 
 /**
- * 欄位 key 保留字:表達式上下文(`ctx`)與提交的系統欄位,當欄位 key 會與它們混淆。
+ * 欄位 key 保留字:表達式上下文(`ctx`、明細列內公式的 `row`)與提交的系統欄位,當欄位 key 會與它們混淆。
  * 大小寫照原樣比對(駝峰的幾個本來就過不了格式檢查,列出來是讓錯誤訊息講得出「保留字」)。
  */
 export const RESERVED_FIELD_KEYS = [
   "ctx",
+  "row",
   "id",
   "status",
   "summary",

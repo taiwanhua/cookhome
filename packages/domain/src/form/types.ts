@@ -3,7 +3,10 @@
  * 純型別,前後端共用:api 存取與驗證、admin 設計器與渲染器都吃同一份。
  */
 
-/** 欄位資料型別:決定**存什麼**(畫法由 `widget.kind` 決定;分區標題不是欄位,在 Layout 裡)。 */
+/**
+ * 欄位資料型別:決定**存什麼**(畫法由 `widget.kind` 決定;分區標題不是欄位,在 Layout 裡)。
+ * `array` = 明細列:一個欄位裝多列同結構的子欄位(`columns`),存列的陣列。
+ */
 export const FIELD_TYPES = [
   "text",
   "multiline",
@@ -15,6 +18,7 @@ export const FIELD_TYPES = [
   "boolean",
   "upload",
   "reference",
+  "array",
 ] as const;
 
 export type FieldType = (typeof FIELD_TYPES)[number];
@@ -86,7 +90,12 @@ export const TEXT_FORMATS = ["email", "phone", "url"] as const;
 export type TextFormat = (typeof TEXT_FORMATS)[number];
 
 export interface FieldRules {
+  /** `array` 的必填 = 至少一列(空白列也算一列)。 */
   required?: boolean;
+  /** 只有 `array`:列數下限(非負整數,預設 0)。 */
+  minRows?: number;
+  /** 只有 `array`:列數上限(非負整數,預設 `DEFAULT_ARRAY_MAX_ROWS`,不超過 `MAX_ARRAY_ROWS`)。 */
+  maxRows?: number;
   /** number:數值(decimal 字串或數字);date / datetime:帶時區的 ISO 8601(date = 當地 00:00 的時點)。 */
   min?: number | string;
   max?: number | string;
@@ -136,6 +145,45 @@ export type FieldDefault =
   | { kind: "constant"; value: unknown }
   | { kind: "expression"; expr: Expression };
 
+/** 明細列子欄可用的型別(第一版的白名單;不支援巢狀 `array`、多行、多選、上傳、引用)。 */
+export const ARRAY_COLUMN_TYPES = [
+  "text",
+  "number",
+  "date",
+  "datetime",
+  "select",
+  "boolean",
+] as const;
+
+export type ArrayColumnType = (typeof ARRAY_COLUMN_TYPES)[number];
+
+/**
+ * 明細列的一個子欄(簡化的 FieldDef;結構上可當 `FieldDef` 用,值的正規化與規則驗證共用同一套):
+ * - `valueSource` 只有使用者填或列內公式(`{ "var": "row.<子欄 key>" }` 引用同一列的子欄)
+ * - 沒有子欄級權限、顯示 / 鎖定條件、預設值(整欄的設定套在明細欄上)
+ * - `width`:表格欄的最小寬(px);手機卡片忽略
+ */
+export interface ArrayColumnDef {
+  key: string;
+  label: string;
+  type: ArrayColumnType;
+  /** 只有 number:小數位數 0–6。 */
+  precision?: number;
+  widget: FieldWidget;
+  valueSource: { kind: "input" } | { kind: "computed"; expr: Expression };
+  /** 只有 select:靜態清單或欄位管理類別(沒有 lookup)。 */
+  options?: FieldOptions | null;
+  rules?: FieldRules | null;
+  help?: string | null;
+  width?: number | null;
+}
+
+/** 明細列一列的存值:`rowId`(前端產生的穩定 id)+ 各子欄的存值。 */
+export interface ArrayRowValue {
+  rowId: string;
+  [columnKey: string]: unknown;
+}
+
 /** `form_versions.fields[]` 的一筆。 */
 export interface FieldDef {
   key: string;
@@ -155,6 +203,8 @@ export interface FieldDef {
   help?: string | null;
   /** 只有 `reference`:lookup 來源描述。 */
   source?: LookupSourceDescriptor | null;
+  /** 只有 `array`:子欄定義(至少一個)。 */
+  columns?: ArrayColumnDef[] | null;
   /**
    * 只出現在執行端讀到的定義(`formRuntimeVersion`):讀者讀不到這一欄時為 true,
    * 此時只剩骨架(key / label / type / `widget.kind` / `valueSource.kind` / `permission`),

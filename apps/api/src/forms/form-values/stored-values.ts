@@ -1,6 +1,8 @@
 import {
   type FieldDef,
   type StoredValues,
+  arrayColumnsOf,
+  arrayRowsOf,
   semanticValuesOf,
   toInstant,
 } from "@repo/domain/form";
@@ -60,6 +62,7 @@ function optionIdentity(value: unknown): unknown {
  * 比的是**識別**而不是整個物件 —— 選項比 value、引用比 id、上傳比 path、數字比數值、日期 / 日期時間比時點
  * (存的是 `Date`、送來的是 ISO 字串);
  * 前端把 `{ value, label }` 送成 `"value"`、label 快照不同,都不算改動。
+ * 明細列比**列集合與順序**(`rowId` 逐列對上)與每一列的 input 子欄;列內公式子欄由後端重算,不比。
  */
 export function isSameStoredValue(
   field: FieldDef,
@@ -101,10 +104,33 @@ export function isSameStoredValue(
       const instant = toInstant(a);
       return instant === null ? a === b : instant === toInstant(b);
     }
+    case "array": {
+      return isSameRows(field, a, b);
+    }
     default: {
       return a === b;
     }
   }
+}
+
+function isSameRows(field: FieldDef, left: unknown, right: unknown): boolean {
+  const leftRows = arrayRowsOf(left);
+  const rightRows = arrayRowsOf(right);
+  if (leftRows.length !== rightRows.length) {
+    return false;
+  }
+  const inputs = arrayColumnsOf(field).filter(
+    (column) => column.valueSource.kind === "input",
+  );
+  return leftRows.every((row, index) => {
+    const other = rightRows[index];
+    return (
+      other?.rowId === row.rowId &&
+      inputs.every((column) =>
+        isSameStoredValue(column, row[column.key], other[column.key]),
+      )
+    );
+  });
 }
 
 /** 存值 → 表達式看到的語意值(`@repo/domain/form` 的 `semanticValuesOf`)。 */

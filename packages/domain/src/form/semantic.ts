@@ -1,3 +1,4 @@
+import { arrayColumnsOf, arrayRowsOf } from "./array";
 import { temporalIsoOf } from "./temporal";
 import type { FieldDef, StoredValues } from "./types";
 
@@ -11,6 +12,7 @@ import type { FieldDef, StoredValues } from "./types";
  * | `reference`   | `{ id, label }`               | `id`      |
  * | `upload`      | `{ path, name, … }`           | `name`    |
  * | `date` / `datetime` | `Date`(api)或 ISO 字串  | ISO 字串  |
+ * | `array`       | `[{ rowId, 子欄: 存值 }]`     | 每列子欄的語意值(只給彙總與列內公式讀) |
  * | 其他          | 照存                          | 照存      |
  *
  * 所以 `{ "==": [{ "var": "leave_type" }, "sick"] }` 對 `{ value: "sick", label: "病假" }` 直接成立;
@@ -40,10 +42,27 @@ export function semanticValueOf(field: FieldDef, stored: unknown): unknown {
       // 表達式樹是純 JSON:時點一律以 ISO 字串比較 / 計算(api 讀出的 `Date` 在這裡轉)
       return temporalIsoOf(stored);
     }
+    case "array": {
+      return Array.isArray(stored)
+        ? arrayRowsOf(stored).map((row) => semanticRowOf(field, row))
+        : null;
+    }
     default: {
       return stored;
     }
   }
+}
+
+/** 明細列的一列 → `{ rowId, 子欄: 語意值 }`(列內公式的 `row.*` 讀它)。 */
+export function semanticRowOf(
+  field: Pick<FieldDef, "type" | "columns">,
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = { rowId: row.rowId ?? null };
+  for (const column of arrayColumnsOf(field)) {
+    result[column.key] = semanticValueOf(column, row[column.key]);
+  }
+  return result;
 }
 
 /** 整筆 `values` → 語意值(只取定義裡有的欄位;沒存的欄位為 null)。 */

@@ -1,18 +1,21 @@
 import { Injectable } from "@nestjs/common";
 
 import {
+  type ArrayRowValue,
   ComputedCycleError,
   type ExpressionContext,
   type FieldDef,
   type LookupSourceDescriptor,
   type StoredValues,
   type ValueIssue,
+  arrayColumnsOf,
+  arrayRowsOf,
   computeAll,
   evaluateCondition,
   lookupLabelFieldsOf,
   normalizeFieldValue,
   uploadLimitIssue,
-  validateFieldRules,
+  validateValueRules,
 } from "@repo/domain/form";
 
 import {
@@ -91,6 +94,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  *
  * 條件都以**後端算出的**為準;算條件用的值 = 既有值套上操作者「改得動」的那些欄位送來的值
  * (改不動的欄位送什麼都不影響條件)。
+ *
+ * **明細列**(`array`)整欄套上面的分類,子欄繼承整欄的結果(不獨立判權限或顯示條件):隱藏 → 整欄 null;
+ * 沒有 `edit` → 送來的列集合或 input 子欄和既有不同就 403,保留的列其列內公式子欄仍由後端重算;
+ * 整欄需驗時才驗列數與每一格(input 子欄驗送來的值、列內公式子欄驗算出的結果),錯誤定位到 `rowId` + 子欄。
+ * 處理順序:型別正規化 → 合併允許保留的既有值 → 依完整依賴圖重算與判條件 → 分類 → 驗 → 存。
  */
 @Injectable()
 export class SubmissionValuesService {
@@ -376,11 +384,69 @@ export class SubmissionValuesService {
         continue;
       }
       const previous = input.previous?.[field.key];
+      if (field.type === "array") {
+        final[field.key] = await this.snapshotRowsOf(
+          field,
+          value,
+          previous,
+          context,
+        );
+        continue;
+      }
       final[field.key] =
         previous !== undefined && isSameStoredValue(field, value, previous)
           ? previous
           : await this.snapshotOf(field, value, context);
     }
+  }
+
+  /**
+   * 明細列的新快照:每一列的單選子欄(靜態清單驗啟用中、類別重取 label);與上一個已完成修訂同一列同值的
+   * 保留原快照。錯誤定位到 `rowId` + 子欄。
+   */
+  private async snapshotRowsOf(
+    field: FieldDef,
+    value: unknown,
+    previous: unknown,
+    context: OptionContext,
+  ): Promise<ArrayRowValue[]> {
+    const previousRows = new Map(
+      arrayRowsOf(previous).map((row) => [row.rowId, row]),
+    );
+    const choiceColumns = arrayColumnsOf(field).filter(
+      (column) =>
+        column.type === "select" && column.valueSource.kind === "input",
+    );
+    const rows: ArrayRowValue[] = [];
+    for (const row of arrayRowsOf(value)) {
+      const next: ArrayRowValue = { ...row };
+      for (const column of choiceColumns) {
+        const cell = row[column.key];
+        if (cell === null || cell === undefined) {
+          continue;
+        }
+        const before = previousRows.get(row.rowId)?.[column.key];
+        if (before !== undefined && isSameStoredValue(column, cell, before)) {
+          next[column.key] = before;
+          continue;
+        }
+        const issues: ValueIssue[] = [];
+        next[column.key] = await this.resolveOption(column, cell, {
+          ...context,
+          issues,
+        });
+        context.issues.push(
+          ...issues.map((issue) => ({
+            ...issue,
+            fieldKey: field.key,
+            rowId: row.rowId,
+            columnKey: column.key,
+          })),
+        );
+      }
+      rows.push(next);
+    }
+    return rows;
   }
 
   /** 一欄的新快照:引用重驗來源、選項重取 label(multiSelect 逐項)。 */
@@ -506,7 +572,10 @@ export class SubmissionValuesService {
     return undefined;
   }
 
-  /** 完成資料所需的驗證:一般可填、唯讀(驗既有值)、計算欄位(驗算出的結果);隱藏與無 edit 不驗。 */
+  /**
+   * 完成資料所需的驗證:一般可填、唯讀(驗既有值)、計算欄位(驗算出的結果);隱藏與無 edit 不驗。
+   * 明細列回列數與每一格的錯誤(整欄免驗時子欄必填與列數下限一併免驗)。
+   */
   private validateRules(
     input: SubmissionWriteInput,
     classes: ReadonlyMap<string, FieldClass>,
@@ -524,15 +593,14 @@ export class SubmissionValuesService {
       ) {
         continue;
       }
-      const issue = validateFieldRules(field, final[field.key], {
-        semantic,
-        ctx: input.ctx,
-        fields: input.fields,
-        stored: final,
-      });
-      if (issue) {
-        issues.push(issue);
-      }
+      issues.push(
+        ...validateValueRules(field, final[field.key], {
+          semantic,
+          ctx: input.ctx,
+          fields: input.fields,
+          stored: final,
+        }),
+      );
     }
   }
 }
@@ -557,7 +625,10 @@ function conditionInputFromValues(
   };
 }
 
-/** 以目前的值重算計算 / 固定值欄位(隱藏的維持 null)。 */
+/**
+ * 以目前的值重算計算 / 固定值欄位(隱藏的維持 null);明細欄(不論送來的或保留的列)的列內公式子欄
+ * 也在這裡依完整依賴圖重算。
+ */
 function recompute(
   input: SubmissionWriteInput,
   classes: ReadonlyMap<string, FieldClass>,
@@ -565,7 +636,12 @@ function recompute(
 ): void {
   const computed = computeOrThrow(input.fields, final, input.ctx);
   for (const field of input.fields) {
-    if (classes.get(field.key) === "computed") {
+    const fieldClass = classes.get(field.key);
+    const isComputedArray =
+      field.type === "array" &&
+      fieldClass !== "hidden" &&
+      field.key in computed;
+    if (fieldClass === "computed" || isComputedArray) {
       final[field.key] = computed[field.key] ?? null;
     }
   }
@@ -648,7 +724,13 @@ function computeOrThrow(
     if (error instanceof ComputedCycleError) {
       throw valuesInvalidError(
         fields
-          .filter((field) => field.valueSource.kind === "computed")
+          .filter(
+            (field) =>
+              field.valueSource.kind === "computed" ||
+              arrayColumnsOf(field).some(
+                (column) => column.valueSource.kind === "computed",
+              ),
+          )
           .map((field) => ({
             fieldKey: field.key,
             code: "NOT_COMPUTABLE" as const,

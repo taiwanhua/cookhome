@@ -70,6 +70,16 @@ export interface FormRendererProps {
   design?: FormRendererDesignProps;
 }
 
+/** 明細子欄的顯示名:`displayValues` 以 `<明細 key>.<子欄 key>` 回一組。 */
+const columnDisplayOf =
+  (
+    displayValues: NonNullable<FormRendererProps["displayValues"]>,
+    arrayKey: string,
+  ) =>
+  (columnKey: string): readonly FormDisplayItemLike[] =>
+    displayValues.find((entry) => entry.fieldKey === `${arrayKey}.${columnKey}`)
+      ?.items ?? [];
+
 /**
  * 依版本畫表單(Spec 6a §8 `<FormRenderer version values mode>`)。五種 `mode` 的語意在
  * `lib/form-engine/field-states.ts`;版面 12 格制見 `layout-grid.ts`。
@@ -165,6 +175,12 @@ export const FormRenderer = ({
                 fieldErrors.find((error) => error.fieldKey === field.key)
                   ?.message ?? null
               }
+              {...(field.type === "array" && {
+                errors: fieldErrors.filter(
+                  (error) => error.fieldKey === field.key,
+                ),
+                columnDisplay: columnDisplayOf(displayValues, field.key),
+              })}
               {...(onDownload !== undefined && { onDownload })}
               display={
                 displayValues.find((entry) => entry.fieldKey === field.key)

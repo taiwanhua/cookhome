@@ -1,9 +1,11 @@
+import { arrayColumnsOf, arrayRowsOf } from "./array";
 import { FormDecimal, roundToPrecision } from "./decimal";
-import { computedOrder } from "./dependencies";
+import { type ComputeNode, computeOrder } from "./dependencies";
 import { evaluateRaw } from "./expression";
-import { semanticValuesOf } from "./semantic";
+import { semanticRowOf, semanticValuesOf } from "./semantic";
 import { startOfLocalDayOf, toInstant, toIso } from "./temporal";
 import type {
+  ArrayColumnDef,
   ExpressionContext,
   FieldDef,
   FieldType,
@@ -145,7 +147,75 @@ function constantValueOf(field: FieldDef, timezone: string): unknown {
 }
 
 /**
- * 依拓樸順序算完全部計算欄位與固定值欄位,回傳 `{ fieldKey: 存值 }`(只含這兩類欄位)。
+ * 算一列的一個列內公式子欄:`row.*` 讀同一列子欄的語意值,也可讀表單層欄位與 `ctx.*`;
+ * 結果照子欄型別收斂(數字取到子欄的 `precision` —— 每個計算子欄都是自己的取位邊界)。
+ */
+function computeColumnCell(
+  column: ArrayColumnDef,
+  arrayField: FieldDef,
+  row: Record<string, unknown>,
+  fields: readonly FieldDef[],
+  semantic: Record<string, unknown>,
+  input: ComputeInput,
+): unknown {
+  if (column.valueSource.kind !== "computed") {
+    return row[column.key] ?? null;
+  }
+  let raw: unknown;
+  try {
+    raw = evaluateRaw(column.valueSource.expr, {
+      values: semantic,
+      ctx: input.ctx,
+      fields,
+      stored: input.values,
+      row: semanticRowOf(arrayField, row),
+      rowColumns: arrayColumnsOf(arrayField),
+    });
+  } catch {
+    return null;
+  }
+  return coerceComputedResult(
+    column.type,
+    column.precision,
+    raw,
+    input.ctx.timezone,
+  );
+}
+
+/** 一個計算節點:表單層欄位回它的值;子欄節點回整個明細欄的新列(每列算這個子欄)。 */
+function computeNode(
+  node: ComputeNode,
+  fields: readonly FieldDef[],
+  stored: StoredValues,
+  input: ComputeInput,
+): unknown {
+  const semantic = semanticValuesOf(fields, stored);
+  const withStored = { ...input, values: stored };
+  if (node.kind === "field") {
+    return computeField(node.field, fields, semantic, withStored);
+  }
+  const rows = stored[node.field.key];
+  if (!Array.isArray(rows)) {
+    // 明細為 null(隱藏或沒有列):沒有格可以算
+    return rows ?? null;
+  }
+  return arrayRowsOf(rows).map((row) => ({
+    ...row,
+    [node.column.key]: computeColumnCell(
+      node.column,
+      node.field,
+      row,
+      fields,
+      semantic,
+      withStored,
+    ),
+  }));
+}
+
+/**
+ * 依**完整依賴圖**的拓樸順序算完全部計算欄位、明細的列內公式子欄與固定值欄位,
+ * 回傳 `{ fieldKey: 存值 }`(只含這幾類欄位;有列內公式的明細欄回算好的整份列)。
+ * 下游讀的是上游**取位後**的值(總額 = 各列取位後小計相加)。
  * 公式引用成圈 → `ComputedCycleError`(檢查器應先擋)。
  */
 export function computeAll(
@@ -160,14 +230,10 @@ export function computeAll(
       stored[field.key] = results[field.key];
     }
   }
-  for (const field of computedOrder(fields)) {
-    const semantic = semanticValuesOf(fields, stored);
-    const value = computeField(field, fields, semantic, {
-      ...input,
-      values: stored,
-    });
-    results[field.key] = value;
-    stored[field.key] = value;
+  for (const node of computeOrder(fields)) {
+    const value = computeNode(node, fields, stored, input);
+    results[node.field.key] = value;
+    stored[node.field.key] = value;
   }
   return results;
 }

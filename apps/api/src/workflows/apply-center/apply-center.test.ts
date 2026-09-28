@@ -15,6 +15,7 @@ import {
   FORM_SUBMISSIONS,
   UPDATE_SUBMISSION,
   call,
+  column,
   createDraft,
   definitionOf,
   field,
@@ -172,6 +173,83 @@ describe("申請中心與讀取授權", () => {
   }
 
   /** 只有申請中心權限的審核者(沒有請假模組的任何權限)。 */
+  /**
+   * 明細列的複製為新單:建一張有明細的表單、送出、核准、作廢;`nextColumns` 給了就先發布新版(子欄改了)
+   * 再複製。回複製出的新單的列與原本的列。
+   */
+  async function copyArraySubmission(
+    nextColumns: ReturnType<typeof column>[] | null,
+  ): Promise<{
+    rows: { rowId: string }[];
+    copied: Record<string, unknown>[];
+  }> {
+    const formKey = nextKey("copy_array");
+    const columns = [column("name", "text"), column("qty", "number")];
+    await ok(api, world.root, CREATE_FORM, {
+      input: { key: formKey, moduleKey: "leave", name: "明細複製" },
+    });
+    await publishDefinition(
+      api,
+      world.root,
+      formKey,
+      definitionOf([
+        field("title", "text"),
+        field("items", "array", { columns }),
+      ]),
+      null,
+    );
+    await ok(api, world.root, ASSIGN, {
+      input: { formKey, tenantOrgIds: [String(world.tenant)] },
+    });
+    const key = nextKey("copy_array_flow");
+    const reviewer = await reviewerOnly();
+    await useWorkflow(world, key, { steps: [usersStep("one", [reviewer])] });
+    await bindForm(world, key, formKey);
+    const rows = [
+      { rowId: randomUUID(), name: "甲", qty: 1 },
+      { rowId: randomUUID(), name: "乙", qty: 2 },
+    ];
+    const draft = await createDraft(api, world.applicant.token, formKey, {
+      title: "有明細的單",
+      items: rows,
+    });
+    const submitted = await submitExisting(world, draft);
+    await decideOn(world, reviewer, submitted.id, "APPROVE");
+    const approved = await submission(world, world.applicant, submitted.id);
+    await ok(api, world.applicant.token, VOID, {
+      input: {
+        id: submitted.id,
+        expectedEditVersion: approved.editVersion,
+        reason: "重開",
+      },
+    });
+    if (nextColumns !== null) {
+      await publishDefinition(
+        api,
+        world.root,
+        formKey,
+        definitionOf([
+          field("title", "text"),
+          field("items", "array", { columns: nextColumns }),
+        ]),
+        1,
+      );
+    }
+    const copied = await ok<{
+      copySubmissionToDraft: { submission: WfSubmissionRow };
+    }>(api, world.applicant.token, COPY, {
+      input: { id: submitted.id, clientRequestId: nextKey("copy_array") },
+    });
+    await bindForm(world, key, FORM_KEY);
+    return {
+      rows,
+      copied: copied.copySubmissionToDraft.submission.values.items as Record<
+        string,
+        unknown
+      >[],
+    };
+  }
+
   async function reviewerOnly(): Promise<Person> {
     return person(api, world.connection, world.tenant, world.tenant, {
       moduleKeys: ["apply-center", "apply-center.view-page"],
@@ -649,6 +727,30 @@ describe("申請中心與讀取授權", () => {
         newId: fresh.id,
       });
       await bindForm(world, key, FORM_KEY);
+    });
+
+    it("複製為新單:明細列每一列換新的 rowId", async () => {
+      const { rows, copied } = await copyArraySubmission(null);
+      expect(
+        copied.filter((row) =>
+          rows.some((source) => source.rowId === row.rowId),
+        ),
+      ).toEqual([]);
+    });
+
+    it("複製為新單:明細只留目標版本仍有且型別相同的子欄", async () => {
+      // 新版:qty 改成文字、多一個 note;name 不變
+      const { copied } = await copyArraySubmission([
+        column("name", "text"),
+        column("qty", "text"),
+        column("note", "text"),
+      ]);
+      expect(
+        copied.map((row) => [row.name, row.qty ?? null, row.note ?? null]),
+      ).toEqual([
+        ["甲", null, null],
+        ["乙", null, null],
+      ]);
     });
   });
 

@@ -20,6 +20,8 @@ import { useRowIds } from "./useRowIds";
 export interface OptionsEditorProps {
   value: FieldOptions | null | undefined;
   onChange: (value: FieldOptions) => void;
+  /** 可選的來源(明細子欄只有靜態清單與欄位管理類別);預設三種都可選 */
+  kinds?: readonly FieldOptions["kind"][];
 }
 
 type SourceKind = FieldOptions["kind"];
@@ -51,7 +53,11 @@ const UNSET = "";
  * 欄位管理類別**從類別清單下拉挑**(`fieldCategories`)、lookup 來源選 provider / 表單 / 顯示欄 / 值欄。
  * value 重複等由檢查器報錯。靜態清單的列以**穩定內部 id** 當 React key(`useRowIds`),改 value 不會整列重掛失焦。
  */
-export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
+export const OptionsEditor = ({
+  value,
+  onChange,
+  kinds = SOURCE_KINDS,
+}: OptionsEditorProps) => {
   const t = useTranslations("admin.forms.options");
   const tForms = useTranslations("admin.forms");
   const { session } = useSession();
@@ -83,7 +89,7 @@ export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
       <SelectField<SourceKind>
         label={t("source")}
         value={options.kind}
-        options={SOURCE_KINDS.map((kind) => ({
+        options={kinds.map((kind) => ({
           value: kind,
           label: t(`sources.${kind}`),
         }))}

@@ -3,6 +3,7 @@ import { useTranslations } from "use-intl";
 import type { FormDefinition } from "@repo/domain/form";
 import { useFormSubmissionQuery } from "@repo/graphql";
 import { CircularProgress } from "@repo/ui/circular-progress";
+import { Stack } from "@repo/ui/stack";
 import { Table } from "@repo/ui/table";
 import { Typography } from "@repo/ui/typography";
 
@@ -13,6 +14,7 @@ import {
 } from "@/lib/form-engine/revision-diff";
 
 import { FormValue } from "../FormValue";
+import { ArrayRevisionDiff } from "./ArrayRevisionDiff";
 
 export interface RevisionDiffProps {
   submissionId: string;
@@ -24,7 +26,8 @@ export interface RevisionDiffProps {
 /**
  * 修訂差異(Spec 6a §4 `revisions[]`:每個修訂存完整快照,差異在讀取時由相鄰兩筆算)。
  * 兩個快照都走 `formSubmission(id, revision)`,所以受保護欄位的投影照讀者現在的權限套 —— 看不到的欄位兩邊
- * 都是 `"[redacted]"`,不會以「有變動」的形式側漏。
+ * 都是 `"[redacted]"`,不會以「有變動」的形式側漏。明細列另外以 `rowId` 對列列出每一列的變動
+ * (`ArrayRevisionDiff`)。
  */
 export const RevisionDiff = ({
   submissionId,
@@ -73,43 +76,63 @@ export const RevisionDiff = ({
     );
   }
 
+  const arrayChanges = changes.filter(
+    (change) => change.field.type === "array",
+  );
+  const valueChanges = changes.filter(
+    (change) => change.field.type !== "array",
+  );
+
   return (
-    <Table<RevisionChange>
-      aria-label={t("diffAria", { revision })}
-      size="small"
-      rows={changes}
-      getRowKey={(change) => change.field.key}
-      columns={[
-        {
-          key: "field",
-          header: t("diffField"),
-          render: (change) => change.field.label,
-        },
-        {
-          key: "before",
-          header: t("diffBefore", { revision: revision - 1 }),
-          render: (change) => (
-            <FormValue
-              field={change.field}
-              value={change.before}
-              display={displayOf(before, change.field.key)}
-              text={text}
-            />
-          ),
-        },
-        {
-          key: "after",
-          header: t("diffAfter", { revision }),
-          render: (change) => (
-            <FormValue
-              field={change.field}
-              value={change.after}
-              display={displayOf(after, change.field.key)}
-              text={text}
-            />
-          ),
-        },
-      ]}
-    />
+    <Stack spacing={1.5}>
+      {valueChanges.length > 0 && (
+        <Table<RevisionChange>
+          aria-label={t("diffAria", { revision })}
+          size="small"
+          rows={valueChanges}
+          getRowKey={(change) => change.field.key}
+          columns={[
+            {
+              key: "field",
+              header: t("diffField"),
+              render: (change) => change.field.label,
+            },
+            {
+              key: "before",
+              header: t("diffBefore", { revision: revision - 1 }),
+              render: (change) => (
+                <FormValue
+                  field={change.field}
+                  value={change.before}
+                  display={displayOf(before, change.field.key)}
+                  text={text}
+                />
+              ),
+            },
+            {
+              key: "after",
+              header: t("diffAfter", { revision }),
+              render: (change) => (
+                <FormValue
+                  field={change.field}
+                  value={change.after}
+                  display={displayOf(after, change.field.key)}
+                  text={text}
+                />
+              ),
+            },
+          ]}
+        />
+      )}
+      {arrayChanges.map((change) => (
+        <ArrayRevisionDiff
+          key={change.field.key}
+          field={change.field}
+          before={change.before}
+          after={change.after}
+          text={text}
+        />
+      ))}
+    </Stack>
   );
 };
