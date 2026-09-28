@@ -314,17 +314,49 @@ describe("AppBar(當前組織切換、使用者選單、語言)", () => {
     expect(screen.queryByRole("combobox", { name: "語言" })).toBeNull();
   });
 
-  it("頭像選單的語言:切到 English 後文案變英文並記在 localStorage", async () => {
+  it("頭像選單:使用者卡(姓名、帳號 · 當前組織)、外觀 / 語言兩組分段按鈕、兩個登出項", async () => {
     server.use(...authWorld({ hasRefreshCookie: true }).handlers);
 
     const { user } = renderApp({ path: "/overview" });
     await user.click(await screen.findByRole("button", { name: "小華" }));
+
+    const menu = screen.getByRole("dialog", { name: "使用者選單" });
+    expect(within(menu).getByText("root · CookHome")).toBeInTheDocument();
     expect(
-      screen.getByRole("menuitemradio", { name: "繁體中文" }),
-    ).toHaveAttribute("aria-checked", "true");
+      within(menu).getByRole("group", { name: "外觀" }),
+    ).toBeInTheDocument();
+    expect(
+      within(menu).getByRole("group", { name: "語言" }),
+    ).toBeInTheDocument();
+    expect(
+      within(menu)
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent),
+    ).toEqual(["登出", "登出所有裝置"]);
+  });
 
-    await user.click(screen.getByRole("menuitemradio", { name: "English" }));
+  it("頭像選單的語言:切到 English 後文案變英文、選單不關,並記在 localStorage", async () => {
+    server.use(...authWorld({ hasRefreshCookie: true }).handlers);
 
+    const { user } = renderApp({ path: "/overview" });
+    await user.click(await screen.findByRole("button", { name: "小華" }));
+    expect(screen.getByRole("button", { name: "繁體中文" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    await user.click(screen.getByRole("button", { name: "English" }));
+
+    // 切了不關:選單還在,而且已換成英文
+    expect(
+      await screen.findByRole("dialog", { name: "User menu" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "English" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    // 關掉選單後整個殼都是英文
+    await user.keyboard("{Escape}");
     expect(
       await screen.findByRole("navigation", { name: "Main navigation" }),
     ).toBeInTheDocument();
@@ -332,19 +364,27 @@ describe("AppBar(當前組織切換、使用者選單、語言)", () => {
     localStorage.removeItem(LOCALE_STORAGE_KEY);
   });
 
-  it("頭像選單的外觀:預設跟隨系統;選「暗」後換暗色並記在 localStorage,重新整理後維持", async () => {
+  it("頭像選單的外觀:預設跟隨系統;選「暗」後換暗色、選單不關並記在 localStorage,重新整理後維持", async () => {
     server.use(...authWorld({ hasRefreshCookie: true }).handlers);
 
     const first = renderApp({ path: "/overview" });
     await first.user.click(await screen.findByRole("button", { name: "小華" }));
-    expect(
-      screen.getByRole("menuitemradio", { name: "跟隨系統" }),
-    ).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "跟隨系統" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
-    await first.user.click(screen.getByRole("menuitemradio", { name: "暗" }));
+    await first.user.click(screen.getByRole("button", { name: "暗" }));
 
     expect(document.documentElement).toHaveClass("dark");
     expect(localStorage.getItem(COLOR_MODE_STORAGE_KEY)).toBe("dark");
+    expect(
+      screen.getByRole("dialog", { name: "使用者選單" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "暗" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
     // 重新整理 = 整個 app 重新掛載,外觀從 localStorage 讀回
     first.unmount();
@@ -353,8 +393,8 @@ describe("AppBar(當前組織切換、使用者選單、語言)", () => {
     await second.user.click(
       await screen.findByRole("button", { name: "小華" }),
     );
-    expect(screen.getByRole("menuitemradio", { name: "暗" })).toHaveAttribute(
-      "aria-checked",
+    expect(screen.getByRole("button", { name: "暗" })).toHaveAttribute(
+      "aria-pressed",
       "true",
     );
     expect(document.documentElement).toHaveClass("dark");
