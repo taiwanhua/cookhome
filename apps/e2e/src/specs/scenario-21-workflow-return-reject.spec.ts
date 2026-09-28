@@ -1,6 +1,6 @@
 import { clickAndWaitForOperation } from "../fixtures/scenario-forms";
 import {
-  LEAVE_ROUTE,
+  WORKFLOW_FORM_ROUTE,
   createWorkflowWorld,
   decideInUi,
   myApplicationRow,
@@ -20,8 +20,8 @@ import {
 /**
  * 劇本 21 — 退回修改 → 再送 → 駁回
  * 正本:`docs/testing/permission-scenarios.md`「劇本 21」。
- * 用哪一頁:申請中心詳情(審核者退回 / 駁回)、我的申請 → 請假的編輯頁(申請人改完再送)。
- * 前置(走 api):共用表單掛「請假」、客製流程「直屬主管」一關並綁定;申請人送出。
+ * 用哪一頁:申請中心詳情(審核者退回 / 駁回)、我的申請 → 示範表單(群組內)的編輯頁(申請人改完再送)。
+ * 前置(走 api):共用表單掛「示範表單(群組內)」、客製流程「直屬主管」一關並綁定;申請人送出。
  */
 test("劇本 21:退回修改 → 申請人改完再送(修訂 +1、從第一關重審)→ 駁回", async ({
   page,
@@ -31,7 +31,7 @@ test("劇本 21:退回修改 → 申請人改完再送(修訂 +1、從第一關�
   const world = await createWorkflowWorld(tenant, { formName: "病假單" });
   await publishCustomWorkflow(tenant.tenantAdmin.token, {
     key: `leave_${tenant.slug}`,
-    name: "請假審核",
+    name: "病假審核",
     definition: {
       steps: [reviewStep("manager", "直屬主管", { kind: "manager", level: 1 })],
       edges: null,
@@ -57,7 +57,7 @@ test("劇本 21:退回修改 → 申請人改完再送(修訂 +1、從第一關�
   await expect(row.getByText("已退回")).toBeVisible();
   await row.getByRole("button", { name: `繼續編輯「${title}」` }).click();
   await page.waitForURL((url) =>
-    url.pathname.startsWith(`${LEAVE_ROUTE}/edit-page/`),
+    url.pathname.startsWith(`${WORKFLOW_FORM_ROUTE}/edit-page/`),
   );
   await expect(pageArea(page).getByText(/被退回修改/)).toBeVisible();
   await pageArea(page).getByRole("textbox", { name: "標題" }).fill(retitled);

@@ -35,6 +35,7 @@ import {
   VALIDATE_WORKFLOW,
   WORKFLOW,
   WORKFLOWS,
+  WORKFLOW_MODULE,
   WORKFLOW_TEST_TIMEOUT_MS,
   WORKFLOW_VERSION,
   type WorkflowRow,
@@ -93,13 +94,13 @@ describe("流程設計與綁定", () => {
     return found;
   }
 
-  /** root 建一張共用表單(請假模組)、發布、分派給租戶。 */
+  /** root 建一張共用表單(示範表單模組)、發布、分派給租戶。 */
   async function sharedForm(
     key: string,
     fields = [field("title", "text"), field("days", "number")],
   ): Promise<void> {
     await ok(api, world.root, CREATE_FORM, {
-      input: { key, moduleKey: "leave", name: `表單 ${key}` },
+      input: { key, moduleKey: WORKFLOW_MODULE, name: `表單 ${key}` },
     });
     await publishDefinition(api, world.root, key, definitionOf(fields), null);
     await ok(api, world.root, ASSIGN, {
@@ -207,7 +208,7 @@ describe("流程設計與綁定", () => {
             sourceKey: sharedKey,
             sourceVersion: 1,
             key: forkKey,
-            name: "請假審核(本租戶)",
+            name: "病假審核(本租戶)",
           },
         },
       );

@@ -5,9 +5,9 @@ import type { FormDefinition } from "@repo/domain/form";
 import { FormSubmissionStatus, ModuleListColumnKind } from "@repo/graphql";
 
 import {
+  DEMO_FORM_KEY,
+  DEMO_FORM_ROUTES,
   SHOPPING_FORM_KEY,
-  SHOPPING_LIST_KEY,
-  SHOPPING_ROUTES,
   field,
   submissionFragment,
 } from "@/test/msw/form-fixtures";
@@ -18,9 +18,9 @@ import { renderShopping, shoppingForm } from "./form-module-test-support";
 // 列表的 DataTable 是虛擬捲動,jsdom 沒有尺寸就一列都不畫
 setupFakeViewport();
 
-const CREATE_PATH = `${SHOPPING_ROUTES.createPage}/shopping_list`;
-const EDIT_PATH = `${SHOPPING_ROUTES.editPage}/sub-1`;
-const VIEW_PATH = `${SHOPPING_ROUTES.viewPage}/sub-1`;
+const CREATE_PATH = `${DEMO_FORM_ROUTES.createPage}/shopping_list`;
+const EDIT_PATH = `${DEMO_FORM_ROUTES.editPage}/sub-1`;
+const VIEW_PATH = `${DEMO_FORM_ROUTES.viewPage}/sub-1`;
 
 /** 數量預設 2、預算預設 = 數量 × 單價、送達時間(日期時間欄)、採購日(日期欄)。 */
 const defaultsDefinition = (): FormDefinition => ({
@@ -285,7 +285,7 @@ describe("表單模組:欄位預設值與日期時間", () => {
 
   it("列表:送出過的列與草稿列都用讀者的租戶時區(台北),不用修訂的時區(東京)", async () => {
     renderShopping({
-      path: SHOPPING_ROUTES.list,
+      path: DEMO_FORM_ROUTES.list,
       world: {
         ...worldWith([
           submissionFragment({
@@ -316,7 +316,7 @@ describe("表單模組:欄位預設值與日期時間", () => {
           }),
         ]),
         listColumns: {
-          [SHOPPING_LIST_KEY]: [
+          [DEMO_FORM_KEY]: [
             {
               kind: ModuleListColumnKind.Slot,
               key: "title",
@@ -345,7 +345,7 @@ describe("表單模組:欄位預設值與日期時間", () => {
 
     const grid = await screen.findByRole(
       "table",
-      { name: "購物清單清單" },
+      { name: "示範表單(頂層)清單" },
       { timeout: 10_000 },
     );
     // 列表要接力載完(登入 → 模組 → 表單清單 → 欄位配置 → 提交清單),放寬等待

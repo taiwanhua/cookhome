@@ -260,7 +260,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(findSeedKeyViolations(seedRegistry)).toEqual([]);
   });
 
-  it("示範家族、治理模組(含表單 / 流程管理)、購物清單、申請中心與請假依正本落地:個別權限 12 + 12 + 8 + 7 + 4 + 4 + 2 + 5 + 4 + 7 + 1 + 4 = 70 筆;全部 33 個模組各一筆 wildcard(共 103 筆)", () => {
+  it("示範家族(含三個示範表單)、治理模組(含表單 / 流程管理)、申請中心依正本落地:個別權限 12 + 12 + 8 + 7 + 4 + 4 + 2 + 5 + 7 + 1 + 4 × 3 = 74 筆;全部 37 個模組各一筆 wildcard(共 111 筆)", () => {
     const documentSets = seedRegistry.filter((set) => set.kind === "documents");
     const moduleKeys = documentSets
       .filter((set) => set.collection === "modules")
@@ -270,6 +270,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
       .flatMap((set) => set.entries.map((entry) => entry.key));
 
     // 正本:docs/modules/demo.sub.sample-one.md 家族模組樹 + demo.sample-two.md 模組節點
+    // + docs/modules/demo-form.md(頂層 / 群組內 / 次群組內)
     expect(moduleKeys.filter((key) => key.startsWith("demo"))).toEqual([
       "demo",
       "demo.sub",
@@ -281,12 +282,24 @@ describe("seeds/registry.ts 靜態檢查", () => {
       "demo.sample-two.view-page",
       "demo.sample-two.create-page",
       "demo.sample-two.edit-page",
+      "demo.form",
+      "demo.form.view-page",
+      "demo.form.create-page",
+      "demo.form.edit-page",
+      "demo.sub.form",
+      "demo.sub.form.view-page",
+      "demo.sub.form.create-page",
+      "demo.sub.form.edit-page",
+      "demo-form",
+      "demo-form.view-page",
+      "demo-form.create-page",
+      "demo-form.edit-page",
     ]);
 
     // 正本:示範家族兩份權限表(7 + 5)+ docs/modules/org-manager.md(12)、user-manager.md(8)、
     // role-manager.md(7)、module-manager.md(4)、field-manager.md(4)、data-scope.md(2)、forms.md(5)
     const individualKeys = permissionKeys.filter((key) => !key.endsWith(".*"));
-    expect(individualKeys).toHaveLength(70);
+    expect(individualKeys).toHaveLength(74);
     expect(new Set(individualKeys)).toEqual(
       new Set([
         "demo.sub.sample-one.view",
@@ -349,11 +362,13 @@ describe("seeds/registry.ts 靜態檢查", () => {
         "system.forms.edit",
         "system.forms.assign",
         "system.forms.set-enabled",
-        // 表單模組範例(Spec 6a §2):四筆基本權限
-        "shopping-list.view",
-        "shopping-list.create",
-        "shopping-list.edit",
-        "shopping-list.delete",
+        // 三個示範表單模組:各四筆基本權限
+        ...["demo-form", "demo.form", "demo.sub.form"].flatMap((key) => [
+          `${key}.view`,
+          `${key}.create`,
+          `${key}.edit`,
+          `${key}.delete`,
+        ]),
         // 流程管理(Spec 6b §8):6 個 + 阻擋清單頁自有的改派
         "system.workflows.view",
         "system.workflows.create",
@@ -362,21 +377,17 @@ describe("seeds/registry.ts 靜態檢查", () => {
         "system.workflows.publish",
         "system.workflows.assign",
         "system.workflows.blocked-page.reassign",
-        // 申請中心(固定模組)+ 請假(表單模組範例)
+        // 申請中心(固定模組)
         "apply-center.view",
-        "leave.view",
-        "leave.create",
-        "leave.edit",
-        "leave.delete",
       ]),
     );
 
     // 每個模組各一筆 `<key>.*`(D3:wildcard 只代表該模組自己這一層)
-    expect(moduleKeys).toHaveLength(33);
+    expect(moduleKeys).toHaveLength(37);
     expect(new Set(permissionKeys.filter((key) => key.endsWith(".*")))).toEqual(
       new Set(moduleKeys.map((key) => `${key}.*`)),
     );
-    expect(permissionKeys).toHaveLength(103);
+    expect(permissionKeys).toHaveLength(111);
 
     // D1:治理模組 key 累加 system 群組前綴;tenant-ops 是組織管理底下的純權限容器
     expect(moduleKeys.filter((key) => key.startsWith("system"))).toEqual([

@@ -14,7 +14,7 @@
 - 沒有模組節點,表單無處可掛、權限無處可綁;所以模組永遠由 seed 建,表單才是執行期的。
 - 一張表單只屬一個模組;要在別的模組用,以它為基底建新表單。
 
-正本:`apps/db-migrator/seeds/modules/shopping-list.ts`(範例)、`apps/api/src/forms/`
+正本:`apps/db-migrator/seeds/form-module-declaration.ts`(示範表單的共用骨架)、`apps/api/src/forms/`
 
 ## 表單的三種身分與可新增的交集
 
@@ -77,9 +77,9 @@
 表單引擎是一組零件,不是固定頁面。`app/module-pages.tsx` 登記方式不變(模組 key → 頁面元件),引擎提供 `formModulePages(moduleKey)` 產出四個 key 的預設元件:
 
 ```ts
-...formModulePages(SHOPPING_LIST_MODULE_KEY),                        // 四頁全用預設
-...formModulePages(LEAVE_KEY), [LEAVE_KEY]: LeavePage,               // 列表頁客製、其餘預設
-[LEAVE_KEY]: LeavePage, [`${LEAVE_KEY}.view-page`]: LeaveViewPage,   // 全部自己來
+...formModulePages(DEMO_FORM_MODULE_KEY),                        // 四頁全用預設
+...formModulePages(OTHER_KEY), [OTHER_KEY]: OtherListPage,               // 列表頁客製、其餘預設
+[OTHER_KEY]: OtherListPage, [`${OTHER_KEY}.view-page`]: OtherViewPage,   // 全部自己來
 ```
 
 | 零件                                                    | 做什麼                                                                          |

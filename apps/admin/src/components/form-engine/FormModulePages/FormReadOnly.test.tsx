@@ -5,8 +5,8 @@ import { HttpResponse } from "msw";
 import type { FormDefinition } from "@repo/domain/form";
 
 import {
+  DEMO_FORM_ROUTES,
   SHOPPING_FORM_KEY,
-  SHOPPING_ROUTES,
   field,
   submissionFragment,
 } from "@/test/msw/form-fixtures";
@@ -14,7 +14,7 @@ import { api, server } from "@/test/msw/server";
 
 import { renderShopping, shoppingForm } from "./form-module-test-support";
 
-const VIEW_PATH = `${SHOPPING_ROUTES.viewPage}/sub-1`;
+const VIEW_PATH = `${DEMO_FORM_ROUTES.viewPage}/sub-1`;
 
 const staticItems = (...labels: [string, string][]) => ({
   kind: "static" as const,

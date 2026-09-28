@@ -114,6 +114,17 @@ export const systemModules: TestModule[] = [
   ),
 ];
 
+/** 示範群組 `demo`(seeds/modules/demo.sub.sample-one.ts);只掛示範表單(群組內)的測試單獨拿它補父節點。 */
+export const demoGroupNode: TestModule = group(
+  "m-demo",
+  "demo",
+  "示範群組",
+  null,
+  2,
+  "/demo",
+  "extension",
+);
+
 /** 示範模組2 家族:示範群組 → 示範模組2 + 三個隱藏頁(seeds/modules/demo.sample-two.ts)。 */
 export const sampleTwoModules: TestModule[] = [
   hidden(
@@ -124,7 +135,7 @@ export const sampleTwoModules: TestModule[] = [
     3,
     "/demo/sample-two/edit-page",
   ),
-  group("m-demo", "demo", "示範群組", null, 2, "/demo", "extension"),
+  demoGroupNode,
   link(
     "m-two",
     "demo.sample-two",

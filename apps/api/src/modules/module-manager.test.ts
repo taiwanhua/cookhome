@@ -359,9 +359,8 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         "overview",
         "system",
         "demo",
-        "shopping-list",
+        "demo-form",
         "apply-center",
-        "leave",
         "api",
       ]);
       const system = byKey(tree, "system");
@@ -380,8 +379,8 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         sidebarType: "HIDDEN",
         parentId: byKey(tree, "system.org-manager").id,
       });
-      // 頁面組裝方式:seed 宣告 engine: "form" 的購物清單是 FORM,其餘 FIXED
-      expect(byKey(tree, "shopping-list").engine).toBe("FORM");
+      // 頁面組裝方式:seed 宣告 engine: "form" 的示範表單是 FORM,其餘 FIXED
+      expect(byKey(tree, "demo-form").engine).toBe("FORM");
       expect(byKey(tree, "demo").engine).toBe("FIXED");
       // 隱藏的 api 樹是頂層節點(不是頁面,側欄看不到)
       expect(byKey(tree, "api")).toMatchObject({
@@ -513,6 +512,10 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
         enabled: false,
       });
       expect(cascaded?.after?.cascadedModuleKeys).toEqual([
+        "demo.sub.form",
+        "demo.sub.form.create-page",
+        "demo.sub.form.edit-page",
+        "demo.sub.form.view-page",
         SAMPLE_ONE,
         `${SAMPLE_ONE}.create-page`,
         `${SAMPLE_ONE}.edit-page`,

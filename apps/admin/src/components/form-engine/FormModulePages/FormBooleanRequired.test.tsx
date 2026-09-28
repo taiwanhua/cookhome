@@ -4,8 +4,8 @@ import { screen, waitFor } from "@testing-library/react";
 import type { FormDefinition } from "@repo/domain/form";
 
 import {
+  DEMO_FORM_ROUTES,
   SHOPPING_FORM_KEY,
-  SHOPPING_ROUTES,
   field,
   shoppingDefinition,
 } from "@/test/msw/form-fixtures";
@@ -16,7 +16,7 @@ import {
   renderShopping,
 } from "./form-module-test-support";
 
-const CREATE_PATH = `${SHOPPING_ROUTES.createPage}/shopping_list`;
+const CREATE_PATH = `${DEMO_FORM_ROUTES.createPage}/shopping_list`;
 
 /** 購物單多一個必填的是 / 否欄位「同意條款」(勾選框)。 */
 const withAgreement = (): FormDefinition => {

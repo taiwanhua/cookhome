@@ -28,7 +28,11 @@ describe("流程管理:清單與設計器", () => {
         workflows: [
           workflowFragment({
             boundForms: [
-              { formKey: "sick_leave", formName: "病假單", moduleKey: "leave" },
+              {
+                formKey: "sick_leave",
+                formName: "病假單",
+                moduleKey: "demo.form",
+              },
             ],
           }),
         ],
@@ -36,7 +40,7 @@ describe("流程管理:清單與設計器", () => {
     });
 
     const list = await screen.findByRole("list", { name: "流程清單" });
-    expect(within(list).getByText("請假審核")).toBeInTheDocument();
+    expect(within(list).getByText("病假審核")).toBeInTheDocument();
     expect(within(list).getByText("客製")).toBeInTheDocument();
     expect(within(list).getByText("第 1 版")).toBeInTheDocument();
     expect(within(list).getByText("綁定表單:病假單")).toBeInTheDocument();

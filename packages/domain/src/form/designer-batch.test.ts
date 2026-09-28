@@ -210,7 +210,7 @@ describe("@repo/domain/form 是 / 否欄位必填 = 必須勾選", () => {
   });
 });
 
-const leave = field("leave", "select");
+const leave = field("absence", "select");
 const sameSource = field("previous_leave", "select");
 const otherSource = field("category", "select", {
   options: { kind: "fieldCategory", key: "leave-types" },
@@ -257,7 +257,7 @@ describe("@repo/domain/form 檢查器:選項欄公式的根是「選項」", () 
   it("concat / optionLabel / 文字欄 / 不同來源的欄位都不收", () => {
     const issues = errorsOf(
       formula("a", "select", { concat: ["si", "ck"] }),
-      formula("b", "select", { optionLabel: "leave" }),
+      formula("b", "select", { optionLabel: "absence" }),
       formula("c", "select", { var: "note" }),
       formula("d", "select", { var: "category" }),
       formula("e", "select", { if: [true, "sick", { var: "note" }] }),
@@ -301,9 +301,9 @@ describe("@repo/domain/form 檢查器:選項欄公式的根是「選項」", () 
         field("flag", "boolean", {
           visibleWhen: {
             and: [
-              { "==": [{ var: "leave" }, "sick"] },
-              { "==": [{ var: "leave" }, { var: "note" }] },
-              { in: [{ var: "leave" }, ["sick"]] },
+              { "==": [{ var: "absence" }, "sick"] },
+              { "==": [{ var: "absence" }, { var: "note" }] },
+              { in: [{ var: "absence" }, ["sick"]] },
               { in: ["sick", { var: "tags" }] },
             ],
           },

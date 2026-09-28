@@ -28,7 +28,7 @@ import { renderApp } from "@/test/render";
  */
 export const WORKFLOWS_ALL = ["system.workflows.*"];
 
-/** 客製流程「請假審核」:已發布第 1 版 + 一份以它為基底的草稿(修訂 1)。 */
+/** 客製流程「病假審核」:已發布第 1 版 + 一份以它為基底的草稿(修訂 1)。 */
 export const defaultDesignOptions = (): WorkflowDesignWorldOptions => ({
   workflows: [workflowFragment()],
   versions: {

@@ -105,7 +105,7 @@ describe("申請中心", () => {
     const dialog = await screen.findByRole("dialog", { name: "新申請" });
     expect(
       within(dialog).getByRole("combobox", { name: "模組" }),
-    ).toHaveTextContent("請假");
+    ).toHaveTextContent("示範表單(群組內)");
     expect(
       within(dialog).getByRole("combobox", { name: "表單" }),
     ).toHaveTextContent("病假單");

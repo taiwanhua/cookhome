@@ -1,6 +1,6 @@
 # 權限測試劇本(以示範模組驗證)
 
-驗證對象:權限模型(ADR-0004)、查詢與判斷流程(ADR-0011)、資料範圍規則(ADR-0008)、移除所屬組織(ADR-0003)、管理範圍與可見範圍的分工(ADR-0005)、檔案儲存(ADR-0010)、表單引擎(`docs/concepts/form-engine.md`)、審核流程(`docs/modules/workflows.md`)。模組與資料定義見 [示範模組1](../modules/demo.sub.sample-one.md)、[示範模組2](../modules/demo.sample-two.md)、[購物清單](../modules/shopping-list.md)。
+驗證對象:權限模型(ADR-0004)、查詢與判斷流程(ADR-0011)、資料範圍規則(ADR-0008)、移除所屬組織(ADR-0003)、管理範圍與可見範圍的分工(ADR-0005)、檔案儲存(ADR-0010)、表單引擎(`docs/concepts/form-engine.md`)、審核流程(`docs/modules/workflows.md`)。模組與資料定義見 [示範模組1](../modules/demo.sub.sample-one.md)、[示範模組2](../modules/demo.sample-two.md)、[示範表單](../modules/demo-form.md)。
 
 1. **wildcard 涵蓋未來(同層)**:角色勾示範模組1 的 `demo.sub.sample-one.*`(存單筆);下一版 seed 對示範模組1 新增權限 → 不改角色即擁有;對其編輯頁(`…edit-page`)新增的權限**不**自動擁有(子模組由自己的 `*` 代表)。
 2. **資料範圍規則**:建規則「套用對象=客服角色 → 建立者 = 【操作者本人】」→ 客服查示範項目僅見自建;刪規則 → 恢復可見範圍。
@@ -26,7 +26,7 @@
 15. **側欄商標繼承**(ADR-0010):租戶頂層設商標、下層不設 → 下層使用者的側欄顯示租戶的商標;下層自己設一張 → 改顯示自己的;把下層的清掉 → 又回到繼承來的那張(沿 `ancestors` 由近到遠找第一個有商標的上層)。
 16. **租戶視角**:root 開通租戶(取消勾選示範群組)→ 租戶管理員登入:側欄無「模組與權限」「資料範圍」「示範群組」、組織樹以租戶頂層為根、沒有「開通租戶」按鈕;root 視角看得到新租戶並標「租戶」。
 17. **擁有者保護**:租戶管理員試圖停用 / 移出租戶 / 解除自己(擁有者)的租戶管理員授予 → `OWNER_PROTECTED`;root 可執行;租戶內任何人對租戶頂層停用 / 刪除 / 搬移 → `FORBIDDEN`。
-18. **表單生命週期**:root 在表單管理建共用表單 → 設計 → 存草稿 → 發布 → 分派給租戶A → +user 在購物清單新增、填寫、送出 → 列表看得到那一筆、詳情看得到填的值。
+18. **表單生命週期**:root 在表單管理建共用表單 → 設計 → 存草稿 → 發布 → 分派給租戶A → +user 在示範表單(頂層)新增、填寫、送出 → 列表看得到那一筆、詳情看得到填的值。
 19. **客製副本與退役**:+tenant 以分派來的表單為基底建客製表單 → 改欄位 → 發布 → +user 新增時可以選它 → +tenant 退役目前版本 → +user 不能再以它新增(已送出的照常看)。
 20. **兩級核准與主管解析**:申請人在沒有主管的下層組織送出 → 往上找到上層組織的主管 → 主管核准 → 人資(角色來源)核准 → 已完成。
 21. **退回修改 → 再送 → 駁回**:主管退回(理由必填)→ 申請人改完再送(修訂 +1、從第一關重審)→ 主管駁回 → 已駁回、不能再改。
@@ -38,7 +38,7 @@
 
 # 怎麼驗:每條劇本用哪一頁、哪個帳號、什麼步驟
 
-示範模組、購物清單、請假與申請中心都有真頁面,24 條劇本**全部可以在畫面上跑完**(唯一的例外是劇本 1 的跨版本那半條,見該節)。
+示範模組、三個示範表單與申請中心都有真頁面,24 條劇本**全部可以在畫面上跑完**(唯一的例外是劇本 1 的跨版本那半條,見該節)。
 
 **寫或改一條劇本的前置 / 預期之前,先對一次規則正本**:劇本 8 / 9 / 12 / 14 / 17 最容易寫成「照字面做驗不出來」,要對齊的規則是 —— 可見範圍是**所有**所屬組織的聯集(ADR-0005)、最後一個所屬組織不可移除(`LAST_ORG`)且檢查在擁有者保護之前、管理範圍算**全部**啟用中角色、授予要過資格檢查(ADR-0003)。E2E 的 spec 開頭註解與本文件的前置一致;**畫面文案一律從 zh-TW 字典(`packages/i18n/messages/zh-TW/admin.json`)原樣複製**,不要憑印象寫(「保留所有角色授予」不是「全部保留」)。
 
@@ -120,7 +120,7 @@
 1. **root** → 資料範圍頁 → 看左側的資料目標清單。
 2. 維持劇本 2 的規則開啟狀態,**+user** 去看**示範模組2** 的列表。
 
-**預期**:步驟 1 清單裡**沒有 `demo_items_two`** —— 示範模組2 的 seed 不宣告 `dataScopeTarget`。清單裡是「示範項目」(`demo_items_one`)與「購物清單」(`form_submissions`,表單模組的資料目標一模組一列);斷言看的是 `demo_items_two` 不在清單內,所以多一列不影響本劇本。步驟 2 示範模組2 的列表**不受規則影響**,+user 照樣看得到別人在南港店建的那筆:沒有規則命中的資料目標,只剩可見範圍保底。
+**預期**:步驟 1 清單裡**沒有 `demo_items_two`** —— 示範模組2 的 seed 不宣告 `dataScopeTarget`。清單裡是「示範項目」(`demo_items_one`)與三個示範表單(`form_submissions`,表單模組的資料目標一模組一列);斷言看的是 `demo_items_two` 不在清單內,所以多幾列不影響本劇本。步驟 2 示範模組2 的列表**不受規則影響**,+user 照樣看得到別人在南港店建的那筆:沒有規則命中的資料目標,只剩可見範圍保底。
 
 ### 劇本 4 — 頂層合成 OR / AND
 
@@ -354,30 +354,30 @@
 
 ### 劇本 18 — 表單生命週期(建立 → 發布 → 分派 → 填寫)
 
-- **用哪一頁**:表單管理(root)+ 購物清單列表 / 新增 / 詳情(+user)
+- **用哪一頁**:表單管理(root)+ 示範表單(頂層)列表 / 新增 / 詳情(+user)
 - **帳號**:root 設計與分派、+user 填寫
 - **E2E**:`apps/e2e/src/specs/scenario-18-form-lifecycle.spec.ts`(手動觸發,見下方「E2E 怎麼跑」)
-- **前置**(走 api):客服角色的矩陣另勾「購物清單」與它的三個隱藏頁,給 `view` / `create` / `edit` / `delete`。
+- **前置**(走 api):客服角色的矩陣另勾「示範表單(頂層)」與它的三個隱藏頁,給 `view` / `create` / `edit` / `delete`。
 
-1. **root** → 表單管理 →「+ 建立表單」,填表單 key、名稱、所屬模組「購物清單」。
+1. **root** → 表單管理 →「+ 建立表單」,填表單 key、名稱、所屬模組「示範表單(頂層)」。
 2. 在「設計」頁籤從元件面板加一個「單行文字」欄位,在屬性面板把顯示名稱改成要驗的名稱;沒選欄位時的「表單設定」把摘要的**標題**指到這一欄 →「存草稿」。
 3. 「版本」頁籤 → 草稿那一列「發布」,填變更說明送出。
 4. 右側標頭「分派租戶」→ 勾租戶A → 儲存。
-5. **+user** → 購物清單 →「+ 新增」(只有這一張表單可填 → 直接進填寫頁)→ 填剛才的欄位 →「送出」。
+5. **+user** → 示範表單(頂層) →「+ 新增」(只有這一張表單可填 → 直接進填寫頁)→ 填剛才的欄位 →「送出」。
 6. 回列表看那一筆,再進詳情。
 
-**預期**:步驟 3 後版本面板有「版本 1」、狀態已發布;步驟 5 送出後進詳情頁,看得到填的值、狀態「已完成」;步驟 6 列表的標題欄就是填的值(摘要槽),狀態「已完成」。沒有分派之前(步驟 4 前)+user 的新增鈕是停用的(沒有可填的表單)。
+**預期**:步驟 3 後版本面板有「版本 1」、狀態已發布;步驟 5 送出後進詳情頁,看得到填的值,「修訂紀錄」跳窗裡狀態「已完成」;步驟 6 列表的標題欄就是填的值(摘要槽),狀態「已完成」。沒有分派之前(步驟 4 前)+user 的新增鈕是停用的(沒有可填的表單)。
 
 ### 劇本 19 — 客製副本與退役目前版本
 
-- **用哪一頁**:表單管理(+tenant)+ 購物清單新增(+user)
+- **用哪一頁**:表單管理(+tenant)+ 示範表單(頂層)新增(+user)
 - **帳號**:+tenant 建客製表單與退役、+user 填寫
 - **E2E**:`apps/e2e/src/specs/scenario-19-form-fork-retire.spec.ts`(手動觸發,見下方「E2E 怎麼跑」)
 - **前置**(走 api):root 建一張共用表單、發布、分派給租戶A(劇本 18 的畫面流程在這裡不重跑);客服角色的矩陣同劇本 18;+tenant 是新開通的租戶管理員,預設角色已含「表單管理」的權限。
 
 1. **+tenant** → 表單管理 → 選分派來的表單 →「以此為基底建新表單」,選基底版本、填表單 key 與名稱。
 2. 在新表單的「設計」頁籤改欄位(例如加一個欄位)→「存草稿」→「版本」頁籤「發布」。
-3. **+user** → 購物清單 →「+ 新增」:選單裡同時有共用表單與客製表單,選客製表單填寫送出。
+3. **+user** → 示範表單(頂層) →「+ 新增」:選單裡同時有共用表單與客製表單,選客製表單填寫送出。
 4. **+tenant** → 客製表單的「版本」頁籤 →「退役目前版本」並確認。
 5. **+user** 再按「+ 新增」。
 
@@ -385,8 +385,8 @@
 
 ### 劇本 20–24 的共同前置(走 api)
 
-- root 建一張共用表單(標題 + 天數或金額,摘要標題 = 標題)掛在「請假」模組、發布、分派給租戶A。
-- +tenant 建:「南港廚房」(南港店的下層)與申請人(所屬 = 南港廚房)、南港店的**主管**(組織管理的「主管」欄)、人資(持「人資」角色)、副理;「申請人」角色給請假與申請中心,「審核員」角色給申請中心,都指派好。
+- root 建一張共用表單(標題 + 天數或金額,摘要標題 = 標題)掛在「示範表單(群組內)」模組(`demo.form`,路由 `/demo/form`)、發布、分派給租戶A。
+- +tenant 建:「南港廚房」(南港店的下層)與申請人(所屬 = 南港廚房)、南港店的**主管**(組織管理的「主管」欄)、人資(持「人資」角色)、副理;「申請人」角色給示範表單(群組內)與申請中心,「審核員」角色給申請中心,都指派好。
 - +tenant(租戶管理員,預設角色含流程管理與阻擋清單的 `system.workflows.blocked-page.reassign`)以 api 建客製流程、發布、在表單管理把表單綁上它;申請人以 api 送出。
 
 ### 劇本 20 — 主管 + 人資兩級核准(含主管解析)
@@ -404,7 +404,7 @@
 
 ### 劇本 21 — 退回修改 → 再送 → 駁回
 
-- **用哪一頁**:申請中心詳情(主管)、我的申請 → 請假編輯頁(申請人)
+- **用哪一頁**:申請中心詳情(主管)、我的申請 → 示範表單(群組內)編輯頁(申請人)
 - **帳號**:主管、申請人
 - **E2E**:`apps/e2e/src/specs/scenario-21-workflow-return-reject.spec.ts`
 - **前置**:共同前置;流程只有「直屬主管」一關。
@@ -430,12 +430,12 @@
 
 ### 劇本 23 — 核准後作廢 → 複製為新單 → 重審
 
-- **用哪一頁**:請假列表、請假詳情(審核區塊)、請假編輯頁
+- **用哪一頁**:示範表單(群組內)列表、示範表單(群組內)詳情(審核區塊)、示範表單(群組內)編輯頁
 - **帳號**:申請人(主管以 api 核准)
 - **E2E**:`apps/e2e/src/specs/scenario-23-workflow-void-copy.spec.ts`
 - **前置**:共同前置;流程只有「直屬主管」一關;申請人送出、主管核准。
 
-1. **申請人** → 請假列表:那張「已完成」的單。
+1. **申請人** → 示範表單(群組內)列表:那張「已完成」的單。
 2. 列上「作廢」→ 填作廢理由 → 作廢。
 3. 進詳情 → 審核區塊「複製為新單」→ 進編輯頁 →「送出」。
 
@@ -459,32 +459,32 @@
 
 「E2E」欄 = `apps/e2e/src/specs/` 底下對應的 spec 檔名,「尚未」= 還是人工驗收。
 
-| 劇本                    | 主要頁面                                  | 操作帳號 / 被測帳號  | E2E                                             |
-| ----------------------- | ----------------------------------------- | -------------------- | ----------------------------------------------- |
-| 1 wildcard              | 角色管理 → 權限矩陣                       | +tenant              | `scenario-01-wildcard.spec.ts`                  |
-| 2 資料範圍規則          | 資料範圍頁 + 示範模組1 列表 / 詳情        | root / +user         | `scenario-02-data-scope-rule.spec.ts`           |
-| 3 未宣告對照            | 資料範圍頁左清單 + 示範模組2 列表         | root / +user         | `scenario-03-undeclared-target.spec.ts`         |
-| 4 頂層合成 OR / AND     | 資料範圍頁 + 示範模組1 列表               | root / +user         | `scenario-04-combine-op.spec.ts`                |
-| 5 欄位級權限            | 示範模組1 詳情頁 + 編輯頁                 | +tenant / +user      | `scenario-05-field-permission.spec.ts`          |
-| 6 頁面自有權限          | 示範模組1 新增頁 + 編輯頁                 | +tenant / +user      | `scenario-06-page-permission.spec.ts`           |
-| 7 路由防守              | 示範模組1 列表 + 直接打網址               | +tenant / +user      | `scenario-07-route-guard.spec.ts`               |
-| 8 組織外                | 使用者管理 / 角色管理 / 示範模組1 列表    | +tenant / +user      | `scenario-08-out-of-scope.spec.ts`              |
-| 9 移除三檔              | 使用者管理 → 移除所屬組織彈窗             | +tenant / 多組織帳號 | `scenario-09-org-removal-policy.spec.ts`        |
-| 10 防越權               | 角色管理 → 權限矩陣                       | +tenant              | `scenario-10-out-of-reach.spec.ts`              |
-| 11 儲存雙路             | 示範模組1 表單 + 詳情頁                   | +user                | `scenario-11-storage-two-paths.spec.ts`         |
-| 12 可見性開關           | 組織管理(開關)+ 示範模組1 列表 + 三治理頁 | +tenant / +user      | `scenario-12-visibility-toggle.spec.ts`         |
-| 13 總覽也是模組         | 角色管理 → 權限矩陣 + 登入落點            | +tenant / +user      | `scenario-13-overview-module.spec.ts`           |
-| 14 管理範圍 vs 可見範圍 | 角色管理 + 三治理頁 + 示範模組1 列表      | +tenant / +user      | `scenario-14-management-scope.spec.ts`          |
-| 15 側欄商標繼承         | 組織管理 → 商標 + 側欄                    | +tenant / +user      | `scenario-15-sidebar-logo.spec.ts`              |
-| 16 租戶視角             | 組織管理 → 開通租戶 + 租戶側欄            | root / +tenant       | `scenario-16-tenant-perspective.spec.ts`        |
-| 17 擁有者保護           | 使用者管理 / 角色管理 / 組織管理          | +tenant / root       | `scenario-17-owner-protection.spec.ts`          |
-| 18 表單生命週期         | 表單管理 + 購物清單列表 / 新增 / 詳情     | root / +user         | `scenario-18-form-lifecycle.spec.ts`            |
-| 19 客製副本與退役       | 表單管理 + 購物清單新增                   | +tenant / +user      | `scenario-19-form-fork-retire.spec.ts`          |
-| 20 兩級核准與主管解析   | 申請中心(待我審核 / 詳情 / 我的申請)      | 主管 / 人資 / 申請人 | `scenario-20-workflow-two-level.spec.ts`        |
-| 21 退回 → 再送 → 駁回   | 申請中心詳情 + 請假編輯頁                 | 主管 / 申請人        | `scenario-21-workflow-return-reject.spec.ts`    |
-| 22 停用 → 阻擋 → 改派   | 流程管理 → 阻擋清單                       | +tenant / 副理       | `scenario-22-workflow-blocked-reassign.spec.ts` |
-| 23 作廢 → 複製為新單    | 請假列表 / 詳情 / 編輯頁                  | 申請人               | `scenario-23-workflow-void-copy.spec.ts`        |
-| 24 三部門平行           | 阻擋清單 + 申請中心詳情                   | +tenant / 原部門主任 | `scenario-24-workflow-parallel.spec.ts`         |
+| 劇本                    | 主要頁面                                    | 操作帳號 / 被測帳號  | E2E                                             |
+| ----------------------- | ------------------------------------------- | -------------------- | ----------------------------------------------- |
+| 1 wildcard              | 角色管理 → 權限矩陣                         | +tenant              | `scenario-01-wildcard.spec.ts`                  |
+| 2 資料範圍規則          | 資料範圍頁 + 示範模組1 列表 / 詳情          | root / +user         | `scenario-02-data-scope-rule.spec.ts`           |
+| 3 未宣告對照            | 資料範圍頁左清單 + 示範模組2 列表           | root / +user         | `scenario-03-undeclared-target.spec.ts`         |
+| 4 頂層合成 OR / AND     | 資料範圍頁 + 示範模組1 列表                 | root / +user         | `scenario-04-combine-op.spec.ts`                |
+| 5 欄位級權限            | 示範模組1 詳情頁 + 編輯頁                   | +tenant / +user      | `scenario-05-field-permission.spec.ts`          |
+| 6 頁面自有權限          | 示範模組1 新增頁 + 編輯頁                   | +tenant / +user      | `scenario-06-page-permission.spec.ts`           |
+| 7 路由防守              | 示範模組1 列表 + 直接打網址                 | +tenant / +user      | `scenario-07-route-guard.spec.ts`               |
+| 8 組織外                | 使用者管理 / 角色管理 / 示範模組1 列表      | +tenant / +user      | `scenario-08-out-of-scope.spec.ts`              |
+| 9 移除三檔              | 使用者管理 → 移除所屬組織彈窗               | +tenant / 多組織帳號 | `scenario-09-org-removal-policy.spec.ts`        |
+| 10 防越權               | 角色管理 → 權限矩陣                         | +tenant              | `scenario-10-out-of-reach.spec.ts`              |
+| 11 儲存雙路             | 示範模組1 表單 + 詳情頁                     | +user                | `scenario-11-storage-two-paths.spec.ts`         |
+| 12 可見性開關           | 組織管理(開關)+ 示範模組1 列表 + 三治理頁   | +tenant / +user      | `scenario-12-visibility-toggle.spec.ts`         |
+| 13 總覽也是模組         | 角色管理 → 權限矩陣 + 登入落點              | +tenant / +user      | `scenario-13-overview-module.spec.ts`           |
+| 14 管理範圍 vs 可見範圍 | 角色管理 + 三治理頁 + 示範模組1 列表        | +tenant / +user      | `scenario-14-management-scope.spec.ts`          |
+| 15 側欄商標繼承         | 組織管理 → 商標 + 側欄                      | +tenant / +user      | `scenario-15-sidebar-logo.spec.ts`              |
+| 16 租戶視角             | 組織管理 → 開通租戶 + 租戶側欄              | root / +tenant       | `scenario-16-tenant-perspective.spec.ts`        |
+| 17 擁有者保護           | 使用者管理 / 角色管理 / 組織管理            | +tenant / root       | `scenario-17-owner-protection.spec.ts`          |
+| 18 表單生命週期         | 表單管理 + 示範表單(頂層)列表 / 新增 / 詳情 | root / +user         | `scenario-18-form-lifecycle.spec.ts`            |
+| 19 客製副本與退役       | 表單管理 + 示範表單(頂層)新增               | +tenant / +user      | `scenario-19-form-fork-retire.spec.ts`          |
+| 20 兩級核准與主管解析   | 申請中心(待我審核 / 詳情 / 我的申請)        | 主管 / 人資 / 申請人 | `scenario-20-workflow-two-level.spec.ts`        |
+| 21 退回 → 再送 → 駁回   | 申請中心詳情 + 示範表單(群組內)編輯頁       | 主管 / 申請人        | `scenario-21-workflow-return-reject.spec.ts`    |
+| 22 停用 → 阻擋 → 改派   | 流程管理 → 阻擋清單                         | +tenant / 副理       | `scenario-22-workflow-blocked-reassign.spec.ts` |
+| 23 作廢 → 複製為新單    | 示範表單(群組內)列表 / 詳情 / 編輯頁        | 申請人               | `scenario-23-workflow-void-copy.spec.ts`        |
+| 24 三部門平行           | 阻擋清單 + 申請中心詳情                     | +tenant / 原部門主任 | `scenario-24-workflow-parallel.spec.ts`         |
 
 **唯一在畫面上驗不到的**:劇本 1 的「下一版 seed 新增權限即擁有」(跨版本),由 api 測試覆蓋。
 

@@ -1372,7 +1372,7 @@
       "insertField": "Insert a field value",
       "insertFieldHint": "Pick a field to append its value to the template",
       "insertFieldEmpty": "No version yet, no fields to pick",
-      "sampleModule": "Leave",
+      "sampleModule": "Demo form",
       "sampleAction": "View",
       "sampleValue": "<{label}>"
     },

@@ -21,7 +21,7 @@ describe("表單管理:所屬模組的列表欄位配置入口", () => {
 
     await user.click(screen.getByRole("button", { name: "列表欄位配置" }));
     const dialog = await screen.findByRole("dialog", {
-      name: "列表欄位配置 — 購物清單",
+      name: "列表欄位配置 — 示範表單(頂層)",
     });
     expect(
       within(dialog).getByText(
@@ -41,7 +41,7 @@ describe("表單管理:所屬模組的列表欄位配置入口", () => {
     await waitFor(() => {
       expect(world.inputs.setModuleListColumns).toEqual([
         {
-          moduleKey: "shopping-list",
+          moduleKey: "demo-form",
           columns: [
             {
               kind: ModuleListColumnKind.Slot,

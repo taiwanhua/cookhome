@@ -20,8 +20,8 @@ export const FORM_SUBMISSIONS_COLLECTION = "form_submissions";
  * - `completed` 不綁流程:送出即此、可再修改;綁流程(`currentInstanceId` 有值):實例核准、鎖定只能作廢
  * - `rejected` 被駁回,不可改不可再送;`voided` 核准後作廢
  *
- * 綁流程的表單模組 seed(請假)的資料範圍目標 `status` 選項與它一一對應;
- * 購物清單是不綁流程的對照組,只宣告 `draft` / `completed`。
+ * 表單模組 seed(三個示範表單)的資料範圍目標 `status` 選項與它一一對應:
+ * 任何一個表單模組都可能被綁流程,所以一律宣告完整七種。
  */
 export const FORM_SUBMISSION_STATUSES = SUBMISSION_STATUSES;
 

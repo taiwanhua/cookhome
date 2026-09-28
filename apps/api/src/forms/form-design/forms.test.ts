@@ -411,7 +411,7 @@ describe("表單:副本、分派 / 啟用 / 收回的交集、租戶邊界", () 
         ]),
         await draftRevisionOf(adminA.token, "shared_a_tenant", 1),
       );
-      // A 租戶裡能編角色矩陣、持購物清單 `*` 的管理員(`*` 會展開成該模組全部權限,含 B 的)
+      // A 租戶裡能編角色矩陣、持示範表單 `*` 的管理員(`*` 會展開成該模組全部權限,含 B 的)
       const roleAdminA = await createOperator(api, connection, {
         orgId: tenantA,
         moduleKeys: ["system", "system.role-manager", MODULE_KEY],

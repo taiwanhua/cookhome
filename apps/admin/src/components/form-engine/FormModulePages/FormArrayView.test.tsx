@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, within } from "@testing-library/react";
 
-import { SHOPPING_ROUTES } from "@/test/msw/form-fixtures";
+import { DEMO_FORM_ROUTES } from "@/test/msw/form-fixtures";
 
 import {
   ROW_A,
@@ -14,8 +14,8 @@ import {
 } from "./form-array-test-support";
 import { renderShopping } from "./form-module-test-support";
 
-const EDIT_PATH = `${SHOPPING_ROUTES.editPage}/sub-1`;
-const VIEW_PATH = `${SHOPPING_ROUTES.viewPage}/sub-1`;
+const EDIT_PATH = `${DEMO_FORM_ROUTES.editPage}/sub-1`;
+const VIEW_PATH = `${DEMO_FORM_ROUTES.viewPage}/sub-1`;
 
 restoreViewportAfterEach();
 

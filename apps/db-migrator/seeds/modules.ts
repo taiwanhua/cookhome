@@ -15,18 +15,19 @@ import {
 } from "./module-declaration";
 import { apiModules } from "./modules/api";
 import { applyCenterModule } from "./modules/apply-center";
+import { demoFormModule } from "./modules/demo-form";
+import { demoGroupFormModule } from "./modules/demo.form";
 import { sampleTwoModule } from "./modules/demo.sample-two";
+import { demoSubGroupFormModule } from "./modules/demo.sub.form";
 import { sampleOneModule } from "./modules/demo.sub.sample-one";
-import { leaveModule } from "./modules/leave";
 import { overviewModule } from "./modules/overview";
-import { shoppingListModule } from "./modules/shopping-list";
 import { systemModules } from "./modules/system";
 
 export const DATA_SCOPE_TARGETS_COLLECTION = "data_scope_targets";
 
 /**
  * 全部模組宣告(ADR-0002:每模組一檔,在此收齊)。順序即宣告順序:父在前
- * (跨檔引用的父 — 如示範模組2 掛 `demo` — 由 sample-one 檔先宣告)。
+ * (跨檔引用的父 — 如示範模組2 與示範表單掛 `demo` / `demo.sub` — 由 sample-one 檔先宣告)。
  */
 const moduleDeclarations: ModuleSeedDeclaration[] = [
   overviewModule,
@@ -34,9 +35,10 @@ const moduleDeclarations: ModuleSeedDeclaration[] = [
   apiModules,
   sampleOneModule,
   sampleTwoModule,
-  shoppingListModule,
+  demoGroupFormModule,
+  demoSubGroupFormModule,
+  demoFormModule,
   applyCenterModule,
-  leaveModule,
 ];
 
 /** 全部模組樹節點(依宣告順序),供角色綁定等其他種子推導。 */

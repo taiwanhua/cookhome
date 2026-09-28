@@ -65,7 +65,7 @@
 
 ## 種子清單
 
-modules(含表單模組範例「購物清單」`shopping-list`(不綁流程的對照組)與「請假」`leave`、表單管理 `system.forms`、流程管理 `system.workflows`(隱藏頁 `blocked-page` 自有改派權限)、申請中心 `apply-center`(隱藏頁 `view-page`))、permissions(`source: seed`)、field_categories、fields(全域)、種子 roles(super-admin、租戶管理員模板)與其綁定、根組織、root 初始帳號、data_scope_targets、示範資料。宣告正本是 `apps/db-migrator/seeds/registry.ts`;內容見 `docs/modules/*.md`(權限表)與 `docs/modules/field-manager.md`(欄位選項)。
+modules(含三個示範表單模組 `demo-form` / `demo.form` / `demo.sub.form`(頂層 / 群組內 / 次群組內)、表單管理 `system.forms`、流程管理 `system.workflows`(隱藏頁 `blocked-page` 自有改派權限)、申請中心 `apply-center`(隱藏頁 `view-page`))、permissions(`source: seed`)、field_categories、fields(全域)、種子 roles(super-admin、租戶管理員模板)與其綁定、根組織、root 初始帳號、data_scope_targets、示範資料。宣告正本是 `apps/db-migrator/seeds/registry.ts`;內容見 `docs/modules/*.md`(權限表)與 `docs/modules/field-manager.md`(欄位選項)。
 
 ## 預留(尚未建,程式碼無)
 

@@ -42,14 +42,14 @@ const bindingOptions = () => ({
   shopping_list: [
     {
       workflowKey: "leave_review",
-      workflowName: "請假審核",
+      workflowName: "病假審核",
       isShared: false,
       canBind: true,
       issues: [],
     },
     {
       workflowKey: "leave_shared",
-      workflowName: "共用請假審核",
+      workflowName: "共用病假審核",
       isShared: true,
       canBind: false,
       issues: [
@@ -95,9 +95,9 @@ describe("表單管理:流程綁定欄", () => {
       within(group).getByRole("combobox", { name: "送出後走的審核流程" }),
     );
     expect(
-      screen.queryByRole("option", { name: "共用請假審核" }),
+      screen.queryByRole("option", { name: "共用病假審核" }),
     ).not.toBeInTheDocument();
-    await user.click(await screen.findByRole("option", { name: "請假審核" }));
+    await user.click(await screen.findByRole("option", { name: "病假審核" }));
 
     await waitFor(() => {
       expect(workflows.inputs.bind).toEqual([
@@ -112,7 +112,7 @@ describe("表單管理:流程綁定欄", () => {
     const region = await screen.findByRole("region", {
       name: "不能直接綁的流程",
     });
-    expect(within(region).getByText("共用請假審核")).toBeInTheDocument();
+    expect(within(region).getByText("共用病假審核")).toBeInTheDocument();
     expect(
       within(region).getByText(/第 2 關:審核者是角色佔位/),
     ).toBeInTheDocument();
@@ -126,7 +126,7 @@ describe("表單管理:流程綁定欄", () => {
       tenantForm({
         workflowBinding: {
           workflowKey: "leave_review",
-          workflowName: "請假審核",
+          workflowName: "病假審核",
           isValid: true,
         },
       }),

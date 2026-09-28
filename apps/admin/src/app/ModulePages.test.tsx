@@ -13,9 +13,9 @@ import { FormSubmissionList } from "@/components/form-engine/FormSubmissionList"
 import type { ModulePageProps } from "@/lib/module-tree";
 import { authWorld } from "@/test/msw/auth-handlers";
 import {
-  SHOPPING_LIST_KEY,
-  SHOPPING_ROUTES,
-  shoppingListModules,
+  DEMO_FORM_KEY,
+  DEMO_FORM_ROUTES,
+  demoFormModules,
   submissionFragment,
 } from "@/test/msw/form-fixtures";
 import { formRuntimeWorld } from "@/test/msw/form-runtime-handlers";
@@ -41,7 +41,7 @@ const CustomShoppingPage = ({ module }: ModulePageProps) => {
     <section aria-label="自訂購物頁">
       <h2>{module.name}(自訂)</h2>
       <FormSubmissionList
-        moduleKey={SHOPPING_LIST_KEY}
+        moduleKey={DEMO_FORM_KEY}
         filters={{ keyword: "", formKey: null, status: null, page }}
         onPageChange={setPage}
         columns={[
@@ -59,25 +59,25 @@ const CustomShoppingPage = ({ module }: ModulePageProps) => {
 };
 
 const customPages: ModulePageRegistry = {
-  ...formModulePages(SHOPPING_LIST_KEY),
-  [SHOPPING_LIST_KEY]: CustomShoppingPage,
+  ...formModulePages(DEMO_FORM_KEY),
+  [DEMO_FORM_KEY]: CustomShoppingPage,
 };
 
 describe("formModulePages:預設組裝與客製", () => {
   it("產出四個 key 的預設元件;展開後覆寫單一 key 只換那一頁", () => {
-    const defaults = formModulePages(SHOPPING_LIST_KEY);
+    const defaults = formModulePages(DEMO_FORM_KEY);
     expect(new Set(Object.keys(defaults))).toEqual(
       new Set([
-        SHOPPING_LIST_KEY,
-        `${SHOPPING_LIST_KEY}.view-page`,
-        `${SHOPPING_LIST_KEY}.create-page`,
-        `${SHOPPING_LIST_KEY}.edit-page`,
+        DEMO_FORM_KEY,
+        `${DEMO_FORM_KEY}.view-page`,
+        `${DEMO_FORM_KEY}.create-page`,
+        `${DEMO_FORM_KEY}.edit-page`,
       ]),
     );
-    expect(customPages[SHOPPING_LIST_KEY]).toBe(CustomShoppingPage);
+    expect(customPages[DEMO_FORM_KEY]).toBe(CustomShoppingPage);
     // 其餘三頁沿用預設(同一個模組層常數,不是每次呼叫各建一份)
     for (const suffix of ["view-page", "create-page", "edit-page"]) {
-      const key = `${SHOPPING_LIST_KEY}.${suffix}`;
+      const key = `${DEMO_FORM_KEY}.${suffix}`;
       expect(customPages[key]).toBe(defaults[key]);
       expect(customPages[key]).not.toBe(CustomShoppingPage);
     }
@@ -87,7 +87,7 @@ describe("formModulePages:預設組裝與客製", () => {
     server.use(
       ...authWorld({
         hasRefreshCookie: true,
-        modules: shoppingListModules(SHOPPING_ALL),
+        modules: demoFormModules(SHOPPING_ALL),
       }).handlers,
       ...formRuntimeWorld({
         ...defaultRuntimeOptions(),
@@ -95,7 +95,7 @@ describe("formModulePages:預設組裝與客製", () => {
       }).handlers,
     );
     renderApp({
-      path: SHOPPING_ROUTES.list,
+      path: DEMO_FORM_ROUTES.list,
       extra: (
         <RequireAuth>
           <ModuleRoute pages={customPages} />
@@ -104,7 +104,9 @@ describe("formModulePages:預設組裝與客製", () => {
     });
 
     const custom = await screen.findByRole("region", { name: "自訂購物頁" });
-    expect(within(custom).getByText("購物清單(自訂)")).toBeInTheDocument();
+    expect(
+      within(custom).getByText("示範表單(頂層)(自訂)"),
+    ).toBeInTheDocument();
     const table = await within(custom).findByRole("table", {
       name: "自訂清單",
     });

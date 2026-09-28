@@ -121,7 +121,7 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
   it("單選公式的然後:常數種類只有「選項」,從該欄位選項挑", async () => {
     const { user, world } = renderBatch();
     await findDesigner();
-    await selectField(user, "假別", "leave");
+    await selectField(user, "假別", "demo.form");
     await pickOption(user, "值的來源", "計算");
     const formula = await screen.findByRole("group", { name: "公式" });
 
@@ -132,7 +132,7 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
     await pickOption(user, "假別 的選項", "特休", formula);
 
     const fields = await savedFields(user, world);
-    expect(fields.find((item) => item.key === "leave")).toMatchObject({
+    expect(fields.find((item) => item.key === "demo.form")).toMatchObject({
       valueSource: {
         kind: "computed",
         expr: { if: [{ "==": [null, null] }, "annual", null] },
@@ -143,7 +143,7 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
   it("單選的公式根的運算只列「如果…則…否則」", async () => {
     const { user } = renderBatch();
     await findDesigner();
-    await selectField(user, "假別", "leave");
+    await selectField(user, "假別", "demo.form");
     await pickOption(user, "值的來源", "計算");
     const formula = await screen.findByRole("group", { name: "公式" });
 
@@ -161,7 +161,7 @@ describe("表單管理:表達式常數、dateAdd、選擇器可讀性", () => {
   it("單選公式的否則:欄位只列同選項來源的單選", async () => {
     const { user } = renderBatch();
     await findDesigner();
-    await selectField(user, "假別", "leave");
+    await selectField(user, "假別", "demo.form");
     await pickOption(user, "值的來源", "計算");
     const formula = await screen.findByRole("group", { name: "公式" });
 

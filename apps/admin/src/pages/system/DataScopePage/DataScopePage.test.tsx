@@ -23,10 +23,10 @@ describe("資料範圍頁(/system/data-scope)", () => {
     expect(items[0]).toHaveTextContent("demo_items_one");
     expect(items[0]).toHaveTextContent("已設規則");
     // 兩個表單模組共用 form_submissions,各自一列;還沒有規則,不掛標籤
-    expect(items[1]).toHaveTextContent("購物清單");
+    expect(items[1]).toHaveTextContent("示範表單(頂層)");
     expect(items[1]).toHaveTextContent("form_submissions");
     expect(items[1]).not.toHaveTextContent("已設規則");
-    expect(items[2]).toHaveTextContent("請假");
+    expect(items[2]).toHaveTextContent("示範表單(群組內)");
     expect(items[2]).toHaveTextContent("form_submissions");
   });
 
@@ -77,10 +77,10 @@ describe("資料範圍頁(/system/data-scope)", () => {
 
     await waitForEditor("示範模組1(demo_items_one)");
     await actor.click(
-      within(targetList()).getByRole("button", { name: /購物清單/ }),
+      within(targetList()).getByRole("button", { name: /示範表單\(頂層\)/ }),
     );
 
-    await waitForEditor("購物清單(form_submissions)");
+    await waitForEditor("示範表單(頂層)(form_submissions)");
     expect(
       within(editor()).queryByRole("combobox", { name: "套用對象" }),
     ).not.toBeInTheDocument();
@@ -92,7 +92,7 @@ describe("資料範圍頁(/system/data-scope)", () => {
     await waitForEditor("示範模組1(demo_items_one)");
     await actor.click(screen.getByRole("button", { name: "+ 新增規則" }));
     await actor.click(
-      within(targetList()).getByRole("button", { name: /購物清單/ }),
+      within(targetList()).getByRole("button", { name: /示範表單\(頂層\)/ }),
     );
 
     expect(await screen.findByText("放棄未儲存的變更?")).toBeInTheDocument();
@@ -105,11 +105,11 @@ describe("資料範圍頁(/system/data-scope)", () => {
     ).toBeInTheDocument();
 
     await actor.click(
-      within(targetList()).getByRole("button", { name: /購物清單/ }),
+      within(targetList()).getByRole("button", { name: /示範表單\(頂層\)/ }),
     );
     await actor.click(await screen.findByRole("button", { name: "放棄變更" }));
 
-    await waitForEditor("購物清單(form_submissions)");
+    await waitForEditor("示範表單(頂層)(form_submissions)");
   });
 
   it("只有檢視權限時,編輯器唯讀:新增 / 刪除 / 儲存都不出現", async () => {

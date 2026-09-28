@@ -175,7 +175,9 @@ const LEAVE_OPTIONS = {
 };
 
 describe("表達式選擇器:選項欄公式的根是「選項」(表 B)", () => {
-  const leave = field("leave", "假別", "select", { options: LEAVE_OPTIONS });
+  const leave = field("demo.form", "假別", "select", {
+    options: LEAVE_OPTIONS,
+  });
   const previous = field("previous", "上次假別", "select", {
     options: LEAVE_OPTIONS,
   });
@@ -200,7 +202,7 @@ describe("表達式選擇器:選項欄公式的根是「選項」(表 B)", () =>
       all,
     );
     expect(root.operators).toEqual(["if"]);
-    expect(keysOf(root.fields)).toEqual(["leave", "previous"]);
+    expect(keysOf(root.fields)).toEqual(["demo.form", "previous"]);
     expect(root.constants).toEqual(["option"]);
     expect(root.contexts).toEqual([]);
   });
@@ -238,7 +240,7 @@ describe("表達式選擇器:選項欄公式的根是「選項」(表 B)", () =>
       optionTargetAt("==", 1, [{ var: "previous" }, null], condition, all),
     ).toBe(previous);
     expect(
-      optionTargetAt("in", 1, [{ var: "leave" }, []], condition, all),
+      optionTargetAt("in", 1, [{ var: "demo.form" }, []], condition, all),
     ).toBe(leave);
     expect(
       optionTargetAt("==", 1, [{ var: "note" }, null], condition, all),

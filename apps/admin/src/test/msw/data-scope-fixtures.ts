@@ -17,7 +17,7 @@ import type {
  * **與 api 對齊的地方**:欄位目錄 = seed 宣告的業務欄位在前、底座自動掛入的六個基礎欄位殿後,
  * 型別與順序照 `apps/api/src/data-scope/data-scope.test.ts`「底座的六個基礎欄位」那條斷言。
  * **一列 = 一個模組**:目標以 `(collection, moduleKey)` 為識別鍵,後兩個目標是兩個表單模組
- * 共用同一張 `form_submissions`(「請假」不在 seed 裡,只為了驗同一張表兩列、各自的規則);
+ * 共用同一張 `form_submissions`(兩個示範表單:驗同一張表兩列、各自的規則);
  * 它們只為了驗左清單的切換與「已設規則」標籤。
  */
 const baseFields: TestDataScopeTarget["fields"] = [
@@ -90,22 +90,22 @@ export const dataScopeTargets: TestDataScopeTarget[] = [
     ],
   },
   {
-    id: "target-shopping-list",
+    id: "target-demo-form",
     collection: "form_submissions",
-    moduleKey: "shopping-list",
-    moduleName: "購物清單",
-    name: "購物清單",
-    description: "購物清單的表單提交",
+    moduleKey: "demo-form",
+    moduleName: "示範表單(頂層)",
+    name: "示範表單(頂層)",
+    description: "示範表單(頂層)的表單提交",
     hasRule: false,
     fields: baseFields,
   },
   {
-    id: "target-leave",
+    id: "target-demo-group-form",
     collection: "form_submissions",
-    moduleKey: "leave",
-    moduleName: "請假",
-    name: "請假申請",
-    description: "請假的表單提交",
+    moduleKey: "demo.form",
+    moduleName: "示範表單(群組內)",
+    name: "示範表單(群組內)",
+    description: "示範表單(群組內)的表單提交",
     hasRule: false,
     fields: baseFields,
   },
