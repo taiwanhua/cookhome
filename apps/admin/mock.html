@@ -11,6 +11,29 @@
     <!-- 空 data URI:mock 模式不服務 public/,省掉一次 favicon 404 -->
     <link rel="icon" href="data:," />
     <title>CookHome 後台管理(mock)</title>
+    <!-- 首幀套用使用者選的外觀,避免選了暗色重新整理先閃亮色;key 與 src/lib/color-mode.ts 一致(docs/branding.md 有登記) -->
+    <script>
+      (function () {
+        try {
+          var modeKey = "cookhome-admin-color-mode";
+          var schemeKey = "cookhome-admin-color-scheme";
+          var mode = window.localStorage.getItem(modeKey) || "system";
+          var light =
+            window.localStorage.getItem(schemeKey + "-light") || "light";
+          var dark = window.localStorage.getItem(schemeKey + "-dark") || "dark";
+          var prefersDark = window.matchMedia(
+            "(prefers-color-scheme: dark)",
+          ).matches;
+          var scheme =
+            mode === "dark" || (mode === "system" && prefersDark)
+              ? dark
+              : light;
+          document.documentElement.classList.add(scheme);
+        } catch (error) {
+          /* localStorage 不可用(隱私模式)就交給 React 端決定 */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
