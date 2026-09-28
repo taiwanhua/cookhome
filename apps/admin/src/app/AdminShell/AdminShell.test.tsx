@@ -304,9 +304,10 @@ describe("AppBar(當前組織切換、使用者選單、語言)", () => {
     const switcher = await screen.findByRole("combobox", { name: "當前組織" });
 
     // 標題是看得到的浮動標籤,combobox 以它為名
+    const labelId = switcher.getAttribute("aria-labelledby") ?? "";
     expect(
       within(screen.getByRole("banner")).getByText("當前組織", {
-        selector: "label",
+        selector: `[id="${labelId}"]`,
       }),
     ).toBeVisible();
     expect(switcher).toHaveTextContent("CookHome");
