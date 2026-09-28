@@ -219,6 +219,16 @@
         "default": "./dist/cjs/select.js"
       }
     },
+    "./segmented-control": {
+      "import": {
+        "types": "./dist/es/segmented-control.d.mts",
+        "default": "./dist/es/segmented-control.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/segmented-control.d.ts",
+        "default": "./dist/cjs/segmented-control.js"
+      }
+    },
     "./select-field": {
       "import": {
         "types": "./dist/es/select-field.d.mts",
