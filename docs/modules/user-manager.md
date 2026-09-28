@@ -2,7 +2,7 @@
 
 ## 用途
 
-管理後台使用者:在操作者的管理範圍內新增(寄啟用信或直接設初始密碼)、編輯基本資料、停用 / 啟用、調整所屬組織(含移除時的角色資格 dry-run)、指派角色;身分證字號受欄位級權限控管。相關 ADR:[0003](../adr/0003-dual-account-system.md)(帳號、授予、移除)、[0004](../adr/0004-permission-model.md)、[0007](../adr/0007-base-fields-and-data-protection.md)(nationalId 欄位加密)、[0009](../adr/0009-tenant-provisioning.md)(擁有者保護、啟用信)。
+管理後台使用者:在操作者的管理範圍內新增(寄啟用信或直接設初始密碼)、編輯基本資料、停用 / 啟用、調整所屬組織(含移除時的角色資格 dry-run)、指派角色、把一位使用者的組織與角色複製給另一位;身分證字號受欄位級權限控管。相關 ADR:[0003](../adr/0003-dual-account-system.md)(帳號、授予、移除)、[0004](../adr/0004-permission-model.md)、[0007](../adr/0007-base-fields-and-data-protection.md)(nationalId 欄位加密)、[0009](../adr/0009-tenant-provisioning.md)(擁有者保護、啟用信)。
 
 正本:`apps/api/src/users/`、`apps/admin/src/pages/system/UserManagerPage/`
 
@@ -31,6 +31,8 @@
 | `system.user-manager.assign-roles`     | 「指派角色」彈窗 + API:授予 / 解除角色(防越權:只能給**擁有組織在管理範圍內**的角色,ADR-0003) |
 | `system.user-manager.show-national-id` | 欄位級:身分證字號可見(清單不顯示;詳情 / 編輯彈窗顯示解密後的值;無此權限 API 投影排除)        |
 | `system.user-manager.edit-national-id` | 欄位級:身分證字號可改(無此權限硬送寫入 → API 拒)                                             |
+
+「複製組織與角色」不另設權限 key:要同時持有 `view`、`manage-orgs`、`assign-roles` 三個(它同時改所屬組織與角色授予)。
 
 正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/pages/system/UserManagerPage/user-manager-permissions.ts`
 
@@ -75,15 +77,27 @@
 
 **使用者至少要有一個所屬組織(最後一個不可移除,錯誤碼 `LAST_ORG`)—— 這條規則的正本就是這一段**(ADR-0003「從組織移除使用者」引用它)。它與組織刪除的前置檢查「無成員」會**互相咬住**:租戶頂層一定有擁有者這個成員,而要把擁有者移出去又同時被本條與擁有者保護擋下。所以開錯的租戶走「撤銷開通」,不走刪除 —— 見 `docs/modules/org-manager.md` 規則的「撤銷開通」。
 
-**指派角色**:清單 = `roles` query 的結果 = 擁有組織在操作者**管理範圍**內的角色(防越權,ADR-0003;與角色頁的 `grantRoleUsers` 同一條判準,不另外要求「操作者自己也持有」—— 兩套判準會讓同一個授予從角色頁做得到、從使用者頁做不到);已授予的顯示勾選;每列標示擁有組織與描述,已停用的角色不可新勾、租戶副本掛標籤。授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹)。解除擁有者的「租戶管理員」授予被拒。
+**指派角色**:清單 = `roles` query 的結果 = 擁有組織在操作者**管理範圍**內的角色(防越權,ADR-0003;與角色頁的 `grantRoleUsers` 同一條判準,不另外要求「操作者自己也持有」—— 兩套判準會讓同一個授予從角色頁做得到、從使用者頁做不到);已授予的顯示勾選;每列標示擁有組織與描述,已停用的角色不可新勾(api 也擋,`ROLE_DISABLED`;既有授予不受影響)、租戶副本掛標籤。授予當下另檢查資格(所屬組織 ∩ 擁有組織子樹)。解除擁有者的「租戶管理員」授予被拒。
 
 **全量覆蓋的邊界**:`setUserOrgs` 只覆蓋操作者**管理範圍內**的所屬組織,`assignUserRoles` 只覆蓋操作者**可觸及**(擁有組織在管理範圍內)的角色 —— 彈窗列不出來的那些不會被順手移除。
+
+**複製組織與角色**:列動作「複製組織與角色」以該列為**來源**,彈窗裡選一位**目標**(搜整個管理範圍、排除來源本人;停用的使用者也可以是來源或目標,複製不會啟用他),選合併或取代,預覽差異後確認。一次一來源一目標,一次性複製、之後不同步。
+
+- **集合運算**(組織與角色同一套,以 id 比對去重):T = 目標現有的、M = 操作者管理範圍內的(組織:管理範圍內的組織;角色:擁有組織在管理範圍內的)、S = 來源的 ∩ M。
+  - 合併:`final = T ∪ S`
+  - 取代:`final = (T − M) ∪ S`
+  - 範圍外的來源不授予、範圍外的目標不因取代而解除 —— 這是權限邊界,不是選項。管理範圍是全部(根組織)時 `T − M` 為空,取代即完全取代。
+- **驗證**(預覽與正式送出都重算、重驗):來源 ≠ 目標;兩者都存在、未刪除、在管理範圍內;新增的角色以**複製後的所屬組織**判斷授予資格(`OrgQualificationService.assertEligible`);停用的角色不得新授予;複製後至少一個所屬組織;擁有者保護照舊(不得把擁有者移出他擁有的組織、不得解除他的租戶管理員授予;根組織操作者例外)。
+- **範圍外的角色因取代失去資格**:允許執行,角色照樣留著(同「全部保留」的效果);預覽不把它列為擋下的原因,只回一個 `outOfScopeKept` 旗標讓彈窗多一行提示。**不沿用**「所屬組織」三檔的角色清理政策。
+- **寫入順序**:加組織 → 授角色 → 解除角色 → 移除組織(永遠不會先移到零組織)。沒有交易(ADR-0007):中途失敗就回錯、不回成功,已完成的步驟各自留有稽核;關聯寫入冪等(`RelationService.ensureLinks`),重跑不會產生重複關聯。
+- **不複製**:角色定義、個人資料、密碼、啟用狀態、settings、主管關係、擁有者身分、流程任務。
+- **已知限制**:目標使用者的權限在 API 端每次請求現算,複製後立即生效;但他開著的後台畫面(`me`)要重新整理才會更新。若取代移除了他目前所在的組織,API 自動退到他剩下的第一個所屬組織。
 
 **密碼流程**:「設定新密碼」頁共用三入口 —— 啟用信(7 天,`PasswordService.sendActivationEmail`,由本模組新增使用者與開通租戶時呼叫)、重設信(30 分鐘,`requestPasswordReset`)、首登強改(`mustChangePassword` → `changePassword`);啟用與重設都走同一個 `setPassword(input: { token, newPassword })`,成功直接發登入 token;連結失效(`ACTION_TOKEN_INVALID`)頁導向忘記密碼自助;`action_tokens` 見 ADR-0009 / 0010。啟用信逾期走忘記密碼自助,本模組不提供重寄。
 
 **為什麼新增與編輯對 `nationalId: null` 不同調**:`null` 在編輯是「把既有的值清掉」= 一次寫入,在新增是「這欄我不填」= 沒有東西可清。把新增的 `null` 也擋下,只會讓沒有 `edit-national-id` 的人連「不填身分證字號的使用者」都建不了。這與示範模組1 的 `internalNote`(`null` 一律要權限)方向不同 —— 那裡只有編輯一種情境。通則寫在 GQL-06。
 
-正本:`apps/api/src/users/users.service.ts`、`apps/api/src/users/org-qualification.service.ts`、`apps/api/src/orgs/owner-protection.service.ts`、`apps/api/src/auth/password/password.service.ts`、`packages/domain/src/password/`、`packages/i18n/messages/zh-TW/admin.json`
+正本:`apps/api/src/users/users.service.ts`、`apps/api/src/users/user-copy-plan.ts`、`apps/api/src/users/user-grant-rules.service.ts`、`apps/api/src/users/org-qualification.service.ts`、`apps/api/src/orgs/owner-protection.service.ts`、`apps/api/src/auth/password/password.service.ts`、`packages/domain/src/password/`、`packages/i18n/messages/zh-TW/admin.json`
 
 ## api 介面
 
@@ -95,6 +109,8 @@ updateUser(input: { id, …基本欄位, nationalId }): UserPayload!
 setUserEnabled(input: { id, enabled }): UserPayload!
 setUserOrgs(input: { userId, orgIds, dryRun, removalPolicy }): SetUserOrgsPayload!
 assignUserRoles(input: { userId, roleIds }): UserPayload!
+copyUserOrgRoles(input: { sourceUserId, targetUserId, mode: MERGE | REPLACE, dryRun = true }): CopyUserOrgRolesPayload!
+  # { user(目標), mode, applied, orgs { added, removed, kept }, roles { added, removed, kept }, blockers [{ code, roleId, orgId }], outOfScopeKept }
 ```
 
 - **清單範圍**:不給 `orgId` 即攤開整個**管理範圍**(治理模組慣例,ADR-0005 的分工表);給了就是該組織子樹 ∩ 管理範圍。組織子樹直接查 `orgs.ancestors`,範圍過濾由 BaseRepository 自動加上(`orgs` 是治理類 collection)。`pageSize` 上限 100。
@@ -105,6 +121,9 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 - **授予資格**:不符回 **`USER_NOT_ELIGIBLE`** 附 `extensions.roleId` / `ownerOrgName`,讓前端講得出是哪個擁有組織。判斷本身是**唯一的檢查點** `OrgQualificationService.assertEligible`,與角色頁的 `grantRoleUsers` 共用 —— 同一件事不該因為入口不同而回不同的碼。
 - **擁有者保護的判斷點**:`assertOwnedOrgsKept` 只擋「把擁有者移出他擁有的租戶頂層」,加入其他組織一直是允許的。
 - 組織頁的「加入成員」(`addOrgMembers`)也寫進這裡的 `UsersService.addOrgs`,見 `docs/modules/org-manager.md`。
+- **角色可及範圍與擁有者保護的共用判斷**在 `UserGrantRulesService`:`setUserOrgs`、`assignUserRoles`、`copyUserOrgRoles` 走同一份,每組判斷都有「找出被擋的」(給預覽列 `blockers`)與「擋下來」(給正式寫入)兩種出口。
+- **`copyUserOrgRoles` 的權限**:resolver 只掛 `view`,`manage-orgs` 與 `assign-roles` 在 service 開頭判斷(疊多個 `@RequirePermission` 不是 AND),缺一回 `FORBIDDEN`。
+- **`copyUserOrgRoles` 的 `dryRun`**:預設 `true`,只算不寫、不稽核;`false` 時先重算,`blockers` 非空就以第一筆的碼拒絕(`LAST_ORG` / `OWNER_PROTECTED` / `ROLE_DISABLED` / `USER_NOT_ELIGIBLE`,與同名錯誤碼同義);沒有任何差異回 `applied: false`,不寫關聯也不寫稽核。差異清單只列管理範圍內的組織與可觸及的角色。
 
 **可選輸入欄位的「缺席 / `null`」語意**(GQL-06):
 
@@ -122,7 +141,7 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 
 ## admin 頁面
 
-左 `OrgTreePicker`(跨頁共用,`components/OrgTreePicker/`;組織管理也用)+ 右 `Table` / `Pagination`;五個彈窗各一個資料夾,狀態一律在頁面層,關閉即卸載(初始值靠 props 帶入,不用 effect 同步,REACT-06)。
+左 `OrgTreePicker`(跨頁共用,`components/OrgTreePicker/`;組織管理也用)+ 右 `Table` / `Pagination`;六個彈窗各一個資料夾,開關狀態一律在頁面層,關閉即卸載(初始值靠 props 帶入,不用 effect 同步,REACT-06)。
 
 - **初始狀態**:進頁面預設選中**樹根**(= 操作者管理範圍的根,與組織管理頁一致),樹還沒載完之前不送 `users`(右側顯示載入中)。前端**永遠不送 `orgId: null`** —— `UsersInput.orgId` 是「不給 = 整個管理範圍」,給 null 會在 API 的 `toObjectId` 擋下(`orgId is not a valid id: null`)。樹不可用時才走「不給 `orgId`」那條路。
 - **組織樹的權限**:admin 目前以 `system.org-manager.view` 判斷樹可不可用(`user-manager-permissions.ts` 的 `ORG_MANAGER_VIEW_PERMISSION`,**頁內判斷**,ADR-0011):沒有那個 key 就不送查詢,清單改成不給 `orgId`(= 整個管理範圍),「所屬組織」動作 disabled。api 的 `orgTree` / `org` 其實已接受 `system.user-manager.view` 任一(見 `docs/modules/org-manager.md` api 介面),admin 這一側的判斷尚未放寬。
@@ -135,19 +154,22 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 - **密碼三頁**(`apps/admin/src/pages/auth/`):`/forgot-password`(任何 Email 都顯示已寄出)、`/set-password?token=…`(啟用與重設共用;成功持回傳 token 直接進後台;`ACTION_TOKEN_INVALID` 或無 token → 連結失效 + 一鍵重新申請)、`/change-password?next=…`(已登入;路由守門 `RequireAuth` 依 `me.mustChangePassword` 或 fetch 層攔到的 `MUST_CHANGE_PASSWORD` 導來,成功後清旗標、重取 `me`、回 `next`)。密碼規則即時提示與 api 同用 `@repo/domain/password`;文案在 `admin.forgotPassword` / `admin.setPassword` / `admin.changePassword` / `admin.passwordRules`。
 - **與 Figma 的差異(刻意)**:清單多一欄「帳號」(30:105 沒有,但清單欄位的正本是本文);列動作多一個「所屬組織」(31:98 只有編輯 / 指派角色 / 停用,但所屬組織需要入口);新增彈窗的「初始密碼」欄改成選了 PASSWORD 才出現(202:743 常駐);新增 / 編輯彈窗的「啟用此使用者」勾選框不做(`createUser` / `updateUser` 沒有 `enabled` 欄位,啟用停用走專用動作);編輯彈窗的所屬組織唯讀(所屬組織走專用彈窗)。
 
-正本:`apps/admin/src/pages/system/UserManagerPage/`(`useUserManagerData.ts`、`useUserOrgsFlow.ts`、`OrgPickerDialog/`、`OrgChangeDialog/`、`AssignRolesDialog/`)、`apps/admin/src/components/OrgTreePicker/OrgTreePicker.tsx`、`apps/admin/src/lib/role-eligibility.ts`、`apps/admin/src/pages/auth/`
+- **複製組織與角色**(`CopyOrgRolesDialog/`):列動作有 view + manage-orgs + assign-roles 三個權限才出現。目標用共用的 `components/UserPicker/`(`allowDisabled` 讓停用的人可選、`excludeUserIds` 排除來源本人)。選目標或切合併 / 取代就重送一次 `dryRun: true`;預覽以「目標 × 方式」為鍵,慢回來的舊預覽不會蓋掉新的。確認鈕在預覽未完成、有 `blockers` 或沒有差異時停用;成功跳提示並重查清單與目標那一筆(DATA-04),失敗留在彈窗顯示原因。三句方式說明(合併 / 取代 / 不同步)的正本是 i18n 的 `admin.userManager.copyOrgRoles.*`。
+
+正本:`apps/admin/src/pages/system/UserManagerPage/`(`useUserManagerData.ts`、`useUserOrgsFlow.ts`、`OrgPickerDialog/`、`OrgChangeDialog/`、`AssignRolesDialog/`、`CopyOrgRolesDialog/`)、`apps/admin/src/components/UserPicker/`、`apps/admin/src/components/OrgTreePicker/OrgTreePicker.tsx`、`apps/admin/src/lib/role-eligibility.ts`、`apps/admin/src/pages/auth/`
 
 ## 錯誤碼
 
-| code                | 何時                                                                                   |
-| ------------------- | -------------------------------------------------------------------------------------- |
-| `LAST_ORG`          | 移除最後一個所屬組織                                                                   |
-| `ROLE_OUT_OF_REACH` | 授予的角色擁有組織不在操作者管理範圍內                                                 |
-| `USER_NOT_ELIGIBLE` | 授予資格不符;`extensions.roleId` / `ownerOrgName`                                      |
-| `OWNER_PROTECTED`   | 停用擁有者、把擁有者移出他擁有的租戶頂層、解除擁有者的租戶管理員授予                   |
-| `VALIDATION_FAILED` | 帳號 / Email 重複(`extensions.fields` 指出欄位)、必填欄位送 `null` / 空字串、id 不合法 |
-| `FORBIDDEN`         | 權限不足;寫 `nationalId` 沒有 `edit-national-id`                                       |
-| `NOT_FOUND`         | 使用者不在管理範圍內                                                                   |
+| code                | 何時                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `LAST_ORG`          | 移除最後一個所屬組織                                                                                             |
+| `ROLE_OUT_OF_REACH` | 授予的角色擁有組織不在操作者管理範圍內                                                                           |
+| `USER_NOT_ELIGIBLE` | 授予資格不符;`extensions.roleId` / `ownerOrgName`                                                                |
+| `OWNER_PROTECTED`   | 停用擁有者、把擁有者移出他擁有的租戶頂層、解除擁有者的租戶管理員授予                                             |
+| `ROLE_DISABLED`     | 新授予已停用的角色(指派角色、複製組織與角色);`extensions.roleId`                                                 |
+| `VALIDATION_FAILED` | 帳號 / Email 重複(`extensions.fields` 指出欄位)、必填欄位送 `null` / 空字串、id 不合法、複製的來源與目標是同一人 |
+| `FORBIDDEN`         | 權限不足;寫 `nationalId` 沒有 `edit-national-id`                                                                 |
+| `NOT_FOUND`         | 使用者不在管理範圍內                                                                                             |
 
 錯誤碼總表在 GQL-04。前端解讀集中在 `user-manager-error.ts`。
 
@@ -155,14 +177,15 @@ assignUserRoles(input: { userId, roleIds }): UserPayload!
 
 ## 稽核
 
-由模組層寫 `audit_logs`(ADR-0004)。每個會改資料的動作寫一筆:`action` = `user.create`、`user.edit`、`user.toggle-enabled`、`user.add-org`、`user.remove-org`(`after` 含 radio 選項與解除的角色清單)、`user.grant-role`、`user.revoke-role`;`targetType = "user"`,`targetId` = 被操作的使用者;`before` / `after` 只放有變的欄位,**身分證字號永不寫進 audit_logs**(只記「已變更」)。組織頁的「加入成員」同樣寫 `user.add-org`。
+由模組層寫 `audit_logs`(ADR-0004)。每個會改資料的動作寫一筆:`action` = `user.create`、`user.edit`、`user.toggle-enabled`、`user.add-org`、`user.remove-org`(`after` 含 radio 選項與解除的角色清單)、`user.grant-role`、`user.revoke-role`;複製組織與角色沿用後四種(每一步寫完各一筆),`after` 多 `copiedFrom`(來源使用者 id)與 `mode`,沒有差異就不寫;`targetType = "user"`,`targetId` = 被操作的使用者;`before` / `after` 只放有變的欄位,**身分證字號永不寫進 audit_logs**(只記「已變更」)。組織頁的「加入成員」同樣寫 `user.add-org`。
 
 正本:`apps/api/src/users/users.service.ts`
 
 ## 測試
 
 - api:`apps/api/src/users/users.test.ts`;密碼流程 `apps/api/src/auth/password/password.test.ts`
-- admin:`apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx`、`UserManagerFeedback.test.tsx`、`AssignRolesDialog/AssignRolesDialog.test.tsx`(共用 `user-manager-test-support.ts`)
+- api:複製組織與角色 `apps/api/src/users/copy-user-org-roles.test.ts`
+- admin:`apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx`、`UserManagerFeedback.test.tsx`、`AssignRolesDialog/AssignRolesDialog.test.tsx`、`CopyOrgRolesDialog/CopyOrgRolesDialog.test.tsx`(共用 `user-manager-test-support.ts`)
 - 劇本(`docs/testing/permission-scenarios.md`):劇本 8 組織外、劇本 9 移除所屬組織的 dry-run 三檔、劇本 14 管理範圍 vs 可見範圍、劇本 17 擁有者保護;E2E 為 `apps/e2e/src/specs/scenario-08-out-of-scope.spec.ts`、`scenario-09-org-removal-policy.spec.ts`、`scenario-14-management-scope.spec.ts`、`scenario-17-owner-protection.spec.ts`
 
 正本:`apps/api/src/users/`、`apps/admin/src/pages/system/UserManagerPage/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
