@@ -54,9 +54,7 @@
 - **`turbo run test` 回 `cache hit, replaying logs`,取到的 `origin/main` 測試數是別人先前跑的結果** → turbo 快取跨 worktree 共用;取基準要進 package 目錄直接跑 jest(`docs/standards/testing/testing.md` TEST-08「測試數的基準」)。
 - **本機 turbo 的 lint / check-types 綠、CI 卻被 type-aware warning 擋下** → 也是快取命中;交件前進 package 目錄跑 `pnpm run lint` 與 `pnpm run check-types`。
 - **改了根 `package.json` 的 script(`format` 這類)但 `turbo run …` 仍 `cache hit`** → turbo 的 global hash 不含根 scripts;直接跑那個 script 本人(`pnpm run format:check`)。
-- **`pnpm exec jest` 直接炸** → admin / ui 的 jest 要 `--experimental-vm-modules`:進 package 目錄 `pnpm run test <路徑片段>`(不加 `--`),要帶旗標就照 toolbox「pnpm / turbo」的 `pnpm --filter <pkg> exec node --experimental-vm-modules …` 寫法。
-- **下 `--testPathPattern` 旗標沒作用** → jest 30 是複數 `--testPathPatterns`,`apps/api` 也一樣。
-- **`apps/api` 下 `pnpm run test -- --testPathPatterns x` 跑了整包、十幾分鐘沒輸出像卡住** → `--` 被原樣傳給 jest,過濾失效;api 只跑一支改用 `pnpm --filter @repo/api exec jest --testPathPatterns x`(api 的 jest 不需要 `--experimental-vm-modules`)。
+- **只跑一個測試檔卻跑了整包 / 旗標沒作用 / `pnpm exec jest` 直接炸** → 單檔測試一律照 `docs/agents/toolbox.md`「pnpm / turbo」的 `pnpm --filter <pkg> exec …` 寫法,三種常見錯法也列在那裡。
 - **PostToolUse 的 ESLint 在「先加 import、下一次編輯才用到」的中間態報紅** → 把 import 與用到它的程式合成一次 Edit,或接受那一次紅、下一次編輯完自然轉綠;不要關 hook 或改 lint 設定。
 
 正本:`turbo.json`、`apps/admin/package.json`、`docs/standards/testing/testing.md`(TEST-08)

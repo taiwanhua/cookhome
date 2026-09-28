@@ -73,23 +73,21 @@ return createElement(moduleIconOf(module.icon), { fontSize: "small" });
 常被問到的元件與入口(完整清單的正本是 `packages/ui/package.json` 的 `exports`,每個子路徑對應
 `packages/ui/src/<子路徑>.ts` 出口檔與 `packages/ui/src/<元件>/`):
 
-| 元件                                                      | 入口                                                 | 用在哪 / 規則                                 |
-| --------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------- |
-| `Tooltip`                                                 | `@repo/ui/tooltip`                                   | 一切提示文字(REACT-10)                        |
-| `Tabs`                                                    | `@repo/ui/tabs`                                      | 頁內頁籤;殼的路由頁籤是另一個東西 `RouteTabs` |
-| `SelectField`                                             | `@repo/ui/select-field`                              | 表單下拉:浮動標籤 + helperText(REACT-11)      |
-| `Autocomplete`                                            | `@repo/ui/autocomplete`                              | 輸入即搜尋、多選、分組、主 / 次文字           |
-| `SegmentedControl`                                        | `@repo/ui/segmented-control`                         | 幾個互斥選項的分段按鈕(頭像選單的外觀、語言)  |
-| `Badge`                                                   | `@repo/ui/badge`                                     | 數字 / 小圓點提示(側欄待辦數)                 |
-| `DatePicker` / `DateTimePicker`                           | `@repo/ui/date-picker` / `@repo/ui/date-time-picker` | 日期、日期時間欄位                            |
-| `Table` / `DataTable`                                     | `@repo/ui/table` / `@repo/ui/data-table`             | 小表 / 大量資料列表(REACT-13、STYLE-11)       |
-| `Tag`                                                     | `@repo/ui/tag`                                       | 狀態標籤(tone)                                |
-| `Snackbar`                                                | `@repo/ui/snackbar`                                  | 只由 `SnackbarProvider` 渲染(DATA-06)         |
-| `useColorMode` / `AppThemeProvider`                       | `@repo/ui/app-theme-provider`                        | 外觀切換(STYLE-04)                            |
-| `useBreakpointDown`                                       | `@repo/ui/media-query`                               | JS 端需要知道斷點時(版面仍用 STYLE-03)        |
-| `EditIcon` / `DeleteIcon` / `ChevronDoubleLeftIcon` / `…` | `@repo/ui/icons`                                     | 介面圖示(見上方圖示規則)                      |
-
-**disabled 元素要包 `span` 才收得到 hover 這件事由 `Tooltip` 內部處理**,呼叫端不要再自己包一層(REACT-10)。
+| 元件                                                      | 入口                                                 | 用在哪 / 規則                                  |
+| --------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------- |
+| `Tooltip`                                                 | `@repo/ui/tooltip`                                   | 一切提示文字;用法與 disabled 子元素見 REACT-10 |
+| `Tabs`                                                    | `@repo/ui/tabs`                                      | 頁內頁籤;殼的路由頁籤是另一個東西 `RouteTabs`  |
+| `SelectField`                                             | `@repo/ui/select-field`                              | 表單下拉:浮動標籤 + helperText(REACT-11)       |
+| `Autocomplete`                                            | `@repo/ui/autocomplete`                              | 輸入即搜尋、多選、分組、主 / 次文字            |
+| `SegmentedControl`                                        | `@repo/ui/segmented-control`                         | 幾個互斥選項的分段按鈕(頭像選單的外觀、語言)   |
+| `Badge`                                                   | `@repo/ui/badge`                                     | 數字 / 小圓點提示(側欄待辦數)                  |
+| `DatePicker` / `DateTimePicker`                           | `@repo/ui/date-picker` / `@repo/ui/date-time-picker` | 日期、日期時間欄位                             |
+| `Table` / `DataTable`                                     | `@repo/ui/table` / `@repo/ui/data-table`             | 小表 / 大量資料列表(REACT-13、STYLE-11)        |
+| `Tag`                                                     | `@repo/ui/tag`                                       | 狀態標籤(tone)                                 |
+| `Snackbar`                                                | `@repo/ui/snackbar`                                  | 只由 `SnackbarProvider` 渲染(DATA-06)          |
+| `useColorMode` / `AppThemeProvider`                       | `@repo/ui/app-theme-provider`                        | 外觀切換(STYLE-04)                             |
+| `useBreakpointDown`                                       | `@repo/ui/media-query`                               | JS 端需要知道斷點時(版面仍用 STYLE-03)         |
+| `EditIcon` / `DeleteIcon` / `ChevronDoubleLeftIcon` / `…` | `@repo/ui/icons`                                     | 介面圖示(見上方圖示規則)                       |
 
 **「停用的選項」不能靠 Tooltip 說明原因**:MUI 對 `aria-disabled` 的
 Autocomplete 選項下 `pointer-events: none`,hover 根本不會觸發;把它改回 `auto` 又會讓停用的

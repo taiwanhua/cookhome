@@ -96,16 +96,7 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 ### 怎麼跑
 
 - **整包驗收**:`pnpm exec turbo run test --filter=@repo/admin`(turbo 會先 build `ui` / `graphql` / `domain`)。`pnpm --filter @repo/admin test` 不經 turbo、**不會 build 依賴**,新 checkout 或依賴改過就會炸型別。
-- **只跑一個測試檔**:進那個 package 的目錄,跑 `pnpm run test -- <路徑片段>`,三個包都一樣:
-
-  ```
-  cd apps/admin && pnpm run test -- UserManagerPage
-  cd packages/ui && pnpm run test -- Switch
-  cd apps/api && pnpm run test -- src/storage/storage.test.ts
-  ```
-
-  三個坑:①**帶 `--filter` 的寫法行不通** —— `pnpm --filter @repo/admin test -- --testPathPatterns=X` 會把 `--` 一起傳進去,結果是 `No tests found`;②**不要 `pnpm exec jest`** —— 少了各包 `test` script 裡的 `--experimental-vm-modules`,ESM 測試直接炸,看起來像測試壞了;③真的要下旗標時,**jest 30 的參數是 `--testPathPatterns`(複數)**,`--testPathPattern`(單數)是 29 以前的名字,打錯會被當成未知旗標。
-
+- **只跑一個測試檔**:照 `docs/agents/toolbox.md`「pnpm / turbo」的「單檔測試」列(`pnpm --filter <pkg> exec …`,admin / ui / api 各一行),常見錯法也列在那裡。
 - **turbo 快取跨 worktree 共用**:同一份輸入在別的 worktree 跑過,在你這裡會直接 `cache hit, replaying logs`,根本沒有執行(root `package.json` 的 `scripts` 不在 global hash 內,見 `docs/agents/pitfalls.md`)。所以以下兩件事**進 package 目錄直接跑**,不經 turbo:
   - **取測試數基準**:在 `origin/main` 上跑 `pnpm run test`(`cd packages/ui`、`cd apps/admin` 各一次),不要沿用別的 PR 寫死的數字 —— 多票並行時別人先合的票會墊高基準。取基準的那幾分鐘**不要動工作樹**:jest 讀的是磁碟上當下的檔案,中途改檔會讓基準混進改到一半的自己。先把改動做成 WIP commit 或切回乾淨的 `origin/main` 再跑;依賴要先 build 過(`pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`)。
   - **交件前的 `lint` 與 `check-types`**:`cd apps/admin && pnpm run lint && pnpm run check-types`(`packages/ui` 同),否則 type-aware 的 lint 警告會漏到 CI 才被擋。整包驗收仍可用 turbo(`pnpm exec turbo run lint check-types`),但 cache hit 不代表你的改動被驗過。

@@ -2,7 +2,7 @@
 
 ## 用途
 
-管理表單下拉的選項:類別(如「性別」「示範分類」)有兩種來源 —— 開發者在 seed 宣告的系統類別,與 root 在本頁新增的類別;全域的種子選項由系統提供,各組織可在同一類別下加自己的「自訂選項」,並沿組織樹往下繼承給下層。選項不可刪(既有資料要對照),只能停用;停用只影響新填寫。業務模組(如示範模組1 的分類欄)從這裡讀合併後的選項清單。
+管理表單下拉的選項:類別(如「性別」「示範分類」)有兩種來源 —— 開發者在 seed 宣告的系統類別,與 root 在本頁新增的類別;全域的種子選項由系統提供,各組織可在同一類別下加自己的「自訂選項」,並沿組織樹往下繼承給下層。業務模組(如示範模組1 的分類欄)從這裡讀合併後的選項清單。
 
 正本:`docs/adr/0002-seed-data-vs-business-data.md`、`docs/adr/0005-multi-tenant-isolation.md`
 
@@ -22,13 +22,13 @@
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。綁定原則:綁「按鈕 / 欄位所在的那一頁」(ADR-0004)。
 
-| 權限 key                                              | 它是哪一頁的什麼                                                                                                                                                                                                           |
-| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `system.field-manager.view`                           | 看類別與選項(來源欄:全域 / <組織名稱> 自訂)。表單引擎的填寫者經 `formFieldOptions` 讀類別選項,不需要本權限(`docs/modules/forms.md`「欄位管理類別選項」)                                                                    |
-| `system.field-manager.create`                         | 「新增選項」+ API(本組織自訂,`orgId` = 當前組織;不可與上層繼承鏈同 `value`,見「規則」;Figma「Overlay / 新增選項」)                                                                                                         |
-| `system.field-manager.edit`                           | 編輯自訂選項的 label / order / description + API(種子選項只能改 `enabled`;`value` 建立後不可改)                                                                                                                            |
-| `system.field-manager.category-ops.manage-categories` | 「新增類別」按鈕、類別的「編輯類別」與停用 / 啟用 + API。**根組織專屬**:掛在 isRootOnly 的權限容器下,另守「站在根組織」(同租戶作業的 `isRootOperator`)                                                                     |
-| `system.field-manager.toggle-enabled`                 | 停用 / 啟用選項 + API(選項不可刪)。**自訂選項只有加它的那一層切得動**(上層 / 下層看得到但 `FORBIDDEN` + `reason: NOT_OWNER`);**種子選項限根組織操作者**(那一筆 `orgId = null`,切下去是全域生效),租戶操作者切 → `FORBIDDEN` |
+| 權限 key                                              | 它是哪一頁的什麼                                                                                                                                                                                               |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system.field-manager.view`                           | 看類別與選項(來源欄:全域 / <組織名稱> 自訂)。表單引擎的填寫者經 `formFieldOptions` 讀類別選項,不需要本權限(`docs/modules/forms.md`「欄位管理類別選項」)                                                        |
+| `system.field-manager.create`                         | 「新增選項」+ API(本組織自訂,`orgId` = 當前組織;不可與上層繼承鏈同 `value`,見「規則」;Figma「Overlay / 新增選項」)                                                                                             |
+| `system.field-manager.edit`                           | 編輯自訂選項的 label / order / description + API(種子選項只能改 `enabled`)                                                                                                                                     |
+| `system.field-manager.category-ops.manage-categories` | 「新增類別」按鈕、類別的「編輯類別」與停用 / 啟用 + API。**根組織專屬**:掛在 isRootOnly 的權限容器下,另守「站在根組織」(同租戶作業的 `isRootOperator`)                                                         |
+| `system.field-manager.toggle-enabled`                 | 停用 / 啟用選項 + API。**自訂選項只有加它的那一層切得動**(上層 / 下層看得到但 `FORBIDDEN` + `reason: NOT_OWNER`);**種子選項限根組織操作者**(那一筆 `orgId = null`,切下去是全域生效),租戶操作者切 → `FORBIDDEN` |
 
 正本:`apps/db-migrator/seeds/modules/system.ts`
 
@@ -56,7 +56,6 @@
 
 示範畫面上的「甜點」是租戶自訂選項的示意,**不是種子**。
 
-- 系統類別的名稱與說明是「每次都 seed 的欄位」,由 seed 維護(說明沒宣告即 `null`),所以在本頁**完全唯讀**:`updateFieldCategory` 對它回 `FORBIDDEN` + `SYSTEM_CATEGORY`。
 - `reset --mode=data`:root 在畫面建的類別(key 不在 seed 宣告裡)算人建資料,一起刪(ADR-0002「還原」)。
 
 正本:`apps/api/src/database/schemas/field-category.schema.ts`、`apps/api/src/database/schemas/field.schema.ts`、`apps/db-migrator/seeds/field-categories.ts`、`apps/db-migrator/seeds/fields.ts`
@@ -96,13 +95,13 @@
 ### 類別
 
 - 類別 `key`:kebab-case(小寫英數、單一 `-` 分隔、不含 `.`),最長 40,與種子 key 同一套(`@repo/domain/form` 的 `FIELD_CATEGORY_KEY_PATTERN`);唯一(含停用的類別);**建立後不可改**(表單定義以 key 引用類別,種子選項的 key 是 `<類別 key>.<value>`)。
-- 類別不可刪;系統類別**唯讀**:不可改名 / 說明、不可停用(啟用可以 —— 認養時可能帶著停用狀態)。
+- 類別不可刪;系統類別**唯讀**:名稱與說明是「每次都 seed 的欄位」,由 seed 維護(說明沒宣告即 `null`),所以不可改名 / 說明、不可停用(啟用可以 —— 認養時可能帶著停用狀態),違反回 `FORBIDDEN` + `SYSTEM_CATEGORY`。
 - **停用只影響表單設計器**:類別清單(`fieldCategories(input: { enabledOnly: true })`)不列、不能新選。既有欄位用到停用類別時照常顯示:執行期的選項查詢(`formFieldOptions`、送出驗值、顯示名解析)不看類別的 `enabled`,發布檢查器的類別 key 集合也含停用的類別。欄位管理頁照樣列出停用的類別(灰掉、標「已停用」),選項照常可管。
 
 ### 其他
 
 - 種子選項僅 `enabled` 可改;自訂選項的 `value` 建立後不可改。
-- 選項不可刪,僅停用;停用只影響新填寫,既有資料不受影響。
+- 選項不可刪(既有資料要對照),僅停用;停用只影響新填寫,既有資料不受影響。
 
 正本:`apps/api/src/fields/fields.service.ts`、`apps/api/src/fields/field-visibility.ts`
 
@@ -123,17 +122,17 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 
 **欄位語意**(GQL-07:正本在此,前端引用不另寫解釋)
 
-- `FieldCategory.isSystem`:`true` = seed 宣告的系統類別(唯讀:不可改名 / 說明、不可停用);`false` = root 在畫面新增的。
+- `FieldCategory.isSystem`:`true` = seed 宣告的系統類別(唯讀,見「規則」的「類別」);`false` = root 在畫面新增的。
 - `FieldCategory.enabled`:`false` = 表單設計器的類別清單不列;既有欄位照常顯示、執行期選項照常查。
 - `Field.ownerOrg`:加這筆的組織 `{ id, name }`;**`null` = 全域種子**(`orgId = null`)。畫面「來源」欄的文案由前端組(`null` → 「全域」、有值 → 「<ownerOrg.name> 自訂」)。**組織名稱一律由 api 給** —— 合併清單含上層 / 下層組織加的選項,前端拿 session 的當前組織名會把別人的標成自己的。
 - `Field.isOwn`:這筆是不是**當前組織**這一層加的(`orgId = 操作者的當前組織`)。
 - `Field.canEdit` / `Field.canToggleEnabled`:api **依操作者算好**的「這一列能不能動」,前端只讀、再與自己的權限(`edit` / `toggle-enabled`)取交集,不自己推組織關係、也不推「是不是根組織視角」。規則:`canEdit` = 自訂選項且 `isOwn`;`canToggleEnabled` = 自訂選項看 `isOwn`、種子選項看操作者是不是根組織。
-- `Field.enabled`:停用僅影響新填寫,既有資料不受影響;選項不可刪。
+- `Field.enabled`:`false` = 已停用,影響範圍見「規則」的「其他」。
 
 **缺席 / null 語意(GQL-06)**
 
 - `CreateFieldInput.order` 缺席 / null = `0`;`description` 缺席 / null = 不寫。
-- `UpdateFieldInput.label` / `order` 缺席 = 不動;`description` 缺席 = 不動、`null` = 清空。`value` 不在 input 內 —— 建立後不可改。
+- `UpdateFieldInput.label` / `order` 缺席 = 不動;`description` 缺席 = 不動、`null` = 清空。`value` 不在 input 內(見「規則」的「其他」)。
 - `FieldCategoriesInput.enabledOnly` 缺席 / null / `false` = 全部(欄位管理頁);`true` = 只列啟用(表單設計器)。整個 `input` 可省略。
 - `CreateFieldCategoryInput.description` 缺席 / null / 空白 = 不寫。
 - `UpdateFieldCategoryInput.name` 缺席 / null = 不動;`description` 缺席 = 不動、`null`(或空白)= 清空(`$unset`)。`key` 不在 input 內 —— 建立後不可改。

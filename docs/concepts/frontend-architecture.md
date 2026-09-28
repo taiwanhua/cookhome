@@ -40,12 +40,12 @@ test/       測試支援
 
 殼 = 側欄 + AppBar + 路由頁籤列 + 內容區。`AdminShell` 等 `me` 載入後交給 `ShellLayout` 排版。
 
-| 區塊      | 做什麼                                                                                                                                      | 程式                                                             |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| SideNav   | `me.modules` 以 `parentId` 組樹;`group` 可展開、`link` 可點、`hidden` 不顯示;頂部是當前組織的商標(沒有就顯示組織名);可收合;模組列可掛待辦數 | `app/AdminShell/SideNav/`、`stores/useSideNavStore.ts`           |
-| AppBar    | 頁名、「?」模組說明、當前組織切換器、頭像選單                                                                                               | `app/AdminShell/AppBar/`                                         |
-| RouteTabs | 開過的路由各一個頁籤;可關閉、可拖曳排序、鍵盤可操作                                                                                         | `app/AdminShell/RouteTabs/`、`stores/useRouteTabsStore.ts`       |
-| 內容區    | `<main>`:高度由殼給、自己捲動;有最小寬度                                                                                                    | `app/AdminShell/ShellLayout.tsx`、`AdminShell/shell-geometry.ts` |
+| 區塊      | 做什麼                                                                                                                                                                                              | 程式                                                             |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| SideNav   | `me.modules` 以 `parentId` 組樹;`group` 可展開、`link` 可點、`hidden` 不顯示;頂部是當前組織的商標(自己沒有就沿 `ancestors` 由近到遠繼承上層的商標,整條鏈都沒有才顯示組織名);可收合;模組列可掛待辦數 | `app/AdminShell/SideNav/`、`stores/useSideNavStore.ts`           |
+| AppBar    | 頁名、「?」模組說明、當前組織切換器、頭像選單                                                                                                                                                       | `app/AdminShell/AppBar/`                                         |
+| RouteTabs | 開過的路由各一個頁籤;可關閉、可拖曳排序、鍵盤可操作                                                                                                                                                 | `app/AdminShell/RouteTabs/`、`stores/useRouteTabsStore.ts`       |
+| 內容區    | `<main>`:高度由殼給、自己捲動;有最小寬度                                                                                                                                                            | `app/AdminShell/ShellLayout.tsx`、`AdminShell/shell-geometry.ts` |
 
 - 殼的設計稿節點登記在 `docs/branding.md`。
 
@@ -68,7 +68,7 @@ test/       測試支援
 
 ### AppBar 與頭像選單
 
-- **頁名**:目前網址對上的模組名;`/` 與群組路由會立刻轉走,標題留空。
+- **頁名**:目前網址對上的模組名。`/` 會立刻轉到第一個能進的頁面,標題留空;其他對不上模組的網址(包括群組路由)顯示「沒有權限進入此頁面」—— 群組路由會立刻轉到該群組第一個能進的頁面,群組底下一個都進不去時就停在無權限頁。
 - **「?」模組說明**:只有模組路由才有。內容是 `apps/admin/src/md/module-help/<key>.help.md`,build 時打包、彈窗動態載入;表單模組沒有專屬檔時用通用的 `form-module.help.md`;都沒有就停用。
 - **當前組織切換器**:`SelectField`;切換後換發 access token,並失效 `me`。
 - **頭像選單**(`Popover`):使用者卡(姓名、帳號 · 當前組織)、**外觀**與**語言**兩組 `SegmentedControl`(切了立刻生效、不關選單)、登出 / 登出所有裝置。用 `Popover` 而不用 `Menu`,是因為 `Menu` 按 Tab 就關、分段按鈕鍵盤到不了;只有登出兩項是 `MenuList`。

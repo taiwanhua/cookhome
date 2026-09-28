@@ -131,7 +131,7 @@
 `workflow-engine/workflow-submit.service.ts`,由表單的 `submitFormSubmission`(`forms/form-runtime/form-submissions.service.ts`)呼叫:
 
 0. 提交已是 `reviewing` 且指向屬於目前修訂的實例 → **直接接續**(`linking` 補第 4 步、之後推進);不跑送出時檢查、不看目前綁定、不增加修訂。指向的實例不屬於目前修訂 → `CONFLICT`(`STATUS_MISMATCH`)。
-1. 表單的驗證與重算 → **送出時檢查**(`@repo/domain/workflow` 的 `checkSubmitCompatibility`,四種擋法見 `docs/concepts/workflow-engine.md`「送出:從提交到實例」):沒綁也沒進過審核 → 照不走流程的方式送出;擋下 → `FORBIDDEN` + reason(`WORKFLOW_REMOVED` / `WORKFLOW_UNPUBLISHED` / `WORKFLOW_MISCONFIGURED` + `issues`)。接著是**容量檢查**(`form-runtime/revision-limits.ts`):走流程時修訂 +1 並 push 快照,綁流程的表單修訂超過 50 筆 → `CONFLICT`(`REVISION_LIMIT`),更新後文件超過 8MB → `DOCUMENT_TOO_LARGE`。新修訂號 N = 目前 + 1。
+1. 表單的驗證與重算 → **送出時檢查**(`@repo/domain/workflow` 的 `checkSubmitCompatibility`,四種擋法見 `docs/concepts/workflow-engine.md`「送出:從提交到實例」):沒綁也沒進過審核 → 照不走流程的方式送出;擋下 → `FORBIDDEN` + reason(`WORKFLOW_REMOVED` / `WORKFLOW_UNPUBLISHED` / `WORKFLOW_MISCONFIGURED` + `issues`)。接著是修訂數與文件大小的上限(見 `docs/modules/forms.md`「提交的寫入規則」)。新修訂號 N = 目前 + 1。
 2. 建 `linking` 實例(`(submissionId, N)` 唯一;每個節點一筆 `pending` 的 StepState;記 `linkSource`)。撞唯一鍵:`linkSource` 相同沿用、不同整份重置(未連上、沒有任務,重置安全)。
 3. 提交的 `values` / `summary` / `revision` / 快照 / `reviewing` / `currentInstanceId` / `editVersion` **同一次**條件更新;前一個修訂被退回 / 撤回的實例 → `superseded`(推進收尾它自己的任務與歷程,不碰提交)。
 4. 實例 `linking → running`、`activeStepKeys = [startStepKey]`、`history: started`(CAS)。
@@ -162,8 +162,8 @@
 ## 再送出、作廢、複製為新單
 
 - **再送出**(`returned` / `withdrawn`):申請人以 `saveFormDraft` 改內容(狀態不變),再 `submitFormSubmission` → 修訂 +1、新實例從起點開始、前一個實例 `superseded`。
-- **作廢**(`voidSubmission`;綁流程且 `completed`;申請人本人或有該模組 `edit`;理由必填;不需審核)→ `voided`、稽核。
-- **複製為新單**(`copySubmissionToDraft`;來源 = 已作廢、讀者讀得到全部內容;目標 = 同表單目前可新增的版本):
+- **作廢**(`voidSubmission`;走過流程(`currentInstanceId` 有值)且 `completed`,否則 `CONFLICT` `STATUS_MISMATCH`;申請人本人或有該模組 `edit`;理由必填;不需審核)→ `voided`、稽核。看的是提交有沒有走過流程,不是表單現在有沒有綁。
+- **複製為新單**(`copySubmissionToDraft`;來源 = 已作廢、讀者讀得到全部內容(只能讀某個修訂的審核者 → `FORBIDDEN`);讀者要有目標模組的 `create`;目標 = 同表單目前可新增的版本,沒有 → `FORBIDDEN` `FORM_NOT_AVAILABLE`):
   - 只複製讀者對來源有 `show`、目標版本有同 key 同型別的使用者填欄位、讀者對目標有 `edit` 的欄位;`computed` / `constant` 由目標版本重算。
   - 引用重驗來源可讀(`LookupProvidersService`),失效 → 清空;附件以 `StorageService.copyPrivateObject` 複製一份歸新單,複製失敗也清空。清空的欄位列在回傳的 `clearedFields`。
   - `clientRequestId` 去重;新草稿記 `copiedFrom`、來源記 `replacedById`;來源已複製過(`replacedById` 有值)→ `CONFLICT`(`ALREADY_COPIED`),同 `clientRequestId` 的重送仍回同一筆。
@@ -188,7 +188,7 @@
 
 - `myApplications`:`createdBy = 我` 且(走過流程,或該表單目前綁了流程);依 `updatedAt` 由近到遠。`activeSteps` 是目前實例進行中的關卡(平行時多個)。
 - `applicableForms`:我有該模組 `create`、表單可新增、且本租戶綁了流程,依模組分組。
-- `myTasks`:`assigneeId = 我`;`done = false` 待處理(`pending`,依建立時間)/ `true` 已處理(`approved` / `rejected` / `returned` / `late`,依決定時間)。**摘要與申請人讀實例快照**。
+- `myTasks`:`assigneeId = 我`;`done = false` 待處理(`pending`,依建立時間)/ `true` 已處理(`approved` / `rejected` / `returned` / `late`,依決定時間);`cancelled` / `blocked` 的任務兩邊都不列。**摘要與申請人讀實例快照**。
 - `workflowInstance`:授權同 `canReadSubmissionRevision`,讀不到 → `NOT_FOUND`;`myTasks` 欄位是讀者自己在這個實例的任務,`abilities.canWithdraw` = 申請人、進行中、還沒有決定。
 - `applyCenterCounts`:頁籤與側欄 badge 的數字,見下一節。
 

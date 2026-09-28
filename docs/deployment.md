@@ -40,7 +40,7 @@ dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-st
 | api / admin 部署        | 手動觸發 deploy.yml                   | 手動觸發 deploy.yml                       | 手動觸發 deploy.yml               |
 | front 部署              | Vercel 隨分支 push 自動建置           | 同左                                      | 同左                              |
 
-審核流程通知信只在 dev 開,staging / production 關掉是為了省寄信額度;三環境都不設 `MAIL_ALLOWLIST`,信件寄給任何收件人。兩個變數的定義見 `docs/env-registry.md`。
+上兩列對應 `WORKFLOW_MAIL_ENABLED`、`MAIL_ALLOWLIST`;GraphQL Sandbox(`GRAPHQL_SANDBOX`)只有 dev 開。各環境的值與理由以 `docs/env-registry.md` 為正本。
 
 ### 資源清單
 
@@ -80,7 +80,11 @@ release 後:dev / staging reset 對齊 main;進行中的 feat 分支 rebase 到�
 
 ### CI(ci.yml)
 
-所有 PR 與 push 到 `main` / `dev` / `staging` 自動跑。只改 `docs/**`、根目錄 `*.md`、`.claude/**`、`.agents/**` 時不跑,改由 `docs.yml` 跑同一個 `format:check`(md 以外的副檔名在這種 PR 裡本來就沒變)。`apps/admin/src/md/**` 的 help.md 會被 build 進 admin,不在忽略清單內,兩支都會跑。
+所有 PR 與 push 到 `main` / `dev` / `staging` 自動跑。`paths-ignore` 是 `docs/**`、根目錄 `*.md`、`.claude/**`、`.agents/**`:只改這些路徑時 ci.yml 不跑。`docs.yml` 的 `paths` 只有 `docs/**`、`*.md`、`**/*.md`,改到任何 md 就跑同一個 `format:check`。兩者合起來:
+
+- 只改 `docs/**` 或 md → 只跑 `docs.yml`。
+- 只改 `.claude/**`、`.agents/**` 裡的非 md 檔(settings、hook 腳本、skill 附檔)→ **兩支都不跑**,prettier 要自己在本機跑。
+- `apps/admin/src/md/**` 的 help.md 會被 build 進 admin,不在忽略清單內 → 兩支都跑。
 
 **job 圖**:拆成多個 job,各佔一台 runner 並行,牆鐘最短優先。
 
@@ -111,17 +115,17 @@ prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產�
 - **只部署改到的 app**:讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過;`deploy/env/` 或 `deploy.yml` 本身有改時 api 視為受影響。判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`;讀不到 tag(第一次部署)或 base 不在歷史裡(force push 過)時自動全部部署。
 - **image**:tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(`VITE_GRAPHQL_ENDPOINT` 以 `--build-arg` 烘入)。
 - **api 的環境變數**:非機密整包來自 `deploy/env/<環境>.yaml`(`--env-vars-file`),機密來自 Secret Manager(`--set-secrets`);見四、。
-- **部署成功後自動跑 `migrate → seed`**(ADR-0002;只在 api 或 db-migrator 受影響時):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`。seed 摘要「新增 N / 更新 M / 認養 A / 未變 K」印在 Actions log:第一次跑應全為新增,之後每次應為 0 / 0 / 0 / K;seed 新宣告了 root 已在畫面建的同 key 類別時,那一次會出現認養。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)。
+- **部署成功後自動跑 `migrate → seed`**(ADR-0002;只在 api 或 db-migrator 受影響時):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`。seed 摘要「新增 N / 更新 M / 認養 A / 未變 K」印在 Actions log:第一次跑應全為新增,之後每次應為 0 / 0 / 0 / K;任何 seed 宣告以識別鍵(或 `adoptBy`)對到一筆人在畫面建的文件(`isSystem` 不是 `true`)時,那一次會出現認養:文件轉成種子、`_id` 不動,之後重跑就是更新 / 未變。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)。
 - **front 不走 deploy.yml**:Vercel 在分支 push 時自動建置(`main` → production、`staging` / `dev` → 各自的分支網域);要不靠 commit 重建用 Deploy Hook(見四、「Vercel 補充設定」)。
 
 ### 其他 workflow
 
-| workflow                                 | 觸發                            | 做什麼                                                                                                                                             |
-| ---------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Reset DB**(`reset-db.yml`)             | 只能手動;只有 dev / staging     | 資料庫還原(`data` / `full`);操作見三、「資料庫還原」,規則正本是 ADR-0002「還原(reset)」                                                            |
-| **E2E**(`e2e.yml`)                       | 只能手動,不在 ci.yml 內         | 權限劇本 E2E(`gh workflow run e2e.yml --ref <分支>`,可加 `-f grep="劇本 7"`);資料庫是拋棄式 service container,不碰任何環境與 Secret;時機見 TEST-05 |
-| **Docs**(`docs.yml`)                     | PR 與三分支 push,只在改到 md 時 | `pnpm run format:check`                                                                                                                            |
-| **Project Status**(`project-status.yml`) | issue / PR 事件                 | 自動移看板卡,規則見 `docs/agents/issue-tracker.md`「看板」                                                                                         |
+| workflow                                 | 觸發                                             | 做什麼                                                                                                                                             |
+| ---------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Reset DB**(`reset-db.yml`)             | 只能手動;只有 dev / staging                      | 資料庫還原(`data` / `full`);操作見三、「資料庫還原」,規則正本是 ADR-0002「還原(reset)」                                                            |
+| **E2E**(`e2e.yml`)                       | 只能手動,不在 ci.yml 內                          | 權限劇本 E2E(`gh workflow run e2e.yml --ref <分支>`,可加 `-f grep="劇本 7"`);資料庫是拋棄式 service container,不碰任何環境與 Secret;時機見 TEST-05 |
+| **Docs**(`docs.yml`)                     | PR 與三分支 push,只在改到 `docs/**` 或任何 md 時 | `pnpm run format:check`                                                                                                                            |
+| **Project Status**(`project-status.yml`) | issue / PR 事件                                  | 自動移看板卡,規則見 `docs/agents/issue-tracker.md`「看板」                                                                                         |
 
 ### Release 步驟
 
@@ -143,7 +147,7 @@ prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產�
    git push --force origin origin/main:refs/heads/staging
    ```
 
-   兩個 `git diff --stat` 為**空**,代表該批已全部進 `main`、reset 不會丟東西。`dev` 的 diff 不空時,對照 `gh pr list` 與 diff 內容,確認多出來的只是「已合進 `dev` 但不在這批 release 裡」的 feat:是的話**照樣 reset**,再把那些 feat 逐一合回去(`gh pr merge`,或本地 merge 後推);有說不出來源的差異就先停下來查,不要推。reset 之後,從 `main` 切出來的分支對 `dev` / `staging` 都只剩一個 merge base。它不需要切分支,也不動本地工作目錄。
+   兩個 `git diff --stat` 為**空**,代表該批已全部進 `main`、reset 不會丟東西。`dev` 的 diff 不空時,對照 `gh pr list` 與 diff 內容,確認多出來的只是「已合進 `dev` 但不在這批 release 裡」的 feat:是的話**照樣 reset**,reset 後替那些 feat 重新開 PR 合進 `dev`(原 PR 已是 merged,不能再 merge);有說不出來源的差異就先停下來查,不要推。reset 之後,從 `main` 切出來的分支對 `dev` / `staging` 都只剩一個 merge base。它不需要切分支,也不動本地工作目錄。
 
 5. 關票(`gh issue close <n> --comment "<release PR>"`)→ 自動化移到 Released;刪已合併的遠端分支;進行中的 feat 分支 rebase 到最新 `main`。
 
@@ -248,11 +252,11 @@ gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=a
 
 各服務的來源:
 
-| 層               | 真實來源                                                                                                                                                                                                                      | 進版控?                     |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| Cloud Run(api)   | 上表前兩列(`deploy/env/<環境>.yaml` + Secret Manager)。YAML 是該環境**全部明文變數**的唯一來源(`GRAPHQL_SANDBOX` 也在檔內):`--env-vars-file` 整包取代,檔內沒寫的變數部署後即不存在;`--set-secrets` 掛入的 secret 變數不受影響 | ✅ / ❌                     |
-| Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image)                                                                                                                                                                              | ✅                          |
-| Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                                                                                                                            | ❌(平台保存;清單記載於下表) |
+| 層               | 真實來源                                                                                                                                                                                          | 進版控?                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| Cloud Run(api)   | 上表前兩列(`deploy/env/<環境>.yaml` + Secret Manager)。YAML 是該環境**全部明文變數**的唯一來源:`--env-vars-file` 整包取代,檔內沒寫的變數部署後即不存在;`--set-secrets` 掛入的 secret 變數不受影響 | ✅ / ❌                     |
+| Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image)                                                                                                                                                  | ✅                          |
+| Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                                                                                                | ❌(平台保存;清單記載於下表) |
 
 Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型):
 
@@ -375,8 +379,7 @@ gcloud storage buckets describe gs://cookhome-assets-dev --format="value(cors_co
 ## 五、安全與費用備忘
 
 - 連線字串(含密碼)只存在 Atlas、Secret Manager、擁有者本機,從未進版控或指令輸出。
-- GraphQL Sandbox / introspection:只有 dev 開(`GRAPHQL_SANDBOX` 寫在 `deploy/env/dev.yaml`,其他環境的檔不寫此鍵 = 關);本地開發恆開(`NODE_ENV` 不是 `production`)。
-- 寄信:三環境都不設收件白名單;審核流程通知信只在 dev 開(見一、「環境對照」)。
+- GraphQL Sandbox、收件白名單、審核流程通知信的各環境設定見一、「環境對照」。
 - 費用防線:全服務 `max-instances=2`(費用天花板)+ Budget NT$600 三段警告。
 - 連線池:三環境的 MongoDB URI 均含 `maxPoolSize=10`,理論上限 6 實例 × 10 = 60 連線,遠低於 M0 的 500(三環境共用同一 cluster 額度;拆 cluster 見 `docs/tmp/dis.md` 搜「Atlas」)。
 - 評估過、目前不做:固定出口 IP(VPC connector + NAT ~US$10/月)、Cloudflare 橙雲 WAF(需 Global LB ~US$18/月)、production api `min-instances=1`(用冷啟動換省錢,有流量後再開)。
