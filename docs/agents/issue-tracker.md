@@ -52,9 +52,8 @@
 | Won't Do       | 決定不做(issue 以 not planned 關閉)                                                       | 決策時         |
 
 - Spec issue 不上板(看板只放票);合 `staging` 的 PR 內文也要含 `Closes #<票號>` 或 `Refs #<票號>`,自動化才找得到票。
-- **自動化**:issue opened → 入板 Backlog;issue closed → Released(not planned → Won't Do);PR 開啟(目標 dev)→ In Review;PR 合 dev → Dev 驗證中;PR 合 staging → Staging 驗證中。secret `GH_PROJECT_TOKEN` 已設、workflow 已在 `main`。
-- **自動化只移 PR 自己的卡**:`Closes #n` 連到的**票卡不會跟著動**,實作者開工、開 PR 時自己移票卡;合 dev / 合 staging 同理。
-- **一定要手動的三格**:Ready(blocker 關閉時)、Dev 通過、Staging 通過(QA 者)。
+- **自動化**(`project-status.yml`,用 secret `GH_PROJECT_TOKEN`):issue opened → 入板 Backlog;issue closed → Released(not planned → Won't Do)。PR 事件移的是**票卡**:依 PR 內文的 `Closes` / `Fixes` / `Resolves` / `Refs #<n>` 找票,PR 開啟 / reopen / 轉 ready(目標 `dev`)→ In Review;合進 `dev` → Dev 驗證中;合進 `staging` → Staging 驗證中。draft PR 不觸發;內文沒有票號就什麼都不動。
+- **一定要手動的四格**:Ready(blocker 關閉時)、In Progress(認領時)、Dev 通過、Staging 通過(QA 者)。
 - `Closes #n` 只在合進預設分支 `main` 時自動關票;PR 合 `dev` **不會關**,關票時機是 Released(`gh issue close <n> --comment "<PR 連結>"`)。
 - 部署一律手動觸發(deploy.yml 只有 `workflow_dispatch`),merge 不會部署任何環境。
 
@@ -78,8 +77,8 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
    - `pnpm install`(純文件票也要,否則連 prettier 都沒有)。
    - 程式票再跑 `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`(`apps/db-migrator` 的票同樣必要)。
    - 重構型的票(先搬檔再修 import,中途型別必紅)與只改文件的票,在 repo 根建空檔 `.claude/hook-typecheck-off`(已 gitignore),PostToolUse hook 就只跑 ESLint;單獨一行指令做、`ls .claude/` 確認,建不起來就略過;**交件前刪掉**。
-4. **分支**:feat 分支從 `main` 切,命名含票號:`feat/<票號>-<kebab 描述>`(文件票用 `docs/<票號>-…`)。
-   - **票有依賴、依賴票還沒進 `main`**:從依賴票的 feat 分支切(stacked);PR 一樣目標 `dev`,依賴票的 PR 先合、自己後合(合完 diff 自動只剩本票);依賴票被 review 改動時 rebase 跟上。依賴票已 release 進 `main` 時直接從 `main` 切(最常見)。
+4. **分支**:從 `origin/main` 切,命名含票號:`feat/<票號>-<kebab 描述>`(文件票用 `docs/<票號>-…`)。
+   - **票有依賴、依賴票還沒進 `main`**:從依賴票的 feat 分支尾端切(疊票);PR 一樣目標 `dev`,依賴票的 PR 先合、自己後合。從哪裡切、怎麼對齊(只 rebase、不 merge `dev` / `main`)的規則正本是 `docs/deployment.md`「分支模型」。
    - 線性依賴鏈是健康的;**兩票誰先上都無法獨立變綠 = 切票錯誤,併票**。
 5. **開發**:TDD(先寫紅燈測試,測試只呼叫 spec 指定的接縫)。
    - **動到 api 的 GraphQL schema**(resolver / model / input / `*.graphql` document):交件前依序跑 `pnpm --filter @repo/api schema:generate` 與 `pnpm --filter @repo/graphql generate`,`apps/api/schema.gql` 與 `packages/graphql/src/generated` 兩份產物一起進 commit(GQL-05);api-only 的票也一樣,CI 的「codegen 產物與 schema 一致」會擋。
@@ -89,7 +88,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
    - 程式票:進各 package 目錄跑 `pnpm run lint` 與 `pnpm run check-types`(不要只看 turbo 的綠燈,快取會命中)、`pnpm exec turbo run test --filter=<全名>`。
    - 所有票:`pnpm format`,再 `pnpm run format:check`(涵蓋 md / ts / tsx / js / json / yaml)。
    - 刪掉 `.claude/hook-typecheck-off`。
-7. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試 / lint / typecheck 全綠才開;看板票卡移 In Review。內文先用 Write 寫成 scratchpad 檔,`gh pr create --base dev --body-file <檔>`。開完先 `gh pr view <n> --json mergeable`,`CONFLICTING` 時 CI 根本不會跑(處理見 pitfalls「PR、CI 與看板」)。
+7. **開 PR**:目標 `dev`,內文含 `Closes #<票號>`;測試 / lint / typecheck 全綠才開;看板票卡由自動化移到 In Review,沒動就手動移。內文先用 Write 寫成 scratchpad 檔,`gh pr create --base dev --body-file <檔>`。開完先 `gh pr view <n> --json mergeable`,`CONFLICTING` 時 CI 根本不會跑(處理見 pitfalls「PR、CI 與看板」)。
 8. **不做**:不 merge、不動 `main` / `dev` / `staging` 本體。docs 只改本票必然連動的兩種:①本票新增 / 異動的模組 → 同 PR 維護 `docs/modules/<key>.md` 的「api 介面」節與 help.md;②本票新增的環境變數 / 品牌元素 → 同 PR 更新 `docs/env-registry.md` / `docs/branding.md`(CLAUDE.md 規定)。其他規則本文(ADR、CONTEXT、`docs/standards/`、模組文件的行為說明與「admin 頁面」節、`docs/agents/module-scaffold.md`)**不改**,寫進回報的「規則回饋」;票面明寫例外者除外。
 9. **回報**:照下方「交件報告格式」。
 
@@ -204,10 +203,10 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 - **驗收項寫成「現況 / 期望」兩行**,連帶讓「其實已經是對的」那幾項當場消掉。
 - **「僅確認、不改」的項目分開寫**:票上分「要改的」與「確認後不動的(附為什麼)」兩節,否則實作者會把後者也動一遍。
 - **「逐一檢查同型」類的驗收項,要求 PR 列出「確認不動」的結論**,否則「檢查過沒問題」與「漏了」在 PR 上分不出來。
-- **驗收條件要在該環境驗得到**:先問「這個環境有讓它成立的資料嗎」(例:dev 只有 root 一個帳號、信箱就在白名單,「白名單外信箱不寄」在 dev 驗不到),沒有就改成單元測試覆蓋或註明需要的前置資料。
+- **驗收條件要在該環境驗得到**:先問「這個環境有讓它成立的資料或設定嗎」(例:三環境都不設收件白名單,「白名單外信箱不寄」在任何環境都驗不到;審核流程通知信只有 dev 會寄),沒有就改成單元測試覆蓋或註明需要的前置資料。
 - **驗收回報附當時的 dev 部署版本**(release PR 或 commit),否則「當下看到、事後重現不出來」的項目無從判斷。
 - **「驗收缺口」類的票附原始 payload、操作順序、當時的環境與版本**,否則實作者只能重現、猜條件。
-- **部署後抓一次 bundle 驗「打包資產」**:跟著 build 烘進產物的非程式檔(help.md、i18n 字典、範本),部署完直接抓該環境 bundle 確認(做法見 pitfalls「部署與產物」);新增這類資產時同步補 Dockerfile 的檢查(`docs/deployment.md` 第二節)。
+- **部署後抓一次 bundle 驗「打包資產」**:跟著 build 烘進產物的非程式檔(help.md、i18n 字典、範本),部署完直接抓該環境 bundle 確認(做法見 pitfalls「部署與產物」);新增這類資產時同步補 Dockerfile 的檢查(`docs/deployment.md`「建置產物的規則」)。
 - **重整「驗收遺留票」的範圍前,先逐項對 `git log` 確認哪些已經修掉**(`git log --oneline --grep=<關鍵字>`),已修的在票上劃掉並註明是哪個 commit / PR 修的。
 
 ### 文件的歸屬

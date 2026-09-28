@@ -24,7 +24,7 @@ invalidate、prefetch 一律用 codegen 提供的 `useXxxQuery.getKey()`,保證�
 
 ## DATA-03 Server Component 用 fetcher 模式
 
-front 的 RSC 不能用 hooks,用 codegen 的 fetcher(現有範例:`apps/front/src/app/page.tsx`):
+front 的 RSC 不能用 hooks,用 codegen 的 fetcher(現有範例:`apps/front/src/components/HomeView/HomeView.tsx`):
 
 ```ts
 const { recipes } = await useRecipesQuery.fetcher(graphqlClient)();
@@ -94,7 +94,7 @@ const setOrgEnabled = useSetOrgEnabledMutation(
 );
 ```
 
-四條規則:
+規則:
 
 - **成功文案的 key 一律 `<ns>.feedback.<action>Success`**(`createSuccess`、`updateSuccess`、
   `deleteSuccess`、`enableSuccess` / `disableSuccess`…),兩語系同時補齊(I18N-02);
@@ -105,15 +105,16 @@ const setOrgEnabled = useSetOrgEnabledMutation(
   的 `AdminError`(`{ code, reason?, reasons?, fields?, path?, message? }`,選填欄位沒有就缺席),
   各頁的 `*-error.ts` 只宣告碼表 / 原因白名單交給 `parseAdminError`,不再各自解析 `extensions`;
   `message` 是 api 的原文,只供除錯,不拿來顯示。
-- **一次操作只跳一則**。`mutateAsync` 串多步的流程(`EditOrgDialog` 的儲存最多四支 mutation、
+- **一次操作只跳一則**。`mutateAsync` 串多步的流程(`EditOrgDialog` 的儲存最多串五支 mutation、
   `useDemoForm` 的上傳 + 儲存)不要把 feedback 交給每一支,改成整段 try / catch 完成後自己呼叫
   `feedback.onSuccess()` / `feedback.onError(error)`;共版型那種只收 `{ onSuccess(): void }` 的
   設定物件介面也走這一招,不要為了回饋去改介面的形狀。
-- **只有 dry-run / 預覽這種「還沒完成操作」的步驟**可以 `success: null`(成功不跳、失敗照跳),
-  目前唯一的先例是 `useUserOrgsFlow` 的試算。
-- **`error` 回 `null` = 失敗不跳提示**,只給「錯誤已就地顯示在使用者正盯著的彈窗裡、且彈窗不會關」的流程用,
-  避免同一句話出現兩次;先例是複製組織與角色的彈窗(`CopyOrgRolesDialog/useCopyOrgRoles.ts`,預覽與送出都是)。
-  成功仍照跳。
+- **只有 dry-run / 預覽這種「還沒完成操作」的步驟**可以 `success: null`(成功不跳 —— 跳「已更新」是騙人的),
+  失敗是否照跳看下一條。先例:使用者管理的所屬組織試算(`useUserOrgsFlow`)、複製組織與角色的預覽
+  (`CopyOrgRolesDialog/useCopyOrgRoles.ts`)。
+- **`error` 回 `null` = 失敗不跳提示**(DATA-06 唯一的例外),只給「錯誤已就地顯示在使用者正盯著的彈窗裡、
+  且彈窗不會關」的流程用,避免同一句話出現兩次。先例是複製組織與角色的彈窗:預覽與送出的失敗都寫在彈窗裡,
+  兩支的 `error` 都回 `null`;送出成功仍照跳。
 
 排隊策略是**長度 1 的佇列:只顯示最新的一則,舊的直接被取代**(正本寫在
 `apps/admin/src/stores/useSnackbarStore.ts` 與 `@repo/ui/snackbar` 的 JSDoc)——

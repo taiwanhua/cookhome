@@ -49,11 +49,13 @@
 
 ## 自動跑的 workflow
 
-| workflow                                 | 觸發                                                                                           | 看什麼                                                                                                                                                                                                   |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CI**(`ci.yml`)                         | PR 與 push 到 `main` / `dev` / `staging`;**只改文件時不跑**(`docs/**`、`*.md` 在 paths-ignore) | 多 job 並行:`format-codegen`、`lint-typecheck`、`test-api-1` / `test-api-2`、`test-admin-1` / `test-admin-2`、`test-others`、`build`,總結在 `verify`(只跑受影響的 package;job 圖見 `docs/deployment.md`) |
-| **Docs**(`docs.yml`)                     | 同上,但**只在改到 md 時跑**                                                                    | `prettier --check`                                                                                                                                                                                       |
-| **Project Status**(`project-status.yml`) | issue / PR 事件                                                                                | 自動移看板卡(規則見 issue-tracker「看板」)                                                                                                                                                               |
+| workflow                                 | 觸發                                                                                                          | 看什麼                                                                                                                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CI**(`ci.yml`)                         | PR 與 push 到 `main` / `dev` / `staging`;paths-ignore 是 `docs/**`、根目錄 `*.md`、`.claude/**`、`.agents/**` | 多 job 並行:`format-codegen`、`lint-typecheck`、`test-api-1` / `test-api-2`、`test-admin-1` / `test-admin-2`、`test-others`、`build`,總結在 `verify`(只跑受影響的 package;job 圖見 `docs/deployment.md`) |
+| **Docs**(`docs.yml`)                     | 同上,但 paths 只有 `docs/**`、`*.md`、`**/*.md`                                                               | `pnpm run format:check`(與 ci.yml 同一個腳本)                                                                                                                                                            |
+| **Project Status**(`project-status.yml`) | issue / PR 事件                                                                                               | 自動移看板卡(規則見 issue-tracker「看板」)                                                                                                                                                               |
+
+只改 `.claude/**`、`.agents/**` 裡的非 md 檔時兩支都不跑,prettier 要自己在本機跑(對照見 `docs/deployment.md`「CI」)。
 
 正本:`.github/workflows/ci.yml`、`.github/workflows/docs.yml`、`.github/workflows/project-status.yml`
 
@@ -61,12 +63,12 @@
 
 | 情境                                               | 指令                                                                  | 提醒                                                                                                                                       |
 | -------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| 開工切分支                                         | `git fetch origin` → `git checkout -b feat/<票號>-<描述> origin/main` | 依賴票還沒進 `main` 時改從依賴票的分支切                                                                                                   |
+| 開工切分支                                         | `git fetch origin` → `git checkout -b feat/<票號>-<描述> origin/main` | 依賴票還沒進 `main` 時改從依賴票的分支尾端切;**不從 `dev` / `staging` 切**(疊票與對齊規則見 deployment.md「分支模型」)                     |
 | release 後對齊、或 `dev` 被汙染要**重置 dev 分支** | `git push --force origin origin/main:refs/heads/dev`(`staging` 同理)  | **只由主流程做**;先跑前置檢查(兩個 `git diff --stat` 為空、`gh pr list --base dev --state open`)。絕不把 `main` merge 回 `dev` / `staging` |
 | 重置 dev 的**資料庫**                              | 見上一節 Reset DB                                                     | 分支重置與資料庫重置是兩件事                                                                                                               |
 | 交叉 merge base(PR 顯示衝突、本地 merge-tree 乾淨) | 主流程 reset 該 base 後,`gh pr close <n>` → `gh pr reopen <n>`        | base 更新不觸發 `pull_request` 事件                                                                                                        |
 
-正本:`docs/deployment.md`(二、Release 步驟第 4、6 點)、`CLAUDE.md`「Git 工作流程」
+正本:`docs/deployment.md`(二、「分支模型」「Release 步驟」第 4 點、「交叉 merge base」)、`CLAUDE.md`「Git 工作流程」
 
 ## pnpm / turbo:建置、測試、格式
 
@@ -78,14 +80,18 @@
 | 單檔測試:admin                | `pnpm --filter @repo/admin exec node --experimental-vm-modules node_modules/jest/bin/jest.js --maxWorkers=2 --testPathPatterns <路徑片段>` | 就是 package `test` script 本人再加旗標;不要 `pnpm exec jest`(少了 `--experimental-vm-modules`,ESM 測試直接炸) |
 | 單檔測試:api                  | `pnpm --filter @repo/api exec jest --passWithNoTests --detectOpenHandles --maxWorkers=2 --testPathPatterns <路徑片段>`                     | api 的 `test` script 就是直接呼叫 `jest`(CJS preset,不需要 `--experimental-vm-modules`)                        |
 | 單檔測試:ui                   | `pnpm --filter @repo/ui exec node --experimental-vm-modules node_modules/jest/bin/jest.js --maxWorkers=2 --testPathPatterns <路徑片段>`    | 同 admin                                                                                                       |
-| 取 `origin/main` 的測試數基準 | 在 main 的 checkout 進 package 目錄直接 `pnpm run test`                                                                                    | 不要用 turbo:快取跨 worktree 共用,會拿到別人跑的舊結果(TEST-08「測試數的基準」)                                |
-| 交件前 lint / 型別            | 進各 package 目錄:`pnpm run lint`、`pnpm run check-types`                                                                                  | **理由**:turbo 快取命中時只是重播舊 log,本機綠、CI 仍可能被 type-aware warning 擋下                            |
+| 取 `origin/main` 的測試數基準 | 在 main 的 checkout 進 package 目錄直接 `pnpm run test`                                                                                    | 不要用 turbo:快取跨 worktree 共用,會拿到別人先前跑的結果(TEST-08「測試數的基準」)                              |
+| 交件前 lint / 型別            | 進各 package 目錄:`pnpm run lint`、`pnpm run check-types`                                                                                  | **理由**:turbo 快取命中時只是重播先前的 log,本機綠、CI 仍可能被 type-aware warning 擋下                        |
 | 全 repo 型別                  | `pnpm exec turbo run check-types`                                                                                                          | 同上,看到 `cache hit` 不代表驗過本次改動                                                                       |
 | 格式化 / 檢查                 | `pnpm format` / `pnpm run format:check`                                                                                                    | 涵蓋 md / ts / tsx / js / json / yaml;改根 scripts 時直接跑 script 本人                                        |
 | help.md 有沒有被打包          | `pnpm --filter @repo/admin build` → `pnpm --filter @repo/admin check:help-bundle`                                                          | 新增 / 改 help.md 的票交件前跑;Dockerfile 也跑這一步                                                           |
 | 查套件最新版                  | `npm view <pkg> version`                                                                                                                   | 不照記憶寫版本號                                                                                               |
 
-單檔測試的旗標(`--maxWorkers`、`--testPathPatterns`)一律照上表的 `pnpm --filter <pkg> exec …` 寫法下,**不要寫成 `pnpm run test -- --maxWorkers=2 <路徑片段>`**:pnpm 會把 `--` 原樣傳給 script,jest 把 `--` 之後的東西全當成路徑 pattern,旗標沒生效、只是多了一個比對不到的 pattern(輸出是 `Ran all test suites matching --maxWorkers=2|<路徑片段>`)。只給路徑片段、不帶旗標時,進 package 目錄 `pnpm run test <路徑片段>` 也行。jest 30 的參數是 `--testPathPatterns`(複數),單數是 29 以前的名字。
+只跑一個測試檔一律用上表「單檔測試」的 `pnpm --filter <pkg> exec …` 寫法(本段是全 repo 的正本,其他文件指回這裡)。三個不要:
+
+- **不要 `pnpm run test -- <旗標> <路徑片段>`、`pnpm --filter <pkg> test -- …`**:pnpm 會把 `--` 原樣傳給 script,jest 把 `--` 之後的東西全當成路徑 pattern,旗標沒生效(輸出是 `Ran all test suites matching --maxWorkers=2|<路徑片段>`);api 會因此跑整包、十幾分鐘沒輸出像卡住。
+- **不要 `pnpm exec jest`**(admin / ui):少了 `test` script 裡的 `--experimental-vm-modules`,ESM 測試直接炸,看起來像測試壞了。
+- **不要 `--testPathPattern`(單數)**:那是 jest 29 以前的名字,jest 30 是 `--testPathPatterns`(複數),三個 package 都一樣。
 
 正本:根 `package.json`、`apps/admin/package.json`、`apps/api/package.json`、`packages/ui/package.json`、`turbo.json`、`docs/standards/testing/testing.md`(TEST-08)
 

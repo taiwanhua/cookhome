@@ -47,7 +47,7 @@
 
 ### 新模組怎麼選
 
-建模組流程必問這一題(`docs/tmp/dis.md` 搜「module-scaffold skill 化」)。
+建模組流程必問這一題(`/module-scaffold` skill 的需求問答「上傳欄」;步驟見 `docs/agents/module-scaffold.md`)。
 
 **預設私有**。需要 CDN 快取、SEO、對未登入者展示或社群分享才選公開。
 
@@ -61,7 +61,8 @@
 **決策**:
 
 - 用 Resend,寄件人 `no-reply@cookhome.online`(SPF + DKIM)。
-- API key 依環境存 Secret Manager;dev / staging 設收件白名單防誤寄。
+- API key 依環境存 Secret Manager。
+- `MailService` 支援收件白名單(`MAIL_ALLOWLIST`,有值時只寄名單內信箱),三個雲端環境都不設(= 不限收件人);名單外的信靜默略過、不視為錯誤,留作本機或臨時防誤寄用。
 - api 內做 `MailService` 介面,Resend 只是第一個 adapter。
 - 信件模板的品牌文字 / logo 登記 `docs/branding.md`。
 

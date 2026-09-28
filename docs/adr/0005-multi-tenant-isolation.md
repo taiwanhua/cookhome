@@ -14,7 +14,7 @@
 - 寫入保護:`create` 自動寫入當前組織、不可寫到範圍外;更新不得變更 `orgId` 與建立資訊。搬移組織是獨立、明確的操作。
 - `audit_logs` 視為租戶資料。
 - **模組資料表**(schema 開 `tenantScopePlugin({ moduleData: true })`,如示範模組與 `form_submissions`)另帶 `moduleKey` 與 `tenantId`(依 `orgId` 祖先推導的租戶頂層;根組織資料為 null)。`tenantId` 只用於租戶邊界、索引與日後分片,不決定可見範圍。
-- **業務關聯**(`business_relationships`)不掛 plugin,以必填 `tenantId` 為邊界:repository 每個方法強制帶它,沒帶就拋錯(同樣 fail-closed)。部門使用者的可見範圍不含租戶頂層,掛 plugin 會查不到本租戶的分派設定。
+- **以 `tenantId` 為邊界的專屬存取層**:業務關聯(`business_relationships`)、流程(`workflows`)、審核任務(`workflow_tasks`)不掛 plugin,各有一支專屬 repository,每個方法強制帶必填的 `tenantId`,沒帶就拋錯(同樣 fail-closed);檔頭以 eslint 豁免註明「此檔即唯一合法出口」。部門使用者的可見範圍不含租戶頂層,掛 plugin 會查不到本租戶的分派設定;審核者不一定在申請人組織的可見範圍內,任務也不能照可見範圍過濾。
 - 組織與模組樹採物化路徑(`ancestors`)。
 
 **理由**:
@@ -72,7 +72,7 @@
 
 - UI 提示用白話(如「或其下層組織」),不用內部術語。
 - front 會員註冊預設歸屬根組織,底座允許指定其他組織。
-- 欄位管理:類別是全域種子、租戶不可自訂;選項帶可空 `orgId`(null = 全域種子)。自訂選項沿組織樹向下繼承:看得到 = 全域 + 祖先 + 自己 + 可見範圍內的下層,只能編輯自己這一層加的。規則正本 `docs/modules/field-manager.md`。
+- 欄位管理:類別是全域資料(seed 宣告的系統類別,或根組織在畫面新增的類別),租戶不可自訂;選項帶可空 `orgId`(null = 全域種子)。自訂選項沿組織樹向下繼承:看得到 = 全域 + 祖先 + 自己 + 可見範圍內的下層,只能編輯自己這一層加的。規則正本 `docs/modules/field-manager.md`。
 
 ## 影響
 
