@@ -88,6 +88,7 @@
       }
     },
     "sideNav": "Main navigation",
+    "navBadge": "{count} pending review",
     "collapseNav": "Collapse sidebar",
     "expandNav": "Expand sidebar",
     "currentOrg": "Current organization",
@@ -2144,6 +2145,8 @@
     "tabs": "Apply center",
     "tabMine": "My applications",
     "tabTasks": "To review",
+    "tabMineCount": "My applications ({count} in progress)",
+    "tabTasksCount": "To review ({count} pending)",
     "total": "{total} in total",
     "filters": {
       "module": "Module",

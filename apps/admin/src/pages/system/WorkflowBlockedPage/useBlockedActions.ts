@@ -10,19 +10,22 @@ import {
   useWorkflowInstanceQuery,
 } from "@repo/graphql";
 
+import { useInvalidateApplyCenterCounts } from "@/hooks/useApplyCenterCounts";
 import { useSnackbar } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import { workflowErrorOf } from "@/lib/workflow/workflow-errors";
 
 /**
  * 阻擋清單的處置(權限 `system.workflows.blocked-page.reassign`):改派、新增審核者。
- * 成功後清單與該實例都重查(推進可能已解除阻擋、實例換了狀態);失敗的文案在跳窗裡就地顯示。
+ * 成功後清單、該實例與申請中心的 badge 數字都重查(推進可能已解除阻擋、實例換了狀態、任務換了承辦人);
+ * 失敗的文案在跳窗裡就地顯示。
  */
 export const useBlockedActions = () => {
   const t = useTranslations("admin.workflows.blocked");
   const tErrors = useTranslations("admin.workflows.errors");
   const { session } = useSession();
   const queryClient = useQueryClient();
+  const invalidateCounts = useInvalidateApplyCenterCounts();
   const showSnackbar = useSnackbar();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const reassign = useReassignTaskMutation(session.client);
@@ -38,6 +41,7 @@ export const useBlockedActions = () => {
     void queryClient.invalidateQueries({
       queryKey: useWorkflowInstanceQuery.getKey({ id: instanceId }),
     });
+    invalidateCounts();
   };
 
   const run = async (

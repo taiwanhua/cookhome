@@ -26,6 +26,8 @@ export interface SideNavProps {
   tree: NavNode[];
   /** 目前網址(已正規化),決定哪一列為選中狀態 */
   currentPath: string;
+  /** 模組 key → 該列的待辦數(展開態畫數字、收合態畫小圓點) */
+  badges?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -43,6 +45,7 @@ export const SideNav = ({
   logoUrl,
   tree,
   currentPath,
+  badges,
 }: SideNavProps) => {
   const t = useTranslations("admin.shell");
   const tApp = useTranslations("admin.app");
@@ -127,14 +130,14 @@ export const SideNav = ({
         }
       >
         {isCollapsed ? (
-          <NavRail nodes={tree} currentPath={currentPath} />
+          <NavRail nodes={tree} currentPath={currentPath} badges={badges} />
         ) : (
           <List
             component="div"
             disablePadding
             sx={{ display: "grid", gap: 0.5 }}
           >
-            <NavNodes nodes={tree} currentPath={currentPath} />
+            <NavNodes nodes={tree} currentPath={currentPath} badges={badges} />
           </List>
         )}
       </Box>

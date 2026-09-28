@@ -24,6 +24,8 @@ export interface NavRailGroupItemProps {
   currentPath: string;
   /** 目前網址落在這個群組底下(收合後看不到子列,選中狀態改標在群組這一格) */
   isSelected: boolean;
+  /** 模組 key → 待辦數;交給 flyout 裡的子列 */
+  badges?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -37,6 +39,7 @@ export const NavRailGroupItem = ({
   node,
   currentPath,
   isSelected,
+  badges,
 }: NavRailGroupItemProps) => {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const label = node.module.name;
@@ -99,6 +102,7 @@ export const NavRailGroupItem = ({
               nodes={node.children}
               currentPath={currentPath}
               onNavigate={close}
+              badges={badges}
             />
           </List>
         </Stack>
