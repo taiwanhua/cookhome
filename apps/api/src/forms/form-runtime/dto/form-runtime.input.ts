@@ -228,3 +228,25 @@ export class CopySubmissionToDraftInput {
   @Field(() => String)
   clientRequestId!: string;
 }
+
+/**
+ * 舊版資料升級到新版(只限沒綁流程的表單):改綁 + 補值 + 重算,不驗證。
+ * 同 `(操作者, clientRequestId)` 重送回第一次的結果。
+ */
+@InputType()
+export class UpgradeFormSubmissionsInput {
+  @Field(() => ID)
+  formKey!: string;
+
+  /** 升級到哪一版(必須是已發布的版本)。 */
+  @Field(() => Int)
+  targetVersion!: number;
+
+  /** 補值:欄位 key → 值(存值形狀);只能是 `formUpgradePlan.fillTargets` 的欄位,只填該筆沒有值的欄位。 */
+  @Field(() => GraphQLJSONObject)
+  fills!: Record<string, unknown>;
+
+  /** 一次性 id(1–100 字);同一個重送回同一個結果。 */
+  @Field(() => String)
+  clientRequestId!: string;
+}

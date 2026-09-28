@@ -7,16 +7,17 @@ import {
   type FormRuntimeWorldOptions,
   formRuntimeWorld,
 } from "@/test/msw/form-runtime-handlers";
+import { demoGroupNode } from "@/test/msw/module-fixtures";
 import { server } from "@/test/msw/server";
 import {
   APPLICANT,
+  DEMO_GROUP_FORM_KEY,
   LEAVE_FORM_KEY,
-  LEAVE_KEY,
   applicationRow,
   applyCenterModules,
+  demoGroupFormModules,
   instanceFragment,
   leaveDefinition,
-  leaveModules,
   taskFragment,
 } from "@/test/msw/workflow-fixtures";
 import {
@@ -35,7 +36,7 @@ export const leaveSubmission = (
 ) =>
   submissionFragment({
     id: "sub-leave-1",
-    moduleKey: LEAVE_KEY,
+    moduleKey: DEMO_GROUP_FORM_KEY,
     formKey: LEAVE_FORM_KEY,
     formName: "病假單",
     status: FormSubmissionStatus.Reviewing,
@@ -60,13 +61,13 @@ export const defaultRuntime = (): WorkflowRuntimeWorldOptions => ({
   applications: [applicationRow()],
   applicable: [
     {
-      moduleKey: LEAVE_KEY,
-      moduleName: "請假",
+      moduleKey: DEMO_GROUP_FORM_KEY,
+      moduleName: "示範表單(群組內)",
       forms: [
         {
           key: LEAVE_FORM_KEY,
           name: "病假單",
-          moduleKey: LEAVE_KEY,
+          moduleKey: DEMO_GROUP_FORM_KEY,
           currentVersion: 1,
           tabLabelTemplate: null,
         },
@@ -80,7 +81,7 @@ export const defaultFormRuntime = (): FormRuntimeWorldOptions => ({
     {
       key: LEAVE_FORM_KEY,
       name: "病假單",
-      moduleKey: LEAVE_KEY,
+      moduleKey: DEMO_GROUP_FORM_KEY,
       currentVersion: 1,
       tabLabelTemplate: null,
     },
@@ -93,14 +94,14 @@ export interface ApplyCenterSetup {
   path: string;
   runtime?: WorkflowRuntimeWorldOptions;
   forms?: FormRuntimeWorldOptions;
-  leavePermissions?: readonly string[];
+  formModulePermissions?: readonly string[];
 }
 
 export const renderApplyCenter = ({
   path,
   runtime = defaultRuntime(),
   forms = defaultFormRuntime(),
-  leavePermissions = [`${LEAVE_KEY}.*`],
+  formModulePermissions = [`${DEMO_GROUP_FORM_KEY}.*`],
 }: ApplyCenterSetup): ReturnType<typeof renderApp> & {
   runtime: WorkflowRuntimeWorld;
   forms: FormRuntimeWorld;
@@ -110,7 +111,11 @@ export const renderApplyCenter = ({
   server.use(
     ...authWorld({
       hasRefreshCookie: true,
-      modules: [...applyCenterModules(), ...leaveModules(leavePermissions)],
+      modules: [
+        ...applyCenterModules(),
+        demoGroupNode,
+        ...demoGroupFormModules(formModulePermissions),
+      ],
     }).handlers,
     ...workflowWorld.handlers,
     ...formWorld.handlers,

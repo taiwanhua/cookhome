@@ -7,6 +7,7 @@ import type {
   FieldUiState,
   FormRendererMode,
 } from "@/lib/form-engine/field-states";
+import type { FormFieldErrorLike } from "@/lib/form-engine/form-errors";
 import type { FormDisplayItemLike } from "@/lib/form-engine/value-text";
 
 import { widgetOf } from "../widgets/widget-registry";
@@ -22,6 +23,10 @@ export interface FormFieldCellProps {
   onChange: (fieldKey: string, value: unknown) => void;
   /** api 回的值錯誤(`VALIDATION_FAILED` 的 `fieldErrors`) */
   errorMessage?: string | null;
+  /** 明細列:這一欄的全部值錯誤(每格以 `rowId` + `columnKey` 定位,列數錯誤在表尾) */
+  errors?: readonly FormFieldErrorLike[];
+  /** 明細列唯讀:子欄的顯示名 */
+  columnDisplay?: (columnKey: string) => readonly FormDisplayItemLike[];
   display?: readonly FormDisplayItemLike[];
   onDownload?: (field: FieldDef) => void;
 }
@@ -34,6 +39,23 @@ export interface FormFieldCellProps {
  *   內容是顯示值(計算欄位缺依賴時是「—」)
  * - 其餘 → 登錄表的 widget;唯讀(沒有欄位級 edit、`readonlyWhen`)時停用並附原因
  */
+/** 唯讀原因 → 欄位下方的說明文字(計算 / 唯讀模式不另附說明)。 */
+const REASON_TEXT_KEYS: Partial<
+  Record<
+    NonNullable<FieldUiState["readonlyReason"]>,
+    "readonlyPermission" | "readonlyCondition"
+  >
+> = { permission: "readonlyPermission", condition: "readonlyCondition" };
+
+/** 明細列才用的 props(有給才帶)。 */
+const arrayPropsOf = (
+  errors: FormFieldCellProps["errors"],
+  columnDisplay: FormFieldCellProps["columnDisplay"],
+) => ({
+  ...(errors !== undefined && { errors }),
+  ...(columnDisplay !== undefined && { columnDisplay }),
+});
+
 export const FormFieldCell = ({
   field,
   state,
@@ -42,6 +64,8 @@ export const FormFieldCell = ({
   context,
   onChange,
   errorMessage,
+  errors,
+  columnDisplay,
   display,
   onDownload,
 }: FormFieldCellProps) => {
@@ -67,17 +91,13 @@ export const FormFieldCell = ({
     );
   }
 
-  let helperText: string | undefined = help === "" ? undefined : help;
   // 唯讀檢視保留欄位說明,但不附唯讀原因(整頁都是唯讀,不是這一欄特別改不了)
   const reason = isReadOnly ? null : state.readonlyReason;
-  if (reason === "permission") {
-    helperText = t("readonlyPermission");
-  } else if (reason === "condition") {
-    helperText = t("readonlyCondition");
-  }
-  if (errorMessage !== undefined && errorMessage !== null) {
-    helperText = errorMessage;
-  }
+  const reasonKey = reason === null ? undefined : REASON_TEXT_KEYS[reason];
+  const reasonText = reasonKey === undefined ? null : t(reasonKey);
+  // 明細列的錯誤由表格自己分到格與表尾(`errors`),不蓋掉欄位說明
+  const error = field.type === "array" ? null : (errorMessage ?? null);
+  const helperText = error ?? reasonText ?? (help === "" ? undefined : help);
   // 登錄表查到的是模組層常數元件(不是 render 內建立的),以 createElement 掛上
   return createElement(widgetOf(field.widget.kind), {
     field,
@@ -93,5 +113,6 @@ export const FormFieldCell = ({
     context,
     ...(display !== undefined && { display }),
     ...(onDownload !== undefined && { onDownload }),
+    ...arrayPropsOf(errors, columnDisplay),
   });
 };

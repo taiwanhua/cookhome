@@ -37,7 +37,7 @@ export interface FormSubmissionDetailProps {
 
 /**
  * 詳情(Spec 6a §8 `<FormSubmissionDetail id>`、畫面 11):唯讀渲染 = 同一套填寫元件走 `readOnly`
- * (條件用**該修訂的 `ctx`**、不重算存值;日期以讀者現在的租戶時區顯示)、現名 / 快照顯示(`displayValues`)、
+ * (條件用**該修訂的 `ctx`**、定義用**該修訂的版本**(`viewedVersion`)、不重算存值;日期以讀者現在的租戶時區顯示)、現名 / 快照顯示(`displayValues`)、
  * 附件下載(簽名網址,看得到這一欄才簽)。表單 / 版本 / 狀態 / 建立者與修訂紀錄(含差異)收在「修訂紀錄」跳窗;
  * 從跳窗切到某個修訂時關掉跳窗、主體換成那個修訂並標「正在檢視修訂 N」。
  * 讀取權限(哪些欄位遮蔽)永遠看現在的讀者 —— 由 api 投影,前端照 `fieldStates` 不渲染看不到的欄。
@@ -69,9 +69,10 @@ export const FormSubmissionDetail = ({
       ? base
       : (viewed.data?.formSubmission.submission ?? null);
   const [now] = useState(() => new Date());
+  // 看哪個修訂就用它自己的版本定義(舊版資料升級後,歷史修訂可能綁在較舊的版本)
   const version = useFormRuntimeVersion(
     base?.formKey ?? null,
-    base?.version ?? null,
+    shown?.viewedVersion ?? null,
   );
   const tenantTimezone = useTenantTimezone();
   // 已完成:條件用那次修訂的 ctx;草稿(還沒有 ctx):用真正的現在 + 填寫者本人與那一筆的組織、租戶時區
@@ -114,7 +115,7 @@ export const FormSubmissionDetail = ({
     }
   };
 
-  if (current.isLoading || version.isLoading) {
+  if (current.isLoading || viewed.isLoading || version.isLoading) {
     return <CircularProgress aria-label={t("loading")} />;
   }
   if (
@@ -146,7 +147,7 @@ export const FormSubmissionDetail = ({
         mode="readonly"
         context={{
           formKey: base.formKey,
-          version: base.version,
+          version: shown.viewedVersion,
           timezone: tenantTimezone ?? DEFAULT_TENANT_TIMEZONE,
         }}
         expressionContext={expressionContext}
@@ -191,7 +192,6 @@ export const FormSubmissionDetail = ({
             </Stack>
             <RevisionHistory
               submission={base}
-              definition={version.definition}
               viewedRevision={viewedRevision}
               onViewRevision={(revision) => {
                 setViewedRevision(revision);

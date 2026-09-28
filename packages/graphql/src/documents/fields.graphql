@@ -20,16 +20,54 @@ fragment FieldFields on Field {
   canToggleEnabled
 }
 
-# 左側類別清單(全域種子,租戶不可自訂;新增類別走 code + PR)
-query FieldCategories {
-  fieldCategories {
+fragment FieldCategoryFields on FieldCategory {
+  id
+  key
+  name
+  description
+  isSystem
+  enabled
+}
+
+# 類別清單(全域;seed 宣告的系統類別 isSystem = true + root 在畫面新增的)。
+# FieldCategoriesInput: { enabledOnly }(缺席 = 全部,欄位管理頁;true = 只列啟用,表單設計器的類別下拉)
+query FieldCategories($input: FieldCategoriesInput) {
+  fieldCategories(input: $input) {
     items {
-      id
-      key
-      name
-      description
+      ...FieldCategoryFields
     }
     totalCount
+  }
+}
+
+# 以下三個是類別作業(system.field-manager.category-ops.manage-categories,限站在根組織;
+# 非根組織 → FORBIDDEN reason ROOT_ONLY)。類別不可刪。
+# CreateFieldCategoryInput: { key, name, description }
+# key 格式不符 → VALIDATION_FAILED(fields ["key"]);已存在(含停用的)→ FIELD_CATEGORY_KEY_DUPLICATE
+mutation CreateFieldCategory($input: CreateFieldCategoryInput!) {
+  createFieldCategory(input: $input) {
+    category {
+      ...FieldCategoryFields
+    }
+  }
+}
+
+# UpdateFieldCategoryInput: { id, name, description };key 不在 input 內(建立後不可改)。
+# name 缺席 = 不動;description 缺席 = 不動、null = 清空;系統類別 → FORBIDDEN reason SYSTEM_CATEGORY
+mutation UpdateFieldCategory($input: UpdateFieldCategoryInput!) {
+  updateFieldCategory(input: $input) {
+    category {
+      ...FieldCategoryFields
+    }
+  }
+}
+
+# SetFieldCategoryEnabledInput: { id, enabled };系統類別停用 → FORBIDDEN reason SYSTEM_CATEGORY
+mutation SetFieldCategoryEnabled($input: SetFieldCategoryEnabledInput!) {
+  setFieldCategoryEnabled(input: $input) {
+    category {
+      ...FieldCategoryFields
+    }
   }
 }
 

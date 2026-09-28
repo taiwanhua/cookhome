@@ -4,6 +4,10 @@ import { useState } from "react";
 import {
   type FormFieldsFragment,
   useFormQuery,
+  useFormSubmissionQuery,
+  useFormSubmissionRevisionsQuery,
+  useFormSubmissionsQuery,
+  useFormUpgradePlanQuery,
   useFormVersionQuery,
   useFormVersionsQuery,
   useFormsQuery,
@@ -16,7 +20,8 @@ const PAGE_SIZE = 100;
 
 /**
  * 表單管理頁的資料層:左清單(root 全部共用表單;租戶 = 分派來的 + 自己的客製)、選中的表單、
- * 以及寫入後的精準失效(清單、單張、版本面板、草稿)。
+ * 以及寫入後的精準失效(清單、單張、版本面板、草稿;舊版資料升級會改綁提交,所以提交的清單、單筆、
+ * 修訂紀錄與升級計畫也一併失效 —— 各頁各篩選、各筆,取 getKey 第一段當前綴,DATA-04)。
  */
 export const useFormsPageData = () => {
   const { session } = useSession();
@@ -48,6 +53,14 @@ export const useFormsPageData = () => {
         queryClient.invalidateQueries({
           queryKey: useFormVersionQuery.getKey({ formKey }).slice(0, 1),
         }),
+        ...[
+          useFormSubmissionsQuery.getKey({ input: { moduleKey: "" } }),
+          useFormSubmissionQuery.getKey({ id: "" }),
+          useFormSubmissionRevisionsQuery.getKey({ id: "" }),
+          useFormUpgradePlanQuery.getKey({ formKey, targetVersion: 0 }),
+        ].map((key) =>
+          queryClient.invalidateQueries({ queryKey: key.slice(0, 1) }),
+        ),
       ]);
     }
   };

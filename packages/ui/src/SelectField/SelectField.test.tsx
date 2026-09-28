@@ -163,4 +163,22 @@ describe("SelectField", () => {
       "已選 2 間",
     );
   });
+  it("hiddenLabel:不畫浮動標籤(legend 不留缺口),label 仍是 combobox 的名稱", () => {
+    const { container } = render(
+      <SelectField
+        label="分店"
+        hiddenLabel
+        value="org-1"
+        options={branches}
+        onChange={jest.fn()}
+      />,
+    );
+
+    // 沒有標籤元素、外框的 legend 只剩零寬空白:不留缺口
+    expect(container.querySelector("label")).toBeNull();
+    expect(container.querySelector("fieldset legend")?.textContent).toBe(
+      "\u200B",
+    );
+    expect(screen.getByLabelText("分店")).toHaveRole("combobox");
+  });
 });

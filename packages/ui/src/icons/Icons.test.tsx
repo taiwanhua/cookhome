@@ -1,16 +1,24 @@
 import { describe, expect, it } from "@jest/globals";
 import { render } from "@testing-library/react";
 
+import { AddIcon } from "./AddIcon";
+import { ArrowDownIcon } from "./ArrowDownIcon";
+import { ArrowUpIcon } from "./ArrowUpIcon";
 import { CheckIcon } from "./CheckIcon";
 import { ChevronDoubleLeftIcon } from "./ChevronDoubleLeftIcon";
 import { ChevronDoubleRightIcon } from "./ChevronDoubleRightIcon";
 import { ChevronDownIcon } from "./ChevronDownIcon";
 import { ChevronRightIcon } from "./ChevronRightIcon";
 import { CloseIcon } from "./CloseIcon";
+import { DarkModeIcon } from "./DarkModeIcon";
 import { DeleteIcon } from "./DeleteIcon";
+import { DevicesIcon } from "./DevicesIcon";
 import { DotIcon } from "./DotIcon";
 import { EditIcon } from "./EditIcon";
 import { HelpIcon } from "./HelpIcon";
+import { LightModeIcon } from "./LightModeIcon";
+import { LogoutIcon } from "./LogoutIcon";
+import { SystemModeIcon } from "./SystemModeIcon";
 import { ViewIcon } from "./ViewIcon";
 
 /** 手繪的殼圖示:path 取自 Figma 匯出的 SVG,每一筆顏色都明寫 `currentColor`。 */
@@ -32,8 +40,16 @@ const actionIcons = [
   { name: "ViewIcon", Icon: ViewIcon },
   { name: "EditIcon", Icon: EditIcon },
   { name: "DeleteIcon", Icon: DeleteIcon },
+  { name: "AddIcon", Icon: AddIcon },
+  { name: "ArrowUpIcon", Icon: ArrowUpIcon },
+  { name: "ArrowDownIcon", Icon: ArrowDownIcon },
   { name: "ChevronDoubleLeftIcon", Icon: ChevronDoubleLeftIcon },
   { name: "ChevronDoubleRightIcon", Icon: ChevronDoubleRightIcon },
+  { name: "SystemModeIcon", Icon: SystemModeIcon },
+  { name: "LightModeIcon", Icon: LightModeIcon },
+  { name: "DarkModeIcon", Icon: DarkModeIcon },
+  { name: "LogoutIcon", Icon: LogoutIcon },
+  { name: "DevicesIcon", Icon: DevicesIcon },
 ] as const;
 
 describe("icons", () => {

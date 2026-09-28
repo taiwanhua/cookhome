@@ -9,6 +9,7 @@ import {
   LOCAL_CALENDAR_UNITS,
   type LiteralParamKind,
   PICKABLE_DATE_DIFF_UNITS,
+  arrayColumnsOf,
   isCalendarUnit,
   isDateAddDirection,
   isDateDiffUnit,
@@ -27,6 +28,8 @@ export interface SpecialArgEditorProps {
   value: Expression | undefined;
   onChange: (value: Expression) => void;
   fields: readonly FieldDef[];
+  /** 這個運算節點的全部參數(彙總的子欄下拉要看第一個參數挑了哪個明細欄) */
+  args?: readonly Expression[];
 }
 
 const SMALL = { size: "small", sx: { minWidth: 120 } } as const;
@@ -34,16 +37,63 @@ const SMALL = { size: "small", sx: { minWidth: 120 } } as const;
 /**
  * 不是一般值的參數位置(Spec 6a §5 表 B):`dateDiff` 的單位下拉(天 = 日曆日、小時 / 分鐘 = 精確差;
  * 缺參數視為天)、`dateAdd` 的方向(之前 / 之後)與日曆單位(天 / 週 / 月 / 年)下拉、
- * `optionLabel` 的選項欄位下拉(只列單選 / 多選欄,存欄位 key 字串)。
+ * `optionLabel` 的選項欄位下拉(只列單選 / 多選欄,存欄位 key 字串)、彙總的明細欄 / 數字子欄下拉(存 key 字串)。
  */
 export const SpecialArgEditor = ({
   kind,
   value,
   onChange,
   fields,
+  args = [],
 }: SpecialArgEditorProps) => {
   const t = useTranslations("admin.forms.expression");
   const tForms = useTranslations("admin.forms");
+  const keyPicker = (
+    label: string,
+    unset: string,
+    choices: readonly { key: string; label: string }[],
+  ) => (
+    <SelectField
+      label={label}
+      value={typeof value === "string" ? value : ""}
+      displayEmpty
+      options={[
+        { value: "", label: unset },
+        ...choices.map((choice) => ({
+          value: choice.key,
+          label: tForms("labelWithKey", {
+            label: choice.label,
+            key: choice.key,
+          }),
+        })),
+      ]}
+      onChange={(key) => {
+        onChange(key === "" ? null : key);
+      }}
+      size="small"
+      sx={{ minWidth: 160 }}
+    />
+  );
+
+  if (kind === "arrayField") {
+    return keyPicker(
+      t("arrayField"),
+      t("arrayFieldUnset"),
+      fields.filter((field) => field.type === "array"),
+    );
+  }
+  if (kind === "arrayColumn") {
+    const array = fields.find(
+      (field) => field.type === "array" && field.key === args[0],
+    );
+    return keyPicker(
+      t("arrayColumn"),
+      t("arrayColumnUnset"),
+      array === undefined
+        ? []
+        : arrayColumnsOf(array).filter((column) => column.type === "number"),
+    );
+  }
 
   if (kind === "dateUnit") {
     return (

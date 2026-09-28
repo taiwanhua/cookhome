@@ -31,9 +31,9 @@ const FormEditPage = lazy(() =>
  * 表單模組的預設組裝(Spec 6a §8「登記與客製」):產出四個 key 的預設元件,在 `app/module-pages.tsx` 展開。
  *
  * ```ts
- * ...formModulePages(SHOPPING_LIST_KEY),                          // 四頁全用預設
- * ...formModulePages(LEAVE_KEY), [LEAVE_KEY]: LeavePage,          // 列表頁客製、其餘預設
- * [LEAVE_KEY]: LeavePage, [`${LEAVE_KEY}.view-page`]: LeaveViewPage, // 全部自己來
+ * ...formModulePages(DEMO_FORM_KEY),                                          // 四頁全用預設
+ * ...formModulePages(OTHER_KEY), [OTHER_KEY]: OtherListPage,                   // 列表頁客製、其餘預設
+ * [OTHER_KEY]: OtherListPage, [`${OTHER_KEY}.view-page`]: OtherViewPage, ...   // 全部自己來
  * ```
  *
  * 四個元件都是模組層常數(不是每次呼叫各建一份,REACT-09 的同一個理由);它們從 `module.key` 反推模組 key,

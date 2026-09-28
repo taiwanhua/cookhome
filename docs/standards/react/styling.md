@@ -28,6 +28,8 @@ review 最友善;Minimal Dashboard 級的統一感靠 theme 工程達成。
 
 theme 已開 `cssVariables` + light/dark colorSchemes;元件不判斷「現在是深色嗎」、
 不寫 `prefers-color-scheme` — 用對語意 token,深色模式自動正確。
+使用者切換外觀(跟隨系統 / 亮 / 暗)只走 `@repo/ui/app-theme-provider` 的 `useColorMode`
+(選擇由 `AppThemeProvider` 記在 localStorage,key 由 app 傳入並登記在 `docs/branding.md`)。
 
 ## STYLE-05 apps 不直接 import MUI/Emotion(lint 強制)
 
@@ -135,9 +137,13 @@ expect(chain.slice(1, -1).filter((l) => l.scrolls)).toEqual([]); // 只有最內
 `overflow-y: visible` 依 CSS 規範計算為 `auto`,**一個元素同時管好兩軸**,外層不需要再開一層
 (列表頁的 `TableContainer` 就是那一層,見 STYLE-11)。
 
-## STYLE-09 `Stack spacing` 的直接子元素不要用 margin 做位移
+## STYLE-09 `Stack` 一律用 gap 排間距(主題預設),不用 margin
 
-`Stack spacing` 會對每個直接子元素下 `& > :not(style):not(style) { margin: 0 }`,優先序高過子元素自己的 `sx`,所以 `ml` / `mt` 會被歸零 — 寫了縮排、lint 綠、測試綠、畫面沒縮排,是最難自己發現的一類(先例:開通彈窗的模組勾選縮排)。要位移就用 padding,或多包一層 `Box`。
+`@repo/ui` 的主題把 `MuiStack` 的 `useFlexGap` 預設成 `true`(`packages/ui/src/theme/create-theme.ts`),所有 `Stack`(會不會換行都一樣)的 `spacing` 都由 `gap` 給,呼叫端不必、也不要再寫 `useFlexGap`;`rowGap` 與 `spacing` 相同時不必另寫。
+
+- **為什麼不用 MUI 預設的 margin 模式**:它對每個直接子元素下 `& > :not(style):not(style) { margin: 0 }`,再用第二個起的子元素的 `margin-top` / `margin-left` 排間距。子元素自己寫的 `ml` / `mt` 因此被歸零(寫了縮排、lint 綠、測試綠、畫面沒縮排);`flexWrap: "wrap"` 換行後,新一行的首欄仍帶著 `margin-left`,和上一行對不齊。
+- **gap 模式下子元素的 margin 會生效**:`ml: "auto"` 真的把按鈕組推到右邊、`mt` 真的位移,元件自帶的 margin(`ListItemText` 的上下 6px、瀏覽器給 `p` / `ul` / `h*` 的上下 margin)也照樣算進版面。`FormControlLabel` 的左 margin 由主題歸零(MUI 預設 -11px 會讓開關凸出同一欄輸入框的左緣),右邊 16px 照舊,呼叫端不必再補。子元素不要用 margin 排「兄弟之間」的間距,那是 `spacing` 的事;縮排用 padding,或多包一層 `Box`。
+- **不要寫 `useFlexGap={false}`**:回到 margin 模式等於把上面兩個坑帶回來。
 
 ## STYLE-10 從呼叫端看 `sx`:只疊加、不覆蓋幾何
 

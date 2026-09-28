@@ -20,11 +20,11 @@ import { publishSharedFormIn, setOrgManagers } from "./workflow-api";
 
 /**
  * 劇本 20–24(審核流程)的共用前置與畫面動作。前置一律走 api(TEST-11):
- * 建人、主管、角色、共用表單(掛在 seed 的「請假」模組)都在這裡;流程定義由各劇本自己給。
+ * 建人、主管、角色、共用表單(掛在 seed 的「示範表單(群組內)」模組,路由 `/demo/form`)都在這裡;流程定義由各劇本自己給。
  */
 
-export const LEAVE_MODULE = "leave";
-export const LEAVE_ROUTE = "/leave";
+export const WORKFLOW_FORM_MODULE = "demo.form";
+export const WORKFLOW_FORM_ROUTE = "/demo/form";
 export const APPLY_CENTER_ROUTE = "/apply-center";
 export const BLOCKED_ROUTE = "/system/workflows/blocked-page";
 
@@ -153,7 +153,7 @@ function formDefinition(numberLabel: string) {
 
 /**
  * 審核流程劇本的世界:申請人(南港廚房)、南港店主管、人資(「人資」角色)、副理;
- * root 建一張共用表單掛在「請假」模組、發布、分派給這個租戶。流程由劇本自己建與綁。
+ * root 建一張共用表單掛在「示範表單(群組內)」模組、發布、分派給這個租戶。流程由劇本自己建與綁。
  */
 export async function createWorkflowWorld(
   tenant: ScenarioTenant,
@@ -188,7 +188,7 @@ export async function createWorkflowWorld(
   await roleWithModules(
     tenant,
     "申請人",
-    [LEAVE_MODULE, "apply-center"],
+    [WORKFLOW_FORM_MODULE, "apply-center"],
     [applicant.userId],
   );
   await roleWithModules(
@@ -205,7 +205,7 @@ export async function createWorkflowWorld(
   await publishSharedFormIn(tenant.rootToken, {
     key: formKey,
     name: options.formName,
-    moduleKey: LEAVE_MODULE,
+    moduleKey: WORKFLOW_FORM_MODULE,
     definition: formDefinition(options.numberLabel ?? "天數"),
     tenantOrgIds: [tenant.tenantOrgId],
   });

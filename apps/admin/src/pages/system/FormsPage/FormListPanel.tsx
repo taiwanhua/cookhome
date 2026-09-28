@@ -97,12 +97,13 @@ export const FormListPanel = ({
               }}
             >
               <Stack spacing={0.5} sx={{ minWidth: 0 }}>
-                <ListItemText primary={form.name} secondary={form.key} />
-                <Stack
-                  direction="row"
-                  spacing={0.5}
-                  sx={{ flexWrap: "wrap", rowGap: 0.5 }}
-                >
+                {/* ListItemText 自帶上下 6px margin;Stack 用 gap 後不再被歸零,這裡歸零維持列高 */}
+                <ListItemText
+                  primary={form.name}
+                  secondary={form.key}
+                  sx={{ my: 0 }}
+                />
+                <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
                   <Tag
                     tone={form.isShared ? "primary" : "grey"}
                     label={form.isShared ? t("shared") : t("custom")}

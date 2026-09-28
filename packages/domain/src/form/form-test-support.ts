@@ -17,6 +17,7 @@ const DEFAULT_WIDGET: Record<FieldType, string> = {
   boolean: "switch",
   upload: "upload",
   reference: "referencePicker",
+  array: "table",
 };
 
 /** 一個最小可用的欄位;`overrides` 蓋掉任何屬性。 */

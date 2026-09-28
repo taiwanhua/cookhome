@@ -60,19 +60,34 @@ const orgField = (
   });
 };
 
-/** 左欄類別(依 seed 宣告順序,不分頁)。 */
+/**
+ * 左欄類別(依建立順序,不分頁):兩個 seed 宣告的系統類別,加一個 root 在畫面建、已停用的類別
+ * (停用只影響表單設計器的類別清單;欄位管理頁照樣列出、灰掉)。
+ */
 export const fieldCategories: TestFieldCategory[] = [
   {
     id: "cat-gender",
     key: "gender",
     name: "性別",
     description: "使用者資料的性別選項",
+    isSystem: true,
+    enabled: true,
   },
   {
     id: "cat-demo",
     key: "demo-category",
     name: "示範分類",
     description: null,
+    isSystem: true,
+    enabled: true,
+  },
+  {
+    id: "cat-cuisine",
+    key: "cuisine",
+    name: "料理類型",
+    description: "營運上臨時需要的分類",
+    isSystem: false,
+    enabled: false,
   },
 ];
 

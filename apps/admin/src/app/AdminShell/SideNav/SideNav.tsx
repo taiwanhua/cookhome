@@ -108,8 +108,24 @@ export const SideNav = ({
         </Stack>
       )}
 
-      {/* 模組多到超過視窗時只有這一格捲動(`minHeight: 0` 才拿得到確定的高度,STYLE-08) */}
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+      {/* 模組多到超過視窗時只有這一格垂直捲動(`minHeight: 0` 才拿得到確定的高度,STYLE-08)。
+          收合態兩軸都明確設:只寫 `overflow-y: auto` 會連帶把 `overflow-x` 算成 auto,而 64 寬扣掉內距與右邊框
+          比圖示格(40)窄 1px,就多出一條水平捲軸;捲軸本身也藏起來(64 寬放不下,滾輪 / 觸控照樣捲) */}
+      <Box
+        data-testid="side-nav-content"
+        sx={
+          isCollapsed
+            ? {
+                flex: 1,
+                minHeight: 0,
+                overflowX: "hidden",
+                overflowY: "auto",
+                scrollbarWidth: "none",
+                "&::-webkit-scrollbar": { display: "none" },
+              }
+            : { flex: 1, minHeight: 0, overflowY: "auto" }
+        }
+      >
         {isCollapsed ? (
           <NavRail nodes={tree} currentPath={currentPath} />
         ) : (

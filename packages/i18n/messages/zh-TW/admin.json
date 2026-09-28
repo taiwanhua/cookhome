@@ -3,7 +3,6 @@
     "subtitle": "後台管理",
     "loading": "載入中…",
     "apiError": "無法連線到 API,請確認 api 服務已啟動",
-    "language": "語言",
     "snackbar": {
       "close": "關閉"
     }
@@ -78,6 +77,16 @@
     }
   },
   "shell": {
+    "userMenu": {
+      "title": "使用者選單",
+      "appearance": "外觀",
+      "language": "語言",
+      "modes": {
+        "system": "跟隨系統",
+        "light": "亮",
+        "dark": "暗"
+      }
+    },
     "sideNav": "主選單",
     "collapseNav": "收合側欄",
     "expandNav": "展開側欄",
@@ -470,6 +479,9 @@
       "sidebarHidden": "隱藏頁",
       "sidebarContainer": "權限容器",
       "sidebarContainerHint": "這一層只掛權限、沒有畫面,讓這些權限可以單獨授予或停用。",
+      "engine": "引擎",
+      "engineForm": "表單引擎",
+      "engineFixed": "固定欄位",
       "order": "排序",
       "description": "描述",
       "icon": "圖示",
@@ -835,7 +847,11 @@
     "categories": {
       "title": "欄位類別",
       "seedNotice": "類別由系統統一維護(唯讀)",
-      "loading": "載入欄位類別"
+      "loading": "載入欄位類別",
+      "create": "+ 新增類別",
+      "manageNotice": "標「系統」的類別由系統維護,不能修改;在這裡新增的類別可改名、停用。",
+      "systemTag": "系統",
+      "disabledTag": "已停用"
     },
     "options": {
       "region": "欄位選項",
@@ -876,11 +892,33 @@
       "save": "儲存",
       "cancel": "取消"
     },
+    "categoryForm": {
+      "createTitle": "新增欄位類別",
+      "editTitle": "編輯欄位類別 — {category}",
+      "key": "類別 key",
+      "keyHint": "小寫英文、數字,以 - 分隔(如 cuisine-type);建立後不能改。",
+      "keyInvalid": "格式不符:只能用小寫英文、數字與單一 -,最長 40 字。",
+      "name": "類別名稱",
+      "description": "說明",
+      "createHint": "類別不能刪除;不再使用時請停用,表單設計器就不會再列出它,已經用到它的欄位照常顯示。",
+      "submit": "新增",
+      "save": "儲存",
+      "cancel": "取消"
+    },
+    "categoryActions": {
+      "edit": "編輯類別",
+      "disable": "停用類別",
+      "enable": "啟用類別"
+    },
     "feedback": {
       "createSuccess": "已新增選項。",
       "updateSuccess": "已儲存選項。",
       "enableSuccess": "已啟用這個選項。",
-      "disableSuccess": "已停用這個選項。"
+      "disableSuccess": "已停用這個選項。",
+      "categoryCreateSuccess": "已新增類別。",
+      "categoryUpdateSuccess": "已儲存類別。",
+      "categoryEnableSuccess": "已啟用這個類別。",
+      "categoryDisableSuccess": "已停用這個類別,表單設計器不會再列出它。"
     },
     "errors": {
       "FIELD_VALUE_DUPLICATE": "這個值在這個類別已經有人用了,請換一個。",
@@ -888,7 +926,10 @@
       "NOT_OWNER": "這個選項是別的組織加的,只有加它的組織改得動。",
       "NOT_FOUND": "找不到這個類別或選項,可能已被移除,請重新整理。",
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
-      "UNEXPECTED": "操作失敗,請稍後再試。"
+      "UNEXPECTED": "操作失敗,請稍後再試。",
+      "FIELD_CATEGORY_KEY_DUPLICATE": "這個 key 已經有類別用了(含已停用的),請換一個。",
+      "SYSTEM_CATEGORY": "系統類別不能停用。",
+      "ROOT_ONLY": "欄位類別只能由系統管理員新增、改名或停用。"
     }
   },
   "demoSampleOne": {
@@ -1170,7 +1211,16 @@
       "diffField": "欄位",
       "diffBefore": "修訂 {revision}",
       "diffAfter": "修訂 {revision}",
-      "close": "關閉"
+      "close": "關閉",
+      "rowAdded": "新增",
+      "rowRemoved": "刪除",
+      "rowMoved": "移動",
+      "rowChanged": "改值",
+      "rowChange": "標示",
+      "rowContent": "列內容",
+      "rowCells": "改了哪些格",
+      "arrayDiffAria": "{label} 的明細差異",
+      "revisionUpgradedLine": "修訂 {revision} · {user} 於 {at} 升級到第 {version} 版"
     },
     "pages": {
       "loading": "載入中",
@@ -1235,7 +1285,27 @@
       "WORKFLOW_UNPUBLISHED": "這張表單綁定的審核流程尚未發布,暫時不能送出,請聯絡管理員。",
       "WORKFLOW_MISCONFIGURED": "審核流程設定有誤,請聯絡管理員。",
       "REVISION_LIMIT": "修訂次數已達上限,請建立新的申請。",
-      "DOCUMENT_TOO_LARGE": "資料容量已達上限,請縮減內容。"
+      "DOCUMENT_TOO_LARGE": "修訂記錄已達容量上限,無法再修改。",
+      "FORM_HAS_WORKFLOW": "這張表單在本組織綁了審核流程,舊版資料不能升級到新版。",
+      "VERSION_NOT_PUBLISHED": "只能升級到已發布的版本,請重新整理。"
+    },
+    "array": {
+      "addRow": "+ 新增一列",
+      "removeRow": "刪除",
+      "duplicateRow": "複製",
+      "removeRowAria": "刪除第 {index} 列",
+      "duplicateRowAria": "複製第 {index} 列",
+      "insertAbove": "上方插入一列",
+      "insertAboveAria": "在第 {index} 列上方插入一列",
+      "moveUp": "上移",
+      "moveUpAria": "上移第 {index} 列",
+      "moveDown": "下移",
+      "moveDownAria": "下移第 {index} 列",
+      "rowActions": "操作",
+      "rowTitle": "第 {index} 列",
+      "noRows": "尚未新增任何一列",
+      "designPlaceholder": "明細列(預覽時可新增列)",
+      "maxReached": "已達最多 {max} 列"
     }
   },
   "forms": {
@@ -1252,7 +1322,9 @@
       "NOT_FOUND": "找不到這張表單或版本,可能已被刪除,請重新整理。",
       "VALIDATION_FAILED": "有欄位填寫不正確,或表單定義還有錯誤,請修正後再試。",
       "PERMISSION_NOT_DELETABLE": "這個權限目前不能刪除。",
-      "UNEXPECTED": "操作失敗,請稍後再試。"
+      "UNEXPECTED": "操作失敗,請稍後再試。",
+      "FORM_HAS_WORKFLOW": "這張表單在本組織綁了審核流程,舊版資料不能升級到新版。",
+      "VERSION_NOT_PUBLISHED": "只能升級到已發布的版本,請重新整理。"
     },
     "list": {
       "region": "表單清單",
@@ -1352,7 +1424,7 @@
       "insertField": "插入欄位的值",
       "insertFieldHint": "挑一個欄位,把它的值插到模板最後",
       "insertFieldEmpty": "還沒有版本,沒有欄位可挑",
-      "sampleModule": "請假",
+      "sampleModule": "示範表單",
       "sampleAction": "檢視",
       "sampleValue": "〈{label}〉"
     },
@@ -1387,7 +1459,9 @@
       "interrupted": "上次發布沒有完成。請按「重試發布」完成它;完成前不能開新草稿、退役或再發布。",
       "retry": "重試發布",
       "retried": "已完成發布。",
-      "publishedLine": "{at} · {user}"
+      "publishedLine": "{at} · {user}",
+      "upgrade": "將舊版資料升級到此版",
+      "upgradeBlockedByWorkflow": "這張表單在本組織綁了審核流程,舊版資料不能升級到新版。"
     },
     "deleteDraft": {
       "title": "刪除草稿?",
@@ -1444,7 +1518,8 @@
         "multiSelect": "多選",
         "boolean": "是否",
         "upload": "上傳",
-        "reference": "引用"
+        "reference": "引用",
+        "array": "明細列"
       },
       "addField": "新增{type}欄位",
       "addSection": "+ 新增分區",
@@ -1465,7 +1540,8 @@
       "copied": "已複製。",
       "copyFailed": "複製失敗。",
       "regexChecking": "正則檢查中…",
-      "regexUnavailable": "目前無法即時檢查正則的安全性;存草稿時會再檢查。"
+      "regexUnavailable": "目前無法即時檢查正則的安全性;存草稿時會再檢查。",
+      "newColumn": "項目"
     },
     "preview": {
       "region": "預覽",
@@ -1497,7 +1573,8 @@
         "multiSelect": "多選",
         "boolean": "是否",
         "upload": "上傳",
-        "reference": "引用"
+        "reference": "引用",
+        "array": "明細列"
       },
       "widget": "元件",
       "rows": "列數",
@@ -1517,7 +1594,8 @@
         "switch": "開關",
         "checkbox": "勾選框",
         "upload": "上傳",
-        "referencePicker": "搜尋選擇器"
+        "referencePicker": "搜尋選擇器",
+        "table": "表格"
       },
       "span": "寬度(12 格)",
       "precision": "小數位數",
@@ -1556,7 +1634,8 @@
       "defaultHint": "新增時自動填入;填寫的人還沒改過這欄前,它引用的欄位變了會跟著重算,改過就不再變。",
       "optionDisabled": "{label}(已停用)",
       "defaultPickerHint": "用填寫時的選擇器挑(選項以已存的草稿查詢)",
-      "defaultClear": "清除預設值"
+      "defaultClear": "清除預設值",
+      "spanFixed": "明細列固定占滿 12 格"
     },
     "options": {
       "source": "選項來源",
@@ -1650,7 +1729,10 @@
       },
       "uploadMaxSize": "大小上限(MB)",
       "uploadMaxSizeHint": "不填 = 平台上限 {max} MB;只能調小",
-      "dateTimeRangeZone": "以 {timezone} 的時間輸入"
+      "dateTimeRangeZone": "以 {timezone} 的時間輸入",
+      "minRows": "最少列數",
+      "maxRows": "最多列數",
+      "rowsHint": "沒設最多列數 = {fallback} 列,上限 {max} 列;必填 = 至少一列"
     },
     "expression": {
       "root": "根",
@@ -1704,7 +1786,12 @@
         "dateAdd": "日期加減",
         "concat": "串接文字",
         "optionLabel": "選項顯示名",
-        "now": "現在時間"
+        "now": "現在時間",
+        "sumOf": "明細加總",
+        "countOf": "明細筆數",
+        "minOf": "明細最小",
+        "maxOf": "明細最大",
+        "avgOf": "明細平均"
       },
       "constantKind": "常數種類",
       "constants": {
@@ -1744,7 +1831,11 @@
       "removeArg": "移除",
       "set": "設定",
       "clear": "清除",
-      "json": "{label} 的 JSON"
+      "json": "{label} 的 JSON",
+      "arrayField": "明細欄",
+      "arrayFieldUnset": "請選明細欄",
+      "arrayColumn": "數字子欄位",
+      "arrayColumnUnset": "請選子欄位"
     },
     "settings": {
       "title": "表單設定",
@@ -1844,6 +1935,62 @@
         "cancel": "取消",
         "confirm": "解除綁定"
       }
+    },
+    "columns": {
+      "title": "子欄位",
+      "list": "子欄位清單",
+      "open": "設定子欄位「{label}」",
+      "required": "必填",
+      "widthOf": "寬 {width}px",
+      "remove": "刪除子欄位",
+      "removeOf": "刪除子欄位「{label}」",
+      "add": "+ 子欄位",
+      "newColumn": "項目",
+      "panel": "子欄位設定",
+      "panelTitle": "子欄位 — {label}",
+      "back": "← 回子欄位清單",
+      "width": "表格欄寬(px)",
+      "widthHint": "表格欄的最小寬;手機的卡片版面不適用",
+      "sources": {
+        "input": "使用者填",
+        "computed": "列內公式"
+      },
+      "formula": "列內公式",
+      "rowField": "本列・{label}"
+    },
+    "upgrade": {
+      "title": "將舊版資料升級到 v{version}",
+      "steps": "步驟 {step} / 3:{name}",
+      "stepPlan": "升級範圍與補值",
+      "stepConfirm": "確認",
+      "stepResult": "結果",
+      "loading": "載入升級範圍",
+      "groupsTitle": "要升級的資料",
+      "groupLine": "v{version}:{count} 筆",
+      "nothing": "沒有需要升級的資料(都已是這一版)。",
+      "fillsTitle": "補值",
+      "fillsHint": "只填到「那一筆沒有值」的欄位,已有值不覆蓋;可以留空。升級不檢查必填與格式,不符規則的資料在下次編輯送出時才需要補齊。",
+      "noFills": "這一版沒有需要補值的欄位。",
+      "fillEmpty": "不補",
+      "confirmBody": "將把 {count} 筆資料改為 v{version},重算計算欄位與摘要;已完成的資料會多一筆修訂紀錄。",
+      "confirmFillsTitle": "補值",
+      "confirmNoFills": "不補值",
+      "resultUpgraded": "已升級",
+      "resultUpgradedLine": "v{version}:{count} 筆",
+      "resultNoneUpgraded": "沒有資料被升級。",
+      "resultSkipped": "跳過",
+      "resultSkippedLine": "{reason}:{count} 筆",
+      "skipReasons": {
+        "EDIT_CONFLICT": "升級時正好被別人修改",
+        "DOCUMENT_TOO_LARGE": "修訂記錄已達容量上限",
+        "VALUES_INVALID": "舊資料的值無法換算到新版"
+      },
+      "cancel": "取消",
+      "next": "下一步",
+      "back": "上一步",
+      "confirm": "開始升級",
+      "close": "關閉",
+      "success": "升級完成。"
     }
   },
   "approval": {
@@ -2348,6 +2495,7 @@
       "levelOption": "第 {level} 層",
       "needsCheckForm": "請先選檢查用表單",
       "fieldCurrent": "目前:{form} / {field}",
+      "fieldNoChoices": "檢查用表單沒有「引用(使用者)」欄位;請先在表單設計器加一個資料來源為使用者的引用欄位並發布。",
       "fieldOtherForm": "這一關原本指向表單「{form}」;改選欄位會換成檢查用表單的欄位。",
       "noCheckFormReadonly": "這一版沒有指定檢查用表單"
     },

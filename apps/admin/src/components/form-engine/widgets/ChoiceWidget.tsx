@@ -29,6 +29,7 @@ export const ChoiceWidget = (props: WidgetProps) => {
   const { field, value, onChange, isDisabled, isDesign, helperText, hasError } =
     props;
   const isReadOnly = props.isReadOnly ?? false;
+  const hiddenLabel = props.hiddenLabel ?? false;
   const t = useTranslations("admin.formEngine.widgets");
   const [keyword, setKeyword] = useState("");
   // 唯讀檢視不查選項:顯示名來自 `displayValues`(現名 / 快照)與定義裡的靜態 label
@@ -45,6 +46,7 @@ export const ChoiceWidget = (props: WidgetProps) => {
         value={value}
         context={props.context}
         helperText={helperText}
+        hiddenLabel={hiddenLabel}
         {...(props.display !== undefined && { display: props.display })}
       />
     );
@@ -105,6 +107,7 @@ export const ChoiceWidget = (props: WidgetProps) => {
     return (
       <Autocomplete<ChoiceOption>
         label={field.label}
+        hiddenLabel={hiddenLabel}
         options={listed}
         value={
           optionOfStored(value) === null
@@ -133,6 +136,7 @@ export const ChoiceWidget = (props: WidgetProps) => {
   return (
     <SelectField
       label={field.label}
+      hiddenLabel={hiddenLabel}
       value={current}
       displayEmpty
       options={[

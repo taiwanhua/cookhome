@@ -17,6 +17,7 @@ export const TextWidget = ({
   onChange,
   isDisabled,
   isReadOnly = false,
+  hiddenLabel = false,
   helperText,
   hasError,
   context,
@@ -28,6 +29,7 @@ export const TextWidget = ({
         value={value}
         context={context}
         helperText={helperText}
+        hiddenLabel={hiddenLabel}
       />
     );
   }
@@ -38,7 +40,7 @@ export const TextWidget = ({
 
   return (
     <TextField
-      label={field.label}
+      label={hiddenLabel ? undefined : field.label}
       value={scalarText(value)}
       onChange={(event) => {
         onChange(event.target.value);
@@ -51,6 +53,9 @@ export const TextWidget = ({
       size="small"
       {...(placeholder !== "" && { placeholder })}
       {...(isMultiline && { multiline: true, minRows: rows })}
+      {...(hiddenLabel && {
+        slotProps: { htmlInput: { "aria-label": field.label } },
+      })}
     />
   );
 };

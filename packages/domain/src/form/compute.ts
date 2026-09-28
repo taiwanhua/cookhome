@@ -1,9 +1,11 @@
+import { arrayColumnsOf, arrayRowsOf } from "./array";
 import { FormDecimal, roundToPrecision } from "./decimal";
-import { computedOrder } from "./dependencies";
+import { type ComputeNode, computeOrder } from "./dependencies";
 import { evaluateRaw } from "./expression";
-import { semanticValuesOf } from "./semantic";
+import { semanticRowOf, semanticValuesOf } from "./semantic";
 import { startOfLocalDayOf, toInstant, toIso } from "./temporal";
 import type {
+  ArrayColumnDef,
   ExpressionContext,
   FieldDef,
   FieldType,
@@ -13,7 +15,8 @@ import { normalizeFieldValue } from "./values";
 
 /**
  * 計算欄位與固定值欄位的值(Spec §5:前端即時算供預覽,送出時後端重算並以後端為準)。
- * 本檔只管「算」;隱藏清空、受保護守門等寫入規則由 api 依 Spec §5「不能填的四種原因」處理。
+ * 本檔只管「算」;受保護守門等寫入規則由 api 依 Spec §5「不能填的四種原因」處理。
+ * 被顯示條件隱藏的欄位在計算輸入裡一律是 null(`ComputeInput.hidden`;哪些欄位隱藏由 `settleHidden` 收斂)。
  */
 
 /**
@@ -89,6 +92,23 @@ export interface ComputeInput {
   /** 目前的存值(使用者輸入 + 既有值)。 */
   values: StoredValues;
   ctx: ExpressionContext;
+  /**
+   * 被 `visibleWhen` 隱藏的欄位 key:計算輸入裡當 null(明細整欄 null,彙總視為空),
+   * 它們自己也不算、結果一律 null(Spec §5「不能填的四種原因」順序 1)。不給 = 都顯示。
+   */
+  hidden?: ReadonlySet<string>;
+}
+
+/** 隱藏的欄位換成 null(回新物件,不改傳入的值);前端狀態不清,只在計算輸入替換。 */
+export function withHiddenAsNull(
+  values: StoredValues,
+  hidden: ReadonlySet<string>,
+): StoredValues {
+  const result: StoredValues = { ...values };
+  for (const key of hidden) {
+    result[key] = null;
+  }
+  return result;
 }
 
 /**
@@ -145,29 +165,99 @@ function constantValueOf(field: FieldDef, timezone: string): unknown {
 }
 
 /**
- * 依拓樸順序算完全部計算欄位與固定值欄位,回傳 `{ fieldKey: 存值 }`(只含這兩類欄位)。
+ * 算一列的一個列內公式子欄:`row.*` 讀同一列子欄的語意值,也可讀表單層欄位與 `ctx.*`;
+ * 結果照子欄型別收斂(數字取到子欄的 `precision` —— 每個計算子欄都是自己的取位邊界)。
+ */
+function computeColumnCell(
+  column: ArrayColumnDef,
+  arrayField: FieldDef,
+  row: Record<string, unknown>,
+  fields: readonly FieldDef[],
+  semantic: Record<string, unknown>,
+  input: ComputeInput,
+): unknown {
+  if (column.valueSource.kind !== "computed") {
+    return row[column.key] ?? null;
+  }
+  let raw: unknown;
+  try {
+    raw = evaluateRaw(column.valueSource.expr, {
+      values: semantic,
+      ctx: input.ctx,
+      fields,
+      stored: input.values,
+      row: semanticRowOf(arrayField, row),
+      rowColumns: arrayColumnsOf(arrayField),
+    });
+  } catch {
+    return null;
+  }
+  return coerceComputedResult(
+    column.type,
+    column.precision,
+    raw,
+    input.ctx.timezone,
+  );
+}
+
+/** 一個計算節點:表單層欄位回它的值;子欄節點回整個明細欄的新列(每列算這個子欄)。 */
+function computeNode(
+  node: ComputeNode,
+  fields: readonly FieldDef[],
+  stored: StoredValues,
+  input: ComputeInput,
+): unknown {
+  const semantic = semanticValuesOf(fields, stored);
+  const withStored = { ...input, values: stored };
+  if (node.kind === "field") {
+    return computeField(node.field, fields, semantic, withStored);
+  }
+  const rows = stored[node.field.key];
+  if (!Array.isArray(rows)) {
+    // 明細為 null(隱藏或沒有列):沒有格可以算
+    return rows ?? null;
+  }
+  return arrayRowsOf(rows).map((row) => ({
+    ...row,
+    [node.column.key]: computeColumnCell(
+      node.column,
+      node.field,
+      row,
+      fields,
+      semantic,
+      withStored,
+    ),
+  }));
+}
+
+/**
+ * 依**完整依賴圖**的拓樸順序算完全部計算欄位、明細的列內公式子欄與固定值欄位,
+ * 回傳 `{ fieldKey: 存值 }`(只含這幾類欄位;有列內公式的明細欄回算好的整份列)。
+ * 下游讀的是上游**取位後**的值(總額 = 各列取位後小計相加)。
+ * `input.hidden` 裡的欄位當 null 參與計算,本身也回 null。
  * 公式引用成圈 → `ComputedCycleError`(檢查器應先擋)。
  */
 export function computeAll(
   fields: readonly FieldDef[],
   input: ComputeInput,
 ): Record<string, unknown> {
+  const hidden = input.hidden ?? new Set<string>();
   const results: Record<string, unknown> = {};
-  const stored: StoredValues = { ...input.values };
+  const stored = withHiddenAsNull(input.values, hidden);
   for (const field of fields) {
     if (field.valueSource.kind === "constant") {
-      results[field.key] = constantValueOf(field, input.ctx.timezone);
+      results[field.key] = hidden.has(field.key)
+        ? null
+        : constantValueOf(field, input.ctx.timezone);
       stored[field.key] = results[field.key];
     }
   }
-  for (const field of computedOrder(fields)) {
-    const semantic = semanticValuesOf(fields, stored);
-    const value = computeField(field, fields, semantic, {
-      ...input,
-      values: stored,
-    });
-    results[field.key] = value;
-    stored[field.key] = value;
+  for (const node of computeOrder(fields)) {
+    const value = hidden.has(node.field.key)
+      ? null
+      : computeNode(node, fields, stored, input);
+    results[node.field.key] = value;
+    stored[node.field.key] = value;
   }
   return results;
 }

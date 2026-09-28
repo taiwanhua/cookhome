@@ -166,13 +166,16 @@ export class ModuleListColumnsService {
         version: form.currentVersion,
       });
       const fields = version?.fields ?? [];
+      // 明細欄不能當列表欄(列表只顯示單值),目錄裡不列 —— 送來就是「不在目前版本」
       catalog.set(
         form.key,
         new Map(
-          fields.map((field) => [
-            field.key,
-            requiredShowKeys(fields, field.key).length > 0,
-          ]),
+          fields
+            .filter((field) => field.type !== "array")
+            .map((field) => [
+              field.key,
+              requiredShowKeys(fields, field.key).length > 0,
+            ]),
         ),
       );
     }

@@ -162,7 +162,7 @@ _Avoid_: 含子孫的 wildcard、前綴權限
 正本:`docs/concepts/data-layer-and-isolation.md`「種子資料與遷移」、`apps/db-migrator/seeds/`
 
 **欄位類別(Field Category)**:
-一組動態選單的母檔,以 key 識別(如「食譜分類」)。
+一組動態選單的母檔,以 key 識別(如「食譜分類」)。兩種來源並列:開發者在 seed 宣告的**系統類別**(跨環境同步、不可停用),與 root 在欄位管理畫面新增的類別(只在該環境、可停用);seed 宣告同一個 key 時**認養**畫面建的那一筆(轉成系統類別、`_id` 不動)。類別不可刪,停用只讓它從表單設計器的類別清單消失。
 _Avoid_: 字段管理(改用「欄位管理」稱呼此功能模組)
 
 **欄位選項(Field)**:
@@ -200,11 +200,11 @@ _Avoid_: 平台級資料(users 適用、roles 不適用,故不採)
 正本:`docs/concepts/form-engine.md`、`docs/modules/forms.md`、`apps/api/src/forms/`、`packages/domain/src/form/`、`apps/admin/src/components/form-engine/`
 
 **表單模組**:
-seed 宣告 `engine: "form"` 的業務模組;骨架(路由、隱藏頁、權限、資料目標)照舊由 seed 宣告,頁面由表單引擎組裝,資料存所有表單模組共用的 `form_submissions`。範例:購物清單。與固定欄位模組(示範模組那種)並存。
+seed 宣告 `engine: "form"` 的業務模組;骨架(路由、隱藏頁、權限、資料目標)照舊由 seed 宣告,頁面由表單引擎組裝,資料存所有表單模組共用的 `form_submissions`。範例:三個示範表單(頂層 `demo-form`、群組內 `demo.form`、次群組內 `demo.sub.form`)。與固定欄位模組(示範模組那種)並存。
 _Avoid_: 動態模組、表單頁
 
 **表單**:
-一種填報的身分(如「購物清單」「病假單」),全域唯一 key、**建立後不可改**,掛在一個表單模組下。分共用表單與客製表單。
+一種填報的身分(如「購物單」「病假單」),全域唯一 key、**建立後不可改**,掛在一個表單模組下。分共用表單與客製表單。
 _Avoid_: 表單範本、表單類型
 
 **共用表單**:
@@ -268,7 +268,7 @@ _Avoid_: 版本(版本專指表單版本)
 正本:`docs/concepts/workflow-engine.md`、`docs/modules/workflows.md`、`apps/api/src/workflows/`、`packages/domain/src/workflow/`、`apps/admin/src/components/workflow/`
 
 **流程**:
-一組審核關卡的身分(如「請假審核」),全域唯一 key、**建立後不可改**。和表單一樣是執行期資料(畫面上設計、版本化、發布),不寫進 seed。分共用流程與客製流程。
+一組審核關卡的身分(如「病假審核」),全域唯一 key、**建立後不可改**。和表單一樣是執行期資料(畫面上設計、版本化、發布),不寫進 seed。分共用流程與客製流程。
 _Avoid_: 簽核單、工作流範本
 
 **共用流程**:

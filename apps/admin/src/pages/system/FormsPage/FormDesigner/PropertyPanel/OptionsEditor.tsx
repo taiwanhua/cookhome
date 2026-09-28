@@ -20,6 +20,8 @@ import { useRowIds } from "./useRowIds";
 export interface OptionsEditorProps {
   value: FieldOptions | null | undefined;
   onChange: (value: FieldOptions) => void;
+  /** 可選的來源(明細子欄只有靜態清單與欄位管理類別);預設三種都可選 */
+  kinds?: readonly FieldOptions["kind"][];
 }
 
 type SourceKind = FieldOptions["kind"];
@@ -48,19 +50,26 @@ const UNSET = "";
 
 /**
  * 選項欄的三種來源(Spec 6a §5「`options` 三種來源」):靜態清單逐列加 value / label(可停用、依列順序排)、
- * 欄位管理類別**從類別清單下拉挑**(`fieldCategories`)、lookup 來源選 provider / 表單 / 顯示欄 / 值欄。
+ * 欄位管理類別**從啟用的類別清單下拉挑**(`fieldCategories(enabledOnly)`)、lookup 來源選 provider / 表單 / 顯示欄 / 值欄。
  * value 重複等由檢查器報錯。靜態清單的列以**穩定內部 id** 當 React key(`useRowIds`),改 value 不會整列重掛失焦。
  */
-export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
+export const OptionsEditor = ({
+  value,
+  onChange,
+  kinds = SOURCE_KINDS,
+}: OptionsEditorProps) => {
   const t = useTranslations("admin.forms.options");
   const tForms = useTranslations("admin.forms");
   const { session } = useSession();
   const options = value ?? emptyOf("static");
   const items = options.kind === "static" ? options.items : [];
   const rows = useRowIds(items.length);
-  const categories = useFieldCategoriesQuery(session.client, undefined, {
-    enabled: options.kind === "fieldCategory",
-  });
+  // 只列啟用的類別(停用只影響這裡的清單與新選);已選了停用類別的欄位,下面照樣以 key 顯示那一個值
+  const categories = useFieldCategoriesQuery(
+    session.client,
+    { input: { enabledOnly: true } },
+    { enabled: options.kind === "fieldCategory" },
+  );
   const categoryOptions = (categories.data?.fieldCategories.items ?? []).map(
     (category) => ({
       value: category.key,
@@ -83,7 +92,7 @@ export const OptionsEditor = ({ value, onChange }: OptionsEditorProps) => {
       <SelectField<SourceKind>
         label={t("source")}
         value={options.kind}
-        options={SOURCE_KINDS.map((kind) => ({
+        options={kinds.map((kind) => ({
           value: kind,
           label: t(`sources.${kind}`),
         }))}

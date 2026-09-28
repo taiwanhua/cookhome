@@ -25,17 +25,21 @@ import { createRole } from "../../permission/test-support/fixtures";
 
 /**
  * 審核流程 api 測試的共用夾具(TEST-07;同表單引擎的分檔方式):GraphQL 文件、一個租戶的組織 / 人 / 角色、
- * 請假表單、設計 → 發布 → 綁定的捷徑、送出與審核的捷徑。測試檔只寫行為。
+ * 病假表單、設計 → 發布 → 綁定的捷徑、送出與審核的捷徑。測試檔只寫行為。
  */
 
 /** 一個情境要走十幾次到幾十次 GraphQL 往返,放寬單一測試逾時(理由同 `FORM_TEST_TIMEOUT_MS`)。 */
 export const WORKFLOW_TEST_TIMEOUT_MS = 180_000;
 
-export const LEAVE = "leave";
+export const WORKFLOW_MODULE = "demo.form";
 export const FORM_KEY = "sick_leave";
 
-const USER_MODULES = [LEAVE, "apply-center", "apply-center.view-page"];
-const USER_PERMISSIONS = [`${LEAVE}.*`, "apply-center.view"];
+const USER_MODULES = [
+  WORKFLOW_MODULE,
+  "apply-center",
+  "apply-center.view-page",
+];
+const USER_PERMISSIONS = [`${WORKFLOW_MODULE}.*`, "apply-center.view"];
 const ADMIN_MODULES = [
   "system",
   "system.workflows",
@@ -810,7 +814,7 @@ export interface World {
   staff: Person[];
 }
 
-/** 請假表單的欄位:標題、天數、指定審核者(使用者引用)、備註。 */
+/** 病假表單的欄位:標題、天數、指定審核者(使用者引用)、備註。 */
 export const LEAVE_FIELDS: FieldDef[] = [
   field("title", "text"),
   field("days", "number"),
@@ -833,8 +837,8 @@ export function uploadValue(uuid: string): Record<string, unknown> {
 
 /** 模組與權限(給需要別的組合的測試自己建人)。 */
 export const PERSON_SCOPES = {
-  userModules: ["leave", "apply-center", "apply-center.view-page"],
-  userPermissions: ["leave.*", "apply-center.view"],
+  userModules: [WORKFLOW_MODULE, "apply-center", "apply-center.view-page"],
+  userPermissions: [`${WORKFLOW_MODULE}.*`, "apply-center.view"],
 } as const;
 
 export async function setupWorld(
@@ -870,9 +874,9 @@ export async function setupWorld(
   for (let index = 0; index < staffCount; index += 1) {
     staff.push(await person(api, connection, tenant, tenant));
   }
-  // 共用請假表單(root 建、發布、分派給租戶)
+  // 共用病假表單(root 建、發布、分派給租戶)
   await ok(api, root, CREATE_FORM, {
-    input: { key: FORM_KEY, moduleKey: LEAVE, name: "病假單" },
+    input: { key: FORM_KEY, moduleKey: WORKFLOW_MODULE, name: "病假單" },
   });
   await publishDefinition(
     api,
@@ -1036,7 +1040,7 @@ export async function bindForm(
   });
 }
 
-/** 發布一個流程並綁到請假表單。 */
+/** 發布一個流程並綁到病假表單。 */
 export async function useWorkflow(
   world: World,
   key: string,

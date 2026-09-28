@@ -7,29 +7,17 @@ import { CreateFieldInput } from "./dto/create-field.input";
 import { SetFieldEnabledInput } from "./dto/set-field-enabled.input";
 import { UpdateFieldInput } from "./dto/update-field.input";
 import { FieldsService } from "./fields.service";
-import {
-  FieldCategoriesPayload,
-  FieldPayload,
-  FieldsPayload,
-} from "./models/field-payloads.model";
+import { FieldPayload, FieldsPayload } from "./models/field-payloads.model";
 import { FieldModel } from "./models/field.model";
 
 /**
  * 欄位管理的 GraphQL 端點(#206;形式 GQL-02 / GQL-03、錯誤 GQL-04)。
  * resolver 只做「守門 + 轉呼叫」,合併範圍與種子保護全在 service(STRUCT-01);
- * 每個 key 對應 field-manager.md 權限表的同一行。
+ * 每個 key 對應 field-manager.md 權限表的同一行。類別清單與類別作業在 `field-categories.resolver.ts`。
  */
 @Resolver(() => FieldModel)
 export class FieldsResolver {
   constructor(private readonly service: FieldsService) {}
-
-  @RequirePermission("system.field-manager.view")
-  @Query(() => FieldCategoriesPayload, { name: "fieldCategories" })
-  fieldCategories(
-    @CurrentOperator() operator: OperatorContext,
-  ): Promise<FieldCategoriesPayload> {
-    return this.service.listCategories(operator);
-  }
 
   @RequirePermission("system.field-manager.view")
   @Query(() => FieldsPayload, { name: "fields" })

@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
   ALLOW_CUSTOM_WIDGETS,
   type ExpressionSlot,
   type FieldDef,
+  arrayColumnsOf,
 } from "@repo/domain/form";
 import { Button } from "@repo/ui/button";
 import { FormControlLabel } from "@repo/ui/form-control-label";
@@ -18,6 +20,9 @@ import type { FieldKeyProblem } from "@/lib/form-engine/designer-ops";
 import { conditionFieldsOf } from "@/lib/form-engine/expression-options";
 import { propertySectionsOf } from "@/lib/form-engine/property-sections";
 
+import { ArrayColumnPanel } from "./ArrayColumnsEditor/ArrayColumnPanel";
+import { ArrayColumnsEditor } from "./ArrayColumnsEditor/ArrayColumnsEditor";
+import { ArrayRowRangeEditor } from "./ArrayRowRangeEditor";
 import { DefaultValueEditor } from "./DefaultValueEditor";
 import { FieldBasicsEditor } from "./FieldBasicsEditor";
 import { LookupSourceEditor } from "./LookupSourceEditor";
@@ -69,10 +74,45 @@ export const FieldPropertyPanel = ({
     issues
       .filter((issue) => issue.location.exprSlot === slot)
       .map((issue) => issue.message);
+  // 明細子欄的錯誤在「子欄位」區塊裡顯示(清單標紅、點進子欄看)
   const general = issues.filter(
-    (issue) => issue.location.exprSlot === undefined,
+    (issue) =>
+      issue.location.exprSlot === undefined &&
+      issue.location.columnKey === undefined,
   );
   const permission = field.permission ?? { show: false, edit: false };
+  // 明細列:點一個子欄 → 整個面板換成子欄的縮小版(面板以欄位的內部 id 為 key,換欄位時歸零)
+  const [columnIndex, setColumnIndex] = useState<number | null>(null);
+  const columns = arrayColumnsOf(field);
+  const column = columnIndex === null ? undefined : columns.at(columnIndex);
+  const columnIssues = issues.filter(
+    (issue) => issue.location.columnKey !== undefined,
+  );
+
+  if (columnIndex !== null && column !== undefined) {
+    return (
+      <ArrayColumnPanel
+        arrayField={field}
+        column={column}
+        fields={fields}
+        formKey={formKey}
+        issues={columnIssues.filter(
+          (issue) => issue.location.columnKey === column.key,
+        )}
+        onChange={(next) => {
+          onChange({
+            ...field,
+            columns: columns.map((item, index) =>
+              index === columnIndex ? next : item,
+            ),
+          });
+        }}
+        onBack={() => {
+          setColumnIndex(null);
+        }}
+      />
+    );
+  }
 
   return (
     <Stack spacing={2}>
@@ -133,6 +173,14 @@ export const FieldPropertyPanel = ({
           }}
         />
       )}
+      {sections.arrayColumns && (
+        <ArrayColumnsEditor
+          field={field}
+          issues={columnIssues}
+          onChange={onChange}
+          onOpen={setColumnIndex}
+        />
+      )}
       {sections.options && (
         <OptionsEditor
           value={field.options}
@@ -160,6 +208,14 @@ export const FieldPropertyPanel = ({
           onChange({ ...field, rules });
         }}
       />
+      {sections.rowRange && (
+        <ArrayRowRangeEditor
+          rules={field.rules ?? {}}
+          onChange={(rules) => {
+            onChange({ ...field, rules });
+          }}
+        />
+      )}
       <ExpressionPicker
         label={t("visibleWhen")}
         value={field.visibleWhen}

@@ -6,6 +6,7 @@ import {
   type WidgetRegistry,
 } from "./registry";
 import type { FieldDef, FormDefinition } from "./types";
+import { validateArrayFields } from "./validate-array";
 import { validateDefaults } from "./validate-defaults";
 import { validateExpressionTypes } from "./validate-expression-types";
 import { validateExpressions } from "./validate-expressions";
@@ -58,6 +59,17 @@ export function validateDefinition(
       }),
       ...(options.lookupProviders && {
         lookupProviders: options.lookupProviders,
+      }),
+    },
+    collector,
+  );
+  validateArrayFields(
+    definition.fields,
+    {
+      widgets: options.widgets ?? DEFAULT_WIDGET_REGISTRY,
+      regexSafety: options.regexSafety,
+      ...(options.fieldCategoryKeys && {
+        fieldCategoryKeys: options.fieldCategoryKeys,
       }),
     },
     collector,

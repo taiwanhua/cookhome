@@ -4,8 +4,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { ModuleListColumnKind } from "@repo/graphql";
 
 import {
-  SHOPPING_LIST_KEY,
-  SHOPPING_ROUTES,
+  DEMO_FORM_KEY,
+  DEMO_FORM_ROUTES,
   submissionFragment,
 } from "@/test/msw/form-fixtures";
 import { setupFakeViewport } from "@/test/viewport";
@@ -32,17 +32,21 @@ const createButton = async () => {
  * 5 秒的預設等待偶爾不夠(曾在本機全量跑紅一次、單檔跑過),這一段放寬到 10 秒。
  */
 const table = () =>
-  screen.findByRole("table", { name: "購物清單清單" }, { timeout: 10_000 });
+  screen.findByRole(
+    "table",
+    { name: "示範表單(頂層)清單" },
+    { timeout: 10_000 },
+  );
 
 describe("表單模組列表頁(預設組裝)", () => {
   it("列表依列表欄位配置顯示;配置引用那一筆版本沒有的欄位顯示「—」", async () => {
     renderShopping({
-      path: SHOPPING_ROUTES.list,
+      path: DEMO_FORM_ROUTES.list,
       world: {
         ...defaultRuntimeOptions(),
         submissions: [submissionFragment()],
         listColumns: {
-          [SHOPPING_LIST_KEY]: [
+          [DEMO_FORM_KEY]: [
             {
               kind: ModuleListColumnKind.Slot,
               key: "title",
@@ -87,12 +91,12 @@ describe("表單模組列表頁(預設組裝)", () => {
 
   it("沒有資料列時表頭仍是欄位名(讀表單目前版本);內建欄關掉的不顯示", async () => {
     renderShopping({
-      path: SHOPPING_ROUTES.list,
+      path: DEMO_FORM_ROUTES.list,
       world: {
         ...defaultRuntimeOptions(),
         submissions: [],
         listColumns: {
-          [SHOPPING_LIST_KEY]: [
+          [DEMO_FORM_KEY]: [
             {
               kind: ModuleListColumnKind.Field,
               key: "qty",
@@ -103,7 +107,7 @@ describe("表單模組列表頁(預設組裝)", () => {
           ],
         },
         listBuiltin: {
-          [SHOPPING_LIST_KEY]: { form: false, status: true, createdBy: false },
+          [DEMO_FORM_KEY]: { form: false, status: true, createdBy: false },
         },
       },
     });
@@ -124,7 +128,7 @@ describe("表單模組列表頁(預設組裝)", () => {
   });
 
   it("此刻可新增的表單只有一張:按新增直接進那張表單", async () => {
-    const { user } = renderShopping({ path: SHOPPING_ROUTES.list });
+    const { user } = renderShopping({ path: DEMO_FORM_ROUTES.list });
 
     await user.click(await createButton());
 
@@ -132,13 +136,13 @@ describe("表單模組列表頁(預設組裝)", () => {
       await screen.findByRole("heading", { name: "新增 — 購物單" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("location")).toHaveTextContent(
-      `${SHOPPING_ROUTES.createPage}/shopping_list`,
+      `${DEMO_FORM_ROUTES.createPage}/shopping_list`,
     );
   });
 
   it("多張表單:先選(FormPicker),選了才進新增頁", async () => {
     const { user } = renderShopping({
-      path: SHOPPING_ROUTES.list,
+      path: DEMO_FORM_ROUTES.list,
       world: {
         ...defaultRuntimeOptions(),
         moduleForms: [
@@ -162,14 +166,14 @@ describe("表單模組列表頁(預設組裝)", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent(
-        `${SHOPPING_ROUTES.createPage}/shopping_list`,
+        `${DEMO_FORM_ROUTES.createPage}/shopping_list`,
       );
     });
   });
 
   it("沒有可新增的表單(停用、收回或退役):新增鈕停用", async () => {
     renderShopping({
-      path: SHOPPING_ROUTES.list,
+      path: DEMO_FORM_ROUTES.list,
       world: { ...defaultRuntimeOptions(), moduleForms: [] },
     });
 

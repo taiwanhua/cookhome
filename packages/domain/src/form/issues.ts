@@ -8,6 +8,8 @@ export interface DefinitionIssue {
 
 export interface DefinitionIssueLocation {
   fieldKey?: string;
+  /** 明細欄的子欄 key(`fieldKey` 是明細欄);子欄的設定、列內公式出錯時有值。 */
+  columnKey?: string;
   /** 欄位上的哪個表達式:`valueSource.expr` / `default.expr` / `visibleWhen` / `readonlyWhen` / `rules.custom`。 */
   exprSlot?: ExpressionSlot;
   /** 表達式樹裡的節點位置(`scanExpression` 的 path;根為空字串)。 */
@@ -85,6 +87,21 @@ export const DEFINITION_ERROR_CODES = [
   "PREFILL_TYPE_INCOMPATIBLE",
   "PREFILL_TARGET_NOT_INPUT",
   "REFERENCE_SOURCE_MISSING",
+  "ARRAY_LIMIT",
+  "ARRAY_COLUMNS_MISSING",
+  "ARRAY_COLUMN_LIMIT",
+  "ARRAY_COLUMN_KEY",
+  "ARRAY_COLUMN_KEY_DUPLICATE",
+  "ARRAY_COLUMN_TYPE",
+  "ARRAY_COLUMN_WIDGET",
+  "ARRAY_COLUMN_SETTING",
+  "ARRAY_FIELD_SETTING",
+  "ARRAY_ROWS_INVALID",
+  "ARRAY_SPAN",
+  "ARRAY_NOT_ALLOWED",
+  "EXPR_ROW_OUT_OF_SCOPE",
+  "EXPR_ARRAY_REF",
+  "EXPR_AGGREGATE_ARG",
 ] as const;
 
 /** 警告碼(可發布)。 */
@@ -93,6 +110,7 @@ export const DEFINITION_WARNING_CODES = [
   "PROTECTED_REQUIRED",
   "COMPUTED_HIDDEN",
   "LIST_COLUMN_MISSING",
+  "LIST_COLUMN_ARRAY",
 ] as const;
 
 export type DefinitionErrorCode = (typeof DEFINITION_ERROR_CODES)[number];

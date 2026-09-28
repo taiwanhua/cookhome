@@ -64,6 +64,17 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 
 正本:`apps/db-migrator/seeds/demo-items.ts`、`apps/db-migrator/seeds/registry.ts`
 
+### 1c 欄位管理類別(選配)
+
+模組的下拉要用欄位管理的類別(如示範模組1 的分類欄引用 `demo-category`)時,類別有兩種來法,並列存在、互不取代:
+
+- **開發者在 seed 宣告**:`apps/db-migrator/seeds/field-categories.ts` 加一筆(選項加在 `seeds/fields.ts`),走 code + PR,每次部署同步到三個環境。**底座或模組固定要用的類別走這條**—— 程式碼以 key 引用它,每個環境都必須有。
+- **root 在欄位管理畫面新增**:持 `system.field-manager.category-ops.manage-categories`、站在根組織,只存在於那個環境。適合營運上臨時需要的類別,不需要發版。
+
+畫面建的類別日後要固定下來,就在 seed 宣告**同一個 key**:下次 seed 以 key 認養那一筆(`isSystem` 改 true、名稱 / 說明以 seed 為準、`_id` 不動,已經引用它的表單照舊),不必搬資料。
+
+正本:`docs/modules/field-manager.md`「資料」、ADR-0002「seed 以 key 認養」
+
 ## 步驟 2:schema(基礎欄位 plugin、租戶過濾)
 
 新增 `apps/api/src/database/schemas/<entity>.schema.ts`,抄 `demo-item-two.schema.ts`:
@@ -172,7 +183,7 @@ pnpm --filter @repo/graphql generate
 
 ## 步驟 6:help.md(租戶使用者看的說明)
 
-新增 `apps/admin/src/md/module-help/<模組key>.help.md`,**檔名必須等於模組 key**(`lib/module-help.ts` 以檔名對應;`lib/help-registry.ts` 的 `import.meta.glob` 在 build 時把內容內嵌進 bundle)。
+新增 `apps/admin/src/md/module-help/<模組key>.help.md`,**檔名必須等於模組 key**(`lib/module-help.ts` 以檔名對應;`lib/help-registry.ts` 的 `import.meta.glob` 在 build 時把內容內嵌進 bundle)。表單模組(`engine: "form"`)例外:不必各放一份,沒有專屬檔時退回 `form-module.help.md`(見「表單模組路線」)。
 
 - 結構沿用既有的說明檔:`# <模組名>` → `## 這個模組做什麼` → `## 常用操作` → `## 重要規則`。
 - **讀者是租戶使用者**:守 `CONTEXT.md` 詞彙表、**不得出現平台視角詞彙**(根組織 / 租戶 / 開通 / 跨租戶 / 平台);聯絡窗口一律寫「系統管理員」;「租戶管理員副本」在 UI 與 help 裡叫「預設角色」(FIGMA-04)。
@@ -233,22 +244,22 @@ pnpm --filter @repo/graphql generate
 
 ## 表單模組路線
 
-欄位、版面、版本由使用者在後台「表單管理」設計的模組(`engine: "form"`),**不寫 schema、api、設定物件**:只宣告骨架、登記預設組裝,其餘全走畫面。範例 [購物清單](../modules/shopping-list.md),規則正本 [forms](../modules/forms.md),概念見 `docs/concepts/form-engine.md`。
+欄位、版面、版本由使用者在後台「表單管理」設計的模組(`engine: "form"`),**不寫 schema、api、設定物件**:只宣告骨架、登記預設組裝,其餘全走畫面。範例 [示範表單](../modules/demo-form.md),規則正本 [forms](../modules/forms.md),概念見 `docs/concepts/form-engine.md`。
 
-| 步驟 | 做什麼                                                                                                                                                                                                                                                                 | 正本                                                     |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| 1    | seed 宣告:列表節點加 `engine: "form"`;三個隱藏頁 `view-page` / `create-page` / `edit-page`(用跳窗的不宣告對應的頁);四筆權限 `view / create / edit / delete`;`dataScopeTarget` 的 `collection` 固定 `form_submissions`、欄位目錄只放 `status`(`moduleKey` 由 runner 填) | `apps/db-migrator/seeds/modules/shopping-list.ts`        |
-| 2    | 登記頁面:`apps/admin/src/app/module-pages.tsx` 展開 `...formModulePages(<模組 key>)`(四頁全用預設)                                                                                                                                                                     | `apps/admin/src/components/form-engine/FormModulePages/` |
-| 3    | help.md:`apps/admin/src/md/module-help/<模組 key>.help.md`,照購物清單的通用說明改模組名與用途                                                                                                                                                                          | `apps/admin/src/md/module-help/shopping-list.help.md`    |
-| 4    | 模組文件:`docs/modules/<模組 key>.md`,照購物清單的結構                                                                                                                                                                                                                 | `docs/modules/shopping-list.md`                          |
-| 5    | 部署後:平台在「表單管理」建共用表單 → 設計 → 發布 → 分派租戶;列表欄位配置在「模組與權限」設定                                                                                                                                                                          | `apps/admin/src/md/module-help/system.forms.help.md`     |
+| 步驟 | 做什麼                                                                                                                                                                                                                                                                 | 正本                                                                                                          |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1    | seed 宣告:列表節點加 `engine: "form"`;三個隱藏頁 `view-page` / `create-page` / `edit-page`(用跳窗的不宣告對應的頁);四筆權限 `view / create / edit / delete`;`dataScopeTarget` 的 `collection` 固定 `form_submissions`、欄位目錄只放 `status`(`moduleKey` 由 runner 填) | `apps/db-migrator/seeds/form-module-declaration.ts`                                                           |
+| 2    | 登記頁面:`apps/admin/src/app/module-pages.tsx` 展開 `...formModulePages(<模組 key>)`(四頁全用預設)                                                                                                                                                                     | `apps/admin/src/components/form-engine/FormModulePages/`                                                      |
+| 3    | help.md:**不必另寫**。表單模組沒有專屬檔時,「?」自動用通用說明 `form-module.help.md`(彈窗標題是模組名);有特殊需求才加 `apps/admin/src/md/module-help/<模組 key>.help.md` 專屬檔(專屬檔優先)                                                                            | `apps/admin/src/lib/module-help.ts`(`resolveModuleHelp`)、`apps/admin/src/md/module-help/form-module.help.md` |
+| 4    | 模組文件:`docs/modules/<模組 key>.md`,照示範表單的結構                                                                                                                                                                                                                 | `docs/modules/demo-form.md`                                                                                   |
+| 5    | 部署後:平台在「表單管理」建共用表單 → 設計 → 發布 → 分派租戶;列表欄位配置在「模組與權限」設定                                                                                                                                                                          | `apps/admin/src/md/module-help/system.forms.help.md`                                                          |
 
 **客製頁**:登記方式不變(模組 key → 頁面元件),想怎麼排都可以,表單相關的部分用引擎零件(`FormRenderer`、`FormSubmissionList`、`FormSubmissionDetail`、`useFormDraft`…)綁進去:
 
 ```ts
-...formModulePages(LEAVE_KEY),                                      // 四頁全用預設
-...formModulePages(LEAVE_KEY), [LEAVE_KEY]: LeavePage,             // 列表頁客製、其餘預設(後寫的蓋掉前面的)
-[LEAVE_KEY]: LeavePage, [`${LEAVE_KEY}.view-page`]: LeaveViewPage, // 全部自己來;新增 / 編輯用跳窗(seed 不宣告 create-page / edit-page)
+...formModulePages(OTHER_KEY),                                      // 四頁全用預設
+...formModulePages(OTHER_KEY), [OTHER_KEY]: OtherListPage,             // 列表頁客製、其餘預設(後寫的蓋掉前面的)
+[OTHER_KEY]: OtherListPage, [`${OTHER_KEY}.view-page`]: OtherViewPage, // 全部自己來;新增 / 編輯用跳窗(seed 不宣告 create-page / edit-page)
 ```
 
 - 模組層的頁籤 / 標題模板以 `formModulePages(key, { tabLabelTemplate })` 給(預設 `{{title}}`)。

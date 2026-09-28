@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 
 import { authWorld, overviewModule } from "@/test/msw/auth-handlers";
 import {
@@ -87,6 +87,7 @@ describe("組織樹:搬走子組織之後(#186 ③)", () => {
             name: "組織管理",
             parentId: null,
             sidebarType: ModuleSidebarType.Link,
+            engine: ModuleEngine.Fixed,
             order: 1,
             route: "/system/org-manager",
             permissions: PERMISSIONS,

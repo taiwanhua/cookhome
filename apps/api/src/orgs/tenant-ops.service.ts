@@ -443,10 +443,7 @@ export class TenantOpsService {
     operator: OperatorContext,
     action: string,
   ): Promise<void> {
-    if (
-      !(await this.ownerProtection.isRootOperator(operator)) ||
-      operator.managedOrgIds !== "all"
-    ) {
+    if (!(await this.ownerProtection.canActAsRoot(operator))) {
       throw orgError(
         "FORBIDDEN",
         `${action} is only available from the root org`,

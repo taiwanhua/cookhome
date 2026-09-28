@@ -26,15 +26,23 @@ export const FORM_ERROR_CODES = [
   "PERMISSION_NOT_DELETABLE",
   "REVISION_LIMIT",
   "DOCUMENT_TOO_LARGE",
+  "FORM_HAS_WORKFLOW",
+  "VERSION_NOT_PUBLISHED",
 ] as const;
 
 export type FormErrorCode = (typeof FORM_ERROR_CODES)[number] | "UNEXPECTED";
 
 /**
- * 提交的容量上限(`CONFLICT` + reason,Spec 6a §4 `revisions[]` 上限):不是「被別人更新」,重新載入也沒用,
- * 所以細分成自己的碼、以 Snackbar 告知(修訂次數到頂 → 建新的申請;容量到頂 → 縮減內容)。
+ * 提交的容量上限(`CONFLICT` + reason,`revisions[]` 上限):不是「被別人更新」,重新載入也沒用,
+ * 所以細分成自己的碼、以 Snackbar 告知(綁流程的表單修訂次數到頂 → 建新的申請;容量到頂 → 無法再修改)。
  */
 const CAPACITY_CODES = ["REVISION_LIMIT", "DOCUMENT_TOO_LARGE"] as const;
+
+/** 舊版資料升級被擋的 `CONFLICT` reason(本租戶綁了流程、目標版不是已發布):同樣不是「被別人更新」。 */
+const UPGRADE_CONFLICT_CODES = [
+  "FORM_HAS_WORKFLOW",
+  "VERSION_NOT_PUBLISHED",
+] as const;
 
 export const isCapacityError = (error: FormError | null): boolean =>
   error !== null &&
@@ -61,11 +69,16 @@ export const FORM_ERROR_REASONS = [
 
 export type FormErrorReason = (typeof FORM_ERROR_REASONS)[number];
 
-/** 值錯誤(`VALIDATION_FAILED` 的 `extensions.fieldErrors`)。 */
+/**
+ * 值錯誤(`VALIDATION_FAILED` 的 `extensions.fieldErrors`);明細列的格另帶 `rowId` + `columnKey`
+ * (列數不足 / 超過只有 `fieldKey`)。
+ */
 export interface FormFieldErrorLike {
   fieldKey: string;
   code: string;
   message: string;
+  rowId?: string;
+  columnKey?: string;
 }
 
 /** 定義錯誤(`VALIDATION_FAILED` + `fields: ["definition"]` 的 `extensions.issues`)。 */
@@ -101,13 +114,15 @@ const FORBIDDEN_REASONS: Partial<
   WORKFLOW_MISCONFIGURED: "WORKFLOW_MISCONFIGURED",
 };
 
-/** 通用碼 + reason → 本模組細分的碼(`FORBIDDEN` 的四種原因、`CONFLICT` 的容量上限)。 */
+/** 通用碼 + reason → 本模組細分的碼(`FORBIDDEN` 的四種原因、`CONFLICT` 的容量上限與升級被擋)。 */
 const refinedCodeOf = (
   code: string,
   reason: string,
 ): (typeof FORM_ERROR_CODES)[number] | undefined => {
   if (code === "CONFLICT") {
-    return CAPACITY_CODES.find((capacity) => capacity === reason);
+    return [...CAPACITY_CODES, ...UPGRADE_CONFLICT_CODES].find(
+      (refined) => refined === reason,
+    );
   }
   return code === "FORBIDDEN" ? FORBIDDEN_REASONS[reason] : undefined;
 };

@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
 import {
+  leaveDefinition,
   leaveWorkflowDefinition,
   reviewStep,
   workflowFragment,
@@ -86,9 +87,38 @@ describe("流程管理:檢查用表單與「檢查」", () => {
     expect(world.inputs.saveDraft[0]?.definition.checkFormKey).toBeNull();
   });
 
+  it("檢查用表單沒有使用者引用欄:欄位下拉下方說明要先在表單設計器加一個並發布", async () => {
+    const definition = leaveDefinition();
+    const { user } = renderWorkflows({
+      world: withSavedCheckForm(),
+      catalog: {
+        checkFormDefinition: {
+          ...definition,
+          fields: definition.fields.filter(
+            (candidate) => candidate.type !== "reference",
+          ),
+        },
+      },
+    });
+    const canvas = await findCanvas();
+    await waitFor(() => {
+      expect(
+        screen.getByRole("combobox", { name: "檢查用表單" }),
+      ).toHaveTextContent("病假單");
+    });
+
+    const panel = await chooseFieldSource(user, canvas);
+
+    expect(
+      await within(panel).findByText(
+        "檢查用表單沒有「引用(使用者)」欄位;請先在表單設計器加一個資料來源為使用者的引用欄位並發布。",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("新草稿(修訂 0)預設第一張綁定的表單;存過、存了 null 的草稿不預設", async () => {
     const bound = [
-      { formKey: "sick_leave", formName: "病假單", moduleKey: "leave" },
+      { formKey: "sick_leave", formName: "病假單", moduleKey: "demo.form" },
     ];
     const withRevision = (draftRevision: number) => {
       const options = defaultDesignOptions();

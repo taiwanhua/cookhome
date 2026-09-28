@@ -60,6 +60,8 @@ export interface DesignerState {
     label: string,
     target: PlaceTarget | null,
     sectionTitle: string,
+    /** 明細列預設子欄的標題 */
+    columnLabel?: string,
   ) => void;
   move: (fieldId: string, target: PlaceTarget) => void;
   remove: (fieldId: string) => void;
@@ -109,7 +111,7 @@ export const useDesignerState = (initial: FormDefinition): DesignerState => {
         definition.fields.find((field) => field.key === fieldKey)?._id ?? null,
       );
     },
-    add: (type, label, target, sectionTitle) => {
+    add: (type, label, target, sectionTitle, columnLabel) => {
       const key = nextKey(
         "field",
         definition.fields.map((field) => field.key),
@@ -126,7 +128,11 @@ export const useDesignerState = (initial: FormDefinition): DesignerState => {
           ? null
           : { sectionKey: firstSection.key, beforeId: null });
       setDefinition(
-        addField(base, { ...newFieldOf(type, key, label), _id: id }, place),
+        addField(
+          base,
+          { ...newFieldOf(type, key, label, columnLabel), _id: id },
+          place,
+        ),
       );
       select(id);
     },

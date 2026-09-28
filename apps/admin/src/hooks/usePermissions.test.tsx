@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen } from "@testing-library/react";
 
-import { ModuleSidebarType } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 
 import { type TestModule, authWorld } from "../test/msw/auth-handlers";
 import { server } from "../test/msw/server";
@@ -15,6 +15,7 @@ const modules: TestModule[] = [
     name: "示範",
     parentId: null,
     sidebarType: ModuleSidebarType.Group,
+    engine: ModuleEngine.Fixed,
     order: 1,
     route: "/demo",
     permissions: ["demo.*"],
@@ -25,6 +26,7 @@ const modules: TestModule[] = [
     name: "示範模組1",
     parentId: "m-demo",
     sidebarType: ModuleSidebarType.Link,
+    engine: ModuleEngine.Fixed,
     order: 1,
     route: "/demo/sub/sample-one",
     permissions: ["demo.sub.sample-one.*", "demo.sub.sample-one.view"],
@@ -35,6 +37,7 @@ const modules: TestModule[] = [
     name: "組織管理",
     parentId: null,
     sidebarType: ModuleSidebarType.Link,
+    engine: ModuleEngine.Fixed,
     order: 2,
     route: "/system/org-manager",
     permissions: ["system.org-manager.view"],

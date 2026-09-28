@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 
-import { ModuleSidebarType, RoleKind } from "@repo/graphql";
+import { ModuleEngine, ModuleSidebarType, RoleKind } from "@repo/graphql";
 
 import {
   type TestOrg as TestMeOrg,
@@ -43,6 +43,7 @@ export const modulesWith = (permissions: readonly string[]): TestModule[] => [
     name: "系統管理",
     parentId: null,
     sidebarType: ModuleSidebarType.Group,
+    engine: ModuleEngine.Fixed,
     order: 1,
     route: "/system",
     permissions: [],
@@ -53,6 +54,7 @@ export const modulesWith = (permissions: readonly string[]): TestModule[] => [
     name: "組織管理",
     parentId: "m-system",
     sidebarType: ModuleSidebarType.Link,
+    engine: ModuleEngine.Fixed,
     order: 1,
     route: "/system/org-manager",
     permissions: permissions.includes(ORG_MANAGER_VIEW_PERMISSION)
@@ -65,6 +67,7 @@ export const modulesWith = (permissions: readonly string[]): TestModule[] => [
     name: "使用者管理",
     parentId: "m-system",
     sidebarType: ModuleSidebarType.Link,
+    engine: ModuleEngine.Fixed,
     order: 2,
     route: "/system/user-manager",
     permissions: [...permissions],

@@ -227,7 +227,7 @@ describe("lookup 顯示模板與列表內建欄", () => {
     );
     await assignForm(api, root, "tpl_src", [tenant]);
     const source = await createSubmitted(api, root, "tpl_src", {
-      title: "請假單",
+      title: "病假單",
       day: "2026-09-25T16:00:00.000Z",
       kind: "sick",
     });
@@ -264,7 +264,7 @@ describe("lookup 顯示模板與列表內建欄", () => {
     expect(found.formLookup.items).toEqual([
       expect.objectContaining({
         id: source.id,
-        label: "請假單・2026-09-26・病假",
+        label: "病假單・2026-09-26・病假",
       }),
     ]);
   });

@@ -42,6 +42,7 @@ export const ReferenceField = ({
   onChange,
   isDisabled,
   isReadOnly = false,
+  hiddenLabel = false,
   isDesign,
   helperText,
   hasError,
@@ -73,6 +74,7 @@ export const ReferenceField = ({
         value={value}
         context={context}
         helperText={helperText}
+        hiddenLabel={hiddenLabel}
         {...(display !== undefined && { display })}
       />
     );
@@ -89,6 +91,7 @@ export const ReferenceField = ({
   return (
     <Autocomplete<ReferenceOption>
       label={field.label}
+      hiddenLabel={hiddenLabel}
       options={options}
       value={current}
       getOptionLabel={(option) => option.label}

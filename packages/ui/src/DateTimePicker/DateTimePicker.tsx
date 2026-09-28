@@ -26,6 +26,11 @@ export interface DateTimePickerProps {
   /** 浮動標籤;ui 不內建文案 */
   label?: ReactNode;
   /**
+   * 不畫浮動標籤(外框因此不留 legend 缺口),`label` 改當無障礙名稱(`aria-label`,須是字串)。
+   * 給表頭已寫了標題的表格格子用(表單引擎的明細列)。
+   */
+  hiddenLabel?: boolean;
+  /**
    * 受控值:ISO 8601 時點(任何時區標記都收,如 `2026-03-01T01:30:00Z`);清空為 `null`。
    * 畫面以 `timezone` 顯示這個時點的牆上時間。
    */
@@ -81,6 +86,7 @@ const toValue = (date: Dayjs | null): string | null =>
  */
 export const DateTimePicker = ({
   label,
+  hiddenLabel = false,
   value,
   defaultValue,
   onChange,
@@ -101,7 +107,7 @@ export const DateTimePicker = ({
 }: DateTimePickerProps) => (
   <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={locale}>
     <MuiDateTimePicker
-      label={label}
+      label={hiddenLabel ? undefined : label}
       value={toDate(value)}
       defaultValue={toDate(defaultValue)}
       onChange={(date) => onChange?.(toValue(date))}
@@ -114,7 +120,21 @@ export const DateTimePicker = ({
       ampm={false}
       sx={sx}
       slotProps={{
-        textField: { required, error, helperText, fullWidth, name, size },
+        textField: {
+          required,
+          error,
+          helperText,
+          fullWidth,
+          name,
+          size,
+          // 不畫標籤時名稱改掛在欄位的 group 上(沒有標籤元素可指,`aria-labelledby` 一併拿掉)
+          ...(hiddenLabel &&
+            typeof label === "string" && {
+              slotProps: {
+                input: { "aria-label": label, "aria-labelledby": undefined },
+              },
+            }),
+        },
       }}
     />
   </LocalizationProvider>

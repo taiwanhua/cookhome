@@ -52,10 +52,13 @@ export const FormSettingsPanel = ({
           displayEmpty
           options={[
             { value: UNSET, label: t("slotUnset") },
-            ...definition.fields.map((field) => ({
-              value: field.key,
-              label: `${field.label}(${field.key})`,
-            })),
+            // 明細欄不能當摘要槽(可對彙總出來的計算欄位)
+            ...definition.fields
+              .filter((field) => field.type !== "array")
+              .map((field) => ({
+                value: field.key,
+                label: `${field.label}(${field.key})`,
+              })),
           ]}
           onChange={(fieldKey) => {
             onChange({

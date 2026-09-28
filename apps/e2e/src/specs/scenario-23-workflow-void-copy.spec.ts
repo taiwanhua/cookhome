@@ -1,6 +1,6 @@
 import { clickAndWaitForOperation } from "../fixtures/scenario-forms";
 import {
-  LEAVE_ROUTE,
+  WORKFLOW_FORM_ROUTE,
   createWorkflowWorld,
   reviewStep,
 } from "../fixtures/scenario-workflows";
@@ -18,7 +18,7 @@ import {
 /**
  * 劇本 23 — 核准後作廢 → 複製為新單 → 重審
  * 正本:`docs/testing/permission-scenarios.md`「劇本 23」。
- * 用哪一頁:請假列表(「作廢」)、請假詳情(審核區塊「複製為新單」)、請假編輯頁(送出)。
+ * 用哪一頁:示範表單(群組內)列表(「作廢」)、示範表單(群組內)詳情(審核區塊「複製為新單」)、示範表單(群組內)編輯頁(送出)。
  * 前置(走 api):客製流程「直屬主管」一關並綁定;申請人送出、主管核准。
  */
 test("劇本 23:綁流程的已完成單只能作廢;作廢後複製為新單、送出重新審核", async ({
@@ -29,7 +29,7 @@ test("劇本 23:綁流程的已完成單只能作廢;作廢後複製為新單、
   const world = await createWorkflowWorld(tenant, { formName: "病假單" });
   await publishCustomWorkflow(tenant.tenantAdmin.token, {
     key: `leave_${tenant.slug}`,
-    name: "請假審核",
+    name: "病假審核",
     definition: {
       steps: [reviewStep("manager", "直屬主管", { kind: "manager", level: 1 })],
       edges: null,
@@ -46,9 +46,9 @@ test("劇本 23:綁流程的已完成單只能作廢;作廢後複製為新單、
     "COMPLETED",
   );
 
-  // 步驟 1:申請人 → 請假列表:已完成的單沒有「編輯」,只有「作廢」
+  // 步驟 1:申請人 → 示範表單(群組內)列表:已完成的單沒有「編輯」,只有「作廢」
   await signInAgain(page, world.applicant.account, world.applicant.password);
-  await page.goto(LEAVE_ROUTE);
+  await page.goto(WORKFLOW_FORM_ROUTE);
   const row = pageArea(page).getByRole("row").filter({ hasText: title });
   await expect(row.getByText("已完成")).toBeVisible();
   await expect(
@@ -74,7 +74,7 @@ test("劇本 23:綁流程的已完成單只能作廢;作廢後複製為新單、
     "CopySubmissionToDraft",
   );
   await page.waitForURL((url) =>
-    url.pathname.startsWith(`${LEAVE_ROUTE}/edit-page/`),
+    url.pathname.startsWith(`${WORKFLOW_FORM_ROUTE}/edit-page/`),
   );
   const copiedId = page.url().split("/").at(-1) ?? "";
   expect(copiedId).not.toBe(submitted.id);

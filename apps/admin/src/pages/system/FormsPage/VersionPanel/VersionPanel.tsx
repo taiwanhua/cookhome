@@ -16,6 +16,7 @@ import { Table } from "@repo/ui/table";
 import { Tag, type TagTone } from "@repo/ui/tag";
 
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
 import { useTemporalText } from "@/hooks/useTemporalText";
 import { definitionOf } from "@/lib/form-engine/definition";
@@ -25,6 +26,7 @@ import { versionDiff } from "@/lib/form-engine/version-diff";
 import { DeleteDraftDialog } from "./DeleteDraftDialog";
 import { PublishDialog } from "./PublishDialog";
 import { RetireDialog } from "./RetireDialog";
+import { UpgradeDialog } from "./UpgradeDialog";
 import { VersionDiffView } from "./VersionDiffView";
 
 export interface VersionPanelProps {
@@ -45,8 +47,9 @@ const STATUS_TONE: Record<FormVersionStatus, TagTone> = {
 /**
  * 版本面板(Spec 6a §8 畫面 3):草稿 / 發布(含中斷重試)/ 退役目前版本、changelog、
  * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿、「檢視」任一已發布 / 已退役版本(唯讀設計器)、
- * 刪除草稿(確認跳窗;發布中不可)。
- * 按鈕依 `form.abilities.canEdit`;
+ * 刪除草稿(確認跳窗;發布中不可)、「將舊版資料升級到此版」(已發布的版本;表單所屬模組的 `edit`,
+ * 本組織綁了流程就不顯示、改一行提示)。
+ * 設計相關的按鈕依 `form.abilities.canEdit`;
  * 發布中斷時只剩「重試發布」(api 在中斷期間擋開草稿 / 退役 / 再發布)。
  */
 export const VersionPanel = ({
@@ -62,11 +65,20 @@ export const VersionPanel = ({
   const [isRetiring, setIsRetiring] = useState(false);
   const [isDeletingDraft, setIsDeletingDraft] = useState(false);
   const [diffOf, setDiffOf] = useState<number | null>(null);
+  const [upgradeTo, setUpgradeTo] = useState<number | null>(null);
+  const { hasPermission } = usePermissions();
   const versions = useFormVersionsQuery(session.client, { formKey: form.key });
   const items = versions.data?.formVersions.items ?? [];
   const draft = items.find((item) => item.status === FormVersionStatus.Draft);
   const canEdit = form.abilities.canEdit;
   const isLocked = form.publishInterrupted;
+  // 升級動的是本組織的提交資料:看的是表單所屬模組的 edit,不是表單設計的權限
+  const canUpgradeData = hasPermission(`${form.moduleKey}.edit`) && !isLocked;
+  const hasWorkflow =
+    form.workflowBinding !== null && form.workflowBinding !== undefined;
+  const hasPublished = items.some(
+    (item) => item.status === FormVersionStatus.Published,
+  );
 
   const createDraft = useCreateFormVersionDraftMutation(
     session.client,
@@ -167,6 +179,20 @@ export const VersionPanel = ({
             {t("baseOn", { version: item.version ?? 0 })}
           </Button>
         )}
+        {canUpgradeData &&
+          !hasWorkflow &&
+          item.status === FormVersionStatus.Published &&
+          typeof item.version === "number" && (
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => {
+                setUpgradeTo(item.version ?? null);
+              }}
+            >
+              {t("upgrade")}
+            </Button>
+          )}
         {!isDraft && previousOf(item) !== undefined && (
           <Button
             size="small"
@@ -210,6 +236,9 @@ export const VersionPanel = ({
         >
           {t("interrupted")}
         </Alert>
+      )}
+      {canUpgradeData && hasWorkflow && hasPublished && (
+        <Alert severity="info">{t("upgradeBlockedByWorkflow")}</Alert>
       )}
       {canEdit && !isLocked && draft === undefined && items.length === 0 && (
         <Stack direction="row">
@@ -299,6 +328,19 @@ export const VersionPanel = ({
           }}
           onDeleted={() => {
             setIsDeletingDraft(false);
+            onChanged();
+          }}
+        />
+      )}
+      {upgradeTo !== null && (
+        <UpgradeDialog
+          formKey={form.key}
+          targetVersion={upgradeTo}
+          onClose={() => {
+            setUpgradeTo(null);
+          }}
+          onUpgraded={() => {
+            setUpgradeTo(null);
             onChanged();
           }}
         />

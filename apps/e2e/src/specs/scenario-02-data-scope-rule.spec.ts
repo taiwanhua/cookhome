@@ -102,6 +102,7 @@ test("劇本 2:規則命中客服 → 只見自建;刪規則 → 恢復可見範
 
   // 步驟 5:root 回資料範圍頁把規則刪掉 → 儲存
   await rootPage.goto(DATA_SCOPE_ROUTE);
+  await rootPage.getByText(DEMO_ITEMS_ONE_COLLECTION, { exact: true }).click();
   await expect(rootPage.getByText(HAS_RULE_TAG)).toBeVisible();
   await rootPage.getByRole("button", { name: "刪除規則" }).click();
   await clickAndWaitFor(rootPage, "儲存", "SaveDataScopeRule");

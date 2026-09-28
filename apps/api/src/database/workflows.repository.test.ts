@@ -193,7 +193,7 @@ describe("workflows / workflow_versions / workflow_instances / workflow_tasks", 
         revision: 1,
         orgId: tenantA,
         tenantId: tenantA,
-        moduleKey: "leave",
+        moduleKey: "demo.form",
         formKey: "sick_leave",
         formVersion: 1,
         workflowKey: "leave_review",
@@ -214,7 +214,7 @@ describe("workflows / workflow_versions / workflow_instances / workflow_tasks", 
     );
     const document = new model({
       orgId: tenantA,
-      moduleKey: "leave",
+      moduleKey: "demo.form",
       formKey: "sick_leave",
       version: 1,
       status: "reviewing",
@@ -250,19 +250,19 @@ describe("workflows / workflow_versions / workflow_instances / workflow_tasks", 
     it("root 以 null 建共用流程、租戶以自己的 tenantId 建客製流程;ownerOrgId = tenantId", async () => {
       const shared = await workflows.create(asRoot, null, {
         key: "leave_review",
-        name: "請假審核",
+        name: "病假審核",
       });
       expect(shared).toMatchObject({ ownerOrgId: null, tenantId: null });
       const custom = await workflows.create(asA, tenantA, {
         key: "leave_review_a",
-        name: "請假審核(A)",
+        name: "病假審核(A)",
         forkedFrom: { workflowKey: "leave_review", version: 1 },
       });
       expect(String(custom.tenantId)).toBe(String(tenantA));
       expect(String(custom.ownerOrgId)).toBe(String(tenantA));
       await workflows.create(asRoot, tenantB, {
         key: "leave_review_b",
-        name: "請假審核(B)",
+        name: "病假審核(B)",
       });
     });
 
@@ -356,7 +356,7 @@ describe("workflows / workflow_versions / workflow_instances / workflow_tasks", 
       taskKey,
       submissionId: new Types.ObjectId(),
       revision: 1,
-      moduleKey: "leave",
+      moduleKey: "demo.form",
       formKey: "sick_leave",
       assigneeId: reviewer,
       status: "pending",

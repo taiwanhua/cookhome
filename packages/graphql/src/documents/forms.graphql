@@ -209,6 +209,35 @@ mutation RetireCurrentVersion($input: RetireCurrentVersionInput!) {
   }
 }
 
+# ---- 舊版資料升級到新版(只限本租戶沒綁流程的表單;表單所屬模組的 edit) ----
+
+# 各舊版本的筆數(操作者看得到、草稿 / 不綁流程的已完成)+ 補值欄位(目標版 FieldDef,只列改得動的)
+# 目標版不是已發布 → CONFLICT(VERSION_NOT_PUBLISHED);本租戶綁了流程 → CONFLICT(FORM_HAS_WORKFLOW)
+query FormUpgradePlan($formKey: ID!, $targetVersion: Int!) {
+  formUpgradePlan(formKey: $formKey, targetVersion: $targetVersion) {
+    groups {
+      fromVersion
+      count
+    }
+    fillTargets
+  }
+}
+
+# UpgradeFormSubmissionsInput: { formKey, targetVersion, fills, clientRequestId };改綁 + 補值 + 重算,不驗證
+# skipped.reason:EDIT_CONFLICT(被別人同時改)/ DOCUMENT_TOO_LARGE(容量上限)/ VALUES_INVALID
+mutation UpgradeFormSubmissions($input: UpgradeFormSubmissionsInput!) {
+  upgradeFormSubmissions(input: $input) {
+    upgraded {
+      fromVersion
+      count
+    }
+    skipped {
+      reason
+      count
+    }
+  }
+}
+
 # DeleteFormVersionDraftInput: { formKey, expectedDraftRevision };發布中不可,revision 不符 → CONFLICT
 mutation DeleteFormVersionDraft($input: DeleteFormVersionDraftInput!) {
   deleteFormVersionDraft(input: $input) {

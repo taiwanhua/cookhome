@@ -39,8 +39,8 @@ const context: TabLabelContext = {
     hours: "8",
   },
   definition,
-  formName: "請假單",
-  moduleName: "請假",
+  formName: "病假單",
+  moduleName: "示範表單(群組內)",
   applicantName: "王小明",
   action: "檢視",
   joinAction: (action, label) => `${action}・${label}`,
@@ -72,7 +72,7 @@ describe("頁籤 / 標題模板(前端即時算)", () => {
         ...context,
         action: "",
       }),
-    ).toBe("請假:王小明的請假單");
+    ).toBe("示範表單(群組內):王小明的病假單");
   });
 
   it("{{action}} 沒寫 → 自動加在最前面、以「・」分隔;有寫就照模板位置", () => {
@@ -90,7 +90,7 @@ describe("頁籤 / 標題模板(前端即時算)", () => {
         definition: unmapped,
         action: "",
       }),
-    ).toBe("請假單");
+    ).toBe("病假單");
     expect(
       renderTabLabel("{{date}}", {
         ...context,
@@ -102,7 +102,7 @@ describe("頁籤 / 標題模板(前端即時算)", () => {
   });
 
   it("套出來是空的退回表單名(仍加頁面種類);都沒有回 null", () => {
-    expect(renderTabLabel("{{value.nope}}", context)).toBe("檢視・請假單");
+    expect(renderTabLabel("{{value.nope}}", context)).toBe("檢視・病假單");
     expect(
       applyTabLabelTemplate("{{title}}", () => null, {
         action: "新增",

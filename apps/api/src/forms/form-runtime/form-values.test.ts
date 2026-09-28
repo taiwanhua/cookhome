@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
 import type { Connection, Types } from "mongoose";
 
+import { type FieldDef, settleHidden } from "@repo/domain/form";
+
 import {
   type AuthTestApp,
   startAuthTestApp,
@@ -741,6 +743,74 @@ describe("表單的值:語意值、引用快照、現名 / 快照、lookup 以�
     expect(
       await connection.collection("form_submissions").countDocuments(),
     ).toBe(before);
+  });
+
+  it("隱藏的欄位當 null 算:後端存的值 = 前端預覽(domain `settleHidden`)算出的值", async () => {
+    const hiddenFields: FieldDef[] = [
+      field("title", "text"),
+      field("has_discount", "boolean"),
+      field("discount", "number", {
+        visibleWhen: { "==": [{ var: "has_discount" }, true] },
+      }),
+      field("price", "number"),
+      field("net", "number", {
+        valueSource: {
+          kind: "computed",
+          expr: { "-": [{ var: "price" }, { var: "discount" }] },
+        },
+      }),
+      field("doubled", "number", {
+        valueSource: {
+          kind: "computed",
+          expr: { "*": [{ var: "price" }, 2] },
+        },
+        visibleWhen: { "==": [{ var: "has_discount" }, true] },
+      }),
+      field("plus_one", "number", {
+        valueSource: {
+          kind: "computed",
+          expr: { "+": [{ var: "doubled" }, 1] },
+        },
+      }),
+    ];
+    await ok(api, root, CREATE_FORM, {
+      input: { key: "hidden_null", moduleKey: MODULE_KEY, name: "隱藏當空" },
+    });
+    await ok(api, root, CREATE_DRAFT, { input: { formKey: "hidden_null" } });
+    await saveDefinition(
+      api,
+      root,
+      "hidden_null",
+      definitionOf(hiddenFields),
+      0,
+    );
+    const values = {
+      title: "折扣",
+      has_discount: false,
+      discount: "30",
+      price: "100",
+    };
+    const preview = await ok<{
+      previewFormVersion: { values: Record<string, unknown> };
+    }>(api, root, PREVIEW_VERSION, {
+      input: { formKey: "hidden_null", values },
+    });
+    const frontend = settleHidden(hiddenFields, {
+      values,
+      ctx: {
+        now: new Date().toISOString(),
+        timezone: "Asia/Taipei",
+        user: { id: "root", orgId: "root" },
+      },
+    });
+
+    expect(preview.previewFormVersion.values).toMatchObject({
+      discount: null,
+      net: null,
+      doubled: null,
+      plus_one: null,
+    });
+    expect(preview.previewFormVersion.values).toMatchObject(frontend.values);
   });
 
   it("設計器預覽帶 version:以那一版(已發布 / 已退役)的定義計算,不是草稿", async () => {

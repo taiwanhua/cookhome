@@ -81,6 +81,16 @@ function checkLayoutCol(
       location,
     );
   }
+  if (
+    byKey.get(col.fieldKey)?.type === "array" &&
+    col.span !== LAYOUT_COLUMNS
+  ) {
+    collector.error(
+      "ARRAY_SPAN",
+      `明細欄固定占滿 ${String(LAYOUT_COLUMNS)} 格`,
+      location,
+    );
+  }
   if (!byKey.has(col.fieldKey)) {
     collector.error(
       "LAYOUT_UNKNOWN_FIELD",
@@ -147,31 +157,50 @@ export function validateSummary(
       );
       continue;
     }
-    const fieldLocation = { ...location, fieldKey: key };
-    if (isProtected(protections.get(key))) {
-      collector.error(
-        "SUMMARY_PROTECTED",
-        `摘要槽 ${slot} 不可對受保護欄位「${field.label}」`,
-        fieldLocation,
-      );
-    }
-    if (!isSummaryCompatible(slot, field)) {
-      collector.error(
-        "SUMMARY_TYPE",
-        `摘要槽 ${slot} 不能對 ${field.type} 型別的欄位「${field.label}」`,
-        fieldLocation,
-      );
-    }
-    if (
-      field.valueSource.kind === "computed" &&
-      hasCondition(field.visibleWhen)
-    ) {
-      collector.warn(
-        "COMPUTED_HIDDEN",
-        `摘要槽對到的計算欄位「${field.label}」有顯示條件,隱藏時會算成空值`,
-        fieldLocation,
-      );
-    }
+    checkSummaryField(slot, field, protections, collector);
+  }
+}
+
+/** 摘要槽對到的欄位:不能是明細欄、受保護欄位,型別要合;計算欄位有顯示條件給警告。 */
+function checkSummaryField(
+  slot: SummarySlot,
+  field: FieldDef,
+  protections: ReadonlyMap<string, FieldProtection>,
+  collector: IssueCollector,
+): void {
+  const key = field.key;
+  const fieldLocation = { summarySlot: slot, fieldKey: key };
+  if (field.type === "array") {
+    collector.error(
+      "ARRAY_NOT_ALLOWED",
+      `摘要槽 ${slot} 不能對明細欄「${field.label}」(可改對彙總出來的計算欄位)`,
+      fieldLocation,
+    );
+    return;
+  }
+  if (isProtected(protections.get(key))) {
+    collector.error(
+      "SUMMARY_PROTECTED",
+      `摘要槽 ${slot} 不可對受保護欄位「${field.label}」`,
+      fieldLocation,
+    );
+  }
+  if (!isSummaryCompatible(slot, field)) {
+    collector.error(
+      "SUMMARY_TYPE",
+      `摘要槽 ${slot} 不能對 ${field.type} 型別的欄位「${field.label}」`,
+      fieldLocation,
+    );
+  }
+  if (
+    field.valueSource.kind === "computed" &&
+    hasCondition(field.visibleWhen)
+  ) {
+    collector.warn(
+      "COMPUTED_HIDDEN",
+      `摘要槽對到的計算欄位「${field.label}」有顯示條件,隱藏時會算成空值`,
+      fieldLocation,
+    );
   }
 }
 
@@ -214,6 +243,14 @@ function checkPrefillMapping(
   location: DefinitionIssueLocation,
   collector: IssueCollector,
 ): void {
+  if (target?.type === "array") {
+    collector.error(
+      "ARRAY_NOT_ALLOWED",
+      `帶入目標 ${mapping.fieldKey} 是明細欄,不能帶入`,
+      location,
+    );
+    return;
+  }
   if (target?.valueSource.kind !== "input" || target.type === "reference") {
     collector.error(
       "PREFILL_TARGET_NOT_INPUT",
@@ -279,9 +316,16 @@ function collectListColumnWarnings(
   listColumnFieldKeys: readonly string[] | undefined,
   collector: IssueCollector,
 ): void {
-  const keys = new Set(definition.fields.map((field) => field.key));
+  const byKey = new Map(definition.fields.map((field) => [field.key, field]));
   for (const key of listColumnFieldKeys ?? []) {
-    if (!keys.has(key)) {
+    if (byKey.get(key)?.type === "array") {
+      collector.warn(
+        "LIST_COLUMN_ARRAY",
+        `列表欄位配置引用了明細欄 ${key},列表不顯示明細(請 root 在模組管理調整)`,
+        { fieldKey: key },
+      );
+    }
+    if (!byKey.has(key)) {
       collector.warn(
         "LIST_COLUMN_MISSING",
         `列表欄位配置引用了這一版沒有的欄位 ${key}(請 root 在模組管理調整)`,

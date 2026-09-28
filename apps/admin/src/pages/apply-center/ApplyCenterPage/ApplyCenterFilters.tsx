@@ -39,7 +39,7 @@ export const ApplyCenterFilters = ({
     <Stack
       direction="row"
       spacing={1.5}
-      sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1.5 }}
+      sx={{ alignItems: "center", flexWrap: "wrap" }}
     >
       <SelectField
         label={t("module")}

@@ -4,6 +4,7 @@ import { validatePassword } from "@repo/domain/password";
 import {
   type ChangePasswordMutationVariables,
   MeQuery,
+  ModuleEngine,
   ModuleSidebarType,
   RequestPasswordResetMutationVariables,
   SetPasswordMutationVariables,
@@ -52,6 +53,7 @@ export const overviewModule: TestModule = {
   name: "總覽",
   parentId: null,
   sidebarType: ModuleSidebarType.Link,
+  engine: ModuleEngine.Fixed,
   order: 0,
   route: "/overview",
   icon: "dashboard",

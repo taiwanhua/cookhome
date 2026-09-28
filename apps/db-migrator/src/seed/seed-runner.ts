@@ -1,10 +1,18 @@
 import { isDeepStrictEqual } from "node:util";
 
-import type { Collection, Db, Document, ObjectId } from "mongodb";
+import type {
+  Collection,
+  Db,
+  Document,
+  Filter,
+  ObjectId,
+  WithId,
+} from "mongodb";
 
 import { ensureRootAdmin, readRootAdminInput } from "./root-admin";
 import {
   DEFAULT_INITIAL_SEED_VALUE_FIELDS,
+  type SeedAdoptBy,
   type SeedDocument,
   type SeedDocumentSet,
   type SeedKeyReference,
@@ -16,11 +24,23 @@ import {
   isSeedIdReference,
 } from "./seed-declaration";
 
+/**
+ * 摘要的四種計數。`adopted` = 認養:宣告的識別鍵(或 `adoptBy`)對到一筆**人建的**文件
+ * (`isSystem` 不是 `true`),把它轉成種子、`_id` 不動(ADR-0002)。認養單向,下次重跑就是更新 / 未變。
+ */
 export interface SeedCounts {
   created: number;
   updated: number;
+  adopted: number;
   unchanged: number;
 }
+
+const ZERO_COUNTS: SeedCounts = {
+  created: 0,
+  updated: 0,
+  adopted: 0,
+  unchanged: 0,
+};
 
 export interface SeedSetResult {
   label: string;
@@ -101,6 +121,24 @@ interface DocumentSyncOptions {
   match: Record<string, unknown>;
   /** 建立後永不比對、永不覆寫的欄位。 */
   initialSeedValueFields: ReadonlySet<string>;
+  /** 以識別鍵找不到時,找人建的同一筆來認養(`SeedDocumentSet.adoptBy`)。 */
+  adoptBy: SeedAdoptBy | undefined;
+}
+
+/** 認養的候選:宣告裡指定的欄位值(已解析)+ `where`(seedRef 同樣解析)。 */
+async function findAdoptable(
+  database: Db,
+  collection: Collection,
+  adoptBy: SeedAdoptBy,
+  desired: Record<string, unknown>,
+): Promise<WithId<Document> | null> {
+  const filter: Filter<Document> = {
+    ...(await resolveReferences(database, adoptBy.where)),
+  };
+  for (const field of adoptBy.fields) {
+    filter[field] = desired[field];
+  }
+  return collection.findOne(filter);
 }
 
 async function syncDocument(
@@ -110,23 +148,26 @@ async function syncDocument(
   entry: SeedDocument,
   now: Date,
 ): Promise<SyncOutcome> {
-  const { keyField, initialSeedValueFields, match } = options;
+  const { keyField, initialSeedValueFields, match, adoptBy } = options;
   // 種子記錄一律掛 isSystem 保護(ADR-0002);宣告不得覆寫識別鍵
   const desired = {
     ...(await resolveReferences(database, entry.data)),
     [keyField]: entry.key,
     isSystem: true,
   };
-  const existing = await collection.findOne({
-    ...match,
-    [keyField]: entry.key,
-  });
+  const existing =
+    (await collection.findOne({ ...match, [keyField]: entry.key })) ??
+    (adoptBy === undefined
+      ? null
+      : await findAdoptable(database, collection, adoptBy, desired));
 
   if (!existing) {
     await collection.insertOne({ ...desired, createdAt: now, updatedAt: now });
     return "created";
   }
 
+  // 人建的那一筆(isSystem 不是 true)被宣告同 key 認養:改掛種子、宣告欄位以 seed 為準,_id 不動
+  const isAdoption = existing.isSystem !== true;
   const changes = pickChangedFields(existing, desired, initialSeedValueFields);
   if (Object.keys(changes).length === 0) {
     return "unchanged";
@@ -136,7 +177,7 @@ async function syncDocument(
     { _id: existing._id },
     { $set: { ...changes, updatedAt: now } },
   );
-  return "updated";
+  return isAdoption ? "adopted" : "updated";
 }
 
 async function runDocumentSet(
@@ -151,8 +192,9 @@ async function runDocumentSet(
     initialSeedValueFields: new Set(
       set.initialSeedValueFields ?? DEFAULT_INITIAL_SEED_VALUE_FIELDS,
     ),
+    adoptBy: set.adoptBy,
   };
-  const counts: SeedCounts = { created: 0, updated: 0, unchanged: 0 };
+  const counts: SeedCounts = { ...ZERO_COUNTS };
   for (const entry of set.entries) {
     const outcome = await syncDocument(
       database,
@@ -191,7 +233,7 @@ async function runRelationSet(
   set: SeedRelationSet,
   now: Date,
 ): Promise<SeedSetResult> {
-  const counts: SeedCounts = { created: 0, updated: 0, unchanged: 0 };
+  const counts: SeedCounts = { ...ZERO_COUNTS };
   for (const relation of set.entries) {
     counts[await syncRelation(database, relation, now)] += 1;
   }
@@ -210,7 +252,7 @@ async function runRootAdminSet(
     readRootAdminInput(env),
     now,
   );
-  const counts: SeedCounts = { created: 0, updated: 0, unchanged: 0 };
+  const counts: SeedCounts = { ...ZERO_COUNTS };
   counts[outcome] += 1;
   return { label: "root-admin", counts };
 }
@@ -239,7 +281,7 @@ function runSet(
   }
 }
 
-/** 依 registry 順序把所有種子冪等同步到資料庫,回傳每組的新增/更新/未變計數。 */
+/** 依 registry 順序把所有種子冪等同步到資料庫,回傳每組的新增 / 更新 / 認養 / 未變計數。 */
 export async function runSeeds(
   database: Db,
   registry: SeedRegistry,
@@ -258,16 +300,18 @@ export function sumCounts(results: SeedSetResult[]): SeedCounts {
     (total, { counts }) => ({
       created: total.created + counts.created,
       updated: total.updated + counts.updated,
+      adopted: total.adopted + counts.adopted,
       unchanged: total.unchanged + counts.unchanged,
     }),
-    { created: 0, updated: 0, unchanged: 0 },
+    { ...ZERO_COUNTS },
   );
 }
 
 export function formatCounts({
   created,
   updated,
+  adopted,
   unchanged,
 }: SeedCounts): string {
-  return `新增 ${String(created)} / 更新 ${String(updated)} / 未變 ${String(unchanged)}`;
+  return `新增 ${String(created)} / 更新 ${String(updated)} / 認養 ${String(adopted)} / 未變 ${String(unchanged)}`;
 }

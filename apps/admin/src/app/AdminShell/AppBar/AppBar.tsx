@@ -5,7 +5,6 @@ import { Typography } from "@repo/ui/typography";
 import type { ShellModule } from "@/lib/module-tree";
 
 import { HelpButton } from "./HelpButton";
-import { LocaleSwitcher } from "./LocaleSwitcher";
 import { OrgSwitcher } from "./OrgSwitcher";
 import { UserMenu } from "./UserMenu";
 
@@ -23,7 +22,7 @@ export interface AppBarProps {
   module?: ShellModule;
 }
 
-/** 後台 AppBar(Figma Draft/AdminAppBar 30:95):頁名、模組說明「?」、語言切換、當前組織切換器、使用者選單(登出 / 登出所有裝置)。 */
+/** 後台 AppBar(Figma Draft/AdminAppBar 30:95):頁名、模組說明「?」、當前組織切換器、使用者選單(Draft/AdminUserMenu 278:77:使用者卡、外觀、語言、登出 / 登出所有裝置)。 */
 export const AppBar = ({ me, title, module }: AppBarProps) => (
   <Box
     component="header"
@@ -45,12 +44,19 @@ export const AppBar = ({ me, title, module }: AppBarProps) => (
     </Typography>
     {/* 「?」模組說明彈窗(dis #18;Figma help-button I44:119;81:51):只有模組路由才有 */}
     {module !== undefined && (
-      <HelpButton moduleKey={module.key} moduleName={module.name} />
+      <HelpButton
+        moduleKey={module.key}
+        moduleName={module.name}
+        moduleEngine={module.engine}
+      />
     )}
     <Box sx={{ flex: 1 }} />
 
-    <LocaleSwitcher />
     <OrgSwitcher me={me} />
-    <UserMenu name={me.name} />
+    <UserMenu
+      name={me.name}
+      account={me.account}
+      orgName={me.currentOrg?.name}
+    />
   </Box>
 );

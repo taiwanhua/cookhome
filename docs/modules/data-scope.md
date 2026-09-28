@@ -2,7 +2,7 @@
 
 ## 用途
 
-讓根組織的系統管理員對模組資料的資料目標(一個模組一個:示範模組1 的 `demo_items_one`、購物清單的 `form_submissions`)設定額外的過濾規則:規則依「套用對象」(全部 / 指定角色 / 指定組織 / 指定使用者)命中操作者,再以條件樹過濾他查得到的資料。規則只會讓看到的資料**變少**,永遠疊在租戶隔離保底之內。機制本體見 ADR-0008,查詢時的合成順序見 ADR-0011。
+讓根組織的系統管理員對模組資料的資料目標(一個模組一個:示範模組1 的 `demo_items_one`、各示範表單的 `form_submissions`)設定額外的過濾規則:規則依「套用對象」(全部 / 指定角色 / 指定組織 / 指定使用者)命中操作者,再以條件樹過濾他查得到的資料。規則只會讓看到的資料**變少**,永遠疊在租戶隔離保底之內。機制本體見 ADR-0008,查詢時的合成順序見 ADR-0011。
 
 正本:`docs/adr/0008-data-scope.md`、`docs/adr/0011-permission-resolution-flow.md`
 
@@ -65,8 +65,8 @@ BaseRepository 查詢時套用;GQL-07 的語意正本在此。
 ```js
 {
   $or: [
-    { moduleKey: { $exists: true, $nin: ["leave", "expense"] } }, // 沒有規則命中操作者的模組:只看可見範圍
-    { $and: [{ moduleKey: "leave" }, 請假的規則] },
+    { moduleKey: { $exists: true, $nin: ["demo.form", "expense"] } }, // 沒有規則命中操作者的模組:只看可見範圍
+    { $and: [{ moduleKey: "demo.form" }, 示範表單(群組內)的規則] },
     { $and: [{ moduleKey: "expense" }, 報銷的規則] },
   ];
 }

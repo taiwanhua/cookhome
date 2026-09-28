@@ -210,11 +210,7 @@ export const StepEditor = ({
       ))}
       {!isReadonly && (
         <Stack spacing={1} role="group" aria-label={t("actions")}>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{ flexWrap: "wrap", rowGap: 1 }}
-          >
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
             <Button size="small" variant="outlined" onClick={onInsertAfter}>
               {t("insertAfter")}
             </Button>
@@ -229,11 +225,7 @@ export const StepEditor = ({
               </Button>
             )}
           </Stack>
-          <Stack
-            direction="row"
-            spacing={1}
-            sx={{ flexWrap: "wrap", rowGap: 1 }}
-          >
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
             <Button
               size="small"
               variant="text"

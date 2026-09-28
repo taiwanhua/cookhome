@@ -1,4 +1,13 @@
-import { Args, ID, Int, Mutation, Query, Resolver } from "@nestjs/graphql";
+import {
+  Args,
+  ID,
+  Int,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+} from "@nestjs/graphql";
 
 import { CurrentOperator } from "../../auth/decorators";
 import type { OperatorContext } from "../../database/operator-context";
@@ -29,6 +38,7 @@ import {
   FormSubmissionAttachmentUrlPayload,
   FormSubmissionModel,
   FormSubmissionPayload,
+  FormSubmissionRevisionMeta,
   FormSubmissionsPayload,
   FormSummary,
 } from "./models/form-submission.model";
@@ -96,6 +106,21 @@ export class FormSubmissionsResolver {
         revision,
       ),
     };
+  }
+
+  /**
+   * 修訂紀錄(只有修訂紀錄跳窗問才讀;列表與詳情不載入 `revisions[]`)。重跑單筆的讀取判準,
+   * 只取修訂的 metadata、不載入值快照。
+   */
+  @ResolveField("revisions", () => [FormSubmissionRevisionMeta])
+  async revisions(
+    @Parent() submission: FormSubmissionModel,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<FormSubmissionRevisionMeta[]> {
+    return this.service.revisionEntries(
+      await this.access.factsOf(operator),
+      submission.id,
+    );
   }
 
   /** 上傳欄的私有檔案下載網址(看得到這筆、看得到這一欄才簽)。 */

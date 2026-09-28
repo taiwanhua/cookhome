@@ -1,4 +1,7 @@
 import {
+  ARRAY_COLUMN_WIDGETS,
+  type ArrayColumnDef,
+  type ArrayColumnType,
   DEFAULT_WIDGET_REGISTRY,
   type FieldDef,
   type FieldKeyCheck,
@@ -27,6 +30,26 @@ import type {
  */
 
 export const DEFAULT_SPAN = 6;
+
+/** 放進版面時的寬度:明細列固定占滿 12 格(檢查器 `ARRAY_SPAN`),其餘預設半寬。 */
+export const initialSpanOf = (field: Pick<FieldDef, "type">): number =>
+  field.type === "array" ? LAYOUT_COLUMNS : DEFAULT_SPAN;
+
+/** 新的子欄(元件取該型別白名單的第一個;數字 0 位小數;單選是空的靜態清單)。 */
+export const newColumnOf = (
+  type: ArrayColumnType,
+  key: string,
+  label: string,
+): ArrayColumnDef => ({
+  key,
+  label,
+  type,
+  ...(type === "number" && { precision: 0 }),
+  widget: { kind: ARRAY_COLUMN_WIDGETS[type][0] ?? "textField" },
+  valueSource: { kind: "input" },
+  ...(type === "select" && { options: { kind: "static", items: [] } }),
+  rules: { required: false },
+});
 
 /** 分區裡的欄位(依版面順序)。 */
 export const sectionCols = (section: DesignSection): DesignCol[] =>
@@ -69,11 +92,15 @@ export const nextKey = (prefix: string, used: Iterable<string>): string => {
   return `${prefix}_${String(index)}`;
 };
 
-/** 新欄位的預設定義(widget 取該型別登錄表的第一個)。 */
+/**
+ * 新欄位的預設定義(widget 取該型別登錄表的第一個)。明細列預設一個文字子欄(`columnLabel` 是它的標題),
+ * 至少一個子欄才過檢查器。
+ */
 export const newFieldOf = (
   type: FieldType,
   key: string,
   label: string,
+  columnLabel = label,
 ): FieldDef => ({
   key,
   label,
@@ -88,6 +115,9 @@ export const newFieldOf = (
   rules: { required: false },
   permission: { show: false, edit: false },
   help: null,
+  ...(type === "array" && {
+    columns: [newColumnOf("text", "item", columnLabel)],
+  }),
 });
 
 export interface PlaceTarget {
@@ -165,7 +195,11 @@ export const addField = (
   field: DesignField,
   target: PlaceTarget | null,
 ): DesignDefinition => {
-  const col = { fieldKey: field.key, span: DEFAULT_SPAN, _id: field._id };
+  const col = {
+    fieldKey: field.key,
+    span: initialSpanOf(field),
+    _id: field._id,
+  };
   return {
     ...definition,
     fields: [...definition.fields, field],
@@ -190,7 +224,7 @@ export const moveField = (
   }
   const col = colOf(definition.layout.sections, fieldId) ?? {
     fieldKey: field.key,
-    span: DEFAULT_SPAN,
+    span: initialSpanOf(field),
     _id: fieldId,
   };
   const sections = withoutCol(definition.layout.sections, fieldId);

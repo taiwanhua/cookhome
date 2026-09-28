@@ -8,6 +8,8 @@ import { GraphQLError } from "graphql";
 export const FIELD_ERROR_CODES = [
   /** 同一類別下 value 重複(同組織已有,或與該類別的全域選項相同);field-manager.md「待辦」 */
   "FIELD_VALUE_DUPLICATE",
+  /** root 新增類別時 `key` 已被用過(含停用的類別);`extensions.fields = ["key"]` */
+  "FIELD_CATEGORY_KEY_DUPLICATE",
 ] as const;
 
 export type FieldErrorCode = (typeof FIELD_ERROR_CODES)[number];
@@ -16,6 +18,13 @@ export type FieldErrorCode = (typeof FIELD_ERROR_CODES)[number];
 export function fieldValueDuplicateError(message: string): GraphQLError {
   return new GraphQLError(message, {
     extensions: { code: "FIELD_VALUE_DUPLICATE", fields: ["value"] },
+  });
+}
+
+/** 類別 key 已存在(唯一;含停用的類別);前端把錯誤標回彈窗的「key」欄位。 */
+export function fieldCategoryKeyDuplicateError(message: string): GraphQLError {
+  return new GraphQLError(message, {
+    extensions: { code: "FIELD_CATEGORY_KEY_DUPLICATE", fields: ["key"] },
   });
 }
 
@@ -35,11 +44,18 @@ export const FIELD_FORBIDDEN_REASONS = [
   "SEED_GLOBAL_SWITCH",
   /** 看得到、但不是自己這一層加的自訂選項(上層或下層組織加的,#264)。 */
   "NOT_OWNER",
+  /** 改名 / 停用 seed 宣告的系統類別(由 seed 維護,畫面唯讀;啟用可以)。 */
+  "SYSTEM_CATEGORY",
+  /** 類別作業(新增 / 改名 / 停用類別)只能站在根組織做;權限可能經角色被帶到別的組織。 */
+  "ROOT_ONLY",
 ] as const;
 
 export type FieldForbiddenReason = (typeof FIELD_FORBIDDEN_REASONS)[number];
 
-/** 有登入但做了不被允許的事(GQL-04 `FORBIDDEN`):改種子選項、碰別的組織的自訂選項。 */
+/**
+ * 有登入但做了不被允許的事(GQL-04 `FORBIDDEN`):改種子選項、碰別的組織的自訂選項、
+ * 改名或停用系統類別、不在根組織做類別作業。
+ */
 export function forbiddenError(
   message: string,
   reason: FieldForbiddenReason,

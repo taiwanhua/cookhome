@@ -219,6 +219,16 @@
         "default": "./dist/cjs/select.js"
       }
     },
+    "./segmented-control": {
+      "import": {
+        "types": "./dist/es/segmented-control.d.mts",
+        "default": "./dist/es/segmented-control.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/segmented-control.d.ts",
+        "default": "./dist/cjs/segmented-control.js"
+      }
+    },
     "./select-field": {
       "import": {
         "types": "./dist/es/select-field.d.mts",
@@ -407,6 +417,16 @@
       "require": {
         "types": "./dist/cjs/grid.d.ts",
         "default": "./dist/cjs/grid.js"
+      }
+    },
+    "./media-query": {
+      "import": {
+        "types": "./dist/es/media-query.d.mts",
+        "default": "./dist/es/media-query.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/media-query.d.ts",
+        "default": "./dist/cjs/media-query.js"
       }
     },
     "./snackbar": {

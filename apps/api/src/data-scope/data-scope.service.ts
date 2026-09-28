@@ -320,10 +320,7 @@ export class DataScopeService
     operator: OperatorContext,
     action: string,
   ): Promise<void> {
-    if (
-      !(await this.ownerProtection.isRootOperator(operator)) ||
-      operator.managedOrgIds !== "all"
-    ) {
+    if (!(await this.ownerProtection.canActAsRoot(operator))) {
       throw rootOnlyError(action);
     }
   }

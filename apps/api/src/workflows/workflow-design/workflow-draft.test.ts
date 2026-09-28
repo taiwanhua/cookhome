@@ -23,6 +23,7 @@ import {
   FORK_WORKFLOW,
   FORM_KEY,
   PUBLISH_WORKFLOW,
+  WORKFLOW_MODULE,
   WORKFLOW_TEST_TIMEOUT_MS,
   WORKFLOW_VERSION,
   type WorkflowRow,
@@ -58,7 +59,7 @@ function issueCodes(result: IssueResult): string[] {
     : [];
 }
 
-/** 跳過條件引用「天數」:請假表單有這一欄,`OTHER_FORM` 沒有。 */
+/** 跳過條件引用「天數」:病假表單有這一欄,`OTHER_FORM` 沒有。 */
 const SKIP_SHORT = { "<=": [{ var: "days" }, 1] };
 const OTHER_FORM = "other_form";
 
@@ -111,7 +112,7 @@ describe("流程草稿:刪除與檢查用表單", () => {
     world = await setupWorld(api, api.connection, 0);
     // 第二張共用表單:只有標題,沒有「天數」
     await ok(api, world.root, CREATE_FORM, {
-      input: { key: OTHER_FORM, moduleKey: "leave", name: "其他表單" },
+      input: { key: OTHER_FORM, moduleKey: WORKFLOW_MODULE, name: "其他表單" },
     });
     await publishDefinition(
       api,

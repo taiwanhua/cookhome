@@ -121,7 +121,7 @@ describe("流程管理:版本、發布擋錯、未存變更防呆", () => {
     });
     await user.click(within(dialog).getByRole("button", { name: "留在設計" }));
     expect(
-      screen.getByRole("heading", { name: "請假審核" }),
+      screen.getByRole("heading", { name: "病假審核" }),
     ).toBeInTheDocument();
 
     await user.click(within(list).getByText("加班審核"));
@@ -154,14 +154,14 @@ describe("流程管理:版本、發布擋錯、未存變更防呆", () => {
         ],
       },
     });
-    await screen.findByRole("heading", { name: "請假審核" });
+    await screen.findByRole("heading", { name: "病假審核" });
     expect(
       screen.getByText(/角色關卡只存佔位,不能直接綁表單/),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "以此為基底建流程" }));
     const dialog = await screen.findByRole("dialog", {
-      name: "以「請假審核」為基底建流程",
+      name: "以「病假審核」為基底建流程",
     });
     await user.type(
       within(dialog).getByRole("textbox", { name: "新流程 key" }),

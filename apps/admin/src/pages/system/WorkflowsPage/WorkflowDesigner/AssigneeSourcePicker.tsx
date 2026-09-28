@@ -153,6 +153,7 @@ export const AssigneeSourcePicker = ({
           onChange={onChange}
           checkFormKey={checkFormKey}
           choices={assigneeFieldsOf(checkFormFields)}
+          isLoaded={checkFormFields !== null}
           formNameOf={formNameOf}
           isDisabled={isDisabled}
         />

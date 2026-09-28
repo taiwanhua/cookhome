@@ -20,6 +20,7 @@ export const DEFAULT_WIDGET_REGISTRY: WidgetRegistry = {
   boolean: ["switch", "checkbox"],
   upload: ["upload"],
   reference: ["referencePicker"],
+  array: ["table"],
 };
 
 /** 可開 `rules.allowCustom`(= freeSolo)的 widget。 */

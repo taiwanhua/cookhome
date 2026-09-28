@@ -2,6 +2,8 @@ import {
   type FieldDef,
   type StoredValues,
   type SubmissionSummary,
+  arrayColumnsOf,
+  arrayRowsOf,
   toInstant,
 } from "@repo/domain/form";
 
@@ -14,13 +16,24 @@ import {
  *   序列化成 ISO 字串;`String` 欄位(摘要槽)輸出前用 domain 的 `temporalIsoOf`
  */
 
-/** 值裡的日期 / 日期時間欄換成 `Date`(不是時點的照舊;回新物件)。 */
+/**
+ * 值裡的日期 / 日期時間欄換成 `Date`(不是時點的照舊;回新物件)。明細列的日期 / 日期時間子欄逐列換
+ * (`fields` 傳子欄定義遞迴一次)。
+ */
 export function withStoredTemporals(
   fields: readonly FieldDef[],
   values: StoredValues,
 ): StoredValues {
   const stored: StoredValues = { ...values };
   for (const field of fields) {
+    if (field.type === "array" && Array.isArray(stored[field.key])) {
+      const columns = arrayColumnsOf(field);
+      stored[field.key] = arrayRowsOf(stored[field.key]).map((row) => ({
+        ...withStoredTemporals(columns, row),
+        rowId: row.rowId,
+      }));
+      continue;
+    }
     if (field.type !== "date" && field.type !== "datetime") {
       continue;
     }

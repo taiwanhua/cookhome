@@ -101,7 +101,7 @@ export const VersionViewer = ({
       <Stack
         direction="row"
         spacing={1}
-        sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}
+        sx={{ alignItems: "center", flexWrap: "wrap" }}
       >
         <Tabs
           aria-label={t("mode")}

@@ -176,7 +176,7 @@ export const ExpressionNodeEditor = ({
     <Stack
       direction="row"
       spacing={1}
-      sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}
+      sx={{ alignItems: "center", flexWrap: "wrap" }}
     >
       <SelectField<ExpressionNodeKind | typeof EMPTY>
         label={t("kind", { path: at })}

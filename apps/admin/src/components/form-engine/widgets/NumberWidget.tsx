@@ -16,6 +16,7 @@ export const NumberWidget = ({
   onChange,
   isDisabled,
   isReadOnly = false,
+  hiddenLabel = false,
   helperText,
   hasError,
   context,
@@ -28,6 +29,7 @@ export const NumberWidget = ({
         value={value}
         context={context}
         helperText={helperText}
+        hiddenLabel={hiddenLabel}
       />
     );
   }
@@ -35,7 +37,7 @@ export const NumberWidget = ({
 
   return (
     <TextField
-      label={field.label}
+      label={hiddenLabel ? undefined : field.label}
       value={scalarText(value)}
       onChange={(event) => {
         onChange(event.target.value.trim());
@@ -47,7 +49,10 @@ export const NumberWidget = ({
       fullWidth
       size="small"
       slotProps={{
-        htmlInput: { inputMode: "decimal" },
+        htmlInput: {
+          inputMode: "decimal",
+          ...(hiddenLabel && { "aria-label": field.label }),
+        },
         ...(unit !== "" && { input: { endAdornment: unit } }),
       }}
     />

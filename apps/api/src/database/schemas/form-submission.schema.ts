@@ -20,8 +20,8 @@ export const FORM_SUBMISSIONS_COLLECTION = "form_submissions";
  * - `completed` 不綁流程:送出即此、可再修改;綁流程(`currentInstanceId` 有值):實例核准、鎖定只能作廢
  * - `rejected` 被駁回,不可改不可再送;`voided` 核准後作廢
  *
- * 綁流程的表單模組 seed(請假)的資料範圍目標 `status` 選項與它一一對應;
- * 購物清單是不綁流程的對照組,只宣告 `draft` / `completed`。
+ * 表單模組 seed(三個示範表單)的資料範圍目標 `status` 選項與它一一對應:
+ * 任何一個表單模組都可能被綁流程,所以一律宣告完整七種。
  */
 export const FORM_SUBMISSION_STATUSES = SUBMISSION_STATUSES;
 
@@ -38,11 +38,33 @@ export interface FormRevisionContext {
   orgId: Types.ObjectId | null;
 }
 
+/** 修訂的來由:`upgrade` = 舊版資料升級到新版(改綁版本 + 補值 + 重算,不驗證);缺席 = 一般送出 / 修改。 */
+export type FormRevisionKind = "upgrade";
+
 /** 一個修訂號的**完整值快照**(不是 diff;受保護欄位原值照存,讀取時投影遮蔽)。 */
 export interface FormRevision {
   revision: number;
+  /**
+   * 填寫當時綁的表單版本(升級後歷史修訂用它渲染);缺席 = 提交目前的 `version`
+   * (讀取一律 `revision.version ?? submission.version`)。
+   */
+  version?: number;
   values: StoredValues;
+  /** 條件 / 計算的上下文;升級產生的修訂沿用上一筆修訂的(升級不改變 `ctx.now` / `ctx.user` 算出的值)。 */
   ctx: FormRevisionContext;
+  kind?: FormRevisionKind;
+  /** 只有升級產生的修訂有:誰升級(操作者)。 */
+  upgradedBy?: Types.ObjectId | null;
+  /** 只有升級產生的修訂有:什麼時候升級。 */
+  upgradedAt?: Date;
+}
+
+/** 修訂 r 用哪一版的定義渲染。 */
+export function revisionVersionOf(
+  submission: { version: number },
+  revision: Pick<FormRevision, "version">,
+): number {
+  return revision.version ?? submission.version;
 }
 
 /**
@@ -63,7 +85,10 @@ export class FormSubmission {
   @Prop({ type: String, required: true })
   formKey!: string;
 
-  /** 綁的版本(建草稿時的 `forms.currentVersion`);之後不隨表單改版而變。 */
+  /**
+   * 綁的版本(建草稿時的 `forms.currentVersion`);之後不隨表單改版而變,只有「舊版資料升級到新版」
+   * 會改綁(同時記一筆修訂,歷史修訂仍以各自的 `revisions[].version` 渲染)。
+   */
   @Prop({ type: Number, required: true })
   version!: number;
 

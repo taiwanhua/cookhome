@@ -1,4 +1,8 @@
-import { buildHelpRegistry } from "../lib/module-help";
+import {
+  type HelpModule,
+  buildHelpRegistry,
+  resolveModuleHelp,
+} from "../lib/module-help";
 
 /**
  * `lib/help-registry.ts` 的測試替身(jest `moduleNameMapper` 換掉,見 `jest.config.mjs`)。
@@ -40,6 +44,13 @@ const DEFAULT_HELP_FILES: Record<string, string> = {
     "- **建立角色**:選擇所屬組織、名稱與描述。",
     "- **分配使用者**:只能選該組織或其下層組織的人。",
   ].join("\n"),
+  "/src/md/module-help/form-module.help.md": [
+    "# 表單模組",
+    "",
+    "## 這個模組做什麼",
+    "",
+    "填寫與查看申請單。",
+  ].join("\n"),
 };
 
 let registry = buildHelpRegistry(DEFAULT_HELP_FILES);
@@ -54,6 +65,6 @@ export const resetHelpFiles = (): void => {
   registry = buildHelpRegistry(DEFAULT_HELP_FILES);
 };
 
-/** 與 `lib/help-registry.ts` 同名同形的查詢函式。 */
-export const moduleHelpMarkdown = (moduleKey: string): string | undefined =>
-  registry.get(moduleKey);
+/** 與 `lib/help-registry.ts` 同名同形的查詢函式(同一條專屬檔優先、表單模組退回通用檔)。 */
+export const moduleHelpMarkdown = (module: HelpModule): string | undefined =>
+  resolveModuleHelp(registry, module);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { SHOPPING_ROUTES } from "@/test/msw/form-fixtures";
+import { DEMO_FORM_ROUTES } from "@/test/msw/form-fixtures";
 
 import {
   SHOPPING_ACTIONS,
@@ -9,7 +9,7 @@ import {
   renderShopping,
 } from "./form-module-test-support";
 
-const CREATE_PATH = `${SHOPPING_ROUTES.createPage}/shopping_list`;
+const CREATE_PATH = `${DEMO_FORM_ROUTES.createPage}/shopping_list`;
 
 describe("表單模組新增頁(預設組裝)", () => {
   it("一顆「送出」= 建草稿(帶 clientRequestId)+ 送出;計算欄位即時算,條件即時套", async () => {
@@ -49,7 +49,7 @@ describe("表單模組新增頁(預設組裝)", () => {
     // 送出後到詳情頁
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent(
-        `${SHOPPING_ROUTES.viewPage}/sub-new-1`,
+        `${DEMO_FORM_ROUTES.viewPage}/sub-new-1`,
       );
     });
   });

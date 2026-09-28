@@ -19,7 +19,12 @@ export interface FieldOptionsPanelProps {
   canCreate: boolean;
   canEdit: boolean;
   canToggleEnabled: boolean;
+  /** 持 `category-ops.manage-categories`:標題列多出「編輯類別」與停用 / 啟用類別 */
+  canManageCategories: boolean;
+  isCategoryPending: boolean;
   pendingFieldId: string | null;
+  onEditCategory: () => void;
+  onToggleCategory: (enabled: boolean) => void;
   onCreate: () => void;
   onEdit: (field: FieldOptionLike) => void;
   onToggleEnabled: (field: FieldOptionLike, enabled: boolean) => void;
@@ -28,6 +33,8 @@ export interface FieldOptionsPanelProps {
 /**
  * 右欄選項區(Figma Options 90:227):標題「<類別名> — 選項」+「新增自訂選項」+ 表格。
  * 新增鈕依 `system.field-manager.create` 出現與否(ADR-0011:沒有權限的動作不顯示)。
+ * 類別作業(`manage-categories`)的按鈕也在這一列:系統類別唯讀,沒有「編輯類別」與「停用類別」,
+ * 停用的類別可再啟用;停用不另開確認 —— 可逆,且只影響表單設計器的類別清單。
  */
 export const FieldOptionsPanel = ({
   category,
@@ -36,12 +43,19 @@ export const FieldOptionsPanel = ({
   canCreate,
   canEdit,
   canToggleEnabled,
+  canManageCategories,
+  isCategoryPending,
   pendingFieldId,
+  onEditCategory,
+  onToggleCategory,
   onCreate,
   onEdit,
   onToggleEnabled,
 }: FieldOptionsPanelProps) => {
   const t = useTranslations("admin.fieldManager.options");
+  const tCategory = useTranslations("admin.fieldManager.categoryActions");
+  const canToggleCategory =
+    category !== null && (!category.isSystem || !category.enabled);
 
   return (
     <Card
@@ -64,6 +78,23 @@ export const FieldOptionsPanel = ({
             ? t("noCategory")
             : t("title", { category: category.name })}
         </Typography>
+        {canManageCategories && category !== null && !category.isSystem && (
+          <Button variant="text" size="small" onClick={onEditCategory}>
+            {tCategory("edit")}
+          </Button>
+        )}
+        {canManageCategories && canToggleCategory && (
+          <Button
+            variant="text"
+            size="small"
+            disabled={isCategoryPending}
+            onClick={() => {
+              onToggleCategory(!category.enabled);
+            }}
+          >
+            {category.enabled ? tCategory("disable") : tCategory("enable")}
+          </Button>
+        )}
         {canCreate && category !== null && (
           <Button size="small" onClick={onCreate}>
             {t("create")}

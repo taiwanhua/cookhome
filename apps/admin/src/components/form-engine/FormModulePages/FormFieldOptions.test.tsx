@@ -4,8 +4,8 @@ import { screen, waitFor } from "@testing-library/react";
 import type { FormDefinition } from "@repo/domain/form";
 
 import {
+  DEMO_FORM_ROUTES,
   SHOPPING_FORM_KEY,
-  SHOPPING_ROUTES,
   field,
   shoppingDefinition,
   submissionFragment,
@@ -18,7 +18,7 @@ import {
   shoppingForm,
 } from "./form-module-test-support";
 
-const CREATE_PATH = `${SHOPPING_ROUTES.createPage}/${SHOPPING_FORM_KEY}`;
+const CREATE_PATH = `${DEMO_FORM_ROUTES.createPage}/${SHOPPING_FORM_KEY}`;
 
 /**
  * 購物單 + 必填的類別選項欄「分類」+ api 投影成骨架的計算欄「內部總價」:它只因依賴鏈上的受保護欄位
@@ -113,7 +113,7 @@ const redactedSubmission = () => {
 
 describe("表單的類別選項欄與投影過的定義", () => {
   it("一般員工(沒有欄位管理權限)從 formFieldOptions 取類別選項,選了就能送出必填欄", async () => {
-    // 只有購物清單的四個動作:沒有 system.field-manager.view
+    // 只有示範表單的四個動作:沒有 system.field-manager.view
     const { user, world } = renderShopping({
       path: CREATE_PATH,
       permissions: SHOPPING_ACTIONS,
@@ -216,7 +216,7 @@ describe("表單的類別選項欄與投影過的定義", () => {
   describe('已有提交(api 的 fieldStates):骨架欄位與 "[redacted]" 值並存', () => {
     it('編輯頁:骨架欄位不渲染,儲存修改原樣送回 "[redacted]"', async () => {
       const { user, world } = renderShopping({
-        path: `${SHOPPING_ROUTES.editPage}/sub-1`,
+        path: `${DEMO_FORM_ROUTES.editPage}/sub-1`,
         permissions: SHOPPING_ACTIONS,
         world: worldWith({ submissions: [redactedSubmission()] }),
       });
@@ -245,7 +245,7 @@ describe("表單的類別選項欄與投影過的定義", () => {
 
     it("詳情頁:骨架欄位不渲染,類別欄顯示現名", async () => {
       renderShopping({
-        path: `${SHOPPING_ROUTES.viewPage}/sub-1`,
+        path: `${DEMO_FORM_ROUTES.viewPage}/sub-1`,
         permissions: SHOPPING_ACTIONS,
         world: worldWith({ submissions: [redactedSubmission()] }),
       });

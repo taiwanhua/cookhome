@@ -31,11 +31,8 @@ import {
   notFoundError,
   validationError,
 } from "./fields-error";
-import type {
-  FieldCategoriesPayload,
-  FieldsPayload,
-} from "./models/field-payloads.model";
-import type { FieldCategoryModel, FieldModel } from "./models/field.model";
+import type { FieldsPayload } from "./models/field-payloads.model";
+import type { FieldModel } from "./models/field.model";
 
 type FieldRecord = Persisted<FieldDocument>;
 type CategoryRecord = Persisted<FieldCategoryDocument>;
@@ -94,19 +91,6 @@ export class FieldsService {
   ) {}
 
   // ---- 讀 ----
-
-  /** 類別清單(全域種子,租戶不可自訂);依建立順序 = seed 宣告順序。 */
-  async listCategories(
-    operator: OperatorContext,
-  ): Promise<FieldCategoriesPayload> {
-    const categories = await this.categories.findMany(
-      operator,
-      {},
-      { sort: { createdAt: 1 } },
-    );
-    const items = categories.map((category) => toCategoryModel(category));
-    return { items, totalCount: items.length };
-  }
 
   /** 一個類別下的合併清單,依 `order` 再依**組織深度**(全域最前、下層最後)。 */
   async listFields(
@@ -343,13 +327,4 @@ export class FieldsService {
       );
     }
   }
-}
-
-function toCategoryModel(category: CategoryRecord): FieldCategoryModel {
-  return {
-    id: String(category._id),
-    key: category.key,
-    name: category.name,
-    description: category.description ?? null,
-  };
 }

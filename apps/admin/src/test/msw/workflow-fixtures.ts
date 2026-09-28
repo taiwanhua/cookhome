@@ -2,6 +2,7 @@ import type { FormDefinition } from "@repo/domain/form";
 import type { ReviewStepDef, WorkflowDefinition } from "@repo/domain/workflow";
 import {
   FormSubmissionStatus,
+  ModuleEngine,
   ModuleSidebarType,
   type MyApplicationsQuery,
   type WorkflowFieldsFragment,
@@ -22,7 +23,7 @@ import { field } from "./form-fixtures";
  * `packages/graphql/src/documents/workflows.graphql` / `apply-center.graphql` 的 fragment;TEST-08 / TEST-12)。
  *
  * 兩個範例流程:
- * - 「請假審核」(直線):直屬主管(主管第 1 層)→ 人資(角色,`any`,天數 ≤ 1 跳過)
+ * - 「病假審核」(直線):直屬主管(主管第 1 層)→ 人資(角色,`any`,天數 ≤ 1 跳過)
  * - 「採購審核」(平行):原部門初審 → 財務 / 法務 / 採購三條分支 → 匯合 → 原部門確認
  */
 export const STAMP = "2026-09-20T02:00:00.000Z";
@@ -31,13 +32,13 @@ export const WORKFLOWS_ROUTE = "/system/workflows";
 export const BLOCKED_ROUTE = "/system/workflows/blocked-page";
 export const APPLY_CENTER_ROUTE = "/apply-center";
 export const APPLY_VIEW_ROUTE = "/apply-center/view-page";
-export const LEAVE_KEY = "leave";
+export const DEMO_GROUP_FORM_KEY = "demo.form";
 export const LEAVE_FORM_KEY = "sick_leave";
-export const LEAVE_ROUTES = {
-  list: "/leave",
-  viewPage: "/leave/view-page",
-  createPage: "/leave/create-page",
-  editPage: "/leave/edit-page",
+export const DEMO_GROUP_FORM_ROUTES = {
+  list: "/demo/form",
+  viewPage: "/demo/form/view-page",
+  createPage: "/demo/form/create-page",
+  editPage: "/demo/form/edit-page",
 } as const;
 
 /** seed 的圖示 key(`@repo/ui` 圖示登錄表裡都有);隱藏頁沒有圖示。 */
@@ -45,7 +46,7 @@ const ICON_BY_KEY: Partial<Record<string, string>> = {
   system: "settings",
   "system.workflows": "account-tree",
   "apply-center": "mail",
-  [LEAVE_KEY]: "calendar",
+  [DEMO_GROUP_FORM_KEY]: "description",
 };
 
 const moduleOf = (
@@ -62,6 +63,7 @@ const moduleOf = (
   name,
   parentId,
   sidebarType,
+  engine: key === DEMO_GROUP_FORM_KEY ? ModuleEngine.Form : ModuleEngine.Fixed,
   order: 4,
   route,
   icon: ICON_BY_KEY[key] ?? null,
@@ -126,25 +128,27 @@ export const applyCenterModules = (
   ),
 ];
 
-/** 請假(表單模組,四頁;seed `leave.ts`)。 */
-export const leaveModules = (permissions: readonly string[]): TestModule[] => [
+/** 示範表單(群組內)(表單模組,四頁,掛在 `demo` 群組底下;seed `demo.form.ts`)。 */
+export const demoGroupFormModules = (
+  permissions: readonly string[],
+): TestModule[] => [
   moduleOf(
-    "m-leave",
-    LEAVE_KEY,
-    "請假",
-    null,
+    "m-demo-group-form",
+    DEMO_GROUP_FORM_KEY,
+    "示範表單(群組內)",
+    "m-demo",
     ModuleSidebarType.Link,
-    LEAVE_ROUTES.list,
+    DEMO_GROUP_FORM_ROUTES.list,
     permissions,
   ),
   ...(["view-page", "create-page", "edit-page"] as const).map((page) =>
     moduleOf(
-      `m-leave-${page}`,
-      `${LEAVE_KEY}.${page}`,
+      `m-demo-group-form-${page}`,
+      `${DEMO_GROUP_FORM_KEY}.${page}`,
       page,
-      "m-leave",
+      "m-demo-group-form",
       ModuleSidebarType.Hidden,
-      `${LEAVE_ROUTES.list}/${page}`,
+      `${DEMO_GROUP_FORM_ROUTES.list}/${page}`,
       [],
     ),
   ),
@@ -165,7 +169,7 @@ export const leaveDefinition = (): FormDefinition => ({
     sections: [
       {
         key: "main",
-        title: "請假內容",
+        title: "病假內容",
         rows: [
           {
             cols: [
@@ -197,7 +201,7 @@ export const reviewStep = (
   ...overrides,
 });
 
-/** 請假審核(直線):主管 → 人資(角色佔位)。 */
+/** 病假審核(直線):主管 → 人資(角色佔位)。 */
 export const leaveWorkflowDefinition = (): WorkflowDefinition => ({
   steps: [
     reviewStep("manager", "直屬主管"),
@@ -234,7 +238,7 @@ export const workflowFragment = (
 ): WorkflowFieldsFragment => ({
   id: `wf-${overrides.key ?? "leave_review"}`,
   key: "leave_review",
-  name: "請假審核",
+  name: "病假審核",
   isShared: false,
   ownerOrgId: "org-1",
   ownerOrgName: "CookHome",
@@ -320,8 +324,8 @@ export const taskFragment = (
   instanceId: "inst-1",
   submissionId: "sub-leave-1",
   revision: 1,
-  moduleKey: LEAVE_KEY,
-  moduleName: "請假",
+  moduleKey: DEMO_GROUP_FORM_KEY,
+  moduleName: "示範表單(群組內)",
   formKey: LEAVE_FORM_KEY,
   formName: "病假單",
   stepKey: "manager",
@@ -339,20 +343,20 @@ export const taskFragment = (
   ...overrides,
 });
 
-/** 請假審核的實例:主管關卡進行中、派給小華(`myTasks` 由 world 依登入者算)。 */
+/** 病假審核的實例:主管關卡進行中、派給小華(`myTasks` 由 world 依登入者算)。 */
 export const instanceFragment = (
   overrides: Partial<WorkflowInstanceFieldsFragment> = {},
 ): WorkflowInstanceFieldsFragment => ({
   id: "inst-1",
   submissionId: "sub-leave-1",
   revision: 1,
-  moduleKey: LEAVE_KEY,
-  moduleName: "請假",
+  moduleKey: DEMO_GROUP_FORM_KEY,
+  moduleName: "示範表單(群組內)",
   formKey: LEAVE_FORM_KEY,
   formName: "病假單",
   formVersion: 1,
   workflowKey: "leave_review",
-  workflowName: "請假審核",
+  workflowName: "病假審核",
   workflowVersion: 1,
   status: WorkflowInstanceStatus.Running,
   summary: { title: "病假三天", date: null, amount: null },
@@ -414,8 +418,8 @@ export const applicationRow = (
   overrides: Partial<ApplicationRow> = {},
 ): ApplicationRow => ({
   id: "sub-leave-1",
-  moduleKey: LEAVE_KEY,
-  moduleName: "請假",
+  moduleKey: DEMO_GROUP_FORM_KEY,
+  moduleName: "示範表單(群組內)",
   formKey: LEAVE_FORM_KEY,
   formName: "病假單",
   status: FormSubmissionStatus.Reviewing,

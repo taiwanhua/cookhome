@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
 
+import { colorModeInitTag } from "./src/lib/color-mode-init";
+
 /**
  * mock 開發模式的 Vite 設定(`pnpm --filter @repo/admin dev:mock`)。
  *
@@ -36,8 +38,14 @@ const mockHtmlEntry: Plugin = {
   },
 };
 
+/** 首幀外觀腳本注入 `<head>`(見 `src/lib/color-mode-init.ts`)。 */
+const colorModeInit = {
+  name: "cookhome:color-mode-init",
+  transformIndexHtml: () => [colorModeInitTag()],
+};
+
 export default defineConfig({
-  plugins: [react(), mockHtmlEntry],
+  plugins: [react(), mockHtmlEntry, colorModeInit],
   resolve: {
     alias: {
       // 夾具鏈的 `src/test/msw/server.ts` 在模組層呼叫 node 版 `setupServer()`,

@@ -114,6 +114,12 @@ input CreateDemoItemTwoInput {
   note: String
 }
 
+input CreateFieldCategoryInput {
+  description: String
+  key: String!
+  name: String!
+}
+
 input CreateFieldInput {
   categoryId: ID!
   description: String
@@ -494,6 +500,10 @@ type Field {
   value: String!
 }
 
+input FieldCategoriesInput {
+  enabledOnly: Boolean
+}
+
 type FieldCategoriesPayload {
   items: [FieldCategory!]!
   totalCount: Int!
@@ -501,9 +511,15 @@ type FieldCategoriesPayload {
 
 type FieldCategory {
   description: String
+  enabled: Boolean!
   id: ID!
+  isSystem: Boolean!
   key: String!
   name: String!
+}
+
+type FieldCategoryPayload {
+  category: FieldCategory!
 }
 
 type FieldOwnerOrg {
@@ -727,6 +743,7 @@ type FormSubmissionModel {
   values: JSONObject!
   version: Int!
   viewedRevision: Int!
+  viewedVersion: Int!
   voidReason: String
   voidedAt: DateTime
 }
@@ -737,8 +754,12 @@ type FormSubmissionPayload {
 
 type FormSubmissionRevisionMeta {
   at: DateTime!
+  kind: String
   revision: Int!
+  upgradedAt: DateTime
+  upgradedBy: FormUserRef
   user: FormUserRef
+  version: Int!
 }
 
 """提交列表的排序(預設送出時間新到舊;草稿沒有送出時間,排在最後)"""
@@ -790,6 +811,26 @@ type FormSummary {
   moduleKey: String!
   name: String!
   tabLabelTemplate: String
+}
+
+type FormUpgradeGroup {
+  count: Int!
+  fromVersion: Int!
+}
+
+type FormUpgradePayload {
+  skipped: [FormUpgradeSkip!]!
+  upgraded: [FormUpgradeGroup!]!
+}
+
+type FormUpgradePlan {
+  fillTargets: [JSONObject!]!
+  groups: [FormUpgradeGroup!]!
+}
+
+type FormUpgradeSkip {
+  count: Int!
+  reason: String!
 }
 
 type FormUserRef {
@@ -1043,6 +1084,7 @@ type Mutation {
   createDemoItemOne(input: CreateDemoItemOneInput!): DemoItemOnePayload!
   createDemoItemTwo(input: CreateDemoItemTwoInput!): DemoItemTwoPayload!
   createField(input: CreateFieldInput!): FieldPayload!
+  createFieldCategory(input: CreateFieldCategoryInput!): FieldCategoryPayload!
   createForm(input: CreateFormInput!): FormPayload!
   createFormDraft(input: CreateFormDraftInput!): FormSubmissionPayload!
   createFormVersionDraft(input: CreateFormVersionDraftInput!): FormVersionPayload!
@@ -1090,6 +1132,7 @@ type Mutation {
   saveWorkflowVersionDraft(input: SaveWorkflowVersionDraftInput!): WorkflowVersionPayload!
   setDemoItemOneEnabled(input: SetDemoItemOneEnabledInput!): DemoItemOnePayload!
   setDemoItemTwoEnabled(input: SetDemoItemTwoEnabledInput!): DemoItemTwoPayload!
+  setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayload!
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setModuleIcon(input: SetModuleIconInput!): ModuleAdminPayload!
@@ -1110,12 +1153,14 @@ type Mutation {
   updateDemoItemOne(input: UpdateDemoItemOneInput!): DemoItemOnePayload!
   updateDemoItemTwo(input: UpdateDemoItemTwoInput!): DemoItemTwoPayload!
   updateField(input: UpdateFieldInput!): FieldPayload!
+  updateFieldCategory(input: UpdateFieldCategoryInput!): FieldCategoryPayload!
   updateForm(input: UpdateFormInput!): FormPayload!
   updateFormSubmission(input: UpdateFormSubmissionInput!): FormSubmissionPayload!
   updateOrg(input: UpdateOrgInput!): OrgPayload!
   updateRole(input: UpdateRoleInput!): RolePayload!
   updateUser(input: UpdateUserInput!): UserPayload!
   updateWorkflow(input: UpdateWorkflowInput!): WorkflowPayload!
+  upgradeFormSubmissions(input: UpgradeFormSubmissionsInput!): FormUpgradePayload!
   voidSubmission(input: VoidSubmissionInput!): FormSubmissionPayload!
   withdrawSubmission(input: WithdrawSubmissionInput!): FormSubmissionPayload!
 }
@@ -1266,7 +1311,7 @@ type Query {
   demoItemTwo(id: ID!): DemoItemTwoPayload!
   demoItemsOne(input: DemoItemsOneInput!): DemoItemsOnePayload!
   demoItemsTwo(input: DemoItemsTwoInput!): DemoItemsTwoPayload!
-  fieldCategories: FieldCategoriesPayload!
+  fieldCategories(input: FieldCategoriesInput): FieldCategoriesPayload!
   fields(categoryId: ID!): FieldsPayload!
   form(key: ID!): FormPayload!
   formFieldOptions(input: FormFieldOptionsInput!): FormFieldOptionsPayload!
@@ -1276,6 +1321,7 @@ type Query {
   formSubmission(id: ID!, revision: Int): FormSubmissionPayload!
   formSubmissionAttachmentUrl(fieldKey: String!, id: ID!, revision: Int): FormSubmissionAttachmentUrlPayload!
   formSubmissions(input: FormSubmissionsInput!): FormSubmissionsPayload!
+  formUpgradePlan(formKey: ID!, targetVersion: Int!): FormUpgradePlan!
   formVersion(formKey: ID!, version: Int): FormVersionPayload!
   formVersions(formKey: ID!): FormVersionsPayload!
   formWorkflowOptions(formKey: ID!): FormWorkflowOptionsPayload!
@@ -1603,6 +1649,11 @@ input SetDemoItemTwoEnabledInput {
   id: ID!
 }
 
+input SetFieldCategoryEnabledInput {
+  enabled: Boolean!
+  id: ID!
+}
+
 input SetFieldEnabledInput {
   enabled: Boolean!
   id: ID!
@@ -1730,6 +1781,12 @@ input UpdateDemoItemTwoInput {
   note: String
 }
 
+input UpdateFieldCategoryInput {
+  description: String
+  id: ID!
+  name: String
+}
+
 input UpdateFieldInput {
   description: String
   id: ID!
@@ -1779,6 +1836,13 @@ input UpdateUserInput {
 input UpdateWorkflowInput {
   key: ID!
   name: String!
+}
+
+input UpgradeFormSubmissionsInput {
+  clientRequestId: String!
+  fills: JSONObject!
+  formKey: ID!
+  targetVersion: Int!
 }
 
 """上傳用途:決定物件路徑前綴與所需權限(ADR-0010)"""

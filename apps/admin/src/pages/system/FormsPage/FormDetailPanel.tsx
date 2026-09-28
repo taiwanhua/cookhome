@@ -87,7 +87,7 @@ export const FormDetailPanel = ({
         <Stack
           direction="row"
           spacing={1}
-          sx={{ alignItems: "flex-start", flexWrap: "wrap", rowGap: 1 }}
+          sx={{ alignItems: "flex-start", flexWrap: "wrap" }}
         >
           <Stack spacing={0.5} sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="h6" component="h1">

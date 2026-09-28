@@ -37,7 +37,7 @@ export const CheckFormField = ({
     <Stack
       direction="row"
       spacing={1}
-      sx={{ alignItems: "flex-start", flexWrap: "wrap", rowGap: 1 }}
+      sx={{ alignItems: "flex-start", flexWrap: "wrap" }}
     >
       <SelectField
         label={t("checkForm")}

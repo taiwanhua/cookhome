@@ -25,6 +25,8 @@ export interface TypedValueInputProps {
   isMultiple?: boolean;
   /** 類別 / lookup 選項用填寫時的選擇器查,要知道查哪張表單(設計器 = 草稿) */
   formKey?: string;
+  /** 查哪一版的選項定義;不給(null)= 草稿(設計器)。舊版資料升級的補值 = 目標版 */
+  version?: number | null;
   /** 給了就多一個「不設」選項(是 / 否、靜態單選),選它回 null */
   emptyLabel?: string;
   helperText?: string;
@@ -59,6 +61,7 @@ export const TypedValueInput = ({
   shape = "stored",
   isMultiple = field.type === "multiSelect",
   formKey = "",
+  version = null,
   emptyLabel,
   helperText,
   timezone,
@@ -124,6 +127,7 @@ export const TypedValueInput = ({
           shape={shape}
           isMultiple={isMultiple}
           formKey={formKey}
+          version={version}
           timezone={zone}
           {...(emptyLabel !== undefined && { emptyLabel })}
           {...(helperText !== undefined && { helperText })}

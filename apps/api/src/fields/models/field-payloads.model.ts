@@ -13,7 +13,14 @@ export class FieldPayload {
   field!: FieldModel;
 }
 
-/** 類別清單(GQL-03 的列表形狀;全域種子不分頁,`totalCount` 即 `items` 長度)。 */
+/** 類別的三個寫入 mutation 的共用回傳(GQL-02)。 */
+@ObjectType()
+export class FieldCategoryPayload {
+  @Field(() => FieldCategoryModel)
+  category!: FieldCategoryModel;
+}
+
+/** 類別清單(GQL-03 的列表形狀;字典型資料不分頁,`totalCount` 即 `items` 長度)。 */
 @ObjectType()
 export class FieldCategoriesPayload {
   @Field(() => [FieldCategoryModel])

@@ -1,14 +1,17 @@
 /* eslint-disable unicorn/no-this-outside-of-class, import-x/no-named-as-default-member -- json-logic-js 以 `this` 把求值資料傳給自訂運算子,且覆寫 `truthy` / `add_operation` 必須改在預設匯出的那個物件上(具名匯入是唯讀綁定);到期條件:換成可建實例、以參數傳資料的 JSONLogic 引擎 */
 import jsonLogic from "json-logic-js";
 
+import { ARRAY_AGGREGATE_OPERATORS, ROW_VAR_PREFIX } from "./array";
 import {
   FormDecimal,
+  type FormDecimalValue,
   compareChain,
   decimalsOf,
   divide,
   looseEquals,
   strictEquals,
   textOf,
+  toDecimal,
   unwrapDecimal,
 } from "./decimal";
 import { scanExpression } from "./expression-shape";
@@ -32,6 +35,7 @@ import {
   toIso,
 } from "./temporal";
 import type {
+  ArrayColumnDef,
   Expression,
   ExpressionContext,
   FieldDef,
@@ -40,9 +44,11 @@ import type {
 
 /**
  * 表達式計算器(Spec §5「表達式」):JSONLogic(`json-logic-js`,MIT)+ 擴充函式
- * `dateDiff` / `dateAdd` / `concat` / `optionLabel` / `now` 與日期常數 `date`。
+ * `dateDiff` / `dateAdd` / `concat` / `optionLabel` / `now`、日期常數 `date` 與明細列的彙總
+ * `sumOf` / `countOf` / `minOf` / `maxOf` / `avgOf`。
  *
- * - `var` 讀**語意值**(`semanticValuesOf`)與 `ctx.*`;其他路徑在求值前就被形狀檢查擋掉
+ * - `var` 讀**語意值**(`semanticValuesOf`)與 `ctx.*`;列內公式另有 `row.<子欄 key>`(同一列的子欄語意值);
+ *   其他路徑在求值前就被形狀檢查擋掉
  * - 算術與比較走 decimal(`decimal.ts`):中間過程不取位,只有 `computeField` 在最後依欄位
  *   `precision` 四捨五入;除以零、空值 → `null`
  * - 求值前一律跑 `scanExpression`:未知運算子 / 深度 / 節點超限 → `ExpressionError`
@@ -66,6 +72,8 @@ interface FormData {
 interface EvaluationData {
   [key: string]: unknown;
   ctx: ExpressionContext;
+  /** 列內公式:同一列子欄的語意值(`row` 是欄位保留字,不會和欄位撞名) */
+  row?: Record<string, unknown>;
   [FORM_DATA_KEY]?: FormData;
 }
 
@@ -84,7 +92,11 @@ const COMPARISON_OPERATORS: ReadonlySet<string> = new Set([
 ]);
 
 /** 參數是字面值、不必往下改寫的運算子。 */
-const LITERAL_OPERATORS: ReadonlySet<string> = new Set(["var", "date"]);
+const LITERAL_OPERATORS: ReadonlySet<string> = new Set([
+  "var",
+  "date",
+  ...ARRAY_AGGREGATE_OPERATORS,
+]);
 
 /** 改寫後的內部運算子:`{ "$localDayCompare": [運算子, 左, 右] }`;`$` 開頭,形狀檢查不收,使用者寫不出來。 */
 const LOCAL_DAY_COMPARE = "$localDayCompare";
@@ -127,6 +139,37 @@ function dateAddOf(
     // 時區字串不合法
     return null;
   }
+}
+
+/**
+ * 彙總讀的值:明細欄(語意值是列的陣列)每一列該子欄的數值;明細為 null(隱藏)或不是陣列 → 沒有值;
+ * 空值與非數值略過。子欄的值是**取位後**的存值(使用者填的依 `precision` 正規化、列內公式算完即取位)。
+ */
+function aggregateValuesOf(
+  data: EvaluationData,
+  arrayKey: unknown,
+  columnKey: unknown,
+): FormDecimalValue[] {
+  const rows = typeof arrayKey === "string" ? data[arrayKey] : null;
+  if (!Array.isArray(rows) || typeof columnKey !== "string") {
+    return [];
+  }
+  const values: FormDecimalValue[] = [];
+  for (const row of rows) {
+    const cell =
+      typeof row === "object" && row !== null
+        ? (row as Record<string, unknown>)[columnKey]
+        : null;
+    const decimal = toDecimal(cell);
+    if (decimal !== null) {
+      values.push(decimal);
+    }
+  }
+  return values;
+}
+
+function sumOfDecimals(values: readonly FormDecimalValue[]): FormDecimalValue {
+  return values.reduce((sum, item) => sum.plus(item), new FormDecimal(0));
 }
 
 /**
@@ -224,6 +267,31 @@ function registerOperations(): void {
         ? null
         : new FormDecimal(diff).dividedBy(MS_PER_UNIT[unit]);
     },
+    /**
+     * 彙總(Spec §5「明細列」):略過空值;全空或明細為 null 時 `sumOf` 為 0、`minOf` / `maxOf` / `avgOf` 為 null;
+     * `avgOf` 的分母 = 有值的筆數;`countOf` = 列數(明細為 null 為 0,空白列也算一列)。
+     */
+    sumOf(arrayKey, columnKey) {
+      return sumOfDecimals(aggregateValuesOf(this, arrayKey, columnKey));
+    },
+    minOf(arrayKey, columnKey) {
+      const values = aggregateValuesOf(this, arrayKey, columnKey);
+      return values.length > 0 ? FormDecimal.min(...values) : null;
+    },
+    maxOf(arrayKey, columnKey) {
+      const values = aggregateValuesOf(this, arrayKey, columnKey);
+      return values.length > 0 ? FormDecimal.max(...values) : null;
+    },
+    avgOf(arrayKey, columnKey) {
+      const values = aggregateValuesOf(this, arrayKey, columnKey);
+      return values.length > 0
+        ? sumOfDecimals(values).dividedBy(values.length)
+        : null;
+    },
+    countOf(arrayKey) {
+      const rows = typeof arrayKey === "string" ? this[arrayKey] : null;
+      return new FormDecimal(Array.isArray(rows) ? rows.length : 0);
+    },
     /** `{ "optionLabel": "leave_type" }` = 該欄的顯示名(存的 label 或靜態選項定義的 label)。 */
     optionLabel(fieldKey) {
       const form = this[FORM_DATA_KEY];
@@ -262,6 +330,10 @@ export interface EvaluationInput {
   /** 給 `optionLabel` 用:欄位定義與**存的值**;不給時 `optionLabel` 一律回 null。 */
   fields?: readonly FieldDef[];
   stored?: StoredValues;
+  /** 列內公式:同一列子欄的語意值(`{ "var": "row.qty" }` 讀它) */
+  row?: Record<string, unknown>;
+  /** 列內公式:這個明細欄的子欄定義(推 `row.*` 的型別,日期混比用) */
+  rowColumns?: readonly ArrayColumnDef[];
 }
 
 /** 形狀不合法就丟 `ExpressionError`(白名單、深度、節點、`var` 路徑)。 */
@@ -330,15 +402,33 @@ function rewriteOperation(
   return { [operator]: Array.isArray(raw) ? args : left };
 }
 
+/** 表單層的型別查詢再加上 `row.<子欄 key>`(列內公式)。 */
+export function rowAwareTypeLookup(
+  base: FieldTypeLookup,
+  columns: readonly ArrayColumnDef[] | undefined,
+): FieldTypeLookup {
+  if (columns === undefined || columns.length === 0) {
+    return base;
+  }
+  const rowTypes = fieldTypeLookupOf(columns);
+  return (key) =>
+    key.startsWith(ROW_VAR_PREFIX)
+      ? rowTypes(key.slice(ROW_VAR_PREFIX.length))
+      : base(key);
+}
+
 /** 內部用:回傳可能含 decimal 物件的原始結果(`computeField` 要在最後取位)。 */
 export function evaluateRaw(expr: Expression, input: EvaluationInput): unknown {
   assertExpression(expr);
   const rewritten = withLocalDayComparisons(
     expr,
-    fieldTypeLookupOf(input.fields ?? []),
+    rowAwareTypeLookup(fieldTypeLookupOf(input.fields ?? []), input.rowColumns),
   );
-  // `ctx` 放最後:語意值裡就算混進同名鍵也蓋不掉上下文(`ctx` 是欄位保留字)
+  // `ctx` / `row` 放最後:語意值裡就算混進同名鍵也蓋不掉上下文(兩者都是欄位保留字)
   const data: EvaluationData = { ...input.values, ctx: input.ctx };
+  if (input.row !== undefined) {
+    data.row = input.row;
+  }
   if (input.fields) {
     data[FORM_DATA_KEY] = {
       fields: new Map(input.fields.map((field) => [field.key, field])),

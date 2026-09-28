@@ -125,7 +125,11 @@ const submissionCatalogOf = (
       type,
     })),
     ...fields
-      .filter((field) => !isProtected(protections.get(field.key)))
+      // 明細欄不能當引用 / 帶入 / 選項的來源欄位(同 api 的目錄)
+      .filter(
+        (field) =>
+          field.type !== "array" && !isProtected(protections.get(field.key)),
+      )
       .map((field) => ({
         value: field.key,
         label: fieldLabel(field),

@@ -1,25 +1,22 @@
 import { type GraphQLResponseBody, HttpResponse } from "msw";
 
-import {
-  type FormSubmissionFieldsFragment,
-  FormSubmissionStatus,
-} from "@repo/graphql";
+import { FormSubmissionStatus } from "@repo/graphql";
 
 import { type AuthErrorCode, graphqlError } from "./auth-handlers";
-import { submissionFragment } from "./form-fixtures";
+import { type MockSubmission, submissionFragment } from "./form-fixtures";
 import { api } from "./server";
 
 type FailureOperation =
   "WithdrawSubmission" | "VoidSubmission" | "CopySubmissionToDraft";
 
 export interface SubmissionActionContext {
-  byId: (id: string) => FormSubmissionFieldsFragment | undefined;
-  push: (submission: FormSubmissionFieldsFragment) => void;
+  byId: (id: string) => MockSubmission | undefined;
+  push: (submission: MockSubmission) => void;
   nextId: () => string;
   fail: (operation: FailureOperation) => ReturnType<typeof graphqlError> | null;
   payload: (
     name: string,
-    submission: FormSubmissionFieldsFragment,
+    submission: MockSubmission,
   ) => HttpResponse<GraphQLResponseBody<Record<string, never>>>;
   inputs: {
     withdrawSubmission: { id: string; expectedEditVersion: number }[];

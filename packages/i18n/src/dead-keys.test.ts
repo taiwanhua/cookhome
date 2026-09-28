@@ -26,6 +26,11 @@ const SOURCE_ROOTS = [
  */
 const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
   {
+    key: "admin.shell.userMenu.modes.",
+    reason:
+      "`t(`modes.${mode}`)`,mode 逐一取自 `@repo/ui/app-theme-provider` 的 `COLOR_MODES`",
+  },
+  {
     key: "admin.login.errors.",
     reason:
       "`t(`errors.${errorKey}`)`,errorKey 由 `login-error.ts` 從 api 錯誤碼換算",
@@ -53,6 +58,11 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
     key: "admin.userManager.form.genderOptions.",
     reason:
       "`t(`genderOptions.${gender}`)`,gender 逐一取自 GraphQL 的 `Gender` 列舉",
+  },
+  {
+    key: "admin.forms.upgrade.skipReasons.",
+    reason:
+      "`t(`skipReasons.${reason}`)`,reason 是 api `upgradeFormSubmissions` 回的跳過原因(`FORM_UPGRADE_SKIP_REASONS`)",
   },
   {
     key: "admin.moduleIcons.",
@@ -144,6 +154,11 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
   {
     key: "admin.forms.property.sources.",
     reason: "`t(`sources.${kind}`)`,kind 是 `ValueSource` 的三種",
+  },
+  {
+    key: "admin.forms.columns.sources.",
+    reason:
+      "`t(`sources.${kind}`)`,kind 取自明細子欄值來源的 `SOURCE_KINDS`(使用者填 / 列內公式)",
   },
   {
     key: "admin.forms.options.sources.",

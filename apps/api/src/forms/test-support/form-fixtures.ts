@@ -1,7 +1,14 @@
 import { expect } from "@jest/globals";
 import { type Connection, Types } from "mongoose";
 
-import type { FieldDef, FieldType, FormDefinition } from "@repo/domain/form";
+import {
+  ARRAY_COLUMN_WIDGETS,
+  type ArrayColumnDef,
+  type ArrayColumnType,
+  type FieldDef,
+  type FieldType,
+  type FormDefinition,
+} from "@repo/domain/form";
 
 import {
   type AuthTestApp,
@@ -23,7 +30,7 @@ import { createRole } from "../../permission/test-support/fixtures";
 export const FORM_TEST_TIMEOUT_MS = 60_000;
 
 export const PASSWORD = ["form", "pass", "word"].join("-");
-export const MODULE_KEY = "shopping-list";
+export const MODULE_KEY = "demo-form";
 /** 表單模組的四筆個別權限。 */
 export const M = {
   view: `${MODULE_KEY}.view`,
@@ -64,6 +71,7 @@ const DEFAULT_WIDGET: Record<FieldType, string> = {
   boolean: "switch",
   upload: "upload",
   reference: "referencePicker",
+  array: "table",
 };
 
 export function field(
@@ -89,6 +97,23 @@ export function field(
           },
         }
       : {}),
+    ...overrides,
+  };
+}
+
+/** 明細列的一個子欄(元件用該型別白名單的第一個)。 */
+export function column(
+  key: string,
+  type: ArrayColumnType,
+  overrides: Partial<ArrayColumnDef> = {},
+): ArrayColumnDef {
+  return {
+    key,
+    label: key,
+    type,
+    widget: { kind: ARRAY_COLUMN_WIDGETS[type][0] ?? "textField" },
+    valueSource: { kind: "input" },
+    ...(type === "number" ? { precision: 0 } : {}),
     ...overrides,
   };
 }

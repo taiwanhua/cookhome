@@ -4,8 +4,8 @@ import { screen, within } from "@testing-library/react";
 import type { FormDefinition } from "@repo/domain/form";
 
 import {
+  DEMO_FORM_ROUTES,
   SHOPPING_FORM_KEY,
-  SHOPPING_ROUTES,
   shoppingDefinition,
   submissionFragment,
 } from "@/test/msw/form-fixtures";
@@ -47,7 +47,7 @@ const EARLY = "2026-01-05T02:00:00.000Z";
 describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => {
   it("唯讀:不重算存值、條件用該修訂的 ctx、看不到的欄位不渲染、頁籤套摘要標題", async () => {
     renderShopping({
-      path: `${SHOPPING_ROUTES.viewPage}/sub-1`,
+      path: `${DEMO_FORM_ROUTES.viewPage}/sub-1`,
       world: {
         moduleForms: [shoppingForm],
         versions: { [`${SHOPPING_FORM_KEY}@1`]: withLateNote() },
@@ -100,7 +100,7 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
 
   it("修訂紀錄:看得到每個修訂,與前一修訂的差異由相鄰兩份快照算", async () => {
     const { user } = renderShopping({
-      path: `${SHOPPING_ROUTES.viewPage}/sub-1`,
+      path: `${DEMO_FORM_ROUTES.viewPage}/sub-1`,
       world: {
         moduleForms: [shoppingForm],
         versions: { [`${SHOPPING_FORM_KEY}@1`]: shoppingDefinition() },
@@ -163,7 +163,7 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
 
   it("頁籤模板的系統佔位符:{{form}} = 表單名、{{applicant}} = 建立者現名", async () => {
     renderShopping({
-      path: `${SHOPPING_ROUTES.viewPage}/sub-1`,
+      path: `${DEMO_FORM_ROUTES.viewPage}/sub-1`,
       world: {
         moduleForms: [
           { ...shoppingForm, tabLabelTemplate: "{{form}} — {{applicant}}" },

@@ -1,16 +1,93 @@
+import { arrayColumnsOf, columnPathOf } from "./array";
 import { COLLATION_LOCALE } from "./collation";
-import { referencedFieldKeys } from "./expression-shape";
-import type { FieldDef } from "./types";
+import { referencedFieldKeys, scanExpression } from "./expression-shape";
+import type { ArrayColumnDef, Expression, FieldDef } from "./types";
 
 /**
  * 欄位之間的依賴:計算順序(拓樸排序)與受保護依賴鏈(Spec §5「受保護欄位的配套」)。
+ *
+ * 依賴圖的節點 = 表單層欄位 + 每個明細子欄(`items.subtotal`);列內公式引用表單層欄位、彙總引用子欄都是邊
+ * (Spec §5「明細列」)。
  */
 
-/** 計算欄位的公式引用到哪些欄位;非計算欄位回空陣列。 */
+/**
+ * 計算欄位的公式引用到哪些**表單層**欄位(彙總算引用明細欄);非計算欄位回空陣列。
+ * 明細欄 = 它所有列內公式引用到的表單層欄位(子欄的 `row.*` 不算)—— 所以任一子欄直接或間接引用受保護欄位,
+ * 整個明細欄就沿依賴鏈受保護(整欄傳遞),彙總引用它的計算欄位也跟著受保護。
+ */
 export function computedDependenciesOf(field: FieldDef): string[] {
+  if (field.type === "array") {
+    const keys = new Set<string>();
+    for (const column of arrayColumnsOf(field)) {
+      if (column.valueSource.kind === "computed") {
+        for (const key of referencedFieldKeys(column.valueSource.expr)) {
+          keys.add(key);
+        }
+      }
+    }
+    return [...keys];
+  }
   return field.valueSource.kind === "computed"
     ? referencedFieldKeys(field.valueSource.expr)
     : [];
+}
+
+/**
+ * 一個表達式在依賴圖上引用到的節點:表單層欄位 = 它的 key;彙總 `sumOf(items, x)` = `items.x`、
+ * `countOf(items)` = `items`(依賴明細欄本身,增刪列即重算);列內公式的 `row.x` = `<所在明細>.x`
+ * (`arrayKey` 不給 = 不在明細裡,`row.*` 略過,由檢查器報錯)。
+ */
+export function expressionNodeRefs(
+  expr: Expression,
+  arrayKey?: string,
+): string[] {
+  const scan = scanExpression(expr);
+  const nodes = new Set<string>();
+  for (const ref of scan.refs) {
+    if (ref.via !== "aggregate") {
+      nodes.add(ref.fieldKey);
+    }
+  }
+  for (const aggregate of scan.aggregates) {
+    nodes.add(
+      aggregate.columnKey === null
+        ? aggregate.arrayKey
+        : columnPathOf(aggregate.arrayKey, aggregate.columnKey),
+    );
+  }
+  if (arrayKey !== undefined) {
+    for (const rowRef of scan.rowRefs) {
+      nodes.add(columnPathOf(arrayKey, rowRef.columnKey));
+    }
+  }
+  return [...nodes];
+}
+
+/** 計算的一個節點:表單層計算欄位,或某明細欄的一個列內公式子欄(每一列都算)。 */
+export type ComputeNode =
+  | { kind: "field"; id: string; field: FieldDef }
+  | { kind: "column"; id: string; field: FieldDef; column: ArrayColumnDef };
+
+function computeNodesOf(fields: readonly FieldDef[]): Map<string, ComputeNode> {
+  const nodes = new Map<string, ComputeNode>();
+  for (const field of fields) {
+    if (field.valueSource.kind === "computed") {
+      nodes.set(field.key, { kind: "field", id: field.key, field });
+    }
+    for (const column of arrayColumnsOf(field)) {
+      if (column.valueSource.kind === "computed") {
+        const id = columnPathOf(field.key, column.key);
+        nodes.set(id, { kind: "column", id, field, column });
+      }
+    }
+  }
+  return nodes;
+}
+
+function nodeExpressionOf(node: ComputeNode): Expression {
+  const source =
+    node.kind === "field" ? node.field.valueSource : node.column.valueSource;
+  return source.kind === "computed" ? source.expr : null;
 }
 
 /** 公式引用成圈時丟出;檢查器會先以 `EXPR_CYCLE` 擋下,正常流程走不到。 */
@@ -19,39 +96,45 @@ export class ComputedCycleError extends Error {
 }
 
 /**
- * 計算欄位的求值順序:被引用的計算欄位排在引用它的前面(引用非計算欄位不影響順序)。
- * 成圈 → `ComputedCycleError`。
+ * 計算節點的求值順序(**完整依賴圖**,不固定列內 / 彙總 / 表單層先後):被引用的節點排在引用它的前面
+ * (引用非計算節點不影響順序;例:`discountRate → items.subtotal → total`)。成圈 → `ComputedCycleError`。
  */
-export function computedOrder(fields: readonly FieldDef[]): FieldDef[] {
-  const byKey = new Map(fields.map((field) => [field.key, field]));
-  const ordered: FieldDef[] = [];
+export function computeOrder(fields: readonly FieldDef[]): ComputeNode[] {
+  const nodes = computeNodesOf(fields);
+  const ordered: ComputeNode[] = [];
   const state = new Map<string, "visiting" | "done">();
-  const visit = (field: FieldDef, trail: string[]): void => {
-    const current = state.get(field.key);
+  const visit = (node: ComputeNode, trail: string[]): void => {
+    const current = state.get(node.id);
     if (current === "done") {
       return;
     }
     if (current === "visiting") {
       throw new ComputedCycleError(
-        `計算欄位循環引用:${[...trail, field.key].join(" → ")}`,
+        `計算欄位循環引用:${[...trail, node.id].join(" → ")}`,
       );
     }
-    state.set(field.key, "visiting");
-    for (const key of computedDependenciesOf(field)) {
-      const dependency = byKey.get(key);
-      if (dependency?.valueSource.kind === "computed") {
-        visit(dependency, [...trail, field.key]);
+    state.set(node.id, "visiting");
+    const arrayKey = node.kind === "column" ? node.field.key : undefined;
+    for (const id of expressionNodeRefs(nodeExpressionOf(node), arrayKey)) {
+      const dependency = nodes.get(id);
+      if (dependency) {
+        visit(dependency, [...trail, node.id]);
       }
     }
-    state.set(field.key, "done");
-    ordered.push(field);
+    state.set(node.id, "done");
+    ordered.push(node);
   };
-  for (const field of fields) {
-    if (field.valueSource.kind === "computed") {
-      visit(field, []);
-    }
+  for (const node of nodes.values()) {
+    visit(node, []);
   }
   return ordered;
+}
+
+/** 表單層計算欄位的求值順序(`computeOrder` 只取表單層的節點)。成圈 → `ComputedCycleError`。 */
+export function computedOrder(fields: readonly FieldDef[]): FieldDef[] {
+  return computeOrder(fields).flatMap((node) =>
+    node.kind === "field" ? [node.field] : [],
+  );
 }
 
 /**

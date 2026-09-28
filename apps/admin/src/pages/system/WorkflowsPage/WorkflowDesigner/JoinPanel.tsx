@@ -61,7 +61,7 @@ export const JoinPanel = ({
         </Typography>
       ))}
       {!isReadonly && (
-        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
+        <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
           <Button size="small" variant="outlined" onClick={onAddBranch}>
             {t("addBranch")}
           </Button>

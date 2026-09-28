@@ -74,6 +74,18 @@ export class OwnerProtectionService {
   }
 
   /**
+   * 根組織專屬動作(租戶作業、資料範圍、欄位類別作業)的共用判準:**站在根組織**,且管理範圍是 `"all"`。
+   * 後者防的是「站在根組織、卻只持有某個租戶的角色」:寫入吃管理範圍,會半套成功(靜默不寫入)。
+   * 正常設定下根組織操作者持有的是擁有組織 = 根組織的角色(或超級管理員),管理範圍都是 `"all"`。
+   * 呼叫端各自決定拒絕時回哪個錯誤(各模組的錯誤碼 / reason 不同)。
+   */
+  async canActAsRoot(operator: OperatorContext): Promise<boolean> {
+    return (
+      operator.managedOrgIds === "all" && (await this.isRootOperator(operator))
+    );
+  }
+
+  /**
    * 租戶頂層保護(ADR-0009:「租戶頂層本身不可被租戶內的人停用、刪除、搬移」)。
    * 目標不是租戶頂層就直接放行;是租戶頂層則只有**根組織的操作者**能做,其餘 `FORBIDDEN`。
    *

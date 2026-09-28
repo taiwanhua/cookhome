@@ -4,8 +4,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { FormSubmissionStatus } from "@repo/graphql";
 
 import {
+  DEMO_FORM_ROUTES,
   SHOPPING_FORM_KEY,
-  SHOPPING_ROUTES,
   shoppingDefinition,
   submissionFragment,
 } from "@/test/msw/form-fixtures";
@@ -16,7 +16,7 @@ import {
   shoppingForm,
 } from "./form-module-test-support";
 
-const EDIT_PATH = `${SHOPPING_ROUTES.editPage}/sub-1`;
+const EDIT_PATH = `${DEMO_FORM_ROUTES.editPage}/sub-1`;
 
 describe("表單模組編輯頁(預設組裝)", () => {
   it("已完成的單:「儲存修改」帶 expectedEditVersion 與 expectedRevision,送整張表單的值", async () => {

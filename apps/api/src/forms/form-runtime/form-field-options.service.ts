@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 
+import { arrayColumnsOf } from "@repo/domain/form";
+
 import { FormVersionsRepository } from "../../database/database.module";
 import { FieldCategoryOptionsService } from "../field-category-options.service";
 import { fieldGateOf, requiredShowKeys } from "../field-permission-gate";
@@ -46,8 +48,13 @@ export class FormFieldOptionsService {
       facts,
       input,
     );
+    // 明細子欄以 `<明細 key>.<子欄 key>` 指定;權限看整個明細欄(子欄沒有自己的權限)
+    // 只收 `<欄位 key>` 或 `<明細 key>.<子欄 key>` 兩種;多於兩段一律當不存在的欄位
+    const segments = input.fieldKey.split(".");
+    const [fieldKey, columnKey] =
+      segments.length <= 2 ? segments : [undefined, undefined];
     const field = version.fields.find(
-      (candidate) => candidate.key === input.fieldKey,
+      (candidate) => candidate.key === fieldKey,
     );
     // 先看讀不讀得到,再看欄位種類:否則讀不到的人能從錯誤碼的差別推出這欄的 `options.kind`
     // (骨架刻意省略的就是 `options`)
@@ -63,7 +70,11 @@ export class FormFieldOptionsService {
         `Missing field permission: ${requiredShowKeys(version.fields, field.key).join(", ")}`,
       );
     }
-    if (field?.options?.kind !== "fieldCategory") {
+    const target =
+      columnKey === undefined || field === undefined
+        ? field
+        : arrayColumnsOf(field).find((column) => column.key === columnKey);
+    if (target?.options?.kind !== "fieldCategory") {
       throw validationError(
         `Field ${input.fieldKey} has no field category options`,
         ["fieldKey"],
@@ -71,7 +82,7 @@ export class FormFieldOptionsService {
     }
     const found = await this.categories.options(
       facts.operator,
-      field.options.key,
+      target.options.key,
     );
     const keyword = input.keyword?.trim().toLowerCase() ?? "";
     const matched: FormFieldOption[] = [...found]
