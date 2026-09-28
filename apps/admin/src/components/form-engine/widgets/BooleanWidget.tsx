@@ -16,6 +16,7 @@ export const BooleanWidget = ({
   onChange,
   isDisabled,
   isReadOnly = false,
+  hiddenLabel = false,
   helperText,
   hasError,
 }: WidgetProps) => {
@@ -24,9 +25,14 @@ export const BooleanWidget = ({
       onChange(checked);
     }
   };
+  // 不畫標題時(明細列的表格格子)名稱掛在開關 / 勾選框本身
+  const named = hiddenLabel
+    ? { slotProps: { input: { "aria-label": field.label } } }
+    : {};
   const control =
     field.widget.kind === "checkbox" ? (
       <Checkbox
+        {...named}
         checked={value === true}
         disabled={isDisabled}
         readOnly={isReadOnly}
@@ -36,6 +42,7 @@ export const BooleanWidget = ({
       />
     ) : (
       <Switch
+        {...named}
         checked={value === true}
         disabled={isDisabled}
         readOnly={isReadOnly}
@@ -48,14 +55,18 @@ export const BooleanWidget = ({
   return (
     <Stack spacing={0.25}>
       {/* 標題在元件前面(Spec 6a §5 表 A 下方:是 / 否欄位的標題顯示在元件前面) */}
-      <FormControlLabel
-        control={control}
-        label={field.label}
-        labelPlacement="start"
-        // 必填 = 必須勾選(Spec 6a 表 A;未勾選送出由 api 以 REQUIRED 擋),標題帶必填記號
-        required={field.rules?.required === true}
-        sx={{ alignSelf: "flex-start" }}
-      />
+      {hiddenLabel ? (
+        control
+      ) : (
+        <FormControlLabel
+          control={control}
+          label={field.label}
+          labelPlacement="start"
+          // 必填 = 必須勾選(Spec 6a 表 A;未勾選送出由 api 以 REQUIRED 擋),標題帶必填記號
+          required={field.rules?.required === true}
+          sx={{ alignSelf: "flex-start" }}
+        />
+      )}
       {helperText !== undefined && (
         <Typography
           variant="caption"

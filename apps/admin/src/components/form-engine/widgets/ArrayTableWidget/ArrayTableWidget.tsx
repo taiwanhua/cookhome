@@ -15,6 +15,8 @@ import { Typography } from "@repo/ui/typography";
 import {
   duplicateRowIn,
   emptyRowOf,
+  insertRowBefore,
+  moveRow,
   removeRowIn,
   setCellIn,
 } from "@/lib/form-engine/array-rows";
@@ -31,9 +33,9 @@ const NO_DISPLAY: readonly FormDisplayItemLike[] = [];
 /**
  * 明細列(`array` → `table`,Spec 6a §5「明細列」):一個欄位裝多列同結構的子欄位。
  *
- * - 桌機是表格(每列一行、每格是子欄型別的填寫元件,列尾「複製」「刪除」);手機寬(< `sm`)每列一張卡片
- *   (子欄直排)
- * - 表尾「+ 新增一列」,到 `maxRows` 停(複製也受它限制);不做拖拉排序
+ * - 桌機是表格(每列一行、每格是子欄型別的填寫元件,列尾「上方插入一列」「上移」「下移」「複製」「刪除」);
+ *   手機寬(< `sm`)每列一張卡片(子欄直排,同一組列動作在卡片標題列)
+ * - 表尾「+ 新增一列」,到 `maxRows` 停(複製、上方插入也受它限制);排序用上移 / 下移,不做拖拉
  * - 錯誤:每格獨立(api 的 `fieldErrors` 以 `rowId` + `columnKey` 定位),列數不足 / 超過在表尾
  * - 唯讀檢視同一個元件走 `isReadOnly`(每格走該型別 widget 的唯讀分支,沒有新增 / 刪除 / 複製)
  * - 設計模式只畫表格外觀的占位(表頭 = 子欄標題)
@@ -62,9 +64,9 @@ export const ArrayTableWidget = ({
   const footerErrors = errors.filter((error) => error.rowId === undefined);
 
   // 回呼要穩定(格子與列動作是 memo 元件):以 ref 取最新的列與 onChange,只在事件裡讀
-  const latest = useRef({ rows, onChange });
+  const latest = useRef({ rows, columns, onChange });
   useEffect(() => {
-    latest.current = { rows, onChange };
+    latest.current = { rows, columns, onChange };
   });
   const update = useCallback(
     (change: (current: ArrayRowValue[]) => ArrayRowValue[]) => {
@@ -75,6 +77,20 @@ export const ArrayTableWidget = ({
   const onCellChange = useCallback(
     (rowId: string, columnKey: string, next: unknown) => {
       update((current) => setCellIn(current, rowId, columnKey, next));
+    },
+    [update],
+  );
+  const onInsertBefore = useCallback(
+    (rowId: string) => {
+      update((current) =>
+        insertRowBefore(current, rowId, latest.current.columns),
+      );
+    },
+    [update],
+  );
+  const onMove = useCallback(
+    (rowId: string, offset: -1 | 1) => {
+      update((current) => moveRow(current, rowId, offset));
     },
     [update],
   );
@@ -108,6 +124,8 @@ export const ArrayTableWidget = ({
       )?.message ?? null,
     displayOf: (columnKey) => columnDisplay?.(columnKey) ?? NO_DISPLAY,
     onCellChange,
+    onInsertBefore,
+    onMove,
     onDuplicate,
     onRemove,
   };

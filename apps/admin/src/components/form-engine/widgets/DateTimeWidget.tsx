@@ -21,6 +21,7 @@ export const DateTimeWidget = ({
   onChange,
   isDisabled,
   isReadOnly = false,
+  hiddenLabel = false,
   helperText,
   hasError,
   context,
@@ -32,6 +33,7 @@ export const DateTimeWidget = ({
         value={value}
         context={context}
         helperText={helperText}
+        hiddenLabel={hiddenLabel}
       />
     );
   }
@@ -42,6 +44,7 @@ export const DateTimeWidget = ({
   return (
     <DateTimePicker
       label={field.label}
+      hiddenLabel={hiddenLabel}
       value={text === "" ? null : text}
       onChange={(next) => {
         onChange(next);

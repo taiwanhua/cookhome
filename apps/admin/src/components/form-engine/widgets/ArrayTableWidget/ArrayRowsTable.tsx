@@ -11,7 +11,7 @@ import type { ArrayRowsViewProps } from "./array-rows-view";
 const DEFAULT_COLUMN_WIDTH = 160;
 
 /** 列尾動作欄的寬(px)。 */
-const ACTIONS_WIDTH = 140;
+const ACTIONS_WIDTH = 260;
 
 const widthOf = (width: number | null | undefined): number =>
   width ?? DEFAULT_COLUMN_WIDTH;
@@ -34,6 +34,8 @@ export const ArrayRowsTable = ({
   cellError,
   displayOf,
   onCellChange,
+  onInsertBefore,
+  onMove,
   onDuplicate,
   onRemove,
 }: ArrayRowsViewProps) => {
@@ -53,7 +55,7 @@ export const ArrayRowsTable = ({
         isDisabled={isDisabled}
         isReadOnly={isReadOnly}
         isDesign={isDesign}
-        isLabelHidden
+        hiddenLabel
         errorMessage={cellError(row.rowId, column.key)}
         display={displayOf(column.key)}
         onCellChange={onCellChange}
@@ -70,7 +72,11 @@ export const ArrayRowsTable = ({
             <ArrayRowActions
               rowId={row.rowId}
               index={ctx.index + 1}
+              isFirst={ctx.index === 0}
+              isLast={ctx.index === rows.length - 1}
               canAdd={canAdd}
+              onInsertBefore={onInsertBefore}
+              onMove={onMove}
               onDuplicate={onDuplicate}
               onRemove={onRemove}
             />

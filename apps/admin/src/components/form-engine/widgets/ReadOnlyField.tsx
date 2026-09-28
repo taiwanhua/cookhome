@@ -21,6 +21,8 @@ export interface ReadOnlyFieldProps {
   display?: readonly FormDisplayItemLike[];
   /** 欄位說明(help);唯讀檢視照樣顯示,不附唯讀原因 */
   helperText?: ReactNode;
+  /** 不畫標題、標題改當 `aria-label`(明細列的表格格子,見 `WidgetProps.hiddenLabel`) */
+  hiddenLabel?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export const ReadOnlyField = ({
   context,
   display,
   helperText,
+  hiddenLabel = false,
 }: ReadOnlyFieldProps) => {
   const t = useTranslations("admin.formEngine.renderer");
   const temporalText = useTemporalText(context.timezone);
@@ -56,13 +59,18 @@ export const ReadOnlyField = ({
 
   return (
     <TextField
-      label={field.label}
+      label={hiddenLabel ? undefined : field.label}
       value={text}
       fullWidth
       size="small"
       {...(helperText !== undefined && { helperText })}
       {...(field.type === "multiline" && { multiline: true })}
-      slotProps={{ htmlInput: { readOnly: true } }}
+      slotProps={{
+        htmlInput: {
+          readOnly: true,
+          ...(hiddenLabel && { "aria-label": field.label }),
+        },
+      }}
     />
   );
 };

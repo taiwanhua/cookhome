@@ -23,6 +23,7 @@ export const MultiChoiceWidget = (props: WidgetProps) => {
   const { field, value, onChange, isDisabled, isDesign, helperText, hasError } =
     props;
   const isReadOnly = props.isReadOnly ?? false;
+  const hiddenLabel = props.hiddenLabel ?? false;
   const t = useTranslations("admin.formEngine.widgets");
   const [keyword, setKeyword] = useState("");
   // 唯讀檢視不查選項:顯示名來自 `displayValues`(現名 / 快照)與定義裡的靜態 label,以「、」串起
@@ -39,6 +40,7 @@ export const MultiChoiceWidget = (props: WidgetProps) => {
         value={value}
         context={props.context}
         helperText={helperText}
+        hiddenLabel={hiddenLabel}
         {...(props.display !== undefined && { display: props.display })}
       />
     );
@@ -68,6 +70,7 @@ export const MultiChoiceWidget = (props: WidgetProps) => {
       <Autocomplete<ChoiceOption, true>
         multiple
         label={field.label}
+        hiddenLabel={hiddenLabel}
         options={listed}
         value={options.filter((option) => selected.includes(option.value))}
         getOptionLabel={(option) => option.label}
@@ -97,6 +100,7 @@ export const MultiChoiceWidget = (props: WidgetProps) => {
       <SelectField
         multiple
         label={field.label}
+        hiddenLabel={hiddenLabel}
         value={selected}
         options={options.map((option) => ({
           value: option.value,
