@@ -657,6 +657,12 @@ export class UsersService {
         "targetUserId",
       ]);
     }
+    // 取代會把操作者自己的管理角色解除、把自己鎖在門外 —— 目標不能是操作者本人
+    if (operator.actorId?.equals(targetId) === true) {
+      throw validationError("Cannot copy orgs and roles onto yourself", [
+        "targetUserId",
+      ]);
+    }
     const source = await this.loadManagedUser(operator, input.sourceUserId);
     const target = await this.loadManagedUser(operator, input.targetUserId);
     const plan = await this.planCopy(operator, source, target, input.mode);
@@ -820,10 +826,10 @@ export class UsersService {
       sourceOrgIds.map(String).filter((id) => isManagedOrg(id)),
       isManagedOrg,
     );
-    // 查無角色文件(已刪除)的授予不複製
+    // 查無角色文件(已刪除)的殘留授予:來源的不複製,目標的不列進差異(也不會被取代解除)
     const roles = planCopySet(
       mode,
-      currentRoleIds.map(String),
+      currentRoleIds.map(String).filter((id) => roleById.has(id)),
       sourceRoleIds
         .map(String)
         .filter((id) => isReachableRole(id) && roleById.has(id)),
@@ -924,9 +930,7 @@ export class UsersService {
       roles: {
         added: roles.added.map((id) => toRole(id)),
         removed: roles.removed.map((id) => toRole(id)),
-        kept: roles.kept
-          .filter((id) => roleById.has(id))
-          .map((id) => toRole(id)),
+        kept: roles.kept.map((id) => toRole(id)),
       },
       blockers,
       outOfScopeKept,

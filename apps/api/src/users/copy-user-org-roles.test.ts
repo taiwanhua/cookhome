@@ -467,6 +467,19 @@ describe("複製使用者的組織與角色(GraphQL 端點 + 真 MongoDB)", () =
       ]);
     });
 
+    it("有限管理範圍:差異的「保留」不列範圍外的組織與角色(留著但不露出)", async () => {
+      const source = await member("kept-source", [deptOne]);
+      const target = await member("kept-target", [deptOne, deptOfB]);
+      const targetOutOfScope = await role("目標範圍外", tenantB, [target]);
+
+      const result = await copy(source, target, { mode: "REPLACE" });
+
+      const keptOrgIds = result.data?.orgs.kept.map((org) => org.id);
+      const keptRoleIds = result.data?.roles.kept.map((item) => item.id);
+      expect(keptOrgIds).toEqual([String(deptOne)]);
+      expect(keptRoleIds).not.toContain(String(targetOutOfScope));
+    });
+
     it("範圍外的角色因取代失去資格:允許執行、角色留著,預覽只回 outOfScopeKept", async () => {
       // 管理範圍 = 部門一 ∪ 部門A(兩個角色的擁有組織子樹);租戶甲擁有的角色在範圍外
       const token = await createManager({
@@ -638,6 +651,51 @@ describe("複製使用者的組織與角色(GraphQL 端點 + 真 MongoDB)", () =
       expect(result.code).toBe("NOT_FOUND");
     });
 
+    it("目標在管理範圍外(別的租戶)→ NOT_FOUND", async () => {
+      const source = await member("in-scope-source", [deptOne]);
+      const target = await member("other-tenant-target", [deptOfB]);
+
+      const result = await copy(source, target);
+
+      expect(result.code).toBe("NOT_FOUND");
+    });
+
+    it("目標是操作者本人 → VALIDATION_FAILED(取代會把自己鎖在門外)", async () => {
+      const source = await member("self-source", [deptOne]);
+      const root = await connection
+        .collection("users")
+        .findOne<{ _id: Types.ObjectId }>({ account: ROOT_ADMIN.account });
+      if (root === null) {
+        throw new Error("找不到 root 帳號");
+      }
+
+      const result = await copy(source, root._id, { token: rootToken });
+
+      expect(result.code).toBe("VALIDATION_FAILED");
+      expect(result.extensions?.fields).toEqual(["targetUserId"]);
+    });
+
+    it("根組織操作者、來源沒有存活的所屬組織、取代 → LAST_ORG 且沒有寫入", async () => {
+      const doomedOrg = await createOrg(connection, {
+        name: "即將刪除的組織",
+        parentId: tenantA,
+      });
+      const source = await member("orphan-source", [doomedOrg]);
+      const target = await member("orphan-target", [deptTwo]);
+      await connection
+        .collection("orgs")
+        .updateOne({ _id: doomedOrg }, { $set: { deletedAt: new Date() } });
+
+      const result = await copy(source, target, {
+        mode: "REPLACE",
+        dryRun: false,
+        token: rootToken,
+      });
+
+      expect(result.code).toBe("LAST_ORG");
+      expect(await orgsOf(target)).toEqual([String(deptTwo)]);
+    });
+
     it("來源在管理範圍外 → NOT_FOUND", async () => {
       const source = await member("outside-source", [deptOfB]);
       const target = await member("outside-target", [deptTwo]);
@@ -710,6 +768,24 @@ describe("複製使用者的組織與角色(GraphQL 端點 + 真 MongoDB)", () =
       expect(await orgsOf(ownerId)).toEqual([String(childId)]);
       expect(await rolesOf(ownerId)).toEqual([]);
     });
+  });
+
+  it("停用的目標可以複製,複製後仍是停用", async () => {
+    const source = await member("to-disabled-source", [deptOne]);
+    const target = await createUser(connection, {
+      account: nextAccount("disabled-target"),
+      password: PASSWORD,
+      orgIds: [deptTwo],
+      enabled: false,
+    });
+
+    const result = await copy(source, target, { dryRun: false });
+
+    expect(result.code).toBeUndefined();
+    const stored = await connection
+      .collection("users")
+      .findOne<{ enabled: boolean }>({ _id: target });
+    expect(stored?.enabled).toBe(false);
   });
 
   describe("中途失敗", () => {
