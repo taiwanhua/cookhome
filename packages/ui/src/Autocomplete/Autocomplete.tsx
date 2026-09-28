@@ -56,6 +56,11 @@ export interface AutocompleteProps<
   groupBy?: (option: Option) => string;
   /** 浮動標籤;ui 不內建文案(I18N-01) */
   label?: ReactNode;
+  /**
+   * 不畫浮動標籤(外框因此不留 legend 缺口),`label` 改當輸入框的 `aria-label`(須是字串)。
+   * 給表頭已寫了標題的表格格子用(表單引擎的明細列)。
+   */
+  hiddenLabel?: boolean;
   placeholder?: string;
   /**
    * 輸入框的字變了。**給了它就等於接手過濾**(用在 keyword 丟回 api 查的情境),
@@ -134,6 +139,7 @@ export const Autocomplete = <
   getOptionDisabledReason,
   groupBy,
   label,
+  hiddenLabel = false,
   placeholder,
   onInputChange,
   loading,
@@ -206,7 +212,17 @@ export const Autocomplete = <
       renderInput={(params) => (
         <TextField
           {...params}
-          label={label}
+          label={hiddenLabel ? undefined : label}
+          {...(hiddenLabel &&
+            typeof label === "string" && {
+              slotProps: {
+                ...params.slotProps,
+                htmlInput: {
+                  ...params.slotProps.htmlInput,
+                  "aria-label": label,
+                },
+              },
+            })}
           placeholder={placeholder}
           required={required}
           error={error}

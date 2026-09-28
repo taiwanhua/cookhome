@@ -96,4 +96,16 @@ describe("DatePicker", () => {
 
     expect(screen.getByText("請選日期")).not.toBeNull();
   });
+  it("hiddenLabel:不畫浮動標籤(legend 不留缺口),label 改當欄位的名稱", () => {
+    const { container } = render(
+      <DatePicker label="起日" hiddenLabel value="2026-01-01" />,
+    );
+
+    // 沒有標籤元素、外框的 legend 只剩零寬空白:不留缺口
+    expect(container.querySelector("label")).toBeNull();
+    expect(container.querySelector("fieldset legend")?.textContent).toBe(
+      "\u200b",
+    );
+    expect(screen.getByLabelText("起日")).toBe(field());
+  });
 });

@@ -22,6 +22,11 @@ export type DatePickerLocale = "zh-tw" | "en";
 export interface DatePickerProps {
   /** 浮動標籤(如「值」「起日」);ui 不內建文案 */
   label?: ReactNode;
+  /**
+   * 不畫浮動標籤(外框因此不留 legend 缺口),`label` 改當無障礙名稱(`aria-label`,須是字串)。
+   * 給表頭已寫了標題的表格格子用(表單引擎的明細列)。
+   */
+  hiddenLabel?: boolean;
   /** 受控值,`YYYY-MM-DD`;清空為 `null` */
   value?: string | null;
   /** 非受控的初始值,`YYYY-MM-DD` */
@@ -69,6 +74,7 @@ const toValue = (date: Dayjs | null): string | null =>
  */
 export const DatePicker = ({
   label,
+  hiddenLabel = false,
   value,
   defaultValue,
   onChange,
@@ -88,7 +94,7 @@ export const DatePicker = ({
 }: DatePickerProps) => (
   <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={locale}>
     <MuiDatePicker
-      label={label}
+      label={hiddenLabel ? undefined : label}
       value={toDate(value)}
       defaultValue={toDate(defaultValue)}
       onChange={(date) => onChange?.(toValue(date))}
@@ -99,7 +105,21 @@ export const DatePicker = ({
       format={format}
       sx={sx}
       slotProps={{
-        textField: { required, error, helperText, fullWidth, name, size },
+        textField: {
+          required,
+          error,
+          helperText,
+          fullWidth,
+          name,
+          size,
+          // 不畫標籤時名稱改掛在欄位的 group 上(沒有標籤元素可指,`aria-labelledby` 一併拿掉)
+          ...(hiddenLabel &&
+            typeof label === "string" && {
+              slotProps: {
+                input: { "aria-label": label, "aria-labelledby": undefined },
+              },
+            }),
+        },
       }}
     />
   </LocalizationProvider>

@@ -86,4 +86,21 @@ describe("DateTimePicker", () => {
 
     expect(screen.getByText("請選時間")).not.toBeNull();
   });
+  it("hiddenLabel:不畫浮動標籤(legend 不留缺口),label 改當欄位的名稱", () => {
+    const { container } = render(
+      <DateTimePicker
+        label="開始時間"
+        hiddenLabel
+        value="2026-03-01T01:30:00Z"
+        timezone="Asia/Taipei"
+      />,
+    );
+
+    // 沒有標籤元素、外框的 legend 只剩零寬空白:不留缺口
+    expect(container.querySelector("label")).toBeNull();
+    expect(container.querySelector("fieldset legend")?.textContent).toBe(
+      "\u200b",
+    );
+    expect(screen.getByLabelText("開始時間")).toBe(screen.getByRole("group"));
+  });
 });

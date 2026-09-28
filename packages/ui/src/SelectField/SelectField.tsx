@@ -18,6 +18,11 @@ export interface SelectFieldOption<Value extends string = string> {
 interface SelectFieldCommonProps<Value extends string> {
   /** 浮動標籤,同時是 combobox 的無障礙名稱(MUI 以 `aria-labelledby` 指向它) */
   label: ReactNode;
+  /**
+   * 不畫浮動標籤(外框因此不留 legend 缺口),`label` 改當 combobox 的 `aria-label`(須是字串)。
+   * 給表頭已寫了標題的表格格子用(表單引擎的明細列)。
+   */
+  hiddenLabel?: boolean;
   options: readonly SelectFieldOption<Value>[];
   /** 欄位下方的說明;`error` 時轉成錯誤色 */
   helperText?: ReactNode;
@@ -126,11 +131,12 @@ export const SelectField = <Value extends string>(
 
   const selectedValues: readonly string[] =
     props.multiple === true ? props.value : [];
+  const isLabelHidden = props.hiddenLabel === true;
 
   return (
     <TextField
       select
-      label={props.label}
+      label={isLabelHidden ? undefined : props.label}
       value={props.multiple === true ? [...props.value] : props.value}
       helperText={props.helperText}
       error={props.error}
@@ -149,8 +155,12 @@ export const SelectField = <Value extends string>(
           ...(props.multiple === true ? { renderValue: renderMultiple } : {}),
         },
         // MUI 只在值非空時才自動收起標籤;顯示空值項時要釘住,否則壓在文字上
-        ...(props.displayEmpty === true
+        ...(props.displayEmpty === true && !isLabelHidden
           ? { inputLabel: { shrink: true } }
+          : {}),
+        // 不畫標籤:名稱改掛在 combobox 上(`htmlInput` 經 Select 轉給畫出 combobox 的那一層)
+        ...(isLabelHidden && typeof props.label === "string"
+          ? { htmlInput: { "aria-label": props.label } }
           : {}),
       }}
     >

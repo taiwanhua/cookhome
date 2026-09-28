@@ -287,6 +287,25 @@ describe("Autocomplete", () => {
     await user.click(input);
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
+  it("hiddenLabel:不畫浮動標籤(legend 不留缺口),label 改當輸入框的名稱", () => {
+    const { container } = render(
+      <Autocomplete<Role>
+        label="角色"
+        hiddenLabel
+        options={[support]}
+        value={null}
+        getOptionLabel={(role) => role.name}
+        onChange={jest.fn()}
+      />,
+    );
+
+    // 沒有標籤元素、外框的 legend 只剩零寬空白:不留缺口
+    expect(container.querySelector("label")).toBeNull();
+    expect(container.querySelector("fieldset legend")?.textContent).toBe(
+      "\u200b",
+    );
+    expect(screen.getByLabelText("角色")).toHaveRole("combobox");
+  });
 });
 
 const noop = () => {
