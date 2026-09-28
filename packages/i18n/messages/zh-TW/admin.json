@@ -3,7 +3,6 @@
     "subtitle": "後台管理",
     "loading": "載入中…",
     "apiError": "無法連線到 API,請確認 api 服務已啟動",
-    "language": "語言",
     "snackbar": {
       "close": "關閉"
     }
@@ -79,7 +78,9 @@
   },
   "shell": {
     "userMenu": {
+      "title": "使用者選單",
       "appearance": "外觀",
+      "language": "語言",
       "modes": {
         "system": "跟隨系統",
         "light": "亮",

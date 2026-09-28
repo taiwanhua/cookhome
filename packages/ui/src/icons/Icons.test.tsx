@@ -10,10 +10,15 @@ import { ChevronDoubleRightIcon } from "./ChevronDoubleRightIcon";
 import { ChevronDownIcon } from "./ChevronDownIcon";
 import { ChevronRightIcon } from "./ChevronRightIcon";
 import { CloseIcon } from "./CloseIcon";
+import { DarkModeIcon } from "./DarkModeIcon";
 import { DeleteIcon } from "./DeleteIcon";
+import { DevicesIcon } from "./DevicesIcon";
 import { DotIcon } from "./DotIcon";
 import { EditIcon } from "./EditIcon";
 import { HelpIcon } from "./HelpIcon";
+import { LightModeIcon } from "./LightModeIcon";
+import { LogoutIcon } from "./LogoutIcon";
+import { SystemModeIcon } from "./SystemModeIcon";
 import { ViewIcon } from "./ViewIcon";
 
 /** 手繪的殼圖示:path 取自 Figma 匯出的 SVG,每一筆顏色都明寫 `currentColor`。 */
@@ -40,6 +45,11 @@ const actionIcons = [
   { name: "ArrowDownIcon", Icon: ArrowDownIcon },
   { name: "ChevronDoubleLeftIcon", Icon: ChevronDoubleLeftIcon },
   { name: "ChevronDoubleRightIcon", Icon: ChevronDoubleRightIcon },
+  { name: "SystemModeIcon", Icon: SystemModeIcon },
+  { name: "LightModeIcon", Icon: LightModeIcon },
+  { name: "DarkModeIcon", Icon: DarkModeIcon },
+  { name: "LogoutIcon", Icon: LogoutIcon },
+  { name: "DevicesIcon", Icon: DevicesIcon },
 ] as const;
 
 describe("icons", () => {

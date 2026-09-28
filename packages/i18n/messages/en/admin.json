@@ -3,7 +3,6 @@
     "subtitle": "Admin",
     "loading": "Loading…",
     "apiError": "Cannot reach the API. Make sure the api service is running.",
-    "language": "Language",
     "snackbar": {
       "close": "Close"
     }
@@ -79,7 +78,9 @@
   },
   "shell": {
     "userMenu": {
+      "title": "User menu",
       "appearance": "Appearance",
+      "language": "Language",
       "modes": {
         "system": "System",
         "light": "Light",
