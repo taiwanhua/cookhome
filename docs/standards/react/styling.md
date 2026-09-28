@@ -28,6 +28,8 @@ review 最友善;Minimal Dashboard 級的統一感靠 theme 工程達成。
 
 theme 已開 `cssVariables` + light/dark colorSchemes;元件不判斷「現在是深色嗎」、
 不寫 `prefers-color-scheme` — 用對語意 token,深色模式自動正確。
+使用者切換外觀(跟隨系統 / 亮 / 暗)只走 `@repo/ui/app-theme-provider` 的 `useColorMode`
+(選擇由 `AppThemeProvider` 記在 localStorage,key 由 app 傳入並登記在 `docs/branding.md`)。
 
 ## STYLE-05 apps 不直接 import MUI/Emotion(lint 強制)
 
