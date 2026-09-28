@@ -79,6 +79,15 @@ describe("殼的內容區最小寬度(主題斷點;視窗更窄時由內容區�
     expect(collapsed.overflowY).toBe("auto");
   });
 
+  it("表單管理(設計器頁)宣告 xl", async () => {
+    renderFormsPage();
+
+    await screen.findByRole("navigation", { name: "主選單" });
+    expect(contentMinWidth()).toContain(`${String(XL)}px`);
+  });
+});
+
+describe("殼的內容區內距", () => {
   it("<main> 內距:手機寬 8px(1 單位)、sm 起 24px(3 單位)", async () => {
     server.use(
       ...authWorld({ hasRefreshCookie: true, modules: superAdminModules })
@@ -94,12 +103,5 @@ describe("殼的內容區最小寬度(主題斷點;視窗更窄時由內容區�
     expect(mediaRulesOf(main, 600)).toContain(
       "padding: calc(3 * var(--mui-spacing));",
     );
-  });
-
-  it("表單管理(設計器頁)宣告 xl", async () => {
-    renderFormsPage();
-
-    await screen.findByRole("navigation", { name: "主選單" });
-    expect(contentMinWidth()).toContain(`${String(XL)}px`);
   });
 });
