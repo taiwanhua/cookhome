@@ -76,6 +76,12 @@ export type ApplicationItem = {
   updatedAt: Scalars['DateTime']['output'];
 };
 
+export type ApplyCenterCounts = {
+  __typename?: 'ApplyCenterCounts';
+  myApplications: Scalars['Int']['output'];
+  myTasks: Scalars['Int']['output'];
+};
+
 export type AssignFormToTenantsInput = {
   formKey: Scalars['ID']['input'];
   tenantOrgIds: Array<Scalars['ID']['input']>;
@@ -122,6 +128,66 @@ export type ChangePasswordPayload = {
 export type CopySubmissionToDraftInput = {
   clientRequestId: Scalars['String']['input'];
   id: Scalars['ID']['input'];
+};
+
+export type CopyUserOrgRolesBlocker = {
+  __typename?: 'CopyUserOrgRolesBlocker';
+  code: CopyUserOrgRolesBlockerCode;
+  orgId?: Maybe<Scalars['ID']['output']>;
+  roleId?: Maybe<Scalars['ID']['output']>;
+};
+
+/** 複製使用者的組織與角色被擋下的原因 */
+export enum CopyUserOrgRolesBlockerCode {
+  LastOrg = 'LAST_ORG',
+  OwnerProtected = 'OWNER_PROTECTED',
+  RoleDisabled = 'ROLE_DISABLED',
+  UserNotEligible = 'USER_NOT_ELIGIBLE'
+}
+
+export type CopyUserOrgRolesInput = {
+  dryRun?: InputMaybe<Scalars['Boolean']['input']>;
+  mode: CopyUserOrgRolesMode;
+  sourceUserId: Scalars['ID']['input'];
+  targetUserId: Scalars['ID']['input'];
+};
+
+/** 複製使用者的組織與角色:合併 / 取代 */
+export enum CopyUserOrgRolesMode {
+  Merge = 'MERGE',
+  Replace = 'REPLACE'
+}
+
+export type CopyUserOrgRolesOrgDiff = {
+  __typename?: 'CopyUserOrgRolesOrgDiff';
+  added: Array<UserOrg>;
+  kept: Array<UserOrg>;
+  removed: Array<UserOrg>;
+};
+
+export type CopyUserOrgRolesPayload = {
+  __typename?: 'CopyUserOrgRolesPayload';
+  applied: Scalars['Boolean']['output'];
+  blockers: Array<CopyUserOrgRolesBlocker>;
+  mode: CopyUserOrgRolesMode;
+  orgs: CopyUserOrgRolesOrgDiff;
+  outOfScopeKept: Scalars['Boolean']['output'];
+  roles: CopyUserOrgRolesRoleDiff;
+  user: User;
+};
+
+export type CopyUserOrgRolesRole = {
+  __typename?: 'CopyUserOrgRolesRole';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  ownerOrgName?: Maybe<Scalars['String']['output']>;
+};
+
+export type CopyUserOrgRolesRoleDiff = {
+  __typename?: 'CopyUserOrgRolesRoleDiff';
+  added: Array<CopyUserOrgRolesRole>;
+  kept: Array<CopyUserOrgRolesRole>;
+  removed: Array<CopyUserOrgRolesRole>;
 };
 
 export type CreateChildOrgInput = {
@@ -1180,6 +1246,7 @@ export type Mutation = {
   bindFormWorkflow: FormPayload;
   changePassword: ChangePasswordPayload;
   copySubmissionToDraft: FormSubmissionPayload;
+  copyUserOrgRoles: CopyUserOrgRolesPayload;
   createChildOrg: OrgPayload;
   createDemoItemOne: DemoItemOnePayload;
   createDemoItemTwo: DemoItemTwoPayload;
@@ -1303,6 +1370,11 @@ export type MutationChangePasswordArgs = {
 
 export type MutationCopySubmissionToDraftArgs = {
   input: CopySubmissionToDraftInput;
+};
+
+
+export type MutationCopyUserOrgRolesArgs = {
+  input: CopyUserOrgRolesInput;
 };
 
 
@@ -1850,6 +1922,7 @@ export type PublishWorkflowVersionInput = {
 export type Query = {
   __typename?: 'Query';
   applicableForms: Array<ApplicableModuleForms>;
+  applyCenterCounts: ApplyCenterCounts;
   blockedInstances: WorkflowInstancesPayload;
   dataScopeRule: DataScopeRulePayload;
   dataScopeTargets: DataScopeTargetsPayload;
@@ -3136,6 +3209,11 @@ export type MyTasksQueryVariables = Exact<{
 
 export type MyTasksQuery = { __typename?: 'Query', myTasks: { __typename?: 'WorkflowTasksPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }> } };
 
+export type ApplyCenterCountsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ApplyCenterCountsQuery = { __typename?: 'Query', applyCenterCounts: { __typename?: 'ApplyCenterCounts', myTasks: number, myApplications: number } };
+
 export type WorkflowInstanceQueryVariables = Exact<{
   id: Scalars['ID']['input'];
 }>;
@@ -4020,6 +4098,13 @@ export type AssignUserRolesMutationVariables = Exact<{
 
 export type AssignUserRolesMutation = { __typename?: 'Mutation', assignUserRoles: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, ownerOrgId?: string | null, ownerOrgName?: string | null, outOfScope: boolean }> } } };
 
+export type CopyUserOrgRolesMutationVariables = Exact<{
+  input: CopyUserOrgRolesInput;
+}>;
+
+
+export type CopyUserOrgRolesMutation = { __typename?: 'Mutation', copyUserOrgRoles: { __typename?: 'CopyUserOrgRolesPayload', mode: CopyUserOrgRolesMode, applied: boolean, outOfScopeKept: boolean, user: { __typename?: 'User', id: string }, orgs: { __typename?: 'CopyUserOrgRolesOrgDiff', added: Array<{ __typename?: 'UserOrg', id: string, name: string }>, removed: Array<{ __typename?: 'UserOrg', id: string, name: string }>, kept: Array<{ __typename?: 'UserOrg', id: string, name: string }> }, roles: { __typename?: 'CopyUserOrgRolesRoleDiff', added: Array<{ __typename?: 'CopyUserOrgRolesRole', id: string, name: string, ownerOrgName?: string | null }>, removed: Array<{ __typename?: 'CopyUserOrgRolesRole', id: string, name: string, ownerOrgName?: string | null }>, kept: Array<{ __typename?: 'CopyUserOrgRolesRole', id: string, name: string, ownerOrgName?: string | null }> }, blockers: Array<{ __typename?: 'CopyUserOrgRolesBlocker', code: CopyUserOrgRolesBlockerCode, roleId?: string | null, orgId?: string | null }> } };
+
 export type WorkflowFieldsFragment = { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } };
 
 export type WorkflowVersionFieldsFragment = { __typename?: 'WorkflowVersionModel', id: string, workflowKey: string, version?: number | null, status: WorkflowVersionStatus, draftRevision: number, baseVersion?: number | null, steps: Array<Record<string, unknown>>, checkFormKey?: string | null, changelog?: string | null, publishedAt?: string | null, edges?: Array<{ __typename?: 'WorkflowEdgeModel', from: string, to: string }> | null, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null };
@@ -4892,6 +4977,38 @@ useMyTasksQuery.getKey = (variables: MyTasksQueryVariables) => ['MyTasks', varia
 
 
 useMyTasksQuery.fetcher = (client: GraphQLClient, variables: MyTasksQueryVariables, headers?: RequestInit['headers']) => fetcher<MyTasksQuery, MyTasksQueryVariables>(client, MyTasksDocument, variables, headers);
+
+export const ApplyCenterCountsDocument = `
+    query ApplyCenterCounts {
+  applyCenterCounts {
+    myTasks
+    myApplications
+  }
+}
+    `;
+
+export const useApplyCenterCountsQuery = <
+      TData = ApplyCenterCountsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: ApplyCenterCountsQueryVariables,
+      options?: Omit<UseQueryOptions<ApplyCenterCountsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ApplyCenterCountsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ApplyCenterCountsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ApplyCenterCounts'] : ['ApplyCenterCounts', variables],
+    queryFn: fetcher<ApplyCenterCountsQuery, ApplyCenterCountsQueryVariables>(client, ApplyCenterCountsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useApplyCenterCountsQuery.getKey = (variables?: ApplyCenterCountsQueryVariables) => variables === undefined ? ['ApplyCenterCounts'] : ['ApplyCenterCounts', variables];
+
+
+useApplyCenterCountsQuery.fetcher = (client: GraphQLClient, variables?: ApplyCenterCountsQueryVariables, headers?: RequestInit['headers']) => fetcher<ApplyCenterCountsQuery, ApplyCenterCountsQueryVariables>(client, ApplyCenterCountsDocument, variables, headers);
 
 export const WorkflowInstanceDocument = `
     query WorkflowInstance($id: ID!) {
@@ -9075,6 +9192,75 @@ export const useAssignUserRolesMutation = <
 
 
 useAssignUserRolesMutation.fetcher = (client: GraphQLClient, variables: AssignUserRolesMutationVariables, headers?: RequestInit['headers']) => fetcher<AssignUserRolesMutation, AssignUserRolesMutationVariables>(client, AssignUserRolesDocument, variables, headers);
+
+export const CopyUserOrgRolesDocument = `
+    mutation CopyUserOrgRoles($input: CopyUserOrgRolesInput!) {
+  copyUserOrgRoles(input: $input) {
+    user {
+      id
+    }
+    mode
+    applied
+    orgs {
+      added {
+        id
+        name
+      }
+      removed {
+        id
+        name
+      }
+      kept {
+        id
+        name
+      }
+    }
+    roles {
+      added {
+        id
+        name
+        ownerOrgName
+      }
+      removed {
+        id
+        name
+        ownerOrgName
+      }
+      kept {
+        id
+        name
+        ownerOrgName
+      }
+    }
+    blockers {
+      code
+      roleId
+      orgId
+    }
+    outOfScopeKept
+  }
+}
+    `;
+
+export const useCopyUserOrgRolesMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CopyUserOrgRolesMutation, TError, CopyUserOrgRolesMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CopyUserOrgRolesMutation, TError, CopyUserOrgRolesMutationVariables, TContext>(
+      {
+    mutationKey: ['CopyUserOrgRoles'],
+    mutationFn: (variables?: CopyUserOrgRolesMutationVariables) => fetcher<CopyUserOrgRolesMutation, CopyUserOrgRolesMutationVariables>(client, CopyUserOrgRolesDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCopyUserOrgRolesMutation.fetcher = (client: GraphQLClient, variables: CopyUserOrgRolesMutationVariables, headers?: RequestInit['headers']) => fetcher<CopyUserOrgRolesMutation, CopyUserOrgRolesMutationVariables>(client, CopyUserOrgRolesDocument, variables, headers);
 
 export const WorkflowsDocument = `
     query Workflows($input: WorkflowsInput!) {

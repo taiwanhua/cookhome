@@ -359,6 +359,16 @@
         "default": "./dist/cjs/tooltip.js"
       }
     },
+    "./badge": {
+      "import": {
+        "types": "./dist/es/badge.d.mts",
+        "default": "./dist/es/badge.mjs"
+      },
+      "require": {
+        "types": "./dist/cjs/badge.d.ts",
+        "default": "./dist/cjs/badge.js"
+      }
+    },
     "./tag": {
       "import": {
         "types": "./dist/es/tag.d.mts",

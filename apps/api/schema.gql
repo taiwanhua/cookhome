@@ -45,6 +45,11 @@ type ApplicationItem {
   updatedAt: DateTime!
 }
 
+type ApplyCenterCounts {
+  myApplications: Int!
+  myTasks: Int!
+}
+
 input AssignFormToTenantsInput {
   formKey: ID!
   tenantOrgIds: [ID!]!
@@ -91,6 +96,61 @@ type ChangePasswordPayload {
 input CopySubmissionToDraftInput {
   clientRequestId: String!
   id: ID!
+}
+
+type CopyUserOrgRolesBlocker {
+  code: CopyUserOrgRolesBlockerCode!
+  orgId: ID
+  roleId: ID
+}
+
+"""複製使用者的組織與角色被擋下的原因"""
+enum CopyUserOrgRolesBlockerCode {
+  LAST_ORG
+  OWNER_PROTECTED
+  ROLE_DISABLED
+  USER_NOT_ELIGIBLE
+}
+
+input CopyUserOrgRolesInput {
+  dryRun: Boolean = true
+  mode: CopyUserOrgRolesMode!
+  sourceUserId: ID!
+  targetUserId: ID!
+}
+
+"""複製使用者的組織與角色:合併 / 取代"""
+enum CopyUserOrgRolesMode {
+  MERGE
+  REPLACE
+}
+
+type CopyUserOrgRolesOrgDiff {
+  added: [UserOrg!]!
+  kept: [UserOrg!]!
+  removed: [UserOrg!]!
+}
+
+type CopyUserOrgRolesPayload {
+  applied: Boolean!
+  blockers: [CopyUserOrgRolesBlocker!]!
+  mode: CopyUserOrgRolesMode!
+  orgs: CopyUserOrgRolesOrgDiff!
+  outOfScopeKept: Boolean!
+  roles: CopyUserOrgRolesRoleDiff!
+  user: User!
+}
+
+type CopyUserOrgRolesRole {
+  id: ID!
+  name: String!
+  ownerOrgName: String
+}
+
+type CopyUserOrgRolesRoleDiff {
+  added: [CopyUserOrgRolesRole!]!
+  kept: [CopyUserOrgRolesRole!]!
+  removed: [CopyUserOrgRolesRole!]!
 }
 
 input CreateChildOrgInput {
@@ -1080,6 +1140,7 @@ type Mutation {
   bindFormWorkflow(input: BindFormWorkflowInput!): FormPayload!
   changePassword(input: ChangePasswordInput!): ChangePasswordPayload!
   copySubmissionToDraft(input: CopySubmissionToDraftInput!): FormSubmissionPayload!
+  copyUserOrgRoles(input: CopyUserOrgRolesInput!): CopyUserOrgRolesPayload!
   createChildOrg(input: CreateChildOrgInput!): OrgPayload!
   createDemoItemOne(input: CreateDemoItemOneInput!): DemoItemOnePayload!
   createDemoItemTwo(input: CreateDemoItemTwoInput!): DemoItemTwoPayload!
@@ -1302,6 +1363,7 @@ input PublishWorkflowVersionInput {
 
 type Query {
   applicableForms: [ApplicableModuleForms!]!
+  applyCenterCounts: ApplyCenterCounts!
   blockedInstances(input: BlockedInstancesInput!): WorkflowInstancesPayload!
   dataScopeRule(targetId: ID!): DataScopeRulePayload!
   dataScopeTargets: DataScopeTargetsPayload!

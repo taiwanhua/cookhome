@@ -51,6 +51,10 @@ export const useUserManagerData = () => {
     canManageOrgs: hasPermission(USER_MANAGER_PERMISSIONS.manageOrgs),
     canAssignRoles: hasPermission(USER_MANAGER_PERMISSIONS.assignRoles),
     canToggleEnabled: hasPermission(USER_MANAGER_PERMISSIONS.toggleEnabled),
+    canCopyOrgRoles:
+      hasPermission(USER_MANAGER_PERMISSIONS.view) &&
+      hasPermission(USER_MANAGER_PERMISSIONS.manageOrgs) &&
+      hasPermission(USER_MANAGER_PERMISSIONS.assignRoles),
     canShowNationalId: hasPermission(USER_MANAGER_PERMISSIONS.showNationalId),
     canEditNationalId: hasPermission(USER_MANAGER_PERMISSIONS.editNationalId),
   };

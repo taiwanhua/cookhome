@@ -20,6 +20,8 @@ export interface UserTableProps {
   onManageOrgs: (user: UserRow) => void;
   onAssignRoles: (user: UserRow) => void;
   onToggleEnabled: (user: UserRow) => void;
+  /** 以這一列為來源,開「複製組織與角色」彈窗 */
+  onCopyOrgRoles: (user: UserRow) => void;
 }
 
 /**
@@ -36,6 +38,7 @@ export const UserTable = ({
   onManageOrgs,
   onAssignRoles,
   onToggleEnabled,
+  onCopyOrgRoles,
 }: UserTableProps) => {
   const t = useTranslations("admin.userManager");
 
@@ -95,6 +98,7 @@ export const UserTable = ({
           onManageOrgs={onManageOrgs}
           onAssignRoles={onAssignRoles}
           onToggleEnabled={onToggleEnabled}
+          onCopyOrgRoles={onCopyOrgRoles}
         />
       ),
     },

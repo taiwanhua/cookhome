@@ -9,6 +9,8 @@ import { NavRailLinkItem } from "./NavRailLinkItem";
 export interface NavRailProps {
   nodes: NavNode[];
   currentPath: string;
+  /** 模組 key → 待辦數(收合態畫成小圓點;群組 flyout 裡的子列照展開態畫數字) */
+  badges?: Readonly<Record<string, number>>;
 }
 
 /**
@@ -17,7 +19,7 @@ export interface NavRailProps {
  * **只列最上層**:64px 放不下層級,子模組改由群組的 flyout 呈現 —— 所以這一層不遞迴,
  * 遞迴發生在 flyout 裡的 `NavNodes`(展開態同一份)。
  */
-export const NavRail = ({ nodes, currentPath }: NavRailProps) => (
+export const NavRail = ({ nodes, currentPath, badges }: NavRailProps) => (
   <List
     component="div"
     disablePadding
@@ -30,6 +32,7 @@ export const NavRail = ({ nodes, currentPath }: NavRailProps) => (
           node={node}
           currentPath={currentPath}
           isSelected={findNavNode(node.children, currentPath) !== undefined}
+          badges={badges}
         />
       ) : (
         <NavRailLinkItem
@@ -38,6 +41,7 @@ export const NavRail = ({ nodes, currentPath }: NavRailProps) => (
           label={node.module.name}
           icon={node.module.icon}
           isSelected={currentPath === node.module.route}
+          badge={badges?.[node.module.key]}
         />
       ),
     )}

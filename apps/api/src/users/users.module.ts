@@ -5,6 +5,7 @@ import { DatabaseModule } from "../database/database.module";
 import { OrgsModule } from "../orgs/orgs.module";
 import { WorkflowEngineModule } from "../workflows/workflow-engine/workflow-engine.module";
 import { OrgQualificationService } from "./org-qualification.service";
+import { UserGrantRulesService } from "./user-grant-rules.service";
 import { UsersResolver } from "./users.resolver";
 import { UsersService } from "./users.service";
 
@@ -18,7 +19,12 @@ import { UsersService } from "./users.service";
 @Module({
   // 停用 / 移出租戶時的審核者失效 hook(`AssigneeInvalidationService`,Spec 6b §6)
   imports: [DatabaseModule, AuthModule, OrgsModule, WorkflowEngineModule],
-  providers: [UsersService, UsersResolver, OrgQualificationService],
+  providers: [
+    UsersService,
+    UsersResolver,
+    OrgQualificationService,
+    UserGrantRulesService,
+  ],
   exports: [UsersService],
 })
 export class UsersModule {}

@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { Link } from "react-router";
 
+import { Badge } from "@repo/ui/badge";
 import { moduleIconOf } from "@repo/ui/icons";
 import { ListItemButton } from "@repo/ui/list";
 import { Tooltip } from "@repo/ui/tooltip";
@@ -13,6 +14,8 @@ export interface NavRailLinkItemProps {
   /** `me.modules[].icon`(白名單 key);認不得或沒設定時 `moduleIconOf` 退回預設圖示 */
   icon?: string | null;
   isSelected: boolean;
+  /** 待辦數;收合態放不下數字,大於 0 時在圖示右上畫小圓點 */
+  badge?: number;
 }
 
 /**
@@ -27,6 +30,7 @@ export const NavRailLinkItem = ({
   label,
   icon,
   isSelected,
+  badge,
 }: NavRailLinkItemProps) => (
   <Tooltip title={label} placement="right" describeChild={false}>
     <ListItemButton<typeof Link>
@@ -38,7 +42,13 @@ export const NavRailLinkItem = ({
     >
       {/* `react-hooks/static-components` 不准在 render 內把元件存進變數(每次 render 都是新身分),
           所以用 `createElement` 直接畫 —— 圖示是資料選出來的,無法寫成模組層常數 */}
-      {createElement(moduleIconOf(icon), { fontSize: "small" })}
+      <Badge
+        variant="dot"
+        color="primary"
+        invisible={badge === undefined || badge <= 0}
+      >
+        {createElement(moduleIconOf(icon), { fontSize: "small" })}
+      </Badge>
     </ListItemButton>
   </Tooltip>
 );

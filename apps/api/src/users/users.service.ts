@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 
 import { Injectable } from "@nestjs/common";
 import { hash } from "@node-rs/argon2";
+import { GraphQLError } from "graphql";
 import { Types } from "mongoose";
 
 import { AuditService } from "../audit/audit.service";
@@ -22,6 +23,7 @@ import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import { PermissionResolver } from "../permission/permission-resolver";
 import { AssigneeInvalidationService } from "../workflows/workflow-engine/assignee-invalidation.service";
 import type { AssignUserRolesInput } from "./dto/assign-user-roles.input";
+import type { CopyUserOrgRolesInput } from "./dto/copy-user-org-roles.input";
 import type { CreateUserInput } from "./dto/create-user.input";
 import type { SetUserEnabledInput } from "./dto/set-user-enabled.input";
 import type { SetUserOrgsInput } from "./dto/set-user-orgs.input";
@@ -32,6 +34,15 @@ import {
   type UsersInput,
 } from "./dto/users.input";
 import {
+  type CopyUserOrgRolesBlocker,
+  CopyUserOrgRolesBlockerCode,
+  type CopyUserOrgRolesMode,
+  type CopyUserOrgRolesOrgDiff,
+  type CopyUserOrgRolesPayload,
+  type CopyUserOrgRolesRole,
+  type CopyUserOrgRolesRoleDiff,
+} from "./models/copy-user-org-roles.model";
+import {
   RoleUnqualifiedReason,
   type SetUserOrgsPayload,
   type UnqualifiedRole,
@@ -41,10 +52,14 @@ import {
 } from "./models/user-payloads.model";
 import type { UserModel, UserOrg, UserRoleGrant } from "./models/user.model";
 import { OrgQualificationService } from "./org-qualification.service";
+import { planCopySet } from "./user-copy-plan";
+import { UserGrantRulesService } from "./user-grant-rules.service";
 import {
   forbiddenError,
   notFoundError,
+  roleDisabledError,
   userError,
+  userNotEligibleError,
   validationError,
 } from "./users-error";
 
@@ -122,6 +137,7 @@ export class UsersService {
     private readonly permissions: PermissionResolver,
     private readonly qualification: OrgQualificationService,
     private readonly ownerProtection: OwnerProtectionService,
+    private readonly grantRules: UserGrantRulesService,
     private readonly assigneeInvalidation: AssigneeInvalidationService,
   ) {}
 
@@ -398,13 +414,12 @@ export class UsersService {
         "A user must keep at least one member org; the last one cannot be removed",
       );
     }
-    await this.assertOwnedOrgsKept(operator, user, removedKeys);
+    await this.grantRules.assertOwnedOrgsKept(operator, user._id, removedKeys);
 
-    const protectedRoleIds = (await this.ownerProtection.isRootOperator(
+    const protectedRoleIds = await this.grantRules.protectedRoleIds(
       operator,
-    ))
-      ? new Set<string>()
-      : await this.ownerProtection.protectedRoleIdsOf(operator, user._id);
+      user._id,
+    );
     const unqualifiedRoles = await this.unqualifiedRolesOf(
       operator,
       user._id,
@@ -553,7 +568,7 @@ export class UsersService {
     const currentIds = await this.relations.listRoleIdsOfUser(user._id);
     const currentKeys = new Set(currentIds.map(String));
     const desiredKeys = new Set(desired.map(String));
-    const reachable = await this.reachableRoleIds(operator);
+    const reachable = await this.grantRules.reachableRoleIds(operator);
 
     const toAdd = desired.filter((roleId) => !currentKeys.has(String(roleId)));
     const memberOrgIds = await this.relations.listOrgIdsOfUser(user._id);
@@ -564,6 +579,7 @@ export class UsersService {
       user._id,
       reachable,
     );
+    await this.assertRolesEnabled(operator, toAdd);
 
     // 操作者觸及不到的既有授予不動(彈窗列不出來,不該被順手解除)
     const toRemove = currentIds.filter(
@@ -571,20 +587,11 @@ export class UsersService {
         !desiredKeys.has(String(roleId)) &&
         (reachable === "all" || reachable.has(String(roleId))),
     );
-    const protectedRoleIds = (await this.ownerProtection.isRootOperator(
+    await this.grantRules.assertProtectedRolesKept(
       operator,
-    ))
-      ? new Set<string>()
-      : await this.ownerProtection.protectedRoleIdsOf(operator, user._id);
-    const blocked = toRemove.find((roleId) =>
-      protectedRoleIds.has(String(roleId)),
+      user._id,
+      toRemove,
     );
-    if (blocked) {
-      throw userError(
-        "OWNER_PROTECTED",
-        `Role ${String(blocked)} is the tenant owner's tenant-admin grant and cannot be revoked outside the root org`,
-      );
-    }
 
     await this.relations.linkMany(
       operator,
@@ -621,7 +628,345 @@ export class UsersService {
     return this.decorateOne(operator, user);
   }
 
+  /**
+   * 複製使用者的組織與角色(`docs/modules/user-manager.md`「複製組織與角色」):
+   * 合併 `T ∪ S` / 取代 `(T − M) ∪ S`,S 只取來源在管理範圍內的那些。
+   *
+   * - 權限是三個 key 的 AND:resolver 掛 `view`,這裡再要 `manage-orgs` 與 `assign-roles`
+   *   (裝飾器疊多個不是 AND;照身分證欄位的先例在 service 判斷)。
+   * - 試算與正式送出**都重算、重驗**;試算不寫資料、不寫稽核,擋下的原因列在 `blockers`。
+   * - 寫入順序固定:加組織 → 授角色 → 解除角色 → 移除組織(永遠不會先移到零組織)。
+   *   沒有交易(ADR-0007):中途失敗就回錯,已寫的那幾步各自有稽核;
+   *   關聯寫入用 `ensureLinks`,重跑不會產生重複關聯。
+   * - **不沿用** `setUserOrgs` 的角色清理政策:取代後範圍外的角色失去資格也照樣留著,
+   *   只回 `outOfScopeKept` 給畫面提示。
+   */
+  async copyOrgRoles(
+    operator: OperatorContext,
+    input: CopyUserOrgRolesInput,
+  ): Promise<CopyUserOrgRolesPayload> {
+    for (const key of COPY_ORG_ROLES_PERMISSIONS) {
+      if (!(await this.hasPermission(operator, key))) {
+        throw forbiddenError(`Missing permission ${key}`);
+      }
+    }
+    const sourceId = toObjectId(input.sourceUserId, "sourceUserId");
+    const targetId = toObjectId(input.targetUserId, "targetUserId");
+    if (sourceId.equals(targetId)) {
+      throw validationError("Source and target must be different users", [
+        "targetUserId",
+      ]);
+    }
+    // 取代會把操作者自己的管理角色解除、把自己鎖在門外 —— 目標不能是操作者本人
+    if (operator.actorId?.equals(targetId) === true) {
+      throw validationError("Cannot copy orgs and roles onto yourself", [
+        "targetUserId",
+      ]);
+    }
+    const source = await this.loadManagedUser(operator, input.sourceUserId);
+    const target = await this.loadManagedUser(operator, input.targetUserId);
+    const plan = await this.planCopy(operator, source, target, input.mode);
+
+    const summary = {
+      mode: input.mode,
+      orgs: plan.orgs,
+      roles: plan.roles,
+      blockers: plan.blockers,
+      outOfScopeKept: plan.outOfScopeKept,
+    };
+    if (input.dryRun !== false) {
+      return {
+        user: await this.decorateOne(operator, target),
+        applied: false,
+        ...summary,
+      };
+    }
+
+    const [blocker] = plan.blockers;
+    if (blocker) {
+      throw copyBlockerError(blocker, plan.ownerOrgNameOfRole);
+    }
+    // 重驗授予資格:唯一的檢查點 `assertEligible`,以複製後的所屬組織判斷
+    await this.assertRolesGrantable(
+      operator,
+      plan.addedRoleIds.map((id) => objectIdOf(id)),
+      plan.finalOrgIds.map((id) => objectIdOf(id)),
+      target._id,
+      plan.reachable,
+    );
+    if (!plan.hasChanges) {
+      return {
+        user: await this.decorateOne(operator, target),
+        applied: false,
+        ...summary,
+      };
+    }
+
+    const copied = { copiedFrom: String(source._id), mode: input.mode };
+    if (plan.addedOrgIds.length > 0) {
+      await this.relations.ensureLinks(
+        operator,
+        plan.addedOrgIds.map((orgId) => ({
+          type: "org_user" as const,
+          firstId: objectIdOf(orgId),
+          secondId: target._id,
+        })),
+      );
+      await this.audit.record(operator, {
+        action: "user.add-org",
+        targetType: "user",
+        targetId: target._id,
+        after: { orgIds: plan.addedOrgIds, ...copied },
+      });
+    }
+    if (plan.addedRoleIds.length > 0) {
+      await this.relations.ensureLinks(
+        operator,
+        plan.addedRoleIds.map((roleId) => ({
+          type: "user_role" as const,
+          firstId: target._id,
+          secondId: objectIdOf(roleId),
+        })),
+      );
+      await this.audit.record(operator, {
+        action: "user.grant-role",
+        targetType: "user",
+        targetId: target._id,
+        after: { roleIds: plan.addedRoleIds, ...copied },
+      });
+    }
+    if (plan.removedRoleIds.length > 0) {
+      await this.relations.unlinkMany(
+        operator,
+        plan.removedRoleIds.map((roleId) => ({
+          type: "user_role" as const,
+          firstId: target._id,
+          secondId: objectIdOf(roleId),
+        })),
+      );
+      await this.audit.record(operator, {
+        action: "user.revoke-role",
+        targetType: "user",
+        targetId: target._id,
+        after: { roleIds: plan.removedRoleIds, ...copied },
+      });
+    }
+    if (plan.removedOrgIds.length > 0) {
+      await this.relations.unlinkMany(
+        operator,
+        plan.removedOrgIds.map((orgId) => ({
+          type: "org_user" as const,
+          firstId: objectIdOf(orgId),
+          secondId: target._id,
+        })),
+      );
+      await this.audit.record(operator, {
+        action: "user.remove-org",
+        targetType: "user",
+        targetId: target._id,
+        before: { orgIds: plan.currentOrgIds },
+        after: { orgIds: plan.removedOrgIds, ...copied },
+      });
+      // 與 `setOrgs` 同:被移出某個租戶 → 他在那裡的待審任務承辦人失效(放在稽核之後)
+      await this.assigneeInvalidation.onUserChanged(target._id);
+    }
+    return {
+      user: await this.decorateOne(operator, target),
+      applied: true,
+      ...summary,
+    };
+  }
+
   // ---- 內部 ----
+
+  /**
+   * 複製的試算:集合運算(`planCopySet`)+ 逐項驗證,結果同時供試算回應與正式寫入用。
+   * 管理範圍一律經 `this.orgs`(治理類,自動吃 `managedOrgIds`)與 `reachableRoleIds` 判斷。
+   */
+  private async planCopy(
+    operator: OperatorContext,
+    source: UserRecord,
+    target: UserRecord,
+    mode: CopyUserOrgRolesMode,
+  ): Promise<CopyPlan> {
+    const [sourceOrgIds, currentOrgIds, sourceRoleIds, currentRoleIds] =
+      await Promise.all([
+        this.relations.listOrgIdsOfUser(source._id),
+        this.relations.listOrgIdsOfUser(target._id),
+        this.relations.listRoleIdsOfUser(source._id),
+        this.relations.listRoleIdsOfUser(target._id),
+      ]);
+    const reachable = await this.grantRules.reachableRoleIds(operator);
+    const allRoleIds = uniqueObjectIds([...sourceRoleIds, ...currentRoleIds]);
+    const [managedOrgs, roleDocuments, ownerLinks] = await Promise.all([
+      this.orgs.findMany(operator, {
+        _id: { $in: uniqueObjectIds([...sourceOrgIds, ...currentOrgIds]) },
+      }),
+      allRoleIds.length === 0
+        ? Promise.resolve<RoleRecord[]>([])
+        : this.roles.findMany(operator, { _id: { $in: allRoleIds } }),
+      this.relations.listLinks("org_role", { secondIds: allRoleIds }),
+    ]);
+    const orgNameById = new Map(
+      managedOrgs.map((org) => [String(org._id), org.name]),
+    );
+    const roleById = new Map(
+      roleDocuments.map((role) => [String(role._id), role]),
+    );
+    const ownerOrgIdByRole = new Map(
+      ownerLinks.map((link) => [String(link.secondId), String(link.firstId)]),
+    );
+    const isManagedOrg = (id: string) => orgNameById.has(id);
+    const isReachableRole = (id: string) =>
+      reachable === "all" || reachable.has(id);
+
+    const orgs = planCopySet(
+      mode,
+      currentOrgIds.map(String),
+      sourceOrgIds.map(String).filter((id) => isManagedOrg(id)),
+      isManagedOrg,
+    );
+    // 查無角色文件(已刪除)的殘留授予:來源的不複製,目標的不列進差異(也不會被取代解除)
+    const roles = planCopySet(
+      mode,
+      currentRoleIds.map(String).filter((id) => roleById.has(id)),
+      sourceRoleIds
+        .map(String)
+        .filter((id) => isReachableRole(id) && roleById.has(id)),
+      isReachableRole,
+    );
+
+    const ownerOrgIds = uniqueObjectIds(ownerLinks.map((link) => link.firstId));
+    const [ancestry, ownerOrgs] = await Promise.all([
+      this.qualification.loadAncestry(
+        operator,
+        uniqueObjectIds([...currentOrgIds, ...sourceOrgIds, ...ownerOrgIds]),
+      ),
+      ownerOrgIds.length === 0
+        ? Promise.resolve([])
+        : this.orgs.findMany(operator, { _id: { $in: ownerOrgIds } }),
+    ]);
+    const ownerOrgNameById = new Map(
+      ownerOrgs.map((org) => [String(org._id), org.name]),
+    );
+    const ownerOrgNameOfRole = (roleId: string): string | null => {
+      const ownerOrgId = ownerOrgIdByRole.get(roleId);
+      return ownerOrgId === undefined
+        ? null
+        : (ownerOrgNameById.get(ownerOrgId) ?? null);
+    };
+    const qualifiesWith = (orgIds: readonly string[], roleId: string) =>
+      this.qualification.qualifies(
+        orgIds,
+        ownerOrgIdByRole.get(roleId) ?? null,
+        ancestry,
+      );
+
+    const blockers: CopyUserOrgRolesBlocker[] = [];
+    if (orgs.final.length === 0) {
+      blockers.push(blockerOf(CopyUserOrgRolesBlockerCode.LAST_ORG));
+    }
+    const ownedOrgs = await this.grantRules.ownedOrgsAmong(
+      operator,
+      target._id,
+      new Set(orgs.removed),
+    );
+    const protectedRoles = await this.grantRules.protectedRolesAmong(
+      operator,
+      target._id,
+      roles.removed.map((id) => new Types.ObjectId(id)),
+    );
+    blockers.push(
+      ...ownedOrgs.map((orgId) =>
+        blockerOf(CopyUserOrgRolesBlockerCode.OWNER_PROTECTED, {
+          orgId: String(orgId),
+        }),
+      ),
+      ...protectedRoles.map((roleId) =>
+        blockerOf(CopyUserOrgRolesBlockerCode.OWNER_PROTECTED, {
+          roleId: String(roleId),
+        }),
+      ),
+    );
+    for (const roleId of roles.added) {
+      if (roleById.get(roleId)?.enabled === false) {
+        blockers.push(
+          blockerOf(CopyUserOrgRolesBlockerCode.ROLE_DISABLED, { roleId }),
+        );
+      }
+      if (!qualifiesWith(orgs.final, roleId)) {
+        blockers.push(
+          blockerOf(CopyUserOrgRolesBlockerCode.USER_NOT_ELIGIBLE, { roleId }),
+        );
+      }
+    }
+
+    // 範圍外的保留角色:原本有資格、取代後失去資格 → 照樣留著,只給一個提示旗標
+    const currentOrgKeys = currentOrgIds.map(String);
+    const outOfScopeKept =
+      orgs.removed.length > 0 &&
+      roles.final.some(
+        (roleId) =>
+          !isReachableRole(roleId) &&
+          qualifiesWith(currentOrgKeys, roleId) &&
+          !qualifiesWith(orgs.final, roleId),
+      );
+
+    const toOrg = (id: string): UserOrg => ({
+      id,
+      name: orgNameById.get(id) ?? "",
+    });
+    const toRole = (id: string): CopyUserOrgRolesRole => ({
+      id,
+      name: roleById.get(id)?.name ?? "",
+      ownerOrgName: ownerOrgNameOfRole(id),
+    });
+    return {
+      orgs: {
+        added: orgs.added.map((id) => toOrg(id)),
+        removed: orgs.removed.map((id) => toOrg(id)),
+        kept: orgs.kept.map((id) => toOrg(id)),
+      },
+      roles: {
+        added: roles.added.map((id) => toRole(id)),
+        removed: roles.removed.map((id) => toRole(id)),
+        kept: roles.kept.map((id) => toRole(id)),
+      },
+      blockers,
+      outOfScopeKept,
+      reachable,
+      currentOrgIds: currentOrgKeys,
+      finalOrgIds: orgs.final,
+      addedOrgIds: orgs.added,
+      removedOrgIds: orgs.removed,
+      addedRoleIds: roles.added,
+      removedRoleIds: roles.removed,
+      hasChanges:
+        orgs.added.length +
+          orgs.removed.length +
+          roles.added.length +
+          roles.removed.length >
+        0,
+      ownerOrgNameOfRole,
+    };
+  }
+
+  /** 已停用的角色不可新授予(`ROLE_DISABLED`;既有授予不受影響)。 */
+  private async assertRolesEnabled(
+    operator: OperatorContext,
+    roleIds: Types.ObjectId[],
+  ): Promise<void> {
+    if (roleIds.length === 0) {
+      return;
+    }
+    const [disabled] = await this.roles.findMany(operator, {
+      _id: { $in: roleIds },
+      enabled: false,
+    });
+    if (disabled) {
+      throw roleDisabledError(String(disabled._id));
+    }
+  }
 
   /**
    * 清單的使用者過濾條件:**管理範圍**內的組織的成員(ADR-0005 的分工表;#187 起不看可見範圍)。
@@ -861,61 +1206,6 @@ export class UsersService {
     });
   }
 
-  /** 擁有者不可被移出自己擁有的租戶(ADR-0009);根組織操作者放行。 */
-  private async assertOwnedOrgsKept(
-    operator: OperatorContext,
-    user: UserRecord,
-    removedOrgKeys: ReadonlySet<string>,
-  ): Promise<void> {
-    if (removedOrgKeys.size === 0) {
-      return;
-    }
-    if (await this.ownerProtection.isRootOperator(operator)) {
-      return;
-    }
-    const ownedOrgIds = await this.ownerProtection.ownedOrgIdsOf(
-      operator,
-      user._id,
-    );
-    const blocked = ownedOrgIds.find((orgId) =>
-      removedOrgKeys.has(String(orgId)),
-    );
-    if (blocked) {
-      throw userError(
-        "OWNER_PROTECTED",
-        `User ${String(user._id)} owns org ${String(blocked)} and cannot be removed from it outside the root org`,
-      );
-    }
-  }
-
-  /**
-   * 操作者可觸及的角色 = **擁有組織在管理範圍內**的那些(ADR-0003「擁有組織 = 角色的
-   * 管轄邊界」、ADR-0005)。
-   *
-   * 2026-09-20(#211)改:原本是「操作者自己持有的角色」—— 那是第 3 段還沒有 `roles`
-   * 查詢時的過渡做法,與第 4 段的 `roles` / `grantRoleUsers` 兩套判準,同一個授予
-   * 從角色頁做得到、從使用者頁做不到。主流程裁決統一成這一條。
-   *
-   * 落實點與 `RoleScopeService.managedRoleFilter` 相同:凡查組織都經 `this.orgs`
-   * (治理類 collection,過濾自動吃 `managedOrgIds`),再由組織反查 `org_role` ——
-   * 本檔不自己比對任何組織集合。
-   */
-  private async reachableRoleIds(
-    operator: OperatorContext,
-  ): Promise<ReadonlySet<string> | "all"> {
-    if (operator.managedOrgIds === "all") {
-      return "all";
-    }
-    const managedOrgs = await this.orgs.findMany(operator, {});
-    if (managedOrgs.length === 0) {
-      return new Set();
-    }
-    const links = await this.relations.listLinks("org_role", {
-      firstIds: managedOrgs.map((org) => org._id),
-    });
-    return new Set(links.map((link) => String(link.secondId)));
-  }
-
   /**
    * 防越權 + 授予資格(ADR-0003:只在按下授予的當下檢查一次)。
    * `targetUserId` 只用於錯誤訊息 —— 建立使用者時還沒落庫,給 null。
@@ -930,7 +1220,8 @@ export class UsersService {
     if (roleIds.length === 0) {
       return;
     }
-    const reachable = known ?? (await this.reachableRoleIds(operator));
+    const reachable =
+      known ?? (await this.grantRules.reachableRoleIds(operator));
     if (reachable !== "all") {
       const blocked = roleIds.find((roleId) => !reachable.has(String(roleId)));
       if (blocked) {
@@ -1105,4 +1396,72 @@ function revokedByPolicy(
         entry.reasons.includes(RoleUnqualifiedReason.OWNED_BY_REMOVED_ORG),
     )
     .map((entry) => entry.roleId);
+}
+
+/** 複製組織與角色要的兩個權限(`view` 由 resolver 守門;三者 AND)。 */
+const COPY_ORG_ROLES_PERMISSIONS = [
+  "system.user-manager.manage-orgs",
+  "system.user-manager.assign-roles",
+] as const;
+
+/** `planCopy` 的結果:對外的差異 + 正式寫入要用的 id 清單。 */
+interface CopyPlan {
+  orgs: CopyUserOrgRolesOrgDiff;
+  roles: CopyUserOrgRolesRoleDiff;
+  blockers: CopyUserOrgRolesBlocker[];
+  outOfScopeKept: boolean;
+  reachable: ReadonlySet<string> | "all";
+  currentOrgIds: string[];
+  finalOrgIds: string[];
+  addedOrgIds: string[];
+  removedOrgIds: string[];
+  addedRoleIds: string[];
+  removedRoleIds: string[];
+  hasChanges: boolean;
+  ownerOrgNameOfRole: (roleId: string) => string | null;
+}
+
+/** 已確認存在的 id 字串轉回 ObjectId(來源是關聯表,不必再驗格式)。 */
+function objectIdOf(id: string): Types.ObjectId {
+  return new Types.ObjectId(id);
+}
+
+function blockerOf(
+  code: CopyUserOrgRolesBlockerCode,
+  ref: { roleId?: string; orgId?: string } = {},
+): CopyUserOrgRolesBlocker {
+  return { code, roleId: ref.roleId ?? null, orgId: ref.orgId ?? null };
+}
+
+/** 正式送出時,把第一筆擋下原因轉成同名的錯誤碼(與其他入口回的錯誤同形)。 */
+function copyBlockerError(
+  blocker: CopyUserOrgRolesBlocker,
+  ownerOrgNameOfRole: (roleId: string) => string | null,
+): GraphQLError {
+  switch (blocker.code) {
+    case CopyUserOrgRolesBlockerCode.LAST_ORG: {
+      return userError(
+        "LAST_ORG",
+        "A user must keep at least one member org; the copy would leave none",
+      );
+    }
+    case CopyUserOrgRolesBlockerCode.OWNER_PROTECTED: {
+      return userError(
+        "OWNER_PROTECTED",
+        blocker.orgId === null
+          ? `Role ${String(blocker.roleId)} is the tenant owner's tenant-admin grant and cannot be revoked outside the root org`
+          : `The target user owns org ${blocker.orgId} and cannot be removed from it outside the root org`,
+      );
+    }
+    case CopyUserOrgRolesBlockerCode.ROLE_DISABLED: {
+      return roleDisabledError(String(blocker.roleId));
+    }
+    case CopyUserOrgRolesBlockerCode.USER_NOT_ELIGIBLE: {
+      const roleId = String(blocker.roleId);
+      return userNotEligibleError(
+        `The target user would have no member org inside the owner org subtree of role ${roleId}`,
+        { roleId, ownerOrgName: ownerOrgNameOfRole(roleId) },
+      );
+    }
+  }
 }

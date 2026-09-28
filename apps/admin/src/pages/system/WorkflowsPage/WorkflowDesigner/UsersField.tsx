@@ -6,7 +6,7 @@ import { Autocomplete } from "@repo/ui/autocomplete";
 import {
   type UserCandidate,
   useUserCandidates,
-} from "@/components/workflow/useUserCandidates";
+} from "@/components/UserPicker/useUserCandidates";
 
 export interface UsersFieldProps {
   /** 定義裡存的只有 id */
@@ -25,7 +25,7 @@ export const UsersField = ({
   isDisabled,
 }: UsersFieldProps) => {
   const t = useTranslations("admin.workflows.assignee");
-  const tPicker = useTranslations("admin.workflows.userPicker");
+  const tPicker = useTranslations("admin.userPicker");
   const users = useUserCandidates();
   const [known, setKnown] = useState<ReadonlyMap<string, UserCandidate>>(
     () => new Map(),

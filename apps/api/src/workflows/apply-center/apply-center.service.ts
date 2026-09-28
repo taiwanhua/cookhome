@@ -21,7 +21,7 @@ import {
   toObjectId,
 } from "../../forms/form-access.service";
 import { formModulePermission } from "../../forms/form-permission-keys";
-import type { FormSubmissionStatusEnum } from "../../forms/form-runtime/models/form-submission.model";
+import { FormSubmissionStatusEnum } from "../../forms/form-runtime/models/form-submission.model";
 import type {
   WorkflowInstanceModel,
   WorkflowTasksPayload,
@@ -35,6 +35,7 @@ import { workflowNotFoundError } from "../workflows-error";
 import {
   type ApplicableModuleForms,
   type ApplicationItem,
+  type ApplyCenterCounts,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
   type MyApplicationsInput,
@@ -43,6 +44,53 @@ import {
 } from "./apply-center.types";
 
 const DONE_STATUSES = ["approved", "rejected", "returned", "late"];
+
+/** 「我的申請」計數的「進行中」:審核中與被退回(已完成、已駁回、已作廢、已撤回、草稿不算)。 */
+const IN_PROGRESS_STATUSES: readonly FormSubmissionStatusEnum[] = [
+  FormSubmissionStatusEnum.REVIEWING,
+  FormSubmissionStatusEnum.RETURNED,
+];
+
+interface ListCriteria {
+  moduleKey?: string | null;
+  formKey?: string | null;
+}
+
+/**
+ * 「我的申請」的條件(列表與計數共用):`createdBy = 我` 且(走過流程,或該表單目前綁了流程)。
+ * `statuses` 空 = 不限狀態。
+ */
+function myApplicationsFilter(
+  actorId: Types.ObjectId,
+  boundKeys: ReadonlySet<string>,
+  criteria: ListCriteria & { statuses: readonly FormSubmissionStatusEnum[] },
+): SubmissionFilter {
+  const { statuses } = criteria;
+  return {
+    createdBy: actorId,
+    ...(criteria.moduleKey ? { moduleKey: criteria.moduleKey } : {}),
+    ...(criteria.formKey ? { formKey: criteria.formKey } : {}),
+    ...(statuses.length === 1 ? { status: statuses[0] } : {}),
+    ...(statuses.length > 1 ? { status: { $in: [...statuses] } } : {}),
+    $or: [
+      { currentInstanceId: { $ne: null } },
+      { formKey: { $in: [...boundKeys] } },
+    ],
+  };
+}
+
+/** 「待我審核」的條件(列表與計數共用):`assigneeId = 我`;待處理 = `pending`,已處理 = 有結果的。 */
+function myTasksFilter(
+  actorId: Types.ObjectId,
+  criteria: ListCriteria & { done: boolean },
+): Record<string, unknown> {
+  return {
+    assigneeId: actorId,
+    status: criteria.done ? { $in: DONE_STATUSES } : "pending",
+    ...(criteria.moduleKey ? { moduleKey: criteria.moduleKey } : {}),
+    ...(criteria.formKey ? { formKey: criteria.formKey } : {}),
+  };
+}
 
 function pageOf(input: { page?: number; pageSize?: number }): {
   page: number;
@@ -87,17 +135,15 @@ export class ApplyCenterService {
     if (tenantId === null || actorId === null) {
       return { items: [], totalCount: 0, page, pageSize };
     }
-    const boundKeys = await this.boundFormKeys(tenantId);
-    const filter: SubmissionFilter = {
-      createdBy: actorId,
-      ...(input.moduleKey ? { moduleKey: input.moduleKey } : {}),
-      ...(input.formKey ? { formKey: input.formKey } : {}),
-      ...(input.status ? { status: input.status } : {}),
-      $or: [
-        { currentInstanceId: { $ne: null } },
-        { formKey: { $in: [...boundKeys] } },
-      ],
-    };
+    const filter = myApplicationsFilter(
+      actorId,
+      await this.boundFormKeys(tenantId),
+      {
+        moduleKey: input.moduleKey,
+        formKey: input.formKey,
+        statuses: input.status ? [input.status] : [],
+      },
+    );
     const [totalCount, records] = await Promise.all([
       this.store.count(tenantId, filter),
       this.store.findMany(tenantId, filter, {
@@ -162,12 +208,11 @@ export class ApplyCenterService {
       return { items: [], totalCount: 0, page, pageSize };
     }
     const isDone = input.done === true;
-    const filter = {
-      assigneeId: actorId,
-      status: isDone ? { $in: DONE_STATUSES } : "pending",
-      ...(input.moduleKey ? { moduleKey: input.moduleKey } : {}),
-      ...(input.formKey ? { formKey: input.formKey } : {}),
-    };
+    const filter = myTasksFilter(actorId, {
+      moduleKey: input.moduleKey,
+      formKey: input.formKey,
+      done: isDone,
+    });
     const [totalCount, records] = await Promise.all([
       this.tasks.count(tenantId, filter),
       this.tasks.findMany(tenantId, filter, {
@@ -182,6 +227,30 @@ export class ApplyCenterService {
       page,
       pageSize,
     };
+  }
+
+  /**
+   * 頁籤與側欄的 badge 數字:待我處理的任務數(=「待我審核」預設的待處理)、進行中的申請數
+   * (「我的申請」條件 + 審核中 / 被退回)。條件與兩個列表共用同一組 builder,只做 `countDocuments`。
+   */
+  async counts(facts: FormOperatorFacts): Promise<ApplyCenterCounts> {
+    const tenantId = facts.tenantId;
+    const actorId = facts.operator.actorId;
+    if (tenantId === null || actorId === null) {
+      return { myTasks: 0, myApplications: 0 };
+    }
+    const [myTasks, myApplications] = await Promise.all([
+      this.tasks.count(tenantId, myTasksFilter(actorId, { done: false })),
+      this.boundFormKeys(tenantId).then((boundKeys) =>
+        this.store.count(
+          tenantId,
+          myApplicationsFilter(actorId, boundKeys, {
+            statuses: IN_PROGRESS_STATUSES,
+          }),
+        ),
+      ),
+    ]);
+    return { myTasks, myApplications };
   }
 
   /** 實例詳情:授權同 `canReadSubmissionRevision`(申請人 / 模組讀者 / 任務持有者只看該修訂)。 */

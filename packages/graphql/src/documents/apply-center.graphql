@@ -192,6 +192,14 @@ query MyTasks($input: MyTasksInput!) {
   }
 }
 
+# 頁籤與側欄 badge:待我處理的任務數、我進行中(審核中 / 被退回)的申請數
+query ApplyCenterCounts {
+  applyCenterCounts {
+    myTasks
+    myApplications
+  }
+}
+
 query WorkflowInstance($id: ID!) {
   workflowInstance(id: $id) {
     instance {

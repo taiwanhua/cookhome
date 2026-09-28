@@ -2,6 +2,9 @@ import { HttpResponse } from "msw";
 
 import {
   type AssignUserRolesMutationVariables,
+  CopyUserOrgRolesMode,
+  type CopyUserOrgRolesMutation,
+  type CopyUserOrgRolesMutationVariables,
   type CreateUserMutationVariables,
   type OrgQuery,
   type OrgQueryVariables,
@@ -87,6 +90,15 @@ export interface UserWorldOptions {
       ownerProtected: boolean;
     }[];
   };
+  /**
+   * `copyUserOrgRoles` 額外要回的東西:擋下原因與「範圍外角色照樣保留」旗標。
+   * 差異本身由 handler 依夾具的 orgs / roles 算(合併 / 取代),正式送出會改寫目標那一筆,
+   * 之後重查清單看得到新值(有狀態的假伺服器,TEST-08)。
+   */
+  copy?: {
+    blockers?: CopyUserOrgRolesResult["blockers"];
+    outOfScopeKept?: boolean;
+  };
   /** 指定某個 mutation 一律回某個錯誤碼(驗 OWNER_PROTECTED / ROLE_OUT_OF_REACH 的提示) */
   failures?: Partial<
     Record<
@@ -94,11 +106,39 @@ export interface UserWorldOptions {
       | "UpdateUser"
       | "SetUserEnabled"
       | "SetUserOrgs"
-      | "AssignUserRoles",
-      AuthErrorCode | "OWNER_PROTECTED" | "LAST_ORG" | "ROLE_OUT_OF_REACH"
+      | "AssignUserRoles"
+      | "CopyUserOrgRoles",
+      | AuthErrorCode
+      | "OWNER_PROTECTED"
+      | "LAST_ORG"
+      | "ROLE_OUT_OF_REACH"
+      | "ROLE_DISABLED"
     >
   >;
 }
+
+type CopyUserOrgRolesResult = CopyUserOrgRolesMutation["copyUserOrgRoles"];
+
+/** 以 id 比對的差異(合併:只加;取代:目標有、來源沒有的移除)。 */
+const diffById = <T extends { id: string }>(
+  target: readonly T[],
+  source: readonly T[],
+  isReplace: boolean,
+) => {
+  const has = (list: readonly T[], item: T) =>
+    list.some((entry) => entry.id === item.id);
+  const added = source.filter((item) => !has(target, item));
+  const removed = isReplace ? target.filter((item) => !has(source, item)) : [];
+  const kept = target.filter((item) => !has(removed, item));
+  return { added, removed, kept };
+};
+
+/** 差異裡的角色只有 id / 名稱 / 擁有組織名稱(`CopyUserOrgRolesRole`)。 */
+const copiedRoleOf = (role: TestUser["roles"][number]) => ({
+  id: role.id,
+  name: role.name,
+  ownerOrgName: role.ownerOrgName ?? null,
+});
 
 export interface UserWorld {
   handlers: ReturnType<typeof api.query>[];
@@ -111,6 +151,7 @@ export interface UserWorld {
     setUserEnabled: SetUserEnabledMutationVariables["input"][];
     setUserOrgs: SetUserOrgsMutationVariables["input"][];
     assignUserRoles: AssignUserRolesMutationVariables["input"][];
+    copyUserOrgRoles: CopyUserOrgRolesMutationVariables["input"][];
   };
 }
 
@@ -126,8 +167,11 @@ export const userWorld = (options: UserWorldOptions = {}): UserWorld => {
     rootOrg,
     pageSize = 10,
     dryRun = { removedOrgs: [], unqualifiedRoles: [] },
+    copy = {},
     failures = {},
   } = options;
+  /** 可被 `copyUserOrgRoles` 改寫的那一份(整筆換掉,不改夾具物件本身 —— 夾具跨測試共用) */
+  const current = [...users];
 
   const inputs: UserWorld["inputs"] = {
     users: [],
@@ -137,6 +181,7 @@ export const userWorld = (options: UserWorldOptions = {}): UserWorld => {
     setUserEnabled: [],
     setUserOrgs: [],
     assignUserRoles: [],
+    copyUserOrgRoles: [],
   };
 
   const fail = (operation: keyof typeof failures) => {
@@ -161,7 +206,7 @@ export const userWorld = (options: UserWorldOptions = {}): UserWorld => {
           ? null
           : subtreeIds(orgTree, input.orgId);
       const needle = (input.keyword ?? "").toLowerCase();
-      const matched = users.filter(
+      const matched = current.filter(
         (user) =>
           (scope === null || user.orgs.some((org) => scope.has(org.id))) &&
           (needle === "" ||
@@ -199,7 +244,7 @@ export const userWorld = (options: UserWorldOptions = {}): UserWorld => {
     }),
     api.query("User", ({ variables }) => {
       const { id } = variables as { id: string };
-      const user = users.find((item) => item.id === id);
+      const user = current.find((item) => item.id === id);
       return user === undefined
         ? graphqlError("FORBIDDEN", "No such user")
         : HttpResponse.json({ data: { user } });
@@ -284,6 +329,55 @@ export const userWorld = (options: UserWorldOptions = {}): UserWorld => {
           },
         })
       );
+    }),
+    api.mutation("CopyUserOrgRoles", ({ variables }) => {
+      const { input } = variables as CopyUserOrgRolesMutationVariables;
+      inputs.copyUserOrgRoles.push(input);
+      const failure = fail("CopyUserOrgRoles");
+      if (failure !== null) {
+        return failure;
+      }
+      const source = current.find((item) => item.id === input.sourceUserId);
+      const targetIndex = current.findIndex(
+        (item) => item.id === input.targetUserId,
+      );
+      const target = targetIndex === -1 ? undefined : current[targetIndex];
+      if (source === undefined || target === undefined) {
+        return graphqlError("FORBIDDEN", "No such user");
+      }
+      const isReplace = input.mode === CopyUserOrgRolesMode.Replace;
+      const orgs = diffById(target.orgs, source.orgs, isReplace);
+      const roles = diffById(target.roles, source.roles, isReplace);
+      const blockers = copy.blockers ?? [];
+      const hasChanges =
+        orgs.added.length +
+          orgs.removed.length +
+          roles.added.length +
+          roles.removed.length >
+        0;
+      const applied =
+        input.dryRun === false && blockers.length === 0 && hasChanges;
+      if (applied) {
+        current[targetIndex] = {
+          ...target,
+          orgs: [...orgs.kept, ...orgs.added],
+          roles: [...roles.kept, ...roles.added],
+        };
+      }
+      const result: CopyUserOrgRolesResult = {
+        user: { id: target.id },
+        mode: input.mode,
+        applied,
+        orgs,
+        roles: {
+          added: roles.added.map((role) => copiedRoleOf(role)),
+          removed: roles.removed.map((role) => copiedRoleOf(role)),
+          kept: roles.kept.map((role) => copiedRoleOf(role)),
+        },
+        blockers,
+        outOfScopeKept: copy.outOfScopeKept ?? false,
+      };
+      return HttpResponse.json({ data: { copyUserOrgRoles: result } });
     }),
   ];
 

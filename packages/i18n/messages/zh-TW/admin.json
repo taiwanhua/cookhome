@@ -88,6 +88,7 @@
       }
     },
     "sideNav": "主選單",
+    "navBadge": "{count} 筆待審核",
     "collapseNav": "收合側欄",
     "expandNav": "展開側欄",
     "currentOrg": "當前組織",
@@ -335,7 +336,8 @@
       "orgs": "所屬組織",
       "roles": "指派角色",
       "enable": "啟用",
-      "disable": "停用"
+      "disable": "停用",
+      "copyOrgRoles": "複製組織與角色"
     },
     "form": {
       "createTitle": "新增使用者",
@@ -443,7 +445,8 @@
       "enableSuccess": "已啟用這位使用者。",
       "disableSuccess": "已停用這位使用者。",
       "assignRolesSuccess": "已更新這位使用者的角色。",
-      "setOrgsSuccess": "已更新這位使用者的所屬組織。"
+      "setOrgsSuccess": "已更新這位使用者的所屬組織。",
+      "copyOrgRolesSuccess": "已把組織與角色複製給 {name}。"
     },
     "errors": {
       "OWNER_PROTECTED": "頂層組織的擁有者受保護,這個動作被拒絕。",
@@ -452,7 +455,46 @@
       "FORBIDDEN": "你沒有執行這個動作的權限。",
       "VALIDATION_FAILED": "資料未通過驗證,請檢查後再送出。",
       "UNEXPECTED": "操作失敗,請稍後再試。",
-      "USER_NOT_ELIGIBLE": "此角色只能授予角色擁有組織及其下層的使用者。"
+      "USER_NOT_ELIGIBLE": "此角色只能授予角色擁有組織及其下層的使用者。",
+      "ROLE_DISABLED": "已停用的角色不能再指派給使用者。"
+    },
+    "copyOrgRoles": {
+      "title": "複製組織與角色",
+      "source": "來源使用者",
+      "sourceValue": "{name}({account})",
+      "target": "目標使用者",
+      "targetHelper": "停用的使用者也可以選;複製不會改變他的啟用狀態。",
+      "mode": "複製方式",
+      "merge": {
+        "label": "合併",
+        "hint": "保留目標使用者原有的組織與角色,再加入來源使用者的配置"
+      },
+      "replace": {
+        "label": "取代",
+        "hint": "取代您可管理範圍內的組織與角色;範圍外的既有配置會保留"
+      },
+      "oneOff": "只複製目前的組織與角色,之後不會自動同步",
+      "preview": "變更預覽",
+      "pickTarget": "選好目標使用者後,這裡會列出將要變更的組織與角色。",
+      "loading": "正在計算變更…",
+      "orgs": "組織",
+      "roles": "角色",
+      "added": "新增:{items}",
+      "removed": "移除:{items}",
+      "kept": "保留:{items}",
+      "none": "無",
+      "roleWithOrg": "{role}({org})",
+      "noChanges": "組織與角色已符合,不需變更",
+      "outOfScopeKept": "目標使用者持有部分你管理範圍外的角色,取代後可能不再符合授予資格,但會照樣保留。",
+      "blocked": "有以下問題,無法複製:",
+      "blockers": {
+        "LAST_ORG": "複製後目標使用者會沒有任何所屬組織。",
+        "OWNER_PROTECTED": "目標使用者是頂層組織的擁有者,不能移除「{item}」。",
+        "ROLE_DISABLED": "角色「{item}」已停用,不能指派。",
+        "USER_NOT_ELIGIBLE": "角色「{item}」只能授予其擁有組織及其下層的使用者;複製後目標使用者仍不在其下。"
+      },
+      "confirm": "確認複製",
+      "cancel": "取消"
     }
   },
   "moduleManager": {
@@ -2144,6 +2186,8 @@
     "tabs": "申請中心",
     "tabMine": "我的申請",
     "tabTasks": "待我審核",
+    "tabMineCount": "我的申請(進行中 {count} 筆)",
+    "tabTasksCount": "待我審核(待處理 {count} 筆)",
     "total": "共 {total} 筆",
     "filters": {
       "module": "模組",
@@ -2499,13 +2543,6 @@
       "fieldOtherForm": "這一關原本指向表單「{form}」;改選欄位會換成檢查用表單的欄位。",
       "noCheckFormReadonly": "這一版沒有指定檢查用表單"
     },
-    "userPicker": {
-      "option": "{name}({account})",
-      "loading": "載入中",
-      "empty": "沒有符合的人",
-      "forbidden": "你沒有檢視使用者清單的權限",
-      "disabled": "已停用"
-    },
     "blocked": {
       "title": "阻擋清單",
       "back": "回流程管理",
@@ -2564,5 +2601,12 @@
       "warning": "警告",
       "serverFailed": "完整檢查沒有跑完({reason}),下面只列即時檢查的結果。"
     }
+  },
+  "userPicker": {
+    "option": "{name}({account})",
+    "loading": "載入中",
+    "empty": "沒有符合的人",
+    "forbidden": "你沒有檢視使用者清單的權限",
+    "disabled": "已停用"
   }
 }
