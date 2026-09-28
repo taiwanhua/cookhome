@@ -8,7 +8,7 @@
 ADMIN_APP_URL: "https://erp.cookhome.online"
 # refresh cookie 的 Domain(api 與 erp 同屬此網域)
 COOKIE_DOMAIN: ".cookhome.online"
-# MAIL_ALLOWLIST 不寫 = 不限收件人(production 真的寄給使用者)
+# MAIL_ALLOWLIST 不寫 = 不限收件人(三環境一致,使用者裁決)
 # GRAPHQL_SANDBOX 不寫 = Sandbox 關(只有 dev 開)
 # 檔案儲存的 GCS bucket(ADR-0010;未設 GCS_BUCKET_PRIVATE = 改用記錄用 adapter,不會真的上傳)
 GCS_BUCKET_PRIVATE: "cookhome-assets-prod"
