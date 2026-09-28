@@ -26,6 +26,11 @@ const SOURCE_ROOTS = [
  */
 const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
   {
+    key: "admin.shell.userMenu.modes.",
+    reason:
+      "`t(`modes.${mode}`)`,mode 逐一取自 `@repo/ui/app-theme-provider` 的 `COLOR_MODES`",
+  },
+  {
     key: "admin.login.errors.",
     reason:
       "`t(`errors.${errorKey}`)`,errorKey 由 `login-error.ts` 從 api 錯誤碼換算",
