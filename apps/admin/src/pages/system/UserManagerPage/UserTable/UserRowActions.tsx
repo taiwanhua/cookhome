@@ -21,6 +21,7 @@ export interface UserRowActionsProps {
   onManageOrgs: (user: UserRow) => void;
   onAssignRoles: (user: UserRow) => void;
   onToggleEnabled: (user: UserRow) => void;
+  onCopyOrgRoles: (user: UserRow) => void;
 }
 
 /**
@@ -38,6 +39,7 @@ export const UserRowActions = ({
   onManageOrgs,
   onAssignRoles,
   onToggleEnabled,
+  onCopyOrgRoles,
 }: UserRowActionsProps) => {
   const t = useTranslations("admin.userManager");
   // 只有「停用」會被擋;已停用的擁有者要重新啟用不受限,那顆按鈕就不必提示
@@ -77,6 +79,17 @@ export const UserRowActions = ({
           }}
         >
           {t("actions.roles")}
+        </Button>
+      )}
+      {ability.canCopyOrgRoles && (
+        <Button
+          variant="text"
+          size="small"
+          onClick={() => {
+            onCopyOrgRoles(user);
+          }}
+        >
+          {t("actions.copyOrgRoles")}
         </Button>
       )}
       {ability.canToggleEnabled && (

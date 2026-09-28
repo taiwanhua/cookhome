@@ -335,7 +335,8 @@
       "orgs": "Organizations",
       "roles": "Assign roles",
       "enable": "Enable",
-      "disable": "Disable"
+      "disable": "Disable",
+      "copyOrgRoles": "Copy orgs & roles"
     },
     "form": {
       "createTitle": "Add user",
@@ -443,7 +444,8 @@
       "enableSuccess": "User enabled.",
       "disableSuccess": "User disabled.",
       "assignRolesSuccess": "Roles updated for this user.",
-      "setOrgsSuccess": "Organizations updated for this user."
+      "setOrgsSuccess": "Organizations updated for this user.",
+      "copyOrgRolesSuccess": "Copied orgs and roles to {name}."
     },
     "errors": {
       "OWNER_PROTECTED": "The owner of the top-level organization is protected; the action was rejected.",
@@ -452,7 +454,46 @@
       "FORBIDDEN": "You do not have permission for this action.",
       "VALIDATION_FAILED": "The data did not pass validation, please check and submit again.",
       "UNEXPECTED": "The action failed, please try again later.",
-      "USER_NOT_ELIGIBLE": "This role can only be granted to users inside the organization that owns it, or below it."
+      "USER_NOT_ELIGIBLE": "This role can only be granted to users inside the organization that owns it, or below it.",
+      "ROLE_DISABLED": "A disabled role can't be assigned to users."
+    },
+    "copyOrgRoles": {
+      "title": "Copy orgs & roles",
+      "source": "Source user",
+      "sourceValue": "{name} ({account})",
+      "target": "Target user",
+      "targetHelper": "Disabled users can be picked too; copying doesn't change whether they are enabled.",
+      "mode": "How to copy",
+      "merge": {
+        "label": "Merge",
+        "hint": "Keep the target user's existing orgs and roles, then add the source user's"
+      },
+      "replace": {
+        "label": "Replace",
+        "hint": "Replace the orgs and roles within your managed scope; existing ones outside it are kept"
+      },
+      "oneOff": "Only the current orgs and roles are copied; they won't stay in sync afterwards",
+      "preview": "Preview",
+      "pickTarget": "Pick a target user to see which orgs and roles will change.",
+      "loading": "Working out the changes…",
+      "orgs": "Orgs",
+      "roles": "Roles",
+      "added": "Add",
+      "removed": "Remove",
+      "kept": "Keep",
+      "none": "None",
+      "roleWithOrg": "{role} ({org})",
+      "noChanges": "Orgs and roles already match; nothing to change",
+      "outOfScopeKept": "The target user holds some roles outside your managed scope. After replacing they may no longer qualify, but they are kept as is.",
+      "blocked": "This copy can't go ahead:",
+      "blockers": {
+        "LAST_ORG": "The target user would be left without any org.",
+        "OWNER_PROTECTED": "The target user owns a top-level org, so \"{item}\" can't be removed.",
+        "ROLE_DISABLED": "The role \"{item}\" is disabled and can't be assigned.",
+        "USER_NOT_ELIGIBLE": "The role \"{item}\" can only be granted to users in its owner org or below; after copying, the target user still isn't."
+      },
+      "confirm": "Copy",
+      "cancel": "Cancel"
     }
   },
   "moduleManager": {
@@ -2499,13 +2540,6 @@
       "fieldOtherForm": "This step points to the form “{form}”; choosing a field switches it to the check form's field.",
       "noCheckFormReadonly": "This version has no check form"
     },
-    "userPicker": {
-      "option": "{name} ({account})",
-      "loading": "Loading",
-      "empty": "No matching people",
-      "forbidden": "You don't have permission to view the user list",
-      "disabled": "Disabled"
-    },
     "blocked": {
       "title": "Blocked list",
       "back": "Back to workflows",
@@ -2564,5 +2598,12 @@
       "warning": "Warning",
       "serverFailed": "The full check did not finish ({reason}); only the live check results are listed."
     }
+  },
+  "userPicker": {
+    "option": "{name} ({account})",
+    "loading": "Loading",
+    "empty": "No matching people",
+    "forbidden": "You don't have permission to view the user list",
+    "disabled": "Disabled"
   }
 }

@@ -17,6 +17,7 @@ import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
 import { AssignRolesDialog } from "./AssignRolesDialog/AssignRolesDialog";
+import { CopyOrgRolesDialog } from "./CopyOrgRolesDialog/CopyOrgRolesDialog";
 import { OrgChangeDialog } from "./OrgChangeDialog/OrgChangeDialog";
 import { OrgPickerDialog } from "./OrgPickerDialog/OrgPickerDialog";
 import { OrgTreePanel } from "./OrgTreePanel";
@@ -49,6 +50,8 @@ export const UserManagerPage = () => {
   );
   const [rolesUser, setRolesUser] = useState<UserRow | null>(null);
   const [toggleUser, setToggleUser] = useState<UserRow | null>(null);
+  /** 複製組織與角色的來源(列動作所在的那一列);null = 沒開 */
+  const [copySource, setCopySource] = useState<UserRow | null>(null);
   const [actionError, setActionError] = useState<UserManagerErrorCode | null>(
     null,
   );
@@ -155,6 +158,7 @@ export const UserManagerPage = () => {
                 setActionError(null);
                 setToggleUser(user);
               }}
+              onCopyOrgRoles={setCopySource}
             />
           </Box>
           <Stack
@@ -240,6 +244,19 @@ export const UserManagerPage = () => {
           onConfirm={(roleIds) => {
             setActionError(null);
             assignRoles.mutate({ input: { userId: rolesUser.id, roleIds } });
+          }}
+        />
+      )}
+
+      {copySource !== null && (
+        <CopyOrgRolesDialog
+          source={copySource}
+          onClose={() => {
+            setCopySource(null);
+          }}
+          onCopied={(targetId) => {
+            setCopySource(null);
+            void data.invalidate(targetId);
           }}
         />
       )}

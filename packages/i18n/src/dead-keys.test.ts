@@ -55,6 +55,11 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
     reason: "`t(`reasons.${reason}`)`,reason 是 `setUserOrgs` dry-run 回的列舉",
   },
   {
+    key: "admin.userManager.copyOrgRoles.blockers.",
+    reason:
+      "`t(`blockers.${code}`)`,code 是 `copyUserOrgRoles` 回的 `CopyUserOrgRolesBlockerCode` 列舉",
+  },
+  {
     key: "admin.userManager.form.genderOptions.",
     reason:
       "`t(`genderOptions.${gender}`)`,gender 逐一取自 GraphQL 的 `Gender` 列舉",
