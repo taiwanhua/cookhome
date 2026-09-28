@@ -10,6 +10,7 @@ import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import { UserPicker } from "@/components/UserPicker/UserPicker";
+import { useMe } from "@/hooks/useMe";
 
 import type { UserRow } from "../user-manager-types";
 import { CopyDiffPreview } from "./CopyDiffPreview";
@@ -36,6 +37,11 @@ export const CopyOrgRolesDialog = ({
   const t = useTranslations("admin.userManager.copyOrgRoles");
   const tErrors = useTranslations("admin.userManager.errors");
   const flow = useCopyOrgRoles(source, onCopied);
+  const me = useMe();
+  /** 來源本人、以及操作者自己(取代會把自己的管理角色解除,api 也擋)都不能當目標 */
+  const excludedIds = [source.id, me.data?.me.id].filter(
+    (id): id is string => id !== undefined,
+  );
 
   const options = [
     {
@@ -83,7 +89,7 @@ export const CopyOrgRolesDialog = ({
           value={flow.target}
           onChange={flow.selectTarget}
           allowDisabled
-          excludeUserIds={[source.id]}
+          excludeUserIds={excludedIds}
           helperText={t("targetHelper")}
         />
 
@@ -122,6 +128,7 @@ export const CopyOrgRolesDialog = ({
         <CopyDiffPreview
           hasTarget={flow.target !== null}
           isLoading={flow.isPreviewing}
+          hasFailed={flow.hasPreviewFailed}
           result={flow.preview}
         />
 

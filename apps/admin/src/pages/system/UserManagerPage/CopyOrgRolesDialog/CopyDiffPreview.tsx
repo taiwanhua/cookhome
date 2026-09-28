@@ -10,6 +10,8 @@ import { hasCopyChanges } from "./useCopyOrgRoles";
 export interface CopyDiffPreviewProps {
   hasTarget: boolean;
   isLoading: boolean;
+  /** 預覽失敗:原因由彈窗的錯誤列顯示,這裡不再顯示「計算中」 */
+  hasFailed: boolean;
   /** 目前這組「目標 × 方式」的預覽;還沒回來是 null */
   result: CopyUserOrgRolesResult | null;
 }
@@ -23,6 +25,7 @@ type RoleRef = CopyUserOrgRolesResult["roles"]["added"][number];
 export const CopyDiffPreview = ({
   hasTarget,
   isLoading,
+  hasFailed,
   result,
 }: CopyDiffPreviewProps) => {
   const t = useTranslations("admin.userManager.copyOrgRoles");
@@ -33,6 +36,9 @@ export const CopyDiffPreview = ({
         {t("pickTarget")}
       </Typography>
     );
+  }
+  if (hasFailed && !isLoading) {
+    return null;
   }
   if (isLoading || result === null) {
     return (
@@ -92,7 +98,7 @@ export const CopyDiffPreview = ({
             </Typography>
             {section.rows.map(([kind, text]) => (
               <Typography key={kind} variant="caption" color="text.secondary">
-                {t(kind)}:{text}
+                {t(kind, { items: text })}
               </Typography>
             ))}
           </Stack>

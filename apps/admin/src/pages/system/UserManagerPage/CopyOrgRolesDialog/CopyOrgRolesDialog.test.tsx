@@ -6,11 +6,12 @@ import { CopyUserOrgRolesBlockerCode } from "@repo/graphql";
 import { autocompleteOption, openAutocomplete } from "@/test/autocomplete";
 import { type AuthErrorCode, graphqlError } from "@/test/msw/auth-handlers";
 import { api, server } from "@/test/msw/server";
-import { findSnackbarAlert } from "@/test/snackbar";
+import { findSnackbarAlert, querySnackbar } from "@/test/snackbar";
 
 import { USER_MANAGER_PERMISSIONS } from "../user-manager-permissions";
 import {
   ALL_PERMISSIONS,
+  defaultUsers,
   renderPage,
   rowOf,
 } from "../user-manager-test-support";
@@ -63,6 +64,57 @@ describe("複製組織與角色", () => {
     expect(
       within(rowOf("王小明")).queryByRole("button", { name: ACTION }),
     ).toBeNull();
+  });
+
+  it("目標的候選不含操作者自己(小華 = 登入者)", async () => {
+    const { user: actor } = renderPage();
+    await openCopyDialog(actor, "王小明");
+
+    const options = await openAutocomplete(actor, "目標使用者");
+
+    expect(options.some((option) => option.textContent.includes("小華"))).toBe(
+      false,
+    );
+  });
+
+  it("停用的使用者也可以選為目標(allowDisabled)", async () => {
+    const template = defaultUsers[0];
+    const { user: actor } = renderPage({
+      world: {
+        users: [
+          ...defaultUsers,
+          {
+            ...template,
+            id: "user-off",
+            account: "user-off",
+            name: "停用的人",
+            enabled: false,
+            roles: [],
+          },
+        ],
+      },
+    });
+    const dialog = await openCopyDialog(actor, "王小明");
+
+    await pickTarget(actor, "停用的人");
+
+    expect(await within(dialog).findByText("新增:內容組")).toBeInTheDocument();
+  });
+
+  it("預覽失敗:就地顯示原因、不再顯示「計算中」、不跳提示", async () => {
+    const { user: actor } = renderPage();
+    server.use(
+      api.mutation("CopyUserOrgRoles", () => graphqlError("FORBIDDEN")),
+    );
+    const dialog = await openCopyDialog(actor, "王小明");
+
+    await pickTarget(actor, "何家華");
+
+    expect(
+      await within(dialog).findByText("你沒有執行這個動作的權限。"),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText("正在計算變更…")).toBeNull();
+    expect(querySnackbar()).toBeNull();
   });
 
   it("目標的候選不含來源本人", async () => {
@@ -209,5 +261,6 @@ describe("複製組織與角色", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(querySnackbar()).toBeNull();
   });
 });

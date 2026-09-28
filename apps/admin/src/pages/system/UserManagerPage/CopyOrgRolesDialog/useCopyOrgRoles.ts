@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "use-intl";
 
 import {
@@ -22,6 +22,12 @@ import type { CopyUserOrgRolesResult, UserRow } from "../user-manager-types";
 const previewKeyOf = (targetId: string, mode: CopyUserOrgRolesMode) =>
   `${targetId}:${mode}`;
 
+/**
+ * 失敗只在彈窗內就地顯示(使用者正盯著這個彈窗),不再跳 Snackbar,
+ * 同一句話不出現兩次(`useMutationFeedback` 的 `error` 回 null,DATA-06)。
+ */
+const noSnackbar = () => null;
+
 /** 有沒有任何一項會變(新增或移除);只有保留 = 不需變更。 */
 export const hasCopyChanges = (result: CopyUserOrgRolesResult): boolean =>
   result.orgs.added.length +
@@ -40,7 +46,6 @@ export const useCopyOrgRoles = (
   onCopied: (targetId: string) => void,
 ) => {
   const t = useTranslations("admin.userManager");
-  const tErrors = useTranslations("admin.userManager.errors");
   const { session } = useSession();
   const [target, setTarget] = useState<UserCandidate | null>(null);
   const [mode, setMode] = useState<CopyUserOrgRolesMode>(
@@ -50,13 +55,16 @@ export const useCopyOrgRoles = (
     key: string;
     result: CopyUserOrgRolesResult;
   } | null>(null);
-  const [errorCode, setErrorCode] = useState<UserManagerErrorCode | null>(null);
-
-  const onError = (error: unknown) => {
-    setErrorCode(userManagerErrorOf(error).code);
-  };
-  const feedbackError = (error: unknown) =>
-    tErrors(userManagerErrorOf(error).code);
+  /** 最近一次送出預覽的「目標 × 方式」;回應回來時比對它,被丟棄的舊回應不寫入 */
+  const latestPreviewKey = useRef<string | null>(null);
+  /** 預覽失敗也以「目標 × 方式」為鍵:切換後才回來的舊失敗不算數 */
+  const [previewFailure, setPreviewFailure] = useState<{
+    key: string;
+    code: UserManagerErrorCode;
+  } | null>(null);
+  const [submitError, setSubmitError] = useState<UserManagerErrorCode | null>(
+    null,
+  );
 
   const previewMutation = useCopyUserOrgRolesMutation(
     session.client,
@@ -65,14 +73,23 @@ export const useCopyOrgRoles = (
       CopyUserOrgRolesMutationVariables
     >({
       success: null,
-      error: feedbackError,
+      error: noSnackbar,
       onSuccess: (data, variables) => {
         setPreview({
           key: previewKeyOf(variables.input.targetUserId, variables.input.mode),
           result: data.copyUserOrgRoles,
         });
       },
-      onError,
+      onError: (error, variables) => {
+        const key = previewKeyOf(
+          variables.input.targetUserId,
+          variables.input.mode,
+        );
+        if (key !== latestPreviewKey.current) {
+          return;
+        }
+        setPreviewFailure({ key, code: userManagerErrorOf(error).code });
+      },
     }),
   );
 
@@ -83,11 +100,13 @@ export const useCopyOrgRoles = (
       CopyUserOrgRolesMutationVariables
     >({
       success: t("feedback.copyOrgRolesSuccess", { name: target?.name ?? "" }),
-      error: feedbackError,
+      error: noSnackbar,
       onSuccess: (data) => {
         onCopied(data.copyUserOrgRoles.user.id);
       },
-      onError,
+      onError: (error) => {
+        setSubmitError(userManagerErrorOf(error).code);
+      },
     }),
   );
 
@@ -95,10 +114,13 @@ export const useCopyOrgRoles = (
     nextTarget: UserCandidate | null,
     nextMode: CopyUserOrgRolesMode,
   ) => {
-    setErrorCode(null);
+    setSubmitError(null);
+    setPreviewFailure(null);
     if (nextTarget === null) {
+      latestPreviewKey.current = null;
       return;
     }
+    latestPreviewKey.current = previewKeyOf(nextTarget.id, nextMode);
     previewMutation.mutate({
       input: {
         sourceUserId: source.id,
@@ -119,9 +141,12 @@ export const useCopyOrgRoles = (
     requestPreview(target, nextMode);
   };
 
+  const currentKey = target === null ? null : previewKeyOf(target.id, mode);
   const currentPreview =
-    target !== null && preview?.key === previewKeyOf(target.id, mode)
-      ? preview.result
+    currentKey !== null && preview?.key === currentKey ? preview.result : null;
+  const previewError =
+    currentKey !== null && previewFailure?.key === currentKey
+      ? previewFailure.code
       : null;
   const isPreviewing = previewMutation.isPending;
   const canConfirm =
@@ -135,7 +160,7 @@ export const useCopyOrgRoles = (
     if (!canConfirm || target === null) {
       return;
     }
-    setErrorCode(null);
+    setSubmitError(null);
     submitMutation.mutate({
       input: {
         sourceUserId: source.id,
@@ -153,7 +178,10 @@ export const useCopyOrgRoles = (
     isPreviewing,
     isSubmitting: submitMutation.isPending,
     canConfirm,
-    errorCode,
+    /** 這組預覽失敗了(彈窗不再顯示「計算中」) */
+    hasPreviewFailed: previewError !== null,
+    /** 就地顯示的錯誤:正式送出的失敗優先,其次是目前這組預覽的失敗 */
+    errorCode: submitError ?? previewError,
     selectTarget,
     selectMode,
     confirm,
