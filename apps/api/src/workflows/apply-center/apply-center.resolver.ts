@@ -17,6 +17,7 @@ import { APPLY_CENTER_VIEW_PERMISSION } from "../workflow-keys";
 import { ApplyCenterService } from "./apply-center.service";
 import {
   ApplicableModuleForms,
+  ApplyCenterCounts,
   MyApplicationsInput,
   MyApplicationsPayload,
   MyTasksInput,
@@ -63,6 +64,15 @@ export class ApplyCenterResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<WorkflowTasksPayload> {
     return this.service.myTasks(await this.access.factsOf(operator), input);
+  }
+
+  /** 頁籤與側欄 badge 的數字;權限同兩個列表。 */
+  @RequirePermission(APPLY_CENTER_VIEW_PERMISSION)
+  @Query(() => ApplyCenterCounts, { name: "applyCenterCounts" })
+  async applyCenterCounts(
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<ApplyCenterCounts> {
+    return this.service.counts(await this.access.factsOf(operator));
   }
 
   @Query(() => WorkflowInstancePayload, { name: "workflowInstance" })
