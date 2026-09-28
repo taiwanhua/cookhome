@@ -3,8 +3,16 @@ import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
+import { colorModeInitTag } from "./src/lib/color-mode-init";
+
+/** 首幀外觀腳本注入 `<head>`(見 `src/lib/color-mode-init.ts`)。 */
+const colorModeInit = {
+  name: "cookhome:color-mode-init",
+  transformIndexHtml: () => [colorModeInitTag()],
+};
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), colorModeInit],
   resolve: {
     // `@/` = src/(與 tsconfig paths、jest moduleNameMapper 同一份約定,GEN-01)
     alias: { "@": fileURLToPath(new URL("src", import.meta.url)) },
