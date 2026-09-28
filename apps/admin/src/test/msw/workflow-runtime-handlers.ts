@@ -6,6 +6,7 @@ import {
   BlockedInstancesFilter,
   type BlockedInstancesQueryVariables,
   type DecideTaskMutationVariables,
+  FormSubmissionStatus,
   type MyApplicationsQueryVariables,
   type MyTasksQueryVariables,
   type ReassignTaskMutationVariables,
@@ -40,6 +41,8 @@ export interface WorkflowRuntimeWorldOptions {
   /** `decideTask` 回 `STEP_CLOSED`(此關已結束或任務已變更),任務不動 */
   closedTaskIds?: string[];
   failures?: Partial<Record<WorkflowRuntimeOperation, FormFailure>>;
+  /** 直接指定 `applyCenterCounts` 的回傳(驗 `99+` 這種大數字);缺席時由任務與申請的狀態算 */
+  counts?: { myTasks: number; myApplications: number };
 }
 
 export interface WorkflowRuntimeWorld {
@@ -53,6 +56,8 @@ export interface WorkflowRuntimeWorld {
     myTasks: MyTasksQueryVariables["input"][];
     blocked: BlockedInstancesQueryVariables["input"][];
   };
+  /** `applyCenterCounts` 被打了幾次(驗「事件後重查」) */
+  countsCalls: () => number;
 }
 
 /** 一頁清單的形狀(假 api 不真的分頁)。 */
@@ -123,6 +128,21 @@ export const workflowRuntimeWorld = (
     ),
   });
   const findInstance = (id: string) => instances.find((item) => item.id === id);
+  let countsCalls = 0;
+  /** 同 api 的條件:派給我的待處理任務、我的審核中 / 被退回的申請。 */
+  const countsOf = () =>
+    options.counts ?? {
+      myTasks: tasks.filter(
+        (task) =>
+          task.assignee.id === viewerId &&
+          task.status === WorkflowTaskStatus.Pending,
+      ).length,
+      myApplications: applications.filter(
+        (row) =>
+          row.status === FormSubmissionStatus.Reviewing ||
+          row.status === FormSubmissionStatus.Returned,
+      ).length,
+    };
 
   const handlers = [
     api.query("MyApplications", ({ variables }) => {
@@ -154,6 +174,10 @@ export const workflowRuntimeWorld = (
             : task.status === WorkflowTaskStatus.Pending),
       );
       return HttpResponse.json({ data: { myTasks: page(items) } });
+    }),
+    api.query("ApplyCenterCounts", () => {
+      countsCalls += 1;
+      return HttpResponse.json({ data: { applyCenterCounts: countsOf() } });
     }),
     api.query("WorkflowInstance", ({ variables }) => {
       const instance = findInstance((variables as { id: string }).id);
@@ -287,5 +311,5 @@ export const workflowRuntimeWorld = (
     }),
   ];
 
-  return { handlers, inputs };
+  return { handlers, inputs, countsCalls: () => countsCalls };
 };

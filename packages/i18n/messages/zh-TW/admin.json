@@ -88,6 +88,7 @@
       }
     },
     "sideNav": "主選單",
+    "navBadge": "{count} 筆待審核",
     "collapseNav": "收合側欄",
     "expandNav": "展開側欄",
     "currentOrg": "當前組織",
@@ -2185,6 +2186,8 @@
     "tabs": "申請中心",
     "tabMine": "我的申請",
     "tabTasks": "待我審核",
+    "tabMineCount": "我的申請(進行中 {count} 筆)",
+    "tabTasksCount": "待我審核(待處理 {count} 筆)",
     "total": "共 {total} 筆",
     "filters": {
       "module": "模組",

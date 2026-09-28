@@ -147,3 +147,15 @@ export class ApplicableModuleForms {
   @Field(() => [FormSummary])
   forms!: FormSummary[];
 }
+
+/** 申請中心頁籤與側欄的 badge 數字(條件與兩個列表的預設篩選相同)。 */
+@ObjectType()
+export class ApplyCenterCounts {
+  /** 待我處理的任務數(派給我、`pending`)。 */
+  @Field(() => Int)
+  myTasks!: number;
+
+  /** 我進行中的申請數(審核中 / 被退回)。 */
+  @Field(() => Int)
+  myApplications!: number;
+}

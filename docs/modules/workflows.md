@@ -177,6 +177,18 @@
 - `applicableForms`:我有 `create`、可新增、且本租戶綁了流程的表單,依模組分組。
 - `myTasks`:`assigneeId = 我`;`done = false` 待處理(`pending`)/ `true` 已處理(`approved` / `rejected` / `returned` / `late`)。**摘要與申請人讀實例快照**。
 - `workflowInstance`:授權同 `canReadSubmissionRevision`;`myTasks` 欄位是讀者自己在這個實例的任務,`abilities.canWithdraw` = 申請人、進行中、還沒有決定。
+- `applyCenterCounts`:頁籤與側欄 badge 的數字,見下一節。
+
+### 計數
+
+`applyCenterCounts: { myTasks, myApplications }` 只做 `countDocuments`,權限同兩個列表(`apply-center.view`)。條件與兩個列表**共用同一組 builder**(`apply-center.service.ts` 的 `myTasksFilter` / `myApplicationsFilter`),邊界一樣是 `tenantId` + 「我」:
+
+| 數字             | 條件                                                                                         | 顯示在                         |
+| ---------------- | -------------------------------------------------------------------------------------------- | ------------------------------ |
+| `myTasks`        | 「待我審核」預設的待處理:`assigneeId = 我`、`status = pending`                               | 「待我審核」頁籤、側欄申請中心 |
+| `myApplications` | 「我的申請」的條件 + 狀態 `reviewing` / `returned`(草稿、已完成、已駁回、已作廢、已撤回不算) | 「我的申請」頁籤               |
+
+admin 端(`hooks/useApplyCenterCounts.ts`):0 不顯示、超過 99 顯示 `99+`(`@repo/ui/badge`);側欄收合時只畫小圓點。沒有 `apply-center.view` 的人不發請求。不輪詢:殼進站取一次、進申請中心與切頁籤各重取一次,其餘靠寫入端失效 —— `useFormSubmissionCache`(送出、修改、刪除、撤回、作廢)、`useWorkflowCache`(決定、重試推進)、阻擋清單的 `useBlockedActions`(改派、新增審核者)都會一併失效 `ApplyCenterCounts`。
 
 ## 通知信
 
@@ -268,7 +280,7 @@ GraphQL 文件:`packages/graphql/src/documents/workflows.graphql`(設計、綁�
 
 **阻擋清單**(`system.workflows.blocked-page.reassign`):`blockedInstances`、`reassignTask`、`addStepAssignee`、`retryAdvanceInstance`。
 
-**申請中心**:`myApplications`、`applicableForms`、`myTasks`(`apply-center.view`)、`workflowInstance`、`decideTask`(不看頁面權限);提交的 `withdrawSubmission`、`voidSubmission`、`copySubmissionToDraft`(在表單執行端的 resolver,回 `FormSubmissionPayload`)。
+**申請中心**:`myApplications`、`applicableForms`、`myTasks`、`applyCenterCounts`(`apply-center.view`)、`workflowInstance`、`decideTask`(不看頁面權限);提交的 `withdrawSubmission`、`voidSubmission`、`copySubmissionToDraft`(在表單執行端的 resolver,回 `FormSubmissionPayload`)。
 
 input 欄位的缺席 / `null`:
 

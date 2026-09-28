@@ -76,6 +76,12 @@ export type ApplicationItem = {
   updatedAt: Scalars['DateTime']['output'];
 };
 
+export type ApplyCenterCounts = {
+  __typename?: 'ApplyCenterCounts';
+  myApplications: Scalars['Int']['output'];
+  myTasks: Scalars['Int']['output'];
+};
+
 export type AssignFormToTenantsInput = {
   formKey: Scalars['ID']['input'];
   tenantOrgIds: Array<Scalars['ID']['input']>;
@@ -1916,6 +1922,7 @@ export type PublishWorkflowVersionInput = {
 export type Query = {
   __typename?: 'Query';
   applicableForms: Array<ApplicableModuleForms>;
+  applyCenterCounts: ApplyCenterCounts;
   blockedInstances: WorkflowInstancesPayload;
   dataScopeRule: DataScopeRulePayload;
   dataScopeTargets: DataScopeTargetsPayload;
@@ -3201,6 +3208,11 @@ export type MyTasksQueryVariables = Exact<{
 
 
 export type MyTasksQuery = { __typename?: 'Query', myTasks: { __typename?: 'WorkflowTasksPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }> } };
+
+export type ApplyCenterCountsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ApplyCenterCountsQuery = { __typename?: 'Query', applyCenterCounts: { __typename?: 'ApplyCenterCounts', myTasks: number, myApplications: number } };
 
 export type WorkflowInstanceQueryVariables = Exact<{
   id: Scalars['ID']['input'];
@@ -4965,6 +4977,38 @@ useMyTasksQuery.getKey = (variables: MyTasksQueryVariables) => ['MyTasks', varia
 
 
 useMyTasksQuery.fetcher = (client: GraphQLClient, variables: MyTasksQueryVariables, headers?: RequestInit['headers']) => fetcher<MyTasksQuery, MyTasksQueryVariables>(client, MyTasksDocument, variables, headers);
+
+export const ApplyCenterCountsDocument = `
+    query ApplyCenterCounts {
+  applyCenterCounts {
+    myTasks
+    myApplications
+  }
+}
+    `;
+
+export const useApplyCenterCountsQuery = <
+      TData = ApplyCenterCountsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: ApplyCenterCountsQueryVariables,
+      options?: Omit<UseQueryOptions<ApplyCenterCountsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ApplyCenterCountsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ApplyCenterCountsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ApplyCenterCounts'] : ['ApplyCenterCounts', variables],
+    queryFn: fetcher<ApplyCenterCountsQuery, ApplyCenterCountsQueryVariables>(client, ApplyCenterCountsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useApplyCenterCountsQuery.getKey = (variables?: ApplyCenterCountsQueryVariables) => variables === undefined ? ['ApplyCenterCounts'] : ['ApplyCenterCounts', variables];
+
+
+useApplyCenterCountsQuery.fetcher = (client: GraphQLClient, variables?: ApplyCenterCountsQueryVariables, headers?: RequestInit['headers']) => fetcher<ApplyCenterCountsQuery, ApplyCenterCountsQueryVariables>(client, ApplyCenterCountsDocument, variables, headers);
 
 export const WorkflowInstanceDocument = `
     query WorkflowInstance($id: ID!) {

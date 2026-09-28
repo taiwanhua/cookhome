@@ -5,12 +5,14 @@ import { useTranslations } from "use-intl";
 import type { MeQuery } from "@repo/graphql";
 import { Box } from "@repo/ui/box";
 
+import { useApplyCenterCounts } from "@/hooks/useApplyCenterCounts";
 import {
   buildNavTree,
   enterableRouteMap,
   matchModuleRoute,
   normalizePathname,
 } from "@/lib/module-tree";
+import { APPLY_CENTER_MODULE_KEY } from "@/pages/apply-center/apply-center-keys";
 import { useSideNavStore } from "@/stores/useSideNavStore";
 
 import { AppBar } from "./AppBar/AppBar";
@@ -65,6 +67,12 @@ export const ShellLayout = ({ me, pageMinWidths = {} }: ShellLayoutProps) => {
       ? undefined
       : pageMinWidths[currentModule.key]) ?? DEFAULT_SHELL_MIN_WIDTH;
   const isNavCollapsed = useSideNavStore((state) => state.isCollapsed);
+  // 側欄「申請中心」右側 = 待我處理的任務數(進站取一次,之後隨送出 / 審核 / 改派等寫入失效重查)
+  const { myTasks } = useApplyCenterCounts();
+  const navBadges = useMemo(
+    () => ({ [APPLY_CENTER_MODULE_KEY]: myTasks }),
+    [myTasks],
+  );
 
   return (
     <Box
@@ -80,6 +88,7 @@ export const ShellLayout = ({ me, pageMinWidths = {} }: ShellLayoutProps) => {
         logoUrl={me.currentOrg?.logoUrl}
         tree={tree}
         currentPath={path}
+        badges={navBadges}
       />
       <Box
         sx={{

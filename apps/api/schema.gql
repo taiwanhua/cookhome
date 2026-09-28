@@ -45,6 +45,11 @@ type ApplicationItem {
   updatedAt: DateTime!
 }
 
+type ApplyCenterCounts {
+  myApplications: Int!
+  myTasks: Int!
+}
+
 input AssignFormToTenantsInput {
   formKey: ID!
   tenantOrgIds: [ID!]!
@@ -1358,6 +1363,7 @@ input PublishWorkflowVersionInput {
 
 type Query {
   applicableForms: [ApplicableModuleForms!]!
+  applyCenterCounts: ApplyCenterCounts!
   blockedInstances(input: BlockedInstancesInput!): WorkflowInstancesPayload!
   dataScopeRule(targetId: ID!): DataScopeRulePayload!
   dataScopeTargets: DataScopeTargetsPayload!

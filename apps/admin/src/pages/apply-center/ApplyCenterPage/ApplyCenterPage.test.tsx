@@ -85,7 +85,7 @@ describe("申請中心", () => {
     });
     await screen.findByRole("table", { name: "我的申請" });
 
-    await user.click(screen.getByRole("tab", { name: "待我審核" }));
+    await user.click(screen.getByRole("tab", { name: /^待我審核/ }));
     const table = await screen.findByRole("table", { name: "待我審核" });
     expect(await within(table).findByText("病假三天")).toBeInTheDocument();
     expect(within(table).getByText("小明")).toBeInTheDocument();
