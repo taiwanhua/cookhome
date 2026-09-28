@@ -81,17 +81,17 @@
 
 **全量覆蓋的邊界**:`setUserOrgs` 只覆蓋操作者**管理範圍內**的所屬組織,`assignUserRoles` 只覆蓋操作者**可觸及**(擁有組織在管理範圍內)的角色 —— 彈窗列不出來的那些不會被順手移除。
 
-**複製組織與角色**:列動作「複製組織與角色」以該列為**來源**,彈窗裡選一位**目標**(搜整個管理範圍、排除來源本人;停用的使用者也可以是來源或目標,複製不會啟用他),選合併或取代,預覽差異後確認。一次一來源一目標,一次性複製、之後不同步。
+**複製組織與角色**:列動作「複製組織與角色」以該列為**來源**,彈窗裡選一位**目標**(搜整個管理範圍、排除來源本人與操作者自己;停用的使用者也可以是來源或目標,複製不會啟用他),選合併或取代,預覽差異後確認。一次一來源一目標,一次性複製、之後不同步。
 
 - **集合運算**(組織與角色同一套,以 id 比對去重):T = 目標現有的、M = 操作者管理範圍內的(組織:管理範圍內的組織;角色:擁有組織在管理範圍內的)、S = 來源的 ∩ M。
   - 合併:`final = T ∪ S`
   - 取代:`final = (T − M) ∪ S`
   - 範圍外的來源不授予、範圍外的目標不因取代而解除 —— 這是權限邊界,不是選項。管理範圍是全部(根組織)時 `T − M` 為空,取代即完全取代。
-- **驗證**(預覽與正式送出都重算、重驗):來源 ≠ 目標;兩者都存在、未刪除、在管理範圍內;新增的角色以**複製後的所屬組織**判斷授予資格(`OrgQualificationService.assertEligible`);停用的角色不得新授予;複製後至少一個所屬組織;擁有者保護照舊(不得把擁有者移出他擁有的組織、不得解除他的租戶管理員授予;根組織操作者例外)。
+- **驗證**(預覽與正式送出都重算、重驗):來源 ≠ 目標;目標不能是操作者本人(`VALIDATION_FAILED`,`fields: ["targetUserId"]`;取代會把自己的管理角色解除、把自己鎖在門外);兩者都存在、未刪除、在管理範圍內;新增的角色以**複製後的所屬組織**判斷授予資格(`OrgQualificationService.assertEligible`);停用的角色不得新授予;複製後至少一個所屬組織;擁有者保護照舊(不得把擁有者移出他擁有的組織、不得解除他的租戶管理員授予;根組織操作者例外)。
 - **範圍外的角色因取代失去資格**:允許執行,角色照樣留著(同「全部保留」的效果);預覽不把它列為擋下的原因,只回一個 `outOfScopeKept` 旗標讓彈窗多一行提示。**不沿用**「所屬組織」三檔的角色清理政策。
 - **寫入順序**:加組織 → 授角色 → 解除角色 → 移除組織(永遠不會先移到零組織)。沒有交易(ADR-0007):中途失敗就回錯、不回成功,已完成的步驟各自留有稽核;關聯寫入冪等(`RelationService.ensureLinks`),重跑不會產生重複關聯。
 - **不複製**:角色定義、個人資料、密碼、啟用狀態、settings、主管關係、擁有者身分、流程任務。
-- **已知限制**:目標使用者的權限在 API 端每次請求現算,複製後立即生效;但他開著的後台畫面(`me`)要重新整理才會更新。若取代移除了他目前所在的組織,API 自動退到他剩下的第一個所屬組織。
+- **已知限制**:目標使用者的權限在 API 端每次請求現算,複製後立即生效;但他開著的後台畫面(`me`)要重新整理才會更新。若取代移除了他目前所在的組織,API 自動退到他剩下的第一個所屬組織。取代時,目標原有、在範圍內且已是「組織外」狀態的角色不重驗資格(資格只在授予當下檢查,同 ADR-0003)。`LAST_ORG` 只有在根組織操作者、且來源沒有任何存活的所屬組織(全指向已刪除的組織)時取代才會發生 —— 其他情況來源一定在管理範圍內,S 至少有一個組織。查無角色文件(已刪除)的殘留授予不複製,也不列進差異、不會被取代解除。
 
 **密碼流程**:「設定新密碼」頁共用三入口 —— 啟用信(7 天,`PasswordService.sendActivationEmail`,由本模組新增使用者與開通租戶時呼叫)、重設信(30 分鐘,`requestPasswordReset`)、首登強改(`mustChangePassword` → `changePassword`);啟用與重設都走同一個 `setPassword(input: { token, newPassword })`,成功直接發登入 token;連結失效(`ACTION_TOKEN_INVALID`)頁導向忘記密碼自助;`action_tokens` 見 ADR-0009 / 0010。啟用信逾期走忘記密碼自助,本模組不提供重寄。
 
@@ -154,7 +154,7 @@ copyUserOrgRoles(input: { sourceUserId, targetUserId, mode: MERGE | REPLACE, dry
 - **密碼三頁**(`apps/admin/src/pages/auth/`):`/forgot-password`(任何 Email 都顯示已寄出)、`/set-password?token=…`(啟用與重設共用;成功持回傳 token 直接進後台;`ACTION_TOKEN_INVALID` 或無 token → 連結失效 + 一鍵重新申請)、`/change-password?next=…`(已登入;路由守門 `RequireAuth` 依 `me.mustChangePassword` 或 fetch 層攔到的 `MUST_CHANGE_PASSWORD` 導來,成功後清旗標、重取 `me`、回 `next`)。密碼規則即時提示與 api 同用 `@repo/domain/password`;文案在 `admin.forgotPassword` / `admin.setPassword` / `admin.changePassword` / `admin.passwordRules`。
 - **與 Figma 的差異(刻意)**:清單多一欄「帳號」(30:105 沒有,但清單欄位的正本是本文);列動作多一個「所屬組織」(31:98 只有編輯 / 指派角色 / 停用,但所屬組織需要入口);新增彈窗的「初始密碼」欄改成選了 PASSWORD 才出現(202:743 常駐);新增 / 編輯彈窗的「啟用此使用者」勾選框不做(`createUser` / `updateUser` 沒有 `enabled` 欄位,啟用停用走專用動作);編輯彈窗的所屬組織唯讀(所屬組織走專用彈窗)。
 
-- **複製組織與角色**(`CopyOrgRolesDialog/`):列動作有 view + manage-orgs + assign-roles 三個權限才出現。目標用共用的 `components/UserPicker/`(`allowDisabled` 讓停用的人可選、`excludeUserIds` 排除來源本人)。選目標或切合併 / 取代就重送一次 `dryRun: true`;預覽以「目標 × 方式」為鍵,慢回來的舊預覽不會蓋掉新的。確認鈕在預覽未完成、有 `blockers` 或沒有差異時停用;成功跳提示並重查清單與目標那一筆(DATA-04),失敗留在彈窗顯示原因。三句方式說明(合併 / 取代 / 不同步)的正本是 i18n 的 `admin.userManager.copyOrgRoles.*`。
+- **複製組織與角色**(`CopyOrgRolesDialog/`):列動作有 view + manage-orgs + assign-roles 三個權限才出現。目標用共用的 `components/UserPicker/`(`allowDisabled` 讓停用的人可選、`excludeUserIds` 排除來源本人與操作者自己)。選目標或切合併 / 取代就重送一次 `dryRun: true`;預覽以「目標 × 方式」為鍵,慢回來的舊預覽不會蓋掉新的。確認鈕在預覽未完成、有 `blockers` 或沒有差異時停用;成功跳提示並重查清單與目標那一筆(DATA-04);預覽或送出失敗只在彈窗內就地顯示原因、不跳 Snackbar(DATA-06 的 `error` 回 `null`),預覽失敗也以「目標 × 方式」比對,被丟棄的舊請求失敗不寫入。三句方式說明(合併 / 取代 / 不同步)的正本是 i18n 的 `admin.userManager.copyOrgRoles.*`。
 
 正本:`apps/admin/src/pages/system/UserManagerPage/`(`useUserManagerData.ts`、`useUserOrgsFlow.ts`、`OrgPickerDialog/`、`OrgChangeDialog/`、`AssignRolesDialog/`、`CopyOrgRolesDialog/`)、`apps/admin/src/components/UserPicker/`、`apps/admin/src/components/OrgTreePicker/OrgTreePicker.tsx`、`apps/admin/src/lib/role-eligibility.ts`、`apps/admin/src/pages/auth/`
 

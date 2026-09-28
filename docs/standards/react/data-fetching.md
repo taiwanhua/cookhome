@@ -111,6 +111,9 @@ const setOrgEnabled = useSetOrgEnabledMutation(
   設定物件介面也走這一招,不要為了回饋去改介面的形狀。
 - **只有 dry-run / 預覽這種「還沒完成操作」的步驟**可以 `success: null`(成功不跳、失敗照跳),
   目前唯一的先例是 `useUserOrgsFlow` 的試算。
+- **`error` 回 `null` = 失敗不跳提示**,只給「錯誤已就地顯示在使用者正盯著的彈窗裡、且彈窗不會關」的流程用,
+  避免同一句話出現兩次;先例是複製組織與角色的彈窗(`CopyOrgRolesDialog/useCopyOrgRoles.ts`,預覽與送出都是)。
+  成功仍照跳。
 
 排隊策略是**長度 1 的佇列:只顯示最新的一則,舊的直接被取代**(正本寫在
 `apps/admin/src/stores/useSnackbarStore.ts` 與 `@repo/ui/snackbar` 的 JSDoc)——
