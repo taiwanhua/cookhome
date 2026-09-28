@@ -1,6 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 import { render } from "@testing-library/react";
 
+import { AddIcon } from "./AddIcon";
+import { ArrowDownIcon } from "./ArrowDownIcon";
+import { ArrowUpIcon } from "./ArrowUpIcon";
 import { CheckIcon } from "./CheckIcon";
 import { ChevronDoubleLeftIcon } from "./ChevronDoubleLeftIcon";
 import { ChevronDoubleRightIcon } from "./ChevronDoubleRightIcon";
@@ -32,6 +35,9 @@ const actionIcons = [
   { name: "ViewIcon", Icon: ViewIcon },
   { name: "EditIcon", Icon: EditIcon },
   { name: "DeleteIcon", Icon: DeleteIcon },
+  { name: "AddIcon", Icon: AddIcon },
+  { name: "ArrowUpIcon", Icon: ArrowUpIcon },
+  { name: "ArrowDownIcon", Icon: ArrowDownIcon },
   { name: "ChevronDoubleLeftIcon", Icon: ChevronDoubleLeftIcon },
   { name: "ChevronDoubleRightIcon", Icon: ChevronDoubleRightIcon },
 ] as const;

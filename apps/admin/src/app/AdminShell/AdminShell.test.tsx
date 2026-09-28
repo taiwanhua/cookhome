@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
+import { COLOR_MODE_STORAGE_KEY } from "@/lib/color-mode";
 import { LOCALE_STORAGE_KEY } from "@/lib/locale";
 import {
   SWITCHED_ACCESS_TOKEN,
@@ -296,19 +297,68 @@ describe("AppBar(當前組織切換、使用者選單、語言)", () => {
     expect(world.calls.logoutAllDevices).toBe(1);
   });
 
-  it("語言切換器:切到 English 後文案變英文並記在 localStorage", async () => {
+  it("當前組織是帶標題的下拉(SelectField),AppBar 上不再有獨立的語言下拉", async () => {
+    server.use(...authWorld({ hasRefreshCookie: true }).handlers);
+
+    renderApp({ path: "/overview" });
+    const switcher = await screen.findByRole("combobox", { name: "當前組織" });
+
+    // 標題是看得到的浮動標籤,combobox 以它為名
+    const labelId = switcher.getAttribute("aria-labelledby") ?? "";
+    expect(
+      within(screen.getByRole("banner")).getByText("當前組織", {
+        selector: `[id="${labelId}"]`,
+      }),
+    ).toBeVisible();
+    expect(switcher).toHaveTextContent("CookHome");
+    expect(screen.queryByRole("combobox", { name: "語言" })).toBeNull();
+  });
+
+  it("頭像選單的語言:切到 English 後文案變英文並記在 localStorage", async () => {
     server.use(...authWorld({ hasRefreshCookie: true }).handlers);
 
     const { user } = renderApp({ path: "/overview" });
-    const language = await screen.findByRole("combobox", { name: "語言" });
+    await user.click(await screen.findByRole("button", { name: "小華" }));
+    expect(
+      screen.getByRole("menuitemradio", { name: "繁體中文" }),
+    ).toHaveAttribute("aria-checked", "true");
 
-    await user.click(language);
-    await user.click(await screen.findByRole("option", { name: "English" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "English" }));
 
     expect(
       await screen.findByRole("navigation", { name: "Main navigation" }),
     ).toBeInTheDocument();
     expect(localStorage.getItem(LOCALE_STORAGE_KEY)).toBe("en");
     localStorage.removeItem(LOCALE_STORAGE_KEY);
+  });
+
+  it("頭像選單的外觀:預設跟隨系統;選「暗」後換暗色並記在 localStorage,重新整理後維持", async () => {
+    server.use(...authWorld({ hasRefreshCookie: true }).handlers);
+
+    const first = renderApp({ path: "/overview" });
+    await first.user.click(await screen.findByRole("button", { name: "小華" }));
+    expect(
+      screen.getByRole("menuitemradio", { name: "跟隨系統" }),
+    ).toHaveAttribute("aria-checked", "true");
+
+    await first.user.click(screen.getByRole("menuitemradio", { name: "暗" }));
+
+    expect(document.documentElement).toHaveClass("dark");
+    expect(localStorage.getItem(COLOR_MODE_STORAGE_KEY)).toBe("dark");
+
+    // 重新整理 = 整個 app 重新掛載,外觀從 localStorage 讀回
+    first.unmount();
+    document.documentElement.className = "";
+    const second = renderApp({ path: "/overview" });
+    await second.user.click(
+      await screen.findByRole("button", { name: "小華" }),
+    );
+    expect(screen.getByRole("menuitemradio", { name: "暗" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(document.documentElement).toHaveClass("dark");
+    localStorage.removeItem(COLOR_MODE_STORAGE_KEY);
+    document.documentElement.className = "";
   });
 });

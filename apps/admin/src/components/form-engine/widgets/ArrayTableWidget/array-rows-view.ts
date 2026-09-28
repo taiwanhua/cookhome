@@ -14,7 +14,7 @@ export interface ArrayRowsViewProps {
   context: WidgetContext;
   /** 可以增刪改(填寫 / 預覽、且改得動這一欄) */
   canEdit: boolean;
-  /** 還沒到 `maxRows`(複製一列也受它限制) */
+  /** 還沒到 `maxRows`(複製、上方插入一列也受它限制) */
   canAdd: boolean;
   isDisabled: boolean;
   isReadOnly: boolean;
@@ -22,6 +22,8 @@ export interface ArrayRowsViewProps {
   cellError: (rowId: string, columnKey: string) => string | null;
   displayOf: (columnKey: string) => readonly FormDisplayItemLike[];
   onCellChange: (rowId: string, columnKey: string, value: unknown) => void;
+  onInsertBefore: (rowId: string) => void;
+  onMove: (rowId: string, offset: -1 | 1) => void;
   onDuplicate: (rowId: string) => void;
   onRemove: (rowId: string) => void;
 }

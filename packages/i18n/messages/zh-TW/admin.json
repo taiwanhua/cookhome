@@ -78,6 +78,14 @@
     }
   },
   "shell": {
+    "userMenu": {
+      "appearance": "外觀",
+      "modes": {
+        "system": "跟隨系統",
+        "light": "亮",
+        "dark": "暗"
+      }
+    },
     "sideNav": "主選單",
     "collapseNav": "收合側欄",
     "expandNav": "展開側欄",
@@ -1286,6 +1294,12 @@
       "duplicateRow": "複製",
       "removeRowAria": "刪除第 {index} 列",
       "duplicateRowAria": "複製第 {index} 列",
+      "insertAbove": "上方插入一列",
+      "insertAboveAria": "在第 {index} 列上方插入一列",
+      "moveUp": "上移",
+      "moveUpAria": "上移第 {index} 列",
+      "moveDown": "下移",
+      "moveDownAria": "下移第 {index} 列",
       "rowActions": "操作",
       "rowTitle": "第 {index} 列",
       "noRows": "尚未新增任何一列",
@@ -2480,6 +2494,7 @@
       "levelOption": "第 {level} 層",
       "needsCheckForm": "請先選檢查用表單",
       "fieldCurrent": "目前:{form} / {field}",
+      "fieldNoChoices": "檢查用表單沒有「引用(使用者)」欄位;請先在表單設計器加一個資料來源為使用者的引用欄位並發布。",
       "fieldOtherForm": "這一關原本指向表單「{form}」;改選欄位會換成檢查用表單的欄位。",
       "noCheckFormReadonly": "這一版沒有指定檢查用表單"
     },

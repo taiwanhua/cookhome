@@ -78,6 +78,14 @@
     }
   },
   "shell": {
+    "userMenu": {
+      "appearance": "Appearance",
+      "modes": {
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
     "sideNav": "Main navigation",
     "collapseNav": "Collapse sidebar",
     "expandNav": "Expand sidebar",
@@ -1286,6 +1294,12 @@
       "duplicateRow": "Duplicate",
       "removeRowAria": "Delete row {index}",
       "duplicateRowAria": "Duplicate row {index}",
+      "insertAbove": "Insert row above",
+      "insertAboveAria": "Insert a row above row {index}",
+      "moveUp": "Move up",
+      "moveUpAria": "Move row {index} up",
+      "moveDown": "Move down",
+      "moveDownAria": "Move row {index} down",
       "rowActions": "Actions",
       "rowTitle": "Row {index}",
       "noRows": "No rows yet",
@@ -2480,6 +2494,7 @@
       "levelOption": "Level {level}",
       "needsCheckForm": "Select a check form first",
       "fieldCurrent": "Current: {form} / {field}",
+      "fieldNoChoices": "The check form has no “Reference (user)” field. Add a reference field whose data source is Users in the form designer, then publish it.",
       "fieldOtherForm": "This step points to the form “{form}”; choosing a field switches it to the check form's field.",
       "noCheckFormReadonly": "This version has no check form"
     },

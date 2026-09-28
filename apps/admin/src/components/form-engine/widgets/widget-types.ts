@@ -35,6 +35,11 @@ export interface WidgetProps {
   isReadOnly?: boolean;
   /** 設計模式:只畫外觀、不查選項 */
   isDesign: boolean;
+  /**
+   * 不畫標題(明細列的表格格子:表頭已寫了子欄標題):有框輸入框因此不留 legend 缺口,
+   * 標題改當無障礙名稱(`aria-label`)。不給 = false。
+   */
+  hiddenLabel?: boolean;
   /** 欄位下方的說明(help、唯讀原因、api 回的錯誤) */
   helperText?: ReactNode;
   hasError: boolean;

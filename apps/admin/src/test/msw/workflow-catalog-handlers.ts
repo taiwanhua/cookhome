@@ -1,5 +1,6 @@
 import { HttpResponse } from "msw";
 
+import type { FormDefinition } from "@repo/domain/form";
 import {
   type FormVersionQueryVariables,
   FormVersionStatus,
@@ -25,6 +26,8 @@ export interface WorkflowCatalogOptions {
   users?: { id: string; name: string; account: string; enabled: boolean }[];
   /** `forms` 回報的總筆數(沒給 = 實際筆數);大於一頁時設計器提示「清單已截斷」 */
   formsTotal?: number;
+  /** 檢查用表單目前版本的定義(沒給 = 病假單 `leaveDefinition`) */
+  checkFormDefinition?: FormDefinition;
 }
 
 export const catalogUsers = [
@@ -82,7 +85,7 @@ export const workflowCatalogHandlers = (
               status: FormVersionStatus.Published,
               draftRevision: 1,
               baseVersion: null,
-              ...rawOf(leaveDefinition()),
+              ...rawOf(options.checkFormDefinition ?? leaveDefinition()),
               changelog: null,
               publishedAt: null,
               publishedBy: null,

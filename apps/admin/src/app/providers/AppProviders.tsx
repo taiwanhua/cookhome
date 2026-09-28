@@ -7,6 +7,10 @@ import { AppThemeProvider } from "@repo/ui/app-theme-provider";
 import { cookhomeBrand } from "@repo/ui/theme";
 
 import type { AuthSession } from "@/lib/auth/session";
+import {
+  COLOR_MODE_STORAGE_KEY,
+  COLOR_SCHEME_STORAGE_KEY,
+} from "@/lib/color-mode";
 import { useLocaleStore } from "@/stores/useLocaleStore";
 
 import { SessionProvider } from "./SessionProvider";
@@ -35,7 +39,11 @@ export const AppProviders = ({
 
   return (
     <IntlProvider locale={locale} messages={messages[locale]}>
-      <AppThemeProvider brand={cookhomeBrand}>
+      <AppThemeProvider
+        brand={cookhomeBrand}
+        modeStorageKey={COLOR_MODE_STORAGE_KEY}
+        colorSchemeStorageKey={COLOR_SCHEME_STORAGE_KEY}
+      >
         <QueryClientProvider client={queryClient}>
           <SessionProvider session={session}>
             {/* 操作結果提示掛在最內層:每一頁、每個彈窗共用同一個出口(#376) */}

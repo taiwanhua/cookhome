@@ -122,5 +122,77 @@ describe("明細列(填寫)", () => {
 
     expect(screen.getByRole("button", { name: "+ 新增一列" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "複製第 1 列" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "在第 2 列上方插入一列" }),
+    ).toBeDisabled();
+  });
+
+  it("上方插入一列:新的空白列插在那一列上面,原本的列順延", async () => {
+    const { user } = renderCreate();
+    await addRow(user);
+    await fillRow(user, 0, { name: "蘋果", qty: "2", price: "30" });
+
+    await user.click(
+      screen.getByRole("button", { name: "在第 1 列上方插入一列" }),
+    );
+
+    expect(
+      within(lineRow(0)).getByRole("textbox", { name: "品名" }),
+    ).toHaveValue("");
+    expect(
+      within(lineRow(1)).getByRole("textbox", { name: "品名" }),
+    ).toHaveValue("蘋果");
+    expect(screen.getByRole("textbox", { name: "總價" })).toHaveValue("60");
+  });
+
+  it("上移 / 下移:只換順序;第一列不能上移、最後一列不能下移", async () => {
+    const { user, world } = renderCreate();
+    await user.type(
+      await screen.findByRole("textbox", { name: "品項" }),
+      "採買",
+    );
+    await addRow(user);
+    await fillRow(user, 0, { name: "蘋果", qty: "2", price: "30" });
+    await addRow(user);
+    await fillRow(user, 1, { name: "香蕉", qty: "1", price: "15" });
+
+    expect(screen.getByRole("button", { name: "上移第 1 列" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "下移第 2 列" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "下移第 1 列" }));
+
+    expect(
+      within(lineRow(0)).getByRole("textbox", { name: "品名" }),
+    ).toHaveValue("香蕉");
+    expect(
+      within(lineRow(1)).getByRole("textbox", { name: "小計" }),
+    ).toHaveValue("60");
+
+    await user.click(screen.getByRole("button", { name: "上移第 2 列" }));
+    await user.click(screen.getByRole("button", { name: "下移第 1 列" }));
+    await user.click(screen.getByRole("button", { name: "送出" }));
+
+    await waitFor(() => {
+      expect(world.inputs.createFormDraft).toHaveLength(1);
+    });
+    const lines = world.inputs.createFormDraft[0]?.values?.lines as {
+      rowId: string;
+      name: string;
+    }[];
+    expect(lines.map((line) => line.name)).toEqual(["香蕉", "蘋果"]);
+  });
+
+  it("表格格子不畫標題(外框沒有 legend 缺口),無障礙名稱仍是子欄標題", async () => {
+    const { user } = renderCreate();
+    await addRow(user);
+
+    const row = lineRow(0);
+    expect(row.querySelector("label")).toBeNull();
+    const legends = [...row.querySelectorAll("fieldset legend")];
+    expect(legends.length).toBeGreaterThan(0);
+    for (const legend of legends) {
+      expect(legend.textContent).toBe("\u200B");
+    }
+    expect(within(row).getByLabelText("品名")).toHaveRole("textbox");
   });
 });

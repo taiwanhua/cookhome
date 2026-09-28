@@ -18,6 +18,7 @@ export const DateWidget = ({
   onChange,
   isDisabled,
   isReadOnly = false,
+  hiddenLabel = false,
   helperText,
   hasError,
   context,
@@ -29,6 +30,7 @@ export const DateWidget = ({
         value={value}
         context={context}
         helperText={helperText}
+        hiddenLabel={hiddenLabel}
       />
     );
   }
@@ -37,6 +39,7 @@ export const DateWidget = ({
   return (
     <DatePicker
       label={field.label}
+      hiddenLabel={hiddenLabel}
       value={localDayTextOf(value, timezone)}
       onChange={(next) => {
         onChange(localDayInstantOf(next, timezone));

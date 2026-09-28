@@ -26,6 +26,8 @@ export const ArrayRowCards = ({
   cellError,
   displayOf,
   onCellChange,
+  onInsertBefore,
+  onMove,
   onDuplicate,
   onRemove,
 }: ArrayRowsViewProps) => {
@@ -67,7 +69,11 @@ export const ArrayRowCards = ({
                 <ArrayRowActions
                   rowId={row.rowId}
                   index={index + 1}
+                  isFirst={index === 0}
+                  isLast={index === rows.length - 1}
                   canAdd={canAdd}
+                  onInsertBefore={onInsertBefore}
+                  onMove={onMove}
                   onDuplicate={onDuplicate}
                   onRemove={onRemove}
                 />
@@ -86,7 +92,7 @@ export const ArrayRowCards = ({
                     isDisabled={isDisabled}
                     isReadOnly={isReadOnly}
                     isDesign={isDesign}
-                    isLabelHidden={false}
+                    hiddenLabel={false}
                     errorMessage={cellError(row.rowId, column.key)}
                     display={displayOf(column.key)}
                     onCellChange={onCellChange}
