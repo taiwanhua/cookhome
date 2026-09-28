@@ -146,3 +146,52 @@ mutation AssignUserRoles($input: AssignUserRolesInput!) {
     }
   }
 }
+
+# 複製來源使用者的組織與角色給目標使用者(合併 / 取代):先 dryRun: true 取差異與 blockers 預覽,
+# 確認後帶 dryRun: false 再送;伺服器端重算重驗。要 view + manage-orgs + assign-roles 三個權限。
+mutation CopyUserOrgRoles($input: CopyUserOrgRolesInput!) {
+  copyUserOrgRoles(input: $input) {
+    user {
+      id
+    }
+    mode
+    applied
+    orgs {
+      added {
+        id
+        name
+      }
+      removed {
+        id
+        name
+      }
+      kept {
+        id
+        name
+      }
+    }
+    roles {
+      added {
+        id
+        name
+        ownerOrgName
+      }
+      removed {
+        id
+        name
+        ownerOrgName
+      }
+      kept {
+        id
+        name
+        ownerOrgName
+      }
+    }
+    blockers {
+      code
+      roleId
+      orgId
+    }
+    outOfScopeKept
+  }
+}
