@@ -187,12 +187,12 @@ describe("明細列(填寫)", () => {
     await addRow(user);
 
     const row = lineRow(0);
-    expect(row?.querySelector("label")).toBeNull();
-    for (const legend of row?.querySelectorAll("fieldset legend") ?? []) {
-      expect(legend.textContent).toBe("​");
+    expect(row.querySelector("label")).toBeNull();
+    const legends = [...row.querySelectorAll("fieldset legend")];
+    expect(legends.length).toBeGreaterThan(0);
+    for (const legend of legends) {
+      expect(legend.textContent).toBe("\u200B");
     }
-    expect(within(row as HTMLElement).getByLabelText("品名")).toHaveRole(
-      "textbox",
-    );
+    expect(within(row).getByLabelText("品名")).toHaveRole("textbox");
   });
 });

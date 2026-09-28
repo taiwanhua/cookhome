@@ -302,7 +302,7 @@ describe("Autocomplete", () => {
     // 沒有標籤元素、外框的 legend 只剩零寬空白:不留缺口
     expect(container.querySelector("label")).toBeNull();
     expect(container.querySelector("fieldset legend")?.textContent).toBe(
-      "\u200b",
+      "\u200B",
     );
     expect(screen.getByLabelText("角色")).toHaveRole("combobox");
   });

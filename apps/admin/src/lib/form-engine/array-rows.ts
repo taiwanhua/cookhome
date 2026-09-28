@@ -63,16 +63,15 @@ export const moveRow = (
   offset: -1 | 1,
 ): ArrayRowValue[] => {
   const from = rows.findIndex((row) => row.rowId === rowId);
-  const moving = rows[from];
-  const target = rows[from + offset];
-  if (moving === undefined || target === undefined) {
+  const to = from + offset;
+  if (from === -1 || to < 0 || to >= rows.length) {
     return [...rows];
   }
-  return rows.map((row) => {
-    if (row === moving) {
-      return target;
+  return rows.map((row, index) => {
+    if (index === from) {
+      return rows[to];
     }
-    return row === target ? moving : row;
+    return index === to ? rows[from] : row;
   });
 };
 
