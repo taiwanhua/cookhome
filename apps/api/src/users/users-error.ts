@@ -18,6 +18,8 @@ export const USER_ERROR_CODES = [
    * 在此之前使用者頁回的是 `VALIDATION_FAILED`,前端只講得出「資料未通過驗證」。
    */
   "USER_NOT_ELIGIBLE",
+  /** 已停用的角色不可新授予(既有授予不受影響);`extensions.roleId` 指出是哪一個 */
+  "ROLE_DISABLED",
 ] as const;
 
 export type UserErrorCode = (typeof USER_ERROR_CODES)[number];
@@ -38,6 +40,14 @@ export function userNotEligibleError(
   return new GraphQLError(message, {
     extensions: { code: "USER_NOT_ELIGIBLE", ...extra },
   });
+}
+
+/** 已停用的角色不可新授予(`ROLE_DISABLED`):`extensions.roleId` 讓前端講得出是哪一個。 */
+export function roleDisabledError(roleId: string): GraphQLError {
+  return new GraphQLError(
+    `Role ${roleId} is disabled and cannot be newly granted`,
+    { extensions: { code: "ROLE_DISABLED", roleId } },
+  );
 }
 
 /** 查的使用者 / 組織 / 角色在操作者可見範圍內不存在(GQL-04 `NOT_FOUND`)。 */

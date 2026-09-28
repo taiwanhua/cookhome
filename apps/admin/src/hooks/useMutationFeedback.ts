@@ -19,6 +19,9 @@ export interface UseMutationFeedbackOptions<TData, TVariables> {
   /**
    * 失敗文案:用**各頁既有的錯誤解讀**,不要在這裡另起一套
    * (`(error) => tErrors(orgManagerErrorOf(error).code)`)。
+   *
+   * 回 `null` = **失敗不跳提示**:只給「錯誤已經就地顯示在開著的彈窗裡、
+   * 使用者正盯著它看」的流程用(複製組織與角色的彈窗),避免同一句話出現兩次。
    */
   error: (error: unknown) => ReactNode;
   /** 呼叫端既有的 onSuccess(DATA-04 的寫回與失效、關彈窗…);本 hook 只包住它,不取代 */
@@ -95,7 +98,10 @@ export const useMutationFeedback = <TData = void, TVariables = unknown>({
       onSuccess?.(data, variables as TVariables);
     },
     onError: (failure, variables) => {
-      show("error", error(failure));
+      const message = error(failure);
+      if (message !== null) {
+        show("error", message);
+      }
       onError?.(failure, variables as TVariables);
     },
   };

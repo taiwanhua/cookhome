@@ -124,6 +124,66 @@ export type CopySubmissionToDraftInput = {
   id: Scalars['ID']['input'];
 };
 
+export type CopyUserOrgRolesBlocker = {
+  __typename?: 'CopyUserOrgRolesBlocker';
+  code: CopyUserOrgRolesBlockerCode;
+  orgId?: Maybe<Scalars['ID']['output']>;
+  roleId?: Maybe<Scalars['ID']['output']>;
+};
+
+/** 複製使用者的組織與角色被擋下的原因 */
+export enum CopyUserOrgRolesBlockerCode {
+  LastOrg = 'LAST_ORG',
+  OwnerProtected = 'OWNER_PROTECTED',
+  RoleDisabled = 'ROLE_DISABLED',
+  UserNotEligible = 'USER_NOT_ELIGIBLE'
+}
+
+export type CopyUserOrgRolesInput = {
+  dryRun?: InputMaybe<Scalars['Boolean']['input']>;
+  mode: CopyUserOrgRolesMode;
+  sourceUserId: Scalars['ID']['input'];
+  targetUserId: Scalars['ID']['input'];
+};
+
+/** 複製使用者的組織與角色:合併 / 取代 */
+export enum CopyUserOrgRolesMode {
+  Merge = 'MERGE',
+  Replace = 'REPLACE'
+}
+
+export type CopyUserOrgRolesOrgDiff = {
+  __typename?: 'CopyUserOrgRolesOrgDiff';
+  added: Array<UserOrg>;
+  kept: Array<UserOrg>;
+  removed: Array<UserOrg>;
+};
+
+export type CopyUserOrgRolesPayload = {
+  __typename?: 'CopyUserOrgRolesPayload';
+  applied: Scalars['Boolean']['output'];
+  blockers: Array<CopyUserOrgRolesBlocker>;
+  mode: CopyUserOrgRolesMode;
+  orgs: CopyUserOrgRolesOrgDiff;
+  outOfScopeKept: Scalars['Boolean']['output'];
+  roles: CopyUserOrgRolesRoleDiff;
+  user: User;
+};
+
+export type CopyUserOrgRolesRole = {
+  __typename?: 'CopyUserOrgRolesRole';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  ownerOrgName?: Maybe<Scalars['String']['output']>;
+};
+
+export type CopyUserOrgRolesRoleDiff = {
+  __typename?: 'CopyUserOrgRolesRoleDiff';
+  added: Array<CopyUserOrgRolesRole>;
+  kept: Array<CopyUserOrgRolesRole>;
+  removed: Array<CopyUserOrgRolesRole>;
+};
+
 export type CreateChildOrgInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -1180,6 +1240,7 @@ export type Mutation = {
   bindFormWorkflow: FormPayload;
   changePassword: ChangePasswordPayload;
   copySubmissionToDraft: FormSubmissionPayload;
+  copyUserOrgRoles: CopyUserOrgRolesPayload;
   createChildOrg: OrgPayload;
   createDemoItemOne: DemoItemOnePayload;
   createDemoItemTwo: DemoItemTwoPayload;
@@ -1303,6 +1364,11 @@ export type MutationChangePasswordArgs = {
 
 export type MutationCopySubmissionToDraftArgs = {
   input: CopySubmissionToDraftInput;
+};
+
+
+export type MutationCopyUserOrgRolesArgs = {
+  input: CopyUserOrgRolesInput;
 };
 
 
@@ -4019,6 +4085,13 @@ export type AssignUserRolesMutationVariables = Exact<{
 
 
 export type AssignUserRolesMutation = { __typename?: 'Mutation', assignUserRoles: { __typename?: 'UserPayload', user: { __typename?: 'User', id: string, roles: Array<{ __typename?: 'UserRoleGrant', id: string, name: string, ownerOrgId?: string | null, ownerOrgName?: string | null, outOfScope: boolean }> } } };
+
+export type CopyUserOrgRolesMutationVariables = Exact<{
+  input: CopyUserOrgRolesInput;
+}>;
+
+
+export type CopyUserOrgRolesMutation = { __typename?: 'Mutation', copyUserOrgRoles: { __typename?: 'CopyUserOrgRolesPayload', mode: CopyUserOrgRolesMode, applied: boolean, outOfScopeKept: boolean, user: { __typename?: 'User', id: string }, orgs: { __typename?: 'CopyUserOrgRolesOrgDiff', added: Array<{ __typename?: 'UserOrg', id: string, name: string }>, removed: Array<{ __typename?: 'UserOrg', id: string, name: string }>, kept: Array<{ __typename?: 'UserOrg', id: string, name: string }> }, roles: { __typename?: 'CopyUserOrgRolesRoleDiff', added: Array<{ __typename?: 'CopyUserOrgRolesRole', id: string, name: string, ownerOrgName?: string | null }>, removed: Array<{ __typename?: 'CopyUserOrgRolesRole', id: string, name: string, ownerOrgName?: string | null }>, kept: Array<{ __typename?: 'CopyUserOrgRolesRole', id: string, name: string, ownerOrgName?: string | null }> }, blockers: Array<{ __typename?: 'CopyUserOrgRolesBlocker', code: CopyUserOrgRolesBlockerCode, roleId?: string | null, orgId?: string | null }> } };
 
 export type WorkflowFieldsFragment = { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } };
 
@@ -9075,6 +9148,75 @@ export const useAssignUserRolesMutation = <
 
 
 useAssignUserRolesMutation.fetcher = (client: GraphQLClient, variables: AssignUserRolesMutationVariables, headers?: RequestInit['headers']) => fetcher<AssignUserRolesMutation, AssignUserRolesMutationVariables>(client, AssignUserRolesDocument, variables, headers);
+
+export const CopyUserOrgRolesDocument = `
+    mutation CopyUserOrgRoles($input: CopyUserOrgRolesInput!) {
+  copyUserOrgRoles(input: $input) {
+    user {
+      id
+    }
+    mode
+    applied
+    orgs {
+      added {
+        id
+        name
+      }
+      removed {
+        id
+        name
+      }
+      kept {
+        id
+        name
+      }
+    }
+    roles {
+      added {
+        id
+        name
+        ownerOrgName
+      }
+      removed {
+        id
+        name
+        ownerOrgName
+      }
+      kept {
+        id
+        name
+        ownerOrgName
+      }
+    }
+    blockers {
+      code
+      roleId
+      orgId
+    }
+    outOfScopeKept
+  }
+}
+    `;
+
+export const useCopyUserOrgRolesMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<CopyUserOrgRolesMutation, TError, CopyUserOrgRolesMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<CopyUserOrgRolesMutation, TError, CopyUserOrgRolesMutationVariables, TContext>(
+      {
+    mutationKey: ['CopyUserOrgRoles'],
+    mutationFn: (variables?: CopyUserOrgRolesMutationVariables) => fetcher<CopyUserOrgRolesMutation, CopyUserOrgRolesMutationVariables>(client, CopyUserOrgRolesDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useCopyUserOrgRolesMutation.fetcher = (client: GraphQLClient, variables: CopyUserOrgRolesMutationVariables, headers?: RequestInit['headers']) => fetcher<CopyUserOrgRolesMutation, CopyUserOrgRolesMutationVariables>(client, CopyUserOrgRolesDocument, variables, headers);
 
 export const WorkflowsDocument = `
     query Workflows($input: WorkflowsInput!) {

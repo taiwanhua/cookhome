@@ -10,27 +10,40 @@ export interface UserPickerProps {
   onChange: (user: UserCandidate | null) => void;
   /** 不能選的人(申請人自己、已在本關的人);列出來但灰掉並寫原因 */
   disabledReasonOf?: (user: UserCandidate) => string | null;
+  /** 停用的使用者也可以選(預設不行:列出來但灰掉寫「已停用」) */
+  allowDisabled?: boolean;
+  /** 完全不列出的人(如複製組織與角色的來源本人) */
+  excludeUserIds?: readonly string[];
   helperText?: string;
 }
 
 /**
- * 選一位本租戶使用者(改派 / 新增審核者):關鍵字丟回 api 查;停用的人列出但不能選。
+ * 選一位使用者(流程的改派 / 新增審核者、使用者管理的複製組織與角色):
+ * 候選 = 操作者管理範圍內的使用者,關鍵字丟回 api 查。
+ * 停用的人預設列出但不能選;`allowDisabled` 時照常可選。
  */
 export const UserPicker = ({
   label,
   value,
   onChange,
   disabledReasonOf,
+  allowDisabled = false,
+  excludeUserIds = [],
   helperText,
 }: UserPickerProps) => {
-  const t = useTranslations("admin.workflows.userPicker");
+  const t = useTranslations("admin.userPicker");
   const users = useUserCandidates();
   const reasonOf = (user: UserCandidate): string | null =>
-    user.enabled ? (disabledReasonOf?.(user) ?? null) : t("disabled");
+    user.enabled || allowDisabled
+      ? (disabledReasonOf?.(user) ?? null)
+      : t("disabled");
+  const candidates = users.candidates.filter(
+    (user) => !excludeUserIds.includes(user.id),
+  );
   const options =
-    value === null || users.candidates.some((user) => user.id === value.id)
-      ? users.candidates
-      : [value, ...users.candidates];
+    value === null || candidates.some((user) => user.id === value.id)
+      ? candidates
+      : [value, ...candidates];
 
   return (
     <Autocomplete<UserCandidate>

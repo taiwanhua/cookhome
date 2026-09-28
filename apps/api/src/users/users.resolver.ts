@@ -4,11 +4,13 @@ import { CurrentOperator } from "../auth/decorators";
 import type { OperatorContext } from "../database/operator-context";
 import { RequirePermission } from "../permission/require-permission.decorator";
 import { AssignUserRolesInput } from "./dto/assign-user-roles.input";
+import { CopyUserOrgRolesInput } from "./dto/copy-user-org-roles.input";
 import { CreateUserInput } from "./dto/create-user.input";
 import { SetUserEnabledInput } from "./dto/set-user-enabled.input";
 import { SetUserOrgsInput } from "./dto/set-user-orgs.input";
 import { UpdateUserInput } from "./dto/update-user.input";
 import { UsersInput } from "./dto/users.input";
+import { CopyUserOrgRolesPayload } from "./models/copy-user-org-roles.model";
 import {
   SetUserOrgsPayload,
   UserPayload,
@@ -87,5 +89,18 @@ export class UsersResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<UserPayload> {
     return { user: await this.service.assignRoles(operator, input) };
+  }
+
+  /**
+   * 複製使用者的組織與角色:要 `view` + `manage-orgs` + `assign-roles` 三個權限。
+   * 裝飾器只守 `view`(疊多個 `@RequirePermission` 不是 AND),另外兩個在 service 判斷。
+   */
+  @RequirePermission("system.user-manager.view")
+  @Mutation(() => CopyUserOrgRolesPayload)
+  copyUserOrgRoles(
+    @Args("input") input: CopyUserOrgRolesInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<CopyUserOrgRolesPayload> {
+    return this.service.copyOrgRoles(operator, input);
   }
 }
