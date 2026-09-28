@@ -39,7 +39,7 @@ export const ApplicantActions = ({
 
   return (
     <Stack spacing={1}>
-      <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         {canWithdraw && (
           <Button
             variant="outlined"
