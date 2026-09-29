@@ -205,7 +205,7 @@
       "visibility": "Users can see data from organizations below their own",
       "visibilityHint": "This setting only appears on the top-level organization and applies to the whole organization.",
       "managers": "Managers",
-      "managersHint": "A \"manager\" approval step starts from the organization the request belongs to and walks up to the first organization with managers. You can set several; only enabled users of this tenant can be picked.",
+      "managersHint": "A \"manager\" approval step starts from the organization the request belongs to and walks up to the first organization with managers. You can set several; only enabled users can be picked.",
       "managersPlaceholder": "Name or account",
       "managerOption": "{name} ({account})",
       "managersEmpty": "No matching users",
@@ -302,7 +302,7 @@
       "hint": "Pick an organization to filter users",
       "all": "All organizations",
       "search": "Search organizations",
-      "unavailable": "You cannot view organizations, so the list shows every user within your visible scope."
+      "unavailable": "You cannot view organizations, so the list shows every user within your management scope."
     },
     "toolbar": {
       "search": "Search",
@@ -422,7 +422,7 @@
       "save": "Save assignment",
       "cancel": "Cancel",
       "roleDisabled": "Disabled",
-      "templateCopy": "Tenant copy",
+      "templateCopy": "Preset role",
       "notEligible": "This role can only be granted to users inside {org} or below it; {name} is not inside the organization that owns the role.",
       "search": "Search roles",
       "searchPlaceholder": "Role name or owning organization",
@@ -498,7 +498,7 @@
     }
   },
   "moduleManager": {
-    "seedNotice": "Modules and permissions are seed data updated with each release. This page is read-only apart from the enabled switches. Contact a system administrator to add a module.",
+    "seedNotice": "Modules and permissions are maintained by the system. This page is for viewing and toggling enabled / disabled only.",
     "tree": {
       "title": "Module tree",
       "groupTag": "Group",

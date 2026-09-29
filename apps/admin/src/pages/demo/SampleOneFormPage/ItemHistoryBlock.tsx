@@ -6,13 +6,10 @@ import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
 import { useSession } from "@/hooks/useSession";
+import { useTemporalText } from "@/hooks/useTemporalText";
 
 import { SAMPLE_ONE_I18N } from "../demo-sample-one-config";
-import {
-  changedFieldsOf,
-  formatDateTime,
-  historyActionKeyOf,
-} from "../demo-sample-one-view";
+import { changedFieldsOf, historyActionKeyOf } from "../demo-sample-one-view";
 
 export interface ItemHistoryBlockProps {
   itemId: string;
@@ -25,11 +22,14 @@ export interface ItemHistoryBlockProps {
  *
  * 內部備註在歷程裡一律是 `"[redacted]"`(api 不記內容),否則沒有 `show-internal-note`
  * 卻有這個區塊的人就能從歷程把它讀出來 —— 前端只照著顯示,不要自作聰明去「還原」。
+ *
+ * 時間走表單引擎同一套(`useTemporalText`,`datetime` 印 `YYYY-MM-DD HH:mm`),用讀者的租戶時區。
  */
 export const ItemHistoryBlock = ({ itemId }: ItemHistoryBlockProps) => {
   const t = useTranslations(`${SAMPLE_ONE_I18N}.history`);
   const tFields = useTranslations(`${SAMPLE_ONE_I18N}.fields`);
   const { session } = useSession();
+  const temporalText = useTemporalText();
 
   const history = useDemoItemOneHistoryQuery(session.client, { id: itemId });
   const entries = history.data?.demoItemOneHistory.items ?? [];
@@ -65,7 +65,7 @@ export const ItemHistoryBlock = ({ itemId }: ItemHistoryBlockProps) => {
                 component="p"
               >
                 {t("entry", {
-                  at: formatDateTime(entry.createdAt),
+                  at: temporalText(entry.createdAt, "datetime"),
                   actor: entry.actor?.name ?? t("unknownActor"),
                   action: t(`actions.${historyActionKeyOf(entry.action)}`),
                   fields,

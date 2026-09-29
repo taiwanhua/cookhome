@@ -258,7 +258,7 @@ admin 端(`hooks/useApplyCenterCounts.ts`):
 `apps/admin/src/pages/system/WorkflowBlockedPage/`,權限 `system.workflows.blocked-page.reassign`。
 
 - 頁籤「阻擋」/「需要推進」(`blockedInstances` 的兩種篩選);「需要推進」的候選超過上限時(`truncated`)提示只檢查了最久沒動的一批。
-- 每列:表單、實例上的標題槽(不含提交內容)、申請人、卡在哪 / 卡在誰(進行中審核關卡還沒決定的計畫項目,失效的排前面;解析為空的關卡標「找不到審核者」)、最後變動。
+- 每列:表單、實例上的標題槽(不含提交內容)、申請人、卡在哪 / 卡在誰(進行中審核關卡還沒決定的計畫項目,失效的排前面;解析為空的關卡標「找不到審核者」)、最後變動(`YYYY-MM-DD HH:mm`,讀者的租戶時區)。
 - 處置:**改派**(對計畫項目,用 `plan.taskId` 呼叫 `reassignTask`)、**新增審核者**(解析為空的關卡,`addStepAssignee`)、**重試推進**。選人跳窗把申請人與已在本關的人列出但灰掉。
 
 ### 申請中心(`apply-center`)
