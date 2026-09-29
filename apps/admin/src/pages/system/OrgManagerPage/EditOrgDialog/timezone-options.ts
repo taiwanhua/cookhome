@@ -11,9 +11,9 @@ const allTimezones = (): readonly string[] => {
  * 目前存的值是 api 以 `isValidTimezone` 驗過的,但不一定是清單裡的正規名稱(如別名 `UTC`),
  * 這時把它放在最前面,免得已設的值在選單裡找不到。
  */
-export const timezoneOptionsOf = (current: string | null): string[] => {
+export const timezoneOptionsOf = (
+  current: string | null,
+): readonly string[] => {
   const all = allTimezones();
-  return current === null || all.includes(current)
-    ? [...all]
-    : [current, ...all];
+  return current === null || all.includes(current) ? all : [current, ...all];
 };

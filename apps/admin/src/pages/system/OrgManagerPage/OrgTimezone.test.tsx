@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { tenantTree } from "@/test/msw/org-fixtures";
+import { orgDetails, tenantTree } from "@/test/msw/org-fixtures";
 
 import {
   OWN_PERMISSIONS,
@@ -86,13 +86,22 @@ describe("組織管理頁:租戶頂層的時區", () => {
   });
 
   it("沒有 set-timezone:時區欄唯讀顯示目前值,改不動", async () => {
+    // 租戶 A 已設時區:唯讀時要看得到那個值,而不是「未設定」
     const { user: actor } = renderPage({
       permissions: OWN_PERMISSIONS,
-      world: { orgTree: tenantTree },
+      world: {
+        orgTree: tenantTree,
+        orgs: orgDetails.map((org) =>
+          org.id === "org-tenant-a"
+            ? { ...org, timezone: "Europe/London" }
+            : org,
+        ),
+      },
     });
 
     const timezone = await openTenantEdit(actor);
     expect(timezone).toBeDisabled();
-    expect(screen.getByText(UNSET)).toBeInTheDocument();
+    expect(timezone).toHaveValue("Europe/London");
+    expect(screen.queryByText(UNSET)).not.toBeInTheDocument();
   });
 });

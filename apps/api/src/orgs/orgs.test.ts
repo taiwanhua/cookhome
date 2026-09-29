@@ -1285,6 +1285,14 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
     });
 
     it("清除(timezone = null):拿掉 settings.timezone、退回預設時區,稽核照記", async () => {
+      // 自己備好「已設時區」的起點,不依賴上一例
+      await api.connection
+        .collection("orgs")
+        .updateOne(
+          { _id: tenantAId },
+          { $set: { "settings.timezone": "Europe/London" } },
+        );
+
       const result = await api.graphql<SetOrgTimezoneData>(
         SET_ORG_TIMEZONE,
         { input: { orgId: String(tenantAId), timezone: null } },
@@ -1298,7 +1306,6 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       expect(stored?.settings.visibility).toBe("subtree");
 
       const audits = await auditRows("org.set-timezone", tenantAId);
-      expect(audits).toHaveLength(2);
       expect(audits).toContainEqual(
         expect.objectContaining({
           before: { timezone: "Europe/London" },
@@ -1312,6 +1319,18 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
         { accessToken: tenantAdminToken },
       );
       expect(me.data?.me.currentOrg?.timezone).toBe("Asia/Taipei");
+    });
+
+    it("設別的租戶的頂層:管理範圍外 → NOT_FOUND,資料不動", async () => {
+      const result = await api.graphql(
+        SET_ORG_TIMEZONE,
+        { input: { orgId: String(tenantAId), timezone: "Asia/Tokyo" } },
+        { accessToken: tenantBAdminToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+      const untouched = await orgRow(tenantAId);
+      expect(untouched?.settings.timezone).not.toBe("Asia/Tokyo");
     });
 
     it("不是 Intl 認得的時區:VALIDATION_FAILED(fields 指向 timezone),資料不動", async () => {

@@ -130,23 +130,6 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
     Object.entries(members).map(([orgId, rows]) => [orgId, [...rows]]),
   );
 
-  const inputs: OrgWorld["inputs"] = {
-    createChildOrg: [],
-    updateOrg: [],
-    setOrgEnabled: [],
-    moveOrg: [],
-    deleteOrg: [],
-    provisionTenant: [],
-    revokeTenantProvision: [],
-    transferOrgOwner: [],
-    setOrgVisibility: [],
-    setOrgTimezone: [],
-    addOrgMembers: [],
-    setOrgManagers: [],
-    createUploadUrl: [],
-  };
-  const uploadedFiles: OrgWorld["uploadedFiles"] = [];
-
   const fail = (operation: OrgOperation) => {
     const failure = failures[operation];
     return failure === undefined
@@ -159,7 +142,22 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
   };
 
   const tenantTopWorld = orgTenantTopWorld({ failure: fail });
-  Object.assign(inputs, tenantTopWorld.inputs);
+
+  const inputs: OrgWorld["inputs"] = {
+    createChildOrg: [],
+    updateOrg: [],
+    setOrgEnabled: [],
+    moveOrg: [],
+    deleteOrg: [],
+    provisionTenant: [],
+    revokeTenantProvision: [],
+    transferOrgOwner: [],
+    ...tenantTopWorld.inputs,
+    addOrgMembers: [],
+    setOrgManagers: [],
+    createUploadUrl: [],
+  };
+  const uploadedFiles: OrgWorld["uploadedFiles"] = [];
 
   const orgOf = (id: string) => {
     const found = orgs.find((org) => org.id === id);

@@ -60,7 +60,7 @@ refresh cookie 整個瀏覽器共用,所以「誰後登入,全部分頁跟著他
 - 使用者可屬多個組織(`org_user`),token 只帶一個**當前組織**。
 - 當前組織只決定兩件事:新資料寫到哪個組織、業務頁的預設篩選。不參與權限計算。
 - 使用者至少要有一個所屬組織(移除最後一個 → `LAST_ORG`)。
-- **租戶時區**:租戶頂層的 `orgs.settings.timezone`(IANA 名稱),整個租戶的日期時間顯示與「某一天」的換算都以它為準;沒設或不是 `Intl` 認得的名稱時退回預設 `Asia/Taipei`,根組織與它自己的資料讀根組織的設定。在組織管理的編輯彈窗設定(`system.org-manager.set-timezone`)。
+- **租戶時區**:租戶頂層的 `orgs.settings.timezone`(IANA 名稱),整個租戶的日期時間顯示與「某一天」的換算都以它為準;沒設或不是 `Intl` 認得的名稱時退回預設 `Asia/Taipei`,根組織與它自己的資料讀根組織的設定。在組織管理的編輯彈窗設定(`system.org-manager.set-timezone`);根組織的時區讀根組織自己的 `settings.timezone`,不在編輯彈窗設定。
 - 組織可設主管(核心關聯 `org_manager`,一個組織可多位),審核流程以它解析「主管」審核者;在組織管理設定(`docs/modules/org-manager.md`)。
 
 正本:`apps/api/src/database/schemas/org.schema.ts`、`apps/api/src/auth/operator-context.service.ts`、`apps/api/src/users/users.service.ts`、`apps/api/src/database/tenant-timezone.ts`
