@@ -9,6 +9,7 @@ import { Pagination } from "@repo/ui/pagination";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useCloseItemTabs } from "@/hooks/useCloseItemTabs";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 
@@ -67,6 +68,7 @@ export const DemoListPage = <
   } | null>(null);
 
   const rows = list.useRows({ page, keyword, option });
+  const closeItemTabs = useCloseItemTabs();
 
   /**
    * 共版型的兩個 mutation hook(`useDelete` / `useSetEnabled`)只收
@@ -92,6 +94,14 @@ export const DemoListPage = <
   const deleteItem = config.useDelete(session.client, {
     onSuccess: () => {
       deleteFeedback.onSuccess();
+      if (deleteTarget !== null) {
+        // 收掉這一筆在背景的詳情 / 編輯子頁籤;當前頁籤(列表)不變
+        closeItemTabs({
+          pageRoutes: [access.viewRoute, access.editRoute],
+          id: deleteTarget.id,
+          listRoute: access.listRoute,
+        });
+      }
       setDeleteTarget(null);
       void rows.invalidate();
     },

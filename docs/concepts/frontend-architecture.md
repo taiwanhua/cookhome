@@ -122,10 +122,13 @@ test/       測試支援
 | 頁內頁籤 | `@repo/ui/tabs`;同一網址內切換區塊 | 不是路由、不進頁籤列、狀態不進 URL                                                               |
 
 - 帶識別碼的詳情 / 編輯頁是**詳情子頁籤**:每筆一個,標籤「所屬模組名 — 項目名」。項目名由頁面拿到資料後經 `useRouteTabItemLabel` 提供,殼不查業務資料。
-- 表單模組與申請中心詳情的項目名由頁籤模板算出(`lib/form-engine/tab-label.ts` 的 `renderTabLabel`),見 `docs/modules/forms.md`。
+- 項目名最前面接頁面種類(「檢視・項目名」「編輯・項目名」),同一筆的詳情與編輯分得出來。組法是字典 `admin.formEngine.pages.tabLabelWithAction`,文字是 `admin.formEngine.pages.actions`:
+  - 固定欄位模組:頁面把頁面種類傳給 `useRouteTabItemLabel` 的第二個參數(`"view"` / `"edit"`),由它組。
+  - 表單模組與申請中心詳情:項目名由頁籤模板算出(`lib/form-engine/tab-label.ts` 的 `renderTabLabel`,模板沒寫 `{{action}}` 時自動接在最前面),呼叫端傳組好的字串、不給第二個參數;見 `docs/modules/forms.md`。
+- 刪除成功後,那一筆的詳情與編輯子頁籤一起關掉(以 `<隱藏頁路由>/<id>` 網址前綴比對,別筆不動):在詳情頁刪除 → 導向所屬模組的列表頁;從列表刪除 → 當前頁籤不變。做法是 `useRouteTabsStore` 的 `closeItemTabs`,各刪除流程成功後經 `hooks/useCloseItemTabs` 呼叫,不自己導向列表。
 - 要能分享、重整回得來、出現在頁籤列 → 做成(隱藏頁)路由。只是同一筆資料的不同面向 → 頁內頁籤。
 
-正本:`apps/admin/src/lib/route-tabs.ts`、`apps/admin/src/app/AdminShell/RouteTabs/useRouteTabs.ts`、`apps/admin/src/hooks/useRouteTabItemLabel.ts`
+正本:`apps/admin/src/lib/route-tabs.ts`、`apps/admin/src/stores/useRouteTabsStore.ts`、`apps/admin/src/app/AdminShell/RouteTabs/useRouteTabs.ts`、`apps/admin/src/hooks/useRouteTabItemLabel.ts`、`apps/admin/src/hooks/useCloseItemTabs.ts`
 
 ## 頁內權限判斷
 

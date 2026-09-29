@@ -8,6 +8,7 @@ import { Card } from "@repo/ui/card";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useCloseItemTabs } from "@/hooks/useCloseItemTabs";
 import { useFormRuntimeVersion } from "@/hooks/useFormRuntimeVersion";
 import { useFormSubmission } from "@/hooks/useFormSubmission";
 import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
@@ -53,6 +54,7 @@ export const FormViewPage = ({ module, routeParam }: ModulePageProps) => {
   });
   const title = submission === null ? null : tabLabelOf(submission.values);
   useRouteTabItemLabel(title);
+  const closeItemTabs = useCloseItemTabs();
 
   const leave = () => {
     if (access.listRoute !== null) {
@@ -139,7 +141,12 @@ export const FormViewPage = ({ module, routeParam }: ModulePageProps) => {
           onConfirm={() => {
             void state.remove().then((isDeleted) => {
               if (isDeleted) {
-                leave();
+                // 關掉這一筆的詳情 / 編輯子頁籤;當前頁籤就是詳情 → 導向列表
+                closeItemTabs({
+                  pageRoutes: [access.viewRoute, access.editRoute],
+                  id,
+                  listRoute: access.listRoute,
+                });
               }
             });
           }}

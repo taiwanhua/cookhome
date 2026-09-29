@@ -7,6 +7,7 @@ import {
   EMPTY_TABS_ROUTE,
   type RouteTabEntry,
   closeEntry,
+  closeItemEntries,
   moveEntry,
   readStoredEntries,
   resolveTabs,
@@ -200,5 +201,50 @@ describe("readStoredEntries(sessionStorage 讀回)", () => {
     expect(readStoredEntries(key)).toEqual([]);
     sessionStorage.setItem(key, JSON.stringify([{ route: 1 }, { route: ORG }]));
     expect(routesOf(readStoredEntries(key))).toEqual([ORG]);
+  });
+});
+
+describe("closeItemEntries(刪除後關掉那一筆的子頁籤)", () => {
+  const LIST = "/demo/sub/sample-one";
+  const VIEW = `${LIST}/view-page`;
+  const EDIT = `${LIST}/edit-page`;
+  const itemRoutes = [`${VIEW}/demo-1`, `${EDIT}/demo-1`];
+  const entries = entriesOf(
+    LIST,
+    `${VIEW}/demo-1`,
+    `${EDIT}/demo-1`,
+    `${VIEW}/demo-10`,
+    `${VIEW}/demo-1/rev`,
+  );
+
+  it("以網址前綴比對:詳情、編輯與其下層都關掉;識別碼只是開頭相同的別筆不動", () => {
+    const result = closeItemEntries(entries, itemRoutes, LIST, LIST);
+    expect(routesOf(result.entries)).toEqual([LIST, `${VIEW}/demo-10`]);
+  });
+
+  it("當前頁籤在其中 → 導向給定的列表頁(不切相鄰)", () => {
+    expect(
+      closeItemEntries(entries, itemRoutes, `${EDIT}/demo-1`, LIST).navigateTo,
+    ).toBe(LIST);
+  });
+
+  it("當前頁籤不在其中 → 不導向", () => {
+    expect(
+      closeItemEntries(entries, itemRoutes, LIST, LIST).navigateTo,
+    ).toBeNull();
+    expect(
+      closeItemEntries(entries, itemRoutes, null, LIST).navigateTo,
+    ).toBeNull();
+  });
+
+  it("沒有對上的 → 內容不變", () => {
+    const result = closeItemEntries(
+      entriesOf(LIST),
+      itemRoutes,
+      LIST,
+      EMPTY_TABS_ROUTE,
+    );
+    expect(result.entries).toEqual(entriesOf(LIST));
+    expect(result.navigateTo).toBeNull();
   });
 });
