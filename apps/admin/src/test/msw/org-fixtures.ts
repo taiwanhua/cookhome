@@ -101,11 +101,15 @@ const org = (
   isSystem: false,
   ownerUserId: null,
   visibility: null,
+  timezone: null,
   logoUrl: null,
   ...overrides,
 });
 
-/** `org(id)` 的來源:只有租戶頂層有 `ownerUserId` / `visibility`(api 的規則,`orgs/org-mapper.ts`)。 */
+/**
+ * `org(id)` 的來源:只有租戶頂層有 `ownerUserId` / `visibility` / `timezone`(api 的規則,`orgs/org-mapper.ts`)。
+ * 租戶 A 的時區沒設(null = 使用預設時區)。
+ */
 export const orgDetails: TestOrg[] = [
   org("org-root", "CookHome", null, { isSystem: true }),
   org("org-tenant-a", "租戶 A", "org-root", {

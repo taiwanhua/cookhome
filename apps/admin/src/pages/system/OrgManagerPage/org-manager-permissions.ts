@@ -7,7 +7,7 @@
  *
  * **可見範圍開關例外**:2026-09-19 從 tenant-ops 搬到組織管理層(#187 / ADR-0005)—
  * 它是租戶自己的資料政策,租戶管理員模板靠 `system.org-manager.*` 自動取得;
- * 能設哪些租戶頂層由 api 以管理範圍守門,前端只管「有沒有這筆權限」。
+ * 能設哪些租戶頂層由 api 以管理範圍守門,前端只管「有沒有這筆權限」。租戶時區(`set-timezone`)同理。
  */
 export const ORG_MANAGER_MODULE_KEY = "system.org-manager";
 
@@ -26,6 +26,7 @@ export const ORG_MANAGER_PERMISSIONS = {
   revokeProvision: `${TENANT_OPS_MODULE_KEY}.revoke-provision`,
   transferOwner: `${TENANT_OPS_MODULE_KEY}.transfer-owner`,
   setVisibility: `${ORG_MANAGER_MODULE_KEY}.set-visibility`,
+  setTimezone: `${ORG_MANAGER_MODULE_KEY}.set-timezone`,
 } as const;
 
 /**

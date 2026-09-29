@@ -21,6 +21,7 @@ import { DeleteOrgInput } from "./dto/delete-org.input";
 import { MoveOrgInput } from "./dto/move-org.input";
 import { SetOrgEnabledInput } from "./dto/set-org-enabled.input";
 import { SetOrgManagersInput } from "./dto/set-org-managers.input";
+import { SetOrgTimezoneInput } from "./dto/set-org-timezone.input";
 import { SetOrgVisibilityInput } from "./dto/set-org-visibility.input";
 import { UpdateOrgInput } from "./dto/update-org.input";
 import { DeletePayload, OrgPayload } from "./models/org-payloads.model";
@@ -41,6 +42,8 @@ const PERMISSIONS = {
   // 可見範圍開關是**租戶自己的資料政策**,租戶管理員模板拿到 `system.org-manager.*` 就會含它;
   // 能設哪些租戶頂層則由管理範圍決定(service 層),不是靠「站在根組織」。
   setVisibility: "system.org-manager.set-visibility",
+  // 租戶時區同屬租戶自己的設定,範圍規則與可見範圍開關相同
+  setTimezone: "system.org-manager.set-timezone",
 } as const;
 
 /**
@@ -173,6 +176,16 @@ export class OrgsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<OrgPayload> {
     return { org: await this.orgs.setVisibility(operator, input) };
+  }
+
+  /** 租戶時區:只掛租戶頂層;`timezone = null` 退回預設時區。範圍同可見範圍開關,見 OrgsService。 */
+  @RequirePermission(PERMISSIONS.setTimezone)
+  @Mutation(() => OrgPayload)
+  async setOrgTimezone(
+    @Args("input") input: SetOrgTimezoneInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<OrgPayload> {
+    return { org: await this.orgs.setTimezone(operator, input) };
   }
 
   @RequirePermission(PERMISSIONS.delete)

@@ -1,5 +1,7 @@
 import type { Types } from "mongoose";
 
+import { isValidTimezone } from "@repo/domain/form";
+
 import type { Persisted } from "../database/base.repository";
 import type { OrgDocument } from "../database/database.module";
 import { Org, OrgVisibility } from "./models/org.model";
@@ -35,6 +37,18 @@ export function visibilityOf(org: OrgRecord): OrgVisibility | null {
     : OrgVisibility.OWN;
 }
 
+/** `orgs.settings.timezone` 的鍵(租戶時區;讀取的正本是 `database/tenant-timezone.ts`)。 */
+export const TIMEZONE_SETTING = "timezone";
+
+/** 租戶頂層自己設的時區;非租戶頂層、沒設或值不合法 → null(= 使用預設時區)。 */
+export function timezoneOf(org: OrgRecord): string | null {
+  if (!isTenantTop(org)) {
+    return null;
+  }
+  const timezone: unknown = org.settings[TIMEZONE_SETTING];
+  return isValidTimezone(timezone) ? timezone : null;
+}
+
 /** 對外列舉 → DB 值。 */
 export function visibilitySettingOf(visibility: OrgVisibility): string {
   return visibility === OrgVisibility.SUBTREE
@@ -54,6 +68,7 @@ export function toOrg(org: OrgRecord): Org {
     ownerUserId: org.ownerUserId === undefined ? null : String(org.ownerUserId),
     slug: org.slug ?? null,
     visibility: visibilityOf(org),
+    timezone: timezoneOf(org),
     ...(org.logoPath === undefined ? {} : { logoPath: org.logoPath }),
   };
 }

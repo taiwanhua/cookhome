@@ -44,6 +44,7 @@ export interface OrgActionAbility {
   canRevokeProvision: boolean;
   canTransferOwner: boolean;
   canSetVisibility: boolean;
+  canSetTimezone: boolean;
 }
 
 /** 商標的上傳限制(api 正本 `apps/api/src/storage/storage.service.ts`,ADR-0010)。 */

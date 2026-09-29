@@ -87,6 +87,13 @@ export class Org {
   visibility!: OrgVisibility | null;
 
   /**
+   * 租戶時區(`orgs.settings.timezone`,IANA 名稱);只有租戶頂層有值。
+   * 沒設(或存的值不合法)回 null,代表使用預設時區 —— 實際生效的時區看 `me.currentOrg.timezone`。
+   */
+  @Field(() => String, { nullable: true })
+  timezone!: string | null;
+
+  /**
    * 商標的 GCS 物件路徑(`orgs.logoPath`)。**不進 schema**:對外只給簽名網址,
    * 由 `orgs.resolver.ts` 的 `logoUrl` field resolver 現簽(ADR-0010,寫法同 `me.currentOrg.logoUrl`)。
    */

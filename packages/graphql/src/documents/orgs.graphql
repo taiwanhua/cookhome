@@ -32,7 +32,7 @@ query OrgTree {
 }
 
 # 右側資料區;logoUrl 是現簽的短效網址(ADR-0010:DB 存路徑不存 URL),
-# ownerUserId / visibility / slug 只在租戶頂層有值,且只有根組織改得動(租戶作業 #135;slug = 租戶短碼)
+# ownerUserId / visibility / slug / timezone 只在租戶頂層有值;timezone 為 null = 沒設、使用預設時區
 query Org($id: ID!) {
   org(id: $id) {
     id
@@ -43,6 +43,7 @@ query Org($id: ID!) {
     isSystem
     ownerUserId
     visibility
+    timezone
     slug
     logoUrl
   }
@@ -167,6 +168,17 @@ mutation SetOrgVisibility($input: SetOrgVisibilityInput!) {
     org {
       id
       visibility
+    }
+  }
+}
+
+# 編輯租戶頂層時的「時區」欄;只掛租戶頂層、整個租戶共用。timezone 給 null = 清除、退回預設時區;
+# 不是 Intl 認得的 IANA 名稱 → VALIDATION_FAILED(extensions.fields = ["timezone"])
+mutation SetOrgTimezone($input: SetOrgTimezoneInput!) {
+  setOrgTimezone(input: $input) {
+    org {
+      id
+      timezone
     }
   }
 }

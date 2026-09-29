@@ -375,7 +375,7 @@ describe("reset --mode=data(對真 MongoDB)", () => {
 
     // seed 管的設定留著(數量正本:src/seed/seed.test.ts 的模組 / 權限斷言)
     expect(state.modules).toHaveLength(38);
-    expect(state.permissions).toHaveLength(113);
+    expect(state.permissions).toHaveLength(114);
     // root 在畫面建的類別(isSystem false、key 不在 registry)算人建資料,一起刪
     expect(state.fieldCategories.map((category) => category.key)).toEqual([
       "demo-category",

@@ -58,6 +58,9 @@ export const TENANT_OPS_PERMISSIONS = [
  */
 export const SET_VISIBILITY_PERMISSION = ORG_MANAGER_PERMISSIONS.setVisibility;
 
+/** 租戶時區同屬組織管理層(租戶管理員靠 `system.org-manager.*` 取得)。 */
+export const SET_TIMEZONE_PERMISSION = ORG_MANAGER_PERMISSIONS.setTimezone;
+
 export const USER_VIEW_PERMISSION = "system.user-manager.view";
 
 export const modulesWith = (permissions: readonly string[]): TestModule[] => [
@@ -115,6 +118,7 @@ export const renderPage = ({
     ...OWN_PERMISSIONS,
     ...TENANT_OPS_PERMISSIONS,
     SET_VISIBILITY_PERMISSION,
+    SET_TIMEZONE_PERMISSION,
     USER_VIEW_PERMISSION,
   ],
   world = {},
