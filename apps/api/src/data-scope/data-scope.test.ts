@@ -1058,7 +1058,7 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
           { $set: { "settings.timezone": "America/New_York" } },
         );
       try {
-        // 存規則即作廢快取,重新載入時讀到根組織的新時區;紐約 2020-01-01 00:00 = 05:00Z
+        // 紐約 2020-01-01 00:00 = 05:00Z
         await saveRule(
           dateRule("between", [
             "2020-01-01T05:00:00.000Z",
@@ -1079,6 +1079,37 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
             { $unset: { "settings.timezone": "" } },
           );
       }
+    });
+
+    it("根組織改時區即時生效:不重存規則,下一次查詢的邊界就換成新時區的那一天", async () => {
+      // 先存好規則並查一次,讓規則進快取(之後不再存)
+      await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0101]));
+      expect(await datedVisible()).toEqual([
+        "日期 0101-0730",
+        "日期 0101-2359",
+      ]);
+      await connection
+        .collection("orgs")
+        .updateOne(
+          { _id: rootOrgId },
+          { $set: { "settings.timezone": "America/New_York" } },
+        );
+      try {
+        // 同一個時點(台北 01/01 00:00 = 紐約 12/31 11:00)在紐約是 12/31 那一天:
+        // 起 = 12/31 16:00Z 起算,迄 = 紐約 01/01 00:00 = 01/01 05:00Z 前
+        expect(await datedVisible()).toEqual(["日期 0101-0730"]);
+      } finally {
+        await connection
+          .collection("orgs")
+          .updateOne(
+            { _id: rootOrgId },
+            { $unset: { "settings.timezone": "" } },
+          );
+      }
+      expect(await datedVisible()).toEqual([
+        "日期 0101-0730",
+        "日期 0101-2359",
+      ]);
     });
 
     it("存著遷移前的 `YYYY-MM-DD`(驗證擋不到的舊值)→ 那個條件什麼都不命中,不會放寬", async () => {
