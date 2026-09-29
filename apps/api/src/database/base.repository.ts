@@ -222,22 +222,24 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
   }
 
   /**
-   * **存在性檢查**:是否有任何一筆符合 `filter`(不含已軟刪除)。租戶過濾照套,
-   * 但**不套資料範圍規則**(ADR-0008)——刪組織、撤銷開通這類前置檢查問的是「有沒有」,
-   * 必須 fail-closed,不能被規則收窄成「你看不看得到」。
+   * **存在性檢查**:某個組織名下是否還有任何一筆(不含已軟刪除)。**不套資料範圍規則**
+   * (ADR-0008)——刪組織、撤銷開通這類前置檢查問的是「有沒有」,必須 fail-closed,
+   * 不能被規則收窄成「你看不看得到」。租戶過濾仍由中介層依 `operator` 套上。
    *
-   * 只回 boolean、不交出任何文件,略過規則因此不會變成讀資料的後門;
-   * 列表、詳情、要顯示給人看的筆數一律用 `findMany` / `findOne` / `count`。
+   * 條件只能是歸屬欄(`ownerField` = `orgId` / `ownerOrgId`)等於某個組織,呼叫端無法帶任意條件;
+   * 只回有無,不回筆數或文件。列表、詳情、要顯示給人看的筆數一律用 `findMany` / `findOne` / `count`。
    * 呼叫端登記在 `EXISTS_ANY_CALLERS`(ADR-0005「例外出口」),由測試鎖定。
    */
   async existsAny(
     operator: OperatorContext,
-    filter: RepositoryFilter<TSchema>,
+    ownerField: "orgId" | "ownerOrgId",
+    orgId: Types.ObjectId,
   ): Promise<boolean> {
-    const found = await scopeQuery(
-      this.model.countDocuments({ ...filter }).limit(1),
-      { operator, existenceCheck: true },
-    ).exec();
+    const filter = { [ownerField]: orgId } as RepositoryFilter<TSchema>;
+    const found = await scopeQuery(this.model.countDocuments(filter).limit(1), {
+      operator,
+      existenceCheck: true,
+    }).exec();
     return found > 0;
   }
 

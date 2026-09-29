@@ -62,7 +62,7 @@ export interface QueryScope {
   ownRecordsOnly?: boolean;
   /**
    * **存在性檢查**:不套資料範圍規則(ADR-0008),租戶過濾照套。只回答「有沒有」,
-   * 只能經 `BaseRepository.existsAny` 設定(它只回 boolean,不交出任何文件)。
+   * 只能經 BaseRepository 的存在性檢查方法設定(條件只能是歸屬欄、只回有無)。
    */
   existenceCheck?: boolean;
 }

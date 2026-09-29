@@ -1235,54 +1235,83 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
   });
 
   describe("存在性檢查(BaseRepository.existsAny):略過規則,不略過租戶過濾", () => {
-    it("規則把某筆收窄掉時:列表與筆數照樣看不到,existsAny 仍答「有」", async () => {
+    it("規則把某組織的資料全收窄掉時:列表與筆數照樣看不到,existsAny 仍答「有」", async () => {
+      // 客服角色只看「已發布」;部門一的示範資料全是草稿 ⇒ 客服甲在部門一一筆都看不到
       const result = await saveRule([
         {
           audience: { type: "ROLE", ids: [String(agentRoleId)] },
-          filter: ONLY_MINE,
+          filter: {
+            op: "AND",
+            children: [
+              {
+                field: "status",
+                cond: "in",
+                value: { kind: "static", values: ["published"] },
+              },
+            ],
+          },
         },
       ]);
       expect(result.errors).toBeUndefined();
-      const asAgent = await operatorOf(agentUserId, deptOne);
-      const itemsOne = api.app.get(DemoItemsOneRepository);
+      try {
+        const asAgent = await operatorOf(agentUserId, deptOne);
+        const itemsOne = api.app.get(DemoItemsOneRepository);
 
-      // 一般查詢仍受規則限制:存在性檢查沒有放寬別的路徑
-      expect(sortedNames(await itemsOne.findMany(asAgent))).toEqual([
-        "甲的項目",
-      ]);
-      await expect(itemsOne.count(asAgent, { name: "乙的項目" })).resolves.toBe(
-        0,
-      );
-      await expect(
-        itemsOne.findOne(asAgent, { name: "乙的項目" }),
-      ).resolves.toBeNull();
+        // 一般查詢仍受規則限制:存在性檢查沒有放寬別的路徑
+        await expect(itemsOne.findMany(asAgent)).resolves.toEqual([]);
+        await expect(itemsOne.count(asAgent, { orgId: deptOne })).resolves.toBe(
+          0,
+        );
+        await expect(
+          itemsOne.findOne(asAgent, { orgId: deptOne }),
+        ).resolves.toBeNull();
 
-      // 存在性檢查只回 boolean(不交出文件),答案不被規則收窄
-      const exists: boolean = await itemsOne.existsAny(asAgent, {
-        name: "乙的項目",
-      });
-      expect(exists).toBe(true);
-
-      await saveRule([]);
+        // 存在性檢查不被規則收窄
+        await expect(
+          itemsOne.existsAny(asAgent, "orgId", deptOne),
+        ).resolves.toBe(true);
+      } finally {
+        await saveRule([]);
+      }
     });
 
-    it("可見範圍外的資料 existsAny 仍答「沒有」(租戶過濾照套)", async () => {
-      // 客服甲只屬部門一、租戶甲沒開可見性開關 ⇒ 部門二的資料在他的範圍外
-      const asAgent = await operatorOf(agentUserId, deptOne);
+    it("可見範圍外的組織 existsAny 答「沒有」(租戶過濾照套)", async () => {
+      const itemsOne = api.app.get(DemoItemsOneRepository);
+      // 看得到部門二的人(主管)問:有
+      const asSupervisor = await operatorOf(supervisorUserId, deptTwo);
       await expect(
-        api.app
-          .get(DemoItemsOneRepository)
-          .existsAny(asAgent, { name: "部門二的項目" }),
-      ).resolves.toBe(false);
+        itemsOne.existsAny(asSupervisor, "orgId", deptTwo),
+      ).resolves.toBe(true);
+      // 客服甲只屬部門一、租戶甲沒開可見性開關 ⇒ 部門二在他的範圍外:沒有
+      const asAgent = await operatorOf(agentUserId, deptOne);
+      await expect(itemsOne.existsAny(asAgent, "orgId", deptTwo)).resolves.toBe(
+        false,
+      );
     });
 
     it("已軟刪除的資料不算「有」", async () => {
+      const deptThree = await createOrg(connection, {
+        name: "部門三",
+        parentId: tenantA,
+      });
       const asAgent = await operatorOf(agentUserId, deptOne);
+      const inDeptThree: OperatorContext = {
+        ...asAgent,
+        currentOrgId: deptThree,
+        visibleOrgIds: [deptThree],
+        managedOrgIds: [deptThree],
+      };
       const itemsTwo = api.app.get(DemoItemsTwoRepository);
-      const created = await itemsTwo.create(asAgent, { name: "等一下刪掉" });
-      await itemsTwo.softDeleteById(asAgent, created._id);
+      const created = await itemsTwo.create(inDeptThree, {
+        name: "等一下刪掉",
+      });
       await expect(
-        itemsTwo.existsAny(asAgent, { name: "等一下刪掉" }),
+        itemsTwo.existsAny(inDeptThree, "orgId", deptThree),
+      ).resolves.toBe(true);
+
+      await itemsTwo.softDeleteById(inDeptThree, created._id);
+      await expect(
+        itemsTwo.existsAny(inDeptThree, "orgId", deptThree),
       ).resolves.toBe(false);
     });
   });

@@ -29,8 +29,8 @@ function filesMentioning(needle: string): string[] {
  * 只給前置檢查回答「有沒有」,一般列表 / 詳情不得借用。
  */
 describe("存在性檢查(existsAny)的呼叫端登記", () => {
-  it("正式程式碼裡呼叫 existsAny 的檔案都在登記清單內", () => {
-    const callers = filesMentioning(".existsAny(").filter(
+  it("正式程式碼裡出現 existsAny 的檔案都在登記清單內(方法本身所在的檔除外)", () => {
+    const callers = filesMentioning("existsAny").filter(
       (file) => file !== "database/base.repository.ts",
     );
     expect(callers).toEqual(
