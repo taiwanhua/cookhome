@@ -1112,6 +1112,83 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
       });
     });
 
+    /**
+     * 只有這一張業務表掛著資料也要擋(撤銷開通問的是租戶頂層):五張表的組織歸屬欄各不相同 ——
+     * forms 是 `ownerOrgId`、workflows / workflow_tasks 是 `tenantId`、提交與流程實例是 `orgId`。
+     */
+    it.each([
+      [
+        "forms",
+        (tenantId: Types.ObjectId) => ({
+          key: `revoke-form-${String(tenantId)}`,
+          name: "客製表單",
+          moduleKey: "demo-form",
+          ownerOrgId: tenantId,
+        }),
+      ],
+      [
+        "form_submissions",
+        (tenantId: Types.ObjectId) => ({
+          orgId: tenantId,
+          tenantId,
+          moduleKey: "demo-form",
+          formKey: "demo-form",
+          version: 1,
+          status: "draft",
+          clientRequestId: `revoke-${String(tenantId)}`,
+        }),
+      ],
+      [
+        "workflows",
+        (tenantId: Types.ObjectId) => ({
+          key: `revoke-workflow-${String(tenantId)}`,
+          name: "客製流程",
+          ownerOrgId: tenantId,
+          tenantId,
+        }),
+      ],
+      [
+        "workflow_instances",
+        (tenantId: Types.ObjectId) => ({
+          orgId: tenantId,
+          tenantId,
+          moduleKey: "demo-form",
+          status: "running",
+        }),
+      ],
+      [
+        "workflow_tasks",
+        (tenantId: Types.ObjectId) => ({
+          tenantId,
+          moduleKey: "demo-form",
+          instanceId: new Types.ObjectId(),
+          status: "pending",
+        }),
+      ],
+    ] as const)(
+      "只有 %s 掛著資料:PROVISION_NOT_REVOKABLE + HAS_BUSINESS_DATA",
+      async (collection, documentOf) => {
+        const { payload } = await provisionOne(`revoke-${collection}`);
+        const now = new Date();
+        await api.connection.collection(collection).insertOne({
+          ...documentOf(new Types.ObjectId(payload.org.id)),
+          createdAt: now,
+          updatedAt: now,
+          createdBy: null,
+          updatedBy: null,
+          deletedAt: null,
+        });
+
+        const result = await revokeProvision(payload.org.id);
+
+        expect(result.errors?.[0]?.extensions).toMatchObject({
+          code: "PROVISION_NOT_REVOKABLE",
+          reasons: ["HAS_BUSINESS_DATA"],
+        });
+        expect(await orgRow(payload.org.id)).not.toBeNull();
+      },
+    );
+
     it("非根組織的操作者即使持有權限也拒(FORBIDDEN),租戶原封不動", async () => {
       const { payload } = await provisionOne("revoke-from-tenant");
 

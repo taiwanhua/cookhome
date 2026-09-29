@@ -39,6 +39,7 @@ import { StorageService } from "../../storage/storage.service";
 import { InstanceWithdrawService } from "../../workflows/workflow-engine/instance-withdraw.service";
 import { SubmissionReadAccess } from "../../workflows/workflow-engine/submission-read-access.service";
 import { WorkflowSubmitService } from "../../workflows/workflow-engine/workflow-submit.service";
+import { workflowForbiddenError } from "../../workflows/workflows-error";
 import { fieldGateOf } from "../field-permission-gate";
 import {
   FormAccessService,
@@ -974,16 +975,22 @@ export class FormSubmissionsService {
   /**
    * 撤回(申請人本人;審核中、還沒有任何被接受的審核意見):實例 CAS → `withdrawn`,
    * 推進收尾把提交同步成 `withdrawn`(可改後再送)。已有審核意見 → `CONFLICT`(`HAS_DECISIONS`)。
+   * 看得到這筆、但不是申請人 → `FORBIDDEN`(`NOT_APPLICANT`),先於狀態檢查;看不到 → `NOT_FOUND`。
    */
   async withdraw(
     facts: FormOperatorFacts,
     input: WithdrawSubmissionInput,
   ): Promise<FormSubmissionModel> {
-    const record = await this.submissions.findOwnById(
-      facts.operator,
-      toObjectId(input.id, "id"),
-    );
+    const id = toObjectId(input.id, "id");
+    const record = await this.submissions.findOwnById(facts.operator, id);
     if (!record) {
+      // 以讀者的可見範圍與資料範圍規則再查一次:看得到才說「不是申請人」,看不到的不透露存在與否
+      if (await this.submissions.findById(facts.operator, id)) {
+        throw workflowForbiddenError(
+          "Only the applicant can withdraw the submission",
+          "NOT_APPLICANT",
+        );
+      }
       throw notFoundError(`Form submission not found: ${input.id}`);
     }
     if (record.status !== "reviewing" || record.currentInstanceId === null) {

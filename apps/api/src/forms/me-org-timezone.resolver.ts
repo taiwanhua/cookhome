@@ -7,9 +7,10 @@ import type { OperatorContext } from "../database/operator-context";
 import { FormAccessService } from "./form-access.service";
 
 /**
- * `me.currentOrg.timezone`(#482):讀者當前組織的**租戶時區**(租戶頂層的 `orgs.settings.timezone`,
- * 沒設 = `Asia/Taipei`;根組織讀根組織的設定)。表單引擎的日期時間欄以它輸入與顯示,
- * 草稿與沒有 `ctx` 的地方也用它;已送出的修訂一律用那次修訂自己的 `ctx.timezone`。
+ * `me.currentOrg.timezone`:讀者當前組織的**租戶時區**(租戶頂層的 `orgs.settings.timezone`,
+ * 沒設 = `Asia/Taipei`;根組織讀根組織的設定;`database/tenant-timezone.ts`)。
+ * 日期 / 日期時間的輸入與顯示**一律**用它 —— 草稿、詳情、修訂紀錄都一樣,已送出修訂的 `ctx.timezone`
+ * 只用於重算條件,不決定顯示;資料範圍規則編輯器把選的那一天換成時點也用它。
  * 以 field resolver 掛在 `MeOrg` 上(先例:`storage/me-org-logo.resolver.ts`),只有客戶端問才查。
  */
 @Resolver(() => MeOrg)

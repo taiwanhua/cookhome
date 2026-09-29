@@ -248,7 +248,14 @@ export const savedRule: TestDataScopeRule = {
               {
                 field: "createdAt",
                 cond: "between",
-                value: { kind: "static", values: ["2026-01-01", "2026-12-31"] },
+                // 台北 2026-01-01 與 2026-12-31 的 00:00(api 只收時點)
+                value: {
+                  kind: "static",
+                  values: [
+                    "2025-12-31T16:00:00.000Z",
+                    "2026-12-30T16:00:00.000Z",
+                  ],
+                },
               },
             ],
           },

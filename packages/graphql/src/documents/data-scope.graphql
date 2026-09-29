@@ -2,6 +2,8 @@
 # 根組織專屬模組:站在租戶裡即使持有權限,api 也回 FORBIDDEN。
 # fields 已含底座自動掛入的基礎欄位(isBase = true:組織 / 建立者 / 更新者 / 建立、更新、刪除時間)。
 # 型別決定 UI:org / user → in、not-in(可選動態值);date → between / before / after;enum → in、not-in。
+# date 的值與表單引擎的日期存值同一種:選的那一天在操作者租戶時區(me.currentOrg.timezone)00:00 的時點,
+# 送帶時區的 ISO 8601 字串;`YYYY-MM-DD` 會被拒(VALUE_INVALID)。整天的邊界由 api 以租戶時區換算。
 # hasRule = 這個目標已設規則(有規則文件且 rules 非空);語意正本見 docs/modules/data-scope.md 的 api 介面節。
 # 一列 = 一個模組:目標以 (collection, moduleKey) 為識別鍵,同一張表(form_submissions)可以有多個模組各一列;
 # 讀寫規則都以 id 指定目標。

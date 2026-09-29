@@ -26,8 +26,12 @@ import { PermissionSchema } from "./permission.schema";
 import { RefreshTokenSchema } from "./refresh-token.schema";
 import { RoleSchema } from "./role.schema";
 import { UserSchema } from "./user.schema";
+import { WorkflowInstanceSchema } from "./workflow-instance.schema";
+import { WorkflowTaskSchema } from "./workflow-task.schema";
+import { WorkflowVersionSchema } from "./workflow-version.schema";
+import { WorkflowSchema } from "./workflow.schema";
 
-/** 全部底座 collection(docs/data-model.md「Collection 一覽」,20 張)。 */
+/** 全部底座 collection(docs/data-model.md「Collection 一覽」,24 張)。 */
 const ALL_SCHEMAS: Record<string, Schema> = {
   orgs: OrgSchema,
   users: UserSchema,
@@ -46,6 +50,10 @@ const ALL_SCHEMAS: Record<string, Schema> = {
   forms: FormSchema,
   form_versions: FormVersionSchema,
   form_submissions: FormSubmissionSchema,
+  workflows: WorkflowSchema,
+  workflow_versions: WorkflowVersionSchema,
+  workflow_instances: WorkflowInstanceSchema,
+  workflow_tasks: WorkflowTaskSchema,
   refresh_tokens: RefreshTokenSchema,
   action_tokens: ActionTokenSchema,
   audit_logs: AuditLogSchema,
@@ -96,6 +104,12 @@ const TENANT_SCOPED: Record<string, TenantScope> = {
     kind: "business",
     moduleData: true,
   },
+  workflow_instances: {
+    path: "orgId",
+    allowGlobal: false,
+    kind: "business",
+    moduleData: true,
+  },
   audit_logs: {
     path: "orgId",
     allowGlobal: false,
@@ -104,16 +118,17 @@ const TENANT_SCOPED: Record<string, TenantScope> = {
   },
 };
 
-/** 模組資料表(`moduleData: true`):兩張示範表 + 表單提交;business 類的其他表不是模組資料。 */
+/** 模組資料表(`moduleData: true`):兩張示範表 + 表單提交 + 流程實例;business 類的其他表不是模組資料。 */
 const MODULE_DATA_COLLECTIONS = new Set([
   "demo_items_one",
   "demo_items_two",
   "form_submissions",
+  "workflow_instances",
 ]);
 
 describe("底座 schema 的 plugin 掛載(ADR-0005 / ADR-0007)", () => {
-  it("全部 20 張 collection 都掛 baseFields:timestamps + createdBy / updatedBy / deletedAt", () => {
-    expect(Object.keys(ALL_SCHEMAS)).toHaveLength(20);
+  it("全部 24 張 collection 都掛 baseFields:timestamps + createdBy / updatedBy / deletedAt", () => {
+    expect(Object.keys(ALL_SCHEMAS)).toHaveLength(24);
     for (const [name, schema] of Object.entries(ALL_SCHEMAS)) {
       expect({ name, timestamps: schema.get("timestamps") }).toEqual({
         name,

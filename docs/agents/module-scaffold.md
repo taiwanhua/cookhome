@@ -52,7 +52,7 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 - **`nodes`**:`key` 是**累加父 key**(`<父key>.<自己那段>`,靜態測試 `seed-key-convention.test.ts` 會擋);`route` **只寫自己那一段**(完整路徑由 api 累加,ADR-0011 步驟 7);`icon` 吃白名單型別 `@repo/domain/module-icon`(打錯字 `check-types` 就紅),不宣告即落庫 `null` = 側欄預設圖示;根組織專屬的節點標 `isRootOnly`(租戶管理員模板會扣除,ADR-0009)。
 - **`permissions`**:只列**個別權限**。每個節點固定一筆的 wildcard `<key>.\*` 由 `seeds/modules.ts` 的 `wildcardPermission` 自動產生,**不要自己宣告**(宣告了就是重複一筆)。`moduleKey` 指向「這個按鈕 / 欄位所在的那一頁」。
 - **`dataScopeTarget`**(選配,ADR-0008):要讓這張表能被資料範圍規則篩才宣告。`fields` **只放業務欄位**,基礎欄位(組織 / 建立者 / 日期)由程式自動附加;`enum` 型別要在這裡列出固定 `options`,`value` 必須與 schema 存的值一一對應。不宣告 = 查詢只受可見範圍保底(示範模組2 就是這個對照)。
-- **`enabled` 與 `icon` 是「初始 seed 值的欄位」**(ADR-0002):建立後由人在「模組與權限」頁管理,重跑 seed 不會翻回宣告值。其餘欄位每次部署同步回宣告值。
+- **`enabled`、`icon`、`settings` 是「初始 seed 值的欄位」**(ADR-0002):建立後由人在「模組與權限」頁管理(`settings` 放表單模組的列表欄位配置),重跑 seed 不會翻回宣告值。其餘欄位每次部署同步回宣告值。
 
 **動到種子的數量或內容,連帶修 api 既有測試裡寫死的數字**(`apps/api/src/permission/permission.test.ts` 這類)—— 這屬於同一張票。
 

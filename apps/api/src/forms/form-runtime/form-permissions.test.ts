@@ -520,6 +520,43 @@ describe("表單的欄位級權限:投影 / 守門 / 依賴鏈 / 權限被刪 / 
       expect(matrixKeys).not.toContain(showKey(CLEANUP, "a"));
     });
 
+    it("升級到新版的提交仍算在舊版的用量:舊修訂還以舊版定義渲染", async () => {
+      const submissions = connection.collection("form_submissions");
+      const original = await submissions.findOne({
+        formKey: CLEANUP,
+        version: 2,
+      });
+      expect(original).not.toBeNull();
+      if (!original) {
+        return;
+      }
+      // 模擬「舊版資料升級到新版」:提交改綁 v3,舊修訂留著 v2、多一筆 v3 的升級修訂
+      const [first] = original.revisions as Record<string, unknown>[];
+      await submissions.updateOne(
+        { _id: original._id },
+        {
+          $set: {
+            version: 3,
+            revisions: [
+              { ...first, version: 2 },
+              { ...first, revision: 2, version: 3, kind: "upgrade" },
+            ],
+          },
+        },
+      );
+
+      const items = await retired();
+      const b = items.find((item) => item.fieldKey === "b");
+      expect(b?.usage).toEqual({
+        draftCount: 0,
+        draftVersions: [],
+        completedCount: 1,
+        completedVersions: [2],
+      });
+
+      await submissions.replaceOne({ _id: original._id }, original);
+    });
+
     it("1. 草稿仍用到 → 擋下並列出筆數與版本", async () => {
       const result = await call(api, root, DELETE_RETIRED_PERMISSION, {
         input: { permissionKey: showKey(CLEANUP, "a") },

@@ -29,6 +29,7 @@ import {
   errorCode,
   errorReason,
   pendingTaskOf,
+  person,
   rawInstances,
   rawSubmissionDoc,
   rawTasks,
@@ -397,6 +398,26 @@ describe("審核流程引擎", () => {
       }
       expect(errorCode(result)).toBe("CONFLICT");
       expect(errorReason(result)).toBe("HAS_DECISIONS");
+      expect(await submissionStatus(world, submitted.id)).toBe("REVIEWING");
+    });
+
+    it("看得到這張單、但不是申請人 → FORBIDDEN(NOT_APPLICANT),單子照舊審核中", async () => {
+      await useWorkflow(world, nextKey("withdraw_not_applicant"), {
+        steps: [usersStep("one", [staff(0)])],
+      });
+      const submitted = await submitLeave(world);
+      // 同在廚房部的同事:可見範圍含這張單、有同一組模組權限,但不是申請人
+      const colleague = await person(
+        api,
+        world.connection,
+        world.kitchen,
+        world.tenant,
+      );
+      const result = await call(api, colleague.token, WITHDRAW, {
+        input: { id: submitted.id, expectedEditVersion: submitted.editVersion },
+      });
+      expect(errorCode(result)).toBe("FORBIDDEN");
+      expect(errorReason(result)).toBe("NOT_APPLICANT");
       expect(await submissionStatus(world, submitted.id)).toBe("REVIEWING");
     });
 

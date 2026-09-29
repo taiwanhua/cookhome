@@ -2275,6 +2275,7 @@
       "TENANT_ONLY": "Workflow binding is set inside an organization.",
       "WORKFLOW_UNPUBLISHED": "This workflow has no published version and cannot be bound.",
       "ASSIGNEE_NOT_ELIGIBLE": "This person cannot review it (disabled, not in the organization, or the applicant).",
+      "NOT_APPLICANT": "Only the applicant can withdraw this submission.",
       "NOT_FOUND": "Not found. It may have been deleted or is outside your scope.",
       "VALIDATION_FAILED": "Some fields are invalid. Please fix them and try again.",
       "UNEXPECTED": "Something went wrong. Please try again later.",

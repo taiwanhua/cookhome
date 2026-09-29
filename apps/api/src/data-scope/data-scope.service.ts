@@ -5,6 +5,8 @@ import {
 } from "@nestjs/common";
 import { Types } from "mongoose";
 
+import { DEFAULT_TENANT_TIMEZONE } from "@repo/domain/form";
+
 import { AuditService } from "../audit/audit.service";
 import type { Persisted } from "../database/base.repository";
 import {
@@ -12,12 +14,14 @@ import {
   type DataScopeTargetDocument,
   DataScopeTargetsRepository,
   ModulesRepository,
+  OrgsRepository,
 } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import {
   type DataScopeRuleProvider,
   setDataScopeRuleProvider,
 } from "../database/plugins/data-scope-provider";
+import { tenantTimezoneOfOrg } from "../database/tenant-timezone";
 import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import {
   rootOnlyError,
@@ -33,6 +37,7 @@ import {
   combineByModule,
   compileRules,
   fieldCatalogOf,
+  hasDateCondition,
   validateRules,
 } from "./data-scope-rule";
 import type { SaveDataScopeRuleInput } from "./dto/save-data-scope-rule.input";
@@ -65,8 +70,10 @@ const RULE_READER: OperatorContext = {
 interface CachedRule {
   combineOp: DataScopeGroupOp;
   rules: DataScopeRuleEntry[];
-  /** 編譯時要靠它決定值的型別(org/user → ObjectId、date → Date、enum → 字串)。 */
+  /** 編譯時要靠它決定值的型別(org/user → ObjectId、date → 時點範圍、enum → 字串)。 */
   catalog: DataScopeField[];
+  /** 有日期條件:查詢時要先取操作者的租戶時區(沒有就不查,省一次讀組織)。 */
+  hasDateCondition: boolean;
 }
 
 /** 一個 collection 的快取:moduleKey → 該模組的規則;空 Map = 這張表沒有任何模組設了規則。 */
@@ -95,11 +102,17 @@ export class DataScopeService
   implements DataScopeRuleProvider, OnModuleInit, OnModuleDestroy
 {
   private readonly cache = new Map<string, CollectionRules>();
+  /** 同一個操作者上下文(同一個請求)的租戶時區只查一次。 */
+  private readonly timezoneCache = new WeakMap<
+    OperatorContext,
+    Promise<string>
+  >();
 
   constructor(
     private readonly rules: DataScopeRulesRepository,
     private readonly targets: DataScopeTargetsRepository,
     private readonly modules: ModulesRepository,
+    private readonly orgs: OrgsRepository,
     private readonly audit: AuditService,
     private readonly ownerProtection: OwnerProtectionService,
   ) {}
@@ -127,7 +140,13 @@ export class DataScopeService
     if (byModule.size === 0) {
       return null;
     }
-    const facts = factsOf(operator);
+    const needsTimezone = [...byModule.values()].some(
+      (cached) => cached.hasDateCondition,
+    );
+    const facts = factsOf(
+      operator,
+      needsTimezone ? await this.timezoneOf(operator) : DEFAULT_TENANT_TIMEZONE,
+    );
     const conditions: ModuleCondition[] = [];
     for (const [moduleKey, cached] of byModule) {
       const condition = compileRules(
@@ -141,6 +160,23 @@ export class DataScopeService
       }
     }
     return combineByModule(conditions);
+  }
+
+  /**
+   * 操作者的租戶時區(當前組織所屬租戶;`me.currentOrg.timezone` 同一個來源,admin 換算日期用的也是它)。
+   * 沒有當前組織的內部上下文 → 預設時區。讀組織發生在查詢中介層裡:`orgs` 是治理類、不套資料範圍規則,
+   * 不會遞迴回到這裡。
+   */
+  private timezoneOf(operator: OperatorContext): Promise<string> {
+    const cached = this.timezoneCache.get(operator);
+    if (cached) {
+      return cached;
+    }
+    const resolved = operator.currentOrgId
+      ? tenantTimezoneOfOrg(this.orgs, operator, operator.currentOrgId)
+      : Promise.resolve(DEFAULT_TENANT_TIMEZONE);
+    this.timezoneCache.set(operator, resolved);
+    return resolved;
   }
 
   private async rulesOf(collection: string): Promise<CollectionRules> {
@@ -171,12 +207,15 @@ export class DataScopeService
       ) {
         continue;
       }
+      const rules = document.rules as unknown as DataScopeRuleEntry[];
+      const catalog = fieldCatalogOf(
+        declaredFieldsOf(targetByModule.get(document.moduleKey) ?? null),
+      );
       loaded.set(document.moduleKey, {
         combineOp: document.combineOp,
-        rules: document.rules as unknown as DataScopeRuleEntry[],
-        catalog: fieldCatalogOf(
-          declaredFieldsOf(targetByModule.get(document.moduleKey) ?? null),
-        ),
+        rules,
+        catalog,
+        hasDateCondition: hasDateCondition(rules, catalog),
       });
     }
     return loaded;
@@ -332,11 +371,15 @@ function targetKeyOf(collection: string, moduleKey: string): string {
 }
 
 /** OperatorContext → 規則比對 / 動態值代入需要的事實(ADR-0008)。 */
-function factsOf(operator: OperatorContext): DataScopeOperatorFacts {
+function factsOf(
+  operator: OperatorContext,
+  timezone: string,
+): DataScopeOperatorFacts {
   return {
     actorId: operator.actorId,
     memberOrgIds: operator.memberOrgIds,
     roleIds: operator.roleIds,
+    timezone,
   };
 }
 

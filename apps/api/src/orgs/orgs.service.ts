@@ -7,14 +7,19 @@ import {
   DemoItemsOneRepository,
   DemoItemsTwoRepository,
   FieldsRepository,
+  FormSubmissionsRepository,
+  FormsRepository,
   OrgsRepository,
   RolesRepository,
+  WorkflowInstancesRepository,
 } from "../database/database.module";
 import {
   type OperatorContext,
   isOrgManaged,
 } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
+import { WorkflowTasksRepository } from "../database/workflow-tasks.repository";
+import { WorkflowsRepository } from "../database/workflows.repository";
 import { StorageService, isOwnedUploadPath } from "../storage/storage.service";
 import type { CreateChildOrgInput } from "./dto/create-child-org.input";
 import type { DeleteOrgInput } from "./dto/delete-org.input";
@@ -243,6 +248,11 @@ export class OrgsService {
     private readonly demoItemsOne: DemoItemsOneRepository,
     private readonly demoItemsTwo: DemoItemsTwoRepository,
     private readonly fields: FieldsRepository,
+    private readonly forms: FormsRepository,
+    private readonly submissions: FormSubmissionsRepository,
+    private readonly workflows: WorkflowsRepository,
+    private readonly instances: WorkflowInstancesRepository,
+    private readonly tasks: WorkflowTasksRepository,
     private readonly roles: RolesRepository,
     private readonly protection: OwnerProtectionService,
     private readonly storage: StorageService,
@@ -691,8 +701,12 @@ export class OrgsService {
   }
 
   /**
-   * 「無業務資料引用」:掛在這個組織下的租戶資料(`orgId` 指向它)。
-   * 清單 = 目前有 `orgId` 的業務 collection;第 5 段示範模組長出新 collection 時在此加一項。
+   * 「無業務資料引用」:掛在這個組織下的租戶資料。清單 = 全部帶組織歸屬的業務 collection,
+   * 新增一張業務 collection 時在此加一項:
+   * - `orgId` 指向它:customers、兩張示範表、fields、form_submissions、workflow_instances
+   * - 歸屬是租戶頂層、沒有 `orgId` 的:forms(`ownerOrgId`)、workflows / workflow_tasks(`tenantId`)——
+   *   只有租戶頂層會命中,也正是撤銷開通會問到的那一層
+   *
    * `audit_logs` 刻意不算 — 那是只增不改的歷史紀錄(ADR-0004),不是被引用的業務資料。
    *
    * **以 `subtreeContext` 問**(查詢已釘死在這一個已驗過的組織上):業務 collection 吃的是
@@ -710,6 +724,12 @@ export class OrgsService {
       this.demoItemsOne.count(reader, { orgId }),
       this.demoItemsTwo.count(reader, { orgId }),
       this.fields.count(reader, { orgId }),
+      this.forms.count(reader, { ownerOrgId: orgId }),
+      this.submissions.count(reader, { orgId }),
+      this.instances.count(reader, { orgId }),
+      this.tasks.count(orgId, {}),
+      // workflows 的邊界就是 tenantId(不經 BaseRepository),以本組織當邊界查「有沒有任何一筆」
+      this.workflows.findOne(orgId, {}).then((found) => (found ? 1 : 0)),
     ]);
     return counts.some((count) => count > 0);
   }

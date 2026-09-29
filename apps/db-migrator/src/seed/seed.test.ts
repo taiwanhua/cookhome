@@ -1134,6 +1134,38 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     expect(afterIconOf("api")).toBe("tune");
   }, 120_000);
 
+  it("settings 是初始 seed 值的欄位:模組的列表欄位配置(settings.list)與根組織的時區在重跑 seed 後保留", async () => {
+    const databaseUri = createTestDatabaseUri("module-settings");
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+
+    const list = {
+      columns: [{ kind: "field", key: "title", order: 0 }],
+      builtin: { status: false },
+    };
+    await withDatabase(databaseUri, async (database) => {
+      await database
+        .collection("modules")
+        .updateOne({ key: "demo-form" }, { $set: { "settings.list": list } });
+      await database
+        .collection("orgs")
+        .updateOne(
+          { key: "root" },
+          { $set: { "settings.timezone": "Asia/Tokyo" } },
+        );
+    });
+
+    const secondRun = runSeedCommand(databaseUri);
+    expect(secondRun.stderr).toBe("");
+    expect(secondRun.status).toBe(0);
+
+    const after = await readSeededDocuments(databaseUri);
+    expect(
+      after.modules.find((module) => module.key === "demo-form")?.settings,
+    ).toEqual({ list });
+    expect(after.orgs[0]?.settings).toEqual({ timezone: "Asia/Tokyo" });
+  }, 120_000);
+
   it("modules.engine:三個示範表單落庫為 form(含三個 -page 隱藏頁的父節點),位置與完整路由照宣告,其餘一律 fixed", async () => {
     const databaseUri = createTestDatabaseUri("module-engine");
 

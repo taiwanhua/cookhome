@@ -1313,6 +1313,55 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       });
     });
 
+    it.each([
+      [
+        "form_submissions",
+        (orgId: Types.ObjectId) => ({
+          orgId,
+          tenantId: tenantAId,
+          moduleKey: "demo-form",
+          formKey: "demo-form",
+          version: 1,
+          status: "draft",
+          clientRequestId: `delete-${String(orgId)}`,
+        }),
+      ],
+      [
+        "workflow_instances",
+        (orgId: Types.ObjectId) => ({
+          orgId,
+          tenantId: tenantAId,
+          moduleKey: "demo-form",
+          status: "running",
+        }),
+      ],
+    ] as const)(
+      "只有 %s 掛著資料:reasons 含 HAS_BUSINESS_DATA",
+      async (collection, documentOf) => {
+        const orgId = await newOrgUnderTenantA(`只有 ${collection}`);
+        const now = new Date();
+        await api.connection.collection(collection).insertOne({
+          ...documentOf(orgId),
+          createdAt: now,
+          updatedAt: now,
+          createdBy: null,
+          updatedBy: null,
+          deletedAt: null,
+        });
+
+        const result = await api.graphql(
+          DELETE_ORG,
+          { input: { id: String(orgId) } },
+          { accessToken: tenantAdminToken },
+        );
+        expect(result.errors?.[0]?.extensions).toMatchObject({
+          code: "ORG_NOT_DELETABLE",
+          reasons: ["HAS_BUSINESS_DATA"],
+        });
+        expect(await deletedAtOf(orgId)).toBeNull();
+      },
+    );
+
     it("業務資料的前置檢查不吃操作者的可見範圍:管得到、看不到的組織照樣擋得下來", async () => {
       // 這位操作者的管理範圍是 C 部門二子樹,可見範圍只有 C 部門一(開關 own)—
       // 若用可見範圍去數業務資料,這一筆會數成 0,還掛著會員的組織就被誤判成可刪
