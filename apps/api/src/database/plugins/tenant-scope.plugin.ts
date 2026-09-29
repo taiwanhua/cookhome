@@ -147,6 +147,7 @@ function applyTenantScope(query: AnyQuery, scope: TenantScope): void {
  * 只套**模組資料表**(`moduleData: true`,必為業務類):治理類 collection(組織 / 使用者 / 角色)
  * 吃的是管理範圍,由角色決定,不是資料範圍要管的事;`fields` / `audit_logs` / `customers` 這類
  * 業務類但非模組資料的表沒有 `moduleKey`,規則無從依模組套用(`docs/modules/data-scope.md`「執行面」)。
+ * 存在性檢查(`existenceCheck`)略過規則、只留租戶保底,見 `BaseRepository.existsAny`。
  * 規則以 `(collection, moduleKey)` 為鍵,provider 把同一 collection 下命中操作者的規則
  * 依模組拼成 `$or`;沒有規則的模組(如 `demo.sample-two`)維持只看可見範圍。
  */
@@ -171,6 +172,11 @@ async function applyDataScope(
   // applyTenantScope 已在同一個中介層先跑過,沒有上下文的查詢在那裡就 fail-closed 了
   const queryScope = getQueryScope(query);
   if (!queryScope) {
+    return;
+  }
+  if (queryScope.existenceCheck === true) {
+    // 存在性檢查(`BaseRepository.existsAny`):問的是「有沒有」,規則不得把答案收窄成 0;
+    // 租戶過濾已在 applyTenantScope 套上,這裡只略過規則
     return;
   }
   if (queryScope.ownRecordsOnly === true) {

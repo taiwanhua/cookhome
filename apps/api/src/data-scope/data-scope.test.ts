@@ -1233,4 +1233,57 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
       expect(rootOrgId).toBeDefined();
     });
   });
+
+  describe("存在性檢查(BaseRepository.existsAny):略過規則,不略過租戶過濾", () => {
+    it("規則把某筆收窄掉時:列表與筆數照樣看不到,existsAny 仍答「有」", async () => {
+      const result = await saveRule([
+        {
+          audience: { type: "ROLE", ids: [String(agentRoleId)] },
+          filter: ONLY_MINE,
+        },
+      ]);
+      expect(result.errors).toBeUndefined();
+      const asAgent = await operatorOf(agentUserId, deptOne);
+      const itemsOne = api.app.get(DemoItemsOneRepository);
+
+      // 一般查詢仍受規則限制:存在性檢查沒有放寬別的路徑
+      expect(sortedNames(await itemsOne.findMany(asAgent))).toEqual([
+        "甲的項目",
+      ]);
+      await expect(itemsOne.count(asAgent, { name: "乙的項目" })).resolves.toBe(
+        0,
+      );
+      await expect(
+        itemsOne.findOne(asAgent, { name: "乙的項目" }),
+      ).resolves.toBeNull();
+
+      // 存在性檢查只回 boolean(不交出文件),答案不被規則收窄
+      const exists: boolean = await itemsOne.existsAny(asAgent, {
+        name: "乙的項目",
+      });
+      expect(exists).toBe(true);
+
+      await saveRule([]);
+    });
+
+    it("可見範圍外的資料 existsAny 仍答「沒有」(租戶過濾照套)", async () => {
+      // 客服甲只屬部門一、租戶甲沒開可見性開關 ⇒ 部門二的資料在他的範圍外
+      const asAgent = await operatorOf(agentUserId, deptOne);
+      await expect(
+        api.app
+          .get(DemoItemsOneRepository)
+          .existsAny(asAgent, { name: "部門二的項目" }),
+      ).resolves.toBe(false);
+    });
+
+    it("已軟刪除的資料不算「有」", async () => {
+      const asAgent = await operatorOf(agentUserId, deptOne);
+      const itemsTwo = api.app.get(DemoItemsTwoRepository);
+      const created = await itemsTwo.create(asAgent, { name: "等一下刪掉" });
+      await itemsTwo.softDeleteById(asAgent, created._id);
+      await expect(
+        itemsTwo.existsAny(asAgent, { name: "等一下刪掉" }),
+      ).resolves.toBe(false);
+    });
+  });
 });
