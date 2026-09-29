@@ -2,8 +2,8 @@ import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
 import { renderFormsPage } from "@/pages/system/FormsPage/forms-page-test-support";
-import { authWorld } from "@/test/msw/auth-handlers";
-import { superAdminModules } from "@/test/msw/module-fixtures";
+import { authWorld, overviewModule } from "@/test/msw/auth-handlers";
+import { demoGroupNode, superAdminModules } from "@/test/msw/module-fixtures";
 import { server } from "@/test/msw/server";
 import { renderApp } from "@/test/render";
 
@@ -139,5 +139,24 @@ describe("AppBar 標題", () => {
     observer.disconnect();
 
     expect(seen.join("\n")).not.toContain("沒有權限進入此頁面");
+  });
+
+  it("群組底下沒有能進的頁 → 停在無權限頁,標題照常顯示「無權限」", async () => {
+    server.use(
+      ...authWorld({
+        hasRefreshCookie: true,
+        modules: [overviewModule, demoGroupNode],
+      }).handlers,
+    );
+
+    renderApp({ path: "/demo" });
+
+    expect(
+      await screen.findByRole("heading", { name: "沒有權限進入此頁面" }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("banner")).getByText("沒有權限進入此頁面"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/demo$/);
   });
 });

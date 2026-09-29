@@ -59,7 +59,10 @@ const blockedInstances = () => [
   }),
 ];
 
-const renderBlocked = (world: WorkflowRuntimeWorldOptions) => {
+const renderBlocked = (
+  world: WorkflowRuntimeWorldOptions,
+  timezone?: string,
+) => {
   const runtime = workflowRuntimeWorld({
     instances: blockedInstances(),
     blocked: { blocked: ["inst-1", "inst-2"] },
@@ -72,6 +75,7 @@ const renderBlocked = (world: WorkflowRuntimeWorldOptions) => {
         ["system.workflows.view"],
         ["system.workflows.blocked-page.reassign"],
       ),
+      currentOrgTimezone: timezone,
     }).handlers,
     ...runtime.handlers,
     ...workflowCatalogHandlers(),
@@ -95,8 +99,16 @@ describe("阻擋清單", () => {
     expect(within(table).getByText("「人資」找不到審核者")).toBeInTheDocument();
     expect(within(table).getByText("病假三天")).toBeInTheDocument();
     expect(within(table).getAllByText(APPLICANT.name)).toHaveLength(2);
-    // 最後變動:讀者的租戶時區(測試組織是 Asia/Taipei,UTC+8),不是執行環境的時區
-    expect(within(table).getAllByText("2026-09-20 10:00")).toHaveLength(2);
+  });
+
+  it("最後變動用讀者的租戶時區(不是預設的台北、也不是執行環境的時區)", async () => {
+    renderBlocked({}, "America/New_York");
+
+    const table = await screen.findByRole("table", { name: "阻擋清單" });
+    // 夾具 2026-09-20T02:00Z → 紐約(夏令 UTC−4)09-19 22:00
+    expect(await within(table).findAllByText("2026-09-19 22:00")).toHaveLength(
+      2,
+    );
   });
 
   it("改派:選一位本租戶的人(申請人自己、已在本關的人、停用的人不能選)→ reassignTask 帶任務 id", async () => {

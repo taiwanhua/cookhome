@@ -138,17 +138,28 @@ describe("新增 / 編輯示範項目(共版型)", () => {
     expect(screen.getByLabelText("備註")).toHaveValue("週末限定測試資料");
 
     const history = await screen.findByRole("region", { name: "變更歷程" });
-    // 時間用讀者的租戶時區(測試組織是 Asia/Taipei,UTC+8),不是執行環境的時區
-    expect(
-      within(history).getByText("2026-09-01 09:05 王小明 建立"),
-    ).toBeInTheDocument();
-    expect(
-      within(history).getByText("2026-09-10 14:22 王小明 修改了內容"),
-    ).toBeInTheDocument();
+    expect(within(history).getByText(/王小明 建立/)).toBeInTheDocument();
+    expect(within(history).getByText(/王小明 修改了內容/)).toBeInTheDocument();
     // 填寫提示只在新增頁
     expect(
       screen.queryByRole("region", { name: "填寫提示" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("變更歷程的時間用讀者的租戶時區(不是預設的台北、也不是執行環境的時區)", async () => {
+    renderSampleOne({
+      path: editPath("demo-1"),
+      timezone: "America/New_York",
+    });
+
+    const history = await screen.findByRole("region", { name: "變更歷程" });
+    // 夾具是 UTC:09-10 06:22Z → 紐約(夏令 UTC−4)09-10 02:22;09-01 01:05Z → 08-31 21:05
+    expect(
+      await within(history).findByText("2026-09-10 02:22 王小明 修改了內容"),
+    ).toBeInTheDocument();
+    expect(
+      within(history).getByText("2026-08-31 21:05 王小明 建立"),
+    ).toBeInTheDocument();
   });
 
   it("編輯頁沒有 show-history 權限:歷程區塊不顯示,也不打那個查詢", async () => {
