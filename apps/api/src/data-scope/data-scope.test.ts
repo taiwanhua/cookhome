@@ -179,7 +179,6 @@ const ONLY_MY_ORGS = {
   ],
 };
 
-/** 一條「全部人 → 建立時間 <cond> <values>」的規則(日期條件的測試用)。 */
 /** 在編譯好的條件裡找 `createdAt` 的比對式(日期條件的邊界測試用)。 */
 function createdAtConditionOf(node: unknown): unknown {
   if (Array.isArray(node)) {
@@ -200,6 +199,7 @@ function createdAtConditionOf(node: unknown): unknown {
   return createdAtConditionOf(Object.values(node));
 }
 
+/** 一條「全部人 → 建立時間 <cond> <values>」的規則(日期條件的測試用)。 */
 function dateRule(cond: string, values: string[]) {
   return [
     {
@@ -397,9 +397,9 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
       );
   }
 
-  /** 直接問執行面:某組織的操作者查示範模組1 時,`createdAt` 的比對條件。 */
+  /** 直接問執行面:站在某組織(`null` = 系統上下文)查示範模組1 時,`createdAt` 的比對條件。 */
   async function createdAtBoundOf(
-    currentOrgId: Types.ObjectId,
+    currentOrgId: Types.ObjectId | null,
   ): Promise<unknown> {
     const operator: OperatorContext = {
       actorId: null,
@@ -1105,6 +1105,82 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
         });
         expect(await createdAtBoundOf(deptOne)).toEqual({
           $gte: new Date("2020-02-02T00:00:00.000Z"),
+        });
+      } finally {
+        await setTenantTimezone("Asia/Taipei");
+      }
+    });
+
+    it("系統上下文(沒有當前組織):操作者時區退回根組織的時區", async () => {
+      await setRootTimezone("Europe/London");
+      try {
+        // 倫敦 2020-02-01 00:00 = 2/1 00:00Z;若退回預設(台北)會是 1/31 16:00Z
+        await saveRule(dateRule("before", ["2020-02-01T00:00:00.000Z"]));
+        expect(await createdAtBoundOf(null)).toEqual({
+          $lt: new Date("2020-02-01T00:00:00.000Z"),
+        });
+      } finally {
+        await setRootTimezone(null);
+      }
+    });
+
+    it("夏令時間切換日:倫敦租戶以倫敦當地的 00:00 為界(3 月底進、10 月底出)", async () => {
+      await setTenantTimezone("Europe/London");
+      try {
+        // 台北存 2020-03-29(倫敦當天 01:00 進夏令時間):次日 00:00 = 3/29 23:00Z
+        await saveRule(dateRule("after", ["2020-03-28T16:00:00.000Z"]));
+        expect(await createdAtBoundOf(deptOne)).toEqual({
+          $gte: new Date("2020-03-29T23:00:00.000Z"),
+        });
+        await saveRule(
+          dateRule("between", [
+            "2020-03-28T16:00:00.000Z",
+            "2020-03-28T16:00:00.000Z",
+          ]),
+        );
+        expect(await createdAtBoundOf(deptOne)).toEqual({
+          $gte: new Date("2020-03-29T00:00:00.000Z"),
+          $lt: new Date("2020-03-29T23:00:00.000Z"),
+        });
+
+        // 台北存 2020-10-25(倫敦當天 02:00 回標準時間):當天 00:00 = 10/24 23:00Z,次日 00:00 = 10/26 00:00Z
+        await saveRule(
+          dateRule("between", [
+            "2020-10-24T16:00:00.000Z",
+            "2020-10-24T16:00:00.000Z",
+          ]),
+        );
+        expect(await createdAtBoundOf(deptOne)).toEqual({
+          $gte: new Date("2020-10-24T23:00:00.000Z"),
+          $lt: new Date("2020-10-26T00:00:00.000Z"),
+        });
+        await saveRule(dateRule("after", ["2020-10-24T16:00:00.000Z"]));
+        expect(await createdAtBoundOf(deptOne)).toEqual({
+          $gte: new Date("2020-10-26T00:00:00.000Z"),
+        });
+      } finally {
+        await setTenantTimezone("Asia/Taipei");
+      }
+    });
+
+    it("午夜切換夏令時間的時區(聖地牙哥):當天 00:00 不存在時從當天第一個時點起算", async () => {
+      await setTenantTimezone("America/Santiago");
+      try {
+        // 台北存 2020-09-06;聖地牙哥 9/6 00:00 直接跳到 01:00(-03)= 04:00Z,9/7 00:00 = 03:00Z
+        await saveRule(
+          dateRule("between", [
+            "2020-09-05T16:00:00.000Z",
+            "2020-09-05T16:00:00.000Z",
+          ]),
+        );
+        expect(await createdAtBoundOf(deptOne)).toEqual({
+          $gte: new Date("2020-09-06T04:00:00.000Z"),
+          $lt: new Date("2020-09-07T03:00:00.000Z"),
+        });
+        // 前一天 9/5 的次日邊界同一個時點
+        await saveRule(dateRule("after", ["2020-09-04T16:00:00.000Z"]));
+        expect(await createdAtBoundOf(deptOne)).toEqual({
+          $gte: new Date("2020-09-06T04:00:00.000Z"),
         });
       } finally {
         await setTenantTimezone("Asia/Taipei");

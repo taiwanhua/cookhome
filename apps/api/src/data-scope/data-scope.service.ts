@@ -183,15 +183,13 @@ export class DataScopeService
     if (cached) {
       return cached;
     }
-    const resolved = Promise.all([
-      tenantTimezoneOf(this.orgs, RULE_READER, null),
-      operator.currentOrgId
-        ? tenantTimezoneOfOrg(this.orgs, RULE_READER, operator.currentOrgId)
-        : tenantTimezoneOf(this.orgs, RULE_READER, null),
-    ]).then(([rule, operatorTimezone]) => ({
-      rule,
-      operator: operatorTimezone,
-    }));
+    const ruleTimezone = tenantTimezoneOf(this.orgs, RULE_READER, null);
+    const operatorTimezone = operator.currentOrgId
+      ? tenantTimezoneOfOrg(this.orgs, RULE_READER, operator.currentOrgId)
+      : ruleTimezone;
+    const resolved = Promise.all([ruleTimezone, operatorTimezone]).then(
+      ([rule, operatorZone]) => ({ rule, operator: operatorZone }),
+    );
     this.timezonesCache.set(operator, resolved);
     return resolved;
   }
