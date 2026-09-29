@@ -222,6 +222,17 @@ describe("closeItemEntries(刪除後關掉那一筆的子頁籤)", () => {
     expect(routesOf(result.entries)).toEqual([LIST, `${VIEW}/demo-10`]);
   });
 
+  it("不同模組、同一個 id 的子頁籤不受影響", () => {
+    const OTHER_VIEW = "/demo/sub/sample-two/view-page";
+    const result = closeItemEntries(
+      entriesOf(`${VIEW}/demo-1`, `${OTHER_VIEW}/demo-1`),
+      itemRoutes,
+      LIST,
+      LIST,
+    );
+    expect(routesOf(result.entries)).toEqual([`${OTHER_VIEW}/demo-1`]);
+  });
+
   it("當前頁籤在其中 → 導向給定的列表頁(不切相鄰)", () => {
     expect(
       closeItemEntries(entries, itemRoutes, `${EDIT}/demo-1`, LIST).navigateTo,

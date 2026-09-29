@@ -3,6 +3,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 
 import { ModuleListColumnKind } from "@repo/graphql";
 
+import { readStoredEntries, routeTabsStorageKey } from "@/lib/route-tabs";
+import { testUser } from "@/test/msw/auth-handlers";
 import {
   DEMO_FORM_KEY,
   DEMO_FORM_ROUTES,
@@ -180,5 +182,43 @@ describe("表單模組列表頁(預設組裝)", () => {
     expect(
       await screen.findByRole("button", { name: "+ 新增" }),
     ).toBeDisabled();
+  });
+
+  it("從列表刪除:當前頁籤(列表)不變,那一筆在背景的詳情 / 編輯子頁籤收掉、別筆不動", async () => {
+    const storageKey = routeTabsStorageKey(testUser.id);
+    const other = `${DEMO_FORM_ROUTES.viewPage}/sub-2`;
+    sessionStorage.clear();
+    sessionStorage.setItem(
+      storageKey,
+      JSON.stringify([
+        { route: DEMO_FORM_ROUTES.list },
+        { route: `${DEMO_FORM_ROUTES.viewPage}/sub-1` },
+        { route: `${DEMO_FORM_ROUTES.editPage}/sub-1` },
+        { route: other },
+      ]),
+    );
+    const { user } = renderShopping({
+      path: DEMO_FORM_ROUTES.list,
+      world: {
+        ...defaultRuntimeOptions(),
+        submissions: [submissionFragment()],
+      },
+    });
+    const list = await table();
+
+    await user.click(
+      await within(list).findByRole("button", { name: "刪除「雞蛋」" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "確認刪除" }));
+
+    await waitFor(() => {
+      expect(readStoredEntries(storageKey).map((entry) => entry.route)).toEqual(
+        [DEMO_FORM_ROUTES.list, other],
+      );
+    });
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      DEMO_FORM_ROUTES.list,
+    );
   });
 });
