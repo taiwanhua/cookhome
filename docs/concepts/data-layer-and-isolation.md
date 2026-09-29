@@ -69,8 +69,9 @@ service 呼叫 BaseRepository.xxx(operator, …)
 - `create` 自動寫入當前組織;寫到範圍外 → 拋錯。
 - api 內裸 `Model.find` 由 ESLint 規則 `@repo/no-raw-model-query` 擋下。
 - 已知限制:`populate()` 的子查詢不帶上下文,關聯資料分兩次查。
-- **三個登記在案的例外出口**(登記表在 ADR-0005「例外出口」):
+- **四個登記在案的例外出口**(登記表在 ADR-0005「例外出口」):
   - `BaseRepository.findOwnById` / `findOwnOne` / `findOwnAndUpdate`:只給表單提交用 —— 建立者讀自己的單、寫自己的草稿。可見範圍照套、條件加 `createdBy = 操作者`,**不套資料範圍規則**(否則規則把草稿擋掉時,建立者連自己的草稿都送不出去)。列表不放寬。
+  - `BaseRepository.existsAny`:只給前置檢查回答「有沒有」(刪組織、撤銷開通的「無業務資料引用」)。**不套資料範圍規則** —— 規則會收窄操作者看得到的,數到 0 就把還有資料的組織誤判成可刪,前置檢查必須 fail-closed。做法是方法內部在查詢上設 `existenceCheck`,中介層讀到就跳過資料範圍規則(租戶過濾仍依操作者上下文套上)。簽名是 `existsAny(operator, ownerField, orgId)`:條件只能是歸屬欄(`orgId` / `ownerOrgId`)等於某個組織,只回有無。呼叫端登記在 `EXISTS_ANY_CALLERS`,測試掃 src 鎖定,旗標本身也只准出現在資料層三個檔。
   - `apps/api/src/database/form-submission-usage.ts`:退役欄位級權限清理的三層檢查要**跨全部租戶**計數提交(少算一筆草稿就會把還在用的權限刪掉),不經 BaseRepository;只回筆數與版本號,不回內容。
   - `apps/api/src/database/workflow-submission-store.ts`:審核流程(引擎、讀取授權、申請中心)讀寫提交,不套可見範圍與資料範圍規則,以 `tenantId` 為邊界;允許呼叫它的檔案登記在該檔 `WORKFLOW_SUBMISSION_STORE_CALLERS`,由測試鎖定。
 - 對全員生效(套用對象 `all`)的資料範圍規則連系統上下文也會收窄,所以「必須看到全部」的系統讀取只能走上面登記過的出口(ADR-0008)。

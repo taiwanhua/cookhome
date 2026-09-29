@@ -82,6 +82,8 @@
 
 **子樹類動作不受可見範圍裁切**:停用連動、搬移的 `ancestors` 重算、刪除前置的「有沒有子組織」以整棵子樹為準(可見範圍決定「看得到誰的資料」,不該讓連動只做一半)。程式上是 `orgs.service.ts` 的 `subtreeContext()`,只准搭配把查詢釘在該子樹內的條件。
 
+**前置檢查不受資料範圍規則收窄**:「無業務資料引用」問的是「有沒有」,不是「你看不看得到」。經 BaseRepository 的表一律以 `existsAny` 問(ADR-0005「例外出口」):條件釘在該組織的歸屬欄、略過資料範圍規則(ADR-0008),操作者被規則收窄到看不到某筆,照樣判成有資料、不可刪 / 不可撤銷開通。
+
 **根組織保護**:不可停用、不可搬移、不可刪除(刪除的 reasons 多一項 `SYSTEM_ORG`)。
 
 **租戶頂層保護**:租戶頂層本身的停用 / 刪除 / 搬移只有根組織能做(ADR-0009)。判斷點是 `OwnerProtectionService.assertTenantTopOperableBy(operator, org, action)`(`orgs/owner-protection.service.ts`):不是租戶頂層就放行,是的話只有根組織的操作者能做(`isRootOperator`),否則 `FORBIDDEN`。`setOrgEnabled` / `deleteOrg` / `moveOrg` 各呼叫一次,共用同一個函式;**排在 `CYCLIC_MOVE` / `CROSS_TENANT` 與刪除前置四項之前**,不透露租戶內部狀態。

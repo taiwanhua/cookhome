@@ -713,24 +713,26 @@ export class OrgsService {
    * **可見範圍**,而刪除的資格吃**管理範圍**(ADR-0005 的分工)— 兩者不一定重疊。
    * 若用操作者自己的可見範圍去數,管得到但看不到那個組織的人會數到 0,
    * 把還掛著資料的組織誤判成可刪。前置檢查要問「有沒有」,不是「你看不看得到」。
+   * 同一條理由,經 BaseRepository 的表一律用 `existsAny`:模組資料表的資料範圍規則(ADR-0008)
+   * 會再收窄操作者看得到的;存在性檢查的條件釘在該組織的歸屬欄、略過資料範圍規則。
    */
   private async hasBusinessData(
     operator: OperatorContext,
     orgId: Types.ObjectId,
   ): Promise<boolean> {
     const reader = subtreeContext(operator);
-    const counts = await Promise.all([
-      this.customers.count(reader, { orgId }),
-      this.demoItemsOne.count(reader, { orgId }),
-      this.demoItemsTwo.count(reader, { orgId }),
-      this.fields.count(reader, { orgId }),
-      this.forms.count(reader, { ownerOrgId: orgId }),
-      this.submissions.count(reader, { orgId }),
-      this.instances.count(reader, { orgId }),
-      this.tasks.count(orgId, {}),
+    const found = await Promise.all([
+      this.customers.existsAny(reader, "orgId", orgId),
+      this.demoItemsOne.existsAny(reader, "orgId", orgId),
+      this.demoItemsTwo.existsAny(reader, "orgId", orgId),
+      this.fields.existsAny(reader, "orgId", orgId),
+      this.forms.existsAny(reader, "ownerOrgId", orgId),
+      this.submissions.existsAny(reader, "orgId", orgId),
+      this.instances.existsAny(reader, "orgId", orgId),
+      this.tasks.count(orgId, {}).then((count) => count > 0),
       // workflows 的邊界就是 tenantId(不經 BaseRepository),以本組織當邊界查「有沒有任何一筆」
-      this.workflows.findOne(orgId, {}).then((found) => (found ? 1 : 0)),
+      this.workflows.findOne(orgId, {}).then((found) => found !== null),
     ]);
-    return counts.some((count) => count > 0);
+    return found.some(Boolean);
   }
 }

@@ -222,6 +222,28 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
   }
 
   /**
+   * **存在性檢查**:某個組織名下是否還有任何一筆(不含已軟刪除)。**不套資料範圍規則**
+   * (ADR-0008)——刪組織、撤銷開通這類前置檢查問的是「有沒有」,必須 fail-closed,
+   * 不能被規則收窄成「你看不看得到」。租戶過濾仍由中介層依 `operator` 套上。
+   *
+   * 條件只能是歸屬欄(`ownerField` = `orgId` / `ownerOrgId`)等於某個組織,呼叫端無法帶任意條件;
+   * 只回有無,不回筆數或文件。列表、詳情、要顯示給人看的筆數一律用 `findMany` / `findOne` / `count`。
+   * 呼叫端登記在 `EXISTS_ANY_CALLERS`(ADR-0005「例外出口」),由測試鎖定。
+   */
+  async existsAny(
+    operator: OperatorContext,
+    ownerField: "orgId" | "ownerOrgId",
+    orgId: Types.ObjectId,
+  ): Promise<boolean> {
+    const filter = { [ownerField]: orgId } as RepositoryFilter<TSchema>;
+    const found = await scopeQuery(this.model.countDocuments(filter).limit(1), {
+      operator,
+      existenceCheck: true,
+    }).exec();
+    return found > 0;
+  }
+
+  /**
    * 建立資料:租戶資料自動寫入當前組織(ADR-0005),且不可寫入可見範圍外的組織。
    * 模組資料表(`moduleData`)另由後端推導 `tenantId`,呼叫端給的值一律忽略。
    */
@@ -434,6 +456,13 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     return { ...data, orgId };
   }
 }
+
+/**
+ * **允許呼叫 `existsAny` 的檔案**(相對 `apps/api/src/`;ADR-0005「例外出口」登記的範圍):
+ * 只有需要 fail-closed 回答「有沒有」的前置檢查。`exists-any-callers.test.ts` 掃整個 src
+ * 斷言沒有其他檔案呼叫它 —— 新增呼叫端要先在 ADR-0005 登記、再加進這裡。
+ */
+export const EXISTS_ANY_CALLERS: readonly string[] = ["orgs/orgs.service.ts"];
 
 /** 更新內容不得觸及的欄位:所屬組織(租戶隔離)與建立資訊(稽核)。 */
 const PROTECTED_UPDATE_PATHS: readonly string[] = [
