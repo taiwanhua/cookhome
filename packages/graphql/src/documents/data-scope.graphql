@@ -3,7 +3,7 @@
 # fields 已含底座自動掛入的基礎欄位(isBase = true:組織 / 建立者 / 更新者 / 建立、更新、刪除時間)。
 # 型別決定 UI:org / user → in、not-in(可選動態值);date → between / before / after;enum → in、not-in。
 # date 的值與表單引擎的日期存值同一種:選的那一天在規則所屬組織(根組織;本頁只有根組織進得來,= me.currentOrg.timezone)租戶時區 00:00 的時點,
-# 送帶時區的 ISO 8601 字串;`YYYY-MM-DD` 會被拒(VALUE_INVALID)。整天的邊界由 api 以同一個時區(規則所屬組織的)換算,與操作者無關。
+# 送帶時區的 ISO 8601 字串;`YYYY-MM-DD` 會被拒(VALUE_INVALID)。比對是日曆天、逐租戶套用:api 以根組織的時區還原那一天,再以操作者租戶的時區算整天的邊界。
 # hasRule = 這個目標已設規則(有規則文件且 rules 非空);語意正本見 docs/modules/data-scope.md 的 api 介面節。
 # 一列 = 一個模組:目標以 (collection, moduleKey) 為識別鍵,同一張表(form_submissions)可以有多個模組各一列;
 # 讀寫規則都以 id 指定目標。

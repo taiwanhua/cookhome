@@ -23,6 +23,7 @@ import {
 import type { OperatorContext } from "../database/operator-context";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import { createRole } from "../permission/test-support/fixtures";
+import { DataScopeService } from "./data-scope.service";
 import {
   SAMPLE_ONE_MODULE_KEY,
   dataScopeTargetIdOf,
@@ -179,6 +180,26 @@ const ONLY_MY_ORGS = {
 };
 
 /** 一條「全部人 → 建立時間 <cond> <values>」的規則(日期條件的測試用)。 */
+/** 在編譯好的條件裡找 `createdAt` 的比對式(日期條件的邊界測試用)。 */
+function createdAtConditionOf(node: unknown): unknown {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = createdAtConditionOf(child);
+      if (found !== undefined) {
+        return found;
+      }
+    }
+    return undefined;
+  }
+  if (typeof node !== "object" || node === null) {
+    return undefined;
+  }
+  if ("createdAt" in node) {
+    return node.createdAt;
+  }
+  return createdAtConditionOf(Object.values(node));
+}
+
 function dateRule(cond: string, values: string[]) {
   return [
     {
@@ -363,6 +384,35 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
           ? { $unset: { "settings.timezone": "" } }
           : { $set: { "settings.timezone": timezone } },
       );
+  }
+
+  async function setRootTimezone(timezone: string | null): Promise<void> {
+    await connection
+      .collection("orgs")
+      .updateOne(
+        { _id: rootOrgId },
+        timezone === null
+          ? { $unset: { "settings.timezone": "" } }
+          : { $set: { "settings.timezone": timezone } },
+      );
+  }
+
+  /** 直接問執行面:某組織的操作者查示範模組1 時,`createdAt` 的比對條件。 */
+  async function createdAtBoundOf(
+    currentOrgId: Types.ObjectId,
+  ): Promise<unknown> {
+    const operator: OperatorContext = {
+      actorId: null,
+      currentOrgId,
+      visibleOrgIds: "all",
+      managedOrgIds: "all",
+      memberOrgIds: [],
+      roleIds: [],
+    };
+    const condition = await api.app
+      .get(DataScopeService)
+      .conditionFor("demo_items_one", operator);
+    return createdAtConditionOf(condition);
   }
 
   beforeAll(async () => {
@@ -958,7 +1008,7 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     });
   });
 
-  describe("日期條件:值是租戶時區某一天 00:00 的時點,整天的邊界依規則所屬組織(根組織)的時區", () => {
+  describe("日期條件:日曆天、逐租戶套用 —— 以根組織的時區還原那一天,以操作者租戶的時區算邊界", () => {
     /**
      * 建立時間落在台北時區(UTC+8)日界線兩側的五筆(名稱 = 台北的當地時間):
      * 「0101-0730」在 UTC 還是 12/31,「0101-2359」與「0102-0000」只差一分鐘卻分屬兩天。
@@ -1037,8 +1087,77 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
       ]);
     });
 
-    it("操作者在紐約租戶:根組織(台北)存的規則,邊界仍是台北的那一天,不因操作者時區差一天", async () => {
-      await setTenantTimezone("America/New_York");
+    it("邊界時點:根組織(台北)存的「2020-02-01」,台北的操作者從台北 2/1 00:00 起算、倫敦租戶的操作者從倫敦 2/1 00:00 起算", async () => {
+      const TAIPEI_0201 = "2020-01-31T16:00:00.000Z";
+      await setTenantTimezone("Europe/London");
+      try {
+        await saveRule(dateRule("before", [TAIPEI_0201]));
+        expect(await createdAtBoundOf(rootOrgId)).toEqual({
+          $lt: new Date("2020-01-31T16:00:00.000Z"),
+        });
+        expect(await createdAtBoundOf(deptOne)).toEqual({
+          $lt: new Date("2020-02-01T00:00:00.000Z"),
+        });
+
+        await saveRule(dateRule("after", [TAIPEI_0201]));
+        expect(await createdAtBoundOf(rootOrgId)).toEqual({
+          $gte: new Date("2020-02-01T16:00:00.000Z"),
+        });
+        expect(await createdAtBoundOf(deptOne)).toEqual({
+          $gte: new Date("2020-02-02T00:00:00.000Z"),
+        });
+      } finally {
+        await setTenantTimezone("Asia/Taipei");
+      }
+    });
+
+    it("倫敦租戶的操作者:同一份規則以倫敦的那一天為界(between 同一天 / 迄日整天含)", async () => {
+      await setTenantTimezone("Europe/London");
+      try {
+        // 倫敦 01/01 = 01/01 00:00Z ~ 01/02 00:00Z
+        await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0101]));
+        expect(await datedVisible()).toEqual([
+          "日期 0101-2359",
+          "日期 0102-0000",
+        ]);
+
+        // 倫敦 01/01 ~ 01/02 整天 = 01/01 00:00Z ~ 01/03 00:00Z
+        await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0102]));
+        expect(await datedVisible()).toEqual([
+          "日期 0101-2359",
+          "日期 0102-0000",
+          "日期 0102-2359",
+          "日期 0103-0000",
+        ]);
+      } finally {
+        await setTenantTimezone("Asia/Taipei");
+      }
+    });
+
+    it("倫敦租戶的操作者:before / after 也不含當天,當天以倫敦算", async () => {
+      await setTenantTimezone("Europe/London");
+      try {
+        // 倫敦 01/02 00:00Z 前
+        await saveRule(dateRule("before", [TAIPEI_0102]));
+        expect(await datedVisible()).toEqual([
+          "日期 0101-0730",
+          "日期 0101-2359",
+          "日期 0102-0000",
+        ]);
+
+        // 倫敦 01/02 00:00Z 起
+        await saveRule(dateRule("after", [TAIPEI_0101]));
+        expect(await datedVisible()).toEqual([
+          "日期 0102-2359",
+          "日期 0103-0000",
+        ]);
+      } finally {
+        await setTenantTimezone("Asia/Taipei");
+      }
+    });
+
+    it("操作者的租戶沒設時區 → 退回預設時區(台北)", async () => {
+      await setTenantTimezone(null);
       try {
         await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0101]));
         expect(await datedVisible()).toEqual([
@@ -1050,65 +1169,49 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
       }
     });
 
-    it("邊界跟著規則所屬組織(根組織)的時區:根組織設紐約 → 以紐約的一天為界", async () => {
-      await connection
-        .collection("orgs")
-        .updateOne(
-          { _id: rootOrgId },
-          { $set: { "settings.timezone": "America/New_York" } },
-        );
+    it("存的時點以根組織的時區還原成那一天:根組織設奧克蘭 → 奧克蘭選的 01/02,台北租戶照台北的 01/02 算", async () => {
+      await setRootTimezone("Pacific/Auckland");
       try {
-        // 紐約 2020-01-01 00:00 = 05:00Z
+        // 奧克蘭 2020-01-02 00:00 = 01/01 11:00Z(在台北仍是 01/01 19:00,若以台北還原會差一天)
         await saveRule(
           dateRule("between", [
-            "2020-01-01T05:00:00.000Z",
-            "2020-01-01T05:00:00.000Z",
+            "2020-01-01T11:00:00.000Z",
+            "2020-01-01T11:00:00.000Z",
           ]),
         );
-        // 台北「0101-0730」在紐約是 12/31 → 不含;「0102-0000」在紐約仍是 01/01 03:00 → 含;
-        // 「0102-2359」在紐約已是 01/02 → 不含
         expect(await datedVisible()).toEqual([
-          "日期 0101-2359",
           "日期 0102-0000",
+          "日期 0102-2359",
         ]);
       } finally {
-        await connection
-          .collection("orgs")
-          .updateOne(
-            { _id: rootOrgId },
-            { $unset: { "settings.timezone": "" } },
-          );
+        await setRootTimezone(null);
       }
     });
 
-    it("根組織改時區即時生效:不重存規則,下一次查詢的邊界就換成新時區的那一天", async () => {
+    it("根組織改時區即時生效:不重存規則,下一次查詢就以新時區還原存的那一天", async () => {
       // 先存好規則並查一次,讓規則進快取(之後不再存)
-      await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0101]));
+      await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0102]));
       expect(await datedVisible()).toEqual([
         "日期 0101-0730",
         "日期 0101-2359",
+        "日期 0102-0000",
+        "日期 0102-2359",
       ]);
-      await connection
-        .collection("orgs")
-        .updateOne(
-          { _id: rootOrgId },
-          { $set: { "settings.timezone": "America/New_York" } },
-        );
+      await setRootTimezone("America/New_York");
       try {
-        // 同一個時點(台北 01/01 00:00 = 紐約 12/31 11:00)在紐約是 12/31 那一天:
-        // 起 = 12/31 16:00Z 起算,迄 = 紐約 01/01 00:00 = 01/01 05:00Z 前
-        expect(await datedVisible()).toEqual(["日期 0101-0730"]);
+        // 台北 01/01、01/02 00:00 在紐約是 12/31、01/01 那兩天 → 台北租戶看台北的 12/31 ~ 01/01
+        expect(await datedVisible()).toEqual([
+          "日期 0101-0730",
+          "日期 0101-2359",
+        ]);
       } finally {
-        await connection
-          .collection("orgs")
-          .updateOne(
-            { _id: rootOrgId },
-            { $unset: { "settings.timezone": "" } },
-          );
+        await setRootTimezone(null);
       }
       expect(await datedVisible()).toEqual([
         "日期 0101-0730",
         "日期 0101-2359",
+        "日期 0102-0000",
+        "日期 0102-2359",
       ]);
     });
 

@@ -21,7 +21,10 @@ import {
   type DataScopeRuleProvider,
   setDataScopeRuleProvider,
 } from "../database/plugins/data-scope-provider";
-import { tenantTimezoneOf } from "../database/tenant-timezone";
+import {
+  tenantTimezoneOf,
+  tenantTimezoneOfOrg,
+} from "../database/tenant-timezone";
 import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import {
   rootOnlyError,
@@ -33,6 +36,7 @@ import {
   type DataScopeGroupOp,
   type DataScopeOperatorFacts,
   type DataScopeRuleEntry,
+  type DataScopeTimezones,
   type ModuleCondition,
   combineByModule,
   compileRules,
@@ -72,7 +76,7 @@ interface CachedRule {
   rules: DataScopeRuleEntry[];
   /** 編譯時要靠它決定值的型別(org/user → ObjectId、date → 時點範圍、enum → 字串)。 */
   catalog: DataScopeField[];
-  /** 有日期條件:查詢時要先讀規則所屬組織(根組織)的租戶時區(沒有就不讀)。 */
+  /** 有日期條件:查詢時要先讀規則作者(根組織)與操作者所在租戶的時區(沒有就不讀)。 */
   hasDateCondition: boolean;
 }
 
@@ -103,12 +107,12 @@ export class DataScopeService
 {
   private readonly cache = new Map<string, CollectionRules>();
   /**
-   * 規則所屬組織的時區,同一個操作者上下文(= 同一個請求)只讀一次。**不跟著規則快取**:
+   * 日期條件的兩個時區,同一個操作者上下文(= 同一個請求)只讀一次。**不跟著規則快取**:
    * 時區改了下一個請求就生效,不必等存規則或重啟,多執行個體之間也不會不一致。
    */
-  private readonly ruleTimezoneCache = new WeakMap<
+  private readonly timezonesCache = new WeakMap<
     OperatorContext,
-    Promise<string>
+    Promise<DataScopeTimezones>
   >();
 
   constructor(
@@ -147,9 +151,9 @@ export class DataScopeService
     const needsTimezone = [...byModule.values()].some(
       (cached) => cached.hasDateCondition,
     );
-    const timezone = needsTimezone
-      ? await this.ruleTimezoneOf(operator)
-      : DEFAULT_TENANT_TIMEZONE;
+    const timezones = needsTimezone
+      ? await this.timezonesOf(operator)
+      : { rule: DEFAULT_TENANT_TIMEZONE, operator: DEFAULT_TENANT_TIMEZONE };
     const conditions: ModuleCondition[] = [];
     for (const [moduleKey, cached] of byModule) {
       const condition = compileRules(
@@ -157,7 +161,7 @@ export class DataScopeService
         cached.combineOp,
         cached.catalog,
         facts,
-        timezone,
+        timezones,
       );
       if (condition) {
         conditions.push({ moduleKey, condition });
@@ -167,16 +171,28 @@ export class DataScopeService
   }
 
   /**
-   * 規則所屬組織的租戶時區:規則是根組織專屬設定、沒有 `orgId`,所屬組織就是根組織(`settings.timezone`)。
+   * 日期條件的兩個租戶時區(`compileDateLeaf` 的「日曆天,逐租戶套用」):
+   * - `rule`:規則作者的時區。規則是根組織專屬設定、沒有 `orgId`,作者就是根組織(`settings.timezone`)
+   * - `operator`:操作者當前組織所屬租戶的時區;沒有當前組織(系統上下文)→ 根組織的
+   *
+   * 兩個都是沒設或不合法 → `DEFAULT_TENANT_TIMEZONE`(`tenantTimezoneOf`)。
    * 讀組織發生在查詢中介層裡:`orgs` 是治理類、不套資料範圍規則,不會遞迴回到這裡。
    */
-  private ruleTimezoneOf(operator: OperatorContext): Promise<string> {
-    const cached = this.ruleTimezoneCache.get(operator);
+  private timezonesOf(operator: OperatorContext): Promise<DataScopeTimezones> {
+    const cached = this.timezonesCache.get(operator);
     if (cached) {
       return cached;
     }
-    const resolved = tenantTimezoneOf(this.orgs, RULE_READER, null);
-    this.ruleTimezoneCache.set(operator, resolved);
+    const resolved = Promise.all([
+      tenantTimezoneOf(this.orgs, RULE_READER, null),
+      operator.currentOrgId
+        ? tenantTimezoneOfOrg(this.orgs, RULE_READER, operator.currentOrgId)
+        : tenantTimezoneOf(this.orgs, RULE_READER, null),
+    ]).then(([rule, operatorTimezone]) => ({
+      rule,
+      operator: operatorTimezone,
+    }));
+    this.timezonesCache.set(operator, resolved);
     return resolved;
   }
 
