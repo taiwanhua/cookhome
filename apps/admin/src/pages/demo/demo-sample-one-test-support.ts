@@ -190,6 +190,8 @@ export interface RenderSampleOneOptions {
   permissions?: readonly string[];
   pages?: readonly SampleOnePageKey[];
   world?: DemoWorldOptions;
+  /** 讀者的租戶時區(`me.currentOrg.timezone`);預設 `Asia/Taipei` */
+  timezone?: string;
 }
 
 export const renderSampleOne = ({
@@ -197,6 +199,7 @@ export const renderSampleOne = ({
   permissions = FULL_PERMISSIONS,
   pages = ALL_PAGES,
   world = {},
+  timezone,
 }: RenderSampleOneOptions = {}) => {
   const fake = demoWorld({
     items: demoItems,
@@ -213,6 +216,7 @@ export const renderSampleOne = ({
     ...authWorld({
       hasRefreshCookie: true,
       modules: modulesWith(permissions, pages),
+      currentOrgTimezone: timezone,
     }).handlers,
   );
   return { ...renderApp({ path }), fake };

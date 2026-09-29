@@ -109,6 +109,7 @@ function toModuleDocument(node: ModuleNodeDeclaration): SeedDocument {
       ...(node.description === undefined
         ? {}
         : { description: node.description }),
+      // 初始 seed 值:`settings.list`(表單模組的列表欄位配置)由 root 在畫面上改
       settings: {},
     },
   };
@@ -135,13 +136,15 @@ function toPermissionDocument(permission: PermissionDeclaration): SeedDocument {
 /**
  * 模組樹(全部節點;正本:docs/modules/*.md)。
  *
- * `icon` 與 `enabled` 同為「初始 seed 值的欄位」(ADR-0002):根組織在「模組與權限」頁換過的圖示,
- * 下次部署重跑 seed 不會被宣告值翻回去(`setModuleIcon` 清空時寫的是 `null`,欄位仍在,所以也算人改過的值)。
+ * `enabled`、`icon`、`settings` 是「初始 seed 值的欄位」(ADR-0002),都是人在畫面上管的值,
+ * 下次部署重跑 seed 不會被宣告值翻回去:
+ * - `icon`:根組織在「模組與權限」頁換的圖示(`setModuleIcon` 清空時寫的是 `null`,欄位仍在,所以也算人改過的值)
+ * - `settings`:表單模組的列表欄位配置存在 `settings.list`(root 在「列表欄位」設定改)
  */
 export const modules: SeedDocumentSet = {
   kind: "documents",
   collection: MODULES_COLLECTION,
-  initialSeedValueFields: ["enabled", "icon"],
+  initialSeedValueFields: ["enabled", "icon", "settings"],
   entries: moduleNodes.map((node) => toModuleDocument(node)),
 };
 

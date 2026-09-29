@@ -165,6 +165,8 @@ input DemoItemsOneInput {
 
 **三頁本體是共用的**:`pages/demo/shared/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`,設定驅動(介面與逐項 JSDoc 在 `shared/demo-module-config.ts` 的 `DemoModuleConfig`)。上表那三個元件檔各只有約 10 行 —— 把設定物件接上共用元件而已。
 
+**路由頁籤**:詳情與編輯頁每筆各一個詳情子頁籤,標籤「示範模組1 — 檢視・項目名」/「示範模組1 — 編輯・項目名」;刪除成功後那一筆的子頁籤一起關掉。規則見 [frontend-architecture.md](../concepts/frontend-architecture.md)「頁籤兩種」。
+
 **設定分兩層**:
 
 - `pages/demo/demo-sample-one-config.ts` —— **常數**:模組 key、四個 `MODULE_KEYS`、權限 key、欄位管理的「示範分類」key 與 `system.field-manager.view`、i18n namespace、每頁筆數、表格最小寬度、狀態選項、上傳規則。
@@ -185,7 +187,7 @@ input DemoItemsOneInput {
 
 **內部備註的三態**在表單上是 `hidden` / `readonly` / `editable`:沒有 `show-internal-note` 時**整欄不渲染**,而且 input 裡連這個鍵都不會出現(欄位一出現就要權限,送 `null` 也會被 `FIELD_FORBIDDEN` 擋)。
 
-**變更歷程的時間**顯示成「年-月-日 時:分」,用的是**瀏覽器當地時間**、格式不隨語言變(`demo-sample-one-view.ts` 的 `formatDateTime`),不走全站以讀者租戶時區顯示的 `formatTemporal`。
+**變更歷程的時間**顯示成「年-月-日 時:分」,和表單引擎的日期時間同一套(`useTemporalText`,type `datetime`):讀者的租戶時區、格式不隨語言變。
 
 **分類下拉的選項**來自 `fieldCategories` → `fields(categoryId)`,兩個端點都掛在 `system.field-manager.view` 底下。沒有那個權限時:列表不顯示分類篩選、表單的分類欄退成唯讀(保留原值並說明原因)。停用的選項不列入可選清單。
 

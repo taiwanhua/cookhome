@@ -153,7 +153,7 @@
 ## 決定、撤回、改派、新增審核者、審核者失效
 
 - **`decideTask`**(`task-actions.service.ts`):前置(任務是我的且 `pending`、提交仍指向這個實例、實例進行中、關卡為 active、退回要 `allowReturn`、駁回 / 退回理由必填、任務 `expectedEditVersion`)後,**單文件原子**寫實例:條件含「關卡仍 active、我仍是這一項的有效承辦人、這個 `taskKey` 還沒有決定」→ `$push steps.$[cur].decisions` + `$push history` + `$inc editVersion`;**不比對** `editVersion`(兩人同時決定都會被記下,誰算數由 `advance` 依接受順序判)。條件不成立、任務已不是 `pending`、我已被改派走 → 回 `result: STEP_CLOSED`、任務不動。
-- **撤回**(申請人本人,別人的提交讀不到 → `NOT_FOUND`;提交要是 `reviewing` 且有實例,否則 `CONFLICT` `STATUS_MISMATCH`;`instance-withdraw.service.ts`):CAS `{ editVersion, 進行中, 所有關卡都沒有決定 }` → `withdrawn`、active 關卡 `terminated`。「沒有決定」寫在條件裡,所以撤回讀到無決定後決定才寫入 → CAS 失敗 → 重讀看到決定 → `CONFLICT`(`HAS_DECISIONS`)。推進收尾把提交同步成 `withdrawn`。
+- **撤回**(申請人本人:看得到這張單但不是申請人 → `FORBIDDEN`(`NOT_APPLICANT`),先於狀態檢查;依可見範圍與資料範圍規則根本讀不到 → `NOT_FOUND`;提交要是 `reviewing` 且有實例,否則 `CONFLICT` `STATUS_MISMATCH`;`instance-withdraw.service.ts` 另以實例的 `createdBy` 再比一次):CAS `{ editVersion, 進行中, 所有關卡都沒有決定 }` → `withdrawn`、active 關卡 `terminated`。「沒有決定」寫在條件裡,所以撤回讀到無決定後決定才寫入 → CAS 失敗 → 重讀看到決定 → `CONFLICT`(`HAS_DECISIONS`)。推進收尾把提交同步成 `withdrawn`。
 - **改派**:對 `pending` / `blocked` 任務指定新人(啟用、在本租戶、不是申請人,否則 `ASSIGNEE_NOT_ELIGIBLE`;已在本關的計畫裡 → `ALREADY_IN_STEP`);CAS `{ editVersion, 該 taskKey 尚無決定 }` → 計畫該項換人、原人進 `previousAssigneeIds`、`assigneeState = active`、`reassigned`。決定被接受時的原子 `+1` 讓依決定前的狀態算好的改派一定失敗重讀(已有決定 → `ALREADY_DECIDED`)。計畫固定:之後補建任務不會把原承辦人建回來。
 - **新增審核者**:只對「解析為空」而阻擋的關卡(`blocked` 且計畫為空);CAS 追加一項(`taskKey` 接在最大序號之後)、`assignee_added`;推進建任務、解除阻擋。
 - **審核者失效 hook**(`AssigneeInvalidationService.onUserChanged`):使用者管理的三個入口在稽核之後呼叫 —— 停用(`setUserEnabled(false)`;已停用再停用一次也會補做)、所屬組織異動(`setUserOrgs` 移除組織)、複製組織與角色的取代模式移除組織(`copyUserOrgRoles`)。對「進行中關卡、尚無決定、此刻已不合格(停用或已不在該租戶)」的計畫項目 CAS `assigneeState = invalid`、`history: blocked`;該關 `any` 且仍有有效未決定的項目 → 不阻擋,否則該關與實例 `blocked`。推進同步任務投影(→ `blocked`)與提交的 `blocked`。已被接受的決定不受影響。
@@ -258,7 +258,7 @@ admin 端(`hooks/useApplyCenterCounts.ts`):
 `apps/admin/src/pages/system/WorkflowBlockedPage/`,權限 `system.workflows.blocked-page.reassign`。
 
 - 頁籤「阻擋」/「需要推進」(`blockedInstances` 的兩種篩選);「需要推進」的候選超過上限時(`truncated`)提示只檢查了最久沒動的一批。
-- 每列:表單、實例上的標題槽(不含提交內容)、申請人、卡在哪 / 卡在誰(進行中審核關卡還沒決定的計畫項目,失效的排前面;解析為空的關卡標「找不到審核者」)、最後變動。
+- 每列:表單、實例上的標題槽(不含提交內容)、申請人、卡在哪 / 卡在誰(進行中審核關卡還沒決定的計畫項目,失效的排前面;解析為空的關卡標「找不到審核者」)、最後變動(`YYYY-MM-DD HH:mm`,讀者的租戶時區)。
 - 處置:**改派**(對計畫項目,用 `plan.taskId` 呼叫 `reassignTask`)、**新增審核者**(解析為空的關卡,`addStepAssignee`)、**重試推進**。選人跳窗把申請人與已在本關的人列出但灰掉。
 
 ### 申請中心(`apply-center`)
@@ -333,7 +333,7 @@ input 欄位的缺席 / `null`:
 通用碼照 GQL-04,不新增 code;「為什麼」放 `extensions.reason`(正本 `apps/api/src/workflows/workflows-error.ts`)。
 
 - `CONFLICT`:`DRAFT_REVISION_MISMATCH`、`DRAFT_EXISTS`、`DRAFT_MISSING`、`PUBLISH_IN_PROGRESS`、`PUBLISH_NOT_INTERRUPTED`、`NO_CURRENT_VERSION`、`CURRENT_VERSION_CHANGED`、`EDIT_VERSION_MISMATCH`、`STATUS_MISMATCH`、`HAS_DECISIONS`(撤回:已有審核意見)、`ALREADY_DECIDED`(改派:此任務已決定)、`ALREADY_IN_STEP`(改派 / 新增:此人已在本關)、`INSTANCE_CHANGED`(實例已結束、關卡已前進、不是解析為空的阻擋、一直被別的動作搶先)。送出時的容量上限 `REVISION_LIMIT` / `DOCUMENT_TOO_LARGE` 屬表單的錯誤(`docs/modules/forms.md`「錯誤」)。
-- `FORBIDDEN`:`ROOT_ONLY`、`NOT_WORKFLOW_OWNER`、`TENANT_ONLY`、`WORKFLOW_REMOVED` / `WORKFLOW_UNPUBLISHED` / `WORKFLOW_MISCONFIGURED`(送出時檢查,後者附 `issues`;綁定時沒有發布版也是 `WORKFLOW_UNPUBLISHED`)、`ASSIGNEE_NOT_ELIGIBLE`(改派 / 新增的對象停用、不在本租戶或是申請人)。
+- `FORBIDDEN`:`ROOT_ONLY`、`NOT_WORKFLOW_OWNER`、`TENANT_ONLY`、`WORKFLOW_REMOVED` / `WORKFLOW_UNPUBLISHED` / `WORKFLOW_MISCONFIGURED`(送出時檢查,後者附 `issues`;綁定時沒有發布版也是 `WORKFLOW_UNPUBLISHED`)、`ASSIGNEE_NOT_ELIGIBLE`(改派 / 新增的對象停用、不在本租戶或是申請人)、`NOT_APPLICANT`(撤回別人的單)。
 - `VALIDATION_FAILED`:發布的檢查器錯誤 → `fields: ["definition"]` + `issues`(`@repo/domain/workflow` 的 `WorkflowIssue`);綁定時檢查 → `fields: ["workflowKey"]` + `issues`(`BindingIssue`);其餘照一般的 `fields`。
 - 送出時檢查擋下時給申請人看的訊息是「流程設定有誤,請聯絡管理員」「流程尚未發布」「此表單的審核流程已移除,請聯絡管理員」(`SUBMIT_CHECK_MESSAGES`),前端依 reason 對應。
 

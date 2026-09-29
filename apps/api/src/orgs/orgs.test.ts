@@ -11,6 +11,10 @@ import {
   createUser,
   findRootOrgId,
 } from "../auth/test-support/fixtures";
+import {
+  SAMPLE_ONE_MODULE_KEY,
+  dataScopeTargetIdOf,
+} from "../data-scope/test-support/fixtures";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import {
   createRole,
@@ -23,6 +27,16 @@ const LOGIN = /* GraphQL */ `
   mutation Login($input: LoginInput!) {
     login(input: $input) {
       accessToken
+    }
+  }
+`;
+
+const SAVE_DATA_SCOPE_RULE = /* GraphQL */ `
+  mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
+    saveDataScopeRule(input: $input) {
+      rule {
+        collection
+      }
     }
   }
 `;
@@ -261,6 +275,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
   let tenantBId: Types.ObjectId;
   let deptBId: Types.ObjectId;
   /** 租戶 A 的管理員(擁有組織 = 租戶頂層)與部門使用者(擁有組織 = A 部門一) */
+  let tenantAdminId: Types.ObjectId;
   let tenantAdminToken: string;
   let deptUserToken: string;
   /** 租戶 B 的管理員(擁有組織 = 租戶 B 頂層,開關為 own) */
@@ -403,7 +418,7 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       parentId: tenantAId,
     });
 
-    const tenantAdminId = await createUser(api.connection, {
+    tenantAdminId = await createUser(api.connection, {
       account: "orgs-tenant-admin",
       password: PASSWORD,
       orgIds: [tenantAId],
@@ -1313,6 +1328,55 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       });
     });
 
+    it.each([
+      [
+        "form_submissions",
+        (orgId: Types.ObjectId) => ({
+          orgId,
+          tenantId: tenantAId,
+          moduleKey: "demo-form",
+          formKey: "demo-form",
+          version: 1,
+          status: "draft",
+          clientRequestId: `delete-${String(orgId)}`,
+        }),
+      ],
+      [
+        "workflow_instances",
+        (orgId: Types.ObjectId) => ({
+          orgId,
+          tenantId: tenantAId,
+          moduleKey: "demo-form",
+          status: "running",
+        }),
+      ],
+    ] as const)(
+      "只有 %s 掛著資料:reasons 含 HAS_BUSINESS_DATA",
+      async (collection, documentOf) => {
+        const orgId = await newOrgUnderTenantA(`只有 ${collection}`);
+        const now = new Date();
+        await api.connection.collection(collection).insertOne({
+          ...documentOf(orgId),
+          createdAt: now,
+          updatedAt: now,
+          createdBy: null,
+          updatedBy: null,
+          deletedAt: null,
+        });
+
+        const result = await api.graphql(
+          DELETE_ORG,
+          { input: { id: String(orgId) } },
+          { accessToken: tenantAdminToken },
+        );
+        expect(result.errors?.[0]?.extensions).toMatchObject({
+          code: "ORG_NOT_DELETABLE",
+          reasons: ["HAS_BUSINESS_DATA"],
+        });
+        expect(await deletedAtOf(orgId)).toBeNull();
+      },
+    );
+
     it("業務資料的前置檢查不吃操作者的可見範圍:管得到、看不到的組織照樣擋得下來", async () => {
       // 這位操作者的管理範圍是 C 部門二子樹,可見範圍只有 C 部門一(開關 own)—
       // 若用可見範圍去數業務資料,這一筆會數成 0,還掛著會員的組織就被誤判成可刪
@@ -1346,6 +1410,66 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
         reasons: ["HAS_BUSINESS_DATA"],
       });
       expect(await deletedAtOf(orgId)).toBeNull();
+    });
+
+    it("業務資料的前置檢查不受資料範圍規則收窄:規則讓操作者看不到那筆,照樣擋得下來", async () => {
+      const orgId = await newOrgUnderTenantA("資料被規則收窄");
+      const now = new Date();
+      // 別人建的示範資料(createdBy 不是操作者);規則「僅本人」會把它從操作者眼前收掉
+      await api.connection.collection("demo_items_one").insertOne({
+        name: "別人建的示範資料",
+        status: "draft",
+        orgId,
+        moduleKey: SAMPLE_ONE_MODULE_KEY,
+        tenantId: tenantAId,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: null,
+        updatedBy: null,
+        deletedAt: null,
+      });
+      const targetId = await dataScopeTargetIdOf(
+        api.connection,
+        SAMPLE_ONE_MODULE_KEY,
+      );
+      const saveRule = (rules: Record<string, unknown>[]) =>
+        api.graphql(
+          SAVE_DATA_SCOPE_RULE,
+          { input: { targetId, combineOp: "OR", rules } },
+          { accessToken: rootToken },
+        );
+      const saved = await saveRule([
+        {
+          audience: { type: "USER", ids: [String(tenantAdminId)] },
+          filter: {
+            op: "AND",
+            children: [
+              {
+                field: "createdBy",
+                cond: "in",
+                value: { kind: "dynamic", ref: "current-user" },
+              },
+            ],
+          },
+        },
+      ]);
+      expect(saved.errors).toBeUndefined();
+
+      try {
+        const result = await api.graphql(
+          DELETE_ORG,
+          { input: { id: String(orgId) } },
+          { accessToken: tenantAdminToken },
+        );
+
+        expect(result.errors?.[0]?.extensions).toMatchObject({
+          code: "ORG_NOT_DELETABLE",
+          reasons: ["HAS_BUSINESS_DATA"],
+        });
+        expect(await deletedAtOf(orgId)).toBeNull();
+      } finally {
+        await saveRule([]);
+      }
     });
 
     it("根組織不可刪:reasons 含 SYSTEM_ORG", async () => {

@@ -4,6 +4,7 @@ import { Types } from "mongoose";
 import { PasswordService } from "../auth/password/password.service";
 import {
   type AuthTestApp,
+  ROOT_ADMIN,
   startAuthTestApp,
 } from "../auth/test-support/auth-app";
 import {
@@ -11,6 +12,10 @@ import {
   createUser,
   findRootOrgId,
 } from "../auth/test-support/fixtures";
+import {
+  SAMPLE_ONE_MODULE_KEY,
+  dataScopeTargetIdOf,
+} from "../data-scope/test-support/fixtures";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import { MailService } from "../mail/mail.service";
 import { RecordingMailService } from "../mail/recording-mail.service";
@@ -20,6 +25,16 @@ const LOGIN = /* GraphQL */ `
   mutation Login($input: LoginInput!) {
     login(input: $input) {
       accessToken
+    }
+  }
+`;
+
+const SAVE_DATA_SCOPE_RULE = /* GraphQL */ `
+  mutation SaveDataScopeRule($input: SaveDataScopeRuleInput!) {
+    saveDataScopeRule(input: $input) {
+      rule {
+        collection
+      }
     }
   }
 `;
@@ -288,6 +303,7 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
   let mail: RecordingMailService;
 
   let rootOrgId: Types.ObjectId;
+  let rootOpsId: Types.ObjectId;
   let rootOpsToken: string;
   let rootViewToken: string;
 
@@ -485,7 +501,7 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
 
     // 根組織 + 三筆租戶作業權限(不是超級管理員 — 要真的走 @RequirePermission)
     const rootOpsAccount = nextAccount("root-ops");
-    const rootOpsId = await createUser(api.connection, {
+    rootOpsId = await createUser(api.connection, {
       account: rootOpsAccount,
       password: PASSWORD,
       orgIds: [rootOrgId],
@@ -1110,6 +1126,141 @@ describe("租戶作業(#135,GraphQL 端點 + 真 MongoDB)", () => {
         code: "PROVISION_NOT_REVOKABLE",
         reasons: ["HAS_BUSINESS_DATA"],
       });
+    });
+
+    /**
+     * 只有這一張業務表掛著資料也要擋(撤銷開通問的是租戶頂層):五張表的組織歸屬欄各不相同 ——
+     * forms 是 `ownerOrgId`、workflows / workflow_tasks 是 `tenantId`、提交與流程實例是 `orgId`。
+     */
+    it.each([
+      [
+        "forms",
+        (tenantId: Types.ObjectId) => ({
+          key: `revoke-form-${String(tenantId)}`,
+          name: "客製表單",
+          moduleKey: "demo-form",
+          ownerOrgId: tenantId,
+        }),
+      ],
+      [
+        "form_submissions",
+        (tenantId: Types.ObjectId) => ({
+          orgId: tenantId,
+          tenantId,
+          moduleKey: "demo-form",
+          formKey: "demo-form",
+          version: 1,
+          status: "draft",
+          clientRequestId: `revoke-${String(tenantId)}`,
+        }),
+      ],
+      [
+        "workflows",
+        (tenantId: Types.ObjectId) => ({
+          key: `revoke-workflow-${String(tenantId)}`,
+          name: "客製流程",
+          ownerOrgId: tenantId,
+          tenantId,
+        }),
+      ],
+      [
+        "workflow_instances",
+        (tenantId: Types.ObjectId) => ({
+          orgId: tenantId,
+          tenantId,
+          moduleKey: "demo-form",
+          status: "running",
+        }),
+      ],
+      [
+        "workflow_tasks",
+        (tenantId: Types.ObjectId) => ({
+          tenantId,
+          moduleKey: "demo-form",
+          instanceId: new Types.ObjectId(),
+          status: "pending",
+        }),
+      ],
+    ] as const)(
+      "只有 %s 掛著資料:PROVISION_NOT_REVOKABLE + HAS_BUSINESS_DATA",
+      async (collection, documentOf) => {
+        const { payload } = await provisionOne(`revoke-${collection}`);
+        const now = new Date();
+        await api.connection.collection(collection).insertOne({
+          ...documentOf(new Types.ObjectId(payload.org.id)),
+          createdAt: now,
+          updatedAt: now,
+          createdBy: null,
+          updatedBy: null,
+          deletedAt: null,
+        });
+
+        const result = await revokeProvision(payload.org.id);
+
+        expect(result.errors?.[0]?.extensions).toMatchObject({
+          code: "PROVISION_NOT_REVOKABLE",
+          reasons: ["HAS_BUSINESS_DATA"],
+        });
+        expect(await orgRow(payload.org.id)).not.toBeNull();
+      },
+    );
+
+    it("業務資料的前置檢查不受資料範圍規則收窄:規則讓操作者看不到那筆,照樣不可撤銷", async () => {
+      const { payload } = await provisionOne("revoke-rule-narrowed");
+      const tenantId = new Types.ObjectId(payload.org.id);
+      const now = new Date();
+      // 別人建的示範資料(createdBy 不是操作者);規則「僅本人」會把它從操作者眼前收掉
+      await api.connection.collection("demo_items_one").insertOne({
+        name: "別人建的示範資料",
+        status: "draft",
+        orgId: tenantId,
+        moduleKey: SAMPLE_ONE_MODULE_KEY,
+        tenantId,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: null,
+        updatedBy: null,
+        deletedAt: null,
+      });
+      const rootToken = await login(ROOT_ADMIN.account, ROOT_ADMIN.password);
+      const targetId = await dataScopeTargetIdOf(
+        api.connection,
+        SAMPLE_ONE_MODULE_KEY,
+      );
+      const saveRule = (rules: Record<string, unknown>[]) =>
+        api.graphql(
+          SAVE_DATA_SCOPE_RULE,
+          { input: { targetId, combineOp: "OR", rules } },
+          { accessToken: rootToken },
+        );
+      const saved = await saveRule([
+        {
+          audience: { type: "USER", ids: [String(rootOpsId)] },
+          filter: {
+            op: "AND",
+            children: [
+              {
+                field: "createdBy",
+                cond: "in",
+                value: { kind: "dynamic", ref: "current-user" },
+              },
+            ],
+          },
+        },
+      ]);
+      expect(saved.errors).toBeUndefined();
+
+      try {
+        const result = await revokeProvision(payload.org.id);
+
+        expect(result.errors?.[0]?.extensions).toMatchObject({
+          code: "PROVISION_NOT_REVOKABLE",
+          reasons: ["HAS_BUSINESS_DATA"],
+        });
+        expect(await orgRow(payload.org.id)).not.toBeNull();
+      } finally {
+        await saveRule([]);
+      }
     });
 
     it("非根組織的操作者即使持有權限也拒(FORBIDDEN),租戶原封不動", async () => {

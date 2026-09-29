@@ -13,6 +13,7 @@ import { DeleteIcon, EditIcon, ViewIcon } from "@repo/ui/icons";
 import { Stack } from "@repo/ui/stack";
 import { Tooltip } from "@repo/ui/tooltip";
 
+import { useCloseItemTabs } from "@/hooks/useCloseItemTabs";
 import { useFormSubmissionCache } from "@/hooks/useFormSubmissionCache";
 import { useModuleForms } from "@/hooks/useModuleForms";
 import { useSession } from "@/hooks/useSession";
@@ -57,11 +58,18 @@ export const FormListPage = ({ module }: ModulePageProps) => {
   const submissionActions = useSubmissionActions();
   const { session } = useSession();
   const updateCache = useFormSubmissionCache();
+  const closeItemTabs = useCloseItemTabs();
   // 刪除只要 id:不為了刪一筆再查整筆提交
   const deletion = useDeleteFormSubmissionMutation(session.client, {
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       updateCache(null);
       setDeleteTarget(null);
+      // 收掉這一筆在背景的詳情 / 編輯子頁籤;當前頁籤(列表)不變
+      closeItemTabs({
+        pageRoutes: [access.viewRoute, access.editRoute],
+        id: variables.input.id,
+        listRoute: access.listRoute,
+      });
     },
     onError: (failure) => {
       setDeleteError(formErrorOf(failure));

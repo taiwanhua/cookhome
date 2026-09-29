@@ -49,6 +49,31 @@ describe("欄位管理頁:上層繼承與可見範圍內的下層", () => {
     expect(within(row).getByText("由 子南港店 管理")).toBeInTheDocument();
   });
 
+  it("改不動的列:開關與「由 … 管理」都用 Tooltip 講理由(不是原生 title)", async () => {
+    const { user: actor } = renderPage();
+    await selectCategory(actor, "示範分類");
+    const hint = "這個選項是 好食公司 加的,你看得到但不能修改或停用。";
+
+    const row = await findRowOf("甜點");
+    // 操作欄的文字直接 hover
+    await actor.hover(within(row).getByText("由 好食公司 管理"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(hint);
+    await actor.unhover(within(row).getByText("由 好食公司 管理"));
+    await waitFor(() => {
+      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    });
+
+    // 停用的開關收不到 hover,事件載體是 Tooltip 自己包的外層 span
+    const hintCarrier = within(row)
+      .getByRole("switch", { name: "啟用「甜點」" })
+      .closest("span.MuiSwitch-root")?.parentElement;
+    if (hintCarrier === undefined || hintCarrier === null) {
+      throw new Error("改不動的開關沒有被 Tooltip 包起來");
+    }
+    await actor.hover(hintCarrier);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(hint);
+  });
+
   it("只有自己這一層加的那筆可編輯、可切", async () => {
     const { user: actor } = renderPage();
     await selectCategory(actor, "示範分類");

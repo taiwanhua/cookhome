@@ -146,6 +146,22 @@ describe("新增 / 編輯示範項目(共版型)", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("變更歷程的時間用讀者的租戶時區(不是預設的台北、也不是執行環境的時區)", async () => {
+    renderSampleOne({
+      path: editPath("demo-1"),
+      timezone: "America/New_York",
+    });
+
+    const history = await screen.findByRole("region", { name: "變更歷程" });
+    // 夾具是 UTC:09-10 06:22Z → 紐約(夏令 UTC−4)09-10 02:22;09-01 01:05Z → 08-31 21:05
+    expect(
+      await within(history).findByText("2026-09-10 02:22 王小明 修改了內容"),
+    ).toBeInTheDocument();
+    expect(
+      within(history).getByText("2026-08-31 21:05 王小明 建立"),
+    ).toBeInTheDocument();
+  });
+
   it("編輯頁沒有 show-history 權限:歷程區塊不顯示,也不打那個查詢", async () => {
     const { fake } = renderSampleOne({
       path: editPath("demo-1"),

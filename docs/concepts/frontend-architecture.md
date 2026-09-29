@@ -68,7 +68,7 @@ test/       測試支援
 
 ### AppBar 與頭像選單
 
-- **頁名**:目前網址對上的模組名。`/` 會立刻轉到第一個能進的頁面,標題留空;其他對不上模組的網址(包括群組路由)顯示「沒有權限進入此頁面」—— 群組路由會立刻轉到該群組第一個能進的頁面,群組底下一個都進不去時就停在無權限頁。
+- **頁名**:目前網址對上的模組名。`/` 與群組路由會立刻轉到底下第一個能進的頁面(`firstLinkRoute`),轉走前標題留空,不閃「沒有權限進入此頁面」。群組底下一個都進不去時停在無權限頁,標題顯示「沒有權限進入此頁面」,其他對不上模組的網址也一樣;`/` 一個都進不去時標題維持留空。
 - **「?」模組說明**:只有模組路由才有。內容是 `apps/admin/src/md/module-help/<key>.help.md`,build 時打包、彈窗動態載入;表單模組沒有專屬檔時用通用的 `form-module.help.md`;都沒有就停用。
 - **當前組織切換器**:`SelectField`;切換後換發 access token,並失效 `me`。
 - **頭像選單**(`Popover`):使用者卡(姓名、帳號 · 當前組織)、**外觀**與**語言**兩組 `SegmentedControl`(切了立刻生效、不關選單)、登出 / 登出所有裝置。用 `Popover` 而不用 `Menu`,是因為 `Menu` 按 Tab 就關、分段按鈕鍵盤到不了;只有登出兩項是 `MenuList`。
@@ -122,10 +122,13 @@ test/       測試支援
 | 頁內頁籤 | `@repo/ui/tabs`;同一網址內切換區塊 | 不是路由、不進頁籤列、狀態不進 URL                                                               |
 
 - 帶識別碼的詳情 / 編輯頁是**詳情子頁籤**:每筆一個,標籤「所屬模組名 — 項目名」。項目名由頁面拿到資料後經 `useRouteTabItemLabel` 提供,殼不查業務資料。
-- 表單模組與申請中心詳情的項目名由頁籤模板算出(`lib/form-engine/tab-label.ts` 的 `renderTabLabel`),見 `docs/modules/forms.md`。
+- 項目名最前面接頁面種類(「檢視・項目名」「編輯・項目名」),同一筆的詳情與編輯分得出來。組法是字典 `admin.formEngine.pages.tabLabelWithAction`,文字是 `admin.formEngine.pages.actions`:
+  - 固定欄位模組:頁面把頁面種類傳給 `useRouteTabItemLabel` 的第二個參數(`"view"` / `"edit"`),由它組。
+  - 表單模組與申請中心詳情:項目名由頁籤模板算出(`lib/form-engine/tab-label.ts` 的 `renderTabLabel`,模板沒寫 `{{action}}` 時自動接在最前面),呼叫端傳組好的字串、不給第二個參數;見 `docs/modules/forms.md`。
+- 刪除成功後,那一筆的詳情與編輯子頁籤一起關掉(以 `<隱藏頁路由>/<id>` 網址前綴比對,別筆不動):在詳情頁刪除 → 導向所屬模組的列表頁(沒綁列表頁 → 導向 `/`,與關掉最後一個頁籤的落點一致);從列表刪除 → 當前頁籤不變。做法是 `useRouteTabsStore` 的 `closeItemTabs`,各刪除流程成功後經 `hooks/useCloseItemTabs` 呼叫,不自己導向列表。
 - 要能分享、重整回得來、出現在頁籤列 → 做成(隱藏頁)路由。只是同一筆資料的不同面向 → 頁內頁籤。
 
-正本:`apps/admin/src/lib/route-tabs.ts`、`apps/admin/src/app/AdminShell/RouteTabs/useRouteTabs.ts`、`apps/admin/src/hooks/useRouteTabItemLabel.ts`
+正本:`apps/admin/src/lib/route-tabs.ts`、`apps/admin/src/stores/useRouteTabsStore.ts`、`apps/admin/src/app/AdminShell/RouteTabs/useRouteTabs.ts`、`apps/admin/src/hooks/useRouteTabItemLabel.ts`、`apps/admin/src/hooks/useCloseItemTabs.ts`
 
 ## 頁內權限判斷
 

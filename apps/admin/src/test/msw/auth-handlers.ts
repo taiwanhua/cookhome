@@ -92,6 +92,8 @@ export interface AuthWorldOptions {
   orgs?: TestOrg[];
   /** 當前組織的商標網址(側欄有商標就顯示圖、沒有才顯示名稱);預設沒有 */
   currentOrgLogoUrl?: string | null;
+  /** 當前組織的租戶時區(`me.currentOrg.timezone`);預設 `Asia/Taipei` */
+  currentOrgTimezone?: string;
   /** 首登須改密碼(預設 false):true 時除 me / changePassword / logout 外的受保護操作回 MUST_CHANGE_PASSWORD */
   mustChangePassword?: boolean;
   /** 使用者目前的密碼(changePassword 驗「目前密碼」用) */
@@ -144,6 +146,7 @@ export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
     modules = [overviewModule],
     orgs = [testOrg],
     currentOrgLogoUrl = null,
+    currentOrgTimezone = "Asia/Taipei",
     currentPassword = "secret-1234",
     validActionTokens = ["token-1"],
     setPasswordAccessToken = "access-set",
@@ -172,7 +175,7 @@ export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
   const toCurrentOrg = (org: TestOrg | undefined): TestCurrentOrg | null =>
     org === undefined
       ? null
-      : { ...org, logoUrl: currentOrgLogoUrl, timezone: "Asia/Taipei" };
+      : { ...org, logoUrl: currentOrgLogoUrl, timezone: currentOrgTimezone };
 
   const me: MeQuery["me"] = {
     ...testUser,

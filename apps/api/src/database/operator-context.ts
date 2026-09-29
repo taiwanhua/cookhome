@@ -60,6 +60,11 @@ export interface QueryScope {
    * 只能經 `BaseRepository.findOwnById` 設定。
    */
   ownRecordsOnly?: boolean;
+  /**
+   * **存在性檢查**:不套資料範圍規則(ADR-0008),租戶過濾照套。只回答「有沒有」,
+   * 只能經 BaseRepository 的存在性檢查方法設定(條件只能是歸屬欄、只回有無)。
+   */
+  existenceCheck?: boolean;
 }
 
 /** Document `$locals` 上存放操作者上下文的鍵(save 中介層讀取)。 */

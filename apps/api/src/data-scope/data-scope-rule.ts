@@ -1,5 +1,11 @@
 import { Types } from "mongoose";
 
+import {
+  addLocalCalendar,
+  startOfLocalDayOf,
+  toInstant,
+} from "@repo/domain/form";
+
 /**
  * 資料範圍規則的**型別目錄與純邏輯**(ADR-0008 的「型別 → 運算子 → 值來源」表的程式正本):
  * 欄位目錄、驗證、套用對象命中、條件樹編譯成 Mongo filter。
@@ -147,7 +153,7 @@ export const RULE_INVALID_REASONS = [
   "CONDITION_NOT_ALLOWED",
   /** 值來源不符型別:給了該型別不支援的動態值,或 kind 不是 static / dynamic */
   "VALUE_SOURCE_NOT_ALLOWED",
-  /** 值本身不合法:空清單、id 不是 ObjectId、日期解析不了、between 不是兩個、enum 不在選項內 */
+  /** 值本身不合法:空清單、id 不是 ObjectId、日期不是帶時區的 ISO 時點、between 不是兩個、enum 不在選項內 */
   "VALUE_INVALID",
   /** 套用對象的 type 不認得,或 all 以外沒給 ids / ids 不是 ObjectId */
   "AUDIENCE_INVALID",
@@ -481,7 +487,7 @@ function validateStaticValue(
     return {
       path: `${path}.values`,
       reason: "VALUE_INVALID",
-      detail: "value.values must be strings (ids / ISO dates / enum values)",
+      detail: "value.values must be strings (ids / ISO instants / enum values)",
     };
   }
   const items = values as string[];
@@ -522,14 +528,31 @@ function validateDateValues(
       detail: `${cond} expects exactly ${String(expected)} date value(s)`,
     };
   }
-  const bad = values.findIndex((item) => Number.isNaN(Date.parse(item)));
+  // 只收時點(帶時區的 ISO 8601,與表單引擎的日期存值同一種);`YYYY-MM-DD` 沒有時區、語意不明,一律拒
+  const bad = values.findIndex((item) => toInstant(item) === null);
   return bad === -1
     ? undefined
     : {
         path: `${path}.values[${String(bad)}]`,
         reason: "VALUE_INVALID",
-        detail: "date values must be parsable ISO date strings",
+        detail:
+          "date values must be ISO 8601 instants with a time zone (the picked day at 00:00 in the tenant time zone)",
       };
+}
+
+/** 規則裡有沒有日期條件(執行面據此決定要不要查規則所屬組織的租戶時區)。 */
+export function hasDateCondition(
+  rules: readonly DataScopeRuleEntry[],
+  catalog: readonly DataScopeField[],
+): boolean {
+  const dateFields = new Set(
+    catalog.filter((field) => field.type === "date").map((field) => field.name),
+  );
+  const visit = (node: DataScopeNode): boolean =>
+    "children" in node
+      ? node.children.some((child) => visit(child))
+      : dateFields.has(node.field);
+  return rules.some((rule) => visit(rule.filter));
 }
 
 // ---- 執行(查詢中介層) ----
@@ -555,6 +578,7 @@ export function matchesAudience(
 
 /**
  * 把一份已驗證的規則編譯成要 AND 進查詢的 Mongo 條件;沒有規則命中操作者 → `null`
+ * `timezone` = **規則所屬組織**的租戶時區(已驗過;日期條件的「次日 00:00」以它換算,與操作者無關)。
  * (ADR-0008:「沒有規則命中操作者 → 預設 = 可見範圍內」,也就是只剩租戶保底)。
  */
 export function compileRules(
@@ -562,11 +586,12 @@ export function compileRules(
   combineOp: DataScopeGroupOp,
   catalog: readonly DataScopeField[],
   facts: DataScopeOperatorFacts,
+  timezone: string,
 ): MongoCondition | null {
   const byName = new Map(catalog.map((field) => [field.name, field]));
   const matched = rules
     .filter((rule) => matchesAudience(rule.audience, facts))
-    .map((rule) => compileNode(rule.filter, byName, facts));
+    .map((rule) => compileNode(rule.filter, byName, facts, timezone));
   if (matched.length === 0) {
     return null;
   }
@@ -581,24 +606,29 @@ function compileNode(
   node: DataScopeNode,
   byName: ReadonlyMap<string, DataScopeField>,
   facts: DataScopeOperatorFacts,
+  timezone: string,
 ): MongoCondition {
   if ("children" in node) {
     const children = node.children.map((child) =>
-      compileNode(child, byName, facts),
+      compileNode(child, byName, facts, timezone),
     );
     return node.op === "AND" ? { $and: children } : { $or: children };
   }
-  return compileLeaf(node, byName, facts);
+  return compileLeaf(node, byName, facts, timezone);
 }
 
 function compileLeaf(
   leaf: DataScopeLeaf,
   byName: ReadonlyMap<string, DataScopeField>,
   facts: DataScopeOperatorFacts,
+  timezone: string,
 ): MongoCondition {
   // 驗證已保證欄位在目錄內;防守性地以 enum 當退路(不會讓條件放寬)
   const field = byName.get(leaf.field);
   const type = field?.type ?? "enum";
+  if (type === "date") {
+    return compileDateLeaf(leaf, timezone);
+  }
   const values = resolveValues(leaf.value, type, facts);
   switch (leaf.cond) {
     case "in": {
@@ -607,20 +637,63 @@ function compileLeaf(
     case "not-in": {
       return { [leaf.field]: { $nin: values } };
     }
-    case "between": {
-      return { [leaf.field]: { $gte: values[0], $lte: values[1] } };
-    }
-    case "before": {
-      return { [leaf.field]: { $lt: values[0] } };
-    }
     default: {
-      return { [leaf.field]: { $gt: values[0] } };
+      // 驗證不會放行(非日期型別只有 in / not-in);萬一出現,什麼都不命中
+      return { [leaf.field]: { $in: [] } };
     }
   }
 }
 
 /**
- * 值來源 → 實際比對值:動態值在此代入正在查的人(ADR-0008),靜態值依型別轉型。
+ * 日期條件 → 時點範圍(與表單引擎的日期同一種做法,`docs/concepts/form-engine.md`「值、計算與條件」):
+ * 值是「選的那一天在租戶時區 00:00」的時點,**整天**的邊界是次日 00:00(`addLocalCalendar`,
+ * 以**規則所屬組織**的租戶時區換算,夏令時間切換日也對)。值是用那個時區選出來的,邊界也用同一個時區算,
+ * 同一份規則對每個操作者都是同一段時間 —— 不因操作者所在租戶的時區而差一天。
+ *
+ * - `before` D:`< D`(D 當天不含)
+ * - `after` D:`>= D 的次日 00:00`(D 當天不含)
+ * - `between` A、B:`>= A` 且 `< B 的次日 00:00`(兩端的整天都含)
+ *
+ * 值不是時點(遷移前的 `YYYY-MM-DD`、壞資料)→ 這個條件什麼都不命中(fail-closed:規則命中了卻算不出範圍,
+ * 寧可看不到也不放寬)。
+ */
+function compileDateLeaf(
+  leaf: DataScopeLeaf,
+  timezone: string,
+): MongoCondition {
+  const instants =
+    leaf.value.kind === "static"
+      ? leaf.value.values.map((value) => toInstant(value))
+      : [];
+  const [from, to] = instants;
+  const nextDayOf = (instant: number): Date =>
+    new Date(
+      addLocalCalendar(
+        startOfLocalDayOf(instant, timezone),
+        1,
+        "days",
+        timezone,
+      ),
+    );
+  if (leaf.cond === "before" && typeof from === "number") {
+    return { [leaf.field]: { $lt: new Date(from) } };
+  }
+  if (leaf.cond === "after" && typeof from === "number") {
+    return { [leaf.field]: { $gte: nextDayOf(from) } };
+  }
+  if (
+    leaf.cond === "between" &&
+    typeof from === "number" &&
+    typeof to === "number"
+  ) {
+    return { [leaf.field]: { $gte: new Date(from), $lt: nextDayOf(to) } };
+  }
+  return { [leaf.field]: { $in: [] } };
+}
+
+/**
+ * 值來源 → 實際比對值(org / user / enum;日期走 `compileDateLeaf`):動態值在此代入正在查的人(ADR-0008),
+ * 靜態值依型別轉型。
  * 動態值代入後可能是空陣列(操作者沒有登入主體 / 沒有所屬組織)— 這時 `$in: []` 命中不到任何資料,
  * 是刻意的 fail-closed:規則命中了卻算不出對象,寧可看不到也不放寬。
  */
@@ -637,9 +710,6 @@ function resolveValues(
   }
   if (type === "org" || type === "user") {
     return value.values.map((item) => new Types.ObjectId(item));
-  }
-  if (type === "date") {
-    return value.values.map((item) => new Date(item));
   }
   return [...value.values];
 }

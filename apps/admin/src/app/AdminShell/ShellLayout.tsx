@@ -9,6 +9,8 @@ import { useApplyCenterCounts } from "@/hooks/useApplyCenterCounts";
 import {
   buildNavTree,
   enterableRouteMap,
+  findNavNode,
+  firstLinkRoute,
   matchModuleRoute,
   normalizePathname,
 } from "@/lib/module-tree";
@@ -59,9 +61,14 @@ export const ShellLayout = ({ me, pageMinWidths = {} }: ShellLayoutProps) => {
   // 用 `matchModuleRoute` 而不是 `routes.get(path)`:隱藏的詳情 / 編輯頁網址尾端帶識別碼,
   // 精準比對會落空,標題就會閃成「無權限」、「?」說明鈕也跟著不見(#320)
   const currentModule = matchModuleRoute(routes, path)?.module;
-  // `/` 與群組路由會立刻轉走(ModuleRoute),標題留空不閃「無權限」
+  // `/` 與群組路由由 ModuleRoute 轉到底下第一個能進的頁(與它同一條規則:`firstLinkRoute`),
+  // 轉走前那一次 render 標題留空,不閃「無權限」;群組底下沒有能進的頁 → 停在無權限頁,標題照常
+  const redirectScope = path === "/" ? tree : findNavNode(tree, path)?.children;
+  const isRedirectPath =
+    path === "/" ||
+    (redirectScope !== undefined && firstLinkRoute(redirectScope) !== null);
   const title =
-    currentModule?.name ?? (path === "/" ? "" : t("forbidden.title"));
+    currentModule?.name ?? (isRedirectPath ? "" : t("forbidden.title"));
   const minWidth =
     (currentModule === undefined
       ? undefined

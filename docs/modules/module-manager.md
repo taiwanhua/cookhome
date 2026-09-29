@@ -23,12 +23,12 @@
 
 每個模組固定有一筆 `<key>.*`(seed 自動產生,本表不列)。綁定原則:綁「按鈕 / 欄位所在的那一頁」(ADR-0004)。
 
-| 權限 key                                          | 它是哪一頁的什麼                                                                                                                                                          |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `system.module-manager.view`                      | 看模組樹與各模組的權限清單(唯讀)                                                                                                                                          |
-| `system.module-manager.toggle-enabled`            | 模組 / 權限的 `enabled` 切換 + API(停用父模組連動整棵子樹;停用權限 = 全域 kill switch,連超級管理員也不給;停用確認彈窗 Figma「Overlay / 停用模組確認」)                    |
-| `system.module-manager.set-icon`                  | 模組的側欄圖示選擇器 + API。**獨立於 `.toggle-enabled`**:換圖示只改側欄長相、隨時換得回來,停用卻會讓所有租戶少掉整塊功能,兩件事的後果差太遠,不共用一把鑰匙                |
-| `system.module-manager.delete-retired-permission` | 「退役權限清理」的刪除 + API:刪表單發布產生、已退役的欄位級權限(三層檢查:草稿仍用到擋下、只剩已完成要確認、沒人用直接刪;規則正本 `docs/modules/forms.md`「退役權限清理」) |
+| 權限 key                                          | 它是哪一頁的什麼                                                                                                                                                                                         |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `system.module-manager.view`                      | 看模組樹與各模組的權限清單(唯讀)                                                                                                                                                                         |
+| `system.module-manager.toggle-enabled`            | 模組 / 權限的 `enabled` 切換 + API(停用父模組連動整棵子樹;停用權限 = 全域 kill switch,連超級管理員也不給;停用確認彈窗 Figma「Overlay / 停用模組確認」)                                                   |
+| `system.module-manager.set-icon`                  | 模組的側欄圖示選擇器 + API。**獨立於 `.toggle-enabled`**:換圖示只改側欄長相、隨時換得回來,停用卻會讓所有租戶少掉整塊功能,兩件事的後果差太遠,不共用一把鑰匙                                               |
+| `system.module-manager.delete-retired-permission` | 「退役權限清理」的刪除 + API:刪表單發布產生、已退役的欄位級權限(三層檢查:草稿仍用到擋下、只剩已完成要確認、沒人用直接刪;「用到」含升級後舊修訂綁的版本;規則正本 `docs/modules/forms.md`「退役權限清理」) |
 
 模組本身 `isRootOnly`(seed 層),租戶管理員模板不含。
 
@@ -36,8 +36,8 @@
 
 ## 資料
 
-- **`modules`**:模組樹(物化路徑 `ancestors`)。`enabled` 與 `icon` 是 ADR-0002 的「初始 seed 值的欄位」(`seeds/modules.ts` 的 `initialSeedValueFields: ["enabled", "icon"]`),seed 重跑不覆蓋人改過的值;`engine`(`fixed` / `form`)與其餘結構欄位每次 seed 以 key 冪等同步。
-- **`modules.settings.list`**:表單模組的列表欄位配置,由 `setModuleListColumns` 寫入(形狀與驗證見 `docs/modules/forms.md`「列表欄位配置」)。`settings` 不在初始 seed 值欄位內,seed 宣告的值是 `{}`。
+- **`modules`**:模組樹(物化路徑 `ancestors`)。`enabled`、`icon`、`settings` 是 ADR-0002 的「初始 seed 值的欄位」(`seeds/modules.ts` 的 `initialSeedValueFields: ["enabled", "icon", "settings"]`),seed 重跑不覆蓋人改過的值;`engine`(`fixed` / `form`)與其餘結構欄位每次 seed 以 key 冪等同步。
+- **`modules.settings.list`**:表單模組的列表欄位配置,由 `setModuleListColumns` 寫入(形狀與驗證見 `docs/modules/forms.md`「列表欄位配置」)。`settings` 是初始 seed 值欄位:seed 建立時寫 `{}`,之後重跑不覆蓋,root 設的列表欄位配置不會被部署洗掉。
 - **`permissions`**:`moduleId` 指向擁有它的模組;`enabled` 同為初始 seed 值欄位。`source = seed` 是 seed 宣告的權限,`source = dynamic` 是表單發布產生的欄位級權限;`retiredAt` 有值 = 已退役(模組樹與權限矩陣都不列,由「退役權限清理」處理)。
 - **隱藏的 `api` 模組**掛純 API 權限(沒有畫面)。
 - `isRootOnly` 只存在於 seed 宣告層、**不落庫**(`module-declaration.ts`),執行期無從得知,故不在任何回傳欄位內。

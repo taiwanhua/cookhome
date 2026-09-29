@@ -1,8 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 
 import type { FormDefinition } from "@repo/domain/form";
 
+import { readStoredEntries, routeTabsStorageKey } from "@/lib/route-tabs";
+import { testUser } from "@/test/msw/auth-handlers";
 import {
   DEMO_FORM_ROUTES,
   SHOPPING_FORM_KEY,
@@ -175,5 +177,44 @@ describe("表單模組詳情頁(預設組裝,FormRenderer 唯讀模式)", () => 
 
     const tabs = await screen.findByRole("tablist", { name: "路由頁籤" });
     expect(await within(tabs).findByText(/購物單 — 小華/)).toBeInTheDocument();
+  });
+
+  it("刪除:那一筆的詳情與編輯子頁籤都關掉、導向列表;別筆的子頁籤不動", async () => {
+    const storageKey = routeTabsStorageKey(testUser.id);
+    const view = `${DEMO_FORM_ROUTES.viewPage}/sub-1`;
+    const other = `${DEMO_FORM_ROUTES.viewPage}/sub-2`;
+    sessionStorage.clear();
+    sessionStorage.setItem(
+      storageKey,
+      JSON.stringify([
+        { route: DEMO_FORM_ROUTES.list },
+        { route: view },
+        { route: `${DEMO_FORM_ROUTES.editPage}/sub-1` },
+        { route: other },
+      ]),
+    );
+    const { user } = renderShopping({
+      path: view,
+      world: {
+        moduleForms: [shoppingForm],
+        versions: { [`${SHOPPING_FORM_KEY}@1`]: shoppingDefinition() },
+        submissions: [submissionFragment()],
+      },
+    });
+    await screen.findByRole("heading", { name: "檢視・雞蛋" });
+
+    await user.click(screen.getByRole("button", { name: "刪除" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "確認刪除" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        DEMO_FORM_ROUTES.list,
+      );
+    });
+    expect(readStoredEntries(storageKey).map((entry) => entry.route)).toEqual([
+      DEMO_FORM_ROUTES.list,
+      other,
+    ]);
   });
 });

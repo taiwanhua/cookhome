@@ -20,7 +20,7 @@ const openOptions = (actor: { click: (element: Element) => Promise<void> }) =>
  * 變成 `option` 的 `aria-disabled`,原因從整列的說明文字變成選項內的次文字。
  */
 describe("指派角色彈窗", () => {
-  it("指派角色:候選來自 roles query,停用不可選、租戶副本標記、範圍外的既有授予唯讀", async () => {
+  it("指派角色:候選來自 roles query,停用不可選、預設角色標記、範圍外的既有授予唯讀", async () => {
     const { user: actor, fake } = renderPage();
 
     await screen.findByText("王小明");
@@ -43,8 +43,8 @@ describe("指派角色彈窗", () => {
     expect(editor).toHaveAttribute("aria-selected", "true");
     expect(editor).not.toHaveAttribute("aria-disabled", "true");
     expect(editor).toHaveTextContent("擁有組織:租戶 A");
-    // 租戶副本的標記跟著選項走(決定要不要選它時就看得到)
-    expect(autocompleteOption("租戶管理員")).toHaveTextContent("租戶副本");
+    // 預設角色(租戶副本)的標記跟著選項走(決定要不要選它時就看得到)
+    expect(autocompleteOption("租戶管理員")).toHaveTextContent("預設角色");
 
     // 停用的角色勾了也不生效(ADR-0011 步驟 2),所以不給新選
     const viewer = autocompleteOption("檢視者");

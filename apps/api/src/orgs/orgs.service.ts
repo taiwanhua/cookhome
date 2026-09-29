@@ -7,14 +7,19 @@ import {
   DemoItemsOneRepository,
   DemoItemsTwoRepository,
   FieldsRepository,
+  FormSubmissionsRepository,
+  FormsRepository,
   OrgsRepository,
   RolesRepository,
+  WorkflowInstancesRepository,
 } from "../database/database.module";
 import {
   type OperatorContext,
   isOrgManaged,
 } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
+import { WorkflowTasksRepository } from "../database/workflow-tasks.repository";
+import { WorkflowsRepository } from "../database/workflows.repository";
 import { StorageService, isOwnedUploadPath } from "../storage/storage.service";
 import type { CreateChildOrgInput } from "./dto/create-child-org.input";
 import type { DeleteOrgInput } from "./dto/delete-org.input";
@@ -243,6 +248,11 @@ export class OrgsService {
     private readonly demoItemsOne: DemoItemsOneRepository,
     private readonly demoItemsTwo: DemoItemsTwoRepository,
     private readonly fields: FieldsRepository,
+    private readonly forms: FormsRepository,
+    private readonly submissions: FormSubmissionsRepository,
+    private readonly workflows: WorkflowsRepository,
+    private readonly instances: WorkflowInstancesRepository,
+    private readonly tasks: WorkflowTasksRepository,
     private readonly roles: RolesRepository,
     private readonly protection: OwnerProtectionService,
     private readonly storage: StorageService,
@@ -691,26 +701,38 @@ export class OrgsService {
   }
 
   /**
-   * 「無業務資料引用」:掛在這個組織下的租戶資料(`orgId` 指向它)。
-   * 清單 = 目前有 `orgId` 的業務 collection;第 5 段示範模組長出新 collection 時在此加一項。
+   * 「無業務資料引用」:掛在這個組織下的租戶資料。清單 = 全部帶組織歸屬的業務 collection,
+   * 新增一張業務 collection 時在此加一項:
+   * - `orgId` 指向它:customers、兩張示範表、fields、form_submissions、workflow_instances
+   * - 歸屬是租戶頂層、沒有 `orgId` 的:forms(`ownerOrgId`)、workflows / workflow_tasks(`tenantId`)——
+   *   只有租戶頂層會命中,也正是撤銷開通會問到的那一層
+   *
    * `audit_logs` 刻意不算 — 那是只增不改的歷史紀錄(ADR-0004),不是被引用的業務資料。
    *
    * **以 `subtreeContext` 問**(查詢已釘死在這一個已驗過的組織上):業務 collection 吃的是
    * **可見範圍**,而刪除的資格吃**管理範圍**(ADR-0005 的分工)— 兩者不一定重疊。
    * 若用操作者自己的可見範圍去數,管得到但看不到那個組織的人會數到 0,
    * 把還掛著資料的組織誤判成可刪。前置檢查要問「有沒有」,不是「你看不看得到」。
+   * 同一條理由,經 BaseRepository 的表一律用 `existsAny`:模組資料表的資料範圍規則(ADR-0008)
+   * 會再收窄操作者看得到的;存在性檢查的條件釘在該組織的歸屬欄、略過資料範圍規則。
    */
   private async hasBusinessData(
     operator: OperatorContext,
     orgId: Types.ObjectId,
   ): Promise<boolean> {
     const reader = subtreeContext(operator);
-    const counts = await Promise.all([
-      this.customers.count(reader, { orgId }),
-      this.demoItemsOne.count(reader, { orgId }),
-      this.demoItemsTwo.count(reader, { orgId }),
-      this.fields.count(reader, { orgId }),
+    const found = await Promise.all([
+      this.customers.existsAny(reader, "orgId", orgId),
+      this.demoItemsOne.existsAny(reader, "orgId", orgId),
+      this.demoItemsTwo.existsAny(reader, "orgId", orgId),
+      this.fields.existsAny(reader, "orgId", orgId),
+      this.forms.existsAny(reader, "ownerOrgId", orgId),
+      this.submissions.existsAny(reader, "orgId", orgId),
+      this.instances.existsAny(reader, "orgId", orgId),
+      this.tasks.count(orgId, {}).then((count) => count > 0),
+      // workflows 的邊界就是 tenantId(不經 BaseRepository),以本組織當邊界查「有沒有任何一筆」
+      this.workflows.findOne(orgId, {}).then((found) => found !== null),
     ]);
-    return counts.some((count) => count > 0);
+    return found.some(Boolean);
   }
 }

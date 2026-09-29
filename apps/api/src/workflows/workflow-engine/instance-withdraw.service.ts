@@ -5,7 +5,10 @@ import { LIVE_INSTANCE_STATUSES } from "@repo/domain/workflow";
 
 import { WorkflowInstancesRepository } from "../../database/database.module";
 import { systemContext } from "../tenant-directory.service";
-import { workflowConflictError } from "../workflows-error";
+import {
+  workflowConflictError,
+  workflowForbiddenError,
+} from "../workflows-error";
 import {
   WorkflowEngineHooks,
   WorkflowEngineService,
@@ -17,7 +20,8 @@ const LIVE = [...LIVE_INSTANCE_STATUSES];
 const CAS_ATTEMPTS = 3;
 
 /**
- * 撤回(Spec 6b §6「撤回」):條件更新實例 `{ status ∈ [running, blocked], editVersion: 預期值,
+ * 撤回(Spec 6b §6「撤回」):只有申請人本人(實例的 `createdBy`,抄自提交)能撤回,別人 → `FORBIDDEN`
+ * (`NOT_APPLICANT`),先於狀態檢查。條件更新實例 `{ status ∈ [running, blocked], editVersion: 預期值,
  * 所有關卡的 decisions 都空 }` → `withdrawn`、所有 active 關卡 `terminated`、`$inc editVersion`。
  * 「沒有決定」**寫進條件本身**,不只靠先讀:撤回讀到無決定後決定才寫入 → 決定的原子 `+1` 讓撤回的 CAS 失敗,
  * 重讀後看到決定 → 拒絕「已有審核意見,不能撤回」。之後 `advance` 收尾(列 2:任務取消、提交 → `withdrawn`)。
@@ -36,6 +40,12 @@ export class InstanceWithdrawService {
   ): Promise<void> {
     for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt += 1) {
       const instance = await this.engine.findInstance(instanceId);
+      if (instance !== null && !instance.createdBy?.equals(actorId)) {
+        throw workflowForbiddenError(
+          "Only the applicant can withdraw the submission",
+          "NOT_APPLICANT",
+        );
+      }
       if (instance === null || !LIVE.includes(instance.status as never)) {
         throw workflowConflictError(
           "The submission is no longer under review",

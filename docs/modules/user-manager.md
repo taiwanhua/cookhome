@@ -176,7 +176,9 @@ copyUserOrgRoles(input: { sourceUserId, targetUserId, mode: MERGE | REPLACE, dry
 
 ## 稽核
 
-由模組層寫 `audit_logs`(ADR-0004)。每個會改資料的動作寫一筆:`action` = `user.create`、`user.edit`、`user.toggle-enabled`、`user.add-org`、`user.remove-org`(`after` 含 radio 選項與解除的角色清單)、`user.grant-role`、`user.revoke-role`;複製組織與角色沿用後四種(每一步寫完各一筆),`after` 多 `copiedFrom`(來源使用者 id)與 `mode`,其中 `user.remove-org` 的 `before` 放目標複製前完整的所屬組織(`currentOrgIds`),沒有差異就不寫;`targetType = "user"`,`targetId` = 被操作的使用者;`before` / `after` 只放有變的欄位,**身分證字號永不寫進 audit_logs**(只記「已變更」)。組織頁的「加入成員」同樣寫 `user.add-org`。
+由模組層寫 `audit_logs`(ADR-0004)。每個會改資料的動作寫一筆:`action` = `user.create`、`user.edit`、`user.toggle-enabled`、`user.add-org`、`user.remove-org`(`after` 含 radio 選項與解除的角色清單)、`user.grant-role`、`user.revoke-role`;複製組織與角色沿用後四種(每一步寫完各一筆),`after` 多 `copiedFrom`(來源使用者 id)與 `mode`,沒有差異就不寫;`targetType = "user"`,`targetId` = 被操作的使用者;`before` / `after` 只放有變的欄位,**身分證字號永不寫進 audit_logs**(只記「已變更」)。組織頁的「加入成員」同樣寫 `user.add-org`。
+
+`user.remove-org` 的例外:`before.orgIds` 放移出前完整的所屬組織清單,`after.orgIds` 只放被移出的組織。
 
 正本:`apps/api/src/users/users.service.ts`
 

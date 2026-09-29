@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useFormatter, useTranslations } from "use-intl";
+import { useTranslations } from "use-intl";
 
 import {
   BlockedInstancesFilter,
@@ -19,6 +19,7 @@ import { Typography } from "@repo/ui/typography";
 import { RetryAdvanceButton } from "@/components/workflow/ApprovalSection/RetryAdvanceButton";
 import { useModuleRoutes } from "@/hooks/useModuleRoutes";
 import { useSession } from "@/hooks/useSession";
+import { useTemporalText } from "@/hooks/useTemporalText";
 
 import { WORKFLOWS_MODULE_KEY } from "../workflows-permissions";
 import { AssignUserDialog } from "./AssignUserDialog";
@@ -45,12 +46,12 @@ interface Handling {
  *
  * - 篩選「阻擋」(找不到審核者 / 審核者失效)與「需要推進」(中斷、投影不同步…,判斷表對候選實例 dry-run;
  *   候選超過上限時只檢查了最久沒動的那一批,`truncated` 時提示)
- * - 每列:表單、實例上的標題槽(不含提交內容)、申請人、卡在哪一關、卡在誰、多久
+ * - 每列:表單、實例上的標題槽(不含提交內容)、申請人、卡在哪一關、卡在誰、最後變動(讀者的租戶時區)
  * - 處置:改派(失效或還在等的人)、新增審核者(解析為空的關卡)、重試推進(冪等)
  */
 export const WorkflowBlockedPage = () => {
   const t = useTranslations("admin.workflows.blocked");
-  const format = useFormatter();
+  const temporalText = useTemporalText();
   const navigate = useNavigate();
   const routeOf = useModuleRoutes();
   const { session } = useSession();
@@ -58,7 +59,6 @@ export const WorkflowBlockedPage = () => {
     BlockedInstancesFilter.Blocked,
   );
   const [page, setPage] = useState(1);
-  const [now] = useState(() => new Date());
   const [handling, setHandling] = useState<Handling | null>(null);
   const actions = useBlockedActions();
   const query = useBlockedInstancesQuery(session.client, {
@@ -192,8 +192,7 @@ export const WorkflowBlockedPage = () => {
             {
               key: "since",
               header: t("since"),
-              render: (row) =>
-                format.relativeTime(new Date(row.updatedAt), now),
+              render: (row) => temporalText(row.updatedAt, "datetime"),
             },
             {
               key: "actions",

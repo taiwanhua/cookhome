@@ -164,7 +164,11 @@ input SaveDataScopeRuleInput {
         {
           "field": "createdAt",
           "cond": "between",
-          "value": { "kind": "static", "values": ["<ISO 起日>", "<ISO 迄日>"] },
+          // 起日 / 迄日各自在租戶時區 00:00 的時點(帶時區的 ISO 8601)
+          "value": {
+            "kind": "static",
+            "values": ["<ISO 起日時點>", "<ISO 迄日時點>"],
+          },
         },
       ],
     },
@@ -178,12 +182,20 @@ input SaveDataScopeRuleInput {
 | ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
 | `ORG`  | `in` / `not-in`                | `{ kind: "static", values: [組織 id] }` 或 `{ kind: "dynamic", ref: "current-user-orgs" }` |
 | `USER` | `in` / `not-in`                | `{ kind: "static", values: [使用者 id] }` 或 `{ kind: "dynamic", ref: "current-user" }`    |
-| `DATE` | `between` / `before` / `after` | `{ kind: "static", values: [ISO 日期] }`(`between` 剛好兩個,其餘一個);**無動態值**         |
+| `DATE` | `between` / `before` / `after` | `{ kind: "static", values: [ISO 時點] }`(`between` 剛好兩個,其餘一個);**無動態值**         |
 | `ENUM` | `in` / `not-in`                | `{ kind: "static", values: [seed 宣告的選項 value] }`;**無動態值**                         |
 
 `value.values` 一律是**字串陣列**(id、日期、enum value 都以字串送),型別轉換在 api 內完成。
 
-**日期條件的比對時點**:admin 的 `DatePicker` 送 `YYYY-MM-DD`,api 以 `new Date(值)` 轉成**該日 UTC 00:00** 這個時點再與欄位(Mongo Date)比:`before` = `$lt`、`after` = `$gt`、`between` = `$gte` 起日 / `$lte` 迄日(兩端都是當日 UTC 00:00,迄日當天 00:00 之後的資料不含在內)。不依租戶時區換算。
+**日期條件的比對時點**:與表單引擎的日期同一種做法(`docs/concepts/form-engine.md`「值、計算與條件」),全系統沒有第二套。值是**選的那一天在規則所屬組織的租戶時區 00:00 的時點**。規則是根組織專屬設定、沒有 `orgId`,所屬組織就是根組織;本頁只有站在根組織才進得來,所以 admin 的 `DatePicker` 選日後以 `me.currentOrg.timezone`(= 根組織的時區)換成時點、送帶時區的 ISO 8601 字串(`lib/form-engine/local-day.ts`,與日期欄的 `DateWidget` 同一組),回顯時再換回該時區的 `YYYY-MM-DD`。api 只收時點(`@repo/domain/form` 的 `toInstant` 認得的字串),`YYYY-MM-DD` 這種沒有時區的字一律 `VALUE_INVALID`。「整天」的邊界是次日 00:00,由 api 以**規則所屬組織的租戶時區**換算(`addLocalCalendar`,夏令時間切換日也對;時區的來源 `apps/api/src/database/tenant-timezone.ts`),與操作者在哪個租戶無關 —— 值是用那個時區選出來的,邊界也用同一個時區算,同一份規則對每個人都是同一段時間。這個時區不跟著規則快取,每個請求讀一次根組織的 `settings.timezone`(只在規則裡有日期條件時讀):改時區即時生效,下一個請求的邊界就是新時區的那一天,不必重存規則。
+
+| `cond`    | 條件                                  | 含不含當天         |
+| --------- | ------------------------------------- | ------------------ |
+| `before`  | `< 該時點`                            | 當天不含           |
+| `after`   | `>= 該時點的次日 00:00`               | 當天不含           |
+| `between` | `>= 起時點` 且 `< 迄時點的次日 00:00` | 起日與迄日整天都含 |
+
+同一個時點在不同時區可能落在不同日期:根組織是台北時區時,台北 08:00 前建立的資料 UTC 還是前一天,比對時照台北的那一天算,紐約租戶的操作者看到的也是同一段。存著的值不是時點(壞資料)時,那個條件什麼都不命中(fail-closed,與動態值算不出對象同一個原則)。
 
 正本:`apps/api/src/data-scope/`(`data-scope.resolver.ts`、`data-scope-rule.ts`、`models/data-scope.model.ts`)、`apps/api/schema.gql`
 
@@ -216,16 +228,16 @@ input SaveDataScopeRuleInput {
 
 `path` 指到條件樹裡出問題的位置(如 `rules[0].filter.children[1].value.values[0]`),`reason` 是原因列舉;前端依 `reason` 顯示中文、把錯誤標在 `path` 指到的那一列。一次只回第一個違規(整份覆蓋,修掉再送)。
 
-| `reason`                   | 什麼情況                                                                    |
-| -------------------------- | --------------------------------------------------------------------------- |
-| `MALFORMED_RULE`           | `rules` 不是陣列、單筆不是物件、缺 `audience` / `filter`                    |
-| `MALFORMED_NODE`           | 節點既不是群組也不是條件列,或 `op` / `field` 型別不對                       |
-| `EMPTY_GROUP`              | 群組的 `children` 是空的                                                    |
-| `UNKNOWN_FIELD`            | `field` 不在該目標的欄位目錄內                                              |
-| `CONDITION_NOT_ALLOWED`    | `cond` 不是該欄位型別允許的                                                 |
-| `VALUE_SOURCE_NOT_ALLOWED` | `value.kind` 不是 static / dynamic,或該型別不支援這個動態值                 |
-| `VALUE_INVALID`            | 空清單、id 不是 ObjectId、日期解析不了、`between` 不是兩個、enum 不在選項內 |
-| `AUDIENCE_INVALID`         | `audience.type` 不認得,或 `ALL` 以外沒給 `ids` / `ids` 不是 id              |
+| `reason`                   | 什麼情況                                                                                 |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| `MALFORMED_RULE`           | `rules` 不是陣列、單筆不是物件、缺 `audience` / `filter`                                 |
+| `MALFORMED_NODE`           | 節點既不是群組也不是條件列,或 `op` / `field` 型別不對                                    |
+| `EMPTY_GROUP`              | 群組的 `children` 是空的                                                                 |
+| `UNKNOWN_FIELD`            | `field` 不在該目標的欄位目錄內                                                           |
+| `CONDITION_NOT_ALLOWED`    | `cond` 不是該欄位型別允許的                                                              |
+| `VALUE_SOURCE_NOT_ALLOWED` | `value.kind` 不是 static / dynamic,或該型別不支援這個動態值                              |
+| `VALUE_INVALID`            | 空清單、id 不是 ObjectId、日期不是帶時區的 ISO 時點、`between` 不是兩個、enum 不在選項內 |
+| `AUDIENCE_INVALID`         | `audience.type` 不認得,或 `ALL` 以外沒給 `ids` / `ids` 不是 id                           |
 
 admin 的解讀集中在 `DataScopePage/data-scope-error.ts`。
 

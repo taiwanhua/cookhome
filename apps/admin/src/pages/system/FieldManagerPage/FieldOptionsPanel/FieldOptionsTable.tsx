@@ -1,10 +1,10 @@
 import { useTranslations } from "use-intl";
 
-import { Box } from "@repo/ui/box";
 import { Button } from "@repo/ui/button";
 import { Switch } from "@repo/ui/switch";
 import { Table, type TableColumn } from "@repo/ui/table";
 import { Tag } from "@repo/ui/tag";
+import { Tooltip } from "@repo/ui/tooltip";
 import { Typography } from "@repo/ui/typography";
 
 import type { FieldOptionLike } from "../field-manager-types";
@@ -37,9 +37,7 @@ export interface FieldOptionsTableProps {
  * 與 Figma 的兩處差異(PR 差異表有列):設計稿把「狀態」畫成唯讀 Tag、開關另計,
  * 這裡依票直接用 `Switch`(停用 / 啟用直接送,不另開確認);沒有 `toggle-enabled`
  * 權限時才退回 Tag。改不動的列是**唯讀**的開關 + 一句說明,不是把它藏起來 ——
- * 看得到但動不了,跟「這個動作我沒有權限」是兩回事。
- *
- * 提示用原生 `title`:`@repo/ui` 目前沒有 Tooltip 元件(#260 進 main 後換掉)。
+ * 看得到但動不了,跟「這個動作我沒有權限」是兩回事。理由用 `Tooltip` 提示(REACT-10)。
  */
 export const FieldOptionsTable = ({
   fields,
@@ -140,10 +138,7 @@ export const FieldOptionsTable = ({
           );
         }
         return (
-          <Box
-            component="span"
-            title={isToggleable ? undefined : lockedHintOf(field)}
-          >
+          <Tooltip title={isToggleable ? "" : lockedHintOf(field)}>
             <Switch
               checked={field.enabled}
               disabled={!isToggleable || pendingFieldId === field.id}
@@ -154,7 +149,7 @@ export const FieldOptionsTable = ({
                 input: { "aria-label": t("toggleAria", { name: field.label }) },
               }}
             />
-          </Box>
+          </Tooltip>
         );
       },
     },
@@ -177,14 +172,11 @@ export const FieldOptionsTable = ({
         }
         // 改不動的列講明「誰在管它」;只是沒有 edit 權限的自己人列不需要解釋
         return (
-          <Typography
-            component="span"
-            variant="body2"
-            color="text.disabled"
-            title={field.canEdit ? undefined : lockedHintOf(field)}
-          >
-            {lockedLabelOf(field)}
-          </Typography>
+          <Tooltip title={field.canEdit ? "" : lockedHintOf(field)}>
+            <Typography component="span" variant="body2" color="text.disabled">
+              {lockedLabelOf(field)}
+            </Typography>
+          </Tooltip>
         );
       },
     },
