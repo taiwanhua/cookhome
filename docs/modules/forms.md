@@ -143,7 +143,7 @@
 - **輸出**:讀出來的 `Date` 由 GraphQL `values`(JSON)序列化成 ISO 字串;表達式的語意值也是 ISO 字串(`semanticValueOf`)。lookup `form_submission` 來源的日期值回 ISO、顯示名以讀者的租戶時區格式化。
 - **定義裡的日期**:`rules.min` / `max`、表達式常數、`default.value` 是 ISO 字串。`date` 的上下限以租戶時區的當地日期比、`datetime` 以時點比(超出時訊息以租戶時區顯示)。表達式裡的日期常數存 `{ "date": ISO }`(把常數標成日期型別),日期時間常數是 ISO 字串。
 - **運算**:比較(`== != < > <= >=`)兩邊都是日期時間時比時點,一邊是日期、一邊是日期時間時換成租戶時區的當地日再比(`compareLocalDay`;付款日 = 今天 14:30 → 相等);`dateAdd(起, before | after, 數量, days | weeks | months | years)` 以租戶時區加減日曆單位(`addLocalCalendar`,月 / 年溢出取該月最後一天),日期起回當地 00:00、日期時間起回時點;`dateDiff` 的 `days` 是租戶時區的當地日期差,`hours` / `minutes` 是時點差。
-- 時區來源是讀者當前組織所屬租戶的 `orgs.settings.timezone`(`me.currentOrg.timezone`,沒設 = `Asia/Taipei`)。換算與格式化的正本是 `packages/domain/src/form/temporal.ts`(`toInstant` / `startOfLocalDay` / `compareLocalDay` / `addLocalCalendar` / `formatTemporal`)。
+- 時區來源是讀者當前組織所屬租戶的 `orgs.settings.timezone`(`me.currentOrg.timezone`,沒設或不是 `Intl` 認得的時區 = `Asia/Taipei`;`apps/api/src/database/tenant-timezone.ts`)。換算與格式化的正本是 `packages/domain/src/form/temporal.ts`(`toInstant` / `startOfLocalDay` / `compareLocalDay` / `addLocalCalendar` / `formatTemporal`)。
 
 ### 修訂與容量
 
@@ -274,11 +274,12 @@
 
 「模組與權限」頁(根組織專屬)。`retiredFormPermissions` 列出 `source: dynamic` 且 `retiredAt` 有值的權限與使用狀況;`deleteRetiredPermission` 三層檢查:
 
-1. 有還會再寫的提交(草稿、審核中、被退回、已撤回)綁的版本仍宣告該欄位 → 擋下(`USED_BY_DRAFTS`,附筆數與版本)。
+1. 有還會再寫的提交(草稿、審核中、被退回、已撤回)用到宣告該欄位的版本 → 擋下(`USED_BY_DRAFTS`,附筆數與版本)。
 2. 只剩終局的提交(已完成、已駁回、已作廢)用到 → 要 `confirmCompletedUsage: true` 才刪(`CONFIRM_REQUIRED`);刪後這些單裡的該欄位只有超級管理員看得到。
 3. 沒有任何提交用到 → 直接刪。
 
-- 計數**跨全部租戶**且不受操作者的可見範圍 / 資料範圍影響(`database/form-submission-usage.ts`;少算一筆草稿就會把還在用的權限刪掉)。計數依提交目前綁的 `version`。
+- 計數**跨全部租戶**且不受操作者的可見範圍 / 資料範圍影響(`database/form-submission-usage.ts`;少算一筆草稿就會把還在用的權限刪掉)。
+- 一筆提交「用到」某版本 = 目前綁的 `version` 是它,**或任一修訂的 `revisions[].version` 是它**:升級到新版的單,舊修訂仍以舊版定義渲染,舊版欄位的權限刪掉後那一欄在舊修訂裡就只剩超級管理員看得到。計數是提交筆數,同一筆提交用到好幾個宣告該欄位的版本也只算一次;草稿 / 終局的分類看提交目前的狀態。
 - 刪的順序:先寫稽核 → 刪權限列 → 解除全部 `role_permission` 綁定(硬刪:權限 key 唯一,軟刪的殭屍會擋住日後同一欄位重新發布時建回同一個 key);每一步重做都無害,中途失敗殘留的綁定指向不存在的權限列、不生效。
 - **檢查使用量到真的刪之間沒有鎖**:這段時間有人新建草稿綁到宣告該欄位的版本,那筆草稿的該欄位之後只有超級管理員看得到。
 - 權限矩陣與模組樹不列退役的權限;角色對退役權限的既有綁定保留(矩陣只認得它列出的 key,不會因此被清掉)。
@@ -380,7 +381,7 @@ input 欄位的缺席 / `null`:
 - `formRuntimeVersion` 的 `fields`:讀者讀不到的欄位是骨架且 `redacted: true`;`redacted` 缺席 = 完整定義。
 - `FormLookupRecord.values`:受保護且無權的欄位**省略**(鍵不存在),那筆版本沒有的欄位為 `null`。
 - `FormSubmissionModel.touched`:使用者碰過的欄位 key(草稿填寫時用);一定有值(沒有 = 空陣列)。
-- `me.currentOrg.timezone`(`forms/me-org-timezone.resolver.ts`):讀者當前組織所屬租戶的時區(IANA;租戶頂層 `orgs.settings.timezone`,沒設 = `Asia/Taipei`;根組織讀根組織的設定)。表單引擎日期時間欄輸入與顯示的單一時區來源。
+- `me.currentOrg.timezone`(`forms/me-org-timezone.resolver.ts`):讀者當前組織所屬租戶的時區(IANA;租戶頂層 `orgs.settings.timezone`,沒設或不是 `Intl` 認得的時區 = `Asia/Taipei`;根組織讀根組織的設定)。表單引擎日期時間欄輸入與顯示的單一時區來源。
 - `FormModel.tenantEnabled`:站在租戶內時本租戶的開關,root 視角為 `null`;`assignments` 只有 root 視角的共用表單有。
 - **`abilities` 含權限**(業務模組那一種,前端直接用,不再與 `usePermissions` 相乘):`FormAbilities` 已含 `system.forms.*` 權限與「是不是自己的表單 / 站在哪裡」;`FormSubmissionAbilities.canEdit` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成:`edit`(走過流程的已完成為 false);`canDelete` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成 / 已駁回:`delete`;`canWithdraw` = 建立者、審核中;`canVoid` = 走過流程的已完成、建立者或 `edit`;`canCopy` = 已作廢 + `create`;`canEditField` = 權限層面改得動的欄位(條件唯讀看 `fieldStates.readonly`)。只審過某修訂的讀者一律 false。
 

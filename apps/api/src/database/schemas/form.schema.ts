@@ -47,7 +47,12 @@ export class Form {
   @Prop({ type: Number, default: null })
   currentVersion!: number | null;
 
-  /** 頁籤 / 標題模板,只能引用摘要槽(如 `"{{title}}"`);null = 用模組層模板。 */
+  /**
+   * 頁籤 / 標題模板(`{{名稱}}` 佔位符,套法是 `@repo/domain/form` 的 `renderTemplate`,前端從那筆的值即時算):
+   * 摘要槽 `{{title}}` / `{{date}}` / `{{amount}}`、欄位值 `{{value.<欄位key>}}`、
+   * 系統 `{{applicant}}` / `{{form}}` / `{{module}}` / `{{action}}`(清單正本 admin 的 `lib/form-engine/tab-label.ts`)。
+   * null = 用模組層模板。
+   */
   @Prop({ type: String, default: null })
   tabLabelTemplate!: string | null;
 }

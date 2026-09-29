@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
-import { DEFAULT_TENANT_TIMEZONE } from "@repo/domain/form";
 import { hasPermission } from "@repo/domain/permission";
 
 import type { Persisted } from "../database/base.repository";
@@ -15,6 +14,10 @@ import {
 import type { OperatorContext } from "../database/operator-context";
 import type { Module as ModuleEntity } from "../database/schemas/module.schema";
 import { tenantIdOfOrg } from "../database/tenant-id";
+import {
+  tenantTimezoneOf,
+  tenantTimezoneOfOrg,
+} from "../database/tenant-timezone";
 import { PermissionResolver } from "../permission/permission-resolver";
 import {
   type FormModuleAction,
@@ -23,9 +26,6 @@ import {
 import { forbiddenError, notFoundError, validationError } from "./forms-error";
 
 export type FormRecord = Persisted<FormDocument>;
-
-/** 租戶沒設時區時的預設(`orgs.settings.timezone`;正本是 domain 的 `DEFAULT_TENANT_TIMEZONE`)。 */
-export const DEFAULT_TIMEZONE = DEFAULT_TENANT_TIMEZONE;
 
 /**
  * 一位操作者在這次請求裡、表單引擎要用的事實(一次算好,各 service 共用):
@@ -107,37 +107,16 @@ export class FormAccessService {
       isSuperAdmin: resolution.isSuperAdmin,
       isRoot: current?.parentId === null,
       tenantId,
-      timezone: await this.timezoneOf(operator, tenantId),
+      timezone: await tenantTimezoneOf(this.orgs, operator, tenantId),
     };
   }
 
   /** 某個組織所屬租戶的時區(`me.currentOrg.timezone`);組織讀不到 → 預設。 */
-  async timezoneOfOrg(
+  timezoneOfOrg(
     operator: OperatorContext,
     orgId: Types.ObjectId,
   ): Promise<string> {
-    const org = await this.orgs.findById(orgReader(operator), orgId);
-    if (!org) {
-      return DEFAULT_TIMEZONE;
-    }
-    return this.timezoneOf(
-      operator,
-      tenantIdOfOrg({ _id: org._id, ancestors: org.ancestors }),
-    );
-  }
-
-  /** 租戶時區:租戶頂層的 `settings.timezone`(字串才算);根組織或沒設 → 預設。 */
-  private async timezoneOf(
-    operator: OperatorContext,
-    tenantId: Types.ObjectId | null,
-  ): Promise<string> {
-    const rootOrTenant = tenantId
-      ? await this.orgs.findById(orgReader(operator), tenantId)
-      : await this.orgs.findOne(orgReader(operator), { parentId: null });
-    const timezone = rootOrTenant?.settings.timezone;
-    return typeof timezone === "string" && timezone !== ""
-      ? timezone
-      : DEFAULT_TIMEZONE;
+    return tenantTimezoneOfOrg(this.orgs, operator, orgId);
   }
 
   /** 持有某權限(含同層 wildcard;權限不存在或被停用 → 不持有)。 */

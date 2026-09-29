@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
 import { useTranslations } from "use-intl";
 
+import { DEFAULT_TENANT_TIMEZONE } from "@repo/domain/form";
 import { DataScopeFieldType } from "@repo/graphql";
 import { DatePicker } from "@repo/ui/date-picker";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 
+import { useTenantTimezone } from "@/hooks/useTenantTimezone";
 import {
   type ConditionDraft,
   DYNAMIC_REFS_BY_TYPE,
@@ -13,6 +15,7 @@ import {
   type DataScopeFieldLike,
   type DataScopeValueDraft,
 } from "@/lib/data-scope-rule";
+import { localDayInstantOf, localDayTextOf } from "@/lib/form-engine/local-day";
 
 import type { DataScopeEditorEnv } from "../data-scope-types";
 
@@ -54,7 +57,10 @@ const staticOptionsOf = (
 
 /**
  * 條件列的「值」欄:依欄位型別出不同控制項(ADR-0008 的值來源欄)。
- * 日期用 `DatePicker`(`between` 兩個);org / user / enum 是多選下拉,
+ * 日期用 `DatePicker`(`between` 兩個),與表單引擎的日期欄同一種做法(`DateWidget`):
+ * 存的是**時點** —— 選的那一天在規則所屬組織(根組織)的租戶時區 00:00 的 ISO;本頁只有站在根組織才進得來,
+ * 所以就是 `me.currentOrg.timezone`。顯示時換回該時區的 `YYYY-MM-DD` 給選擇器。
+ * org / user / enum 是多選下拉,
  * org 與 user 的下拉第一段是**動態值**(【操作者本人】【操作者的所屬組織】)—
  * 選了動態值就取代整份靜態值,反之亦然(同一條件不會又是「本人」又是「某幾個人」)。
  */
@@ -67,6 +73,7 @@ export const ValueEditor = ({
 }: ValueEditorProps) => {
   const t = useTranslations("admin.dataScope.condition");
   const tDynamic = useTranslations("admin.dataScope.dynamic");
+  const timezone = useTenantTimezone() ?? DEFAULT_TENANT_TIMEZONE;
 
   if (field.type === DataScopeFieldType.Date) {
     const values =
@@ -74,10 +81,11 @@ export const ValueEditor = ({
     const isRange = condition.cond === "between";
     const setDate = (index: number, next: string | null) => {
       const size = isRange ? 2 : 1;
+      const instant = localDayInstantOf(next, timezone) ?? "";
       onChange({
         kind: "static",
         values: Array.from({ length: size }, (_, position) =>
-          position === index ? (next ?? "") : (values[position] ?? ""),
+          position === index ? instant : (values[position] ?? ""),
         ),
       });
     };
@@ -85,7 +93,7 @@ export const ValueEditor = ({
       <Stack direction="row" spacing={1}>
         <DatePicker
           label={isRange ? t("valueFrom") : t("value")}
-          value={values[0] ?? null}
+          value={localDayTextOf(values[0], timezone)}
           error={hasError}
           disabled={env.isReadOnly}
           size="small"
@@ -97,7 +105,7 @@ export const ValueEditor = ({
         {isRange && (
           <DatePicker
             label={t("valueTo")}
-            value={values[1] ?? null}
+            value={localDayTextOf(values[1], timezone)}
             error={hasError}
             disabled={env.isReadOnly}
             size="small"

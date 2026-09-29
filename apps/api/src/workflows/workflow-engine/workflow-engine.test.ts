@@ -29,6 +29,7 @@ import {
   errorCode,
   errorReason,
   pendingTaskOf,
+  person,
   rawInstances,
   rawSubmissionDoc,
   rawTasks,
@@ -398,6 +399,43 @@ describe("審核流程引擎", () => {
       expect(errorCode(result)).toBe("CONFLICT");
       expect(errorReason(result)).toBe("HAS_DECISIONS");
       expect(await submissionStatus(world, submitted.id)).toBe("REVIEWING");
+    });
+
+    it("看得到這張單、但不是申請人 → FORBIDDEN(NOT_APPLICANT),單子照舊審核中", async () => {
+      await useWorkflow(world, nextKey("withdraw_not_applicant"), {
+        steps: [usersStep("one", [staff(0)])],
+      });
+      const submitted = await submitLeave(world);
+      // 同在廚房部的同事:可見範圍含這張單、有同一組模組權限,但不是申請人
+      const colleague = await person(
+        api,
+        world.connection,
+        world.kitchen,
+        world.tenant,
+      );
+      const result = await call(api, colleague.token, WITHDRAW, {
+        input: { id: submitted.id, expectedEditVersion: submitted.editVersion },
+      });
+      expect(errorCode(result)).toBe("FORBIDDEN");
+      expect(errorReason(result)).toBe("NOT_APPLICANT");
+      expect(await submissionStatus(world, submitted.id)).toBe("REVIEWING");
+    });
+
+    it("別人的草稿:撤回回 NOT_FOUND,不透露草稿存在", async () => {
+      const draft = await createDraft(api, world.applicant.token, FORM_KEY, {
+        title: "還沒送出的草稿",
+        days: 1,
+      });
+      const colleague = await person(
+        api,
+        world.connection,
+        world.kitchen,
+        world.tenant,
+      );
+      const result = await call(api, colleague.token, WITHDRAW, {
+        input: { id: draft.id, expectedEditVersion: draft.editVersion },
+      });
+      expect(errorCode(result)).toBe("NOT_FOUND");
     });
 
     it("沒有決定前撤回 → withdrawn;可改後再送出(修訂 +1)", async () => {

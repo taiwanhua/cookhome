@@ -178,6 +178,21 @@ const ONLY_MY_ORGS = {
   ],
 };
 
+/** 一條「全部人 → 建立時間 <cond> <values>」的規則(日期條件的測試用)。 */
+function dateRule(cond: string, values: string[]) {
+  return [
+    {
+      audience: { type: "ALL" },
+      filter: {
+        op: "AND",
+        children: [
+          { field: "createdAt", cond, value: { kind: "static", values } },
+        ],
+      },
+    },
+  ];
+}
+
 /** 名稱排序後比對:查詢順序不是本票的斷言對象。 */
 function sortedNames(rows: readonly { name: string }[]): string[] {
   return rows.map((row) => row.name).toSorted((a, b) => a.localeCompare(b));
@@ -331,6 +346,23 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     const error = result.errors?.[0];
     expect(error).toBeDefined();
     return error?.extensions ?? {};
+  }
+
+  /** 客服甲看得到的「日期 …」那幾筆(日期條件的測試用;其他資料的建立時間是現在,不在比對範圍內)。 */
+  async function datedVisible(): Promise<string[]> {
+    const names = await visibleItemsOne(agentUserId, deptOne);
+    return names.filter((name) => name.startsWith("日期 "));
+  }
+
+  async function setTenantTimezone(timezone: string | null): Promise<void> {
+    await connection
+      .collection("orgs")
+      .updateOne(
+        { _id: tenantA },
+        timezone === null
+          ? { $unset: { "settings.timezone": "" } }
+          : { $set: { "settings.timezone": timezone } },
+      );
   }
 
   beforeAll(async () => {
@@ -615,6 +647,25 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
       });
       expect(extensions.reason).toBe("VALUE_INVALID");
       expect(extensions.path).toBe("rules[0].filter.children[0].value.values");
+    });
+
+    it("RULE_INVALID:日期值只收帶時區的時點,`YYYY-MM-DD` 一律拒", async () => {
+      for (const value of ["2026-01-01", "2026-01-01T00:00:00"]) {
+        const extensions = await saveInvalid({
+          op: "AND",
+          children: [
+            {
+              field: "createdAt",
+              cond: "before",
+              value: { kind: "static", values: [value] },
+            },
+          ],
+        });
+        expect(extensions.reason).toBe("VALUE_INVALID");
+        expect(extensions.path).toBe(
+          "rules[0].filter.children[0].value.values[0]",
+        );
+      }
     });
 
     it("RULE_INVALID:空群組", async () => {
@@ -904,6 +955,181 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
         collection: "demo_items_one",
         moduleKey: { $exists: false },
       });
+    });
+  });
+
+  describe("日期條件:值是租戶時區某一天 00:00 的時點,整天的邊界依規則所屬組織(根組織)的時區", () => {
+    /**
+     * 建立時間落在台北時區(UTC+8)日界線兩側的五筆(名稱 = 台北的當地時間):
+     * 「0101-0730」在 UTC 還是 12/31,「0101-2359」與「0102-0000」只差一分鐘卻分屬兩天。
+     */
+    const DATED_ITEMS: readonly [string, string][] = [
+      ["日期 0101-0730", "2019-12-31T23:30:00.000Z"],
+      ["日期 0101-2359", "2020-01-01T15:59:00.000Z"],
+      ["日期 0102-0000", "2020-01-01T16:00:00.000Z"],
+      ["日期 0102-2359", "2020-01-02T15:59:59.000Z"],
+      ["日期 0103-0000", "2020-01-02T16:00:00.000Z"],
+    ];
+    /** 台北時區 2020-01-01 / 01-02 的 00:00(admin 以租戶時區把選的那天換成的時點)。 */
+    const TAIPEI_0101 = "2019-12-31T16:00:00.000Z";
+    const TAIPEI_0102 = "2020-01-01T16:00:00.000Z";
+
+    beforeAll(async () => {
+      await setTenantTimezone("Asia/Taipei");
+      await connection.collection("demo_items_one").insertMany(
+        DATED_ITEMS.map(([name, createdAt]) => ({
+          name,
+          orgId: deptOne,
+          tenantId: tenantA,
+          moduleKey: SAMPLE_ONE_MODULE_KEY,
+          status: "draft",
+          enabled: true,
+          createdBy: agentUserId,
+          updatedBy: agentUserId,
+          deletedAt: null,
+          createdAt: new Date(createdAt),
+          updatedAt: new Date(createdAt),
+        })),
+      );
+    }, HOOK_TIMEOUT_MS);
+
+    afterAll(async () => {
+      await saveRule([]);
+      await setTenantTimezone(null);
+      await connection
+        .collection("demo_items_one")
+        .deleteMany({ name: { $regex: "^日期 " } });
+    }, HOOK_TIMEOUT_MS);
+
+    it("between 同一天:台北 08:00 前(UTC 還是前一天)的資料落在台北的那一天", async () => {
+      const result = await saveRule(
+        dateRule("between", [TAIPEI_0101, TAIPEI_0101]),
+      );
+      expect(result.errors).toBeUndefined();
+      expect(await datedVisible()).toEqual([
+        "日期 0101-0730",
+        "日期 0101-2359",
+      ]);
+    });
+
+    it("between 迄日整天都含(到 23:59:59),次日 00:00 起不含", async () => {
+      await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0102]));
+      expect(await datedVisible()).toEqual([
+        "日期 0101-0730",
+        "日期 0101-2359",
+        "日期 0102-0000",
+        "日期 0102-2359",
+      ]);
+    });
+
+    it("before 不含當天、after 不含當天(從次日 00:00 起)", async () => {
+      await saveRule(dateRule("before", [TAIPEI_0102]));
+      expect(await datedVisible()).toEqual([
+        "日期 0101-0730",
+        "日期 0101-2359",
+      ]);
+
+      await saveRule(dateRule("after", [TAIPEI_0101]));
+      expect(await datedVisible()).toEqual([
+        "日期 0102-0000",
+        "日期 0102-2359",
+        "日期 0103-0000",
+      ]);
+    });
+
+    it("操作者在紐約租戶:根組織(台北)存的規則,邊界仍是台北的那一天,不因操作者時區差一天", async () => {
+      await setTenantTimezone("America/New_York");
+      try {
+        await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0101]));
+        expect(await datedVisible()).toEqual([
+          "日期 0101-0730",
+          "日期 0101-2359",
+        ]);
+      } finally {
+        await setTenantTimezone("Asia/Taipei");
+      }
+    });
+
+    it("邊界跟著規則所屬組織(根組織)的時區:根組織設紐約 → 以紐約的一天為界", async () => {
+      await connection
+        .collection("orgs")
+        .updateOne(
+          { _id: rootOrgId },
+          { $set: { "settings.timezone": "America/New_York" } },
+        );
+      try {
+        // 紐約 2020-01-01 00:00 = 05:00Z
+        await saveRule(
+          dateRule("between", [
+            "2020-01-01T05:00:00.000Z",
+            "2020-01-01T05:00:00.000Z",
+          ]),
+        );
+        // 台北「0101-0730」在紐約是 12/31 → 不含;「0102-0000」在紐約仍是 01/01 03:00 → 含;
+        // 「0102-2359」在紐約已是 01/02 → 不含
+        expect(await datedVisible()).toEqual([
+          "日期 0101-2359",
+          "日期 0102-0000",
+        ]);
+      } finally {
+        await connection
+          .collection("orgs")
+          .updateOne(
+            { _id: rootOrgId },
+            { $unset: { "settings.timezone": "" } },
+          );
+      }
+    });
+
+    it("根組織改時區即時生效:不重存規則,下一次查詢的邊界就換成新時區的那一天", async () => {
+      // 先存好規則並查一次,讓規則進快取(之後不再存)
+      await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0101]));
+      expect(await datedVisible()).toEqual([
+        "日期 0101-0730",
+        "日期 0101-2359",
+      ]);
+      await connection
+        .collection("orgs")
+        .updateOne(
+          { _id: rootOrgId },
+          { $set: { "settings.timezone": "America/New_York" } },
+        );
+      try {
+        // 同一個時點(台北 01/01 00:00 = 紐約 12/31 11:00)在紐約是 12/31 那一天:
+        // 起 = 12/31 16:00Z 起算,迄 = 紐約 01/01 00:00 = 01/01 05:00Z 前
+        expect(await datedVisible()).toEqual(["日期 0101-0730"]);
+      } finally {
+        await connection
+          .collection("orgs")
+          .updateOne(
+            { _id: rootOrgId },
+            { $unset: { "settings.timezone": "" } },
+          );
+      }
+      expect(await datedVisible()).toEqual([
+        "日期 0101-0730",
+        "日期 0101-2359",
+      ]);
+    });
+
+    it("存著遷移前的 `YYYY-MM-DD`(驗證擋不到的舊值)→ 那個條件什麼都不命中,不會放寬", async () => {
+      // 存一次空規則 = 作廢快取;下一次查詢才從資料庫重新載入,讀到的就是直接寫進去的舊值
+      await saveRule([]);
+      await connection.collection("data_scope_rules").updateOne(
+        { collection: "demo_items_one", moduleKey: SAMPLE_ONE_MODULE_KEY },
+        {
+          $set: {
+            rules: [
+              {
+                audience: { type: "all" },
+                filter: dateRule("between", ["2020-01-01", "2020-01-02"])[0]
+                  ?.filter,
+              },
+            ],
+          },
+        },
+      );
+      expect(await visibleItemsOne(agentUserId, deptOne)).toEqual([]);
     });
   });
 

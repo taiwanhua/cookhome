@@ -2275,6 +2275,7 @@
       "TENANT_ONLY": "流程綁定要在組織內設定。",
       "WORKFLOW_UNPUBLISHED": "這個流程還沒有發布版本,不能綁定。",
       "ASSIGNEE_NOT_ELIGIBLE": "這個人不能審核這張單(已停用、不在本組織,或是申請人自己)。",
+      "NOT_APPLICANT": "只有申請人本人能撤回這張單。",
       "NOT_FOUND": "找不到這筆資料,可能已被刪除,或不在你看得到的範圍內。",
       "VALIDATION_FAILED": "有欄位填寫不正確,請修正後再試。",
       "UNEXPECTED": "操作失敗,請稍後再試。",

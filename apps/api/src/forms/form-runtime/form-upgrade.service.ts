@@ -83,7 +83,7 @@ type UpgradeOutcome =
  * - 範圍:操作者看得到(可見範圍 + 資料範圍)、本租戶(root 在根組織 = 根組織自己的資料)、
  *   狀態草稿 / 不綁流程的已完成、版本不是目標版
  * - 逐筆:`upgradeValues`(與複製為新單共用搬值)→ 現有的 settle(計算欄位、隱藏當 null)→ 已完成重算摘要、
- *   修訂 +1(`version` = 目標版、`ctx` = 操作者、`kind: "upgrade"`)→ 改綁;草稿只改綁與重算(草稿沒有修訂)
+ *   修訂 +1(`version` = 目標版、`ctx` 沿用上一筆修訂、`kind: "upgrade"`,誰與何時升級記在 `upgradedBy` / `upgradedAt`)→ 改綁;草稿只改綁與重算(草稿沒有修訂)
  * - 條件更新帶讀到的 `editVersion` 與 `version`:被人同時改的、超過容量的跳過並計數;已是目標版的不在範圍內(冪等)
  * - 同 `(操作者, clientRequestId)` 重送回第一次的結果(記在稽核 `submission.upgrade` 那一筆)
  */

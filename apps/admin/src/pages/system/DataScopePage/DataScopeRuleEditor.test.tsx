@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+
+import { savedRule } from "@/test/msw/data-scope-fixtures";
 
 import {
   autocompleteGroupLabels,
@@ -179,6 +181,41 @@ describe("條件樹編輯器(資料範圍)", () => {
         },
       ],
     });
+  });
+
+  it("日期條件:存的時點以租戶時區回顯成日期,改選的那天送出台北 00:00 的時點", async () => {
+    const { user: actor, fake } = renderPage({ world: { rules: [savedRule] } });
+    await waitForEditor("示範模組1(demo_items_one)");
+
+    // 夾具存的是台北 2026-01-01 / 2026-12-31 00:00 的時點(UTC 是前一天 16:00)
+    const from = await within(editor()).findByRole("group", { name: "起日" });
+    const to = within(editor()).getByRole("group", { name: "迄日" });
+    expect(from).toHaveTextContent("2026-01-01");
+    expect(to).toHaveTextContent("2026-12-31");
+
+    fireEvent.click(
+      within(to.parentElement ?? document.body).getByRole("button", {
+        name: /choose date/i,
+      }),
+    );
+    fireEvent.click(await screen.findByRole("gridcell", { name: "30" }));
+    await actor.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() => {
+      expect(fake.inputs.saveDataScopeRule).toHaveLength(1);
+    });
+    expect(
+      JSON.stringify(fake.inputs.saveDataScopeRule[0]?.rules[0]?.filter),
+    ).toContain(
+      JSON.stringify({
+        field: "createdAt",
+        cond: "between",
+        value: {
+          kind: "static",
+          values: ["2025-12-31T16:00:00.000Z", "2026-12-29T16:00:00.000Z"],
+        },
+      }),
+    );
   });
 
   // 分成兩案:全套並行時單一案例在 CI 逾時 15 秒(TEST-08:一案只做一件事);建三層的步驟共用 `buildThreeLevels`

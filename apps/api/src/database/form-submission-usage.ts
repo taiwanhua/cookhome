@@ -3,7 +3,11 @@ import type { Model } from "mongoose";
 
 import type { FormSubmission } from "./schemas/form-submission.schema";
 
-/** 某張表單的某幾個版本,被多少提交用到(依狀態分)。 */
+/**
+ * 某張表單的某幾個版本,被多少提交用到(依狀態分)。一筆提交「用到」某版本 = 目前綁的 `version` 是它,
+ * 或任一修訂的 `revisions[].version` 是它(升級過的單,舊修訂仍以舊版定義渲染,舊版的欄位還在被讀)。
+ * 計數是**提交筆數**:一筆提交同時用到多個被問的版本也只算一次。
+ */
 export interface FormSubmissionUsage {
   /** 還在填 / 還在審(草稿、審核中、被退回、已撤回):有任何一筆就擋下刪除。 */
   draftCount: number;
@@ -20,8 +24,9 @@ const HISTORICAL_STATUSES: ReadonlySet<string> = new Set([
   "voided",
 ]);
 
+/** 依(狀態, 這筆提交用到的被問版本集合)分組的筆數。 */
 interface UsageRow {
-  _id: { status: string; version: number };
+  _id: { status: string; versions: number[] };
   count: number;
 }
 
@@ -48,18 +53,40 @@ export class FormSubmissionUsageCounter {
     if (versions.length === 0) {
       return usage;
     }
+    const asked = [...versions];
     const rows = await this.model
       .aggregate<UsageRow>([
         {
           $match: {
             formKey,
-            version: { $in: [...versions] },
             deletedAt: null,
+            $or: [
+              { version: { $in: asked } },
+              { "revisions.version": { $in: asked } },
+            ],
+          },
+        },
+        {
+          // 這筆提交用到的版本 = 目前的 version ∪ 各修訂的 version(沒寫的修訂 = 目前的 version),
+          // 取與被問版本的交集;$setUnion 去重,同一筆對同一版本只算一次
+          $project: {
+            status: 1,
+            versions: {
+              $setIntersection: [
+                {
+                  $setUnion: [
+                    ["$version"],
+                    { $ifNull: ["$revisions.version", []] },
+                  ],
+                },
+                asked,
+              ],
+            },
           },
         },
         {
           $group: {
-            _id: { status: "$status", version: "$version" },
+            _id: { status: "$status", versions: "$versions" },
             count: { $sum: 1 },
           },
         },
@@ -68,13 +95,15 @@ export class FormSubmissionUsageCounter {
     const drafts = new Set<number>();
     const completed = new Set<number>();
     for (const row of rows) {
-      if (HISTORICAL_STATUSES.has(row._id.status)) {
+      const isHistorical = HISTORICAL_STATUSES.has(row._id.status);
+      // 草稿 / 審核中 / 被退回 / 已撤回都還會再寫:擋下;已完成 / 已駁回 / 已作廢:確認後可刪
+      if (isHistorical) {
         usage.completedCount += row.count;
-        completed.add(row._id.version);
       } else {
-        // 草稿 / 審核中 / 被退回 / 已撤回都還會再寫:擋下
         usage.draftCount += row.count;
-        drafts.add(row._id.version);
+      }
+      for (const version of row._id.versions) {
+        (isHistorical ? completed : drafts).add(version);
       }
     }
     usage.draftVersions = [...drafts].toSorted((a, b) => a - b);

@@ -383,7 +383,8 @@ export const systemModules: ModuleSeedDeclaration = {
       key: permissionKey(FIELD_MANAGER_KEY, "toggle-enabled"),
       moduleKey: FIELD_MANAGER_KEY,
       name: "停用 / 啟用",
-      description: "停用 / 啟用選項 + API(種子與自訂皆可;選項不可刪)",
+      description:
+        "停用 / 啟用選項 + API(種子選項只有根組織能切,全域生效;自訂選項只有加它的那一層能切;選項不可刪)",
     },
     // 類別作業(根組織專屬;欄位管理權限表的最後一列)
     {
