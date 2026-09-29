@@ -10,6 +10,7 @@ import { CircularProgress } from "@repo/ui/circular-progress";
 import { Stack } from "@repo/ui/stack";
 import { Typography } from "@repo/ui/typography";
 
+import { useCloseItemTabs } from "@/hooks/useCloseItemTabs";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useRouteTabItemLabel } from "@/hooks/useRouteTabItemLabel";
 import { useSession } from "@/hooks/useSession";
@@ -60,8 +61,9 @@ export const DemoDetailPage = <
 
   const query = config.detail.useItem(routeParam ?? "", true);
   const { item } = query;
-  // 路由頁籤顯示「模組名 — 項目名」(#428)
-  useRouteTabItemLabel(item?.name);
+  // 路由頁籤顯示「模組名 — 檢視・項目名」
+  useRouteTabItemLabel(item?.name, "view");
+  const closeItemTabs = useCloseItemTabs();
 
   const goTo = (route: string | null, id?: string) => {
     if (route === null) {
@@ -80,7 +82,12 @@ export const DemoDetailPage = <
     onSuccess: () => {
       feedback.onSuccess();
       setIsDeleting(false);
-      goTo(access.listRoute);
+      // 關掉這一筆的詳情 / 編輯子頁籤;當前頁籤就是詳情 → 導向列表
+      closeItemTabs({
+        pageRoutes: [access.viewRoute, access.editRoute],
+        id: routeParam ?? "",
+        listRoute: access.listRoute,
+      });
     },
     onError: (error: unknown) => {
       feedback.onError(error);

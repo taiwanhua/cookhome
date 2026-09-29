@@ -47,8 +47,8 @@ export const DemoFormPage = <
   const isEdit = module.key === config.moduleKeys.editPage;
   const itemId = routeParam ?? "";
   const query = config.detail.useItem(itemId, isEdit && itemId !== "");
-  // 編輯情境的路由頁籤顯示「模組名 — 項目名」(#428);新增情境沒有項目,維持模組名
-  useRouteTabItemLabel(isEdit ? query.item?.name : null);
+  // 編輯情境的路由頁籤顯示「模組名 — 編輯・項目名」;新增情境沒有項目,維持模組名
+  useRouteTabItemLabel(isEdit ? query.item?.name : null, "edit");
 
   const leave = () => {
     if (access.listRoute !== null) {

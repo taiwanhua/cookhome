@@ -6,6 +6,7 @@ import {
   ROUTE_TABS_STORAGE_PREFIX,
   type RouteTabEntry,
   closeEntry,
+  closeItemEntries,
   isSameEntries,
   moveEntry,
   readStoredEntries,
@@ -31,6 +32,15 @@ export interface RouteTabsStoreState extends RouteTabsPersisted {
   setItemLabel: (route: string, itemLabel: string) => void;
   /** 關閉 tab;回傳關閉當前 tab 時要轉去的路由(非當前為 null) */
   close: (route: string, activeRoute: string | null) => string | null;
+  /**
+   * 刪除成功後關掉同一筆的所有子頁籤(詳情、編輯;`itemRoutes` 以網址前綴比對):經 `hooks/useCloseItemTabs` 呼叫。
+   * 回傳當前 tab 在其中時要轉去的路由(= `fallbackRoute`,所屬模組的列表頁);否則 null。
+   */
+  closeItemTabs: (
+    itemRoutes: readonly string[],
+    activeRoute: string | null,
+    fallbackRoute: string,
+  ) => string | null;
   move: (fromRoute: string, toRoute: string) => void;
   /**
    * 清空頁籤並刪掉目前這把 key 的存檔(#375:其他分頁登出或換了帳號時,不把上一個人的頁籤留在這個分頁)。
@@ -85,6 +95,16 @@ export const useRouteTabsStore = create<RouteTabsStoreState>()(
         },
         close: (route, activeRoute) => {
           const result = closeEntry(get().entries, route, activeRoute);
+          commit(result.entries);
+          return result.navigateTo;
+        },
+        closeItemTabs: (itemRoutes, activeRoute, fallbackRoute) => {
+          const result = closeItemEntries(
+            get().entries,
+            itemRoutes,
+            activeRoute,
+            fallbackRoute,
+          );
           commit(result.entries);
           return result.navigateTo;
         },

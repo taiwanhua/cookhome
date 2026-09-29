@@ -165,6 +165,8 @@ input DemoItemsOneInput {
 
 **三頁本體是共用的**:`pages/demo/shared/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`,設定驅動(介面與逐項 JSDoc 在 `shared/demo-module-config.ts` 的 `DemoModuleConfig`)。上表那三個元件檔各只有約 10 行 —— 把設定物件接上共用元件而已。
 
+**路由頁籤**:詳情與編輯頁每筆各一個詳情子頁籤,標籤「示範模組1 — 檢視・項目名」/「示範模組1 — 編輯・項目名」;刪除成功後那一筆的子頁籤一起關掉。規則見 [frontend-architecture.md](../concepts/frontend-architecture.md)「頁籤兩種」。
+
 **設定分兩層**:
 
 - `pages/demo/demo-sample-one-config.ts` —— **常數**:模組 key、四個 `MODULE_KEYS`、權限 key、欄位管理的「示範分類」key 與 `system.field-manager.view`、i18n namespace、每頁筆數、表格最小寬度、狀態選項、上傳規則。

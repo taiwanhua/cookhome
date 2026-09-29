@@ -158,6 +158,30 @@ export const closeEntry = (
   };
 };
 
+/** 網址是不是這一筆的子頁籤:等於前綴,或前綴後面再接一段以上(`/…/view-page/<id>`、`/…/view-page/<id>/…`)。 */
+const isUnderRoute = (route: string, prefix: string): boolean =>
+  route === prefix || route.startsWith(`${prefix}/`);
+
+/**
+ * 關掉同一筆的所有子頁籤(刪除成功後用):`itemRoutes` 是那一筆的詳情 / 編輯網址(`<隱藏頁路由>/<id>`),以網址前綴比對。
+ * 當前頁籤在其中 → `navigateTo` = `fallbackRoute`(所屬模組的列表頁),不切相鄰;否則為 null。沒有對上的就回原內容。
+ */
+export const closeItemEntries = (
+  entries: readonly RouteTabEntry[],
+  itemRoutes: readonly string[],
+  activeRoute: string | null,
+  fallbackRoute: string,
+): CloseResult => {
+  const isItemRoute = (route: string) =>
+    itemRoutes.some((prefix) => isUnderRoute(route, prefix));
+  const remaining = entries.filter((entry) => !isItemRoute(entry.route));
+  return {
+    entries: remaining.length === entries.length ? [...entries] : remaining,
+    navigateTo:
+      activeRoute !== null && isItemRoute(activeRoute) ? fallbackRoute : null,
+  };
+};
+
 /** 把 `fromRoute` 的 tab 移到 `toRoute` 目前的位置(拖曳 / Shift+方向鍵共用);任一不存在則不動。 */
 export const moveEntry = (
   entries: readonly RouteTabEntry[],
