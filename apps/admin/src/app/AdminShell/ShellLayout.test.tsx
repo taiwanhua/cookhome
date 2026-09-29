@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 
 import { renderFormsPage } from "@/pages/system/FormsPage/forms-page-test-support";
 import { authWorld } from "@/test/msw/auth-handlers";
@@ -103,5 +103,41 @@ describe("殼的內容區內距", () => {
     expect(mediaRulesOf(main, 600)).toContain(
       "padding: calc(3 * var(--mui-spacing));",
     );
+  });
+});
+
+describe("AppBar 標題", () => {
+  it("群組路由轉走前不閃「無權限」標題", async () => {
+    server.use(
+      ...authWorld({ hasRefreshCookie: true, modules: superAdminModules })
+        .handlers,
+    );
+    // 群組路由只 render 一次就轉走,最後的畫面看不到那一瞬間:記下過程中出現過的每一段文字
+    // (新增 / 移除的節點與被改掉的舊文字)
+    const seen: string[] = [];
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        seen.push(record.oldValue ?? "");
+        for (const node of [...record.addedNodes, ...record.removedNodes]) {
+          seen.push(node.textContent ?? "");
+        }
+      }
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      characterDataOldValue: true,
+    });
+
+    renderApp({ path: "/system" });
+    await waitFor(() => {
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/system/org-manager",
+      );
+    });
+    observer.disconnect();
+
+    expect(seen.join("\n")).not.toContain("沒有權限進入此頁面");
   });
 });

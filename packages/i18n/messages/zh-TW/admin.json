@@ -205,7 +205,7 @@
       "visibility": "使用者可見自身組織的下層組織資料",
       "visibilityHint": "此設定僅出現在頂層組織,套用整個組織。",
       "managers": "主管",
-      "managersHint": "審核流程的「主管」關卡會從申請所屬的組織往上,找到第一個設了主管的組織。可設多位,只能選本租戶啟用中的使用者。",
+      "managersHint": "審核流程的「主管」關卡會從申請所屬的組織往上,找到第一個設了主管的組織。可設多位,只能選啟用中的使用者。",
       "managersPlaceholder": "姓名或帳號",
       "managerOption": "{name}({account})",
       "managersEmpty": "沒有符合條件的使用者",
@@ -302,7 +302,7 @@
       "hint": "選擇組織以篩選使用者",
       "all": "全部組織",
       "search": "搜尋組織",
-      "unavailable": "你沒有組織管理的檢視權限,清單直接顯示你可見範圍內的所有使用者。"
+      "unavailable": "你沒有組織管理的檢視權限,清單直接顯示你管理範圍內的所有使用者。"
     },
     "toolbar": {
       "search": "搜尋",
@@ -422,7 +422,7 @@
       "save": "儲存指派",
       "cancel": "取消",
       "roleDisabled": "已停用",
-      "templateCopy": "租戶副本",
+      "templateCopy": "預設角色",
       "notEligible": "此角色只能授予 {org} 及其下層的使用者;{name} 不在角色擁有組織之下。",
       "search": "搜尋角色",
       "searchPlaceholder": "角色名稱或擁有組織",
@@ -498,7 +498,7 @@
     }
   },
   "moduleManager": {
-    "seedNotice": "模組與權限屬於種子資料,隨系統版本自動更新 — 此頁僅供檢視與啟用 / 停用切換。如需新增模組,請聯絡系統管理員。",
+    "seedNotice": "模組與權限由系統統一維護,此頁僅供檢視與啟用 / 停用切換。",
     "tree": {
       "title": "模組樹",
       "groupTag": "群組",

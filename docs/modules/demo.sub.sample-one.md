@@ -185,7 +185,7 @@ input DemoItemsOneInput {
 
 **內部備註的三態**在表單上是 `hidden` / `readonly` / `editable`:沒有 `show-internal-note` 時**整欄不渲染**,而且 input 裡連這個鍵都不會出現(欄位一出現就要權限,送 `null` 也會被 `FIELD_FORBIDDEN` 擋)。
 
-**變更歷程的時間**顯示成「年-月-日 時:分」,用的是**瀏覽器當地時間**、格式不隨語言變(`demo-sample-one-view.ts` 的 `formatDateTime`),不走全站以讀者租戶時區顯示的 `formatTemporal`。
+**變更歷程的時間**顯示成「年-月-日 時:分」,和表單引擎的日期時間同一套(`useTemporalText`,type `datetime`):讀者的租戶時區、格式不隨語言變。
 
 **分類下拉的選項**來自 `fieldCategories` → `fields(categoryId)`,兩個端點都掛在 `system.field-manager.view` 底下。沒有那個權限時:列表不顯示分類篩選、表單的分類欄退成唯讀(保留原值並說明原因)。停用的選項不列入可選清單。
 

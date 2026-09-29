@@ -148,7 +148,7 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 - **停用 / 啟用直接送**,不另開確認彈窗:可逆,而且只影響新填寫。列表的啟用欄是 Switch;無權限或改不動時退回唯讀。
 - **編輯彈窗只給自訂選項**;種子選項連彈窗都不開,操作欄改顯示「由系統管理員維護」。
 - **`FIELD_VALUE_DUPLICATE` 標在「值」欄位上**(不是頁面 Alert),彈窗留著讓人改值。
-- **改不動的列反灰不隱藏**:上層 / 下層組織加的選項整列以 `text.disabled` 呈現、開關 disabled,操作欄顯示「由 <組織名> 管理」並以原生 `title` 說明原因。看得到但動不了,跟「這個動作我沒有權限」是兩回事。
+- **改不動的列反灰不隱藏**:上層 / 下層組織加的選項整列以 `text.disabled` 呈現、開關 disabled,操作欄顯示「由 <組織名> 管理」,開關與這句文字都以 `Tooltip` 說明原因(REACT-10)。看得到但動不了,跟「這個動作我沒有權限」是兩回事。
 - 前端不推「根組織視角」:每一列能不能切由 api 的 `canToggleEnabled` 決定。
 - **類別作業**只看 `manage-categories` 權限(租戶管理員模板拿不到,所以不必另判視角):左欄標題列的「+ 新增類別」、右欄標題列的「編輯類別」與「停用類別 / 啟用類別」。彈窗在 `CategoryFormDialog/`:新增時 key 的格式與唯一(對照已載入的全部類別)當場擋、送出鈕停用;api 回的 `FIELD_CATEGORY_KEY_DUPLICATE` 同樣標在 key 欄位;編輯時 key 唯讀。停用 / 啟用直接送、不另開確認(可逆)。
 - 左欄每個類別:系統類別標 `Tag`「系統」;停用的類別名稱以 `text.disabled` 呈現並標「已停用」。系統類別沒有「編輯類別」與「停用類別」鈕(停用的系統類別仍給「啟用類別」)。

@@ -95,6 +95,8 @@ describe("阻擋清單", () => {
     expect(within(table).getByText("「人資」找不到審核者")).toBeInTheDocument();
     expect(within(table).getByText("病假三天")).toBeInTheDocument();
     expect(within(table).getAllByText(APPLICANT.name)).toHaveLength(2);
+    // 最後變動:讀者的租戶時區(測試組織是 Asia/Taipei,UTC+8),不是執行環境的時區
+    expect(within(table).getAllByText("2026-09-20 10:00")).toHaveLength(2);
   });
 
   it("改派:選一位本租戶的人(申請人自己、已在本關的人、停用的人不能選)→ reassignTask 帶任務 id", async () => {

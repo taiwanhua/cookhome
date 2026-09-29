@@ -2,13 +2,14 @@ import { useMemo } from "react";
 import { Outlet, useLocation } from "react-router";
 import { useTranslations } from "use-intl";
 
-import type { MeQuery } from "@repo/graphql";
+import { type MeQuery, ModuleSidebarType } from "@repo/graphql";
 import { Box } from "@repo/ui/box";
 
 import { useApplyCenterCounts } from "@/hooks/useApplyCenterCounts";
 import {
   buildNavTree,
   enterableRouteMap,
+  findNavNode,
   matchModuleRoute,
   normalizePathname,
 } from "@/lib/module-tree";
@@ -59,9 +60,13 @@ export const ShellLayout = ({ me, pageMinWidths = {} }: ShellLayoutProps) => {
   // 用 `matchModuleRoute` 而不是 `routes.get(path)`:隱藏的詳情 / 編輯頁網址尾端帶識別碼,
   // 精準比對會落空,標題就會閃成「無權限」、「?」說明鈕也跟著不見(#320)
   const currentModule = matchModuleRoute(routes, path)?.module;
-  // `/` 與群組路由會立刻轉走(ModuleRoute),標題留空不閃「無權限」
+  // `/` 與群組路由(側欄樹上的群組節點)由 ModuleRoute 轉到第一個能進的頁,
+  // 轉走前那一次 render 標題留空,不閃「無權限」;其餘對不上模組的網址才是無權限頁
+  const isRedirectPath =
+    path === "/" ||
+    findNavNode(tree, path)?.module.sidebarType === ModuleSidebarType.Group;
   const title =
-    currentModule?.name ?? (path === "/" ? "" : t("forbidden.title"));
+    currentModule?.name ?? (isRedirectPath ? "" : t("forbidden.title"));
   const minWidth =
     (currentModule === undefined
       ? undefined

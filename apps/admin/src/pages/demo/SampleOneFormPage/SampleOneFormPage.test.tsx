@@ -138,8 +138,13 @@ describe("新增 / 編輯示範項目(共版型)", () => {
     expect(screen.getByLabelText("備註")).toHaveValue("週末限定測試資料");
 
     const history = await screen.findByRole("region", { name: "變更歷程" });
-    expect(within(history).getByText(/王小明 建立/)).toBeInTheDocument();
-    expect(within(history).getByText(/王小明 修改了內容/)).toBeInTheDocument();
+    // 時間用讀者的租戶時區(測試組織是 Asia/Taipei,UTC+8),不是執行環境的時區
+    expect(
+      within(history).getByText("2026-09-01 09:05 王小明 建立"),
+    ).toBeInTheDocument();
+    expect(
+      within(history).getByText("2026-09-10 14:22 王小明 修改了內容"),
+    ).toBeInTheDocument();
     // 填寫提示只在新增頁
     expect(
       screen.queryByRole("region", { name: "填寫提示" }),
