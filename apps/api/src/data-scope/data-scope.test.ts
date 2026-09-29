@@ -958,7 +958,7 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
     });
   });
 
-  describe("日期條件:值是租戶時區某一天 00:00 的時點,整天的邊界依操作者的租戶時區", () => {
+  describe("日期條件:值是租戶時區某一天 00:00 的時點,整天的邊界依規則所屬組織(根組織)的時區", () => {
     /**
      * 建立時間落在台北時區(UTC+8)日界線兩側的五筆(名稱 = 台北的當地時間):
      * 「0101-0730」在 UTC 還是 12/31,「0101-2359」與「0102-0000」只差一分鐘卻分屬兩天。
@@ -1037,22 +1037,48 @@ describe("資料範圍(#205,GraphQL 端點 + 真 MongoDB)", () => {
       ]);
     });
 
-    it("非台北租戶:整天的邊界照操作者的租戶時區(紐約 UTC-5)", async () => {
+    it("操作者在紐約租戶:根組織(台北)存的規則,邊界仍是台北的那一天,不因操作者時區差一天", async () => {
       await setTenantTimezone("America/New_York");
-      // 紐約 2020-01-01 00:00 = 05:00Z;迄日的次日 00:00 = 2020-01-02T05:00Z
-      await saveRule(
-        dateRule("between", [
-          "2020-01-01T05:00:00.000Z",
-          "2020-01-01T05:00:00.000Z",
-        ]),
-      );
-      // 台北「0101-0730」在紐約是 12/31 18:30 → 不含;台北「0102-0000」在紐約仍是 01/01 03:00 → 含;
-      // 台北「0102-2359」在紐約已是 01/02 10:59 → 不含
-      expect(await datedVisible()).toEqual([
-        "日期 0101-2359",
-        "日期 0102-0000",
-      ]);
-      await setTenantTimezone("Asia/Taipei");
+      try {
+        await saveRule(dateRule("between", [TAIPEI_0101, TAIPEI_0101]));
+        expect(await datedVisible()).toEqual([
+          "日期 0101-0730",
+          "日期 0101-2359",
+        ]);
+      } finally {
+        await setTenantTimezone("Asia/Taipei");
+      }
+    });
+
+    it("邊界跟著規則所屬組織(根組織)的時區:根組織設紐約 → 以紐約的一天為界", async () => {
+      await connection
+        .collection("orgs")
+        .updateOne(
+          { _id: rootOrgId },
+          { $set: { "settings.timezone": "America/New_York" } },
+        );
+      try {
+        // 存規則即作廢快取,重新載入時讀到根組織的新時區;紐約 2020-01-01 00:00 = 05:00Z
+        await saveRule(
+          dateRule("between", [
+            "2020-01-01T05:00:00.000Z",
+            "2020-01-01T05:00:00.000Z",
+          ]),
+        );
+        // 台北「0101-0730」在紐約是 12/31 → 不含;「0102-0000」在紐約仍是 01/01 03:00 → 含;
+        // 「0102-2359」在紐約已是 01/02 → 不含
+        expect(await datedVisible()).toEqual([
+          "日期 0101-2359",
+          "日期 0102-0000",
+        ]);
+      } finally {
+        await connection
+          .collection("orgs")
+          .updateOne(
+            { _id: rootOrgId },
+            { $unset: { "settings.timezone": "" } },
+          );
+      }
     });
 
     it("存著遷移前的 `YYYY-MM-DD`(驗證擋不到的舊值)→ 那個條件什麼都不命中,不會放寬", async () => {

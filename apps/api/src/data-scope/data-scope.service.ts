@@ -21,7 +21,7 @@ import {
   type DataScopeRuleProvider,
   setDataScopeRuleProvider,
 } from "../database/plugins/data-scope-provider";
-import { tenantTimezoneOfOrg } from "../database/tenant-timezone";
+import { tenantTimezoneOf } from "../database/tenant-timezone";
 import { OwnerProtectionService } from "../orgs/owner-protection.service";
 import {
   rootOnlyError,
@@ -72,8 +72,11 @@ interface CachedRule {
   rules: DataScopeRuleEntry[];
   /** 編譯時要靠它決定值的型別(org/user → ObjectId、date → 時點範圍、enum → 字串)。 */
   catalog: DataScopeField[];
-  /** 有日期條件:查詢時要先取操作者的租戶時區(沒有就不查,省一次讀組織)。 */
-  hasDateCondition: boolean;
+  /**
+   * 規則所屬組織的租戶時區:日期條件的「次日 00:00」以它換算。規則是根組織專屬設定、沒有 `orgId`,
+   * 所屬組織就是根組織;載入規則時查一次(只有規則裡有日期條件才查),跟著規則一起快取、儲存時作廢。
+   */
+  timezone: string;
 }
 
 /** 一個 collection 的快取:moduleKey → 該模組的規則;空 Map = 這張表沒有任何模組設了規則。 */
@@ -102,11 +105,6 @@ export class DataScopeService
   implements DataScopeRuleProvider, OnModuleInit, OnModuleDestroy
 {
   private readonly cache = new Map<string, CollectionRules>();
-  /** 同一個操作者上下文(同一個請求)的租戶時區只查一次。 */
-  private readonly timezoneCache = new WeakMap<
-    OperatorContext,
-    Promise<string>
-  >();
 
   constructor(
     private readonly rules: DataScopeRulesRepository,
@@ -140,13 +138,7 @@ export class DataScopeService
     if (byModule.size === 0) {
       return null;
     }
-    const needsTimezone = [...byModule.values()].some(
-      (cached) => cached.hasDateCondition,
-    );
-    const facts = factsOf(
-      operator,
-      needsTimezone ? await this.timezoneOf(operator) : DEFAULT_TENANT_TIMEZONE,
-    );
+    const facts = factsOf(operator);
     const conditions: ModuleCondition[] = [];
     for (const [moduleKey, cached] of byModule) {
       const condition = compileRules(
@@ -154,29 +146,13 @@ export class DataScopeService
         cached.combineOp,
         cached.catalog,
         facts,
+        cached.timezone,
       );
       if (condition) {
         conditions.push({ moduleKey, condition });
       }
     }
     return combineByModule(conditions);
-  }
-
-  /**
-   * 操作者的租戶時區(當前組織所屬租戶;`me.currentOrg.timezone` 同一個來源,admin 換算日期用的也是它)。
-   * 沒有當前組織的內部上下文 → 預設時區。讀組織發生在查詢中介層裡:`orgs` 是治理類、不套資料範圍規則,
-   * 不會遞迴回到這裡。
-   */
-  private timezoneOf(operator: OperatorContext): Promise<string> {
-    const cached = this.timezoneCache.get(operator);
-    if (cached) {
-      return cached;
-    }
-    const resolved = operator.currentOrgId
-      ? tenantTimezoneOfOrg(this.orgs, operator, operator.currentOrgId)
-      : Promise.resolve(DEFAULT_TENANT_TIMEZONE);
-    this.timezoneCache.set(operator, resolved);
-    return resolved;
   }
 
   private async rulesOf(collection: string): Promise<CollectionRules> {
@@ -198,6 +174,13 @@ export class DataScopeService
       targets.map((target) => [target.moduleKey, target]),
     );
     const loaded: CollectionRules = new Map();
+    // 規則所屬組織(根組織)的時區:整個 collection 的規則集只查一次,而且只在有日期條件時查。
+    // 讀組織發生在查詢中介層裡:`orgs` 是治理類、不套資料範圍規則,不會遞迴回到這裡
+    let ruleTimezone: Promise<string> | undefined;
+    const ruleTimezoneOf = (): Promise<string> => {
+      ruleTimezone ??= tenantTimezoneOf(this.orgs, RULE_READER, null);
+      return ruleTimezone;
+    };
     for (const document of documents) {
       // 空 `rules` = 已被清掉的規則(ADR-0008),等同沒有規則。
       // 沒有 moduleKey 的舊文件(回填前)不知道該套在哪個模組:跳過,不拿 undefined 當 Map 的鍵
@@ -215,7 +198,9 @@ export class DataScopeService
         combineOp: document.combineOp,
         rules,
         catalog,
-        hasDateCondition: hasDateCondition(rules, catalog),
+        timezone: hasDateCondition(rules, catalog)
+          ? await ruleTimezoneOf()
+          : DEFAULT_TENANT_TIMEZONE,
       });
     }
     return loaded;
@@ -371,15 +356,11 @@ function targetKeyOf(collection: string, moduleKey: string): string {
 }
 
 /** OperatorContext → 規則比對 / 動態值代入需要的事實(ADR-0008)。 */
-function factsOf(
-  operator: OperatorContext,
-  timezone: string,
-): DataScopeOperatorFacts {
+function factsOf(operator: OperatorContext): DataScopeOperatorFacts {
   return {
     actorId: operator.actorId,
     memberOrgIds: operator.memberOrgIds,
     roleIds: operator.roleIds,
-    timezone,
   };
 }
 

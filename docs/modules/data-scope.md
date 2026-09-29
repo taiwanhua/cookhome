@@ -187,7 +187,7 @@ input SaveDataScopeRuleInput {
 
 `value.values` 一律是**字串陣列**(id、日期、enum value 都以字串送),型別轉換在 api 內完成。
 
-**日期條件的比對時點**:與表單引擎的日期同一種做法(`docs/concepts/form-engine.md`「值、計算與條件」),全系統沒有第二套。值是**選的那一天在租戶時區 00:00 的時點**:admin 的 `DatePicker` 選日後以操作者的租戶時區(`me.currentOrg.timezone`)換成時點、送帶時區的 ISO 8601 字串(`lib/form-engine/local-day.ts`,與日期欄的 `DateWidget` 同一組),回顯時再換回該時區的 `YYYY-MM-DD`。api 只收時點(`@repo/domain/form` 的 `toInstant` 認得的字串),`YYYY-MM-DD` 這種沒有時區的字一律 `VALUE_INVALID`。「整天」的邊界是次日 00:00,由 api 以**操作者的租戶時區**換算(`addLocalCalendar`,夏令時間切換日也對;時區的來源 `apps/api/src/database/tenant-timezone.ts`):
+**日期條件的比對時點**:與表單引擎的日期同一種做法(`docs/concepts/form-engine.md`「值、計算與條件」),全系統沒有第二套。值是**選的那一天在規則所屬組織的租戶時區 00:00 的時點**。規則是根組織專屬設定、沒有 `orgId`,所屬組織就是根組織;本頁只有站在根組織才進得來,所以 admin 的 `DatePicker` 選日後以 `me.currentOrg.timezone`(= 根組織的時區)換成時點、送帶時區的 ISO 8601 字串(`lib/form-engine/local-day.ts`,與日期欄的 `DateWidget` 同一組),回顯時再換回該時區的 `YYYY-MM-DD`。api 只收時點(`@repo/domain/form` 的 `toInstant` 認得的字串),`YYYY-MM-DD` 這種沒有時區的字一律 `VALUE_INVALID`。「整天」的邊界是次日 00:00,由 api 以**規則所屬組織的租戶時區**換算(`addLocalCalendar`,夏令時間切換日也對;時區的來源 `apps/api/src/database/tenant-timezone.ts`),與操作者在哪個租戶無關 —— 值是用那個時區選出來的,邊界也用同一個時區算,同一份規則對每個人都是同一段時間。這個時區在載入規則時讀一次、跟著規則快取,儲存規則時作廢:根組織改時區後,要等下一次存規則(或 api 重啟)才生效。
 
 | `cond`    | 條件                                  | 含不含當天         |
 | --------- | ------------------------------------- | ------------------ |
@@ -195,7 +195,7 @@ input SaveDataScopeRuleInput {
 | `after`   | `>= 該時點的次日 00:00`               | 當天不含           |
 | `between` | `>= 起時點` 且 `< 迄時點的次日 00:00` | 起日與迄日整天都含 |
 
-同一個時點在不同租戶時區可能落在不同日期:台北 08:00 前建立的資料,UTC 還是前一天,比對時照台北的那一天算。存著的值不是時點(壞資料)時,那個條件什麼都不命中(fail-closed,與動態值算不出對象同一個原則)。
+同一個時點在不同時區可能落在不同日期:根組織是台北時區時,台北 08:00 前建立的資料 UTC 還是前一天,比對時照台北的那一天算,紐約租戶的操作者看到的也是同一段。存著的值不是時點(壞資料)時,那個條件什麼都不命中(fail-closed,與動態值算不出對象同一個原則)。
 
 正本:`apps/api/src/data-scope/`(`data-scope.resolver.ts`、`data-scope-rule.ts`、`models/data-scope.model.ts`)、`apps/api/schema.gql`
 

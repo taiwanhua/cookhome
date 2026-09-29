@@ -178,11 +178,6 @@ export interface DataScopeOperatorFacts {
   memberOrgIds: readonly Types.ObjectId[];
   /** 持有的啟用中角色;套用對象「指定角色」用它。 */
   roleIds: readonly Types.ObjectId[];
-  /**
-   * 操作者的租戶時區(IANA,已驗過;`database/tenant-timezone.ts`):日期條件的「次日 00:00」以它換算。
-   * 規則裡沒有日期條件時不會用到。
-   */
-  timezone: string;
 }
 
 /** 編譯後要 AND 進查詢的 Mongo 條件(欄位名 → 條件運算式)。 */
@@ -545,7 +540,7 @@ function validateDateValues(
       };
 }
 
-/** 規則裡有沒有日期條件(執行面據此決定要不要查操作者的租戶時區)。 */
+/** 規則裡有沒有日期條件(執行面據此決定要不要查規則所屬組織的租戶時區)。 */
 export function hasDateCondition(
   rules: readonly DataScopeRuleEntry[],
   catalog: readonly DataScopeField[],
@@ -583,6 +578,7 @@ export function matchesAudience(
 
 /**
  * 把一份已驗證的規則編譯成要 AND 進查詢的 Mongo 條件;沒有規則命中操作者 → `null`
+ * `timezone` = **規則所屬組織**的租戶時區(已驗過;日期條件的「次日 00:00」以它換算,與操作者無關)。
  * (ADR-0008:「沒有規則命中操作者 → 預設 = 可見範圍內」,也就是只剩租戶保底)。
  */
 export function compileRules(
@@ -590,11 +586,12 @@ export function compileRules(
   combineOp: DataScopeGroupOp,
   catalog: readonly DataScopeField[],
   facts: DataScopeOperatorFacts,
+  timezone: string,
 ): MongoCondition | null {
   const byName = new Map(catalog.map((field) => [field.name, field]));
   const matched = rules
     .filter((rule) => matchesAudience(rule.audience, facts))
-    .map((rule) => compileNode(rule.filter, byName, facts));
+    .map((rule) => compileNode(rule.filter, byName, facts, timezone));
   if (matched.length === 0) {
     return null;
   }
@@ -609,26 +606,28 @@ function compileNode(
   node: DataScopeNode,
   byName: ReadonlyMap<string, DataScopeField>,
   facts: DataScopeOperatorFacts,
+  timezone: string,
 ): MongoCondition {
   if ("children" in node) {
     const children = node.children.map((child) =>
-      compileNode(child, byName, facts),
+      compileNode(child, byName, facts, timezone),
     );
     return node.op === "AND" ? { $and: children } : { $or: children };
   }
-  return compileLeaf(node, byName, facts);
+  return compileLeaf(node, byName, facts, timezone);
 }
 
 function compileLeaf(
   leaf: DataScopeLeaf,
   byName: ReadonlyMap<string, DataScopeField>,
   facts: DataScopeOperatorFacts,
+  timezone: string,
 ): MongoCondition {
   // 驗證已保證欄位在目錄內;防守性地以 enum 當退路(不會讓條件放寬)
   const field = byName.get(leaf.field);
   const type = field?.type ?? "enum";
   if (type === "date") {
-    return compileDateLeaf(leaf, facts.timezone);
+    return compileDateLeaf(leaf, timezone);
   }
   const values = resolveValues(leaf.value, type, facts);
   switch (leaf.cond) {
@@ -648,7 +647,8 @@ function compileLeaf(
 /**
  * 日期條件 → 時點範圍(與表單引擎的日期同一種做法,`docs/concepts/form-engine.md`「值、計算與條件」):
  * 值是「選的那一天在租戶時區 00:00」的時點,**整天**的邊界是次日 00:00(`addLocalCalendar`,
- * 以操作者的租戶時區換算,夏令時間切換日也對)。
+ * 以**規則所屬組織**的租戶時區換算,夏令時間切換日也對)。值是用那個時區選出來的,邊界也用同一個時區算,
+ * 同一份規則對每個操作者都是同一段時間 —— 不因操作者所在租戶的時區而差一天。
  *
  * - `before` D:`< D`(D 當天不含)
  * - `after` D:`>= D 的次日 00:00`(D 當天不含)
