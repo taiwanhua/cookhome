@@ -975,7 +975,8 @@ export class FormSubmissionsService {
   /**
    * 撤回(申請人本人;審核中、還沒有任何被接受的審核意見):實例 CAS → `withdrawn`,
    * 推進收尾把提交同步成 `withdrawn`(可改後再送)。已有審核意見 → `CONFLICT`(`HAS_DECISIONS`)。
-   * 看得到這筆、但不是申請人 → `FORBIDDEN`(`NOT_APPLICANT`),先於狀態檢查;看不到 → `NOT_FOUND`。
+   * 看得到這筆(已送出過)、但不是申請人 → `FORBIDDEN`(`NOT_APPLICANT`),先於狀態檢查;
+   * 看不到、或是別人的草稿 → `NOT_FOUND`(別人的草稿一律不存在,同 `remove` / `findReadable`)。
    */
   async withdraw(
     facts: FormOperatorFacts,
@@ -984,8 +985,10 @@ export class FormSubmissionsService {
     const id = toObjectId(input.id, "id");
     const record = await this.submissions.findOwnById(facts.operator, id);
     if (!record) {
-      // 以讀者的可見範圍與資料範圍規則再查一次:看得到才說「不是申請人」,看不到的不透露存在與否
-      if (await this.submissions.findById(facts.operator, id)) {
+      // 以讀者的可見範圍與資料範圍規則再查一次:看得到、且不是草稿才說「不是申請人」;
+      // 看不到的、別人的草稿都不透露存在與否
+      const visible = await this.submissions.findById(facts.operator, id);
+      if (visible && visible.status !== "draft") {
         throw workflowForbiddenError(
           "Only the applicant can withdraw the submission",
           "NOT_APPLICANT",

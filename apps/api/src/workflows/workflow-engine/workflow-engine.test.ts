@@ -421,6 +421,23 @@ describe("審核流程引擎", () => {
       expect(await submissionStatus(world, submitted.id)).toBe("REVIEWING");
     });
 
+    it("別人的草稿:撤回回 NOT_FOUND,不透露草稿存在", async () => {
+      const draft = await createDraft(api, world.applicant.token, FORM_KEY, {
+        title: "還沒送出的草稿",
+        days: 1,
+      });
+      const colleague = await person(
+        api,
+        world.connection,
+        world.kitchen,
+        world.tenant,
+      );
+      const result = await call(api, colleague.token, WITHDRAW, {
+        input: { id: draft.id, expectedEditVersion: draft.editVersion },
+      });
+      expect(errorCode(result)).toBe("NOT_FOUND");
+    });
+
     it("沒有決定前撤回 → withdrawn;可改後再送出(修訂 +1)", async () => {
       await useWorkflow(world, nextKey("withdraw_ok"), {
         steps: [usersStep("one", [staff(0)])],

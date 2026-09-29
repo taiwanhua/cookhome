@@ -143,7 +143,7 @@
 - **輸出**:讀出來的 `Date` 由 GraphQL `values`(JSON)序列化成 ISO 字串;表達式的語意值也是 ISO 字串(`semanticValueOf`)。lookup `form_submission` 來源的日期值回 ISO、顯示名以讀者的租戶時區格式化。
 - **定義裡的日期**:`rules.min` / `max`、表達式常數、`default.value` 是 ISO 字串。`date` 的上下限以租戶時區的當地日期比、`datetime` 以時點比(超出時訊息以租戶時區顯示)。表達式裡的日期常數存 `{ "date": ISO }`(把常數標成日期型別),日期時間常數是 ISO 字串。
 - **運算**:比較(`== != < > <= >=`)兩邊都是日期時間時比時點,一邊是日期、一邊是日期時間時換成租戶時區的當地日再比(`compareLocalDay`;付款日 = 今天 14:30 → 相等);`dateAdd(起, before | after, 數量, days | weeks | months | years)` 以租戶時區加減日曆單位(`addLocalCalendar`,月 / 年溢出取該月最後一天),日期起回當地 00:00、日期時間起回時點;`dateDiff` 的 `days` 是租戶時區的當地日期差,`hours` / `minutes` 是時點差。
-- 時區來源是讀者當前組織所屬租戶的 `orgs.settings.timezone`(`me.currentOrg.timezone`,沒設 = `Asia/Taipei`)。換算與格式化的正本是 `packages/domain/src/form/temporal.ts`(`toInstant` / `startOfLocalDay` / `compareLocalDay` / `addLocalCalendar` / `formatTemporal`)。
+- 時區來源是讀者當前組織所屬租戶的 `orgs.settings.timezone`(`me.currentOrg.timezone`,沒設或不是 `Intl` 認得的時區 = `Asia/Taipei`;`apps/api/src/database/tenant-timezone.ts`)。換算與格式化的正本是 `packages/domain/src/form/temporal.ts`(`toInstant` / `startOfLocalDay` / `compareLocalDay` / `addLocalCalendar` / `formatTemporal`)。
 
 ### 修訂與容量
 
@@ -381,7 +381,7 @@ input 欄位的缺席 / `null`:
 - `formRuntimeVersion` 的 `fields`:讀者讀不到的欄位是骨架且 `redacted: true`;`redacted` 缺席 = 完整定義。
 - `FormLookupRecord.values`:受保護且無權的欄位**省略**(鍵不存在),那筆版本沒有的欄位為 `null`。
 - `FormSubmissionModel.touched`:使用者碰過的欄位 key(草稿填寫時用);一定有值(沒有 = 空陣列)。
-- `me.currentOrg.timezone`(`forms/me-org-timezone.resolver.ts`):讀者當前組織所屬租戶的時區(IANA;租戶頂層 `orgs.settings.timezone`,沒設 = `Asia/Taipei`;根組織讀根組織的設定)。表單引擎日期時間欄輸入與顯示的單一時區來源。
+- `me.currentOrg.timezone`(`forms/me-org-timezone.resolver.ts`):讀者當前組織所屬租戶的時區(IANA;租戶頂層 `orgs.settings.timezone`,沒設或不是 `Intl` 認得的時區 = `Asia/Taipei`;根組織讀根組織的設定)。表單引擎日期時間欄輸入與顯示的單一時區來源。
 - `FormModel.tenantEnabled`:站在租戶內時本租戶的開關,root 視角為 `null`;`assignments` 只有 root 視角的共用表單有。
 - **`abilities` 含權限**(業務模組那一種,前端直接用,不再與 `usePermissions` 相乘):`FormAbilities` 已含 `system.forms.*` 權限與「是不是自己的表單 / 站在哪裡」;`FormSubmissionAbilities.canEdit` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成:`edit`(走過流程的已完成為 false);`canDelete` = 草稿 / 被退回 / 撤回:建立者本人 + `create`、沒走過流程的已完成 / 已駁回:`delete`;`canWithdraw` = 建立者、審核中;`canVoid` = 走過流程的已完成、建立者或 `edit`;`canCopy` = 已作廢 + `create`;`canEditField` = 權限層面改得動的欄位(條件唯讀看 `fieldStates.readonly`)。只審過某修訂的讀者一律 false。
 

@@ -13,18 +13,18 @@ const MIGRATION = path.join(
 );
 
 /**
- * 直接 import 遷移檔、呼叫 `up` `times` 次(不經 migrate-mongo 的 changelog 防重跑)——
+ * 直接 import 遷移檔、呼叫 `up`(或 `down`)`times` 次(不經 migrate-mongo 的 changelog 防重跑)——
  * 驗的是遷移**本身**冪等。遷移檔是 ESM,jest 這邊是 CJS,所以在子行程裡跑。
  */
 const RUN_UP_DIRECTLY = `
 import { pathToFileURL } from "node:url";
 import { MongoClient } from "mongodb";
-const [uri, times, file] = process.argv.slice(1);
+const [uri, times, file, method = "up"] = process.argv.slice(1);
 const client = await MongoClient.connect(uri);
 try {
   const migration = await import(pathToFileURL(file).href);
   for (let round = 0; round < Number(times); round += 1) {
-    await migration.up(client.db());
+    await migration[method](client.db());
   }
 } finally {
   await client.close();
@@ -48,7 +48,11 @@ async function openDatabase(databaseUri: string): Promise<Db> {
   return client.db();
 }
 
-function runUpDirectly(databaseUri: string, times: number) {
+function runUpDirectly(
+  databaseUri: string,
+  times: number,
+  method: "up" | "down" = "up",
+) {
   return spawnSync(
     process.execPath,
     [
@@ -58,6 +62,7 @@ function runUpDirectly(databaseUri: string, times: number) {
       databaseUri,
       String(times),
       MIGRATION,
+      method,
     ],
     { cwd: PACKAGE_ROOT, encoding: "utf8" },
   );
@@ -174,6 +179,33 @@ describe("遷移:資料範圍規則的日期條件值改存時點", () => {
     const [between] = filter.children;
     // 紐約 1 月是 UTC-5
     expect(between?.value?.values[0]).toBe("2026-01-01T05:00:00.000Z");
+  }, 600_000);
+
+  it("down:時點換回根組織時區的 `YYYY-MM-DD`;非日期條件不動", async () => {
+    const databaseUri = databaseUriOf("down");
+    const database = await openDatabase(databaseUri);
+    await seedPreState(database, null);
+
+    expect(runUpDirectly(databaseUri, 1).status).toBe(0);
+    const result = runUpDirectly(databaseUri, 1, "down");
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+
+    expect(await filterOf(database)).toEqual({
+      op: "AND",
+      children: [
+        leaf("createdAt", "between", ["2026-01-01", "2026-12-31"]),
+        {
+          op: "OR",
+          children: [
+            leaf("updatedAt", "before", ["2026-03-01"]),
+            leaf("createdBy", "in", [ownerId]),
+          ],
+        },
+        // 遷移前就是時點的值分不出來,一併換回日期(台北 07-01 00:00)
+        leaf("updatedAt", "after", ["2026-07-01"]),
+      ],
+    });
   }, 600_000);
 
   it("冪等:跑兩次的結果與跑一次相同", async () => {
