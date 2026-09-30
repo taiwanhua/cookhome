@@ -34,13 +34,14 @@ import type { OrgActionAbility, OrgDetail } from "../org-manager-types";
 import { useLogoUpload } from "../useLogoUpload";
 import { ManagerField } from "./ManagerField";
 import { type OwnerCandidate, TenantTopFields } from "./TenantTopFields";
+import { TimezoneField } from "./TimezoneField";
 import { useEditOrgForm } from "./useEditOrgForm";
 
 export interface EditOrgDialogProps {
   org: OrgDetail;
   /** 可當新上層的組織(管理範圍內、同租戶、不含自己與自己的子樹;租戶頂層本身候選為空) */
   parentOptions: readonly OrgOption[];
-  /** 這個組織是租戶頂層(api 只讓這一層有擁有者、可見範圍與時區) */
+  /** 這個組織是租戶頂層(api 只讓這一層有擁有者與可見範圍;時區則根組織也有) */
   isTenantTop: boolean;
   /** 租戶頂層 + 操作者是租戶內的人:搬移不給改(ADR-0009) */
   isTenantTopProtected: boolean;
@@ -51,7 +52,7 @@ export interface EditOrgDialogProps {
 }
 
 /**
- * 編輯組織(Figma 88:168):名稱、描述、上層組織(搬移)、商標,租戶頂層再多擁有者、可見範圍與時區。
+ * 編輯組織(Figma 88:168):名稱、描述、上層組織(搬移)、商標,租戶頂層再多擁有者與可見範圍;根組織與租戶頂層另有時區。
  *
  * 送出時**只打有變動的 mutation**,依序:商標上傳 → `updateOrg` → `moveOrg` →
  * `transferOrgOwner` → `setOrgVisibility` → `setOrgTimezone` → `setOrgManagers`(主管整組取代;根組織沒有這一欄)。任何一步失敗就停在那裡並顯示錯誤 —
@@ -282,8 +283,15 @@ export const EditOrgDialog = ({
             form={form}
             canTransferOwner={ability.canTransferOwner}
             canSetVisibility={ability.canSetVisibility}
-            canSetTimezone={ability.canSetTimezone}
             candidates={ownerCandidates}
+            isDisabled={isBusy}
+          />
+        )}
+        {(isTenantTop || org.isSystem) && (
+          <TimezoneField
+            value={form.timezone}
+            onChange={form.setTimezone}
+            canSetTimezone={ability.canSetTimezone}
             isDisabled={isBusy}
           />
         )}

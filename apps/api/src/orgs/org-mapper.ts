@@ -40,9 +40,16 @@ export function visibilityOf(org: OrgRecord): OrgVisibility | null {
 /** `orgs.settings.timezone` 的鍵(租戶時區;讀取的正本是 `database/tenant-timezone.ts`)。 */
 export const TIMEZONE_SETTING = "timezone";
 
-/** 租戶頂層自己設的時區;非租戶頂層、沒設或值不合法 → null(= 使用預設時區)。 */
+/**
+ * 時區只掛在**根組織**(根組織與它自己的資料)與**租戶頂層**(整個租戶);兩者以外的組織沒有自己的時區。
+ */
+export function hasOwnTimezone(org: OrgRecord): boolean {
+  return org.parentId === null || isTenantTop(org);
+}
+
+/** 根組織 / 租戶頂層自己設的時區;其他組織、沒設或值不合法 → null(= 使用預設時區)。 */
 export function timezoneOf(org: OrgRecord): string | null {
-  if (!isTenantTop(org)) {
+  if (!hasOwnTimezone(org)) {
     return null;
   }
   const timezone: unknown = org.settings[TIMEZONE_SETTING];

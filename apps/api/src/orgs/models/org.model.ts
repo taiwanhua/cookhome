@@ -87,7 +87,7 @@ export class Org {
   visibility!: OrgVisibility | null;
 
   /**
-   * 租戶時區(`orgs.settings.timezone`,IANA 名稱);只有租戶頂層有值。
+   * 時區(`orgs.settings.timezone`,IANA 名稱);只有根組織與租戶頂層有值。
    * 沒設(或存的值不合法)回 null,代表使用預設時區 —— 實際生效的時區看 `me.currentOrg.timezone`。
    */
   @Field(() => String, { nullable: true })
