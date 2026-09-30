@@ -101,7 +101,7 @@ gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id
 - **PR 連結**與 CI 狀態(綠 / 紅 / 排隊中)。
 - **改了什麼**:新增 / 改動的檔案清單。
 - **測試結果**:跑了哪些指令、通過數(與 `origin/main` 基準相比多幾筆)。
-- **截圖 / E2E run 連結**(admin 票、權限票,見下兩節)。
+- **截圖 / E2E 建議**(admin 票附截圖;權限票寫是否建議跑 E2E,見下兩節)。
 - **文件與程式不合處**、**規則回饋**:發現規則本文寫錯或缺漏,列在這裡由文件票收。
 - **確認不動的項目**:票面要求「逐一檢查同型」時,檢查過但沒改的逐項寫一句為什麼。
 - **接手體驗報告**:找不到 / 矛盾 / 用猜的資訊 —— 這是文件品質的回饋來源。
@@ -125,11 +125,11 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 
 正本:`apps/admin/vite.mock.config.ts`、`docs/standards/testing/testing.md`(TEST-08)
 
-### 權限 / 示範模組的票:交件前跑一次劇本 E2E
+### 權限 / 示範模組的票:在 PR 註明是否建議跑劇本 E2E
 
-改到**權限解析、模組樹 / 路由防守、示範模組、角色矩陣**的票,交件前手動觸發一次劇本 E2E,把 run 連結與結果附在 PR 上。`e2e.yml` 只有 `workflow_dispatch`、不在 `ci.yml` 內,PR 的 CI 不會跑它。
+改到**權限解析、模組樹 / 路由防守、示範模組、角色矩陣**的票,交件時在 PR 內文寫一段「E2E 建議」:建議跑或不必跑、理由、建議跑哪幾條劇本。**跑不跑由使用者決定並觸發;agent 不自己觸發 `e2e.yml`,票面的驗收條件也不寫「跑 E2E」**。`e2e.yml` 只有 `workflow_dispatch`、不在 `ci.yml` 內,PR 的 CI 不會跑它,每跑一次都花 Actions 額度。
 
-- `gh workflow run e2e.yml --ref <你的分支>`,跑的是**你分支上那一版**的 spec 與 harness;`-f grep="劇本 7"` 只跑其中一條。
+- 使用者決定要跑時的指令:`gh workflow run e2e.yml --ref <分支>`,跑的是**該分支上那一版**的 spec 與 harness;`-f grep="劇本 7"` 只跑其中一條。
 - 覆蓋到哪幾條見 `docs/testing/permission-scenarios.md` 的「E2E」欄;寫法規範見 TEST-05 / TEST-11。
 
 正本:`.github/workflows/e2e.yml`、`apps/e2e/README.md`
@@ -140,7 +140,6 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 
 - 交件前想驗:**暫時加一段 `push: branches: [<你的 feat 分支>]`** → push 一次讓它跑 → 綠了之後**把那段移除**再開 PR。PR 內文附那次 run 的連結並註明「驗證用的 push trigger 已移除」。
 - 不要把 `push` trigger 留著合進去 —— 手動 workflow 通常很貴,留著等於每次 push 都燒 Actions 額度。
-- 「交件前手動觸發一次 e2e」這條要求對新增 `e2e.yml` 那一類的票本身不成立,寫驗收條件時要避開這種自我指涉。
 
 正本:`.github/workflows/`
 
