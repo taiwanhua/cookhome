@@ -33,6 +33,7 @@ export const DEMO_FORM_ROUTES = {
 
 export const FORMS_ROUTE = "/system/forms";
 
+/** `icon` 照 seed 的宣告(隱藏頁沒有圖示 = null)。 */
 const moduleOf = (
   id: string,
   key: string,
@@ -41,6 +42,7 @@ const moduleOf = (
   sidebarType: ModuleSidebarType,
   route: string,
   permissions: readonly string[],
+  icon: string | null = null,
 ): TestModule => ({
   id,
   key,
@@ -50,7 +52,7 @@ const moduleOf = (
   engine: key === DEMO_FORM_KEY ? ModuleEngine.Form : ModuleEngine.Fixed,
   order: 3,
   route,
-  icon: null,
+  icon,
   permissions: [...permissions],
 });
 
@@ -66,6 +68,7 @@ export const demoFormModules = (
     ModuleSidebarType.Link,
     DEMO_FORM_ROUTES.list,
     permissions,
+    "description",
   ),
   moduleOf(
     "m-demo-form-view",
@@ -106,6 +109,7 @@ export const formsModules = (permissions: readonly string[]): TestModule[] => [
     ModuleSidebarType.Group,
     "/system",
     [],
+    "settings",
   ),
   moduleOf(
     "m-forms",
@@ -115,6 +119,7 @@ export const formsModules = (permissions: readonly string[]): TestModule[] => [
     ModuleSidebarType.Link,
     FORMS_ROUTE,
     permissions,
+    "list",
   ),
 ];
 

@@ -20,6 +20,7 @@ import { Dialog } from "@repo/ui/dialog";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
 import { TextField } from "@repo/ui/text-field";
+import { Typography } from "@repo/ui/typography";
 
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
@@ -43,7 +44,7 @@ export interface EditOrgDialogProps {
   parentOptions: readonly OrgOption[];
   /** 這個組織是租戶頂層(api 只讓這一層有擁有者與可見範圍;時區則根組織也有) */
   isTenantTop: boolean;
-  /** 租戶頂層 + 操作者是租戶內的人:搬移不給改(ADR-0009) */
+  /** 租戶頂層 + 操作者是租戶內的人:搬移不給改(ADR-0009),上層組織欄的位置改放說明 */
   isTenantTopProtected: boolean;
   ownerCandidates: readonly OwnerCandidate[];
   ability: OrgActionAbility;
@@ -120,6 +121,13 @@ export const EditOrgDialog = ({
 
   const isBusy = isSaving || isUploading;
 
+  /**
+   * 「上層組織」下拉只給搬得動的組織:根組織不可搬,租戶頂層的候選是空的(整棵子樹與別的租戶都被排除),
+   * 它原本的上層也不在候選裡 —— 渲染出來只會是空白的下拉。租戶內的人編輯租戶頂層時改放一句說明。
+   */
+  const hasParentField = ability.canMove && !org.isSystem && !isTenantTop;
+  const hasMove = hasParentField && form.changes.hasMove;
+
   const submit = async () => {
     setErrorCode(null);
     setIsSaving(true);
@@ -155,7 +163,7 @@ export const EditOrgDialog = ({
               : { org: { ...current.org, ...payload.updateOrg.org } },
         );
       }
-      if (changes.hasMove) {
+      if (hasMove) {
         await moveOrg.mutateAsync({
           input: { id: org.id, newParentId: form.parentId },
         });
@@ -244,16 +252,14 @@ export const EditOrgDialog = ({
             form.setDescription(event.target.value);
           }}
         />
-        {ability.canMove && !org.isSystem && (
+        {hasParentField && (
           <SelectField
             label={t("parent")}
             value={form.parentId}
             displayEmpty
             fullWidth
-            disabled={isBusy || isTenantTopProtected}
-            helperText={
-              isTenantTopProtected ? tActions("tenantTopHint") : t("parentHint")
-            }
+            disabled={isBusy}
+            helperText={t("parentHint")}
             options={[
               { value: "", label: t("parentUnset") },
               ...parentOptions.map((option) => ({
@@ -263,6 +269,11 @@ export const EditOrgDialog = ({
             ]}
             onChange={form.setParentId}
           />
+        )}
+        {ability.canMove && isTenantTopProtected && (
+          <Typography variant="caption" color="text.secondary">
+            {tActions("tenantTopHint")}
+          </Typography>
         )}
         <OrgLogoField
           file={form.logoFile}

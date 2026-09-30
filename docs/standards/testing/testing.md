@@ -34,8 +34,9 @@ Playwright 的用途收斂成一件事:把 `docs/testing/permission-scenarios.md
 - **跑的時機只有手動觸發**:本機 `pnpm e2e`、CI 是 `.github/workflows/e2e.yml`(只有 `workflow_dispatch`)。
   `ci.yml` **不引用** e2e —— 一條劇本要 build api + admin、起 Mongo、migrate + seed 再開瀏覽器,
   放進每個 PR 會把免費方案的 Actions 額度吃光。
-- **什麼時候該手動跑一次**:改到權限解析、模組樹 / 路由防守、示範模組、角色矩陣的票,交件前跑一次
-  (`gh workflow run e2e.yml --ref <分支>`),把 run 連結附在 PR 上。
+- **誰決定跑**:使用者。改到權限解析、模組樹 / 路由防守、示範模組、角色矩陣的票,交件時在 PR 註明
+  是否建議跑、理由與建議的劇本;使用者決定後才觸發(`gh workflow run e2e.yml --ref <分支>`)。
+  agent 不自己觸發,票面的驗收條件也不寫「跑 E2E」。
 - **劇本以外的行為不寫 E2E**:一般頁面行為交給 admin 的元件測試(TEST-08)、api 的整合測試(TEST-07)。
   E2E 仍然是最貴的那一層,「數量是成本」這件事沒變。
 
