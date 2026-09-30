@@ -462,6 +462,9 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
       expect(byKey(modules, "system.org-manager").permissions).toContain(
         "system.org-manager.set-visibility",
       );
+      expect(byKey(modules, "system.org-manager").permissions).toContain(
+        "system.org-manager.set-timezone",
+      );
     });
   });
 

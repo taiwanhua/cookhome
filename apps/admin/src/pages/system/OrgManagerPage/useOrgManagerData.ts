@@ -34,6 +34,7 @@ export const useOrgManagerData = () => {
     canRevokeProvision: hasPermission(ORG_MANAGER_PERMISSIONS.revokeProvision),
     canTransferOwner: hasPermission(ORG_MANAGER_PERMISSIONS.transferOwner),
     canSetVisibility: hasPermission(ORG_MANAGER_PERMISSIONS.setVisibility),
+    canSetTimezone: hasPermission(ORG_MANAGER_PERMISSIONS.setTimezone),
   };
 
   const [pickedOrgId, setPickedOrgId] = useState<string | null>(null);

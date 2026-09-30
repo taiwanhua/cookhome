@@ -35,17 +35,18 @@
 | `system.org-manager.view-members`                | 組織詳情的「成員」頁籤 + API(`orgMembers`):看這個組織**自己**的成員                                                                        |
 | `system.org-manager.add-members`                 | 「加入成員」按鈕 + API(`orgMemberCandidates` / `addOrgMembers`):把管理範圍內的使用者加進這個組織;**移除不在這裡**                          |
 | `system.org-manager.set-visibility`              | 編輯**自己租戶的頂層**時的「使用者可見自身組織的下層組織資料」開關 + API(`settings.visibility`,ADR-0005);租戶管理員模板含此權限,根組織亦可 |
+| `system.org-manager.set-timezone`                | 編輯**自己租戶的頂層**或**根組織**時的「時區」欄 + API(`settings.timezone`);租戶管理員模板含此權限;沒有它時欄位唯讀                        |
 | `system.org-manager.tenant-ops.provision`        | 根組織:「開通租戶」按鈕 + API(ADR-0009 四步 + 擁有者 + 啟用信)                                                                             |
 | `system.org-manager.tenant-ops.revoke-provision` | 根組織:租戶頂層的「撤銷開通」按鈕 + API(反向抹掉開通建出的三樣;與開通分開兩筆權限,風險等級不同)                                            |
 | `system.org-manager.tenant-ops.transfer-owner`   | 根組織:編輯租戶頂層時的「擁有者」欄位 + API(ADR-0009:v1 僅根組織可轉移)                                                                    |
 
-**為什麼 `set-visibility` 不在 `tenant-ops`**:可見範圍開關是**租戶自己的資料政策**,租戶管理員模板拿到 `system.org-manager.*` 就應該含它;能設哪些租戶頂層由管理範圍決定,不是靠「站在根組織」。
+**為什麼 `set-visibility` / `set-timezone` 不在 `tenant-ops`**:可見範圍開關與時區都是**租戶自己的設定**,租戶管理員模板拿到 `system.org-manager.*` 就應該含它;能設哪些租戶頂層由管理範圍決定,不是靠「站在根組織」。
 
 正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/api/src/orgs/orgs.resolver.ts`、`apps/admin/src/pages/system/OrgManagerPage/org-manager-permissions.ts`
 
 ## 資料
 
-- `orgs`:`ancestors` 物化路徑、`settings.visibility` 可見範圍、`logoPath` 商標、`ownerUserId` 租戶擁有者與 `slug` 租戶短碼(兩者只存在租戶頂層)。`orgs` 在 schema 上宣告成**治理類**(`tenantScopePlugin({ kind: "governance" })`),租戶過濾自動吃**管理範圍**(`managedOrgIds`);業務 collection 則吃可見範圍。個別 service 不自己選範圍,凡查組織就經 `OrgsRepository`,反查 `org_user` 得到的使用者清單自然也對。
+- `orgs`:`ancestors` 物化路徑、`settings.visibility` 可見範圍、`settings.timezone` 時區(可見範圍只在租戶頂層有意義,時區在根組織與租戶頂層)、`logoPath` 商標、`ownerUserId` 租戶擁有者與 `slug` 租戶短碼(兩者只存在租戶頂層)。`orgs` 在 schema 上宣告成**治理類**(`tenantScopePlugin({ kind: "governance" })`),租戶過濾自動吃**管理範圍**(`managedOrgIds`);業務 collection 則吃可見範圍。個別 service 不自己選範圍,凡查組織就經 `OrgsRepository`,反查 `org_user` 得到的使用者清單自然也對。
 - `core_relationships`:`org_user`(成員)、`org_role`(角色的擁有組織)、`org_manager`(組織的主管,依設定順序)。
 - `audit_logs`:見「稽核」。
 - seed:`orgs` 種子只有根組織一筆;租戶由開通產生。
@@ -67,9 +68,11 @@
 
 **新增子組織**:輕量入口,名稱 + 描述,掛在目前選中的組織下(限操作者管理範圍內);不觸發開通流程。
 
-**編輯組織**:名稱、描述、商標(任何組織;既有商標要顯示預覽)、上層組織(搬移,見下)、主管(根組織以外的組織);租戶頂層另有「使用者可見自身組織的下層組織資料」開關(持 `set-visibility` 者可設,租戶管理員預設有)、租戶短碼與擁有者轉移(後兩者根組織專屬)。`updateOrg` 動不到擁有者與可見範圍開關 —— `UpdateOrgInput` 根本沒有這兩個欄位(另開 mutation),不是靠執行期判斷;沒有任何欄位真的變動時不寫入、也不留稽核。
+**編輯組織**:名稱、描述、商標(任何組織;既有商標要顯示預覽)、上層組織(搬移,見下)、主管(根組織以外的組織);租戶頂層另有「使用者可見自身組織的下層組織資料」開關(持 `set-visibility` 者可設,租戶管理員預設有)、租戶短碼與擁有者轉移(後兩者根組織專屬);根組織與租戶頂層都有時區(持 `set-timezone` 者可設,租戶管理員預設有;沒有權限時唯讀顯示)。`updateOrg` 動不到擁有者、可見範圍開關與時區 —— `UpdateOrgInput` 根本沒有這三個欄位(各自另開 mutation),不是靠執行期判斷;沒有任何欄位真的變動時不寫入、也不留稽核。
 
-**擁有者只存在於租戶頂層**:`transferOrgOwner` 的 `orgId` 不是租戶頂層一律 `VALIDATION_FAILED`;新擁有者必須啟用中、且所屬組織落在該租戶(含下層)內。可見範圍開關同樣只掛租戶頂層,但守門的是管理範圍而不是「站在根組織」:範圍外的 `orgId` 查不到即 `NOT_FOUND`,非租戶頂層 `VALIDATION_FAILED`。
+**擁有者只存在於租戶頂層**:`transferOrgOwner` 的 `orgId` 不是租戶頂層一律 `VALIDATION_FAILED`;新擁有者必須啟用中、且所屬組織落在該租戶(含下層)內。可見範圍開關同樣只掛租戶頂層,時區掛在根組織與租戶頂層,但守門的是管理範圍而不是「站在根組織」:範圍外的 `orgId` 查不到即 `NOT_FOUND`(根組織只有根組織的人管得到),對象不是它們掛的那一層 `VALIDATION_FAILED`。
+
+**時區**:`setOrgTimezone` 寫根組織或租戶頂層的 `settings.timezone`,值要是 `Intl` 認得的 IANA 名稱(`@repo/domain/form` 的 `isValidTimezone`,不合法 `VALIDATION_FAILED`、`extensions.fields = ["timezone"]`);`timezone: null` 拿掉這個鍵、退回預設時區 `Asia/Taipei`。租戶頂層的時區套用整個租戶;根組織的時區套用根組織與它自己的資料,也是資料範圍規則的日期條件換算「哪一天」的依據。日期時間顯示與日期欄的「當天」都以它換算(讀取端 `tenantTimezoneOf`,`me.currentOrg.timezone` 回的就是它)。`Org.timezone` 回根組織 / 租戶頂層自己設的值,沒設為 null;其他組織恆為 null。
 
 **停用 / 啟用**:連動整棵子樹;停用的組織不再出現在使用者的可切換組織清單,其成員登入後若沒有其他啟用中的所屬組織則無法進入後台(ADR-0005)。啟用只啟用自己這一節,下層各自處理。
 
@@ -121,6 +124,7 @@ updateOrg(input: { id, name, description, logoPath, slug }): OrgPayload!
 setOrgEnabled(input: { id, enabled }): OrgPayload!
 moveOrg(input: { id, newParentId }): OrgPayload!
 setOrgVisibility(input: { orgId, visibility: OWN | SUBTREE }): OrgPayload!
+setOrgTimezone(input: { orgId, timezone: String }): OrgPayload!   # timezone = null 清除、退回預設時區
 deleteOrg(input: { id }): DeletePayload!
 ```
 
@@ -185,7 +189,7 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 - **「租戶」標籤只標父節點是平台根組織的節點**,不是「父節點是樹根」—— 租戶視角的樹根是租戶頂層,它的子組織不是租戶。實作上先以 `org(樹根).isSystem` 判斷「樹根就是平台根組織」,是的話它的直接子組織才掛標籤。停用的組織掛「停用」標籤。標籤走 `@repo/ui/tree` 的 `TreeNode.labelSuffix`(Figma Draft/OrgTreeItem 的 ShowTag 槽位),`label` 仍是純文字,搜尋與無障礙名稱不受影響;共用的 `OrgTreePicker` 以 `labelSuffixOf` 接出來。
 - **樹的葉節點在 admin 歸一化成 `children: undefined`**(`lib/org-tree.ts` 的 `toTreeNodes`):api 對葉節點回 `children: []`,而 `TreeNode.children` 的語意是「有沒有下一層」—— 不把「能不能展開」交給樹元件自己解讀。
 - **搬移是編輯彈窗裡的「上層組織」下拉,不是動作列上的按鈕**(Figma 88:182、help.md 沿用此說法);下拉文案用白話:「可以搬到你管理範圍內的任何組織底下,除了它自己和它底下的組織」。候選在前端先照三條規則濾過,api 仍會再驗一次。樹上有的就是管理範圍,所以「管理範圍內」= 在樹上走得到;「同租戶」的上限是**含自己的那一棵樹根**(管理範圍多根時 `orgTrail` 會找出是哪一棵),根組織視角要再往下一層取租戶頂層(`useMoveTargets.ts`)。租戶頂層自己的候選是空的 = 搬不動,與 api 的租戶頂層保護一致。
-- **編輯彈窗最多打五個 mutation**,依序 `updateOrg` → `moveOrg` → `transferOrgOwner` → `setOrgVisibility` → `setOrgManagers`,**只送有變動的那幾個**(租戶短碼跟著 `updateOrg` 送)。任何一步失敗就停在那裡,前面已成功的不回滾 —— 它們各自是完整的動作、各自留了稽核;重新送出只會補上還沒做的那幾步。
+- **編輯彈窗最多打六個 mutation**,依序 `updateOrg` → `moveOrg` → `transferOrgOwner` → `setOrgVisibility` → `setOrgTimezone` → `setOrgManagers`,**只送有變動的那幾個**(租戶短碼跟著 `updateOrg` 送)。任何一步失敗就停在那裡,前面已成功的不回滾 —— 它們各自是完整的動作、各自留了稽核;重新送出只會補上還沒做的那幾步。
 - **`updateOrg` 沒碰商標欄就不送 `logoPath`**(`null` 在 api 是清空):前端以「使用者有沒有碰過商標欄」決定要不要送。既有商標的預覽走 `@repo/ui/upload-field` 的 `initialPreviewUrl`(選新檔即取代、按移除回空狀態)。開通與編輯兩個彈窗共用同一個上傳欄(Figma `Draft/UploadField`)。
 - **擁有者欄位要靠 `users`**:`orgs` 只存 `ownerUserId`,顯示姓名與列出可轉移的候選人都得查使用者,而 `users` 掛在 `system.user-manager.view` 底下。沒有那個權限時,資料區的擁有者欄位仍然出現(那是組織的事實),只是顯示不出是誰;轉移欄位則不給。
 - **租戶頂層與根組織的保護是「按鈕出現但停用」**:停用 / 刪除按鈕與「上層組織」下拉 `disabled` 加提示(根組織用 `isSystem` 的提示、租戶頂層用租戶頂層提示)。「我做不到這個動作」(無權限,不給按鈕)與「這個組織不准被這樣動」(給按鈕、停用並說明)是兩回事。
@@ -193,6 +197,7 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 - **「撤銷開通」的出現條件是三者同時成立**:持有 `tenant-ops.revoke-provision`、**根組織視角**、且選中的是**租戶頂層**。它與停用 / 刪除不同,**不做「出現但停用」**—— 對非租戶頂層的組織它根本不是一個可想像的動作。確認彈窗比刪除嚴格:列出會被抹掉的三樣(租戶名、擁有者帳號、副本角色名),並要**照打租戶名稱**才按得下去(刪除是軟刪除、撤銷是硬刪除,嚴格度跟著不可逆性走)。擁有者帳號與副本角色名取自 `users` 那一支查詢(`useTenantOwner`:擁有者持有的角色中,擁有組織就是這個租戶頂層的那一筆),沒有 `system.user-manager.view` 時兩處顯示「(顯示不出來)」,彈窗照樣可用。
 - **資料區的頁籤**(`@repo/ui/tabs`,同角色管理的頁內頁籤):「組織資料」與「成員」。**頁籤只在持 `view-members` 時整列出現**,沒有那筆權限的人直接看到組織資料 —— 頁籤不是一個動作,給了空頁籤只會讓人困惑。頁籤狀態**不進 URL**(REACT-02 第 2 點的 admin 例外),換組織時以 `key={org.id}` 整個重來,分頁與已選的人不該跟著跑到別的組織。動作列(編輯 / 停用 / 刪除 / 撤銷開通)維持在頁籤**之上**,它們是對整個組織的動作。**這是頁內頁籤,不是路由頁籤**:「成員」沒有自己的網址,不進殼的路由頁籤列(判準見 ADR-0011「頁籤兩種」)。
 - **成員列欄位**:姓名、帳號、狀態、其他所屬組織。「加入成員」彈窗是多選 `Autocomplete`,候選用 `orgMemberCandidates` 而不是 `users`;**關鍵字丟回 api 查**(候選有分頁上限,前端手上不會是全量),所以走 `onInputChange`,給了它就不再讓 Autocomplete 自己過濾一次,否則打第一個字就把「還沒換過來的那批 options」濾成空的。加完之後 `orgMembers` 與 `orgMemberCandidates` 兩把都要失效。成員頁籤沒有「移除」(見規則)。
+- **時區欄**(`EditOrgDialog/TimezoneField.tsx`):單選 `Autocomplete`,選項是瀏覽器 `Intl.supportedValuesOf("timeZone")` 的完整 IANA 清單(不自己列表、不裝套件),顯示時區名、輸入即過濾;已存的值不在清單裡(別名)時放在最前面。沒設時說明文字寫「未設定(使用預設 Asia/Taipei)」。根組織與租戶頂層的編輯彈窗一律顯示這一欄(可見範圍開關仍只在租戶頂層),沒有 `set-timezone` 時停用(唯讀顯示目前值)。儲存後照「成功後失效三把」重取 —— 改的是自己當前組織所屬的租戶(或根組織)時,`me.currentOrg.timezone` 換掉,畫面上的日期時間跟著換算。
 - **主管**:資料區有「主管」一列(`OrgManagersRow`,根組織不顯示);編輯彈窗的主管欄(`ManagerField`)是多選 `Autocomplete`,候選走 `orgManagerCandidates`、關鍵字丟回 api 查(同「加入成員」的做法);已選但不在這一批候選裡的人(停用的主管、換過關鍵字)仍留在值裡。
 - **成功後失效三把**:`orgTree`、被改到的那一筆 `org(id)`、以及 `me` —— 側欄的租戶識別讀 `me.currentOrg.logoUrl`(有商標顯示商標圖、沒有才顯示組織名),改完商標不重取 `me` 就不會更新。
 - **彈窗裡的第一個 `TextField`**:MUI 有一條 `.MuiDialogTitle-root + .MuiDialogContent-root { padding-top: 0 }`,特異度贏過 `sx` 的單一 class,浮動標籤會被標題壓住;`@repo/ui/dialog` 以 `&&` 拉高特異度處理掉。
@@ -202,17 +207,17 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 
 ## 錯誤碼
 
-| code                      | 何時                                                                                                                 |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `ORG_NOT_DELETABLE`       | 刪除前置未過;`extensions.reasons`:`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG` |
-| `PROVISION_NOT_REVOKABLE` | 撤銷開通前置未過;`extensions.reasons` 同上那組語彙                                                                   |
-| `CROSS_TENANT`            | 搬移跨租戶                                                                                                           |
-| `CYCLIC_MOVE`             | 搬進自己的子樹                                                                                                       |
-| `OWNER_PROTECTED`         | 擁有者保護(ADR-0009)                                                                                                 |
-| `NOT_FOUND`               | 組織或使用者不在管理範圍內(不透露差別)、id 不存在                                                                    |
-| `VALIDATION_FAILED`       | 欄位不合、`orgId` 不是合法 id、非租戶頂層卻設可見範圍 / 轉移擁有者、開通勾了選項外的模組                             |
-| `FORBIDDEN`               | 權限不足(`@RequirePermission`)、非根組織做租戶作業、租戶內的人動租戶頂層                                             |
-| `UPLOAD_REJECTED`         | 商標檔型或大小不合                                                                                                   |
+| code                      | 何時                                                                                                                                               |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORG_NOT_DELETABLE`       | 刪除前置未過;`extensions.reasons`:`HAS_CHILDREN` / `HAS_MEMBERS` / `OWNS_ROLES` / `HAS_BUSINESS_DATA` / `SYSTEM_ORG`                               |
+| `PROVISION_NOT_REVOKABLE` | 撤銷開通前置未過;`extensions.reasons` 同上那組語彙                                                                                                 |
+| `CROSS_TENANT`            | 搬移跨租戶                                                                                                                                         |
+| `CYCLIC_MOVE`             | 搬進自己的子樹                                                                                                                                     |
+| `OWNER_PROTECTED`         | 擁有者保護(ADR-0009)                                                                                                                               |
+| `NOT_FOUND`               | 組織或使用者不在管理範圍內(不透露差別)、id 不存在                                                                                                  |
+| `VALIDATION_FAILED`       | 欄位不合、`orgId` 不是合法 id、非租戶頂層卻設可見範圍 / 轉移擁有者、既非根組織也非租戶頂層卻設時區、時區不是合法的 IANA 名稱、開通勾了選項外的模組 |
+| `FORBIDDEN`               | 權限不足(`@RequirePermission`)、非根組織做租戶作業、租戶內的人動租戶頂層                                                                           |
+| `UPLOAD_REJECTED`         | 商標檔型或大小不合                                                                                                                                 |
 
 錯誤碼總表在 GQL-04。前端解讀集中在 `org-manager-error.ts`。
 
@@ -220,7 +225,7 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 
 ## 稽核
 
-由模組層寫 `audit_logs`(ADR-0004)。本模組每個會改資料的動作寫一筆:`action` = 權限 key 的動作段前加模組簡稱(`org.provision`、`org.revoke-provision`、`org.create-child`、`org.edit`、`org.toggle-enabled`、`org.move`、`org.delete`、`org.transfer-owner`、`org.set-visibility`,以及主管的 `org.set-managers`),`targetType = "org"`,`targetId` = 被操作的組織,`before` / `after` 只放有變的欄位;`orgId` = 動作發生的組織脈絡(操作者的當前組織)。
+由模組層寫 `audit_logs`(ADR-0004)。本模組每個會改資料的動作寫一筆:`action` = 權限 key 的動作段前加模組簡稱(`org.provision`、`org.revoke-provision`、`org.create-child`、`org.edit`、`org.toggle-enabled`、`org.move`、`org.delete`、`org.transfer-owner`、`org.set-visibility`、`org.set-timezone`,以及主管的 `org.set-managers`),`targetType = "org"`,`targetId` = 被操作的組織,`before` / `after` 只放有變的欄位(時區是 `{ timezone }`,沒設記 null);`orgId` = 動作發生的組織脈絡(操作者的當前組織)。
 
 **例外:「加入成員」寫的是 `user.add-org`**:被改的是**使用者的所屬組織**,所以稽核跟著使用者走(`targetType = "user"`、`targetId` = 被加入的那位,每人一筆),與使用者管理的「選擇所屬組織」同一個 action —— 不另開 `org.add-members`,否則同一件事在稽核裡有兩種名字。
 
@@ -229,7 +234,7 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 ## 測試
 
 - api:`apps/api/src/orgs/orgs.test.ts`、`tenant-ops.test.ts`、`org-members.test.ts`、`org-managers.test.ts`、`org-slug.test.ts`
-- admin:`apps/admin/src/pages/system/OrgManagerPage/` 的 `OrgManagerPage.test.tsx`、`OrgManagerGuards.test.tsx`、`OrgManagerScope.test.tsx`、`OrgManagers.test.tsx`、`OrgMembers.test.tsx`、`OrgProvisionSlug.test.tsx`、`OrgRevokeProvision.test.tsx`、`OrgTreeAfterMove.test.tsx`(共用 `org-manager-test-support.ts`)
+- admin:`apps/admin/src/pages/system/OrgManagerPage/` 的 `OrgManagerPage.test.tsx`、`OrgManagerGuards.test.tsx`、`OrgManagerScope.test.tsx`、`OrgManagers.test.tsx`、`OrgMembers.test.tsx`、`OrgProvisionSlug.test.tsx`、`OrgRevokeProvision.test.tsx`、`OrgTimezone.test.tsx`、`OrgTreeAfterMove.test.tsx`(共用 `org-manager-test-support.ts`)
 - 劇本(`docs/testing/permission-scenarios.md`):劇本 12 可見性開關、劇本 14 管理範圍 vs 可見範圍、劇本 15 側欄商標繼承、劇本 16 租戶視角、劇本 17 擁有者保護;E2E 為 `apps/e2e/src/specs/scenario-12-visibility-toggle.spec.ts`、`scenario-14-management-scope.spec.ts`、`scenario-15-sidebar-logo.spec.ts`、`scenario-16-tenant-perspective.spec.ts`、`scenario-17-owner-protection.spec.ts`
 
 正本:`apps/api/src/orgs/`、`apps/admin/src/pages/system/OrgManagerPage/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
@@ -245,6 +250,6 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 - 整體結構:平台(根組織)> 各租戶 > 部門 / 分店;開通流程與 token 規則見 ADR-0009。
 - 開通租戶、轉移擁有者、**撤銷開通**整段都是平台視角(根組織專屬、對象是租戶頂層),租戶使用者既看不到按鈕也沒有對應的概念,因此不寫進 help.md。
 - 搬移僅限同租戶,跨租戶禁止。
-- 「使用者可見自身組織的下層組織資料」開關實際掛在租戶頂層、套用整個租戶;help 對租戶只說「頂層組織」「整個組織」。
+- 「使用者可見自身組織的下層組織資料」開關與時區實際掛在租戶頂層、套用整個租戶(時區另外也掛在根組織);help 對租戶只說「頂層組織」「整個組織」。
 
 正本:`docs/adr/0009-tenant-provisioning.md`、`docs/adr/0005-multi-tenant-isolation.md`

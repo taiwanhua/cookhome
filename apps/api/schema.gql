@@ -1200,6 +1200,7 @@ type Mutation {
   setModuleListColumns(input: SetModuleListColumnsInput!): ModuleListColumnsPayload!
   setOrgEnabled(input: SetOrgEnabledInput!): OrgPayload!
   setOrgManagers(input: SetOrgManagersInput!): OrgPayload!
+  setOrgTimezone(input: SetOrgTimezoneInput!): OrgPayload!
   setOrgVisibility(input: SetOrgVisibilityInput!): OrgPayload!
   setPassword(input: SetPasswordInput!): SetPasswordPayload!
   setPermissionEnabled(input: SetPermissionEnabledInput!): PermissionAdminPayload!
@@ -1264,6 +1265,7 @@ type Org {
   ownerUserId: ID
   parentId: ID
   slug: String
+  timezone: String
   visibility: OrgVisibility
 }
 
@@ -1745,6 +1747,11 @@ input SetOrgEnabledInput {
 input SetOrgManagersInput {
   orgId: ID!
   userIds: [ID!]!
+}
+
+input SetOrgTimezoneInput {
+  orgId: ID!
+  timezone: String
 }
 
 input SetOrgVisibilityInput {

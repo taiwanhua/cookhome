@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Types } from "mongoose";
 
+import { isValidTimezone } from "@repo/domain/form";
+
 import { AuditService } from "../audit/audit.service";
 import {
   CustomersRepository,
@@ -25,6 +27,7 @@ import type { CreateChildOrgInput } from "./dto/create-child-org.input";
 import type { DeleteOrgInput } from "./dto/delete-org.input";
 import type { MoveOrgInput } from "./dto/move-org.input";
 import type { SetOrgEnabledInput } from "./dto/set-org-enabled.input";
+import type { SetOrgTimezoneInput } from "./dto/set-org-timezone.input";
 import type { SetOrgVisibilityInput } from "./dto/set-org-visibility.input";
 import type { UpdateOrgInput } from "./dto/update-org.input";
 import type { DeletePayload } from "./models/org-payloads.model";
@@ -37,9 +40,12 @@ import {
 } from "./org-error";
 import {
   type OrgRecord,
+  TIMEZONE_SETTING,
   VISIBILITY_SETTING,
+  hasOwnTimezone,
   isTenantTop,
   tenantTopIdOf,
+  timezoneOf,
   toOrg,
   visibilityOf,
   visibilitySettingOf,
@@ -56,6 +62,7 @@ const AUDIT_ACTIONS = {
   move: "org.move",
   delete: "org.delete",
   setVisibility: "org.set-visibility",
+  setTimezone: "org.set-timezone",
 } as const;
 
 /**
@@ -567,6 +574,51 @@ export class OrgsService {
       targetId: org._id,
       before: { visibility: previous },
       after: { visibility: input.visibility },
+    });
+    return toOrg(updated ?? org);
+  }
+
+  /**
+   * 時區(`orgs.settings.timezone`):掛在**根組織**(根組織與它自己的資料)與**租戶頂層**(整個租戶共用)——
+   * 日期時間的顯示、日期欄的「當天」、資料範圍規則的日期條件都以它換算(讀取端 `tenantTimezoneOf`)。
+   * 範圍與可見範圍開關同一套:範圍外的組織查不到(`NOT_FOUND`;根組織只有根組織的人管得到),
+   * 兩者以外的組織 `VALIDATION_FAILED`。
+   * `timezone = null` 清除設定、退回預設時區;值要是 `Intl` 認得的 IANA 名稱。
+   */
+  async setTimezone(
+    operator: OperatorContext,
+    input: SetOrgTimezoneInput,
+  ): Promise<Org> {
+    const org = await this.requireManaged(operator, input.orgId);
+    if (!hasOwnTimezone(org)) {
+      throw orgValidationError(
+        `Org ${input.orgId} is neither the root org nor a tenant top-level org; the timezone setting only exists there`,
+        ["orgId"],
+      );
+    }
+    if (input.timezone !== null && !isValidTimezone(input.timezone)) {
+      throw orgValidationError("timezone is not an IANA name Intl recognizes", [
+        "timezone",
+      ]);
+    }
+    // 比對存的原值(不合法的舊值也要能被清掉),稽核的 before 則記對外看到的值
+    if ((org.settings[TIMEZONE_SETTING] ?? null) === input.timezone) {
+      return toOrg(org);
+    }
+    const previous = timezoneOf(org);
+    const updated = await this.orgs.updateById(
+      operator,
+      org._id,
+      input.timezone === null
+        ? { $unset: { [`settings.${TIMEZONE_SETTING}`]: "" } }
+        : { $set: { [`settings.${TIMEZONE_SETTING}`]: input.timezone } },
+    );
+    await this.audit.record(operator, {
+      action: AUDIT_ACTIONS.setTimezone,
+      targetType: AUDIT_TARGET_TYPE,
+      targetId: org._id,
+      before: { timezone: previous },
+      after: { timezone: input.timezone },
     });
     return toOrg(updated ?? org);
   }

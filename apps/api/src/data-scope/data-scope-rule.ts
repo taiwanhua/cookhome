@@ -1,8 +1,9 @@
 import { Types } from "mongoose";
 
 import {
-  addLocalCalendar,
-  startOfLocalDayOf,
+  type LocalDate,
+  localDateOf,
+  startOfLocalDay,
   toInstant,
 } from "@repo/domain/form";
 
@@ -178,6 +179,17 @@ export interface DataScopeOperatorFacts {
   memberOrgIds: readonly Types.ObjectId[];
   /** 持有的啟用中角色;套用對象「指定角色」用它。 */
   roleIds: readonly Types.ObjectId[];
+}
+
+/**
+ * 日期條件換算用的兩個租戶時區(都已驗過;來源與退回規則見 `database/tenant-timezone.ts`)。
+ * 根組織自己查資料時兩個相同。
+ */
+export interface DataScopeTimezones {
+  /** 規則作者 = 規則所屬組織(根組織)的租戶時區:把存的時點還原成日曆天。 */
+  rule: string;
+  /** 操作者所在租戶的時區:那個日曆天在這裡的 00:00 與次日 00:00 當邊界。 */
+  operator: string;
 }
 
 /** 編譯後要 AND 進查詢的 Mongo 條件(欄位名 → 條件運算式)。 */
@@ -540,7 +552,7 @@ function validateDateValues(
       };
 }
 
-/** 規則裡有沒有日期條件(執行面據此決定要不要查規則所屬組織的租戶時區)。 */
+/** 規則裡有沒有日期條件(執行面據此決定要不要查兩個租戶時區)。 */
 export function hasDateCondition(
   rules: readonly DataScopeRuleEntry[],
   catalog: readonly DataScopeField[],
@@ -578,20 +590,20 @@ export function matchesAudience(
 
 /**
  * 把一份已驗證的規則編譯成要 AND 進查詢的 Mongo 條件;沒有規則命中操作者 → `null`
- * `timezone` = **規則所屬組織**的租戶時區(已驗過;日期條件的「次日 00:00」以它換算,與操作者無關)。
  * (ADR-0008:「沒有規則命中操作者 → 預設 = 可見範圍內」,也就是只剩租戶保底)。
+ * `timezones` 只有日期條件用得到(見 `compileDateLeaf`)。
  */
 export function compileRules(
   rules: readonly DataScopeRuleEntry[],
   combineOp: DataScopeGroupOp,
   catalog: readonly DataScopeField[],
   facts: DataScopeOperatorFacts,
-  timezone: string,
+  timezones: DataScopeTimezones,
 ): MongoCondition | null {
   const byName = new Map(catalog.map((field) => [field.name, field]));
   const matched = rules
     .filter((rule) => matchesAudience(rule.audience, facts))
-    .map((rule) => compileNode(rule.filter, byName, facts, timezone));
+    .map((rule) => compileNode(rule.filter, byName, facts, timezones));
   if (matched.length === 0) {
     return null;
   }
@@ -606,28 +618,28 @@ function compileNode(
   node: DataScopeNode,
   byName: ReadonlyMap<string, DataScopeField>,
   facts: DataScopeOperatorFacts,
-  timezone: string,
+  timezones: DataScopeTimezones,
 ): MongoCondition {
   if ("children" in node) {
     const children = node.children.map((child) =>
-      compileNode(child, byName, facts, timezone),
+      compileNode(child, byName, facts, timezones),
     );
     return node.op === "AND" ? { $and: children } : { $or: children };
   }
-  return compileLeaf(node, byName, facts, timezone);
+  return compileLeaf(node, byName, facts, timezones);
 }
 
 function compileLeaf(
   leaf: DataScopeLeaf,
   byName: ReadonlyMap<string, DataScopeField>,
   facts: DataScopeOperatorFacts,
-  timezone: string,
+  timezones: DataScopeTimezones,
 ): MongoCondition {
   // 驗證已保證欄位在目錄內;防守性地以 enum 當退路(不會讓條件放寬)
   const field = byName.get(leaf.field);
   const type = field?.type ?? "enum";
   if (type === "date") {
-    return compileDateLeaf(leaf, timezone);
+    return compileDateLeaf(leaf, timezones);
   }
   const values = resolveValues(leaf.value, type, facts);
   switch (leaf.cond) {
@@ -645,38 +657,45 @@ function compileLeaf(
 }
 
 /**
+ * 日曆天 +1(`Date.UTC` 會進位到下個月 / 年)。直接在日期上加、不從某個時點往後推時間:
+ * 午夜切換夏令時間的時區,次日邊界才不會差 1 小時。
+ */
+function nextDateOf(date: LocalDate): LocalDate {
+  return localDateOf(Date.UTC(date.year, date.month - 1, date.day + 1), "UTC");
+}
+
+/**
  * 日期條件 → 時點範圍(與表單引擎的日期同一種做法,`docs/concepts/form-engine.md`「值、計算與條件」):
- * 值是「選的那一天在租戶時區 00:00」的時點,**整天**的邊界是次日 00:00(`addLocalCalendar`,
- * 以**規則所屬組織**的租戶時區換算,夏令時間切換日也對)。值是用那個時區選出來的,邊界也用同一個時區算,
- * 同一份規則對每個操作者都是同一段時間 —— 不因操作者所在租戶的時區而差一天。
+ * 條件是**日曆天,逐租戶套用** —— 「2/1」對每個租戶都是它自己時區的 2/1。
  *
- * - `before` D:`< D`(D 當天不含)
+ * 1. 存的值是「選的那一天在規則作者時區 00:00」的時點:先用 `timezones.rule` 還原成日曆天
+ * 2. 再用 `timezones.operator` 算那一天的 00:00 與次日 00:00 當邊界(夏令時間切換日也對)
+ *
+ * - `before` D:`< D 當天 00:00`(D 當天不含)
  * - `after` D:`>= D 的次日 00:00`(D 當天不含)
- * - `between` A、B:`>= A` 且 `< B 的次日 00:00`(兩端的整天都含)
+ * - `between` A、B:`>= A 當天 00:00` 且 `< B 的次日 00:00`(兩端的整天都含)
  *
  * 值不是時點(遷移前的 `YYYY-MM-DD`、壞資料)→ 這個條件什麼都不命中(fail-closed:規則命中了卻算不出範圍,
  * 寧可看不到也不放寬)。
  */
 function compileDateLeaf(
   leaf: DataScopeLeaf,
-  timezone: string,
+  timezones: DataScopeTimezones,
 ): MongoCondition {
   const instants =
     leaf.value.kind === "static"
       ? leaf.value.values.map((value) => toInstant(value))
       : [];
   const [from, to] = instants;
+  const dayOf = (instant: number): LocalDate =>
+    localDateOf(instant, timezones.rule);
+  const dayStartOf = (instant: number): Date =>
+    new Date(startOfLocalDay(dayOf(instant), timezones.operator));
+  // 次日邊界 = 日曆天 +1 後取操作者時區那一天的起點(不從當天 00:00 往後推時間)
   const nextDayOf = (instant: number): Date =>
-    new Date(
-      addLocalCalendar(
-        startOfLocalDayOf(instant, timezone),
-        1,
-        "days",
-        timezone,
-      ),
-    );
+    new Date(startOfLocalDay(nextDateOf(dayOf(instant)), timezones.operator));
   if (leaf.cond === "before" && typeof from === "number") {
-    return { [leaf.field]: { $lt: new Date(from) } };
+    return { [leaf.field]: { $lt: dayStartOf(from) } };
   }
   if (leaf.cond === "after" && typeof from === "number") {
     return { [leaf.field]: { $gte: nextDayOf(from) } };
@@ -686,7 +705,9 @@ function compileDateLeaf(
     typeof from === "number" &&
     typeof to === "number"
   ) {
-    return { [leaf.field]: { $gte: new Date(from), $lt: nextDayOf(to) } };
+    return {
+      [leaf.field]: { $gte: dayStartOf(from), $lt: nextDayOf(to) },
+    };
   }
   return { [leaf.field]: { $in: [] } };
 }

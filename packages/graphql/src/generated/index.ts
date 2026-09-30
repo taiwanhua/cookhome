@@ -1306,6 +1306,7 @@ export type Mutation = {
   setModuleListColumns: ModuleListColumnsPayload;
   setOrgEnabled: OrgPayload;
   setOrgManagers: OrgPayload;
+  setOrgTimezone: OrgPayload;
   setOrgVisibility: OrgPayload;
   setPassword: SetPasswordPayload;
   setPermissionEnabled: PermissionAdminPayload;
@@ -1658,6 +1659,11 @@ export type MutationSetOrgManagersArgs = {
 };
 
 
+export type MutationSetOrgTimezoneArgs = {
+  input: SetOrgTimezoneInput;
+};
+
+
 export type MutationSetOrgVisibilityArgs = {
   input: SetOrgVisibilityInput;
 };
@@ -1815,6 +1821,7 @@ export type Org = {
   ownerUserId?: Maybe<Scalars['ID']['output']>;
   parentId?: Maybe<Scalars['ID']['output']>;
   slug?: Maybe<Scalars['String']['output']>;
+  timezone?: Maybe<Scalars['String']['output']>;
   visibility?: Maybe<OrgVisibility>;
 };
 
@@ -2571,6 +2578,11 @@ export type SetOrgEnabledInput = {
 export type SetOrgManagersInput = {
   orgId: Scalars['ID']['input'];
   userIds: Array<Scalars['ID']['input']>;
+};
+
+export type SetOrgTimezoneInput = {
+  orgId: Scalars['ID']['input'];
+  timezone?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type SetOrgVisibilityInput = {
@@ -3810,7 +3822,7 @@ export type OrgQueryVariables = Exact<{
 }>;
 
 
-export type OrgQuery = { __typename?: 'Query', org: { __typename?: 'Org', id: string, name: string, description?: string | null, parentId?: string | null, enabled: boolean, isSystem: boolean, ownerUserId?: string | null, visibility?: OrgVisibility | null, slug?: string | null, logoUrl?: string | null } };
+export type OrgQuery = { __typename?: 'Query', org: { __typename?: 'Org', id: string, name: string, description?: string | null, parentId?: string | null, enabled: boolean, isSystem: boolean, ownerUserId?: string | null, visibility?: OrgVisibility | null, timezone?: string | null, slug?: string | null, logoUrl?: string | null } };
 
 export type CreateChildOrgMutationVariables = Exact<{
   input: CreateChildOrgInput;
@@ -3879,6 +3891,13 @@ export type SetOrgVisibilityMutationVariables = Exact<{
 
 
 export type SetOrgVisibilityMutation = { __typename?: 'Mutation', setOrgVisibility: { __typename?: 'OrgPayload', org: { __typename?: 'Org', id: string, visibility?: OrgVisibility | null } } };
+
+export type SetOrgTimezoneMutationVariables = Exact<{
+  input: SetOrgTimezoneInput;
+}>;
+
+
+export type SetOrgTimezoneMutation = { __typename?: 'Mutation', setOrgTimezone: { __typename?: 'OrgPayload', org: { __typename?: 'Org', id: string, timezone?: string | null } } };
 
 export type OrgMemberFieldsFragment = { __typename?: 'OrgMember', id: string, account: string, name: string, enabled: boolean, otherOrgs: Array<{ __typename?: 'OrgMemberOrg', id: string, name: string }> };
 
@@ -7823,6 +7842,7 @@ export const OrgDocument = `
     isSystem
     ownerUserId
     visibility
+    timezone
     slug
     logoUrl
   }
@@ -8178,6 +8198,37 @@ export const useSetOrgVisibilityMutation = <
 
 
 useSetOrgVisibilityMutation.fetcher = (client: GraphQLClient, variables: SetOrgVisibilityMutationVariables, headers?: RequestInit['headers']) => fetcher<SetOrgVisibilityMutation, SetOrgVisibilityMutationVariables>(client, SetOrgVisibilityDocument, variables, headers);
+
+export const SetOrgTimezoneDocument = `
+    mutation SetOrgTimezone($input: SetOrgTimezoneInput!) {
+  setOrgTimezone(input: $input) {
+    org {
+      id
+      timezone
+    }
+  }
+}
+    `;
+
+export const useSetOrgTimezoneMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<SetOrgTimezoneMutation, TError, SetOrgTimezoneMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<SetOrgTimezoneMutation, TError, SetOrgTimezoneMutationVariables, TContext>(
+      {
+    mutationKey: ['SetOrgTimezone'],
+    mutationFn: (variables?: SetOrgTimezoneMutationVariables) => fetcher<SetOrgTimezoneMutation, SetOrgTimezoneMutationVariables>(client, SetOrgTimezoneDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useSetOrgTimezoneMutation.fetcher = (client: GraphQLClient, variables: SetOrgTimezoneMutationVariables, headers?: RequestInit['headers']) => fetcher<SetOrgTimezoneMutation, SetOrgTimezoneMutationVariables>(client, SetOrgTimezoneDocument, variables, headers);
 
 export const OrgMembersDocument = `
     query OrgMembers($orgId: ID!, $input: OrgMembersInput!) {

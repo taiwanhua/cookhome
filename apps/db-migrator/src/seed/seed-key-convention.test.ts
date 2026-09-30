@@ -260,7 +260,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(findSeedKeyViolations(seedRegistry)).toEqual([]);
   });
 
-  it("示範家族(含三個示範表單)、治理模組(含表單 / 流程管理)、申請中心依正本落地:個別權限 12 + 12 + 8 + 7 + 4 + 5 + 2 + 5 + 7 + 1 + 4 × 3 = 75 筆;全部 38 個模組各一筆 wildcard(共 113 筆)", () => {
+  it("示範家族(含三個示範表單)、治理模組(含表單 / 流程管理)、申請中心依正本落地:個別權限 12 + 13 + 8 + 7 + 4 + 5 + 2 + 5 + 7 + 1 + 4 × 3 = 76 筆;全部 38 個模組各一筆 wildcard(共 114 筆)", () => {
     const documentSets = seedRegistry.filter((set) => set.kind === "documents");
     const moduleKeys = documentSets
       .filter((set) => set.collection === "modules")
@@ -296,10 +296,10 @@ describe("seeds/registry.ts 靜態檢查", () => {
       "demo-form.edit-page",
     ]);
 
-    // 正本:示範家族兩份權限表(7 + 5)+ docs/modules/org-manager.md(12)、user-manager.md(8)、
+    // 正本:示範家族兩份權限表(7 + 5)+ docs/modules/org-manager.md(13)、user-manager.md(8)、
     // role-manager.md(7)、module-manager.md(4)、field-manager.md(4 + 類別作業 1)、data-scope.md(2)、forms.md(5)
     const individualKeys = permissionKeys.filter((key) => !key.endsWith(".*"));
-    expect(individualKeys).toHaveLength(75);
+    expect(individualKeys).toHaveLength(76);
     expect(new Set(individualKeys)).toEqual(
       new Set([
         "demo.sub.sample-one.view",
@@ -325,6 +325,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
         "system.org-manager.add-members",
         // 2026-09-19 從 tenant-ops 搬到組織管理層(#187 / ADR-0005:租戶自己的資料政策)
         "system.org-manager.set-visibility",
+        "system.org-manager.set-timezone",
         "system.org-manager.tenant-ops.provision",
         "system.org-manager.tenant-ops.revoke-provision",
         "system.org-manager.tenant-ops.transfer-owner",
@@ -389,7 +390,7 @@ describe("seeds/registry.ts 靜態檢查", () => {
     expect(new Set(permissionKeys.filter((key) => key.endsWith(".*")))).toEqual(
       new Set(moduleKeys.map((key) => `${key}.*`)),
     );
-    expect(permissionKeys).toHaveLength(113);
+    expect(permissionKeys).toHaveLength(114);
 
     // D1:治理模組 key 累加 system 群組前綴;tenant-ops / category-ops 是頁面模組底下的純權限容器
     expect(moduleKeys.filter((key) => key.startsWith("system"))).toEqual([
