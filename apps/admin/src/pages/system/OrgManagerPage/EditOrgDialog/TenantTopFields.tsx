@@ -1,8 +1,6 @@
 import { useTranslations } from "use-intl";
 
-import { DEFAULT_TENANT_TIMEZONE } from "@repo/domain/form";
 import { OrgVisibility } from "@repo/graphql";
-import { Autocomplete } from "@repo/ui/autocomplete";
 import { FormControlLabel } from "@repo/ui/form-control-label";
 import { SelectField } from "@repo/ui/select-field";
 import { Stack } from "@repo/ui/stack";
@@ -10,7 +8,6 @@ import { Switch } from "@repo/ui/switch";
 import { TextField } from "@repo/ui/text-field";
 import { Typography } from "@repo/ui/typography";
 
-import { timezoneOptionsOf } from "./timezone-options";
 import type { EditOrgFormState } from "./useEditOrgForm";
 
 export interface OwnerCandidate {
@@ -25,8 +22,6 @@ export interface TenantTopFieldsProps {
   canTransferOwner: boolean;
   /** 持 `system.org-manager.set-visibility` 才給可見範圍開關(#187:不再是根組織專屬) */
   canSetVisibility: boolean;
-  /** 持 `system.org-manager.set-timezone` 才改得了時區;沒有時唯讀顯示目前值 */
-  canSetTimezone: boolean;
   candidates: readonly OwnerCandidate[];
   isDisabled: boolean;
 }
@@ -42,22 +37,16 @@ export interface TenantTopFieldsProps {
  * - 可見範圍開關 2026-09-19 搬到組織管理層(`system.org-manager.set-visibility`,#187):
  *   租戶管理員模板自動取得,設得了自己的租戶;能設哪些由 api 以管理範圍守門
  *
- * 「時區」欄例外:租戶頂層一律顯示(時區影響整個租戶的日期時間,看得到編輯彈窗的人都該知道),
- * 持 `system.org-manager.set-timezone` 才改得動,否則唯讀。選項是瀏覽器的完整 IANA 清單,
- * 沒設時說明會退回預設時區。
+ * 時區不在這裡:根組織也有自己的時區,由 `TimezoneField` 另外掛在彈窗上。
  */
 export const TenantTopFields = ({
   form,
   canTransferOwner,
   canSetVisibility,
-  canSetTimezone,
   candidates,
   isDisabled,
 }: TenantTopFieldsProps) => {
   const t = useTranslations("admin.orgManager.form");
-  const timezoneUnset = t("timezoneUnset", {
-    timezone: DEFAULT_TENANT_TIMEZONE,
-  });
 
   return (
     <Stack spacing={2.25}>
@@ -119,18 +108,6 @@ export const TenantTopFields = ({
           </Typography>
         </Stack>
       )}
-      <Autocomplete<string>
-        label={t("timezone")}
-        options={timezoneOptionsOf(form.timezone)}
-        value={form.timezone}
-        getOptionLabel={(timezone) => timezone}
-        onChange={form.setTimezone}
-        placeholder={timezoneUnset}
-        noOptionsText={t("timezoneEmpty")}
-        helperText={form.timezone === null ? timezoneUnset : t("timezoneHint")}
-        disabled={isDisabled || !canSetTimezone}
-        fullWidth
-      />
     </Stack>
   );
 };

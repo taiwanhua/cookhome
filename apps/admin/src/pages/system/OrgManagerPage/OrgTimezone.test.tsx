@@ -30,10 +30,10 @@ const openTenantEdit = async (actor: {
 };
 
 /**
- * 編輯彈窗的「時區」欄(租戶頂層專屬;權限 `system.org-manager.set-timezone`)。
+ * 編輯彈窗的「時區」欄(根組織與租戶頂層;權限 `system.org-manager.set-timezone`)。
  * 選項是瀏覽器 `Intl.supportedValuesOf("timeZone")` 的完整清單;儲存走同一個彈窗的儲存流程。
  */
-describe("組織管理頁:租戶頂層的時區", () => {
+describe("組織管理頁:根組織與租戶頂層的時區", () => {
   it("選項是完整的 IANA 清單,輸入即過濾(含 Europe/London);沒設時說明退回預設時區", async () => {
     const { user: actor } = renderPage({
       permissions: [...OWN_PERMISSIONS, SET_TIMEZONE_PERMISSION],
@@ -82,6 +82,34 @@ describe("組織管理頁:租戶頂層的時區", () => {
     const reopened = await openTenantEdit(actor);
     await waitFor(() => {
       expect(reopened).toHaveValue("Europe/London");
+    });
+  });
+
+  it("根組織的編輯彈窗也有時區欄(沒有可見範圍開關),儲存送 setOrgTimezone", async () => {
+    const { user: actor, fake } = renderPage();
+
+    await waitForTree();
+    await clickNode(actor, "CookHome");
+    await actor.click(
+      await within(detail()).findByRole("button", { name: "編輯" }),
+    );
+    const timezone = await screen.findByRole("combobox", { name: "時區" });
+    // 可見範圍開關仍只給租戶頂層
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+
+    await actor.click(timezone);
+    await actor.type(timezone, "Europe/Lon");
+    await actor.click(
+      await screen.findByRole("option", { name: "Europe/London" }),
+    );
+    await actor.click(screen.getByRole("button", { name: "儲存" }));
+
+    await waitFor(() => {
+      expect(fake.inputs.setOrgTimezone).toHaveLength(1);
+    });
+    expect(fake.inputs.setOrgTimezone[0]).toEqual({
+      orgId: "org-root",
+      timezone: "Europe/London",
     });
   });
 

@@ -42,6 +42,7 @@ import {
   type OrgRecord,
   TIMEZONE_SETTING,
   VISIBILITY_SETTING,
+  hasOwnTimezone,
   isTenantTop,
   tenantTopIdOf,
   timezoneOf,
@@ -578,9 +579,10 @@ export class OrgsService {
   }
 
   /**
-   * 租戶時區(`orgs.settings.timezone`):只掛**租戶頂層**、整個租戶共用 —— 日期時間的顯示、
-   * 日期欄的「當天」、資料範圍規則的日期條件都以它換算(讀取端 `tenantTimezoneOf`)。
-   * 範圍與可見範圍開關同一套:範圍外的租戶頂層查不到(`NOT_FOUND`),非租戶頂層 `VALIDATION_FAILED`。
+   * 時區(`orgs.settings.timezone`):掛在**根組織**(根組織與它自己的資料)與**租戶頂層**(整個租戶共用)——
+   * 日期時間的顯示、日期欄的「當天」、資料範圍規則的日期條件都以它換算(讀取端 `tenantTimezoneOf`)。
+   * 範圍與可見範圍開關同一套:範圍外的組織查不到(`NOT_FOUND`;根組織只有根組織的人管得到),
+   * 兩者以外的組織 `VALIDATION_FAILED`。
    * `timezone = null` 清除設定、退回預設時區;值要是 `Intl` 認得的 IANA 名稱。
    */
   async setTimezone(
@@ -588,9 +590,9 @@ export class OrgsService {
     input: SetOrgTimezoneInput,
   ): Promise<Org> {
     const org = await this.requireManaged(operator, input.orgId);
-    if (!isTenantTop(org)) {
+    if (!hasOwnTimezone(org)) {
       throw orgValidationError(
-        `Org ${input.orgId} is not a tenant top-level org; the timezone setting only exists there`,
+        `Org ${input.orgId} is neither the root org nor a tenant top-level org; the timezone setting only exists there`,
         ["orgId"],
       );
     }
