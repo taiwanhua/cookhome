@@ -16,6 +16,7 @@ import type {
   RevokeTenantProvisionMutationVariables,
   SetOrgEnabledMutationVariables,
   SetOrgManagersMutationVariables,
+  SetOrgTimezoneMutationVariables,
   SetOrgVisibilityMutationVariables,
   TenantModuleOptionsQuery,
   TransferOrgOwnerMutationVariables,
@@ -29,6 +30,7 @@ import {
   type TestUserSummary,
   orgManagersWorld,
 } from "./org-managers-handlers";
+import { orgTenantTopWorld } from "./org-tenant-top-handlers";
 import { api } from "./server";
 
 export type TestOrgNode = OrgTreeQuery["orgTree"][number];
@@ -52,6 +54,7 @@ export type OrgOperation =
   | "RevokeTenantProvision"
   | "TransferOrgOwner"
   | "SetOrgVisibility"
+  | "SetOrgTimezone"
   | "AddOrgMembers"
   | "SetOrgManagers"
   | "CreateUploadUrl";
@@ -93,6 +96,7 @@ export interface OrgWorld {
     revokeTenantProvision: RevokeTenantProvisionMutationVariables["input"][];
     transferOrgOwner: TransferOrgOwnerMutationVariables["input"][];
     setOrgVisibility: SetOrgVisibilityMutationVariables["input"][];
+    setOrgTimezone: SetOrgTimezoneMutationVariables["input"][];
     addOrgMembers: AddOrgMembersMutationVariables["input"][];
     setOrgManagers: SetOrgManagersMutationVariables["input"][];
     createUploadUrl: CreateUploadUrlMutationVariables["input"][];
@@ -126,22 +130,6 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
     Object.entries(members).map(([orgId, rows]) => [orgId, [...rows]]),
   );
 
-  const inputs: OrgWorld["inputs"] = {
-    createChildOrg: [],
-    updateOrg: [],
-    setOrgEnabled: [],
-    moveOrg: [],
-    deleteOrg: [],
-    provisionTenant: [],
-    revokeTenantProvision: [],
-    transferOrgOwner: [],
-    setOrgVisibility: [],
-    addOrgMembers: [],
-    setOrgManagers: [],
-    createUploadUrl: [],
-  };
-  const uploadedFiles: OrgWorld["uploadedFiles"] = [];
-
   const fail = (operation: OrgOperation) => {
     const failure = failures[operation];
     return failure === undefined
@@ -153,7 +141,28 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
         );
   };
 
-  const orgOf = (id: string) => orgs.find((org) => org.id === id);
+  const tenantTopWorld = orgTenantTopWorld({ failure: fail });
+
+  const inputs: OrgWorld["inputs"] = {
+    createChildOrg: [],
+    updateOrg: [],
+    setOrgEnabled: [],
+    moveOrg: [],
+    deleteOrg: [],
+    provisionTenant: [],
+    revokeTenantProvision: [],
+    transferOrgOwner: [],
+    ...tenantTopWorld.inputs,
+    addOrgMembers: [],
+    setOrgManagers: [],
+    createUploadUrl: [],
+  };
+  const uploadedFiles: OrgWorld["uploadedFiles"] = [];
+
+  const orgOf = (id: string) => {
+    const found = orgs.find((org) => org.id === id);
+    return found === undefined ? found : tenantTopWorld.withTimezone(found);
+  };
 
   const managersWorld = orgManagersWorld({
     managers,
@@ -185,6 +194,7 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
       });
     }),
     ...managersWorld.handlers,
+    ...tenantTopWorld.handlers,
     api.query("TenantModuleOptions", () =>
       HttpResponse.json({ data: { tenantModuleOptions: moduleOptions } }),
     ),
@@ -382,20 +392,6 @@ export const orgWorld = (options: OrgWorldOptions = {}): OrgWorld => {
           data: {
             transferOrgOwner: {
               org: { id: input.orgId, ownerUserId: input.newOwnerUserId },
-            },
-          },
-        })
-      );
-    }),
-    api.mutation("SetOrgVisibility", ({ variables }) => {
-      const { input } = variables as SetOrgVisibilityMutationVariables;
-      inputs.setOrgVisibility.push(input);
-      return (
-        fail("SetOrgVisibility") ??
-        HttpResponse.json({
-          data: {
-            setOrgVisibility: {
-              org: { id: input.orgId, visibility: input.visibility },
             },
           },
         })

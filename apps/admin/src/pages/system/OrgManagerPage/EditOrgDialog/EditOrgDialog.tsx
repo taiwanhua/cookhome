@@ -9,6 +9,7 @@ import {
   useOrgManagersQuery,
   useOrgQuery,
   useSetOrgManagersMutation,
+  useSetOrgTimezoneMutation,
   useSetOrgVisibilityMutation,
   useTransferOrgOwnerMutation,
   useUpdateOrgMutation,
@@ -39,7 +40,7 @@ export interface EditOrgDialogProps {
   org: OrgDetail;
   /** 可當新上層的組織(管理範圍內、同租戶、不含自己與自己的子樹;租戶頂層本身候選為空) */
   parentOptions: readonly OrgOption[];
-  /** 這個組織是租戶頂層(api 只讓這一層有擁有者與可見範圍) */
+  /** 這個組織是租戶頂層(api 只讓這一層有擁有者、可見範圍與時區) */
   isTenantTop: boolean;
   /** 租戶頂層 + 操作者是租戶內的人:搬移不給改(ADR-0009) */
   isTenantTopProtected: boolean;
@@ -50,10 +51,10 @@ export interface EditOrgDialogProps {
 }
 
 /**
- * 編輯組織(Figma 88:168):名稱、描述、上層組織(搬移)、商標,租戶頂層再多擁有者與可見範圍。
+ * 編輯組織(Figma 88:168):名稱、描述、上層組織(搬移)、商標,租戶頂層再多擁有者、可見範圍與時區。
  *
  * 送出時**只打有變動的 mutation**,依序:商標上傳 → `updateOrg` → `moveOrg` →
- * `transferOrgOwner` → `setOrgVisibility` → `setOrgManagers`(主管整組取代;根組織沒有這一欄)。任何一步失敗就停在那裡並顯示錯誤 —
+ * `transferOrgOwner` → `setOrgVisibility` → `setOrgTimezone` → `setOrgManagers`(主管整組取代;根組織沒有這一欄)。任何一步失敗就停在那裡並顯示錯誤 —
  * 前面已成功的不回滾(它們各自是完整的動作、各自留了審計),重新送出只會補上還沒做的那幾步。
  */
 export const EditOrgDialog = ({
@@ -80,7 +81,7 @@ export const EditOrgDialog = ({
   const [isSaving, setIsSaving] = useState(false);
 
   /**
-   * 一次「儲存」最多打四支 mutation,但對操作者而言只是一次操作 —— 所以回饋由整段
+   * 一次「儲存」會打好幾支 mutation,但對操作者而言只是一次操作 —— 所以回饋由整段
    * try / catch 自己報一次,而不是掛在每一支 mutation 的 options 上(#376,
    * 掛上去會一次跳四則)。
    */
@@ -93,6 +94,7 @@ export const EditOrgDialog = ({
   const moveOrg = useMoveOrgMutation(session.client);
   const transferOwner = useTransferOrgOwnerMutation(session.client);
   const setVisibility = useSetOrgVisibilityMutation(session.client);
+  const setTimezone = useSetOrgTimezoneMutation(session.client);
   const setManagers = useSetOrgManagersMutation(session.client);
 
   /**
@@ -165,6 +167,13 @@ export const EditOrgDialog = ({
       if (changes.hasVisibilityChange) {
         await setVisibility.mutateAsync({
           input: { orgId: org.id, visibility: form.visibility },
+        });
+      }
+      if (changes.hasTimezoneChange) {
+        // 成功後由 `onSaved` 失效 `org(id)` 與 `me`:改的是自己的租戶時,
+        // `me.currentOrg.timezone` 換掉,畫面上的日期時間跟著換算
+        await setTimezone.mutateAsync({
+          input: { orgId: org.id, timezone: form.timezone },
         });
       }
       if (hasManagersChange) {
@@ -273,6 +282,7 @@ export const EditOrgDialog = ({
             form={form}
             canTransferOwner={ability.canTransferOwner}
             canSetVisibility={ability.canSetVisibility}
+            canSetTimezone={ability.canSetTimezone}
             candidates={ownerCandidates}
             isDisabled={isBusy}
           />

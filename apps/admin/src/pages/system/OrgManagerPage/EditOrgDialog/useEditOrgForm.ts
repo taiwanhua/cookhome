@@ -26,13 +26,16 @@ export interface EditOrgFormState {
   setOwnerUserId: (value: string) => void;
   visibility: OrgVisibility;
   setVisibility: (value: OrgVisibility) => void;
+  /** 租戶時區(IANA 名稱);null = 沒設、使用預設時區 */
+  timezone: string | null;
+  setTimezone: (value: string | null) => void;
   /** 租戶短碼(只有租戶頂層有;只有根組織改得動,欄位出不出現由 `TenantTopFields` 決定) */
   slug: string;
   setSlug: (value: string) => void;
   /** 短碼改過且格式不符(`@repo/domain/form` 的 `isValidOrgSlug`,與 api 同一條) */
   isSlugInvalid: boolean;
   isValid: boolean;
-  /** 四個 mutation 各自要不要送(沒變動的欄位不送,api 也不會留空的審計紀錄) */
+  /** 各個 mutation 要不要送(沒變動的欄位不送,api 也不會留空的審計紀錄) */
   changes: {
     hasProfileChange: boolean;
     /** 短碼改了(隨 `updateOrg` 一起送;沒改就不帶 `slug`,api 視為不動) */
@@ -40,6 +43,7 @@ export interface EditOrgFormState {
     hasMove: boolean;
     hasOwnerChange: boolean;
     hasVisibilityChange: boolean;
+    hasTimezoneChange: boolean;
   };
 }
 
@@ -47,9 +51,9 @@ export interface EditOrgFormState {
  * 編輯組織表單(Figma 88:168)。彈窗關閉即卸載,初始值在掛載時從 props 進 `useState`,
  * 不用 effect 同步(REACT-06)。
  *
- * 四個欄位群各自對到**不同的 mutation**:名稱 / 描述 / 商標 → `updateOrg`、上層組織 →
- * `moveOrg`、擁有者 → `transferOrgOwner`、可見範圍 → `setOrgVisibility`。
- * 這不是前端的湊合:`UpdateOrgInput` 根本沒有後三者的欄位(`docs/modules/org-manager.md`),
+ * 各欄位群各自對到**不同的 mutation**:名稱 / 描述 / 商標 → `updateOrg`、上層組織 →
+ * `moveOrg`、擁有者 → `transferOrgOwner`、可見範圍 → `setOrgVisibility`、時區 → `setOrgTimezone`。
+ * 這不是前端的湊合:`UpdateOrgInput` 根本沒有後四者的欄位(`docs/modules/org-manager.md`),
  * 所以「哪些變了」要在這裡算出來,送出時才知道要打哪幾個。
  */
 export const useEditOrgForm = (org: OrgDetail): EditOrgFormState => {
@@ -62,6 +66,7 @@ export const useEditOrgForm = (org: OrgDetail): EditOrgFormState => {
   const [visibility, setVisibility] = useState(
     org.visibility ?? OrgVisibility.Own,
   );
+  const [timezone, setTimezone] = useState(org.timezone ?? null);
   const [slug, setSlug] = useState(org.slug ?? "");
 
   const trimmedName = name.trim();
@@ -87,6 +92,8 @@ export const useEditOrgForm = (org: OrgDetail): EditOrgFormState => {
     setOwnerUserId,
     visibility,
     setVisibility,
+    timezone,
+    setTimezone,
     slug,
     setSlug,
     isSlugInvalid,
@@ -103,6 +110,7 @@ export const useEditOrgForm = (org: OrgDetail): EditOrgFormState => {
         ownerUserId !== "" && ownerUserId !== (org.ownerUserId ?? ""),
       hasVisibilityChange:
         org.visibility !== null && visibility !== org.visibility,
+      hasTimezoneChange: timezone !== (org.timezone ?? null),
     },
   };
 };

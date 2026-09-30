@@ -156,6 +156,27 @@ const SET_ORG_VISIBILITY = /* GraphQL */ `
   }
 `;
 
+const SET_ORG_TIMEZONE = /* GraphQL */ `
+  mutation SetOrgTimezone($input: SetOrgTimezoneInput!) {
+    setOrgTimezone(input: $input) {
+      org {
+        id
+        timezone
+      }
+    }
+  }
+`;
+
+const ME_TIMEZONE = /* GraphQL */ `
+  query MeTimezone {
+    me {
+      currentOrg {
+        timezone
+      }
+    }
+  }
+`;
+
 const DELETE_ORG = /* GraphQL */ `
   mutation DeleteOrg($input: DeleteOrgInput!) {
     deleteOrg(input: $input) {
@@ -225,6 +246,14 @@ interface DeleteOrgData {
 
 interface SetOrgVisibilityData {
   setOrgVisibility: { org: { id: string; visibility: string | null } };
+}
+
+interface SetOrgTimezoneData {
+  setOrgTimezone: { org: { id: string; timezone: string | null } };
+}
+
+interface MeTimezoneData {
+  me: { currentOrg: { timezone: string } | null };
 }
 
 interface OrgRow {
@@ -1222,6 +1251,129 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       );
 
       expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+    });
+  });
+
+  describe("setOrgTimezone:租戶時區只掛租戶頂層,範圍規則同可見範圍開關", () => {
+    it("設定:寫進 settings.timezone、稽核記 before / after,自己租戶的 me.currentOrg.timezone 跟著換", async () => {
+      const result = await api.graphql<SetOrgTimezoneData>(
+        SET_ORG_TIMEZONE,
+        { input: { orgId: String(tenantAId), timezone: "Europe/London" } },
+        { accessToken: tenantAdminToken },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.setOrgTimezone.org.timezone).toBe("Europe/London");
+      const stored = await orgRow(tenantAId);
+      expect(stored?.settings.timezone).toBe("Europe/London");
+      // 可見範圍開關在同一個 settings 物件裡,不能被蓋掉
+      expect(stored?.settings.visibility).toBe("subtree");
+
+      const audits = await auditRows("org.set-timezone", tenantAId);
+      expect(audits).toHaveLength(1);
+      expect(audits[0]).toMatchObject({
+        before: { timezone: null },
+        after: { timezone: "Europe/London" },
+      });
+
+      const me = await api.graphql<MeTimezoneData>(
+        ME_TIMEZONE,
+        {},
+        { accessToken: tenantAdminToken },
+      );
+      expect(me.data?.me.currentOrg?.timezone).toBe("Europe/London");
+    });
+
+    it("清除(timezone = null):拿掉 settings.timezone、退回預設時區,稽核照記", async () => {
+      // 自己備好「已設時區」的起點,不依賴上一例
+      await api.connection
+        .collection("orgs")
+        .updateOne(
+          { _id: tenantAId },
+          { $set: { "settings.timezone": "Europe/London" } },
+        );
+
+      const result = await api.graphql<SetOrgTimezoneData>(
+        SET_ORG_TIMEZONE,
+        { input: { orgId: String(tenantAId), timezone: null } },
+        { accessToken: tenantAdminToken },
+      );
+
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.setOrgTimezone.org.timezone).toBeNull();
+      const stored = await orgRow(tenantAId);
+      expect(stored?.settings).not.toHaveProperty("timezone");
+      expect(stored?.settings.visibility).toBe("subtree");
+
+      const audits = await auditRows("org.set-timezone", tenantAId);
+      expect(audits).toContainEqual(
+        expect.objectContaining({
+          before: { timezone: "Europe/London" },
+          after: { timezone: null },
+        }),
+      );
+
+      const me = await api.graphql<MeTimezoneData>(
+        ME_TIMEZONE,
+        {},
+        { accessToken: tenantAdminToken },
+      );
+      expect(me.data?.me.currentOrg?.timezone).toBe("Asia/Taipei");
+    });
+
+    it("設別的租戶的頂層:管理範圍外 → NOT_FOUND,資料不動", async () => {
+      const result = await api.graphql(
+        SET_ORG_TIMEZONE,
+        { input: { orgId: String(tenantAId), timezone: "Asia/Tokyo" } },
+        { accessToken: tenantBAdminToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("NOT_FOUND");
+      const untouched = await orgRow(tenantAId);
+      expect(untouched?.settings.timezone).not.toBe("Asia/Tokyo");
+    });
+
+    it("不是 Intl 認得的時區:VALIDATION_FAILED(fields 指向 timezone),資料不動", async () => {
+      const result = await api.graphql(
+        SET_ORG_TIMEZONE,
+        { input: { orgId: String(tenantBId), timezone: "Mars/Olympus" } },
+        { accessToken: tenantBAdminToken },
+      );
+
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "VALIDATION_FAILED",
+        fields: ["timezone"],
+      });
+      const untouched = await orgRow(tenantBId);
+      expect(untouched?.settings).not.toHaveProperty("timezone");
+      expect(await auditRows("org.set-timezone", tenantBId)).toHaveLength(0);
+    });
+
+    it("對象不是租戶頂層:VALIDATION_FAILED(時區只掛租戶頂層),資料不動", async () => {
+      const result = await api.graphql(
+        SET_ORG_TIMEZONE,
+        { input: { orgId: String(deptBId), timezone: "Asia/Tokyo" } },
+        { accessToken: tenantBAdminToken },
+      );
+
+      expect(result.errors?.[0]?.extensions).toMatchObject({
+        code: "VALIDATION_FAILED",
+        fields: ["orgId"],
+      });
+      const untouched = await orgRow(deptBId);
+      expect(untouched?.settings).not.toHaveProperty("timezone");
+    });
+
+    it("沒有 set-timezone 權限:FORBIDDEN,資料不動", async () => {
+      const result = await api.graphql(
+        SET_ORG_TIMEZONE,
+        { input: { orgId: String(tenantAId), timezone: "Asia/Tokyo" } },
+        { accessToken: deptUserToken },
+      );
+
+      expect(result.errors?.[0]?.extensions?.code).toBe("FORBIDDEN");
+      const untouched = await orgRow(tenantAId);
+      expect(untouched?.settings).not.toHaveProperty("timezone");
     });
   });
 

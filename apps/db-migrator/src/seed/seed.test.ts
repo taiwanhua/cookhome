@@ -801,19 +801,19 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     ]);
   }, 120_000);
 
-  it("示範家族 12 筆 + 組織管理 12 筆(9 + 租戶作業 3)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 4 筆 + 欄位管理 5 筆(4 + 類別作業 1)+ 資料範圍 2 筆 + 表單管理 5 筆 + 流程管理 7 筆 + 申請中心 1 筆 + 三個示範表單各 4 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 38 個模組各一筆 wildcard,共 113 筆", async () => {
+  it("示範家族 12 筆 + 組織管理 13 筆(10 + 租戶作業 3)+ 使用者管理 8 筆 + 角色管理 7 筆 + 模組與權限 4 筆 + 欄位管理 5 筆(4 + 類別作業 1)+ 資料範圍 2 筆 + 表單管理 5 筆 + 流程管理 7 筆 + 申請中心 1 筆 + 三個示範表單各 4 筆個別權限依正本落庫(moduleId 綁「所在的那一頁」);全部 38 個模組各一筆 wildcard,共 114 筆", async () => {
     const databaseUri = createTestDatabaseUri("permissions");
 
     const firstRun = runSeedCommand(databaseUri);
     expect(firstRun.status).toBe(0);
     expect(firstRun.stdout).toContain(
-      "permissions:新增 113 / 更新 0 / 認養 0 / 未變 0",
+      "permissions:新增 114 / 更新 0 / 認養 0 / 未變 0",
     );
     // 冪等:重跑 0 新增 / 0 更新 / 全部未變
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.status).toBe(0);
     expect(secondRun.stdout).toContain(
-      "permissions:新增 0 / 更新 0 / 認養 0 / 未變 113",
+      "permissions:新增 0 / 更新 0 / 認養 0 / 未變 114",
     );
 
     const { modules, permissions } = await readSeededDocuments(databaseUri);
@@ -836,7 +836,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "demo.sample-two.create": "demo.sample-two",
       "demo.sample-two.edit": "demo.sample-two",
       "demo.sample-two.delete": "demo.sample-two",
-      // 正本:docs/modules/org-manager.md 權限表(9 + 租戶作業 3;
+      // 正本:docs/modules/org-manager.md 權限表(10 + 租戶作業 3;
       // set-visibility 2026-09-19 從 tenant-ops 搬到組織管理層,#187 / ADR-0005;
       // view-members / add-members 是「成員」頁籤,#377)
       "system.org-manager.view": "system.org-manager",
@@ -848,6 +848,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       "system.org-manager.view-members": "system.org-manager",
       "system.org-manager.add-members": "system.org-manager",
       "system.org-manager.set-visibility": "system.org-manager",
+      "system.org-manager.set-timezone": "system.org-manager",
       "system.org-manager.tenant-ops.provision":
         "system.org-manager.tenant-ops",
       "system.org-manager.tenant-ops.revoke-provision":
@@ -919,7 +920,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
       expectedOwners[`${String(module.key)}.*`] = String(module.key);
     }
     expect(modules).toHaveLength(38);
-    expect(permissions).toHaveLength(113);
+    expect(permissions).toHaveLength(114);
     for (const [key, ownerKey] of Object.entries(expectedOwners)) {
       const permission = permissions.find((entry) => entry.key === key);
       expect(permission).toMatchObject({
@@ -1246,13 +1247,13 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     const secondRun = runSeedCommand(databaseUri);
     expect(secondRun.stderr).toBe("");
     expect(secondRun.status).toBe(0);
-    // 宣告的 113 筆全部未變;dynamic 那筆不在比對範圍內,不計入也不被動到
+    // 宣告的 114 筆全部未變;dynamic 那筆不在比對範圍內,不計入也不被動到
     expect(secondRun.stdout).toContain(
-      "permissions:新增 0 / 更新 0 / 認養 0 / 未變 113",
+      "permissions:新增 0 / 更新 0 / 認養 0 / 未變 114",
     );
 
     const { permissions } = await readSeededDocuments(databaseUri);
-    expect(permissions).toHaveLength(114);
+    expect(permissions).toHaveLength(115);
     expect(
       permissions.find((permission) => permission.key === dynamicKey),
     ).toMatchObject({

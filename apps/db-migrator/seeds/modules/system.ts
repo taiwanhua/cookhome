@@ -219,6 +219,12 @@ export const systemModules: ModuleSeedDeclaration = {
       description:
         "編輯自己租戶頂層時的「使用者可見下層組織資料」開關 + API(settings.visibility)",
     },
+    {
+      key: permissionKey(ORG_MANAGER_KEY, "set-timezone"),
+      moduleKey: ORG_MANAGER_KEY,
+      name: "設定時區",
+      description: "編輯自己租戶頂層時的「時區」欄 + API(settings.timezone)",
+    },
     // 租戶作業(根組織專屬;同一份權限表的後兩列)
     {
       key: permissionKey(TENANT_OPS_KEY, "provision"),
