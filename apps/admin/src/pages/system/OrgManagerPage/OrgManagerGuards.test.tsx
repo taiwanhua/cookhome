@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
 import { tenantTree } from "@/test/msw/org-fixtures";
@@ -32,7 +32,7 @@ describe("組織管理頁:標籤與租戶頂層保護", () => {
     expect(treeLabel("A-2 台北分店")).toBe("A-2 台北分店停用");
   });
 
-  it("租戶頂層保護:租戶內的人停用 / 刪除 / 搬移都停用並提示(#186 ⑤)", async () => {
+  it("租戶頂層保護:租戶內的人停用 / 刪除都停用並提示(#186 ⑤)", async () => {
     const { user: actor } = renderPage({
       permissions: OWN_PERMISSIONS,
       world: { orgTree: tenantTree },
@@ -56,12 +56,38 @@ describe("組織管理頁:標籤與租戶頂層保護", () => {
     expect(
       within(detail()).getByRole("button", { name: "刪除" }),
     ).toBeDisabled();
+  });
 
-    await actor.click(within(detail()).getByRole("button", { name: "編輯" }));
-    expect(await screen.findByLabelText("上層組織(搬移)")).toHaveAttribute(
-      "aria-disabled",
-      "true",
+  it("租戶視角編輯頂層組織:沒有上層組織下拉,改放不可搬移的說明", async () => {
+    // 原本的上層(根組織)不在候選裡,下拉若渲染出來 MUI 會報 out-of-range
+    const warn = jest.spyOn(console, "warn");
+    const error = jest.spyOn(console, "error");
+    const { user: actor } = renderPage({
+      permissions: OWN_PERMISSIONS,
+      world: { orgTree: tenantTree },
+    });
+
+    await waitForTree();
+    await actor.click(
+      await within(detail()).findByRole("button", { name: "編輯" }),
     );
+
+    const dialog = await screen.findByRole("dialog");
+    const outOfRange = [...warn.mock.calls, ...error.mock.calls].filter(
+      (args) => args.some((arg) => String(arg).includes("out-of-range")),
+    );
+    warn.mockRestore();
+    error.mockRestore();
+
+    expect(
+      within(dialog).queryByLabelText("上層組織(搬移)"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "頂層組織不可由組織內的人停用、搬移或刪除,需要時請聯絡系統管理員",
+      ),
+    ).toBeInTheDocument();
+    expect(outOfRange).toEqual([]);
   });
 
   it("編輯彈窗:一開啟就看得到既有商標;只改名稱不會把它清掉(#186 ②)", async () => {
@@ -75,6 +101,8 @@ describe("組織管理頁:標籤與租戶頂層保護", () => {
 
     const preview = await screen.findByText("目前的商標");
     expect(preview).toBeInTheDocument();
+    // 租戶頂層搬不動(候選是空的),根組織視角也不給上層組織下拉
+    expect(screen.queryByLabelText("上層組織(搬移)")).not.toBeInTheDocument();
 
     const nameField = screen.getByLabelText("名稱 *");
     await actor.clear(nameField);
