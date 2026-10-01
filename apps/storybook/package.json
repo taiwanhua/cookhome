@@ -14,6 +14,7 @@
     "@emotion/styled": "^11.14.0",
     "@fontsource-variable/public-sans": "^5.2.0",
     "@mui/material": "^9.0.0",
+    "@repo/project-config": "workspace:*",
     "@repo/ui": "workspace:*",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

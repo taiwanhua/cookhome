@@ -7,7 +7,7 @@ import {
   declaredValue,
   emotionClassOf,
 } from "../test/css-rules";
-import { cookhomeBrand } from "../theme/brands/cookhome";
+import { defaultBrand } from "../theme/brands/default";
 import { Stack } from "./Stack";
 
 /** Stack 自己與它對直接子元素下的規則(`.css-… > :not(style) ~ :not(style)` 這類)都含它的 emotion 類別 */
@@ -25,7 +25,7 @@ const MARGIN_PROPERTIES = [
 describe("Stack", () => {
   it("主題預設用 gap 排間距:不換行的列也一樣,不對子元素下 margin", () => {
     render(
-      <AppThemeProvider brand={cookhomeBrand}>
+      <AppThemeProvider brand={defaultBrand}>
         <Stack data-testid="row" direction="row" spacing={2}>
           <span>一</span>
           <span>二</span>
@@ -42,7 +42,7 @@ describe("Stack", () => {
 
   it("呼叫端明寫 useFlexGap={false} 才回到 margin 模式(上一案斷言得出差異)", () => {
     render(
-      <AppThemeProvider brand={cookhomeBrand}>
+      <AppThemeProvider brand={defaultBrand}>
         <Stack
           data-testid="legacy"
           direction="row"

@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import { type Plugin, defineConfig } from "vite";
 
 import { colorModeInitTag } from "./src/lib/color-mode-init";
+import { projectHtmlTransform } from "./src/lib/project-html";
 
 /**
  * mock 開發模式的 Vite 設定(`pnpm --filter @repo/admin dev:mock`)。
@@ -26,7 +27,7 @@ const MOCK_GRAPHQL_ENDPOINT = "https://api.test/graphql";
  * 這個 plugin 把所有 HTML 導覽一律指到 `mock.html`,mock 模式才經得起重新整理與深層連結。
  */
 const mockHtmlEntry: Plugin = {
-  name: "cookhome:mock-html-entry",
+  name: "admin:mock-html-entry",
   configureServer(server) {
     server.middlewares.use((request, _response, next) => {
       const accept = request.headers.accept ?? "";
@@ -40,12 +41,18 @@ const mockHtmlEntry: Plugin = {
 
 /** 首幀外觀腳本注入 `<head>`(見 `src/lib/color-mode-init.ts`)。 */
 const colorModeInit = {
-  name: "cookhome:color-mode-init",
+  name: "admin:color-mode-init",
   transformIndexHtml: () => [colorModeInitTag()],
 };
 
+/** `<title>` 寫入專案設定的頁面標題,後面加(mock)(見 `src/lib/project-html.ts`)。 */
+const projectHtml = {
+  name: "admin:project-html",
+  transformIndexHtml: projectHtmlTransform("mock"),
+};
+
 export default defineConfig({
-  plugins: [react(), mockHtmlEntry, colorModeInit],
+  plugins: [react(), mockHtmlEntry, projectHtml, colorModeInit],
   resolve: {
     alias: {
       // 夾具鏈的 `src/test/msw/server.ts` 在模組層呼叫 node 版 `setupServer()`,

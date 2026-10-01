@@ -1,4 +1,4 @@
 export * from "./brand";
-export * from "./brands/cookhome";
+export * from "./brands/default";
 export * from "./create-theme";
 export * from "./tokens";

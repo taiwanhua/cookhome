@@ -1,3 +1,8 @@
+import {
+  createAdminStorageKeys,
+  projectPublic,
+} from "@repo/project-config/public";
+
 import { type ShellModule, matchModuleRoute } from "./module-tree";
 
 /**
@@ -29,8 +34,10 @@ export const ITEM_LABEL_SEPARATOR = " — ";
 /** 關閉時「切到相鄰」的落點;沒有 tab 可切時回首頁(`/` 由 ADR-0011 規則轉到側欄第一個能進的頁)。 */
 export const EMPTY_TABS_ROUTE = "/";
 
-/** sessionStorage key 前綴(帶品牌 slug,登記於 docs/branding.md);每個使用者一把,換帳號登入不會撿到別人的頁籤。 */
-export const ROUTE_TABS_STORAGE_PREFIX = "cookhome-admin-route-tabs";
+/** sessionStorage key 前綴(由專案設定的 slug 生成 `<slug>-admin-route-tabs`,登記於 docs/branding.md);每個使用者一把,換帳號登入不會撿到別人的頁籤。 */
+export const ROUTE_TABS_STORAGE_PREFIX = createAdminStorageKeys(
+  projectPublic.slug,
+).routeTabsPrefix;
 
 export const routeTabsStorageKey = (userId: string): string =>
   `${ROUTE_TABS_STORAGE_PREFIX}:${userId}`;

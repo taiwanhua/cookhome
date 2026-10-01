@@ -1,5 +1,7 @@
+import preset from "@repo/jest-presets/browser-esm/jest-preset.mjs";
+
 /** @type {import('jest').Config} */
-const config = {
+const shared = {
   preset: "@repo/jest-presets/browser-esm",
   setupFilesAfterEnv: ["<rootDir>/src/test/setup.ts"],
   // 先列的先贏:特例要排在通則 `^@/(.*)$` 前面
@@ -12,6 +14,53 @@ const config = {
     // Vite 才懂的資源匯入(css / 字型)在測試中以空模組代替
     "\\.css$": "<rootDir>/src/test/empty-module.ts",
   },
+};
+
+/**
+ * 以固定的專案設定夾具頂替 `@repo/project-config/public` 的 project:
+ * 只跑 `*.<name>.test.ts(x)`,整張模組圖(含 setup、stores、lib)讀到的都是夾具的值。
+ */
+const fixtureProjects = [
+  // 替代品牌(新專案的形狀,沒有側欄舊鍵):驗「只換專案值,讀取接線就跟著換,且不碰別的專案的鍵」
+  { name: "alt-project", fixture: "alternative-project.ts" },
+  // 固定的 CookHome 歷史值:驗既有瀏覽器裡的鍵、資料格式、側欄舊鍵搬移與原畫面輸出
+  { name: "legacy-project", fixture: "cookhome-legacy-project.ts" },
+].map(({ name, fixture }) => ({
+  name,
+  fixture,
+  testRegex: String.raw`\.${name}\.test\.tsx?$`,
+}));
+
+/**
+ * - `admin`:正式的 `@repo/project-config/public`(目前的專案值),跑所有一般測試。
+ *   一般測試不寫任何專案的字面值 —— 換專案只改專案值檔,這些測試不必跟著改
+ * - 其餘 project 見 `fixtureProjects`
+ *
+ * @type {import('jest').Config}
+ */
+const config = {
+  // `testTimeout` 是全域選項:寫在 project 裡(含 project 的 preset)不生效,會退回 jest 預設的 5 秒。
+  // 所以在根層沿用 preset 放寬過的值,不另寫一個數字
+  testTimeout: preset.testTimeout,
+  projects: [
+    {
+      ...shared,
+      displayName: "admin",
+      testPathIgnorePatterns: [
+        "/node_modules/",
+        ...fixtureProjects.map((project) => project.testRegex),
+      ],
+    },
+    ...fixtureProjects.map(({ name, fixture, testRegex }) => ({
+      ...shared,
+      displayName: name,
+      testRegex,
+      moduleNameMapper: {
+        "^@repo/project-config/public$": `<rootDir>/src/test/${fixture}`,
+        ...shared.moduleNameMapper,
+      },
+    })),
+  ],
 };
 
 export default config;

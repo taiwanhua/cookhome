@@ -4,15 +4,22 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 import { colorModeInitTag } from "./src/lib/color-mode-init";
+import { projectHtmlTransform } from "./src/lib/project-html";
 
 /** 首幀外觀腳本注入 `<head>`(見 `src/lib/color-mode-init.ts`)。 */
 const colorModeInit = {
-  name: "cookhome:color-mode-init",
+  name: "admin:color-mode-init",
   transformIndexHtml: () => [colorModeInitTag()],
 };
 
+/** `<title>` 寫入專案設定的頁面標題(見 `src/lib/project-html.ts`)。 */
+const projectHtml = {
+  name: "admin:project-html",
+  transformIndexHtml: projectHtmlTransform("app"),
+};
+
 export default defineConfig({
-  plugins: [react(), colorModeInit],
+  plugins: [react(), projectHtml, colorModeInit],
   resolve: {
     // `@/` = src/(與 tsconfig paths、jest moduleNameMapper 同一份約定,GEN-01)
     alias: { "@": fileURLToPath(new URL("src", import.meta.url)) },

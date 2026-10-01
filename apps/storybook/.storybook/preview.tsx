@@ -5,9 +5,13 @@ import { ThemeProvider, useColorScheme } from "@mui/material/styles";
 import type { Decorator, Preview } from "@storybook/react-vite";
 import { useEffect } from "react";
 
-import { cookhomeBrand, createAppTheme } from "@repo/ui/theme";
+import { projectPublic } from "@repo/project-config/public";
+import { createAppTheme, createBrandFromPrimary } from "@repo/ui/theme";
 
-const theme = createAppTheme(cookhomeBrand);
+/** 目錄以專案的品牌名與主色呈現;`@repo/ui` 自己的中性預設是 `defaultBrand`。 */
+const theme = createAppTheme(
+  createBrandFromPrimary(projectPublic.brand.name, projectPublic.brand.primary),
+);
 
 /** 把 Storybook 工具列選的模式同步進 MUI colorScheme */
 function ModeSync({ mode }: Readonly<{ mode: "light" | "dark" }>) {

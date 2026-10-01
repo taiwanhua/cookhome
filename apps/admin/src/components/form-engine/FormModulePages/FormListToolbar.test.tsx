@@ -4,7 +4,7 @@ import { IntlProvider } from "use-intl";
 
 import { defaultLocale, messages } from "@repo/i18n";
 import { AppThemeProvider } from "@repo/ui/app-theme-provider";
-import { cookhomeBrand } from "@repo/ui/theme";
+import { defaultBrand } from "@repo/ui/theme";
 
 import { FormListToolbar } from "./FormListToolbar";
 
@@ -29,7 +29,7 @@ describe("FormListToolbar(列表頁的過濾條件列)", () => {
   it("欄距用 gap 不用 margin:換行後第一個欄位和上一行左對齊", () => {
     render(
       <IntlProvider locale={defaultLocale} messages={messages[defaultLocale]}>
-        <AppThemeProvider brand={cookhomeBrand}>
+        <AppThemeProvider brand={defaultBrand}>
           <FormListToolbar
             keyword=""
             onKeywordChange={noop}

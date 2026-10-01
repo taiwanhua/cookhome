@@ -1,3 +1,8 @@
+import {
+  createAdminStorageKeys,
+  projectPublic,
+} from "@repo/project-config/public";
+
 /**
  * 分頁間的登入狀態廣播(#61 登出同步、#375 換帳號同步)。
  *
@@ -8,8 +13,13 @@
  * 退路:不做 `storage` 事件退路(票面 2 由實作者決定)—— BroadcastChannel 是 Baseline「廣泛可用」
  * (Chrome 54 / Firefox 38 / Safari 15.4 / Edge 79),而 admin 自 #61 起的分頁登出同步本來就只靠它;
  * 兩套路徑並存要多一份去重與清 key 的邏輯,換到的只有 Safari 15.4 以前的版本。
+ *
+ * channel 名稱由專案設定的 slug 生成(`<slug>-admin-session`,登記於 docs/branding.md):
+ * 同一個瀏覽器裡不同專案的後台各用各的 channel,互不收訊。
  */
-export const SESSION_CHANNEL_NAME = "cookhome-admin-session";
+export const SESSION_CHANNEL_NAME = createAdminStorageKeys(
+  projectPublic.slug,
+).sessionChannel;
 
 /** 這個分頁當下的登入者(廣播內容與提示文案都要用到名字)。 */
 export interface SessionIdentity {

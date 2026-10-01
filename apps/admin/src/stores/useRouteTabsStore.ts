@@ -21,7 +21,7 @@ interface RouteTabsPersisted {
 }
 
 export interface RouteTabsStoreState extends RouteTabsPersisted {
-  /** 綁定登入者:切到 `cookhome-admin-route-tabs:<userId>` 這把 key 並從 sessionStorage 讀回(殼 mount 時呼叫) */
+  /** 綁定登入者:切到 `<專案 slug>-admin-route-tabs:<userId>` 這把 key 並從 sessionStorage 讀回(殼 mount 時呼叫) */
   bind: (userId: string) => void;
   /** 與「可進入路由集合」對齊 + 目前路徑生成 tab(進入路由即呼叫;沒變化不寫回、不通知) */
   sync: (routes: ReadonlyMap<string, ShellModule>, currentPath: string) => void;

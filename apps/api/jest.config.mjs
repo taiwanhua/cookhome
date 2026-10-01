@@ -14,10 +14,12 @@ const config = {
   transform: {
     "^.+\\.tsx?$": [require.resolve("ts-jest"), { isolatedModules: true }],
   },
-  // `@repo/domain/<主題>` 直接對到套件原始碼:測試不依賴先 build(turbo 的 test 不 dependsOn ^build);
-  // tsc / nest build 仍走 package.json exports 的 dist 產物
+  // `@repo/domain/<主題>`、`@repo/project-config/<出口>` 直接對到套件原始碼:測試不依賴先 build
+  // (CI 的 api 測試直接跑 jest,不先 build 依賴);tsc / nest build 仍走 package.json exports 的 dist 產物
   moduleNameMapper: {
     "^@repo/domain/(.*)$": "<rootDir>/../../packages/domain/src/$1",
+    "^@repo/project-config/(.*)$":
+      "<rootDir>/../../packages/project-config/src/$1",
   },
 };
 
