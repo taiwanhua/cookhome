@@ -59,6 +59,8 @@
 
 `@repo/project-config/mail` 匯出 `projectMail`,含 `senderEmail`、`signature`;品牌名引用 `projectPublic.brand.name`。API 保留 `MAIL_SENDER` 等既有消費介面,從設定組出原來的寄件人,四類信件保持現有模板、HTML 跳脫及時間格式。`resend-mail.service.ts` 的實際 `from` 也要驗,不能只驗主旨。
 
+品牌設定保留原始純文字。寄件人顯示名由 API 的 `mail-sender.ts` 在組裝時依 [RFC 5322](https://www.rfc-editor.org/rfc/rfc5322) 編碼:一般名稱保留原格式,含特殊符號時使用 quoted-string,跳脫雙引號與反斜線;換行及控制字元明確拒絕。不可用 HTML escape 或刪字替代,主旨與內文仍使用原值。驗收包含固定的 CookHome 舊寄件人、特殊名稱與唯一信箱,以及 fake Resend 實際收到的 `from`;離線測試不代表已向外部寄信。
+
 `RESEND_API_KEY`、`MAIL_ALLOWLIST`、無 key 時改用記錄 adapter 的策略繼續由既有 MailConfig 管理。寄件地址與署名雖非機密,仍不匯入瀏覽器出口。測試使用 fake client,不寄真信。
 
 `packages/i18n/src/project-messages.ts` 新增 `composeProjectMessages(values)`;輸入為 `{ brandName: string, frontMetadata: Record<Locale, Messages["front"]["meta"]> }`,回傳完整 `Record<Locale, Messages>`。只覆寫 `common.brand` 與 `front.meta` 三個既有鍵,不做通用 deep merge、不改 key 或 ICU 參數。基礎字典改成中性預設,原 CookHome 值由專案設定保留。
