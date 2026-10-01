@@ -284,6 +284,46 @@ describe("seed 指令(對真 MongoDB)", () => {
     expect(result.stdout).toMatch(/新增 \d+ \/ 更新 0 \/ 認養 0 \/ 未變 0/);
   }, 120_000);
 
+  it.each(["由後台修改的描述", "", null])(
+    "根組織名稱與描述由後台修改後重跑 seed 保留修改(description=%p)",
+    async (description) => {
+      const databaseUri = createTestDatabaseUri("org-profile");
+      expect(runSeedCommand(databaseUri).status).toBe(0);
+      const profile = { name: "專案營運組織", description };
+      await withDatabase(databaseUri, (database) =>
+        database
+          .collection("orgs")
+          .updateOne({ key: "root" }, { $set: profile }),
+      );
+      const before = await readSeededDocuments(databaseUri);
+
+      const result = runSeedCommand(databaseUri);
+      expect(result.stderr).toBe("");
+      expect(result.status).toBe(0);
+      const after = await readSeededDocuments(databaseUri);
+      expect(after.orgs[0]).toMatchObject(profile);
+      expect(after.orgs).toEqual(before.orgs);
+    },
+    120_000,
+  );
+
+  it("根組織名稱與描述欄位不存在時補上 seed 初值", async () => {
+    const databaseUri = createTestDatabaseUri("org-profile-missing");
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+    await withDatabase(databaseUri, (database) =>
+      database
+        .collection("orgs")
+        .updateOne({ key: "root" }, { $unset: { name: "", description: "" } }),
+    );
+
+    expect(runSeedCommand(databaseUri).status).toBe(0);
+    const { orgs } = await readSeededDocuments(databaseUri);
+    expect(orgs[0]).toMatchObject({
+      name: "CookHome",
+      description: "平台營運者(根組織)",
+    });
+  }, 120_000);
+
   it("種子角色的擁有組織為根組織(org_role),重跑不重複建立", async () => {
     const databaseUri = createTestDatabaseUri("org-role");
 

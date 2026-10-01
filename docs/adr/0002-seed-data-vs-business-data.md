@@ -13,6 +13,7 @@
 - 執行手段是獨立的 `apps/db-migrator`:migrate-mongo 管一次性遷移,薄 runner 管冪等種子。不部署、不常駐、不新開資料庫。
 - 部署 api 成功後依序跑 `migrate` → `seed`。build 不碰 DB;server 啟動時不跑。
 - 種子欄位分兩種:**每次都 seed**(預設)與**初始 seed 值**(欄位存在就不覆寫,只補從未寫過的欄位)。
+- 授權關聯維持只補不刪:從 seed 移除角色與模組/權限的綁定宣告,不自動撤銷資料庫既有授權;要撤銷時另作明確的權限管理操作。
 - seed 不分環境,三環境跑同一份宣告。
 - seed 以原生 mongodb driver 手寫文件形狀,不 import api 的 schema。
 - key 對 production 跑過 seed 就不再改;改 key = 新種一筆,要配 cleanup migration。
@@ -21,7 +22,7 @@
 ## 理由
 
 - 跨環境 id 對不上的災難只來自局部合併;把資料分兩類,id 就不必一致。
-- 初始 seed 值的欄位(如 `enabled`、模組的 `icon` 與 `settings`、根組織的 `settings`)是給人在畫面上管的值,seed 不該每次翻回去;只補「從未寫過的欄位」,後來才加進宣告的初值欄位才落得了地。
+- 初始 seed 值的欄位(如 `enabled`、模組的 `icon` 與 `settings`、根組織的 `name`、`description` 與 `settings`)是給人在畫面上管的值,seed 不該每次翻回去;只補「從未寫過的欄位」,後來才加進宣告的初值欄位才落得了地。根組織名稱與描述在新專案建立時先指定 seed 初值,一般部署保留 UI 修改(描述清空也保留),完整清庫還原才重建成該專案的宣告值。
 - 認養而不是另建一筆:人建的那一筆可能已被表單定義或業務資料引用,另建會讓同一個 key 出現兩筆、引用對到舊的;`_id` 不動,引用就不必搬。
 - 不在 server 啟動時跑:Cloud Run 冷啟要快,也避免多實例併發寫。
 - seed 不 import api:STRUCT-01 禁 app 互相 import,且 BaseRepository 對沒有操作者上下文的查詢一律拋錯。

@@ -262,6 +262,7 @@ interface OrgRow {
   parentId: Types.ObjectId | null;
   ancestors: Types.ObjectId[];
   enabled: boolean;
+  description?: string | null;
   logoPath?: string;
   ownerUserId?: Types.ObjectId;
   settings: Record<string, unknown>;
@@ -282,6 +283,10 @@ const PASSWORD = ["orgs", "test", "pass"].join("-");
 const LOGO_PATH = "org-logos/3f2504e0-4f89-41d3-9a0c-0305e82c3301.png";
 const OTHER_LOGO_PATH = "org-logos/6ba7b810-9dad-11d1-80b4-00c04fd430c8.webp";
 const ORG_MANAGER_MODULE = "system.org-manager";
+/** 只有空白的輸入:與 null、空字串同樣視為清空。 */
+const BLANK = " ".repeat(3);
+/** 會重跑 seed 子行程的案例:一次 seed 要數秒,給足時間。 */
+const RESEED_TIMEOUT_MS = 180_000;
 
 function flatten(nodes: TreeNode[]): TreeNode[] {
   return nodes.flatMap((node) => [node, ...flatten(node.children ?? [])]);
@@ -391,6 +396,38 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       { accessToken: tenantAdminToken },
     );
     expect(result.errors).toBeUndefined();
+  }
+
+  /** 以根組織操作者的身分編輯根組織;確認 mutation 本身沒有錯,回對外看到的描述。 */
+  async function updateRootOrg(fields: {
+    name?: string;
+    description?: string | null;
+  }): Promise<string | null | undefined> {
+    const result = await api.graphql<UpdateOrgData>(
+      UPDATE_ORG,
+      { input: { id: String(rootOrgId), ...fields } },
+      { accessToken: rootToken },
+    );
+    expect(result.errors).toBeUndefined();
+    return result.data?.updateOrg.org.description;
+  }
+
+  /** 經 `org(id)` 讀根組織:對外看到的樣子。 */
+  async function rootOrgOverApi(): Promise<OrgData["org"] | undefined> {
+    const result = await api.graphql<OrgData>(
+      ORG,
+      { id: String(rootOrgId) },
+      { accessToken: rootToken },
+    );
+    expect(result.errors).toBeUndefined();
+    return result.data?.org;
+  }
+
+  /** 把根組織弄成「description 欄位不存在」的舊資料狀態(過去清空是 `$unset`)。 */
+  function dropRootDescriptionField() {
+    return api.connection
+      .collection("orgs")
+      .updateOne({ _id: rootOrgId }, { $unset: { description: "" } });
   }
 
   async function updateSlug(
@@ -920,6 +957,186 @@ describe("組織管理(#134:樹查詢 / 新增子組織 / 編輯 / 停用連動 
       expect(result.data?.updateOrg.org.logoUrl).toBeNull();
       const row = await orgRow(orgId);
       expect(row?.logoPath).toBeUndefined();
+      // 非根組織維持原本的清空方式:欄位整個拿掉(只有根組織的描述落 null,見下一組)
+      expect(row).not.toHaveProperty("description");
+      expect(row).not.toHaveProperty("logoPath");
+    });
+
+    describe("根組織的描述是初始 seed 值欄位(ADR-0002):清空落 null、不拿掉欄位", () => {
+      it.each([
+        ["null", null],
+        ["空字串", ""],
+        ["純空白", BLANK],
+      ])(
+        "以 %s 清空:DB 留著 description: null(seed 重跑不會補回),對外回 null",
+        async (label, cleared) => {
+          const description = `根組織描述(${label})`;
+          expect(await updateRootOrg({ description })).toBe(description);
+          const auditsBefore = await auditRows("org.edit", rootOrgId);
+
+          expect(await updateRootOrg({ description: cleared })).toBeNull();
+
+          // 欄位必須還在:seed 只補「不存在的欄位」,$unset 掉就會被翻回宣告值
+          expect(await orgRow(rootOrgId)).toHaveProperty("description", null);
+          const audits = await auditRows("org.edit", rootOrgId);
+          expect(audits).toHaveLength(auditsBefore.length + 1);
+          expect(audits.at(-1)?.before).toEqual({ description });
+          expect(audits.at(-1)?.after).toEqual({ description: null });
+        },
+      );
+
+      it("已經是空的再清空(null / 空字串 / 純空白):不寫入、不留審計", async () => {
+        await updateRootOrg({ description: "待重複清空" });
+        await updateRootOrg({ description: null });
+        const auditsBefore = await auditRows("org.edit", rootOrgId);
+        const rowBefore = await orgRow(rootOrgId);
+
+        for (const cleared of [null, "", BLANK]) {
+          expect(await updateRootOrg({ description: cleared })).toBeNull();
+        }
+
+        expect(await auditRows("org.edit", rootOrgId)).toHaveLength(
+          auditsBefore.length,
+        );
+        const row = await orgRow(rootOrgId);
+        expect(row).toHaveProperty("description", null);
+        expect(row).toEqual(rowBefore);
+      });
+
+      it("input 沒帶 description = 不動:有值的留著、已清空的維持 null", async () => {
+        const root = await orgRow(rootOrgId);
+        const name = root?.name ?? "";
+
+        await updateRootOrg({ description: "不該被動到" });
+        expect(await updateRootOrg({ name })).toBe("不該被動到");
+        expect(await orgRow(rootOrgId)).toHaveProperty(
+          "description",
+          "不該被動到",
+        );
+
+        await updateRootOrg({ description: null });
+        const auditsBefore = await auditRows("org.edit", rootOrgId);
+        expect(await updateRootOrg({ name })).toBeNull();
+        expect(await orgRow(rootOrgId)).toHaveProperty("description", null);
+        expect(await auditRows("org.edit", rootOrgId)).toHaveLength(
+          auditsBefore.length,
+        );
+      });
+
+      it("清空後 org(id) 查詢照樣回 null(DB 的 null 對外仍是 null)", async () => {
+        await updateRootOrg({ description: "待查詢" });
+        await updateRootOrg({ description: null });
+
+        const result = await api.graphql<OrgData>(
+          ORG,
+          { id: String(rootOrgId) },
+          { accessToken: rootToken },
+        );
+        expect(result.errors).toBeUndefined();
+        expect(result.data?.org.description).toBeNull();
+      });
+    });
+
+    describe("根組織名稱與描述經 API 修改後,重跑 seed 仍保留(ADR-0002 初始 seed 值)", () => {
+      it(
+        "改名稱 / 描述 → seed → 保留;清空描述 → seed → 仍是 null;根組織 _id 不重建",
+        async () => {
+          const original = await orgRow(rootOrgId);
+          const originalName = original?.name ?? "";
+          try {
+            await updateRootOrg({
+              name: "專案營運組織",
+              description: "由後台修改的描述",
+            });
+            const edited = await orgRow(rootOrgId);
+
+            api.reseed();
+
+            // 整筆文件原封不動(含 _id 與 updatedAt):seed 沒有碰它
+            expect(await orgRow(rootOrgId)).toEqual(edited);
+            expect(await findRootOrgId(api.connection)).toEqual(rootOrgId);
+            expect(await rootOrgOverApi()).toMatchObject({
+              id: String(rootOrgId),
+              name: "專案營運組織",
+              description: "由後台修改的描述",
+            });
+
+            expect(await updateRootOrg({ description: BLANK })).toBeNull();
+            const cleared = await orgRow(rootOrgId);
+            expect(cleared).toHaveProperty("description", null);
+
+            api.reseed();
+
+            expect(await orgRow(rootOrgId)).toEqual(cleared);
+            expect(await findRootOrgId(api.connection)).toEqual(rootOrgId);
+            expect(await rootOrgOverApi()).toMatchObject({
+              id: String(rootOrgId),
+              name: "專案營運組織",
+              description: null,
+            });
+          } finally {
+            // 同檔其他案例以原名稱認根組織,還原回去
+            await updateRootOrg({ name: originalName });
+          }
+        },
+        RESEED_TIMEOUT_MS,
+      );
+
+      describe("DB 上根組織沒有 description 欄位(過去被拿掉的舊資料)", () => {
+        it.each([
+          ["null", null],
+          ["空字串", ""],
+          ["純空白", BLANK],
+        ])(
+          "明確以 %s 清空:實際寫入 description: null,seed 重跑不補回預設;再清空不留審計",
+          async (_label, cleared) => {
+            await dropRootDescriptionField();
+            expect(await orgRow(rootOrgId)).not.toHaveProperty("description");
+            const auditsBefore = await auditRows("org.edit", rootOrgId);
+
+            expect(await updateRootOrg({ description: cleared })).toBeNull();
+
+            expect(await orgRow(rootOrgId)).toHaveProperty("description", null);
+            // 由「沒有欄位」轉成 null 是一次實際寫入,留一筆審計
+            const audits = await auditRows("org.edit", rootOrgId);
+            expect(audits).toHaveLength(auditsBefore.length + 1);
+            expect(audits.at(-1)?.after).toEqual({ description: null });
+
+            for (const again of [null, "", BLANK]) {
+              expect(await updateRootOrg({ description: again })).toBeNull();
+            }
+            expect(await auditRows("org.edit", rootOrgId)).toHaveLength(
+              audits.length,
+            );
+            const beforeSeed = await orgRow(rootOrgId);
+
+            api.reseed();
+
+            expect(await orgRow(rootOrgId)).toEqual(beforeSeed);
+            expect(await orgRow(rootOrgId)).toHaveProperty("description", null);
+            expect(await rootOrgOverApi()).toMatchObject({
+              id: String(rootOrgId),
+              description: null,
+            });
+          },
+          RESEED_TIMEOUT_MS,
+        );
+
+        it("input 沒帶 description:不動,欄位維持不存在、不留審計", async () => {
+          await dropRootDescriptionField();
+          const root = await orgRow(rootOrgId);
+          const auditsBefore = await auditRows("org.edit", rootOrgId);
+
+          expect(await updateRootOrg({ name: root?.name ?? "" })).toBeNull();
+
+          expect(await orgRow(rootOrgId)).not.toHaveProperty("description");
+          expect(await auditRows("org.edit", rootOrgId)).toHaveLength(
+            auditsBefore.length,
+          );
+          // 收尾:留成已清空的狀態,不把「欄位不存在」帶給後面的案例
+          await updateRootOrg({ description: null });
+        });
+      });
     });
 
     it("logoPath 不是 createUploadUrl 簽出來的路徑:VALIDATION_FAILED,資料不動", async () => {

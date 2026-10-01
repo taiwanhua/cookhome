@@ -6,6 +6,18 @@
 
 ## 需要討論決策
 
+### 底座維護邊界與跨專案同步
+
+待完成:劃清「哪些永遠由底座維護、哪些允許專案擴充」,逐項列出責任歸屬、擴充方式與改良回收條件,再確定跨專案同步流程。
+
+待設計:獨立底座 repo 與引用專案的建立方式、去品牌化與初始化清單、共用/專案檔案所有權、改良回收與正式版本升級 PR。待釐清共同 Git 歷史、回饋分支起點、發布 tag、升級分支保留合併祖先、資料遷移與跨專案驗證;GitHub Template 的歷史行為須與後續 merge 策略一起評估。
+
+現況:主要組裝入口與初始化欄位已盤點,見 [底座維護邊界盤點](base-boundary-inventory.md) 與 [初始化盤點](project-bootstrap-inventory.md)。[共同文件票](https://github.com/taiwanhua/cookhome/issues/598) 與 [根組織修正票](https://github.com/taiwanhua/cookhome/issues/597) 分別追蹤本批文件與程式交付;API 改值/清空後重跑 seed 的驗收及發布證據由修正票保存。尚未抽離 repo 或啟用同步。已定案要求、後續工作包及驗收見 [底座同步計畫](../plans/base-sync.md)。
+
+Figma 同步待實作與 skill 化:將「底座 Library 發布 → 專案接受更新 → agent 補套專案品牌 → 檢查元件連結、品牌遺漏與客製內容」納入完整同步流程,並涵蓋新增元件與切換變體後的品牌檢查。與 Git/程式碼升級一併設計驗收,另釐清程式版本與 Library 更新的對應方式。
+
+現況:使用者已確認 Figma 屬於同步範圍。Professional 隔離實測已驗證換色、保留元件連結、接受更新及補套品牌;正式設計檔拆分與通用 skill 尚未實作。測試檔位置見 `docs/branding.md`「隔離品牌相容性測試」,可攜證據與未測範圍見共同計畫「Figma 隔離實測」。
+
 ### 自訂 `/to-figma` skill
 
 設計系統收尾的唯一剩項:由 spec 產出 Figma 設計稿,之後實作照稿產出程式碼。Figma 端的做法(殼元件實例覆寫、備用槽、RWD 三檔)已寫在 `docs/standards/general/figma.md`。
@@ -20,9 +32,9 @@
 
 ### 專案模板 skill(project-bootstrap)
 
-還有兩個 front + admin + api 專案要開;以 cookhome 為基底,品牌落點在 `docs/branding.md`,skill 化後帶參數(品牌名、網域、GCP 專案)自動替換,並照 `docs/deployment.md` 建基礎設施。
+單獨盤點新專案初始化的所有設定與修改位置,依 `docs/branding.md`、`docs/env-registry.md`、`docs/deployment.md` 與實際程式確認,涵蓋品牌、雲端資源、開發工具、資料庫、環境變數及所有須分別設定的外部整合與驗證方式。確認清單後製作 skill,引導使用者提供必要輸入,分開記錄已提供、已建立與已驗證狀態;讓新專案從底座正式版本建立獨立 repo,保留共同 Git 歷史,再完成初始化。前台畫面與風格由專案設計,不把接入後台主題當成初始化必要工作。共用名詞整理進 `CONTEXT.md`,共用文件與 skill 避免寫死引用專案品牌。
 
-現況:未開票;時機是第二個專案要開時。
+現況:主要檔案與 seed 欄位盤點已納入共同文件票,初始化 skill 尚未實作。後續依 [底座同步計畫](../plans/base-sync.md) 的工作包與前置設計排票,確保初始化產物可持續升級且保留專案專有內容;未決介面不標為 Ready。
 
 ### Budget 終極斷路器
 

@@ -48,11 +48,11 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 
 ## 閱讀路線
 
-| 你是     | 照這個順序讀                                                                                                                                                |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 新手     | 本頁 → `CONTEXT.md`(詞彙)→ `docs/concepts/` 七份(順序見下)→ 感興趣的 `docs/modules/<key>.md`                                                                |
-| 開發者   | 新手路線 → `docs/standards/README.md`(只載入相關規範)→ `docs/agents/module-scaffold.md`(新增模組;要人機問答出規格卡用 `/module-scaffold`)→ 需要理由時讀 ADR |
-| AI agent | 新手路線 → `docs/agents/toolbox.md`(工具與環境)→ `docs/agents/issue-tracker.md`(票與 PR 流程)→ 依改動範圍載入規範                                           |
+| 你是     | 照這個順序讀                                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 新手     | 本頁 → `CONTEXT.md`(詞彙)→ `docs/concepts/` 七份(順序見下)→ 感興趣的 `docs/modules/<key>.md`                                                                  |
+| 開發者   | 新手路線 → `docs/standards/README.md`(只載入相關規範)→ `docs/agents/module-scaffold.md`(新增模組;要人機問答出規格卡用 `/module-scaffold`)→ 需要理由時讀 ADR   |
+| AI agent | 新手路線 → `docs/agents/collaboration.md`(分工與接手)→ `docs/agents/toolbox.md`(工具與環境)→ `docs/agents/issue-tracker.md`(票與 PR 流程)→ 依改動範圍載入規範 |
 
 concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-and-isolation` → `storage-and-mail` → `frontend-architecture` → `form-engine` → `workflow-engine`。
 
@@ -81,6 +81,7 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/testing/permission-scenarios.md`        | 24 條權限驗收劇本                                | 驗收、寫 E2E               |
 | `docs/testing/handover-quiz.md`               | 接手自測題                                       | 讀完文件後自我檢查         |
 | `docs/agents/toolbox.md`                      | agent 的工具與環境須知                           | AI agent 開工前            |
+| `docs/agents/collaboration.md`                | Claude、Codex 與人員共用的分工、工作樹與接手規則 | 派工、恢復或換手           |
 | `docs/agents/issue-tracker.md`                | issue、看板、PR 的流程                           | 開票、接票、交件           |
 | `docs/agents/pitfalls.md`                     | 指令與流程的已知坑                               | 指令跑出怪現象時           |
 | `docs/agents/module-scaffold.md`              | 新增 CRUD 模組的檔案清單與步驟                   | 新增模組                   |
@@ -89,6 +90,9 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/deployment.md`                          | 部署、release、分支對齊、reset                   | 部署或 release             |
 | `docs/env-registry.md`                        | 環境變數登記                                     | 新增或改環境變數           |
 | `docs/branding.md`                            | 品牌文字、色彩、網域、儲存鍵登記                 | 動品牌元素或儲存鍵         |
+| `docs/plans/base-sync.md`                     | 底座同步定案、本批交付、後續工作包與 Figma 實測  | 接手底座抽離與同步工作     |
 | `docs/tmp/dis.md`                             | 進行中討論與待辦                                 | 查尚未定案的事             |
+| `docs/tmp/base-boundary-inventory.md`         | 底座維護歸屬、組裝入口與同步盤點草案             | 討論底座抽離及初始化邊界   |
+| `docs/tmp/project-bootstrap-inventory.md`     | 新專案初始化檔案與 seed 欄位盤點                 | 設計初始化、升級與還原流程 |
 
 正本:`docs/` 目錄本身;新增文件時在本表補一行。

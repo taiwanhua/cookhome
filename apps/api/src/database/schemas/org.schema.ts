@@ -34,9 +34,12 @@ export class Org {
   @Prop({ type: Boolean, default: true })
   enabled!: boolean;
 
-  /** 描述說明(選填)。 */
+  /**
+   * 描述說明(選填)。根組織的描述是初始 seed 值欄位(ADR-0002):清空時留著欄位存 `null`,
+   * 讓 seed 不把它補回宣告值;其他組織清空是拿掉欄位。讀取端兩者同義。
+   */
   @Prop({ type: String })
-  description?: string;
+  description?: string | null;
 
   /** 組織商標的 GCS 物件路徑(存路徑非 URL,ADR-0010)。 */
   @Prop({ type: String })
