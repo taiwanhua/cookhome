@@ -88,11 +88,12 @@ describe("首幀外觀腳本", () => {
     setSystemPrefersDark(false);
     localStorage.setItem(COLOR_MODE_STORAGE_KEY, "dark");
 
+    // 對照鍵由目前的鍵加固定後綴組成:不論專案的 slug 是什麼,都保證與本專案的鍵不同
     expect(
       runScript(
         colorModeInitScript(
-          "other-admin-color-mode",
-          "other-admin-color-scheme",
+          `${COLOR_MODE_STORAGE_KEY}-other-namespace`,
+          `${COLOR_SCHEME_STORAGE_KEY}-other-namespace`,
         ),
       ),
     ).toEqual(["light"]);

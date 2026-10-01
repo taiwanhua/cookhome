@@ -281,23 +281,70 @@ describe("替代專案設定:信件品牌與寄件人跟著換", () => {
     );
     expect(message.html).not.toContain("<Co>");
   });
+
+  it("品牌名含 RFC 特殊符號:Resend 收到的 from 以 quoted-string 表示,信箱只有設定的那一個;主旨仍是原文", async () => {
+    const sent = await sendFourKinds({
+      brandName: `Nova {Lab} <O'Neil>, "Inc"`,
+      senderEmail: "hello@nova-lab.example",
+      signature: "Nova 團隊",
+    });
+
+    const expectedFrom = String.raw`"Nova {Lab} <O'Neil>, \"Inc\"" <hello@nova-lab.example>`;
+    expect(sent.map((payload) => payload.from)).toEqual([
+      expectedFrom,
+      expectedFrom,
+      expectedFrom,
+      expectedFrom,
+    ]);
+    expect(sent[0]?.subject).toBe(
+      `【Nova {Lab} <O'Neil>, "Inc"】啟用您的後台帳號`,
+    );
+  });
 });
+
+/** RFC 5322 的 specials:顯示名含其中任何一個就不能裸寫,必須是 quoted-string。 */
+const RFC_SPECIALS = /[()<>[\]:;@\\,."]/;
+
+/**
+ * 以「收信端怎麼讀」的方向解回寄件人的顯示名(本檔自己寫的讀法,不呼叫受測的組裝函式):
+ * 結尾必須恰好是 ` <信箱>`;前面若是 quoted-string 就去掉引號與反斜線跳脫,否則必須不含 specials。
+ */
+const displayNameOf = (from: string, email: string): string => {
+  const suffix = ` <${email}>`;
+  if (!from.endsWith(suffix)) {
+    throw new Error(`寄件人不是以 <${email}> 結尾:${from}`);
+  }
+  const phrase = from.slice(0, -suffix.length);
+  if (phrase.startsWith('"') && phrase.endsWith('"') && phrase.length >= 2) {
+    const inner = phrase.slice(1, -1);
+    if (/(?<!\\)(?:\\\\)*"/.test(inner)) {
+      throw new Error(`quoted-string 裡有沒跳脫的雙引號:${from}`);
+    }
+    return inner.replaceAll(/\\(.)/g, "$1");
+  }
+  if (RFC_SPECIALS.test(phrase)) {
+    throw new Error(`顯示名含 RFC 特殊符號卻沒有加引號:${from}`);
+  }
+  return phrase;
+};
 
 /**
  * 不替換設定:正式模組讀到的就是目前的專案值。期望值由設定值與**本檔自己寫的格式**組出,
- * 不呼叫受測的模板函式來推導,也不寫任何專案的字面值。
+ * 不呼叫受測的模板函式來推導,也不寫任何專案的字面值。寄件人以 `displayNameOf` 解回顯示名再比對,
+ * 所以品牌名需不需要引號都成立。
  */
 describe("目前的專案設定:正式接線", () => {
-  const expectedSender = `${projectMail.brandName} <${projectMail.senderEmail}>`;
   const subjectPrefix = `【${projectMail.brandName}】`;
 
-  it("寄件人 = `<品牌名> <寄件信箱>`", async () => {
+  it("寄件人 = `品牌名 <寄件信箱>`,解回的顯示名就是品牌名原文", async () => {
     const sender = await withMailModules(
       null,
       ({ templates }) => templates.MAIL_SENDER,
     );
 
-    expect(sender).toBe(expectedSender);
+    expect(displayNameOf(sender, projectMail.senderEmail)).toBe(
+      projectMail.brandName,
+    );
   });
 
   it("四類信件的主旨前綴是品牌名,純文字與 HTML 都以署名結尾", async () => {
@@ -324,13 +371,11 @@ describe("目前的專案設定:正式接線", () => {
   it("Resend 實際送出的 from 是目前設定的寄件人(四類信件皆然)", async () => {
     const sent = await sendFourKinds(null);
 
-    expect(sent.map((payload) => payload.from)).toEqual([
-      expectedSender,
-      expectedSender,
-      expectedSender,
-      expectedSender,
-    ]);
+    expect(sent).toHaveLength(4);
     for (const payload of sent) {
+      expect(displayNameOf(payload.from, projectMail.senderEmail)).toBe(
+        projectMail.brandName,
+      );
       expect(payload.subject.startsWith(subjectPrefix)).toBe(true);
     }
   });

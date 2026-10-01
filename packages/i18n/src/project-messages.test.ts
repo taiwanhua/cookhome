@@ -304,6 +304,22 @@ describe("基礎字典是中性預設", () => {
 });
 
 describe("icuArgumentsOf(測試工具本身)", () => {
+  it("plural 分支裡 `'#` 開啟引號:引號內的 `{…}` 不是參數", () => {
+    expect(
+      icuArgumentsOf("{count, plural, one {'# {notArg}'} other {{real}}}"),
+    ).toEqual(["count", "real"]);
+    // select 分支與最外層的 `'#` 不開引號,後面的 `{…}` 仍是參數
+    expect(
+      icuArgumentsOf("{kind, select, a {'# {inSelect}'} other {x}}"),
+    ).toEqual(["inSelect", "kind"]);
+    expect(icuArgumentsOf("'# {top}'")).toEqual(["top"]);
+  });
+
+  it("最外層落單的 `}` 是文字,後面的參數照算", () => {
+    expect(icuArgumentsOf("} before {real}")).toEqual(["real"]);
+    expect(icuArgumentsOf("a } b } {x} } {y}")).toEqual(["x", "y"]);
+  });
+
   it("取出最外層與巢狀分支裡的參數名,略過分支文字與 `#`", () => {
     expect(icuArgumentsOf("共 {count} 道食譜")).toEqual(["count"]);
     expect(

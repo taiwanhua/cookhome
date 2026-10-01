@@ -1,5 +1,6 @@
 import { projectMail } from "@repo/project-config/mail";
 
+import { formatMailSender } from "./mail-sender";
 import type {
   ActionEmailInput,
   MailMessage,
@@ -12,8 +13,14 @@ import type {
  * (登記於 docs/branding.md);這裡只負責組出寄件人與套進模板。
  */
 
-/** 寄件人 `<品牌名> <寄件信箱>`(ADR-0010;寄件網域的 SPF / DKIM 由使用者在 Resend 完成驗證)。 */
-export const MAIL_SENDER = `${projectMail.brandName} <${projectMail.senderEmail}>`;
+/**
+ * 寄件人 `品牌名 <寄件信箱>`(ADR-0010;寄件網域的 SPF / DKIM 由使用者在 Resend 完成驗證)。
+ * 品牌名含 RFC 特殊符號時由 `formatMailSender` 包成 quoted-string;主旨與內文仍用原文。
+ */
+export const MAIL_SENDER = formatMailSender(
+  projectMail.brandName,
+  projectMail.senderEmail,
+);
 
 const BRAND_NAME = projectMail.brandName;
 const SIGNATURE = projectMail.signature;
