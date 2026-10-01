@@ -148,6 +148,35 @@ const withCookhome = <T>(
   run: (templates: MailModules["templates"]) => T,
 ): Promise<T> => withMailModules(COOKHOME, ({ templates }) => run(templates));
 
+/**
+ * `ACTION.expiresAt` 經模板的 `Intl.DateTimeFormat("zh-TW")` 排出來的到期時間。日期與時間之間的那一個空白
+ * 由執行環境的 ICU 決定:Node 20 是一般空白(U+0020,快照裡的就是它),Node 22 是窄空白(U+2009)。
+ * 只比對這一段固定字面值、只認窄空白這一種寫法。
+ */
+const ACTION_EXPIRY_WITH_THIN_SPACE = "2026/09/25 16:00";
+const ACTION_EXPIRY_IN_SNAPSHOT = "2026/09/25 16:00";
+
+/**
+ * 比對快照前,把到期時間裡那一個隨 ICU 版本不同的空白換回快照用的 U+0020。
+ * 只動 `text` / `html` 裡的這段日期字面值;其餘內容(品牌、標點、換行、其他空白、時間值、HTML)原封不動。
+ */
+const withSnapshotExpirySpacing = (message: MailMessage): MailMessage => ({
+  ...message,
+  text: message.text.replaceAll(
+    ACTION_EXPIRY_WITH_THIN_SPACE,
+    ACTION_EXPIRY_IN_SNAPSHOT,
+  ),
+  html: message.html.replaceAll(
+    ACTION_EXPIRY_WITH_THIN_SPACE,
+    ACTION_EXPIRY_IN_SNAPSHOT,
+  ),
+});
+
+/*
+ * 「逐字相同」的唯一例外:啟用信與重設密碼信裡到期時間的日期與時間之間那一個空白,
+ * 會隨執行環境的 ICU 版本不同(見 `withSnapshotExpirySpacing`)。正式模板的輸出不為快照而改,
+ * 所以只在這兩封信比對前正規化那一個字元;其餘內容與另外六份快照都是逐字比對。
+ */
 describe("固定的 CookHome 設定:信件輸出與抽設定前逐字相同", () => {
   it("寄件人", async () => {
     expect(await withCookhome((templates) => templates.MAIL_SENDER)).toBe(
@@ -156,17 +185,19 @@ describe("固定的 CookHome 設定:信件輸出與抽設定前逐字相同", ()
   });
 
   it("啟用信", async () => {
-    expect(
-      await withCookhome((templates) => templates.buildActivationEmail(ACTION)),
-    ).toMatchSnapshot();
+    const message = await withCookhome((templates) =>
+      templates.buildActivationEmail(ACTION),
+    );
+
+    expect(withSnapshotExpirySpacing(message)).toMatchSnapshot();
   });
 
   it("重設密碼信", async () => {
-    expect(
-      await withCookhome((templates) =>
-        templates.buildPasswordResetEmail(ACTION),
-      ),
-    ).toMatchSnapshot();
+    const message = await withCookhome((templates) =>
+      templates.buildPasswordResetEmail(ACTION),
+    );
+
+    expect(withSnapshotExpirySpacing(message)).toMatchSnapshot();
   });
 
   it("審核任務通知", async () => {
