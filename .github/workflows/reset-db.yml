@@ -7,6 +7,9 @@ name: Reset DB
 #
 # **沒有 production 選項**:reset 永不對 production 執行。指令端另有三道安全閥
 #(apps/db-migrator/src/reset/reset-safety.ts),就算這裡被改壞也擋得住。
+#
+# 雲端目標、Secret 名稱與 seed 帳號不寫在本檔:與 deploy.yml 同一份正本(deploy/project/*.json),
+# 由「專案設定」步驟讀取並驗證;設定值一律經 step 的 env 傳給腳本,不內插進 run 的程式文本。
 on:
   workflow_dispatch:
     inputs:
@@ -31,27 +34,36 @@ jobs:
     # 用 GitHub environment 包起來,日後要加人工審核直接在該 environment 上設 required reviewers
     environment: ${{ inputs.environment }}
     steps:
-      # secret 名稱與 deploy.yml 的「環境參數」同一套(mongodb-uri-<env> / root-admin-password-<env>)
-      - name: 環境參數
-        id: cfg
+      # 專案設定檔三個環境都有(deploy 要用),所以「reset 沒有 production」不能靠設定檔缺值來擋,在讀設定前先擋一次
+      - name: 環境防呆(只允許 dev / staging)
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          case "${{ inputs.environment }}" in
-            dev)
-              echo "secret=mongodb-uri-dev" >> "$GITHUB_OUTPUT"
-              echo "root_secret=root-admin-password-dev" >> "$GITHUB_OUTPUT"
-              ;;
-            staging)
-              echo "secret=mongodb-uri-staging" >> "$GITHUB_OUTPUT"
-              echo "root_secret=root-admin-password-staging" >> "$GITHUB_OUTPUT"
+          case "$ENVIRONMENT" in
+            dev | staging) ;;
+            *)
+              echo "::error::reset 只允許 dev / staging,production 永不執行"
+              exit 1
               ;;
           esac
 
       - uses: actions/checkout@v4
 
+      # 與 deploy.yml 同一個讀取器:repository 與設定檔的 expectedRepository 不符或缺值時在這裡失敗,不會進到雲端認證
+      - name: 專案設定(核對 repo 與環境)
+        id: cfg
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          node scripts/project-settings/read-config.mjs --scope cloud --environment "$ENVIRONMENT" --repository "$REPOSITORY" > "$RUNNER_TEMP/project-cloud.json"
+          node scripts/project-settings/write-github-output.mjs --scope cloud < "$RUNNER_TEMP/project-cloud.json"
+
       - uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: projects/728045896207/locations/global/workloadIdentityPools/github/providers/github-oidc
-          service_account: github-deployer@cookhome-online.iam.gserviceaccount.com
+          project_id: ${{ steps.cfg.outputs.gcp_project_id }}
+          workload_identity_provider: ${{ steps.cfg.outputs.wif_provider }}
+          service_account: ${{ steps.cfg.outputs.deployer_sa }}
 
       - uses: google-github-actions/setup-gcloud@v2
 
@@ -71,15 +83,19 @@ jobs:
       # --confirm 取自連線字串裡的資料庫名:指令會比對兩者,不符即拒絕(打錯環境就過不了)
       - name: reset
         env:
-          ROOT_ADMIN_ACCOUNT: root
-          ROOT_ADMIN_EMAIL: a0987837233@gmail.com
+          ROOT_ADMIN_ACCOUNT: ${{ steps.cfg.outputs.root_account }}
+          ROOT_ADMIN_EMAIL: ${{ steps.cfg.outputs.root_email }}
           RESET_ALLOW_ENV: ${{ inputs.environment }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          MODE: ${{ inputs.mode }}
+          MONGODB_SECRET_NAME: ${{ steps.cfg.outputs.mongodb_secret }}
+          ROOT_SECRET_NAME: ${{ steps.cfg.outputs.root_secret }}
         run: |
-          MONGODB_URI=$(gcloud secrets versions access latest --secret=${{ steps.cfg.outputs.secret }})
-          ROOT_ADMIN_PASSWORD=$(gcloud secrets versions access latest --secret=${{ steps.cfg.outputs.root_secret }})
+          MONGODB_URI=$(gcloud secrets versions access latest --secret="$MONGODB_SECRET_NAME")
+          ROOT_ADMIN_PASSWORD=$(gcloud secrets versions access latest --secret="$ROOT_SECRET_NAME")
           echo "::add-mask::$MONGODB_URI"
           echo "::add-mask::$ROOT_ADMIN_PASSWORD"
           export MONGODB_URI ROOT_ADMIN_PASSWORD
           DB_NAME=$(node -p "decodeURIComponent(new URL(process.env.MONGODB_URI).pathname.slice(1))")
-          echo "::notice::reset --mode=${{ inputs.mode }} --confirm=$DB_NAME(環境:${{ inputs.environment }})"
-          pnpm --filter @repo/db-migrator reset --mode=${{ inputs.mode }} --confirm="$DB_NAME"
+          echo "::notice::reset --mode=$MODE --confirm=$DB_NAME(環境:$ENVIRONMENT)"
+          pnpm --filter @repo/db-migrator reset --mode="$MODE" --confirm="$DB_NAME"

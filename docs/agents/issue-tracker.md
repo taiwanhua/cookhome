@@ -52,7 +52,7 @@
 | Won't Do       | 決定不做(issue 以 not planned 關閉)                                                       | 決策時         |
 
 - Spec issue 不上板(看板只放票);合 `staging` 的 PR 內文也要含 `Closes #<票號>` 或 `Refs #<票號>`,自動化才找得到票。
-- **自動化**(`project-status.yml`,用 secret `GH_PROJECT_TOKEN`):issue opened → 入板 Backlog;issue closed → Released(not planned → Won't Do)。PR 事件移的是**票卡**:依 PR 內文的 `Closes` / `Fixes` / `Resolves` / `Refs #<n>` 找票,PR 開啟 / reopen / 轉 ready(目標 `dev`)→ In Review;合進 `dev` → Dev 驗證中;合進 `staging` → Staging 驗證中。draft PR 不觸發;內文沒有票號就什麼都不動。
+- **自動化**(`project-status.yml`,用 secret `GH_PROJECT_TOKEN`;看板 ID 讀預設分支上的 `deploy/project/github.json`,workflow 失敗時不會移卡,要手動移):issue opened → 入板 Backlog;issue closed → Released(not planned → Won't Do)。PR 事件移的是**票卡**:依 PR 內文的 `Closes` / `Fixes` / `Resolves` / `Refs #<n>` 找票,PR 開啟 / reopen / 轉 ready(目標 `dev`)→ In Review;合進 `dev` → Dev 驗證中;合進 `staging` → Staging 驗證中。draft PR 不觸發;內文沒有票號就什麼都不動。
 - **一定要手動的四格**:Ready(blocker 關閉時)、In Progress(認領時)、Dev 通過、Staging 通過(QA 者)。
 - `Closes #n` 只在合進預設分支 `main` 時自動關票;PR 合 `dev` **不會關**,關票時機是 Released(`gh issue close <n> --comment "<PR 連結>"`)。
 - 部署一律手動觸發(deploy.yml 只有 `workflow_dispatch`),merge 不會部署任何環境。
@@ -60,14 +60,16 @@
 **手動移卡**(Project #3,owner taiwanhua;整行單行,PowerShell 沒有 `\` 續行):
 
 ```
-gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id PVTSSF_lAHOAeiiKc4BjXhzzhiME14 --single-select-option-id <OPTION_ID>
+gh project item-edit --id <ITEM_ID> --project-id <PROJECT_ID> --field-id <STATUS_FIELD_ID> --single-select-option-id <OPTION_ID>
 ```
 
+- **看板 ID 的正本是 `deploy/project/github.json` 的 `projectStatus`**,這裡不另抄一份:PROJECT_ID = `projectId`、STATUS_FIELD_ID = `statusFieldId`、OPTION_ID = `options` 裡對應狀態的值。一次列出:`node scripts/project-settings/read-config.mjs --scope github --repository taiwanhua/cookhome`。
+- `options` 的鍵對應看板狀態:`backlog`=Backlog、`ready`=Ready、`inProgress`=In Progress、`review`=In Review、`devVerify`=Dev 驗證中、`devPassed`=Dev 通過、`stagingVerify`=Staging 驗證中、`stagingPassed`=Staging 通過、`released`=Released、`wontDo`=Won't Do。自動化只寫其中六個(`backlog`、`review`、`devVerify`、`stagingVerify`、`released`、`wontDo`),另外四個只由人移。
 - ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json --limit 300 --jq '.items[] | select(.content.number==<票號>) | {id, status}'`(預設只回 30 筆,新票不在裡面;連 `status` 一起取,才知道現在在哪一格)。
-- OPTION_ID:Backlog=`2882aeb7` Ready=`e053bab2` In Progress=`5adedc57` In Review=`43e18a1a` Dev驗證中=`0eaa8179` Dev通過=`cc87d3d5` Staging驗證中=`e94980d1` Staging通過=`45c49925` Released=`e3445e43` Won't Do=`b6b968cd`
-- 看板欄位在 UI 的位置(重建看板時對得起來):Project「CookHome」→ 右上 … → Settings → Fields → `Status` 的選項清單,順序即上表。
+- 看板欄位在 UI 的位置(重建看板時對得起來):Project「CookHome」→ 右上 … → Settings → Fields → `Status` 的選項清單,順序即上面的鍵順序;重建後把新的 ID 填回 `deploy/project/github.json`。
+- **自動化什麼時候不會動**:workflow 只讀預設分支(`main`)上的 `deploy/project/github.json` 與 `scripts/project-settings/`。`main` 上還沒有這些檔案、設定與 repo 不符、看板啟用但拿不到 `GH_PROJECT_TOKEN`(含 fork 來的 PR)時,該次 run 明確失敗且不移卡,照本節手動移;`projectStatus.enabled` 為 `false` 時 run 成功但不移卡。
 
-正本:`.github/workflows/project-status.yml`
+正本:`deploy/project/github.json`(看板 ID)、`.github/workflows/project-status.yml`、`scripts/project-settings/project-status.mjs`(事件 → 狀態的對應)
 
 ## 實作一張票(接手 SOP,無對話 session 亦適用)
 
