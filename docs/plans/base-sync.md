@@ -87,6 +87,8 @@
 
 A 與 B 可在接縫定案後並行,E 可與程式抽離並行。每包的 release 依驗收安排,不將底座首版整套重構混入本批。最低整體演練包含不同品牌、新增業務模組、替換治理頁,再升級共用 UI、API、seed 與 Figma。
 
+A 的具體設定來源、讀取介面、檔案歸屬與兩張票的驗收見[專案設定與部署識別規格](project-settings.md);實際進度以對應 issue/PR 為準。新專案設定的正本位置整理於[初始化索引](../project-initialization.md),不另存一份實值。
+
 ## Figma 隔離實測
 
 以下是已完成隔離 POC 的證據摘要,不是本批重新連線後的查驗。測試使用 Wowgo Professional 團隊,所有操作在 [TEST — Multi-project Theme POC](https://www.figma.com/files/team/963068133549518258/project/661917302)。[既有 CookHome 設計檔](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)未修改,後續演練也不可因本計畫而擅自操作它。
