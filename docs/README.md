@@ -18,10 +18,11 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 | `packages/graphql`                           | 讀 api 的 schema 產生型別與 TanStack Query hooks                                                       |
 | `packages/domain`                            | 前後端共用純邏輯:權限 key 與矩陣、密碼規則、模組圖示白名單、表單定義 / 計算 / 檢查器、流程定義與檢查器 |
 | `packages/i18n`                              | 多語訊息檔                                                                                             |
+| `packages/project-config`                    | `/public`:admin / front / Storybook;`/mail`:僅 api。專案維護值,底座維護契約與讀取接線                  |
 | `packages/logger`                            | 共用 logger(唯一可用 `console` 的地方)                                                                 |
 | `packages/config-*`、`packages/jest-presets` | ESLint / Prettier / TypeScript / Jest 共用設定                                                         |
 
-正本:`docs/architecture.md`、根目錄 `package.json`、`pnpm-workspace.yaml`
+正本:`docs/architecture.md`、根目錄 `package.json`、`pnpm-workspace.yaml`;專案值與底座契約的歸屬見[設定來源與所有權](plans/project-settings.md#設定來源與所有權)。
 
 ## 七個核心概念
 

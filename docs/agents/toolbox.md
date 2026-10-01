@@ -21,19 +21,19 @@
 
 ## gh:issue 與 PR
 
-| 情境                | 指令                                                                                                                                                    | 提醒                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| 讀票(含留言)        | `gh issue view <n> --json title,body,comments,labels`                                                                                                   | 純文字 `--comments` 在 PowerShell 會被截斷                     |
-| 從 JSON 取欄位      | `gh … --json <欄位> --jq '<filter>'`                                                                                                                    | 沒有外部 `jq`,一律用 `--jq`                                    |
-| 認領                | `gh issue edit <n> --add-assignee "@me"`                                                                                                                | `@me` 要加引號                                                 |
-| 開 PR               | `gh pr create --base dev --title "…" --body-file <scratchpad 檔>`                                                                                       | 內文先用 Write 寫成檔(heredoc 會被守衛擋);內文含 `Closes #<n>` |
-| 多行 commit 訊息    | `git commit -F <scratchpad 檔>`                                                                                                                         | 單行用 `-m`                                                    |
-| 看 PR 能不能合 / CI | `gh pr view <n> --json mergeable,statusCheckRollup`、`gh pr checks <n>`                                                                                 | `CONFLICTING` 時 CI 不會跑;不要加 `--required`                 |
-| 輪詢 CI             | `until gh pr checks <n>; do sleep 30; done`(寫成一行)                                                                                                   | 多行迴圈會被守衛擋                                             |
-| 移看板卡            | `gh project item-edit --id <ITEM_ID> --project-id PVT_kwHOAeiiKc4BjXhz --field-id PVTSSF_lAHOAeiiKc4BjXhzzhiME14 --single-select-option-id <OPTION_ID>` | ITEM_ID / OPTION_ID 的查法見 issue-tracker「看板」             |
-| 查 workflow run     | `gh run list --workflow <檔名或名稱> --limit 5`、`gh run view <run-id> --log-failed`                                                                    | 手動 workflow 觸發後要自己查結果                               |
+| 情境                | 指令                                                                                                                               | 提醒                                                                                                       |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 讀票(含留言)        | `gh issue view <n> --json title,body,comments,labels`                                                                              | 純文字 `--comments` 在 PowerShell 會被截斷                                                                 |
+| 從 JSON 取欄位      | `gh … --json <欄位> --jq '<filter>'`                                                                                               | 沒有外部 `jq`,一律用 `--jq`                                                                                |
+| 認領                | `gh issue edit <n> --add-assignee "@me"`                                                                                           | `@me` 要加引號                                                                                             |
+| 開 PR               | `gh pr create --base dev --title "…" --body-file <scratchpad 檔>`                                                                  | 內文先用 Write 寫成檔(heredoc 會被守衛擋);內文含 `Closes #<n>`                                             |
+| 多行 commit 訊息    | `git commit -F <scratchpad 檔>`                                                                                                    | 單行用 `-m`                                                                                                |
+| 看 PR 能不能合 / CI | `gh pr view <n> --json mergeable,statusCheckRollup`、`gh pr checks <n>`                                                            | `CONFLICTING` 時 CI 不會跑;不要加 `--required`                                                             |
+| 輪詢 CI             | `until gh pr checks <n>; do sleep 30; done`(寫成一行)                                                                              | 多行迴圈會被守衛擋                                                                                         |
+| 移看板卡            | `gh project item-edit --id <item_id> --project-id <project_id> --field-id <status_field_id> --single-select-option-id <option_id>` | 看板 IDs 讀 `deploy/project/github.json` 的 `projectStatus`;欄位對應與卡片 ID 查法見 issue-tracker「看板」 |
+| 查 workflow run     | `gh run list --workflow <檔名或名稱> --limit 5`、`gh run view <run-id> --log-failed`                                               | 手動 workflow 觸發後要自己查結果                                                                           |
 
-正本:[issue-tracker.md](./issue-tracker.md)、`.github/workflows/project-status.yml`
+正本:[issue-tracker.md](./issue-tracker.md#看板票的生命週期唯一真相)、[deploy/project/github.json](../../deploy/project/github.json)、`.github/workflows/project-status.yml`
 
 ## 手動觸發的 workflow:部署、E2E、資料庫還原
 
@@ -49,11 +49,11 @@
 
 ## 自動跑的 workflow
 
-| workflow                                 | 觸發                                                                                                          | 看什麼                                                                                                                                                                                                   |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CI**(`ci.yml`)                         | PR 與 push 到 `main` / `dev` / `staging`;paths-ignore 是 `docs/**`、根目錄 `*.md`、`.claude/**`、`.agents/**` | 多 job 並行:`format-codegen`、`lint-typecheck`、`test-api-1` / `test-api-2`、`test-admin-1` / `test-admin-2`、`test-others`、`build`,總結在 `verify`(只跑受影響的 package;job 圖見 `docs/deployment.md`) |
-| **Docs**(`docs.yml`)                     | 同上,但 paths 只有 `docs/**`、`*.md`、`**/*.md`                                                               | `pnpm run format:check`(與 ci.yml 同一個腳本)                                                                                                                                                            |
-| **Project Status**(`project-status.yml`) | issue / PR 事件                                                                                               | 自動移看板卡(規則見 issue-tracker「看板」)                                                                                                                                                               |
+| workflow                                 | 觸發                                                                                                          | 看什麼                                                                                                                                                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CI**(`ci.yml`)                         | PR 與 push 到 `main` / `dev` / `staging`;paths-ignore 是 `docs/**`、根目錄 `*.md`、`.claude/**`、`.agents/**` | `project-settings` 每次跑;workspace 的 lint / test / build 依受影響清單執行,全部 job 由 `verify` 彙整。完整 job 圖與過濾規則見 [deployment](../deployment.md#ciciyml),接線見 [ci.yml](../../.github/workflows/ci.yml) |
+| **Docs**(`docs.yml`)                     | 同上,但 paths 只有 `docs/**`、`*.md`、`**/*.md`                                                               | `pnpm run format:check`(與 ci.yml 同一個腳本)                                                                                                                                                                         |
+| **Project Status**(`project-status.yml`) | issue / PR 事件                                                                                               | 自動移看板卡(規則見 issue-tracker「看板」)                                                                                                                                                                            |
 
 只改 `.claude/**`、`.agents/**` 裡的非 md 檔時兩支都不跑,prettier 要自己在本機跑(對照見 `docs/deployment.md`「CI」)。
 
@@ -75,7 +75,7 @@
 | 情境                          | 指令                                                                                                                                       | 提醒                                                                                                           |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
 | 新 worktree 第一件事          | `pnpm install`                                                                                                                             | 純文件票也要(沒裝就沒有 prettier)                                                                              |
-| 讓 `@repo/*` 型別解得開       | `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`                                                 | 程式票開工必做;db-migrator 的票也要                                                                            |
+| 讓 `@repo/*` 型別與出口解得開 | `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain --filter=@repo/project-config`                   | 程式票開工必做;db-migrator 的票也要。包含 Vite 設定載入時需要的 project-config                                 |
 | 整包驗收測試                  | `pnpm exec turbo run test --filter=@repo/admin`(`@repo/api`、`@repo/ui`、`@repo/domain`… 同理)                                             | filter 寫全名;turbo 會先 build 依賴                                                                            |
 | 單檔測試:admin                | `pnpm --filter @repo/admin exec node --experimental-vm-modules node_modules/jest/bin/jest.js --maxWorkers=2 --testPathPatterns <路徑片段>` | 就是 package `test` script 本人再加旗標;不要 `pnpm exec jest`(少了 `--experimental-vm-modules`,ESM 測試直接炸) |
 | 單檔測試:api                  | `pnpm --filter @repo/api exec jest --passWithNoTests --detectOpenHandles --maxWorkers=2 --testPathPatterns <路徑片段>`                     | api 的 `test` script 就是直接呼叫 `jest`(CJS preset,不需要 `--experimental-vm-modules`)                        |
@@ -114,6 +114,8 @@
 正本:`apps/e2e/README.md`、`apps/e2e/.env.example`、`apps/e2e/src/config.ts`
 
 ## mock 模式
+
+新 checkout 或依賴有改動時,先執行[建置前置步驟](#pnpm--turbo建置測試格式)的「讓 `@repo/*` 型別與出口解得開」指令,再直接啟動 admin 或 mock。Vite 設定載入時就會讀取 `@repo/project-config/public`;`dev:mock` 會先建置 project-config 再啟動 Vite,但不經 Turbo,其他 workspace 依賴仍須先建置。
 
 | 情境                      | 指令                                                              | 提醒                                                                                      |
 | ------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
@@ -200,7 +202,7 @@
 
 ## 分支 / 交件
 - 你在獨立 worktree;git fetch origin && git checkout -b <feat|docs>/<票號>-<描述> origin/main(有依賴就從依賴票的分支切)。
-- 開工:pnpm install;程式票再 build @repo/graphql / ui / domain。看板移 In Progress、assign 自己。
+- 開工:pnpm install;程式票依 docs/agents/toolbox.md「pnpm / turbo:建置、測試、格式」的建置前置步驟執行。看板移 In Progress、assign 自己。
 - commit 訊息結尾照 session 提供的 attribution 行。
 - PR base dev,內文含 Closes #<票號>,內文先寫成檔再 --body-file;看板票卡移 In Review。
 - 不 merge、不動 main / dev / staging;不處理任何密碼 / 金鑰。
