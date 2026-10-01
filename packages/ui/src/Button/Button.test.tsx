@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { createRoot } from "react-dom/client";
 
 import { AppThemeProvider } from "../AppThemeProvider/AppThemeProvider";
-import { cookhomeBrand } from "../theme/brands/cookhome";
+import { defaultBrand } from "../theme/brands/default";
 import { Button } from "./Button";
 
 const styleOf = (name: string) =>
@@ -25,7 +25,7 @@ describe("Button", () => {
    */
   it("文字用固定高度 + line-height 1 垂直置中,尺寸對齊 Figma 的 32 / 36 / 48", () => {
     render(
-      <AppThemeProvider brand={cookhomeBrand}>
+      <AppThemeProvider brand={defaultBrand}>
         <Button size="small">開通租戶</Button>
         <Button size="medium">新增使用者</Button>
         <Button size="large">送出</Button>

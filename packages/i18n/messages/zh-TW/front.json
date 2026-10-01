@@ -1,8 +1,8 @@
 {
   "meta": {
-    "title": "CookHome — 家常食譜",
-    "titleTemplate": "%s | CookHome",
-    "description": "分享與收藏家常食譜的網站"
+    "title": "App",
+    "titleTemplate": "%s | App",
+    "description": "網站說明"
   },
   "home": {
     "subtitle": "家常食譜",

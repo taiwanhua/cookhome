@@ -8,12 +8,17 @@
     "dev": "next dev -p 3002",
     "lint": "eslint --max-warnings 0",
     "check-types": "next typegen && tsc --noEmit",
-    "start": "next start"
+    "start": "next start",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "@repo/jest-presets/node"
   },
   "dependencies": {
     "@repo/graphql": "workspace:*",
     "@repo/i18n": "workspace:*",
     "@repo/logger": "workspace:*",
+    "@repo/project-config": "workspace:*",
     "@repo/ui": "workspace:*",
     "@tanstack/react-query": "^5.101.4",
     "next": "16.2.0",
@@ -22,13 +27,16 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
     "@next/eslint-plugin-next": "^16.2.0",
     "@repo/eslint-config": "workspace:*",
+    "@repo/jest-presets": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "eslint": "^9.39.0",
+    "jest": "^30.2.0",
     "typescript": "5.9.3"
   }
 }

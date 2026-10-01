@@ -1,6 +1,8 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { ConfigService } from "@nestjs/config";
 
+import { projectMail } from "@repo/project-config/mail";
+
 import { MAIL_SENDER } from "./mail-templates";
 import { loadMailConfig } from "./mail.config";
 import { createMailService } from "./mail.module";
@@ -133,7 +135,7 @@ describe("寄信(ADR-0010:MailService 介面 + Resend adapter + 記錄用 adapte
   });
 
   describe("Resend adapter(單元測試以假 client 取代網路)", () => {
-    it("以固定寄件人 no-reply@cookhome.online 送出主旨 / 純文字 / HTML", async () => {
+    it("以固定寄件人(專案設定的寄件信箱)送出主旨 / 純文字 / HTML", async () => {
       const { client, send } = fakeClient();
       const mail = new ResendMailService(
         { resendApiKey: "re_test", allowlist: [] },
@@ -148,7 +150,8 @@ describe("寄信(ADR-0010:MailService 介面 + Resend adapter + 記錄用 adapte
         from: MAIL_SENDER,
         to: RESET.to,
       });
-      expect(MAIL_SENDER).toContain("no-reply@cookhome.online");
+      // 寄件信箱是專案值;CookHome 的原寄件人以固定夾具驗(mail-project.test.ts)
+      expect(MAIL_SENDER).toContain(`<${projectMail.senderEmail}>`);
       expect(payload?.subject).toMatch(/重設密碼/);
       expect(payload?.text).toContain(RESET.link);
       expect(payload?.html).toContain(RESET.link);

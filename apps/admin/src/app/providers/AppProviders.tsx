@@ -2,9 +2,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useEffect } from "react";
 import { IntlProvider } from "use-intl";
 
-import { messages } from "@repo/i18n";
+import { composeProjectMessages } from "@repo/i18n";
+import { projectPublic } from "@repo/project-config/public";
 import { AppThemeProvider } from "@repo/ui/app-theme-provider";
-import { cookhomeBrand } from "@repo/ui/theme";
+import { createBrandFromPrimary } from "@repo/ui/theme";
 
 import type { AuthSession } from "@/lib/auth/session";
 import {
@@ -15,6 +16,20 @@ import { useLocaleStore } from "@/stores/useLocaleStore";
 
 import { SessionProvider } from "./SessionProvider";
 import { SnackbarProvider } from "./SnackbarProvider";
+
+/**
+ * 專案設定在這裡注入通用的 i18n 與主題(兩者都不自己讀專案設定):
+ * 字典的品牌名 / 前台 metadata、主題的名稱 / 主色。設定是 build 輸入,模組層算一次即可。
+ */
+const projectMessages = composeProjectMessages({
+  brandName: projectPublic.brand.name,
+  frontMetadata: projectPublic.front.metadata,
+});
+
+const projectBrand = createBrandFromPrimary(
+  projectPublic.brand.name,
+  projectPublic.brand.primary,
+);
 
 export interface AppProvidersProps {
   session: AuthSession;
@@ -38,9 +53,9 @@ export const AppProviders = ({
   }, [locale]);
 
   return (
-    <IntlProvider locale={locale} messages={messages[locale]}>
+    <IntlProvider locale={locale} messages={projectMessages[locale]}>
       <AppThemeProvider
-        brand={cookhomeBrand}
+        brand={projectBrand}
         modeStorageKey={COLOR_MODE_STORAGE_KEY}
         colorSchemeStorageKey={COLOR_SCHEME_STORAGE_KEY}
       >

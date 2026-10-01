@@ -18,10 +18,11 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 | `packages/graphql`                           | 讀 api 的 schema 產生型別與 TanStack Query hooks                                                       |
 | `packages/domain`                            | 前後端共用純邏輯:權限 key 與矩陣、密碼規則、模組圖示白名單、表單定義 / 計算 / 檢查器、流程定義與檢查器 |
 | `packages/i18n`                              | 多語訊息檔                                                                                             |
+| `packages/project-config`                    | `/public`:admin / front / Storybook;`/mail`:僅 api。專案維護值,底座維護契約與讀取接線                  |
 | `packages/logger`                            | 共用 logger(唯一可用 `console` 的地方)                                                                 |
 | `packages/config-*`、`packages/jest-presets` | ESLint / Prettier / TypeScript / Jest 共用設定                                                         |
 
-正本:`docs/architecture.md`、根目錄 `package.json`、`pnpm-workspace.yaml`
+正本:`docs/architecture.md`、根目錄 `package.json`、`pnpm-workspace.yaml`;專案值與底座契約的歸屬見[設定來源與所有權](plans/project-settings.md#設定來源與所有權)。
 
 ## 七個核心概念
 
@@ -91,6 +92,8 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/env-registry.md`                        | 環境變數登記                                     | 新增或改環境變數           |
 | `docs/branding.md`                            | 品牌文字、色彩、網域、儲存鍵登記                 | 動品牌元素或儲存鍵         |
 | `docs/plans/base-sync.md`                     | 底座同步定案、本批交付、後續工作包與 Figma 實測  | 接手底座抽離與同步工作     |
+| `docs/plans/project-settings.md`              | 專案設定與部署識別的介面及兩張實作票             | 檢視下一批抽離範圍         |
+| `docs/project-initialization.md`              | 初始化設定的正本索引與驗證責任                   | 建立專案與補齊初始化工具   |
 | `docs/tmp/dis.md`                             | 進行中討論與待辦                                 | 查尚未定案的事             |
 | `docs/tmp/base-boundary-inventory.md`         | 底座維護歸屬、組裝入口與同步盤點草案             | 討論底座抽離及初始化邊界   |
 | `docs/tmp/project-bootstrap-inventory.md`     | 新專案初始化檔案與 seed 欄位盤點                 | 設計初始化、升級與還原流程 |

@@ -5,7 +5,7 @@ import { IntlProvider } from "use-intl";
 import { defaultLocale, messages } from "@repo/i18n";
 import { AppThemeProvider } from "@repo/ui/app-theme-provider";
 import { Dialog } from "@repo/ui/dialog";
-import { cookhomeBrand } from "@repo/ui/theme";
+import { defaultBrand } from "@repo/ui/theme";
 
 import { useSnackbarStore } from "@/stores/useSnackbarStore";
 
@@ -14,7 +14,7 @@ import { SnackbarProvider } from "./SnackbarProvider";
 const renderProvider = (isDialogOpen: boolean) =>
   render(
     <IntlProvider locale={defaultLocale} messages={messages[defaultLocale]}>
-      <AppThemeProvider brand={cookhomeBrand}>
+      <AppThemeProvider brand={defaultBrand}>
         <SnackbarProvider>
           <Dialog open={isDialogOpen} title="編輯">
             內容

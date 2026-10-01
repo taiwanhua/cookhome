@@ -9,7 +9,7 @@ import {
   declaredValue,
   emotionClassOf,
 } from "../test/css-rules";
-import { cookhomeBrand } from "../theme/brands/cookhome";
+import { defaultBrand } from "../theme/brands/default";
 import { FormControlLabel } from "./FormControlLabel";
 
 const label = "開放此模組";
@@ -31,7 +31,7 @@ describe("FormControlLabel", () => {
   });
   it("主題把左邊 margin 歸零(左緣對齊同一欄的輸入框),右邊 16px 照舊", () => {
     render(
-      <AppThemeProvider brand={cookhomeBrand}>
+      <AppThemeProvider brand={defaultBrand}>
         <FormControlLabel control={<Checkbox />} label={label} />
       </AppThemeProvider>,
     );

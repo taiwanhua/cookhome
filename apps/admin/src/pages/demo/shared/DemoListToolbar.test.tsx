@@ -4,7 +4,7 @@ import { IntlProvider } from "use-intl";
 
 import { defaultLocale, messages } from "@repo/i18n";
 import { AppThemeProvider } from "@repo/ui/app-theme-provider";
-import { cookhomeBrand } from "@repo/ui/theme";
+import { defaultBrand } from "@repo/ui/theme";
 
 import { SAMPLE_ONE_I18N } from "../demo-sample-one-config";
 import { DemoListToolbar } from "./DemoListToolbar";
@@ -27,7 +27,7 @@ describe("DemoListToolbar(示範模組列表的過濾條件列)", () => {
   it("不換行的列也用 gap 排欄距(主題預設 useFlexGap),不對子元素下 margin", () => {
     render(
       <IntlProvider locale={defaultLocale} messages={messages[defaultLocale]}>
-        <AppThemeProvider brand={cookhomeBrand}>
+        <AppThemeProvider brand={defaultBrand}>
           <DemoListToolbar
             i18nNamespace={SAMPLE_ONE_I18N}
             keyword=""

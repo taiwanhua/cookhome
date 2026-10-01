@@ -85,7 +85,7 @@ re-export `matrix.ts`,若 `matrix.ts` 寫 `from "./index"` 就是 `import-x/no-c
 實作檔之間**互相直接引用檔名**(`from "./keys"`),`index.ts` 只有 `export * from "./…"` 幾行。
 這樣拆檔不動對外 API,**子路徑與 `package.json` 都不必改**。
 
-**api 怎麼吃到它**(踩過的坑,一次講清楚):api 是 CommonJS + `moduleResolution: node`,**看不到 `package.json` 的 `exports`**,子路徑的型別要靠 `typesVersions` 指到 `dist/es/<主題>.d.ts`;套件用 bunchee 出雙格式(`dist/es` 給 admin / front,`dist/cjs` 給 api)。api 測試在執行期 `require` 的是 dist,所以根 `turbo.json` 的 `test` 依賴 `^build`(先建依賴套件再跑測試);本地直接跑 `jest` 前要先 `pnpm --filter @repo/domain build`。
+**api 的型別、執行期與測試分開解析**:TypeScript 使用 `moduleResolution: node`,型別解析不讀 `package.json` 的 `exports`,子路徑靠 `typesVersions` 指向宣告檔。套件用 bunchee 出雙格式;Node 執行期依 `exports.require` 載入 `dist/cjs`。Jest 則以 `apps/api/jest.config.mjs` 的 `moduleNameMapper` 將已登記的共用套件導向原始碼,不依賴它們的 dist。新增套件時的出口與 mapping 清單見 STRUCT-08;建置及測試指令見 [toolbox](../../agents/toolbox.md#pnpm--turbo建置測試格式)。
 
 ## STRUCT-08 新增 workspace 套件的清單
 
@@ -93,14 +93,15 @@ re-export `matrix.ts`,若 `matrix.ts` 寫 `from "./index"` 就是 `import-x/no-c
 
 1. `package.json`:`"name": "@repo/<name>"`(GEN-06)、`"type": "module"`、`"private": true`、`"files": ["dist"]`;`exports` 一律**子路徑**(`"./<主題>"`)並附 `import` / `require` 兩組 `types` + `default`;同一組子路徑再寫一份 `typesVersions`(給 api 這種 node10 解析用);scripts 固定 `build: bunchee`、`lint`、`check-types`、`test`
 2. `tsconfig.json` extends `@repo/typescript-config/base.json`;`eslint.config.js` 只有一行 `export { config as default } from "@repo/eslint-config"`;jest 用 `@repo/jest-presets/node`(純邏輯)或 `browser-esm`(瀏覽器);`turbo.json` 宣告 `build` 輸出 `dist/**`
-3. 消費端:api 加 devDependency `workspace:*` 後直接 `import "@repo/<name>/<主題>"`;admin / front 同
-4. 登記:`docs/architecture.md` 的 packages 表加一列,寫「誰用、怎麼用」
+3. 消費端:在需要它的 app 宣告 `workspace:*`,直接 `import "@repo/<name>/<主題>"`。**api 執行期會用到的套件必須列入 `dependencies`**;`apps/api/Dockerfile` 建置後執行 `pnpm install --prod`,只列在 `devDependencies` 會被移除。僅供測試或開發工具使用的套件才列 `devDependencies`
+4. api 測試:在 `apps/api/jest.config.mjs` 的 `moduleNameMapper` 補上新套件子路徑到 `src/` 的對應。現有 `@repo/domain` 與 `@repo/project-config` 都走原始碼,讓 CI 直接跑 Jest 時不必先 build 這些套件;這不取代正式建置的 `exports`、`typesVersions` 或 production 依賴驗證
+5. 登記:`docs/architecture.md` 的 packages 表加一列,寫「誰用、怎麼用」
 
 **既有套件新增一個子路徑匯出(最常見:往 `@repo/ui` 加一個元件)要動五處**:
 
 1. 元件三件套:`src/<元件>/<元件>.tsx` + `<元件>.test.tsx` + story(GEN-01 / TEST-09)
 2. `src/<主題>.ts` 出口檔(對外 API 的那一行 `export`)
-3. `package.json` 的 `exports`;**被 api 消費的套件(目前只有 `@repo/domain`)再加一份同名的 `typesVersions`** — 它只為 api 那種 node10 / CommonJS 解析服務。`@repo/ui` **免除**(只被 admin / front 以 bundler 解析消費,`package.json` 裡本來就沒有 `typesVersions`,不要為了對稱補上)
+3. `package.json` 的 `exports`;**被 api 消費的套件(`@repo/domain`、`@repo/project-config`)再補同名的 `typesVersions`**。前者供 Node 執行期選擇產物,後者供 api 的 TypeScript node10 型別解析;並確認 `apps/api/jest.config.mjs` 的既有 source mapping 能對到新出口。`@repo/ui` 只被 admin / front 以 bundler 解析消費,不用補 `typesVersions`
 4. `package.json` 的 `dependencies`(包了新的外部庫時)+ 用到新版外部庫時先 `npm view <pkg> version` 查最新
 5. 登記 `docs/architecture.md` 的 packages 表:**`@repo/domain` 那列逐一列出子路徑,新增時要補上**;`@repo/ui` 那列**不列舉**子路徑(四十餘個,正本是 `package.json` 的 `exports`),只維持用途概述
 

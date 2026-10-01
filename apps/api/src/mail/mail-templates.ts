@@ -1,3 +1,6 @@
+import { projectMail } from "@repo/project-config/mail";
+
+import { formatMailSender } from "./mail-sender";
 import type {
   ActionEmailInput,
   MailMessage,
@@ -6,14 +9,21 @@ import type {
 } from "./mail.service";
 
 /*
- * 信件模板(文案繁中)。品牌文字 / 寄件人屬品牌元素,登記於 docs/branding.md(換品牌時逐列改)。
+ * 信件模板(文案繁中)。品牌名、寄件信箱與署名是專案值,正本在 `@repo/project-config/mail`
+ * (登記於 docs/branding.md);這裡只負責組出寄件人與套進模板。
  */
 
-/** 寄件人(ADR-0010:`no-reply@cookhome.online`;DNS SPF / DKIM 由使用者在 Resend 完成驗證)。 */
-export const MAIL_SENDER = "CookHome <no-reply@cookhome.online>";
+/**
+ * 寄件人 `品牌名 <寄件信箱>`(ADR-0010;寄件網域的 SPF / DKIM 由使用者在 Resend 完成驗證)。
+ * 品牌名含 RFC 特殊符號時由 `formatMailSender` 包成 quoted-string;主旨與內文仍用原文。
+ */
+export const MAIL_SENDER = formatMailSender(
+  projectMail.brandName,
+  projectMail.senderEmail,
+);
 
-const BRAND_NAME = "CookHome";
-const SIGNATURE = "CookHome 後台管理系統";
+const BRAND_NAME = projectMail.brandName;
+const SIGNATURE = projectMail.signature;
 
 /** 到期時間以台灣時區顯示(收件人是後台使用者,皆在台灣)。 */
 const EXPIRY_FORMAT = new Intl.DateTimeFormat("zh-TW", {

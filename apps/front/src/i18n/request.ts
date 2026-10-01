@@ -1,8 +1,7 @@
 import { hasLocale } from "next-intl";
 import { getRequestConfig } from "next-intl/server";
 
-import { messages } from "@repo/i18n";
-
+import { projectMessages } from "./project-messages";
 import { routing } from "./routing";
 
 // requestLocale 被標 deprecated,但官方建議的 next/root-params 在 Next 16.2 仍是
@@ -14,5 +13,5 @@ export default getRequestConfig(async ({ requestLocale }) => {
     ? requested
     : routing.defaultLocale;
 
-  return { locale, messages: messages[locale] };
+  return { locale, messages: projectMessages[locale] };
 });

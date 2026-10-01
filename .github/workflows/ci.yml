@@ -16,6 +16,7 @@ concurrency:
 
 # job 圖(牆鐘最短優先;各 job 各一台 runner,不再搶同一台的 CPU):
 #
+#   project-settings             專案部署設定與讀取器(不看受影響清單,每次都跑)
 #   prepare ─┬─ format-codegen   格式檢查 + codegen 產物一致(GQL-05)
 #            ├─ lint-typecheck   turbo lint / check-types
 #            ├─ test-api-1 / 2   api 的 jest 分兩片(--shard)
@@ -109,6 +110,33 @@ jobs:
             echo "codegen=$codegen"
           } >> "$GITHUB_OUTPUT"
 
+  # 專案部署設定(deploy/project/*.json)與讀取器(scripts/project-settings/)不屬於任何 workspace,
+  # turbo 的受影響清單看不到,所以不掛在 prepare 後面、每次都跑。
+  # 只用 Node 內建模組:不需 pnpm install,也不碰雲端、Secret 或看板(測試用假命令與假 GitHub client)。
+  project-settings:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 讀取器 / schema / workflow 接線測試
+        run: node --test scripts/project-settings/*.test.mjs
+
+      # 以本 repo 的身分實際解析正式設定:三個環境與看板各一次(只印非機密設定與 Secret 名稱)
+      - name: 正式設定 dry-run
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          node scripts/project-settings/read-config.mjs --scope cloud --environment dev --repository "$REPOSITORY"
+          node scripts/project-settings/read-config.mjs --scope cloud --environment staging --repository "$REPOSITORY"
+          node scripts/project-settings/read-config.mjs --scope cloud --environment production --repository "$REPOSITORY"
+          node scripts/project-settings/read-config.mjs --scope github --repository "$REPOSITORY"
+
   # prettier 不經 turbo lint(各 workspace 的 lint 只跑 eslint,且根目錄 docs/ 不屬於任何 workspace),
   # 範圍是全 repo 的 md + ts/tsx/js/json/yaml(STRUCT-09),所以不看受影響清單、每次都跑。
   # codegen 一致性檢查(GQL-05)要起一次完整 AppModule,放在這個與其他 job 並行的 job,不壓在 prepare 的關鍵路徑上。
@@ -151,8 +179,9 @@ jobs:
       - name: codegen 產物與 schema 一致(GQL-05)
         if: needs.prepare.outputs.codegen == 'true'
         run: |
-          # schema:generate 用 ts-node 直接載 api 原始碼,要先有 @repo/domain 的 dist 才解析得到 `@repo/domain/*`
-          pnpm exec turbo run build --filter=@repo/domain
+          # schema:generate 用 ts-node 直接載 api 原始碼,要先有 @repo/domain 與 @repo/project-config 的 dist
+          # 才解析得到 `@repo/domain/*`、`@repo/project-config/mail`(信件模板載入時就讀專案設定)
+          pnpm exec turbo run build --filter=@repo/domain --filter=@repo/project-config
           pnpm --filter @repo/api schema:generate
           pnpm --filter @repo/graphql generate
           if ! git diff --exit-code -- apps/api/schema.gql packages/graphql/src/generated; then
@@ -404,6 +433,7 @@ jobs:
     needs:
       [
         prepare,
+        project-settings,
         format-codegen,
         lint-typecheck,
         test-api,

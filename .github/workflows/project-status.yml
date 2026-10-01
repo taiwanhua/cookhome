@@ -4,13 +4,18 @@ name: Project Status
 # 需要 repo secret GH_PROJECT_TOKEN:PAT(classic),僅勾 project scope —
 # 內建 GITHUB_TOKEN 無權編輯使用者名下的 Projects v2。
 #
-# 規則:
+# 規則(實作在 scripts/project-settings/project-status.mjs):
 #   issue opened            → 入板,Status = Backlog
 #   issue closed            → Released(以 not planned 關閉者 → Won't Do)
 #   PR 開啟(目標 dev,內文 Closes #n)      → #n → In Review
 #   PR 合進 dev(內文 Closes #n)           → #n → Dev 驗證中
 #   PR 合進 staging(內文 Closes/Refs #n)  → #n → Staging 驗證中
 # 不自動:Ready(blockers 判斷)、In Progress(認領)、Dev/Staging 通過(QA 是人)、release 關票。
+#
+# 看板識別(project / Status 欄位 / 各選項的 ID)不寫在本檔:正本是 deploy/project/github.json。
+# 設定與腳本**只從預設分支讀**:PR 事件也不 checkout、不執行 PR 分支的內容,PR 改不了移卡的目標。
+# 所以新的設定或腳本要進到預設分支後才生效;預設分支還沒有這些檔案時本 workflow 明確失敗、不移卡,
+# 由主流程照 docs/agents/issue-tracker.md「手動移卡」處理。看板停用(projectStatus.enabled=false)時不需要 token,也不呼叫看板 API。
 
 on:
   issues:
@@ -25,75 +30,59 @@ jobs:
   move-card:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      # 只做 github scope:只讀 github.json、核對 repository,不需要雲端設定也拿不到任何 token
+      - name: 專案設定(只讀預設分支)
+        id: cfg
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          for file in deploy/project/github.json scripts/project-settings/config.mjs scripts/project-settings/single-line.mjs scripts/project-settings/read-config.mjs scripts/project-settings/write-github-output.mjs scripts/project-settings/project-status.mjs; do
+            if [ ! -f "$file" ]; then
+              echo "::error::預設分支上還沒有 $file:本次不移卡(零寫入),請主流程依 docs/agents/issue-tracker.md 手動移卡;檔案進預設分支後自動恢復"
+              exit 1
+            fi
+          done
+          node scripts/project-settings/read-config.mjs --scope github --repository "$REPOSITORY" > "$RUNNER_TEMP/project-github.json"
+          node scripts/project-settings/write-github-output.mjs --scope github < "$RUNNER_TEMP/project-github.json"
+
+      # token 只有布林結果進到這一步;fork 來的 PR 拿不到 secret,同樣在這裡停下
+      - name: 看板 token 檢查
+        if: steps.cfg.outputs.enabled == 'true'
+        env:
+          HAS_TOKEN: ${{ secrets.GH_PROJECT_TOKEN != '' }}
+        run: |
+          if [ "$HAS_TOKEN" != "true" ]; then
+            echo "::error::看板已啟用但這次執行拿不到 GH_PROJECT_TOKEN(未設定,或 fork 來的 PR):本次不移卡(零寫入),請主流程手動移卡"
+            exit 1
+          fi
+
       - uses: actions/github-script@v7
+        if: steps.cfg.outputs.enabled == 'true'
+        env:
+          PROJECT_ID: ${{ steps.cfg.outputs.project_id }}
+          STATUS_FIELD_ID: ${{ steps.cfg.outputs.status_field_id }}
+          STATUS_OPTIONS: ${{ steps.cfg.outputs.options }}
         with:
           github-token: ${{ secrets.GH_PROJECT_TOKEN }}
           script: |
-            const PROJECT_ID = "PVT_kwHOAeiiKc4BjXhz";
-            const FIELD_ID = "PVTSSF_lAHOAeiiKc4BjXhzzhiME14";
-            const OPT = {
-              backlog: "2882aeb7",
-              review: "43e18a1a",
-              devVerify: "0eaa8179",
-              stagingVerify: "e94980d1",
-              released: "e3445e43",
-              wontDo: "b6b968cd",
-            };
-
-            async function setStatus(contentNodeId, optionId) {
-              const add = await github.graphql(
-                `mutation($p:ID!,$c:ID!){ addProjectV2ItemById(input:{projectId:$p,contentId:$c}){ item { id } } }`,
-                { p: PROJECT_ID, c: contentNodeId },
-              );
-              const itemId = add.addProjectV2ItemById.item.id;
-              await github.graphql(
-                `mutation($p:ID!,$i:ID!,$f:ID!,$o:String!){
-                   updateProjectV2ItemFieldValue(input:{projectId:$p,itemId:$i,fieldId:$f,value:{singleSelectOptionId:$o}}){ projectV2Item { id } }
-                 }`,
-                { p: PROJECT_ID, i: itemId, f: FIELD_ID, o: optionId },
-              );
-            }
-
-            async function issueNodeId(num) {
-              const { data } = await github.rest.issues.get({
-                owner: context.repo.owner, repo: context.repo.repo, issue_number: num,
-              });
-              return data.node_id;
-            }
-
-            function linkedIssueNumbers(body) {
-              const re = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?)\s+#(\d+)/gi;
-              const nums = new Set();
-              for (const m of (body ?? "").matchAll(re)) nums.add(Number(m[1]));
-              return [...nums];
-            }
-
-            if (context.eventName === "issues") {
-              const issue = context.payload.issue;
-              if (context.payload.action === "opened") {
-                await setStatus(issue.node_id, OPT.backlog);
-              } else if (context.payload.action === "closed") {
-                const opt = issue.state_reason === "not_planned" ? OPT.wontDo : OPT.released;
-                await setStatus(issue.node_id, opt);
-              }
-              return;
-            }
-
-            const pr = context.payload.pull_request;
-            if (pr.draft) return;
-            const base = pr.base.ref;
-            const nums = linkedIssueNumbers(pr.body);
-            if (nums.length === 0) return;
-
-            let optionId = null;
-            if (["opened", "reopened", "ready_for_review"].includes(context.payload.action) && base === "dev") {
-              optionId = OPT.review;
-            } else if (context.payload.action === "closed" && pr.merged) {
-              if (base === "dev") optionId = OPT.devVerify;
-              else if (base === "staging") optionId = OPT.stagingVerify;
-            }
-            if (!optionId) return;
-
-            for (const num of nums) {
-              await setStatus(await issueNodeId(num), optionId);
-            }
+            const path = require("node:path");
+            const { pathToFileURL } = require("node:url");
+            const moduleUrl = pathToFileURL(
+              path.join(process.env.GITHUB_WORKSPACE, "scripts/project-settings/project-status.mjs"),
+            ).href;
+            const { runProjectStatus } = await import(moduleUrl);
+            await runProjectStatus({
+              github,
+              context,
+              config: {
+                enabled: true,
+                project_id: process.env.PROJECT_ID,
+                status_field_id: process.env.STATUS_FIELD_ID,
+                options: JSON.parse(process.env.STATUS_OPTIONS),
+              },
+            });
