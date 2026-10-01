@@ -5,6 +5,10 @@ name: Deploy
 #   CLI:gh workflow run Deploy --ref dev -f environment=dev
 #        gh workflow run Deploy --ref staging -f environment=staging
 #        gh workflow run Deploy --ref main -f environment=production
+#
+# 部署目標(GCP 專案 / 區域 / registry / WIF、各環境的服務名、API 網址、Secret 名稱、seed 帳號)不寫在本檔:
+# 正本是 deploy/project/cloud.json 與 deploy/project/github.json,由「專案設定」步驟讀取並驗證。
+# 設定值一律經 step 的 env 傳給腳本(以 "$VAR" 引用),不內插進 run 的程式文本。
 on:
   workflow_dispatch:
     inputs:
@@ -23,23 +27,25 @@ permissions:
   contents: read
   id-token: write # Workload Identity Federation 免金鑰認證
 
-env:
-  REGION: asia-east1
-  REGISTRY: asia-east1-docker.pkg.dev/cookhome-online/cookhome
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - name: 分支 ↔ 環境防呆
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
         run: |
-          case "${{ inputs.environment }}" in
+          case "$ENVIRONMENT" in
             dev)        EXPECT=dev ;;
             staging)    EXPECT=staging ;;
             production) EXPECT=main ;;
+            *)
+              echo "::error::未知的 environment"
+              exit 1
+              ;;
           esac
           if [ "$GITHUB_REF_NAME" != "$EXPECT" ]; then
-            echo "::error::environment=${{ inputs.environment }} 必須從分支 $EXPECT 觸發(目前分支:$GITHUB_REF_NAME)"
+            echo "::error::environment=$ENVIRONMENT 必須從分支 $EXPECT 觸發(目前分支:$GITHUB_REF_NAME)"
             exit 1
           fi
 
@@ -47,110 +53,135 @@ jobs:
         with:
           fetch-depth: 0 # 只部署改到的 app:要拿 git 歷史與上次部署的 SHA 比
 
-      - name: 環境參數
+      # 讀 deploy/project/*.json 並核對專案身分:repository 取自受信任的 github context,
+      # 與設定檔的 expectedRepository 不符、環境未知或缺值時在這裡失敗,後面的雲端認證不會執行。
+      # 讀取器只用 Node 內建模組(runner 內建的 node 即可,不需先 pnpm install),輸出只有非機密設定與 Secret 名稱。
+      # image_suffix 是 admin image tag 的環境後綴(admin 每環境各建一顆),屬於本 workflow 的 tag 慣例,不是專案設定。
+      - name: 專案設定(核對 repo 與環境)
         id: cfg
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          REPOSITORY: ${{ github.repository }}
         run: |
+          node scripts/project-settings/read-config.mjs --scope cloud --environment "$ENVIRONMENT" --repository "$REPOSITORY" > "$RUNNER_TEMP/project-cloud.json"
+          node scripts/project-settings/write-github-output.mjs --scope cloud < "$RUNNER_TEMP/project-cloud.json"
           echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
-          case "${{ inputs.environment }}" in
-            dev)
-              echo "suffix=-dev" >> "$GITHUB_OUTPUT"
-              echo "secret=mongodb-uri-dev" >> "$GITHUB_OUTPUT"
-              echo "enc_secret=field-encryption-key-dev" >> "$GITHUB_OUTPUT"
-              echo "root_secret=root-admin-password-dev" >> "$GITHUB_OUTPUT"
-              echo "jwt_secret=jwt-secret-dev" >> "$GITHUB_OUTPUT"
-              echo "resend_secret=resend-api-key-dev" >> "$GITHUB_OUTPUT"
-              echo "api_url=https://api-dev.cookhome.online" >> "$GITHUB_OUTPUT"
-              ;;
-            staging)
-              echo "suffix=-staging" >> "$GITHUB_OUTPUT"
-              echo "secret=mongodb-uri-staging" >> "$GITHUB_OUTPUT"
-              echo "enc_secret=field-encryption-key-staging" >> "$GITHUB_OUTPUT"
-              echo "root_secret=root-admin-password-staging" >> "$GITHUB_OUTPUT"
-              echo "jwt_secret=jwt-secret-staging" >> "$GITHUB_OUTPUT"
-              echo "resend_secret=resend-api-key-staging" >> "$GITHUB_OUTPUT"
-              echo "api_url=https://api-staging.cookhome.online" >> "$GITHUB_OUTPUT"
-              ;;
-            production)
-              echo "suffix=" >> "$GITHUB_OUTPUT"
-              echo "secret=mongodb-uri" >> "$GITHUB_OUTPUT"
-              echo "enc_secret=field-encryption-key" >> "$GITHUB_OUTPUT"
-              echo "root_secret=root-admin-password" >> "$GITHUB_OUTPUT"
-              echo "jwt_secret=jwt-secret" >> "$GITHUB_OUTPUT"
-              echo "resend_secret=resend-api-key" >> "$GITHUB_OUTPUT"
-              echo "api_url=https://api.cookhome.online" >> "$GITHUB_OUTPUT"
-              ;;
+          case "$ENVIRONMENT" in
+            dev)        echo "image_suffix=-dev" >> "$GITHUB_OUTPUT" ;;
+            staging)    echo "image_suffix=-staging" >> "$GITHUB_OUTPUT" ;;
+            production) echo "image_suffix=" >> "$GITHUB_OUTPUT" ;;
           esac
 
       - uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: projects/728045896207/locations/global/workloadIdentityPools/github/providers/github-oidc
-          service_account: github-deployer@cookhome-online.iam.gserviceaccount.com
+          project_id: ${{ steps.cfg.outputs.gcp_project_id }}
+          workload_identity_provider: ${{ steps.cfg.outputs.wif_provider }}
+          service_account: ${{ steps.cfg.outputs.deployer_sa }}
 
       - uses: google-github-actions/setup-gcloud@v2
 
-      - run: gcloud auth configure-docker asia-east1-docker.pkg.dev --quiet
+      - name: 登入 Artifact Registry
+        env:
+          REGISTRY_HOST: ${{ steps.cfg.outputs.registry_host }}
+        run: gcloud auth configure-docker "$REGISTRY_HOST" --quiet
 
       # 只部署改到的 app:image tag = git SHA,所以 Cloud Run 上目前跑的 image 就是「上次部署的 commit」。
       # 以它為 base 跑 turbo ls --affected(依 workspace 依賴圖:改 packages/ui 會讓 admin 受影響、改 @repo/domain 會讓 api 受影響)。
       # 讀不到 tag(第一次部署)、base 不在歷史裡(force push)、或 inputs.force 時 → 全部部署。
       - name: 受影響的 app(比對該環境目前部署的 SHA)
         id: affected
+        env:
+          REGION: ${{ steps.cfg.outputs.region }}
+          API_SERVICE: ${{ steps.cfg.outputs.api_service }}
+          ADMIN_SERVICE: ${{ steps.cfg.outputs.admin_service }}
+          FORCE: ${{ inputs.force }}
         run: |
           decide() { # $1=服務名 $2=package 名 → 印 true/false
             local img base
-            img=$(gcloud run services describe "$1" --region=$REGION --format='value(spec.template.spec.containers[0].image)' 2>/dev/null || true)
+            img=$(gcloud run services describe "$1" --region="$REGION" --format='value(spec.template.spec.containers[0].image)' 2>/dev/null || true)
             base=${img##*:}; base=${base%-*}
-            if [ "${{ inputs.force }}" = "true" ] || [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then echo true; return; fi
+            if [ "$FORCE" = "true" ] || [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then echo true; return; fi
             if [ "$base" = "$(git rev-parse --short HEAD)" ]; then echo false; return; fi
-            # 部署設定不屬於任何 package,turbo 看不到:env 檔或本 workflow 有變 → api 視為受影響(admin 的設定烘在 image,不受 env 檔影響)
-            if [ "$2" = "@repo/api" ] && git diff --name-only "$base...HEAD" | grep -qE '^(deploy/env/|\.github/workflows/deploy\.yml)'; then echo true; return; fi
+            # 部署設定不屬於任何 package,turbo 看不到,由 deploy-affected.mjs 判斷:
+            #   deploy/project/ 或 scripts/project-settings/ 有變 → api 與 admin 都重建(API 網址烘在 admin image)
+            #   deploy/env/ 或本 workflow 有變 → 只有 api(admin 不吃 runtime env 檔)
+            # 只有明確印出 false 才交給 turbo;腳本失敗或沒有輸出一律保守重建
+            case "$(git diff --name-only "$base...HEAD" | node scripts/project-settings/deploy-affected.mjs "$2")" in
+              false) ;;
+              *) echo true; return ;;
+            esac
             local list
             list=$(TURBO_SCM_BASE="$base" npx --yes turbo@$(node -p "require('./package.json').devDependencies.turbo.replace(/[^0-9.]/g,'')") ls --affected --output json | jq -r '.packages.items[].name' | tr '\n' ' ')
             case " $list " in *" $2 "*) echo true ;; *) echo false ;; esac
           }
-          api=$(decide cookhome-api${{ steps.cfg.outputs.suffix }} @repo/api)
-          admin=$(decide cookhome-admin${{ steps.cfg.outputs.suffix }} @repo/admin)
-          migrator=$(decide cookhome-api${{ steps.cfg.outputs.suffix }} @repo/db-migrator)
+          api=$(decide "$API_SERVICE" @repo/api)
+          admin=$(decide "$ADMIN_SERVICE" @repo/admin)
+          migrator=$(decide "$API_SERVICE" @repo/db-migrator)
           migrate=false; { [ "$api" = true ] || [ "$migrator" = true ]; } && migrate=true
           echo "api=$api" >> "$GITHUB_OUTPUT"
           echo "admin=$admin" >> "$GITHUB_OUTPUT"
           echo "migrate=$migrate" >> "$GITHUB_OUTPUT"
-          echo "::notice::部署判斷:api=$api admin=$admin migrate→seed=$migrate(force=${{ inputs.force }})"
+          echo "::notice::部署判斷:api=$api admin=$admin migrate→seed=$migrate(force=$FORCE)"
 
       # image tag = 分支 HEAD 的 git SHA;admin 是 Vite,VITE_* build 時烘入 → 每環境各一顆
       - name: build + push api
         if: steps.affected.outputs.api == 'true'
+        env:
+          REGISTRY: ${{ steps.cfg.outputs.registry }}
+          SHA: ${{ steps.cfg.outputs.sha }}
         run: |
-          docker build -f apps/api/Dockerfile -t $REGISTRY/api:${{ steps.cfg.outputs.sha }} .
-          docker push $REGISTRY/api:${{ steps.cfg.outputs.sha }}
+          docker build -f apps/api/Dockerfile -t "$REGISTRY/api:$SHA" .
+          docker push "$REGISTRY/api:$SHA"
 
+      # admin 打的 API 端點由設定的 apiUrl 組出(不另存第二份 endpoint)
       - name: build + push admin
         if: steps.affected.outputs.admin == 'true'
+        env:
+          REGISTRY: ${{ steps.cfg.outputs.registry }}
+          SHA: ${{ steps.cfg.outputs.sha }}
+          IMAGE_SUFFIX: ${{ steps.cfg.outputs.image_suffix }}
+          API_URL: ${{ steps.cfg.outputs.api_url }}
         run: |
           docker build -f apps/admin/Dockerfile \
-            -t $REGISTRY/admin:${{ steps.cfg.outputs.sha }}${{ steps.cfg.outputs.suffix }} \
-            --build-arg VITE_GRAPHQL_ENDPOINT=${{ steps.cfg.outputs.api_url }}/graphql .
-          docker push $REGISTRY/admin:${{ steps.cfg.outputs.sha }}${{ steps.cfg.outputs.suffix }}
+            -t "$REGISTRY/admin:$SHA$IMAGE_SUFFIX" \
+            --build-arg "VITE_GRAPHQL_ENDPOINT=$API_URL/graphql" .
+          docker push "$REGISTRY/admin:$SHA$IMAGE_SUFFIX"
 
       # api 的環境變數兩個來源(docs/deployment.md「四、環境變數管理」):
       #   非機密 → deploy/env/<環境>.yaml(--env-vars-file 整包取代既有明文變數;GRAPHQL_SANDBOX 也在檔內)
-      #   機密   → Secret Manager(--set-secrets;secret 名稱由上方「環境參數」步驟決定)
+      #   機密   → Secret Manager(--set-secrets;secret 名稱來自 deploy/project/cloud.json 的 secrets)
       # 兩個旗標各管各的:--env-vars-file 只取代明文變數,不會清掉 --set-secrets 掛入的 secret 變數
       - name: deploy api
         if: steps.affected.outputs.api == 'true'
+        env:
+          API_SERVICE: ${{ steps.cfg.outputs.api_service }}
+          REGION: ${{ steps.cfg.outputs.region }}
+          REGISTRY: ${{ steps.cfg.outputs.registry }}
+          SHA: ${{ steps.cfg.outputs.sha }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          MONGODB_SECRET_NAME: ${{ steps.cfg.outputs.mongodb_secret }}
+          ENC_SECRET_NAME: ${{ steps.cfg.outputs.enc_secret }}
+          JWT_SECRET_NAME: ${{ steps.cfg.outputs.jwt_secret }}
+          RESEND_SECRET_NAME: ${{ steps.cfg.outputs.resend_secret }}
         run: |
-          gcloud run deploy cookhome-api${{ steps.cfg.outputs.suffix }} --region=$REGION \
-            --image=$REGISTRY/api:${{ steps.cfg.outputs.sha }} \
+          gcloud run deploy "$API_SERVICE" --region="$REGION" \
+            --image="$REGISTRY/api:$SHA" \
             --port=5001 --allow-unauthenticated --min-instances=0 --max-instances=2 \
-            --env-vars-file=deploy/env/${{ inputs.environment }}.yaml \
-            --set-secrets=MONGODB_URI=${{ steps.cfg.outputs.secret }}:latest,FIELD_ENCRYPTION_KEY=${{ steps.cfg.outputs.enc_secret }}:latest,JWT_SECRET=${{ steps.cfg.outputs.jwt_secret }}:latest,RESEND_API_KEY=${{ steps.cfg.outputs.resend_secret }}:latest \
+            --env-vars-file="deploy/env/$ENVIRONMENT.yaml" \
+            --set-secrets="MONGODB_URI=$MONGODB_SECRET_NAME:latest,FIELD_ENCRYPTION_KEY=$ENC_SECRET_NAME:latest,JWT_SECRET=$JWT_SECRET_NAME:latest,RESEND_API_KEY=$RESEND_SECRET_NAME:latest" \
             --quiet
 
       - name: deploy admin
         if: steps.affected.outputs.admin == 'true'
+        env:
+          ADMIN_SERVICE: ${{ steps.cfg.outputs.admin_service }}
+          REGION: ${{ steps.cfg.outputs.region }}
+          REGISTRY: ${{ steps.cfg.outputs.registry }}
+          SHA: ${{ steps.cfg.outputs.sha }}
+          IMAGE_SUFFIX: ${{ steps.cfg.outputs.image_suffix }}
         run: |
-          gcloud run deploy cookhome-admin${{ steps.cfg.outputs.suffix }} --region=$REGION \
-            --image=$REGISTRY/admin:${{ steps.cfg.outputs.sha }}${{ steps.cfg.outputs.suffix }} \
+          gcloud run deploy "$ADMIN_SERVICE" --region="$REGION" \
+            --image="$REGISTRY/admin:$SHA$IMAGE_SUFFIX" \
             --port=8080 --allow-unauthenticated --min-instances=0 --max-instances=2 --quiet
 
       # 部署成功後對該環境資料庫跑「遷移 → 種子」(ADR-0002:CI runner 直連,不放 server 啟動)。
@@ -173,11 +204,13 @@ jobs:
       - name: migrate → seed
         if: steps.affected.outputs.migrate == 'true'
         env:
-          ROOT_ADMIN_ACCOUNT: root
-          ROOT_ADMIN_EMAIL: a0987837233@gmail.com
+          ROOT_ADMIN_ACCOUNT: ${{ steps.cfg.outputs.root_account }}
+          ROOT_ADMIN_EMAIL: ${{ steps.cfg.outputs.root_email }}
+          MONGODB_SECRET_NAME: ${{ steps.cfg.outputs.mongodb_secret }}
+          ROOT_SECRET_NAME: ${{ steps.cfg.outputs.root_secret }}
         run: |
-          MONGODB_URI=$(gcloud secrets versions access latest --secret=${{ steps.cfg.outputs.secret }})
-          ROOT_ADMIN_PASSWORD=$(gcloud secrets versions access latest --secret=${{ steps.cfg.outputs.root_secret }})
+          MONGODB_URI=$(gcloud secrets versions access latest --secret="$MONGODB_SECRET_NAME")
+          ROOT_ADMIN_PASSWORD=$(gcloud secrets versions access latest --secret="$ROOT_SECRET_NAME")
           echo "::add-mask::$MONGODB_URI"
           echo "::add-mask::$ROOT_ADMIN_PASSWORD"
           export MONGODB_URI ROOT_ADMIN_PASSWORD

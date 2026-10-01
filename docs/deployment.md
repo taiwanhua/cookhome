@@ -57,7 +57,7 @@ dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-st
 | Cloudflare / Vercel | DNS 代管 / front(Hobby)                                                                                                                                               | $0              |
 | Vercel 第二專案     | `cookhome-design` → `design.cookhome.online`(Storybook,root `apps/storybook`,output `storybook-static`,只建 main:Ignored Build Step = Only build production)          | $0              |
 
-正本:`.github/workflows/deploy.yml`(服務名、區域、registry、secret 接線)、`deploy/env/<環境>.yaml`、`docs/env-registry.md`(secret 與變數清單)
+正本:`deploy/project/cloud.json`(GCP 專案、區域、registry、WIF、各環境的服務名 / API 網址 / Secret 名稱 / seed 帳號)、`deploy/project/github.json`(repo 與看板識別)、`.github/workflows/deploy.yml`(接線)、`deploy/env/<環境>.yaml`、`docs/env-registry.md`(secret 與變數清單)
 
 ## 二、分支模型與 CI/CD 流程
 
@@ -89,6 +89,7 @@ release 後:dev / staging reset 對齊 main;進行中的 feat 分支 rebase 到�
 **job 圖**:拆成多個 job,各佔一台 runner 並行,牆鐘最短優先。
 
 ```
+project-settings             專案部署設定與讀取器的測試 + 三環境解析(每次都跑,不看受影響清單)
 prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產物與 schema 一致(GQL-05)
          ├─ lint-typecheck   turbo run lint check-types
          ├─ test-api-1 / 2   api 的 jest 以 --shard=1/2、2/2 分兩片,各自一個 MongoDB service container
@@ -112,11 +113,39 @@ prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產�
 - UI:Actions → Deploy → Run workflow →「Use workflow from」選分支 + environment 選環境。
 - CLI:`gh workflow run Deploy --ref dev -f environment=dev`(staging 同理;production 的 ref 是 `main`)。
 - **防呆**:分支與環境不對應直接失敗(dev ← `dev`、staging ← `staging`、production ← `main`)。
-- **只部署改到的 app**:讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過;`deploy/env/` 或 `deploy.yml` 本身有改時 api 視為受影響。判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`;讀不到 tag(第一次部署)或 base 不在歷史裡(force push 過)時自動全部部署。
-- **image**:tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(`VITE_GRAPHQL_ENDPOINT` 以 `--build-arg` 烘入)。
+- **部署目標讀專案設定**:checkout 之後、雲端認證之前,先以讀取器解析 `deploy/project/*.json` 並核對 repo 身分;不符或缺值就停在這一步(見下方「專案部署設定」)。
+- **只部署改到的 app**:讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過。turbo 看不到的部署設定另外判斷(`scripts/project-settings/deploy-affected.mjs`):`deploy/project/` 或 `scripts/project-settings/` 有改時 api 與 admin 都重建(API 網址烘在 admin image,只改網址也要重建);`deploy/env/` 或 `deploy.yml` 本身有改時只有 api 視為受影響。判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`;讀不到 tag(第一次部署)或 base 不在歷史裡(force push 過)時自動全部部署。
+- **image**:tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(`VITE_GRAPHQL_ENDPOINT` = 設定的 `apiUrl` 加 `/graphql`,以 `--build-arg` 烘入)。
 - **api 的環境變數**:非機密整包來自 `deploy/env/<環境>.yaml`(`--env-vars-file`),機密來自 Secret Manager(`--set-secrets`);見四、。
 - **部署成功後自動跑 `migrate → seed`**(ADR-0002;只在 api 或 db-migrator 受影響時):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`。seed 摘要「新增 N / 更新 M / 認養 A / 未變 K」印在 Actions log:第一次跑應全為新增,之後每次應為 0 / 0 / 0 / K;任何 seed 宣告以識別鍵(或 `adoptBy`)對到一筆人在畫面建的文件(`isSystem` 不是 `true`)時,那一次會出現認養:文件轉成種子、`_id` 不動,之後重跑就是更新 / 未變。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)。
 - **front 不走 deploy.yml**:Vercel 在分支 push 時自動建置(`main` → production、`staging` / `dev` → 各自的分支網域);要不靠 commit 重建用 Deploy Hook(見四、「Vercel 補充設定」)。
+
+### 專案部署設定(deploy/project)
+
+deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩份 JSON;workflow 只負責讀取、驗證與接線。換成另一個專案時改這兩份檔,不改 workflow。
+
+| 檔案                         | 內容                                                                                                                                                                              |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy/project/github.json` | `expectedRepository`(owner/repo 的唯一正本)、`projectStatus`(看板是否啟用、project 與 Status 欄位的 ID、十個狀態選項的 ID)                                                        |
+| `deploy/project/cloud.json`  | `gcp`(專案、區域、Artifact Registry、WIF provider、部署用 service account)、`environments.dev / staging / production`(api / admin 服務名、API 網址、seed 帳號與信箱、Secret 名稱) |
+
+- **只放非機密設定與 Secret「名稱」**;Secret 的值仍在 Secret Manager / GitHub Secrets。api 的非機密執行期變數仍只在 `deploy/env/<環境>.yaml`,不複製到這裡。
+- **讀取器**:`scripts/project-settings/config.mjs` 是唯一的讀取 / 驗證模組,CLI 是 `read-config.mjs`,只用 Node 內建模組(不需先 `pnpm install`)。兩個入口:
+
+  ```bash
+  node scripts/project-settings/read-config.mjs --scope cloud --environment <dev|staging|production> --repository <owner/repo>
+  node scripts/project-settings/read-config.mjs --scope github --repository <owner/repo>
+  ```
+
+  成功時 stdout 是一行 JSON(固定的鍵),失敗時 stdout 無輸出、stderr 一行說明、退出碼非零。在 repo 根執行;本機想看某環境會解析出什麼就直接跑。
+
+- **驗證**:`schemaVersion` 不認得、`--repository` 與 `expectedRepository` 不同、環境不是三個之一、缺欄位或多出未知欄位、值的格式不對或含控制字元,一律失敗,不回退任何預設值。workflow 傳入的 repository 取自 GitHub 的 context,所以把 repo 複製成另一個專案後,沒改設定就跑不到原專案的資源:deploy / reset 在雲端認證前停止,看板在任何寫入前停止。
+- **傳值方式**:workflow 把讀取器的輸出映射成固定的 step 輸出(`write-github-output.mjs`),再經各 step 的 `env:` 以 `"$VAR"` 傳給命令;設定值不內插進 `run` 的程式文本。
+- **改這些檔的後果**:部署時 api 與 admin 都會重建(見上方「只部署改到的 app」)。CI 的 `project-settings` job 每次都跑讀取器測試與三環境的解析,不看受影響清單。
+- **看板(`project-status.yml`)只讀預設分支上的設定與腳本**:PR 事件也不讀 PR 分支的內容,所以看板設定或腳本的改動要 release 到 `main` 之後才生效。`main` 上還沒有這些檔案時,workflow 明確失敗、不移卡,由主流程手動移卡(`docs/agents/issue-tracker.md`「手動移卡」);fork 來的 PR 拿不到 token 時同樣失敗、不移卡。`projectStatus.enabled` 設為 `false` 就完全不呼叫看板 API,也不需要 token。
+- **設定檔寫好不等於外部資源存在**:WIF、IAM、網域、Secret、看板都要另外建立並驗證(`docs/project-initialization.md`)。
+
+正本:`deploy/project/cloud.json`、`deploy/project/github.json`、`scripts/project-settings/`(讀取器與測試)、`docs/plans/project-settings.md`(契約)
 
 ### 其他 workflow
 
@@ -187,16 +216,16 @@ docker compose --profile full up -d   # 部署前驗證:mongo + api + admin 整�
 
 ### 手動部署(CD 掛掉時的備援;平常交給 deploy.yml)
 
-**照 `.github/workflows/deploy.yml` 的「deploy api」步驟打,不要憑記憶**:`gcloud run deploy` 必須同時帶 `--env-vars-file=deploy/env/<環境>.yaml`(非機密變數,整包取代)與完整的 `--set-secrets=MONGODB_URI=…,FIELD_ENCRYPTION_KEY=…,JWT_SECRET=…,RESEND_API_KEY=…`(secret 名稱依環境加 `-dev` / `-staging` 後綴)。`--set-secrets` 是整組取代,少列一個就等於把那個 secret 從服務拿掉。build / push 的部分:
+**照 `.github/workflows/deploy.yml` 的「deploy api」步驟打,不要憑記憶**:`gcloud run deploy` 必須同時帶 `--env-vars-file=deploy/env/<環境>.yaml`(非機密變數,整包取代)與完整的 `--set-secrets=MONGODB_URI=…,FIELD_ENCRYPTION_KEY=…,JWT_SECRET=…,RESEND_API_KEY=…`(服務名、registry 與 secret 名稱以 `node scripts/project-settings/read-config.mjs --scope cloud --environment <環境> --repository taiwanhua/cookhome` 的輸出為準)。`--set-secrets` 是整組取代,少列一個就等於把那個 secret 從服務拿掉。build / push 的部分:
 
 ```bash
 SHA=$(git rev-parse --short HEAD)
 REG=asia-east1-docker.pkg.dev/cookhome-online/cookhome
 docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$SHA
-# 接著複製 deploy.yml「deploy api」步驟裡的 gcloud run deploy 指令,把 ${{ … }} 換成該環境的值
+# 接著複製 deploy.yml「deploy api」步驟裡的 gcloud run deploy 指令,把 $VAR 換成讀取器輸出的該環境值
 ```
 
-正本:`.github/workflows/deploy.yml`(deploy api / deploy admin 步驟)、`apps/api/Dockerfile`、`apps/admin/Dockerfile`
+正本:`.github/workflows/deploy.yml`(deploy api / deploy admin 步驟)、`deploy/project/cloud.json`、`apps/api/Dockerfile`、`apps/admin/Dockerfile`
 
 ### 資料庫還原(reset;僅 dev / staging)
 
@@ -212,7 +241,7 @@ docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$
 
 限制:
 
-- **沒有 production 選項**:workflow 的 choice 只有 dev / staging,指令端另有三道安全閥(`--confirm` 要等於資料庫名、目標環境由資料庫名推得且 production 永遠拒絕、`RESET_ALLOW_ENV` 要含目標環境),兩層都擋。
+- **沒有 production 選項**:workflow 的 choice 只有 dev / staging,第一個步驟再擋一次 dev / staging 以外的值(專案設定檔三個環境都有,不能靠設定缺值來擋),指令端另有三道安全閥(`--confirm` 要等於資料庫名、目標環境由資料庫名推得且 production 永遠拒絕、`RESET_ALLOW_ENV` 要含目標環境),兩層都擋。
 - **只碰資料庫,不動 Cloud Run**:服務不會重新部署,`full` 之後 api 也不必重啟(它不快取這些資料)。
 - **不還原 GCS 上的檔案**(商標、封面…):物件留在 bucket 裡變成孤兒,不影響功能。
 - **root 帳號的密碼**:`data` 保留原帳號整筆(含密碼雜湊,改過的密碼仍有效);`full` 會重新建立帳號,密碼回到 `root-admin-password*` secret 的當前值。
@@ -224,7 +253,7 @@ docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$
     pnpm --filter @repo/db-migrator reset --mode=data --confirm=cookhome-dev
   ```
 
-正本:`.github/workflows/reset-db.yml`、`apps/db-migrator/src/reset/`(三道安全閥在 `reset-safety.ts`)、ADR-0002「還原(reset)」
+正本:`.github/workflows/reset-db.yml`、`deploy/project/cloud.json`(Secret 名稱與 seed 帳號,與 deploy.yml 同一份)、`apps/db-migrator/src/reset/`(三道安全閥在 `reset-safety.ts`)、ADR-0002「還原(reset)」
 
 ### 觀測與維運
 
@@ -244,18 +273,18 @@ gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=a
 
 環境變數只有三個家,依「性質」決定放哪。要改某個變數,先問它是哪一種,就知道去哪改:
 
-| 性質                                  | 放哪(真實來源)                                                                                                     | 進版控?                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| **非機密、雲端用**(網址、開關、效期…) | **`deploy/env/<環境>.yaml`**(dev / staging / production 各一檔),deploy.yml 以 `--env-vars-file` 整包餵給 Cloud Run | ✅(走 PR,可審)                |
-| **機密**(連線字串、金鑰、API key)     | Secret Manager,名稱 `<名稱>-dev` / `-staging` / `<名稱>`;deploy.yml 以 `--set-secrets` 引用                        | ❌ 值永不進版控               |
-| **本地開發**                          | 各 app 的 `.env`(範本 `.env.example`)                                                                              | `.env` ❌ / `.env.example` ✅ |
+| 性質                                  | 放哪(真實來源)                                                                                                                      | 進版控?                       |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| **非機密、雲端用**(網址、開關、效期…) | **`deploy/env/<環境>.yaml`**(dev / staging / production 各一檔),deploy.yml 以 `--env-vars-file` 整包餵給 Cloud Run                  | ✅(走 PR,可審)                |
+| **機密**(連線字串、金鑰、API key)     | Secret Manager,名稱 `<名稱>-dev` / `-staging` / `<名稱>`(名稱登記在 `deploy/project/cloud.json`);deploy.yml 以 `--set-secrets` 引用 | ❌ 值永不進版控               |
+| **本地開發**                          | 各 app 的 `.env`(範本 `.env.example`)                                                                                               | `.env` ❌ / `.env.example` ✅ |
 
 各服務的來源:
 
 | 層               | 真實來源                                                                                                                                                                                          | 進版控?                     |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
 | Cloud Run(api)   | 上表前兩列(`deploy/env/<環境>.yaml` + Secret Manager)。YAML 是該環境**全部明文變數**的唯一來源:`--env-vars-file` 整包取代,檔內沒寫的變數部署後即不存在;`--set-secrets` 掛入的 secret 變數不受影響 | ✅ / ❌                     |
-| Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image)                                                                                                                                                  | ✅                          |
+| Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image;API 網址取自 `deploy/project/cloud.json` 的 `apiUrl`)                                                                                             | ✅                          |
 | Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                                                                                                | ❌(平台保存;清單記載於下表) |
 
 Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型):
@@ -277,7 +306,7 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 
 變數清單(用途 / 是否機密 / 放哪 / 狀態)的正本是 `docs/env-registry.md`,新增或異動變數時必須更新它。
 
-正本:`deploy/env/<環境>.yaml`、`.github/workflows/deploy.yml`(`--env-vars-file` / `--set-secrets` / `--build-arg`)、`docs/env-registry.md`
+正本:`deploy/env/<環境>.yaml`、`deploy/project/cloud.json`(Secret 名稱、API 網址)、`.github/workflows/deploy.yml`(`--env-vars-file` / `--set-secrets` / `--build-arg`)、`docs/env-registry.md`
 
 ### 新增一個 Secret Manager 機密的標準步驟
 
@@ -310,7 +339,7 @@ gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上
 
 三個環境各跑一次。
 
-**4. 接線**(走 PR):Cloud Run 用的 → deploy.yml「環境參數」步驟加對應輸出、`--set-secrets` 追加 `<環境變數名>=<secret 名>:latest`;CI 步驟用的 → 該步驟 `gcloud secrets versions access latest --secret=<名稱>`。
+**4. 接線**(走 PR):secret 名稱登記在 `deploy/project/cloud.json` 各環境的 `secrets`,讀取器(`scripts/project-settings/config.mjs`)的欄位與固定輸出鍵同步加一個,並補測試。Cloud Run 用的 → deploy.yml「deploy api」步驟的 `env:` 接該輸出、`--set-secrets` 追加 `<環境變數名>=$<變數>:latest`;CI 步驟用的 → 該步驟 `gcloud secrets versions access latest --secret="$<變數>"`。
 
 **5. 登記**:更新 `docs/env-registry.md`(狀態、secret 名稱、讀取身分)與本檔「資源清單」。
 
@@ -322,7 +351,7 @@ gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上
 
 小工具:裝了 vercel CLI 並登入後,`vercel env pull` 可把 Vercel 的變數拉成本地 `.env.local`(本地 front 想直連雲端 dev api 時方便)。
 
-正本:`.github/workflows/deploy.yml`(`--set-secrets` 與 migrate → seed 步驟讀 secret)、`docs/env-registry.md`
+正本:`deploy/project/cloud.json`(secret 名稱)、`.github/workflows/deploy.yml`(`--set-secrets` 與 migrate → seed 步驟讀 secret)、`docs/env-registry.md`
 
 ### GCS bucket 與 IAM(重建或加新環境時照此)
 

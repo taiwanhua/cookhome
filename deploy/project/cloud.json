@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "gcp": {
+    "projectId": "cookhome-online",
+    "region": "asia-east1",
+    "artifactRegistry": "asia-east1-docker.pkg.dev/cookhome-online/cookhome",
+    "workloadIdentityProvider": "projects/728045896207/locations/global/workloadIdentityPools/github/providers/github-oidc",
+    "deployServiceAccount": "github-deployer@cookhome-online.iam.gserviceaccount.com"
+  },
+  "environments": {
+    "dev": {
+      "apiService": "cookhome-api-dev",
+      "adminService": "cookhome-admin-dev",
+      "apiUrl": "https://api-dev.cookhome.online",
+      "rootAdmin": {
+        "account": "root",
+        "email": "a0987837233@gmail.com"
+      },
+      "secrets": {
+        "mongodbUri": "mongodb-uri-dev",
+        "fieldEncryptionKey": "field-encryption-key-dev",
+        "rootAdminPassword": "root-admin-password-dev",
+        "jwtSecret": "jwt-secret-dev",
+        "resendApiKey": "resend-api-key-dev"
+      }
+    },
+    "staging": {
+      "apiService": "cookhome-api-staging",
+      "adminService": "cookhome-admin-staging",
+      "apiUrl": "https://api-staging.cookhome.online",
+      "rootAdmin": {
+        "account": "root",
+        "email": "a0987837233@gmail.com"
+      },
+      "secrets": {
+        "mongodbUri": "mongodb-uri-staging",
+        "fieldEncryptionKey": "field-encryption-key-staging",
+        "rootAdminPassword": "root-admin-password-staging",
+        "jwtSecret": "jwt-secret-staging",
+        "resendApiKey": "resend-api-key-staging"
+      }
+    },
+    "production": {
+      "apiService": "cookhome-api",
+      "adminService": "cookhome-admin",
+      "apiUrl": "https://api.cookhome.online",
+      "rootAdmin": {
+        "account": "root",
+        "email": "a0987837233@gmail.com"
+      },
+      "secrets": {
+        "mongodbUri": "mongodb-uri",
+        "fieldEncryptionKey": "field-encryption-key",
+        "rootAdminPassword": "root-admin-password",
+        "jwtSecret": "jwt-secret",
+        "resendApiKey": "resend-api-key"
+      }
+    }
+  }
+}
