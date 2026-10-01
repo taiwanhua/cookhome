@@ -6,14 +6,15 @@
 
 ## 品牌與公開設定
 
-| 項目                                   | 現有正本                                                        | 初始化驗證                                          |
-| -------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------- |
-| 名稱、色彩、HTML title、信件與瀏覽器鍵 | `docs/branding.md` 與其逐列指向的程式                           | 所有消費處讀到專案值;穩定識別不因顯示名稱修改而變動 |
-| 前台 metadata 與業務文案               | `packages/i18n/messages/<locale>/front.json`                    | 支援語系完整,SEO 文字符合專案                       |
-| 前台風格與 favicon                     | `apps/front/src/app/[locale]/styles.css`、各 app 的 public 目錄 | 資產可讀,前台風格由專案決定                         |
-| 專案設定 package                       | 尚未實作;提案為 `packages/project-config/src/project/`          | A1 驗收後才改成本欄正本,不可先指向不存在的實作      |
+| 項目                                                            | 現有正本                                                                                         | 初始化驗證                                                                                                         |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| 名稱、主色、HTML title、前台 metadata、穩定識別(slug)與側欄舊鍵 | `packages/project-config/src/project/public.ts`(逐項登記於 `docs/branding.md`)                   | `@repo/project-config` 的測試通過(格式驗證與專案值);admin、Storybook、front 讀到專案值;slug 不因顯示名稱修改而變動 |
+| 信件寄件信箱與署名                                              | `packages/project-config/src/project/mail.ts`                                                    | api 的信件測試通過(四類信件與 Resend 的 from);寄件網域在 Resend 的驗證屬外部資源,見下節                            |
+| 瀏覽器儲存鍵                                                    | 由 slug 生成(`packages/project-config/src/base/admin-storage-keys.ts`),清單見 `docs/branding.md` | 新專案的 `legacySideNavStorageKey` 為 null;不讀寫其他專案留在瀏覽器的鍵                                            |
+| 前台業務文案                                                    | `packages/i18n/messages/<locale>/front.json`(`meta` 以外;`meta` 由專案設定注入)                  | 支援語系完整,文案符合專案                                                                                          |
+| 前台風格與 favicon                                              | `apps/front/src/app/[locale]/styles.css`、各 app 的 public 目錄                                  | 資產可讀,前台風格由專案決定                                                                                        |
 
-A1 完成時只替換本節與品牌註冊表對應列的指路;不把完整設定值貼到本索引。
+專案值集中在 `packages/project-config/src/project/`:底座維護同套件 `src/base/` 的契約、驗證與各 app 的讀取接線,底座升級不覆寫專案值。換專案只改 `src/project/public.ts` 與 `src/project/mail.ts` 兩個值檔,共用測試不需要改:讀正式設定的測試只驗通用契約,既有專案的歷史值另以固定夾具驗。品牌名與 metadata 照寫原文,不必懂 ICU 語法(注入字典時自動編碼)。本節只指路,不貼設定值;上表的驗證只涵蓋本機測試與 build,部署後的畫面與信件仍依發布流程驗收。
 
 ## 部署與工具識別
 

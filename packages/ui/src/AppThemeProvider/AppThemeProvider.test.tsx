@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { createRoot } from "react-dom/client";
 
-import { cookhomeBrand } from "../theme";
+import { defaultBrand } from "../theme";
 import { AppThemeProvider } from "./AppThemeProvider";
 
 describe("AppThemeProvider", () => {
@@ -10,7 +10,7 @@ describe("AppThemeProvider", () => {
       const div = document.createElement("div");
       const root = createRoot(div);
       root.render(
-        <AppThemeProvider brand={cookhomeBrand}>
+        <AppThemeProvider brand={defaultBrand}>
           <span>內容</span>
         </AppThemeProvider>,
       );

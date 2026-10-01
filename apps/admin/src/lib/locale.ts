@@ -1,7 +1,13 @@
 import { type Locale, defaultLocale, isLocale } from "@repo/i18n";
+import {
+  createAdminStorageKeys,
+  projectPublic,
+} from "@repo/project-config/public";
 
-/** admin 的語言不進 URL,記在 localStorage(I18N-05);key 帶品牌 slug,登記於 docs/branding.md。 */
-export const LOCALE_STORAGE_KEY = "cookhome-admin-locale";
+/** admin 的語言不進 URL,記在 localStorage(I18N-05);key 由專案設定的 slug 生成(`<slug>-admin-locale`),登記於 docs/branding.md。 */
+export const LOCALE_STORAGE_KEY = createAdminStorageKeys(
+  projectPublic.slug,
+).locale;
 
 /** 讀回上次選的語言;讀不到或不是支援的語言一律回預設語言。 */
 export const readStoredLocale = (): Locale => {

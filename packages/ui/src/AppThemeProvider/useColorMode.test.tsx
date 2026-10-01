@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "@jest/globals";
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import { cookhomeBrand } from "../theme";
+import { defaultBrand } from "../theme";
 import { AppThemeProvider } from "./AppThemeProvider";
 import { useColorMode } from "./useColorMode";
 
@@ -24,7 +24,7 @@ const Probe = () => {
 
 const renderWithTheme = () =>
   render(
-    <AppThemeProvider brand={cookhomeBrand} modeStorageKey={STORAGE_KEY}>
+    <AppThemeProvider brand={defaultBrand} modeStorageKey={STORAGE_KEY}>
       <Probe />
     </AppThemeProvider>,
   );

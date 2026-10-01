@@ -179,8 +179,9 @@ jobs:
       - name: codegen 產物與 schema 一致(GQL-05)
         if: needs.prepare.outputs.codegen == 'true'
         run: |
-          # schema:generate 用 ts-node 直接載 api 原始碼,要先有 @repo/domain 的 dist 才解析得到 `@repo/domain/*`
-          pnpm exec turbo run build --filter=@repo/domain
+          # schema:generate 用 ts-node 直接載 api 原始碼,要先有 @repo/domain 與 @repo/project-config 的 dist
+          # 才解析得到 `@repo/domain/*`、`@repo/project-config/mail`(信件模板載入時就讀專案設定)
+          pnpm exec turbo run build --filter=@repo/domain --filter=@repo/project-config
           pnpm --filter @repo/api schema:generate
           pnpm --filter @repo/graphql generate
           if ! git diff --exit-code -- apps/api/schema.gql packages/graphql/src/generated; then

@@ -1,8 +1,8 @@
 {
   "meta": {
-    "title": "CookHome — Home-style Recipes",
-    "titleTemplate": "%s | CookHome",
-    "description": "Share and collect home-style recipes"
+    "title": "App",
+    "titleTemplate": "%s | App",
+    "description": "Site description"
   },
   "home": {
     "subtitle": "Home-style Recipes",
