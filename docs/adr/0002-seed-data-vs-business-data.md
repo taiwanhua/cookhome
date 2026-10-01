@@ -13,6 +13,7 @@
 - 執行手段是獨立的 `apps/db-migrator`:migrate-mongo 管一次性遷移,薄 runner 管冪等種子。不部署、不常駐、不新開資料庫。
 - 部署 api 成功後依序跑 `migrate` → `seed`。build 不碰 DB;server 啟動時不跑。
 - 種子欄位分兩種:**每次都 seed**(預設)與**初始 seed 值**(欄位存在就不覆寫,只補從未寫過的欄位)。
+- 授權關聯維持只補不刪:從 seed 移除角色與模組/權限的綁定宣告,不自動撤銷資料庫既有授權;要撤銷時另作明確的權限管理操作。
 - seed 不分環境,三環境跑同一份宣告。
 - seed 以原生 mongodb driver 手寫文件形狀,不 import api 的 schema。
 - key 對 production 跑過 seed 就不再改;改 key = 新種一筆,要配 cleanup migration。
