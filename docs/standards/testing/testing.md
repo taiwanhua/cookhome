@@ -65,6 +65,7 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 - preset 用 `@repo/jest-presets/browser-esm`(jsdom + Node 的 fetch / Request / Response / BroadcastChannel 全域給 MSW;ts-jest ESM 模式 —— react-router、use-intl 只出 ESM);`packages/ui` 用同一個 preset 但覆寫 `testEnvironment`(TEST-09)。
 - 渲染一律用 `renderApp()`(帶 Intl / Theme / QueryClient / Session / Router 的完整 providers),不裸 render 元件。
 - **逾時有兩層**:preset 的 `testTimeout` 15 秒(單一測試;CI runner 慢,jsdom + MSW + ts-jest ESM 的第一個測試要付暖機成本),以及 testing-library 的 `findBy*` / `waitFor`(`src/test/setup.ts` 已 `configure({ asyncUtilTimeout: 5000 })`)。個別測試不自行加 timeout。
+- Jest 設定拆成多個 `projects` 時,在根設定沿用 `testTimeout: preset.testTimeout`。`testTimeout` 是全域選項,只放在各 project 的 preset 不會生效,會退回 Jest 預設的 5 秒;不要另寫較長時限。先例與正本:`apps/admin/jest.config.mjs`、`packages/jest-presets/browser-esm/jest-preset.mjs`。
 - **httpOnly cookie 在 jsdom 看不到**,用 `authWorld({ hasRefreshCookie })` 這類旗標模擬「瀏覽器有沒有帶 cookie」並計數請求;MSW `server.use()` 的 handler **先列的先贏**。
 - **Vite 專屬語法進不了 jest**:`import.meta.glob`(`?raw` 載入 md、圖片清單…)是 Vite 的編譯期轉換,jest 直接載入會 `(intermediate value).glob is not a function`。做法:**把 glob 包成一支只有 glob 的模組**(`lib/help-registry.ts`),測試用 `moduleNameMapper` 整支換成 `src/test/` 的假實作(介面相同,另給 `setXxx` / `resetXxx`,`setup.ts` 每個測試後歸零);判斷邏輯不要放進被換掉的那一層,抽成純函式另外測。**不要**逐檔 `jest.unstable_mockModule` —— 殼的所有測試都會經過它,等於每個測試檔都要動。
 - **jest 的 `moduleNameMapper` 也是先列的先贏**:`^@/lib/help-registry$` 這種精確鍵要排在通則 `^@/(.*)$` **前面**,否則被通則吃掉(`apps/admin/jest.config.mjs`)。
@@ -96,10 +97,10 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 
 ### 怎麼跑
 
-- **整包驗收**:`pnpm exec turbo run test --filter=@repo/admin`(turbo 會先 build `ui` / `graphql` / `domain`)。`pnpm --filter @repo/admin test` 不經 turbo、**不會 build 依賴**,新 checkout 或依賴改過就會炸型別。
+- **整包驗收**:依 [toolbox 的建置與測試指令](../../agents/toolbox.md#pnpm--turbo建置測試格式)執行,Turbo 會先 build 依賴。直接執行 app 的 test script 不經 Turbo、不會 build 依賴;新 checkout 或依賴改過時先做該節的建置前置步驟。
 - **只跑一個測試檔**:照 `docs/agents/toolbox.md`「pnpm / turbo」的「單檔測試」列(`pnpm --filter <pkg> exec …`,admin / ui / api 各一行),常見錯法也列在那裡。
 - **turbo 快取跨 worktree 共用**:同一份輸入在別的 worktree 跑過,在你這裡會直接 `cache hit, replaying logs`,根本沒有執行(root `package.json` 的 `scripts` 不在 global hash 內,見 `docs/agents/pitfalls.md`)。所以以下兩件事**進 package 目錄直接跑**,不經 turbo:
-  - **取測試數基準**:在 `origin/main` 上跑 `pnpm run test`(`cd packages/ui`、`cd apps/admin` 各一次),不要沿用別的 PR 寫死的數字 —— 多票並行時別人先合的票會墊高基準。取基準的那幾分鐘**不要動工作樹**:jest 讀的是磁碟上當下的檔案,中途改檔會讓基準混進改到一半的自己。先把改動做成 WIP commit 或切回乾淨的 `origin/main` 再跑;依賴要先 build 過(`pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`)。
+  - **取測試數基準**:在 `origin/main` 上跑 `pnpm run test`(`cd packages/ui`、`cd apps/admin` 各一次),不要沿用別的 PR 寫死的數字 —— 多票並行時別人先合的票會墊高基準。取基準的那幾分鐘**不要動工作樹**:jest 讀的是磁碟上當下的檔案,中途改檔會讓基準混進改到一半的自己。先把改動做成 WIP commit 或切回乾淨的 `origin/main` 再跑;依賴建置照 [toolbox 的建置前置步驟](../../agents/toolbox.md#pnpm--turbo建置測試格式)。
   - **交件前的 `lint` 與 `check-types`**:`cd apps/admin && pnpm run lint && pnpm run check-types`(`packages/ui` 同),否則 type-aware 的 lint 警告會漏到 CI 才被擋。整包驗收仍可用 turbo(`pnpm exec turbo run lint check-types`),但 cache hit 不代表你的改動被驗過。
 - **輸出雜訊**:Jest 30 + ESM 印 experimental warning,無害;看結果用 `| grep -E "Tests:|FAIL|●"`。
 - CI 把 admin 的 jest 以 `--shard` 分兩台並行(`test-admin-1` / `test-admin-2`,`.github/workflows/ci.yml`)。
@@ -108,9 +109,7 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 
 沒有 dev 帳號、也不想連真 api 時,用**同一批 MSW 夾具**把整個 admin 跑起來,拿來截圖驗版面(admin 票的 PR 要附圖,見 `docs/agents/issue-tracker.md`)。跑的是**真的 `App`**(同一組 providers、路由與頁面),只有網路層被 service worker 接管。
 
-```
-pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
-```
+建置前置步驟與啟動指令見 [toolbox 的 mock 模式](../../agents/toolbox.md#mock-模式)。`dev:mock` 會先建置 project-config,其他 workspace 依賴仍須完成前置建置。
 
 **不要在埠參數前加 `--`**:`pnpm --filter … dev:mock -- --port …` 會把 `--` 原樣傳給 vite,vite 忽略其後的旗標、照樣從 3002 起跳。
 

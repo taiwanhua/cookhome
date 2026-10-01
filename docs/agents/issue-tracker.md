@@ -77,7 +77,7 @@ gh project item-edit --id <ITEM_ID> --project-id <PROJECT_ID> --field-id <STATUS
 2. **認領**:`gh issue edit <n> --add-assignee "@me"`,看板票卡移 In Progress。
 3. **開工環境**(新 worktree 必做,細節見 pitfalls「新 worktree 與依賴」):
    - `pnpm install`(純文件票也要,否則連 prettier 都沒有)。
-   - 程式票再跑 `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`(`apps/db-migrator` 的票同樣必要)。
+   - 程式票依 [toolbox 的建置前置步驟](./toolbox.md#pnpm--turbo建置測試格式)建置共用套件(`apps/db-migrator` 的票同樣必要)。
    - 重構型的票(先搬檔再修 import,中途型別必紅)與只改文件的票,在 repo 根建空檔 `.claude/hook-typecheck-off`(已 gitignore),PostToolUse hook 就只跑 ESLint;單獨一行指令做、`ls .claude/` 確認,建不起來就略過;**交件前刪掉**。
 4. **分支**:從 `origin/main` 切,命名含票號:`feat/<票號>-<kebab 描述>`(文件票用 `docs/<票號>-…`)。
    - **票有依賴、依賴票還沒進 `main`**:從依賴票的 feat 分支尾端切(疊票);PR 一樣目標 `dev`,依賴票的 PR 先合、自己後合。從哪裡切、怎麼對齊(只 rebase、不 merge `dev` / `main`)的規則正本是 `docs/deployment.md`「分支模型」。
