@@ -276,6 +276,12 @@ async function insertHumanData(database: Db): Promise<void> {
 /** 人在系統內改過的初始 seed 值欄位(ADR-0002):`data` 模式必須原封不動。 */
 async function tweakInitialSeedValues(database: Db): Promise<void> {
   await database
+    .collection("orgs")
+    .updateOne(
+      { key: "root" },
+      { $set: { name: "專案營運組織", description: "由後台修改的描述" } },
+    );
+  await database
     .collection("modules")
     .updateOne({ key: "demo.sample-two" }, { $set: { enabled: false } });
   await database
@@ -388,6 +394,10 @@ describe("reset --mode=data(對真 MongoDB)", () => {
       state.modules.find((module) => module.key === key);
     expect(moduleBy("demo.sample-two")?.enabled).toBe(false);
     expect(moduleBy("overview")?.icon).toBe("home");
+    expect(state.orgs.find((org) => org.key === "root")).toMatchObject({
+      name: "專案營運組織",
+      description: "由後台修改的描述",
+    });
 
     // 示範項目:人新增的那筆不在,宣告的十筆由同一次執行的 seed 補回
     expect(state.demoItemsOne).toHaveLength(5);
@@ -473,6 +483,10 @@ describe("reset --mode=full(對真 MongoDB)", () => {
       state.modules.find((module) => module.key === key);
     expect(moduleBy("demo.sample-two")?.enabled).toBe(true);
     expect(moduleBy("overview")?.icon).toBe("dashboard");
+    expect(state.orgs.find((org) => org.key === "root")).toMatchObject({
+      name: "CookHome",
+      description: "平台營運者(根組織)",
+    });
     // migrate 在 seed 之前重跑過(changelog 是 dropDatabase 後重新長出來的)
     expect(state.changelog.length).toBeGreaterThan(1);
   }, 300_000);

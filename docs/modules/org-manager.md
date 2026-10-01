@@ -133,7 +133,8 @@ deleteOrg(input: { id }): DeletePayload!
 - **每棵樹的樹根對外一律回 `parentId: null`**(它的上層不在樹上,給了前端也查不到),多根時每個根都是。因此前端**不能**拿 `OrgNode.parentId` 判斷「樹根是不是平台根組織」—— 那件事由 `org(樹根).isSystem` 回答。
 - **`OrgNode` 也帶 `ownerUserId`**(僅租戶頂層有值,其餘 null;同 `Org`):使用者管理頁靠它標出受擁有者保護的列,不必為了一個欄位再逐筆查 `org(id)`。
 - `Org.visibility`、`Org.ownerUserId` 與 `Org.slug` 只有租戶頂層有值(`orgs/org-mapper.ts`)。
-- `updateOrg` 的 `logoPath`:**缺席 = 不動、`null` = 清空商標**(GQL-06)。
+- `updateOrg` 的 `description`:**缺席 = 不動;`null`、空字串、純空白 = 清空**(GQL-06)。落庫分兩種:**根組織寫 `description: null`、欄位留著**(根組織的描述是初始 seed 值欄位,ADR-0002;欄位不存在的話 seed 會補回宣告值),其他組織是拿掉欄位(`$unset`)。兩種對外都回 `null`;已經是空的再清空不寫入、也不留稽核。唯一例外:根組織上欄位根本不存在(過去被拿掉的舊資料)時,明確清空會寫下 `null` 並留一筆稽核,之後再清空就不再寫。
+- `updateOrg` 的 `logoPath`:**缺席 = 不動、`null` = 清空商標**(GQL-06);落庫是拿掉欄位(`$unset`),根組織也一樣。
 - `updateOrg` 的 `slug`(租戶短碼):**缺席與 `null` 同義 = 不動**(短碼不可清空);只有根組織的操作者能改(其餘 `FORBIDDEN`),不是租戶頂層、格式不符(`^[a-z][a-z0-9_]{1,19}$`,正本 `@repo/domain/form` 的 `ORG_SLUG_PATTERN`)或已被別的租戶用 → `VALIDATION_FAILED`(`extensions.fields = ["slug"]`)。
 
 **主管**(`apps/api/src/orgs/org-managers.service.ts`;`core_relationships` 的 `org_manager`):

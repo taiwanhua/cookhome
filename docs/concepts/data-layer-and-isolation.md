@@ -142,7 +142,7 @@ BaseRepository 每個方法的第一個參數。四個集合各有用途,不可�
 | 遷移     | 索引、結構、回填、清理                                     | migrate-mongo,一次性,記在 `changelog`             |
 
 - 部署 api 後依序跑 `migrate` → `seed`。不在 server 啟動時跑。
-- 種子欄位兩種:**每次都 seed**(預設,人改的會被拉回);**初始 seed 值**(欄位存在就不覆寫,預設 `enabled`;`modules` 另加 `icon` 與 `settings`(表單模組的列表欄位配置存在 `settings.list`),`orgs` 另加 `settings`(根組織的時區 `settings.timezone`))。人在畫面上改的值一定要列成初始 seed 值,否則每次部署都會被宣告值洗掉。
+- 種子欄位兩種:**每次都 seed**(預設,人改的會被拉回);**初始 seed 值**(欄位存在就不覆寫,預設 `enabled`;`modules` 另加 `icon` 與 `settings`(表單模組的列表欄位配置存在 `settings.list`),`orgs` 另加 `name`、`description` 與 `settings`(根組織的時區 `settings.timezone`))。根組織名稱與描述在初始化時使用專案 seed 值,一般部署保留 UI 修改,完整清庫還原才重建。人在畫面上改的值一定要列成初始 seed 值,否則每次部署都會被宣告值洗掉。
 - **認養**:同一類資料允許人在畫面建(`isSystem: false`,如 root 在欄位管理新增的類別與選項)時,seed 宣告同一個 key 就把那一筆轉成種子 —— `isSystem` 改 true、宣告的欄位以 seed 為準、`_id` 不動。人建時沒有種子 key 的(欄位選項)由宣告的 `adoptBy` 指定怎麼找同一筆(同類別、同 value、根組織加的)。認養單向;沒宣告的人建資料 seed 不碰。
 - 執行摘要印「新增 / 更新 / 認養 / 未變」四種計數。
 - 可變欄位清空寫 `null`,不要 `$unset`。

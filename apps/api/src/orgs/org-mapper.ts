@@ -68,7 +68,10 @@ export function toOrg(org: OrgRecord): Org {
   return {
     id: String(org._id),
     name: org.name,
-    ...(org.description === undefined ? {} : { description: org.description }),
+    // 根組織清空後存的是 null(初始 seed 值欄位,ADR-0002):與欄位不存在同樣對外回 null
+    ...(org.description === undefined || org.description === null
+      ? {}
+      : { description: org.description }),
     parentId: org.parentId === null ? null : String(org.parentId),
     enabled: org.enabled,
     isSystem: org.isSystem,

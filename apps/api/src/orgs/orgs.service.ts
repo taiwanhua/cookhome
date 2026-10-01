@@ -124,6 +124,11 @@ function ownedLogoPath(value: string | null): string | undefined {
   return logoPath;
 }
 
+/** 根組織 = 沒有上層的那一筆(種子資料,ADR-0002);租戶頂層與以下都不是。 */
+function isRootOrg(org: OrgRecord): boolean {
+  return org.parentId === null;
+}
+
 /** 算出這次編輯真正變動的欄位(沒變的不寫、不入審計)。 */
 function editChangesOf(
   input: UpdateOrgInput,
@@ -138,12 +143,16 @@ function editChangesOf(
   }
   if (input.description !== undefined) {
     const description = optionalText(input.description);
-    if (description !== current.description) {
-      changes.push({
-        path: "description",
-        value: description,
-        previous: current.description,
-      });
+    // 根組織清空後存的是 null(見 updateOf):與「沒有值」同義,再清空一次不算變動
+    const previous = current.description ?? undefined;
+    // 例外:根組織上**欄位根本不存在**(過去被 `$unset` 的舊資料)時,明確清空要真的寫下 null —
+    // 不寫的話 seed 會把它當成「從未寫過」補回宣告值(ADR-0002)。只發生一次,之後就是 null
+    const clearsMissingRootField =
+      description === undefined &&
+      current.description === undefined &&
+      isRootOrg(current);
+    if (description !== previous || clearsMissingRootField) {
+      changes.push({ path: "description", value: description, previous });
     }
   }
   if (input.logoPath !== undefined) {
@@ -159,15 +168,29 @@ function editChangesOf(
   return changes;
 }
 
-/** 變動清單 → Mongo update(有值 `$set`、清空 `$unset`)。 */
-function updateOf(changes: OrgFieldChange[]): Record<string, unknown> {
-  const set: Record<string, string> = {};
+/**
+ * 清空時要**留著欄位、寫 `null`** 的欄位:根組織的描述是初始 seed 值欄位(ADR-0002),
+ * seed 只補「不存在的欄位」— `$unset` 掉的話下次部署就被翻回宣告值,清空等於沒清。
+ * 其他組織不是種子資料,維持 `$unset`。
+ */
+function nullOnClearPathsOf(current: OrgRecord): ReadonlySet<EditablePath> {
+  return new Set<EditablePath>(isRootOrg(current) ? ["description"] : []);
+}
+
+/** 變動清單 → Mongo update(有值 `$set`;清空 `$unset`,`nullOnClear` 列出的欄位改 `$set: null`)。 */
+function updateOf(
+  changes: OrgFieldChange[],
+  nullOnClear: ReadonlySet<EditablePath>,
+): Record<string, unknown> {
+  const set: Record<string, string | null> = {};
   const unset: Record<string, ""> = {};
   for (const change of changes) {
-    if (change.value === undefined) {
-      unset[change.path] = "";
-    } else {
+    if (change.value !== undefined) {
       set[change.path] = change.value;
+    } else if (nullOnClear.has(change.path)) {
+      set[change.path] = null;
+    } else {
+      unset[change.path] = "";
     }
   }
   return {
@@ -333,7 +356,11 @@ export class OrgsService {
       return toOrg(current);
     }
     const updated = await this.orgs
-      .updateById(operator, current._id, updateOf(changes))
+      .updateById(
+        operator,
+        current._id,
+        updateOf(changes, nullOnClearPathsOf(current)),
+      )
       .catch((error: unknown) => {
         // 短碼事前查過沒人用,同時有別的請求搶先寫入時由唯一索引擋下
         throw slugConflictOr(error);
