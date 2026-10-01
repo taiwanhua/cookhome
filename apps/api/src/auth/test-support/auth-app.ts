@@ -64,6 +64,11 @@ export interface AuthTestApp {
     variables?: Record<string, unknown>,
     options?: GraphqlCallOptions,
   ) => Promise<GraphqlResult<TData>>;
+  /**
+   * 對**這個測試 app 自己的資料庫**再跑一次 seed(模擬一般部署的 migrate → seed),
+   * 用來驗「人經 API 改過的值,重跑 seed 後還在」。資料庫由 harness 自己決定,不收外部 URI。
+   */
+  reseed: () => void;
   close: () => Promise<void>;
 }
 
@@ -185,6 +190,9 @@ export async function startAuthTestApp(
     app,
     connection,
     graphql,
+    reseed: () => {
+      seedDatabase(databaseUri);
+    },
     close: async () => {
       await app.close();
       await connection.dropDatabase();
