@@ -37,6 +37,41 @@ export type VersionConflictReason =
   | "CURRENT_VERSION_CHANGED"
   | "NO_CURRENT_VERSION";
 
+/**
+ * 發布的內部前提(只給受管定義的安裝,`seed/`;GraphQL input 不收):
+ * - `draftId`:只發布那一份草稿;它已被刪掉、現在的草稿是別人另開的 → `DRAFT_MISSING`
+ * - `expected`:還是登記時的那一筆擁有者、`currentVersion` 也沒變才發布;期間另外發布 / 退役過 →
+ *   `CURRENT_VERSION_CHANGED`。在配版號與任何寫入之前判斷;之後切換 `currentVersion` 的條件更新照舊。
+ */
+export interface PublishInternalOptions {
+  draftId?: Types.ObjectId;
+  expected?: { ownerId: Types.ObjectId; currentVersion: number | null };
+}
+
+/**
+ * 重試發布的內部前提(同上,只給受管定義的安裝):只接續 `versionId` 那一版;
+ * 此刻中斷的是別的版本 → `PUBLISH_NOT_INTERRUPTED`,不替別人把發布做完。
+ */
+export interface RetryPublishInternalOptions {
+  versionId?: Types.ObjectId;
+}
+
+/** `expected` 不符時的訊息;符合(或沒給)回 null。擁有者 = 表單 / 流程。 */
+export function publishExpectationMismatch(
+  owner: LifecycleOwner & { _id: Types.ObjectId },
+  expected: PublishInternalOptions["expected"],
+): string | null {
+  if (expected === undefined) {
+    return null;
+  }
+  if (!owner._id.equals(expected.ownerId)) {
+    return `${owner.key} is not the expected definition`;
+  }
+  return owner.currentVersion === expected.currentVersion
+    ? null
+    : `${owner.key} current version is ${String(owner.currentVersion)}, expected ${String(expected.currentVersion)}`;
+}
+
 /** 版本文件要有的欄位。 */
 export interface LifecycleVersion {
   _id: Types.ObjectId;

@@ -10,11 +10,14 @@ import {
 import type { FormOperatorFacts } from "../../forms/form-access.service";
 import {
   type LifecycleOwner,
+  type PublishInternalOptions,
+  type RetryPublishInternalOptions,
   type VersionLifecycleConfig,
   type VersionSwitchCheckpoint,
   assertNotPublishing,
   interruptedPublishOf,
   lockDraftForPublish,
+  publishExpectationMismatch,
   repositoryVersionStore,
   switchToPublished,
 } from "../../versioning/version-lifecycle";
@@ -120,9 +123,14 @@ export class WorkflowPublishService {
     );
   }
 
+  /**
+   * `internal`:只給內部的受管定義安裝用(`PublishInternalOptions`,同表單)—— 指名草稿、並要求流程與
+   * `currentVersion` 還是登記時的樣子;不符在配版號與任何寫入之前就拒絕。
+   */
   async publish(
     facts: FormOperatorFacts,
     input: PublishWorkflowVersionInput,
+    internal: PublishInternalOptions = {},
   ): Promise<WorkflowVersionRecord> {
     this.access.assertPermission(facts, WORKFLOWS_PERMISSIONS.publish);
     const operator = facts.operator;
@@ -134,8 +142,13 @@ export class WorkflowPublishService {
     if (changelog === "") {
       throw workflowValidationError("changelog is required", ["changelog"]);
     }
+    const mismatch = publishExpectationMismatch(workflow, internal.expected);
+    if (mismatch !== null) {
+      throw workflowConflictError(mismatch, "CURRENT_VERSION_CHANGED");
+    }
     await this.assertNotPublishing(operator, workflow);
     const draft = await this.versions.findOne(operator, {
+      ...(internal.draftId === undefined ? {} : { _id: internal.draftId }),
       workflowKey: workflow.key,
       status: "draft",
     });
@@ -191,10 +204,15 @@ export class WorkflowPublishService {
     );
   }
 
-  /** 從切換那步冪等重跑;沒有中斷的發布 → `CONFLICT`(`PUBLISH_NOT_INTERRUPTED`)。 */
+  /**
+   * 從切換那步冪等重跑;沒有中斷的發布 → `CONFLICT`(`PUBLISH_NOT_INTERRUPTED`)。
+   * `internal.versionId`:只給內部的受管定義安裝用 —— 只接續那一版;此刻中斷的是別的版本同樣回
+   * `PUBLISH_NOT_INTERRUPTED`(在稽核與切換之前判斷)。
+   */
   async retry(
     facts: FormOperatorFacts,
     input: WorkflowKeyInput,
+    internal: RetryPublishInternalOptions = {},
   ): Promise<WorkflowVersionRecord> {
     this.access.assertPermission(facts, WORKFLOWS_PERMISSIONS.publish);
     const operator = facts.operator;
@@ -206,6 +224,15 @@ export class WorkflowPublishService {
     if (!interrupted) {
       throw workflowConflictError(
         `Workflow ${workflow.key} has no interrupted publish`,
+        "PUBLISH_NOT_INTERRUPTED",
+      );
+    }
+    if (
+      internal.versionId !== undefined &&
+      !interrupted._id.equals(internal.versionId)
+    ) {
+      throw workflowConflictError(
+        `Workflow ${workflow.key} interrupted publish is version ${String(interrupted.version)}, not the expected one`,
         "PUBLISH_NOT_INTERRUPTED",
       );
     }

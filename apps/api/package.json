@@ -6,6 +6,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
+    "seed:definitions": "node dist/seed/run.js",
     "schema:generate": "ts-node --project tsconfig.json scripts/generate-schema.ts",
     "lint": "eslint src/ scripts/ --max-warnings 0",
     "check-types": "tsc --noEmit",

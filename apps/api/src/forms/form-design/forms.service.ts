@@ -21,6 +21,7 @@ import {
 } from "../form-access.service";
 import { FORMS_PERMISSIONS } from "../form-permission-keys";
 import {
+  conflictError,
   forbiddenError,
   isDuplicateKeyError,
   notFoundError,
@@ -56,6 +57,28 @@ export const FORM_AUDIT = {
 } as const;
 
 const FORM_TARGET = "form";
+
+/**
+ * 只給內部呼叫端(受管定義的安裝,`seed/`)的選項;GraphQL input 不收這些。
+ * `definitionId`:預先配好的表單 id(安裝紀錄先記下 id 再建立,中斷後認得出自己建的那一筆)。
+ */
+export interface CreateFormInternalOptions {
+  definitionId?: Types.ObjectId;
+}
+
+/**
+ * 只給內部呼叫端的條件更新(CAS):還是同一筆表單(`definitionId`)、`currentVersion`、名稱與頁籤模板
+ * 都還是 `expected` 才寫(條件與寫入在同一次更新裡判斷)。比對之後被別人改名、發布 / 退役了別的版本、
+ * 或表單被刪掉重建 → `CONFLICT`(`METADATA_CHANGED`),不蓋掉現場的值。
+ */
+export interface UpdateFormInternalOptions {
+  expected?: {
+    definitionId: Types.ObjectId;
+    currentVersion: number | null;
+    name: string;
+    tabLabelTemplate: string | null;
+  };
+}
 
 /** 讀組織只取名稱等判斷用欄位,不受管理範圍影響。 */
 function orgReader(operator: OperatorContext): OperatorContext {
@@ -140,6 +163,7 @@ export class FormsService {
   async create(
     facts: FormOperatorFacts,
     input: CreateFormInput,
+    internal: CreateFormInternalOptions = {},
   ): Promise<FormModel> {
     if (!facts.isRoot) {
       throw forbiddenError(
@@ -150,13 +174,17 @@ export class FormsService {
     const key = this.requireFormKey(input.key);
     const name = requireName(input.name);
     await this.access.requireFormModule(facts.operator, input.moduleKey);
-    const created = await this.insertForm(facts.operator, {
-      key,
-      moduleKey: input.moduleKey,
-      name,
-      ownerOrgId: null,
-      forkedFrom: null,
-    });
+    const created = await this.insertForm(
+      facts.operator,
+      {
+        key,
+        moduleKey: input.moduleKey,
+        name,
+        ownerOrgId: null,
+        forkedFrom: null,
+      },
+      internal.definitionId,
+    );
     await this.audit.record(facts.operator, {
       action: FORM_AUDIT.create,
       targetType: FORM_TARGET,
@@ -170,6 +198,7 @@ export class FormsService {
   async update(
     facts: FormOperatorFacts,
     input: UpdateFormInput,
+    internal: UpdateFormInternalOptions = {},
   ): Promise<FormModel> {
     const form = await this.access.requireWritableForm(facts, input.key);
     const set: Record<string, unknown> = {};
@@ -183,11 +212,27 @@ export class FormsService {
     if (Object.keys(set).length === 0) {
       return this.toModel(facts, form);
     }
-    const updated = await this.forms.updateById(facts.operator, form._id, {
-      $set: set,
-    });
+    const { expected } = internal;
+    const updated = await this.forms.findOneAndUpdate(
+      facts.operator,
+      expected === undefined
+        ? { _id: form._id }
+        : {
+            _id: expected.definitionId,
+            key: form.key,
+            currentVersion: expected.currentVersion,
+            name: expected.name,
+            tabLabelTemplate: expected.tabLabelTemplate,
+          },
+      { $set: set },
+    );
     if (!updated) {
-      throw notFoundError(`Form not found: ${input.key}`);
+      throw expected === undefined
+        ? notFoundError(`Form not found: ${input.key}`)
+        : conflictError(
+            `Form ${input.key} identity, current version, name or tab label template changed`,
+            "METADATA_CHANGED",
+          );
     }
     await this.audit.record(facts.operator, {
       action: FORM_AUDIT.update,
@@ -409,9 +454,11 @@ export class FormsService {
       ownerOrgId: Types.ObjectId | null;
       forkedFrom: { formKey: string; version: number } | null;
     },
+    definitionId?: Types.ObjectId,
   ): Promise<FormRecord> {
     try {
       return await this.forms.create(operator, {
+        ...(definitionId === undefined ? {} : { _id: definitionId }),
         ...data,
         currentVersion: null,
         tabLabelTemplate: null,
