@@ -222,6 +222,8 @@ documents 預設以 `key` 識別,可用 `keyField` 指定其他欄位;`seedRef` 
 
 退役需明確宣告;只從 registry 移除,不會刪定義、退役或撤銷分派。退役後重新發布,即使內容相同也需新 revision 與新版號。歷史查驗只讀既有映射及凍結內容,不把目前版本切回舊版。既有提交、修訂與進行中的流程繼續引用原版,不因定義更新自動升級。
 
+整批發布不是原子操作。預檢後才發生的現場競爭或執行期錯誤,可能使前面的定義已完成;執行器停止並保留續跑紀錄,不自動回滾整批。外部漂移須先處理現場與宣告的差異,不能把重跑當成強制覆蓋。
+
 正本:`packages/domain/src/seed/`、`apps/api/src/seed/`、`apps/api/src/database/schemas/seed-definition-installation.schema.ts`;版本生命週期見[表單引擎](form-engine.md)與[流程引擎](workflow-engine.md)。
 
 ### 還原
