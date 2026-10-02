@@ -55,14 +55,23 @@ describe("遷移檔命名規約:<時間戳>_<類別>_<描述>.js", () => {
 });
 
 describe("migrations/ 目錄靜態檢查", () => {
-  it("所有遷移檔皆符合命名規約", () => {
+  /** 新 migration 的兩個來源目錄(根目錄只留已發布的歷史檔)。 */
+  const SOURCE_DIRECTORIES = new Set(["base", "project"]);
+
+  it("根目錄與 base/、project/ 的遷移檔皆符合命名規約,basename 全域唯一", () => {
     const migrationsDir = path.resolve(__dirname, "..", "migrations");
-    const fileNames = readdirSync(migrationsDir);
+    const entries = readdirSync(migrationsDir, { withFileTypes: true });
+    const fileNames = entries.flatMap((entry) =>
+      entry.isDirectory() && SOURCE_DIRECTORIES.has(entry.name)
+        ? readdirSync(path.join(migrationsDir, entry.name))
+        : [entry.name],
+    );
 
     expect(fileNames.length).toBeGreaterThan(0);
     const invalidFileNames = fileNames.filter(
       (fileName) => !isValidMigrationFilename(fileName),
     );
     expect(invalidFileNames).toEqual([]);
+    expect(new Set(fileNames).size).toBe(fileNames.length);
   });
 });

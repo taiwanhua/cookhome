@@ -444,16 +444,20 @@ describe("底座 + 非空的專案來源(對真 MongoDB)", () => {
   }, 120_000);
 });
 
-describe("版本化定義宣告(發布處理尚未接上的入口)", () => {
-  it("seed 指令遇到登記了定義的 registry:明確失敗並列出是哪幾份,不寫入任何資料(普通種子也不寫)", async () => {
+describe("版本化定義宣告(低階的 runSeeds;seed 指令經 api 發布的行為見 update 的測試)", () => {
+  it("沒有接上處理器的入口遇到登記了定義的 registry:明確失敗並列出是哪幾份,不寫入任何資料(普通種子也不寫)", async () => {
     const databaseUri = createTestDatabaseUri("definition-unhandled");
 
-    const result = runSeedCommand(databaseUri, "seeds-definition");
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("登記了 2 份版本化定義");
-    expect(result.stderr).toContain("form-definition:project_request@r1");
-    expect(result.stderr).toContain("workflow-definition:project_review@r1");
-    expect(result.stdout).toBe("");
+    await withDatabase(databaseUri, async (database) => {
+      const run = runSeeds(database, definitionRegistry, {
+        env: { ...ROOT_ADMIN_ENV },
+      });
+      await expect(run).rejects.toThrow("登記了 2 份版本化定義");
+      await expect(run).rejects.toThrow("form-definition:project_request@r1");
+      await expect(run).rejects.toThrow(
+        "workflow-definition:project_review@r1",
+      );
+    });
     expect(await collectionNames(databaseUri)).toEqual([]);
   }, 120_000);
 

@@ -2,6 +2,7 @@
   "extends": ["//"],
   "tasks": {
     "test": {
+      "dependsOn": ["^build", "@repo/api#build"],
       "env": [
         "MONGODB_URI",
         "ROOT_ADMIN_ACCOUNT",

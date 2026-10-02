@@ -6,6 +6,9 @@
  *
  * stdout 只印 `true`(該 app 必須重新部署)或 `false`(交給 turbo 的依賴圖判斷)。
  * deploy.yml 把 `false` 以外的任何結果(含本程式失敗、沒有輸出)都當成要重建。
+ *
+ * `@repo/db-migrator` 的 `true` 代表「要對資料庫跑 update」:它沒有 image,但種子、快照與 migration
+ * 就是要交付的設定,只改這些(api image 不變)也必須執行。這一條不靠 turbo:設定來源有變就明確回 `true`。
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -15,9 +18,13 @@ const PROJECT_SETTINGS = /^(deploy\/project\/|scripts\/project-settings\/)/;
 /** runtime env 檔與 deploy.yml 本身:只有 api 吃(admin 的設定烘在 image)。 */
 const API_ONLY = /^(deploy\/env\/|\.github\/workflows\/deploy\.yml$)/;
 
+/** db-migrator 的任何檔案:種子(底座 / 專案 / 快照)、migration 與執行器本身。 */
+const UPDATE_SOURCES = /^apps\/db-migrator\//;
+
 const RULES = {
   "@repo/api": [PROJECT_SETTINGS, API_ONLY],
   "@repo/admin": [PROJECT_SETTINGS],
+  "@repo/db-migrator": [UPDATE_SOURCES],
 };
 
 export function isDeployAffected(packageName, changedFiles) {

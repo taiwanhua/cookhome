@@ -32,6 +32,30 @@ test("runtime env 檔與 deploy.yml 只影響 api(admin 的設定烘在 image)",
   }
 });
 
+test("只改種子、快照或 migration(純設定變更):要跑 update,api 與 admin 不必重建", () => {
+  for (const file of [
+    "apps/db-migrator/seeds/project/registry.ts",
+    "apps/db-migrator/seeds/project/settings.ts",
+    "apps/db-migrator/seeds/project/revisions/order_form.r2.seed.ts",
+    "apps/db-migrator/seeds/base/revisions/demo_form.r1.seed.ts",
+    "apps/db-migrator/seeds/base/modules/system.ts",
+    "apps/db-migrator/migrations/project/20270101000000_data_order-v2.js",
+    "apps/db-migrator/migrations/base/20270101000000_schema_index.js",
+    "apps/db-migrator/src/update/runner.ts",
+  ]) {
+    assert.equal(isDeployAffected(MIGRATOR, [file]), true, file);
+    assert.equal(isDeployAffected(API, [file]), false, file);
+    assert.equal(isDeployAffected(ADMIN, [file]), false, file);
+  }
+  // 路徑要從 repo 根的 apps/db-migrator/ 開始才算
+  for (const file of [
+    "apps/db-migrator-old/seeds/x.ts",
+    "docs/apps/db-migrator/seeds/x.ts",
+  ]) {
+    assert.equal(isDeployAffected(MIGRATOR, [file]), false, file);
+  }
+});
+
 test("其他路徑不由本規則判定(交給 turbo 的依賴圖)", () => {
   const files = [
     "apps/admin/src/main.tsx",
@@ -61,6 +85,12 @@ test("CLI:stdin 收 git diff --name-only 的清單,stdout 只印 true / false", 
   assert.equal(run(ADMIN, "deploy/env/dev.yaml\r\n").stdout, "false\n");
   assert.equal(run(API, "deploy/env/dev.yaml\r\n").stdout, "true\n");
   assert.equal(run(API, "").stdout, "false\n");
+  assert.equal(
+    run(MIGRATOR, "docs/a.md\napps/db-migrator/seeds/project/registry.ts\n")
+      .stdout,
+    "true\n",
+  );
+  assert.equal(run(MIGRATOR, "apps/api/src/main.ts\n").stdout, "false\n");
   const missing = runScript("deploy-affected.mjs", [], { input: "" });
   assert.notEqual(missing.status, 0);
   assert.equal(missing.stdout, "");
