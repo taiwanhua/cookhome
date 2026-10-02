@@ -4,13 +4,13 @@
 
 程式的分布:
 
-| 塊           | 位置                                                                                    | 內容                                                                                         |
-| ------------ | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 共用純邏輯   | `@repo/domain/form`                                                                     | 定義的型別、表達式與型別表、檢查器、值的正規化與規則驗證、計算與顯示條件收斂、時區、升級搬值 |
-| api 表單設計 | `apps/api/src/forms/form-design/`                                                       | 表單、版本、四步發布、分派 / 啟用、欄位級權限的產生與退役清理、列表欄位配置                  |
-| api 表單執行 | `apps/api/src/forms/form-runtime/`                                                      | 草稿 / 送出 / 修訂、欄位級投影、顯示名、lookup、類別選項、舊版資料升級                       |
-| api 共用     | `apps/api/src/forms/`(根目錄、`form-values/`)                                           | 可見 / 可改判準、寫入規則、欄位級權限閘門、lookup 登錄表                                     |
-| admin        | `apps/admin/src/components/form-engine/`、`lib/form-engine/`、`pages/system/FormsPage/` | 引擎零件、純邏輯、表單管理頁                                                                 |
+| 塊           | 位置                                                                                         | 內容                                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 共用純邏輯   | `@repo/domain/form`                                                                          | 定義的型別、表達式與型別表、檢查器、值的正規化與規則驗證、計算與顯示條件收斂、時區、升級搬值 |
+| api 表單設計 | `apps/api/src/forms/form-design/`                                                            | 表單、版本、四步發布、分派 / 啟用、欄位級權限的產生與退役清理、列表欄位配置                  |
+| api 表單執行 | `apps/api/src/forms/form-runtime/`                                                           | 草稿 / 送出 / 修訂、欄位級投影、顯示名、lookup、類別選項、舊版資料升級                       |
+| api 共用     | `apps/api/src/forms/`(根目錄、`form-values/`)                                                | 可見 / 可改判準、寫入規則、欄位級權限閘門、lookup 登錄表                                     |
+| admin        | `apps/admin/src/components/form-engine/`、`lib/form-engine/`、`pages/base/system/FormsPage/` | 引擎零件、純邏輯、表單管理頁                                                                 |
 
 `@repo/domain/form` 打成一檔且模組頂層就註冊 JSONLogic 運算子;只要格式檢查(表單 key、欄位 key、租戶短碼)的地方改走輕量子路徑 `@repo/domain/form-keys`,正則的 ReDoS 檢查在 `@repo/domain/form-regex-safety`,兩者都是為了不把整個引擎拉進 admin 首屏 bundle。
 
@@ -257,7 +257,9 @@
 
 ## 頁籤 / 標題模板
 
-`lib/form-engine/tab-label.ts` 的 `renderTabLabel`:表單的 `tabLabelTemplate` 有值用它,否則用模組層模板(`formModulePages(moduleKey, { tabLabelTemplate })`,預設 `{{title}}`)。**前端從那筆資料的值即時算**,不讀後端存的 `summary`:摘要槽依那筆綁的版本 `summaryMap` 對到欄位取值;新增 / 編輯頁用正在輸入的值(`FormFillForm` 的 `tabLabelOf`),所以草稿也算得出來。api 對模板只做 trim、空字串存 `null`,不驗佔位符。
+`lib/form-engine/tab-label.ts` 的 `renderTabLabel`:表單的 `tabLabelTemplate` 有值用它,否則用模組層模板(`ModulePageSource.forms[].options.tabLabelTemplate`,預設 `{{title}}`)。**前端從那筆資料的值即時算**,不讀後端存的 `summary`:摘要槽依那筆綁的版本 `summaryMap` 對到欄位取值;新增 / 編輯頁用正在輸入的值(`FormFillForm` 的 `tabLabelOf`),所以草稿也算得出來。api 對模板只做 trim、空字串存 `null`,不驗佔位符。
+
+模組 options 與四頁共用一筆來源:底座在 `app/base/module-pages.ts`,專案在 `app/project/module-pages.ts`。`lib/form-engine/form-module-options.ts` 的 `composeFormModuleOptions` 合成唯讀設定表,`app/providers/RootProviders.tsx` 經 `FormModuleOptionsProvider` 注入;context 與 hook 同檔在 `hooks/useFormModuleOptions.ts`,Provider 在 `app/providers/FormModuleOptionsProvider.tsx`。有 Provider 但缺該 key 時回預設,缺 Provider 則報接線錯誤。`formModulePages(moduleKey)` 只產生預設頁,不接收 options 或修改全域 Map。
 
 | 佔位符                                  | 值                                                                    |
 | --------------------------------------- | --------------------------------------------------------------------- |
@@ -289,18 +291,18 @@
 
 ### 表單管理(`system.forms`)
 
-`apps/admin/src/pages/system/FormsPage/`。左清單、右面板;內容區最小寬度 `xl`(三欄設計器窄了會擠壞,`app/module-pages.tsx` 的 `modulePageMinWidths`)。
+`apps/admin/src/pages/base/system/FormsPage/`。左清單、右面板;內容區最小寬度 `xl`(三欄設計器窄了會擠壞,在 `app/base/module-pages.ts` 的頁面宣告設定 `minWidth`,組裝為 `modulePageMinWidths` 交給殼)。客製替換未指定寬度時保留這個值。
 
-| 畫面                   | 做什麼                                                                                                                                                                                                                                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 表單清單               | 搜尋;每列名稱、key、模組、共用 / 客製、目前版本或「無發布版本」、停用、發布中斷、有草稿、綁的流程 / 「綁定的流程已失效」;「+ 建立表單」只在站在根組織 + `system.forms.create` 時出現(建共用表單;api 對租戶回 `ROOT_ONLY`)                                                                          |
-| 右側標頭               | 「編輯名稱與標題」(`abilities.canEdit`)、「以此為基底建新表單」(`canFork`)、「分派租戶」(`canAssign`)、「列表欄位配置」(站在根組織 + `system.forms.edit`;與「模組與權限」共用 `pages/system/ListColumnsDialog/`,編輯器頂端註明「此設定影響整個模組的列表」)、「在本組織啟用」開關(`canSetEnabled`) |
-| 流程綁定(右側標頭下)   | 租戶視角 + `system.forms.edit`:這張表單送出後走哪個流程(`pages/system/FormsPage/WorkflowBinding/`,規則見 [workflows「流程綁定」](./workflows.md))                                                                                                                                                  |
-| 表單設計(頁籤)         | 元件面板 / 畫布 / 屬性面板 / JSON 預覽 / 檢查結果;見下方「設計器」                                                                                                                                                                                                                                 |
-| 表單版本(頁籤)         | 見下方「版本面板」                                                                                                                                                                                                                                                                                 |
-| 分派跳窗               | 勾租戶 = 分派、取消勾 = 收回(只有平台)                                                                                                                                                                                                                                                             |
-| 以此為基底建新表單跳窗 | 選基底版本、填 key(建立後不可改)與名稱;建好帶一份以該版本為基底的草稿                                                                                                                                                                                                                              |
-| 編輯名稱與標題跳窗     | 名稱與頁籤模板;模板下方列出可用佔位符,「插入欄位的值」下拉挑欄位插入 `{{value.<key>}}`(欄位取目前版本,沒發布過取草稿),並即時顯示以範例資料套用的結果(留空以預設模板示範)                                                                                                                           |
+| 畫面                   | 做什麼                                                                                                                                                                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 表單清單               | 搜尋;每列名稱、key、模組、共用 / 客製、目前版本或「無發布版本」、停用、發布中斷、有草稿、綁的流程 / 「綁定的流程已失效」;「+ 建立表單」只在站在根組織 + `system.forms.create` 時出現(建共用表單;api 對租戶回 `ROOT_ONLY`)                                                                               |
+| 右側標頭               | 「編輯名稱與標題」(`abilities.canEdit`)、「以此為基底建新表單」(`canFork`)、「分派租戶」(`canAssign`)、「列表欄位配置」(站在根組織 + `system.forms.edit`;與「模組與權限」共用 `pages/base/system/ListColumnsDialog/`,編輯器頂端註明「此設定影響整個模組的列表」)、「在本組織啟用」開關(`canSetEnabled`) |
+| 流程綁定(右側標頭下)   | 租戶視角 + `system.forms.edit`:這張表單送出後走哪個流程(`pages/base/system/FormsPage/WorkflowBinding/`,規則見 [workflows「流程綁定」](./workflows.md))                                                                                                                                                  |
+| 表單設計(頁籤)         | 元件面板 / 畫布 / 屬性面板 / JSON 預覽 / 檢查結果;見下方「設計器」                                                                                                                                                                                                                                      |
+| 表單版本(頁籤)         | 見下方「版本面板」                                                                                                                                                                                                                                                                                      |
+| 分派跳窗               | 勾租戶 = 分派、取消勾 = 收回(只有平台)                                                                                                                                                                                                                                                                  |
+| 以此為基底建新表單跳窗 | 選基底版本、填 key(建立後不可改)與名稱;建好帶一份以該版本為基底的草稿                                                                                                                                                                                                                                   |
+| 編輯名稱與標題跳窗     | 名稱與頁籤模板;模板下方列出可用佔位符,「插入欄位的值」下拉挑欄位插入 `{{value.<key>}}`(欄位取目前版本,沒發布過取草稿),並即時顯示以範例資料套用的結果(留空以預設模板示範)                                                                                                                                |
 
 **版本面板**:草稿與各版本、發布(changelog 必填)、發布中斷時「重試發布」、退役目前版本、刪除草稿(確認跳窗,帶讀到的 `draftRevision`;發布中不可)、與上一版差異、以任一版本為基底開新草稿、「將舊版資料升級到此版」(已發布的版本;三步跳窗:各舊版本筆數 + 補值 → 確認 → 結果)。已發布 / 已退役版本的「檢視」把設計頁籤換成唯讀設計器(`FormDesigner/VersionViewer.tsx`:`formVersion(formKey, version)`,設計模式照樣標示、不能改不能存,「預覽」只在前端算,旁邊「以此為基底開新草稿」;草稿的設計器照樣掛著)。
 
@@ -325,6 +327,8 @@
 
 ### 引擎零件與填寫頁
 
+專案表單模組在 `app/project/module-pages.ts` 的 `forms` 新增一筆,預設展開列表、檢視、新增、編輯四頁;單頁客製用 `pageOverrides` 的 `list` / `viewPage` / `createPage` / `editPage`,元件放 `pages/project/`。若是替換底座已登記的頁,改用 `app/project/page-replacements.ts`,保留底座原檔、宣告及模組 options;移除替換就回到原版。頁面登記不替使用者授權,也不改表單執行端點。型別、碰撞檢查與完整範例見[前端架構](../concepts/frontend-architecture.md#頁面登記與客製替換)與[表單引擎](../concepts/form-engine.md#前端引擎零件與預設組裝)。
+
 | 零件                                                                                | 檔案(`apps/admin/src/`)                                                  |
 | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `FormRenderer`(五種 `mode`;版面以 `@repo/ui/grid` 排 12 格)、設計模式的格子與放置區 | `components/form-engine/FormRenderer/`                                   |
@@ -347,7 +351,7 @@
 
 ## api 介面
 
-GraphQL 文件:`packages/graphql/src/documents/forms.graphql`(設計、升級)、`form-submissions.graphql`(執行)。
+GraphQL 文件:`packages/graphql/src/documents/base/forms.graphql`(設計、升級)、`form-submissions.graphql`(執行)。
 
 **設計端**(`@RequirePermission` 守端點,「是不是自己的表單 / 站在哪裡」在 service):`forms`、`form`、`formVersion(formKey, version?)`(省略 = 草稿)、`formVersions`、`validateFormVersion`、`previewFormVersion`(兩者是 query,不落庫)、`createForm`、`updateForm`、`forkForm`、`createFormVersionDraft`、`saveFormVersionDraft`、`deleteFormVersionDraft`、`publishFormVersion`、`retryPublishFormVersion`、`retireCurrentVersion`、`assignFormToTenants`、`revokeFormFromTenant`、`setTenantFormEnabled`、`retiredFormPermissions`、`deleteRetiredPermission`、`setModuleListColumns`(`system.forms.edit` + 站在根組織)。`moduleListColumns(moduleKey)` 給該模組的使用者讀(有 view / create / edit 任一)。
 

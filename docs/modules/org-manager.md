@@ -4,7 +4,7 @@
 
 管理組織樹:根組織(平台)在這裡開通 / 撤銷租戶、轉移擁有者;租戶內的人在自己的管理範圍內建子組織、編輯、停用、搬移、刪除組織,設定租戶頂層的可見範圍開關、設定組織的主管(審核流程的主管來源),以及查看 / 加入組織的直接成員。相關 ADR:[0005 多租戶隔離](../adr/0005-multi-tenant-isolation.md)、[0009 租戶開通](../adr/0009-tenant-provisioning.md)、[0010 儲存與寄信](../adr/0010-file-storage-and-email.md)、[0004 權限模型](../adr/0004-permission-model.md)。
 
-正本:`apps/api/src/orgs/`、`apps/admin/src/pages/system/OrgManagerPage/`
+正本:`apps/api/src/orgs/`、`apps/admin/src/pages/base/system/OrgManagerPage/`
 
 ## 模組 key 與畫面
 
@@ -42,7 +42,7 @@
 
 **為什麼 `set-visibility` / `set-timezone` 不在 `tenant-ops`**:可見範圍開關與時區都是**租戶自己的設定**,租戶管理員模板拿到 `system.org-manager.*` 就應該含它;能設哪些租戶頂層由管理範圍決定,不是靠「站在根組織」。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/api/src/orgs/orgs.resolver.ts`、`apps/admin/src/pages/system/OrgManagerPage/org-manager-permissions.ts`
+正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/api/src/orgs/orgs.resolver.ts`、`apps/admin/src/pages/base/system/OrgManagerPage/org-manager-permissions.ts`
 
 ## 資料
 
@@ -81,7 +81,7 @@
 **刪除**:前置檢查全部通過才可:無子組織、無成員(`org_user`)、不是任何存活角色的擁有組織、無業務資料引用。任一不通過 → 提示改用停用。刪除 = 軟刪除(ADR-0007)。
 
 - 「非角色擁有組織」**只算存活的角色**:角色被軟刪除時 `org_role` 關聯刻意不動(ADR-0007 / ADR-0001),只看關聯會把「角色都刪光了」的組織永遠判成不可刪,所以以 `roles` 文件為準(`ownsAliveRole()`)。
-- 「無業務資料引用」數的是 `orgs.service.ts` 的 `hasBusinessData()` 列出的全部帶組織歸屬的業務 collection:以 `orgId` 指向本組織的 `customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)、`form_submissions`、`workflow_instances`;以租戶頂層為歸屬、沒有 `orgId` 的 `forms`(`ownerOrgId`)、`workflows` 與 `workflow_tasks`(`tenantId`)—— 這三張只有租戶頂層會命中,正是撤銷開通問的那一層。任一張有一筆就不可刪 / 不可撤銷開通。`audit_logs` 不算(只增不改的歷史紀錄)。新增業務 collection 時在 `hasBusinessData()` 加一項。
+- 「無業務資料引用」數的是 `OrgBusinessDataReader.hasBusinessData()` 組裝的全部帶組織歸屬的業務 collection:以 `orgId` 指向本組織的 `customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)、`form_submissions`、`workflow_instances`;以租戶頂層為歸屬、沒有 `orgId` 的 `forms`(`ownerOrgId`)、`workflows` 與 `workflow_tasks`(`tenantId`)—— 這三張只有租戶頂層會命中,正是撤銷開通問的那一層。任一張有一筆就不可刪 / 不可撤銷開通。`audit_logs` 不算(只增不改的歷史紀錄)。新增專案租戶 collection 時,在 `project/database/registrations.ts` 一併登記 model、repository 與組織歸屬檢查,由固定入口驗證及 reader 執行;漏登記或錯綁 repository 會失敗,查詢錯誤不能當成沒有資料。底座七份 BaseRepository 檢查與兩份 workflow 專用 adapter 保留,Recipe 既有例外見功能登記規格。
 
 **子樹類動作不受可見範圍裁切**:停用連動、搬移的 `ancestors` 重算、刪除前置的「有沒有子組織」以整棵子樹為準(可見範圍決定「看得到誰的資料」,不該讓連動只做一半)。程式上是 `orgs.service.ts` 的 `subtreeContext()`,只准搭配把查詢釘在該子樹內的條件。
 
@@ -179,7 +179,7 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 
 **商標上傳**(`apps/api/src/storage/`):`createUploadUrl(input: { purpose: ORG_LOGO, contentType, size })` 回 `{ uploadUrl, objectPath, expiresAt }` —— 檔型限 png / jpg / webp、大小 ≤ 2MB(不合回 `UPLOAD_REJECTED`),上傳網址效期 10 分鐘,`objectPath` 為 `org-logos/<uuid>.<副檔名>`(簽票時組織可能還不存在,所以不含 orgId);持 `system.org-manager.edit` 或 `system.org-manager.tenant-ops.provision` 任一即可要票。讀取端:`me.currentOrg.logoUrl` 現簽短效網址(TTL `GCS_SIGNED_URL_TTL`,預設 1h),無商標或路徑不合為 null。
 
-正本:`apps/api/src/orgs/orgs.resolver.ts`、`apps/api/src/orgs/org-members.resolver.ts`、`apps/api/src/orgs/tenant-ops.resolver.ts`、`apps/api/src/orgs/models/`、`apps/api/src/storage/upload-rules.ts`、`packages/graphql/src/documents/orgs.graphql`
+正本:`apps/api/src/orgs/orgs.resolver.ts`、`apps/api/src/orgs/org-members.resolver.ts`、`apps/api/src/orgs/tenant-ops.resolver.ts`、`apps/api/src/orgs/models/`、`apps/api/src/storage/upload-rules.ts`、`packages/graphql/src/documents/base/orgs.graphql`
 
 ## admin 頁面
 
@@ -205,7 +205,7 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 - **彈窗裡的第一個 `TextField`**:MUI 有一條 `.MuiDialogTitle-root + .MuiDialogContent-root { padding-top: 0 }`,特異度贏過 `sx` 的單一 class,浮動標籤會被標題壓住;`@repo/ui/dialog` 以 `&&` 拉高特異度處理掉。
 - **與設計稿的差異**:Figma 的資料區有「建立時間」一列,`org(id)` 沒有這個欄位,故未做;可見範圍在 Figma 是核取方塊,依本檔與 ADR-0005 的說法改用開關(`Switch`)。
 
-正本:`apps/admin/src/pages/system/OrgManagerPage/`(`useOrgManagerData.ts`、`useMoveTargets.ts`、`useTenantOwner.ts`、`OrgDetailPanel/`、`MembersTab/`、`EditOrgDialog/`、`ProvisionTenantDialog/`、`RevokeProvisionDialog.tsx`)、`apps/admin/src/lib/org-tree.ts`、`apps/admin/src/components/OrgTreePicker/OrgTreePicker.tsx`
+正本:`apps/admin/src/pages/base/system/OrgManagerPage/`(`useOrgManagerData.ts`、`useMoveTargets.ts`、`useTenantOwner.ts`、`OrgDetailPanel/`、`MembersTab/`、`EditOrgDialog/`、`ProvisionTenantDialog/`、`RevokeProvisionDialog.tsx`)、`apps/admin/src/lib/org-tree.ts`、`apps/admin/src/components/OrgTreePicker/OrgTreePicker.tsx`
 
 ## 錯誤碼
 
@@ -223,7 +223,7 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 
 錯誤碼總表在 GQL-04。前端解讀集中在 `org-manager-error.ts`。
 
-正本:`apps/api/src/orgs/org-error.ts`、`apps/admin/src/pages/system/OrgManagerPage/org-manager-error.ts`、`docs/standards/api/graphql-schema.md`
+正本:`apps/api/src/orgs/org-error.ts`、`apps/admin/src/pages/base/system/OrgManagerPage/org-manager-error.ts`、`docs/standards/api/graphql-schema.md`
 
 ## 稽核
 
@@ -236,16 +236,16 @@ transferOrgOwner(input: { orgId, newOwnerUserId }): OrgPayload!
 ## 測試
 
 - api:`apps/api/src/orgs/orgs.test.ts`、`tenant-ops.test.ts`、`org-members.test.ts`、`org-managers.test.ts`、`org-slug.test.ts`
-- admin:`apps/admin/src/pages/system/OrgManagerPage/` 的 `OrgManagerPage.test.tsx`、`OrgManagerGuards.test.tsx`、`OrgManagerScope.test.tsx`、`OrgManagers.test.tsx`、`OrgMembers.test.tsx`、`OrgProvisionSlug.test.tsx`、`OrgRevokeProvision.test.tsx`、`OrgTimezone.test.tsx`、`OrgTreeAfterMove.test.tsx`(共用 `org-manager-test-support.ts`)
+- admin:`apps/admin/src/pages/base/system/OrgManagerPage/` 的 `OrgManagerPage.test.tsx`、`OrgManagerGuards.test.tsx`、`OrgManagerScope.test.tsx`、`OrgManagers.test.tsx`、`OrgMembers.test.tsx`、`OrgProvisionSlug.test.tsx`、`OrgRevokeProvision.test.tsx`、`OrgTimezone.test.tsx`、`OrgTreeAfterMove.test.tsx`(共用 `org-manager-test-support.ts`)
 - 劇本(`docs/testing/permission-scenarios.md`):劇本 12 可見性開關、劇本 14 管理範圍 vs 可見範圍、劇本 15 側欄商標繼承、劇本 16 租戶視角、劇本 17 擁有者保護;E2E 為 `apps/e2e/src/specs/scenario-12-visibility-toggle.spec.ts`、`scenario-14-management-scope.spec.ts`、`scenario-15-sidebar-logo.spec.ts`、`scenario-16-tenant-perspective.spec.ts`、`scenario-17-owner-protection.spec.ts`
 
-正本:`apps/api/src/orgs/`、`apps/admin/src/pages/system/OrgManagerPage/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
+正本:`apps/api/src/orgs/`、`apps/admin/src/pages/base/system/OrgManagerPage/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
 
 ## 使用者說明(help.md)
 
-[system.org-manager.help.md](../../apps/admin/src/md/module-help/system.org-manager.help.md)(build 時打包進說明彈窗)。讀者是租戶使用者:不得出現 根組織 / 租戶 / 開通 / 跨租戶 等平台視角詞彙;租戶眼中的根 = 自己的頂層組織。
+[system.org-manager.help.md](../../apps/admin/src/md/module-help/base/system.org-manager.help.md)(build 時打包進說明彈窗)。讀者是租戶使用者:不得出現 根組織 / 租戶 / 開通 / 跨租戶 等平台視角詞彙;租戶眼中的根 = 自己的頂層組織。
 
-正本:`apps/admin/src/md/module-help/system.org-manager.help.md`
+正本:`apps/admin/src/md/module-help/base/system.org-manager.help.md`
 
 ## 平台視角備註
 

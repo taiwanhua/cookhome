@@ -227,7 +227,7 @@ admin 端(`hooks/useApplyCenterCounts.ts`):
 
 ### 流程管理(`system.workflows`)
 
-`apps/admin/src/pages/system/WorkflowsPage/`(懶載入:React Flow、dagre、檢查器不進首屏;殼層最小寬度 `xl`,`app/module-pages.tsx`)。左清單、右面板;頁首「阻擋清單」進隱藏頁(有 `system.workflows.blocked-page.reassign` 才出現)。
+`apps/admin/src/pages/base/system/WorkflowsPage/`(懶載入:React Flow、dagre、檢查器不進首屏;殼層最小寬度 `xl`,`app/module-pages.tsx`)。左清單、右面板;頁首「阻擋清單」進隱藏頁(有 `system.workflows.blocked-page.reassign` 才出現)。
 
 | 畫面                 | 做什麼                                                                                                                                                                                                                                                  |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -255,7 +255,7 @@ admin 端(`hooks/useApplyCenterCounts.ts`):
 
 ### 阻擋清單(`system.workflows.blocked-page`)
 
-`apps/admin/src/pages/system/WorkflowBlockedPage/`,權限 `system.workflows.blocked-page.reassign`。
+`apps/admin/src/pages/base/system/WorkflowBlockedPage/`,權限 `system.workflows.blocked-page.reassign`。
 
 - 頁籤「阻擋」/「需要推進」(`blockedInstances` 的兩種篩選);「需要推進」的候選超過上限時(`truncated`)提示只檢查了最久沒動的一批。
 - 每列:表單、實例上的標題槽(不含提交內容)、申請人、卡在哪 / 卡在誰(進行中審核關卡還沒決定的計畫項目,失效的排前面;解析為空的關卡標「找不到審核者」)、最後變動(`YYYY-MM-DD HH:mm`,讀者的租戶時區)。
@@ -263,7 +263,7 @@ admin 端(`hooks/useApplyCenterCounts.ts`):
 
 ### 申請中心(`apply-center`)
 
-`apps/admin/src/pages/apply-center/`。頁籤依序「我的申請」(預設)、「待我審核」,頁籤右側是 badge 數字(見「計數」)。
+`apps/admin/src/pages/base/apply-center/`。頁籤依序「我的申請」(預設)、「待我審核」,頁籤右側是 badge 數字(見「計數」)。
 
 | 畫面                              | 做什麼                                                                                                                                                                                                                        |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -286,18 +286,18 @@ admin 端(`hooks/useApplyCenterCounts.ts`):
 
 ### 表單管理的流程綁定欄、組織管理的主管欄
 
-- 流程綁定欄在表單管理右面板(見 `docs/modules/forms.md`「admin 頁面」),`pages/system/FormsPage/WorkflowBinding/`。
+- 流程綁定欄在表單管理右面板(見 `docs/modules/forms.md`「admin 頁面」),`pages/base/system/FormsPage/WorkflowBinding/`。
 - 主管欄在組織管理(見 `docs/modules/org-manager.md`)。
 
 ### 共用零件
 
 - 錯誤解讀 `lib/workflow/workflow-errors.ts`(把要分開講的 `reason` 升成自己的碼,文案 `admin.workflows.errors.*`)。
 - 撤回 / 作廢 / 複製 `components/workflow/useSubmissionActions.ts`;審核動作後的快取維護 `components/workflow/useWorkflowCache.ts`。
-- 使用者候選 `components/workflow/useUserCandidates.ts`(借 `users`,要 `system.user-manager.view`)。
+- 使用者候選 `components/UserPicker/useUserCandidates.ts`(借 `users`,要 `system.user-manager.view`)。
 
 ## api 介面
 
-GraphQL 文件:`packages/graphql/src/documents/workflows.graphql`(設計、綁定、阻擋清單)、`apply-center.graphql`(申請中心、決定、提交的撤回 / 作廢 / 複製)。
+GraphQL 文件:`packages/graphql/src/documents/base/workflows.graphql`(設計、綁定、阻擋清單)、`apply-center.graphql`(申請中心、決定、提交的撤回 / 作廢 / 複製)。
 
 **設計端**(`@RequirePermission` 守端點,「是不是自己的流程 / 站在哪裡」在 service):`workflows`、`workflow`、`workflowVersion(workflowKey, version?)`(省略 = 草稿)、`workflowVersions`、`validateWorkflowVersion`(query,不落庫)、`createWorkflow`、`updateWorkflow`、`forkWorkflow`、`createWorkflowVersionDraft`、`saveWorkflowVersionDraft`、`deleteWorkflowVersionDraft`(回 `WorkflowPayload`)、`publishWorkflowVersion`、`retryPublishWorkflowVersion`、`retireCurrentWorkflowVersion`、`assignWorkflowToTenants`、`revokeWorkflowFromTenant`。
 

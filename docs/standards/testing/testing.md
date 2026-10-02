@@ -56,6 +56,12 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 - 例外:某個能力在 GraphQL 端點上看不到(如守門器產出的操作者上下文)才允許經 `app.get(Service)` 從 DI 取出來驗 — 這是第二個接縫,PR 要說明理由
 - 執行:ts-jest 只轉譯不做型別檢查(`isolatedModules`),型別交給 `check-types`;整張 Nest 依賴圖做型別檢查會讓第一次啟動超過 5 分鐘
 
+### 專案功能與資料登記的整合驗收
+
+- `extraModules` 繼續用於權限探針;驗收專案登記則只替換 `project/api-modules.ts` 與 `project/database/registrations.ts` 的來源,經真正的 AppModule / DatabaseModule 啟動 fixture。不得只把 fixture module 直接塞進 `extraModules`,或 mock 組裝器、guards、repository、`OrgBusinessDataReader`,來宣稱正式登記可用。
+- fixture 的資料與授權由隔離測試環境建立,不改正式 seed。以真 GraphQL / MongoDB 驗證授權、租戶隔離、軟刪除與資料範圍;專案資料即使被資料範圍隱藏,仍須阻止刪組織及撤銷開通,其他組織資料不誤擋,檢查失敗不能放行。
+- 碰撞與缺少必要資料保護的負例須在組裝或啟動時失敗;另保留真實正式登記來源的載入驗證。fixture 的 import 例外只限所有權方向,不擴大 raw query 豁免(STRUCT-12)。細項見[功能登記規格](../../plans/feature-registration.md#驗收)。
+
 ## TEST-08 admin 的元件測試:MSW 攔網路層 + React Testing Library
 
 先例:`apps/admin/src/test/`(`setup.ts` MSW 生命週期、`msw/server.ts`、`msw/auth-handlers.ts`、`render.tsx` 的 `renderApp()`),測試檔與元件同資料夾、同名 `.test.tsx`(GEN-01)。
@@ -63,13 +69,20 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 ### 環境與逾時
 
 - preset 用 `@repo/jest-presets/browser-esm`(jsdom + Node 的 fetch / Request / Response / BroadcastChannel 全域給 MSW;ts-jest ESM 模式 —— react-router、use-intl 只出 ESM);`packages/ui` 用同一個 preset 但覆寫 `testEnvironment`(TEST-09)。
-- 渲染一律用 `renderApp()`(帶 Intl / Theme / QueryClient / Session / Router 的完整 providers),不裸 render 元件。
+- 渲染一律用 `renderApp()`;`test/test-app.tsx` 與正式 `App.tsx` 共用 `RootProviders`(既有 AppProviders 加上表單模組 options 注入),測試 app 再接 Router。不要裸 render 元件或各自重建一套 providers。
+- 表單 options 的 context 與 hook 在 `hooks/useFormModuleOptions.ts`,Provider 在 `app/providers/FormModuleOptionsProvider.tsx`。元件測試經 test-app 或 hooks 層 context 注入設定,不從 components 測試反向 import app Provider;缺 Provider 應報接線錯誤,有 Provider 但缺 key 才用預設。
 - **逾時有兩層**:preset 的 `testTimeout` 15 秒(單一測試;CI runner 慢,jsdom + MSW + ts-jest ESM 的第一個測試要付暖機成本),以及 testing-library 的 `findBy*` / `waitFor`(`src/test/setup.ts` 已 `configure({ asyncUtilTimeout: 5000 })`)。個別測試不自行加 timeout。
 - Jest 設定拆成多個 `projects` 時,在根設定沿用 `testTimeout: preset.testTimeout`。`testTimeout` 是全域選項,只放在各 project 的 preset 不會生效,會退回 Jest 預設的 5 秒;不要另寫較長時限。先例與正本:`apps/admin/jest.config.mjs`、`packages/jest-presets/browser-esm/jest-preset.mjs`。
 - **httpOnly cookie 在 jsdom 看不到**,用 `authWorld({ hasRefreshCookie })` 這類旗標模擬「瀏覽器有沒有帶 cookie」並計數請求;MSW `server.use()` 的 handler **先列的先贏**。
-- **Vite 專屬語法進不了 jest**:`import.meta.glob`(`?raw` 載入 md、圖片清單…)是 Vite 的編譯期轉換,jest 直接載入會 `(intermediate value).glob is not a function`。做法:**把 glob 包成一支只有 glob 的模組**(`lib/help-registry.ts`),測試用 `moduleNameMapper` 整支換成 `src/test/` 的假實作(介面相同,另給 `setXxx` / `resetXxx`,`setup.ts` 每個測試後歸零);判斷邏輯不要放進被換掉的那一層,抽成純函式另外測。**不要**逐檔 `jest.unstable_mockModule` —— 殼的所有測試都會經過它,等於每個測試檔都要動。
+- **Vite 專屬語法進不了 jest**:`import.meta.glob`(`?raw` 載入 md、圖片清單…)是 Vite 的編譯期轉換,jest 直接載入會 `(intermediate value).glob is not a function`。做法:**把讀檔與組裝入口集中在 `lib/help-registry.ts`**,測試用 `moduleNameMapper` 整支換成 `src/test/help-registry.ts`(保留相同介面與 set/reset,`setup.ts` 每個測試後歸零)。兩邊共用 `lib/module-help.ts` 的純合成與查詢,測試來源也分 base / additions / replacements;判斷邏輯不能藏在被換掉的入口。**不要**逐檔 `jest.unstable_mockModule` —— 殼的所有測試都會經過它,等於每個測試檔都要動。
 - **jest 的 `moduleNameMapper` 也是先列的先贏**:`^@/lib/help-registry$` 這種精確鍵要排在通則 `^@/(.*)$` **前面**,否則被通則吃掉(`apps/admin/jest.config.mjs`)。
 - **zustand store 是模組層單例**,`src/test/setup.ts` 要在每個測試後歸零。
+
+### 專案頁面登記與 help
+
+- 正式來源載入測試保留底座與專案實際登記表;專案 fixture 用獨立 Jest project 的精確 mapper 只替換 `app/project/module-pages.ts` 與 `app/project/page-replacements.ts`,走真正 `app/module-pages.tsx`、RootProviders、AppRoutes、ModuleRoute 與殼。不可 mock 組裝器或守門,也不能只用 `renderApp` 的 `extra` 掛客製頁來代替登記驗收。
+- 斷言新增頁、同網址替換、移除替換回原版、寬度繼承與明確覆寫,以及撤銷授權後不能 render 或留下頁籤。表單要驗四頁、lazy、模板優先序、申請中心及不同 options 組裝互不污染。fixture 不進正式 project 清單,不放寬分層或循環依賴檢查。
+- help 需分別驗三來源碰撞與替換規則、實際 HelpButton 顯示選中的內容及通用回退。另跑真 Vite build 與 `check:help-bundle`,涵蓋三來源、錯命名及必備底座通用檔;bundle 有文字只證明收檔,不等於替換內容已正確顯示。指令見 [toolbox](../../agents/toolbox.md#pnpm--turbo建置測試格式),完整驗收見[功能登記規格](../../plans/feature-registration.md#驗收)。
 
 ### 依元件而定的陷阱
 
@@ -245,5 +258,5 @@ expect(declaredValue(rules, "background-color")).toBe(disabledTrackColor);
 
 - `apps/api/src/auth/password/password.test.ts` 的 `setPassword` 相關四案偶爾整組逾時(疑與 CI runner 慢 + argon2 雜湊有關)。
 - **觀察名單**(各只紅過一次、單獨跑綠):
-  - `apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx` 的「新增使用者:選『直接設定初始密碼』…」。
-  - `apps/admin/src/pages/system/FormsPage/FormsPageVersionViewer.test.tsx`:全套並行時逾時過;預防寫法見 TEST-08「設計器頁的測試一案只做一件事」。
+  - `apps/admin/src/pages/base/system/UserManagerPage/UserManagerPage.test.tsx` 的「新增使用者:選『直接設定初始密碼』…」。
+  - `apps/admin/src/pages/base/system/FormsPage/FormsPageVersionViewer.test.tsx`:全套並行時逾時過;預防寫法見 TEST-08「設計器頁的測試一案只做一件事」。

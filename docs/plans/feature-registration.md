@@ -1,6 +1,6 @@
 # 功能登記與客製替換規格
 
-本規格定義[底座同步計畫](base-sync.md)工作包 B 的實作契約。目標是把底座與專案的功能來源分開,由固定入口組裝;專案可以新增功能與另存客製頁,底座更新時仍保有自己的原版。這是待實作規格,實際進度與驗證以 issue/PR 為準。
+本規格定義[底座同步計畫](base-sync.md)工作包 B 的實作契約。目標是把底座與專案的功能來源分開,由固定入口組裝;專案可以新增功能與另存客製頁,底座更新時仍保有自己的原版。本文件固定本包契約,實際進度、驗收與發布以 issue/PR 為準。
 
 本包保留現有網址、授權、資料隔離與 GraphQL 契約。不改 seed/migration 所有權,不建立底座 repo、初始化 skill 或跨 repo 更新工具;這些依共同計畫另行交付。登記功能不代表替使用者授權。
 
@@ -8,13 +8,13 @@
 
 先讀 `CLAUDE.md`、[文件入口](../README.md)、[協作規則](../agents/collaboration.md)、本文件與負責的 issue,再讀對應規範與模組文件。實作與測試由 Claude 負責,主流程整理規格、審查及 issue/PR/release;共同文件足以供其他人或只有 Claude 時接手。
 
-| 票的範圍     | 唯一寫入範圍                                                         | 驗收責任                                               |
-| ------------ | -------------------------------------------------------------------- | ------------------------------------------------------ |
-| 規格         | 本文件、共同計畫及 README 指路                                       | 接縫、所有權、負例及下游檔案歸屬明確                   |
-| 後台登記     | `apps/admin/**`、`packages/config-eslint/frontend-style.js` 及其測試 | 頁面搬移、新增/替換、表單設定、help、分層與真 build    |
-| API 登記     | `apps/api/**`;GraphQL 產物只允許重產驗證,契約應不變                  | 功能/資料登記、組織資料檢查、Recipes 搬移、真 API 驗收 |
-| GraphQL 文件 | `packages/graphql/**`、CI 的文件登記驗證步驟                         | 文件分區、重名拒絕、共用產物與既有呼叫相容             |
-| 維護指引     | `CLAUDE.md`、`AGENTS.md`、`CONTEXT.md`、`docs/**` 的相關指路與規則   | 依最終程式更新正本、盤點及新增模組流程                 |
+| 票的範圍     | 唯一寫入範圍                                                                                                                                                          | 驗收責任                                               |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 規格         | 本文件、共同計畫及 README 指路                                                                                                                                        | 接縫、所有權、負例及下游檔案歸屬明確                   |
+| 後台登記     | `apps/admin/**`、`packages/config-eslint/frontend-style.js` 及其測試;`packages/i18n/src/dead-keys.test.ts` 的搬移連動                                                 | 頁面搬移、新增/替換、表單設定、help、分層與真 build    |
+| API 登記     | `apps/api/**`;GraphQL 產物只允許重產驗證,契約應不變                                                                                                                   | 功能/資料登記、組織資料檢查、Recipes 搬移、真 API 驗收 |
+| GraphQL 文件 | `packages/graphql/**`、CI 的文件登記驗證步驟                                                                                                                          | 文件分區、重名拒絕、共用產物與既有呼叫相容             |
+| 維護指引     | `CLAUDE.md`、`AGENTS.md`、`CONTEXT.md`、`docs/**` 的相關指路與規則;`.claude/skills/module-scaffold/SKILL.md` 與其 `references/pointers.md` 僅修必要指路及共用流程引用 | 依最終程式更新正本、盤點及新增模組流程                 |
 
 每票一個工作樹與 owner。三張程式票從規格基線各自分支;API 票若重產造成公開契約或 generated diff,先回報而不寫入 GraphQL owner 的檔案。維護指引最後依三票成果整合,避免把待實作設計寫成現況。程式票不可改 `CLAUDE.md`、`AGENTS.md` 或規則本文;help 內容及必要 import 路徑歸後台票。任何檔案超過 `max-lines` 時拆實作檔,不擴大 lint 豁免。
 
@@ -28,7 +28,7 @@
 | API 資料           | `src/database/`、`database/base/registrations.ts`        | `src/project/database/`、`project/database/registrations.ts`                        | `database/database.module.ts`                    |
 | GraphQL operations | `packages/graphql/src/documents/base/`                   | `packages/graphql/src/documents/project/`                                           | `packages/graphql/codegen.ts` 與 generate script |
 
-admin 保留 `app → pages → components → hooks/stores → lib` 分層。現有 pages 全搬到 `pages/base/`,其內部路徑維持;示範共用 CRUD 元件由 `pages/demo/shared/` 提升到 `components/base/crud/`,避免專案頁引用底座頁內部。元件既有名稱先保留,不混入改名。其他層既有共用內容仍由底座維護,專案內容放該層 `project/`;不改成頂層 `src/project/` 繞過分層。前台業務畫面維持由專案設計,本包不搬前台版面。
+admin 保留 `app → pages → components → hooks/stores → lib` 分層。現有 pages 全搬到 `pages/base/`,其內部路徑維持;示範共用 CRUD 元件放在 `components/base/crud/`,避免專案頁引用底座頁內部。元件既有名稱先保留,不混入改名。其他層既有共用內容仍由底座維護,專案內容放該層 `project/`;不改成頂層 `src/project/` 繞過分層。前台業務畫面維持由專案設計,本包不搬前台版面。
 
 底座檔不可反向 import 專案來源;只開放表中固定組裝入口。admin 的 `src/test/**` 可豁免新增的所有權限制,既有分層與循環依賴檢查仍適用;不放寬整個 app 層。專案頁不可 import 底座頁內部,共用能力經 components/hooks/lib 使用。所有權檢查必須保留現有分層與循環依賴檢查,不能以新的 ESLint 設定蓋掉舊 zones。
 
@@ -81,9 +81,9 @@ composeModulePages(input: {
 
 純型別與 `composeFormModuleOptions(entries)` 放 `lib/form-engine/form-module-options.ts`。entry 為 `{ moduleKey, options? }`,輸出 `ReadonlyMap<string, Readonly<Required<FormModuleOptions>>>`;同 key 拒絕,未給模板沿用既有預設。函式不修改輸入。
 
-新增 `components/form-engine/FormModuleOptionsProvider/` 的 Provider、context、hook,分檔遵守元件規範。`useFormModuleOptions(moduleKey)` 有 Provider 但無該 key 時回預設,缺 Provider 則明確拋接線錯誤。`useTabLabelRenderer` 透過 hook 讀設定,components 不 import app。
+依 REACT-02,新增 `hooks/useFormModuleOptions.ts`,同檔匯出注入用的 context 與 hook,只依賴 lib 的純型別。Provider 放 `app/providers/FormModuleOptionsProvider.tsx`。`useFormModuleOptions(moduleKey)` 有 Provider 但無該 key 時回預設,缺 Provider 則明確拋接線錯誤。`useTabLabelRenderer` 向下引用 hook 讀設定,components 不 import app。
 
-新增 `app/providers/RootProviders.tsx`,讀取固定組裝結果,以既有 `AppProviders` 包住表單設定 Provider。`App.tsx` 與 `test/test-app.tsx` 共用它;一般表單元件測試顯式供給 Provider。底座表單模板與表單自身模板的優先序、申請中心詳情與頁籤標題行為不變。
+新增 `app/providers/RootProviders.tsx`,讀取固定組裝結果,以既有 `AppProviders` 包住表單設定 Provider。`App.tsx` 與 `test/test-app.tsx` 共用它;一般表單元件測試透過 test-app 或 hooks 層 context 注入設定,不從 components 測試反向 import app Provider。底座表單模板與表單自身模板的優先序、申請中心詳情與頁籤標題行為不變。
 
 ## Help 合成與產物
 
@@ -133,9 +133,11 @@ DI token 就是 repository 身分,不另造 repository key。所有 repository p
 
 一般新增專案 model 每個都必須有組織歸屬檢查。BaseRepository 增加只讀 modelName/collection 識別 getter,不暴露 Model;reader 的 DI factory 檢查專案 check 的 repository 確為 BaseRepository 且實際識別吻合,錯綁另一張表即失敗。底座專用 adapters 保持現有型別與行為。
 
-新增專案租戶資料沿用示範模組形狀:BaseRepository、baseFields、tenantScope 的 business scope、`orgId`、`allowGlobal: false`;模組資料使用 `moduleData: true`,專案 check 的 ownerField 固定 `orgId`。掛 plugin 前即設定 collection。baseFields 增加 WeakSet marker/getter,安裝完成才記錄;tenantScope 沿用 getTenantScope 並記錄安裝時的 collection 供驗證。缺 plugin、錯 scope、事後才補 collection、漏 check、錯綁 repository 都拒絕;不讀 Mongoose 私有 metadata,不把欄位存在當成 middleware 證據。
+新增專案租戶資料沿用示範模組形狀:BaseRepository、baseFields、tenantScope 的 business scope、必填 ObjectId 型別的 `orgId`、`allowGlobal: false`;模組資料使用 `moduleData: true`,專案 check 的 ownerField 固定 `orgId`。以公開 schema path 檢查 orgId 欄位形狀,避免 Mongoose strict 模式把未宣告的歸屬值移除;這不取代 plugin 安裝證據。掛 plugin 前即設定 collection。baseFields 增加 WeakSet marker/getter,安裝完成才記錄;tenantScope 沿用 getTenantScope 並記錄安裝時的 collection 供驗證。缺 plugin、錯 scope、事後才補 collection、漏 check、錯綁 repository 都拒絕;不讀 Mongoose 私有 metadata,不把欄位存在當成 middleware 證據。
 
 不得讓專案 callback 取得繞過隔離的 operator。API lint 擋底座反向引用 project,只允許 AppModule、DatabaseModule 組裝入口;限制業務服務自行使用 Mongoose 注入/註冊工具,並保持 no-raw-model-query 覆蓋專案資料層。測試 fixture 只豁免新增的所有權方向限制,不豁免 raw query 規則。
+
+Nest schema 的 `@Prop.type` 使用 Mongoose 的 `Schema.Types.ObjectId`,不可使用 bson 的 `Types.ObjectId` 而產生 Mixed;TypeScript 屬性型別仍可用 `Types.ObjectId`。`required` 必須無條件成立,包含陣列寫法的條件函式也拒絕;正確宣告見[新增模組步驟](../agents/module-scaffold.md#步驟-2schema基礎欄位-plugin租戶過濾)。既有底座 schema 不在新增專案 model 的驗證範圍內。
 
 此接縫是受審查程式的組裝契約,不是執行不受信任外掛的沙盒。不遞迴稽核任意 Nest metadata,不新增服務發現、多連線或 runtime override framework。未登記的私自註冊不能宣稱受碰撞驗證保護,由來源限制與 review 擋下。
 
@@ -155,7 +157,7 @@ DI token 就是 repository 身分,不另造 repository key。所有 repository p
 
 `recipes.graphql` 搬到 `src/documents/project/`,其餘既有 documents 搬到 `src/documents/base/`;codegen 既有遞迴 glob 可涵蓋兩者。generated 仍只有一份,front/admin 繼續 import `@repo/graphql`,不建立兩份 hooks 或讓專案覆寫底座 operation。
 
-新增 `scripts/check-documents.mjs` 與 Node test:用既有 graphql parser 逐檔驗證命名 operation/fragment 全域唯一,相同內容同名也拒絕,錯誤包含兩個來源路徑。底座與專案同一套規則,不以檔案順序決定勝者。拒絕來源根目錄散落文件及匿名 operation;支援子目錄,檔名不作 operation 的身分。`generate` 寫產物之前先跑此檢查,CI 的 codegen 流程同步跑負例測試。
+新增 `scripts/check-documents.mjs` 與 Node test:用既有 graphql parser 逐檔驗證 operation 名稱與 fragment 名稱各自全域唯一,同一種定義相同內容同名也拒絕,錯誤包含兩個來源路徑。底座與專案同一套規則,不以檔案順序決定勝者。拒絕來源根目錄散落文件、匿名 operation 與來源樹中的 symbolic link;支援一般子目錄,檔名不作 operation 的身分。`generate` 寫產物之前先跑此檢查,CI 的 codegen 流程以專用 `test:documents` 跑負例測試,不接收共用 Jest 測試旗標。
 
 保留「真 AppModule 產 schema → codegen」單一路徑;此次重產不得改變公開 schema、generated 型別與 hooks 的契約。若搬目錄只造成 generated 區塊順序變動,由 GraphQL 票附匯出與 operation 一致的證據,不手改產物。GraphQL 型別與 resolver 欄位碰撞另由真 schema 建置及 API 測試驗證,feature key 唯一不代表 schema 名稱安全。
 

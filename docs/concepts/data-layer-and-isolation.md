@@ -10,13 +10,39 @@
 | 全域資料     | 不掛 plugin                       | 不過濾                            | `modules`、`permissions`、`field_categories`、`data_scope_targets`                                                           |
 | 關聯歸屬資料 | 沒有 `orgId`,歸屬走核心關聯       | 資料層不過濾;模組先查關聯再查本表 | `users`(經 `org_user`)、`roles`(經 `org_role`)                                                                               |
 
-- 哪些 schema 掛了 plugin、各屬治理類或業務類,由 `apps/api/src/database/schemas/base-plugins.schema.test.ts` 鎖定。
+- 底座 schema 的 plugin 與治理類 / 業務類由 `apps/api/src/database/schemas/base-plugins.schema.test.ts` 鎖定;新增專案資料另由登記驗證與真資料層測試檢查。
 - `fields` 掛 `allowGlobal`:`orgId = null` 的全域種子對所有人可見。
 - **模組資料表**:schema 明確開 `tenantScopePlugin({ moduleData: true })` 的租戶資料(`demo_items_one`、`demo_items_two`、`form_submissions`、`workflow_instances`),多兩個欄位 `moduleKey`(必填;固定欄位模組寫死自己的 key,表單提交與審核實例寫綁的模組)與 `tenantId`(依 `orgId` 的祖先推導的租戶頂層,根組織資料為 null;前端不可指定、一般更新不可改)。`tenantId` 只用於租戶邊界、索引與日後分片,**不決定可見範圍**(仍看 `orgId`)。資料範圍規則只套模組資料表,但 `workflow_instances` 禁止登記資料目標(ADR-0008)。
 - **以 `tenantId` 為邊界的表**:`business_relationships`(業務關聯:`org_form` 表單分派 / 啟用、`org_workflow` 流程分派、`org_form_workflow` 流程綁定)、`workflows`、`workflow_tasks` 不掛 plugin —— 部門使用者的可見範圍不含租戶頂層,審核者也不一定在申請人組織的可見範圍內,照可見範圍過濾會查不到。改以必填的 `tenantId` 為邊界,各自的專屬 repository(`BusinessRelationshipsRepository`、`WorkflowsRepository`、`WorkflowTasksRepository`)每個方法強制帶它(沒帶就拋錯;共用流程 / 根組織要明給 `null`)。
 - **表單與版本定義**:`forms`、`form_versions`、`workflow_versions` 不掛 plugin;誰看得到哪一份由服務層依所屬表單 / 流程的擁有者(`forms.ownerOrgId`、`workflows.tenantId`)與分派關聯判斷(如 `apps/api/src/forms/form-access.service.ts`),不是可見範圍。
 
-正本:`apps/api/src/database/plugins/tenant-scope.plugin.ts`、`apps/api/src/database/schemas/`
+正本:`apps/api/src/database/plugins/tenant-scope.plugin.ts`、`apps/api/src/database/schemas/`、`apps/api/src/project/database/`
+
+## 底座與專案資料的組裝
+
+底座與專案各自維護功能與資料登記。`AppModule` 組合底座功能與 `ProjectModule`;`DatabaseModule` 組合 `database/base/registrations.ts` 與 `project/database/registrations.ts`。登記功能不代表授予使用者權限,也不替代模組及權限的 seed 宣告。
+
+schema、repository 與組織資料檢查在同一筆資料登記中以 modelName 與 DI token 連結。組裝時拒絕重複 key、model name、collection、provider token 與檢查 key,也拒絕指向不存在或不同 model 的 repository / 檢查。token 以 class、string、symbol 本體比較,不靠類別名稱猜身分。
+
+底座 repository 定義放在 `database/base/` 的獨立檔,不回指組裝入口。`database.module.ts` 保留既有 repository 匯出以相容消費端,業務模組只注入這些受控出口;Mongoose model 與整個 MongooseModule 不對外匯出。新增專案資料只改專案登記與實作,不在底座的 providers 或 exports 陣列補項。
+
+一般新增專案 model 採必填 ObjectId 的 `orgId` 業務資料形狀,宣告方式見[新增模組步驟](../agents/module-scaffold.md#步驟-2schema基礎欄位-plugin租戶過濾)。登記驗證會以公開 schema path 檢查欄位宣告:使用 BaseRepository、baseFields 與 tenantScope,設定 `kind: "business"`、`allowGlobal: false`;模組資料使用 `moduleData: true`。先設定 collection 再掛 plugin,保留原 schema 物件。登記檢查 baseFields 的安裝標記、tenantScope 設定與安裝當下的 collection;只補幾個同名欄位不能代替 middleware,事後改 collection 也不能補救已捕捉的舊值。
+
+每張一般新增專案 model 都須登記歸屬欄為 `orgId` 的業務資料存在檢查。reader 建立時再核對 repository 確為 BaseRepository,且其只讀 modelName / collection 識別與登記相符;錯綁另一張表會使啟動失敗。`DatabaseModule` 也保留 DataScopeRuleProvider 的啟動檢查,缺少規則提供者不能正常啟動。
+
+**食譜原型的既有例外**:`project/recipes/` 保留公開查詢與建立介面,`project/database/` 的專用 repository 存取 `recipes`。它沒有 orgId,未使用 baseFields、tenantScope 或 BaseRepository。固定 DatabaseModule 入口精確鎖定 Recipe model、recipes collection 與專用 repository token,仍檢查名稱碰撞,只豁免租戶 plugin、BaseRepository 與組織資料檢查要求。一般專案登記沒有 unsafe 或略過檢查開關,新增租戶模組不可照抄此例外。
+
+這是受審查程式的組裝契約。來源限制、裸 Model 查詢 lint 與 review 共同守住邊界;登記驗證不代替 RBAC,也不宣稱能稽核任意 Nest module 內部的私自註冊。
+
+正本:`apps/api/src/app.module.ts`、`apps/api/src/database/database.module.ts`、`apps/api/src/database/registration.ts`、`apps/api/src/database/org-business-data.reader.ts`;完整介面見[功能登記規格](../plans/feature-registration.md#api-與資料登記契約),新增步驟見[模組 scaffold](../agents/module-scaffold.md)。
+
+### 組織業務資料檢查
+
+刪組織與撤銷開通共用前置檢查,完成授權與對象資格判斷後,由 `OrgBusinessDataReader` 依登記回答是否仍有業務資料。七個底座 BaseRepository 檢查與專案檢查共用受控的存在性查詢;workflows / tasks 的 tenantId 專用檢查保留底座 adapter。`audit_logs` 是歷史紀錄,不阻擋刪除。
+
+檢查只接受已驗證的組織 id、登記的 repository 與歸屬欄,不接受專案 callback 或任意 filter。資料範圍把資料藏起來時仍須阻擋刪除;查詢出錯也不能當成沒有資料。新增 collection 的責任是補完整專案資料登記,不修改 OrgsService 的業務清單。
+
+正本:`apps/api/src/database/org-business-data.reader.ts`、`apps/api/src/orgs/orgs.service.ts`、`apps/api/src/orgs/tenant-ops.service.ts`、`docs/modules/org-manager.md`「刪除」。
 
 ## 核心關聯
 
@@ -42,7 +68,7 @@
 
 ## 基礎欄位、軟刪除、更新保護
 
-- 每張表由 `baseFieldsPlugin` 掛上 `createdAt`、`updatedAt`、`createdBy`、`updatedBy`、`deletedAt`。schema class 不宣告。
+- 底座與一般新增專案資料表由 `baseFieldsPlugin` 掛上 `createdAt`、`updatedAt`、`createdBy`、`updatedBy`、`deletedAt`。schema class 不宣告;食譜原型的例外見上方「底座與專案資料的組裝」。
 - 刪除 = 寫 `deletedAt`。之後查詢預設排除;要看已刪除的明講 `includeDeleted`。
 - 已刪除的不能再更新。
 - 硬刪除只有四種:關聯的移除、補償刪除(`hardDeleteById`,本次請求剛建、尚未對外可見的文件)、從未發布的版本草稿(`hardDeleteDraft`)、退役的表單欄位級權限。清單與理由見 ADR-0007;其餘抹除走 cleanup migration。
@@ -71,7 +97,7 @@ service 呼叫 BaseRepository.xxx(operator, …)
 - 已知限制:`populate()` 的子查詢不帶上下文,關聯資料分兩次查。
 - **四個登記在案的例外出口**(登記表在 ADR-0005「例外出口」):
   - `BaseRepository.findOwnById` / `findOwnOne` / `findOwnAndUpdate`:只給表單提交用 —— 建立者讀自己的單、寫自己的草稿。可見範圍照套、條件加 `createdBy = 操作者`,**不套資料範圍規則**(否則規則把草稿擋掉時,建立者連自己的草稿都送不出去)。列表不放寬。
-  - `BaseRepository.existsAny`:只給前置檢查回答「有沒有」(刪組織、撤銷開通的「無業務資料引用」)。**不套資料範圍規則** —— 規則會收窄操作者看得到的,數到 0 就把還有資料的組織誤判成可刪,前置檢查必須 fail-closed。做法是方法內部在查詢上設 `existenceCheck`,中介層讀到就跳過資料範圍規則(租戶過濾仍依操作者上下文套上)。簽名是 `existsAny(operator, ownerField, orgId)`:條件只能是歸屬欄(`orgId` / `ownerOrgId`)等於某個組織,只回有無。呼叫端登記在 `EXISTS_ANY_CALLERS`,測試掃 src 鎖定,旗標本身也只准出現在資料層三個檔。
+  - `BaseRepository.existsAny`:只給前置檢查回答「有沒有」(刪組織、撤銷開通的「無業務資料引用」)。**不套資料範圍規則** —— 規則會收窄操作者看得到的,數到 0 就把還有資料的組織誤判成可刪,前置檢查必須 fail-closed。做法是方法內部在查詢上設 `existenceCheck`,中介層讀到就跳過資料範圍規則(租戶過濾仍依操作者上下文套上)。簽名是 `existsAny(operator, ownerField, orgId)`:條件只能是歸屬欄(`orgId` / `ownerOrgId`)等於某個組織,只回有無。唯一受控 caller 是 `database/org-business-data.reader.ts`,登記在 `EXISTS_ANY_CALLERS` 並由測試掃 src 鎖定;專案只能提供檢查登記,不能自行呼叫。旗標本身也只准出現在資料層三個檔。
   - `apps/api/src/database/form-submission-usage.ts`:退役欄位級權限清理的三層檢查要**跨全部租戶**計數提交(少算一筆草稿就會把還在用的權限刪掉),不經 BaseRepository;只回筆數與版本號,不回內容。
   - `apps/api/src/database/workflow-submission-store.ts`:審核流程(引擎、讀取授權、申請中心)讀寫提交,不套可見範圍與資料範圍規則,以 `tenantId` 為邊界;允許呼叫它的檔案登記在該檔 `WORKFLOW_SUBMISSION_STORE_CALLERS`,由測試鎖定。
 - 對全員生效(套用對象 `all`)的資料範圍規則連系統上下文也會收窄,所以「必須看到全部」的系統讀取只能走上面登記過的出口(ADR-0008)。
@@ -80,7 +106,7 @@ service 呼叫 BaseRepository.xxx(operator, …)
 
 ## 操作者上下文的四個集合
 
-BaseRepository 每個方法的第一個參數。四個集合各有用途,不可互相代用:
+BaseRepository 資料操作方法的第一個參數。四個集合各有用途,不可互相代用:
 
 | 集合            | 內容                                   | 誰用                                                |
 | --------------- | -------------------------------------- | --------------------------------------------------- |

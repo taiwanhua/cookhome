@@ -4,7 +4,7 @@
 
 管理後台使用者:在操作者的管理範圍內新增(寄啟用信或直接設初始密碼)、編輯基本資料、停用 / 啟用、調整所屬組織(含移除時的角色資格 dry-run)、指派角色、把一位使用者的組織與角色複製給另一位;身分證字號受欄位級權限控管。相關 ADR:[0003](../adr/0003-dual-account-system.md)(帳號、授予、移除)、[0004](../adr/0004-permission-model.md)、[0007](../adr/0007-base-fields-and-data-protection.md)(nationalId 欄位加密)、[0009](../adr/0009-tenant-provisioning.md)(擁有者保護、啟用信)。
 
-正本:`apps/api/src/users/`、`apps/admin/src/pages/system/UserManagerPage/`
+正本:`apps/api/src/users/`、`apps/admin/src/pages/base/system/UserManagerPage/`
 
 ## 模組 key 與畫面
 
@@ -34,7 +34,7 @@
 
 「複製組織與角色」不另設權限 key:要同時持有 `view`、`manage-orgs`、`assign-roles` 三個(它同時改所屬組織與角色授予)。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/pages/system/UserManagerPage/user-manager-permissions.ts`
+正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/pages/base/system/UserManagerPage/user-manager-permissions.ts`
 
 ## 資料
 
@@ -137,7 +137,7 @@ copyUserOrgRoles(input: { sourceUserId, targetUserId, mode: MERGE | REPLACE, dry
 | `UsersInput.orgId`                                                       | 整個管理範圍                 | **不接受**:前端永遠不送 `null`,送了會在 `toObjectId` 擋下(見 admin 頁面) |
 | `UsersInput.keyword`                                                     | 不篩                         | 同缺席                                                                   |
 
-正本:`apps/api/src/users/users.resolver.ts`、`apps/api/src/users/dto/`、`apps/api/src/users/models/`、`packages/graphql/src/documents/users.graphql`
+正本:`apps/api/src/users/users.resolver.ts`、`apps/api/src/users/dto/`、`apps/api/src/users/models/`、`packages/graphql/src/documents/base/users.graphql`
 
 ## admin 頁面
 
@@ -152,10 +152,10 @@ copyUserOrgRoles(input: { sourceUserId, targetUserId, mode: MERGE | REPLACE, dry
   - **「所屬組織」照常可開**:api 只擋「把擁有者移出他擁有的租戶頂層」,整個按鈕 disabled 會比 api 嚴,擁有者連把自己加進分店都做不到。鎖在彈窗裡:樹根(= 他擁有的租戶頂層,`protectedOwnerOrgId`)那一個節點以 `Tree` 的 `disabledCheckIds` 鎖住(維持勾選、取消不掉),其餘組織照常可勾可取消。「哪個組織是他擁有的」不必向 api 多要欄位 —— `protectedOwnerUserId` 本來就是從樹根的 `ownerUserId` 來的。
   - api 仍會回 `OWNER_PROTECTED`,彈窗照樣顯示訊息(fail-closed 在後端,前端只是先講清楚)。
 - **複製組織與角色**(`CopyOrgRolesDialog/`):列動作有 view + manage-orgs + assign-roles 三個權限才出現。目標用共用的 `components/UserPicker/`(`allowDisabled` 讓停用的人可選、`excludeUserIds` 排除來源本人與操作者自己)。選目標或切合併 / 取代就重送一次 `dryRun: true`;預覽以「目標 × 方式」為鍵,慢回來的過時預覽不會蓋掉新的。確認鈕在預覽未完成、有 `blockers` 或沒有差異時停用;成功跳提示並重查清單與目標那一筆(DATA-04);預覽或送出失敗只在彈窗內就地顯示原因、不跳 Snackbar(DATA-06 的 `error` 回 `null`),預覽失敗也以「目標 × 方式」比對,被丟棄的過時請求失敗不寫入。三句方式說明(合併 / 取代 / 不同步)的正本是 i18n 的 `admin.userManager.copyOrgRoles.*`。
-- **密碼三頁**(`apps/admin/src/pages/auth/`):`/forgot-password`(任何 Email 都顯示已寄出)、`/set-password?token=…`(啟用與重設共用;成功持回傳 token 直接進後台;`ACTION_TOKEN_INVALID` 或無 token → 連結失效 + 一鍵重新申請)、`/change-password?next=…`(已登入;路由守門 `RequireAuth` 依 `me.mustChangePassword` 或 fetch 層攔到的 `MUST_CHANGE_PASSWORD` 導來,成功後清旗標、重取 `me`、回 `next`)。密碼規則即時提示與 api 同用 `@repo/domain/password`;文案在 `admin.forgotPassword` / `admin.setPassword` / `admin.changePassword` / `admin.passwordRules`。
+- **密碼三頁**(`apps/admin/src/pages/base/auth/`):`/forgot-password`(任何 Email 都顯示已寄出)、`/set-password?token=…`(啟用與重設共用;成功持回傳 token 直接進後台;`ACTION_TOKEN_INVALID` 或無 token → 連結失效 + 一鍵重新申請)、`/change-password?next=…`(已登入;路由守門 `RequireAuth` 依 `me.mustChangePassword` 或 fetch 層攔到的 `MUST_CHANGE_PASSWORD` 導來,成功後清旗標、重取 `me`、回 `next`)。密碼規則即時提示與 api 同用 `@repo/domain/password`;文案在 `admin.forgotPassword` / `admin.setPassword` / `admin.changePassword` / `admin.passwordRules`。
 - **與 Figma 的差異(刻意)**:清單多一欄「帳號」(30:105 沒有,但清單欄位的正本是本文);列動作多一個「所屬組織」(31:98 只有編輯 / 指派角色 / 停用,但所屬組織需要入口);新增彈窗的「初始密碼」欄改成選了 PASSWORD 才出現(202:743 常駐);新增 / 編輯彈窗的「啟用此使用者」勾選框不做(`createUser` / `updateUser` 沒有 `enabled` 欄位,啟用停用走專用動作);編輯彈窗的所屬組織唯讀(所屬組織走專用彈窗)。
 
-正本:`apps/admin/src/pages/system/UserManagerPage/`(`useUserManagerData.ts`、`useUserOrgsFlow.ts`、`OrgPickerDialog/`、`OrgChangeDialog/`、`AssignRolesDialog/`、`CopyOrgRolesDialog/`)、`apps/admin/src/components/UserPicker/`、`apps/admin/src/components/OrgTreePicker/OrgTreePicker.tsx`、`apps/admin/src/lib/role-eligibility.ts`、`apps/admin/src/pages/auth/`
+正本:`apps/admin/src/pages/base/system/UserManagerPage/`(`useUserManagerData.ts`、`useUserOrgsFlow.ts`、`OrgPickerDialog/`、`OrgChangeDialog/`、`AssignRolesDialog/`、`CopyOrgRolesDialog/`)、`apps/admin/src/components/UserPicker/`、`apps/admin/src/components/OrgTreePicker/OrgTreePicker.tsx`、`apps/admin/src/lib/role-eligibility.ts`、`apps/admin/src/pages/base/auth/`
 
 ## 錯誤碼
 
@@ -172,7 +172,7 @@ copyUserOrgRoles(input: { sourceUserId, targetUserId, mode: MERGE | REPLACE, dry
 
 錯誤碼總表在 GQL-04。前端解讀集中在 `user-manager-error.ts`。
 
-正本:`apps/api/src/users/users-error.ts`、`apps/admin/src/pages/system/UserManagerPage/user-manager-error.ts`、`docs/standards/api/graphql-schema.md`
+正本:`apps/api/src/users/users-error.ts`、`apps/admin/src/pages/base/system/UserManagerPage/user-manager-error.ts`、`docs/standards/api/graphql-schema.md`
 
 ## 稽核
 
@@ -186,16 +186,16 @@ copyUserOrgRoles(input: { sourceUserId, targetUserId, mode: MERGE | REPLACE, dry
 
 - api:`apps/api/src/users/users.test.ts`;密碼流程 `apps/api/src/auth/password/password.test.ts`
 - api:複製組織與角色 `apps/api/src/users/copy-user-org-roles.test.ts`
-- admin:`apps/admin/src/pages/system/UserManagerPage/UserManagerPage.test.tsx`、`UserManagerFeedback.test.tsx`、`AssignRolesDialog/AssignRolesDialog.test.tsx`、`CopyOrgRolesDialog/CopyOrgRolesDialog.test.tsx`(共用 `user-manager-test-support.ts`)
+- admin:`apps/admin/src/pages/base/system/UserManagerPage/UserManagerPage.test.tsx`、`UserManagerFeedback.test.tsx`、`AssignRolesDialog/AssignRolesDialog.test.tsx`、`CopyOrgRolesDialog/CopyOrgRolesDialog.test.tsx`(共用 `user-manager-test-support.ts`)
 - 劇本(`docs/testing/permission-scenarios.md`):劇本 8 組織外、劇本 9 移除所屬組織的 dry-run 三檔、劇本 14 管理範圍 vs 可見範圍、劇本 17 擁有者保護;E2E 為 `apps/e2e/src/specs/scenario-08-out-of-scope.spec.ts`、`scenario-09-org-removal-policy.spec.ts`、`scenario-14-management-scope.spec.ts`、`scenario-17-owner-protection.spec.ts`
 
-正本:`apps/api/src/users/`、`apps/admin/src/pages/system/UserManagerPage/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
+正本:`apps/api/src/users/`、`apps/admin/src/pages/base/system/UserManagerPage/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
 
 ## 使用者說明(help.md)
 
-[system.user-manager.help.md](../../apps/admin/src/md/module-help/system.user-manager.help.md)(build 時打包進說明彈窗;讀者是租戶使用者,不得出現平台視角詞彙)。
+[system.user-manager.help.md](../../apps/admin/src/md/module-help/base/system.user-manager.help.md)(build 時打包進說明彈窗;讀者是租戶使用者,不得出現平台視角詞彙)。
 
-正本:`apps/admin/src/md/module-help/system.user-manager.help.md`
+正本:`apps/admin/src/md/module-help/base/system.user-manager.help.md`
 
 ## 平台視角備註
 

@@ -136,6 +136,8 @@
 
 正本:`apps/api/package.json`、`packages/graphql/package.json`、`apps/db-migrator/package.json`、`apps/db-migrator/src/reset/reset-safety.ts`、`docs/env-registry.md`
 
+GraphQL 文件登記負例用 `pnpm --filter @repo/graphql test:documents`,CI 的 `format-codegen` 執行它。這是 Node test,不接共用 Jest 的 `--forceExit`;一般 `turbo run test` 不會執行此專用指令。`generate` 本身仍會先檢查正式文件來源,失敗不寫產物。
+
 ## 第三方依賴
 
 不是每個套件都列:這裡只記**為了某個功能特地引進、選型有講究**的依賴(誰用、為什麼是它、授權)。版本一律 `npm view <pkg> version` 查 registry,不照記憶寫,並對齊既有同家族套件的主 / 次版本。

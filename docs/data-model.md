@@ -1,10 +1,10 @@
 # 資料模型地圖
 
-底座所有 collection 的**總覽與導航**。欄位、型別、索引的細節**正本在程式碼**:`apps/api/src/database/schemas/*.schema.ts`(每欄有註解),此檔不重複,只給地圖與跨檔約定;各表怎麼運作看「概念」欄指向的文件。
+底座與專案 collection 的**總覽與導航**。欄位、型別、索引的細節**正本在程式碼**:底座 schema 位於 `apps/api/src/database/schemas/`,專案 schema 與 repository 位於 `apps/api/src/project/database/`。此檔不重複欄位定義,只給地圖與跨檔約定;各表怎麼運作看「概念」欄指向的文件。
 
 ## Collection 一覽
 
-「概念」欄指向 `docs/concepts/` 的檔(省略目錄):帳號 = `accounts-and-tenants.md`、授權 = `authorization.md`、資料層 = `data-layer-and-isolation.md`、表單 = `form-engine.md`、流程 = `workflow-engine.md`。
+下表列底座資料,「schema 檔」相對於 `apps/api/src/database/schemas/`。專案資料另列於下一節。「概念」欄指向 `docs/concepts/` 的檔(省略目錄):帳號 = `accounts-and-tenants.md`、授權 = `authorization.md`、資料層 = `data-layer-and-isolation.md`、表單 = `form-engine.md`、流程 = `workflow-engine.md`。
 
 | collection                          | 種子 / 業務                                                          | 用途                                                                                                     | 概念           | schema 檔                         |
 | ----------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------- |
@@ -34,7 +34,15 @@
 
 資料庫另有 migrate-mongo 自己管的 `changelog` / `changelog_lock`(遷移紀錄與鎖,設定在 `apps/db-migrator/migrate-mongo-config.js`),不在 schemas 裡。
 
-## 全表共通
+## 專案資料
+
+| collection | 用途                          | 資料與存取正本                                                                                                            |
+| ---------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `recipes`  | 食譜原型,供前台公開查詢與建立 | `apps/api/src/project/database/recipe.schema.ts`、`recipes-legacy.repository.ts`;API 位於 `apps/api/src/project/recipes/` |
+
+recipes 保留無 orgId 的既有形狀,僅有 Mongoose timestamps,未掛 baseFields / tenantScope,不經 BaseRepository。固定 DatabaseModule 入口精確鎖定 Recipe model、recipes collection 與專用 repository token 為既有例外,仍參與名稱碰撞檢查;一般新增專案資料不得照抄。完整邊界見[功能登記規格](plans/feature-registration.md#recipes-的既有相容邊界)。
+
+## 底座與一般專案資料的共同約定
 
 - **基礎欄位**:`createdAt` `updatedAt` `createdBy` `updatedBy` `deletedAt`(軟刪除)。五個欄位都由 `baseFieldsPlugin` 掛上與自動填:`createdBy` / `updatedBy` / `deletedAt` 由 plugin 加;timestamps 沿用 schema 自己宣告的 `timestamps: true`,沒宣告時由 plugin 補上。
 - **租戶過濾**:租戶資料(有 `orgId`、掛 `tenantScopePlugin`)的查詢一律經 BaseRepository 自動過濾,禁裸 `Model.find`。哪些表屬租戶資料 / 全域資料 / 關聯歸屬資料,見 `docs/concepts/data-layer-and-isolation.md`「三類資料」。
@@ -42,6 +50,7 @@
 - **以 `tenantId` 為邊界、不掛 `tenantScopePlugin` 的表**:`business_relationships`、`workflows`、`workflow_tasks`。這些表沒有 `orgId`,而讀者不一定在資料所屬組織的可見範圍內(部門使用者的可見範圍不含租戶頂層;審核者不一定看得到申請人的組織);存取只經各自的 repository(`BusinessRelationshipsRepository` / `WorkflowsRepository` / `WorkflowTasksRepository`),每個方法強制帶 `tenantId`,沒給就拋錯。
 - **種子 vs 業務**:種子由 seed 以 key 冪等 upsert(`apps/db-migrator/seeds/`);業務資料不做跨環境搬移。
 - **索引**:各 schema 檔以 `.index(...)` 就地宣告(唯一鍵、orgId 複合、ancestors、TTL 等)。
+- **資料登記**:底座與專案分別在 `apps/api/src/database/base/registrations.ts`、`apps/api/src/project/database/registrations.ts` 宣告,由 DatabaseModule 合成 model 與受控 repository 出口。一般新增專案 model 必須連結同登記內的 repository 與 `orgId` 存在檢查,供刪組織及撤銷開通共用;不在 OrgsService 另加清單。驗證規則與安裝順序見[資料層概念](concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
 
 ## 跨檔約定(語意正本不在 schema 的幾處)
 

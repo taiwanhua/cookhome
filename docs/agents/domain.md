@@ -27,7 +27,7 @@ engineering skills 在探索 codebase 時,應如何使用本 repo 的領域文�
    2. `authorization.md`:模組 = 頁面、權限、wildcard、解析流程、防越權、角色種類、稽核
    3. `data-layer-and-isolation.md`:三類資料、核心關聯、租戶隔離、管理範圍 vs 可見範圍、資料範圍規則、種子
    4. `storage-and-mail.md`:GCS 上傳與讀取、寄信
-   5. `frontend-architecture.md`:admin 分層、殼、路由與頁籤、共版型、Snackbar、快取(寫前端前必讀)
+   5. `frontend-architecture.md`:admin 分層與所有權、頁面登記與替換、表單設定注入、help、殼、路由與頁籤、共版型、快取(寫前端前必讀)
    6. `form-engine.md`:表單模組:骨架 seed vs 表單畫面管理、版本、分派 / 啟用、提交與修訂、欄位級權限、引擎零件與預設組裝
    7. `workflow-engine.md`:審核流程:流程 / 版本 / 分派 / 綁定、送出時檢查、實例是唯一權威與推進、分流 / 匯合、阻擋與改派、申請中心與讀取授權
 4. **需要「為什麼」時才讀 `docs/adr/`**:ADR 只記決策、理由、取捨與影響;每份檔頭指向對應的 concepts
@@ -50,9 +50,11 @@ concepts 讀完之後,接著看「規則長成程式之後的樣子」。示範�
 1. **[module-scaffold](./module-scaffold.md)**:從上面抽出來的藍本:要動哪些檔、照什麼順序、每一步的正本;表單模組走同檔的「表單模組路線」
 2. **[權限測試劇本](../testing/permission-scenarios.md)**:24 條劇本,每條標明用哪一頁、哪個帳號、什麼步驟、預期什麼;新模組做完拿它自檢
 
-前端程式在 `apps/admin/src/pages/demo/`:示範模組1 / 2 各一組頁面(`SampleOne*` / `SampleTwo*`)加上共用的 `shared/`;示範表單沒有自己的頁面,由 `apps/admin/src/app/module-pages.tsx` 以 `formModulePages(<模組 key>)` 登記。前端要動手之前先讀 `docs/concepts/frontend-architecture.md` 與 `DemoModuleConfig` 的逐項 JSDoc(前端藍本的規格)。
+底座示範頁在 `apps/admin/src/pages/base/demo/`:示範模組1 / 2 各一組頁面(`SampleOne*` / `SampleTwo*`),共用 CRUD 模板在 `apps/admin/src/components/base/crud/`。示範表單沒有專屬頁面,在 `app/base/module-pages.ts` 的 `forms` 宣告,由固定入口 `app/module-pages.tsx` 展開引擎四頁與 options。前端要動手之前先讀 `docs/concepts/frontend-architecture.md` 與 `DemoModuleConfig` 的逐項 JSDoc(前端藍本的規格)。
 
-正本:`apps/admin/src/pages/demo/shared/demo-module-config.ts`、`apps/admin/src/app/module-pages.tsx`、`apps/db-migrator/seeds/modules/`、`docs/agents/module-scaffold.md`
+引用專案新增頁放 `pages/project/`,在 `app/project/module-pages.ts` 登記;客製底座頁另放 `app/project/page-replacements.ts`,保留底座原版。help 同樣分 `md/module-help/base/`、`project/additions/`、`project/replacements/`;表單 options 經 RootProviders 注入,不要新增全域可變登記表。API 功能與資料也有各自的專案來源;新增資料要同時登記刪組織與撤銷開通檢查。接手前讀[功能登記規格](../plans/feature-registration.md),依 STRUCT-12 查固定入口,依 TEST-07 / TEST-08 驗真正組裝路徑。
+
+正本:`apps/admin/src/components/base/crud/demo-module-config.ts`、`apps/admin/src/app/base/module-pages.ts`、`apps/admin/src/app/project/`、`apps/db-migrator/seeds/modules/`、`docs/agents/module-scaffold.md`、`docs/standards/general/structure.md`、`docs/standards/testing/testing.md`
 
 ## 使用詞彙表的用語
 

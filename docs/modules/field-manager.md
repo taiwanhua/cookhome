@@ -141,7 +141,7 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 
 ## admin 頁面
 
-`apps/admin/src/pages/system/FieldManagerPage/`。左類別清單(`CategoryListPanel.tsx`),右邊是所選類別的合併清單(`FieldOptionsPanel/`):顯示名稱、值、排序、**來源**、啟用開關、操作;新增 / 編輯彈窗在 `FieldFormDialog/`。
+`apps/admin/src/pages/base/system/FieldManagerPage/`。左類別清單(`CategoryListPanel.tsx`),右邊是所選類別的合併清單(`FieldOptionsPanel/`):顯示名稱、值、排序、**來源**、啟用開關、操作;新增 / 編輯彈窗在 `FieldFormDialog/`。
 
 - **來源欄與「這一列能做什麼」集中在 `field-source.ts`**(`isSeedOption` / `fieldSourceView` / `canToggleOption` / `canEditOption` / `managedByOrgOf`),表格與彈窗不自己解讀 `ownerOrg`。規則本身在 api(`canEdit` / `canToggleEnabled`),這個檔只做「與權限取交集 + 文案」。
 - **「來源」欄文案**:「全域」或「<組織名稱> 自訂」。不用「租戶自訂」—— 下層組織也可能自訂,且「租戶」是平台詞彙。
@@ -154,7 +154,7 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 - 左欄每個類別:系統類別標 `Tag`「系統」;停用的類別名稱以 `text.disabled` 呈現並標「已停用」。系統類別沒有「編輯類別」與「停用類別」鈕(停用的系統類別仍給「啟用類別」)。
 - 表單設計器的類別下拉(`FormsPage/FormDesigner/PropertyPanel/OptionsEditor.tsx`)帶 `enabledOnly: true`;已選了停用類別的欄位,下拉以 key 顯示那一個值。
 
-正本:`apps/admin/src/pages/system/FieldManagerPage/`(`field-source.ts`、`FieldOptionsPanel/FieldOptionsTable.tsx`、`field-manager-error.ts`)
+正本:`apps/admin/src/pages/base/system/FieldManagerPage/`(`field-source.ts`、`FieldOptionsPanel/FieldOptionsTable.tsx`、`field-manager-error.ts`)
 
 ## 錯誤碼
 
@@ -172,7 +172,7 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 
 前端依 `reason` 換文案,解讀集中在 `FieldManagerPage/field-manager-error.ts`。
 
-正本:`apps/api/src/fields/fields-error.ts`、`apps/admin/src/pages/system/FieldManagerPage/field-manager-error.ts`
+正本:`apps/api/src/fields/fields-error.ts`、`apps/admin/src/pages/base/system/FieldManagerPage/field-manager-error.ts`
 
 ## 稽核
 
@@ -184,16 +184,16 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 ## 測試
 
 - api:`apps/api/src/fields/fields.test.ts`(端點、錯誤、種子開關)、`apps/api/src/fields/field-categories.test.ts`(類別作業:新增 / 改名 / 停用、守門、設計器清單)、`apps/api/src/fields/field-visibility.test.ts`(可見 / 可編輯範圍表);夾具 `apps/api/src/fields/test-support/fixtures.ts`
-- admin:`apps/admin/src/pages/system/FieldManagerPage/` 的 `FieldManagerPage.test.tsx`、`FieldManagerFeedback.test.tsx`、`FieldManagerSeed.test.tsx`、`FieldManagerVisibility.test.tsx`、`FieldManagerCategories.test.tsx`(類別作業);設計器的類別下拉只列啟用在 `FormsPage/FormsPageDesignerPickers.test.tsx`;共用 harness `field-manager-test-support.ts`
+- admin:`apps/admin/src/pages/base/system/FieldManagerPage/` 的 `FieldManagerPage.test.tsx`、`FieldManagerFeedback.test.tsx`、`FieldManagerSeed.test.tsx`、`FieldManagerVisibility.test.tsx`、`FieldManagerCategories.test.tsx`(類別作業);設計器的類別下拉只列啟用在 `FormsPage/FormsPageDesignerPickers.test.tsx`;共用 harness `field-manager-test-support.ts`
 - 劇本 E2E(`docs/testing/permission-scenarios.md`):劇本 2 / 12 確認沒有 `system.field-manager.view` 時示範模組1 的分類欄退化(`scenario-02-data-scope-rule.spec.ts`、`scenario-12-visibility-toggle.spec.ts`)、劇本 16 租戶視角的種子選項唯讀(`scenario-16-tenant-perspective.spec.ts`)
 
 正本:上列檔案、`docs/testing/permission-scenarios.md`
 
 ## 使用者說明(help.md)
 
-[system.field-manager.help.md](../../apps/admin/src/md/module-help/system.field-manager.help.md)
+[system.field-manager.help.md](../../apps/admin/src/md/module-help/base/system.field-manager.help.md)
 
-正本:`apps/admin/src/md/module-help/system.field-manager.help.md`
+正本:`apps/admin/src/md/module-help/base/system.field-manager.help.md`
 
 ## 平台視角備註
 

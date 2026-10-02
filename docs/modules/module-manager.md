@@ -119,7 +119,7 @@ setPermissionEnabled(input: { id, enabled }): PermissionAdminPayload!
 
 ## admin 頁面
 
-`apps/admin/src/pages/system/ModuleManagerPage/`:左 `ModuleTreePanel.tsx`(治理面全樹)+ 右 `ModuleDetailPanel/`(所選模組的資料與它這一層的權限清單)、`DisableModuleDialog.tsx`(停用確認)、`RetiredPermissionsDialog/`(退役權限清理)、`useModuleManagerData.ts`。列表欄位配置的彈窗與表單管理共用 `pages/system/ListColumnsDialog/`;這兩個表單相關彈窗以 `lazy-form-dialogs.ts` 懶載入(它們會帶進表單引擎的定義與計算器,首屏不載)。
+`apps/admin/src/pages/base/system/ModuleManagerPage/`:左 `ModuleTreePanel.tsx`(治理面全樹)+ 右 `ModuleDetailPanel/`(所選模組的資料與它這一層的權限清單)、`DisableModuleDialog.tsx`(停用確認)、`RetiredPermissionsDialog/`(退役權限清理)、`useModuleManagerData.ts`。列表欄位配置的彈窗與表單管理共用 `pages/base/system/ListColumnsDialog/`;這兩個表單相關彈窗以 `lazy-form-dialogs.ts` 懶載入(它們會帶進表單引擎的定義與計算器,首屏不載)。
 
 | 行為         | 做法                                                                                                                                                                                                                                                          |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -145,7 +145,7 @@ setPermissionEnabled(input: { id, enabled }): PermissionAdminPayload!
 
 判斷函式 `ModuleManagerPage/module-admin-tree.ts` 的 `isPermissionContainer`:**直接讀 `moduleTree` 回的 `route`**(`sidebarType = Hidden` 且 `route` 為 `null`)。help.md 同步一句相同白話。
 
-正本:`apps/admin/src/pages/system/ModuleManagerPage/`(`module-admin-tree.ts`、`ModuleDetailPanel/`、`RetiredPermissionsDialog/`、`module-manager-permissions.ts`、`module-manager-types.ts`)、`apps/admin/src/pages/system/ListColumnsDialog/`
+正本:`apps/admin/src/pages/base/system/ModuleManagerPage/`(`module-admin-tree.ts`、`ModuleDetailPanel/`、`RetiredPermissionsDialog/`、`module-manager-permissions.ts`、`module-manager-types.ts`)、`apps/admin/src/pages/base/system/ListColumnsDialog/`
 
 ## 錯誤碼
 
@@ -159,7 +159,7 @@ setPermissionEnabled(input: { id, enabled }): PermissionAdminPayload!
 | 模組 / 權限 id 查無(含 id 格式不合法)                                                 | `NOT_FOUND`                                                                  |
 | `setModuleIcon` 的 `icon` 不在白名單內                                                | `VALIDATION_FAILED`,`extensions.fields = ["icon"]`(讓前端把錯標回圖示選擇器) |
 
-正本:`apps/api/src/modules/module-manager-error.ts`、`apps/admin/src/pages/system/ModuleManagerPage/module-manager-error.ts`
+正本:`apps/api/src/modules/module-manager-error.ts`、`apps/admin/src/pages/base/system/ModuleManagerPage/module-manager-error.ts`
 
 ## 稽核
 
@@ -176,7 +176,7 @@ setPermissionEnabled(input: { id, enabled }): PermissionAdminPayload!
 ## 測試
 
 - api:`apps/api/src/modules/module-manager.test.ts`(根組織守門、連動子樹、自鎖、圖示白名單、稽核);權限解析層的 kill switch 在 `apps/api/src/permission/permission.test.ts`
-- admin:`apps/admin/src/pages/system/ModuleManagerPage/` 的 `ModuleManagerPage.test.tsx`、`ModuleManagerToggles.test.tsx`、`ModuleManagerIcon.test.tsx`、`ModuleManagerForms.test.tsx`(列表欄位配置、退役權限清理)、`module-admin-tree.test.ts`;共用 harness `module-manager-test-support.ts`
+- admin:`apps/admin/src/pages/base/system/ModuleManagerPage/` 的 `ModuleManagerPage.test.tsx`、`ModuleManagerToggles.test.tsx`、`ModuleManagerIcon.test.tsx`、`ModuleManagerForms.test.tsx`(列表欄位配置、退役權限清理)、`module-admin-tree.test.ts`;共用 harness `module-manager-test-support.ts`
 - seed:`apps/db-migrator/src/seed/seed-key-convention.test.ts`(`-page` 命名規約)
 - 劇本 E2E(`docs/testing/permission-scenarios.md`):劇本 10 越權(硬送 `system.module-manager.*` 回 `ROLE_OUT_OF_REACH`,`scenario-10-out-of-reach.spec.ts`)、劇本 16 租戶視角側欄沒有本頁(`scenario-16-tenant-perspective.spec.ts`);另有一條手動項:root 停用「示範模組2」→ 租戶側欄少一項,重新啟用只開這一個節點
 
@@ -184,9 +184,9 @@ setPermissionEnabled(input: { id, enabled }): PermissionAdminPayload!
 
 ## 使用者說明(help.md)
 
-[system.module-manager.help.md](../../apps/admin/src/md/module-help/system.module-manager.help.md) —— 根組織專屬模組,help 的讀者是系統管理員;文案同樣不寫平台視角詞彙。
+[system.module-manager.help.md](../../apps/admin/src/md/module-help/base/system.module-manager.help.md) —— 根組織專屬模組,help 的讀者是系統管理員;文案同樣不寫平台視角詞彙。
 
-正本:`apps/admin/src/md/module-help/system.module-manager.help.md`
+正本:`apps/admin/src/md/module-help/base/system.module-manager.help.md`
 
 ## 平台視角備註
 

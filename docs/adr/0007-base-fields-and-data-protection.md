@@ -4,7 +4,8 @@
 
 ## 決策
 
-- **基礎欄位**:全部 collection 由共用 plugin 補上 `createdAt` / `updatedAt` / `createdBy` / `updatedBy` / `deletedAt`;schema class 不重複宣告。
+- **基礎欄位**:底座與一般新增專案 collection 由共用 plugin 補上 `createdAt` / `updatedAt` / `createdBy` / `updatedBy` / `deletedAt`;schema class 不重複宣告。食譜原型 recipes 保留未掛此 plugin 的既有形狀,僅有 Mongoose timestamps,不是新模組的藍本;例外邊界見 ADR-0005「專案資料的登記邊界」。
+- **安裝識別**:baseFields plugin 完成安裝後才以原 schema 物件記錄 WeakSet 標記,供專案資料登記驗證。自行補同名欄位不能取代 plugin 的查詢中介層,組裝器也不自動 clone schema 或再掛一次 plugin。
 - 各表的偏好設定統一叫 `settings`,為受控 JSON:已知 key 在程式裡定義與驗證。
 - **軟刪除**:刪除 = 寫 `deletedAt`;之後預設排除,要看已刪除的明講 `includeDeleted`。已刪除的不能再更新。
 - **硬刪除只有四種**,其餘一律軟刪除:
@@ -18,7 +19,7 @@
 
 ## 理由
 
-- 基礎欄位統一後,稽核、資料範圍的欄位目錄、排序都能假設每張表都有這五欄。
+- 基礎欄位統一後,稽核、資料範圍的欄位目錄、排序都能假設受本規範管理的資料表有這五欄。安裝標記讓登記驗證能辨識實際安裝過的 plugin,避免只有欄位、缺少軟刪除或更新保護中介層的 schema 混入。
 - 軟刪除讓誤刪可救;預設排除讓呼叫端不必每次記得過濾。
 - 補償刪除非硬刪不可:`users` 的 account / email 唯一索引含已軟刪除的文件,留一筆殭屍會讓同一組帳號永遠開不了。
 - 版本草稿同理:「一份表單 / 流程至多一份草稿」是部分唯一索引,軟刪除的草稿會佔住它;把狀態改成別的值又會弄髒版本的語意(`retired` = 發布過)。草稿沒發布過,實例、任務、提交都不指向它,硬刪不會留下懸空引用。
@@ -32,5 +33,5 @@
 
 ## 影響
 
-- 新 collection 不必自己處理時間戳、建立者與刪除。
+- 一般新增專案 collection 掛共用 plugin 並完成資料登記,不必自己處理時間戳、建立者與軟刪除。驗收仍須測真正的寫入與查詢行為,不能只斷言安裝標記為 true。
 - 密碼雜湊規範見 ADR-0003。

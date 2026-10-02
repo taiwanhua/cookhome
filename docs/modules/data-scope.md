@@ -215,7 +215,7 @@ input SaveDataScopeRuleInput {
 
 ## admin 頁面
 
-程式在 `apps/admin/src/pages/system/DataScopePage/`:`TargetListPanel.tsx`(左資料目標清單,一列 = 一個模組:主文字模組名、副文字 collection)、`RuleEditorPanel/`(右規則編輯器)、`DiscardChangesDialog.tsx`(未儲存離開確認)、`useDataScopeData.ts`(資料與 mutation)。
+程式在 `apps/admin/src/pages/base/system/DataScopePage/`:`TargetListPanel.tsx`(左資料目標清單,一列 = 一個模組:主文字模組名、副文字 collection)、`RuleEditorPanel/`(右規則編輯器)、`DiscardChangesDialog.tsx`(未儲存離開確認)、`useDataScopeData.ts`(資料與 mutation)。
 
 - 純函式在 `apps/admin/src/lib/`:`data-scope-rule.ts`(型別目錄、編輯器狀態 ↔ api JSON、條件樹增刪改)與 `data-scope-issues.ts`(本地驗證、`RULE_INVALID` 的 `path` → 標在哪一格)。**型別 → 運算子 → 值來源那張表在 admin 重寫了一份**(STRUCT-01 不能 import api),改動時兩邊一起改。
 - 條件樹節點**不帶自產 id**:位置(`rules[n]` + 往下的 `children[i]`)就是身分,與 api 回的 `path` 同一套座標。
@@ -227,7 +227,7 @@ input SaveDataScopeRuleInput {
 - 動作按鈕依 `system.data-scope.edit`,只有 `.view` 時整個編輯器唯讀。
 - 非根組織不在頁面判斷 —— 本模組 `isRootOnly`,租戶的 `me.modules` 裡沒有它,路由層就擋掉(ADR-0011)。
 
-正本:`apps/admin/src/pages/system/DataScopePage/`、`apps/admin/src/lib/data-scope-rule.ts`、`apps/admin/src/lib/data-scope-issues.ts`
+正本:`apps/admin/src/pages/base/system/DataScopePage/`、`apps/admin/src/lib/data-scope-rule.ts`、`apps/admin/src/lib/data-scope-issues.ts`
 
 ## 錯誤碼
 
@@ -255,7 +255,7 @@ input SaveDataScopeRuleInput {
 
 admin 的解讀集中在 `DataScopePage/data-scope-error.ts`。
 
-正本:`apps/api/src/data-scope/data-scope-error.ts`、`apps/api/src/data-scope/data-scope-rule.ts`、`apps/admin/src/pages/system/DataScopePage/data-scope-error.ts`
+正本:`apps/api/src/data-scope/data-scope-error.ts`、`apps/api/src/data-scope/data-scope-rule.ts`、`apps/admin/src/pages/base/system/DataScopePage/data-scope-error.ts`
 
 ## 稽核
 
@@ -266,16 +266,16 @@ admin 的解讀集中在 `DataScopePage/data-scope-error.ts`。
 ## 測試
 
 - api:`apps/api/src/data-scope/data-scope.test.ts`(端點、根組織守門、`RULE_INVALID`、`hasRule`、同 collection 兩個模組各自的規則);執行面 `apps/api/src/database/data-scope-provider.test.ts`、`apps/api/src/database/base.repository.test.ts`、`apps/api/src/demo-items-one/demo-items-one-scope.test.ts`
-- admin:`apps/admin/src/pages/system/DataScopePage/DataScopePage.test.tsx`、`DataScopeRuleEditor.test.tsx`、`apps/admin/src/lib/data-scope-rule.test.ts`
+- admin:`apps/admin/src/pages/base/system/DataScopePage/DataScopePage.test.tsx`、`DataScopeRuleEditor.test.tsx`、`apps/admin/src/lib/data-scope-rule.test.ts`
 - 劇本 E2E(`docs/testing/permission-scenarios.md`):劇本 2 資料範圍規則 `scenario-02-data-scope-rule.spec.ts`、劇本 3 未宣告對照 `scenario-03-undeclared-target.spec.ts`、劇本 4 頂層合成 OR / AND `scenario-04-combine-op.spec.ts`、劇本 16 租戶視角 `scenario-16-tenant-perspective.spec.ts`(皆在 `apps/e2e/src/specs/`)
 
 正本:上列檔案、`docs/testing/permission-scenarios.md`
 
 ## 使用者說明(help.md)
 
-[system.data-scope.help.md](../../apps/admin/src/md/module-help/system.data-scope.help.md) —— 根組織專屬模組,help 的讀者就是系統管理員,可用平台詞彙。
+[system.data-scope.help.md](../../apps/admin/src/md/module-help/base/system.data-scope.help.md) —— 根組織專屬模組,help 的讀者就是系統管理員,可用平台詞彙。
 
-正本:`apps/admin/src/md/module-help/system.data-scope.help.md`
+正本:`apps/admin/src/md/module-help/base/system.data-scope.help.md`
 
 ## 平台視角備註
 
