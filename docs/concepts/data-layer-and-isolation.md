@@ -170,7 +170,7 @@ BaseRepository 資料操作方法的第一個參數。四個集合各有用途,�
 | 業務資料 | 帳號、角色副本、租戶資料                                   | 不跨環境搬;要重現用整庫 dump / restore     |
 | 遷移     | 索引、結構、回填、清理                                     | migrate-mongo,一次性,記在 `changelog`      |
 
-- 部署 api 後依序跑 `migrate` → `seed`。不在 server 啟動時跑。
+- 設定與資料由同一次 `update` 依序更新:`migration` → 普通種子 → 受管定義 → 目標核對。不在 server 啟動時跑;部署接線與指令見 [deployment](../deployment.md)。
 - 種子欄位兩種:**每次都 seed**(預設,人改的會被拉回);**初始 seed 值**(欄位存在就不覆寫,預設 `enabled`;`modules` 另加 `icon` 與 `settings`(表單模組的列表欄位配置存在 `settings.list`),`orgs` 另加 `name`、`description` 與 `settings`(根組織的時區 `settings.timezone`))。根組織名稱與描述在初始化時使用專案 seed 值,一般部署保留 UI 修改,完整清庫還原才重建。人在畫面上改的值一定要列成初始 seed 值,否則每次部署都會被宣告值洗掉。
 - **認養**:同一類資料允許人在畫面建(`isSystem: false`,如 root 在欄位管理新增的類別與選項)時,seed 宣告同一個 key 就把那一筆轉成種子 —— `isSystem` 改 true、宣告的欄位以 seed 為準、`_id` 不動。人建時沒有種子 key 的(欄位選項)由宣告的 `adoptBy` 指定怎麼找同一筆(同類別、同 value、根組織加的)。認養單向;沒宣告的人建資料 seed 不碰。
 - 執行摘要印「新增 / 更新 / 認養 / 未變」四種計數。
@@ -225,6 +225,33 @@ documents 預設以 `key` 識別,可用 `keyField` 指定其他欄位;`seedRef` 
 整批發布不是原子操作。預檢後才發生的現場競爭或執行期錯誤,可能使前面的定義已完成;執行器停止並保留續跑紀錄,不自動回滾整批。外部漂移須先處理現場與宣告的差異,不能把重跑當成強制覆蓋。
 
 正本:`packages/domain/src/seed/`、`apps/api/src/seed/`、`apps/api/src/database/schemas/seed-definition-installation.schema.ts`;版本生命週期見[表單引擎](form-engine.md)與[流程引擎](workflow-engine.md)。
+
+### Migration 與設定順序
+
+底座與專案的新 migration 分別放在 `apps/db-migrator/migrations/base/`、`migrations/project/`;根目錄保留既有歷史檔。所有來源的檔名全域唯一,執行器依完整檔名排序,以原檔名對照 `changelog`,不因分資料夾重跑舊檔。
+
+資料轉換需要特定設定時,在 migration 的 `seedDependencies` 指定 `seeds/{base,project}/revisions/` 內不可變的 `.seed.ts`。快照沿用同一份 `SeedSet`,可用 `requiresSeeds` 指定前置快照;不引用可變的當前 registry。已發布檔案保留原內容,修改設定另建新 revision。
+
+有設定依賴的 migration 依序檢查是否有待轉換資料、依賴是否可安裝,再安裝缺少的精確快照、轉換資料與驗證結果。沒有待轉換資料時仍需驗證,但不安裝歷史設定。這讓舊環境可經中間版本完成資料轉換,空庫則只建立目前仍登記的目標。
+
+有 `seedDependencies` 的檔案須同時提供以下檢查,不另維護一份 migration 清單:
+
+| 函式                                    | 責任                                                              |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| `appliesTo(db)`                         | 判斷是否有待轉換的資料,不是只判斷整庫是否為空                     |
+| `assertSeedInstallable(db, inspection)` | 明確驗證允許的來源內容或不存在條件;不以 revision 字串大小推測版本 |
+| `up(db, client, context)`               | 可重入的資料轉換,使用 context 內已解析的定義 ID 與本地版號        |
+| `verify(db, context)`                   | 核對資料後置條件;不符合就拋錯,不得把未完成的轉換算成成功          |
+
+無設定依賴者沿用 `up(db, client)`。Context 的型別見 `apps/db-migrator/src/update/journal.ts`;既有提交升版 API 的適用範圍不變,跨租戶或其他業務轉換須由該 migration 明訂資料範圍、歷史保留、筆數及重跑判準。
+
+`seed_update_runs` 保存執行階段、來源 hash、依賴檢查點與已解析的本地版本。中斷後沿原 context 接續,不重新用「目前沒有舊資料」跳過未完成的轉換。驗證通過才由 migrate-mongo 寫入 `changelog`;所有 migration 完成後,才套用目前 registry。安裝紀錄與執行紀錄各司其職,兩者都不取代 repo 的設定來源。
+
+`update`、`seed`、`migrate` 使用同一個完整入口。`migrate:down` 只執行選定 migration 的 `down`,不回滾 seed、定義或安裝紀錄;執行與還原都受共同互斥鎖及續跑紀錄管理。
+
+互斥鎖位於 `changelog_lock`,涵蓋整次工具操作。API CLI 只核對外層持有者,不另搶鎖;硬中止留下的鎖不依時間自動接管。操作者確認原程序已停止後,才可指名 owner 解鎖。這把鎖不阻擋線上使用者操作,破壞性資料轉換仍須明訂相容窗口、必要停寫與恢復方式。
+
+正本:`apps/db-migrator/src/update/`;執行、續跑與解鎖步驟見 [deployment](../deployment.md)。
 
 ### 還原
 

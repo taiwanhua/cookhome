@@ -54,7 +54,7 @@ GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使�
 
 - **已提供**:兩份 JSON 填的是新專案的值(repo、GCP 專案、服務名、網址、Secret 名稱、看板 ID),讀取器解析成功。這只證明檔案內容完整、格式正確。
 - **已建立**:GCP 專案、Artifact Registry、WIF pool / provider、部署用 service account 與 IAM、Cloud Run 服務與網域對應、Secret Manager 的各個 secret、GitHub 看板與 `GH_PROJECT_TOKEN`、預設分支,都由初始化工作在外部建立;設定檔不會建立任何資源。
-- **已驗證**:以新專案實際跑過 Deploy(認證、build、部署、migrate → seed)與看板移卡。讀取器與離線測試通過不算這一項。
+- **已驗證**:以新專案實際跑過 Deploy(認證、build、部署、update)與看板移卡。讀取器與離線測試通過不算這一項。
 
 新專案複製 repo 後,`expectedRepository` 不符會使 workflow 在認證前失敗。外部資源須另行建立;新專案使用自己的密鑰,不可沿用 CookHome 的值。不使用的整合須明確停用或移除專案引用,避免讀寫原專案目標。
 
@@ -73,6 +73,8 @@ GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使�
 
 - `settings.ts`:指定 `rootOrg` 的名稱、描述與 settings,以及 `moduleInitialValues` 中各模組的 `enabled`、`icon`、`settings` 初值。一般部署保留已有值與 UI 修改,完整還原才依專案初值重建。
 - `registry.ts`:在 `moduleDeclarations` 登記專案模組,在 `seeds` 登記其他種子。底座與專案由固定入口合併、檢查引用及重名,不直接修改底座清單。
+
+共用表單與流程的跨環境設定使用 `revisions/*.seed.ts`,由上述 registry 匯入當前版本;歷史快照保留給明示 migration 使用。初始化須在隔離空庫驗證完整建立與重跑,並確認兩環境得到相同定義內容。資料庫 ID、版號、人員與分派可各自不同,不搬入來源環境的組織或帳號資料。操作與續跑見[種子資料與遷移](concepts/data-layer-and-isolation.md#種子資料與遷移)。
 
 ROOT_ADMIN 輸入與欄位政策見[種子資料與遷移](concepts/data-layer-and-isolation.md#種子資料與遷移)。根初始帳號由環境變數提供,不放進上述檔案;既有帳號不重設密碼,更換 ROOT_ADMIN_ACCOUNT 會建立另一帳號,不是原帳號改名。
 

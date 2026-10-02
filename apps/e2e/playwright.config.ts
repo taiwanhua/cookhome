@@ -6,7 +6,7 @@ import { ADMIN_URL, GREP } from "./src/config";
  * 劇本 E2E(TEST-05 / TEST-11):**只在手動觸發時跑**,不進每個 PR 的 CI。
  *
  * - 瀏覽器只裝 chromium(`pnpm --filter @repo/e2e e2e:browser`);多瀏覽器對權限劇本沒有增益。
- * - stack 由 `globalSetup` 起(Mongo → migrate → seed → api → admin),`globalTeardown` 收。
+ * - stack 由 `globalSetup` 起(Mongo → update → api → admin),`globalTeardown` 收。
  * - `workers: 1`:整套只有一座 api,序列跑最穩;隔離靠「一條劇本一個租戶」而不是靠平行度。
  */
 export default defineConfig({

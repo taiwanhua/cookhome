@@ -39,6 +39,7 @@
 | collection                      | 用途                                                                   | 存取正本                                                           |
 | ------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `seed_definition_installations` | 將宣告的 revision 映射至本環境的定義 ID、版號,並保存中斷續跑所需的狀態 | `seed-definition-installation.schema.ts`、`apps/api/src/seed/`     |
+| `seed_update_runs`              | 設定執行的 commit、計畫、階段、結果,以及 migration 的依賴與續跑紀錄    | `apps/db-migrator/src/update/journal.ts`                           |
 | `changelog`                     | migrate-mongo 的遷移紀錄,以檔名識別已執行的 migration                  | `apps/db-migrator/migrate-mongo-config.js`                         |
 | `changelog_lock`                | 設定更新的共用互斥鎖;API CLI 只核對持有者                              | `seed-lock.schema.ts`、`apps/api/src/database/seed-lock.reader.ts` |
 

@@ -109,6 +109,16 @@
 - **檢查器**(`workflow-definition-checker.ts`)組好 `validateWorkflowDefinition` 要的目錄:共用 / 客製、本租戶的角色與使用者、`field` 來源表單與檢查用表單的**目前版本**欄位(共用流程只認共用表單;客製流程認共用表單與自己租戶的客製表單)。存草稿照收(錯誤隨 `validation` 回),發布有錯 → `VALIDATION_FAILED` + `issues`。共用流程含 `users` → `USERS_IN_SHARED`;客製流程的 `role` 沒填 / 不是本租戶的角色 → `ROLE_ID_MISSING` / `ROLE_NOT_IN_TENANT`。
 - **退役目前版本 / 改版 / 收回分派**:進行中的實例照常走完(實例記自己的 `(workflowKey, workflowVersion)`),只影響新送出。
 
+## 匯出專案設定
+
+先以已發布版本完成流程驗證。根組織操作者具備 `system.workflows.view` 與 `system.workflows.publish` 時,可在共用流程的版本面板選定目前已發布且完成切換的版本,按「匯出專案設定」。填入定義發布識別 `revision` 與發布說明後,下載 `<key>.<revision>.seed.ts`;草稿、發布中的版本、退役版與租戶客製流程不提供匯出。
+
+檔案使用同一套 `SeedSet` 契約,保留所選版本的關卡、連線、條件與檢查用表單 key。指定使用者、實際角色 ID 或其他環境資料引用會被可攜性檢查拒絕,畫面顯示問題位置與原因。匯出不改來源資料,不包含分派、表單綁定、實例或任務;租戶客製流程的角色仍由人員設定。
+
+下載檔的登記、必要 migration 與驗證見[表單模組路線](../agents/module-scaffold.md#表單模組路線)的跨環境交付步驟;各環境的版本映射、發布與衝突處理見[受管定義機制](../concepts/data-layer-and-isolation.md#受管表單與流程)。
+
+正本:`apps/api/src/workflows/workflow-design/workflow-seed-export.service.ts`、`packages/domain/src/seed/portable-definition.ts`。
+
 ## 流程綁定
 
 `workflow-design/workflow-bindings.service.ts`。`org_form_workflow`(`tenantId` = `firstId` = 租戶頂層、`secondId` = 表單、`thirdId` = 流程);唯一鍵 `(tenantId, type, firstId, secondId)` = 一張表單最多一個流程,多張表單可綁同一個流程。綁定是 upsert(換流程 = 改 `thirdId`),解除 = 刪這筆。要站在租戶內(`TENANT_ONLY`)。
@@ -238,6 +248,8 @@ admin 端(`hooks/useApplyCenterCounts.ts`):
 | 分派跳窗             | 勾租戶 = 分派、取消勾 = 收回(只有平台)                                                                                                                                                                                                                  |
 | 以此為基底建流程跳窗 | 選基底版本(已發布 / 已退役)、填 key(建立後不可改)與名稱;表單管理的「建客製流程」捷徑帶著來源流程進來,直接開這個跳窗                                                                                                                                     |
 
+目前共用發布版另提供「匯出專案設定」,與表單共用 `SeedExportDialog`;條件與下載內容見[匯出專案設定](#匯出專案設定)。
+
 **設計器**(`WorkflowDesigner/`):
 
 - **頂列**:檢查用表單與「檢查」鈕、草稿修訂號、未存標示、在最後加一關、存草稿(帶 `expectedDraftRevision`,`CONFLICT` → 提示並可重新載入)。下方是流程圖 + 屬性面板 + 檢查結果 + JSON 預覽。改不動的流程(分派來的共用流程)只看目前版本的流程圖;沒有草稿時「開新草稿」(以目前版本為基底)。
@@ -334,7 +346,7 @@ input 欄位的缺席 / `null`:
 
 - `CONFLICT`:`DRAFT_REVISION_MISMATCH`、`DRAFT_EXISTS`、`DRAFT_MISSING`、`PUBLISH_IN_PROGRESS`、`PUBLISH_NOT_INTERRUPTED`、`NO_CURRENT_VERSION`、`CURRENT_VERSION_CHANGED`、`EDIT_VERSION_MISMATCH`、`STATUS_MISMATCH`、`HAS_DECISIONS`(撤回:已有審核意見)、`ALREADY_DECIDED`(改派:此任務已決定)、`ALREADY_IN_STEP`(改派 / 新增:此人已在本關)、`INSTANCE_CHANGED`(實例已結束、關卡已前進、不是解析為空的阻擋、一直被別的動作搶先)。送出時的容量上限 `REVISION_LIMIT` / `DOCUMENT_TOO_LARGE` 屬表單的錯誤(`docs/modules/forms.md`「錯誤」)。
 - `FORBIDDEN`:`ROOT_ONLY`、`NOT_WORKFLOW_OWNER`、`TENANT_ONLY`、`WORKFLOW_REMOVED` / `WORKFLOW_UNPUBLISHED` / `WORKFLOW_MISCONFIGURED`(送出時檢查,後者附 `issues`;綁定時沒有發布版也是 `WORKFLOW_UNPUBLISHED`)、`ASSIGNEE_NOT_ELIGIBLE`(改派 / 新增的對象停用、不在本租戶或是申請人)、`NOT_APPLICANT`(撤回別人的單)。
-- `VALIDATION_FAILED`:發布的檢查器錯誤 → `fields: ["definition"]` + `issues`(`@repo/domain/workflow` 的 `WorkflowIssue`);綁定時檢查 → `fields: ["workflowKey"]` + `issues`(`BindingIssue`);其餘照一般的 `fields`。
+- `VALIDATION_FAILED`:發布的檢查器錯誤 → `fields: ["definition"]` + `issues`(`@repo/domain/workflow` 的 `WorkflowIssue`);綁定時檢查 → `fields: ["workflowKey"]` + `issues`(`BindingIssue`);匯出可攜性錯誤 → `fields: ["definition"]` + `issues[{ code, message, path }]`,匯出版本狀態不符 → `fields: ["version"]`;其餘照一般的 `fields`。
 - 送出時檢查擋下時給申請人看的訊息是「流程設定有誤,請聯絡管理員」「流程尚未發布」「此表單的審核流程已移除,請聯絡管理員」(`SUBMIT_CHECK_MESSAGES`),前端依 reason 對應。
 
 ## 稽核

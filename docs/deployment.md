@@ -103,7 +103,8 @@ prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產�
 - **受影響過濾**:`prepare` 用 `turbo ls --affected` 算出「改到的 package + 依賴它們的 package」,轉成 `--filter=<pkg>` 清單交給下游 job。api / admin 不在清單就跳過各自的兩個 shard;清單空就跳過 lint / test / build。改到 `.github/**` 或拿不到 base(首推、force push)時退回全跑。codegen 一致性檢查只在 api 或 `@repo/graphql` 受影響時跑;prettier 不看清單,每次都跑。
 - **turbo 快取**:`.turbo/cache` 用 `actions/cache` 在 run 之間保存,每個跑 turbo 的 job 各一把 key(lockfile hash + job 名 + commit),找不到時退回同 lockfile 的最近一份;沒改到的 package 的 lint / typecheck / build 直接 `cache hit`。存回前刪掉 7 天前的項目,快取才不會無限長大;lockfile 一變就從頭累積。api 的 shard 不走 turbo(jest 直接吃 `@repo/domain` 原始碼),沒有快取。
 - **本機重現某一片**:api 是 `pnpm --filter @repo/api exec jest --shard=1/2`;admin 是 `pnpm --filter @repo/admin exec node --experimental-vm-modules node_modules/jest/bin/jest.js --shard=1/2`(要先有依賴的 dist)。不能寫成 `pnpm run test -- --shard=1/2`,參數會被 jest 當成路徑 pattern。
-- **逾時**:`prepare` 10 分、`verify` 5 分、其餘 20 分,卡死的 jest 不會燒到預設的 6 小時。
+- **跨程序建置依賴**:api 有變時也驗 db-migrator;它的測試透過 Turbo 先建置同一 checkout 的 API CLI 與依賴。migration 與種子快照的不可變檢查在 `prepare` 對照 Git 基線執行。
+- **逾時**:`prepare` 10 分、`verify` 5 分、`test-others` 30 分,其餘 20 分。
 - `build` job 起 api 時給假的 `JWT_SECRET`(api 缺它就啟動失敗)。
 
 ### CD(deploy.yml)
@@ -117,7 +118,7 @@ prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產�
 - **只部署改到的 app**:讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過。turbo 看不到的部署設定另外判斷(`scripts/project-settings/deploy-affected.mjs`):`deploy/project/` 或 `scripts/project-settings/` 有改時 api 與 admin 都重建(API 網址烘在 admin image,只改網址也要重建);`deploy/env/` 或 `deploy.yml` 本身有改時只有 api 視為受影響。判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`;讀不到 tag(第一次部署)或 base 不在歷史裡(force push 過)時自動全部部署。
 - **image**:tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(`VITE_GRAPHQL_ENDPOINT` = 設定的 `apiUrl` 加 `/graphql`,以 `--build-arg` 烘入)。
 - **api 的環境變數**:非機密整包來自 `deploy/env/<環境>.yaml`(`--env-vars-file`),機密來自 Secret Manager(`--set-secrets`);見四、。
-- **部署成功後自動跑 `migrate → seed`**(ADR-0002;只在 api 或 db-migrator 受影響時):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`。seed 摘要「新增 N / 更新 M / 認養 A / 未變 K」印在 Actions log:第一次跑應全為新增,之後每次應為 0 / 0 / 0 / K;任何 seed 宣告以識別鍵(或 `adoptBy`)對到一筆人在畫面建的文件(`isSystem` 不是 `true`)時,那一次會出現認養:文件轉成種子、`_id` 不動,之後重跑就是更新 / 未變。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)。
+- **部署成功後執行一次 `update`**:api 或 db-migrator 任一受影響就執行,只改專案 seed、快照或 migration 也會更新資料。runner 安裝 db-migrator、API 與其依賴,建置同一 checkout 的 API CLI 並確認可啟動,再讀該環境的資料庫與 root 初始密碼 Secret,執行 `pnpm --filter @repo/db-migrator run update`。完整順序、結果與失敗處理見下方「設定與資料更新」。
 - **front 不走 deploy.yml**:Vercel 在分支 push 時自動建置(`main` → production、`staging` / `dev` → 各自的分支網域);要不靠 commit 重建用 Deploy Hook(見四、「Vercel 補充設定」)。
 
 ### 專案部署設定(deploy/project)
@@ -229,6 +230,40 @@ docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$
 
 正本:`.github/workflows/deploy.yml`(deploy api / deploy admin 步驟)、`deploy/project/cloud.json`、`apps/api/Dockerfile`、`apps/admin/Dockerfile`
 
+### 設定與資料更新
+
+`update` 是完整更新入口:`migration` → 普通種子 → 受管表單/流程 → 目標核對。`seed` 與 `migrate` 是同一入口的相容別名,一次操作只選一個,不再依序各跑一次。來源與資料轉換契約見[種子資料與遷移](concepts/data-layer-and-isolation.md#種子資料與遷移)。
+
+本機操作時先 checkout 要交付的 commit,安裝依賴並建置同一份 checkout 的 API CLI。依[環境變數登記](env-registry.md)設定目標 `MONGODB_URI` 與 `ROOT_ADMIN_*`,再執行:
+
+```bash
+pnpm exec turbo run build --filter=@repo/api
+pnpm --filter @repo/db-migrator run update --check-cli
+pnpm --filter @repo/db-migrator run update
+```
+
+`run` 不可省略,否則 `pnpm update` 會變成套件管理器的依賴升級命令。設定版本記在 `seed_update_runs.releaseCommit`,執行摘要另列 migration 結果、種子計數、定義 revision 對應的本地版號與核對結果;API image 的 SHA 不能代替設定版本。
+
+執行失敗時先讀錯誤、鎖與未完成階段:
+
+```bash
+pnpm --filter @repo/db-migrator run migrate:status
+```
+
+正常失敗會釋放鎖,修正原因後以相同來源重跑 `update`,接續原本的 migration context 及定義安裝紀錄。不要改寫已發布快照或以 reset 取代一般升級。若是現場草稿或內容漂移,先確認並處理差異,重跑不會強制覆蓋。
+
+硬中止留下的鎖只在確認原程序與 API 子程序都已停止後,以 status 顯示的 owner 指名解除,再續跑:
+
+```bash
+pnpm --filter @repo/db-migrator run update --unlock-owner=<owner>
+```
+
+`migrate:down` 經相同互斥與紀錄執行最後一支 migration 的 `down`;有未完成更新或沒有 down 實作時拒絕。它只還原該 migration 的資料變更,不回滾 seed、定義或安裝紀錄。需要下修時先核對該檔的資料前提及相容性,不能把 down 或切回舊 API image 當成整批復原。
+
+定義發布立即生效,工具互斥不阻擋線上業務寫入。破壞性變更須在發布前備妥相容窗口、必要停寫方式與恢復步驟;API 已部署而 update 失敗時,依該變更的恢復方式處理。
+
+正本:`apps/db-migrator/src/update/`、`apps/api/src/seed/`、`.github/workflows/deploy.yml`。
+
 ### 資料庫還原(reset;僅 dev / staging)
 
 驗收要反覆重建租戶與使用者時,用手動 workflow 把該環境的資料庫還原。**規則正本是 ADR-0002「還原(reset)」**(兩種模式的定義、`data` 的刪 / 留判準、三道安全閥),這裡只寫怎麼操作。
@@ -333,7 +368,7 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 | 誰會讀這個 secret                              | 授權對象(`--member`)                                                                                                                                                                                                |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Cloud Run 執行中的 api(`--set-secrets` 掛進去) | Cloud Run 執行身分;查法:`gcloud run services describe cookhome-api-dev --region=asia-east1 --format="value(spec.template.spec.serviceAccountName)"`,目前為預設 `728045896207-compute@developer.gserviceaccount.com` |
-| CI 步驟(如 deploy.yml 跑 migrate / seed)       | 部署身分 `github-deployer@cookhome-online.iam.gserviceaccount.com`                                                                                                                                                  |
+| CI 步驟(如 deploy.yml 跑 update)               | 部署身分 `github-deployer@cookhome-online.iam.gserviceaccount.com`                                                                                                                                                  |
 
 ```
 gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上表身分>" --role="roles/secretmanager.secretAccessor" --project=cookhome-online
@@ -353,7 +388,7 @@ gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上
 
 小工具:裝了 vercel CLI 並登入後,`vercel env pull` 可把 Vercel 的變數拉成本地 `.env.local`(本地 front 想直連雲端 dev api 時方便)。
 
-正本:`deploy/project/cloud.json`(secret 名稱)、`.github/workflows/deploy.yml`(`--set-secrets` 與 migrate → seed 步驟讀 secret)、`docs/env-registry.md`
+正本:`deploy/project/cloud.json`(secret 名稱)、`.github/workflows/deploy.yml`(`--set-secrets` 與 update 步驟讀 secret)、`docs/env-registry.md`
 
 ### GCS bucket 與 IAM(重建或加新環境時照此)
 
