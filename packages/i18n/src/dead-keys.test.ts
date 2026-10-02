@@ -343,7 +343,41 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
   {
     key: "admin.demoSampleOne.form.categoryUnavailable",
     reason:
-      "`SampleOneCategoryField` 用的 `t` 由 `shared/DemoForm` 經 context 傳入,兩者不在同一個資料夾",
+      "`SampleOneCategoryField` 用的 `t` 由 `components/base/crud/DemoForm` 經 context 傳入,兩者不在同一個資料夾",
+  },
+  // 示範模組的鍵寫在 `pages/base/demo/` 的設定物件,`t` 開在共用元件 `components/base/crud/`:
+  // 兩邊不在同一個資料夾,掃描配不到。逐鍵列出(不用前綴),之後新增的死鍵才不會被整段蓋過去
+  ...["name", "category", "note", "status", "enabled", "actions"].map(
+    (column) => ({
+      key: `admin.demoSampleOne.columns.${column}`,
+      reason:
+        "`components/base/crud/DemoListTable` 的 `tColumns(column.key)`,key 取自 `pages/base/demo/SampleOneModule.tsx` 的 `list.columns`",
+    }),
+  ),
+  ...["name", "note", "enabled", "actions"].map((column) => ({
+    key: `admin.demoSampleTwo.columns.${column}`,
+    reason:
+      "`components/base/crud/DemoListTable` 的 `tColumns(column.key)`,key 取自 `pages/base/demo/SampleTwoModule.tsx` 的 `list.columns`",
+  })),
+  {
+    key: "admin.demoSampleOne.form.internalNoteReadonly",
+    reason:
+      "`components/base/crud/DemoFormFields` 的 `t(field.readonlyHintKey)`,值寫在 `pages/base/demo/SampleOneModule.tsx` 的表單欄位設定",
+  },
+  {
+    key: "admin.demoSampleOne.form.coverHint",
+    reason:
+      "`components/base/crud/DemoFormFields` 的 `t(definition.hintKey)`,值寫在 `pages/base/demo/SampleOneModule.tsx` 的封面上傳欄設定",
+  },
+  {
+    key: "admin.demoSampleOne.form.coverCurrent",
+    reason:
+      "`components/base/crud/DemoFormFields` 的 `t(definition.previewLabelKey)`,值寫在 `pages/base/demo/SampleOneModule.tsx` 的封面上傳欄設定",
+  },
+  {
+    key: "admin.demoSampleOne.form.attachmentHint",
+    reason:
+      "`components/base/crud/DemoFormFields` 的 `t(definition.hintKey)`,值寫在 `pages/base/demo/SampleOneModule.tsx` 的附件上傳欄設定",
   },
 ];
 

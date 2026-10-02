@@ -1,35 +1,35 @@
 import {
   SAMPLE_ONE_MODULE_KEYS,
   SAMPLE_ONE_PERMISSIONS,
-} from "@/pages/demo/demo-sample-one-config";
+} from "@/pages/base/demo/demo-sample-one-config";
 import {
   SAMPLE_TWO_MODULE_KEYS,
   SAMPLE_TWO_PERMISSIONS,
-} from "@/pages/demo/demo-sample-two-config";
+} from "@/pages/base/demo/demo-sample-two-config";
 import {
   DATA_SCOPE_MODULE_KEY,
   DATA_SCOPE_PERMISSIONS,
-} from "@/pages/system/DataScopePage/data-scope-permissions";
+} from "@/pages/base/system/DataScopePage/data-scope-permissions";
 import {
   FIELD_MANAGER_MODULE_KEY,
   FIELD_MANAGER_PERMISSIONS,
-} from "@/pages/system/FieldManagerPage/field-manager-permissions";
+} from "@/pages/base/system/FieldManagerPage/field-manager-permissions";
 import {
   MODULE_MANAGER_MODULE_KEY,
   MODULE_MANAGER_PERMISSIONS,
-} from "@/pages/system/ModuleManagerPage/module-manager-permissions";
+} from "@/pages/base/system/ModuleManagerPage/module-manager-permissions";
 import {
   ORG_MANAGER_MODULE_KEY,
   ORG_MANAGER_PERMISSIONS,
-} from "@/pages/system/OrgManagerPage/org-manager-permissions";
+} from "@/pages/base/system/OrgManagerPage/org-manager-permissions";
 import {
   ROLE_MANAGER_MODULE_KEY,
   ROLE_MANAGER_PERMISSIONS,
-} from "@/pages/system/RoleManagerPage/role-manager-permissions";
+} from "@/pages/base/system/RoleManagerPage/role-manager-permissions";
 import {
   USER_MANAGER_MODULE_KEY,
   USER_MANAGER_PERMISSIONS,
-} from "@/pages/system/UserManagerPage/user-manager-permissions";
+} from "@/pages/base/system/UserManagerPage/user-manager-permissions";
 import type { TestModule, TestOrg } from "@/test/msw/auth-handlers";
 import { overviewModule } from "@/test/msw/auth-handlers";
 import { dataScopeRoles } from "@/test/msw/data-scope-fixtures";

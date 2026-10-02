@@ -2,10 +2,6 @@ import { type ComponentType, lazy } from "react";
 
 import type { ModulePageProps } from "@/lib/module-tree";
 
-import {
-  type FormModuleOptions,
-  registerFormModule,
-} from "./form-module-options";
 import { FORM_MODULE_PAGE_SUFFIXES } from "./useFormModuleAccess";
 
 /**
@@ -27,28 +23,38 @@ const FormEditPage = lazy(() =>
   import("./FormEditPage").then((module) => ({ default: module.FormEditPage })),
 );
 
+/** 表單模組四頁在登記表裡的 key:列表頁就是模組 key,其餘三頁是 `<模組 key>.<頁>`(seed 宣告的隱藏頁)。 */
+export interface FormModulePageKeys {
+  readonly list: string;
+  readonly viewPage: string;
+  readonly createPage: string;
+  readonly editPage: string;
+}
+
+export const formModulePageKeys = (moduleKey: string): FormModulePageKeys => ({
+  list: moduleKey,
+  viewPage: `${moduleKey}.${FORM_MODULE_PAGE_SUFFIXES.viewPage}`,
+  createPage: `${moduleKey}.${FORM_MODULE_PAGE_SUFFIXES.createPage}`,
+  editPage: `${moduleKey}.${FORM_MODULE_PAGE_SUFFIXES.editPage}`,
+});
+
 /**
- * 表單模組的預設組裝(Spec 6a §8「登記與客製」):產出四個 key 的預設元件,在 `app/module-pages.tsx` 展開。
- *
- * ```ts
- * ...formModulePages(DEMO_FORM_KEY),                                          // 四頁全用預設
- * ...formModulePages(OTHER_KEY), [OTHER_KEY]: OtherListPage,                   // 列表頁客製、其餘預設
- * [OTHER_KEY]: OtherListPage, [`${OTHER_KEY}.view-page`]: OtherViewPage, ...   // 全部自己來
- * ```
+ * 表單模組的預設組裝(Spec 6a §8「登記與客製」):產出四個 key 的預設元件。純函式,只回傳、不登記任何東西;
+ * 登記在 `app/base/module-pages.ts`、`app/project/module-pages.ts` 的 `forms`(模組層設定也在那裡給),
+ * 由 `app/module-page-registry.ts` 展開。單頁客製用該筆登記的 `pageOverrides`,其餘沿用這裡的預設。
  *
  * 四個元件都是模組層常數(不是每次呼叫各建一份,REACT-09 的同一個理由);它們從 `module.key` 反推模組 key,
- * 模組層設定(頁籤模板)在這裡登記、頁面執行時讀。客製頁把表單零件(`FormRenderer`、`FormSubmissionList`…)
- * 綁進自己的版面即可。
+ * 模組層設定(頁籤模板)執行時以 `useFormModuleOptions` 讀。客製頁把表單零件(`FormRenderer`、
+ * `FormSubmissionList`…)綁進自己的版面即可。
  */
 export const formModulePages = (
   moduleKey: string,
-  options: FormModuleOptions = {},
 ): Record<string, ComponentType<ModulePageProps>> => {
-  registerFormModule(moduleKey, options);
+  const keys = formModulePageKeys(moduleKey);
   return {
-    [moduleKey]: FormListPage,
-    [`${moduleKey}.${FORM_MODULE_PAGE_SUFFIXES.viewPage}`]: FormViewPage,
-    [`${moduleKey}.${FORM_MODULE_PAGE_SUFFIXES.createPage}`]: FormCreatePage,
-    [`${moduleKey}.${FORM_MODULE_PAGE_SUFFIXES.editPage}`]: FormEditPage,
+    [keys.list]: FormListPage,
+    [keys.viewPage]: FormViewPage,
+    [keys.createPage]: FormCreatePage,
+    [keys.editPage]: FormEditPage,
   };
 };

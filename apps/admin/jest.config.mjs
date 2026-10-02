@@ -17,22 +17,45 @@ const shared = {
 };
 
 /**
- * 以固定的專案設定夾具頂替 `@repo/project-config/public` 的 project:
- * 只跑 `*.<name>.test.ts(x)`,整張模組圖(含 setup、stores、lib)讀到的都是夾具的值。
+ * 以固定夾具頂替「專案來源」的 project:只跑 `*.<name>.test.ts(x)`,整張模組圖(含 setup、stores、lib、
+ * 組裝入口)讀到的都是夾具的值。被換掉的只有 `replaces` 列出的那幾支,其餘都是正式程式。
  */
 const fixtureProjects = [
   // 替代品牌(新專案的形狀,沒有側欄舊鍵):驗「只換專案值,讀取接線就跟著換,且不碰別的專案的鍵」
-  { name: "alt-project", fixture: "alternative-project.ts" },
+  {
+    name: "alt-project",
+    replaces: {
+      "^@repo/project-config/public$":
+        "<rootDir>/src/test/alternative-project.ts",
+    },
+  },
   // 固定的 CookHome 歷史值:驗既有瀏覽器裡的鍵、資料格式、側欄舊鍵搬移與原畫面輸出
-  { name: "legacy-project", fixture: "cookhome-legacy-project.ts" },
-].map(({ name, fixture }) => ({
+  {
+    name: "legacy-project",
+    replaces: {
+      "^@repo/project-config/public$":
+        "<rootDir>/src/test/cookhome-legacy-project.ts",
+    },
+  },
+  // 測試專案的頁面登記(新增頁 + 替換治理頁):只換 `app/project/` 的兩份來源,
+  // 固定組裝入口 `app/module-pages.tsx`、路由、守門、殼與說明都是真的
+  {
+    name: "project-fixture",
+    replaces: {
+      "^@/app/project/module-pages$":
+        "<rootDir>/src/test/project-fixture/module-pages.ts",
+      "^@/app/project/page-replacements$":
+        "<rootDir>/src/test/project-fixture/page-replacements.ts",
+    },
+  },
+].map(({ name, replaces }) => ({
   name,
-  fixture,
+  replaces,
   testRegex: String.raw`\.${name}\.test\.tsx?$`,
 }));
 
 /**
- * - `admin`:正式的 `@repo/project-config/public`(目前的專案值),跑所有一般測試。
+ * - `admin`:正式的 `@repo/project-config/public`(目前的專案值)與正式的 `app/project/` 登記(空的),跑所有一般測試。
  *   一般測試不寫任何專案的字面值 —— 換專案只改專案值檔,這些測試不必跟著改
  * - 其餘 project 見 `fixtureProjects`
  *
@@ -51,14 +74,12 @@ const config = {
         ...fixtureProjects.map((project) => project.testRegex),
       ],
     },
-    ...fixtureProjects.map(({ name, fixture, testRegex }) => ({
+    ...fixtureProjects.map(({ name, replaces, testRegex }) => ({
       ...shared,
       displayName: name,
       testRegex,
-      moduleNameMapper: {
-        "^@repo/project-config/public$": `<rootDir>/src/test/${fixture}`,
-        ...shared.moduleNameMapper,
-      },
+      // 夾具的鍵排在通則 `^@/(.*)$` 前面才生效(先列的先贏)
+      moduleNameMapper: { ...replaces, ...shared.moduleNameMapper },
     })),
   ],
 };
