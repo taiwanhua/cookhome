@@ -48,7 +48,7 @@ type SubmissionUpdate = mongo.UpdateFilter<StoredSubmission>;
  * 引用它 —— 新增呼叫端要先在 ADR-0005 登記、再加進這裡。
  */
 export const WORKFLOW_SUBMISSION_STORE_CALLERS: readonly string[] = [
-  "database/database.module.ts",
+  "database/base/registrations.ts",
   "workflows/apply-center/apply-center.service.ts",
   "workflows/workflow-engine/instance-writes.ts",
   "workflows/workflow-engine/step-entry.service.ts",

@@ -1,9 +1,10 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { NotFoundException } from "@nestjs/common";
-import { getModelToken } from "@nestjs/mongoose";
 import { Test } from "@nestjs/testing";
+import type { Model } from "mongoose";
 
-import { Recipe } from "../models/recipe.model";
+import type { RecipeDocument } from "../../database/recipe.schema";
+import { RecipesLegacyRepository } from "../../database/recipes-legacy.repository";
 import { RecipesService } from "../recipes.service";
 
 describe("RecipesService", () => {
@@ -17,7 +18,12 @@ describe("RecipesService", () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
         RecipesService,
-        { provide: getModelToken(Recipe.name), useValue: mockModel },
+        {
+          provide: RecipesLegacyRepository,
+          useValue: new RecipesLegacyRepository(
+            mockModel as unknown as Model<RecipeDocument>,
+          ),
+        },
       ],
     }).compile();
 
@@ -26,12 +32,16 @@ describe("RecipesService", () => {
 
   it("returns recipes sorted by newest first", async () => {
     const recipes = [{ title: "蛋炒飯" }];
-    mockModel.find.mockReturnValue({
-      sort: () => ({ exec: () => Promise.resolve(recipes) }),
-    });
+    const sort =
+      jest.fn<
+        (order: Record<string, number>) => { exec: () => Promise<unknown[]> }
+      >();
+    sort.mockReturnValue({ exec: () => Promise.resolve(recipes) });
+    mockModel.find.mockReturnValue({ sort });
 
     const service = await createService();
     await expect(service.findAll()).resolves.toEqual(recipes);
+    expect(sort).toHaveBeenCalledWith({ createdAt: -1 });
   });
 
   it("throws NotFoundException for a missing recipe", async () => {

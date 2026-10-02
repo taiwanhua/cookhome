@@ -68,6 +68,9 @@ export const SCOPED_QUERY_MIDDLEWARE = [
 
 const tenantScopes = new WeakMap<Schema, TenantScope>();
 
+/** 掛 plugin 當下 schema 上的 collection 名(中介層閉包拿到的就是這個值);資料登記據此驗證。 */
+const installedCollections = new WeakMap<Schema, string | undefined>();
+
 /** 租戶隔離被違反或缺少上下文時拋出;屬程式錯誤(該經 BaseRepository 卻沒有),不是使用者錯誤。 */
 export class TenantScopeError extends Error {
   override name = "TenantScopeError";
@@ -100,6 +103,16 @@ export function tenantScopePlugin(
     applyTenantScope(this, scope);
     await applyDataScope(this, scope, collectionName);
   });
+  installedCollections.set(schema, collectionName);
+}
+
+/**
+ * 掛 plugin 當下取到的 collection 名;未掛 plugin、或掛的時候 schema 還沒定 collection 都回 undefined。
+ * 事後才 `schema.set("collection")` 的 schema,資料範圍規則會因為中介層拿不到 collection 而靜默不套 ——
+ * 資料登記以此擋下(`registration-validation.ts`)。
+ */
+export function getTenantScopeCollection(schema: Schema): string | undefined {
+  return installedCollections.get(schema);
 }
 
 /** 模組資料的兩個欄位與索引(見 `TenantScopeOptions.moduleData`)。 */
