@@ -104,6 +104,16 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
     }
   }
 
+  /** 這個 repository 實際綁的 model 名(只讀識別;資料登記用它驗證沒有錯綁,不暴露 Model)。 */
+  get modelName(): string {
+    return this.model.modelName;
+  }
+
+  /** 這個 repository 實際讀寫的 collection 名(只讀識別,同上)。 */
+  get collectionName(): string {
+    return this.model.collection.collectionName;
+  }
+
   async findMany(
     operator: OperatorContext,
     filter: RepositoryFilter<TSchema> = {},
@@ -462,7 +472,9 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
  * 只有需要 fail-closed 回答「有沒有」的前置檢查。`exists-any-callers.test.ts` 掃整個 src
  * 斷言沒有其他檔案呼叫它 —— 新增呼叫端要先在 ADR-0005 登記、再加進這裡。
  */
-export const EXISTS_ANY_CALLERS: readonly string[] = ["orgs/orgs.service.ts"];
+export const EXISTS_ANY_CALLERS: readonly string[] = [
+  "database/org-business-data.reader.ts",
+];
 
 /** 更新內容不得觸及的欄位:所屬組織(租戶隔離)與建立資訊(稽核)。 */
 const PROTECTED_UPDATE_PATHS: readonly string[] = [

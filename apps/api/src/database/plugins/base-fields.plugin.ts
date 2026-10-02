@@ -57,6 +57,14 @@ const UPDATE_QUERY_MIDDLEWARE = [
 
 type AnyQuery = Query<unknown, unknown, unknown, Record<string, unknown>>;
 
+/** 已掛好本 plugin 的 schema(安裝完成才記錄);資料登記據此驗證,不靠「欄位存在」推測。 */
+const installedSchemas = new WeakSet<Schema>();
+
+/** 這個 schema 是否已掛 baseFields plugin(欄位與中介層都裝好)。 */
+export function hasBaseFields(schema: Schema): boolean {
+  return installedSchemas.has(schema);
+}
+
 /**
  * Mongoose plugin(ADR-0007):
  * - 補齊 timestamps(createdAt/updatedAt)與 createdBy/updatedBy/deletedAt 三個欄位。
@@ -93,6 +101,8 @@ export function baseFieldsPlugin(schema: Schema): void {
   schema.pre([...UPDATE_QUERY_MIDDLEWARE], function () {
     fillUpdatedBy(this);
   });
+
+  installedSchemas.add(schema);
 }
 
 function excludeSoftDeleted(query: AnyQuery): void {

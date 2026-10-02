@@ -2,6 +2,9 @@ import { Field, ID, Int, ObjectType } from "@nestjs/graphql";
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import type { HydratedDocument } from "mongoose";
 
+/** 食譜的 collection 名(schema 沒寫 collection 選項,由資料登記明確指定同一個名字)。 */
+export const RECIPES_COLLECTION = "recipes";
+
 @ObjectType()
 @Schema({ _id: false })
 export class Ingredient {

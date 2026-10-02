@@ -133,6 +133,29 @@ export async function startAuthTestApp(
     memoryServer = await MongoMemoryServer.create();
     baseUri = memoryServer.getUri();
   }
+  try {
+    return await bootAuthTestApp(
+      baseUri,
+      memoryServer,
+      databaseName,
+      env,
+      extraModules,
+    );
+  } catch (error) {
+    // 啟動失敗(seed、AppModule 載入或組裝驗證)時沒有人拿得到 close():
+    // 不在這裡關掉 mongod,jest 會收不了尾、一路卡到逾時
+    await memoryServer?.stop();
+    throw error;
+  }
+}
+
+async function bootAuthTestApp(
+  baseUri: string,
+  memoryServer: MongoMemoryServer | undefined,
+  databaseName: string,
+  env: Record<string, string>,
+  extraModules: Type[],
+): Promise<AuthTestApp> {
   const databaseUri = buildDatabaseUri(baseUri, databaseName);
   seedDatabase(databaseUri);
 
