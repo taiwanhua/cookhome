@@ -113,6 +113,8 @@ CLI 以 `ROOT_ADMIN_ACCOUNT` 查該環境實際的啟用帳號與 root,經 `Oper
 
 固定程序介面為 `DefinitionSeedRequest { protocolVersion: 1, runId, lockOwner, releaseCommit, operation: "apply" | "inspect", seeds: DefinitionSeedSet[] }` 與 `DefinitionSeedResult { results, errors }`。每筆 result 包含 kind/key/revision/contentHash/snapshotHash、definitionId/localVersion、`created | updated | adopted | unchanged` 或具體衝突。migrator 以 `process.execPath` 加已建置 CLI 的固定路徑啟動,不走 shell,stdin/stdout 傳一份 JSON,診斷只到 stderr;子程序失敗、格式不符或任何 errors 都使整批失敗。CLI 核對同一 DB 的 lock owner,不接受任意程式路徑。此程序介面不是使用者要維護的設定格式。
 
+結果由 `parseDefinitionSeedResult(input, operation)` 依操作驗證。四種完成結果必須有非空 definitionId 與正整數 localVersion;`inspect` 只回 `unchanged` 或 `absent`(該 revision 尚未安裝,不是完成),`apply` 不接受 `absent`。currentVersion 非 null 時亦須為正整數。
+
 跨環境識別使用 `(kind, key, revision)`,另存兩個 hash:contentHash 包含 kind/key、受管metadata及definition,排除 revision/changelog/desiredStatus/DB metadata;snapshotHash 包含整份宣告,用來驗同revision不可變。固定物件鍵排序並保留有語意的陣列順序,缺席/空值正規化只依現有契約,不抹掉有語意的差異。安裝紀錄映射到該環境的 definition id 與 local version,不能把來源 `version: 3` 當成目標也必須是 3。不同環境歷史不一樣但目標內容相同即可。
 
 - 新 key:建立共用身分與草稿,按原生命週期發布;記錄成功前核對 currentVersion、凍結內容與動態權限。

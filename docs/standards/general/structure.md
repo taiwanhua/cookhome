@@ -143,10 +143,11 @@ admin 每個環境各建一顆 image,正是最容易吃到這個坑的形狀(`VI
 - **交件前跑一次 `pnpm format`**,未格式化的檔案 CI 會擋下來;`.ts` 的 import 排序由 `@trivago` 外掛統一處理,不要手排。
 - 表格的分隔列與欄寬對齊一律交給 prettier:寫完跑 `pnpm format`,不要手動對齊、也不要為了省寬度刻意寫緊湊式 `|---|---|`(prettier 會展開,產生與內容無關的大 diff)。
 
-只有兩種例外,都要附原因:
+例外都要附原因:
 
 1. **清單編號是跨文件引用的穩定 ID**(清單的編號被其他文件以「第 N 項」指路時)— prettier 會把非連續編號重排成連號,在該清單前一行放 `<!-- prettier-ignore -->`。
 2. **不歸我們管的內容** — 外部安裝、由 `skills-lock.json` 以 hash 校驗的 `.agents/`,以及 Claude Code 的本機目錄,整目錄列在 `.prettierignore`。
+3. **種子快照的固定輸出** — `@repo/domain/seed` 的 `serializeSeedSet` 在 `seed` 宣告前產生 `// prettier-ignore`,讓匯出與版控內容一致,已發布快照不被重新排版。只豁免該宣告,不排除整個 seed 目錄。
 
 **擴大檢查範圍(加副檔名)時,會冒出兩類「本來看不到」的檔案**:
 
@@ -207,3 +208,11 @@ grep -rnE "20[0-9]{2}-[0-9]{2}-[0-9]{2}|第 [0-9一二三四五六] 段|#[0-9]{2
 - repository providers 與 Nest exports 由登記導出,不匯出 Model provider 或整個 MongooseModule。底座 repository 實作放 `database/base/` 等 leaf 檔,不回指組裝入口;`database.module.ts` 保留既有 repository 的 TypeScript re-export 相容出口。
 - 新專案租戶資料沿用 BaseRepository 與隔離 plugins,同時登記組織歸屬檢查;刪組織與撤銷開通共用 `OrgBusinessDataReader`,不能新增可繞過檢查的 callback。Recipes 的既有相容例外不供新模組套用。
 - 測試 fixture 只豁免所有權方向,不新增 raw query 或 Mongoose 任意注入的例外;正式來源不得引用 fixture。驗收入口見 TEST-07 / TEST-08。
+
+### seed
+
+- 底座宣告與 helper 在 `apps/db-migrator/seeds/base/`,專案宣告在 `seeds/project/`;只有 `seeds/registry.ts` 讀兩方來源。根組織與模組的專案初值在 `project/settings.ts`,底座維護結構與初始值保護政策。
+- 專案模組登記在 `project/registry.ts` 的 `moduleDeclarations`,其他種子登記在 `seeds`。合併後只推導一次模組、權限、資料目標與租戶管理員模板;不另用普通文件宣告這些推導結果。
+- 寫入前檢查重名、引用、循環與來源政策。表單、流程、版本、安裝紀錄及動態權限不得用一般 documents seed 繞過發布機制。
+
+正本:`apps/db-migrator/seeds/registry.ts`、`apps/db-migrator/src/seed/seed-composition.ts`;新增模組步驟見 [module scaffold](../../agents/module-scaffold.md)。
