@@ -2,7 +2,7 @@ import {
   type SeedDocument,
   type SeedDocumentSet,
   seedRef,
-} from "../src/seed/seed-declaration";
+} from "../../src/seed/seed-declaration";
 import { DEMO_CATEGORY_KEY, GENDER_CATEGORY_KEY } from "./field-categories";
 import { ROOT_ORG_KEY } from "./orgs";
 

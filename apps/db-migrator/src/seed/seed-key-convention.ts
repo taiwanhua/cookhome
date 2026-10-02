@@ -18,6 +18,7 @@ import {
 
 export const MODULES_COLLECTION = "modules";
 export const PERMISSIONS_COLLECTION = "permissions";
+export const DATA_SCOPE_TARGETS_COLLECTION = "data_scope_targets";
 
 /**
  * 隱藏的純 API 模組樹根(ADR-0004「API 權限」):不在側欄、也不是頁面(無 route),

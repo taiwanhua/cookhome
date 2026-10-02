@@ -1,7 +1,7 @@
 import type {
   SeedDocumentSet,
   SeedRelationSet,
-} from "../src/seed/seed-declaration";
+} from "../../src/seed/seed-declaration";
 import { ROOT_ORG_KEY } from "./orgs";
 
 export const SUPER_ADMIN_ROLE_KEY = "super-admin";

@@ -1,6 +1,7 @@
-import { fieldCategories } from "../../../seeds/field-categories";
-import { fields } from "../../../seeds/fields";
-import { orgs } from "../../../seeds/orgs";
+import { fieldCategories } from "../../../seeds/base/field-categories";
+import { fields } from "../../../seeds/base/fields";
+import { rootOrgSeed } from "../../../seeds/base/orgs";
+import { projectSeedSettings } from "../../../seeds/project/settings";
 import { type SeedRegistry, seedRef } from "../../../src/seed/seed-declaration";
 
 /**
@@ -9,7 +10,7 @@ import { type SeedRegistry, seedRef } from "../../../src/seed/seed-declaration";
  * `demo-category` 補一段說明,驗「更新」照常計數。
  */
 export const seedRegistry: SeedRegistry = [
-  orgs,
+  rootOrgSeed(projectSeedSettings.rootOrg),
   {
     ...fieldCategories,
     entries: [

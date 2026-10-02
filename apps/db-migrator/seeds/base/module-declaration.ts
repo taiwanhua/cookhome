@@ -1,6 +1,6 @@
 /**
- * 模組種子的宣告型別(ADR-0002:`seeds/modules/<key>.ts` 每模組一檔 —
- * 模組樹節點 + permissions + dataScopeTarget)。欄位形狀對照
+ * 模組種子的宣告型別與 helper(ADR-0002:底座 `seeds/base/modules/<key>.ts`、專案 `seeds/project/` 每模組一檔 —
+ * 模組樹節點 + permissions + dataScopeTarget)。底座與專案共用這一份宣告方式。欄位形狀對照
  * apps/api/src/database/schemas/module.schema.ts、permission.schema.ts、data-scope-target.schema.ts。
  */
 import type { ModuleIconKey } from "@repo/domain/module-icon";
@@ -8,7 +8,7 @@ import type { ModuleIconKey } from "@repo/domain/module-icon";
 /** 側欄呈現型別(module.schema.ts MODULE_SIDEBAR_TYPES)。 */
 export type ModuleSidebarType = "group" | "link" | "hidden";
 
-/** 一個模組樹節點;parentId / ancestors 由 seeds/modules.ts 依 parentKey 解析。 */
+/** 一個模組樹節點;parentId / ancestors 由 seeds/base/modules.ts 依 parentKey 解析(父節點可以在另一個來源)。 */
 export interface ModuleNodeDeclaration {
   /** 累加父 key(`<父key>.<自己那段>`),規約由靜態測試強制。 */
   key: string;
@@ -34,7 +34,26 @@ export interface ModuleNodeDeclaration {
    * (不宣告 = `"fixed"`,固定欄位模組);每次 seed 都同步宣告值。
    */
   engine?: "form";
+  /**
+   * `modules.settings` 的**初始值**(不宣告 = `{}`)。與 `enabled`、`icon` 同屬「初始 seed 值的欄位」(ADR-0002):
+   * 建立時寫入,之後保留人在畫面上的修改(如表單模組的列表欄位配置 `settings.list`)。
+   */
+  settings?: Record<string, unknown>;
 }
+
+/**
+ * 專案對某個模組三個初始值欄位的指定(`seeds/project/settings.ts` 的 `moduleInitialValues`):
+ * 只收 `enabled`、`icon`、`settings`,其餘欄位由宣告決定。已存在的畫面值仍優先 —— 這只影響首次建立與完整重建。
+ */
+export interface ModuleInitialValue {
+  enabled?: boolean;
+  /** `null` = 不要圖示(側欄用預設圖示)。 */
+  icon?: ModuleIconKey | null;
+  settings?: Record<string, unknown>;
+}
+
+/** 模組 key → 初始值指定;key 必須是已宣告的模組。 */
+export type ModuleInitialValues = Readonly<Record<string, ModuleInitialValue>>;
 
 /** 一筆個別權限;key 須為 `<moduleKey>.<動作>`(規約由 seed-key-convention 靜態測試強制)。 */
 export interface PermissionDeclaration {
@@ -48,7 +67,7 @@ export interface PermissionDeclaration {
 /**
  * 資料範圍目標(ADR-0008):落庫至 data_scope_targets,以 `(collection, moduleKey)` 為識別鍵。
  * `moduleKey` 不在宣告裡寫 —— seed runner 填宣告檔所在模組(第一個**非群組**節點的 key,
- * `seeds/modules.ts` 的 `ownerModuleKeyOf`),
+ * `seeds/base/modules.ts` 的 `ownerModuleKeyOf`),
  * 所以一個模組至多一個目標,同一張表(如 `form_submissions`)可以被多個模組各宣告一次。
  */
 export interface DataScopeTargetDeclaration {
@@ -60,9 +79,9 @@ export interface DataScopeTargetDeclaration {
 }
 
 export interface ModuleSeedDeclaration {
-  /** 依樹的先後宣告(父在前),runner 依序解析 parentId。 */
+  /** 依樹的先後宣告(父在前);跨檔、跨來源的父節點由組裝時依整棵樹排序。 */
   nodes: ModuleNodeDeclaration[];
-  /** 個別權限;每個節點的 wildcard `<key>.*` 由 seeds/modules.ts 自動產生,不在此宣告。 */
+  /** 個別權限;每個節點的 wildcard `<key>.*` 由 seeds/base/modules.ts 自動產生,不在此宣告。 */
   permissions?: PermissionDeclaration[];
   dataScopeTarget?: DataScopeTargetDeclaration;
 }

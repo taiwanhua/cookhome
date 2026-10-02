@@ -21,7 +21,7 @@ export const PRESERVED_COLLECTIONS: readonly string[] = [
 ];
 
 /**
- * seed 灌的**示範業務資料**(`seeds/demo-items.ts`):`data` 模式整表清空,
+ * seed 灌的**示範業務資料**(`seeds/base/demo-items.ts`):`data` 模式整表清空,
  * 再由同一次執行的 seed 依宣告補回。它們是資料不是設定 —— 留著等於留下被玩壞的狀態,
  * 而 seed 本來就會把宣告的那幾筆種回來(`enabled` 以外的欄位每次都同步)。
  */

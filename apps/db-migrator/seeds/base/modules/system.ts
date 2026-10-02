@@ -24,7 +24,7 @@ export const WORKFLOWS_BLOCKED_PAGE_KEY = `${WORKFLOWS_KEY}.blocked-page`;
  *
  * 六個治理模組的權限表皆已有正本(組織管理 / 使用者管理 #133;角色管理、模組與權限、欄位管理、
  * 資料範圍 2026-09-20 補於各 docs/modules/<key>.md「權限表」節,#202 種下),
- * 每個模組的 wildcard 由 seeds/modules.ts 自動產生。
+ * 每個模組的 wildcard 由 seeds/base/modules.ts 自動產生。
  */
 export const systemModules: ModuleSeedDeclaration = {
   nodes: [

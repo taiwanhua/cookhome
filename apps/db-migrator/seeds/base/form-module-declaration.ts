@@ -22,13 +22,15 @@ export const FORM_SUBMISSION_STATUS_OPTIONS = [
 export interface FormModuleSpec {
   key: string;
   name: string;
-  /** 掛在哪個節點底下;null = 頂層。父節點須由別的宣告檔先宣告(`seeds/modules.ts` 的順序)。 */
+  /** 掛在哪個節點底下;null = 頂層。父節點由別的宣告檔宣告(可以在底座;組裝時依整棵樹排序)。 */
   parentKey: string | null;
   /** 本層的路由段(完整路徑由祖先的 route 串起來)。 */
   route: string;
   order: number;
   icon: ModuleIconKey;
   description: string;
+  /** `modules.settings` 的初始值(如列表欄位配置 `list`);不給 = `{}`。建立後由 root 在畫面上改。 */
+  settings?: Record<string, unknown>;
 }
 
 /**
@@ -56,6 +58,7 @@ export function formModuleDeclaration(
         icon: spec.icon,
         engine: "form",
         description: spec.description,
+        ...(spec.settings === undefined ? {} : { settings: spec.settings }),
       },
       {
         key: `${key}.view-page`,

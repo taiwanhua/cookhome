@@ -1,4 +1,4 @@
-import type { SeedRootAdminSet } from "../src/seed/seed-declaration";
+import type { SeedRootAdminSet } from "../../src/seed/seed-declaration";
 import { ROOT_ORG_KEY } from "./orgs";
 import { SUPER_ADMIN_ROLE_KEY } from "./roles";
 

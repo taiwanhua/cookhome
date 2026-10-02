@@ -24,7 +24,12 @@ import {
   requireEnv,
 } from "../cli";
 import { readRootAdminInput } from "../seed/root-admin";
-import { formatCounts, runSeeds, sumCounts } from "../seed/seed-runner";
+import {
+  formatCounts,
+  prepareSeedRun,
+  runSeeds,
+  sumCounts,
+} from "../seed/seed-runner";
 import { resetData } from "./reset-runner";
 import {
   RESET_ALLOW_ENV_NAME,
@@ -46,6 +51,8 @@ type ResetMode = (typeof MODES)[number];
 interface ResetArgs {
   mode: ResetMode;
   confirm: string | undefined;
+  /** registry 檔路徑(預設 seeds/registry.ts);與 seed 指令一樣,供測試以夾具 registry 驗證。 */
+  registryPath: string;
 }
 
 function isMode(value: string): value is ResetMode {
@@ -55,6 +62,7 @@ function isMode(value: string): value is ResetMode {
 function parseArgs(argv: string[]): ResetArgs {
   let mode: ResetMode | undefined;
   let confirm: string | undefined;
+  let registryPath = DEFAULT_REGISTRY_PATH;
   for (const argument of argv) {
     const [flag, ...rest] = argument.split("=");
     const value = rest.join("=");
@@ -62,6 +70,8 @@ function parseArgs(argv: string[]): ResetArgs {
       mode = value;
     } else if (flag === "--confirm") {
       confirm = value;
+    } else if (flag === "--registry" && value !== "") {
+      registryPath = path.resolve(value);
     } else {
       throw new Error(
         `無法辨識的參數 ${argument}(用法:reset --mode=<${MODES.join("|")}> --confirm=<資料庫名>)`,
@@ -71,7 +81,7 @@ function parseArgs(argv: string[]): ResetArgs {
   if (!mode) {
     throw new Error(`--mode 必須是 ${MODES.join(" 或 ")}`);
   }
-  return { mode, confirm };
+  return { mode, confirm, registryPath };
 }
 
 /** `full` 的第二步:以子行程跑 migrate-mongo(等同 `pnpm --filter @repo/db-migrator migrate`)。 */
@@ -90,7 +100,7 @@ function runMigrations(): void {
 }
 
 async function main(): Promise<void> {
-  const { mode, confirm } = parseArgs(process.argv.slice(2));
+  const { mode, confirm, registryPath } = parseArgs(process.argv.slice(2));
   const uri = requireEnv("MONGODB_URI");
   const databaseName = parseDatabaseName(uri);
 
@@ -106,7 +116,10 @@ async function main(): Promise<void> {
   // 兩個模式最後都要跑 seed,`data` 還要靠 account 認出「不刪的那個人」——
   // 先把 ROOT_ADMIN_* 檢查掉,不要刪完才發現缺變數
   const { account } = readRootAdminInput(process.env);
-  const registry = await loadRegistry(DEFAULT_REGISTRY_PATH);
+  const registry = await loadRegistry(registryPath);
+  // 刪除之前先確認之後的 seed 跑得完(與 seed 指令同一個預檢):registry 不合法、或登記了這個入口
+  // 還沒辦法發布的版本化定義,就一筆都不刪 —— 否則會先清掉資料才發現種不回去
+  prepareSeedRun(registry, { env: process.env });
 
   const client = await MongoClient.connect(uri);
   try {
