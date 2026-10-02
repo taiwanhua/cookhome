@@ -1,12 +1,14 @@
 name: Reset DB
 
-# 驗收重測用的資料庫還原(正本:ADR-0002「還原(reset)」;用法與限制見 docs/deployment.md)。
+# 資料庫還原(正本:ADR-0002「還原(reset)」;用法與限制見 docs/deployment.md)。
 # 一律手動觸發:
-#   UI :GitHub → Actions → Reset DB → Run workflow → 選 environment 與 mode
-#   CLI:gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data
+#   UI :GitHub → Actions → Reset DB → Run workflow → 選 environment 與 mode、輸入 confirmation
+#   CLI:gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data -f confirmation=reset:dev:<資料庫名>:data
 #
-# **沒有 production 選項**:reset 永不對 production 執行。指令端另有三道安全閥
-#(apps/db-migrator/src/reset/reset-safety.ts),就算這裡被改壞也擋得住。
+# 三個環境共用同一套確認:操作者要親手輸入 reset:<environment>:<資料庫名>:<mode>。
+# 本檔**不會**從連線字串替操作者組出確認字串 —— 輸入的值經 step 的 env 原樣傳給指令,由指令比對
+# 實際連到的資料庫名(apps/db-migrator/src/reset/reset-safety.ts),缺值或任何一段不符就一筆都不刪。
+# 輸出只會有環境、資料庫名與模式,沒有連線字串或任何機密。
 #
 # 雲端目標、Secret 名稱與 seed 帳號不寫在本檔:與 deploy.yml 同一份正本(deploy/project/*.json),
 # 由「專案設定」步驟讀取並驗證;設定值一律經 step 的 env 傳給腳本,不內插進 run 的程式文本。
@@ -14,15 +16,19 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "還原目標(只有 dev / staging;production 不開放)"
+        description: "還原目標(決定讀哪個環境的專案設定與 Secret)"
         required: true
         type: choice
-        options: [dev, staging]
+        options: [dev, staging, production]
       mode:
-        description: "data=只刪人建的資料再補 seed(模組開關 / 圖示保留);full=整庫重建(dropDatabase → migrate → seed)"
+        description: "data=只刪人建的資料再補齊設定(root 現值、模組初始值、受管定義的歷史版本保留);full=清除全部 collection 後依這個版本重建"
         required: true
         type: choice
         options: [data, full]
+      confirmation:
+        description: "人工確認,完整輸入:reset:<environment>:<資料庫名>:<mode>(例:reset:dev:cookhome-dev:data)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -34,18 +40,31 @@ jobs:
     # 用 GitHub environment 包起來,日後要加人工審核直接在該 environment 上設 required reviewers
     environment: ${{ inputs.environment }}
     steps:
-      # 專案設定檔三個環境都有(deploy 要用),所以「reset 沒有 production」不能靠設定檔缺值來擋,在讀設定前先擋一次
-      - name: 環境防呆(只允許 dev / staging)
+      # 讀設定、認證、讀 Secret 之前先擋掉不完整的輸入;確認字串對不對由指令端比對實際的資料庫名
+      - name: 輸入防呆(環境、模式與人工確認都要有)
         env:
           ENVIRONMENT: ${{ inputs.environment }}
+          MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
         run: |
           case "$ENVIRONMENT" in
-            dev | staging) ;;
+            dev | staging | production) ;;
             *)
-              echo "::error::reset 只允許 dev / staging,production 永不執行"
+              echo "::error::environment 必須是 dev / staging / production"
               exit 1
               ;;
           esac
+          case "$MODE" in
+            data | full) ;;
+            *)
+              echo "::error::mode 必須是 data / full"
+              exit 1
+              ;;
+          esac
+          if [ -z "$CONFIRMATION" ]; then
+            echo "::error::confirmation 必填:請完整輸入 reset:<environment>:<資料庫名>:<mode>"
+            exit 1
+          fi
 
       - uses: actions/checkout@v4
 
@@ -74,13 +93,22 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # 只裝 db-migrator 及其依賴;MONGOMS_DISABLE_POSTINSTALL 避免下載測試用的 mongod 二進位檔
-      - name: 安裝 db-migrator 依賴
-        run: pnpm install --frozen-lockfile --filter @repo/db-migrator...
+      # reset 清除後在同一把鎖內執行 update(migration → 種子 → 受管定義),受管定義由 api 的 CLI 發布:
+      # 與 deploy.yml 一樣連 api 與它的 workspace 依賴一起安裝、建置,用的是這個 checkout 的產物。
+      # MONGOMS_DISABLE_POSTINSTALL 避免下載測試用的 mongod 二進位檔。
+      - name: 安裝 db-migrator 與 api 的依賴
+        run: pnpm install --frozen-lockfile --filter "@repo/db-migrator..." --filter "@repo/api..."
         env:
           MONGOMS_DISABLE_POSTINSTALL: "1"
 
-      # --confirm 取自連線字串裡的資料庫名:指令會比對兩者,不符即拒絕(打錯環境就過不了)
+      # 刪除任何資料之前先確認受管定義 CLI 建得出來、啟動得起來(不需要資料庫)
+      - name: 建置 api 的受管定義 CLI
+        run: |
+          pnpm --filter "@repo/api..." run build
+          pnpm --filter @repo/db-migrator run update --check-cli
+
+      # --confirm 是操作者輸入的原值:這裡不解析連線字串、不替他組確認字串。
+      # 允許清單只放這次選的環境(讀到的就是該環境的 Secret);設定版本取 GITHUB_SHA,由指令記進 seed_update_runs
       - name: reset
         env:
           ROOT_ADMIN_ACCOUNT: ${{ steps.cfg.outputs.root_account }}
@@ -88,6 +116,7 @@ jobs:
           RESET_ALLOW_ENV: ${{ inputs.environment }}
           ENVIRONMENT: ${{ inputs.environment }}
           MODE: ${{ inputs.mode }}
+          CONFIRMATION: ${{ inputs.confirmation }}
           MONGODB_SECRET_NAME: ${{ steps.cfg.outputs.mongodb_secret }}
           ROOT_SECRET_NAME: ${{ steps.cfg.outputs.root_secret }}
         run: |
@@ -96,6 +125,4 @@ jobs:
           echo "::add-mask::$MONGODB_URI"
           echo "::add-mask::$ROOT_ADMIN_PASSWORD"
           export MONGODB_URI ROOT_ADMIN_PASSWORD
-          DB_NAME=$(node -p "decodeURIComponent(new URL(process.env.MONGODB_URI).pathname.slice(1))")
-          echo "::notice::reset --mode=$MODE --confirm=$DB_NAME(環境:$ENVIRONMENT)"
-          pnpm --filter @repo/db-migrator reset --mode="$MODE" --confirm="$DB_NAME"
+          pnpm --filter @repo/db-migrator reset --environment="$ENVIRONMENT" --mode="$MODE" --confirm="$CONFIRMATION"

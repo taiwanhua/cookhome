@@ -611,30 +611,47 @@ test("值含 shell 特殊字元時原樣成為單一引數:不展開、不分詞
 const resetText = readWorkflow("reset-db.yml");
 const resetSteps = parseSteps(resetText);
 
+/** 假的 Secret 內容:連線字串裡的資料庫名是 production 的命名(沒有環境後綴)時也一樣。 */
+const RESET_DATABASES = {
+  dev: "cookhome-dev",
+  staging: "cookhome-staging",
+  production: "cookhome",
+};
+const resetUri = (environment) =>
+  `mongodb+srv://user:pw@fake-host/${RESET_DATABASES[environment] ?? "cookhome-dev"}?retryWrites=true`;
+
+/** `confirmation` 省略時是操作者會輸入的那一串;要驗「原樣傳」就自己給任意值。 */
 const runReset = (
   environment,
   mode,
-  { repository = COOKHOME, cwd = legacyRoot, uri } = {},
+  { repository = COOKHOME, cwd = legacyRoot, uri, confirmation } = {},
 ) =>
   runJob("reset-db.yml", {
-    inputs: { environment, mode },
+    inputs: {
+      environment,
+      mode,
+      confirmation:
+        confirmation ??
+        `reset:${environment}:${RESET_DATABASES[environment]}:${mode}`,
+    },
     github: { repository },
-    env: deployEnv({
-      FAKE_MONGODB_URI:
-        uri ??
-        `mongodb+srv://user:pw@fake-host/cookhome-${environment}?retryWrites=true`,
-    }),
+    env: deployEnv({ FAKE_MONGODB_URI: uri ?? resetUri(environment) }),
     cwd,
   });
 
-test("reset:只能手動、沒有 production 選項、mode 與 GitHub environment 包裝不變", () => {
+const RESET_GUARD = "輸入防呆(環境、模式與人工確認都要有)";
+
+test("reset:只能手動、三個環境都可選、人工確認是必填的文字輸入,mode 與 GitHub environment 包裝不變", () => {
   assert.match(resetText, /^on:\n {2}workflow_dispatch:\n/m);
   assert.doesNotMatch(
     resetText,
     /^ {2}(push|pull_request|schedule|workflow_run):/m,
   );
-  assert.match(resetText, /options: \[dev, staging\]\n/);
-  assert.doesNotMatch(resetText, /options: \[[^\]]*production/);
+  assert.match(resetText, /options: \[dev, staging, production\]\n/);
+  assert.match(
+    resetText,
+    /^ {6}confirmation:\n {8}description: .*\n {8}required: true\n {8}type: string$/m,
+  );
   assert.match(resetText, /options: \[data, full\]/);
   assert.match(
     resetText,
@@ -657,21 +674,25 @@ test("reset:讀設定移到 checkout 之後、認證之前", () => {
   assert.match(resetSteps[config].run, /read-config\.mjs --scope cloud /);
 });
 
-for (const [environment, mode] of [
-  ["dev", "data"],
-  ["staging", "full"],
+for (const [environment, mode, suffix] of [
+  ["dev", "data", "-dev"],
+  ["staging", "full", "-staging"],
+  ["production", "data", ""],
+  ["production", "full", ""],
 ]) {
-  test(`reset ${environment} / ${mode}:命令與抽設定前逐字相同,--confirm 取自連線字串的資料庫名`, async () => {
+  test(`reset ${environment} / ${mode}:讀該環境的 Secret,建置受管定義 CLI,人工確認原樣傳給指令`, async () => {
     const job = await runReset(environment, mode);
     assert.equal(job.failed, null, job.failed?.stderr);
     assert.deepEqual(commands(job.calls, "gcloud", "docker", "pnpm"), [
-      "pnpm install --frozen-lockfile --filter @repo/db-migrator...",
-      `gcloud secrets versions access latest --secret=mongodb-uri-${environment}`,
-      `gcloud secrets versions access latest --secret=root-admin-password-${environment}`,
-      `pnpm --filter @repo/db-migrator reset --mode=${mode} --confirm=cookhome-${environment}`,
+      "pnpm install --frozen-lockfile --filter @repo/db-migrator... --filter @repo/api...",
+      "pnpm --filter @repo/api... run build",
+      "pnpm --filter @repo/db-migrator run update --check-cli",
+      `gcloud secrets versions access latest --secret=mongodb-uri${suffix}`,
+      `gcloud secrets versions access latest --secret=root-admin-password${suffix}`,
+      `pnpm --filter @repo/db-migrator reset --environment=${environment} --mode=${mode} --confirm=reset:${environment}:${RESET_DATABASES[environment]}:${mode}`,
     ]);
     assert.deepEqual(exported(job.calls), {
-      MONGODB_URI: `mongodb+srv://user:pw@fake-host/cookhome-${environment}?retryWrites=true`,
+      MONGODB_URI: resetUri(environment),
       ROOT_ADMIN_PASSWORD: "fake-secret-value",
       ROOT_ADMIN_ACCOUNT: "root",
       ROOT_ADMIN_EMAIL: "a0987837233@gmail.com",
@@ -687,12 +708,26 @@ for (const [environment, mode] of [
   });
 }
 
-test("reset:production(或任何 dev / staging 以外的值)在第一步就被拒絕,不讀設定、不認證", async () => {
-  for (const environment of ["production", "prod", "", "dev staging"]) {
-    const job = await runReset(environment, "data");
-    assert.equal(job.trace.length, 1, environment);
-    assert.equal(job.failed?.label, "環境防呆(只允許 dev / staging)");
-    assert.deepEqual(job.calls, []);
+test("reset:未知的環境、未知的模式或沒有人工確認,在第一步就被拒絕,不讀設定、不認證、不讀 Secret", async () => {
+  const scenarios = [
+    ["prod", "data", undefined],
+    ["", "data", "reset::cookhome:data"],
+    ["dev staging", "data", "reset:dev:cookhome-dev:data"],
+    ["dev", "wipe", "reset:dev:cookhome-dev:wipe"],
+    ["production", "full", ""],
+    ["dev", "data", ""],
+  ];
+  for (const [environment, mode, confirmation] of scenarios) {
+    const job = await runJob("reset-db.yml", {
+      inputs: { environment, mode, confirmation: confirmation ?? "x" },
+      github: { repository: COOKHOME },
+      env: deployEnv({ FAKE_MONGODB_URI: resetUri("dev") }),
+      cwd: legacyRoot,
+    });
+    const label = `${environment} / ${mode} / ${String(confirmation)}`;
+    assert.equal(job.trace.length, 1, label);
+    assert.equal(job.failed?.label, RESET_GUARD, label);
+    assert.deepEqual(job.calls, [], label);
   }
 });
 
@@ -705,38 +740,91 @@ test("reset:repository 不符時在認證與讀 Secret 之前停止", async () =
   assert.deepEqual(job.calls, []);
 });
 
-test("reset:--confirm 永遠帶上、值原樣取自連線字串(未知命名交給指令端的安全閥拒絕),RESET_ALLOW_ENV 只等於所選環境", async () => {
+test("reset:--confirm 是操作者輸入的原值,workflow 不解析連線字串、不替他組確認字串;RESET_ALLOW_ENV 只等於所選環境", async () => {
   const { step } = findStep(
     resetSteps,
     (candidate) => candidate.name === "reset",
   );
   assert.equal(step.env.RESET_ALLOW_ENV, "${{ inputs.environment }}");
-  assert.match(step.run, /--confirm="\$DB_NAME"/);
+  assert.equal(step.env.CONFIRMATION, "${{ inputs.confirmation }}");
+  assert.match(step.run, /--confirm="\$CONFIRMATION"/);
+  assert.match(step.run, /--environment="\$ENVIRONMENT"/);
+  // 整支 workflow 都沒有從連線字串取資料庫名的程式(確認只能來自人的輸入)
+  for (const candidate of resetSteps) {
+    assert.doesNotMatch(
+      candidate.run ?? "",
+      /new URL|pathname|DB_NAME|node -[ep]/,
+      candidate.name,
+    );
+  }
+  assert.doesNotMatch(resetText, /::notice::.*MONGODB_URI/);
 
-  const unknown = await runReset("dev", "data", {
-    uri: "mongodb://fake-host/some%2Dother%20db",
+  // 確認與實際資料庫不符時 workflow 照樣原樣傳,不修正、不補齊(由指令端拒絕)
+  const wrongDatabase = await runReset("production", "full", {
+    confirmation: "reset:production:cookhome-dev:full",
   });
   assert.equal(
-    commands(unknown.calls, "pnpm").at(-1),
-    "pnpm --filter @repo/db-migrator reset --mode=data --confirm=some-other db",
+    commands(wrongDatabase.calls, "pnpm").at(-1),
+    "pnpm --filter @repo/db-migrator reset --environment=production --mode=full --confirm=reset:production:cookhome-dev:full",
   );
-  const production = await runReset("dev", "full", {
-    uri: "mongodb://fake-host/cookhome",
+  assert.equal(exported(wrongDatabase.calls).RESET_ALLOW_ENV, "production");
+
+  // 含空白與特殊字元的輸入:一個引數、逐字相同
+  const odd = "reset:dev:some other db;$(id):data ";
+  const verbatim = await runReset("dev", "data", {
+    uri: "mongodb://fake-host/cookhome-dev",
+    confirmation: odd,
   });
-  assert.equal(
-    commands(production.calls, "pnpm").at(-1),
-    "pnpm --filter @repo/db-migrator reset --mode=full --confirm=cookhome",
-  );
-  assert.equal(exported(production.calls).RESET_ALLOW_ENV, "dev");
-  const empty = await runReset("dev", "data", { uri: "mongodb://fake-host/" });
-  assert.deepEqual(empty.calls.filter((call) => call[0] === "pnpm").at(-1), [
+  assert.deepEqual(verbatim.calls.filter((call) => call[0] === "pnpm").at(-1), [
     "pnpm",
     "--filter",
     "@repo/db-migrator",
     "reset",
+    "--environment=dev",
     "--mode=data",
-    "--confirm=",
+    `--confirm=${odd}`,
   ]);
+  assert.equal(exported(verbatim.calls).RESET_ALLOW_ENV, "dev");
+
+  // 換一個連線字串(資料庫名不同)不會改變傳給指令的確認
+  const otherUri = await runReset("staging", "data", {
+    uri: "mongodb://fake-host/renamed-db",
+  });
+  assert.equal(
+    commands(otherUri.calls, "pnpm").at(-1),
+    "pnpm --filter @repo/db-migrator reset --environment=staging --mode=data --confirm=reset:staging:cookhome-staging:data",
+  );
+});
+
+test("reset:workflow 自己不把連線字串或由它推得的內容寫進 log(只有 add-mask;資料庫名由指令輸出)", () => {
+  const { step } = findStep(
+    resetSteps,
+    (candidate) => candidate.name === "reset",
+  );
+  const echoes = step.run
+    .split("\n")
+    .filter((line) => /\becho\b/.test(line))
+    .map((line) => line.trim());
+  assert.deepEqual(echoes, [
+    'echo "::add-mask::$MONGODB_URI"',
+    'echo "::add-mask::$ROOT_ADMIN_PASSWORD"',
+  ]);
+});
+
+test("reset:受管定義 CLI 在讀 Secret 與 reset 之前建置並確認可啟動", () => {
+  const order = (name) =>
+    findStep(resetSteps, (candidate) => candidate.name === name).index;
+  assert.ok(
+    order("安裝 db-migrator 與 api 的依賴") < order("建置 api 的受管定義 CLI"),
+  );
+  assert.ok(order("建置 api 的受管定義 CLI") < order("reset"));
+  const secretSteps = resetSteps.filter((candidate) =>
+    (candidate.run ?? "").includes("gcloud secrets"),
+  );
+  assert.deepEqual(
+    secretSteps.map((candidate) => candidate.name),
+    ["reset"],
+  );
 });
 
 // ---------------------------------------------------------- project-status.yml
