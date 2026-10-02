@@ -173,6 +173,13 @@ jobs:
             turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-format-codegen-
             turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
 
+      # `generate` 寫產物前會先跑 scripts/check-documents.mjs(底座 / 專案兩個來源的 operation、fragment 不得重名)。
+      # 正式來源是乾淨的,下一步的 generate 只走得到正例;重名、匿名、散落文件這些負例由這支 Node 測試用暫存目錄驗。
+      # 用專屬的 test:documents 而不是 test:test-others 會把 jest 的旗標(--forceExit)傳給每個 package 的 test,node --test 不吃。
+      - name: GraphQL 文件登記檢查的負例測試
+        if: needs.prepare.outputs.codegen == 'true'
+        run: pnpm --filter @repo/graphql test:documents
+
       # GQL-05:`apps/api/schema.gql` 與 `packages/graphql/src/generated` 都是產物。
       # api-only 的票改了 resolver 卻沒重產時,型別要等下一張 admin 票才更新,之前沒有任何一步抓得到。
       # 只在 api 或 graphql 受影響時跑。
