@@ -154,7 +154,7 @@ function resultOf(
 }
 
 /**
- * 受管定義的最小 Nest 組裝與受控 CLI(`docs/plans/seed-migration.md`「發布、身分與衝突」「部署與建置接線」)。
+ * 受管定義的最小 Nest 組裝與受控 CLI(`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」)。
  * 前半在測試行程裡起 `SeedRuntimeModule`;後半先建置,再以子程序跑 `dist/seed/run.js`,
  * 鎖用共用契約的隔離夾具(不依賴 db-migrator 的 update)。
  */

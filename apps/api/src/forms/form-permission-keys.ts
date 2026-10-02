@@ -1,7 +1,7 @@
 import { permissionKey } from "@repo/domain/permission";
 
 /**
- * 表單引擎用到的權限 key(seed 正本 `apps/db-migrator/seeds/modules/system.ts`、各表單模組的 seed 宣告)。
+ * 表單引擎用到的權限 key(seed 正本 `apps/db-migrator/seeds/base/modules/system.ts`、各表單模組的 seed 宣告)。
  */
 
 /** 表單管理(`system.forms`)模組 key 與權限。 */
@@ -19,7 +19,7 @@ export const DELETE_RETIRED_PERMISSION =
   "system.module-manager.delete-retired-permission";
 export const MODULE_MANAGER_VIEW = "system.module-manager.view";
 
-/** 表單模組的四筆個別權限(seed 宣告的形狀;見 `seeds/form-module-declaration.ts`)。 */
+/** 表單模組的四筆個別權限(seed 宣告的形狀;見 `seeds/base/form-module-declaration.ts`)。 */
 export type FormModuleAction = "view" | "create" | "edit" | "delete";
 
 export function formModulePermission(

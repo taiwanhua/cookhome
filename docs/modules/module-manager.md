@@ -17,7 +17,7 @@
 - 畫面:Figma「Screen / 模組與權限」89:2(主畫面 89:214、停用確認 211:331)—— 左模組樹 + 右面板(除 `enabled`、`icon` 與表單模組的列表欄位配置外唯讀)。
 - 側欄初始圖示 `apps`。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`docs/standards/general/figma.md`(FIGMA-09 節點表)
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`docs/standards/general/figma.md`(FIGMA-09 節點表)
 
 ## 權限表
 
@@ -32,19 +32,19 @@
 
 模組本身 `isRootOnly`(seed 層),租戶管理員模板不含。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`
 
 ## 資料
 
-- **`modules`**:模組樹(物化路徑 `ancestors`)。`enabled`、`icon`、`settings` 是 ADR-0002 的「初始 seed 值的欄位」(`seeds/modules.ts` 的 `initialSeedValueFields: ["enabled", "icon", "settings"]`),seed 重跑不覆蓋人改過的值;`engine`(`fixed` / `form`)與其餘結構欄位每次 seed 以 key 冪等同步。
-- **`modules.settings.list`**:表單模組的列表欄位配置,由 `setModuleListColumns` 寫入(形狀與驗證見 `docs/modules/forms.md`「列表欄位配置」)。`settings` 是初始 seed 值欄位:seed 建立時寫 `{}`,之後重跑不覆蓋,root 設的列表欄位配置不會被部署洗掉。
+- **`modules`**:模組樹(物化路徑 `ancestors`)。`enabled`、`icon`、`settings` 是 ADR-0002 的「初始 seed 值的欄位」(`seeds/base/modules.ts` 的 `initialSeedValueFields: ["enabled", "icon", "settings"]`),seed 重跑不覆蓋人改過的值;`engine`(`fixed` / `form`)與其餘結構欄位每次 seed 以 key 冪等同步。
+- **`modules.settings.list`**:表單模組的列表欄位配置,由 `setModuleListColumns` 寫入(形狀與驗證見 `docs/modules/forms.md`「列表欄位配置」)。`settings` 是初始 seed 值欄位:seed 建立時使用專案初值、模組宣告或預設 `{}`,之後重跑不覆蓋,root 設的列表欄位配置不會被部署洗掉。
 - **`permissions`**:`moduleId` 指向擁有它的模組;`enabled` 同為初始 seed 值欄位。`source = seed` 是 seed 宣告的權限,`source = dynamic` 是表單發布產生的欄位級權限;`retiredAt` 有值 = 已退役(模組樹與權限矩陣都不列,由「退役權限清理」處理)。
 - **隱藏的 `api` 模組**掛純 API 權限(沒有畫面)。
 - `isRootOnly` 只存在於 seed 宣告層、**不落庫**(`module-declaration.ts`),執行期無從得知,故不在任何回傳欄位內。
 
 **側欄圖示**:`modules.icon` 是側欄圖示的 key,**正本是白名單** `@repo/domain/module-icon` 的 `MODULE_ICON_KEYS`(29 個 key)。前後端共用同一份:api 用它擋輸入,`@repo/ui` 的圖示登錄表以它為型別來源 —— 少一個 key 就 `check-types` 紅,不會出現「api 存得進去、側欄畫不出來」。`null` = 沒指定,側欄用預設圖示;前端認不得的 key 也一律退回預設圖示。
 
-seed 只給初值(宣告在 `apps/db-migrator/seeds/modules/*.ts`),之後由根組織在這一頁換:
+seed 只給初值:專案在 `apps/db-migrator/seeds/project/settings.ts` 的 `moduleInitialValues` 依模組 key 指定 `enabled`、`icon`、`settings`;未指定的圖示沿用模組宣告。以下是底座 `seeds/base/modules/*.ts` 的圖示預設,建立後由根組織在這一頁換:
 
 | 模組                                                         | 初始 icon      |
 | ------------------------------------------------------------ | -------------- |
@@ -71,7 +71,7 @@ seed 只給初值(宣告在 `apps/db-migrator/seeds/modules/*.ts`),之後由根�
 
 seed 唯一會寫入既有文件 `icon` 的情形是**這一欄根本不存在**(文件建立時還沒有圖示欄)—— 那時補初值,否則已經種過的環境永遠拿不到圖示。所以 `setModuleIcon` 清空時寫的是 `icon: null` 而不是 `$unset`:欄位留著才算「人改過的值」,下次部署不會把宣告的初值補回來。
 
-正本:`apps/api/src/database/schemas/module.schema.ts`、`apps/api/src/database/schemas/permission.schema.ts`、`apps/db-migrator/seeds/modules.ts`、`apps/db-migrator/seeds/module-declaration.ts`、`packages/domain/src/module-icon/keys.ts`
+正本:`apps/api/src/database/schemas/module.schema.ts`、`apps/api/src/database/schemas/permission.schema.ts`、`apps/db-migrator/seeds/base/modules.ts`、`apps/db-migrator/seeds/base/module-declaration.ts`、`packages/domain/src/module-icon/keys.ts`
 
 ## 規則
 
@@ -191,6 +191,6 @@ setPermissionEnabled(input: { id, enabled }): PermissionAdminPayload!
 ## 平台視角備註
 
 - 停用模組 / 權限對**所有租戶**同時生效(模組與權限是全平台共用的一棵樹),這是「上線後臨時關掉某塊功能」的開關;租戶管理員看不到這一頁。
-- `isRootOnly` 不落庫:哪些模組是根組織專屬,只能從 seed 宣告(`apps/db-migrator/seeds/modules/*.ts`)看。
+- `isRootOnly` 不落庫:須從底座與專案的模組宣告判斷;自身或任一祖先標記即為根組織專屬。來源由 `apps/db-migrator/seeds/registry.ts` 組裝,租戶管理員模板一併扣除這些節點。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/db-migrator/seeds/module-declaration.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/db-migrator/seeds/base/module-declaration.ts`

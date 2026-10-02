@@ -15,7 +15,7 @@ import {
 import { TenantOpsService } from "./tenant-ops.service";
 
 /**
- * 權限 key(docs/modules/org-manager.md 權限表;種子 apps/db-migrator/seeds/modules/system.ts)。
+ * 權限 key(docs/modules/org-manager.md 權限表;種子 apps/db-migrator/seeds/base/modules/system.ts)。
  * 兩筆都屬 `system.org-manager.tenant-ops` — 一個 `isRootOnly` 的隱藏模組,
  * 租戶管理員模板複製時整個模組被扣除,所以租戶永遠拿不到(ADR-0009 第 3 步)。
  * (可見範圍開關 2026-09-19 搬到組織管理層 `system.org-manager.set-visibility`,#187:

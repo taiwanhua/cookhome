@@ -1,6 +1,6 @@
 /**
  * migration 來源收集器:根目錄的歷史檔與之後新增的 `base/`、`project/`
- * (`docs/plans/seed-migration.md`「migrate-mongo 相容、互斥與結果」)。
+ * (`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」)。
  *
  * migrate-mongo 只掃一層平面目錄;這裡把三個來源收齊,交給 `plan.ts` 驗全域唯一的 basename 並排序。
  * 檔案本身是 metadata 正本:`seedDependencies` 與幾個檢查函式直接從模組的 export 讀,不另維護清單。

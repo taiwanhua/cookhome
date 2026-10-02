@@ -1,5 +1,5 @@
 /**
- * update 的執行器(`docs/plans/seed-migration.md`「Migration 與設定的執行契約」)。
+ * update 的執行器(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」)。
  *
  * `applyUpdatePlan` 依序:
  *

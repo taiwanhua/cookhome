@@ -1056,7 +1056,7 @@ query ModuleForms($moduleKey: ID!) {
   moduleForms(moduleKey: $moduleKey) { key name currentVersion }
 }`;
 
-/** 示範表單(頂層)(seed `apps/db-migrator/seeds/modules/demo-form.ts`):劇本 18 / 19 用。 */
+/** 示範表單(頂層)(seed `apps/db-migrator/seeds/base/modules/demo-form.ts`):劇本 18 / 19 用。 */
 export const DEMO_FORM = "demo-form";
 export const DEMO_FORM_ROUTE = "/demo-form";
 export const DEMO_FORM_CREATE_ROUTE = `${DEMO_FORM_ROUTE}/create-page`;

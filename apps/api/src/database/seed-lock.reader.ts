@@ -13,7 +13,7 @@ export interface SeedLockHolder {
 }
 
 /**
- * 讀共用互斥鎖目前的持有者(`docs/plans/seed-migration.md`「migrate-mongo 相容、互斥與結果」)。
+ * 讀共用互斥鎖目前的持有者(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」)。
  * **只讀**:取得、續步與釋放都在 db-migrator 的最外層命令,api 的受管定義 CLI 只核對 owner。
  */
 export class SeedLockReader {

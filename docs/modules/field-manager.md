@@ -16,7 +16,7 @@
 - 畫面:Figma「Screen / 欄位管理」90:2(左類別清單 + 右選項表格,標示種子資料)、新增選項 211:176。
 - 側欄初始圖示 `label`。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`docs/standards/general/figma.md`(FIGMA-09 節點表)
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`docs/standards/general/figma.md`(FIGMA-09 節點表)
 
 ## 權限表
 
@@ -30,12 +30,12 @@
 | `system.field-manager.category-ops.manage-categories` | 「新增類別」按鈕、類別的「編輯類別」與停用 / 啟用 + API。**根組織專屬**:掛在 isRootOnly 的權限容器下,另守「站在根組織」(同租戶作業的 `isRootOperator`)                                                         |
 | `system.field-manager.toggle-enabled`                 | 停用 / 啟用選項 + API。**自訂選項只有加它的那一層切得動**(上層 / 下層看得到但 `FORBIDDEN` + `reason: NOT_OWNER`);**種子選項限根組織操作者**(那一筆 `orgId = null`,切下去是全域生效),租戶操作者切 → `FORBIDDEN` |
 
-正本:`apps/db-migrator/seeds/modules/system.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`
 
 ## 資料
 
 - **`field_categories`**:全域(不掛租戶過濾),依建立順序。`isSystem` 區分來源、`enabled` 是停用開關(初始 seed 值的欄位)。新增類別有**兩種方法,並列存在**:
-  - **開發者在 seed 宣告**(`apps/db-migrator/seeds/field-categories.ts`,code + PR):跨環境同步,`isSystem: true`。適合底座 / 模組固定要用的類別 —— 程式碼以 key 引用它,每個環境都必須有。
+  - **開發者在 seed 宣告**:專案類別與選項放在 `apps/db-migrator/seeds/project/`,加入 `project/registry.ts` 的 `seeds`;宣告形狀沿用 `base/field-categories.ts`、`base/fields.ts`。走 code + PR 跨環境同步,`isSystem: true`。適合模組固定要用的類別 —— 程式碼以 key 引用它,每個環境都必須有。
   - **root 在本頁新增**(`createFieldCategory`):只在該環境,`isSystem: false`。適合營運上臨時需要的類別,不必發版。
   - 畫面建的類別日後要固定下來,就在 seed 宣告**同一個 key**:seed 以 key **認養**那一筆(`isSystem` 改 true、名稱 / 說明以 seed 為準、`_id` 不動,表單版本的類別 key 與 `fields.categoryId` 的引用都不受影響);該類別下根組織加的、與 seed 宣告同 `value` 的選項一併認養成全域種子(租戶的自訂選項與根組織加的其他選項不動)。認養單向;seed 沒宣告的畫面類別一律不碰。
 - **`fields`**:選項。`orgId` nullable —— `null` = 全域種子、有值 = 該組織的自訂選項。`(categoryId, orgId, value)` 唯一索引;`key` 選填、sparse unique。
@@ -58,7 +58,7 @@
 
 - `reset --mode=data`:root 在畫面建的類別(key 不在 seed 宣告裡)算人建資料,一起刪(ADR-0002「還原」)。
 
-正本:`apps/api/src/database/schemas/field-category.schema.ts`、`apps/api/src/database/schemas/field.schema.ts`、`apps/db-migrator/seeds/field-categories.ts`、`apps/db-migrator/seeds/fields.ts`
+正本:`apps/api/src/database/schemas/field-category.schema.ts`、`apps/api/src/database/schemas/field.schema.ts`、`apps/db-migrator/seeds/base/field-categories.ts`、`apps/db-migrator/seeds/base/fields.ts`
 
 ## 規則
 
@@ -202,4 +202,4 @@ setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayl
 - 新增類別的兩條路與認養規則見「資料」;seed 測試 `apps/db-migrator/src/seed/seed.test.ts`「seed 以 key 認養」、reset 測試 `apps/db-migrator/src/reset/reset.test.ts`。
 - root 看得到全部租戶的自訂選項,但只能編輯 / 停用根組織自己加的。
 
-正本:`apps/db-migrator/seeds/field-categories.ts`、`apps/db-migrator/seeds/fields.ts`、`apps/db-migrator/seeds/modules/system.ts`、`apps/api/src/fields/field-visibility.ts`
+正本:`apps/db-migrator/seeds/base/field-categories.ts`、`apps/db-migrator/seeds/base/fields.ts`、`apps/db-migrator/seeds/base/modules/system.ts`、`apps/api/src/fields/field-visibility.ts`

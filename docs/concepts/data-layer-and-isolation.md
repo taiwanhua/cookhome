@@ -20,9 +20,11 @@
 
 ## 底座與專案資料的組裝
 
-底座與專案各自維護功能與資料登記。`AppModule` 組合底座功能與 `ProjectModule`;`DatabaseModule` 組合 `database/base/registrations.ts` 與 `project/database/registrations.ts`。登記功能不代表授予使用者權限,也不替代模組及權限的 seed 宣告。
+底座與專案各自維護功能與資料登記。`AppModule` 組合底座功能與 `ProjectModule`,兩方的 `ApiFeatureRegistration` 必須有唯一的 key 與 module identity;不提供核心 module/provider 替換。`DatabaseModule` 組合 `database/base/registrations.ts` 與 `project/database/registrations.ts`。登記功能不代表授予使用者權限,也不替代模組及權限的 seed 宣告。
 
 schema、repository 與組織資料檢查在同一筆資料登記中以 modelName 與 DI token 連結。組裝時拒絕重複 key、model name、collection、provider token 與檢查 key,也拒絕指向不存在或不同 model 的 repository / 檢查。token 以 class、string、symbol 本體比較,不靠類別名稱猜身分。
+
+repository token 不能與 model token、組裝器內部 token 或 Nest 全域 guard/interceptor/filter/pipe token 重複。同一登記可有多個 repository 共用一個 model;collection 必須與 schema 選項一致。保留原 schema instance 與 plugin,不複製 schema 或重掛 plugin。
 
 底座 repository 定義放在 `database/base/` 的獨立檔,不回指組裝入口。`database.module.ts` 保留既有 repository 匯出以相容消費端,業務模組只注入這些受控出口;Mongoose model 與整個 MongooseModule 不對外匯出。新增專案資料只改專案登記與實作,不在底座的 providers 或 exports 陣列補項。
 
@@ -34,7 +36,7 @@ schema、repository 與組織資料檢查在同一筆資料登記中以 modelNam
 
 這是受審查程式的組裝契約。來源限制、裸 Model 查詢 lint 與 review 共同守住邊界;登記驗證不代替 RBAC,也不宣稱能稽核任意 Nest module 內部的私自註冊。
 
-正本:`apps/api/src/app.module.ts`、`apps/api/src/database/database.module.ts`、`apps/api/src/database/registration.ts`、`apps/api/src/database/org-business-data.reader.ts`;完整介面見[功能登記規格](../plans/feature-registration.md#api-與資料登記契約),新增步驟見[模組 scaffold](../agents/module-scaffold.md)。
+正本:`apps/api/src/app.module.ts`、`apps/api/src/base/api-feature-registration.ts`、`apps/api/src/database/database.module.ts`、`apps/api/src/database/registration.ts`、`apps/api/src/database/org-business-data.reader.ts`;新增步驟見[模組 scaffold](../agents/module-scaffold.md)。
 
 ### 組織業務資料檢查
 
@@ -161,28 +163,111 @@ BaseRepository 資料操作方法的第一個參數。四個集合各有用途,�
 
 ## 種子資料與遷移
 
-| 種類     | 是什麼                                                     | 怎麼同步                                          |
-| -------- | ---------------------------------------------------------- | ------------------------------------------------- |
-| 種子資料 | 模組、權限、種子角色、欄位管理、根組織、資料目標、示範資料 | 以 kebab-case `key` 冪等 upsert,id 各環境各自生成 |
-| 業務資料 | 帳號、角色副本、租戶資料                                   | 不跨環境搬;要重現用整庫 dump / restore            |
-| 遷移     | 索引、結構、回填、清理                                     | migrate-mongo,一次性,記在 `changelog`             |
+| 種類     | 是什麼                                                     | 怎麼同步                                   |
+| -------- | ---------------------------------------------------------- | ------------------------------------------ |
+| 普通種子 | 模組、權限、種子角色、欄位管理、根組織、資料目標、示範資料 | 以穩定 `key` 冪等 upsert,id 各環境各自生成 |
+| 受管定義 | 登記為 seed 的共用表單與共用流程                           | 依 revision 發布,映射到各環境的版本        |
+| 業務資料 | 帳號、角色副本、租戶資料                                   | 不跨環境搬;要重現用整庫 dump / restore     |
+| 遷移     | 索引、結構、回填、清理                                     | migrate-mongo,一次性,記在 `changelog`      |
 
-- 部署 api 後依序跑 `migrate` → `seed`。不在 server 啟動時跑。
+- 設定與資料由同一次 `update` 依序更新:`migration` → 普通種子 → 受管定義 → 目標核對。不在 server 啟動時跑;部署接線與指令見 [deployment](../deployment.md)。
 - 種子欄位兩種:**每次都 seed**(預設,人改的會被拉回);**初始 seed 值**(欄位存在就不覆寫,預設 `enabled`;`modules` 另加 `icon` 與 `settings`(表單模組的列表欄位配置存在 `settings.list`),`orgs` 另加 `name`、`description` 與 `settings`(根組織的時區 `settings.timezone`))。根組織名稱與描述在初始化時使用專案 seed 值,一般部署保留 UI 修改,完整清庫還原才重建。人在畫面上改的值一定要列成初始 seed 值,否則每次部署都會被宣告值洗掉。
 - **認養**:同一類資料允許人在畫面建(`isSystem: false`,如 root 在欄位管理新增的類別與選項)時,seed 宣告同一個 key 就把那一筆轉成種子 —— `isSystem` 改 true、宣告的欄位以 seed 為準、`_id` 不動。人建時沒有種子 key 的(欄位選項)由宣告的 `adoptBy` 指定怎麼找同一筆(同類別、同 value、根組織加的)。認養單向;沒宣告的人建資料 seed 不碰。
 - 執行摘要印「新增 / 更新 / 認養 / 未變」四種計數。
 - 可變欄位清空寫 `null`,不要 `$unset`。
 - key 是識別不是欄位;改 key = 新種一筆,要配 cleanup migration。
-- seed 不分環境;seed 以原生 driver 寫,不 import api。
+- seed 不分環境;普通種子以原生 driver 寫入,受管定義經 API CLI 發布,app 之間不互相 import。
 - root 初始帳號從 `ROOT_ADMIN_*` 環境變數建立,只在不存在時建。
 - 遷移檔名 `<14 位時間戳>_<schema|data|cleanup>_<kebab 描述>.js`,由測試強制。
 
-| reset 模式 | 做什麼                                       | 人調過的 `enabled` / `icon` |
-| ---------- | -------------------------------------------- | --------------------------- |
-| `full`     | drop → migrate → seed                        | 回到宣告值                  |
-| `data`     | 刪人建的資料(判準:識別鍵不在 registry)→ seed | 保留                        |
+### 來源與組裝
 
-- 只給 dev / staging;production 永遠拒絕。安全閥三道:`--confirm` = 資料庫名、資料庫名推得環境、`RESET_ALLOW_ENV` 含該環境。
-- 用法與 workflow 見 `docs/deployment.md`「資料庫還原(reset)」。
+底座宣告位於 `apps/db-migrator/seeds/base/`,專案宣告位於 `seeds/project/`;各自的 `registry.ts` 提供模組宣告與其他種子。只有 `seeds/registry.ts` 讀取兩方,合併後一次推導模組、權限、資料目標與租戶管理員模板。專案子模組可掛在底座父節點下;既有租戶角色副本仍由人員維護。
+
+專案的根組織與模組初值在 `project/settings.ts`,由底座工廠讀入。組裝先檢查重名、引用、循環與欄位政策,全部通過才開始寫入,不依載入順序覆蓋同 key。新增模組的檔案與登記步驟見 [module scaffold](../agents/module-scaffold.md)。
+
+### 宣告與寫入邊界
+
+documents 預設以 `key` 識別,可用 `keyField` 指定其他欄位;`seedRef` 以 collection/key 解析該環境的 ID。`initialSeedValueFields` 是完整保護清單,會取代預設的 `enabled`,不是追加。已存在的 `null`、`false`、空字串都保留,只有不存在的欄位才補初值。其他宣告欄位以 `$set` 同步,宣告外欄位與未宣告文件不自動刪除。
+
+| 宣告                         | 一般 seed 的行為                                                              |
+| ---------------------------- | ----------------------------------------------------------------------------- |
+| 根組織                       | 同步階層;保留 `name`、`description`、`enabled`、`settings`,未宣告的 logo 不動 |
+| 種子角色、欄位類別與選項     | 同步宣告的名稱、說明、設定或選項內容,保留 `enabled`;不更新租戶角色副本        |
+| 模組                         | 同步宣告的結構與行為,保留 `enabled`、`icon`、`settings`                       |
+| 靜態權限                     | 同步宣告內容,包含 `settings`;保留 `enabled`,比對條件排除 dynamic 權限         |
+| 資料範圍目標                 | 以 `moduleKey` 識別並同步目標及欄位,不代表修改資料範圍規則                    |
+| 根初始帳號                   | account 存在即整筆不動,不重設信箱、密碼或角色;更換 account 會建立另一帳號     |
+| 角色擁有關聯、租戶管理員模板 | 只補缺少關聯,移除宣告不撤銷既有授權;模板改動不自動更新租戶副本                |
+| 示範資料                     | 同步宣告的示範內容,保留 `enabled` 及未宣告欄位;與專案業務資料分開             |
+
+示範模組初建啟用,production 也可保留示範資料;開關與租戶分配由人員維護。完整欄位以各 seed 宣告為準,不是所有 `settings` 都屬初始值。
+
+### 受管表單與流程
+
+專案可用同一套 TypeScript `SeedSet` 登記共用表單與共用流程。宣告描述完整定義與目標發布狀態,使用既有欄位、版面及流程關卡型別;不包含環境的資料庫 ID、人員、租戶分派或案件。未登記的共用定義及租戶客製、fork 不會被接管。
+
+每份宣告有固定的 `revision`。安裝紀錄將它映射到各環境自己的 ID 與版號,因此不同環境的歷史版號可以不同,交付的內容仍相同。同 revision 不可改內容;修改內容或改成退役需給新 revision。
+
+`contentHash` 比對定義內容、key 與受管名稱等 metadata,不含 revision、發布說明及目標狀態;`snapshotHash` 則涵蓋整份宣告,用來檢查同 revision 是否被改寫。兩者都依共用契約正規化,不含環境 ID 或資料庫版號;正本是 `packages/domain/src/seed/canonical.ts`。
+
+發布由 API 的專用 CLI 沿用既有設計服務,使用該環境真實的根組織操作者、權限檢查與稽核。普通 documents seed 不直接寫表單、流程、版本或動態權限。
+
+| 現場狀態                               | 處理方式                                  |
+| -------------------------------------- | ----------------------------------------- |
+| 尚無該定義                             | 建立共用身分,經草稿、檢查與發布建立版本   |
+| 已有完全相同的共用發布內容             | 採納原版,保留 ID、歷史與分派              |
+| 已受管且內容未變                       | 核對實體後回報未變,不增版或重寫發布時間   |
+| 已受管且有新內容                       | 核對前次安裝狀態後發布新版,保留歷史       |
+| 有未預期草稿、發布中斷、版本或名稱漂移 | 回報衝突,由操作者整理現場或重新匯出進版控 |
+| 本次安裝中斷                           | 依安裝紀錄接續原 ID 與版本,不另發第二版   |
+
+退役需明確宣告;只從 registry 移除,不會刪定義、退役或撤銷分派。退役後重新發布,即使內容相同也需新 revision 與新版號。歷史查驗只讀既有映射及凍結內容,不把目前版本切回舊版。既有提交、修訂與進行中的流程繼續引用原版,不因定義更新自動升級。
+
+整批發布不是原子操作。預檢後才發生的現場競爭或執行期錯誤,可能使前面的定義已完成;執行器停止並保留續跑紀錄,不自動回滾整批。外部漂移須先處理現場與宣告的差異,不能把重跑當成強制覆蓋。
+
+正本:`packages/domain/src/seed/`、`apps/api/src/seed/`、`apps/api/src/database/schemas/seed-definition-installation.schema.ts`;版本生命週期見[表單引擎](form-engine.md)與[流程引擎](workflow-engine.md)。
+
+### Migration 與設定順序
+
+底座與專案的新 migration 分別放在 `apps/db-migrator/migrations/base/`、`migrations/project/`;根目錄保留既有歷史檔。所有來源的檔名全域唯一,執行器依完整檔名排序,以原檔名對照 `changelog`,不因分資料夾重跑舊檔。
+
+資料轉換需要特定設定時,在 migration 的 `seedDependencies` 指定 `seeds/{base,project}/revisions/` 內不可變的 `.seed.ts`。快照沿用同一份 `SeedSet`,可用 `requiresSeeds` 指定前置快照;不引用可變的當前 registry。已發布檔案保留原內容,修改設定另建新 revision。
+
+歷史定義需要的模組、欄位類別與被引用表單,都須在這組快照中可解析,即使環境裡已存在也要列入前置。執行前會檢查可攜性、引用、循環與安裝順序;缺少的前置不拿目前 registry 補齊。被引用的定義用 `requiresSeeds` 排在使用它的定義之前。
+
+有設定依賴的 migration 依序檢查是否有待轉換資料、依賴是否可安裝,再安裝缺少的精確快照、轉換資料與驗證結果。沒有待轉換資料時仍需驗證,但不安裝歷史設定。這讓舊環境可經中間版本完成資料轉換,空庫則只建立目前仍登記的目標。
+
+有 `seedDependencies` 的檔案須同時提供以下檢查,不另維護一份 migration 清單:
+
+| 函式                                    | 責任                                                              |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| `appliesTo(db)`                         | 判斷是否有待轉換的資料,不是只判斷整庫是否為空                     |
+| `assertSeedInstallable(db, inspection)` | 明確驗證允許的來源內容或不存在條件;不以 revision 字串大小推測版本 |
+| `up(db, client, context)`               | 可重入的資料轉換,使用 context 內已解析的定義 ID 與本地版號        |
+| `verify(db, context)`                   | 核對資料後置條件;不符合就拋錯,不得把未完成的轉換算成成功          |
+
+無設定依賴者沿用 `up(db, client)`。Context 的型別見 `apps/db-migrator/src/update/journal.ts`;既有提交升版 API 的適用範圍不變,跨租戶或其他業務轉換須由該 migration 明訂資料範圍、歷史保留、筆數及重跑判準。
+
+`seed_update_runs` 保存執行階段、來源 hash、依賴檢查點與已解析的本地版本。中斷後沿原 context 接續,不重新用「目前沒有舊資料」跳過未完成的轉換。驗證通過才由 migrate-mongo 寫入 `changelog`;所有 migration 完成後,才套用目前 registry。安裝紀錄與執行紀錄各司其職,兩者都不取代 repo 的設定來源。
+
+`update`、`seed`、`migrate` 使用同一個完整入口。`migrate:down` 只執行選定 migration 的 `down`,不回滾 seed、定義或安裝紀錄;執行與還原都受共同互斥鎖及續跑紀錄管理。
+
+互斥鎖位於 `changelog_lock`,涵蓋整次工具操作。API CLI 只核對外層持有者,不另搶鎖;硬中止留下的鎖不依時間自動接管。操作者確認原程序已停止後,才可指名 owner 解鎖。這把鎖不阻擋線上使用者操作,破壞性資料轉換仍須明訂相容窗口、必要停寫與恢復方式。
+
+正本:`apps/db-migrator/src/update/`;執行、續跑與解鎖步驟見 [deployment](../deployment.md)。
+
+### 還原
+
+| reset 模式 | 保留與清除                                                                                              | 後續動作                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `data`     | 保留當前 registry 的種子與受管定義歷史、動態權限、有效安裝紀錄及執行歷史;清除草稿、未受管定義與業務資料 | 執行同一版本的 update,根組織與模組初始值保留現值 |
+| `full`     | 除操作鎖外,清除全部應用 collection 與索引                                                               | 重新規劃並執行 update,初始值依專案宣告重建       |
+
+受管範圍依當前 registry 判定;已移除宣告的定義、自建與租戶客製/fork 不在 data 保留範圍。受管定義的已發布/已退役版本連同動態權限 ID、退役狀態及有效安裝映射保留;租戶分派、綁定與案件清除。普通設定種子的識別鍵與初始值政策沿用原宣告;示範業務資料整表清除後依宣告補回。
+
+data 遇到未完成 migration、回滾或任何中斷發布時,在刪除前拒絕。先續完原 update 或 UI 發布,再明確重置;預檢不自動發布半成品。full 可清除中斷狀態,依目前版本重建。
+
+三個環境都須明示環境、模式與實際資料庫名並通過確認。預檢、刪除與 update 共用同一把鎖;失敗會保留階段與結果,不標成成功。用法與失敗處理見 [deployment](../deployment.md#資料庫還原reset)。
 
 正本:`apps/db-migrator/src/seed/seed-runner.ts`、`apps/db-migrator/seeds/registry.ts`、`apps/db-migrator/src/reset/reset-plan.ts`、`apps/db-migrator/src/reset/reset-safety.ts`、`apps/db-migrator/src/migration-filename.ts`

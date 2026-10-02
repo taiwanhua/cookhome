@@ -80,7 +80,7 @@ function stepIndex(step: SeedInstallationStep): number {
 }
 
 /**
- * 受管定義的安裝流程(`docs/plans/seed-migration.md`「發布、身分與衝突」)。
+ * 受管定義的安裝流程(`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」)。
  *
  * 表單與流程共用同一套判斷,差異收在 `DefinitionAdapter`;**所有身分 / 版本寫入都經原設計服務**,
  * 這裡只決定「要不要寫、接著哪一步」,並在第一筆寫入前把所有權(預配置的 id、預期前置狀態、兩個 hash)

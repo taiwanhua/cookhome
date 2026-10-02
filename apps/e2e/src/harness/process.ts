@@ -29,7 +29,7 @@ export interface RunOptions {
   label: string;
 }
 
-/** 跑一個會結束的指令(build / migrate / seed),非 0 退出即拋錯。 */
+/** 跑一個會結束的指令(build / update),非 0 退出即拋錯。 */
 export function run(
   command: string,
   args: readonly string[],

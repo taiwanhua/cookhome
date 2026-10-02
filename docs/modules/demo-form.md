@@ -8,7 +8,7 @@
 
 名字與路由刻意看得出是示範:production 不要的話,在「模組與權限」頁停用即可(`enabled` 是初始 seed 值欄位,重跑 seed 不會翻回來)。
 
-正本:`apps/db-migrator/seeds/form-module-declaration.ts`(共用的骨架產生函式 `formModuleDeclaration`)、`apps/db-migrator/seeds/modules/demo-form.ts`、`demo.form.ts`、`demo.sub.form.ts`
+正本:`apps/db-migrator/seeds/base/form-module-declaration.ts`(共用的骨架產生函式 `formModuleDeclaration`)、`apps/db-migrator/seeds/base/modules/demo-form.ts`、`demo.form.ts`、`demo.sub.form.ts`
 
 ## 模組 key 與畫面
 
@@ -18,7 +18,7 @@
 | `demo.form`     | 示範表單(群組內)   | `demo` 群組底下         | `/demo/form`     | `DEMO_GROUP_FORM_MODULE_KEY`     |
 | `demo.sub.form` | 示範表單(次群組內) | `demo.sub` 次群組底下   | `/demo/sub/form` | `DEMO_SUB_GROUP_FORM_MODULE_KEY` |
 
-`demo` 群組與 `demo.sub` 次群組由 `demo.sub.sample-one.ts` 宣告(示範模組 1 的宣告檔),所以 `seeds/modules.ts` 的順序要讓它先於兩個群組內的示範表單。
+`demo` 群組與 `demo.sub` 次群組由 `demo.sub.sample-one.ts` 宣告(示範模組 1 的宣告檔)。`seeds/registry.ts` 合併底座與專案的模組宣告後,由 `seeds/base/modules.ts` 依父子引用排序,不必手排宣告檔順序。
 
 admin 的三個常數與底座頁面來源在 `apps/admin/src/app/base/module-pages.ts`。三個模組各在 `baseModulePages.forms` 宣告一筆 `{ moduleKey }`,由固定入口 `app/module-pages.tsx` 展開四頁;沒有另一份表單設定 key 清單。
 

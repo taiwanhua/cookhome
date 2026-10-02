@@ -1,8 +1,8 @@
 import { permissionKey } from "@repo/domain/permission";
 
 /**
- * 審核流程用到的權限 key(seed 正本 `apps/db-migrator/seeds/modules/system.ts` 的 `system.workflows`、
- * `apps/db-migrator/seeds/modules/apply-center.ts`;模組文件 `docs/modules/workflows.md`)。
+ * 審核流程用到的權限 key(seed 正本 `apps/db-migrator/seeds/base/modules/system.ts` 的 `system.workflows`、
+ * `apps/db-migrator/seeds/base/modules/apply-center.ts`;模組文件 `docs/modules/workflows.md`)。
  */
 
 /** 流程管理(`system.workflows`)。 */

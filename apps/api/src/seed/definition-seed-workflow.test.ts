@@ -72,7 +72,7 @@ const UPDATE_WORKFLOW = /* GraphQL */ `
 `;
 
 /**
- * 受管流程的安裝(`docs/plans/seed-migration.md`「發布、身分與衝突」):與表單同一套安裝流程,
+ * 受管流程的安裝(`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」):與表單同一套安裝流程,
  * 差異在適配(沒有欄位級權限、檢查用表單存在版本上、退役要指名版本)。接縫同 `definition-seed.test.ts`。
  */
 describe("受管流程:安裝、重跑、採納、改版、退役與在途保護", () => {

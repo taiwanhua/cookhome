@@ -1,7 +1,7 @@
 name: E2E
 
 # 權限劇本的 E2E(正本:docs/testing/permission-scenarios.md;寫法規範 TEST-05 / TEST-11)。
-# **只有手動觸發,不進 ci.yml**:每條劇本要 build api + admin、起 Mongo、migrate + seed 再開瀏覽器,
+# **只有手動觸發,不進 ci.yml**:每條劇本要 build api + admin、起 Mongo、執行 update 再開瀏覽器,
 # 放進每個 PR 會把免費方案的 Actions 額度吃光。
 #   UI :GitHub → Actions → E2E → Run workflow → 選分支(+ 可填 grep)
 #   CLI:gh workflow run e2e.yml --ref <分支> -f grep="劇本 7"
@@ -63,7 +63,7 @@ jobs:
       - name: 安裝 chromium
         run: pnpm --filter @repo/e2e exec playwright install --with-deps chromium
 
-      # build api / admin、migrate + seed、起 fake GCS / api / admin 都在 globalSetup 裡(apps/e2e/src/harness/stack.ts)
+      # build api / admin、update、起 fake GCS / api / admin 都在 globalSetup 裡(apps/e2e/src/harness/stack.ts)
       - name: 跑劇本
         run: pnpm e2e
         env:

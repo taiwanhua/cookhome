@@ -4,7 +4,7 @@
 
 登入後的第一頁。目前只有佔位內容(問候 + 當前組織);實際總覽內容(統計卡、最近項目、公告)尚未定案,定案後各區塊各自讀對應模組的資料。它是**正式模組**而不是寫死的首頁:各租戶要看的總覽內容不同,必須能授權 / 收回,所以進權限體系、不做固定列。
 
-正本:`apps/db-migrator/seeds/modules/overview.ts`、`apps/admin/src/pages/base/OverviewPage/OverviewPage.tsx`
+正本:`apps/db-migrator/seeds/base/modules/overview.ts`、`apps/admin/src/pages/base/OverviewPage/OverviewPage.tsx`
 
 ## 模組 key 與畫面
 
@@ -16,7 +16,7 @@
 
 **畫面**:Figma「Admin 總覽」(`Screen / Admin 總覽` 節點 `20:3`);側欄第一列即 `Draft/AdminSideNav`(節點 `30:52`)的「總覽」NavItem。
 
-正本:`apps/db-migrator/seeds/modules/overview.ts`、`apps/admin/src/app/module-pages.tsx`(`OVERVIEW_MODULE_KEY`)
+正本:`apps/db-migrator/seeds/base/modules/overview.ts`、`apps/admin/src/app/module-pages.tsx`(`OVERVIEW_MODULE_KEY`)
 
 ## 權限表
 
@@ -26,7 +26,7 @@
 
 目前沒有個別權限;個別權限(如各統計卡的顯示)待內容定案後補在本表再種。租戶管理員模板綁 `overview` + `overview.*`(非根組織專屬模組,由 `role-bindings.ts` 自動納入);超級管理員 bypass。
 
-正本:`apps/db-migrator/seeds/modules/overview.ts`、`apps/db-migrator/seeds/modules.ts`、`apps/db-migrator/seeds/role-bindings.ts`
+正本:`apps/db-migrator/seeds/base/modules/overview.ts`、`apps/db-migrator/seeds/base/modules.ts`、`apps/db-migrator/seeds/base/role-bindings.ts`
 
 ## 資料
 
@@ -64,7 +64,7 @@
 
 無,因為沒有寫入動作。
 
-正本:`apps/db-migrator/seeds/modules/overview.ts`
+正本:`apps/db-migrator/seeds/base/modules/overview.ts`
 
 ## 測試
 
@@ -85,4 +85,4 @@
 - 總覽內容定案前是佔位頁;加內容時先在本檔權限表補個別權限、再改 seed。
 - 新加的模組會自動進租戶管理員模板,但既有租戶的副本不會自動拿到(ADR-0009)—— 總覽之後若加個別權限,既有租戶要另行授予。
 
-正本:`apps/db-migrator/seeds/role-bindings.ts`
+正本:`apps/db-migrator/seeds/base/role-bindings.ts`

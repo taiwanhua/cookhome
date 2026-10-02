@@ -15,7 +15,7 @@
 - 路由:`/system/role-manager`。沒有隱藏頁:所有動作都是頁上的彈窗或頁內頁籤。
 - Figma「角色管理」44:44:左清單(搜尋 + 分頁)+ 右頁籤(權限設定;分配使用者)。設計稿權限設定頁籤上的資料範圍 Radio 沒有實作 —— 資料範圍規則在獨立的 [資料範圍](./data-scope.md) 模組設定;彈窗:新增 / 編輯角色、加入使用者 69:697、刪除 / 停用確認、放棄變更。頁籤用 `Draft/Tabs`(由 `Draft/Tab` 69:655 組成,登記見 `docs/branding.md`)。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/app/module-pages.tsx`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/admin/src/app/module-pages.tsx`
 
 ## 權限表
 
@@ -31,16 +31,16 @@
 | `system.role-manager.toggle-enabled` | 停用 / 啟用角色 + API(停用後持有者的該角色立即不生效,PermissionResolver 已排除 enabled=false)。**有這個權限不代表每個角色都切得動** —— 還要過角色種類規則:種子不可切、預設角色只有 root、不可停用操作者自己正持有的角色(見規則;列上顯示與否讀 `Role.abilities.canToggleEnabled`) |
 | `system.role-manager.delete`         | 刪除角色 + API(前置:無授予、非種子角色、非租戶副本;軟刪除)                                                                                                                                                                                                                       |
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/pages/base/system/RoleManagerPage/role-manager-permissions.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/admin/src/pages/base/system/RoleManagerPage/role-manager-permissions.ts`
 
 ## 資料
 
 - `roles`:`key`、`isSystem`(種子角色,seed runner 一律補齊)、`settings.templateKey`(開通租戶複製出的租戶管理員副本 = `"tenant-admin"`,ADR-0009)、`enabled` + 基礎欄位。**`Role.kind` 不是資料庫欄位**,是 api 依操作者算出的回傳欄位。
 - `permissions`:`moduleId` 指向擁有模組。
 - `core_relationships`:`org_role`(擁有組織)、`role_module`、`role_permission`、`user_role`。角色軟刪除時關聯不動(ADR-0007 / ADR-0001)。
-- seed:種子角色 `super-admin`(超級管理員,僅根組織可授予)與 `tenant-admin`(租戶管理員模板);模板綁哪些模組 / 權限在 `role-bindings.ts`,要替租戶開模板外的模組就改這裡,不是逐個租戶放寬。
+- seed:種子角色 `super-admin`(超級管理員,僅根組織可授予)與 `tenant-admin`(租戶管理員模板);模板由底座與專案的模組宣告共同推導,包含非根組織專屬模組及其 wildcard。專案新增模組登記在 `seeds/project/registry.ts`,既有租戶副本的授權仍由根組織管理。
 
-正本:`apps/api/src/database/schemas/role.schema.ts`、`apps/api/src/database/schemas/permission.schema.ts`、`apps/api/src/database/schemas/core-relationship.schema.ts`、`apps/db-migrator/seeds/roles.ts`、`apps/db-migrator/seeds/role-bindings.ts`
+正本:`apps/api/src/database/schemas/role.schema.ts`、`apps/api/src/database/schemas/permission.schema.ts`、`apps/api/src/database/schemas/core-relationship.schema.ts`、`apps/db-migrator/seeds/base/roles.ts`、`apps/db-migrator/seeds/base/role-bindings.ts`
 
 ## 規則
 
@@ -233,6 +233,6 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 
 - 超級管理員為種子角色、僅根組織可授予。
 - 「租戶管理員」角色範本於開通租戶時複製成租戶副本(`settings.templateKey`,ADR-0009);副本的天花板與 root 放寬規則都屬平台視角,help 只說「預設角色」。
-- 要替租戶開模板外的模組,改 `apps/db-migrator/seeds/role-bindings.ts` 的模板綁定。
+- 新專案模組登記在 `apps/db-migrator/seeds/project/registry.ts` 的 `moduleDeclarations`;組裝器將底座與專案的非根組織專屬模組一起推導成模板,不需修改底座綁定。既有租戶副本不會自動取得新增模組,仍由根組織管理授權。
 
-正本:`apps/db-migrator/seeds/role-bindings.ts`、`docs/adr/0009-tenant-provisioning.md`
+正本:`apps/db-migrator/seeds/base/role-bindings.ts`、`docs/adr/0009-tenant-provisioning.md`

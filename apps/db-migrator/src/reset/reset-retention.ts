@@ -1,5 +1,5 @@
 /**
- * `data` 模式的受管定義保留閉包(`docs/plans/seed-migration.md`「重置與操作者確認」)。
+ * `data` 模式的受管定義保留閉包(`docs/concepts/data-layer-and-isolation.md`「還原」)。
  *
  * 受管範圍的真相是**目前的 registry**:它登記的共用表單 / 流程,連同已發布、已退役的歷史版本、
  * 這些版本用到的動態(欄位級)權限、以及仍對得上實體的安裝紀錄,整組一起留(`_id`、版號、`retiredAt` 都不動)。

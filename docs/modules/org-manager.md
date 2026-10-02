@@ -18,7 +18,7 @@
 
 **為什麼多一個「租戶作業」隱藏模組**:開通租戶、撤銷開通、轉移擁有者是根組織專屬的動作(ADR-0009),但 wildcard 是同層語意(ADR-0004),租戶管理員模板拿到 `system.org-manager.*` 就會連同這一層的全部權限一起拿到。把根組織專屬的動作放進一個 `isRootOnly` 的隱藏模組,模板複製時整個模組被扣除(ADR-0009 開通流程的「複製角色副本」一步),租戶永遠拿不到,也不用在 wildcard 規則上開特例。它沒有路由、不在側欄出現,只是權限的容器;彈窗仍然開在組織管理頁上。要讓某個動作 root-only,就把權限 key 掛在 `tenant-ops` 底下。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/app/module-pages.tsx`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/admin/src/app/module-pages.tsx`
 
 ## 權限表
 
@@ -42,16 +42,16 @@
 
 **為什麼 `set-visibility` / `set-timezone` 不在 `tenant-ops`**:可見範圍開關與時區都是**租戶自己的設定**,租戶管理員模板拿到 `system.org-manager.*` 就應該含它;能設哪些租戶頂層由管理範圍決定,不是靠「站在根組織」。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/api/src/orgs/orgs.resolver.ts`、`apps/admin/src/pages/base/system/OrgManagerPage/org-manager-permissions.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/api/src/orgs/orgs.resolver.ts`、`apps/admin/src/pages/base/system/OrgManagerPage/org-manager-permissions.ts`
 
 ## 資料
 
 - `orgs`:`ancestors` 物化路徑、`settings.visibility` 可見範圍、`settings.timezone` 時區(可見範圍只在租戶頂層有意義,時區在根組織與租戶頂層)、`logoPath` 商標、`ownerUserId` 租戶擁有者與 `slug` 租戶短碼(兩者只存在租戶頂層)。`orgs` 在 schema 上宣告成**治理類**(`tenantScopePlugin({ kind: "governance" })`),租戶過濾自動吃**管理範圍**(`managedOrgIds`);業務 collection 則吃可見範圍。個別 service 不自己選範圍,凡查組織就經 `OrgsRepository`,反查 `org_user` 得到的使用者清單自然也對。
 - `core_relationships`:`org_user`(成員)、`org_role`(角色的擁有組織)、`org_manager`(組織的主管,依設定順序)。
 - `audit_logs`:見「稽核」。
-- seed:`orgs` 種子只有根組織一筆;租戶由開通產生。
+- seed:`orgs` 種子只有根組織一筆;名稱、描述與 settings 初值在 `apps/db-migrator/seeds/project/settings.ts` 的 `rootOrg` 設定。租戶由開通產生。
 
-正本:`apps/api/src/database/schemas/org.schema.ts`、`apps/api/src/database/schemas/core-relationship.schema.ts`、`apps/db-migrator/seeds/orgs.ts`
+正本:`apps/api/src/database/schemas/org.schema.ts`、`apps/api/src/database/schemas/core-relationship.schema.ts`、`apps/db-migrator/seeds/base/orgs.ts`
 
 ## 規則
 
@@ -81,7 +81,7 @@
 **刪除**:前置檢查全部通過才可:無子組織、無成員(`org_user`)、不是任何存活角色的擁有組織、無業務資料引用。任一不通過 → 提示改用停用。刪除 = 軟刪除(ADR-0007)。
 
 - 「非角色擁有組織」**只算存活的角色**:角色被軟刪除時 `org_role` 關聯刻意不動(ADR-0007 / ADR-0001),只看關聯會把「角色都刪光了」的組織永遠判成不可刪,所以以 `roles` 文件為準(`ownsAliveRole()`)。
-- 「無業務資料引用」數的是 `OrgBusinessDataReader.hasBusinessData()` 組裝的全部帶組織歸屬的業務 collection:以 `orgId` 指向本組織的 `customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)、`form_submissions`、`workflow_instances`;以租戶頂層為歸屬、沒有 `orgId` 的 `forms`(`ownerOrgId`)、`workflows` 與 `workflow_tasks`(`tenantId`)—— 這三張只有租戶頂層會命中,正是撤銷開通問的那一層。任一張有一筆就不可刪 / 不可撤銷開通。`audit_logs` 不算(只增不改的歷史紀錄)。新增專案租戶 collection 時,在 `project/database/registrations.ts` 一併登記 model、repository 與組織歸屬檢查,由固定入口驗證及 reader 執行;漏登記或錯綁 repository 會失敗,查詢錯誤不能當成沒有資料。底座七份 BaseRepository 檢查與兩份 workflow 專用 adapter 保留,Recipe 既有例外見功能登記規格。
+- 「無業務資料引用」數的是 `OrgBusinessDataReader.hasBusinessData()` 組裝的全部帶組織歸屬的業務 collection:以 `orgId` 指向本組織的 `customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)、`form_submissions`、`workflow_instances`;以租戶頂層為歸屬、沒有 `orgId` 的 `forms`(`ownerOrgId`)、`workflows` 與 `workflow_tasks`(`tenantId`)—— 這三張只有租戶頂層會命中,正是撤銷開通問的那一層。任一張有一筆就不可刪 / 不可撤銷開通。`audit_logs` 不算(只增不改的歷史紀錄)。新增專案租戶 collection 時,在 `project/database/registrations.ts` 一併登記 model、repository 與組織歸屬檢查,由固定入口驗證及 reader 執行;漏登記或錯綁 repository 會失敗,查詢錯誤不能當成沒有資料。底座七份 BaseRepository 檢查與兩份 workflow 專用 adapter 保留,Recipe 既有例外見[資料層組裝](../concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
 
 **子樹類動作不受可見範圍裁切**:停用連動、搬移的 `ancestors` 重算、刪除前置的「有沒有子組織」以整棵子樹為準(可見範圍決定「看得到誰的資料」,不該讓連動只做一半)。程式上是 `orgs.service.ts` 的 `subtreeContext()`,只准搭配把查詢釘在該子樹內的條件。
 
@@ -110,7 +110,7 @@
 
 **Nest 模組依賴方向 `users → orgs` 單向鎖死**:`UsersModule` import `OrgsModule`(擁有者保護、組織樹、管理範圍住 `orgs/`),**`OrgsModule` 不可以反過來 import `UsersModule`**,否則就是循環依賴。任何「組織這邊要用到使用者那邊的寫入」一律開一個**薄模組**掛在 `AppModule` 上,由它同時 import 兩邊(先例 `OrgMembersModule`,`apps/api/src/orgs/org-members.module.ts`)—— 不要為了省一個檔案把邊反過來接。判斷依據是**規則住在哪裡**。
 
-正本:`apps/api/src/orgs/orgs.service.ts`、`apps/api/src/orgs/tenant-ops.service.ts`、`apps/api/src/orgs/owner-protection.service.ts`、`apps/api/src/orgs/org-members.service.ts`、`apps/api/src/users/users.service.ts`、`apps/db-migrator/seeds/role-bindings.ts`
+正本:`apps/api/src/orgs/orgs.service.ts`、`apps/api/src/orgs/tenant-ops.service.ts`、`apps/api/src/orgs/owner-protection.service.ts`、`apps/api/src/orgs/org-members.service.ts`、`apps/api/src/users/users.service.ts`、`apps/db-migrator/seeds/base/role-bindings.ts`
 
 ## api 介面
 

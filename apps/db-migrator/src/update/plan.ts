@@ -1,6 +1,6 @@
 /**
  * update 的純計畫(不碰資料庫、不讀檔):驗來源、依賴與歷史身分,排出這次要處理的 migration 與目前的種子。
- * 規格:`docs/plans/seed-migration.md`「Migration 與設定的執行契約」。
+ * 規則:`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」。
  *
  * 輸入由收集器備好(`migration-sources.ts`、`seed-snapshots.ts`、changelog);任何一項不合就丟
  * `UpdatePlanError`(列出全部問題),此時還沒有任何寫入。

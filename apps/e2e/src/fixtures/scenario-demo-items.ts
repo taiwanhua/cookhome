@@ -9,7 +9,7 @@ import type { ScenarioTenant } from "./scenario-tenant";
  * 「驗收前的準備」四步(組織 / 帳號 / 角色),劇本 1 / 5 / 7 根本不需要這幾筆業務資料 ——
  * 塞進去等於每條劇本都多付建資料的時間。要用的劇本自己在測試開頭叫一次。
  *
- * seed 的 10 筆示範資料全部落在根組織(`apps/db-migrator/seeds/demo-items.ts`),
+ * seed 的 10 筆示範資料全部落在根組織(`apps/db-migrator/seeds/base/demo-items.ts`),
  * 租戶帳號一登入兩支示範模組的列表都是空的 —— 所以要比「看得到 / 看不到」一律自己先建。
  *
  * 名稱一律帶租戶的隨機字尾:同一個資料庫上跑很多條劇本,定位才不會撈到別條劇本的資料。

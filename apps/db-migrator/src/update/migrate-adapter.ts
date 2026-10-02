@@ -1,5 +1,5 @@
 /**
- * migrate-mongo 的適配(`docs/plans/seed-migration.md`「migrate-mongo 相容、互斥與結果」)。
+ * migrate-mongo 的適配(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」)。
  *
  * changelog 仍由 migrate-mongo 自己讀寫(`changelog.fileName`、`appliedAt`、`useFileHash: false`),
  * 這裡不手寫替代。套件只掃一層平面目錄、沒有「只跑這一支」的參數,所以每次產生一個**只含單支

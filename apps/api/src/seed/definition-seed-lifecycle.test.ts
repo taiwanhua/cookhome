@@ -94,7 +94,7 @@ async function asAccount<TResult>(
 
 /**
  * 受管表單的歷史核對、明示退役、既有行為保護(fork、提交、動態權限)、操作者與鎖
- * (`docs/plans/seed-migration.md`「發布、身分與衝突」)。接縫同 `definition-seed.test.ts`。
+ * (`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」)。接縫同 `definition-seed.test.ts`。
  */
 describe("受管表單:歷史核對、退役、既有資料保護、操作者與鎖", () => {
   let app: SeedTestApp;

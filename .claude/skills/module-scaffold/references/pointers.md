@@ -7,12 +7,12 @@
 - `docs/agents/module-scaffold.md`:檔案清單、步驟 0–8、選配對照表、交件前檢查清單
 - `docs/agents/issue-tracker.md`:「實作一張票」、「交件報告格式」、「admin 票的交付要求」、「拆票與寫票的規則」
 - `docs/agents/toolbox.md`:指令;`docs/agents/pitfalls.md`:症狀 → 做法
-- `docs/plans/feature-registration.md`:功能來源、組裝契約與替換驗收
+- `docs/standards/general/structure.md` STRUCT-12、`docs/concepts/frontend-architecture.md`、`docs/concepts/data-layer-and-isolation.md`:功能來源、組裝契約與替換規則
 
 ## 藍本:示範模組 2(最小)
 
 - 模組文件:`docs/modules/demo.sample-two.md`(章節骨架照抄這份)
-- seed:`apps/db-migrator/seeds/modules/demo.sample-two.ts`
+- seed:`apps/db-migrator/seeds/base/modules/demo.sample-two.ts`
 - schema:`apps/api/src/database/schemas/demo-item-two.schema.ts`
 - api:`apps/api/src/demo-items-two/`
 - documents:`packages/graphql/src/documents/base/demo-items-two.graphql`
@@ -23,7 +23,7 @@
 ## 藍本:示範模組 1(選配全開)
 
 - 模組文件:`docs/modules/demo.sub.sample-one.md`
-- seed:`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`(含 `dataScopeTarget`、群組節點宣告)
+- seed:`apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`(含 `dataScopeTarget`、群組節點宣告)
 - api:`apps/api/src/demo-items-one/`(欄位級權限:`demo-items-one.service.ts`、`demo-item-one-mapper.ts`)
 - admin:`apps/admin/src/pages/base/demo/SampleOneModule.tsx`、`demo-sample-one-config.ts`
 - MSW:`apps/admin/src/test/msw/demo-sample-one-handlers.ts`
@@ -34,8 +34,8 @@
 - 選配 hook 的替身:`apps/admin/src/components/base/crud/useDemoQuery.ts`(`noDemoSetEnabled`)
 - 專案新增:`apps/admin/src/app/project/module-pages.ts`;替換:`app/project/page-replacements.ts`;固定組裝:`app/module-pages.tsx`
 - 佔位夾具(不要登記):`apps/admin/src/test/msw/module-fixtures.ts` 的 `placeholderModules`
-- seed 宣告型別:`apps/db-migrator/seeds/module-declaration.ts`;註冊:`apps/db-migrator/seeds/modules.ts`;示範資料註冊:`apps/db-migrator/seeds/registry.ts`
-- 租戶管理員模板的推導:`apps/db-migrator/seeds/role-bindings.ts`
+- seed 宣告型別:`apps/db-migrator/seeds/base/module-declaration.ts`;專案模組與普通 seed 登記:`apps/db-migrator/seeds/project/registry.ts`;專案初值:`apps/db-migrator/seeds/project/settings.ts`;固定組裝:`apps/db-migrator/seeds/registry.ts`
+- 租戶管理員模板的推導:`apps/db-migrator/seeds/base/role-bindings.ts`
 - 圖示白名單:`packages/domain/src/module-icon/keys.ts`;語意對照 `docs/modules/module-manager.md`「側欄圖示」
 - 上傳規則:`apps/api/src/storage/upload-rules.ts`
 - key 規約測試:`apps/db-migrator/src/seed/seed-key-convention.test.ts`

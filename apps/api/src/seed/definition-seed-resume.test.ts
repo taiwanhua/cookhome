@@ -81,7 +81,7 @@ function labelOf(interruption: Interruption): string {
 }
 
 /**
- * 逐一中斷點的續跑(`docs/plans/seed-migration.md`「發布、身分與衝突」的所有權段):
+ * 逐一中斷點的續跑(`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」):
  * 每個情境先讓指定的那一步真的失敗(安裝流程自己的檢查點、原發布生命週期的檢查點、或原服務寫稽核的那一筆),
  * 再以同一份宣告重跑。斷言:以**同一個預配置的定義 id / 草稿 id**接續、只有一個正式版本、
  * 最終狀態與一次成功的安裝相同、之後重跑未變且不再寫稽核。

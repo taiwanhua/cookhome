@@ -15,7 +15,7 @@
 - 畫面:Figma「Screen / 資料範圍」166:318 —— 左資料目標清單、右規則編輯器;合成規則說明見註記卡 167:1901,日期條件列 167:1804 / 167:1819,捲動提示 169:277。
 - 側欄初始圖示 `filter`(可在「模組與權限」頁更換)。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`docs/standards/general/figma.md`(FIGMA-09 節點表)
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`docs/standards/general/figma.md`(FIGMA-09 節點表)
 
 ## 權限表
 
@@ -28,7 +28,7 @@
 
 整頁根組織專屬:模組節點在 seed 宣告標了 `isRootOnly`,租戶管理員模板複製時整個模組被扣除(ADR-0009),所以租戶的側欄根本沒有「資料範圍」這一列;api 另有第二道門(見「規則」)。若未來開放給租戶,套用對象與值選擇器本來就受可見範圍限制,保底不可關。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`
 
 ## 資料
 
@@ -38,7 +38,7 @@
 - **示範模組1 的目標**:`demo_items_one`。它宣告了一個 enum 欄位 **`status`**(草稿 / 已發布 / 已封存),`value` 與 `demo-item-one.schema.ts` 的 `status` 一一對應,權限劇本的「enum 固定選項」在這裡驗。示範模組2 刻意不宣告,是對照組。
 - 執行面快取:規則設定放記憶體快取,`saveDataScopeRule` 儲存時作廢。
 
-正本:`apps/api/src/database/schemas/data-scope-rule.schema.ts`、`apps/api/src/database/schemas/data-scope-target.schema.ts`、`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`(`dataScopeTarget`)、`apps/db-migrator/seeds/form-module-declaration.ts`
+正本:`apps/api/src/database/schemas/data-scope-rule.schema.ts`、`apps/api/src/database/schemas/data-scope-target.schema.ts`、`apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`(`dataScopeTarget`)、`apps/db-migrator/seeds/base/form-module-declaration.ts`
 
 ## 規則
 

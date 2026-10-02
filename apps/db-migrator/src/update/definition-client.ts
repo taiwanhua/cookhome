@@ -1,5 +1,5 @@
 /**
- * 以子程序呼叫 api 的受管定義 CLI(`docs/plans/seed-migration.md`「發布、身分與衝突」)。
+ * 以子程序呼叫 api 的受管定義 CLI(`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」)。
  *
  * 發布、安裝紀錄、採納與漂移保護都在 api 那一端;這裡只負責傳輸:`process.execPath` +
  * 同一個 checkout 建置出的固定路徑、不經 shell,stdin 一份請求、stdout 一份結果,

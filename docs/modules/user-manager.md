@@ -15,7 +15,7 @@
 - 路由:`/system/user-manager`。沒有隱藏頁:所有動作都是頁上的彈窗。
 - Figma「Screen / Admin 使用者管理」30:105(左組織樹 + 右表格)+ 彈窗:新增使用者 202:728(含啟用方式 radio)/ 編輯使用者 86:162(同一個彈窗的兩個模式)、選擇所屬組織 92:222、確認所屬組織變更 95:1252(含移除時必出,radio 三檔)、指派角色 86:245、停用確認。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/app/module-pages.tsx`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/admin/src/app/module-pages.tsx`
 
 ## 權限表
 
@@ -34,7 +34,7 @@
 
 「複製組織與角色」不另設權限 key:要同時持有 `view`、`manage-orgs`、`assign-roles` 三個(它同時改所屬組織與角色授予)。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/pages/base/system/UserManagerPage/user-manager-permissions.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/admin/src/pages/base/system/UserManagerPage/user-manager-permissions.ts`
 
 ## 資料
 
@@ -44,7 +44,7 @@
 - 清單查詢走 `org_user` 反查 + 管理範圍過濾(組織經 `OrgsRepository`,治理類自動吃 `managedOrgIds`),不做 populate。
 - seed:只有超級管理員 `root` 一個帳號(屬根組織);其餘使用者由本模組新增或由開通租戶產生。
 
-正本:`apps/api/src/database/schemas/account-base.schema.ts`、`apps/api/src/database/schemas/user.schema.ts`、`apps/api/src/database/schemas/core-relationship.schema.ts`、`apps/db-migrator/seeds/root-admin.ts`
+正本:`apps/api/src/database/schemas/account-base.schema.ts`、`apps/api/src/database/schemas/user.schema.ts`、`apps/api/src/database/schemas/core-relationship.schema.ts`、`apps/db-migrator/seeds/base/root-admin.ts`
 
 ## 規則
 

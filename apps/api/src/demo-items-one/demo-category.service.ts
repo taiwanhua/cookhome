@@ -14,7 +14,7 @@ import {
 import { validationError } from "./demo-items-one-error";
 
 /**
- * 欄位管理的「示範分類」類別 key(seed 正本 `apps/db-migrator/seeds/field-categories.ts`)。
+ * 欄位管理的「示範分類」類別 key(seed 正本 `apps/db-migrator/seeds/base/field-categories.ts`)。
  */
 export const DEMO_CATEGORY_KEY = "demo-category";
 

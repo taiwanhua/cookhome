@@ -34,7 +34,7 @@ import {
 } from "../../test/support/update-harness";
 
 /**
- * 中斷之後現場或來源漂移、以及歷史定義閉包的預檢(`docs/plans/seed-migration.md`「Migration 與設定的執行契約」):
+ * 中斷之後現場或來源漂移、以及歷史定義閉包的預檢(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」):
  * 未完成的紀錄只在「依賴仍是當初那幾份、映射仍是保存的那一組」時才接續或補記;來源就看得出來的錯在任何寫入之前擋下。
  * 版本 1 的真資料、真的 api 受管定義 CLI;要改來源檔的案例用版本 3 來源的暫存複本。
  */

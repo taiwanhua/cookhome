@@ -6,7 +6,7 @@
 
 示範家族的**對照組**(家族目的見 [示範模組1「用途」](./demo.sub.sample-one.md#用途))。它刻意只保留最小的 CRUD:掛在示範群組(`demo`)直下、不經次群組(示範兩層結構);**不宣告 `dataScopeTarget`**,查詢僅受可見範圍保底,用來驗證資料範圍規則未介入時的行為(ADR-0008);無欄位級與頁面自有權限,只有基本四筆(view / create / edit / delete)加上每模組固定一筆 `*`。一個最小 CRUD 模組長什麼樣,看這份最快。
 
-正本:`apps/db-migrator/seeds/modules/demo.sample-two.ts`
+正本:`apps/db-migrator/seeds/base/modules/demo.sample-two.ts`
 
 ## 模組 key 與畫面
 
@@ -21,7 +21,7 @@
 
 **畫面**:同版型不另畫(Figma 的註記卡)—— 版型就是示範模組1 的 `175:3` / `175:318` / `175:558` / `177:2314`。
 
-正本:`apps/db-migrator/seeds/modules/demo.sample-two.ts`、`apps/admin/src/app/module-pages.tsx`
+正本:`apps/db-migrator/seeds/base/modules/demo.sample-two.ts`、`apps/admin/src/app/module-pages.tsx`
 
 ## 權限表
 
@@ -35,7 +35,7 @@
 
 語意與示範模組1 對應權限相同。
 
-正本:`apps/db-migrator/seeds/modules/demo.sample-two.ts`(`permissions`)
+正本:`apps/db-migrator/seeds/base/modules/demo.sample-two.ts`(`permissions`)
 
 ## 資料
 
@@ -50,7 +50,7 @@
 1. **示範資料全部掛在根組織**:`orgs` 種子只有根組織一筆(ADR-0005),租戶是 root 在「開通租戶」建出來的、各環境 id 不同,seed 引用不到。跨租戶的差異(劇本 12 可見性開關)要在該環境用手動新增的資料驗。
 2. **建立者是固定的假 id**:seed 只建 root 初始帳號,而那筆 `users` 沒有 `key` 欄位,`seedRef` 只以 `key` 解析。用假 id 而不是 `null`,是為了讓「不同建立者」看得出差異,並讓劇本 2(規則「建立者 = 【操作者本人】」)有東西可以被濾掉 —— 示範資料一律屬於「別人」。代價是詳情頁的建立者顯示為空。
 
-正本:`apps/api/src/database/schemas/demo-item-two.schema.ts`、`apps/db-migrator/seeds/demo-items.ts`、`apps/db-migrator/src/seed/seed-declaration.ts`
+正本:`apps/api/src/database/schemas/demo-item-two.schema.ts`、`apps/db-migrator/seeds/base/demo-items.ts`、`apps/db-migrator/src/seed/seed-declaration.ts`
 
 ## 規則
 
@@ -164,4 +164,4 @@
 - 示範資料全部掛根組織、建立者是假 id(見「資料」的兩個已知限制):租戶帳號一登入列表是空的,是對的。
 - 「不宣告資料範圍目標」是本模組存在的理由之一,不要為了一致性替它補 `dataScopeTarget` —— 補了劇本 3 就沒有對照組。
 
-正本:`apps/db-migrator/seeds/modules/demo.sample-two.ts`、`apps/db-migrator/seeds/demo-items.ts`
+正本:`apps/db-migrator/seeds/base/modules/demo.sample-two.ts`、`apps/db-migrator/seeds/base/demo-items.ts`

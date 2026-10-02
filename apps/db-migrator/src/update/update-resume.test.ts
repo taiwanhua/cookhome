@@ -30,7 +30,7 @@ import {
 import type { UpdateCheckpoint } from "./update-hooks";
 
 /**
- * 續跑(`docs/plans/seed-migration.md` 驗收矩陣「續跑與互斥」):從版本 1 的真資料升到版本 3 的途中,
+ * 續跑(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」):從版本 1 的真資料升到版本 3 的途中,
  * 讓每一個 journal 的故障窗口各中斷一次,確認重跑都收斂到同一個最終狀態 —— 接續同一筆紀錄與保存的 context,
  * 不重新當成第一次、不重驗自己已經發布的內容、也不多發一個版本。真的 api 受管定義 CLI,不 mock 發布。
  */

@@ -45,7 +45,7 @@ import {
 } from "../../test/support/update-harness";
 
 /**
- * `full` reset(`docs/plans/seed-migration.md` 驗收矩陣「full reset」「續跑與互斥」):清除所有應用 collection 與索引
+ * `full` reset(`docs/concepts/data-layer-and-isolation.md` 「還原」):清除所有應用 collection 與索引
  * 並依所選版本重建,整批鎖從頭到尾有效,清除中途或重建中途失敗都留下證據、再次明確執行可以重入。
  * 真的拋棄式 MongoDB、真的指令子行程與 api 受管定義 CLI;中斷來自真的檢查點(`test/support/reset-fault-entry.ts`)。
  */

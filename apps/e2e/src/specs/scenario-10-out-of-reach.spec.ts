@@ -24,7 +24,7 @@ import { matrixRow, matrixTree, signIn } from "../fixtures/ui";
  * 根組織專屬模組根本不在 +tenant 的樹上;硬送樹外(= 自己沒有)的鍵,api 回 `ROLE_OUT_OF_REACH`。
  */
 
-/** 根組織專屬的三個模組(`apps/db-migrator/seeds/modules/system.ts`;租戶管理員模板不綁)。 */
+/** 根組織專屬的三個模組(`apps/db-migrator/seeds/base/modules/system.ts`;租戶管理員模板不綁)。 */
 const ROOT_ONLY_MODULES = [
   { key: "system.module-manager", name: "模組與權限" },
   { key: "system.data-scope", name: "資料範圍" },

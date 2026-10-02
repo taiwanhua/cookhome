@@ -1,5 +1,5 @@
 /**
- * `data` 模式刪除之前的唯讀預檢(`docs/plans/seed-migration.md`「重置與操作者確認」):
+ * `data` 模式刪除之前的唯讀預檢(`docs/concepts/data-layer-and-isolation.md`「還原」):
  * 有任何做到一半的東西就**整次拒絕**,不替它續發、也不把半成品清掉。
  *
  * - 未完成的 update:migration 停在 preparing / started / verified、還原(down)做到一半、

@@ -82,7 +82,7 @@ export interface SeedInstallationCheckpoint {
 }
 
 /**
- * 受管定義的安裝紀錄(`docs/plans/seed-migration.md`「發布、身分與衝突」):
+ * 受管定義的安裝紀錄(`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」):
  * 跨環境以 `(kind, key, revision)` 識別一份定義宣告,這裡記它在**本環境**對應到哪個定義 id 與版號
  * (各環境的 id 與歷史版號不必相同)。受管範圍的真相仍是當前 registry,這張表只是映射與續跑依據。
  *

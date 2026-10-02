@@ -1,6 +1,6 @@
 /**
  * `seed_update_runs`:update 的執行紀錄與每支 migration 的續跑 journal
- * (`docs/plans/seed-migration.md`「Migration 與設定的執行契約」)。
+ * (`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」)。
  *
  * 這是執行紀錄,不是第二份設定正本。同一張表放兩種文件,以 `type` 區分:
  *
@@ -180,7 +180,6 @@ export async function findOpenMigrations(
 /** 會套用種子與定義的操作(一次完整的 update,或內含 update 的 reset);down 不在內。 */
 const UPDATE_OPERATIONS = ["update", "reset-data", "reset-full"];
 
-/** 尚未完成的 update:未完成的 migration 紀錄、最近一次沒有走完的執行(沒有為 null)、中斷的定義安裝。 */
 /** 一筆還沒走完的受管定義安裝(api 的 `seed_definition_installations`;這裡只讀)。 */
 export interface UnfinishedInstallation {
   kind: DefinitionSeedKind;
@@ -193,6 +192,7 @@ export interface UnfinishedInstallation {
 /** api 安裝紀錄的「尚未完成」狀態(另一個值是 `installed`)。 */
 const INSTALLATION_IN_PROGRESS = "in-progress";
 
+/** 尚未完成的 update:未完成的 migration 紀錄、最近一次沒有走完的執行(沒有為 null)、中斷的定義安裝。 */
 export interface UnfinishedUpdate {
   migrations: MigrationJournalRecord[];
   run: RunRecord | null;

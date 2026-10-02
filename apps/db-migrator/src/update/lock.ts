@@ -1,6 +1,6 @@
 /**
  * update / migrate:down / reset 與 api 的受管定義 CLI 共用的整批互斥鎖
- * (`docs/plans/seed-migration.md`「migrate-mongo 相容、互斥與結果」)。
+ * (`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」)。
  *
  * 鎖是 `changelog_lock` 裡固定 `_id` 的一筆文件,以唯一的 `_id` 原子搶占、依 owner token 釋放。
  * **只有最外層命令取得與釋放**;內部步驟與 api 子程序沿用同一個 owner 只核對。

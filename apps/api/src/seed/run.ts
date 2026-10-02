@@ -15,7 +15,7 @@ import { DefinitionSeedService } from "./definition-seed.service";
 import { SeedRuntimeModule } from "./seed-runtime.module";
 
 /**
- * 受管定義的受控 CLI(建置為 `dist/seed/run.js`;`docs/plans/seed-migration.md`「發布、身分與衝突」)。
+ * 受管定義的受控 CLI(建置為 `dist/seed/run.js`;`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」)。
  *
  * db-migrator 以子程序啟動它:**stdin 一份 `DefinitionSeedRequest` JSON、stdout 一份 `DefinitionSeedResult` JSON**,
  * 診斷只到 stderr。不收命令列參數、不開 HTTP、不啟動 `AppModule`;連到哪個資料庫與操作者帳號由啟動它的

@@ -4,7 +4,7 @@ import { SeedLockReader } from "../database/seed-lock.reader";
 import { SeedRequestError } from "./seed-operator.service";
 
 /**
- * 核對共用互斥鎖的 owner(`docs/plans/seed-migration.md`「migrate-mongo 相容、互斥與結果」)。
+ * 核對共用互斥鎖的 owner(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」)。
  * 鎖由最外層命令(db-migrator 的 update / reset)取得與釋放;這裡**只核對**,不搶鎖、不續期、不釋放。
  */
 @Injectable()

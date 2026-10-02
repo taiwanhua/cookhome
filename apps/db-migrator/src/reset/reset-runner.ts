@@ -1,5 +1,5 @@
 /**
- * reset 的清除動作(正本:ADR-0002「還原(reset)」、`docs/plans/seed-migration.md`「重置與操作者確認」)。
+ * reset 的清除動作(正本:ADR-0002「還原(reset)」、`docs/concepts/data-layer-and-isolation.md`「還原」)。
  *
  * `data`:掃過資料庫**現有的每一個 collection**(不是寫死的清單),各自依 `reset-plan.ts` 的處置
  * 先算出要刪哪些文件(`planDataReset`,唯讀 —— 也就是輸出給操作者的刪留計畫),再執行(`executeDataReset`)。

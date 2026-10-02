@@ -1,6 +1,6 @@
 /**
  * `data` 模式的「seed 管 / 人建」判準(正本:ADR-0002「還原(reset)」、
- * `docs/plans/seed-migration.md`「重置與操作者確認」)。
+ * `docs/concepts/data-layer-and-isolation.md`「還原」)。
  *
  * **判準只有一個來源:registry**。每個 documents 種子表宣告了識別鍵欄位(`keyField`,預設 `key`)
  * 與所有已宣告的 key,所以「這一筆是不是 seed 管的」= 「它的識別鍵在宣告清單裡嗎」。
@@ -62,7 +62,7 @@ export type ResetAction =
   | { kind: "relations" };
 
 export interface SeedManagedKeys {
-  /** 存放 key 的欄位名(`data_scope_targets` 用 `collection`)。 */
+  /** 存放 key 的欄位名(`data_scope_targets` 用 `moduleKey`)。 */
   keyField: string;
   /** registry 宣告過的所有 key。 */
   keys: string[];

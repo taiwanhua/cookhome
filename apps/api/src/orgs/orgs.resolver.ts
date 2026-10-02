@@ -30,7 +30,7 @@ import { UserSummary } from "./models/user-summary.model";
 import { OrgManagersService } from "./org-managers.service";
 import { OrgsService } from "./orgs.service";
 
-/** 權限 key(docs/modules/org-manager.md 權限表;種子 apps/db-migrator/seeds/modules/system.ts)。 */
+/** 權限 key(docs/modules/org-manager.md 權限表;種子 apps/db-migrator/seeds/base/modules/system.ts)。 */
 const PERMISSIONS = {
   view: "system.org-manager.view",
   createChild: "system.org-manager.create-child",

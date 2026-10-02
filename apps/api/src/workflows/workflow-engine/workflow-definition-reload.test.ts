@@ -27,7 +27,7 @@ interface VersionData {
 }
 
 /**
- * 引擎讀流程定義不跨請求快取(`docs/plans/seed-migration.md`「重置與操作者確認」):
+ * 引擎讀流程定義不跨請求快取(`docs/deployment.md`「資料庫還原(reset)」):
  * 資料庫 reset 之後,同一個流程 key、同一個版號可以是另一份內容,或已經不存在;
  * 活得比資料庫內容久的 `WorkflowEngineService` 不能拿先前讀過的那一份。
  *

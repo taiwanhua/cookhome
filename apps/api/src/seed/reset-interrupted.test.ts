@@ -78,8 +78,8 @@ interface WorkflowVersionData {
 }
 
 /**
- * `data` reset 遇到做到一半的發布、退役或受管定義安裝要整次拒絕(`docs/plans/seed-migration.md`
- * 「重置與操作者確認」)。半成品由**真的發布 / 安裝流程**在它自己的檢查點中斷產生(不是插進資料庫的標記),
+ * `data` reset 遇到做到一半的發布、退役或受管定義安裝要整次拒絕(`docs/concepts/data-layer-and-isolation.md`
+ * 「還原」)。半成品由**真的發布 / 安裝流程**在它自己的檢查點中斷產生(不是插進資料庫的標記),
  * reset 是真的 db-migrator 指令子行程。每個情境:中斷 → reset 被拒絕且一筆都沒動 → 以原本的操作續完。
  * 最後確認續完之後 reset 放行。
  */

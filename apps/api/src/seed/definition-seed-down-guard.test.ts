@@ -26,7 +26,7 @@ jest.setTimeout(FORM_TEST_TIMEOUT_MS * 4);
 const LAST_MIGRATION = "20260929120000_data_data-scope-date-instants.js";
 
 /**
- * 中斷的受管定義安裝不會被 `migrate:down` 越過(`docs/plans/seed-migration.md`「唯一執行入口與歷史快照」:
+ * 中斷的受管定義安裝不會被 `migrate:down` 越過(`docs/deployment.md`「設定與資料更新」:
  * 存在未完成 update 時 down 拒絕)。安裝在這裡由原服務**真的**中斷(安裝流程的檢查點丟錯,留下 in-progress
  * 的安裝紀錄),down / update 則是 db-migrator 的真指令(子行程)對同一個資料庫。
  *

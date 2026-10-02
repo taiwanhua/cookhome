@@ -1,5 +1,5 @@
 /**
- * 專案部署設定的唯一讀取 / 驗證 / 解析模組(契約正本:docs/plans/project-settings.md「第二票 部署與工具識別」)。
+ * 專案部署設定的唯一讀取 / 驗證 / 解析模組(契約正本:docs/deployment.md「專案部署設定(deploy/project)」)。
  *
  * 來源只有兩份 JSON:`deploy/project/github.json`(repo 與看板識別)、`deploy/project/cloud.json`(GCP 目標與 Secret 名稱)。
  * 只用 Node 內建模組,workflow 在 pnpm install 之前就能執行。這裡只處理非機密設定與 Secret「名稱」,
