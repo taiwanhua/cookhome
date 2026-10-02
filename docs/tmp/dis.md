@@ -8,7 +8,7 @@
 
 ### 底座維護邊界與跨專案同步
 
-待完成的 seed/migration、初始化、Figma 工具與跨 repo 升級/回收見[底座同步計畫](../plans/base-sync.md)。C 的實作契約集中於 [seed/migration 規格](../plans/seed-migration.md);進度及驗收見對應 issue/PR。正式設定、功能來源與維護歸屬見[架構](../architecture.md#底座與專案的維護歸屬),不在本檔另存一份要求。
+待完成的初始化、Figma 工具與跨 repo 升級/回收見[底座同步計畫](../plans/base-sync.md);進度及驗收見對應 issue/PR。現行設定、功能來源與維護歸屬見[架構](../architecture.md#底座與專案的維護歸屬),seed/migration 見[資料層](../concepts/data-layer-and-isolation.md#種子資料與遷移),不在本檔另存一份要求。
 
 ### 自訂 `/to-figma` skill
 
@@ -92,4 +92,4 @@ schema 演進指向後相容 + 破壞性變更配遷移腳本,落點 `docs/stand
 
 ## 下一步
 
-seed/migration 依票實作與驗收,初始化及同步工具依共同計畫接續。食譜域第二輪 `/domain-modeling` 用來解開「設計殘項」,與底座同步的未完成項目分開追蹤。
+初始化及同步工具依共同計畫接續。食譜域第二輪 `/domain-modeling` 用來解開「設計殘項」,與底座同步的未完成項目分開追蹤。

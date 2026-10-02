@@ -62,7 +62,7 @@ GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使�
 
 - 根 `package.json` 名稱、各 app `.env.example` 與未追蹤的本機 `.env` 必須按專案設定;範例不含真正憑證。
 - `docker-compose.yml` 的容器、port、DB 與 volume,以及 `apps/e2e/docker-compose.yml` 的專案名要考慮多專案共存;調整不能讓既有 CookHome volume 或資料庫被換成另一個空庫。
-- `apps/api/src/app.module.ts` 的本地 MongoDB fallback 與 db-migrator 範例仍含專案名稱;確切抽離由後續初始化工作處理。未知 DB 名稱仍須被 reset 安全檢查拒絕。
+- `apps/api/src/app.module.ts` 的本地 MongoDB fallback 與 db-migrator 範例仍含專案名稱;確切抽離由後續初始化工作處理。reset 必須核對操作者指定的環境、實際 DB 名稱與模式,不以名稱尾碼推測環境。
 - 測試環境變數與命令見 `docs/agents/toolbox.md`、`apps/e2e/.env.example`、`apps/e2e/src/config.ts`;測試使用隔離資料庫及各專案的 DB、port、bucket namespace,不沿用正式 URI,也不將測試假憑證當正式設定。
 
 不同專案同機開發時,須分別驗證資料庫與儲存資源隔離。
@@ -78,7 +78,7 @@ GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使�
 
 ROOT_ADMIN 輸入與欄位政策見[種子資料與遷移](concepts/data-layer-and-isolation.md#種子資料與遷移)。根初始帳號由環境變數提供,不放進上述檔案;既有帳號不重設密碼,更換 ROOT_ADMIN_ACCOUNT 會建立另一帳號,不是原帳號改名。
 
-示範模組初建啟用,開關與租戶分配由人員維護;授權關聯只補不刪。初始化、一般 seed 與 data/full reset 的差別見上述概念文件,操作見 [deployment](deployment.md#資料庫還原reset僅-dev--staging)。
+示範模組初建啟用,開關與租戶分配由人員維護;授權關聯只補不刪。初始化、一般 seed 與 data/full reset 的差別見上述概念文件,操作見 [deployment](deployment.md#資料庫還原reset)。
 
 ## 設計與開發工具
 

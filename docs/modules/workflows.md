@@ -156,7 +156,9 @@
 1. 讀實例(權威)、它的全部任務、對應的提交 → `advance`;列 5 需要時先解析進關結果(`step-entry.service.ts`:跳過條件用**該修訂**的值與送出當時的 `ctx`;審核者四種來源只算啟用中且仍在本租戶的人;`manager` 用 `OrgManagersService.resolveManagers`,名單規則在 `@repo/domain/workflow` 的 `managers.ts`)再呼叫一次(兩段式)。
 2. 依序執行動作。實例的條件翻成 Mongo(`instance-writes.ts`):`editVersion` CAS、狀態、`outcome` / `finishedAt` 為 null、節點狀態以 `$elemMatch` 對陣列元素下條件、`activeStepKeys` 的 `$nin`;節點欄位以 `arrayFilters` 指到 `stepKey`(`BaseRepository.findOneAndUpdate` 的 `options.arrayFilters`)。任務用 `(instanceId, taskKey)` 唯一鍵與讀到的狀態;提交用同步資格條件;`appendHistoryOnce` 以 `history` 沒有同種類 + 同 `taskKey` / `result` 的事件為條件。
 3. **`updateInstance` 的條件不成立就中止本輪**、重讀再判斷;其他動作條件不成立 = 已做過。`invalidState` 不寫、停下、記 log(會一直出現在「需要推進」)。
-4. 重複到沒事可做(上限 60 輪,超過記 log 停下,重試推進可接續)。已發布的流程版本不會變,定義快取在記憶體。
+4. 重複到沒事可做(上限 60 輪,超過記 log 停下,重試推進可接續)。
+
+流程定義依實例記錄的 key 與版號讀取資料庫,不跨請求保留永久快取。重置後同 key/版號重建或刪除,既有服務程序會讀到新內容或回報版本不存在;一般改版仍建立新版,不原地修改已發布版本。
 
 入口:送出、`decideTask`、撤回、改派、新增審核者、審核者失效 hook、`retryAdvanceInstance`(寫 `advance_retried`)。
 

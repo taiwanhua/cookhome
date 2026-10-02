@@ -154,7 +154,7 @@ deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩
 
 | workflow                                 | 觸發                                             | 做什麼                                                                                                                                             |
 | ---------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Reset DB**(`reset-db.yml`)             | 只能手動;只有 dev / staging                      | 資料庫還原(`data` / `full`);操作見三、「資料庫還原」,規則正本是 ADR-0002「還原(reset)」                                                            |
+| **Reset DB**(`reset-db.yml`)             | 只能手動;三環境皆須明確確認                      | 資料庫還原(`data` / `full`);操作見三、「資料庫還原」,規則正本是 ADR-0002「還原(reset)」                                                            |
 | **E2E**(`e2e.yml`)                       | 只能手動,不在 ci.yml 內                          | 權限劇本 E2E(`gh workflow run e2e.yml --ref <分支>`,可加 `-f grep="劇本 7"`);資料庫是拋棄式 service container,不碰任何環境與 Secret;時機見 TEST-05 |
 | **Docs**(`docs.yml`)                     | PR 與三分支 push,只在改到 `docs/**` 或任何 md 時 | `pnpm run format:check`                                                                                                                            |
 | **Project Status**(`project-status.yml`) | issue / PR 事件                                  | 自動移看板卡,規則見 `docs/agents/issue-tracker.md`「看板」                                                                                         |
@@ -266,33 +266,44 @@ pnpm --filter @repo/db-migrator run update --unlock-owner=<owner>
 
 正本:`apps/db-migrator/src/update/`、`apps/api/src/seed/`、`.github/workflows/deploy.yml`。
 
-### 資料庫還原(reset;僅 dev / staging)
+### 資料庫還原(reset)
 
-驗收要反覆重建租戶與使用者時,用手動 workflow 把該環境的資料庫還原。**規則正本是 ADR-0002「還原(reset)」**(兩種模式的定義、`data` 的刪 / 留判準、三道安全閥),這裡只寫怎麼操作。
+reset 依所選程式版本重建資料庫設定。dev、staging、production 都可執行,操作者須確認目標與刪除範圍。兩種模式的刪留規則見[資料層](concepts/data-layer-and-isolation.md#還原),決策理由見 ADR-0002。
 
-- UI:Actions → **Reset DB** → Run workflow → 選 `environment`(dev / staging)與 `mode`
-- CLI:`gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data`
+| mode   | 結果                                                                                                                       |
+| ------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `data` | 保留當前 registry 的種子、受管定義及已發布/已退役歷史,清除未受管設定與業務資料,再執行 update。根組織及模組的初始值保留現值 |
+| `full` | 清除全部應用 collection 與索引,保留操作鎖,再執行 update 重建。目前未登記的定義不重建,初始值回到專案宣告                    |
 
-| mode   | 做什麼                                                                              | 什麼時候用                                            |
-| ------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `data` | 只刪人建的資料(租戶、使用者、租戶角色、資料範圍規則、示範與業務資料…),再跑一次 seed | 重測開通租戶那條線;**模組頁調過的開關 / 圖示會留著**  |
-| `full` | `dropDatabase` → `migrate` → `seed`                                                 | 要一個全新安裝的環境(連調過的開關 / 圖示也回到宣告值) |
+在 Actions → **Reset DB** 選擇執行版本、`environment`、`mode`,並手動填入 `confirmation`:
 
-限制:
+```text
+reset:<environment>:<實際資料庫名>:<data|full>
+```
 
-- **沒有 production 選項**:workflow 的 choice 只有 dev / staging,第一個步驟再擋一次 dev / staging 以外的值(專案設定檔三個環境都有,不能靠設定缺值來擋),指令端另有三道安全閥(`--confirm` 要等於資料庫名、目標環境由資料庫名推得且 production 永遠拒絕、`RESET_ALLOW_ENV` 要含目標環境),兩層都擋。
-- **只碰資料庫,不動 Cloud Run**:服務不會重新部署,`full` 之後 api 也不必重啟(它不快取這些資料)。
-- **不還原 GCS 上的檔案**(商標、封面…):物件留在 bucket 裡變成孤兒,不影響功能。
-- **root 帳號的密碼**:`data` 保留原帳號整筆(含密碼雜湊,改過的密碼仍有效);`full` 會重新建立帳號,密碼回到 `root-admin-password*` secret 的當前值。
-- job 掛在 GitHub `environment: <env>` 底下,要加人工審核就在該 environment 設 required reviewers。
-- 本機跑同一支指令(本地資料庫名要以 `-dev` 結尾,否則會被當成 production 拒絕):
+CLI 範例:
 
-  ```bash
-  RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev \
-    pnpm --filter @repo/db-migrator reset --mode=data --confirm=cookhome-dev
-  ```
+```bash
+gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data -f confirmation="reset:dev:cookhome-dev:data"
+```
 
-正本:`.github/workflows/reset-db.yml`、`deploy/project/cloud.json`(Secret 名稱與 seed 帳號,與 deploy.yml 同一份)、`apps/db-migrator/src/reset/`(三道安全閥在 `reset-safety.ts`)、ADR-0002「還原(reset)」
+確認字串的環境、資料庫名與模式必須全部符合實際目標。資料庫名從連線目標解析,環境由輸入指定;不靠名稱尾碼猜環境。`RESET_ALLOW_ENV` 必須包含所選環境,未設即拒絕。workflow 原樣傳入人工確認,不從 URI 自動產生;記錄不輸出 URI、帳密或 Secret 值。
+
+本機先依[設定與資料更新](#設定與資料更新)完成 CLI 建置並準備 `ROOT_ADMIN_*`,再執行:
+
+```bash
+RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev \
+  pnpm --filter @repo/db-migrator run reset --environment=dev --mode=data --confirm=reset:dev:cookhome-dev:data
+```
+
+- 預檢、清除與 update 共用同一把鎖。data 若遇未完成遷移、回滾或中斷發布,在刪除前停止;先完成原 update、down 或 UI 發布後再重置。
+- data 清除中途失敗後,再次執行 data 會被未完成紀錄擋下。先用同一版來源執行 update 補齊設定,再明確執行 data 完成清除;若改採整庫重建,則重新確認 full。一般 update 不會補做尚未完成的清除。
+- full 清除後重建當次執行紀錄;清除或重建失敗會回報階段。檢查 Actions log 與執行狀態後,再次明確確認 full 才重新清庫。硬中止或失敗紀錄也無法寫入時,鎖會保留;確認原程序已停止後,依[設定與資料更新](#設定與資料更新)指名解鎖。
+- 只處理資料庫,不部署 Cloud Run、不清除 GCS 物件。流程引擎每次依資料庫讀取版本,重建同 key/版號後不會沿用程序中的舊定義。
+- `data` 保留根初始帳號與密碼;`full` 重建帳號,密碼使用該環境 Secret 的當前值。
+- job 掛在所選 GitHub environment 下,沿用該環境的審核設定。
+
+正本:`.github/workflows/reset-db.yml`、`deploy/project/cloud.json`、`apps/db-migrator/src/reset/`、ADR-0002「還原(reset)」。
 
 ### 觀測與維運
 

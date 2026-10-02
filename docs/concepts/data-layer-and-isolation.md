@@ -209,6 +209,8 @@ documents 預設以 `key` 識別,可用 `keyField` 指定其他欄位;`seedRef` 
 
 每份宣告有固定的 `revision`。安裝紀錄將它映射到各環境自己的 ID 與版號,因此不同環境的歷史版號可以不同,交付的內容仍相同。同 revision 不可改內容;修改內容或改成退役需給新 revision。
 
+`contentHash` 比對定義內容、key 與受管名稱等 metadata,不含 revision、發布說明及目標狀態;`snapshotHash` 則涵蓋整份宣告,用來檢查同 revision 是否被改寫。兩者都依共用契約正規化,不含環境 ID 或資料庫版號;正本是 `packages/domain/src/seed/canonical.ts`。
+
 發布由 API 的專用 CLI 沿用既有設計服務,使用該環境真實的根組織操作者、權限檢查與稽核。普通 documents seed 不直接寫表單、流程、版本或動態權限。
 
 | 現場狀態                               | 處理方式                                  |
@@ -257,12 +259,15 @@ documents 預設以 `key` 識別,可用 `keyField` 指定其他欄位;`seedRef` 
 
 ### 還原
 
-| reset 模式 | 做什麼                                       | 人調過的 `enabled` / `icon` |
-| ---------- | -------------------------------------------- | --------------------------- |
-| `full`     | drop → migrate → seed                        | 回到宣告值                  |
-| `data`     | 刪人建的資料(判準:識別鍵不在 registry)→ seed | 保留                        |
+| reset 模式 | 保留與清除                                                                                              | 後續動作                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `data`     | 保留當前 registry 的種子與受管定義歷史、動態權限、有效安裝紀錄及執行歷史;清除草稿、未受管定義與業務資料 | 執行同一版本的 update,根組織與模組初始值保留現值 |
+| `full`     | 除操作鎖外,清除全部應用 collection 與索引                                                               | 重新規劃並執行 update,初始值依專案宣告重建       |
 
-- 只給 dev / staging;production 永遠拒絕。安全閥三道:`--confirm` = 資料庫名、資料庫名推得環境、`RESET_ALLOW_ENV` 含該環境。
-- 用法與 workflow 見 `docs/deployment.md`「資料庫還原(reset)」。
+受管範圍依當前 registry 判定;已移除宣告的定義、自建與租戶客製/fork 不在 data 保留範圍。受管定義的已發布/已退役版本連同動態權限 ID、退役狀態及有效安裝映射保留;租戶分派、綁定與案件清除。普通設定種子的識別鍵與初始值政策沿用原宣告;示範業務資料整表清除後依宣告補回。
+
+data 遇到未完成 migration、回滾或任何中斷發布時,在刪除前拒絕。先續完原 update 或 UI 發布,再明確重置;預檢不自動發布半成品。full 可清除中斷狀態,依目前版本重建。
+
+三個環境都須明示環境、模式與實際資料庫名並通過確認。預檢、刪除與 update 共用同一把鎖;失敗會保留階段與結果,不標成成功。用法與失敗處理見 [deployment](../deployment.md#資料庫還原reset)。
 
 正本:`apps/db-migrator/src/seed/seed-runner.ts`、`apps/db-migrator/seeds/registry.ts`、`apps/db-migrator/src/reset/reset-plan.ts`、`apps/db-migrator/src/reset/reset-safety.ts`、`apps/db-migrator/src/migration-filename.ts`

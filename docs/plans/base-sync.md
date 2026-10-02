@@ -1,19 +1,16 @@
 # 底座跨專案維護與同步計畫
 
-本文件只保留尚未完成的 seed/migration、初始化、Figma 與跨 repo 同步工作。現有行為見下列正式文件;實作進度、驗收及部署結果以 issue/PR 為準。
+本文件只保留尚未完成的初始化、Figma 與跨 repo 同步工作。現有行為見下列正式文件;實作進度、驗收及部署結果以 issue/PR 為準。
 
 ## 正式文件入口
 
 - [架構與維護歸屬](../architecture.md#底座與專案的維護歸屬):底座核心、專案內容與固定組裝。
 - [前端架構](../concepts/frontend-architecture.md)、[資料層](../concepts/data-layer-and-isolation.md)、STRUCT-12:頁面、help、API 與資料登記契約。
+- [設定交付](../concepts/data-layer-and-isolation.md#種子資料與遷移)、[操作](../deployment.md#設定與資料更新)、ADR-0002:seed/migration 來源、受管定義、更新與重置。
 - [初始化索引](../project-initialization.md)、[品牌註冊表](../branding.md)、[部署](../deployment.md):專案值、設定來源與操作。
 - [Figma 隔離測試](../branding.md#隔離品牌相容性測試):測試資產、可重現結果與限制。
 
 接手先讀 `CLAUDE.md`、[協作規則](../agents/collaboration.md)、負責的 issue 全文與留言。未定介面依 [issue tracker](../agents/issue-tracker.md) 固定規格後才進 Ready;本計畫不代表外部資源已建立或工具已啟用。完成的內容依 STRUCT-11 歸入既有正本並從本計畫移除。
-
-## C:seed/migration 設定交付
-
-待完成來源分區、版本化表單/流程 seed、精確歷史快照與資料遷移、統一 update、UI 匯出及 data/full reset。工程契約、依賴和驗收集中在 [seed/migration 規格](seed-migration.md),不在此重述。實作通過後再改寫執行期正本,目前操作仍依 deployment。
 
 ## D:新專案初始化與底座基線
 
@@ -26,7 +23,7 @@
 - 初始化與升級分開;重跑初始化不能破壞既有資料,新專案不能沿用 CookHome 的資源目標或密鑰。
 - 不同工具的 skill 入口沿用共同文件,不以未核定本機副本作必要依賴。module-scaffold 與設計流程整合仍列於 [待辦](../tmp/dis.md),E2E 觸發依 issue tracker。
 
-前置是 C 交付、底座名稱及版本建立方案定案。尚需決定 repo 名稱、建立命令、外部資源的建立與驗證方式,並完成不同品牌的測試專案與多專案本機隔離演練。三個 app、專案頁與業務模組都須可運作,不能只驗設定檔改名。
+前置是底座名稱及版本建立方案定案。尚需決定 repo 名稱、建立命令、外部資源的建立與驗證方式,並完成不同品牌的測試專案與多專案本機隔離演練。三個 app、專案頁與業務模組都須可運作,不能只驗設定檔改名。
 
 ## E:Figma 品牌與版本同步
 
