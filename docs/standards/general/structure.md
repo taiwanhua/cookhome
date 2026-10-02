@@ -194,6 +194,16 @@ grep -rnE "20[0-9]{2}-[0-9]{2}-[0-9]{2}|第 [0-9一二三四五六] 段|#[0-9]{2
 
 專案新增功能改專案來源;客製替換另列目標,保留底座原檔與宣告。底座不可反向 import 專案內容,只允許下列固定入口讀兩方來源。頁面與表單設定見[前端架構](../../concepts/frontend-architecture.md),資料登記與碰撞檢查見[資料層組裝](../../concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
 
+### seed
+
+- 底座宣告與 helper 在 `apps/db-migrator/seeds/base/`,專案宣告在 `seeds/project/`;只有 `seeds/registry.ts` 讀兩方來源。根組織與模組的專案初值在 `project/settings.ts`,底座維護結構與初始值保護政策。
+- 專案模組登記在 `project/registry.ts` 的 `moduleDeclarations`,其他種子登記在 `seeds`。合併後只推導一次模組、權限、資料目標與租戶管理員模板;不另用普通文件宣告這些推導結果。
+- 寫入前檢查重名、引用、循環與來源政策。表單、流程、版本、安裝紀錄及動態權限不得用一般 documents seed 繞過發布機制。
+- 共用宣告、可攜性驗證與 TypeScript 匯出以 `@repo/domain/seed` 為唯一來源。匯出的 `.seed.ts` 直接作專案 seed,程序間的 JSON 只作傳輸,不另建人工維護的設定格式。
+- 版本定義由 `apps/api/src/seed/` 沿原設計服務發布,使用真實操作者、權限與稽核。其 CLI 經最小 Nest runtime 啟動,不開 HTTP 或應用背景工作;其他 app 透過受控子程序呼叫,不互相 import 或複製發布生命週期。
+
+正本:`apps/db-migrator/seeds/registry.ts`、`apps/db-migrator/src/seed/seed-composition.ts`;新增模組步驟見 [module scaffold](../../agents/module-scaffold.md)。
+
 ### admin
 
 - 頁面分 `pages/base/` 與 `pages/project/`;其他層既有共用內容仍由底座維護,專案內容放該層 `project/`,不另開頂層 `src/project/`。專案頁不可引用底座頁內部,共用能力走 components/hooks/lib;CRUD 模板在 `components/base/crud/`。
@@ -208,16 +218,6 @@ grep -rnE "20[0-9]{2}-[0-9]{2}-[0-9]{2}|第 [0-9一二三四五六] 段|#[0-9]{2
 - repository providers 與 Nest exports 由登記導出,不匯出 Model provider 或整個 MongooseModule。底座 repository 實作放 `database/base/` 等 leaf 檔,不回指組裝入口;`database.module.ts` 保留既有 repository 的 TypeScript re-export 相容出口。
 - 新專案租戶資料沿用 BaseRepository 與隔離 plugins,同時登記組織歸屬檢查;刪組織與撤銷開通共用 `OrgBusinessDataReader`,不能新增可繞過檢查的 callback。Recipes 的既有相容例外不供新模組套用。
 - 測試 fixture 只豁免所有權方向,不新增 raw query 或 Mongoose 任意注入的例外;正式來源不得引用 fixture。驗收入口見 TEST-07 / TEST-08。
-
-### seed
-
-- 底座宣告與 helper 在 `apps/db-migrator/seeds/base/`,專案宣告在 `seeds/project/`;只有 `seeds/registry.ts` 讀兩方來源。根組織與模組的專案初值在 `project/settings.ts`,底座維護結構與初始值保護政策。
-- 專案模組登記在 `project/registry.ts` 的 `moduleDeclarations`,其他種子登記在 `seeds`。合併後只推導一次模組、權限、資料目標與租戶管理員模板;不另用普通文件宣告這些推導結果。
-- 寫入前檢查重名、引用、循環與來源政策。表單、流程、版本、安裝紀錄及動態權限不得用一般 documents seed 繞過發布機制。
-- 共用宣告、可攜性驗證與 TypeScript 匯出以 `@repo/domain/seed` 為唯一來源。匯出的 `.seed.ts` 直接作專案 seed,程序間的 JSON 只作傳輸,不另建人工維護的設定格式。
-- 版本定義由 `apps/api/src/seed/` 沿原設計服務發布,使用真實操作者、權限與稽核。其 CLI 經最小 Nest runtime 啟動,不開 HTTP 或應用背景工作;其他 app 透過受控子程序呼叫,不互相 import 或複製發布生命週期。
-
-正本:`apps/db-migrator/seeds/registry.ts`、`apps/db-migrator/src/seed/seed-composition.ts`;新增模組步驟見 [module scaffold](../../agents/module-scaffold.md)。
 
 ## STRUCT-13 方案設計先核對現況,優先延伸既有機制
 
