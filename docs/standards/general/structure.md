@@ -214,5 +214,7 @@ grep -rnE "20[0-9]{2}-[0-9]{2}-[0-9]{2}|第 [0-9一二三四五六] 段|#[0-9]{2
 - 底座宣告與 helper 在 `apps/db-migrator/seeds/base/`,專案宣告在 `seeds/project/`;只有 `seeds/registry.ts` 讀兩方來源。根組織與模組的專案初值在 `project/settings.ts`,底座維護結構與初始值保護政策。
 - 專案模組登記在 `project/registry.ts` 的 `moduleDeclarations`,其他種子登記在 `seeds`。合併後只推導一次模組、權限、資料目標與租戶管理員模板;不另用普通文件宣告這些推導結果。
 - 寫入前檢查重名、引用、循環與來源政策。表單、流程、版本、安裝紀錄及動態權限不得用一般 documents seed 繞過發布機制。
+- 共用宣告、可攜性驗證與 TypeScript 匯出以 `@repo/domain/seed` 為唯一來源。匯出的 `.seed.ts` 直接作專案 seed,程序間的 JSON 只作傳輸,不另建人工維護的設定格式。
+- 版本定義由 `apps/api/src/seed/` 沿原設計服務發布,使用真實操作者、權限與稽核。其 CLI 經最小 Nest runtime 啟動,不開 HTTP 或應用背景工作;其他 app 透過受控子程序呼叫,不互相 import 或複製發布生命週期。
 
 正本:`apps/db-migrator/seeds/registry.ts`、`apps/db-migrator/src/seed/seed-composition.ts`;新增模組步驟見 [module scaffold](../../agents/module-scaffold.md)。

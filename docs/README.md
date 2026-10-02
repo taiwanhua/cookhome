@@ -38,13 +38,13 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 **4. 資料範圍與可見範圍。** 新增專案租戶資料經 BaseRepository,自動加上「組織 ∈ 範圍」;底座專用資料介面與既有 Recipe 例外由固定資料層管理。業務資料看**可見範圍**(所屬組織 + 可見性開關);治理頁看**管理範圍**(持有角色的擁有組織子樹)。資料範圍規則在可見範圍內再縮小。
 正本:`docs/concepts/data-layer-and-isolation.md`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`
 
-**5. 設定資料(模組樹 / 權限 / 欄位)。** 模組、權限、種子角色、欄位選項是種子資料:寫在程式裡,以 key 冪等同步到各環境。業務資料不跨環境搬。
+**5. 設定資料。** 模組、權限、種子角色、欄位選項,以及明確登記的共用表單與流程,由 TypeScript seed 交付到各環境。普通設定以 key 同步,表單與流程沿版本生命週期發布。業務資料不跨環境搬。
 正本:`docs/concepts/data-layer-and-isolation.md`「種子資料與遷移」、`apps/db-migrator/seeds/`
 
 **6. 稽核與儲存。** 模組層把變更寫進只增不改的 `audit_logs`。檔案由瀏覽器直傳 GCS,DB 存路徑、看時現簽;交易信件走 Resend。
 正本:`docs/concepts/authorization.md`「稽核」、`docs/concepts/storage-and-mail.md`、`apps/api/src/audit/`、`apps/api/src/storage/`
 
-**7. 表單模組與審核流程。** 欄位由使用者在後台設計的模組走表單引擎:表單版本化發布,提交綁版本、每次修改留完整修訂;表單可綁審核流程,送出後由流程實例推進關卡,申請人與審核者在申請中心操作。表單與流程是執行期資料(畫面上設計、分派給租戶),模組骨架仍由 seed 宣告。
+**7. 表單模組與審核流程。** 欄位由使用者在後台設計的模組走表單引擎:表單版本化發布,提交綁版本、每次修改留完整修訂;表單可綁審核流程,送出後由流程實例推進關卡,申請人與審核者在申請中心操作。共用定義可納入專案 seed;租戶客製內容、分派與綁定仍在各環境獨立管理。
 正本:`docs/concepts/form-engine.md`、`docs/concepts/workflow-engine.md`、`apps/api/src/forms/`、`apps/api/src/workflows/`
 
 ## 閱讀路線

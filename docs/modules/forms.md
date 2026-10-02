@@ -37,6 +37,8 @@
 
 `forms`、`form_versions`、`form_submissions` 三張表,加上 `business_relationships` 的 `org_form`(分派 / 啟用)與 `permissions` 的 `source: dynamic`(欄位級權限)。表的用途與跨檔約定見 `docs/data-model.md`,欄位與索引見各 schema 檔。
 
+登記為 seed 的共用表單由專案版本交付,沿用下述設計與發布服務;分派、提交及租戶客製表單由各環境獨立維護。受管邊界、版本映射與衝突處理見[受管表單與流程](../concepts/data-layer-and-isolation.md#受管表單與流程)。
+
 ## 可見、可改、可新增
 
 判準只有一份:`apps/api/src/forms/form-access.service.ts`。
