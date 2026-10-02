@@ -97,13 +97,28 @@
 
 ## 前端:引擎零件與預設組裝
 
-表單引擎是一組零件,不是固定頁面。`app/module-pages.tsx` 登記方式與固定欄位模組相同(模組 key → 頁面元件),引擎提供 `formModulePages(moduleKey, { tabLabelTemplate? })` 產出四個 key 的預設元件(各自懶載入):
+表單引擎是一組零件,可用預設頁或自行組裝。底座表單模組在 `app/base/module-pages.ts` 的 `baseModulePages.forms` 宣告;專案表單模組在 `app/project/module-pages.ts` 的 `projectModulePages.forms` 宣告,由固定入口 `app/module-pages.tsx` 一起組裝。每筆 `{ moduleKey, options?, pageOverrides? }` 同時提供四頁與模組設定,不用重複列 key。
+
+例如,專案的 `RequestListPage` 放 `pages/project/`,只客製列表,其餘三頁沿用引擎:
 
 ```ts
-...formModulePages(DEMO_FORM_MODULE_KEY),                                 // 四頁全用預設
-...formModulePages(OTHER_KEY), [OTHER_KEY]: OtherListPage,                // 列表頁客製、其餘預設
-[OTHER_KEY]: OtherListPage, [`${OTHER_KEY}.view-page`]: OtherViewPage,    // 全部自己來
+export const projectModulePages: ModulePageSource = {
+  pages: [],
+  forms: [
+    {
+      moduleKey: "requests",
+      options: { tabLabelTemplate: "{{form}}・{{title}}" },
+      pageOverrides: { list: { Page: RequestListPage } },
+    },
+  ],
+};
 ```
+
+`ModulePageSource` 型別在 `app/module-page-registry.ts`。`pageOverrides` 的四個 slot 是 `list`、`viewPage`、`createPage`、`editPage`,每個收 `{ Page, minWidth? }`;省略就用預設頁。四頁都自行組裝也可在同一筆 `forms` 宣告四個 slot,仍保留 options 的單一來源。組裝器用純函式 `formModulePages(moduleKey)` 取得四個懶載入預設元件,不靠 spread 覆寫或載入時修改共享狀態。
+
+要客製的是**底座既有表單頁**時,改在 `app/project/page-replacements.ts` 寫明目標,不把相同 moduleKey 再加進專案 `forms`。底座原版與 options 保留,移除替換即可還原頁面。登記或換 Page 都不改 `me.modules` 的路由與授權;碰撞與替換規則見[前端架構](frontend-architecture.md#頁面登記與客製替換)。
+
+options 由 `lib/form-engine/form-module-options.ts` 的 `composeFormModuleOptions` 合成唯讀表,再由 `app/providers/RootProviders.tsx` 經 `FormModuleOptionsProvider` 注入。context 與 hook 在 `hooks/useFormModuleOptions.ts`,Provider 在 `app/providers/FormModuleOptionsProvider.tsx`;components 向下讀 hook,不 import app。`useTabLabelRenderer` 用這份設定,表單自身模板仍優先於模組模板,未設定時用 `{{title}}`;有 Provider 但未登記該 key 時亦用預設,缺 Provider 則報接線錯誤。不同組裝不會互相污染。
 
 | 零件                                                    | 做什麼                                                                          |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------- |

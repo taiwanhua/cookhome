@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor, within } from "@testing-library/react";
 
-import { renderFormsPage } from "@/pages/system/FormsPage/forms-page-test-support";
+import { renderFormsPage } from "@/pages/base/system/FormsPage/forms-page-test-support";
 import { authWorld, overviewModule } from "@/test/msw/auth-handlers";
 import { demoGroupNode, superAdminModules } from "@/test/msw/module-fixtures";
 import { server } from "@/test/msw/server";

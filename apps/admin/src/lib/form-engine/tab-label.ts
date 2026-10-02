@@ -24,7 +24,7 @@ import {
  * 呼叫端以 `joinAction` 帶進來);有寫就照模板位置。
  */
 
-/** 模組層的預設模板:`formModulePages(moduleKey, { tabLabelTemplate })` 沒給時用它。 */
+/** 模組層的預設模板:登記表單模組時(`forms` 的 `options.tabLabelTemplate`)沒給就用它。 */
 export const DEFAULT_TAB_LABEL_TEMPLATE = "{{title}}";
 
 /** 模板可用的固定佔位符(依設定畫面列出的順序);欄位值另有 `{{value.<欄位key>}}`。 */

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "@jest/globals";
@@ -10,6 +11,18 @@ import { describe, expect, it } from "@jest/globals";
  */
 const RULE_ID = "@repo/no-raw-model-query";
 const API_ROOT = path.resolve(__dirname, "../..");
+const SRC_ROOT = path.resolve(__dirname, "..");
+
+/** 目錄下的正式程式檔(不含測試檔)。 */
+function sourceFiles(directory: string): string[] {
+  return readdirSync(directory).flatMap((entry) => {
+    const full = path.join(directory, entry);
+    if (statSync(full).isDirectory()) {
+      return sourceFiles(full);
+    }
+    return entry.endsWith(".ts") && !entry.endsWith(".test.ts") ? [full] : [];
+  });
+}
 const ESLINT_BIN = path.join(
   path.dirname(require.resolve("eslint/package.json")),
   "bin",
@@ -97,6 +110,18 @@ export function listItems(
 }
 `);
     expect(messages).toEqual([]);
+  });
+
+  it("專案來源裡的豁免只有 Recipes 的專用 repository 一檔(既有例外不擴大)", () => {
+    const waived = ["project", "test-support/project-fixture"].flatMap(
+      (directory) =>
+        sourceFiles(path.join(SRC_ROOT, directory))
+          .filter((file) => readFileSync(file, "utf8").includes(RULE_ID))
+          .map((file) =>
+            path.relative(SRC_ROOT, file).split(path.sep).join("/"),
+          ),
+    );
+    expect(waived).toEqual(["project/database/recipes-legacy.repository.ts"]);
   });
 
   it("檔案第一行 eslint-disable(STRUCT-05)可豁免 — 供 BaseRepository 與 recipes 舊原型使用", () => {

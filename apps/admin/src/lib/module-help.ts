@@ -1,8 +1,8 @@
 import { ModuleEngine } from "@repo/graphql";
 
 /**
- * 模組說明(`src/md/module-help/<模組 key>.help.md`)的純邏輯:檔名 → 模組 key、內容整理、
- * 模組 → 該用哪一份(專屬檔優先,表單模組沒有專屬檔時退回通用檔)。
+ * 模組說明(`<模組 key>.help.md`)的純邏輯:檔名 → 模組 key、內容整理、三份來源(底座 / 專案新增 /
+ * 專案替換)的合成與驗證、模組 → 該用哪一份(專屬檔優先,表單模組沒有專屬檔時退回通用檔)。
  * 真的去讀檔案的那一層在 `lib/help-registry.ts`(Vite 的 `import.meta.glob`,只有它碰得到打包器)。
  */
 
@@ -52,6 +52,99 @@ export const buildHelpRegistry = (
     const body = stripLeadingTitle(content).trim();
     if (key !== null && body !== "") {
       registry.set(key, body);
+    }
+  }
+  return registry;
+};
+
+/** 三份說明來源,各是「完整檔案路徑 → Markdown 原始碼」(`lib/help-registry.ts` 的三個 glob 產物)。 */
+export interface HelpSources {
+  /** 底座的說明(`md/module-help/base/`) */
+  readonly base: Readonly<Record<string, string>>;
+  /** 專案新增模組的說明(`md/module-help/project/additions/`) */
+  readonly additions: Readonly<Record<string, string>>;
+  /** 專案對底座說明的替換(`md/module-help/project/replacements/`) */
+  readonly replacements: Readonly<Record<string, string>>;
+}
+
+interface HelpFile {
+  readonly path: string;
+  /** 去掉開頭標題、去頭尾空白之後的內容;空字串 = 沒有說明 */
+  readonly body: string;
+}
+
+/** 一個來源 → 「模組 key → 檔案」;同一個來源裡兩個檔案對到同一個 key 就記一筆問題。 */
+const keyHelpFiles = (
+  label: string,
+  files: Readonly<Record<string, string>>,
+  problems: string[],
+): ReadonlyMap<string, HelpFile> => {
+  const byKey = new Map<string, HelpFile>();
+  for (const [path, content] of Object.entries(files)) {
+    const key = moduleKeyFromHelpPath(path);
+    if (key === null) {
+      continue;
+    }
+    const existing = byKey.get(key);
+    if (existing === undefined) {
+      byKey.set(key, { path, body: stripLeadingTitle(content).trim() });
+    } else {
+      problems.push(
+        `${label}的模組 key「${key}」有兩份說明:${existing.path}、${path}`,
+      );
+    }
+  }
+  return byKey;
+};
+
+/**
+ * 底座、專案新增、專案替換三份來源 → 一張「模組 key → 說明內容」對照表。
+ * 專案要換掉底座的說明就放「替換」,不靠撞 key;底座的檔案留著,拿掉替換就回到原說明。
+ *
+ * 拒絕(丟錯並列出 key 與檔案路徑):同一個來源裡 key 重複(含同一份底座說明被替換兩次)、
+ * 新增與底座撞 key、替換的對象不是底座的說明、替換的內容是空白。
+ * 底座與新增的空白檔(或只有標題)照舊視為沒有說明、不收進表裡。不修改輸入。
+ */
+export const composeHelpRegistry = ({
+  base,
+  additions,
+  replacements,
+}: HelpSources): ReadonlyMap<string, string> => {
+  const problems: string[] = [];
+  const baseFiles = keyHelpFiles("底座", base, problems);
+  const additionFiles = keyHelpFiles("專案新增", additions, problems);
+  const replacementFiles = keyHelpFiles("專案替換", replacements, problems);
+
+  for (const [key, file] of additionFiles) {
+    const collided = baseFiles.get(key);
+    if (collided !== undefined) {
+      problems.push(
+        `專案新增的說明「${key}」與底座相撞:${file.path}、${collided.path}(要換掉底座的說明請放進替換)`,
+      );
+    }
+  }
+  for (const [key, file] of replacementFiles) {
+    if (!baseFiles.has(key)) {
+      problems.push(`替換的對象「${key}」不是底座的說明:${file.path}`);
+    }
+    if (file.body === "") {
+      problems.push(`替換的說明「${key}」是空白的:${file.path}`);
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      ["模組說明登記有問題:", ...problems.map((line) => `- ${line}`)].join(
+        "\n",
+      ),
+    );
+  }
+
+  const registry = new Map<string, string>();
+  for (const files of [baseFiles, additionFiles, replacementFiles]) {
+    for (const [key, { body }] of files) {
+      if (body !== "") {
+        registry.set(key, body);
+      }
     }
   }
   return registry;

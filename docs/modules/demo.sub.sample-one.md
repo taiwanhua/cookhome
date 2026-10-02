@@ -27,7 +27,7 @@
 
 `delete` 無對應頁(列表動作 + 確認彈窗)—— 權限與頁面不必一一對應,本身即示範。
 
-**畫面**:Figma 列表 / 詳情 / 新增 / 編輯四個版型節點 `175:3` / `175:318` / `175:558` / `177:2314`。實作與設計稿的差異表記在建立 admin 頁面的那個 PR(`git log -- apps/admin/src/pages/demo/` 可查)。
+**畫面**:Figma 列表 / 詳情 / 新增 / 編輯四個版型節點 `175:3` / `175:318` / `175:558` / `177:2314`。實作與設計稿的差異表記在建立 admin 頁面的那個 PR(`git log -- apps/admin/src/pages/base/demo/` 可查)。
 
 正本:`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`、`apps/admin/src/app/module-pages.tsx`
 
@@ -154,7 +154,7 @@ input DemoItemsOneInput {
 
 ## admin 頁面
 
-四個模組 key = 四頁,`app/module-pages.tsx` 各登記一個元件;**新增與編輯是同一個共版型元件**,情境由 `module.key` 判斷。
+專案新增頁面走 `app/project/module-pages.ts`,替換底座頁走 `app/project/page-replacements.ts`,保留底座原版。示範模組的四個 key = 四頁,`app/base/module-pages.ts` 各登記一個元件;**新增與編輯是同一個共版型元件**,情境由 `module.key` 判斷。
 
 | 模組 key                          | 元件                                      |
 | --------------------------------- | ----------------------------------------- |
@@ -163,18 +163,18 @@ input DemoItemsOneInput {
 | `demo.sub.sample-one.create-page` | `SampleOneFormPage/SampleOneFormPage.tsx` |
 | `demo.sub.sample-one.edit-page`   | 同上(共版型)                              |
 
-**三頁本體是共用的**:`pages/demo/shared/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`,設定驅動(介面與逐項 JSDoc 在 `shared/demo-module-config.ts` 的 `DemoModuleConfig`)。上表那三個元件檔各只有約 10 行 —— 把設定物件接上共用元件而已。
+**三頁本體是共用的**:`components/base/crud/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`,設定驅動(介面與逐項 JSDoc 在 `shared/demo-module-config.ts` 的 `DemoModuleConfig`)。上表那三個元件檔各只有約 10 行 —— 把設定物件接上共用元件而已。
 
 **路由頁籤**:詳情與編輯頁每筆各一個詳情子頁籤,標籤「示範模組1 — 檢視・項目名」/「示範模組1 — 編輯・項目名」;刪除成功後那一筆的子頁籤一起關掉。規則見 [frontend-architecture.md](../concepts/frontend-architecture.md)「頁籤兩種」。
 
 **設定分兩層**:
 
-- `pages/demo/demo-sample-one-config.ts` —— **常數**:模組 key、四個 `MODULE_KEYS`、權限 key、欄位管理的「示範分類」key 與 `system.field-manager.view`、i18n namespace、每頁筆數、表格最小寬度、狀態選項、上傳規則。
-- `pages/demo/SampleOneModule.tsx` —— **設定物件本身**(一份 `DemoModuleConfig`):列表欄位與分類篩選、詳情欄位(含內部備註那一列的 `isVisible`)、表單欄位(含內部備註的三態 `mode`)、兩個上傳欄、兩個 slot(填寫提示 / 變更歷程),以及包好的 `useRows` / `useItem` / `useSave`。
+- `pages/base/demo/demo-sample-one-config.ts` —— **常數**:模組 key、四個 `MODULE_KEYS`、權限 key、欄位管理的「示範分類」key 與 `system.field-manager.view`、i18n namespace、每頁筆數、表格最小寬度、狀態選項、上傳規則。
+- `pages/base/demo/SampleOneModule.tsx` —— **設定物件本身**(一份 `DemoModuleConfig`):列表欄位與分類篩選、詳情欄位(含內部備註那一列的 `isVisible`)、表單欄位(含內部備註的三態 `mode`)、兩個上傳欄、兩個 slot(填寫提示 / 變更歷程),以及包好的 `useRows` / `useItem` / `useSave`。
 
 **頁面程式碼與示範模組2 一模一樣,差別全在這份設定物件** —— 新開一個 CRUD 模組要寫的就是它,步驟見 [module-scaffold](../agents/module-scaffold.md)。
 
-**只屬於這一頁的元件**:`SampleOnePage/SampleOneCategoryFilter.tsx`(工具列的分類 `Autocomplete`)、`SampleOneFormPage/SampleOneCategoryField.tsx`(表單的分類欄,含唯讀退化)、`FormTipsBlock.tsx` / `ItemHistoryBlock.tsx`(兩個 slot)、`SampleOneViewPage/AttachmentField.tsx`(私有附件現簽下載);分類選項的共用 hook 是 `pages/demo/useDemoCategoryOptions.ts`。
+**只屬於這一頁的元件**:`SampleOnePage/SampleOneCategoryFilter.tsx`(工具列的分類 `Autocomplete`)、`SampleOneFormPage/SampleOneCategoryField.tsx`(表單的分類欄,含唯讀退化)、`FormTipsBlock.tsx` / `ItemHistoryBlock.tsx`(兩個 slot)、`SampleOneViewPage/AttachmentField.tsx`(私有附件現簽下載);分類選項的共用 hook 是 `pages/base/demo/useDemoCategoryOptions.ts`。
 
 **路由尾端的識別碼**:詳情與編輯頁的模組路由本身不含 `<id>`(seed 的 route 是 `view-page` / `edit-page`),所以殼的路由防守多一條退路 —— 精準比對落空時,**只對 hidden 模組**再試一次「去掉最後一段」(`lib/module-tree.ts` 的 `matchModuleRoute`),解出來的那一段以 `routeParam` 傳給頁面。link 頁(列表)後面多接一段仍然是無權限頁;「可進 = 有那個模組路由」這條規則沒有放寬。規則本文在 ADR-0011「路由防守 / 尾端動態參數的退路」。
 
@@ -191,7 +191,7 @@ input DemoItemsOneInput {
 
 **分類下拉的選項**來自 `fieldCategories` → `fields(categoryId)`,兩個端點都掛在 `system.field-manager.view` 底下。沒有那個權限時:列表不顯示分類篩選、表單的分類欄退成唯讀(保留原值並說明原因)。停用的選項不列入可選清單。
 
-正本:`apps/admin/src/pages/demo/`、`apps/admin/src/app/module-pages.tsx`、`apps/admin/src/lib/module-tree.ts`
+正本:`apps/admin/src/pages/base/demo/`、`apps/admin/src/app/module-pages.tsx`、`apps/admin/src/lib/module-tree.ts`
 
 ## 錯誤碼
 
@@ -207,9 +207,9 @@ input DemoItemsOneInput {
 | 上傳的檔型不在白名單、或超過大小上限(`createUploadUrl`)                                       | `UPLOAD_REJECTED`                                              |
 | 資料不在可見範圍 / 資料範圍內、id 不存在、這筆沒有附件                                        | `NOT_FOUND`                                                    |
 
-**admin 的對應**:`VALIDATION_FAILED` 依 `extensions.fields` 標在對應欄位上(`name` / `category` / `coverPath` / `attachment`),其餘(`FORBIDDEN` 含 `FIELD_FORBIDDEN`、`NOT_FOUND`)用一條 Alert 說明;解讀集中在 `pages/demo/shared/demo-error.ts`(兩支示範模組共用一份)。
+**admin 的對應**:`VALIDATION_FAILED` 依 `extensions.fields` 標在對應欄位上(`name` / `category` / `coverPath` / `attachment`),其餘(`FORBIDDEN` 含 `FIELD_FORBIDDEN`、`NOT_FOUND`)用一條 Alert 說明;解讀集中在 `components/base/crud/demo-error.ts`(兩支示範模組共用一份)。
 
-正本:`apps/api/src/demo-items-one/demo-items-one-error.ts`、`apps/admin/src/pages/demo/shared/demo-error.ts`
+正本:`apps/api/src/demo-items-one/demo-items-one-error.ts`、`apps/admin/src/components/base/crud/demo-error.ts`
 
 ## 稽核
 
@@ -224,16 +224,16 @@ input DemoItemsOneInput {
 ## 測試
 
 - api:`apps/api/src/demo-items-one/demo-items-one.test.ts`(CRUD、驗證、附件)、`demo-items-one-permissions.test.ts`(端點與欄位級權限)、`demo-items-one-scope.test.ts`(可見範圍 + 資料範圍規則);夾具 `test-support/fixtures.ts`。
-- admin:`apps/admin/src/pages/demo/SampleOnePage/SampleOnePage.test.tsx`、`SampleOneFeedback.test.tsx`、`SampleOneViewPage/SampleOneViewPage.test.tsx`、`SampleOneFormPage/SampleOneFormPage.test.tsx`、`SampleOneRoutes.test.tsx`;msw handler `apps/admin/src/test/msw/demo-sample-one-handlers.ts`、夾具 `demo-fixtures.ts`。
+- admin:`apps/admin/src/pages/base/demo/SampleOnePage/SampleOnePage.test.tsx`、`SampleOneFeedback.test.tsx`、`SampleOneViewPage/SampleOneViewPage.test.tsx`、`SampleOneFormPage/SampleOneFormPage.test.tsx`、`SampleOneRoutes.test.tsx`;msw handler `apps/admin/src/test/msw/demo-sample-one-handlers.ts`、夾具 `demo-fixtures.ts`。
 - 劇本 E2E:本模組是權限劇本的主要場地 —— `apps/e2e/src/specs/scenario-01-wildcard.spec.ts`、`-02-data-scope-rule`、`-04-combine-op`、`-05-field-permission`、`-06-page-permission`、`-07-route-guard`、`-08-out-of-scope`、`-10-out-of-reach`、`-11-storage-two-paths`、`-12-visibility-toggle` 等;劇本本文見 [permission-scenarios](../testing/permission-scenarios.md)。
 
-正本:`apps/api/src/demo-items-one/`、`apps/admin/src/pages/demo/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
+正本:`apps/api/src/demo-items-one/`、`apps/admin/src/pages/base/demo/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
 
 ## 使用者說明(help.md)
 
-[demo.sub.sample-one.help.md](../../apps/admin/src/md/module-help/demo.sub.sample-one.help.md)(租戶使用者說明,build 時打包進說明彈窗)。
+[demo.sub.sample-one.help.md](../../apps/admin/src/md/module-help/base/demo.sub.sample-one.help.md)(租戶使用者說明,build 時打包進說明彈窗)。
 
-正本:`apps/admin/src/md/module-help/demo.sub.sample-one.help.md`
+正本:`apps/admin/src/md/module-help/base/demo.sub.sample-one.help.md`
 
 ## 平台視角備註
 

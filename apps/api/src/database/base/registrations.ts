@@ -1,0 +1,402 @@
+import { getModelToken } from "@nestjs/mongoose";
+import type { Model } from "mongoose";
+
+import { BusinessRelationshipsRepository } from "../business-relationships.repository";
+import { FormSubmissionUsageCounter } from "../form-submission-usage";
+import type { DatabaseRegistration } from "../registration";
+import { RelationService } from "../relation.service";
+import { ActionToken, ActionTokenSchema } from "../schemas/action-token.schema";
+import { AuditLog, AuditLogSchema } from "../schemas/audit-log.schema";
+import {
+  BUSINESS_RELATIONSHIPS_COLLECTION,
+  BusinessRelationship,
+  BusinessRelationshipSchema,
+} from "../schemas/business-relationship.schema";
+import {
+  CORE_RELATIONSHIPS_COLLECTION,
+  CoreRelationship,
+  CoreRelationshipSchema,
+} from "../schemas/core-relationship.schema";
+import { Customer, CustomerSchema } from "../schemas/customer.schema";
+import {
+  DataScopeRule,
+  DataScopeRuleSchema,
+} from "../schemas/data-scope-rule.schema";
+import {
+  DataScopeTarget,
+  DataScopeTargetSchema,
+} from "../schemas/data-scope-target.schema";
+import {
+  DemoItemOne,
+  DemoItemOneSchema,
+} from "../schemas/demo-item-one.schema";
+import {
+  DemoItemTwo,
+  DemoItemTwoSchema,
+} from "../schemas/demo-item-two.schema";
+import {
+  FieldCategory,
+  FieldCategorySchema,
+} from "../schemas/field-category.schema";
+import { Field, FieldSchema } from "../schemas/field.schema";
+import {
+  FORM_SUBMISSIONS_COLLECTION,
+  FormSubmission,
+  FormSubmissionSchema,
+} from "../schemas/form-submission.schema";
+import { FormVersion, FormVersionSchema } from "../schemas/form-version.schema";
+import { FORMS_COLLECTION, Form, FormSchema } from "../schemas/form.schema";
+import { Module as ModuleEntity, ModuleSchema } from "../schemas/module.schema";
+import { ORGS_COLLECTION, Org, OrgSchema } from "../schemas/org.schema";
+import { Permission, PermissionSchema } from "../schemas/permission.schema";
+import {
+  RefreshToken,
+  RefreshTokenSchema,
+} from "../schemas/refresh-token.schema";
+import { Role, RoleSchema } from "../schemas/role.schema";
+import { User, UserSchema } from "../schemas/user.schema";
+import {
+  WORKFLOW_INSTANCES_COLLECTION,
+  WorkflowInstance,
+  WorkflowInstanceSchema,
+} from "../schemas/workflow-instance.schema";
+import {
+  WORKFLOW_TASKS_COLLECTION,
+  WorkflowTask,
+  WorkflowTaskSchema,
+} from "../schemas/workflow-task.schema";
+import {
+  WorkflowVersion,
+  WorkflowVersionSchema,
+} from "../schemas/workflow-version.schema";
+import {
+  WORKFLOWS_COLLECTION,
+  Workflow,
+  WorkflowSchema,
+} from "../schemas/workflow.schema";
+import { WorkflowSubmissionStore } from "../workflow-submission-store";
+import { WorkflowTasksRepository } from "../workflow-tasks.repository";
+import { WorkflowsRepository } from "../workflows.repository";
+import {
+  ActionTokensRepository,
+  AuditLogsRepository,
+  CustomersRepository,
+  DataScopeRulesRepository,
+  DataScopeTargetsRepository,
+  DemoItemsOneRepository,
+  DemoItemsTwoRepository,
+  FieldCategoriesRepository,
+  FieldsRepository,
+  FormSubmissionsRepository,
+  FormVersionsRepository,
+  FormsRepository,
+  ModulesRepository,
+  OrgsRepository,
+  PermissionsRepository,
+  RefreshTokensRepository,
+  RolesRepository,
+  UsersRepository,
+  WorkflowInstancesRepository,
+  WorkflowVersionsRepository,
+} from "./repositories";
+
+/**
+ * 底座的資料登記(docs/plans/feature-registration.md「API 與資料登記契約」):
+ * 每張底座 collection、它的資料層出口,以及「刪組織 / 撤銷開通前要問有沒有資料」的組織歸屬檢查。
+ * 新增底座 collection 時在對應的一組加 model 與 repository;帶組織歸屬的業務表同時加一項檢查。
+ *
+ * 以 `tenantId` 為邊界的 workflows / workflow_tasks 不經 BaseRepository,它們的存在性檢查
+ * 由 `OrgBusinessDataReader` 以專用 adapter 處理,不列在 `orgDataChecks`。
+ * `audit_logs` 刻意沒有檢查:只增不改的歷史紀錄不阻擋刪除(ADR-0004)。
+ */
+export const BASE_DATABASE_REGISTRATIONS: readonly DatabaseRegistration[] = [
+  {
+    key: "accounts",
+    models: [
+      { name: User.name, collection: "users", schema: UserSchema },
+      {
+        name: RefreshToken.name,
+        collection: "refresh_tokens",
+        schema: RefreshTokenSchema,
+      },
+      {
+        name: ActionToken.name,
+        collection: "action_tokens",
+        schema: ActionTokenSchema,
+      },
+      { name: Customer.name, collection: "customers", schema: CustomerSchema },
+    ],
+    repositories: [
+      { modelName: User.name, provider: UsersRepository },
+      { modelName: RefreshToken.name, provider: RefreshTokensRepository },
+      { modelName: ActionToken.name, provider: ActionTokensRepository },
+      { modelName: Customer.name, provider: CustomersRepository },
+    ],
+    orgDataChecks: [
+      {
+        key: "base.customers",
+        modelName: Customer.name,
+        repository: CustomersRepository,
+        ownerField: "orgId",
+      },
+    ],
+  },
+  {
+    key: "orgs",
+    models: [
+      { name: Org.name, collection: ORGS_COLLECTION, schema: OrgSchema },
+    ],
+    repositories: [{ modelName: Org.name, provider: OrgsRepository }],
+    orgDataChecks: [],
+  },
+  {
+    key: "authorization",
+    models: [
+      { name: Role.name, collection: "roles", schema: RoleSchema },
+      { name: ModuleEntity.name, collection: "modules", schema: ModuleSchema },
+      {
+        name: Permission.name,
+        collection: "permissions",
+        schema: PermissionSchema,
+      },
+    ],
+    repositories: [
+      { modelName: Role.name, provider: RolesRepository },
+      { modelName: ModuleEntity.name, provider: ModulesRepository },
+      { modelName: Permission.name, provider: PermissionsRepository },
+    ],
+    orgDataChecks: [],
+  },
+  {
+    key: "relationships",
+    models: [
+      {
+        name: CoreRelationship.name,
+        collection: CORE_RELATIONSHIPS_COLLECTION,
+        schema: CoreRelationshipSchema,
+      },
+      {
+        name: BusinessRelationship.name,
+        collection: BUSINESS_RELATIONSHIPS_COLLECTION,
+        schema: BusinessRelationshipSchema,
+      },
+    ],
+    repositories: [
+      {
+        modelName: CoreRelationship.name,
+        provider: {
+          provide: RelationService,
+          inject: [getModelToken(CoreRelationship.name)],
+          useFactory: (model: Model<CoreRelationship>) =>
+            new RelationService(model),
+        },
+      },
+      {
+        modelName: BusinessRelationship.name,
+        provider: {
+          provide: BusinessRelationshipsRepository,
+          inject: [getModelToken(BusinessRelationship.name)],
+          useFactory: (model: Model<BusinessRelationship>) =>
+            new BusinessRelationshipsRepository(model),
+        },
+      },
+    ],
+    orgDataChecks: [],
+  },
+  {
+    key: "audit",
+    models: [
+      { name: AuditLog.name, collection: "audit_logs", schema: AuditLogSchema },
+    ],
+    repositories: [{ modelName: AuditLog.name, provider: AuditLogsRepository }],
+    orgDataChecks: [],
+  },
+  {
+    key: "data-scope",
+    models: [
+      {
+        name: DataScopeRule.name,
+        collection: "data_scope_rules",
+        schema: DataScopeRuleSchema,
+      },
+      {
+        name: DataScopeTarget.name,
+        collection: "data_scope_targets",
+        schema: DataScopeTargetSchema,
+      },
+    ],
+    repositories: [
+      { modelName: DataScopeRule.name, provider: DataScopeRulesRepository },
+      { modelName: DataScopeTarget.name, provider: DataScopeTargetsRepository },
+    ],
+    orgDataChecks: [],
+  },
+  {
+    key: "fields",
+    models: [
+      { name: Field.name, collection: "fields", schema: FieldSchema },
+      {
+        name: FieldCategory.name,
+        collection: "field_categories",
+        schema: FieldCategorySchema,
+      },
+    ],
+    repositories: [
+      { modelName: Field.name, provider: FieldsRepository },
+      { modelName: FieldCategory.name, provider: FieldCategoriesRepository },
+    ],
+    orgDataChecks: [
+      {
+        key: "base.fields",
+        modelName: Field.name,
+        repository: FieldsRepository,
+        ownerField: "orgId",
+      },
+    ],
+  },
+  {
+    key: "demo",
+    models: [
+      {
+        name: DemoItemOne.name,
+        collection: "demo_items_one",
+        schema: DemoItemOneSchema,
+      },
+      {
+        name: DemoItemTwo.name,
+        collection: "demo_items_two",
+        schema: DemoItemTwoSchema,
+      },
+    ],
+    repositories: [
+      { modelName: DemoItemOne.name, provider: DemoItemsOneRepository },
+      { modelName: DemoItemTwo.name, provider: DemoItemsTwoRepository },
+    ],
+    orgDataChecks: [
+      {
+        key: "base.demo-items-one",
+        modelName: DemoItemOne.name,
+        repository: DemoItemsOneRepository,
+        ownerField: "orgId",
+      },
+      {
+        key: "base.demo-items-two",
+        modelName: DemoItemTwo.name,
+        repository: DemoItemsTwoRepository,
+        ownerField: "orgId",
+      },
+    ],
+  },
+  {
+    key: "forms",
+    models: [
+      { name: Form.name, collection: FORMS_COLLECTION, schema: FormSchema },
+      {
+        name: FormVersion.name,
+        collection: "form_versions",
+        schema: FormVersionSchema,
+      },
+      {
+        name: FormSubmission.name,
+        collection: FORM_SUBMISSIONS_COLLECTION,
+        schema: FormSubmissionSchema,
+      },
+    ],
+    repositories: [
+      { modelName: Form.name, provider: FormsRepository },
+      { modelName: FormVersion.name, provider: FormVersionsRepository },
+      { modelName: FormSubmission.name, provider: FormSubmissionsRepository },
+      {
+        modelName: FormSubmission.name,
+        provider: {
+          provide: FormSubmissionUsageCounter,
+          inject: [getModelToken(FormSubmission.name)],
+          useFactory: (model: Model<FormSubmission>) =>
+            new FormSubmissionUsageCounter(model),
+        },
+      },
+      {
+        modelName: FormSubmission.name,
+        provider: {
+          provide: WorkflowSubmissionStore,
+          inject: [getModelToken(FormSubmission.name)],
+          useFactory: (model: Model<FormSubmission>) =>
+            new WorkflowSubmissionStore(model),
+        },
+      },
+    ],
+    orgDataChecks: [
+      // forms 的歸屬是租戶頂層(沒有 orgId):只有租戶頂層會命中,正是撤銷開通會問到的那一層
+      {
+        key: "base.forms",
+        modelName: Form.name,
+        repository: FormsRepository,
+        ownerField: "ownerOrgId",
+      },
+      {
+        key: "base.form-submissions",
+        modelName: FormSubmission.name,
+        repository: FormSubmissionsRepository,
+        ownerField: "orgId",
+      },
+    ],
+  },
+  {
+    key: "workflows",
+    models: [
+      {
+        name: Workflow.name,
+        collection: WORKFLOWS_COLLECTION,
+        schema: WorkflowSchema,
+      },
+      {
+        name: WorkflowVersion.name,
+        collection: "workflow_versions",
+        schema: WorkflowVersionSchema,
+      },
+      {
+        name: WorkflowInstance.name,
+        collection: WORKFLOW_INSTANCES_COLLECTION,
+        schema: WorkflowInstanceSchema,
+      },
+      {
+        name: WorkflowTask.name,
+        collection: WORKFLOW_TASKS_COLLECTION,
+        schema: WorkflowTaskSchema,
+      },
+    ],
+    repositories: [
+      {
+        modelName: Workflow.name,
+        provider: {
+          provide: WorkflowsRepository,
+          inject: [getModelToken(Workflow.name)],
+          useFactory: (model: Model<Workflow>) =>
+            new WorkflowsRepository(model),
+        },
+      },
+      { modelName: WorkflowVersion.name, provider: WorkflowVersionsRepository },
+      {
+        modelName: WorkflowInstance.name,
+        provider: WorkflowInstancesRepository,
+      },
+      {
+        modelName: WorkflowTask.name,
+        provider: {
+          provide: WorkflowTasksRepository,
+          inject: [getModelToken(WorkflowTask.name)],
+          useFactory: (model: Model<WorkflowTask>) =>
+            new WorkflowTasksRepository(model),
+        },
+      },
+    ],
+    orgDataChecks: [
+      {
+        key: "base.workflow-instances",
+        modelName: WorkflowInstance.name,
+        repository: WorkflowInstancesRepository,
+        ownerField: "orgId",
+      },
+    ],
+  },
+];

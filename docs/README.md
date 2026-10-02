@@ -35,7 +35,7 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 **3. 角色與權限。** 模組 = 頁面,權限 = 頁面裡的按鈕 / 欄位。角色綁模組就進得去,綁權限就用得了。`X.*` 只涵蓋同一層。解析是純加法的聯集,每次請求現查。只能授出自己有的(防越權)。
 正本:`docs/concepts/authorization.md`、`apps/api/src/permission/permission-resolver.ts`
 
-**4. 資料範圍與可見範圍。** 所有查詢經 BaseRepository,自動加上「組織 ∈ 範圍」,繞不過。業務資料看**可見範圍**(所屬組織 + 可見性開關);治理頁看**管理範圍**(持有角色的擁有組織子樹)。資料範圍規則在可見範圍內再縮小。
+**4. 資料範圍與可見範圍。** 新增專案租戶資料經 BaseRepository,自動加上「組織 ∈ 範圍」;底座專用資料介面與既有 Recipe 例外由固定資料層管理。業務資料看**可見範圍**(所屬組織 + 可見性開關);治理頁看**管理範圍**(持有角色的擁有組織子樹)。資料範圍規則在可見範圍內再縮小。
 正本:`docs/concepts/data-layer-and-isolation.md`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`
 
 **5. 設定資料(模組樹 / 權限 / 欄位)。** 模組、權限、種子角色、欄位選項是種子資料:寫在程式裡,以 key 冪等同步到各環境。業務資料不跨環境搬。
@@ -61,41 +61,42 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 
 ## 文件目錄
 
-| 文件                                          | 是什麼                                           | 什麼時候讀                 |
-| --------------------------------------------- | ------------------------------------------------ | -------------------------- |
-| `CLAUDE.md`                                   | 分支流程、規範入口、文件地圖                     | 第一次進 repo              |
-| `CONTEXT.md`                                  | 詞彙表                                           | 寫文件、命名、開票前       |
-| `docs/README.md`                              | 本頁                                             | 入口                       |
-| `docs/concepts/accounts-and-tenants.md`       | 帳號、組織樹、租戶開通、擁有者保護               | 動登入、使用者、組織       |
-| `docs/concepts/authorization.md`              | 模組、權限、解析流程、防越權、稽核               | 動權限、角色、任何守門     |
-| `docs/concepts/data-layer-and-isolation.md`   | 三類資料、租戶隔離、兩種範圍、資料範圍、種子     | 動資料層、查詢、seed       |
-| `docs/concepts/storage-and-mail.md`           | GCS 上傳與讀取、寄信                             | 模組要存檔或寄信           |
-| `docs/concepts/frontend-architecture.md`      | admin 分層、殼、路由、頁籤、共版型、快取         | 動 admin 前端              |
-| `docs/concepts/form-engine.md`                | 表單模組、版本、分派、提交、欄位級權限、引擎零件 | 動表單模組或表單引擎       |
-| `docs/concepts/workflow-engine.md`            | 審核流程、綁定、實例與推進、阻擋、申請中心       | 動審核流程或申請中心       |
-| `docs/adr/`                                   | 決策與理由(12 份)                                | 想知道「為什麼這樣做」     |
-| `docs/data-model.md`                          | collection 地圖                                  | 找某張表的用途與 schema 檔 |
-| `docs/architecture.md`                        | 技術棧、port、品質約束                           | 設定開發環境               |
-| `docs/modules/<key>.md`                       | 各模組的權限表、api 介面、畫面                   | 動某個模組                 |
-| `apps/admin/src/md/module-help/<key>.help.md` | 租戶使用者看的模組說明                           | 改模組的使用者文案         |
-| `docs/standards/README.md`                    | 程式碼規範索引(規則編號)                         | 寫或 review 程式碼         |
-| `docs/testing/permission-scenarios.md`        | 24 條權限驗收劇本                                | 驗收、寫 E2E               |
-| `docs/testing/handover-quiz.md`               | 接手自測題                                       | 讀完文件後自我檢查         |
-| `docs/agents/toolbox.md`                      | agent 的工具與環境須知                           | AI agent 開工前            |
-| `docs/agents/collaboration.md`                | Claude、Codex 與人員共用的分工、工作樹與接手規則 | 派工、恢復或換手           |
-| `docs/agents/issue-tracker.md`                | issue、看板、PR 的流程                           | 開票、接票、交件           |
-| `docs/agents/pitfalls.md`                     | 指令與流程的已知坑                               | 指令跑出怪現象時           |
-| `docs/agents/module-scaffold.md`              | 新增 CRUD 模組的檔案清單與步驟                   | 新增模組                   |
-| `docs/agents/domain.md`                       | 領域文件怎麼用、概念導讀                         | 探索 codebase 前           |
-| `docs/agents/triage-labels.md`                | triage 標籤                                      | 分類 issue                 |
-| `docs/deployment.md`                          | 部署、release、分支對齊、reset                   | 部署或 release             |
-| `docs/env-registry.md`                        | 環境變數登記                                     | 新增或改環境變數           |
-| `docs/branding.md`                            | 品牌文字、色彩、網域、儲存鍵登記                 | 動品牌元素或儲存鍵         |
-| `docs/plans/base-sync.md`                     | 底座同步定案、本批交付、後續工作包與 Figma 實測  | 接手底座抽離與同步工作     |
-| `docs/plans/project-settings.md`              | 專案設定與部署識別的介面及兩張實作票             | 檢視下一批抽離範圍         |
-| `docs/project-initialization.md`              | 初始化設定的正本索引與驗證責任                   | 建立專案與補齊初始化工具   |
-| `docs/tmp/dis.md`                             | 進行中討論與待辦                                 | 查尚未定案的事             |
-| `docs/tmp/base-boundary-inventory.md`         | 底座維護歸屬、組裝入口與同步盤點草案             | 討論底座抽離及初始化邊界   |
-| `docs/tmp/project-bootstrap-inventory.md`     | 新專案初始化檔案與 seed 欄位盤點                 | 設計初始化、升級與還原流程 |
+| 文件                                                                                        | 是什麼                                           | 什麼時候讀                 |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------- |
+| `CLAUDE.md`                                                                                 | 分支流程、規範入口、文件地圖                     | 第一次進 repo              |
+| `CONTEXT.md`                                                                                | 詞彙表                                           | 寫文件、命名、開票前       |
+| `docs/README.md`                                                                            | 本頁                                             | 入口                       |
+| `docs/concepts/accounts-and-tenants.md`                                                     | 帳號、組織樹、租戶開通、擁有者保護               | 動登入、使用者、組織       |
+| `docs/concepts/authorization.md`                                                            | 模組、權限、解析流程、防越權、稽核               | 動權限、角色、任何守門     |
+| `docs/concepts/data-layer-and-isolation.md`                                                 | 三類資料、租戶隔離、兩種範圍、資料範圍、種子     | 動資料層、查詢、seed       |
+| `docs/concepts/storage-and-mail.md`                                                         | GCS 上傳與讀取、寄信                             | 模組要存檔或寄信           |
+| `docs/concepts/frontend-architecture.md`                                                    | admin 分層、殼、路由、頁籤、共版型、快取         | 動 admin 前端              |
+| `docs/concepts/form-engine.md`                                                              | 表單模組、版本、分派、提交、欄位級權限、引擎零件 | 動表單模組或表單引擎       |
+| `docs/concepts/workflow-engine.md`                                                          | 審核流程、綁定、實例與推進、阻擋、申請中心       | 動審核流程或申請中心       |
+| `docs/adr/`                                                                                 | 決策與理由(12 份)                                | 想知道「為什麼這樣做」     |
+| `docs/data-model.md`                                                                        | collection 地圖                                  | 找某張表的用途與 schema 檔 |
+| `docs/architecture.md`                                                                      | 技術棧、port、品質約束                           | 設定開發環境               |
+| `docs/modules/<key>.md`                                                                     | 各模組的權限表、api 介面、畫面                   | 動某個模組                 |
+| `apps/admin/src/md/module-help/{base,project/additions,project/replacements}/<key>.help.md` | 租戶使用者看的模組說明                           | 改模組的使用者文案         |
+| `docs/standards/README.md`                                                                  | 程式碼規範索引(規則編號)                         | 寫或 review 程式碼         |
+| `docs/testing/permission-scenarios.md`                                                      | 24 條權限驗收劇本                                | 驗收、寫 E2E               |
+| `docs/testing/handover-quiz.md`                                                             | 接手自測題                                       | 讀完文件後自我檢查         |
+| `docs/agents/toolbox.md`                                                                    | agent 的工具與環境須知                           | AI agent 開工前            |
+| `docs/agents/collaboration.md`                                                              | Claude、Codex 與人員共用的分工、工作樹與接手規則 | 派工、恢復或換手           |
+| `docs/agents/issue-tracker.md`                                                              | issue、看板、PR 的流程                           | 開票、接票、交件           |
+| `docs/agents/pitfalls.md`                                                                   | 指令與流程的已知坑                               | 指令跑出怪現象時           |
+| `docs/agents/module-scaffold.md`                                                            | 新增 CRUD 模組的檔案清單與步驟                   | 新增模組                   |
+| `docs/agents/domain.md`                                                                     | 領域文件怎麼用、概念導讀                         | 探索 codebase 前           |
+| `docs/agents/triage-labels.md`                                                              | triage 標籤                                      | 分類 issue                 |
+| `docs/deployment.md`                                                                        | 部署、release、分支對齊、reset                   | 部署或 release             |
+| `docs/env-registry.md`                                                                      | 環境變數登記                                     | 新增或改環境變數           |
+| `docs/branding.md`                                                                          | 品牌文字、色彩、網域、儲存鍵登記                 | 動品牌元素或儲存鍵         |
+| `docs/plans/base-sync.md`                                                                   | 底座同步定案、本批交付、後續工作包與 Figma 實測  | 接手底座抽離與同步工作     |
+| `docs/plans/project-settings.md`                                                            | 專案設定與部署識別的介面及兩張實作票             | 檢視下一批抽離範圍         |
+| `docs/plans/feature-registration.md`                                                        | 頁面、help、API 資料層與 GraphQL 的登記契約      | 實作功能新增與客製替換     |
+| `docs/project-initialization.md`                                                            | 初始化設定的正本索引與驗證責任                   | 建立專案與補齊初始化工具   |
+| `docs/tmp/dis.md`                                                                           | 進行中討論與待辦                                 | 查尚未定案的事             |
+| `docs/tmp/base-boundary-inventory.md`                                                       | 底座維護歸屬、組裝入口與同步盤點草案             | 討論底座抽離及初始化邊界   |
+| `docs/tmp/project-bootstrap-inventory.md`                                                   | 新專案初始化檔案與 seed 欄位盤點                 | 設計初始化、升級與還原流程 |
 
 正本:`docs/` 目錄本身;新增文件時在本表補一行。

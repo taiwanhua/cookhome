@@ -46,7 +46,7 @@
 - 路徑不放 orgId / userId(簽票時組織可能還不存在,如開通租戶的商標)。
 - 歸屬靠兩件事:寫入端的權限,與 `isOwnedUploadPath`。
 
-正本:`apps/api/src/storage/storage.service.ts` 的 `createUploadUrl`、`apps/admin/src/pages/demo/shared/useDemoUpload.ts`
+正本:`apps/api/src/storage/storage.service.ts` 的 `createUploadUrl`、`apps/admin/src/components/base/crud/useDemoUpload.ts`
 
 ## 路徑歸屬檢查
 

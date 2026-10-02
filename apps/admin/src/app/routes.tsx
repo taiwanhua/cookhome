@@ -6,10 +6,10 @@ import {
   LOGIN_PATH,
   SET_PASSWORD_PATH,
 } from "../lib/paths";
-import { ChangePasswordPage } from "../pages/auth/ChangePasswordPage/ChangePasswordPage";
-import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage/ForgotPasswordPage";
-import { LoginPage } from "../pages/auth/LoginPage/LoginPage";
-import { SetPasswordPage } from "../pages/auth/SetPasswordPage/SetPasswordPage";
+import { ChangePasswordPage } from "../pages/base/auth/ChangePasswordPage/ChangePasswordPage";
+import { ForgotPasswordPage } from "../pages/base/auth/ForgotPasswordPage/ForgotPasswordPage";
+import { LoginPage } from "../pages/base/auth/LoginPage/LoginPage";
+import { SetPasswordPage } from "../pages/base/auth/SetPasswordPage/SetPasswordPage";
 import { AdminShell } from "./AdminShell/AdminShell";
 import { ModuleRoute } from "./guards/ModuleRoute/ModuleRoute";
 import { RequireAuth } from "./guards/RequireAuth";

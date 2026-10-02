@@ -2,6 +2,7 @@ import { useTranslations } from "use-intl";
 
 import type { FormDefinition, StoredValues } from "@repo/domain/form";
 
+import { useFormModuleOptions } from "@/hooks/useFormModuleOptions";
 import { useMe } from "@/hooks/useMe";
 import { useModuleForms } from "@/hooks/useModuleForms";
 import { useTenantTimezone } from "@/hooks/useTenantTimezone";
@@ -10,8 +11,6 @@ import {
   renderTabLabel,
   tabLabelTemplateOf,
 } from "@/lib/form-engine/tab-label";
-
-import { formModuleOptionsOf } from "./form-module-options";
 
 export interface TabLabelSubject {
   /** 表單模組的 key(不是隱藏頁的 key) */
@@ -56,8 +55,9 @@ export const useTabLabelRenderer = (
   const { forms, isLoading: isFormsLoading } = useModuleForms(
     subject.moduleKey,
   );
+  const moduleOptions = useFormModuleOptions(subject.moduleKey);
   const template = tabLabelTemplateOf(
-    formModuleOptionsOf(subject.moduleKey).tabLabelTemplate,
+    moduleOptions.tabLabelTemplate,
     forms.find((form) => form.key === subject.formKey)?.tabLabelTemplate,
   );
   const moduleName =

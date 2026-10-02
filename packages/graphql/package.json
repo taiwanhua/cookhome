@@ -20,10 +20,11 @@
     }
   },
   "scripts": {
-    "generate": "graphql-codegen --config codegen.ts && node scripts/fix-generated.mjs",
+    "generate": "node scripts/check-documents.mjs && graphql-codegen --config codegen.ts && node scripts/fix-generated.mjs",
     "build": "bunchee",
     "dev": "bunchee --watch",
     "check-types": "tsc --noEmit",
+    "test:documents": "node --test scripts/check-documents.test.mjs",
     "lint": "eslint src/ --max-warnings 0"
   },
   "dependencies": {

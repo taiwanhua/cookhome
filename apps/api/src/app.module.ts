@@ -7,26 +7,18 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { GraphQLModule } from "@nestjs/graphql";
 import { MongooseModule } from "@nestjs/mongoose";
 
-import { AuditModule } from "./audit/audit.module";
-import { AuthModule } from "./auth/auth.module";
 import type { GraphqlContext } from "./auth/request-context";
-import { DataScopeModule } from "./data-scope/data-scope.module";
-import { DemoItemsOneModule } from "./demo-items-one/demo-items-one.module";
-import { DemoItemsTwoModule } from "./demo-items-two/demo-items-two.module";
-import { FieldsModule } from "./fields/fields.module";
-import { FormDesignModule } from "./forms/form-design/form-design.module";
-import { FormRuntimeModule } from "./forms/form-runtime/form-runtime.module";
-import { ModuleManagerModule } from "./modules/module-manager.module";
-import { OrgMembersModule } from "./orgs/org-members.module";
-import { OrgsModule } from "./orgs/orgs.module";
-import { PermissionModule } from "./permission/permission.module";
-import { RecipesModule } from "./recipes/recipes.module";
-import { RolesModule } from "./roles/roles.module";
-import { StorageModule } from "./storage/storage.module";
-import { UsersModule } from "./users/users.module";
-import { ApplyCenterModule } from "./workflows/apply-center/apply-center.module";
-import { WorkflowDesignModule } from "./workflows/workflow-design/workflow-design.module";
-import { WorkflowEngineModule } from "./workflows/workflow-engine/workflow-engine.module";
+import { composeApiFeatures } from "./base/api-feature-registration";
+import { BASE_API_MODULES } from "./base/api-modules";
+import { PROJECT_API_MODULES } from "./project/api-modules";
+import { ProjectModule } from "./project/project.module";
+
+// 功能組裝的固定入口:底座清單與專案清單分開維護,這裡先驗兩份的 key 與 module 都不重複。
+// 底座功能直接匯入;專案功能由普通的 ProjectModule 匯入(只新增,不替換核心 module / provider)。
+const BASE_FEATURE_MODULES = composeApiFeatures(
+  BASE_API_MODULES,
+  PROJECT_API_MODULES,
+);
 
 // GraphQL Sandbox 開關:本地開發(NODE_ENV 非 production)預設開;
 // 雲端預設關(不讓外人窺探 schema),dev/staging 環境以 GRAPHQL_SANDBOX=true 明確打開
@@ -61,25 +53,8 @@ const isSandboxEnabled =
         ? [ApolloServerPluginLandingPageLocalDefault({ embed: true })]
         : [],
     }),
-    AuthModule,
-    AuditModule,
-    PermissionModule,
-    StorageModule,
-    OrgsModule,
-    UsersModule,
-    OrgMembersModule,
-    RolesModule,
-    ModuleManagerModule,
-    DataScopeModule,
-    FieldsModule,
-    DemoItemsOneModule,
-    DemoItemsTwoModule,
-    FormDesignModule,
-    FormRuntimeModule,
-    WorkflowDesignModule,
-    WorkflowEngineModule,
-    ApplyCenterModule,
-    RecipesModule,
+    ...BASE_FEATURE_MODULES,
+    ProjectModule,
   ],
 })
 export class AppModule {}
