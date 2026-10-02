@@ -157,7 +157,7 @@ DI token 就是 repository 身分,不另造 repository key。所有 repository p
 
 新增 `scripts/check-documents.mjs` 與 Node test:用既有 graphql parser 逐檔驗證命名 operation/fragment 全域唯一,相同內容同名也拒絕,錯誤包含兩個來源路徑。底座與專案同一套規則,不以檔案順序決定勝者。拒絕來源根目錄散落文件及匿名 operation;支援子目錄,檔名不作 operation 的身分。`generate` 寫產物之前先跑此檢查,CI 的 codegen 流程同步跑負例測試。
 
-保留「真 AppModule 產 schema → codegen」單一路徑;此次重產不得改變公開 schema 或 generated hooks。GraphQL 型別與 resolver 欄位碰撞另由真 schema 建置及 API 測試驗證,feature key 唯一不代表 schema 名稱安全。
+保留「真 AppModule 產 schema → codegen」單一路徑;此次重產不得改變公開 schema、generated 型別與 hooks 的契約。若搬目錄只造成 generated 區塊順序變動,由 GraphQL 票附匯出與 operation 一致的證據,不手改產物。GraphQL 型別與 resolver 欄位碰撞另由真 schema 建置及 API 測試驗證,feature key 唯一不代表 schema 名稱安全。
 
 ## 驗收
 
@@ -171,7 +171,7 @@ DI token 就是 repository 身分,不另造 repository key。所有 repository p
 | API 新模組   | 多處硬接線                           | 測試只替換兩份 project 登記來源,由真 AppModule/DatabaseModule 啟動專案 fixture;不 mock reader/guards/repository                                                  |
 | 專案資料     | 新表易漏刪除檢查                     | fixture 真 GraphQL/Mongo 驗未登入/未授權、租戶隔離、缺 operator、軟刪除、資料範圍;資料被範圍隱藏仍阻止刪組織及 revokeProvision,其他組織資料不誤擋,檢查錯誤不放行 |
 | API 碰撞     | Nest/Mongoose 可能重用同 token/model | 對 key/model/collection/provider/check 的負例啟動失敗;保留既有資料層安全測試                                                                                     |
-| GraphQL      | 文件同目錄                           | 兩來源重名必敗、專案新文件可產 hook;正式 schema/generated 與基線相等                                                                                             |
+| GraphQL      | 文件同目錄                           | 兩來源重名必敗、專案新文件可產 hook;正式 schema、generated 型別及 operation 契約與基線相等                                                                       |
 | 所有權       | 依口頭約定                           | 真 ESLint 驗底座→專案拒絕、專案→共用允許、固定入口允許、components→pages 仍拒絕                                                                                  |
 
 測試專案資料與授權只由隔離 harness 建立,不改正式 seed、不把 fixture 送入 production。既有測試、各包直接 lint/typecheck、格式與真建置依 toolbox 執行。admin 以 mock 模式留代表性治理/表單/CRUD/help 畫面證據;fixture 另證明客製與新增。E2E 依 issue tracker 由使用者決定觸發,票面只提供劇本建議。
