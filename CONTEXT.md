@@ -24,6 +24,18 @@ _Avoid_: 授權清單、專案註冊頁
 讀取底座與引用專案的登記、組成應用功能的固定位置。專案新增與客製替換分開表達;客製替換保留底座原版,不靠覆寫原檔實現。
 _Avoid_: 同步腳本(組裝與版本同步是不同工作)
 
+**受管定義**:
+明確登記在專案 seed、隨版本交付的共用表單或共用流程定義。與未登記的 UI 自建定義、租戶客製定義相對;不包含租戶分派、綁定、人員或案件。屬待實作的 C 契約,見 `docs/plans/seed-migration.md`。
+_Avoid_: 所有共用表單(共用不等於已登記受管)
+
+**Seed 快照**:
+以現有 TypeScript seed 契約保存的不可變宣告,供版本交付或 migration 精確引用。UI 匯出檔就是這份來源,不另存一份手工轉抄的設定。具體接線屬待實作的 C 契約。
+_Avoid_: 資料庫備份、整庫快照
+
+**定義發布識別(revision)**:
+受管定義在專案 seed 裡的不變版本識別,各環境對應到自己的表單/流程版號。不是 Git tag、DB 流水版號或提交的修訂號;具體契約見 `docs/plans/seed-migration.md`。
+_Avoid_: 修訂號(專指提交歷史)
+
 ### 帳號與租戶
 
 正本:`docs/concepts/accounts-and-tenants.md`、`apps/api/src/auth/`、`apps/api/src/orgs/`
