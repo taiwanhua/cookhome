@@ -68,7 +68,7 @@ interface RecipeRow {
 }
 
 /**
- * Recipes 搬進 `project/` 之後的相容性(docs/plans/feature-registration.md「Recipes 的既有相容邊界」):
+ * Recipes 搬進 `project/` 之後的相容性(docs/concepts/data-layer-and-isolation.md「底座與專案資料的組裝」):
  * 經正式的專案登記與真 AppModule,GraphQL 契約、公開存取、`recipes` collection 與無 orgId 的形狀都不變。
  */
 describe("Recipes(專案功能,GraphQL 端點 + 真 MongoDB)", () => {

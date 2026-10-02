@@ -171,7 +171,7 @@ const ONLY_MINE = {
 };
 
 /**
- * 專案功能登記的驗收(docs/plans/feature-registration.md「驗收」的 API 新模組 / 專案資料兩列):
+ * 專案功能登記的驗收(docs/standards/testing/testing.md「專案功能與資料登記的整合驗收」):
  * 真 Nest + 隔離的 MongoDB + 真 GraphQL。測試專案的模組、權限、資料範圍目標只由 harness 寫入測試資料庫。
  *
  * 組織樹(root 為 seed 建的根組織):root ─┬─ 租戶甲(可見範圍 subtree)── 各測試自己的部門

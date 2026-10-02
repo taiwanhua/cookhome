@@ -20,9 +20,11 @@
 
 ## 底座與專案資料的組裝
 
-底座與專案各自維護功能與資料登記。`AppModule` 組合底座功能與 `ProjectModule`;`DatabaseModule` 組合 `database/base/registrations.ts` 與 `project/database/registrations.ts`。登記功能不代表授予使用者權限,也不替代模組及權限的 seed 宣告。
+底座與專案各自維護功能與資料登記。`AppModule` 組合底座功能與 `ProjectModule`,兩方的 `ApiFeatureRegistration` 必須有唯一的 key 與 module identity;不提供核心 module/provider 替換。`DatabaseModule` 組合 `database/base/registrations.ts` 與 `project/database/registrations.ts`。登記功能不代表授予使用者權限,也不替代模組及權限的 seed 宣告。
 
 schema、repository 與組織資料檢查在同一筆資料登記中以 modelName 與 DI token 連結。組裝時拒絕重複 key、model name、collection、provider token 與檢查 key,也拒絕指向不存在或不同 model 的 repository / 檢查。token 以 class、string、symbol 本體比較,不靠類別名稱猜身分。
+
+repository token 不能與 model token、組裝器內部 token 或 Nest 全域 guard/interceptor/filter/pipe token 重複。同一登記可有多個 repository 共用一個 model;collection 必須與 schema 選項一致。保留原 schema instance 與 plugin,不複製 schema 或重掛 plugin。
 
 底座 repository 定義放在 `database/base/` 的獨立檔,不回指組裝入口。`database.module.ts` 保留既有 repository 匯出以相容消費端,業務模組只注入這些受控出口;Mongoose model 與整個 MongooseModule 不對外匯出。新增專案資料只改專案登記與實作,不在底座的 providers 或 exports 陣列補項。
 
@@ -34,7 +36,7 @@ schema、repository 與組織資料檢查在同一筆資料登記中以 modelNam
 
 這是受審查程式的組裝契約。來源限制、裸 Model 查詢 lint 與 review 共同守住邊界;登記驗證不代替 RBAC,也不宣稱能稽核任意 Nest module 內部的私自註冊。
 
-正本:`apps/api/src/app.module.ts`、`apps/api/src/database/database.module.ts`、`apps/api/src/database/registration.ts`、`apps/api/src/database/org-business-data.reader.ts`;完整介面見[功能登記規格](../plans/feature-registration.md#api-與資料登記契約),新增步驟見[模組 scaffold](../agents/module-scaffold.md)。
+正本:`apps/api/src/app.module.ts`、`apps/api/src/base/api-feature-registration.ts`、`apps/api/src/database/database.module.ts`、`apps/api/src/database/registration.ts`、`apps/api/src/database/org-business-data.reader.ts`;新增步驟見[模組 scaffold](../agents/module-scaffold.md)。
 
 ### 組織業務資料檢查
 
@@ -176,6 +178,25 @@ BaseRepository 資料操作方法的第一個參數。四個集合各有用途,�
 - seed 不分環境;seed 以原生 driver 寫,不 import api。
 - root 初始帳號從 `ROOT_ADMIN_*` 環境變數建立,只在不存在時建。
 - 遷移檔名 `<14 位時間戳>_<schema|data|cleanup>_<kebab 描述>.js`,由測試強制。
+
+### 宣告與寫入邊界
+
+documents 預設以 `key` 識別,可用 `keyField` 指定其他欄位;`seedRef` 以 collection/key 解析該環境的 ID。`initialSeedValueFields` 是完整保護清單,會取代預設的 `enabled`,不是追加。已存在的 `null`、`false`、空字串都保留,只有不存在的欄位才補初值。其他宣告欄位以 `$set` 同步,宣告外欄位與未宣告文件不自動刪除。
+
+| 宣告                         | 一般 seed 的行為                                                              |
+| ---------------------------- | ----------------------------------------------------------------------------- |
+| 根組織                       | 同步階層;保留 `name`、`description`、`enabled`、`settings`,未宣告的 logo 不動 |
+| 種子角色、欄位類別與選項     | 同步宣告的名稱、說明、設定或選項內容,保留 `enabled`;不更新租戶角色副本        |
+| 模組                         | 同步宣告的結構與行為,保留 `enabled`、`icon`、`settings`                       |
+| 靜態權限                     | 同步宣告內容,包含 `settings`;保留 `enabled`,比對條件排除 dynamic 權限         |
+| 資料範圍目標                 | 以 `moduleKey` 識別並同步目標及欄位,不代表修改資料範圍規則                    |
+| 根初始帳號                   | account 存在即整筆不動,不重設信箱、密碼或角色;更換 account 會建立另一帳號     |
+| 角色擁有關聯、租戶管理員模板 | 只補缺少關聯,移除宣告不撤銷既有授權;模板改動不自動更新租戶副本                |
+| 示範資料                     | 同步宣告的示範內容,保留 `enabled` 及未宣告欄位;與專案業務資料分開             |
+
+示範模組初建啟用,production 也可保留示範資料;開關與租戶分配由人員維護。完整欄位以各 seed 宣告為準,不是所有 `settings` 都屬初始值。
+
+### 還原
 
 | reset 模式 | 做什麼                                       | 人調過的 `enabled` / `icon` |
 | ---------- | -------------------------------------------- | --------------------------- |

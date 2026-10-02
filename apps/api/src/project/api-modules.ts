@@ -2,7 +2,7 @@ import type { ApiFeatureRegistration } from "../base/api-feature-registration";
 import { RecipesModule } from "./recipes/recipes.module";
 
 /**
- * 專案的 API 功能清單(docs/plans/feature-registration.md「API 與資料登記契約」)。
+ * 專案的 API 功能清單(docs/standards/general/structure.md「STRUCT-12」api)。
  * 新增專案功能:在 `project/<業務>/` 寫普通的 Nest module,再到這裡加一筆;
  * 不必動 `app.module.ts` 與底座清單。key 與 module 都不可與底座或其他專案功能重複。
  */

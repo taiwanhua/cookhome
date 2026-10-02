@@ -136,7 +136,7 @@ description: 新增後台 CRUD 模組(固定欄位模組)時用:plan 模式問�
 
 先讀 `CLAUDE.md`,再依 `docs/agents/issue-tracker.md`「實作一張票」認領、建立工作樹與交付。建置、單檔測試及全套驗證命令只依 `docs/agents/toolbox.md`,不在本 skill 另存指令副本。
 
-逐步執行正本 `docs/agents/module-scaffold.md` 的步驟 0–8,對照規格卡驗收:模組文件、seed、schema/repository、API、documents、後台頁面、help、測試及文件回寫。專案功能新增放 project 來源並經固定入口組裝,共用接縫與替換規則見 `docs/plans/feature-registration.md`;不能把專案登記寫回底座來源或以 spread 蓋掉原版。
+逐步執行正本 `docs/agents/module-scaffold.md` 的步驟 0–8,對照規格卡驗收:模組文件、seed、schema/repository、API、documents、後台頁面、help、測試及文件回寫。專案功能新增放 project 來源並經固定入口組裝,共用接縫與替換規則見 `docs/standards/general/structure.md` STRUCT-12、`docs/concepts/frontend-architecture.md` 與 `docs/concepts/data-layer-and-isolation.md`;不能把專案登記寫回底座來源或以 spread 蓋掉原版。
 
 完成判準以正本「交件前檢查清單」與票面驗收為準,全部確認後依 issue-tracker 開 PR。PR 附測試結果、mock 畫面與規則回饋;E2E 僅列建議與理由,由使用者決定是否觸發。部署由主流程依既有 release SOP 處理。
 

@@ -37,7 +37,7 @@
 
 **理由**:新增資料表若只登記 schema,容易漏掉 repository 的隔離接線或刪組織的資料引用檢查。把三者連在同一份登記,並檢查實際 repository 身分,才能在啟動時發現漏接或錯綁。純登記驗證、來源限制與 review 各有範圍,不以此介面執行不受信任的 Nest 外掛。
 
-**既有食譜原型**:Recipe / recipes 與專用 repository token 由固定入口精確登記為唯一專案例外,保留公開 API、無 orgId、專用 raw Model 存取的行為。它仍參與碰撞驗證,但不要求租戶 plugin、BaseRepository 或組織資料檢查。這不是一般專案可選的 unsafe/global 模式,新租戶模組不得套用。存放位置及完整契約見[功能登記規格](../plans/feature-registration.md#recipes-的既有相容邊界)。
+**既有食譜原型**:Recipe / recipes 與專用 repository token 由固定入口精確登記為唯一專案例外,保留公開 API、無 orgId、專用 raw Model 存取的行為。它仍參與碰撞驗證,但不要求租戶 plugin、BaseRepository 或組織資料檢查。這不是一般專案可選的 unsafe/global 模式,新租戶模組不得套用。存放位置及完整契約見[資料層組裝](../concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
 
 正本:`apps/api/src/database/registration.ts`、`apps/api/src/database/database.module.ts`、`apps/api/src/database/org-business-data.reader.ts`、`apps/api/src/database/plugins/`。
 

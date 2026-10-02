@@ -27,7 +27,7 @@
 | 7 測試      | `apps/api/src/project/<feature>/*.test.ts`、`apps/admin/src/pages/project/<域>/**/*.test.tsx`、專案 MSW fixture | TEST-07、TEST-08                                                |
 | 8 文件回寫  | `docs/modules/<模組key>.md` 補齊、`docs/data-model.md`、`CONTEXT.md`(有新詞才動)                                | CLAUDE.md「Domain docs」                                        |
 
-**新 worktree 開工先**依 [toolbox.md](./toolbox.md) 的「pnpm / turbo:建置、測試、格式」準備依賴及共用套件產物。功能登記與客製替換的介面見[功能登記規格](../plans/feature-registration.md);本文指向新增專案功能的來源,不要求修改底座固定組裝入口。seed/migration 目前仍沿用下方既有入口,所有權拆分另行處理。
+**新 worktree 開工先**依 [toolbox.md](./toolbox.md) 的「pnpm / turbo:建置、測試、格式」準備依賴及共用套件產物。頁面登記與替換見[前端架構](../concepts/frontend-architecture.md),API 登記見[資料層組裝](../concepts/data-layer-and-isolation.md#底座與專案資料的組裝);本文指向新增專案功能的來源,不要求修改底座固定組裝入口。
 
 ## 步驟 0:先把規格寫進模組文件
 
@@ -81,7 +81,7 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 
 新增 `apps/api/src/project/database/<entity>.schema.ts`,以底座 `database/schemas/demo-item-two.schema.ts` 為藍本:
 
-- `@Schema({ collection: "<collection>", timestamps: true })`;`orgId` 使用 `@Prop({ type: MongooseSchema.Types.ObjectId, required: true })`,其中 `MongooseSchema` 是從 `mongoose` 匯入的 `Schema` 別名,避免與 Nest 的 `@Schema` 混淆。屬性 TypeScript 型別仍可用 `Types.ObjectId`;不要把 bson 的 `Types.ObjectId` 放進 `@Prop.type`,Nest 會將它展開成 Mixed,失去 ObjectId 轉型。必填不可寫成條件函式。這是租戶資料的隔離邊界(ADR-0005);業務欄位逐欄寫 JSDoc(`docs/data-model.md` 指來這裡看細節);`enabled` 預設 `true`。
+- `@Schema({ collection: "<collection>", timestamps: true })`;`orgId` 使用 `@Prop({ type: MongooseSchema.Types.ObjectId, required: true })`,其中 `MongooseSchema` 是從 `mongoose` 匯入的 `Schema` 別名,避免與 Nest 的 `@Schema` 混淆。屬性 TypeScript 型別仍可用 `Types.ObjectId`;不要把 bson 的 `Types.ObjectId` 放進 `@Prop.type`,Nest 會將它展開成 Mixed,失去 ObjectId 轉型。必填不可寫成條件函式,包括 `required: [函式, 訊息]` 的陣列形式。這是租戶資料的隔離邊界(ADR-0005);業務欄位逐欄寫 JSDoc(`docs/data-model.md` 指來這裡看細節);`enabled` 預設 `true`。
 - 索引至少 `{ orgId: 1, createdAt: 1 }`。
 - **兩個 plugin 一定要掛**:
   - `baseFieldsPlugin` —— 基礎欄位與軟刪除(ADR-0007)。

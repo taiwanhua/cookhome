@@ -59,11 +59,24 @@
 
 後端 schema 變更後依序跑步驟 1 與 3,兩份產物同一個 commit(GQL-05;CI 的 `format-codegen` job 會擋)。
 
-## 功能來源與組裝
+## 底座與專案的維護歸屬
+
+| 範圍                 | 底座維護                                            | 專案維護                                                    |
+| -------------------- | --------------------------------------------------- | ----------------------------------------------------------- |
+| 權限、租戶與治理     | 登入、RBAC、隔離、治理 API、後台殼與守門            | 品牌、模組宣告及客製頁                                      |
+| 表單、審核與申請中心 | 引擎、共用型別及預設畫面                            | 表單模組的頁面與 options 宣告                               |
+| UI 與文案            | 共用元件、語意 tokens、色盤算法、中性預設與共用訊息 | 品牌值、前台畫面與風格、業務文案和資產                      |
+| 稽核、儲存與寄信     | 服務機制及共用模板                                  | bucket、網址、寄件識別與外部資源                            |
+| 功能與資料           | 組裝、repository 基礎、組織資料檢查、示範藍本       | project 來源中的頁面、API、schema、repository、GraphQL 文件 |
+| 工具與部署           | 共用規範、測試工具、設定讀取器及 workflow           | 依賴擴充、專案測試、repo／看板／雲端／環境設定              |
+
+上表是 repo 內容的維護歸屬;人員、角色授權、租戶分派、綁定與業務資料由各環境管理。專案值的正本見[初始化索引](project-initialization.md)。`project-config` 是 build 輸入,不讀 `process.env`、瀏覽器全域或遠端服務;公開欄位的型別與驗證在 `packages/project-config/src/base/public-config.ts`。前台自行設計版型與風格,可選用共用 UI,不要求接後台主題。示範程式是底座藍本,專案業務另建模組。
+
+### 功能來源與組裝
 
 後台頁面在各層分 `base` 與 `project`,由 `app/module-pages.tsx` 組裝;頁面新增與替換分開登記,底座原版保留。Help 由 `lib/help-registry.ts` 讀底座、專案新增、專案替換三區。API 功能與資料分別經 AppModule、DatabaseModule 組裝,專案來源在 `src/project/`;新增租戶 model 的 repository 與組織資料檢查一起登記。登記不授權,既有路由及 API 守門仍生效。
 
-來源清單、碰撞檢查與客製契約見[功能登記規格](plans/feature-registration.md),新增模組步驟見 [module scaffold](agents/module-scaffold.md)。Seed/migration 所有權與跨 repo 同步仍依[底座同步計畫](plans/base-sync.md)另行實作。
+頁面、表單設定及 help 見[前端架構](concepts/frontend-architecture.md),API 登記與碰撞檢查見[資料層組裝](concepts/data-layer-and-isolation.md#底座與專案資料的組裝),固定入口與 import 方向見 STRUCT-12。新增模組照 [module scaffold](agents/module-scaffold.md)。
 
 ## 部署
 

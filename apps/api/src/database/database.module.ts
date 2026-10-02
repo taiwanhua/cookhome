@@ -29,7 +29,7 @@ import {
 export * from "./base/repositories";
 
 /**
- * **唯一的既有例外**(docs/plans/feature-registration.md「Recipes 的既有相容邊界」):
+ * **唯一的既有例外**(docs/concepts/data-layer-and-isolation.md「底座與專案資料的組裝」):
  * 食譜是沒有租戶欄位的早期原型,不掛租戶 plugin、不經 BaseRepository、沒有組織歸屬檢查。
  * 精確鎖定這一組 model、collection 與專用 repository;它仍參與全部碰撞驗證。
  * 專案登記沒有任何「略過檢查」的旗標 —— 要新增例外只能改這個底座入口,由 review 把關。

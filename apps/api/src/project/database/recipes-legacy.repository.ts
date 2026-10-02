@@ -8,7 +8,7 @@ export type NewRecipe = Pick<Recipe, "title"> &
   Partial<Omit<Recipe, "id" | "title" | "createdAt" | "updatedAt">>;
 
 /**
- * `recipes` 的專用資料出口(既有相容邊界,docs/plans/feature-registration.md「Recipes 的既有相容邊界」)。
+ * `recipes` 的專用資料出口(既有相容邊界,docs/concepts/data-layer-and-isolation.md「底座與專案資料的組裝」)。
  *
  * 食譜是早期原型:沒有 `orgId`、不掛租戶 plugin、不經 BaseRepository,公開查詢給 front 用。
  * 三個裸 Model 操作只留在這一檔;固定組裝入口 `database/database.module.ts` 精確列出

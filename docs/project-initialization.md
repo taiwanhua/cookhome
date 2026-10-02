@@ -1,6 +1,6 @@
 # 專案初始化索引
 
-本索引指出新專案要設定的內容、目前正本及完成判準。它不保存第二份品牌、環境變數或資源值,也不是已可執行的初始化 skill。設定契約見[專案設定與部署識別規格](plans/project-settings.md),功能來源見[功能登記與客製替換規格](plans/feature-registration.md),整體範圍見[底座同步計畫](plans/base-sync.md)。
+本索引指出新專案要設定的內容、值的正本與驗證責任,不保存第二份設定值。維護歸屬見[架構](architecture.md#底座與專案的維護歸屬),品牌與部署設定分別見 [branding](branding.md) 與 [deployment](deployment.md#專案部署設定deployproject)。自動初始化工具及跨 repo 建立仍屬[底座同步計畫](plans/base-sync.md)的未完成工作。
 
 狀態必須分開記錄:「已提供」表示輸入已完整;「已建立」表示檔案或外部資源已存在;「已驗證」表示該專案的實際讀取或連線檢查通過。CookHome 既有設定不代表新專案已具備資源,以下不替未建立的專案填入成功狀態。
 
@@ -18,7 +18,7 @@
 
 ## 功能與專案內容
 
-底座與專案分來源登記,由固定入口組裝;建立專案時新增或修改 project 來源,不靠覆寫底座原檔。下列 B 接線依共同規格整理,最終驗收及發布以 issue/PR 為準,不表示新 repo 已完成初始化。
+底座與專案分來源登記,由固定入口組裝;建立專案時新增或修改 project 來源,不覆寫底座原檔。頁面與資料契約見[前端架構](concepts/frontend-architecture.md)及[資料層組裝](concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
 
 | 項目         | 專案來源                                                                      | 初始化與升級驗證                                                                                                 |
 | ------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -33,9 +33,9 @@
 
 API 的新租戶資料遵守 BaseRepository、baseFields 與 tenantScope 契約,不自行注入 raw Model 或繞過資料隔離。CookHome 既有 Recipe 的公開、無 orgId 行為是固定組裝器中的精確相容例外,不能用作新租戶模組範本。底座不提供核心 module/provider 替換介面。
 
-功能登記不會寫入授權或建立 seed 模組;仍須依[新增模組流程](agents/module-scaffold.md)完成現有 seed 宣告。seed/migration 所有權分區屬後續工作,不能因 API、頁面與 documents 分區就搬 seed 或改執行順序。新增專案流程也須盤點 CookHome 業務,只換品牌不等於完成新的業務專案。
+功能登記不會寫入授權或建立 seed 模組;仍須依[新增模組流程](agents/module-scaffold.md)完成 seed 宣告。新專案也須檢視並替換 CookHome 食譜等專屬業務,只換品牌不等於完成新的業務專案。
 
-GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使用 `pnpm --filter @repo/graphql test:documents`;schema 仍從真 AppModule 生成。建置前置與指令順序見 [toolbox](agents/toolbox.md#codegen-與資料庫本機)。本包驗收可證明局部擴充接縫,跨 repo 建立、正式版本升級與資料保留仍須另做完整演練。
+GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使用 `pnpm --filter @repo/graphql test:documents`;schema 從真 AppModule 生成。建置前置與指令順序見 [toolbox](agents/toolbox.md#codegen-與資料庫本機)。
 
 ## 部署與工具識別
 
@@ -56,25 +56,25 @@ GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使�
 - **已建立**:GCP 專案、Artifact Registry、WIF pool / provider、部署用 service account 與 IAM、Cloud Run 服務與網域對應、Secret Manager 的各個 secret、GitHub 看板與 `GH_PROJECT_TOKEN`、預設分支,都由初始化工作在外部建立;設定檔不會建立任何資源。
 - **已驗證**:以新專案實際跑過 Deploy(認證、build、部署、migrate → seed)與看板移卡。讀取器與離線測試通過不算這一項。
 
-CookHome 的兩份 JSON 是從原本寫在 workflow 裡的值搬過來的,對 CookHome 而言外部資源早已存在;新專案複製 repo 後,在改掉 `expectedRepository` 之前 workflow 會在認證前失敗,不會動到 CookHome 的資源。外部資源由初始化工作建立,不得因檔案已填好就標為已建立或已驗證。
+新專案複製 repo 後,`expectedRepository` 不符會使 workflow 在認證前失敗。外部資源須另行建立;新專案使用自己的密鑰,不可沿用 CookHome 的值。不使用的整合須明確停用或移除專案引用,避免讀寫原專案目標。
 
 ## 本機與測試環境
 
 - 根 `package.json` 名稱、各 app `.env.example` 與未追蹤的本機 `.env` 必須按專案設定;範例不含真正憑證。
 - `docker-compose.yml` 的容器、port、DB 與 volume,以及 `apps/e2e/docker-compose.yml` 的專案名要考慮多專案共存;調整不能讓既有 CookHome volume 或資料庫被換成另一個空庫。
 - `apps/api/src/app.module.ts` 的本地 MongoDB fallback 與 db-migrator 範例仍含專案名稱;確切抽離由後續初始化工作處理。未知 DB 名稱仍須被 reset 安全檢查拒絕。
-- 測試環境變數與命令見 `docs/agents/toolbox.md`、`apps/e2e/.env.example`、`apps/e2e/src/config.ts`;測試使用隔離資料庫,不沿用正式 URI。
+- 測試環境變數與命令見 `docs/agents/toolbox.md`、`apps/e2e/.env.example`、`apps/e2e/src/config.ts`;測試使用隔離資料庫及各專案的 DB、port、bucket namespace,不沿用正式 URI,也不將測試假憑證當正式設定。
 
-本節是既有位置清單,不宣稱本機隔離已通過兩專案演練;該演練納入初始化工作,不混入 A1/A2 的完成聲明。
+不同專案同機開發時,須分別驗證資料庫與儲存資源隔離。
 
 ## 初始資料
 
-根組織名稱/描述、ROOT_ADMIN 輸入與 seed 欄位所有權見[初始化盤點](tmp/project-bootstrap-inventory.md)及其指向的 runner/registry。新專案初始化前指定值,一般部署保留 UI 修改;只有完整還原才依專案初值重建。更換 ROOT_ADMIN_ACCOUNT 會視為建立另一帳號,不是原帳號改名。
+根組織名稱/描述、ROOT_ADMIN 輸入與 seed 欄位政策見[種子資料與遷移](concepts/data-layer-and-isolation.md#種子資料與遷移)。新專案初始化前指定值,一般部署保留 UI 修改;只有完整還原才依專案初值重建。更換 ROOT_ADMIN_ACCOUNT 會視為建立另一帳號,不是原帳號改名。
 
-此索引不執行 seed/reset。示範初建啟用及授權關聯只補不刪的規則照舊;使用者與業務資料不因初始化規格整理而搬移或清除。
+示範模組初建啟用,開關與租戶分配由人員維護;授權關聯只補不刪。初始化、一般 seed 與 data/full reset 的差別見上述概念文件,操作見 [deployment](deployment.md#資料庫還原reset僅-dev--staging)。
 
 ## 設計與開發工具
 
-- Figma 檔案、Library 及品牌映射見 `docs/branding.md` 與底座同步計畫。新專案需獨立確認引用權限、品牌補套與元件連結,正式 CookHome 設計檔不是本輪操作目標。
+- Figma 檔案、Library 及品牌映射見 `docs/branding.md`;同步工具規劃見底座同步計畫。新專案須確認引用權限、品牌補套與元件連結。
 - agent 入口為 `CLAUDE.md`,共同接手規則見 `docs/agents/collaboration.md`;必要設定不得僅存在某工具私有記憶。
 - skills、共用文件與專案文案的分離隨對應工作包維護。初始化 skill 尚未完成,不能用「檔案都改完」取代完整建立/驗證紀錄。

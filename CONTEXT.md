@@ -6,7 +6,7 @@
 
 ### 底座與引用專案
 
-正本:`docs/architecture.md`;跨專案維護的已確認原則與待實作範圍見 `docs/tmp/base-boundary-inventory.md`。
+正本:`docs/architecture.md`「底座與專案的維護歸屬」;尚未實作的跨專案同步見 `docs/plans/base-sync.md`。
 
 **底座(Platform Base)**:
 可供多個專案共用的應用基礎:完整 front/admin/api 骨架、治理模組、認證、權限與租戶隔離、表單引擎、審核流程及申請中心。與各專案的業務域(如食譜)相對;前台畫面與風格由各專案設計。

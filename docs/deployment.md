@@ -137,15 +137,17 @@ deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩
   node scripts/project-settings/read-config.mjs --scope github --repository <owner/repo>
   ```
 
+  cloud scope 讀兩份 JSON;github scope 只讀 `github.json`,不需要 cloud 設定或部署環境。看板停用時不要求看板 IDs/options,仍須通過 repo 身分檢查。
+
   成功時 stdout 是一行 JSON(固定的鍵),失敗時 stdout 無輸出、stderr 一行說明、退出碼非零。在 repo 根執行;本機想看某環境會解析出什麼就直接跑。
 
 - **驗證**:`schemaVersion` 不認得、`--repository` 與 `expectedRepository` 不同、環境不是三個之一、缺欄位或多出未知欄位、值的格式不對或含控制字元,一律失敗,不回退任何預設值。workflow 傳入的 repository 取自 GitHub 的 context,所以把 repo 複製成另一個專案後,沒改設定就跑不到原專案的資源:deploy / reset 在雲端認證前停止,看板在任何寫入前停止。
 - **傳值方式**:workflow 把讀取器的輸出映射成固定的 step 輸出(`write-github-output.mjs`),再經各 step 的 `env:` 以 `"$VAR"` 傳給命令;設定值不內插進 `run` 的程式文本。
 - **改這些檔的後果**:部署時 api 與 admin 都會重建(見上方「只部署改到的 app」)。CI 的 `project-settings` job 每次都跑讀取器測試與三環境的解析,不看受影響清單。
-- **看板(`project-status.yml`)只讀預設分支上的設定與腳本**:PR 事件也不讀 PR 分支的內容,所以看板設定或腳本的改動要 release 到 `main` 之後才生效。`main` 上還沒有這些檔案時,workflow 明確失敗、不移卡,由主流程手動移卡(`docs/agents/issue-tracker.md`「手動移卡」);fork 來的 PR 拿不到 token 時同樣失敗、不移卡。`projectStatus.enabled` 設為 `false` 就完全不呼叫看板 API,也不需要 token。
+- **看板(`project-status.yml`)只讀預設分支上的設定與腳本**:PR 事件也不讀 PR 分支的內容,所以看板設定或腳本的改動要 release 到 `main` 之後才生效。設定無效或 fork PR 拿不到 token 時明確失敗、不移卡,由主流程依 `docs/agents/issue-tracker.md`「手動移卡」處理。`projectStatus.enabled` 設為 `false` 就完全不呼叫看板 API,也不需要 token。
 - **設定檔寫好不等於外部資源存在**:WIF、IAM、網域、Secret、看板都要另外建立並驗證(`docs/project-initialization.md`)。
 
-正本:`deploy/project/cloud.json`、`deploy/project/github.json`、`scripts/project-settings/`(讀取器與測試)、`docs/plans/project-settings.md`(契約)
+正本:`deploy/project/cloud.json`、`deploy/project/github.json`、`scripts/project-settings/`(讀取器與測試)
 
 ### 其他 workflow
 

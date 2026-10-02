@@ -7,7 +7,7 @@
 - `docs/agents/module-scaffold.md`:檔案清單、步驟 0–8、選配對照表、交件前檢查清單
 - `docs/agents/issue-tracker.md`:「實作一張票」、「交件報告格式」、「admin 票的交付要求」、「拆票與寫票的規則」
 - `docs/agents/toolbox.md`:指令;`docs/agents/pitfalls.md`:症狀 → 做法
-- `docs/plans/feature-registration.md`:功能來源、組裝契約與替換驗收
+- `docs/standards/general/structure.md` STRUCT-12、`docs/concepts/frontend-architecture.md`、`docs/concepts/data-layer-and-isolation.md`:功能來源、組裝契約與替換規則
 
 ## 藍本:示範模組 2(最小)
 

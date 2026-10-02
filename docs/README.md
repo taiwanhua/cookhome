@@ -22,7 +22,7 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 | `packages/logger`                            | 共用 logger(唯一可用 `console` 的地方)                                                                 |
 | `packages/config-*`、`packages/jest-presets` | ESLint / Prettier / TypeScript / Jest 共用設定                                                         |
 
-正本:`docs/architecture.md`、根目錄 `package.json`、`pnpm-workspace.yaml`;專案值與底座契約的歸屬見[設定來源與所有權](plans/project-settings.md#設定來源與所有權)。
+正本:`docs/architecture.md`、根目錄 `package.json`、`pnpm-workspace.yaml`;專案值與底座契約的歸屬見[架構](architecture.md#底座與專案的維護歸屬),設定位置見[初始化索引](project-initialization.md)。
 
 ## 七個核心概念
 
@@ -91,13 +91,9 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/deployment.md`                                                                        | 部署、release、分支對齊、reset                   | 部署或 release             |
 | `docs/env-registry.md`                                                                      | 環境變數登記                                     | 新增或改環境變數           |
 | `docs/branding.md`                                                                          | 品牌文字、色彩、網域、儲存鍵登記                 | 動品牌元素或儲存鍵         |
-| `docs/plans/base-sync.md`                                                                   | 底座同步定案、本批交付、後續工作包與 Figma 實測  | 接手底座抽離與同步工作     |
-| `docs/plans/project-settings.md`                                                            | 專案設定與部署識別的介面及兩張實作票             | 檢視下一批抽離範圍         |
-| `docs/plans/feature-registration.md`                                                        | 頁面、help、API 資料層與 GraphQL 的登記契約      | 實作功能新增與客製替換     |
+| `docs/plans/base-sync.md`                                                                   | 底座抽離、初始化與跨專案同步的未完成工作         | 接手底座抽離與同步工作     |
 | `docs/plans/seed-migration.md`                                                              | Seed/migration 與設定交付的待實作契約            | 接手 C 的規格、實作與驗收  |
 | `docs/project-initialization.md`                                                            | 初始化設定的正本索引與驗證責任                   | 建立專案與補齊初始化工具   |
 | `docs/tmp/dis.md`                                                                           | 進行中討論與待辦                                 | 查尚未定案的事             |
-| `docs/tmp/base-boundary-inventory.md`                                                       | 底座維護歸屬、組裝入口與同步盤點草案             | 討論底座抽離及初始化邊界   |
-| `docs/tmp/project-bootstrap-inventory.md`                                                   | 新專案初始化檔案與 seed 欄位盤點                 | 設計初始化、升級與還原流程 |
 
 正本:`docs/` 目錄本身;新增文件時在本表補一行。

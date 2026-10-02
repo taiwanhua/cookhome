@@ -113,7 +113,7 @@ import {
 } from "./repositories";
 
 /**
- * 底座的資料登記(docs/plans/feature-registration.md「API 與資料登記契約」):
+ * 底座的資料登記(docs/concepts/data-layer-and-isolation.md「底座與專案資料的組裝」):
  * 每張底座 collection、它的資料層出口,以及「刪組織 / 撤銷開通前要問有沒有資料」的組織歸屬檢查。
  * 新增底座 collection 時在對應的一組加 model 與 repository;帶組織歸屬的業務表同時加一項檢查。
  *

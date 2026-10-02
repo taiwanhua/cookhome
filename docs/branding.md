@@ -70,12 +70,21 @@
 
 ## 隔離品牌相容性測試
 
-測試檔集中於 [TEST — Multi-project Theme POC](https://www.figma.com/files/team/963068133549518258/project/661917302),不屬於正式 CookHome 品牌或實作。原 CookHome Design System 未修改。
+測試檔位於 Wowgo Professional 團隊的 [TEST — Multi-project Theme POC](https://www.figma.com/files/team/963068133549518258/project/661917302),與正式 CookHome Design System 分開。
 
-- [測試底座](https://www.figma.com/design/mqttXnyi4FQYIOcPpsyukh):橘色 primary,沿用本次測試基準。
+- [測試底座](https://www.figma.com/design/mqttXnyi4FQYIOcPpsyukh):橘色 primary、三種狀態按鈕與巢狀卡片。
 - [A 品牌庫](https://www.figma.com/design/6VF2f92u32aERjPJBIhwUz):藍色 primary,RGB 比例 `(0.11, 0.29, 0.85)`;[A 畫面](https://www.figma.com/design/6j7zsEZP6GF1TpEV38eCrs)引用底座元件。
 - [B 品牌庫](https://www.figma.com/design/Z9CnlJZNtHoDJyhyWLkrT9):綠色 primary,RGB 比例 `(0.03, 0.42, 0.22)`;[B 畫面](https://www.figma.com/design/BheD3ROYOZ3nRYmv2TDWLh)引用底座元件。
-- 三庫皆為 `POC Brand` → `POC Color`,每個集合只有一個 `Light` mode。顏色與名稱僅供隔離測試,不能用作正式品牌來源。實測結果、節點索引與未驗證範圍見 [底座同步計畫](plans/base-sync.md)「Figma 隔離實測」。
+- 三庫皆為 `POC Brand` → `POC Color`,每個集合只有一個 `Light` mode。顏色與名稱僅供隔離測試,不能用作正式品牌來源。
+
+| 測試操作                                                                              | 可確認的行為                                                 |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| 發布底座與品牌庫,Swap library 只換 Color 並勾選 Swap default collections in instances | A 藍、B 綠;三狀態及巢狀按鈕保留 component key 與 remote 連結 |
+| 底座更新 padding/radius,並在各按鈕加入綁 primary 的圓點;專案接受 Library 更新         | 幾何更新,既有品牌和客製文字保留;新圓點仍是底座橘色           |
+| 插入新底座實例或切換按鈕變體                                                          | 新實例及部分變體樣式仍取底座橘色,須重新套用品牌              |
+| A 再做 Swap library;B 按 base-variable-key → project-variable-key 對照補套            | 品牌恢復,元件連結與新幾何保留;B 第二次執行為 0 修改          |
+
+此測試證明可用每專案獨立品牌變數庫配合更新後補套,無須每個品牌占底座一個 mode;一次換庫不是永久全檔主題規則。尚未涵蓋十個以上專案、新 token、刪除重建圖層或所有正式元件,也沒有通用補套工具。後續驗證及工具範圍見[同步計畫](plans/base-sync.md#efigma-品牌與版本同步);原生操作參考 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
 
 ## 資料
 

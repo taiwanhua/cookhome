@@ -32,7 +32,7 @@
 
 - 欄位形狀存在兩處(api schema 與 seed),schema 改了 seed 要跟;索引測試抓不到欄位漂移。漂移變嚴重再抽共用型別套件(待辦見 `docs/tmp/dis.md` 搜「db-schemas」)。
 - migrations 維持 `.js`(migrate-mongo 的載入器);seed 以 tsx 直跑 TypeScript。
-- 示範家族在 production 要關閉,靠人在「模組與權限」頁停用,不靠環境變數。
+- 示範模組初建啟用,production 也允許示範資料;模組開關與租戶分配由人員維護,seed 不自動停用或撤銷分配。
 
 ## 還原(reset)
 
