@@ -151,7 +151,7 @@ function contentOf(
 }
 
 /**
- * `exportWorkflowSeed`(`docs/plans/seed-migration.md`「UI 操作與發布時機」「可攜範圍」):
+ * `exportWorkflowSeed`(API 與匯出規則見 `docs/modules/workflows.md`):
  * 真 Nest app、真 `/graphql`、隔離的 MongoDB(TEST-07)。與表單的匯出共用同一套可攜性檢查與輸出
  * (`forms/form-design/seed-export.ts`);這裡驗流程這一側的守門、指名版本、輸出內容、無副作用,
  * 以及匯出檔連同它引用的表單經型別檢查、專案 registry 組裝到真發布後內容一致。
