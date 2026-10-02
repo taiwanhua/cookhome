@@ -11,6 +11,7 @@ import {
   CreateWorkflowInput,
   CreateWorkflowVersionDraftInput,
   DeleteWorkflowVersionDraftInput,
+  ExportWorkflowSeedInput,
   ForkWorkflowInput,
   PublishWorkflowVersionInput,
   RevokeWorkflowFromTenantInput,
@@ -21,6 +22,7 @@ import {
   WorkflowsInput,
 } from "./dto/workflow-design.input";
 import {
+  ExportWorkflowSeedPayload,
   WorkflowModel,
   WorkflowPayload,
   WorkflowValidationReport,
@@ -30,6 +32,7 @@ import {
 } from "./models/workflow.model";
 import { toWorkflowVersionModel } from "./workflow-mapper";
 import { WorkflowPublishService } from "./workflow-publish.service";
+import { WorkflowSeedExportService } from "./workflow-seed-export.service";
 import { WorkflowVersionsService } from "./workflow-versions.service";
 import { WorkflowsService } from "./workflows.service";
 
@@ -45,6 +48,7 @@ export class WorkflowsResolver {
     private readonly publisher: WorkflowPublishService,
     private readonly access: WorkflowAccessService,
     private readonly userNames: FormUserNames,
+    private readonly seedExport: WorkflowSeedExportService,
   ) {}
 
   @RequirePermission(WORKFLOWS_PERMISSIONS.view)
@@ -165,6 +169,19 @@ export class WorkflowsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<WorkflowVersionsPayload> {
     return this.versions.list(await this.access.factsOf(operator), workflowKey);
+  }
+
+  /**
+   * 把共用流程的指定已發布版本匯出成專案設定檔(唯讀)。這裡只擋 `view`;
+   * `publish`、站在根組織、共用流程與版本狀態由 service 自己守。
+   */
+  @RequirePermission(WORKFLOWS_PERMISSIONS.view)
+  @Query(() => ExportWorkflowSeedPayload, { name: "exportWorkflowSeed" })
+  async exportWorkflowSeed(
+    @Args("input") input: ExportWorkflowSeedInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<ExportWorkflowSeedPayload> {
+    return this.seedExport.export(await this.access.factsOf(operator), input);
   }
 
   /** 設計器即時檢查(不落庫)。 */

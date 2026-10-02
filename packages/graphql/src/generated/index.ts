@@ -598,6 +598,32 @@ export type DemoItemsTwoPayload = {
   totalCount: Scalars['Int']['output'];
 };
 
+export type ExportFormSeedInput = {
+  changelog: Scalars['String']['input'];
+  formKey: Scalars['ID']['input'];
+  revision: Scalars['String']['input'];
+  version: Scalars['Int']['input'];
+};
+
+export type ExportFormSeedPayload = {
+  __typename?: 'ExportFormSeedPayload';
+  fileName: Scalars['String']['output'];
+  source: Scalars['String']['output'];
+};
+
+export type ExportWorkflowSeedInput = {
+  changelog: Scalars['String']['input'];
+  revision: Scalars['String']['input'];
+  version: Scalars['Int']['input'];
+  workflowKey: Scalars['ID']['input'];
+};
+
+export type ExportWorkflowSeedPayload = {
+  __typename?: 'ExportWorkflowSeedPayload';
+  fileName: Scalars['String']['output'];
+  source: Scalars['String']['output'];
+};
+
 export type Field = {
   __typename?: 'Field';
   canEdit: Scalars['Boolean']['output'];
@@ -1939,6 +1965,8 @@ export type Query = {
   demoItemTwo: DemoItemTwoPayload;
   demoItemsOne: DemoItemsOnePayload;
   demoItemsTwo: DemoItemsTwoPayload;
+  exportFormSeed: ExportFormSeedPayload;
+  exportWorkflowSeed: ExportWorkflowSeedPayload;
   fieldCategories: FieldCategoriesPayload;
   fields: FieldsPayload;
   form: FormPayload;
@@ -2024,6 +2052,16 @@ export type QueryDemoItemsOneArgs = {
 
 export type QueryDemoItemsTwoArgs = {
   input: DemoItemsTwoInput;
+};
+
+
+export type QueryExportFormSeedArgs = {
+  input: ExportFormSeedInput;
+};
+
+
+export type QueryExportWorkflowSeedArgs = {
+  input: ExportWorkflowSeedInput;
 };
 
 
@@ -3694,6 +3732,13 @@ export type RetireCurrentVersionMutationVariables = Exact<{
 
 export type RetireCurrentVersionMutation = { __typename?: 'Mutation', retireCurrentVersion: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, hasDraft: boolean, publishInterrupted: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
+export type ExportFormSeedQueryVariables = Exact<{
+  input: ExportFormSeedInput;
+}>;
+
+
+export type ExportFormSeedQuery = { __typename?: 'Query', exportFormSeed: { __typename?: 'ExportFormSeedPayload', fileName: string, source: string } };
+
 export type FormUpgradePlanQueryVariables = Exact<{
   formKey: Scalars['ID']['input'];
   targetVersion: Scalars['Int']['input'];
@@ -4223,6 +4268,13 @@ export type RetireCurrentWorkflowVersionMutationVariables = Exact<{
 
 
 export type RetireCurrentWorkflowVersionMutation = { __typename?: 'Mutation', retireCurrentWorkflowVersion: { __typename?: 'WorkflowPayload', workflow: { __typename?: 'WorkflowModel', id: string, key: string, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, hasDraft: boolean, publishInterrupted: boolean, hasRolePlaceholder: boolean, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'WorkflowForkSourceModel', workflowKey: string, version: number } | null, assignments: Array<{ __typename?: 'WorkflowAssignment', tenantOrgId: string, tenantName?: string | null }>, boundForms: Array<{ __typename?: 'WorkflowBoundForm', formKey: string, formName?: string | null, moduleKey?: string | null }>, abilities: { __typename?: 'WorkflowAbilities', canEdit: boolean, canPublish: boolean, canAssign: boolean, canFork: boolean } } } };
+
+export type ExportWorkflowSeedQueryVariables = Exact<{
+  input: ExportWorkflowSeedInput;
+}>;
+
+
+export type ExportWorkflowSeedQuery = { __typename?: 'Query', exportWorkflowSeed: { __typename?: 'ExportWorkflowSeedPayload', fileName: string, source: string } };
 
 export type BindFormWorkflowMutationVariables = Exact<{
   input: BindFormWorkflowInput;
@@ -7164,6 +7216,38 @@ export const useRetireCurrentVersionMutation = <
 
 useRetireCurrentVersionMutation.fetcher = (client: GraphQLClient, variables: RetireCurrentVersionMutationVariables, headers?: RequestInit['headers']) => fetcher<RetireCurrentVersionMutation, RetireCurrentVersionMutationVariables>(client, RetireCurrentVersionDocument, variables, headers);
 
+export const ExportFormSeedDocument = `
+    query ExportFormSeed($input: ExportFormSeedInput!) {
+  exportFormSeed(input: $input) {
+    fileName
+    source
+  }
+}
+    `;
+
+export const useExportFormSeedQuery = <
+      TData = ExportFormSeedQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ExportFormSeedQueryVariables,
+      options?: Omit<UseQueryOptions<ExportFormSeedQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ExportFormSeedQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ExportFormSeedQuery, TError, TData>(
+      {
+    queryKey: ['ExportFormSeed', variables],
+    queryFn: fetcher<ExportFormSeedQuery, ExportFormSeedQueryVariables>(client, ExportFormSeedDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useExportFormSeedQuery.getKey = (variables: ExportFormSeedQueryVariables) => ['ExportFormSeed', variables];
+
+
+useExportFormSeedQuery.fetcher = (client: GraphQLClient, variables: ExportFormSeedQueryVariables, headers?: RequestInit['headers']) => fetcher<ExportFormSeedQuery, ExportFormSeedQueryVariables>(client, ExportFormSeedDocument, variables, headers);
+
 export const FormUpgradePlanDocument = `
     query FormUpgradePlan($formKey: ID!, $targetVersion: Int!) {
   formUpgradePlan(formKey: $formKey, targetVersion: $targetVersion) {
@@ -9709,6 +9793,38 @@ export const useRetireCurrentWorkflowVersionMutation = <
 
 
 useRetireCurrentWorkflowVersionMutation.fetcher = (client: GraphQLClient, variables: RetireCurrentWorkflowVersionMutationVariables, headers?: RequestInit['headers']) => fetcher<RetireCurrentWorkflowVersionMutation, RetireCurrentWorkflowVersionMutationVariables>(client, RetireCurrentWorkflowVersionDocument, variables, headers);
+
+export const ExportWorkflowSeedDocument = `
+    query ExportWorkflowSeed($input: ExportWorkflowSeedInput!) {
+  exportWorkflowSeed(input: $input) {
+    fileName
+    source
+  }
+}
+    `;
+
+export const useExportWorkflowSeedQuery = <
+      TData = ExportWorkflowSeedQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: ExportWorkflowSeedQueryVariables,
+      options?: Omit<UseQueryOptions<ExportWorkflowSeedQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ExportWorkflowSeedQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<ExportWorkflowSeedQuery, TError, TData>(
+      {
+    queryKey: ['ExportWorkflowSeed', variables],
+    queryFn: fetcher<ExportWorkflowSeedQuery, ExportWorkflowSeedQueryVariables>(client, ExportWorkflowSeedDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useExportWorkflowSeedQuery.getKey = (variables: ExportWorkflowSeedQueryVariables) => ['ExportWorkflowSeed', variables];
+
+
+useExportWorkflowSeedQuery.fetcher = (client: GraphQLClient, variables: ExportWorkflowSeedQueryVariables, headers?: RequestInit['headers']) => fetcher<ExportWorkflowSeedQuery, ExportWorkflowSeedQueryVariables>(client, ExportWorkflowSeedDocument, variables, headers);
 
 export const BindFormWorkflowDocument = `
     mutation BindFormWorkflow($input: BindFormWorkflowInput!) {

@@ -6,6 +6,7 @@ import {
   type WorkflowVersionFieldsFragment,
   WorkflowVersionStatus,
   useCreateWorkflowVersionDraftMutation,
+  useExportWorkflowSeedQuery,
   useRetryPublishWorkflowVersionMutation,
   useWorkflowVersionsQuery,
 } from "@repo/graphql";
@@ -16,6 +17,7 @@ import { Table } from "@repo/ui/table";
 import { Tag, type TagTone } from "@repo/ui/tag";
 import { Typography } from "@repo/ui/typography";
 
+import { SeedExportDialog } from "@/components/SeedExportDialog/SeedExportDialog";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { useSession } from "@/hooks/useSession";
 import { useTemporalText } from "@/hooks/useTemporalText";
@@ -45,7 +47,8 @@ type VersionRow = WorkflowVersionFieldsFragment;
 
 /**
  * 版本面板(Spec 6b §8 畫面 4,同表單版本面板):草稿 / 發布(含中斷重試)/ 退役目前版本、changelog、
- * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿、檢視某一版(唯讀)、刪除草稿。
+ * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿、檢視某一版(唯讀)、刪除草稿、
+ * 「匯出專案設定」(共用流程的目前發布版;下載 `.seed.ts`)。
  * 發布看 `abilities.canPublish`、開草稿與刪草稿看 `abilities.canEdit`;發布中斷時只剩「重試發布」。
  */
 export const WorkflowVersionPanel = ({
@@ -61,6 +64,8 @@ export const WorkflowVersionPanel = ({
   const [isRetiring, setIsRetiring] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [diffOf, setDiffOf] = useState<number | null>(null);
+  const [exportOf, setExportOf] = useState<number | null>(null);
+  const tSeedExport = useTranslations("admin.seedExport");
   const versions = useWorkflowVersionsQuery(session.client, {
     workflowKey: workflow.key,
   });
@@ -70,6 +75,8 @@ export const WorkflowVersionPanel = ({
   );
   const { canEdit, canPublish } = workflow.abilities;
   const isLocked = workflow.publishInterrupted;
+  // 共用流程只有站在根組織的人發布得了(`canPublish`),所以這兩個條件合起來就是 api 的匯出判準
+  const canExportSeed = workflow.isShared && canPublish && !isLocked;
 
   const createDraft = useCreateWorkflowVersionDraftMutation(
     session.client,
@@ -181,6 +188,17 @@ export const WorkflowVersionPanel = ({
             }}
           >
             {t("diff")}
+          </Button>
+        )}
+        {canExportSeed && isCurrent && typeof item.version === "number" && (
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => {
+              setExportOf(item.version ?? null);
+            }}
+          >
+            {tSeedExport("action")}
           </Button>
         )}
       </Stack>
@@ -303,6 +321,29 @@ export const WorkflowVersionPanel = ({
           onDeleted={() => {
             setIsDeleting(false);
             onChanged();
+          }}
+        />
+      )}
+      {exportOf !== null && (
+        <SeedExportDialog
+          kind="workflow"
+          name={workflow.name}
+          version={exportOf}
+          fetchSeed={async (input) => {
+            const payload = await useExportWorkflowSeedQuery.fetcher(
+              session.client,
+              {
+                input: {
+                  workflowKey: workflow.key,
+                  version: exportOf,
+                  ...input,
+                },
+              },
+            )();
+            return payload.exportWorkflowSeed;
+          }}
+          onClose={() => {
+            setExportOf(null);
           }}
         />
       )}

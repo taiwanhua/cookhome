@@ -2613,5 +2613,32 @@
     "empty": "沒有符合的人",
     "forbidden": "你沒有檢視使用者清單的權限",
     "disabled": "已停用"
+  },
+  "seedExport": {
+    "action": "匯出專案設定",
+    "title": "匯出專案設定",
+    "body": "把{kind, select, form {表單} other {流程}}「{name}」的第 {version} 版下載成一個設定檔,交給開發人員放進專案,其他環境就會拿到同一份設計。",
+    "scope": "只匯出這一版的設計內容,不會更動任何資料;人員、組織、分派與綁定不會被帶走。",
+    "revision": "版本識別",
+    "revisionHint": "小寫英文或數字開頭,可用小寫英文、數字、底線、連字號,最長 64 個字。每次修正後重新匯出都要換一個新的識別。",
+    "revisionInvalid": "格式不符:小寫英文或數字開頭,只能用小寫英文、數字、底線、連字號,最長 64 個字。",
+    "changelog": "發布說明",
+    "cancel": "取消",
+    "confirm": "下載設定檔",
+    "feedback": {
+      "exportSuccess": "已下載 {fileName}"
+    },
+    "issuesTitle": "這一版有只在這個環境才有意義的設定,請回設計器修正後重新發布,再匯出新的版本:",
+    "issueLine": "{path}:{message}",
+    "errors": {
+      "FORBIDDEN": "你沒有匯出專案設定的權限。",
+      "ROOT_ONLY": "只有系統管理員能匯出專案設定。",
+      "NOT_FOUND": "找不到這個版本,請重新載入後再試。",
+      "VERSION_NOT_PUBLISHED": "只能匯出已發布的版本。",
+      "PUBLISH_IN_PROGRESS": "這一版的發布還沒完成,請先在版本清單按「重試發布」。",
+      "NOT_PORTABLE": "這一版還不能匯出。",
+      "VALIDATION_FAILED": "版本識別或發布說明不符合格式,請修正後再試。",
+      "UNEXPECTED": "匯出失敗,請稍後再試。"
+    }
   }
 }
