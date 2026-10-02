@@ -17,6 +17,7 @@ import {
   SEED_LOCK_ID,
   type SeedLockDocument,
   type SeedLockOperation,
+  type SeedLockProgress,
 } from "@repo/domain/seed";
 
 /** 最外層命令持有的鎖;往下傳給每一步與 api 子程序核對。 */
@@ -96,6 +97,24 @@ export async function assertSeedLockOwner(
     throw new SeedLockError(
       `整批互斥鎖已換手,目前由 ${describeHolder(holder)} 持有:停止寫入`,
     );
+  }
+}
+
+/**
+ * 持鎖者把目前的階段與進度記在鎖上(依 owner 條件更新;鎖已不在自己手上就丟 `SeedLockError`,
+ * 所以也兼作續步前的 owner 核對)。reset 的清除階段用:`full` 清庫時執行紀錄會被清掉,鎖不會。
+ */
+export async function recordSeedLockProgress(
+  database: Db,
+  handle: Pick<SeedLockHandle, "owner">,
+  progress: Pick<SeedLockProgress, "stage" | "detail">,
+): Promise<void> {
+  const { matchedCount } = await locks(database).updateOne(
+    { _id: SEED_LOCK_ID, owner: handle.owner },
+    { $set: { progress: { ...progress, updatedAt: new Date() } } },
+  );
+  if (matchedCount === 0) {
+    await assertSeedLockOwner(database, handle);
   }
 }
 

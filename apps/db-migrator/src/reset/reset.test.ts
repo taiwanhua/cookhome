@@ -1,110 +1,36 @@
-import { spawnSync } from "node:child_process";
-import path from "node:path";
-
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
-import { type Db, MongoClient, ObjectId, type WithId } from "mongodb";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { type Db, ObjectId, type WithId } from "mongodb";
 
-const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
-const TSX_CLI = path.join(
-  PACKAGE_ROOT,
-  "node_modules",
-  "tsx",
-  "dist",
-  "cli.mjs",
-);
-const SEED_ENTRY = path.join(PACKAGE_ROOT, "src", "seed", "run.ts");
-const RESET_ENTRY = path.join(PACKAGE_ROOT, "src", "reset", "run.ts");
-
-/** 測試用 root 初始帳號(正式環境自 Secret Manager 注入,ADR-0002);密碼為測試假值。 */
-const ROOT_ADMIN_ENV = {
-  ROOT_ADMIN_ACCOUNT: "root-admin",
-  ROOT_ADMIN_EMAIL: "root-admin@example.com",
-  ROOT_ADMIN_PASSWORD: ["initial", "secret", "123"].join("-"),
-};
-
-/** 本地起 mongodb-memory-server;CI 沿用既有 MongoDB service container(MONGODB_URI)。 */
-let memoryServer: MongoMemoryServer | undefined;
-let baseUri: string;
-
-function buildDatabaseUri(databaseName: string): string {
-  const uri = new URL(baseUri);
-  uri.pathname = `/${databaseName}`;
-  return uri.toString();
-}
-
-const usedDatabaseUris: string[] = [];
+import {
+  RESET_ENTRY,
+  confirmationOf,
+  dumpApplicationData,
+  runReset,
+} from "../../test/support/reset-harness";
+import {
+  BUILD_TIMEOUT_MS,
+  ROOT_ADMIN_ENV,
+  SEED_ENTRY,
+  TestMongo,
+  buildDefinitionCli,
+  changelogOf,
+  dumpDatabase,
+  journalOf,
+  lockOf,
+  startEntry,
+  withDatabase,
+} from "../../test/support/update-harness";
 
 /**
- * 測試資料庫一律以 `-dev` 結尾:目標環境由資料庫名推得(`reset-safety.ts`),
- * 其餘名字一律被當成 production 而拒絕 —— 測試走的就是正式那條判斷。
+ * reset 指令對真的拋棄式 MongoDB(正式 registry 與九支歷史 migration):`data` / `full` 的清留、
+ * 安全閥(環境允許清單 + 完整人工確認,缺一即零刪除)、以拋棄式資料庫模擬 production 的確認。
+ * 資料庫名刻意不帶環境字樣:目標環境只由 `--environment` 與確認字串決定,不從名字推測。
  */
+
+const mongo = new TestMongo("db-migrator-reset");
+
 function createTestDatabaseUri(suffix: string): string {
-  const databaseUri = buildDatabaseUri(
-    `db-migrator-reset-test-${String(process.pid)}-${suffix}`,
-  );
-  usedDatabaseUris.push(databaseUri);
-  return databaseUri;
-}
-
-interface RunOptions {
-  env?: Record<string, string | undefined>;
-}
-
-function runSeedCommand(databaseUri: string, options: RunOptions = {}) {
-  return spawnSync(process.execPath, [TSX_CLI, SEED_ENTRY], {
-    cwd: PACKAGE_ROOT,
-    env: {
-      ...process.env,
-      ...ROOT_ADMIN_ENV,
-      MONGODB_URI: databaseUri,
-      ...options.env,
-    },
-    encoding: "utf8",
-  });
-}
-
-interface RunResetOptions extends RunOptions {
-  mode: string;
-  /** 預設與連線字串的資料庫名一致(安全閥放行);測負面案例時另外給。 */
-  confirm?: string;
-}
-
-/** 以子行程執行 reset 指令(等同 `pnpm --filter @repo/db-migrator reset …`)。 */
-function runResetCommand(databaseUri: string, options: RunResetOptions) {
-  const databaseName = new URL(databaseUri).pathname.replace(/^\//, "");
-  return spawnSync(
-    process.execPath,
-    [
-      TSX_CLI,
-      RESET_ENTRY,
-      `--mode=${options.mode}`,
-      `--confirm=${options.confirm ?? databaseName}`,
-    ],
-    {
-      cwd: PACKAGE_ROOT,
-      env: {
-        ...process.env,
-        ...ROOT_ADMIN_ENV,
-        MONGODB_URI: databaseUri,
-        RESET_ALLOW_ENV: "dev",
-        ...options.env,
-      },
-      encoding: "utf8",
-    },
-  );
-}
-
-async function withDatabase<T>(
-  databaseUri: string,
-  work: (database: Db) => Promise<T>,
-): Promise<T> {
-  const client = await MongoClient.connect(databaseUri);
-  try {
-    return await work(client.db());
-  } finally {
-    await client.close();
-  }
+  return mongo.uri(suffix);
 }
 
 interface Keyed {
@@ -317,14 +243,19 @@ async function readState(databaseUri: string) {
         .collection<Relationship>("core_relationships")
         .find()
         .toArray(),
-      changelog: await database.collection("changelog").find().toArray(),
     };
   });
 }
 
+function runSeedCommand(databaseUri: string) {
+  return startEntry(SEED_ENTRY, [], databaseUri).done;
+}
+
 /** 種子 + 人建資料 + 人改過的開關 / 圖示。 */
 async function prepareDatabase(databaseUri: string): Promise<void> {
-  expect(runSeedCommand(databaseUri).status).toBe(0);
+  const seeded = await runSeedCommand(databaseUri);
+  expect(seeded.stderr).toBe("");
+  expect(seeded.status).toBe(0);
   await withDatabase(databaseUri, async (database) => {
     await insertHumanData(database);
     await tweakInitialSeedValues(database);
@@ -332,29 +263,23 @@ async function prepareDatabase(databaseUri: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  if (process.env.MONGODB_URI) {
-    baseUri = process.env.MONGODB_URI;
-  } else {
-    memoryServer = await MongoMemoryServer.create();
-    baseUri = memoryServer.getUri();
-  }
-}, 600_000);
+  await mongo.start();
+  // full reset 一律經 api 的受管定義 CLI 建回索引(沒有登記定義時也一樣)
+  await buildDefinitionCli();
+}, BUILD_TIMEOUT_MS);
 
 afterAll(async () => {
-  for (const databaseUri of usedDatabaseUris) {
-    await withDatabase(databaseUri, async (database) => {
-      await database.dropDatabase();
-    });
-  }
-  await memoryServer?.stop();
+  await mongo.stop();
 }, 60_000);
 
 describe("reset --mode=data(對真 MongoDB)", () => {
   it("只刪人建的資料:seed 文件與人改過的 enabled / icon 原封不動,示範項目補回,事後重跑 seed 為 0 / 0 / 0 / K", async () => {
-    const databaseUri = createTestDatabaseUri("data-dev");
+    const databaseUri = createTestDatabaseUri("data");
     await prepareDatabase(databaseUri);
+    const changelog = await changelogOf(databaseUri);
+    const runsBefore = await journalOf(databaseUri, "run");
 
-    const result = runResetCommand(databaseUri, { mode: "data" });
+    const result = await runReset(databaseUri, { mode: "data" });
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
 
@@ -409,17 +334,36 @@ describe("reset --mode=data(對真 MongoDB)", () => {
       expect(typeof item.key).toBe("string");
     }
 
+    // 已成功的 migration 紀錄原封不動(不重跑);先前的執行紀錄都留著,另外多一筆這次的 reset
+    expect(await changelogOf(databaseUri)).toEqual(changelog);
+    const runs = await journalOf(databaseUri, "run");
+    expect(runs.slice(0, runsBefore.length)).toEqual(runsBefore);
+    expect(runs).toHaveLength(runsBefore.length + 1);
+    expect(runs.at(-1)).toMatchObject({
+      operation: "reset-data",
+      status: "succeeded",
+      stage: "done",
+    });
+    expect(await lockOf(databaseUri)).toBeNull();
+    // 執行摘要列出環境、資料庫名與模式
+    expect(result.stdout).toContain("環境 dev");
+    expect(result.stdout).toContain("模式 data");
+    expect(result.stdout).toContain(
+      new URL(databaseUri).pathname.replace(/^\//, ""),
+    );
+
     // 事後重跑 seed:完全冪等
-    const rerun = runSeedCommand(databaseUri);
+    const rerun = await runSeedCommand(databaseUri);
     expect(rerun.status).toBe(0);
     expect(rerun.stdout).toMatch(/新增 0 \/ 更新 0 \/ 認養 0 \/ 未變 [1-9]\d*/);
   }, 300_000);
 
   it("核心關聯只刪「任一端指向被刪文件」的那些:root ↔ 根組織、root ↔ 超級管理員、種子角色的綁定都留著", async () => {
-    const databaseUri = createTestDatabaseUri("data-relations-dev");
+    const databaseUri = createTestDatabaseUri("data-relations");
     await prepareDatabase(databaseUri);
 
-    expect(runResetCommand(databaseUri, { mode: "data" }).status).toBe(0);
+    const result = await runReset(databaseUri, { mode: "data" });
+    expect(result.status).toBe(0);
 
     const state = await readState(databaseUri);
     const rootOrgId = idOf(state.orgs, "root");
@@ -459,12 +403,16 @@ describe("reset --mode=data(對真 MongoDB)", () => {
 
 describe("reset --mode=full(對真 MongoDB)", () => {
   it("資料庫從空重建:人建的資料與其 collection 都不在,初始 seed 值欄位回到宣告值,遷移重新跑過", async () => {
-    const databaseUri = createTestDatabaseUri("full-dev");
+    const databaseUri = createTestDatabaseUri("full");
     await prepareDatabase(databaseUri);
+    const changelogBefore = await changelogOf(databaseUri);
 
-    const result = runResetCommand(databaseUri, { mode: "full" });
+    const result = await runReset(databaseUri, { mode: "full" });
+    expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain("dropDatabase");
+    // 逐一清除 collection,不是 dropDatabase(那會連整批鎖一起丟掉)
+    expect(result.stdout).not.toContain("dropDatabase");
+    expect(result.stdout).toContain("保留 changelog_lock");
 
     const state = await readState(databaseUri);
 
@@ -474,8 +422,8 @@ describe("reset --mode=full(對真 MongoDB)", () => {
     expect(state.modules).toHaveLength(38);
     expect(state.demoItemsOne).toHaveLength(5);
     expect(state.demoItemsTwo).toHaveLength(5);
-    // 整庫 drop:純業務表連 collection 都不再存在
-    expect(state.collections).not.toContain("customers");
+    // 業務表整個被 drop;api 的 runtime 之後依 schema 建回空的 collection 與索引,人建的資料不在
+    expect(state.customers).toHaveLength(0);
     // data_scope_rules 的 collection 會被遷移(建唯一索引)重新建出來,但人建的規則不在
     expect(state.dataScopeRules).toHaveLength(0);
     // 全新安裝:初始 seed 值欄位也回到宣告值(這是與 data 模式唯一的差別)
@@ -487,43 +435,113 @@ describe("reset --mode=full(對真 MongoDB)", () => {
       name: "CookHome",
       description: "平台營運者(根組織)",
     });
-    // migrate 在 seed 之前重跑過(changelog 是 dropDatabase 後重新長出來的)
-    expect(state.changelog.length).toBeGreaterThan(1);
+    // changelog 清掉後重新長出來:同樣九支,但每一筆都是這次重跑記的
+    const changelog = await changelogOf(databaseUri);
+    expect(changelog.map((entry) => entry.fileName as string)).toEqual(
+      changelogBefore.map((entry) => entry.fileName as string),
+    );
+    const oldIds = new Set(changelogBefore.map((entry) => String(entry._id)));
+    expect(changelog.some((entry) => oldIds.has(String(entry._id)))).toBe(
+      false,
+    );
+    // 執行紀錄也清掉重建:只剩這一次,而且走完
+    const runs = await journalOf(databaseUri, "run");
+    expect(runs).toHaveLength(1);
+    expect(runs[0]).toMatchObject({
+      operation: "reset-full",
+      status: "succeeded",
+      stage: "done",
+    });
+    expect(await lockOf(databaseUri)).toBeNull();
+    expect(state.collections).toContain("changelog_lock");
   }, 300_000);
 });
 
-describe("reset 的安全閥(拒絕時 exit 1 並印原因)", () => {
-  it("--confirm 與連線字串的資料庫名不符時拒絕,且一筆都沒刪", async () => {
-    const databaseUri = createTestDatabaseUri("guard-confirm-dev");
-    await prepareDatabase(databaseUri);
+describe("reset 的安全閥:缺值或任何一段不符 → exit 1、零刪除", () => {
+  let guarded: string;
+  let before: Awaited<ReturnType<typeof dumpDatabase>>;
 
-    const result = runResetCommand(databaseUri, {
-      mode: "data",
-      confirm: "cookhome-dev",
-    });
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("--confirm 必須等於連線字串的資料庫名");
-
-    const state = await readState(databaseUri);
-    expect(state.orgs).toHaveLength(2);
-    expect(state.customers).toHaveLength(1);
+  beforeAll(async () => {
+    guarded = createTestDatabaseUri("guard");
+    await prepareDatabase(guarded);
+    before = await dumpDatabase(guarded);
   }, 300_000);
 
-  it("資料庫名被判定為 production 時永遠拒絕(名稱含 prod,或不以 -dev / -staging 結尾)", () => {
-    const databaseUri = createTestDatabaseUri("guard-prod");
+  /** 安全閥在連線之前:整個資料庫(連鎖與執行紀錄)都沒有任何變化。 */
+  async function expectUntouched(): Promise<void> {
+    expect(await dumpDatabase(guarded)).toEqual(before);
+  }
 
-    const result = runResetCommand(databaseUri, {
+  it.each(["data", "full"] as const)(
+    "%s:沒有 --confirm",
+    async (mode) => {
+      const result = await runReset(guarded, { mode, confirm: null });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("--confirm");
+      expect(result.stdout).toBe("");
+      await expectUntouched();
+    },
+    120_000,
+  );
+
+  it.each(["data", "full"] as const)(
+    "%s:沒有 --environment",
+    async (mode) => {
+      const result = await runReset(guarded, {
+        mode,
+        environment: null,
+        confirm: confirmationOf("dev", guarded, mode),
+        env: { RESET_ALLOW_ENV: "dev,staging,production" },
+      });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("--environment");
+      await expectUntouched();
+    },
+    120_000,
+  );
+
+  it("確認的環境段不符(以 staging 的確認打 dev)", async () => {
+    const result = await runReset(guarded, {
       mode: "data",
-      env: { RESET_ALLOW_ENV: "dev,staging,production" },
+      confirm: confirmationOf("staging", guarded, "data"),
     });
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("永不對 production 執行");
+    expect(result.stderr).toContain("環境");
+    await expectUntouched();
   }, 120_000);
 
-  it("RESET_ALLOW_ENV 不含目標環境時拒絕", () => {
-    const databaseUri = createTestDatabaseUri("guard-allow-env-dev");
+  it("確認的資料庫名段不符(打錯環境的資料庫)", async () => {
+    const result = await runReset(guarded, {
+      mode: "full",
+      confirm: "reset:dev:cookhome-dev:full",
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("資料庫名");
+    await expectUntouched();
+  }, 120_000);
 
-    const notSet = runResetCommand(databaseUri, {
+  it("確認的模式段不符(確認的是 data,執行的是 full)", async () => {
+    const result = await runReset(guarded, {
+      mode: "full",
+      confirm: confirmationOf("dev", guarded, "data"),
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("模式");
+    await expectUntouched();
+  }, 120_000);
+
+  it("舊格式(只給資料庫名)不再被接受", async () => {
+    const result = await runReset(guarded, {
+      mode: "data",
+      confirm: new URL(guarded).pathname.replace(/^\//, ""),
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("格式");
+    await expectUntouched();
+  }, 120_000);
+
+  it("RESET_ALLOW_ENV 未設或不含目標環境時拒絕(確認完全正確也一樣)", async () => {
+    const notSet = await runReset(guarded, {
       mode: "data",
       env: { RESET_ALLOW_ENV: undefined },
     });
@@ -531,11 +549,150 @@ describe("reset 的安全閥(拒絕時 exit 1 並印原因)", () => {
     expect(notSet.stderr).toContain("RESET_ALLOW_ENV");
     expect(notSet.stderr).toContain("不含目標環境 dev");
 
-    const otherEnv = runResetCommand(databaseUri, {
+    const otherEnv = await runReset(guarded, {
       mode: "data",
-      env: { RESET_ALLOW_ENV: "staging" },
+      environment: "production",
+      env: { RESET_ALLOW_ENV: "dev,staging" },
     });
     expect(otherEnv.status).toBe(1);
-    expect(otherEnv.stderr).toContain("不含目標環境 dev");
+    expect(otherEnv.stderr).toContain("不含目標環境 production");
+    await expectUntouched();
   }, 120_000);
+
+  it("不認得的環境或模式直接拒絕", async () => {
+    const environment = await runReset(guarded, {
+      mode: "data",
+      environment: "qa",
+      env: { RESET_ALLOW_ENV: "qa" },
+    });
+    expect(environment.status).toBe(1);
+    expect(environment.stderr).toContain("--environment");
+
+    const mode = await startEntry(
+      RESET_ENTRY,
+      [
+        "--mode=wipe",
+        "--environment=dev",
+        `--confirm=${confirmationOf("dev", guarded, "wipe")}`,
+      ],
+      guarded,
+      { RESET_ALLOW_ENV: "dev" },
+    ).done;
+    expect(mode.status).toBe(1);
+    expect(mode.stderr).toContain("--mode");
+    await expectUntouched();
+  }, 120_000);
+});
+
+describe("以拋棄式資料庫模擬 production:完整確認才執行", () => {
+  /** 連線字串帶一段不該出現在任何輸出裡的內容(真實環境是帳密與叢集參數)。 */
+  const URI_MARKER = "uri-secret-marker";
+
+  function productionUri(suffix: string): string {
+    const uri = new URL(createTestDatabaseUri(suffix));
+    uri.searchParams.set("appName", URI_MARKER);
+    return uri.toString();
+  }
+
+  function expectNoSecrets(output: { stdout: string; stderr: string }): void {
+    for (const text of [output.stdout, output.stderr]) {
+      expect(text).not.toContain(URI_MARKER);
+      expect(text).not.toContain("mongodb://");
+      expect(text).not.toContain(ROOT_ADMIN_ENV.ROOT_ADMIN_PASSWORD);
+    }
+  }
+
+  it("data:environment=production、允許清單含 production、確認完全相符 → 照常清人建資料並補種", async () => {
+    const databaseUri = productionUri("production-data");
+    await prepareDatabase(databaseUri);
+
+    const result = await runReset(databaseUri, {
+      mode: "data",
+      environment: "production",
+      env: { RESET_ALLOW_ENV: "dev,staging,production" },
+    });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("環境 production");
+    expectNoSecrets(result);
+
+    const state = await readState(databaseUri);
+    expect(state.orgs.map((org) => org.key)).toEqual(["root"]);
+    expect(state.customers).toHaveLength(0);
+    expect(state.modules).toHaveLength(38);
+    // production 的 data reset 同樣保留 root 現值
+    expect(state.orgs[0]).toMatchObject({ name: "專案營運組織" });
+  }, 300_000);
+
+  it("full:完整確認 → 整庫重建;缺任何一項(確認、環境、允許清單、資料庫名、模式)都零刪除", async () => {
+    const databaseUri = productionUri("production-full");
+    await prepareDatabase(databaseUri);
+    const before = await dumpDatabase(databaseUri);
+    const allow = { RESET_ALLOW_ENV: "production" };
+
+    const rejected = [
+      await runReset(databaseUri, {
+        mode: "full",
+        environment: "production",
+        confirm: null,
+        env: allow,
+      }),
+      // 以 dev 的確認打 production
+      await runReset(databaseUri, {
+        mode: "full",
+        environment: "production",
+        confirm: confirmationOf("dev", databaseUri, "full"),
+        env: allow,
+      }),
+      await runReset(databaseUri, {
+        mode: "full",
+        environment: "production",
+        confirm: "reset:production:cookhome:full",
+        env: allow,
+      }),
+      await runReset(databaseUri, {
+        mode: "full",
+        environment: "production",
+        confirm: confirmationOf("production", databaseUri, "data"),
+        env: allow,
+      }),
+      // 允許清單沒有 production
+      await runReset(databaseUri, {
+        mode: "full",
+        environment: "production",
+        env: { RESET_ALLOW_ENV: "dev,staging" },
+      }),
+      // 環境選 dev、確認也寫 dev,但允許清單只有 production
+      await runReset(databaseUri, {
+        mode: "full",
+        environment: "dev",
+        env: allow,
+      }),
+    ];
+    for (const result of rejected) {
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe("");
+      expectNoSecrets(result);
+    }
+    expect(await dumpDatabase(databaseUri)).toEqual(before);
+
+    const result = await runReset(databaseUri, {
+      mode: "full",
+      environment: "production",
+      env: allow,
+    });
+    expect(result.stderr).toBe("");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("環境 production");
+    expect(result.stdout).toContain("模式 full");
+    expectNoSecrets(result);
+
+    const state = await readState(databaseUri);
+    expect(state.customers).toHaveLength(0);
+    expect(state.orgs.find((org) => org.key === "root")).toMatchObject({
+      name: "CookHome",
+    });
+    const applicationData = await dumpApplicationData(databaseUri);
+    expect(Object.keys(applicationData)).toContain("changelog");
+  }, 300_000);
 });

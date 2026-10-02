@@ -124,6 +124,10 @@ export interface MigrationJournalRecord {
 
 export const RUN_STAGES = [
   "precheck",
+  /** reset 的清除進行中(`data` 刪人建資料、`full` 逐一 drop collection)。 */
+  "reset-clear",
+  /** reset 的清除已完成,內部的 update 還沒越過它自己的預檢。 */
+  "reset-cleared",
   "migrations",
   "seeds",
   "definitions",

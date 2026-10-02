@@ -369,6 +369,18 @@ export const SEED_LOCK_OPERATIONS = [
 
 export type SeedLockOperation = (typeof SEED_LOCK_OPERATIONS)[number];
 
+/**
+ * 持鎖者記在鎖上的進度。只有 reset 的清除階段會寫:`full` 清庫時執行紀錄(`seed_update_runs`)也會被清掉,
+ * 程序硬中止後能留下「做到哪裡」的地方只剩這把不被清除的鎖。
+ */
+export interface SeedLockProgress {
+  /** 執行階段(與執行紀錄的 `stage` 同一組字)。 */
+  stage: string;
+  /** 該階段的進度說明(沒有為 null)。 */
+  detail: string | null;
+  updatedAt: Date;
+}
+
 /** 鎖文件的欄位(`_id` 固定為 `SEED_LOCK_ID`)。 */
 export interface SeedLockDocument {
   _id: typeof SEED_LOCK_ID;
@@ -378,6 +390,8 @@ export interface SeedLockDocument {
   operation: SeedLockOperation;
   releaseCommit: string;
   startedAt: Date;
+  /** 持鎖者依 owner 寫入的進度;沒寫過就沒有這一欄。 */
+  progress?: SeedLockProgress;
 }
 
 /** 定義安裝紀錄:唯一 `(kind, key, revision)`。 */

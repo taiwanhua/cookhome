@@ -76,10 +76,20 @@ export function spawnDefinitionCli(
   });
 }
 
+export interface DefinitionApplyOptions {
+  /**
+   * 空清單預設不啟動子程序。給 true 時即使沒有任何宣告也送出同一種 apply 請求:api 的 runtime 啟動時
+   * 會等全部登記 schema 的索引建好(`SeedRuntimeModule`),full reset 清掉索引後靠它建回;
+   * 鎖的 owner 與操作者照樣核對,結果照樣驗收。
+   */
+  initializeRuntime?: boolean;
+}
+
 export interface DefinitionSeedClient {
   /** 安裝或續跑;回來的每一筆都已安裝。 */
   apply(
     seeds: readonly DefinitionSeedSet[],
+    options?: DefinitionApplyOptions,
   ): Promise<InstalledDefinitionResult[]>;
   /** 只核對既有映射與凍結內容,不寫入。 */
   inspect(
@@ -132,8 +142,9 @@ export function createDefinitionSeedClient(options: {
   const execute = async (
     operation: DefinitionSeedOperation,
     seeds: readonly DefinitionSeedSet[],
+    runsWhenEmpty = false,
   ): Promise<DefinitionSeedItemResult[]> => {
-    if (seeds.length === 0) {
+    if (seeds.length === 0 && !runsWhenEmpty) {
       return [];
     }
     assertDefinitionCliBuilt(cliPath);
@@ -153,8 +164,12 @@ export function createDefinitionSeedClient(options: {
     return matchDefinitionSeedResult(request, output);
   };
   return {
-    apply: async (seeds) =>
-      (await execute("apply", seeds)) as InstalledDefinitionResult[],
+    apply: async (seeds, { initializeRuntime = false } = {}) =>
+      (await execute(
+        "apply",
+        seeds,
+        initializeRuntime,
+      )) as InstalledDefinitionResult[],
     inspect: (seeds) => execute("inspect", seeds),
   };
 }

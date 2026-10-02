@@ -250,6 +250,7 @@ class UpdateRun {
       });
       if (plan.definitions.length === 0) {
         await context.hooks.reached("seeds-applied", null);
+        await this.rebuildIndexesAfterFullReset();
       }
       await journal.setStage("verify");
       await this.verifyCurrent();
@@ -724,6 +725,22 @@ class UpdateRun {
       stats,
       verified: source.exports.verify,
     };
+  }
+
+  /**
+   * full reset 清掉了每個 collection 的索引,而目前沒有任何定義要發布(不會啟動 api 的 runtime):
+   * 以空的 apply 請求啟動同一個 runtime,它啟動時會等全部登記 schema 的索引建好。root 已由普通種子建立,
+   * 鎖的 owner 與操作者照樣核對;失敗就停在 `definitions` 階段,這次執行不會被記成成功。
+   * 有定義時發布本來就會啟動 runtime;一般 update 與 data reset 不 drop 索引,不走這一步。
+   */
+  private async rebuildIndexesAfterFullReset(): Promise<void> {
+    const { database, definitions, lock } = this.context;
+    if (lock.operation !== "reset-full") {
+      return;
+    }
+    await this.journal.setStage("definitions");
+    await assertSeedLockOwner(database, lock);
+    await definitions.apply([], { initializeRuntime: true });
   }
 
   /** 目前有效的定義:普通種子都套用之後,依引用順序交給 api 發布。 */
