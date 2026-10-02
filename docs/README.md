@@ -93,6 +93,7 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/branding.md`                            | 品牌文字、色彩、網域、儲存鍵登記                 | 動品牌元素或儲存鍵         |
 | `docs/plans/base-sync.md`                     | 底座同步定案、本批交付、後續工作包與 Figma 實測  | 接手底座抽離與同步工作     |
 | `docs/plans/project-settings.md`              | 專案設定與部署識別的介面及兩張實作票             | 檢視下一批抽離範圍         |
+| `docs/plans/feature-registration.md`          | 頁面、help、API 資料層與 GraphQL 的登記契約      | 實作功能新增與客製替換     |
 | `docs/project-initialization.md`              | 初始化設定的正本索引與驗證責任                   | 建立專案與補齊初始化工具   |
 | `docs/tmp/dis.md`                             | 進行中討論與待辦                                 | 查尚未定案的事             |
 | `docs/tmp/base-boundary-inventory.md`         | 底座維護歸屬、組裝入口與同步盤點草案             | 討論底座抽離及初始化邊界   |
