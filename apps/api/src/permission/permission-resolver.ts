@@ -18,7 +18,7 @@ import type {
   ModuleSidebarType,
 } from "../database/schemas/module.schema";
 
-/** 超級管理員種子角色 key(apps/db-migrator/seeds/roles.ts;isSystem,解析時 bypass,ADR-0004)。 */
+/** 超級管理員種子角色 key(apps/db-migrator/seeds/base/roles.ts;isSystem,解析時 bypass,ADR-0004)。 */
 export const SUPER_ADMIN_ROLE_KEY = "super-admin";
 
 /** 模組陣列的一筆(ADR-0011 步驟 7;GraphQL 形狀見 models/me-module.model.ts)。 */

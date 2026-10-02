@@ -64,7 +64,7 @@ const node = (
   ...overrides,
 });
 
-/** 系統管理群組底下的六個治理模組(seeds/modules/system.ts 的形狀)。 */
+/** 系統管理群組底下的六個治理模組(seeds/base/modules/system.ts 的形狀)。 */
 const systemChildren: TestModuleAdminNode[] = [
   node("m-org", "system.org-manager", "組織管理", "m-system", 1, {
     description: "維護組織樹與租戶",

@@ -31,7 +31,7 @@
 | `<moduleKey>.show-<formKey>-<fieldKey>`           | 各表單模組    | 欄位級:讀受保護欄位(`source: dynamic`,發布時建)                                     |
 | `<moduleKey>.edit-<formKey>-<fieldKey>`           | 各表單模組    | 欄位級:改設了 `permission.edit` 的欄位(同上)                                        |
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/api/src/forms/form-permission-keys.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/api/src/forms/form-permission-keys.ts`
 
 ## 資料
 

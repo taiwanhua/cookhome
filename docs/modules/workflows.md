@@ -32,7 +32,7 @@
 
 申請中心另有隱藏頁 `apply-center.view-page`(詳情頁的路由節點兼權限容器),沒有自己的權限。
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/db-migrator/seeds/modules/apply-center.ts`、`apps/api/src/workflows/workflow-keys.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/db-migrator/seeds/base/modules/apply-center.ts`、`apps/api/src/workflows/workflow-keys.ts`
 
 ## 資料
 

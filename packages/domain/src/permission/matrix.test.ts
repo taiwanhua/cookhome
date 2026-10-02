@@ -11,7 +11,7 @@ import {
 } from ".";
 
 /**
- * 夾具:縮小版的種子模組樹(形狀對照 seeds/modules/*.ts)。
+ * 夾具:縮小版的種子模組樹(形狀對照 seeds/base/modules/*.ts)。
  * 群組與純權限容器也是模組(各自有 `*`,ADR-0004「每個模組固定有一筆 `模組key.*`」)。
  */
 const tree: MatrixModuleTree = [

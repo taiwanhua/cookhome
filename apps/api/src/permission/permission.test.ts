@@ -475,7 +475,7 @@ describe("登入線2:me.modules(PermissionResolver,ADR-0011 七步)+ @RequirePer
       });
       const modules = await fetchModules(login.data?.login.accessToken ?? "");
 
-      // 初值正本:apps/db-migrator/seeds/modules/*.ts(對照表見 docs/modules/module-manager.md)
+      // 初值正本:apps/db-migrator/seeds/base/modules/*.ts(對照表見 docs/modules/module-manager.md)
       expect(byKey(modules, "overview").icon).toBe("dashboard");
       expect(byKey(modules, "system").icon).toBe("settings");
       expect(byKey(modules, "system.module-manager").icon).toBe("apps");

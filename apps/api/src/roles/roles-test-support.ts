@@ -37,7 +37,7 @@ export const ROLE_MANAGER_PERMISSIONS = [
 
 /**
  * 租戶管理員模板拿得到的模組(= seed 全部模組扣掉根組織專屬者,ADR-0009;
- * 正本推導在 `apps/db-migrator/seeds/role-bindings.ts`,此處明列是為了讓測試的期望值看得見)。
+ * 正本推導在 `apps/db-migrator/seeds/base/role-bindings.ts`,此處明列是為了讓測試的期望值看得見)。
  */
 export const TENANT_MODULE_KEYS = [
   "overview",

@@ -8,7 +8,7 @@ import { orgError } from "./org-error";
 import { type OrgRecord, isTenantTop } from "./org-mapper";
 
 /**
- * 種子「租戶管理員」模板的 key(正本 `apps/db-migrator/seeds/roles.ts`)。
+ * 種子「租戶管理員」模板的 key(正本 `apps/db-migrator/seeds/base/roles.ts`)。
  * 開通租戶時複製到租戶名下的副本另有自己的 `_id`、沒有 `key`(key 全庫唯一),
  * 因此副本以 `settings.templateKey` 標記自己複製自哪個模板 —
  * `provisionTenant`(tenant-ops.service.ts)建副本時寫入這個標記,擁有者保護才認得出那一筆授予。

@@ -1,5 +1,5 @@
 /**
- * 申請中心的模組 key(seed 正本 `apps/db-migrator/seeds/modules/apply-center.ts`;admin 不能 import
+ * 申請中心的模組 key(seed 正本 `apps/db-migrator/seeds/base/modules/apply-center.ts`;admin 不能 import
  * db-migrator,STRUCT-01)。權限只有 `view`;隱藏頁 `view-page` 是詳情頁的路由節點兼權限容器 ——
  * 網址 `/apply-center/view-page/<實例 id>` 與通知信的連結同一個形狀(docs/modules/workflows.md「通知信」)。
  */

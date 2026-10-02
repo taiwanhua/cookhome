@@ -14,7 +14,7 @@ import {
 import { ModuleManagerService } from "./module-manager.service";
 
 /**
- * 權限 key(`docs/modules/module-manager.md` 權限表;種子 `apps/db-migrator/seeds/modules/system.ts`)。
+ * 權限 key(`docs/modules/module-manager.md` 權限表;種子 `apps/db-migrator/seeds/base/modules/system.ts`)。
  * 模組本身 `isRootOnly`,租戶管理員模板不含它,所以租戶永遠拿不到這兩筆(ADR-0009 第 3 步)。
  */
 const PERMISSIONS = {

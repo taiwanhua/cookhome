@@ -38,16 +38,16 @@ import {
 
 import type { ModulePageSource } from "../module-page-registry";
 
-/** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
+/** 總覽模組 key(seed 正本:apps/db-migrator/seeds/base/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
 export const OVERVIEW_MODULE_KEY = "overview";
 
-/** 示範表單(頂層):表單模組掛在側欄頂層(seed 正本 apps/db-migrator/seeds/modules/demo-form.ts,`engine: "form"`)。 */
+/** 示範表單(頂層):表單模組掛在側欄頂層(seed 正本 apps/db-migrator/seeds/base/modules/demo-form.ts,`engine: "form"`)。 */
 export const DEMO_FORM_MODULE_KEY = "demo-form";
 
-/** 示範表單(群組內):表單模組掛在 `demo` 群組底下(seed 正本 apps/db-migrator/seeds/modules/demo.form.ts,`engine: "form"`)。 */
+/** 示範表單(群組內):表單模組掛在 `demo` 群組底下(seed 正本 apps/db-migrator/seeds/base/modules/demo.form.ts,`engine: "form"`)。 */
 export const DEMO_GROUP_FORM_MODULE_KEY = "demo.form";
 
-/** 示範表單(次群組內):表單模組掛在 `demo.sub` 次群組底下(seed 正本 apps/db-migrator/seeds/modules/demo.sub.form.ts,`engine: "form"`)。 */
+/** 示範表單(次群組內):表單模組掛在 `demo.sub` 次群組底下(seed 正本 apps/db-migrator/seeds/base/modules/demo.sub.form.ts,`engine: "form"`)。 */
 export const DEMO_SUB_GROUP_FORM_MODULE_KEY = "demo.sub.form";
 
 /**

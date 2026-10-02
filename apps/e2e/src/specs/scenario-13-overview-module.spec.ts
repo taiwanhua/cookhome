@@ -12,7 +12,7 @@ import {
  * 正本:`docs/testing/permission-scenarios.md`「劇本 13」。用哪一頁:角色管理 → 權限矩陣(前置走 api);
  * 結果看登入後的落點與側欄;帳號:+tenant 改矩陣、+user 登入。
  *
- * 總覽是正式模組(key `overview`,`seeds/modules/overview.ts`),不是寫死的首頁:
+ * 總覽是正式模組(key `overview`,`seeds/base/modules/overview.ts`),不是寫死的首頁:
  * `/` 轉到「側欄深度優先第一個進得去的 link」(ADR-0011「路由與導向規則」、`firstLinkRoute`)。
  */
 

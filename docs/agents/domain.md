@@ -56,7 +56,7 @@ concepts 讀完之後,接著看「規則長成程式之後的樣子」。示範�
 
 引用專案新增頁放 `pages/project/`,在 `app/project/module-pages.ts` 登記;客製底座頁另放 `app/project/page-replacements.ts`,保留底座原版。help 同樣分 `md/module-help/base/`、`project/additions/`、`project/replacements/`;表單 options 經 RootProviders 注入,不要新增全域可變登記表。API 功能與資料也有各自的專案來源;新增資料要同時登記刪組織與撤銷開通檢查。接手前讀[前端架構](../concepts/frontend-architecture.md)及[資料層組裝](../concepts/data-layer-and-isolation.md#底座與專案資料的組裝),依 STRUCT-12 查固定入口,依 TEST-07 / TEST-08 驗真正組裝路徑。
 
-正本:`apps/admin/src/components/base/crud/demo-module-config.ts`、`apps/admin/src/app/base/module-pages.ts`、`apps/admin/src/app/project/`、`apps/db-migrator/seeds/modules/`、`docs/agents/module-scaffold.md`、`docs/standards/general/structure.md`、`docs/standards/testing/testing.md`
+正本:`apps/admin/src/components/base/crud/demo-module-config.ts`、`apps/admin/src/app/base/module-pages.ts`、`apps/admin/src/app/project/`、`apps/db-migrator/seeds/base/modules/`、`docs/agents/module-scaffold.md`、`docs/standards/general/structure.md`、`docs/standards/testing/testing.md`
 
 ## 使用詞彙表的用語
 

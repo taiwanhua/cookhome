@@ -4,7 +4,7 @@
  * 對照組,所以這一份特別短:沒有欄位級權限、沒有頁面自有權限、沒有上傳、沒有分類與狀態。
  * 組成設定物件那一步在 `SampleTwoModule.tsx`。
  *
- * 規則正本:`docs/modules/demo.sample-two.md`;seed 正本:`apps/db-migrator/seeds/modules/demo.sample-two.ts`。
+ * 規則正本:`docs/modules/demo.sample-two.md`;seed 正本:`apps/db-migrator/seeds/base/modules/demo.sample-two.ts`。
  */
 
 /** 列表頁(link)的模組 key;三個隱藏頁掛在它底下。 */

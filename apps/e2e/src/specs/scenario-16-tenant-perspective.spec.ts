@@ -43,7 +43,7 @@ import {
 const FIELD_MANAGER_ROUTE = "/system/field-manager";
 const ORG_MANAGER_NAME = "組織管理";
 const SYSTEM_GROUP_NAME = "系統管理";
-/** 開通彈窗模組勾選清單上的那一列(`seeds/modules/demo.sub.sample-one.ts`)。 */
+/** 開通彈窗模組勾選清單上的那一列(`seeds/base/modules/demo.sub.sample-one.ts`)。 */
 const DEMO_GROUP_NAME = "示範群組";
 /** 根組織專屬的兩個模組:模板本來就沒綁,開通彈窗的清單裡也沒有(`provision.modulesHint`)。 */
 const ROOT_ONLY_MODULE_NAMES = ["模組與權限", "資料範圍"] as const;

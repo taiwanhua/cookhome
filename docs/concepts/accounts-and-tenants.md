@@ -108,7 +108,7 @@ refresh cookie 整個瀏覽器共用,所以「誰後登入,全部分頁跟著他
 - 任一步失敗 → 反向補償刪除本次建的東西(Mongo 單節點沒有 transaction)。
 - 「新增子組織」是另一個輕量入口,不走這個流程。
 
-正本:`apps/api/src/orgs/tenant-ops.service.ts`、`apps/db-migrator/seeds/role-bindings.ts`、`docs/modules/org-manager.md`
+正本:`apps/api/src/orgs/tenant-ops.service.ts`、`apps/db-migrator/seeds/base/role-bindings.ts`、`docs/modules/org-manager.md`
 
 ## 租戶擁有者保護
 

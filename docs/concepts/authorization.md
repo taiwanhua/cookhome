@@ -16,7 +16,7 @@
 - `hidden` 再分兩種:**隱藏頁**(有 route,key 以 `-page` 結尾,如編輯頁)與**權限容器**(無 route,如 `api` 樹、根組織專屬動作的 `system.org-manager.tenant-ops` / `system.field-manager.category-ops`)。
 - 停用父模組 = 整棵子樹停用。停用權限 = 全域 kill switch,連超級管理員也不給。
 
-正本:`apps/api/src/database/schemas/module.schema.ts`、`apps/api/src/database/schemas/permission.schema.ts`、`apps/db-migrator/seeds/modules/`
+正本:`apps/api/src/database/schemas/module.schema.ts`、`apps/api/src/database/schemas/permission.schema.ts`、`apps/db-migrator/seeds/base/modules/`
 
 ## key 命名
 
@@ -38,7 +38,7 @@
 - 欄位級權限的固定配套:稽核歷程記 `"[redacted]"`;清單 `keyword` 不比對受保護欄位。
 - API 權限重用頁面權限 key;沒有對應頁面的純 API 能力放隱藏的 `api` 模組樹。
 
-正本:`docs/modules/demo.sub.sample-one.md`「權限表」、`apps/api/src/demo-items-one/demo-item-one-mapper.ts`、`apps/db-migrator/seeds/modules/api.ts`
+正本:`docs/modules/demo.sub.sample-one.md`「權限表」、`apps/api/src/demo-items-one/demo-item-one-mapper.ts`、`apps/db-migrator/seeds/base/modules/api.ts`
 
 ## Wildcard(同層語意)
 

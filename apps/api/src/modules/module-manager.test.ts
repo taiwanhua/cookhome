@@ -528,7 +528,7 @@ describe("模組與權限(#204 / #288:moduleTree / setModuleEnabled / setModuleI
     it("seed 給的初值進得了樹與 me.modules;隱藏頁沒給 → null(用預設圖示)", async () => {
       const tree = await fetchTree();
 
-      // 初值正本:apps/db-migrator/seeds/modules/*.ts(對照表見 docs/modules/module-manager.md)
+      // 初值正本:apps/db-migrator/seeds/base/modules/*.ts(對照表見 docs/modules/module-manager.md)
       expect(byKey(tree, "overview").icon).toBe("dashboard");
       expect(byKey(tree, "system").icon).toBe("settings");
       expect(byKey(tree, MODULE_MANAGER).icon).toBe("apps");
