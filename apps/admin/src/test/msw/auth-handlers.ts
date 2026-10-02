@@ -46,7 +46,7 @@ export type TestCurrentOrg = NonNullable<MeQuery["me"]["currentOrg"]>;
 
 export const testOrg: TestOrg = { id: "org-1", name: "CookHome" };
 
-/** 總覽模組(seeds/modules/overview.ts):登入後的第一頁;預設每個測試使用者都有它 */
+/** 總覽模組(seeds/base/modules/overview.ts):登入後的第一頁;預設每個測試使用者都有它 */
 export const overviewModule: TestModule = {
   id: "m-overview",
   key: "overview",

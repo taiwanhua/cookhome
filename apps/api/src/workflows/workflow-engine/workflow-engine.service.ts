@@ -78,8 +78,6 @@ export class WorkflowEngineHooks {
 @Injectable()
 export class WorkflowEngineService {
   private readonly logger = new Logger(WorkflowEngineService.name);
-  /** 已發布的流程版本不會再變,定義可以快取。 */
-  private readonly definitions = new Map<string, WorkflowDefinition>();
 
   constructor(
     private readonly instances: WorkflowInstancesRepository,
@@ -91,26 +89,24 @@ export class WorkflowEngineService {
     private readonly hooks: WorkflowEngineHooks,
   ) {}
 
-  /** 實例走的那一版流程定義。 */
+  /**
+   * 實例走的那一版流程定義。**每次都讀資料庫,不跨請求快取**:已發布的版本平常不會原地改寫,
+   * 但資料庫 reset 後同一個 key / 版號可以是另一份內容(或已不存在),這個 service 活得比它久。
+   */
   async definitionOf(instance: {
     workflowKey: string;
     workflowVersion: number;
   }): Promise<WorkflowDefinition> {
-    const cacheKey = `${instance.workflowKey}@${String(instance.workflowVersion)}`;
-    const cached = this.definitions.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
     const version = await this.versions.findOne(systemContext(), {
       workflowKey: instance.workflowKey,
       version: instance.workflowVersion,
     });
     if (!version) {
-      throw new Error(`流程版本 ${cacheKey} 不存在`);
+      throw new Error(
+        `流程版本 ${instance.workflowKey}@${String(instance.workflowVersion)} 不存在`,
+      );
     }
-    const definition = definitionOfVersion(version);
-    this.definitions.set(cacheKey, definition);
-    return definition;
+    return definitionOfVersion(version);
   }
 
   async findInstance(

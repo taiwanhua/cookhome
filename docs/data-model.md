@@ -6,33 +6,44 @@
 
 下表列底座資料,「schema 檔」相對於 `apps/api/src/database/schemas/`。專案資料另列於下一節。「概念」欄指向 `docs/concepts/` 的檔(省略目錄):帳號 = `accounts-and-tenants.md`、授權 = `authorization.md`、資料層 = `data-layer-and-isolation.md`、表單 = `form-engine.md`、流程 = `workflow-engine.md`。
 
-| collection                          | 種子 / 業務                                                          | 用途                                                                                                     | 概念           | schema 檔                         |
-| ----------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------- |
-| `orgs`                              | 業務(根組織為種子)                                                   | 組織樹;資料隔離邊界;租戶頂層另有短碼 `slug`、擁有者 `ownerUserId`、時區 `settings.timezone`(根組織也有)  | 帳號、資料層   | `org.schema.ts`                   |
-| `users`                             | 業務                                                                 | 後台使用者帳號                                                                                           | 帳號           | `user.schema.ts`                  |
-| `customers`                         | 業務                                                                 | 前台會員帳號                                                                                             | 帳號           | `customer.schema.ts`              |
-| `roles`                             | 業務(種子角色除外)                                                   | 角色(權限集合);租戶副本以 `settings.templateKey` 標記來源                                                | 授權、帳號     | `role.schema.ts`                  |
-| `modules`                           | 種子                                                                 | 模組樹(= 頁面 / 側欄);`engine` 標固定欄位模組 / 表單模組                                                 | 授權           | `module.schema.ts`                |
-| `permissions`                       | 種子(`source: seed`)+ 業務(`source: dynamic`,表單發布建的欄位級權限) | 權限(頁面裡的按鈕 / 欄位)                                                                                | 授權           | `permission.schema.ts`            |
-| `core_relationships`                | 業務(種子亦寫入:種子角色的 `org_role`、模板綁定)                     | 底座實體的關聯:`org_user` / `org_role` / `user_role` / `role_module` / `role_permission` + `org_manager` | 資料層         | `core-relationship.schema.ts`     |
-| `business_relationships`            | 業務                                                                 | 業務關聯:`org_form`(表單分派 / 啟用)、`org_workflow`(流程分派)、`org_form_workflow`(流程綁定)            | 資料層         | `business-relationship.schema.ts` |
-| `data_scope_rules`                  | 業務                                                                 | 資料範圍規則(一個資料目標至多一份)                                                                       | 資料層         | `data-scope-rule.schema.ts`       |
-| `data_scope_targets`                | 種子                                                                 | 資料目標(「資料範圍」頁左側清單;一列 = 一個模組在一張表上的資料)                                         | 資料層         | `data-scope-target.schema.ts`     |
-| `field_categories`                  | 種子(系統類別)+ root 在畫面建                                        | 欄位類別(全域)                                                                                           | 資料層         | `field-category.schema.ts`        |
-| `fields`                            | 種子(全域)+ 業務(租戶自訂)                                           | 欄位選項                                                                                                 | 資料層         | `field.schema.ts`                 |
-| `refresh_tokens`                    | 業務                                                                 | 登入 refresh token(存雜湊)                                                                               | 帳號           | `refresh-token.schema.ts`         |
-| `action_tokens`                     | 業務                                                                 | 啟用信 / 重設密碼 token(單次、TTL)                                                                       | 帳號           | `action-token.schema.ts`          |
-| `audit_logs`                        | 業務                                                                 | 稽核日誌(只增不改)                                                                                       | 授權           | `audit-log.schema.ts`             |
-| `demo_items_one` / `demo_items_two` | 種子(宣告的幾筆)+ 業務                                               | 示範模組資料(模組資料表)                                                                                 | 各自的模組文件 | `demo-item-*.schema.ts`           |
-| `forms`                             | 業務                                                                 | 表單(一種填報的身分;共用 `ownerOrgId = null`、客製 = 租戶頂層)                                           | 表單           | `form.schema.ts`                  |
-| `form_versions`                     | 業務                                                                 | 表單版本(草稿 / 發布中 / 已發布 / 已退役;欄位、版面、摘要槽、帶入規則)                                   | 表單           | `form-version.schema.ts`          |
-| `form_submissions`                  | 業務                                                                 | 表單提交(所有表單模組共用的模組資料表;值、摘要、修訂快照、流程狀態)                                      | 表單、流程     | `form-submission.schema.ts`       |
-| `workflows`                         | 業務                                                                 | 審核流程(共用 `ownerOrgId = tenantId = null`、客製 = 租戶頂層)                                           | 流程           | `workflow.schema.ts`              |
-| `workflow_versions`                 | 業務                                                                 | 流程版本(生命週期同表單版本;`steps[]` 節點 + `edges[]` 連線)                                             | 流程           | `workflow-version.schema.ts`      |
-| `workflow_instances`                | 業務                                                                 | 流程實例(一筆提交的一個修訂號送出一次;**唯一權威**:關卡狀態、派任計畫、已接受的決定)                     | 流程           | `workflow-instance.schema.ts`     |
-| `workflow_tasks`                    | 業務                                                                 | 審核任務(實例派任計畫一項的投影;「待我審核」與讀取授權用)                                                | 流程           | `workflow-task.schema.ts`         |
+| collection                          | 種子 / 業務                                              | 用途                                                                                                     | 概念           | schema 檔                         |
+| ----------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------- |
+| `orgs`                              | 業務(根組織為種子)                                       | 組織樹;資料隔離邊界;租戶頂層另有短碼 `slug`、擁有者 `ownerUserId`、時區 `settings.timezone`(根組織也有)  | 帳號、資料層   | `org.schema.ts`                   |
+| `users`                             | 業務                                                     | 後台使用者帳號                                                                                           | 帳號           | `user.schema.ts`                  |
+| `customers`                         | 業務                                                     | 前台會員帳號                                                                                             | 帳號           | `customer.schema.ts`              |
+| `roles`                             | 業務(種子角色除外)                                       | 角色(權限集合);租戶副本以 `settings.templateKey` 標記來源                                                | 授權、帳號     | `role.schema.ts`                  |
+| `modules`                           | 種子                                                     | 模組樹(= 頁面 / 側欄);`engine` 標固定欄位模組 / 表單模組                                                 | 授權           | `module.schema.ts`                |
+| `permissions`                       | 設定(`source: seed` 為模組宣告,`dynamic` 為表單發布產生) | 權限(頁面裡的按鈕 / 欄位)                                                                                | 授權           | `permission.schema.ts`            |
+| `core_relationships`                | 業務(種子亦寫入:種子角色的 `org_role`、模板綁定)         | 底座實體的關聯:`org_user` / `org_role` / `user_role` / `role_module` / `role_permission` + `org_manager` | 資料層         | `core-relationship.schema.ts`     |
+| `business_relationships`            | 業務                                                     | 業務關聯:`org_form`(表單分派 / 啟用)、`org_workflow`(流程分派)、`org_form_workflow`(流程綁定)            | 資料層         | `business-relationship.schema.ts` |
+| `data_scope_rules`                  | 業務                                                     | 資料範圍規則(一個資料目標至多一份)                                                                       | 資料層         | `data-scope-rule.schema.ts`       |
+| `data_scope_targets`                | 種子                                                     | 資料目標(「資料範圍」頁左側清單;一列 = 一個模組在一張表上的資料)                                         | 資料層         | `data-scope-target.schema.ts`     |
+| `field_categories`                  | 種子(系統類別)+ root 在畫面建                            | 欄位類別(全域)                                                                                           | 資料層         | `field-category.schema.ts`        |
+| `fields`                            | 種子(全域)+ 業務(租戶自訂)                               | 欄位選項                                                                                                 | 資料層         | `field.schema.ts`                 |
+| `refresh_tokens`                    | 業務                                                     | 登入 refresh token(存雜湊)                                                                               | 帳號           | `refresh-token.schema.ts`         |
+| `action_tokens`                     | 業務                                                     | 啟用信 / 重設密碼 token(單次、TTL)                                                                       | 帳號           | `action-token.schema.ts`          |
+| `audit_logs`                        | 業務                                                     | 稽核日誌(只增不改)                                                                                       | 授權           | `audit-log.schema.ts`             |
+| `demo_items_one` / `demo_items_two` | 種子(宣告的幾筆)+ 業務                                   | 示範模組資料(模組資料表)                                                                                 | 各自的模組文件 | `demo-item-*.schema.ts`           |
+| `forms`                             | 設定(受管 seed 或各環境自建)                             | 表單(一種填報的身分;共用 `ownerOrgId = null`、客製 = 租戶頂層)                                           | 表單           | `form.schema.ts`                  |
+| `form_versions`                     | 設定(受管 seed 或各環境自建)                             | 表單版本(草稿 / 發布中 / 已發布 / 已退役;欄位、版面、摘要槽、帶入規則)                                   | 表單           | `form-version.schema.ts`          |
+| `form_submissions`                  | 業務                                                     | 表單提交(所有表單模組共用的模組資料表;值、摘要、修訂快照、流程狀態)                                      | 表單、流程     | `form-submission.schema.ts`       |
+| `workflows`                         | 設定(受管 seed 或各環境自建)                             | 審核流程(共用 `ownerOrgId = tenantId = null`、客製 = 租戶頂層)                                           | 流程           | `workflow.schema.ts`              |
+| `workflow_versions`                 | 設定(受管 seed 或各環境自建)                             | 流程版本(生命週期同表單版本;`steps[]` 節點 + `edges[]` 連線)                                             | 流程           | `workflow-version.schema.ts`      |
+| `workflow_instances`                | 業務                                                     | 流程實例(一筆提交的一個修訂號送出一次;**唯一權威**:關卡狀態、派任計畫、已接受的決定)                     | 流程           | `workflow-instance.schema.ts`     |
+| `workflow_tasks`                    | 業務                                                     | 審核任務(實例派任計畫一項的投影;「待我審核」與讀取授權用)                                                | 流程           | `workflow-task.schema.ts`         |
 
-資料庫另有 migrate-mongo 自己管的 `changelog` / `changelog_lock`(遷移紀錄與鎖,設定在 `apps/db-migrator/migrate-mongo-config.js`),不在 schemas 裡。
+共用表單與流程可由專案 seed 管理;未登記的共用定義及租戶客製定義仍在各環境獨立維護。它們共用原本的身分與版本 collection,不另複製一份設定表。
+
+### 設定執行紀錄
+
+| collection                      | 用途                                                                   | 存取正本                                                           |
+| ------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `seed_definition_installations` | 將宣告的 revision 映射至本環境的定義 ID、版號,並保存中斷續跑所需的狀態 | `seed-definition-installation.schema.ts`、`apps/api/src/seed/`     |
+| `seed_update_runs`              | 設定執行的 commit、計畫、階段、結果,以及 migration 的依賴與續跑紀錄    | `apps/db-migrator/src/update/journal.ts`                           |
+| `changelog`                     | migrate-mongo 的遷移紀錄,以檔名識別已執行的 migration                  | `apps/db-migrator/migrate-mongo-config.js`                         |
+| `changelog_lock`                | 設定更新的共用互斥鎖;API CLI 只核對持有者                              | `seed-lock.schema.ts`、`apps/api/src/database/seed-lock.reader.ts` |
+
+安裝紀錄是映射與續跑依據,不取代 repo 的設定正本。受管範圍由當前 registry 決定;歷史紀錄存在,不代表可以覆蓋現場定義。版本內容仍由表單與流程的設計服務發布,不經普通 documents seed 寫入。
 
 ## 專案資料
 
@@ -40,7 +51,7 @@
 | ---------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `recipes`  | 食譜原型,供前台公開查詢與建立 | `apps/api/src/project/database/recipe.schema.ts`、`recipes-legacy.repository.ts`;API 位於 `apps/api/src/project/recipes/` |
 
-recipes 保留無 orgId 的既有形狀,僅有 Mongoose timestamps,未掛 baseFields / tenantScope,不經 BaseRepository。固定 DatabaseModule 入口精確鎖定 Recipe model、recipes collection 與專用 repository token 為既有例外,仍參與名稱碰撞檢查;一般新增專案資料不得照抄。完整邊界見[功能登記規格](plans/feature-registration.md#recipes-的既有相容邊界)。
+recipes 保留無 orgId 的既有形狀,僅有 Mongoose timestamps,未掛 baseFields / tenantScope,不經 BaseRepository。固定 DatabaseModule 入口精確鎖定 Recipe model、recipes collection 與專用 repository token 為既有例外,仍參與名稱碰撞檢查;一般新增專案資料不得照抄。完整邊界見[資料層組裝](concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
 
 ## 底座與一般專案資料的共同約定
 
@@ -92,7 +103,9 @@ recipes 保留無 orgId 的既有形狀,僅有 Mongoose timestamps,未掛 baseFi
 
 ## 種子清單
 
-modules(含三個示範表單模組 `demo-form` / `demo.form` / `demo.sub.form`、表單管理 `system.forms`、流程管理 `system.workflows`、申請中心 `apply-center`)、permissions(`source: seed`)、field_categories(系統類別)、fields(全域)、種子 roles(super-admin、租戶管理員模板)與其綁定、根組織、root 初始帳號、data_scope_targets、示範資料。宣告正本是 `apps/db-migrator/seeds/registry.ts`;內容見 `docs/modules/*.md`(權限表)與 `docs/modules/field-manager.md`(欄位選項)。表單與流程是執行期資料,不在種子裡。
+普通種子包含 modules、permissions(`source: seed`)、field_categories(系統類別)、fields(全域)、種子 roles(超級管理員、租戶管理員模板)與其綁定、根組織、root 初始帳號、data_scope_targets 及示範資料。共用表單與流程須明確登記為受管定義,沿版本生命週期交付;發布產生的動態權限不以普通 documents 宣告。
+
+宣告正本是 `apps/db-migrator/seeds/registry.ts`;來源分區與寫入規則見[種子資料與遷移](concepts/data-layer-and-isolation.md#種子資料與遷移),各模組的權限表見 `docs/modules/`。
 
 ## 預留(尚未建,程式碼無)
 

@@ -1,6 +1,6 @@
 /**
  * 流程管理的模組 key 與權限 key(正本 `docs/modules/workflows.md`「模組 key 與權限表」,seed
- * `apps/db-migrator/seeds/modules/system.ts`)。**不是**根組織專屬:root 管共用流程、租戶管理員管自己的
+ * `apps/db-migrator/seeds/base/modules/system.ts`)。**不是**根組織專屬:root 管共用流程、租戶管理員管自己的
  * 客製流程;「是不是自己的流程 / 站在根組織」由 api 算在 `workflow.abilities`,前端直接用、不再相乘。
  */
 export const WORKFLOWS_MODULE_KEY = "system.workflows";

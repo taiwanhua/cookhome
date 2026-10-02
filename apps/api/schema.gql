@@ -546,6 +546,30 @@ type DemoItemsTwoPayload {
   totalCount: Int!
 }
 
+input ExportFormSeedInput {
+  changelog: String!
+  formKey: ID!
+  revision: String!
+  version: Int!
+}
+
+type ExportFormSeedPayload {
+  fileName: String!
+  source: String!
+}
+
+input ExportWorkflowSeedInput {
+  changelog: String!
+  revision: String!
+  version: Int!
+  workflowKey: ID!
+}
+
+type ExportWorkflowSeedPayload {
+  fileName: String!
+  source: String!
+}
+
 type Field {
   canEdit: Boolean!
   canToggleEnabled: Boolean!
@@ -1375,6 +1399,8 @@ type Query {
   demoItemTwo(id: ID!): DemoItemTwoPayload!
   demoItemsOne(input: DemoItemsOneInput!): DemoItemsOnePayload!
   demoItemsTwo(input: DemoItemsTwoInput!): DemoItemsTwoPayload!
+  exportFormSeed(input: ExportFormSeedInput!): ExportFormSeedPayload!
+  exportWorkflowSeed(input: ExportWorkflowSeedInput!): ExportWorkflowSeedPayload!
   fieldCategories(input: FieldCategoriesInput): FieldCategoriesPayload!
   fields(categoryId: ID!): FieldsPayload!
   form(key: ID!): FormPayload!

@@ -103,7 +103,8 @@ prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產�
 - **受影響過濾**:`prepare` 用 `turbo ls --affected` 算出「改到的 package + 依賴它們的 package」,轉成 `--filter=<pkg>` 清單交給下游 job。api / admin 不在清單就跳過各自的兩個 shard;清單空就跳過 lint / test / build。改到 `.github/**` 或拿不到 base(首推、force push)時退回全跑。codegen 一致性檢查只在 api 或 `@repo/graphql` 受影響時跑;prettier 不看清單,每次都跑。
 - **turbo 快取**:`.turbo/cache` 用 `actions/cache` 在 run 之間保存,每個跑 turbo 的 job 各一把 key(lockfile hash + job 名 + commit),找不到時退回同 lockfile 的最近一份;沒改到的 package 的 lint / typecheck / build 直接 `cache hit`。存回前刪掉 7 天前的項目,快取才不會無限長大;lockfile 一變就從頭累積。api 的 shard 不走 turbo(jest 直接吃 `@repo/domain` 原始碼),沒有快取。
 - **本機重現某一片**:api 是 `pnpm --filter @repo/api exec jest --shard=1/2`;admin 是 `pnpm --filter @repo/admin exec node --experimental-vm-modules node_modules/jest/bin/jest.js --shard=1/2`(要先有依賴的 dist)。不能寫成 `pnpm run test -- --shard=1/2`,參數會被 jest 當成路徑 pattern。
-- **逾時**:`prepare` 10 分、`verify` 5 分、其餘 20 分,卡死的 jest 不會燒到預設的 6 小時。
+- **跨程序建置依賴**:api 有變時也驗 db-migrator;它的測試透過 Turbo 先建置同一 checkout 的 API CLI 與依賴。migration 與種子快照的不可變檢查在 `prepare` 對照 Git 基線執行。
+- **逾時**:`prepare` 10 分、`verify` 5 分、`test-others` 30 分,其餘 20 分。
 - `build` job 起 api 時給假的 `JWT_SECRET`(api 缺它就啟動失敗)。
 
 ### CD(deploy.yml)
@@ -117,7 +118,7 @@ prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產�
 - **只部署改到的 app**:讀 Cloud Run 上目前跑的 image tag(= 上次部署的 git SHA)當 base,`turbo ls --affected` 判斷 api / admin / db-migrator 有沒有受影響,沒受影響的步驟整個跳過。turbo 看不到的部署設定另外判斷(`scripts/project-settings/deploy-affected.mjs`):`deploy/project/` 或 `scripts/project-settings/` 有改時 api 與 admin 都重建(API 網址烘在 admin image,只改網址也要重建);`deploy/env/` 或 `deploy.yml` 本身有改時只有 api 視為受影響。判斷結果印在 run 的 notice。要全部重部署加 `-f force=true`;讀不到 tag(第一次部署)或 base 不在歷史裡(force push 過)時自動全部部署。
 - **image**:tag = 該分支 HEAD 的 git SHA;admin 每環境各建一顆(`VITE_GRAPHQL_ENDPOINT` = 設定的 `apiUrl` 加 `/graphql`,以 `--build-arg` 烘入)。
 - **api 的環境變數**:非機密整包來自 `deploy/env/<環境>.yaml`(`--env-vars-file`),機密來自 Secret Manager(`--set-secrets`);見四、。
-- **部署成功後自動跑 `migrate → seed`**(ADR-0002;只在 api 或 db-migrator 受影響時):CI runner 以 `github-deployer` 身分讀該環境的 `mongodb-uri*` 與 `root-admin-password*`,執行 `pnpm --filter @repo/db-migrator migrate` 再 `seed`。seed 摘要「新增 N / 更新 M / 認養 A / 未變 K」印在 Actions log:第一次跑應全為新增,之後每次應為 0 / 0 / 0 / K;任何 seed 宣告以識別鍵(或 `adoptBy`)對到一筆人在畫面建的文件(`isSystem` 不是 `true`)時,那一次會出現認養:文件轉成種子、`_id` 不動,之後重跑就是更新 / 未變。runner 只裝 db-migrator 及其依賴(`MONGOMS_DISABLE_POSTINSTALL=1` 略過測試用 mongod 下載)。
+- **部署成功後執行一次 `update`**:api 或 db-migrator 任一受影響就執行,只改專案 seed、快照或 migration 也會更新資料。runner 安裝 db-migrator、API 與其依賴,建置同一 checkout 的 API CLI 並確認可啟動,再讀該環境的資料庫與 root 初始密碼 Secret,執行 `pnpm --filter @repo/db-migrator run update`。完整順序、結果與失敗處理見下方「設定與資料更新」。
 - **front 不走 deploy.yml**:Vercel 在分支 push 時自動建置(`main` → production、`staging` / `dev` → 各自的分支網域);要不靠 commit 重建用 Deploy Hook(見四、「Vercel 補充設定」)。
 
 ### 專案部署設定(deploy/project)
@@ -137,21 +138,23 @@ deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩
   node scripts/project-settings/read-config.mjs --scope github --repository <owner/repo>
   ```
 
+  cloud scope 讀兩份 JSON;github scope 只讀 `github.json`,不需要 cloud 設定或部署環境。看板停用時不要求看板 IDs/options,仍須通過 repo 身分檢查。
+
   成功時 stdout 是一行 JSON(固定的鍵),失敗時 stdout 無輸出、stderr 一行說明、退出碼非零。在 repo 根執行;本機想看某環境會解析出什麼就直接跑。
 
 - **驗證**:`schemaVersion` 不認得、`--repository` 與 `expectedRepository` 不同、環境不是三個之一、缺欄位或多出未知欄位、值的格式不對或含控制字元,一律失敗,不回退任何預設值。workflow 傳入的 repository 取自 GitHub 的 context,所以把 repo 複製成另一個專案後,沒改設定就跑不到原專案的資源:deploy / reset 在雲端認證前停止,看板在任何寫入前停止。
 - **傳值方式**:workflow 把讀取器的輸出映射成固定的 step 輸出(`write-github-output.mjs`),再經各 step 的 `env:` 以 `"$VAR"` 傳給命令;設定值不內插進 `run` 的程式文本。
 - **改這些檔的後果**:部署時 api 與 admin 都會重建(見上方「只部署改到的 app」)。CI 的 `project-settings` job 每次都跑讀取器測試與三環境的解析,不看受影響清單。
-- **看板(`project-status.yml`)只讀預設分支上的設定與腳本**:PR 事件也不讀 PR 分支的內容,所以看板設定或腳本的改動要 release 到 `main` 之後才生效。`main` 上還沒有這些檔案時,workflow 明確失敗、不移卡,由主流程手動移卡(`docs/agents/issue-tracker.md`「手動移卡」);fork 來的 PR 拿不到 token 時同樣失敗、不移卡。`projectStatus.enabled` 設為 `false` 就完全不呼叫看板 API,也不需要 token。
+- **看板(`project-status.yml`)只讀預設分支上的設定與腳本**:PR 事件也不讀 PR 分支的內容,所以看板設定或腳本的改動要 release 到 `main` 之後才生效。設定無效或 fork PR 拿不到 token 時明確失敗、不移卡,由主流程依 `docs/agents/issue-tracker.md`「手動移卡」處理。`projectStatus.enabled` 設為 `false` 就完全不呼叫看板 API,也不需要 token。
 - **設定檔寫好不等於外部資源存在**:WIF、IAM、網域、Secret、看板都要另外建立並驗證(`docs/project-initialization.md`)。
 
-正本:`deploy/project/cloud.json`、`deploy/project/github.json`、`scripts/project-settings/`(讀取器與測試)、`docs/plans/project-settings.md`(契約)
+正本:`deploy/project/cloud.json`、`deploy/project/github.json`、`scripts/project-settings/`(讀取器與測試)
 
 ### 其他 workflow
 
 | workflow                                 | 觸發                                             | 做什麼                                                                                                                                             |
 | ---------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Reset DB**(`reset-db.yml`)             | 只能手動;只有 dev / staging                      | 資料庫還原(`data` / `full`);操作見三、「資料庫還原」,規則正本是 ADR-0002「還原(reset)」                                                            |
+| **Reset DB**(`reset-db.yml`)             | 只能手動;三環境皆須明確確認                      | 資料庫還原(`data` / `full`);操作見三、「資料庫還原」,規則正本是 ADR-0002「還原(reset)」                                                            |
 | **E2E**(`e2e.yml`)                       | 只能手動,不在 ci.yml 內                          | 權限劇本 E2E(`gh workflow run e2e.yml --ref <分支>`,可加 `-f grep="劇本 7"`);資料庫是拋棄式 service container,不碰任何環境與 Secret;時機見 TEST-05 |
 | **Docs**(`docs.yml`)                     | PR 與三分支 push,只在改到 `docs/**` 或任何 md 時 | `pnpm run format:check`                                                                                                                            |
 | **Project Status**(`project-status.yml`) | issue / PR 事件                                  | 自動移看板卡,規則見 `docs/agents/issue-tracker.md`「看板」                                                                                         |
@@ -227,33 +230,81 @@ docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$
 
 正本:`.github/workflows/deploy.yml`(deploy api / deploy admin 步驟)、`deploy/project/cloud.json`、`apps/api/Dockerfile`、`apps/admin/Dockerfile`
 
-### 資料庫還原(reset;僅 dev / staging)
+### 設定與資料更新
 
-驗收要反覆重建租戶與使用者時,用手動 workflow 把該環境的資料庫還原。**規則正本是 ADR-0002「還原(reset)」**(兩種模式的定義、`data` 的刪 / 留判準、三道安全閥),這裡只寫怎麼操作。
+`update` 是完整更新入口:`migration` → 普通種子 → 受管表單/流程 → 目標核對。`seed` 與 `migrate` 是同一入口的相容別名,一次操作只選一個,不再依序各跑一次。來源與資料轉換契約見[種子資料與遷移](concepts/data-layer-and-isolation.md#種子資料與遷移)。
 
-- UI:Actions → **Reset DB** → Run workflow → 選 `environment`(dev / staging)與 `mode`
-- CLI:`gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data`
+本機操作時先 checkout 要交付的 commit,安裝依賴並建置同一份 checkout 的 API CLI。依[環境變數登記](env-registry.md)設定目標 `MONGODB_URI` 與 `ROOT_ADMIN_*`,再執行:
 
-| mode   | 做什麼                                                                              | 什麼時候用                                            |
-| ------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `data` | 只刪人建的資料(租戶、使用者、租戶角色、資料範圍規則、示範與業務資料…),再跑一次 seed | 重測開通租戶那條線;**模組頁調過的開關 / 圖示會留著**  |
-| `full` | `dropDatabase` → `migrate` → `seed`                                                 | 要一個全新安裝的環境(連調過的開關 / 圖示也回到宣告值) |
+```bash
+pnpm exec turbo run build --filter=@repo/api
+pnpm --filter @repo/db-migrator run update --check-cli
+pnpm --filter @repo/db-migrator run update
+```
 
-限制:
+`run` 不可省略,否則 `pnpm update` 會變成套件管理器的依賴升級命令。設定版本記在 `seed_update_runs.releaseCommit`,執行摘要另列 migration 結果、種子計數、定義 revision 對應的本地版號與核對結果;API image 的 SHA 不能代替設定版本。
 
-- **沒有 production 選項**:workflow 的 choice 只有 dev / staging,第一個步驟再擋一次 dev / staging 以外的值(專案設定檔三個環境都有,不能靠設定缺值來擋),指令端另有三道安全閥(`--confirm` 要等於資料庫名、目標環境由資料庫名推得且 production 永遠拒絕、`RESET_ALLOW_ENV` 要含目標環境),兩層都擋。
-- **只碰資料庫,不動 Cloud Run**:服務不會重新部署,`full` 之後 api 也不必重啟(它不快取這些資料)。
-- **不還原 GCS 上的檔案**(商標、封面…):物件留在 bucket 裡變成孤兒,不影響功能。
-- **root 帳號的密碼**:`data` 保留原帳號整筆(含密碼雜湊,改過的密碼仍有效);`full` 會重新建立帳號,密碼回到 `root-admin-password*` secret 的當前值。
-- job 掛在 GitHub `environment: <env>` 底下,要加人工審核就在該 environment 設 required reviewers。
-- 本機跑同一支指令(本地資料庫名要以 `-dev` 結尾,否則會被當成 production 拒絕):
+執行失敗時先讀錯誤、鎖與未完成階段:
 
-  ```bash
-  RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev \
-    pnpm --filter @repo/db-migrator reset --mode=data --confirm=cookhome-dev
-  ```
+```bash
+pnpm --filter @repo/db-migrator run migrate:status
+```
 
-正本:`.github/workflows/reset-db.yml`、`deploy/project/cloud.json`(Secret 名稱與 seed 帳號,與 deploy.yml 同一份)、`apps/db-migrator/src/reset/`(三道安全閥在 `reset-safety.ts`)、ADR-0002「還原(reset)」
+正常失敗會釋放鎖,修正原因後以相同來源重跑 `update`,接續原本的 migration context 及定義安裝紀錄。不要改寫已發布快照或以 reset 取代一般升級。若是現場草稿或內容漂移,先確認並處理差異,重跑不會強制覆蓋。
+
+硬中止留下的鎖只在確認原程序與 API 子程序都已停止後,以 status 顯示的 owner 指名解除,再續跑:
+
+```bash
+pnpm --filter @repo/db-migrator run update --unlock-owner=<owner>
+```
+
+`migrate:down` 經相同互斥與紀錄執行最後一支 migration 的 `down`;有未完成更新或沒有 down 實作時拒絕。它只還原該 migration 的資料變更,不回滾 seed、定義或安裝紀錄。需要下修時先核對該檔的資料前提及相容性,不能把 down 或切回舊 API image 當成整批復原。
+
+若狀態停在 `rollback-in-progress`,以原來源重跑 `pnpm --filter @repo/db-migrator run migrate:down`,先完成該次回滾再執行 update。回滾接續也會核對來源 hash,不可改寫原檔後重跑。
+
+定義發布立即生效,工具互斥不阻擋線上業務寫入。破壞性變更須在發布前備妥相容窗口、必要停寫方式與恢復步驟;API 已部署而 update 失敗時,依該變更的恢復方式處理。
+
+正本:`apps/db-migrator/src/update/`、`apps/api/src/seed/`、`.github/workflows/deploy.yml`。
+
+### 資料庫還原(reset)
+
+reset 依所選程式版本重建資料庫設定。dev、staging、production 都可執行,操作者須確認目標與刪除範圍。兩種模式的刪留規則見[資料層](concepts/data-layer-and-isolation.md#還原),決策理由見 ADR-0002。
+
+| mode   | 結果                                                                                                                       |
+| ------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `data` | 保留當前 registry 的種子、受管定義及已發布/已退役歷史,清除未受管設定與業務資料,再執行 update。根組織及模組的初始值保留現值 |
+| `full` | 清除全部應用 collection 與索引,保留操作鎖,再執行 update 重建。目前未登記的定義不重建,初始值回到專案宣告                    |
+
+在 Actions → **Reset DB** 選擇執行版本、`environment`、`mode`,並手動填入 `confirmation`:
+
+```text
+reset:<environment>:<實際資料庫名>:<data|full>
+```
+
+CLI 範例:
+
+```bash
+gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data -f confirmation="reset:dev:cookhome-dev:data"
+```
+
+確認字串的環境、資料庫名與模式必須全部符合實際目標。資料庫名從連線目標解析,環境由輸入指定;不靠名稱尾碼猜環境。`RESET_ALLOW_ENV` 必須包含所選環境,未設即拒絕。workflow 原樣傳入人工確認,不從 URI 自動產生;記錄不輸出 URI、帳密或 Secret 值。
+
+本機先依[設定與資料更新](#設定與資料更新)完成 CLI 建置並準備 `ROOT_ADMIN_*`,再執行:
+
+```bash
+RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev \
+  pnpm --filter @repo/db-migrator run reset --environment=dev --mode=data --confirm=reset:dev:cookhome-dev:data
+```
+
+- 預檢、清除與 update 共用同一把鎖。data 若遇未完成遷移、回滾或中斷發布,在刪除前停止;先完成原 update、down 或 UI 發布後再重置。
+- full 在刪除前確認 API CLI 已建置,重建時透過該 CLI 初始化全部登記 schema 的索引。沒有受管表單或流程也會執行,不需重啟常駐 API。
+- data 清除中途失敗後,再次執行 data 會被未完成紀錄擋下。先用同一版來源執行 update 補齊設定,再明確執行 data 完成清除;若改採整庫重建,則重新確認 full。一般 update 不會補做尚未完成的清除。
+- full 清除後重建當次執行紀錄;清除或重建失敗會回報階段。檢查 Actions log 與執行狀態後,再次明確確認 full 才重新清庫。硬中止或失敗紀錄也無法寫入時,鎖會保留;確認原程序已停止後,依[設定與資料更新](#設定與資料更新)指名解鎖。
+- 只處理資料庫,不部署 Cloud Run、不清除 GCS 物件。流程引擎每次依資料庫讀取版本,重建同 key/版號後不會沿用程序中的舊定義。
+- `data` 保留根初始帳號與密碼;`full` 重建帳號,密碼使用該環境 Secret 的當前值。
+- job 掛在所選 GitHub environment 下,沿用該環境的審核設定。
+
+正本:`.github/workflows/reset-db.yml`、`deploy/project/cloud.json`、`apps/db-migrator/src/reset/`、ADR-0002「還原(reset)」。
 
 ### 觀測與維運
 
@@ -331,7 +382,7 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 | 誰會讀這個 secret                              | 授權對象(`--member`)                                                                                                                                                                                                |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Cloud Run 執行中的 api(`--set-secrets` 掛進去) | Cloud Run 執行身分;查法:`gcloud run services describe cookhome-api-dev --region=asia-east1 --format="value(spec.template.spec.serviceAccountName)"`,目前為預設 `728045896207-compute@developer.gserviceaccount.com` |
-| CI 步驟(如 deploy.yml 跑 migrate / seed)       | 部署身分 `github-deployer@cookhome-online.iam.gserviceaccount.com`                                                                                                                                                  |
+| CI 步驟(如 deploy.yml 跑 update)               | 部署身分 `github-deployer@cookhome-online.iam.gserviceaccount.com`                                                                                                                                                  |
 
 ```
 gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上表身分>" --role="roles/secretmanager.secretAccessor" --project=cookhome-online
@@ -351,7 +402,7 @@ gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上
 
 小工具:裝了 vercel CLI 並登入後,`vercel env pull` 可把 Vercel 的變數拉成本地 `.env.local`(本地 front 想直連雲端 dev api 時方便)。
 
-正本:`deploy/project/cloud.json`(secret 名稱)、`.github/workflows/deploy.yml`(`--set-secrets` 與 migrate → seed 步驟讀 secret)、`docs/env-registry.md`
+正本:`deploy/project/cloud.json`(secret 名稱)、`.github/workflows/deploy.yml`(`--set-secrets` 與 update 步驟讀 secret)、`docs/env-registry.md`
 
 ### GCS bucket 與 IAM(重建或加新環境時照此)
 

@@ -1,6 +1,11 @@
 import { getModelToken } from "@nestjs/mongoose";
 import type { Model } from "mongoose";
 
+import {
+  SEED_DEFINITION_INSTALLATIONS_COLLECTION,
+  SEED_LOCK_COLLECTION,
+} from "@repo/domain/seed";
+
 import { BusinessRelationshipsRepository } from "../business-relationships.repository";
 import { FormSubmissionUsageCounter } from "../form-submission-usage";
 import type { DatabaseRegistration } from "../registration";
@@ -54,6 +59,11 @@ import {
   RefreshTokenSchema,
 } from "../schemas/refresh-token.schema";
 import { Role, RoleSchema } from "../schemas/role.schema";
+import {
+  SeedDefinitionInstallation,
+  SeedDefinitionInstallationSchema,
+} from "../schemas/seed-definition-installation.schema";
+import { SeedLock, SeedLockSchema } from "../schemas/seed-lock.schema";
 import { User, UserSchema } from "../schemas/user.schema";
 import {
   WORKFLOW_INSTANCES_COLLECTION,
@@ -74,6 +84,7 @@ import {
   Workflow,
   WorkflowSchema,
 } from "../schemas/workflow.schema";
+import { SeedLockReader } from "../seed-lock.reader";
 import { WorkflowSubmissionStore } from "../workflow-submission-store";
 import { WorkflowTasksRepository } from "../workflow-tasks.repository";
 import { WorkflowsRepository } from "../workflows.repository";
@@ -95,13 +106,14 @@ import {
   PermissionsRepository,
   RefreshTokensRepository,
   RolesRepository,
+  SeedDefinitionInstallationsRepository,
   UsersRepository,
   WorkflowInstancesRepository,
   WorkflowVersionsRepository,
 } from "./repositories";
 
 /**
- * 底座的資料登記(docs/plans/feature-registration.md「API 與資料登記契約」):
+ * 底座的資料登記(docs/concepts/data-layer-and-isolation.md「底座與專案資料的組裝」):
  * 每張底座 collection、它的資料層出口,以及「刪組織 / 撤銷開通前要問有沒有資料」的組織歸屬檢查。
  * 新增底座 collection 時在對應的一組加 model 與 repository;帶組織歸屬的業務表同時加一項檢查。
  *
@@ -398,5 +410,36 @@ export const BASE_DATABASE_REGISTRATIONS: readonly DatabaseRegistration[] = [
         ownerField: "orgId",
       },
     ],
+  },
+  {
+    // 受管定義的安裝紀錄(全域設定資料,只有共用定義會被安裝)與共用互斥鎖的唯讀出口;都沒有組織歸屬
+    key: "seed",
+    models: [
+      {
+        name: SeedDefinitionInstallation.name,
+        collection: SEED_DEFINITION_INSTALLATIONS_COLLECTION,
+        schema: SeedDefinitionInstallationSchema,
+      },
+      {
+        name: SeedLock.name,
+        collection: SEED_LOCK_COLLECTION,
+        schema: SeedLockSchema,
+      },
+    ],
+    repositories: [
+      {
+        modelName: SeedDefinitionInstallation.name,
+        provider: SeedDefinitionInstallationsRepository,
+      },
+      {
+        modelName: SeedLock.name,
+        provider: {
+          provide: SeedLockReader,
+          inject: [getModelToken(SeedLock.name)],
+          useFactory: (model: Model<SeedLock>) => new SeedLockReader(model),
+        },
+      },
+    ],
+    orgDataChecks: [],
   },
 ];

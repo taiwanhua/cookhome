@@ -24,6 +24,45 @@ const TSX_CLI = path.join(
   "cli.mjs",
 );
 const SEED_ENTRY = path.join(DB_MIGRATOR_ROOT, "src", "seed", "run.ts");
+const UPDATE_ENTRY = path.join(DB_MIGRATOR_ROOT, "src", "update", "run.ts");
+
+/** db-migrator 指令的結果(只給要驗指令行為的測試看)。 */
+export interface MigratorResult {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}
+
+function migratorEnv(databaseUri: string): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    MONGODB_URI: databaseUri,
+    ROOT_ADMIN_ACCOUNT: ROOT_ADMIN.account,
+    ROOT_ADMIN_EMAIL: ROOT_ADMIN.email,
+    ROOT_ADMIN_PASSWORD: ROOT_ADMIN.password,
+  };
+}
+
+/**
+ * 以子行程跑 db-migrator 的 update 指令(`args` 如 `["--down"]`、`["--status"]`),回結果不丟錯:
+ * 給要驗「指令在這個資料庫狀態下被拒絕 / 放行」的測試用。
+ */
+export function runMigratorUpdate(
+  databaseUri: string,
+  args: readonly string[],
+): MigratorResult {
+  const { status, stdout, stderr } = spawnSync(
+    process.execPath,
+    [TSX_CLI, UPDATE_ENTRY, ...args],
+    {
+      cwd: DB_MIGRATOR_ROOT,
+      env: migratorEnv(databaseUri),
+      encoding: "utf8",
+      timeout: 180_000,
+    },
+  );
+  return { status, stdout, stderr };
+}
 
 /** 測試用 root 初始帳號(正式環境自 Secret Manager 注入,ADR-0002);密碼為測試假值。 */
 export const ROOT_ADMIN = {
@@ -65,21 +104,30 @@ export interface AuthTestApp {
     options?: GraphqlCallOptions,
   ) => Promise<GraphqlResult<TData>>;
   /**
-   * 對**這個測試 app 自己的資料庫**再跑一次 seed(模擬一般部署的 migrate → seed),
+   * 對**這個測試 app 自己的資料庫**再跑一次 seed(模擬一般部署的 update:migration → 種子),
    * 用來驗「人經 API 改過的值,重跑 seed 後還在」。資料庫由 harness 自己決定,不收外部 URI。
    */
   reseed: () => void;
+  /** 對這個測試 app 自己的資料庫跑 db-migrator 的 update 指令(帶參數),回結果不丟錯。 */
+  runUpdate: (args: readonly string[]) => MigratorResult;
   close: () => Promise<void>;
 }
 
-function buildDatabaseUri(baseUri: string, databaseName: string): string {
+export function buildDatabaseUri(
+  baseUri: string,
+  databaseName: string,
+): string {
   const uri = new URL(baseUri);
   uri.pathname = `/${databaseName}`;
   return uri.toString();
 }
 
-/** 以子行程跑 db-migrator 的 seed 指令,對測試資料庫種 root 帳號 / 根組織 / 種子角色。 */
-function seedDatabase(databaseUri: string): void {
+/**
+ * 以子行程跑 db-migrator 的 seed 指令,對測試資料庫種 root 帳號 / 根組織 / 種子角色。
+ * seed 是 update 的相容別名:同一次執行先跑尚未成功的 migration、再同步種子(與一般部署同一條路),
+ * 自己取得並釋放整批互斥鎖。正式 registry 沒有登記受管定義時不需要 api 的建置產物。
+ */
+export function seedDatabase(databaseUri: string): void {
   const result = spawnSync(process.execPath, [TSX_CLI, SEED_ENTRY], {
     cwd: DB_MIGRATOR_ROOT,
     env: {
@@ -216,6 +264,7 @@ async function bootAuthTestApp(
     reseed: () => {
       seedDatabase(databaseUri);
     },
+    runUpdate: (args) => runMigratorUpdate(databaseUri, args),
     close: async () => {
       await app.close();
       await connection.dropDatabase();

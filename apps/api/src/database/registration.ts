@@ -38,7 +38,7 @@ export interface OrgDataCheckRegistration {
 }
 
 /**
- * 一份資料登記(docs/plans/feature-registration.md「API 與資料登記契約」):
+ * 一份資料登記(docs/concepts/data-layer-and-isolation.md「底座與專案資料的組裝」):
  * 一組 model、它們的資料層出口,以及組織歸屬檢查。底座的放 `database/base/registrations.ts`,
  * 專案的放 `project/database/registrations.ts`,由 `database.module.ts` 組裝。
  */

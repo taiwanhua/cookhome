@@ -36,7 +36,7 @@ type PermissionRecord = Persisted<PermissionDocument>;
 
 /**
  * 自鎖保護的那棵子樹(#261 / #233):模組與權限這一頁自己。
- * key 的正本是 `apps/db-migrator/seeds/modules.ts`;這裡是唯一一處以 key 指名它的地方,
+ * key 的正本是 `apps/db-migrator/seeds/base/modules.ts`;這裡是唯一一處以 key 指名它的地方,
  * 子樹判定仍走 `ancestors`(ADR-0004「反向歸屬不解析字串」)。
  */
 const SELF_LOCK_MODULE_KEY = "system.module-manager";

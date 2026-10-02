@@ -11,7 +11,7 @@ import {
 import { RecipesLegacyRepository } from "./recipes-legacy.repository";
 
 /**
- * 專案的資料登記(docs/plans/feature-registration.md「API 與資料登記契約」)。
+ * 專案的資料登記(docs/concepts/data-layer-and-isolation.md「底座與專案資料的組裝」)。
  *
  * 新增專案租戶資料時在這裡加一份登記:schema 沿用示範模組的形狀(先以 schema 選項定 collection,
  * 再掛 `baseFieldsPlugin` 與 `tenantScopePlugin`;模組資料用 `moduleData: true`)、

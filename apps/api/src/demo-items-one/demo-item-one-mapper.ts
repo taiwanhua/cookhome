@@ -15,7 +15,7 @@ import {
 
 export type DemoItemOneRecord = Persisted<DemoItemOneDocument>;
 
-/** 模組 key 與權限 key(seed 正本 `apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`)。 */
+/** 模組 key 與權限 key(seed 正本 `apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`)。 */
 export const SAMPLE_ONE_KEY = "demo.sub.sample-one";
 export const SAMPLE_ONE_PERMISSIONS = {
   view: `${SAMPLE_ONE_KEY}.view`,

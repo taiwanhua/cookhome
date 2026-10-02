@@ -160,6 +160,25 @@ export class RetireCurrentVersionInput {
   expectedVersion!: number;
 }
 
+/** 把共用表單的某個已發布版本匯出成專案設定檔(唯讀;只有站在根組織才能做)。 */
+@InputType()
+export class ExportFormSeedInput {
+  @Field(() => ID)
+  formKey!: string;
+
+  /** 要匯出的版本號:必須是已發布的版本,不會以目前版本代替。 */
+  @Field(() => Int)
+  version!: number;
+
+  /** 專案內這張表單的發布識別:小寫英數開頭,後接小寫英數 / 底線 / 連字號,最長 64。 */
+  @Field(() => String)
+  revision!: string;
+
+  /** 發布說明,必填(隨設定交付,安裝時當成該版的變更說明)。 */
+  @Field(() => String)
+  changelog!: string;
+}
+
 @InputType()
 export class AssignFormToTenantsInput {
   @Field(() => ID)

@@ -22,7 +22,7 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 | `packages/logger`                            | 共用 logger(唯一可用 `console` 的地方)                                                                 |
 | `packages/config-*`、`packages/jest-presets` | ESLint / Prettier / TypeScript / Jest 共用設定                                                         |
 
-正本:`docs/architecture.md`、根目錄 `package.json`、`pnpm-workspace.yaml`;專案值與底座契約的歸屬見[設定來源與所有權](plans/project-settings.md#設定來源與所有權)。
+正本:`docs/architecture.md`、根目錄 `package.json`、`pnpm-workspace.yaml`;專案值與底座契約的歸屬見[架構](architecture.md#底座與專案的維護歸屬),設定位置見[初始化索引](project-initialization.md)。
 
 ## 七個核心概念
 
@@ -38,13 +38,13 @@ Turborepo monorepo(pnpm workspace),套件名一律 `@repo/` 前綴。
 **4. 資料範圍與可見範圍。** 新增專案租戶資料經 BaseRepository,自動加上「組織 ∈ 範圍」;底座專用資料介面與既有 Recipe 例外由固定資料層管理。業務資料看**可見範圍**(所屬組織 + 可見性開關);治理頁看**管理範圍**(持有角色的擁有組織子樹)。資料範圍規則在可見範圍內再縮小。
 正本:`docs/concepts/data-layer-and-isolation.md`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`
 
-**5. 設定資料(模組樹 / 權限 / 欄位)。** 模組、權限、種子角色、欄位選項是種子資料:寫在程式裡,以 key 冪等同步到各環境。業務資料不跨環境搬。
+**5. 設定資料。** 模組、權限、種子角色、欄位選項,以及明確登記的共用表單與流程,由 TypeScript seed 交付到各環境。普通設定以 key 同步,表單與流程沿版本生命週期發布。業務資料不跨環境搬。
 正本:`docs/concepts/data-layer-and-isolation.md`「種子資料與遷移」、`apps/db-migrator/seeds/`
 
 **6. 稽核與儲存。** 模組層把變更寫進只增不改的 `audit_logs`。檔案由瀏覽器直傳 GCS,DB 存路徑、看時現簽;交易信件走 Resend。
 正本:`docs/concepts/authorization.md`「稽核」、`docs/concepts/storage-and-mail.md`、`apps/api/src/audit/`、`apps/api/src/storage/`
 
-**7. 表單模組與審核流程。** 欄位由使用者在後台設計的模組走表單引擎:表單版本化發布,提交綁版本、每次修改留完整修訂;表單可綁審核流程,送出後由流程實例推進關卡,申請人與審核者在申請中心操作。表單與流程是執行期資料(畫面上設計、分派給租戶),模組骨架仍由 seed 宣告。
+**7. 表單模組與審核流程。** 欄位由使用者在後台設計的模組走表單引擎:表單版本化發布,提交綁版本、每次修改留完整修訂;表單可綁審核流程,送出後由流程實例推進關卡,申請人與審核者在申請中心操作。共用定義可納入專案 seed;租戶客製內容、分派與綁定仍在各環境獨立管理。
 正本:`docs/concepts/form-engine.md`、`docs/concepts/workflow-engine.md`、`apps/api/src/forms/`、`apps/api/src/workflows/`
 
 ## 閱讀路線
@@ -91,12 +91,8 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/deployment.md`                                                                        | 部署、release、分支對齊、reset                   | 部署或 release             |
 | `docs/env-registry.md`                                                                      | 環境變數登記                                     | 新增或改環境變數           |
 | `docs/branding.md`                                                                          | 品牌文字、色彩、網域、儲存鍵登記                 | 動品牌元素或儲存鍵         |
-| `docs/plans/base-sync.md`                                                                   | 底座同步定案、本批交付、後續工作包與 Figma 實測  | 接手底座抽離與同步工作     |
-| `docs/plans/project-settings.md`                                                            | 專案設定與部署識別的介面及兩張實作票             | 檢視下一批抽離範圍         |
-| `docs/plans/feature-registration.md`                                                        | 頁面、help、API 資料層與 GraphQL 的登記契約      | 實作功能新增與客製替換     |
+| `docs/plans/base-sync.md`                                                                   | 底座抽離、初始化與跨專案同步的未完成工作         | 接手底座抽離與同步工作     |
 | `docs/project-initialization.md`                                                            | 初始化設定的正本索引與驗證責任                   | 建立專案與補齊初始化工具   |
 | `docs/tmp/dis.md`                                                                           | 進行中討論與待辦                                 | 查尚未定案的事             |
-| `docs/tmp/base-boundary-inventory.md`                                                       | 底座維護歸屬、組裝入口與同步盤點草案             | 討論底座抽離及初始化邊界   |
-| `docs/tmp/project-bootstrap-inventory.md`                                                   | 新專案初始化檔案與 seed 欄位盤點                 | 設計初始化、升級與還原流程 |
 
 正本:`docs/` 目錄本身;新增文件時在本表補一行。

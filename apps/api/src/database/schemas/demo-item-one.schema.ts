@@ -5,7 +5,7 @@ import { baseFieldsPlugin } from "../plugins/base-fields.plugin";
 import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
 
 /**
- * 狀態的固定選項:與 `apps/db-migrator/seeds/modules/demo.sub.sample-one.ts` 的
+ * 狀態的固定選項:與 `apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts` 的
  * `dataScopeTarget.fields[status].options` 的 value 一一對應(ADR-0008 的 enum 欄位)。
  */
 export const DEMO_ITEM_ONE_STATUSES = [
@@ -18,7 +18,7 @@ export type DemoItemOneStatus = (typeof DEMO_ITEM_ONE_STATUSES)[number];
 
 /**
  * 這張表的資料固定屬於哪個模組(`tenantScopePlugin` 的 `moduleData`;固定欄位模組寫死自己的 key)。
- * 與 `apps/db-migrator/seeds/modules/` 的模組 key 一致;回填舊資料的是 `data_module-data-fields` migration。
+ * 與 `apps/db-migrator/seeds/base/modules/` 的模組 key 一致;回填舊資料的是 `data_module-data-fields` migration。
  */
 export const DEMO_ITEM_ONE_MODULE_KEY = "demo.sub.sample-one";
 
@@ -39,7 +39,7 @@ export class DemoItemOne {
 
   /**
    * 狀態;資料範圍目標的 enum 欄位(ADR-0008,正本宣告在
-   * `apps/db-migrator/seeds/modules/demo.sub.sample-one.ts` 的 `dataScopeTarget.fields`)。
+   * `apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts` 的 `dataScopeTarget.fields`)。
    * 新資料預設「草稿」(`draft`),選項與 seed 宣告的 value 一一對應。
    */
   @Prop({ type: String, enum: DEMO_ITEM_ONE_STATUSES, default: "draft" })

@@ -7,7 +7,7 @@ import { usePermissions } from "./usePermissions";
 import { useSession } from "./useSession";
 
 /**
- * 申請中心的權限(seed 正本 `apps/db-migrator/seeds/modules/apply-center.ts`;admin 不能 import
+ * 申請中心的權限(seed 正本 `apps/db-migrator/seeds/base/modules/apply-center.ts`;admin 不能 import
  * db-migrator,STRUCT-01)。沒有它的人打 `applyCenterCounts` 會被拒,所以不發請求。
  */
 const APPLY_CENTER_VIEW_PERMISSION = "apply-center.view";

@@ -105,6 +105,7 @@ jobs:
             # 部署設定不屬於任何 package,turbo 看不到,由 deploy-affected.mjs 判斷:
             #   deploy/project/ 或 scripts/project-settings/ 有變 → api 與 admin 都重建(API 網址烘在 admin image)
             #   deploy/env/ 或本 workflow 有變 → 只有 api(admin 不吃 runtime env 檔)
+            #   apps/db-migrator/ 有變(種子、快照、migration、執行器)→ 要跑 update,即使 api image 不必重建
             # 只有明確印出 false 才交給 turbo;腳本失敗或沒有輸出一律保守重建
             case "$(git diff --name-only "$base...HEAD" | node scripts/project-settings/deploy-affected.mjs "$2")" in
               false) ;;
@@ -117,11 +118,13 @@ jobs:
           api=$(decide "$API_SERVICE" @repo/api)
           admin=$(decide "$ADMIN_SERVICE" @repo/admin)
           migrator=$(decide "$API_SERVICE" @repo/db-migrator)
-          migrate=false; { [ "$api" = true ] || [ "$migrator" = true ]; } && migrate=true
+          # api 或 db-migrator 任一有變就跑 update:只改專案種子、快照或 migration 的部署不會換 api image,
+          # 但設定照樣要交付(實際的設定版本記在 seed_update_runs.releaseCommit,不以 api image 的 SHA 代替)
+          update=false; { [ "$api" = true ] || [ "$migrator" = true ]; } && update=true
           echo "api=$api" >> "$GITHUB_OUTPUT"
           echo "admin=$admin" >> "$GITHUB_OUTPUT"
-          echo "migrate=$migrate" >> "$GITHUB_OUTPUT"
-          echo "::notice::部署判斷:api=$api admin=$admin migrate→seed=$migrate(force=$FORCE)"
+          echo "update=$update" >> "$GITHUB_OUTPUT"
+          echo "::notice::部署判斷:api=$api admin=$admin update=$update(force=$FORCE)"
 
       # image tag = 分支 HEAD 的 git SHA;admin 是 Vite,VITE_* build 時烘入 → 每環境各一顆
       - name: build + push api
@@ -184,25 +187,36 @@ jobs:
             --image="$REGISTRY/admin:$SHA$IMAGE_SUFFIX" \
             --port=8080 --allow-unauthenticated --min-instances=0 --max-instances=2 --quiet
 
-      # 部署成功後對該環境資料庫跑「遷移 → 種子」(ADR-0002:CI runner 直連,不放 server 啟動)。
-      # 只裝 db-migrator 及其依賴;MONGOMS_DISABLE_POSTINSTALL 避免下載測試用的 mongod 二進位檔。
+      # 部署成功後對該環境資料庫跑一次 update:migration → 普通種子 → 受管定義 → 核對
+      #(ADR-0002:CI runner 直連,不放 server 啟動;順序仍是先部署 api、再更新資料)。
+      # 受管定義由 api 的 CLI 發布,所以連 api 與它的 workspace 依賴一起安裝、建置 —— 用的是這個 checkout 的產物,
+      # 不是雲端上那顆(可能較舊的)api image。MONGOMS_DISABLE_POSTINSTALL 避免下載測試用的 mongod 二進位檔。
       - uses: pnpm/action-setup@v4 # 版本讀 package.json 的 packageManager 欄位
-        if: steps.affected.outputs.migrate == 'true'
+        if: steps.affected.outputs.update == 'true'
 
       - uses: actions/setup-node@v4
-        if: steps.affected.outputs.migrate == 'true'
+        if: steps.affected.outputs.update == 'true'
         with:
           node-version: 22
           cache: pnpm
 
-      - name: 安裝 db-migrator 依賴
-        if: steps.affected.outputs.migrate == 'true'
-        run: pnpm install --frozen-lockfile --filter @repo/db-migrator...
+      - name: 安裝 db-migrator 與 api 的依賴
+        if: steps.affected.outputs.update == 'true'
+        run: pnpm install --frozen-lockfile --filter "@repo/db-migrator..." --filter "@repo/api..."
         env:
           MONGOMS_DISABLE_POSTINSTALL: "1"
 
-      - name: migrate → seed
-        if: steps.affected.outputs.migrate == 'true'
+      # `...` = 連 workspace 依賴一起、依相依順序建置;建完確認 dist/seed/run.js 啟動得起來(不需要資料庫)。
+      # 注意 `run update`:少了 run,pnpm 會把 update 當成它自己的升級依賴指令。
+      - name: 建置 api 的受管定義 CLI
+        if: steps.affected.outputs.update == 'true'
+        run: |
+          pnpm --filter "@repo/api..." run build
+          pnpm --filter @repo/db-migrator run update --check-cli
+
+      # 設定版本取 GITHUB_SHA(就是這次 checkout 的 commit),由指令記進 seed_update_runs
+      - name: update(migration → 種子 → 定義)
+        if: steps.affected.outputs.update == 'true'
         env:
           ROOT_ADMIN_ACCOUNT: ${{ steps.cfg.outputs.root_account }}
           ROOT_ADMIN_EMAIL: ${{ steps.cfg.outputs.root_email }}
@@ -214,5 +228,4 @@ jobs:
           echo "::add-mask::$MONGODB_URI"
           echo "::add-mask::$ROOT_ADMIN_PASSWORD"
           export MONGODB_URI ROOT_ADMIN_PASSWORD
-          pnpm --filter @repo/db-migrator migrate
-          pnpm --filter @repo/db-migrator seed
+          pnpm --filter @repo/db-migrator run update

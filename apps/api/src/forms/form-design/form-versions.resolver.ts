@@ -14,6 +14,7 @@ import {
 import {
   CreateFormVersionDraftInput,
   DeleteFormVersionDraftInput,
+  ExportFormSeedInput,
   FormKeyInput,
   PreviewFormVersionInput,
   PublishFormVersionInput,
@@ -22,9 +23,11 @@ import {
   ValidateFormVersionInput,
 } from "./dto/form-design.input";
 import { FormPublishService } from "./form-publish.service";
+import { FormSeedExportService } from "./form-seed-export.service";
 import { FormVersionsService } from "./form-versions.service";
 import { FormsService } from "./forms.service";
 import {
+  ExportFormSeedPayload,
   FormPayload,
   FormPreviewPayload,
   FormVersionsPayload,
@@ -41,6 +44,7 @@ export class FormVersionsResolver {
     private readonly forms: FormsService,
     private readonly access: FormAccessService,
     private readonly userNames: FormUserNames,
+    private readonly seedExport: FormSeedExportService,
   ) {}
 
   /** `version` 省略 = 草稿(附檢查器結果)。 */
@@ -150,6 +154,19 @@ export class FormVersionsResolver {
     @CurrentOperator() operator: OperatorContext,
   ): Promise<FormValidationReport> {
     return this.versions.validate(await this.access.factsOf(operator), input);
+  }
+
+  /**
+   * 把共用表單的指定已發布版本匯出成專案設定檔(唯讀)。這裡只擋 `view`;
+   * `edit`、站在根組織、共用表單與版本狀態由 service 自己守。
+   */
+  @RequirePermission(FORMS_PERMISSIONS.view)
+  @Query(() => ExportFormSeedPayload, { name: "exportFormSeed" })
+  async exportFormSeed(
+    @Args("input") input: ExportFormSeedInput,
+    @CurrentOperator() operator: OperatorContext,
+  ): Promise<ExportFormSeedPayload> {
+    return this.seedExport.export(await this.access.factsOf(operator), input);
   }
 
   /** 設計器「預覽」:對草稿跑計算與條件,不建提交。 */

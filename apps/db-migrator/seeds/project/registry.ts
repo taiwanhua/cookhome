@@ -1,0 +1,17 @@
+import type { SeedSource } from "../base/seed-source";
+
+/**
+ * 專案的種子來源(正本:ADR-0002)。專案新增的內容登記在這裡,不改 `seeds/base/`:
+ *
+ * - `moduleDeclarations`:專案模組(宣告方式與 helper 同底座,見 `../base/module-declaration.ts`、
+ *   `../base/form-module-declaration.ts`;子模組可以掛在底座的父節點底下)。modules / permissions /
+ *   資料範圍目標 / 租戶管理員模板由組裝入口推導,不要另外用 documents 宣告
+ * - `seeds`:專案的普通種子(每類一檔,放本目錄)與明確登記的共用表單 / 流程定義
+ *   (設計器匯出的 `.seed.ts` 放 `./revisions/`,在此 import 它的 `seed`)
+ *
+ * 與底座撞 key 不會靜默覆蓋:組裝時直接拒絕。
+ */
+export const projectSeedSource: SeedSource = {
+  moduleDeclarations: [],
+  seeds: [],
+};

@@ -32,7 +32,7 @@ Playwright 的用途收斂成一件事:把 `docs/testing/permission-scenarios.md
 改成機器裁決。E2E 慢且脆、數量是成本,所以解法是「**寫了但不自動跑**」:
 
 - **跑的時機只有手動觸發**:本機 `pnpm e2e`、CI 是 `.github/workflows/e2e.yml`(只有 `workflow_dispatch`)。
-  `ci.yml` **不引用** e2e —— 一條劇本要 build api + admin、起 Mongo、migrate + seed 再開瀏覽器,
+  `ci.yml` **不引用** e2e —— 一條劇本要 build api + admin、起 Mongo、執行 update 再開瀏覽器,
   放進每個 PR 會把免費方案的 Actions 額度吃光。
 - **誰決定跑**:使用者。改到權限解析、模組樹 / 路由防守、示範模組、角色矩陣的票,交件時在 PR 註明
   是否建議跑、理由與建議的劇本;使用者決定後才觸發(`gh workflow run e2e.yml --ref <分支>`)。
@@ -50,7 +50,7 @@ Playwright 的用途收斂成一件事:把 `docs/testing/permission-scenarios.md
 
 api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 打 `/graphql`(本地自起 mongodb-memory-server;CI 用 service container),驗回應與資料庫最終狀態。固定做法(先例:`apps/api/src/auth/auth.test.ts`、`apps/api/src/auth/test-support/auth-app.ts`):
 
-- **夾具**:測試開始前以**子行程**跑 db-migrator 的 `seed` 指令種資料(root 帳號、模組樹、權限、種子角色);STRUCT-01 禁 app 互 import,所以不能 import seed 的程式碼。額外的測試角色 / 使用者用 RelationService 具名方法或直接寫測試資料庫建(測試檔不受裸查詢禁令約束)
+- **夾具**:測試開始前以**子行程**跑 db-migrator 的 `seed` 指令(完整 `update` 的相容別名)執行 migration 並建立種子資料(root 帳號、模組樹、權限、種子角色);STRUCT-01 禁 app 互 import,所以不能 import seed 的程式碼。額外的測試角色 / 使用者用 RelationService 具名方法或直接寫測試資料庫建(測試檔不受裸查詢禁令約束)
 - **信件不真寄**:注入記錄用的 `MailService` adapter,測試從它讀出 token 走下一步;api 未設 `RESEND_API_KEY` 時本來就是這個模式
 - **測試專用的 resolver / module**(如驗 `@RequirePermission` 用的探針端點)放 `test-support/`,只在測試的 `extraModules` 掛上;**測試用 app 的 schema 走記憶體**(`NODE_ENV=test` 時 `autoSchemaFile: true`),探針才不會寫進提交的 `schema.gql`
 - 例外:某個能力在 GraphQL 端點上看不到(如守門器產出的操作者上下文)才允許經 `app.get(Service)` 從 DI 取出來驗 — 這是第二個接縫,PR 要說明理由
@@ -60,7 +60,7 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 
 - `extraModules` 繼續用於權限探針;驗收專案登記則只替換 `project/api-modules.ts` 與 `project/database/registrations.ts` 的來源,經真正的 AppModule / DatabaseModule 啟動 fixture。不得只把 fixture module 直接塞進 `extraModules`,或 mock 組裝器、guards、repository、`OrgBusinessDataReader`,來宣稱正式登記可用。
 - fixture 的資料與授權由隔離測試環境建立,不改正式 seed。以真 GraphQL / MongoDB 驗證授權、租戶隔離、軟刪除與資料範圍;專案資料即使被資料範圍隱藏,仍須阻止刪組織及撤銷開通,其他組織資料不誤擋,檢查失敗不能放行。
-- 碰撞與缺少必要資料保護的負例須在組裝或啟動時失敗;另保留真實正式登記來源的載入驗證。fixture 的 import 例外只限所有權方向,不擴大 raw query 豁免(STRUCT-12)。細項見[功能登記規格](../../plans/feature-registration.md#驗收)。
+- 碰撞與缺少必要資料保護的負例須在組裝或啟動時失敗;另保留真實正式登記來源的載入驗證。fixture 的 import 例外只限所有權方向,不擴大 raw query 豁免(STRUCT-12)。
 
 ## TEST-08 admin 的元件測試:MSW 攔網路層 + React Testing Library
 
@@ -82,7 +82,7 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 
 - 正式來源載入測試保留底座與專案實際登記表;專案 fixture 用獨立 Jest project 的精確 mapper 只替換 `app/project/module-pages.ts` 與 `app/project/page-replacements.ts`,走真正 `app/module-pages.tsx`、RootProviders、AppRoutes、ModuleRoute 與殼。不可 mock 組裝器或守門,也不能只用 `renderApp` 的 `extra` 掛客製頁來代替登記驗收。
 - 斷言新增頁、同網址替換、移除替換回原版、寬度繼承與明確覆寫,以及撤銷授權後不能 render 或留下頁籤。表單要驗四頁、lazy、模板優先序、申請中心及不同 options 組裝互不污染。fixture 不進正式 project 清單,不放寬分層或循環依賴檢查。
-- help 需分別驗三來源碰撞與替換規則、實際 HelpButton 顯示選中的內容及通用回退。另跑真 Vite build 與 `check:help-bundle`,涵蓋三來源、錯命名及必備底座通用檔;bundle 有文字只證明收檔,不等於替換內容已正確顯示。指令見 [toolbox](../../agents/toolbox.md#pnpm--turbo建置測試格式),完整驗收見[功能登記規格](../../plans/feature-registration.md#驗收)。
+- help 需分別驗三來源碰撞與替換規則、實際 HelpButton 顯示選中的內容及通用回退。另跑真 Vite build 與 `check:help-bundle`,涵蓋三來源、錯命名及必備底座通用檔;bundle 有文字只證明收檔,不等於替換內容已正確顯示。指令見 [toolbox](../../agents/toolbox.md#pnpm--turbo建置測試格式)。
 
 ### 依元件而定的陷阱
 

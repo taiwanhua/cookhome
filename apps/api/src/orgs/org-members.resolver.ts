@@ -11,7 +11,7 @@ import {
 } from "./models/org-member.model";
 import { OrgMembersService } from "./org-members.service";
 
-/** 權限 key(docs/modules/org-manager.md 權限表;種子 apps/db-migrator/seeds/modules/system.ts)。 */
+/** 權限 key(docs/modules/org-manager.md 權限表;種子 apps/db-migrator/seeds/base/modules/system.ts)。 */
 const PERMISSIONS = {
   viewMembers: "system.org-manager.view-members",
   addMembers: "system.org-manager.add-members",

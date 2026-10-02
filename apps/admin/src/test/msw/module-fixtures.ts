@@ -3,7 +3,7 @@ import { ModuleEngine, ModuleSidebarType } from "@repo/graphql";
 import { type TestModule, overviewModule } from "./auth-handlers";
 
 /**
- * 與 `apps/db-migrator/seeds/modules/*` 同形的模組陣列(ADR-0011 步驟 7 的輸出形狀:
+ * 與 `apps/db-migrator/seeds/base/modules/*` 同形的模組陣列(ADR-0011 步驟 7 的輸出形狀:
  * route 為完整路徑、api 樹 route 為 null),供殼的測試當 `me.modules` 夾具。
  * 順序刻意不照 order 排,驗證前端自行排序。
  * `icon` 照 `docs/modules/module-manager.md`「側欄圖示」的初值對照表(隱藏頁一律 null)。
@@ -56,7 +56,7 @@ const hidden = (
   route,
 });
 
-/** 系統管理群組 + 六個治理模組(seeds/modules/system.ts)。 */
+/** 系統管理群組 + 六個治理模組(seeds/base/modules/system.ts)。 */
 export const systemModules: TestModule[] = [
   link(
     "m-user",
@@ -115,7 +115,7 @@ export const systemModules: TestModule[] = [
   ),
 ];
 
-/** 示範群組 `demo`(seeds/modules/demo.sub.sample-one.ts);只掛示範表單(群組內)的測試單獨拿它補父節點。 */
+/** 示範群組 `demo`(seeds/base/modules/demo.sub.sample-one.ts);只掛示範表單(群組內)的測試單獨拿它補父節點。 */
 export const demoGroupNode: TestModule = group(
   "m-demo",
   "demo",
@@ -126,7 +126,7 @@ export const demoGroupNode: TestModule = group(
   "extension",
 );
 
-/** 示範模組2 家族:示範群組 → 示範模組2 + 三個隱藏頁(seeds/modules/demo.sample-two.ts)。 */
+/** 示範模組2 家族:示範群組 → 示範模組2 + 三個隱藏頁(seeds/base/modules/demo.sample-two.ts)。 */
 export const sampleTwoModules: TestModule[] = [
   hidden(
     "m-two-edit",
@@ -164,7 +164,7 @@ export const sampleTwoModules: TestModule[] = [
   ),
 ];
 
-/** 示範模組1 家族:示範次群組 → 示範模組1 + 三個隱藏頁(seeds/modules/demo.sub.sample-one.ts)。 */
+/** 示範模組1 家族:示範次群組 → 示範模組1 + 三個隱藏頁(seeds/base/modules/demo.sub.sample-one.ts)。 */
 export const sampleOneModules: TestModule[] = [
   group(
     "m-demo-sub",
@@ -238,7 +238,7 @@ export const placeholderModules: TestModule[] = [
   ),
 ];
 
-/** 隱藏的純 API 樹:在陣列裡但 route 為 null(seeds/modules/api.ts)。 */
+/** 隱藏的純 API 樹:在陣列裡但 route 為 null(seeds/base/modules/api.ts)。 */
 export const apiModules: TestModule[] = [
   hidden("m-api", "api", "API 能力", null, 99, null, "tune"),
 ];

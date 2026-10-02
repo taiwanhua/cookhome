@@ -4,11 +4,15 @@
 
 ## 共同正本與角色
 
-`CLAUDE.md` 是所有 agent 的文件入口;規格、決策、驗收與操作步驟留在版控文件,任務範圍與進度留在 issue/PR。看板 Status 是任務生命週期正本,流程見 [issue tracker](issue-tracker.md);分支、批次 release、部署及對齊規則見 [deployment](../deployment.md)。本文件不另訂第二套 SOP。
+`CLAUDE.md` 是所有 agent 的文件入口;目前行為、決策與操作留在版控正本,任務範圍、進度與驗收紀錄留在 issue/PR。看板 Status 是任務生命週期正本,流程見 [issue tracker](issue-tracker.md);分支、批次 release、部署及對齊規則見 [deployment](../deployment.md)。本文件不另訂第二套 SOP。
 
 常用分工是 Codex 規劃、審查與協調主流程,Claude 負責程式與測試。這是角色分配,不是工具限制:Claude 可以單獨承接規劃、實作、審查與主流程,也能換其他人員或 agent;依當前使用者授權與 issue 分工執行,不需要先喚醒 Codex。
 
-任務計畫如 [底座同步](../plans/base-sync.md) 保存跨票要求與待決事項;領域規則仍依 `CONTEXT.md`、ADR、概念文件及程式正本。共同文件不可把必要規格只指向 `.codex/`、聊天連結或個人絕對路徑。工具本地紀錄可以協助恢復,但不能代替共同正本。
+任務計畫如 [底座同步](../plans/base-sync.md) 保存未完成範圍與待決事項;完成後依 [STRUCT-11](../standards/general/structure.md#struct-11-正式文件寫現況完成的計畫歸回正本) 精簡歸入既有正本並移除暫存文件。共同文件不可把必要規格只指向 `.codex/`、聊天連結或個人絕對路徑。工具本地紀錄可以協助恢復,但不能代替共同正本。
+
+方案討論與規格設計遵守 [STRUCT-13](../standards/general/structure.md#struct-13-方案設計先核對現況優先延伸既有機制):先核對專案實際用法,優先延伸既有機制。規則本文只在結構規範維護,各工具的記憶與指引指向同一正本。
+
+方案討論與規格設計遵守 [STRUCT-13](../standards/general/structure.md#struct-13-方案設計先核對現況優先延伸既有機制):先核對專案實際用法,優先延伸既有機制。規則本文只在結構規範維護,各工具的記憶與指引指向同一正本。
 
 ## 一票一位寫入 owner、一個工作樹
 

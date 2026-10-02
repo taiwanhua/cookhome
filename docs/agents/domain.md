@@ -16,6 +16,8 @@ engineering skills 在探索 codebase 時,應如何使用本 repo 的領域文�
 
 沒有 `CONTEXT-MAP.md`,也沒有各 context 自己的 `docs/adr/`。`CONTEXT.md` 與 ADR 由 `/domain-modeling` 在術語或決策真正敲定時新增或改寫。
 
+正式文件只描述目前行為與操作;開發計畫完成後精簡歸入既有正本並移除,不保留第二套需求文件。文件歸屬與生命週期見 [STRUCT-11](../standards/general/structure.md#struct-11-正式文件寫現況完成的計畫歸回正本)。
+
 ## 概念導讀(依理解順序)
 
 想理解底座如何運作,照這個順序讀:
@@ -52,9 +54,9 @@ concepts 讀完之後,接著看「規則長成程式之後的樣子」。示範�
 
 底座示範頁在 `apps/admin/src/pages/base/demo/`:示範模組1 / 2 各一組頁面(`SampleOne*` / `SampleTwo*`),共用 CRUD 模板在 `apps/admin/src/components/base/crud/`。示範表單沒有專屬頁面,在 `app/base/module-pages.ts` 的 `forms` 宣告,由固定入口 `app/module-pages.tsx` 展開引擎四頁與 options。前端要動手之前先讀 `docs/concepts/frontend-architecture.md` 與 `DemoModuleConfig` 的逐項 JSDoc(前端藍本的規格)。
 
-引用專案新增頁放 `pages/project/`,在 `app/project/module-pages.ts` 登記;客製底座頁另放 `app/project/page-replacements.ts`,保留底座原版。help 同樣分 `md/module-help/base/`、`project/additions/`、`project/replacements/`;表單 options 經 RootProviders 注入,不要新增全域可變登記表。API 功能與資料也有各自的專案來源;新增資料要同時登記刪組織與撤銷開通檢查。接手前讀[功能登記規格](../plans/feature-registration.md),依 STRUCT-12 查固定入口,依 TEST-07 / TEST-08 驗真正組裝路徑。
+引用專案新增頁放 `pages/project/`,在 `app/project/module-pages.ts` 登記;客製底座頁另放 `app/project/page-replacements.ts`,保留底座原版。help 同樣分 `md/module-help/base/`、`project/additions/`、`project/replacements/`;表單 options 經 RootProviders 注入,不要新增全域可變登記表。API 功能與資料也有各自的專案來源;新增資料要同時登記刪組織與撤銷開通檢查。接手前讀[前端架構](../concepts/frontend-architecture.md)及[資料層組裝](../concepts/data-layer-and-isolation.md#底座與專案資料的組裝),依 STRUCT-12 查固定入口,依 TEST-07 / TEST-08 驗真正組裝路徑。
 
-正本:`apps/admin/src/components/base/crud/demo-module-config.ts`、`apps/admin/src/app/base/module-pages.ts`、`apps/admin/src/app/project/`、`apps/db-migrator/seeds/modules/`、`docs/agents/module-scaffold.md`、`docs/standards/general/structure.md`、`docs/standards/testing/testing.md`
+正本:`apps/admin/src/components/base/crud/demo-module-config.ts`、`apps/admin/src/app/base/module-pages.ts`、`apps/admin/src/app/project/`、`apps/db-migrator/seeds/base/modules/`、`docs/agents/module-scaffold.md`、`docs/standards/general/structure.md`、`docs/standards/testing/testing.md`
 
 ## 使用詞彙表的用語
 

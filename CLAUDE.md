@@ -14,6 +14,8 @@
 
 ## Coding standards
 
+方案討論與規格設計前,先依 [STRUCT-13](docs/standards/general/structure.md#struct-13-方案設計先核對現況優先延伸既有機制)核對現有實作、格式與使用方式,優先沿用或擴充既有機制。
+
 寫或改程式碼前,先讀 `docs/standards/README.md` 的索引,只載入與改動範圍相關的規範檔;review 時引用規則編號(如 `REACT-02`)。review 中被採納的新決定要回寫進對應規範檔。
 
 凡新增或異動品牌文字、圖案、色彩、網域(程式碼或 Figma),必須同步更新 `docs/branding.md` 品牌註冊表。

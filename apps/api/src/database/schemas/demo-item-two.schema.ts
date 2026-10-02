@@ -6,7 +6,7 @@ import { tenantScopePlugin } from "../plugins/tenant-scope.plugin";
 
 /**
  * 這張表的資料固定屬於哪個模組(`tenantScopePlugin` 的 `moduleData`;固定欄位模組寫死自己的 key)。
- * 與 `apps/db-migrator/seeds/modules/` 的模組 key 一致;回填舊資料的是 `data_module-data-fields` migration。
+ * 與 `apps/db-migrator/seeds/base/modules/` 的模組 key 一致;回填舊資料的是 `data_module-data-fields` migration。
  */
 export const DEMO_ITEM_TWO_MODULE_KEY = "demo.sample-two";
 

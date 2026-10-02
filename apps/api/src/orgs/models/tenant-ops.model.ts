@@ -8,7 +8,7 @@ import { Org } from "./org.model";
  *
  * 清單 = **租戶管理員模板實際綁的模組**(`role_module`)。ADR-0004 的 `isRootOnly` 只存在於
  * seed 宣告層、不落庫,所以執行期的判準就是「模板有沒有綁」— 種子已在綁定時扣除根組織專屬模組
- * (`apps/db-migrator/seeds/role-bindings.ts`),不必、也無法在執行期重算一次。
+ * (`apps/db-migrator/seeds/base/role-bindings.ts`),不必、也無法在執行期重算一次。
  */
 @ObjectType()
 export class ModuleOption {

@@ -124,7 +124,7 @@ test/       測試支援
 | 專案替換 | `app/project/page-replacements.ts` | `projectPageReplacements` 的底座目標 key 與客製 Page |
 | 固定入口 | `app/module-pages.tsx`             | 合成三份來源,匯出頁面、寬度及表單設定                |
 
-新增專案功能改專案來源即可。`ModulePageSource.pages` 收 `{ key, Page, minWidth? }`,`forms` 收 `{ moduleKey, options?, pageOverrides? }`;型別與 `composeModulePages` 在 `app/module-page-registry.ts`。組裝先展開表單四頁,再檢查空 key、來源內重複、底座與專案碰撞、表單與固定頁碰撞;錯誤包含 key 與來源,不以物件 spread 靜默覆蓋。
+新增專案功能改專案來源即可。`ModulePageSource.pages` 收 `{ key, Page, minWidth? }`,`forms` 收 `{ moduleKey, options?, pageOverrides? }`;型別與 `composeModulePages` 在 `app/module-page-registry.ts`。組裝先展開表單四頁,再檢查空 key、來源內重複、底座與專案碰撞、表單與固定頁碰撞;錯誤包含 key 與來源,不以物件 spread 靜默覆蓋。查詢只接受登記表自身的 key,不把物件原型的同名成員當作頁面。
 
 客製底座頁在替換清單寫 `{ target, Page, minWidth? }`。目標必須是既有底座頁,同一目標不能替換兩次;省略寬度繼承底座,明寫 `lg` / `xl` 才變更。原版檔案與登記保留,移除替換即恢復原版,不另開一條原版網址。登入相關頁不提供這個替換介面。
 

@@ -1,5 +1,5 @@
 /**
- * 示範家族的模組 / 權限 key 與路由(正本:`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`)。
+ * 示範家族的模組 / 權限 key 與路由(正本:`apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`)。
  * 路由是把模組樹上的 `route` 一段段接起來的結果(`demo` / `sub` / `sample-one` / …)。
  */
 

@@ -1,30 +1,62 @@
+import {
+  SeedCompositionError,
+  composeSeedRegistry,
+} from "../src/seed/seed-composition";
 import type { SeedRegistry } from "../src/seed/seed-declaration";
-import { demoItemsOne, demoItemsTwo } from "./demo-items";
-import { fieldCategories } from "./field-categories";
-import { fields } from "./fields";
-import { dataScopeTargets, modules, permissions } from "./modules";
-import { orgs } from "./orgs";
-import { tenantAdminBindings } from "./role-bindings";
-import { roleOwners, roles } from "./roles";
-import { rootAdmin } from "./root-admin";
+import { findSeedKeyViolations } from "../src/seed/seed-key-convention";
+import { composeModuleSeeds } from "./base/modules";
+import { createBaseSeedRegistry } from "./base/registry";
+import {
+  type ProjectSeedSettings,
+  type SeedSource,
+  assertProjectSeedSettings,
+} from "./base/seed-source";
+import { projectSeedSource } from "./project/registry";
+import { projectSeedSettings } from "./project/settings";
 
 /**
- * 收齊所有種子(正本:ADR-0002)。新增一類種子 = 新增一個宣告檔並在此註冊。
- * 順序即執行順序:被引用者在前(組織 → 角色 → 角色擁有組織 → root 初始帳號 → 欄位類別 → 欄位選項
- * → 模組樹 → 權限 → 資料範圍目標 → 種子角色綁定 → 示範資料)。
+ * 把底座與專案兩個來源合成一份 registry(正本:ADR-0002)。**唯一**讀兩方來源的地方:
+ *
+ * 1. 驗專案初值,傳給底座工廠(`base/` 不 import `project/`)
+ * 2. 合併兩方的模組宣告,`composeModuleSeeds` **只推導一次** modules / permissions / 資料範圍目標 /
+ *    租戶管理員模板 —— 專案的子模組可以掛在底座父節點底下,模板也因此納入專案新增的模組
+ * 3. 與兩方的普通種子、定義宣告一起驗(撞 key、引用、循環、推導類與版本化定義的防線)並依引用排出執行順序
+ *
+ * 全部在寫入之前完成;任何一項不合就丟錯,不會靠載入先後覆蓋。
  */
-export const seedRegistry: SeedRegistry = [
-  orgs,
-  roles,
-  roleOwners,
-  rootAdmin,
-  fieldCategories,
-  fields,
-  modules,
-  permissions,
-  dataScopeTargets,
-  tenantAdminBindings,
-  // 示範資料放最後:orgId 引用組織、category 值對照欄位選項,兩者都得先種好(#319)
-  demoItemsOne,
-  demoItemsTwo,
-];
+export function assembleSeedRegistry(
+  settings: ProjectSeedSettings,
+  project: SeedSource,
+): SeedRegistry {
+  const { moduleInitialValues } = assertProjectSeedSettings(settings);
+  const base = createBaseSeedRegistry(settings);
+  const moduleSeeds = composeModuleSeeds(
+    [...base.moduleDeclarations, ...project.moduleDeclarations],
+    moduleInitialValues,
+  );
+  const registry = composeSeedRegistry([
+    { origin: "base", seeds: base.seeds },
+    {
+      origin: "模組宣告推導",
+      isDerived: true,
+      seeds: [
+        moduleSeeds.modules,
+        moduleSeeds.permissions,
+        moduleSeeds.dataScopeTargets,
+        moduleSeeds.tenantAdminBindings,
+      ],
+    },
+    { origin: "project", seeds: project.seeds },
+  ]);
+  const violations = findSeedKeyViolations(registry);
+  if (violations.length > 0) {
+    throw new SeedCompositionError(violations);
+  }
+  return registry;
+}
+
+/** 目前有效的全部種子:seed 與 reset 指令都只讀這一份。 */
+export const seedRegistry: SeedRegistry = assembleSeedRegistry(
+  projectSeedSettings,
+  projectSeedSource,
+);

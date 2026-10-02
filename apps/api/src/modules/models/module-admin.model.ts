@@ -41,7 +41,7 @@ export class PermissionAdmin {
  * 這裡是治理面的「平台**宣告**了哪些模組」— 全樹照回,含側欄看不到的 hidden 節點與隱藏的
  * `api` 權限樹,也含已停用的模組與權限;停用與否一律以 `enabled` 表示,不以「不回」表示。
  *
- * `isRootOnly` 只存在於 seed 宣告層、不落庫(`apps/db-migrator/seeds/module-declaration.ts`),
+ * `isRootOnly` 只存在於 seed 宣告層、不落庫(`apps/db-migrator/seeds/base/module-declaration.ts`),
  * 執行期無從得知,故本型別不回該欄位(Spec #201 Interface design 已載明)。
  */
 @ObjectType()

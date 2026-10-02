@@ -33,7 +33,7 @@ import {
 } from "./test-support/fixtures";
 
 /**
- * seed 種下的示範資料名稱(正本 `apps/db-migrator/seeds/demo-items.ts`)。
+ * seed 種下的示範資料名稱(正本 `apps/db-migrator/seeds/base/demo-items.ts`)。
  * STRUCT-01 禁 app 互 import,所以這裡抄一份 —— 名稱對不上時這個測試就是第一個紅的。
  */
 const SEEDED_NAMES = new Set([

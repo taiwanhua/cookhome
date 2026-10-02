@@ -1,44 +1,55 @@
 /**
- * reset 指令的安全閥(正本:ADR-0002「還原(reset)」)。
+ * reset 指令的安全閥(`docs/deployment.md`「資料庫還原(reset)」)。
  *
- * 純函式、不碰資料庫:只看連線字串裡的資料庫名 + `--confirm` + `RESET_ALLOW_ENV`,
- * 決定放行或拒絕。三道閥依序檢查,任一不過即回傳拒絕原因(入口據此 exit 1)。
+ * 純函式、不碰資料庫:目標環境由操作者以 `--environment` 指定(**不從資料庫名推測**),
+ * 必須在 `RESET_ALLOW_ENV` 的允許清單內,而且 `--confirm` 要與
+ * `reset:<environment>:<實際資料庫名>:<mode>` 完全相同。缺任何一項或任何一段不符即回傳拒絕原因
+ * (入口據此 exit 1,此時還沒有連線)。三個環境同一套規則,production 沒有另外的永久拒絕。
+ *
+ * 拒絕原因只帶資料庫名,不回顯收到的確認字串(操作者可能誤貼連線字串)。
  */
 
 /** 三個環境(對照表正本:docs/deployment.md「環境對照(分支 ↔ 環境)」)。 */
-export type ResetEnvironment = "dev" | "staging" | "production";
+export const RESET_ENVIRONMENTS = ["dev", "staging", "production"] as const;
+
+export type ResetEnvironment = (typeof RESET_ENVIRONMENTS)[number];
+
+export const RESET_MODES = ["data", "full"] as const;
+
+export type ResetMode = (typeof RESET_MODES)[number];
 
 /** 允許還原的環境名單(逗號分隔),正本:docs/env-registry.md。 */
 export const RESET_ALLOW_ENV_NAME = "RESET_ALLOW_ENV";
 
-/** 從 `MONGODB_URI` 取出資料庫名(seed 也以它決定寫哪個庫:`client.db()`)。 */
+const CONFIRM_PREFIX = "reset";
+const CONFIRM_FORMAT = "reset:<environment>:<資料庫名>:<mode>";
+
+/** 連線字串的協定;其餘一律不當成連線字串解析。 */
+const MONGODB_PROTOCOLS = new Set(["mongodb:", "mongodb+srv:"]);
+
+/**
+ * 從 `MONGODB_URI` 取出資料庫名(update 也以它決定寫哪個庫:`client.db()`)。
+ * 錯誤訊息不帶出連線字串本身。
+ */
 export function parseDatabaseName(uri: string): string {
-  const name = decodeURIComponent(new URL(uri).pathname.replace(/^\//, ""));
+  let url: URL;
+  try {
+    url = new URL(uri);
+  } catch {
+    throw new Error("MONGODB_URI 不是合法的連線字串");
+  }
+  if (!MONGODB_PROTOCOLS.has(url.protocol)) {
+    throw new Error(
+      "MONGODB_URI 不是合法的連線字串(須為 mongodb:// 或 mongodb+srv://)",
+    );
+  }
+  const name = decodeURIComponent(url.pathname.replace(/^\//, ""));
   if (name === "") {
     throw new Error(
       "MONGODB_URI 未含資料庫名稱(例:mongodb://127.0.0.1:27017/cookhome-dev)",
     );
   }
   return name;
-}
-
-/**
- * 由資料庫名推得目標環境:`-dev` / `-staging` 結尾即該環境,**其餘一律視為 production**
- * —— production 的資料庫名是沒有後綴的 `cookhome`(docs/deployment.md 環境對照),
- * 認不出來的名字取最嚴格的那一邊才不會誤刪;名稱含 `prod` 字樣者同樣是 production。
- */
-export function resolveEnvironment(databaseName: string): ResetEnvironment {
-  const name = databaseName.toLowerCase();
-  if (name.includes("prod")) {
-    return "production";
-  }
-  if (name.endsWith("-dev")) {
-    return "dev";
-  }
-  if (name.endsWith("-staging")) {
-    return "staging";
-  }
-  return "production";
 }
 
 /** `RESET_ALLOW_ENV` 的值(逗號分隔;未設 = 空名單 = 全部拒絕)。 */
@@ -49,33 +60,84 @@ export function parseAllowedEnvironments(raw: string | undefined): string[] {
     .filter((entry) => entry !== "");
 }
 
+export function isResetEnvironment(value: string): value is ResetEnvironment {
+  return (RESET_ENVIRONMENTS as readonly string[]).includes(value);
+}
+
+export interface ResetTarget {
+  environment: string;
+  databaseName: string;
+  mode: string;
+}
+
+/** 操作者必須完整輸入的確認字串。 */
+export function resetConfirmationOf({
+  environment,
+  databaseName,
+  mode,
+}: ResetTarget): string {
+  return `${CONFIRM_PREFIX}:${environment}:${databaseName}:${mode}`;
+}
+
 export interface ResetSafetyInput {
   /** 連線字串裡的資料庫名。 */
   databaseName: string;
+  /** `--environment` 的值(未給為 undefined)。 */
+  environment: string | undefined;
+  mode: ResetMode;
   /** `--confirm` 的值(未給為 undefined)。 */
   confirm: string | undefined;
   /** `RESET_ALLOW_ENV` 的原始值。 */
   allowEnv: string | undefined;
 }
 
-/** 回傳拒絕原因;`null` = 三道閥全過。 */
+/**
+ * 確認字串哪幾段與目標不同。資料庫名可能含 `:`,所以環境取第一段、模式取最後一段、其餘是資料庫名。
+ */
+function mismatchedSegments(confirm: string, target: ResetTarget): string[] {
+  const segments = confirm.split(":");
+  const [prefix, environment] = segments;
+  if (segments.length < 4 || prefix !== CONFIRM_PREFIX) {
+    return [`格式不是 ${CONFIRM_FORMAT}`];
+  }
+  const mismatched: string[] = [];
+  if (environment !== target.environment) {
+    mismatched.push("環境段不符");
+  }
+  if (segments.slice(2, -1).join(":") !== target.databaseName) {
+    mismatched.push("資料庫名段不符");
+  }
+  if (segments.at(-1) !== target.mode) {
+    mismatched.push("模式段不符");
+  }
+  return mismatched;
+}
+
+/** 回傳拒絕原因;`null` = 全部通過。 */
 export function findSafetyViolation({
   databaseName,
+  environment,
+  mode,
   confirm,
   allowEnv,
 }: ResetSafetyInput): string | null {
-  if (confirm !== databaseName) {
-    return `--confirm 必須等於連線字串的資料庫名(預期 ${databaseName},收到 ${confirm ?? "(未給)"})`;
-  }
-
-  const environment = resolveEnvironment(databaseName);
-  if (environment === "production") {
-    return `資料庫 ${databaseName} 判定為 production(名稱含 prod,或不以 -dev / -staging 結尾),reset 永不對 production 執行`;
+  if (environment === undefined || !isResetEnvironment(environment)) {
+    return `--environment 必填,且必須是 ${RESET_ENVIRONMENTS.join(" / ")}(目標環境由操作者指定,不從資料庫名推測)`;
   }
 
   const allowed = parseAllowedEnvironments(allowEnv);
   if (!allowed.includes(environment)) {
     return `${RESET_ALLOW_ENV_NAME}(目前:${allowEnv ?? "(未設)"})不含目標環境 ${environment}`;
+  }
+
+  const target = { environment, databaseName, mode };
+  const describe = `目標:環境 ${environment}、資料庫 ${databaseName}、模式 ${mode}`;
+  if (confirm === undefined || confirm === "") {
+    return `--confirm 必填:請完整輸入 ${CONFIRM_FORMAT}(${describe})`;
+  }
+  if (confirm !== resetConfirmationOf(target)) {
+    const reasons = mismatchedSegments(confirm, target);
+    return `--confirm 與目標不符(${reasons.length > 0 ? reasons.join("、") : "須完全相同,含大小寫與空白"});請完整輸入 ${CONFIRM_FORMAT}(${describe})`;
   }
 
   return null;

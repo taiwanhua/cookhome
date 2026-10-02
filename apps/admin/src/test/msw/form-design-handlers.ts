@@ -5,6 +5,7 @@ import {
   type CreateFormVersionDraftMutationVariables,
   type DeleteFormVersionDraftMutationVariables,
   type DeleteRetiredPermissionMutationVariables,
+  type ExportFormSeedQueryVariables,
   type FieldCategoriesQueryVariables,
   type FormFieldsFragment,
   type FormVersionFieldsFragment,
@@ -23,6 +24,7 @@ import {
 import { type AuthErrorCode, graphqlError } from "./auth-handlers";
 import { fieldCategories } from "./field-fixtures";
 import type { FormFailure } from "./form-runtime-handlers";
+import { formSeedExportHandler } from "./seed-export-handlers";
 import { api } from "./server";
 
 export type FormDesignOperation =
@@ -31,7 +33,8 @@ export type FormDesignOperation =
   | "CreateForm"
   | "DeleteRetiredPermission"
   | "DeleteFormVersionDraft"
-  | "SetModuleListColumns";
+  | "SetModuleListColumns"
+  | "ExportFormSeed";
 
 type RetiredPermission =
   RetiredFormPermissionsQuery["retiredFormPermissions"]["items"][number];
@@ -58,6 +61,7 @@ export interface FormDesignWorld {
     deleteRetiredPermission: DeleteRetiredPermissionMutationVariables["input"][];
     setModuleListColumns: SetModuleListColumnsMutationVariables["input"][];
     previewFormVersion: PreviewFormVersionQueryVariables["input"][];
+    exportFormSeed: ExportFormSeedQueryVariables["input"][];
   };
 }
 
@@ -83,6 +87,7 @@ export const formDesignWorld = (
     deleteRetiredPermission: [],
     setModuleListColumns: [],
     previewFormVersion: [],
+    exportFormSeed: [],
   };
 
   const fail = (operation: FormDesignOperation) => {
@@ -289,6 +294,12 @@ export const formDesignWorld = (
       return HttpResponse.json({
         data: { publishFormVersion: { formVersion: draft } },
       });
+    }),
+    formSeedExportHandler({
+      findForm: (formKey) => forms.find((item) => item.key === formKey),
+      versionsOf,
+      fail,
+      inputs,
     }),
     api.query("PreviewFormVersion", ({ variables }) => {
       const { input } = variables as PreviewFormVersionQueryVariables;

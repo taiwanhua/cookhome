@@ -6,6 +6,7 @@ import {
   type FormVersionFieldsFragment,
   FormVersionStatus,
   useCreateFormVersionDraftMutation,
+  useExportFormSeedQuery,
   useFormVersionsQuery,
   useRetryPublishFormVersionMutation,
 } from "@repo/graphql";
@@ -15,6 +16,7 @@ import { Stack } from "@repo/ui/stack";
 import { Table } from "@repo/ui/table";
 import { Tag, type TagTone } from "@repo/ui/tag";
 
+import { SeedExportDialog } from "@/components/SeedExportDialog/SeedExportDialog";
 import { useMutationFeedback } from "@/hooks/useMutationFeedback";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useSession } from "@/hooks/useSession";
@@ -48,7 +50,7 @@ const STATUS_TONE: Record<FormVersionStatus, TagTone> = {
  * 版本面板(Spec 6a §8 畫面 3):草稿 / 發布(含中斷重試)/ 退役目前版本、changelog、
  * 與上一版差異、以任一版本(已發布或已退役)為基底開新草稿、「檢視」任一已發布 / 已退役版本(唯讀設計器)、
  * 刪除草稿(確認跳窗;發布中不可)、「將舊版資料升級到此版」(已發布的版本;表單所屬模組的 `edit`,
- * 本組織綁了流程就不顯示、改一行提示)。
+ * 本組織綁了流程就不顯示、改一行提示)、「匯出專案設定」(共用表單的目前發布版;下載 `.seed.ts`)。
  * 設計相關的按鈕依 `form.abilities.canEdit`;
  * 發布中斷時只剩「重試發布」(api 在中斷期間擋開草稿 / 退役 / 再發布)。
  */
@@ -66,6 +68,8 @@ export const VersionPanel = ({
   const [isDeletingDraft, setIsDeletingDraft] = useState(false);
   const [diffOf, setDiffOf] = useState<number | null>(null);
   const [upgradeTo, setUpgradeTo] = useState<number | null>(null);
+  const [exportOf, setExportOf] = useState<number | null>(null);
+  const tSeedExport = useTranslations("admin.seedExport");
   const { hasPermission } = usePermissions();
   const versions = useFormVersionsQuery(session.client, { formKey: form.key });
   const items = versions.data?.formVersions.items ?? [];
@@ -79,6 +83,8 @@ export const VersionPanel = ({
   const hasPublished = items.some(
     (item) => item.status === FormVersionStatus.Published,
   );
+  // 共用表單只有站在根組織的人改得動(`canEdit`),所以這兩個條件合起來就是 api 的匯出判準
+  const canExportSeed = form.isShared && canEdit && !isLocked;
 
   const createDraft = useCreateFormVersionDraftMutation(
     session.client,
@@ -204,6 +210,17 @@ export const VersionPanel = ({
             }}
           >
             {t("diff")}
+          </Button>
+        )}
+        {canExportSeed && isCurrent && typeof item.version === "number" && (
+          <Button
+            size="small"
+            variant="text"
+            onClick={() => {
+              setExportOf(item.version ?? null);
+            }}
+          >
+            {tSeedExport("action")}
           </Button>
         )}
       </Stack>
@@ -342,6 +359,23 @@ export const VersionPanel = ({
           onUpgraded={() => {
             setUpgradeTo(null);
             onChanged();
+          }}
+        />
+      )}
+      {exportOf !== null && (
+        <SeedExportDialog
+          kind="form"
+          name={form.name}
+          version={exportOf}
+          fetchSeed={async (input) => {
+            const payload = await useExportFormSeedQuery.fetcher(
+              session.client,
+              { input: { formKey: form.key, version: exportOf, ...input } },
+            )();
+            return payload.exportFormSeed;
+          }}
+          onClose={() => {
+            setExportOf(null);
           }}
         />
       )}

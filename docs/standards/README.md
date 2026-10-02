@@ -11,6 +11,8 @@
 
 ## 索引
 
+方案討論、規格與架構設計先讀 `general/structure.md` 的 STRUCT-13;這項核對在提出方案前執行,不等到寫程式時才做。
+
 | 改動範圍                                            | 必讀                                                                                                                                |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | 任何程式碼                                          | `general/naming.md`、`general/structure.md`                                                                                         |
@@ -25,7 +27,7 @@
 | CLI 工具 / `apps/db-migrator`(seed、migrate、reset) | `general/structure.md` STRUCT-06(輸出用 `process.stdout.write`)/ STRUCT-05 的已知誤判 / STRUCT-10;規則本體見 ADR-0002               |
 | UI 文案 / 多語(i18n)                                | `general/i18n.md`                                                                                                                   |
 | Figma 設計稿                                        | `general/figma.md`                                                                                                                  |
-| Markdown 文件(docs/、help.md、README)               | `general/structure.md` STRUCT-09(prettier)、STRUCT-11(只寫現況:不寫日期、段落、票號)                                                |
+| Markdown 文件(docs/、help.md、README)               | `general/structure.md` STRUCT-09(prettier)、STRUCT-11(正式文件寫現況,完成計畫歸回正本)                                              |
 
 ## 尚未定案(刻意不寫)
 

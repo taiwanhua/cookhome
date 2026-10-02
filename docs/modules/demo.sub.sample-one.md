@@ -8,7 +8,7 @@
 
 家族裡有兩個**固定欄位模組**:本篇(完整示範:三層樹、隱藏頁、CRUD + wildcard、欄位級與頁面自有權限、資料範圍目標、雙路儲存)與 [示範模組2](./demo.sample-two.md)(對照組)。`demo` / `demo.sub` 兩層群組也收著兩個**表單模組**(`demo.form`、`demo.sub.form`;另有一個掛頂層的 `demo-form`),示範表單模組在側欄各種位置的樣子,見 [示範表單](./demo-form.md)。本檔宣告兩層群組,其他示範模組都掛在它們底下。
 
-正本:`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`
+正本:`apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`
 
 ## 模組 key 與畫面
 
@@ -29,7 +29,7 @@
 
 **畫面**:Figma 列表 / 詳情 / 新增 / 編輯四個版型節點 `175:3` / `175:318` / `175:558` / `177:2314`。實作與設計稿的差異表記在建立 admin 頁面的那個 PR(`git log -- apps/admin/src/pages/base/demo/` 可查)。
 
-正本:`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`、`apps/admin/src/app/module-pages.tsx`
+正本:`apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`、`apps/admin/src/app/module-pages.tsx`
 
 ## 權限表
 
@@ -47,7 +47,7 @@
 | `demo.sub.sample-one.create-page.show-tips`  | 新增頁               | 頁面自有示範:填寫提示區塊                                                                                                                                             |
 | `demo.sub.sample-one.edit-page.show-history` | 編輯頁               | 頁面自有示範:變更歷程區塊                                                                                                                                             |
 
-正本:`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`(`permissions`)、`apps/db-migrator/seeds/modules.ts`(wildcard 自動產生)
+正本:`apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`(`permissions`)、`apps/db-migrator/seeds/base/modules.ts`(wildcard 自動產生)
 
 ## 資料
 
@@ -61,7 +61,7 @@
 
 **示範資料**:`demo_items_one` 5 筆,以 `key` 冪等、全環境灌同一份(示範資料本來就是種子,ADR-0002)。內容涵蓋三個建立者、三種 `status`、三個分類、一筆初始停用。只有 `enabled` 是「初始 seed 值的欄位」,**其餘欄位每次部署同步回宣告值** —— 示範資料被玩壞時會自動復原,這是刻意的;軟刪除掉的示範項目不會被種回來。兩個已知限制(全部掛根組織、建立者是假 id)見 [示範模組2「資料」](./demo.sample-two.md#資料)。
 
-正本:`apps/api/src/database/schemas/demo-item-one.schema.ts`、`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`(`dataScopeTarget`)、`apps/db-migrator/seeds/demo-items.ts`、`apps/db-migrator/seeds/field-categories.ts`、`apps/db-migrator/seeds/fields.ts`
+正本:`apps/api/src/database/schemas/demo-item-one.schema.ts`、`apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`(`dataScopeTarget`)、`apps/db-migrator/seeds/base/demo-items.ts`、`apps/db-migrator/seeds/base/field-categories.ts`、`apps/db-migrator/seeds/base/fields.ts`
 
 ## 規則
 
@@ -241,4 +241,4 @@ input DemoItemsOneInput {
 - `status` 是固定欄位模組唯一的 enum 資料範圍欄位,拿掉或改名會讓權限劇本的「enum 固定選項」規則失去驗證場地。
 - 示範資料全部掛根組織、建立者是固定假 id,租戶帳號一登入列表是空的(見 [示範模組2「資料」](./demo.sample-two.md#資料) 的兩個已知限制)。
 
-正本:`apps/db-migrator/seeds/demo-items.ts`、`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`
+正本:`apps/db-migrator/seeds/base/demo-items.ts`、`apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`

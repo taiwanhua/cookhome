@@ -2613,5 +2613,32 @@
     "empty": "No matching people",
     "forbidden": "You don't have permission to view the user list",
     "disabled": "Disabled"
+  },
+  "seedExport": {
+    "action": "Export project settings",
+    "title": "Export project settings",
+    "body": "Download version {version} of the {kind, select, form {form} other {workflow}} \"{name}\" as a settings file. Hand it to your developers to add to the project so other environments get the same design.",
+    "scope": "Only the design of this version is exported and no data is changed. People, organizations, assignments and bindings are not included.",
+    "revision": "Revision",
+    "revisionHint": "Start with a lowercase letter or digit; use lowercase letters, digits, underscores and hyphens, up to 64 characters. Use a new revision every time you export again after a fix.",
+    "revisionInvalid": "Invalid format: start with a lowercase letter or digit; only lowercase letters, digits, underscores and hyphens, up to 64 characters.",
+    "changelog": "Release notes",
+    "cancel": "Cancel",
+    "confirm": "Download settings file",
+    "feedback": {
+      "exportSuccess": "Downloaded {fileName}"
+    },
+    "issuesTitle": "This version contains settings that only make sense in this environment. Fix them in the designer, publish again, then export the new version:",
+    "issueLine": "{path}: {message}",
+    "errors": {
+      "FORBIDDEN": "You don't have permission to export project settings.",
+      "ROOT_ONLY": "Only system administrators can export project settings.",
+      "NOT_FOUND": "This version could not be found. Reload and try again.",
+      "VERSION_NOT_PUBLISHED": "Only published versions can be exported.",
+      "PUBLISH_IN_PROGRESS": "Publishing this version has not finished. Use \"Retry publish\" in the version list first.",
+      "NOT_PORTABLE": "This version can't be exported yet.",
+      "VALIDATION_FAILED": "The revision or release notes are not valid. Fix them and try again.",
+      "UNEXPECTED": "Export failed. Please try again later."
+    }
   }
 }

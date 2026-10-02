@@ -11,6 +11,7 @@ import {
   WorkflowPublishHooks,
   WorkflowPublishService,
 } from "./workflow-publish.service";
+import { WorkflowSeedExportService } from "./workflow-seed-export.service";
 import { WorkflowVersionsService } from "./workflow-versions.service";
 import { WorkflowsResolver } from "./workflows.resolver";
 import { WorkflowsService } from "./workflows.service";
@@ -30,11 +31,19 @@ import { WorkflowsService } from "./workflows.service";
     WorkflowDefinitionChecker,
     WorkflowPublishHooks,
     WorkflowPublishService,
+    WorkflowSeedExportService,
     WorkflowVersionsService,
     WorkflowsService,
     WorkflowBindingsService,
     WorkflowsResolver,
     WorkflowBindingsResolver,
+  ],
+  // 受管定義安裝(`seed/`)沿用的建立、草稿、檢查與發布
+  exports: [
+    WorkflowsService,
+    WorkflowVersionsService,
+    WorkflowPublishService,
+    WorkflowDefinitionChecker,
   ],
 })
 export class WorkflowDesignModule {}

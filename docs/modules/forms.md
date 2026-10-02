@@ -31,11 +31,13 @@
 | `<moduleKey>.show-<formKey>-<fieldKey>`           | 各表單模組    | 欄位級:讀受保護欄位(`source: dynamic`,發布時建)                                     |
 | `<moduleKey>.edit-<formKey>-<fieldKey>`           | 各表單模組    | 欄位級:改設了 `permission.edit` 的欄位(同上)                                        |
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/api/src/forms/form-permission-keys.ts`
+正本:`apps/db-migrator/seeds/base/modules/system.ts`、`apps/api/src/forms/form-permission-keys.ts`
 
 ## 資料
 
 `forms`、`form_versions`、`form_submissions` 三張表,加上 `business_relationships` 的 `org_form`(分派 / 啟用)與 `permissions` 的 `source: dynamic`(欄位級權限)。表的用途與跨檔約定見 `docs/data-model.md`,欄位與索引見各 schema 檔。
+
+登記為 seed 的共用表單由專案版本交付,沿用下述設計與發布服務;分派、提交及租戶客製表單由各環境獨立維護。受管邊界、版本映射與衝突處理見[受管表單與流程](../concepts/data-layer-and-isolation.md#受管表單與流程)。
 
 ## 可見、可改、可新增
 
@@ -102,6 +104,16 @@
 ### 設計器預覽
 
 `previewFormVersion`(`version` 缺席 = 草稿、有值 = 那一版已發布 / 已退役的定義;版本面板唯讀檢視歷史版本時的「以後端重算」帶它)。「不套欄位級權限」只指**本表單**的欄位(閘門對本表單全開);引用與 lookup 選項的來源照樣用操作者真實的權限 —— 否則設計者可以在草稿裡放一個引用欄、把顯示欄指到別張表單的受保護欄位,再用預覽讀出原值。
+
+## 匯出專案設定
+
+先以已發布版本完成試填驗證。根組織操作者具備 `system.forms.view` 與 `system.forms.edit` 時,可在共用表單的版本面板選定目前已發布且完成切換的版本,按「匯出專案設定」。填入定義發布識別 `revision` 與發布說明後,下載 `<key>.<revision>.seed.ts`;草稿、發布中的版本、退役版與租戶客製表單不提供匯出。
+
+檔案使用同一套 `SeedSet` 契約,包含所選版本的完整欄位、版面、摘要與帶入設定,以及共用表單的名稱、模組 key、頁籤模板。可攜性檢查失敗時顯示問題位置與原因,不產生部分檔案。匯出只讀來源資料,不複製帳號、組織、提交或分派,也不代表已同步到其他環境。
+
+將下載檔納入專案 seed 後,依[表單模組路線](../agents/module-scaffold.md#表單模組路線)的跨環境交付步驟完成登記、必要 migration 與重建/升級驗證。發布、採納及漂移處理共用[受管定義機制](../concepts/data-layer-and-isolation.md#受管表單與流程)。
+
+正本:`apps/api/src/forms/form-design/form-seed-export.service.ts`、`packages/domain/src/seed/portable-definition.ts`。
 
 ## 提交的寫入規則
 
@@ -306,6 +318,8 @@
 
 **版本面板**:草稿與各版本、發布(changelog 必填)、發布中斷時「重試發布」、退役目前版本、刪除草稿(確認跳窗,帶讀到的 `draftRevision`;發布中不可)、與上一版差異、以任一版本為基底開新草稿、「將舊版資料升級到此版」(已發布的版本;三步跳窗:各舊版本筆數 + 補值 → 確認 → 結果)。已發布 / 已退役版本的「檢視」把設計頁籤換成唯讀設計器(`FormDesigner/VersionViewer.tsx`:`formVersion(formKey, version)`,設計模式照樣標示、不能改不能存,「預覽」只在前端算,旁邊「以此為基底開新草稿」;草稿的設計器照樣掛著)。
 
+目前共用發布版另提供「匯出專案設定」,開啟共用 `SeedExportDialog` 填寫版本識別與發布說明;條件與下載內容見[匯出專案設定](#匯出專案設定)。
+
 **未存的變更不會無聲消失**:「表單設計 / 表單版本」兩頁籤都保持掛載;有未存變更時換表單先跳窗(留在設計 / 放棄變更 / 先存草稿);發布跳窗提示「發布的是上次存的草稿」並提供先存(狀態經 `stores/useDesignerDraftStore.ts`)。存草稿 / 發布收到 `CONFLICT` → 「草稿已被別人更新,請重新載入」。
 
 ### 設計器
@@ -357,6 +371,15 @@ GraphQL 文件:`packages/graphql/src/documents/base/forms.graphql`(設計、升�
 
 **執行端**(模組是執行期的,service 依該模組的 `view` / `create` / `edit` / `delete` 判,錯誤與 `@RequirePermission` 同一種):`moduleForms(moduleKey)`、`formRuntimeVersion(formKey, version)`、`formSubmissions`、`formSubmission(id, revision?)`、`formSubmissionAttachmentUrl(id, fieldKey, revision?)`、`createFormDraft`、`saveFormDraft`、`submitFormSubmission`、`updateFormSubmission`、`deleteFormSubmission`、`formLookup`、`formLookupRecord`、`formFieldOptions`、`formUpgradePlan(formKey, targetVersion)` / `upgradeFormSubmissions`(模組 `edit`)。`FormSubmissionModel.revisions` 是 field resolver(只有修訂紀錄跳窗查)。綁了審核流程的表單另有 `withdrawSubmission`、`voidSubmission`、`copySubmissionToDraft`(規則見 [workflows](./workflows.md))。
 
+**匯出專案設定**:`exportFormSeed(input: { formKey, version, revision, changelog })`(query)回 `ExportFormSeedPayload { fileName, source }` —— 把共用表單的指名版本輸出成可直接登記進專案種子的 TypeScript(`@repo/domain/seed` 的 `serializeSeedSet`;檔名 `<formKey>.<revision>.seed.ts`)。唯讀:不寫資料庫、不留稽核、不建安裝紀錄。
+
+- 守門:端點擋 `system.forms.view`,其餘在 `form-design/form-seed-export.service.ts` —— `view` + `edit`(缺任一 → `FORBIDDEN`)、站在根組織(否則 `FORBIDDEN` + `ROOT_ONLY`)、共用表單(租戶的客製表單在根組織視角一律 `NOT_FOUND`)。
+- `version`:必填,必須是**已發布**的那一版,不以目前版本代替。不存在(草稿沒有版號,指不到)→ `NOT_FOUND`;已退役 → `VALIDATION_FAILED` + `fields: ["version"]`;發布還沒切換完(版本已是 `published`、`currentVersion` 還沒指向它)→ `CONFLICT` + `PUBLISH_IN_PROGRESS`。
+- `revision`、`changelog`:都必填,沒有缺席 / `null` 的語意。`revision` 的格式是 `@repo/domain/seed` 的 `DEFINITION_REVISION_PATTERN`;`changelog` 去掉空白後不可為空(內容原樣輸出,不修剪)。不符 → `VALIDATION_FAILED` + `fields`(`revision` / `changelog`)。
+- 內容是設計端的完整版本,不是 `formRuntimeVersion` 依欄位級權限遮過的投影:`key`、`moduleKey`、身分上目前的 `name` 與 `tabLabelTemplate`、該版的 `fields` / `layout` / `summaryMap` / `prefills`,`desiredStatus` 固定 `published`。不含資料庫 id、版號、時間、發布者、擁有組織、分派與綁定。
+- 可攜性由 `validatePortableDefinition` 檢查(規則正本 `packages/domain/src/seed/portable-definition.ts`),依賴目錄取自這個環境(`form-design/seed-export-catalog.service.ts`):`engine = form` 的模組、seed 宣告的欄位類別與它的全域種子選項、有目前版本的共用表單(內容取目前版本)。有任何一筆不過就整份不輸出 → `VALIDATION_FAILED` + `fields: ["definition"]` + `issues`(`PortableIssue[]`:`{ code, message, path }`;`path` 是宣告內的位置,如 `definition.fields.3.default.value`,`message` 是給設計者看的繁中修正說明)。
+- 前端的顯示條件(守門仍以 api 為準):`FormModel.isShared && abilities.canEdit`、沒有發布中斷,且只在目前發布的那一版顯示 —— 共用表單只有站在根組織的人 `canEdit`,所以不另開一個 ability。
+
 **提交狀態**:`FormSubmissionStatus` 七值(`DRAFT` / `REVIEWING` / `RETURNED` / `WITHDRAWN` / `COMPLETED` / `REJECTED` / `VOIDED`)。
 
 - 綁流程的表單送出不經 `COMPLETED`、直接 `REVIEWING`(送出時檢查擋下回 `FORBIDDEN` + reason);`RETURNED` / `WITHDRAWN` 由申請人以 `saveFormDraft` 改內容、再 `submitFormSubmission`(修訂 +1)。
@@ -404,7 +427,7 @@ input 欄位的缺席 / `null`:
   - 舊版資料升級:`FORM_HAS_WORKFLOW`(本租戶綁了流程)、`VERSION_NOT_PUBLISHED`(目標版不是已發布)。
 - `FORBIDDEN` 的 `reason`:`FIELD_FORBIDDEN`(附 `fieldKey`)、`FORM_NOT_AVAILABLE`、`NOT_FORM_OWNER`、`ROOT_ONLY`;端點層沒權限的 `FORBIDDEN` 沒有 reason。別人的草稿一律 `NOT_FOUND`(草稿只屬於建立者,不透露它存在)。
 - `PERMISSION_NOT_DELETABLE` 的 `reasons`:`NOT_DYNAMIC`、`NOT_RETIRED`、`USED_BY_DRAFTS`、`CONFIRM_REQUIRED`。
-- `VALIDATION_FAILED`:定義有錯 → `fields: ["definition"]` + `issues`(檢查器的 `DefinitionIssue[]`,每筆帶定位);值有錯 → `fields`(欄位 key)+ `fieldErrors`(`{ fieldKey, code, message }`,code 見 `@repo/domain/form` 的 `VALUE_ISSUE_CODES`);其他輸入錯誤照一般的 `fields`。
+- `VALIDATION_FAILED`:定義有錯 → `fields: ["definition"]` + `issues`(檢查器的 `DefinitionIssue[]`,每筆帶定位);值有錯 → `fields`(欄位 key)+ `fieldErrors`(`{ fieldKey, code, message }`,code 見 `@repo/domain/form` 的 `VALUE_ISSUE_CODES`);匯出可攜性錯誤同樣用 `fields: ["definition"]` + `issues`,每筆為共用契約的 `{ code, message, path }`,由彈窗逐項顯示;匯出版本狀態不符使用 `fields: ["version"]`。其他輸入錯誤照一般的 `fields`。
 
 ## 稽核
 

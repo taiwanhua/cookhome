@@ -46,6 +46,8 @@ export const FORM_CONFLICT_REASONS = [
   "FORM_HAS_WORKFLOW",
   /** 舊版資料升級:目標版本不是已發布的版本。 */
   "VERSION_NOT_PUBLISHED",
+  /** 受管定義安裝的條件更新:比對之後表單身分、目前版本或名稱 / 頁籤模板被別人改了(只有內部的安裝流程會帶預期值)。 */
+  "METADATA_CHANGED",
 ] as const;
 
 export type FormConflictReason = (typeof FORM_CONFLICT_REASONS)[number];

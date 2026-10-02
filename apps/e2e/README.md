@@ -17,7 +17,7 @@ E2E_GREP="劇本 7" pnpm e2e            # 只跑某一條(`--` 之後的旗標�
 1. `turbo run build --filter=@repo/api --filter=@repo/admin`
    (admin 的 api 端點是 build 時烘進 bundle 的,所以埠一改就要重建)
 2. 起 Mongo:沒給 `E2E_MONGODB_URI` 就用 `mongodb-memory-server`
-3. `db-migrator migrate` → `seed`(`ROOT_ADMIN_*` 用測試值)
+3. `pnpm --filter @repo/db-migrator run update`(`ROOT_ADMIN_*` 用測試值)
 4. 起 fake GCS(有 Docker 才起,見下一節)
 5. 起 api(`node apps/api/dist/main.js`,子行程;stdout 導到 `.tmp/api.log`)
 6. 起 admin(`vite preview` 的程式介面,吃 `apps/admin/dist` 的靜態檔)

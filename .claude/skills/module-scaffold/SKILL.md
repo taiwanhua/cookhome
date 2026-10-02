@@ -34,16 +34,16 @@ description: 新增後台 CRUD 模組(固定欄位模組)時用:plan 模式問�
 
 ### 第 1 輪:模組身分
 
-| 題目                         | 預設                                                                | 備註(答題時告訴使用者)                                                                              |
-| ---------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 模組 key                     | 無(必答)                                                            | 累加父 key:`<父key>.<自己那段>`,段用 kebab-case                                                     |
-| 模組名稱(側欄與頁籤顯示)     | 無(必答)                                                            | 詳情 / 編輯頁的頁籤自動顯示成「模組名 — 檢視・項目名」/「模組名 — 編輯・項目名」,項目名取 `name` 欄 |
-| 父模組                       | 無(必答)                                                            | 可答「頂層」;父不存在時追問要不要新建一個 `group` 節點(它的 key / 名稱 / 順序 / 圖示)               |
-| 生成哪些頁                   | 四頁:列表(`link`)+ 詳情 / 新增 / 編輯(`hidden`,key 以 `-page` 結尾) | 少一頁 = 少一個模組 key,也少一個入口(沒綁詳情頁,列上就沒有「檢視」)                                 |
-| 列表頁的側欄類型             | `link`                                                              |                                                                                                     |
-| 同層順序 `order`             | 同一個父底下、非 `hidden` 節點的最大值 + 1(沒有同層就 1)            | 查 `apps/db-migrator/seeds/modules/`;頂層有個 `hidden` 的 `api` 節點(order 99),不算                 |
-| 是否根組織專屬(`isRootOnly`) | 否                                                                  | 是 = 租戶看不到、租戶管理員模板扣除                                                                 |
-| 圖示                         | 不宣告(側欄預設圖示)                                                | 只能從白名單 `packages/domain/src/module-icon/keys.ts` 選;這是初始 seed 值,之後由人在頁面上改       |
+| 題目                         | 預設                                                                | 備註(答題時告訴使用者)                                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 模組 key                     | 無(必答)                                                            | 累加父 key:`<父key>.<自己那段>`,段用 kebab-case                                                                                    |
+| 模組名稱(側欄與頁籤顯示)     | 無(必答)                                                            | 詳情 / 編輯頁的頁籤自動顯示成「模組名 — 檢視・項目名」/「模組名 — 編輯・項目名」,項目名取 `name` 欄                                |
+| 父模組                       | 無(必答)                                                            | 可答「頂層」;父不存在時追問要不要新建一個 `group` 節點(它的 key / 名稱 / 順序 / 圖示)                                              |
+| 生成哪些頁                   | 四頁:列表(`link`)+ 詳情 / 新增 / 編輯(`hidden`,key 以 `-page` 結尾) | 少一頁 = 少一個模組 key,也少一個入口(沒綁詳情頁,列上就沒有「檢視」)                                                                |
+| 列表頁的側欄類型             | `link`                                                              |                                                                                                                                    |
+| 同層順序 `order`             | 同一個父底下、非 `hidden` 節點的最大值 + 1(沒有同層就 1)            | 查 `apps/db-migrator/seeds/base/modules/` 與 `seeds/project/registry.ts` 的模組來源;頂層有個 `hidden` 的 `api` 節點(order 99),不算 |
+| 是否根組織專屬(`isRootOnly`) | 否                                                                  | 是 = 租戶看不到、租戶管理員模板扣除                                                                                                |
+| 圖示                         | 不宣告(側欄預設圖示)                                                | 只能從白名單 `packages/domain/src/module-icon/keys.ts` 選;這是初始 seed 值,之後由人在頁面上改                                      |
 
 ### 第 2 輪:資料
 
@@ -136,7 +136,7 @@ description: 新增後台 CRUD 模組(固定欄位模組)時用:plan 模式問�
 
 先讀 `CLAUDE.md`,再依 `docs/agents/issue-tracker.md`「實作一張票」認領、建立工作樹與交付。建置、單檔測試及全套驗證命令只依 `docs/agents/toolbox.md`,不在本 skill 另存指令副本。
 
-逐步執行正本 `docs/agents/module-scaffold.md` 的步驟 0–8,對照規格卡驗收:模組文件、seed、schema/repository、API、documents、後台頁面、help、測試及文件回寫。專案功能新增放 project 來源並經固定入口組裝,共用接縫與替換規則見 `docs/plans/feature-registration.md`;不能把專案登記寫回底座來源或以 spread 蓋掉原版。
+逐步執行正本 `docs/agents/module-scaffold.md` 的步驟 0–8,對照規格卡驗收:模組文件、seed、schema/repository、API、documents、後台頁面、help、測試及文件回寫。專案功能新增放 project 來源並經固定入口組裝,共用接縫與替換規則見 `docs/standards/general/structure.md` STRUCT-12、`docs/concepts/frontend-architecture.md` 與 `docs/concepts/data-layer-and-isolation.md`;不能把專案登記寫回底座來源或以 spread 蓋掉原版。
 
 完成判準以正本「交件前檢查清單」與票面驗收為準,全部確認後依 issue-tracker 開 PR。PR 附測試結果、mock 畫面與規則回饋;E2E 僅列建議與理由,由使用者決定是否觸發。部署由主流程依既有 release SOP 處理。
 

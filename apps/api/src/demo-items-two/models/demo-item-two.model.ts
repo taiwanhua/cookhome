@@ -4,7 +4,7 @@ import { Field, GraphQLISODateTime, ID, ObjectType } from "@nestjs/graphql";
  * 建立者的最小參照(示範模組2 只需要 id 與顯示名)。
  *
  * **查無此人時整個 `createdBy` 為 null**:示範資料的建立者是假 id
- * (`apps/db-migrator/seeds/demo-items.ts` 說明了為什麼),使用者自己新增的那幾筆才查得到人。
+ * (`apps/db-migrator/seeds/base/demo-items.ts` 說明了為什麼),使用者自己新增的那幾筆才查得到人。
  */
 @ObjectType("DemoItemTwoUser")
 export class DemoItemTwoUserModel {

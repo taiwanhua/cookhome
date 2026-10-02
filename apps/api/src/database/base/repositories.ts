@@ -20,6 +20,7 @@ import { Org } from "../schemas/org.schema";
 import { Permission } from "../schemas/permission.schema";
 import { RefreshToken } from "../schemas/refresh-token.schema";
 import { Role } from "../schemas/role.schema";
+import { SeedDefinitionInstallation } from "../schemas/seed-definition-installation.schema";
 import { User } from "../schemas/user.schema";
 import { WorkflowInstance } from "../schemas/workflow-instance.schema";
 import { WorkflowVersion } from "../schemas/workflow-version.schema";
@@ -49,6 +50,8 @@ export type FormDocument = HydratedDocument<Form>;
 export type FormVersionDocument = HydratedDocument<FormVersion>;
 export type FormSubmissionDocument = HydratedDocument<FormSubmission>;
 export type WorkflowVersionDocument = HydratedDocument<WorkflowVersion>;
+export type SeedDefinitionInstallationDocument =
+  HydratedDocument<SeedDefinitionInstallation>;
 export type WorkflowInstanceDocument = HydratedDocument<WorkflowInstance>;
 
 /** users(關聯歸屬資料:所屬組織走 org_user,資料層不自動過濾,ADR-0005)。 */
@@ -296,6 +299,23 @@ export class WorkflowVersionsRepository extends BaseRepository<
   constructor(
     @InjectModel(WorkflowVersion.name)
     model: RepositoryModel<WorkflowVersion, WorkflowVersionDocument>,
+  ) {
+    super(model);
+  }
+}
+
+/** seed_definition_installations(受管定義的安裝紀錄;全域設定資料,不掛 tenantScope)。 */
+@Injectable()
+export class SeedDefinitionInstallationsRepository extends BaseRepository<
+  SeedDefinitionInstallation,
+  SeedDefinitionInstallationDocument
+> {
+  constructor(
+    @InjectModel(SeedDefinitionInstallation.name)
+    model: RepositoryModel<
+      SeedDefinitionInstallation,
+      SeedDefinitionInstallationDocument
+    >,
   ) {
     super(model);
   }

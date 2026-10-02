@@ -150,7 +150,8 @@ export class FormDefinitionChecker {
 
   async check(
     facts: FormOperatorFacts,
-    form: FormRecord,
+    // 只用到 key 與模組:還沒建立的表單(受管定義安裝的寫入前檢查)也能先驗
+    form: Pick<FormRecord, "key" | "moduleKey">,
     definition: FormDefinition,
   ): Promise<ValidationReport> {
     const operator = facts.operator;
@@ -226,7 +227,7 @@ export class FormDefinitionChecker {
   /** `modules.settings.list.columns` 裡指到這張表單(或沒指定表單)的欄位 key。 */
   private async listColumnFieldKeys(
     operator: OperatorContext,
-    form: FormRecord,
+    form: Pick<FormRecord, "key" | "moduleKey">,
   ): Promise<string[]> {
     const module = await this.modules.findOne(operator, {
       key: form.moduleKey,

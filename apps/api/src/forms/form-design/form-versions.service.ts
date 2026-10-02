@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { Types } from "mongoose";
 
 import {
   type ExpressionContext,
@@ -136,10 +137,14 @@ export class FormVersionsService {
     };
   }
 
-  /** 以任一版(已發布 / 退役)為基底開草稿;已有草稿 / 發布中 → 409。 */
+  /**
+   * 以任一版(已發布 / 退役)為基底開草稿;已有草稿 / 發布中 → 409。
+   * `internal.draftId`:預先配好的草稿 id,只給內部的受管定義安裝用(GraphQL input 不收)。
+   */
   async createDraft(
     facts: FormOperatorFacts,
     input: CreateFormVersionDraftInput,
+    internal: { draftId?: Types.ObjectId } = {},
   ): Promise<FormVersionPayload> {
     const operator = facts.operator;
     const form = await this.access.requireWritableForm(facts, input.formKey);
@@ -158,6 +163,7 @@ export class FormVersionsService {
     let created: FormVersionRecord;
     try {
       created = await this.versions.create(operator, {
+        ...(internal.draftId === undefined ? {} : { _id: internal.draftId }),
         formKey: form.key,
         version: null,
         status: "draft",
@@ -214,10 +220,15 @@ export class FormVersionsService {
     };
   }
 
-  /** 存草稿(`expectedDraftRevision` 樂觀鎖);檢查器的錯草稿可以先存,但正則不安全不收。 */
+  /**
+   * 存草稿(`expectedDraftRevision` 樂觀鎖);檢查器的錯草稿可以先存,但正則不安全不收。
+   * `internal.draftId`:只給內部的受管定義安裝用 —— 只存**那一份**草稿(id 在更新條件裡);
+   * 它已被刪掉、現在的草稿是別人另開的 → `DRAFT_MISSING`,不會因為 revision 剛好相同而改到別人的草稿。
+   */
   async saveDraft(
     facts: FormOperatorFacts,
     input: SaveFormVersionDraftInput,
+    internal: { draftId?: Types.ObjectId } = {},
   ): Promise<FormVersionPayload> {
     const operator = facts.operator;
     const form = await this.access.requireWritableForm(facts, input.formKey);
@@ -232,9 +243,12 @@ export class FormVersionsService {
         blocking,
       );
     }
+    const ownDraft =
+      internal.draftId === undefined ? {} : { _id: internal.draftId };
     const updated = await this.versions.findOneAndUpdate(
       operator,
       {
+        ...ownDraft,
         formKey: form.key,
         status: "draft",
         draftRevision: input.expectedDraftRevision,
@@ -251,6 +265,7 @@ export class FormVersionsService {
     );
     if (!updated) {
       const draft = await this.versions.findOne(operator, {
+        ...ownDraft,
         formKey: form.key,
         status: "draft",
       });

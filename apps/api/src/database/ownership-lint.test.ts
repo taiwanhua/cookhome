@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from "@jest/globals";
 
 /**
  * 驗證 api 的 ESLint 設定守住「底座 / 專案」的所有權方向與 Mongoose 注入來源
- * (docs/plans/feature-registration.md「API 與資料登記契約」)。
+ * (docs/standards/general/structure.md「STRUCT-12」)。
  * 對真 ESLint(本套件的 eslint.config.mjs,含型別感知)跑:程式碼以文字餵入、檔名借用一個
  * 實際存在的檔案,規則依檔案位置決定適不適用。全部案例在一個子行程裡跑完(起一次型別服務要數秒)。
  */

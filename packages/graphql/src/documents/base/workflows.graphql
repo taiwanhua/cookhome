@@ -243,6 +243,15 @@ mutation RetireCurrentWorkflowVersion($input: WorkflowKeyInput!) {
   }
 }
 
+# ExportWorkflowSeedInput: { workflowKey, version, revision, changelog };唯讀,回可直接登記的專案設定檔
+# 只有站在根組織、共用流程、指名的已發布版本(system.workflows.view + publish);不可攜 → VALIDATION_FAILED(extensions.issues 帶 path)
+query ExportWorkflowSeed($input: ExportWorkflowSeedInput!) {
+  exportWorkflowSeed(input: $input) {
+    fileName
+    source
+  }
+}
+
 # ---- 流程綁定(表單管理列表的流程綁定欄;租戶管理員,system.forms.edit) ----
 
 # BindFormWorkflowInput: { formKey, workflowKey };檢查不過 → VALIDATION_FAILED + extensions.issues

@@ -116,7 +116,7 @@ interface FieldDocument {
   [field: string]: unknown;
 }
 
-/** 示範資料的觀察欄位(#319;正本:apps/db-migrator/seeds/demo-items.ts)。 */
+/** 示範資料的觀察欄位(#319;正本:apps/db-migrator/seeds/base/demo-items.ts)。 */
 interface DemoItemDocument {
   key?: string;
   orgId?: ObjectId;
@@ -1089,7 +1089,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     );
     const usedCategories = new Set(itemsOne.map((item) => item.category));
     expect(usedCategories).toEqual(new Set(demoOptionValues));
-    // 不同建立者(假 id,seed 沒有可引用的使用者 — 見 seeds/demo-items.ts 的註解)
+    // 不同建立者(假 id,seed 沒有可引用的使用者 — 見 seeds/base/demo-items.ts 的註解)
     expect(
       new Set(itemsOne.map((item) => item.createdBy?.toHexString())).size,
     ).toBeGreaterThan(1);
@@ -1140,7 +1140,7 @@ describe("模組樹、權限、資料範圍目標種子(#29;正本:docs/modules/
     const seeded = await readSeededDocuments(databaseUri);
     const iconOf = (key: string): unknown =>
       seeded.modules.find((module) => module.key === key)?.icon;
-    // 初值正本:apps/db-migrator/seeds/modules/*.ts(對照表見 docs/modules/module-manager.md)
+    // 初值正本:apps/db-migrator/seeds/base/modules/*.ts(對照表見 docs/modules/module-manager.md)
     expect(iconOf("overview")).toBe("dashboard");
     expect(iconOf("system")).toBe("settings");
     expect(iconOf("system.org-manager")).toBe("business");

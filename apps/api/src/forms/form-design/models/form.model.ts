@@ -158,6 +158,18 @@ export class FormVersionsPayload {
   totalCount!: number;
 }
 
+/** 匯出的專案設定檔(`exportFormSeed`):內容就是可以直接登記進專案的 TypeScript。 */
+@ObjectType()
+export class ExportFormSeedPayload {
+  /** 固定 `<表單 key>.<revision>.seed.ts`。 */
+  @Field(() => String)
+  fileName!: string;
+
+  /** 檔案內容(TypeScript 原始碼)。 */
+  @Field(() => String)
+  source!: string;
+}
+
 /** 設計器「預覽」:對草稿跑計算與條件的結果,不建提交。 */
 @ObjectType()
 export class FormPreviewPayload {

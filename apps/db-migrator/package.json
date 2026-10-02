@@ -4,9 +4,10 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "migrate": "migrate-mongo up",
-    "migrate:down": "migrate-mongo down",
-    "migrate:status": "migrate-mongo status",
+    "update": "tsx src/update/run.ts",
+    "migrate": "tsx src/update/run.ts --alias=migrate",
+    "migrate:down": "tsx src/update/run.ts --alias=migrate:down --down",
+    "migrate:status": "tsx src/update/run.ts --alias=migrate:status --status",
     "seed": "tsx src/seed/run.ts",
     "reset": "tsx src/reset/run.ts",
     "lint": "eslint src/ seeds/ test/ --max-warnings 0",
@@ -14,7 +15,10 @@
     "test": "jest --runInBand"
   },
   "jest": {
-    "preset": "@repo/jest-presets/node"
+    "preset": "@repo/jest-presets/node",
+    "moduleNameMapper": {
+      "^@repo/domain/(.*)$": "<rootDir>/../../packages/domain/src/$1"
+    }
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.1",

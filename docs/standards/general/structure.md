@@ -143,10 +143,11 @@ admin 每個環境各建一顆 image,正是最容易吃到這個坑的形狀(`VI
 - **交件前跑一次 `pnpm format`**,未格式化的檔案 CI 會擋下來;`.ts` 的 import 排序由 `@trivago` 外掛統一處理,不要手排。
 - 表格的分隔列與欄寬對齊一律交給 prettier:寫完跑 `pnpm format`,不要手動對齊、也不要為了省寬度刻意寫緊湊式 `|---|---|`(prettier 會展開,產生與內容無關的大 diff)。
 
-只有兩種例外,都要附原因:
+例外都要附原因:
 
 1. **清單編號是跨文件引用的穩定 ID**(清單的編號被其他文件以「第 N 項」指路時)— prettier 會把非連續編號重排成連號,在該清單前一行放 `<!-- prettier-ignore -->`。
 2. **不歸我們管的內容** — 外部安裝、由 `skills-lock.json` 以 hash 校驗的 `.agents/`,以及 Claude Code 的本機目錄,整目錄列在 `.prettierignore`。
+3. **種子快照的固定輸出** — `@repo/domain/seed` 的 `serializeSeedSet` 在 `seed` 宣告前產生 `// prettier-ignore`,讓匯出與版控內容一致,已發布快照不被重新排版。只豁免該宣告,不排除整個 seed 目錄。
 
 **擴大檢查範圍(加副檔名)時,會冒出兩類「本來看不到」的檔案**:
 
@@ -168,7 +169,7 @@ admin 每個環境各建一顆 image,正是最容易吃到這個坑的形狀(`VI
 
 不給語言時 `localeCompare` 吃的是執行環境的預設語言:開發機通常是 `zh-TW`、**CI runner 通常退回 `en-US`**,中文字的先後跟著不一樣 —— 排序斷言於是「本機綠、CI 紅」,而且看起來像偶發。先例與理由註解在 `apps/admin/src/lib/role-options.ts`(`COLLATION_LOCALE`)。同一支檔案裡排多處時抽成模組層常數,不要逐處重打字串。
 
-## STRUCT-11 文件只寫現況:不寫日期、段落、票號;理由寫進正文;歷史查 git
+## STRUCT-11 正式文件寫現況,完成的計畫歸回正本
 
 適用 `docs/**` 與根目錄的 `CLAUDE.md`、`CONTEXT.md`(給人與 AI 讀的文件)。`apps/admin/src/md/module-help/{base,project/additions,project/replacements}/` 的 `.help.md` 是租戶使用者說明,另守詞彙與受眾規則(FIGMA-04、`docs/agents/module-scaffold.md`),不在本條範圍 —— 但同樣不該出現票號。
 
@@ -176,6 +177,9 @@ admin 每個環境各建一顆 image,正是最容易吃到這個坑的形狀(`VI
 - **決策理由照寫**,寫進正文(「為什麼這樣做」「不這樣會怎樣」),但不帶時間與票號。理由是規則的一部分,刪了理由的規則沒人敢改也沒人知道能不能改。
 - **需要歷史時查 git / PR**(`git log -S "<關鍵字>" -- <檔>`、`git blame`、PR 內文),文件不代為保存。
 - 規則被推翻時**直接改寫該條**,不留「已退場」「原條文」這類殭屍段落;規則編號(`REACT-02`…)是穩定 ID,保留不重編。
+- **依用途維護唯一正本**:CONTEXT 定義詞彙,ADR 留理解現行決策所需的理由與取捨,concepts/architecture 說明目前機制,standards 規定開發約束,模組文件說明畫面與 API,操作放 deployment/toolbox。入口和 skills 只指路,不複製規則。
+- **`docs/plans/` 與 `docs/tmp/` 只留未完成工作**:開發規格先清楚標明目標,不能冒充現有能力。實作驗收後,將必要內容精簡改寫到既有正本,刪除已完成的計畫與盤點,同步修正所有引用;跨包計畫只保留未完成範圍及正式文件索引,不另建 archive 或第二套需求文件。
+- **讓讀者直接知道現在怎樣、怎麼用**:不保留「本次新增」「原本怎樣」「開發階段」「已完成」等交付過程,不將規格整份搬進正式文件。進度、逐次測試、commit 與發布證據留 issue/PR;程式型別及生成物已有正本時以連結指路。
 - 例外:引用外部版本號(套件版本、Node 版本)與規則編號不算註記。
 
 為什麼:註記一多,新讀者(與沒有對話 session 的 AI)得自己從「誰在哪一段改了什麼」裡剝出現況,讀完仍不確定哪句還算數;歷史本來就完整地存在 git 與 PR 裡,文件只需要回答「現在是什麼、為什麼」。
@@ -188,7 +192,17 @@ grep -rnE "20[0-9]{2}-[0-9]{2}-[0-9]{2}|第 [0-9一二三四五六] 段|#[0-9]{2
 
 ## STRUCT-12 底座與專案分來源,只有固定入口組裝
 
-專案新增功能改專案來源;客製替換另列目標,保留底座原檔與宣告。底座不可反向 import 專案內容,只允許下列固定入口讀兩方來源。完整型別、碰撞與資料安全契約見[功能登記規格](../../plans/feature-registration.md)。
+專案新增功能改專案來源;客製替換另列目標,保留底座原檔與宣告。底座不可反向 import 專案內容,只允許下列固定入口讀兩方來源。頁面與表單設定見[前端架構](../../concepts/frontend-architecture.md),資料登記與碰撞檢查見[資料層組裝](../../concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
+
+### seed
+
+- 底座宣告與 helper 在 `apps/db-migrator/seeds/base/`,專案宣告在 `seeds/project/`;只有 `seeds/registry.ts` 讀兩方來源。根組織與模組的專案初值在 `project/settings.ts`,底座維護結構與初始值保護政策。
+- 專案模組登記在 `project/registry.ts` 的 `moduleDeclarations`,其他種子登記在 `seeds`。合併後只推導一次模組、權限、資料目標與租戶管理員模板;不另用普通文件宣告這些推導結果。
+- 寫入前檢查重名、引用、循環與來源政策。表單、流程、版本、安裝紀錄及動態權限不得用一般 documents seed 繞過發布機制。
+- 共用宣告、可攜性驗證與 TypeScript 匯出以 `@repo/domain/seed` 為唯一來源。匯出的 `.seed.ts` 直接作專案 seed,程序間的 JSON 只作傳輸,不另建人工維護的設定格式。
+- 版本定義由 `apps/api/src/seed/` 沿原設計服務發布,使用真實操作者、權限與稽核。其 CLI 經最小 Nest runtime 啟動,不開 HTTP 或應用背景工作;其他 app 透過受控子程序呼叫,不互相 import 或複製發布生命週期。
+
+正本:`apps/db-migrator/seeds/registry.ts`、`apps/db-migrator/src/seed/seed-composition.ts`;新增模組步驟見 [module scaffold](../../agents/module-scaffold.md)。
 
 ### admin
 
@@ -204,3 +218,12 @@ grep -rnE "20[0-9]{2}-[0-9]{2}-[0-9]{2}|第 [0-9一二三四五六] 段|#[0-9]{2
 - repository providers 與 Nest exports 由登記導出,不匯出 Model provider 或整個 MongooseModule。底座 repository 實作放 `database/base/` 等 leaf 檔,不回指組裝入口;`database.module.ts` 保留既有 repository 的 TypeScript re-export 相容出口。
 - 新專案租戶資料沿用 BaseRepository 與隔離 plugins,同時登記組織歸屬檢查;刪組織與撤銷開通共用 `OrgBusinessDataReader`,不能新增可繞過檢查的 callback。Recipes 的既有相容例外不供新模組套用。
 - 測試 fixture 只豁免所有權方向,不新增 raw query 或 Mongoose 任意注入的例外;正式來源不得引用 fixture。驗收入口見 TEST-07 / TEST-08。
+
+## STRUCT-13 方案設計先核對現況,優先延伸既有機制
+
+適用方案討論、規格設計、實作與審查。先確認專案如何運作,再提出設計,避免每個功能各自增加一套格式、工具或流程。
+
+- **提案前查實作與用例**:閱讀相關正本、資料格式與宣告型別、登記及執行入口,並核對既有使用範例。提案指出依據的檔案、可沿用的能力及實際缺口;尚未查證的事項標成待確認,未實作的能力不得描述成現況。
+- **優先沿用或擴充**:先評估既有格式、契約、登記入口、驗證器及生命週期能否延伸。不同處理行為可透過既有機制的類型或處理器區分,不因新增功能就另造一套平行的維護格式或操作流程。
+- **同一內容只有一份人工維護正本**:匯出、匯入與部署優先共用既有宣告契約,不要求同一設定維護兩份再人工轉抄或雙向同步。允許自動生成不同用途的產物,但須明確指出來源、生成與驗證方式。
+- **新機制要交代必要性與相容方式**:既有機制確實不足時,說明限制的證據、沿用與新建的取捨,以及既有資料與呼叫端如何遷移、驗證。替代舊機制時明訂退場方式;需長期並存時說明各自不重複的責任,避免同一內容出現兩套正本。

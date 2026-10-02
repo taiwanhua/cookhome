@@ -11,6 +11,7 @@ import { test } from "node:test";
 
 import {
   LEGACY_COOKHOME_REPOSITORY,
+  fakeCommands,
   findStep,
   installScripts,
   makeLegacyCookhomeRoot,
@@ -20,6 +21,7 @@ import {
   repoRoot,
   runJob,
   runNamedStep,
+  runStepScript,
   sampleCloud,
   sampleGithub,
 } from "./test-support.mjs";
@@ -102,7 +104,10 @@ const ORIGINAL_DEPLOY = {
   },
 };
 
-/** 抽設定前 deploy.yml 在「api / admin / migrate 全部受影響」時依序打出的命令(逐字手抄)。 */
+/**
+ * deploy.yml 在「api / admin / update 全部受影響」時依序打出的命令(逐字手抄)。
+ * 部署 image 的部分與抽設定前逐字相同;資料更新是一次 update:連 api 一起安裝、建置受管定義 CLI、確認它啟動得起來,再執行。
+ */
 function originalDeployCommands(environment) {
   const { suffix, api } = ORIGINAL_DEPLOY[environment];
   const describe = (service) =>
@@ -118,11 +123,12 @@ function originalDeployCommands(environment) {
     `docker push ${REGISTRY}/admin:abc1234${suffix}`,
     `gcloud run deploy cookhome-api${suffix} --region=asia-east1 --image=${REGISTRY}/api:abc1234 --port=5001 --allow-unauthenticated --min-instances=0 --max-instances=2 --env-vars-file=deploy/env/${environment}.yaml --set-secrets=MONGODB_URI=mongodb-uri${suffix}:latest,FIELD_ENCRYPTION_KEY=field-encryption-key${suffix}:latest,JWT_SECRET=jwt-secret${suffix}:latest,RESEND_API_KEY=resend-api-key${suffix}:latest --quiet`,
     `gcloud run deploy cookhome-admin${suffix} --region=asia-east1 --image=${REGISTRY}/admin:abc1234${suffix} --port=8080 --allow-unauthenticated --min-instances=0 --max-instances=2 --quiet`,
-    "pnpm install --frozen-lockfile --filter @repo/db-migrator...",
+    "pnpm install --frozen-lockfile --filter @repo/db-migrator... --filter @repo/api...",
+    "pnpm --filter @repo/api... run build",
+    "pnpm --filter @repo/db-migrator run update --check-cli",
     `gcloud secrets versions access latest --secret=mongodb-uri${suffix}`,
     `gcloud secrets versions access latest --secret=root-admin-password${suffix}`,
-    "pnpm --filter @repo/db-migrator migrate",
-    "pnpm --filter @repo/db-migrator seed",
+    "pnpm --filter @repo/db-migrator run update",
   ];
 }
 
@@ -185,7 +191,7 @@ test("deploy:讀設定在 checkout 之後、雲端認證之前;認證參數全�
 });
 
 for (const environment of Object.keys(ORIGINAL_DEPLOY)) {
-  test(`deploy ${environment}:命令與抽設定前逐字相同(SHA image tag、migrate → seed 順序)`, async () => {
+  test(`deploy ${environment}:命令逐字相同(SHA image tag;先部署 api,再建置受管定義 CLI 並執行一次 update)`, async () => {
     const job = await runDeploy(environment);
     assert.equal(job.failed, null, job.failed?.stderr);
     assert.deepEqual(
@@ -326,8 +332,8 @@ function affected(overrides, force = "false") {
   return result;
 }
 const flags = (result) => {
-  const { api, admin, migrate } = result.outputs;
-  return { api, admin, migrate };
+  const { api, admin, update } = result.outputs;
+  return { api, admin, update };
 };
 
 test("affected:只改專案設定或讀取腳本 → api 與 admin 都重建(turbo 看不到這些檔)", () => {
@@ -339,7 +345,7 @@ test("affected:只改專案設定或讀取腳本 → api 與 admin 都重建(tur
   ]) {
     assert.deepEqual(
       flags(affected({ FAKE_DIFF: `docs/x.md\n${file}\n` })),
-      { api: "true", admin: "true", migrate: "true" },
+      { api: "true", admin: "true", update: "true" },
       file,
     );
   }
@@ -349,7 +355,7 @@ test("affected:runtime env 檔與 deploy.yml 仍只影響 api", () => {
   for (const file of ["deploy/env/dev.yaml", ".github/workflows/deploy.yml"]) {
     assert.deepEqual(
       flags(affected({ FAKE_DIFF: `${file}\n` })),
-      { api: "true", admin: "false", migrate: "true" },
+      { api: "true", admin: "false", update: "true" },
       file,
     );
   }
@@ -359,7 +365,7 @@ test("affected:其餘沿用 turbo 的依賴圖判斷", () => {
   assert.deepEqual(flags(affected({ FAKE_DIFF: "docs/x.md\n" })), {
     api: "false",
     admin: "false",
-    migrate: "false",
+    update: "false",
   });
   assert.deepEqual(
     flags(
@@ -368,7 +374,7 @@ test("affected:其餘沿用 turbo 的依賴圖判斷", () => {
         FAKE_TURBO_AFFECTED: "@repo/ui @repo/admin",
       }),
     ),
-    { api: "false", admin: "true", migrate: "false" },
+    { api: "false", admin: "true", update: "false" },
   );
   assert.deepEqual(
     flags(
@@ -377,8 +383,76 @@ test("affected:其餘沿用 turbo 的依賴圖判斷", () => {
         FAKE_TURBO_AFFECTED: "@repo/db-migrator",
       }),
     ),
-    { api: "false", admin: "false", migrate: "true" },
+    { api: "false", admin: "false", update: "true" },
   );
+  // 共用的種子契約(@repo/domain)有變:turbo 的依賴圖讓 api 與 db-migrator 都受影響
+  assert.deepEqual(
+    flags(
+      affected({
+        FAKE_DIFF: "packages/domain/src/seed/protocol.ts\n",
+        FAKE_TURBO_AFFECTED: "@repo/domain @repo/api @repo/db-migrator",
+      }),
+    ),
+    { api: "true", admin: "false", update: "true" },
+  );
+});
+
+test("affected:只改專案種子、快照或 migration(純設定變更)→ 不重建任何 image,但一定跑 update", () => {
+  for (const file of [
+    "apps/db-migrator/seeds/project/registry.ts",
+    "apps/db-migrator/seeds/project/revisions/order_form.r2.seed.ts",
+    "apps/db-migrator/migrations/project/20270101000000_data_order-v2.js",
+  ]) {
+    // turbo 沒有回報任何 package:這一條不靠 turbo 的依賴圖
+    assert.deepEqual(
+      flags(affected({ FAKE_DIFF: `${file}\n`, FAKE_TURBO_AFFECTED: "" })),
+      { api: "false", admin: "false", update: "true" },
+      file,
+    );
+  }
+});
+
+test("純設定變更的部署:不 build / deploy 任何 image;乾淨 checkout 上安裝、建置受管定義 CLI、確認可啟動,再跑一次 update", async () => {
+  const job = await runDeploy("staging", {
+    env: {
+      FAKE_DIFF: "apps/db-migrator/seeds/project/registry.ts\n",
+      FAKE_TURBO_AFFECTED: "",
+    },
+  });
+  assert.equal(job.failed, null, job.failed?.stderr);
+  assert.deepEqual(commands(job.calls, "docker"), []);
+  assert.deepEqual(
+    commands(job.calls, "gcloud").filter((line) => line.includes("run deploy")),
+    [],
+  );
+  assert.deepEqual(commands(job.calls, "pnpm"), [
+    "pnpm install --frozen-lockfile --filter @repo/db-migrator... --filter @repo/api...",
+    "pnpm --filter @repo/api... run build",
+    "pnpm --filter @repo/db-migrator run update --check-cli",
+    "pnpm --filter @repo/db-migrator run update",
+  ]);
+  assert.equal(
+    exported(job.calls).MONGODB_URI,
+    "mongodb://fake-host/fake-db",
+    "連線字串只在最後的 update 那一步 export",
+  );
+});
+
+test("deploy:資料更新只呼叫一次 update,而且寫成 pnpm … run update(少了 run 會變成 pnpm 自己的升級依賴指令)", () => {
+  const runs = deploySteps.map((step) => step.run ?? "").join("\n");
+  assert.doesNotMatch(runs, /db-migrator (migrate|seed)\b/);
+  assert.doesNotMatch(runs, /pnpm (?!.*\brun update\b).*\bupdate\b/);
+  assert.equal(
+    runs.split("\n").filter((line) => /run update\s*$/.test(line)).length,
+    1,
+  );
+  // 設定版本與 api image 的 SHA 分開:update 不收 image tag,也沒有任何一步把 SHA 傳給它
+  const { step } = findStep(
+    deploySteps,
+    (candidate) => candidate.name === "update(migration → 種子 → 定義)",
+  );
+  assert.equal(Object.hasOwn(step.env, "SHA"), false);
+  assert.equal(step.if, "steps.affected.outputs.update == 'true'");
 });
 
 test("affected:以目前部署的 image tag(去掉環境後綴)當 base 比對", () => {
@@ -391,7 +465,7 @@ test("affected:以目前部署的 image tag(去掉環境後綴)當 base 比對",
 });
 
 test("affected:force、首次部署(讀不到 tag)、base 不在歷史 → 全部部署;同一個 SHA → 全部跳過", () => {
-  const all = { api: "true", admin: "true", migrate: "true" };
+  const all = { api: "true", admin: "true", update: "true" };
   assert.deepEqual(flags(affected({ FAKE_DIFF: "" }, "true")), all);
   assert.deepEqual(
     flags(affected({ FAKE_API_IMAGE: "", FAKE_ADMIN_IMAGE: "" })),
@@ -406,7 +480,7 @@ test("affected:force、首次部署(讀不到 tag)、base 不在歷史 → 全�
         FAKE_DIFF: "deploy/project/cloud.json\n",
       }),
     ),
-    { api: "false", admin: "false", migrate: "false" },
+    { api: "false", admin: "false", update: "false" },
   );
 });
 
@@ -495,7 +569,7 @@ test("值含 shell 特殊字元時原樣成為單一引數:不展開、不分詞
     ["deploy.yml", "build + push admin"],
     ["deploy.yml", "deploy api"],
     ["deploy.yml", "deploy admin"],
-    ["deploy.yml", "migrate → seed"],
+    ["deploy.yml", "update(migration → 種子 → 定義)"],
     ["reset-db.yml", "reset"],
   ];
   for (const [workflow, name] of targets) {
@@ -537,30 +611,47 @@ test("值含 shell 特殊字元時原樣成為單一引數:不展開、不分詞
 const resetText = readWorkflow("reset-db.yml");
 const resetSteps = parseSteps(resetText);
 
+/** 假的 Secret 內容:連線字串裡的資料庫名是 production 的命名(沒有環境後綴)時也一樣。 */
+const RESET_DATABASES = {
+  dev: "cookhome-dev",
+  staging: "cookhome-staging",
+  production: "cookhome",
+};
+const resetUri = (environment) =>
+  `mongodb+srv://user:pw@fake-host/${RESET_DATABASES[environment] ?? "cookhome-dev"}?retryWrites=true`;
+
+/** `confirmation` 省略時是操作者會輸入的那一串;要驗「原樣傳」就自己給任意值。 */
 const runReset = (
   environment,
   mode,
-  { repository = COOKHOME, cwd = legacyRoot, uri } = {},
+  { repository = COOKHOME, cwd = legacyRoot, uri, confirmation } = {},
 ) =>
   runJob("reset-db.yml", {
-    inputs: { environment, mode },
+    inputs: {
+      environment,
+      mode,
+      confirmation:
+        confirmation ??
+        `reset:${environment}:${RESET_DATABASES[environment]}:${mode}`,
+    },
     github: { repository },
-    env: deployEnv({
-      FAKE_MONGODB_URI:
-        uri ??
-        `mongodb+srv://user:pw@fake-host/cookhome-${environment}?retryWrites=true`,
-    }),
+    env: deployEnv({ FAKE_MONGODB_URI: uri ?? resetUri(environment) }),
     cwd,
   });
 
-test("reset:只能手動、沒有 production 選項、mode 與 GitHub environment 包裝不變", () => {
+const RESET_GUARD = "輸入防呆(環境、模式與人工確認都要有)";
+
+test("reset:只能手動、三個環境都可選、人工確認是必填的文字輸入,mode 與 GitHub environment 包裝不變", () => {
   assert.match(resetText, /^on:\n {2}workflow_dispatch:\n/m);
   assert.doesNotMatch(
     resetText,
     /^ {2}(push|pull_request|schedule|workflow_run):/m,
   );
-  assert.match(resetText, /options: \[dev, staging\]\n/);
-  assert.doesNotMatch(resetText, /options: \[[^\]]*production/);
+  assert.match(resetText, /options: \[dev, staging, production\]\n/);
+  assert.match(
+    resetText,
+    /^ {6}confirmation:\n {8}description: .*\n {8}required: true\n {8}type: string$/m,
+  );
   assert.match(resetText, /options: \[data, full\]/);
   assert.match(
     resetText,
@@ -583,21 +674,25 @@ test("reset:讀設定移到 checkout 之後、認證之前", () => {
   assert.match(resetSteps[config].run, /read-config\.mjs --scope cloud /);
 });
 
-for (const [environment, mode] of [
-  ["dev", "data"],
-  ["staging", "full"],
+for (const [environment, mode, suffix] of [
+  ["dev", "data", "-dev"],
+  ["staging", "full", "-staging"],
+  ["production", "data", ""],
+  ["production", "full", ""],
 ]) {
-  test(`reset ${environment} / ${mode}:命令與抽設定前逐字相同,--confirm 取自連線字串的資料庫名`, async () => {
+  test(`reset ${environment} / ${mode}:讀該環境的 Secret,建置受管定義 CLI,人工確認原樣傳給指令`, async () => {
     const job = await runReset(environment, mode);
     assert.equal(job.failed, null, job.failed?.stderr);
     assert.deepEqual(commands(job.calls, "gcloud", "docker", "pnpm"), [
-      "pnpm install --frozen-lockfile --filter @repo/db-migrator...",
-      `gcloud secrets versions access latest --secret=mongodb-uri-${environment}`,
-      `gcloud secrets versions access latest --secret=root-admin-password-${environment}`,
-      `pnpm --filter @repo/db-migrator reset --mode=${mode} --confirm=cookhome-${environment}`,
+      "pnpm install --frozen-lockfile --filter @repo/db-migrator... --filter @repo/api...",
+      "pnpm --filter @repo/api... run build",
+      "pnpm --filter @repo/db-migrator run update --check-cli",
+      `gcloud secrets versions access latest --secret=mongodb-uri${suffix}`,
+      `gcloud secrets versions access latest --secret=root-admin-password${suffix}`,
+      `pnpm --filter @repo/db-migrator reset --environment=${environment} --mode=${mode} --confirm=reset:${environment}:${RESET_DATABASES[environment]}:${mode}`,
     ]);
     assert.deepEqual(exported(job.calls), {
-      MONGODB_URI: `mongodb+srv://user:pw@fake-host/cookhome-${environment}?retryWrites=true`,
+      MONGODB_URI: resetUri(environment),
       ROOT_ADMIN_PASSWORD: "fake-secret-value",
       ROOT_ADMIN_ACCOUNT: "root",
       ROOT_ADMIN_EMAIL: "a0987837233@gmail.com",
@@ -613,12 +708,26 @@ for (const [environment, mode] of [
   });
 }
 
-test("reset:production(或任何 dev / staging 以外的值)在第一步就被拒絕,不讀設定、不認證", async () => {
-  for (const environment of ["production", "prod", "", "dev staging"]) {
-    const job = await runReset(environment, "data");
-    assert.equal(job.trace.length, 1, environment);
-    assert.equal(job.failed?.label, "環境防呆(只允許 dev / staging)");
-    assert.deepEqual(job.calls, []);
+test("reset:未知的環境、未知的模式或沒有人工確認,在第一步就被拒絕,不讀設定、不認證、不讀 Secret", async () => {
+  const scenarios = [
+    ["prod", "data", undefined],
+    ["", "data", "reset::cookhome:data"],
+    ["dev staging", "data", "reset:dev:cookhome-dev:data"],
+    ["dev", "wipe", "reset:dev:cookhome-dev:wipe"],
+    ["production", "full", ""],
+    ["dev", "data", ""],
+  ];
+  for (const [environment, mode, confirmation] of scenarios) {
+    const job = await runJob("reset-db.yml", {
+      inputs: { environment, mode, confirmation: confirmation ?? "x" },
+      github: { repository: COOKHOME },
+      env: deployEnv({ FAKE_MONGODB_URI: resetUri("dev") }),
+      cwd: legacyRoot,
+    });
+    const label = `${environment} / ${mode} / ${String(confirmation)}`;
+    assert.equal(job.trace.length, 1, label);
+    assert.equal(job.failed?.label, RESET_GUARD, label);
+    assert.deepEqual(job.calls, [], label);
   }
 });
 
@@ -631,38 +740,91 @@ test("reset:repository 不符時在認證與讀 Secret 之前停止", async () =
   assert.deepEqual(job.calls, []);
 });
 
-test("reset:--confirm 永遠帶上、值原樣取自連線字串(未知命名交給指令端的安全閥拒絕),RESET_ALLOW_ENV 只等於所選環境", async () => {
+test("reset:--confirm 是操作者輸入的原值,workflow 不解析連線字串、不替他組確認字串;RESET_ALLOW_ENV 只等於所選環境", async () => {
   const { step } = findStep(
     resetSteps,
     (candidate) => candidate.name === "reset",
   );
   assert.equal(step.env.RESET_ALLOW_ENV, "${{ inputs.environment }}");
-  assert.match(step.run, /--confirm="\$DB_NAME"/);
+  assert.equal(step.env.CONFIRMATION, "${{ inputs.confirmation }}");
+  assert.match(step.run, /--confirm="\$CONFIRMATION"/);
+  assert.match(step.run, /--environment="\$ENVIRONMENT"/);
+  // 整支 workflow 都沒有從連線字串取資料庫名的程式(確認只能來自人的輸入)
+  for (const candidate of resetSteps) {
+    assert.doesNotMatch(
+      candidate.run ?? "",
+      /new URL|pathname|DB_NAME|node -[ep]/,
+      candidate.name,
+    );
+  }
+  assert.doesNotMatch(resetText, /::notice::.*MONGODB_URI/);
 
-  const unknown = await runReset("dev", "data", {
-    uri: "mongodb://fake-host/some%2Dother%20db",
+  // 確認與實際資料庫不符時 workflow 照樣原樣傳,不修正、不補齊(由指令端拒絕)
+  const wrongDatabase = await runReset("production", "full", {
+    confirmation: "reset:production:cookhome-dev:full",
   });
   assert.equal(
-    commands(unknown.calls, "pnpm").at(-1),
-    "pnpm --filter @repo/db-migrator reset --mode=data --confirm=some-other db",
+    commands(wrongDatabase.calls, "pnpm").at(-1),
+    "pnpm --filter @repo/db-migrator reset --environment=production --mode=full --confirm=reset:production:cookhome-dev:full",
   );
-  const production = await runReset("dev", "full", {
-    uri: "mongodb://fake-host/cookhome",
+  assert.equal(exported(wrongDatabase.calls).RESET_ALLOW_ENV, "production");
+
+  // 含空白與特殊字元的輸入:一個引數、逐字相同
+  const odd = "reset:dev:some other db;$(id):data ";
+  const verbatim = await runReset("dev", "data", {
+    uri: "mongodb://fake-host/cookhome-dev",
+    confirmation: odd,
   });
-  assert.equal(
-    commands(production.calls, "pnpm").at(-1),
-    "pnpm --filter @repo/db-migrator reset --mode=full --confirm=cookhome",
-  );
-  assert.equal(exported(production.calls).RESET_ALLOW_ENV, "dev");
-  const empty = await runReset("dev", "data", { uri: "mongodb://fake-host/" });
-  assert.deepEqual(empty.calls.filter((call) => call[0] === "pnpm").at(-1), [
+  assert.deepEqual(verbatim.calls.filter((call) => call[0] === "pnpm").at(-1), [
     "pnpm",
     "--filter",
     "@repo/db-migrator",
     "reset",
+    "--environment=dev",
     "--mode=data",
-    "--confirm=",
+    `--confirm=${odd}`,
   ]);
+  assert.equal(exported(verbatim.calls).RESET_ALLOW_ENV, "dev");
+
+  // 換一個連線字串(資料庫名不同)不會改變傳給指令的確認
+  const otherUri = await runReset("staging", "data", {
+    uri: "mongodb://fake-host/renamed-db",
+  });
+  assert.equal(
+    commands(otherUri.calls, "pnpm").at(-1),
+    "pnpm --filter @repo/db-migrator reset --environment=staging --mode=data --confirm=reset:staging:cookhome-staging:data",
+  );
+});
+
+test("reset:workflow 自己不把連線字串或由它推得的內容寫進 log(只有 add-mask;資料庫名由指令輸出)", () => {
+  const { step } = findStep(
+    resetSteps,
+    (candidate) => candidate.name === "reset",
+  );
+  const echoes = step.run
+    .split("\n")
+    .filter((line) => /\becho\b/.test(line))
+    .map((line) => line.trim());
+  assert.deepEqual(echoes, [
+    'echo "::add-mask::$MONGODB_URI"',
+    'echo "::add-mask::$ROOT_ADMIN_PASSWORD"',
+  ]);
+});
+
+test("reset:受管定義 CLI 在讀 Secret 與 reset 之前建置並確認可啟動", () => {
+  const order = (name) =>
+    findStep(resetSteps, (candidate) => candidate.name === name).index;
+  assert.ok(
+    order("安裝 db-migrator 與 api 的依賴") < order("建置 api 的受管定義 CLI"),
+  );
+  assert.ok(order("建置 api 的受管定義 CLI") < order("reset"));
+  const secretSteps = resetSteps.filter((candidate) =>
+    (candidate.run ?? "").includes("gcloud secrets"),
+  );
+  assert.deepEqual(
+    secretSteps.map((candidate) => candidate.name),
+    ["reset"],
+  );
 });
 
 // ---------------------------------------------------------- project-status.yml
@@ -970,4 +1132,101 @@ test("ci:有一個不看受影響清單、不需 pnpm install 的專案設定檢
   assert.match(job, /--scope github /);
   const verify = ci.slice(ci.indexOf("\n  verify:\n"));
   assert.match(verify, /needs:\s*\[[^\]]*project-settings[^\]]*\]/);
+});
+
+// parseSteps 取的是第一個 job(prepare)的步驟
+const ciPrepareSteps = parseSteps(readWorkflow("ci.yml"));
+
+/** 以假的 turbo 清單執行 prepare 的「受影響的 package」步驟(git / pnpm / jq 都是假的)。 */
+function ciAffected(turboList) {
+  const { step } = findStep(
+    ciPrepareSteps,
+    (candidate) => candidate.name === "受影響的 package",
+  );
+  const prelude = String.raw`
+git() { case "$1" in cat-file) return 0 ;; diff) printf '%s' "$FAKE_DIFF" ;; esac; }
+pnpm() { for name in $FAKE_TURBO_AFFECTED; do printf '%s\n' "$name"; done; }
+jq() { cat; }
+`;
+  const result = runStepScript(step.run, {
+    env: {
+      BASE: "0ld5ha1",
+      FAKE_DIFF: "apps/api/src/main.ts\n",
+      FAKE_TURBO_AFFECTED: turboList,
+    },
+    prelude,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return result.outputs;
+}
+
+test("ci:api 有變時也跑 db-migrator 的測試(update 以子程序呼叫 api 的受管定義 CLI,turbo 的依賴圖看不到)", () => {
+  const apiOnly = ciAffected("@repo/api");
+  assert.equal(apiOnly.packages.trim(), "@repo/api @repo/db-migrator");
+  assert.equal(apiOnly["others-filter"].trim(), "--filter=@repo/db-migrator");
+  assert.equal(apiOnly.others, "true");
+  assert.equal(apiOnly.api, "true");
+
+  // 本來就在清單裡:不重複
+  const both = ciAffected("@repo/domain @repo/api @repo/db-migrator");
+  assert.equal(
+    both.packages.trim(),
+    "@repo/domain @repo/api @repo/db-migrator",
+  );
+  assert.equal(
+    both["others-filter"].trim(),
+    "--filter=@repo/domain --filter=@repo/db-migrator",
+  );
+
+  // api 沒變:不多加
+  const adminOnly = ciAffected("@repo/admin");
+  assert.equal(adminOnly.packages.trim(), "@repo/admin");
+  assert.equal(adminOnly.others, "false");
+});
+
+test("ci:db-migrator 的測試先建置 api 的受管定義 CLI(turbo 的 task 依賴),不靠本機留著的 dist", () => {
+  const turbo = JSON.parse(
+    readFileSync(path.join(repoRoot, "apps/db-migrator/turbo.json"), "utf8"),
+  );
+  assert.deepEqual(turbo.tasks.test.dependsOn, ["^build", "@repo/api#build"]);
+  const migrator = JSON.parse(
+    readFileSync(path.join(repoRoot, "apps/db-migrator/package.json"), "utf8"),
+  );
+  // 共用的種子契約是真的 workspace 依賴:改 @repo/domain 會讓 db-migrator 進受影響清單
+  assert.equal(migrator.dependencies["@repo/domain"], "workspace:*");
+  // 五個入口都走同一支 update(seed 的相容入口另在 src/seed/run.ts)
+  assert.match(migrator.scripts.update, /src\/update\/run\.ts$/);
+  for (const name of ["migrate", "migrate:down", "migrate:status"]) {
+    assert.match(migrator.scripts[name], /src\/update\/run\.ts /, name);
+    assert.doesNotMatch(migrator.scripts[name], /migrate-mongo/, name);
+  }
+  assert.equal(migrator.scripts.seed, "tsx src/seed/run.ts");
+});
+
+test("ci:已發布的 migration / 種子快照對照基線檢查;沒有基線時只提示不擋", () => {
+  const { step } = findStep(
+    ciPrepareSteps,
+    (candidate) => candidate.name === "已發布的 migration / 種子快照不可改寫",
+  );
+  // BASE 與「受影響的 package」取同一個來源(PR 的 base,或 push 之前的分支 HEAD)
+  assert.equal(
+    step.env.BASE,
+    "${{ github.event.pull_request.base.sha || github.event.before }}",
+  );
+  const run = (env) => runStepScript(step.run, { env, prelude: fakeCommands });
+  // 基線就是目前的 HEAD:沒有任何變更,真的腳本與真的 git 都跑過一次
+  const unchanged = run({ BASE: "HEAD", FAKE_BASE_IN_HISTORY: "1" });
+  assert.equal(unchanged.status, 0, unchanged.stderr);
+  assert.match(unchanged.stdout, /未被改寫/);
+
+  for (const env of [
+    { BASE: "", FAKE_BASE_IN_HISTORY: "1" },
+    { BASE: "deadbeef", FAKE_BASE_IN_HISTORY: "0" },
+  ]) {
+    const skipped = run(env);
+    assert.equal(skipped.status, 0, skipped.stderr);
+    assert.match(skipped.stdout, /::notice::沒有可比對的基線/);
+  }
+  // E2E 不進 CI
+  assert.doesNotMatch(readWorkflow("ci.yml"), /pnpm (run )?e2e\b|playwright/);
 });

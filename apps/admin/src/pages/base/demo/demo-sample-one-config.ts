@@ -8,7 +8,7 @@ import { DemoItemOneStatus, UploadPurpose } from "@repo/graphql";
  * 常數單獨一份是因為 mock 模式的夾具與測試也要用,那兩邊不該把整個設定物件(含 React 元件)拉進去。
  *
  * 規則正本:`docs/modules/demo.sub.sample-one.md`(模組樹 / 權限表 / api 介面);
- * seed 正本:`apps/db-migrator/seeds/modules/demo.sub.sample-one.ts`。
+ * seed 正本:`apps/db-migrator/seeds/base/modules/demo.sub.sample-one.ts`。
  */
 
 /** 列表頁(link)的模組 key;三個隱藏頁掛在它底下。 */
