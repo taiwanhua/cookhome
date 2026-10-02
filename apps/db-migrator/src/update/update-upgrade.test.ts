@@ -37,8 +37,8 @@ import {
 } from "../../test/support/update-harness";
 
 /**
- * 累積版本升級與全新安裝(`docs/plans/seed-migration.md` 驗收矩陣「累積版本升級」「空庫/完整重建」
- * 「設定單獨變更」):真的拋棄式 MongoDB、真的 update 指令子行程、真的 api 受管定義 CLI(不 mock 發布)。
+ * 累積版本升級與全新安裝(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」):
+ * 真的拋棄式 MongoDB、真的 update 指令子行程、真的 api 受管定義 CLI(不 mock 發布)。
  *
  * 夾具 `test/fixtures/update-evolve/`:版本 1 登記工單第一版與舊版登記表;版本 3 把工單改到第三版、
  * 不再登記舊版登記表,並帶兩支依賴快照的資料 migration(第一版 → 第二版 → 第三版)。

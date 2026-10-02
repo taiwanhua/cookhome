@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 已發布的 migration 與種子快照不可改寫(`docs/plans/seed-migration.md`「唯一執行入口與歷史快照」):
+ * 已發布的 migration 與種子快照不可改寫(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」):
  * 執行過的 migration 以檔名記在 changelog、不比對內容(`useFileHash: false`),快照以 revision 識別 ——
  * 改了內容,已經跑過的環境不會重跑,新環境卻拿到另一份,兩邊從此不一致。所以改動只能是**新增檔案**。
  *

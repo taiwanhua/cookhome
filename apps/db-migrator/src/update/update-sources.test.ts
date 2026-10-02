@@ -22,7 +22,7 @@ import {
 } from "../../test/support/update-harness";
 
 /**
- * 來源預檢(`docs/plans/seed-migration.md` 驗收矩陣「漂移與錯誤」):migration 與快照的來源不合法時,
+ * 來源預檢(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」):migration 與快照的來源不合法時,
  * 在任何寫入之前就失敗 —— 沒有輸出、資料庫沒有任何 collection。每一案在暫存目錄建一個最小的來源目錄。
  */
 

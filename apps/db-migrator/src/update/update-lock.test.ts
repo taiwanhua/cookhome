@@ -20,7 +20,7 @@ import {
 } from "../../test/support/update-harness";
 
 /**
- * 整批互斥與 down 的保護(`docs/plans/seed-migration.md` 驗收矩陣「續跑與互斥」),
+ * 整批互斥與 down 的保護(`docs/deployment.md`「設定與資料更新」),
  * 以正式來源(九支歷史 migration 與正式 registry)對真的拋棄式 MongoDB。
  */
 

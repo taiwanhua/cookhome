@@ -1,5 +1,5 @@
 /**
- * 歷史快照的固定 loader(`docs/plans/seed-migration.md`「唯一執行入口與歷史快照」)。
+ * 歷史快照的固定 loader(`docs/concepts/data-layer-and-isolation.md`「Migration 與設定順序」)。
  *
  * 快照就是 `export const seed … satisfies SeedSet` 的 `.seed.ts`(設計器匯出的檔即快照),可另
  * `export const requiresSeeds` 列出前置快照。路徑相對 `seeds/`,只收 `base/revisions/` 與

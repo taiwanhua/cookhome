@@ -1,5 +1,5 @@
 /**
- * `migrate:down`:還原最後一支已執行的 migration(`docs/plans/seed-migration.md`「唯一執行入口與歷史快照」)。
+ * `migrate:down`:還原最後一支已執行的 migration(`docs/deployment.md`「設定與資料更新」)。
  *
  * 與 update 同一把鎖、同一個來源收集器,經 migrate-mongo 呼叫原檔的 `down`。**只還原這一支的資料變更**:
  * 種子、定義與安裝紀錄不會回復。有未完成的 update、或該檔沒有 `down` 就拒絕。

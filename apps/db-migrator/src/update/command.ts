@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-os-command-from-path -- 本機開發時以 git 讀目前的 commit:git 的安裝位置因機器而異,只能靠 PATH;不經 shell、參數固定、失敗就記 unknown;到期條件:無 */
 /**
- * update 指令(`docs/plans/seed-migration.md`「唯一執行入口與歷史快照」)。
+ * update 指令(`docs/deployment.md`「設定與資料更新」)。
  *
  * ```
  * pnpm --filter @repo/db-migrator run update                 完整更新:migration → 普通種子 → 定義 → 核對

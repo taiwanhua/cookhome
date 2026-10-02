@@ -260,6 +260,8 @@ pnpm --filter @repo/db-migrator run update --unlock-owner=<owner>
 
 `migrate:down` 經相同互斥與紀錄執行最後一支 migration 的 `down`;有未完成更新或沒有 down 實作時拒絕。它只還原該 migration 的資料變更,不回滾 seed、定義或安裝紀錄。需要下修時先核對該檔的資料前提及相容性,不能把 down 或切回舊 API image 當成整批復原。
 
+若狀態停在 `rollback-in-progress`,以原來源重跑 `pnpm --filter @repo/db-migrator run migrate:down`,先完成該次回滾再執行 update。回滾接續也會核對來源 hash,不可改寫原檔後重跑。
+
 定義發布立即生效,工具互斥不阻擋線上業務寫入。破壞性變更須在發布前備妥相容窗口、必要停寫方式與恢復步驟;API 已部署而 update 失敗時,依該變更的恢復方式處理。
 
 正本:`apps/db-migrator/src/update/`、`apps/api/src/seed/`、`.github/workflows/deploy.yml`。
