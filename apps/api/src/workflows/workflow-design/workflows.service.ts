@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { Types } from "mongoose";
 
 import { isValidFormKey } from "@repo/domain/form";
 import { isReviewStep } from "@repo/domain/workflow";
@@ -24,6 +25,7 @@ import { WorkflowAccessService } from "../workflow-access.service";
 import { WORKFLOWS_PERMISSIONS } from "../workflow-keys";
 import {
   isDuplicateKey,
+  workflowConflictError,
   workflowForbiddenError,
   workflowNotFoundError,
   workflowValidationError,
@@ -57,6 +59,27 @@ export const WORKFLOW_AUDIT = {
 } as const;
 
 const WORKFLOW_TARGET = "workflow";
+
+/**
+ * 只給內部呼叫端(受管定義的安裝,`seed/`)的選項;GraphQL input 不收這些。
+ * `definitionId`:預先配好的流程 id(安裝紀錄先記下 id 再建立,中斷後認得出自己建的那一筆)。
+ */
+export interface CreateWorkflowInternalOptions {
+  definitionId?: Types.ObjectId;
+}
+
+/**
+ * 只給內部呼叫端的條件更新(CAS):還是同一筆流程(`definitionId`)、`currentVersion` 與名稱都還是
+ * `expected` 才寫(條件與寫入在同一次更新裡判斷)。比對之後被別人改名、發布 / 退役了別的版本、
+ * 或流程被刪掉重建 → `CONFLICT`(`METADATA_CHANGED`),不蓋掉現場的值。
+ */
+export interface UpdateWorkflowInternalOptions {
+  expected?: {
+    definitionId: Types.ObjectId;
+    currentVersion: number | null;
+    name: string;
+  };
+}
 
 /** 讀組織只取名稱,不受管理範圍影響。 */
 function orgReader(operator: OperatorContext): OperatorContext {
@@ -127,10 +150,17 @@ export class WorkflowsService {
   async create(
     facts: FormOperatorFacts,
     input: CreateWorkflowInput,
+    internal: CreateWorkflowInternalOptions = {},
   ): Promise<WorkflowModel> {
     const key = requireWorkflowKey(input.key);
     const name = requireName(input.name);
-    const created = await this.insertWorkflow(facts, key, name, null);
+    const created = await this.insertWorkflow(
+      facts,
+      key,
+      name,
+      null,
+      internal.definitionId,
+    );
     await this.audit.record(facts.operator, {
       action: WORKFLOW_AUDIT.create,
       targetType: WORKFLOW_TARGET,
@@ -143,20 +173,32 @@ export class WorkflowsService {
   async update(
     facts: FormOperatorFacts,
     input: UpdateWorkflowInput,
+    internal: UpdateWorkflowInternalOptions = {},
   ): Promise<WorkflowModel> {
     const workflow = await this.access.requireWritable(facts, input.key);
     const name = requireName(input.name);
     if (name === workflow.name) {
       return this.toModel(facts, workflow);
     }
+    const { expected } = internal;
     const updated = await this.workflows.update(
       facts.operator,
       workflow.tenantId,
-      { _id: workflow._id },
+      expected === undefined
+        ? { _id: workflow._id }
+        : { _id: expected.definitionId, key: workflow.key },
       { name },
+      expected === undefined
+        ? {}
+        : { currentVersion: expected.currentVersion, name: expected.name },
     );
     if (!updated) {
-      throw workflowNotFoundError(`Workflow not found: ${input.key}`);
+      throw expected === undefined
+        ? workflowNotFoundError(`Workflow not found: ${input.key}`)
+        : workflowConflictError(
+            `Workflow ${input.key} identity, current version or name changed`,
+            "METADATA_CHANGED",
+          );
     }
     await this.audit.record(facts.operator, {
       action: WORKFLOW_AUDIT.update,
@@ -296,6 +338,7 @@ export class WorkflowsService {
     key: string,
     name: string,
     forkedFrom: { workflowKey: string; version: number } | null,
+    definitionId?: Types.ObjectId,
   ): Promise<WorkflowRecord> {
     const tenantId = facts.isRoot ? null : facts.tenantId;
     if (!facts.isRoot && tenantId === null) {
@@ -310,6 +353,7 @@ export class WorkflowsService {
         key,
         name,
         forkedFrom,
+        ...(definitionId === undefined ? {} : { _id: definitionId }),
       });
     } catch (error) {
       if (isDuplicateKey(error)) {

@@ -8,10 +8,13 @@ import {
 import type { OperatorContext } from "../../database/operator-context";
 import {
   type LifecycleOwner,
+  type PublishInternalOptions,
+  type RetryPublishInternalOptions,
   type VersionLifecycleConfig,
   assertNotPublishing,
   interruptedPublishOf,
   lockDraftForPublish,
+  publishExpectationMismatch,
   repositoryVersionStore,
   switchToPublished,
 } from "../../versioning/version-lifecycle";
@@ -119,9 +122,15 @@ export class FormPublishService {
     };
   }
 
+  /**
+   * `internal`:只給內部的受管定義安裝用(`PublishInternalOptions`)—— 指名草稿、並要求表單與
+   * `currentVersion` 還是登記時的樣子;不符在配版號與任何寫入之前就拒絕。後面三筆切換以**同一次讀到的**
+   * `currentVersion` 做條件更新,所以通過這裡之後現場再變也切不過去。
+   */
   async publish(
     facts: FormOperatorFacts,
     input: PublishFormVersionInput,
+    internal: PublishInternalOptions = {},
   ): Promise<FormVersionRecord> {
     const operator = facts.operator;
     const form = await this.access.requireWritableForm(facts, input.formKey);
@@ -129,8 +138,13 @@ export class FormPublishService {
     if (changelog === "") {
       throw validationError("changelog is required", ["changelog"]);
     }
+    const mismatch = publishExpectationMismatch(form, internal.expected);
+    if (mismatch !== null) {
+      throw conflictError(mismatch, "CURRENT_VERSION_CHANGED");
+    }
     await this.assertNotPublishing(operator, form);
     const draft = await this.versions.findOne(operator, {
+      ...(internal.draftId === undefined ? {} : { _id: internal.draftId }),
       formKey: form.key,
       status: "draft",
     });
@@ -176,10 +190,15 @@ export class FormPublishService {
     return this.finish(operator, form, locked);
   }
 
-  /** 從步驟 3 冪等重跑;沒有中斷的發布 → `CONFLICT`(`PUBLISH_NOT_INTERRUPTED`)。 */
+  /**
+   * 從步驟 3 冪等重跑;沒有中斷的發布 → `CONFLICT`(`PUBLISH_NOT_INTERRUPTED`)。
+   * `internal.versionId`:只給內部的受管定義安裝用 —— 只接續那一版;此刻中斷的是別的版本同樣回
+   * `PUBLISH_NOT_INTERRUPTED`(在稽核、欄位級權限與切換之前判斷,接著處理的就是這裡選中的那一版)。
+   */
   async retry(
     facts: FormOperatorFacts,
     input: FormKeyInput,
+    internal: RetryPublishInternalOptions = {},
   ): Promise<FormVersionRecord> {
     const operator = facts.operator;
     const form = await this.access.requireWritableForm(facts, input.formKey);
@@ -187,6 +206,15 @@ export class FormPublishService {
     if (!interrupted) {
       throw conflictError(
         `Form ${form.key} has no interrupted publish`,
+        "PUBLISH_NOT_INTERRUPTED",
+      );
+    }
+    if (
+      internal.versionId !== undefined &&
+      !interrupted._id.equals(internal.versionId)
+    ) {
+      throw conflictError(
+        `Form ${form.key} interrupted publish is version ${String(interrupted.version)}, not the expected one`,
         "PUBLISH_NOT_INTERRUPTED",
       );
     }

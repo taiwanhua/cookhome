@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { Types } from "mongoose";
 
 import type { WorkflowDefinition } from "@repo/domain/workflow";
 
@@ -132,10 +133,14 @@ export class WorkflowVersionsService {
     };
   }
 
-  /** 以任一版(已發布 / 退役)為基底開草稿;已有草稿 / 發布中 → `CONFLICT`。 */
+  /**
+   * 以任一版(已發布 / 退役)為基底開草稿;已有草稿 / 發布中 → `CONFLICT`。
+   * `internal.draftId`:預先配好的草稿 id,只給內部的受管定義安裝用(GraphQL input 不收)。
+   */
   async createDraft(
     facts: FormOperatorFacts,
     input: CreateWorkflowVersionDraftInput,
+    internal: { draftId?: Types.ObjectId } = {},
   ): Promise<WorkflowVersionPayload> {
     this.access.assertPermission(facts, WORKFLOWS_PERMISSIONS.edit);
     const operator = facts.operator;
@@ -164,6 +169,7 @@ export class WorkflowVersionsService {
       workflow.key,
       base,
       input.baseVersion ?? null,
+      internal.draftId,
     );
     await this.audit.record(operator, {
       action: WORKFLOW_VERSION_AUDIT.createDraft,
@@ -183,10 +189,12 @@ export class WorkflowVersionsService {
     workflowKey: string,
     content: DraftContent,
     baseVersion: number | null,
+    draftId?: Types.ObjectId,
   ): Promise<WorkflowVersionRecord> {
     const { definition, checkFormKey } = content;
     try {
       return await this.versions.create(operator, {
+        ...(draftId === undefined ? {} : { _id: draftId }),
         workflowKey,
         version: null,
         status: "draft",
@@ -236,10 +244,15 @@ export class WorkflowVersionsService {
     };
   }
 
-  /** 存草稿(`expectedDraftRevision` 樂觀鎖);檢查器的錯草稿可以先存,隨 `validation` 回。 */
+  /**
+   * 存草稿(`expectedDraftRevision` 樂觀鎖);檢查器的錯草稿可以先存,隨 `validation` 回。
+   * `internal.draftId`:只給內部的受管定義安裝用 —— 只存**那一份**草稿(id 在更新條件裡);
+   * 它已被刪掉、現在的草稿是別人另開的 → `DRAFT_MISSING`,不會因為 revision 剛好相同而改到別人的草稿。
+   */
   async saveDraft(
     facts: FormOperatorFacts,
     input: SaveWorkflowVersionDraftInput,
+    internal: { draftId?: Types.ObjectId } = {},
   ): Promise<WorkflowVersionPayload> {
     this.access.assertPermission(facts, WORKFLOWS_PERMISSIONS.edit);
     const operator = facts.operator;
@@ -249,9 +262,12 @@ export class WorkflowVersionsService {
     );
     const definition = definitionFromInput(input.definition);
     const checkFormKey = checkFormKeyFromInput(input.definition.checkFormKey);
+    const ownDraft =
+      internal.draftId === undefined ? {} : { _id: internal.draftId };
     const updated = await this.versions.findOneAndUpdate(
       operator,
       {
+        ...ownDraft,
         workflowKey: workflow.key,
         status: "draft",
         draftRevision: input.expectedDraftRevision,
@@ -268,6 +284,7 @@ export class WorkflowVersionsService {
     );
     if (!updated) {
       const draft = await this.versions.findOne(operator, {
+        ...ownDraft,
         workflowKey: workflow.key,
         status: "draft",
       });
@@ -379,10 +396,15 @@ export class WorkflowVersionsService {
   /**
    * 退役目前版本:`published → retired`,再 `currentVersion → null`;中斷後再呼叫一次會接著做完。
    * 進行中的實例照常走完(實例記的是自己的版本),只影響新送出。
+   *
+   * `internal.expectedVersion`:只給內部的受管定義安裝用 —— 指名要退役的版本,`currentVersion` 已是別的
+   * 版本 → `CURRENT_VERSION_CHANGED`(不退役別人剛發布的新版);那一版已退役、`currentVersion` 也已清掉時
+   * 什麼都沒改,不寫稽核。GraphQL 端點不帶,維持「退役讀到的目前版本」。
    */
   async retireCurrent(
     facts: FormOperatorFacts,
     input: WorkflowKeyInput,
+    internal: { expectedVersion?: number } = {},
   ): Promise<WorkflowRecord> {
     this.access.assertPermission(facts, WORKFLOWS_PERMISSIONS.publish);
     const operator = facts.operator;
@@ -393,7 +415,7 @@ export class WorkflowVersionsService {
     const retired = await retireCurrentVersion(
       this.publisher.lifecycle(operator, workflow),
       ownerOf(workflow),
-      workflow.currentVersion,
+      internal.expectedVersion ?? workflow.currentVersion,
     );
     const updated = await this.workflows.findOne(workflow.tenantId, {
       key: workflow.key,
@@ -401,16 +423,19 @@ export class WorkflowVersionsService {
     if (!updated) {
       throw workflowNotFoundError(`Workflow not found: ${workflow.key}`);
     }
-    await this.audit.record(operator, {
-      action: WORKFLOW_VERSION_AUDIT.retire,
-      targetType: WORKFLOW_VERSION_TARGET,
-      ...(retired ? { targetId: retired._id } : {}),
-      before: {
-        workflowKey: workflow.key,
-        currentVersion: workflow.currentVersion,
-      },
-      after: { currentVersion: null },
-    });
+    // 指名版本的重複退役(兩步都已是目標狀態、什麼都沒改)不寫稽核(同表單)
+    if (retired || workflow.currentVersion !== null) {
+      await this.audit.record(operator, {
+        action: WORKFLOW_VERSION_AUDIT.retire,
+        targetType: WORKFLOW_VERSION_TARGET,
+        ...(retired ? { targetId: retired._id } : {}),
+        before: {
+          workflowKey: workflow.key,
+          currentVersion: workflow.currentVersion,
+        },
+        after: { currentVersion: null },
+      });
+    }
     return updated;
   }
 

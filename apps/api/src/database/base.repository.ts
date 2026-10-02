@@ -48,6 +48,14 @@ export type RepositoryFilter<TSchema> = QueryFilter<TSchema & BaseFields>;
 
 export type RepositoryUpdate<TSchema> = UpdateQuery<TSchema & BaseFields>;
 
+/**
+ * 建立資料的內容。`_id` 只給「先配好 id 再寫入」的內部流程用(受管定義的安裝紀錄要在第一筆寫入前
+ * 記下 id,中斷後才認得出自己建的那一筆);一般呼叫端不給,由 Mongoose 產生。
+ */
+export type RepositoryCreate<TSchema> = Partial<TSchema> & {
+  _id?: Types.ObjectId;
+};
+
 export interface FindOptions {
   /** 連軟刪除的資料一起查(ADR-0007);預設排除。 */
   includeDeleted?: boolean;
@@ -259,7 +267,7 @@ export class BaseRepository<TSchema, TDocument extends RepositoryDocument> {
    */
   async create(
     operator: OperatorContext,
-    data: Partial<TSchema>,
+    data: RepositoryCreate<TSchema>,
   ): Promise<Persisted<TDocument>> {
     const document = new this.model(
       await this.withModuleTenant(this.withTenantOrg(operator, data)),

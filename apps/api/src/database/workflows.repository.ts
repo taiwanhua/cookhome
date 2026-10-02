@@ -24,12 +24,26 @@ export interface NewWorkflow {
   key: string;
   name: string;
   forkedFrom?: WorkflowForkSource | null;
+  /** 預先配好的 id(受管定義的安裝紀錄先記下 id 再建立);一般呼叫端不給。 */
+  _id?: Types.ObjectId;
 }
 
 /** 可改的欄位(`key` / `ownerOrgId` / `tenantId` 建立後不可改)。 */
 export interface WorkflowChanges {
   name?: string;
   currentVersion?: number | null;
+}
+
+/** 條件更新的預期值(CAS):列出的欄位都還是這個值才寫。 */
+export interface WorkflowExpectation {
+  name?: string;
+  currentVersion?: number | null;
+}
+
+/** 某個 key 目前被誰占用(只有身分與歸屬,不含內容)。 */
+export interface WorkflowKeyOwner {
+  _id: Types.ObjectId;
+  tenantId: Types.ObjectId | null;
 }
 
 /**
@@ -76,6 +90,17 @@ export class WorkflowsRepository {
   }
 
   /**
+   * 某個 key 目前被誰占用(`key` 全域唯一,共用與各租戶的客製都算)。**只回身分與歸屬**,不回名稱、
+   * 版本等內容 —— 給「建立前先知道會不會撞到別的租戶的流程」這種前置檢查用,不能拿來讀別租戶的流程。
+   */
+  async findKeyOwner(key: string): Promise<WorkflowKeyOwner | null> {
+    return this.model
+      .findOne({ key, deletedAt: null }, { _id: 1, tenantId: 1 })
+      .lean<WorkflowKeyOwner>()
+      .exec();
+  }
+
+  /**
    * 租戶看得到的流程:自己的客製(`tenantId` = 本租戶)+ 分派來的共用(`tenantId = null` 且 id 在
    * `assignedSharedIds` 內,由呼叫端從本租戶的 `org_workflow` 取)。
    */
@@ -107,6 +132,7 @@ export class WorkflowsRepository {
   ): Promise<WorkflowRecord> {
     const boundary = assertTenantOrShared(tenantId, WORKFLOWS_COLLECTION);
     const document = new this.model({
+      ...(workflow._id === undefined ? {} : { _id: workflow._id }),
       key: workflow.key,
       name: workflow.name,
       ownerOrgId: boundary,
@@ -129,7 +155,7 @@ export class WorkflowsRepository {
     tenantId: Types.ObjectId | null | undefined,
     filter: WorkflowFilter,
     changes: WorkflowChanges,
-    expected: { currentVersion?: number | null } = {},
+    expected: WorkflowExpectation = {},
   ): Promise<WorkflowRecord | null> {
     const condition = conditionOf(
       assertTenantOrShared(tenantId, WORKFLOWS_COLLECTION),
@@ -137,6 +163,9 @@ export class WorkflowsRepository {
     );
     if ("currentVersion" in expected) {
       condition.currentVersion = expected.currentVersion;
+    }
+    if (expected.name !== undefined) {
+      condition.name = expected.name;
     }
     return this.model
       .findOneAndUpdate(

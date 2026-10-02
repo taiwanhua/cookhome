@@ -36,6 +36,8 @@ export const WORKFLOW_CONFLICT_REASONS = [
   "ALREADY_IN_STEP",
   /** 實例或關卡已不在可處理的狀態(已結束、關卡已前進、不是解析為空的阻擋)。 */
   "INSTANCE_CHANGED",
+  /** 受管定義安裝的條件更新:比對之後流程身分、目前版本或名稱被別人改了(只有內部的安裝流程會帶預期值)。 */
+  "METADATA_CHANGED",
 ] as const;
 
 export type WorkflowConflictReason = (typeof WORKFLOW_CONFLICT_REASONS)[number];

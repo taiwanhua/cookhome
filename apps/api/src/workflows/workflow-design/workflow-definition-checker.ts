@@ -55,7 +55,8 @@ export class WorkflowDefinitionChecker {
 
   async check(
     facts: FormOperatorFacts,
-    workflow: WorkflowRecord,
+    // 只用到租戶邊界:還沒建立的流程(受管定義安裝的寫入前檢查)也能先驗
+    workflow: Pick<WorkflowRecord, "tenantId">,
     definition: WorkflowDefinition,
     checkFormKey?: string | null,
   ): Promise<WorkflowValidationReport> {
@@ -67,7 +68,8 @@ export class WorkflowDefinitionChecker {
 
   private async optionsOf(
     facts: FormOperatorFacts,
-    workflow: WorkflowRecord,
+    // 只用到租戶邊界:還沒建立的流程(受管定義安裝的寫入前檢查)也能先驗
+    workflow: Pick<WorkflowRecord, "tenantId">,
     definition: WorkflowDefinition,
     checkFormKey: string | null,
   ): Promise<ValidateWorkflowOptions> {
@@ -108,7 +110,8 @@ export class WorkflowDefinitionChecker {
   /** 表單目前版本的欄位;表單不存在(或不在這個流程看得到的範圍)→ undefined;沒有目前版本 → null。 */
   private async currentFieldsOf(
     facts: FormOperatorFacts,
-    workflow: WorkflowRecord,
+    // 只用到租戶邊界:還沒建立的流程(受管定義安裝的寫入前檢查)也能先驗
+    workflow: Pick<WorkflowRecord, "tenantId">,
     formKey: string,
   ): Promise<readonly FieldDef[] | null | undefined> {
     const form = await this.forms.findOne(facts.operator, { key: formKey });

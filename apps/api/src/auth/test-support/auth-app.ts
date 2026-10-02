@@ -72,14 +72,17 @@ export interface AuthTestApp {
   close: () => Promise<void>;
 }
 
-function buildDatabaseUri(baseUri: string, databaseName: string): string {
+export function buildDatabaseUri(
+  baseUri: string,
+  databaseName: string,
+): string {
   const uri = new URL(baseUri);
   uri.pathname = `/${databaseName}`;
   return uri.toString();
 }
 
 /** 以子行程跑 db-migrator 的 seed 指令,對測試資料庫種 root 帳號 / 根組織 / 種子角色。 */
-function seedDatabase(databaseUri: string): void {
+export function seedDatabase(databaseUri: string): void {
   const result = spawnSync(process.execPath, [TSX_CLI, SEED_ENTRY], {
     cwd: DB_MIGRATOR_ROOT,
     env: {

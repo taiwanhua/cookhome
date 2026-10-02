@@ -36,5 +36,12 @@ import { WorkflowsService } from "./workflows.service";
     WorkflowsResolver,
     WorkflowBindingsResolver,
   ],
+  // 受管定義安裝(`seed/`)沿用的建立、草稿、檢查與發布
+  exports: [
+    WorkflowsService,
+    WorkflowVersionsService,
+    WorkflowPublishService,
+    WorkflowDefinitionChecker,
+  ],
 })
 export class WorkflowDesignModule {}
