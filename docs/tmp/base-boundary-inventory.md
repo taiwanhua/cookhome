@@ -2,7 +2,7 @@
 
 本表列出底座與專案的維護歸屬及固定組裝入口。專案設定由獨立值檔提供,功能來源依 base/project 分區;底座更新組裝契約,專案在自己的來源新增或登記客製替換,避免日常擴充反覆修改底座清單。
 
-A 的設定與部署識別已交付;下列 B 路徑依[功能登記與客製替換規格](../plans/feature-registration.md)整理候選維護現況,整合驗收與發布狀態以 issue/PR 為準。C–F 尚待實作,特別是 seed/migration 來源尚未分區。完整決策與工作包見[底座同步計畫](../plans/base-sync.md),逐檔初始化與 seed 欄位見[初始化盤點](project-bootstrap-inventory.md)。此盤點不執行資料庫、雲端或正式 Figma 操作,也不代表底座 repo 或跨 repo 同步已建立。
+A 的設定與部署識別已交付;下列 B 路徑依[功能登記與客製替換規格](../plans/feature-registration.md)整理維護現況,整合驗收與發布狀態以 issue/PR 為準。C–F 尚待實作,特別是 seed/migration 來源尚未分區。完整決策與工作包見[底座同步計畫](../plans/base-sync.md),逐檔初始化與 seed 欄位見[初始化盤點](project-bootstrap-inventory.md)。此盤點不執行資料庫、雲端或正式 Figma 操作,也不代表底座 repo 或跨 repo 同步已建立。
 
 ## 已確認的原則
 
@@ -112,6 +112,6 @@ help 來源為 `md/module-help/base/`、`project/additions/`、`project/replacem
 
 ## 下一步
 
-先完成 B 候選的跨票整合驗收,以正式頁面/help、真 AppModule 與 GraphQL 產物核對共同契約;文件路徑不代替測試及發布證據。A 的品牌與部署設定保持原值,本包不改 seed/migration 所有權。
+B 的整合驗收以正式頁面/help、真 AppModule 與 GraphQL 產物核對共同契約;文件路徑不代替測試及發布證據。A 的品牌與部署設定保持原值,本包不改 seed/migration 所有權。
 
 `CONTEXT.md` 已定義底座、引用專案、專案登記入口與組裝入口。後續 C–F 依[共同計畫](../plans/base-sync.md)設計 seed 分工、初始化、Figma 與版本同步。尚未建立底座 repo、通用初始化/同步 skill 或完成跨 repo 升級演練;GraphQL 產物與 lockfile 仍須整合重產,不能整份套用單方版本。

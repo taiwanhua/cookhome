@@ -12,7 +12,7 @@
 
 待設計:獨立底座 repo 與引用專案的建立命令、seed/migration 來源、完整初始化 skill、改良回收與正式版本升級 PR。共同 Git 歷史原則已定,仍需固定回饋分支起點、發布 tag、升級分支保留合併祖先、資料遷移與跨專案驗證方式;GitHub Template 的歷史行為須與後續 merge 策略一起評估。
 
-現況:A 專案設定與部署識別已交付;B 的頁面/help、API 功能與資料、GraphQL 來源契約已固定,候選程式與文件正依[共同規格](../plans/feature-registration.md)整合驗收。來源地圖見[底座維護邊界盤點](base-boundary-inventory.md)及[初始化索引](../project-initialization.md),seed 欄位見[初始化盤點](project-bootstrap-inventory.md)。最終驗收與發布以 issue/PR 為準;尚未建立底座 repo 或啟用跨 repo 同步。C–F 的依賴與完成判準見[底座同步計畫](../plans/base-sync.md)。
+現況:A 專案設定與部署識別已交付;B 的頁面/help、API 功能與資料、GraphQL 來源分區及固定組裝入口已實作,契約見[共同規格](../plans/feature-registration.md)。來源地圖見[底座維護邊界盤點](base-boundary-inventory.md)及[初始化索引](../project-initialization.md),seed 欄位見[初始化盤點](project-bootstrap-inventory.md)。最終驗收與發布以 issue/PR 為準;尚未建立底座 repo 或啟用跨 repo 同步。C–F 的依賴與完成判準見[底座同步計畫](../plans/base-sync.md)。
 
 Figma 同步待實作與 skill 化:將「底座 Library 發布 → 專案接受更新 → agent 補套專案品牌 → 檢查元件連結、品牌遺漏與客製內容」納入完整同步流程,並涵蓋新增元件與切換變體後的品牌檢查。與 Git/程式碼升級一併設計驗收,另釐清程式版本與 Library 更新的對應方式。
 
