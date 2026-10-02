@@ -88,6 +88,16 @@ jobs:
             list=$(TURBO_SCM_BASE="$BASE" pnpm exec turbo ls --affected --output json | jq -r '.packages.items[].name' | grep -vx '//' | tr '\n' ' ' || true)
             echo "::notice::受影響的 package:${list:-(無)}"
           fi
+          # db-migrator 的 update 以子程序呼叫 api 建置後的受管定義 CLI(app 之間不互相 import,turbo 的
+          # 套件依賴圖看不到這條關係):api 有變時也要跑 db-migrator 的測試
+          case " $list " in
+            *" @repo/api "*)
+              case " $list " in
+                *" @repo/db-migrator "*) ;;
+                *) list="${list% } @repo/db-migrator" ;;
+              esac
+              ;;
+          esac
           filter=""
           others=""
           for p in $list; do
@@ -109,6 +119,18 @@ jobs:
             echo "front=$(flag @repo/front)"
             echo "codegen=$codegen"
           } >> "$GITHUB_OUTPUT"
+
+      # 已發布的 migration 與種子快照只能新增、不能改寫(執行過的環境不會重跑,改了兩邊就不一致)。
+      # 對照同一個 base;base 拿不到(首推、force push)時沒有可比的基線,只提示不擋。
+      - name: 已發布的 migration / 種子快照不可改寫
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "::notice::沒有可比對的基線,略過 migration / 種子快照的不可變檢查"
+          else
+            node apps/db-migrator/scripts/check-immutable-sources.mjs "$BASE"
+          fi
 
   # 專案部署設定(deploy/project/*.json)與讀取器(scripts/project-settings/)不屬於任何 workspace,
   # turbo 的受影響清單看不到,所以不掛在 prepare 後面、每次都跑。
@@ -331,11 +353,14 @@ jobs:
 
   # api / admin 以外受影響 package 的測試(domain / ui / i18n / logger / db-migrator …)
   # MONGODB_URI:db-migrator 測試沿用本 job 的 MongoDB service container(本地無此變數時自起 mongodb-memory-server)
+  # db-migrator 的 update 測試以子程序跑 api 的受管定義 CLI:它的 test 在 turbo 裡依賴 @repo/api#build
+  #(apps/db-migrator/turbo.json),所以這裡會先建置 api 與 @repo/domain 等執行期依賴,不靠本機恰好留著的 dist;
+  # 這些測試對真 MongoDB 逐一驗故障窗口,時間較長,逾時放寬到 30 分鐘。
   test-others:
     needs: prepare
     if: needs.prepare.outputs.others == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     services:
       mongo:

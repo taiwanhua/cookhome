@@ -32,7 +32,7 @@ import {
 import { log, run, start, stopProcess, waitUntil } from "./process";
 
 /**
- * 一整套本機 stack(TEST-11):**記憶體 / 拋棄式 Mongo → migrate → seed → fake GCS(有 Docker 才起)→ api → admin 靜態檔**。
+ * 一整套本機 stack(TEST-11):**記憶體 / 拋棄式 Mongo → update(migration → 種子)→ fake GCS(有 Docker 才起)→ api → admin 靜態檔**。
  *
  * `globalSetup` 起、`globalTeardown` 收,兩者跑在 Playwright 的同一個行程裡,
  * 所以 handle 放模組層就夠(worker 是另外的行程,要跨行程的東西一律走環境變數或 `.tmp` 下的檔案)。
@@ -84,13 +84,13 @@ async function buildApps(): Promise<void> {
   );
 }
 
-async function migrateAndSeed(uri: string): Promise<void> {
-  await run("pnpm", ["--filter", "@repo/db-migrator", "migrate"], {
-    label: "migrate",
-    env: { MONGODB_URI: uri },
-  });
-  await run("pnpm", ["--filter", "@repo/db-migrator", "seed"], {
-    label: "seed",
+/**
+ * 與部署同一個入口:一次 update 跑完 migration → 種子 → 受管定義(定義由 api 建置後的 CLI 發布,
+ * `buildApps` 已先建好 api)。要寫 `run update` —— 少了 `run`,pnpm 會把 update 當成自己的升級依賴指令。
+ */
+async function updateDatabase(uri: string): Promise<void> {
+  await run("pnpm", ["--filter", "@repo/db-migrator", "run", "update"], {
+    label: "update",
     env: {
       MONGODB_URI: uri,
       ROOT_ADMIN_ACCOUNT: ROOT_ACCOUNT,
@@ -172,7 +172,7 @@ export async function startStack(): Promise<void> {
 
   const { uri, server } = await startMongo();
   state = { mongo: server, api: null, admin: null };
-  await migrateAndSeed(uri);
+  await updateDatabase(uri);
   const gcs = await startFakeGcs();
 
   state.api = startApi(uri, gcs);

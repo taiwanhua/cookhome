@@ -15,12 +15,16 @@ const config = {
     url: uri,
   },
 
-  // 遷移檔目錄;檔名規約 <時間戳>_<類別>_<描述>(見 src/migration-filename.ts)
+  // 遷移檔目錄;檔名規約 <時間戳>_<類別>_<描述>(見 src/migration-filename.ts)。
+  // 根目錄只有已發布的歷史檔;update(src/update/migrate-adapter.ts)沿用本設定,但每次把這一項換成
+  // 只含單支 migration 的暫存目錄,所以 base/ 與 project/ 的新 migration 也由同一份設定執行。
   migrationsDir: "migrations",
 
   // migrate-mongo 自建的 collection,記錄哪些遷移跑過(防重跑)
   changelogCollectionName: "changelog",
 
+  // 套件自己的鎖維持停用(lockTtl: 0 時它完全不碰這張表)。整批互斥由 update 在同一張表的固定 _id 文件負責;
+  // 啟用套件的鎖會在結束時清空整張表,連那一筆一起刪掉 —— 不要改成非 0。
   lockCollectionName: "changelog_lock",
   lockTtl: 0,
 
