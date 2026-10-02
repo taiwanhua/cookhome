@@ -266,6 +266,18 @@ export class WorkflowVersionsPayload {
   totalCount!: number;
 }
 
+/** 匯出的專案設定檔(`exportWorkflowSeed`):內容就是可以直接登記進專案的 TypeScript。 */
+@ObjectType()
+export class ExportWorkflowSeedPayload {
+  /** 固定 `<流程 key>.<revision>.seed.ts`。 */
+  @Field(() => String)
+  fileName!: string;
+
+  /** 檔案內容(TypeScript 原始碼)。 */
+  @Field(() => String)
+  source!: string;
+}
+
 /** 綁定時檢查的一個問題(Spec 6b §3 表;`problem` 正本 `workflows-error.ts` 的 `BindingIssue`)。 */
 @ObjectType()
 export class WorkflowBindingIssueModel {

@@ -301,6 +301,14 @@ GraphQL 文件:`packages/graphql/src/documents/base/workflows.graphql`(設計、
 
 **設計端**(`@RequirePermission` 守端點,「是不是自己的流程 / 站在哪裡」在 service):`workflows`、`workflow`、`workflowVersion(workflowKey, version?)`(省略 = 草稿)、`workflowVersions`、`validateWorkflowVersion`(query,不落庫)、`createWorkflow`、`updateWorkflow`、`forkWorkflow`、`createWorkflowVersionDraft`、`saveWorkflowVersionDraft`、`deleteWorkflowVersionDraft`(回 `WorkflowPayload`)、`publishWorkflowVersion`、`retryPublishWorkflowVersion`、`retireCurrentWorkflowVersion`、`assignWorkflowToTenants`、`revokeWorkflowFromTenant`。
 
+**匯出專案設定**:`exportWorkflowSeed(input: { workflowKey, version, revision, changelog })`(query)回 `ExportWorkflowSeedPayload { fileName, source }` —— 把共用流程的指名版本輸出成可直接登記進專案種子的 TypeScript(檔名 `<workflowKey>.<revision>.seed.ts`)。唯讀:不寫資料庫、不留稽核、不建安裝紀錄。輸入檢查、可攜性檢查、輸出格式與錯誤外框和表單的 `exportFormSeed` 共用同一份(`apps/api/src/forms/form-design/seed-export.ts`;細節見 `docs/modules/forms.md`「api 介面」),流程這一側的差異:
+
+- 守門:端點擋 `system.workflows.view`,其餘在 `workflow-design/workflow-seed-export.service.ts` —— `view` + `publish`(缺任一 → `FORBIDDEN`)、站在根組織(否則 `FORBIDDEN` + `ROOT_ONLY`)、共用流程(`ownerOrgId = null` 且 `tenantId = null`,兩個都驗;租戶的客製流程在根組織視角一律 `NOT_FOUND`)。
+- `version`:必須是已發布的那一版,不以目前版本代替。不存在 → `NOT_FOUND`;已退役 → `VALIDATION_FAILED` + `fields: ["version"]`;發布還沒切換完 → `CONFLICT` + `PUBLISH_IN_PROGRESS`。`revision` / `changelog` 同表單。
+- 內容:`key`、身分上目前的 `name`、該版的 `checkFormKey`(沒選 = `null`)與 `definition: { steps, edges }`(`edges` 為 `null` = 直線),`desiredStatus` 固定 `published`。不含資料庫 id、版號、時間、發布者、擁有組織、分派與綁定。
+- 可攜性:共用流程不可帶指名使用者、寫死的角色 id、指向租戶客製表單的欄位;`checkFormKey` 與 `field` 來源的表單要是有目前版本的共用表單;跳過條件另驗 ID 語意。不過就整份不輸出 → `VALIDATION_FAILED` + `fields: ["definition"]` + `issues`(`{ code, message, path }`,如 `definition.steps.0.assignee.userIds`)。
+- 前端的顯示條件(守門仍以 api 為準):`WorkflowModel.isShared && abilities.canPublish`、沒有發布中斷,且只在目前發布的那一版顯示。
+
 **綁定**(`system.forms.edit`、站在租戶內):`bindFormWorkflow`、`unbindFormWorkflow`(回 `FormPayload`)、`formWorkflowOptions(formKey)`、`FormModel.workflowBinding`。
 
 **阻擋清單**(`system.workflows.blocked-page.reassign`):`blockedInstances`、`reassignTask`、`addStepAssignee`、`retryAdvanceInstance`。

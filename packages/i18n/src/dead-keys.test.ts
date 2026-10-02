@@ -313,6 +313,11 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
       "`tErrors(code)`,code 由 `lib/workflow/workflow-errors.ts` 的 `workflowErrorOf` 從 api 錯誤碼 / reason 換算",
   },
   {
+    key: "admin.seedExport.errors.",
+    reason:
+      "`tErrors(code)`,code 由 `lib/seed-export.ts` 的 `seedExportErrorOf` 從 api 錯誤碼 / reason / fields 換算(匯出專案設定彈窗)",
+  },
+  {
     key: "admin.workflows.versions.statuses.",
     reason:
       "`t(`statuses.${item.status}`)`,status 是 GraphQL 的 `WorkflowVersionStatus`",

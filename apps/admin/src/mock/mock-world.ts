@@ -9,7 +9,6 @@ import {
   FormVersionStatus,
   WorkflowInstanceStatus,
   WorkflowStepStatus,
-  WorkflowVersionStatus,
 } from "@repo/graphql";
 
 import { authWorld } from "@/test/msw/auth-handlers";
@@ -68,12 +67,8 @@ import {
   instanceFragment,
   instanceStep,
   leaveDefinition,
-  leaveWorkflowDefinition,
   planItem,
-  purchaseWorkflowDefinition,
   taskFragment,
-  workflowFragment,
-  workflowVersionFragment,
 } from "@/test/msw/workflow-fixtures";
 import { workflowRuntimeWorld } from "@/test/msw/workflow-runtime-handlers";
 
@@ -84,6 +79,7 @@ import {
   modulesForView,
   orgsForView,
 } from "./mock-fixtures";
+import { mockWorkflowDesign } from "./mock-workflow-design";
 
 /**
  * mock 開發模式的假 api:把 `src/test/msw/` 的各頁 world 併成**一份**瀏覽器端 handlers。
@@ -269,7 +265,7 @@ export const mockHandlers = ({
         ...leaveSubmissions(),
       ],
     }).handlers,
-    // 審核流程:流程管理(直線的病假審核 + 平行的採購審核)、申請中心與詳情、阻擋清單
+    // 審核流程:流程管理(假資料在 `mock-workflow-design.ts`)、申請中心與詳情、阻擋清單
     ...workflowDesignWorld(mockWorkflowDesign()).handlers,
     ...workflowRuntimeWorld(mockWorkflowRuntime()).handlers,
   ];
@@ -390,64 +386,4 @@ const mockWorkflowRuntime = () => ({
     },
   ],
   blocked: { blocked: ["inst-2"], needsAdvance: ["inst-1"] },
-});
-
-/** 流程管理:直線的「病假審核」(綁了病假單)與平行的「採購審核」(共用,只有草稿)。 */
-const mockWorkflowDesign = () => ({
-  workflows: [
-    workflowFragment({
-      boundForms: [
-        { formKey: LEAVE_FORM_KEY, formName: "病假單", moduleKey: "demo.form" },
-      ],
-    }),
-    workflowFragment({
-      key: "purchase_review",
-      name: "採購審核",
-      isShared: true,
-      ownerOrgId: null,
-      hasDraft: true,
-    }),
-  ],
-  versions: {
-    leave_review: [
-      workflowVersionFragment(leaveWorkflowDefinition(), { baseVersion: 1 }),
-      workflowVersionFragment(leaveWorkflowDefinition(), {
-        id: "wv-leave-1",
-        version: 1,
-        status: WorkflowVersionStatus.Published,
-        changelog: "第一版",
-      }),
-    ],
-    purchase_review: [
-      workflowVersionFragment(purchaseWorkflowDefinition(), {
-        id: "wv-purchase-draft",
-        workflowKey: "purchase_review",
-      }),
-    ],
-  },
-  bindingOptions: {
-    [SHOPPING_FORM_KEY]: [
-      {
-        workflowKey: "leave_review",
-        workflowName: "病假審核",
-        isShared: false,
-        canBind: true,
-        issues: [],
-      },
-      {
-        workflowKey: "purchase_review",
-        workflowName: "採購審核",
-        isShared: true,
-        canBind: false,
-        issues: [
-          {
-            stepKey: "finance",
-            stepNumber: 2,
-            problem: "ROLE_IN_SHARED",
-            detail: "角色佔位",
-          },
-        ],
-      },
-    ],
-  },
 });

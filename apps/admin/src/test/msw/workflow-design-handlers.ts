@@ -5,6 +5,7 @@ import {
   type CreateWorkflowMutationVariables,
   type CreateWorkflowVersionDraftMutationVariables,
   type DeleteWorkflowVersionDraftMutationVariables,
+  type ExportWorkflowSeedQueryVariables,
   type ForkWorkflowMutationVariables,
   type FormFieldsFragment,
   type FormWorkflowOptionsQuery,
@@ -22,6 +23,7 @@ import {
 
 import { type AuthErrorCode, graphqlError } from "./auth-handlers";
 import type { FormFailure } from "./form-runtime-handlers";
+import { workflowSeedExportHandler } from "./seed-export-handlers";
 import { api } from "./server";
 import { STAMP, workflowFragment } from "./workflow-fixtures";
 
@@ -31,7 +33,8 @@ export type WorkflowDesignOperation =
   | "ValidateWorkflowVersion"
   | "PublishWorkflowVersion"
   | "CreateWorkflow"
-  | "BindFormWorkflow";
+  | "BindFormWorkflow"
+  | "ExportWorkflowSeed";
 
 type WorkflowOption =
   FormWorkflowOptionsQuery["formWorkflowOptions"]["items"][number];
@@ -61,6 +64,7 @@ export interface WorkflowDesignWorld {
     fork: ForkWorkflowMutationVariables["input"][];
     bind: BindFormWorkflowMutationVariables["input"][];
     unbind: UnbindFormWorkflowMutationVariables["input"][];
+    exportSeed: ExportWorkflowSeedQueryVariables["input"][];
   };
 }
 
@@ -95,6 +99,7 @@ export const workflowDesignWorld = (
     fork: [],
     bind: [],
     unbind: [],
+    exportSeed: [],
   };
   const fail = (operation: WorkflowDesignOperation) => {
     const failure = failures[operation];
@@ -165,6 +170,7 @@ export const workflowDesignWorld = (
         data: { workflowVersions: { items, totalCount: items.length } },
       });
     }),
+    workflowSeedExportHandler({ findWorkflow, versionsOf, fail, inputs }),
     api.query("ValidateWorkflowVersion", ({ variables }) => {
       const { input } = variables as ValidateWorkflowVersionQueryVariables;
       inputs.validate.push(input);

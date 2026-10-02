@@ -209,6 +209,15 @@ mutation RetireCurrentVersion($input: RetireCurrentVersionInput!) {
   }
 }
 
+# ExportFormSeedInput: { formKey, version, revision, changelog };唯讀,回可直接登記的專案設定檔
+# 只有站在根組織、共用表單、指名的已發布版本(system.forms.view + edit);不可攜 → VALIDATION_FAILED(extensions.issues 帶 path)
+query ExportFormSeed($input: ExportFormSeedInput!) {
+  exportFormSeed(input: $input) {
+    fileName
+    source
+  }
+}
+
 # ---- 舊版資料升級到新版(只限本租戶沒綁流程的表單;表單所屬模組的 edit) ----
 
 # 各舊版本的筆數(操作者看得到、草稿 / 不綁流程的已完成)+ 補值欄位(目標版 FieldDef,只列改得動的)

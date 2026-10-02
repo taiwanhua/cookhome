@@ -11,6 +11,7 @@ import {
   WorkflowPublishHooks,
   WorkflowPublishService,
 } from "./workflow-publish.service";
+import { WorkflowSeedExportService } from "./workflow-seed-export.service";
 import { WorkflowVersionsService } from "./workflow-versions.service";
 import { WorkflowsResolver } from "./workflows.resolver";
 import { WorkflowsService } from "./workflows.service";
@@ -30,6 +31,7 @@ import { WorkflowsService } from "./workflows.service";
     WorkflowDefinitionChecker,
     WorkflowPublishHooks,
     WorkflowPublishService,
+    WorkflowSeedExportService,
     WorkflowVersionsService,
     WorkflowsService,
     WorkflowBindingsService,
