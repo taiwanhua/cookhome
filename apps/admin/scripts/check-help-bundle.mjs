@@ -1,39 +1,51 @@
 #!/usr/bin/env node
 /**
- * 防回歸檢查(#259):確認每份模組說明 `src/md/module-help/*.help.md` 的內容
- * 真的被打包進 `dist/assets/index-*.js`。
+ * 防回歸檢查(#259):確認每份模組說明的內容真的被打包進 `dist/assets/*.js`。
+ * 說明有三份來源(`scripts/help-sources.mjs` 的 `HELP_SOURCES`):底座、專案新增、專案替換;
+ * 專案的兩個目錄可以是空的。
  *
  * 為什麼需要它:根目錄 `.dockerignore` 有 `**\/*.md`,曾把整個 `src/md/` 排除在
  * Docker build context 之外 —— 本機 `pnpm build` 正常、CI 建出來的 image 卻讓
- * `import.meta.glob("/src/md/module-help/*.help.md")` 變成空的,三環境每頁的「?」
- * 全部 disabled,而且沒有任何一步會失敗。所以檢查放在 Dockerfile 的 builder stage
- * (build 之後),用真正的 build context 跑。
+ * `import.meta.glob(…)` 變成空的,三環境每頁的「?」全部 disabled,而且沒有任何一步會失敗。
+ * 所以檢查放在 Dockerfile 的 builder stage(build 之後),用真正的 build context 跑。
  *
- * 兩種失敗都要抓到:
- *   1. **檔案根本不在 context**(dockerignore 排掉 / 目錄被搬走)→ 掃到 0 份就紅。
- *   2. **檔案在、但沒被 glob 收進去**(檔名不合 `*.help.md`)→ 所以這裡掃的是
- *      `*.md`(該目錄只放模組說明),Vite 收的是 `*.help.md`;把 `x.help.md`
- *      改名成 `x.md` 會被這裡掃到卻不在 bundle 裡,立刻紅。
+ * 會紅的情況:
+ *   1. **檔案根本不在 context**(dockerignore 排掉 / 目錄被搬走)→ 底座掃到 0 份就紅。
+ *   2. **檔案在、但沒被 glob 收進去**:檔名不合 `<moduleKey>.help.md`,或放在三個來源目錄以外。
+ *   3. **登記有碰撞**:專案新增撞底座的 key、替換的對象不是底座的說明(留到瀏覽器載入才丟錯就太晚了)。
+ *   4. **內容不在 bundle 裡**(指紋比對,見下)。
  *
- * 另外,表單模組共用的通用說明 `form-module.help.md` 必須存在:表單模組沒有專屬檔時「?」退回它
+ * 另外,表單模組共用的通用說明 `form-module.help.md` 必須存在於底座:表單模組沒有專屬檔時「?」退回它
  * (`lib/module-help.ts` 的 `resolveModuleHelp`),它不見了所有表單模組的說明一起消失。
  *
  * 比對方式:每份取第一個 `## ` 標題後的第一個非空行,前 12 個字當指紋。bundle 是
  * 壓縮過的 JS 字串,非 ASCII 可能被輸出成 `\uXXXX`,所以原字串與跳脫形式都試。
+ * bundle 裡有那段文字只證明「檔案被收進去」;「?」實際選到哪一份(替換優先於底座)由
+ * `HelpButton` 的元件測試驗。
+ *
+ * 參數(測試用;不給就是正式路徑):`--help-dir=<說明根目錄>`、`--assets-dir=<dist/assets>`。
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const helpDir = join(appRoot, "src", "md", "module-help");
-const assetsDir = join(appRoot, "dist", "assets");
-const FINGERPRINT_LENGTH = 12;
-/** 一定要有的說明檔:表單模組的通用說明(沒有專屬檔的表單模組都用它)。 */
-const REQUIRED_HELP_FILES = ["form-module.help.md"];
+import { readHelpSources } from "./help-sources.mjs";
 
-const fail = (message) => {
+const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const FINGERPRINT_LENGTH = 12;
+
+const argOf = (name) => {
+  const prefix = `--${name}=`;
+  const hit = process.argv.slice(2).find((arg) => arg.startsWith(prefix));
+  return hit === undefined ? undefined : resolve(hit.slice(prefix.length));
+};
+
+const helpDir = argOf("help-dir") ?? join(appRoot, "src", "md", "module-help");
+const assetsDir = argOf("assets-dir") ?? join(appRoot, "dist", "assets");
+
+const fail = (message, details = []) => {
   console.error(`check:help-bundle ✗ ${message}`);
+  for (const item of details) console.error(`  - ${item}`);
   process.exit(1);
 };
 
@@ -68,17 +80,9 @@ const escapeNonAscii = (text) =>
     })
     .join("");
 
-const helpFiles = listFiles(helpDir, ".md");
-if (helpFiles === undefined) {
-  fail(`讀不到說明目錄 ${helpDir} —— 是不是被 .dockerignore 排除了?`);
-}
-if (helpFiles.length === 0) {
-  fail(`${helpDir} 一份 .md 都沒有 —— 是不是被 .dockerignore 排除了?`);
-}
-
-const absent = REQUIRED_HELP_FILES.filter((name) => !helpFiles.includes(name));
-if (absent.length > 0) {
-  fail(`缺少必要的說明檔 ${absent.join("、")} —— 表單模組沒有專屬說明時都靠它`);
+const { files: helpFiles, problems } = readHelpSources(helpDir);
+if (problems.length > 0) {
+  fail("模組說明的來源有問題:", problems);
 }
 
 const bundles = listFiles(assetsDir, ".js");
@@ -94,30 +98,31 @@ const bundleText = bundles
   .join("\n");
 
 const missing = [];
-for (const fileName of helpFiles) {
-  const fingerprint = fingerprintOf(
-    readFileSync(join(helpDir, fileName), "utf8"),
-  );
+for (const { relativePath, content } of helpFiles) {
+  const fingerprint = fingerprintOf(content);
   if (fingerprint === undefined || fingerprint.length === 0) {
-    missing.push(`${fileName}(取不出指紋:缺 \`## \` 標題或其後沒有內容)`);
+    missing.push(`${relativePath}(取不出指紋:缺 \`## \` 標題或其後沒有內容)`);
     continue;
   }
   const hit =
     bundleText.includes(fingerprint) ||
     bundleText.includes(escapeNonAscii(fingerprint));
-  if (!hit) missing.push(`${fileName}(指紋「${fingerprint}」不在 bundle 裡)`);
+  if (!hit) {
+    missing.push(`${relativePath}(指紋「${fingerprint}」不在 bundle 裡)`);
+  }
 }
 
 if (missing.length > 0) {
-  console.error("check:help-bundle ✗ 下列模組說明沒有被打包進 dist:");
-  for (const item of missing) console.error(`  - ${item}`);
-  console.error(
-    "  檢查:①根目錄 .dockerignore 是否把 apps/admin/src/md/**/*.md 排除 " +
-      "②檔名是否為 <moduleKey>.help.md(lib/help-registry.ts 的 glob)",
-  );
-  process.exit(1);
+  fail("下列模組說明沒有被打包進 dist:", [
+    ...missing,
+    "檢查:①根目錄 .dockerignore 是否把 apps/admin/src/md/**/*.md 排除 " +
+      "②檔名是否為 <moduleKey>.help.md、是否放在來源目錄裡(lib/help-registry.ts 的 glob)",
+  ]);
 }
 
+const countOf = (source) =>
+  helpFiles.filter((file) => file.source === source).length;
 console.log(
-  `check:help-bundle ✓ ${helpFiles.length} 份模組說明都在 dist/assets 裡`,
+  `check:help-bundle ✓ ${helpFiles.length} 份模組說明都在 dist/assets 裡` +
+    `(底座 ${countOf("base")}、專案新增 ${countOf("additions")}、專案替換 ${countOf("replacements")})`,
 );

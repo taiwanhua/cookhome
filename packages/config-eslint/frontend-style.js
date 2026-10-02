@@ -8,6 +8,7 @@ import { defineConfig } from "eslint/config";
  *   import { frontendStyle } from "@repo/eslint-config/frontend-style";
  *   /** @type {import("eslint").Linter.Config[]} *\/
  *   export default [...config, ...frontendStyle];
+ * 後台另接 `projectOwnership`(底座 / 專案的所有權方向,見檔尾):`[...config, ...frontendStyle, ...projectOwnership]`。
  *
  * 檔名規則只看第一段(unicorn 的 multipleFileExtensions 預設):`RouteTabs.drag.test.tsx` 檢 `RouteTabs`、
  * `vite-env.d.ts` 檢 `vite-env`,第二段以後不管。
@@ -98,37 +99,35 @@ const style = {
  * 分層 import 方向(STRUCT-03):app → pages → components → hooks / stores → lib。
  * 以 target(被 import 的層)禁止 from(上層)的方式宣告;路徑相對於各包根目錄(turbo 在包目錄執行 lint)。
  */
+const layeringZones = [
+  {
+    target: "./lib",
+    from: ["./hooks", "./stores", "./components", "./pages", "./app"],
+    message: "lib 是最底層,不能 import 上層(STRUCT-03)",
+  },
+  {
+    target: ["./hooks", "./stores"],
+    from: ["./components", "./pages", "./app"],
+    message: "hooks / stores 不能 import components、pages、app(STRUCT-03)",
+  },
+  {
+    target: "./components",
+    from: ["./pages", "./app"],
+    message: "components 不能 import pages、app(STRUCT-03)",
+  },
+  {
+    target: "./pages",
+    from: "./app",
+    message: "pages 不能 import app(STRUCT-03)",
+  },
+];
+
 const layering = {
   files: ["src/**/*.{ts,tsx}"],
   rules: {
     "import-x/no-restricted-paths": [
       "error",
-      {
-        basePath: "./src",
-        zones: [
-          {
-            target: "./lib",
-            from: ["./hooks", "./stores", "./components", "./pages", "./app"],
-            message: "lib 是最底層,不能 import 上層(STRUCT-03)",
-          },
-          {
-            target: ["./hooks", "./stores"],
-            from: ["./components", "./pages", "./app"],
-            message:
-              "hooks / stores 不能 import components、pages、app(STRUCT-03)",
-          },
-          {
-            target: "./components",
-            from: ["./pages", "./app"],
-            message: "components 不能 import pages、app(STRUCT-03)",
-          },
-          {
-            target: "./pages",
-            from: "./app",
-            message: "pages 不能 import app(STRUCT-03)",
-          },
-        ],
-      },
+      { basePath: "./src", zones: layeringZones },
     ],
   },
 };
@@ -139,4 +138,65 @@ export const frontendStyle = defineConfig(
   otherFiles,
   style,
   layering,
+);
+
+/** 各層放專案內容的資料夾(`src/<層>/project/`);其餘都是底座維護的檔案。 */
+const PROJECT_LAYERS = ["app", "pages", "components", "hooks", "stores", "lib"];
+
+/**
+ * 底座 / 專案的所有權方向(後台;接在 `frontendStyle` 之後):
+ * - 底座的檔案不能 import 專案來源(`src/<層>/project/`)—— 否則底座更新時會被專案內容卡住。
+ *   只有固定組裝入口 `src/app/module-pages.tsx` 同時看得到兩邊;`src/test/**` 的測試支援檔不受這條限制
+ * - 專案頁(`src/pages/project/`)不能 import 底座頁(`src/pages/base/`)的內部;要共用就走 components / hooks / lib
+ *
+ * 同一條規則(`import-x/no-restricted-paths`)後寫的設定會整個取代先寫的 options,所以這裡每一組 zones 都把
+ * 分層的 `layeringZones` 帶在前面:所有權是「加上去」的,原本的分層方向對每個檔案照樣生效。
+ * 被 `ignores` 排除的檔案(專案檔、固定入口、test)仍套用 `frontendStyle` 的分層,不是整個豁免。
+ */
+export const projectOwnership = defineConfig(
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      ...PROJECT_LAYERS.map((layer) => `src/${layer}/project/**`),
+      "src/app/module-pages.tsx",
+      "src/test/**",
+    ],
+    rules: {
+      "import-x/no-restricted-paths": [
+        "error",
+        {
+          basePath: "./src",
+          zones: [
+            ...layeringZones,
+            {
+              target: "./",
+              from: PROJECT_LAYERS.map((layer) => `./${layer}/project`),
+              message:
+                "底座的檔案不能 import 專案來源(src/<層>/project/);只有固定組裝入口 app/module-pages.tsx 可以",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/pages/project/**/*.{ts,tsx}"],
+    rules: {
+      "import-x/no-restricted-paths": [
+        "error",
+        {
+          basePath: "./src",
+          zones: [
+            ...layeringZones,
+            {
+              target: "./pages/project",
+              from: "./pages/base",
+              message:
+                "專案頁不能 import 底座頁的內部(pages/base/);要共用就經 components / hooks / lib",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

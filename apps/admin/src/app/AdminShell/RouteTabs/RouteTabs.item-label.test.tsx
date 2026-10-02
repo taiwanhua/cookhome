@@ -7,11 +7,11 @@ import {
   VIEW_ONLY,
   findRowOf,
   renderSampleOne,
-} from "@/pages/demo/demo-sample-one-test-support";
+} from "@/pages/base/demo/demo-sample-one-test-support";
 import {
   SAMPLE_TWO_ROUTES,
   renderSampleTwo,
-} from "@/pages/demo/demo-sample-two-test-support";
+} from "@/pages/base/demo/demo-sample-two-test-support";
 import { testUser } from "@/test/msw/auth-handlers";
 
 const STORAGE_KEY = routeTabsStorageKey(testUser.id);

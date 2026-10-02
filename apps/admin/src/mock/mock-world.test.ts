@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 import { GraphQLHandler } from "msw";
 
-import { DATA_SCOPE_MODULE_KEY } from "@/pages/system/DataScopePage/data-scope-permissions";
-import { MODULE_MANAGER_MODULE_KEY } from "@/pages/system/ModuleManagerPage/module-manager-permissions";
-import { ORG_MANAGER_PERMISSIONS } from "@/pages/system/OrgManagerPage/org-manager-permissions";
+import { DATA_SCOPE_MODULE_KEY } from "@/pages/base/system/DataScopePage/data-scope-permissions";
+import { MODULE_MANAGER_MODULE_KEY } from "@/pages/base/system/ModuleManagerPage/module-manager-permissions";
+import { ORG_MANAGER_PERMISSIONS } from "@/pages/base/system/OrgManagerPage/org-manager-permissions";
 
 import { modulesForView } from "./mock-fixtures";
 import { mockHandlers } from "./mock-world";

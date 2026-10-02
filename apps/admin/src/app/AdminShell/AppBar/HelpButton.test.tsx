@@ -159,6 +159,97 @@ describe("模組說明「?」", () => {
     expect(dialog).not.toHaveTextContent("通用說明。");
   });
 
+  it("專案替換了底座的說明:彈窗選到替換後的內容,不是底座原文", async () => {
+    setHelpFiles(
+      {
+        "/src/md/module-help/base/system.role-manager.help.md":
+          "# 角色管理\n\n## 這個模組做什麼\n\n底座的角色說明。",
+      },
+      {
+        replacements: {
+          "/src/md/module-help/project/replacements/system.role-manager.help.md":
+            "# 角色管理\n\n## 這個模組做什麼\n\n客製後的角色說明。",
+        },
+      },
+    );
+    server.use(
+      ...authWorld({ hasRefreshCookie: true, modules: superAdminModules })
+        .handlers,
+    );
+
+    const { user } = renderApp({ path: "/system/role-manager" });
+    const banner = await screen.findByRole("banner");
+    await user.click(
+      await within(banner).findByRole("button", { name: "模組說明" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("模組說明 — 角色管理");
+    expect(
+      await within(dialog).findByText("客製後的角色說明。"),
+    ).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent("底座的角色說明。");
+  });
+
+  it("拿掉替換:同一個模組回到底座原說明", async () => {
+    setHelpFiles({
+      "/src/md/module-help/base/system.role-manager.help.md":
+        "# 角色管理\n\n## 這個模組做什麼\n\n底座的角色說明。",
+    });
+    server.use(
+      ...authWorld({ hasRefreshCookie: true, modules: superAdminModules })
+        .handlers,
+    );
+
+    const { user } = renderApp({ path: "/system/role-manager" });
+    const banner = await screen.findByRole("banner");
+    await user.click(
+      await within(banner).findByRole("button", { name: "模組說明" }),
+    );
+
+    expect(
+      await within(await screen.findByRole("dialog")).findByText(
+        "底座的角色說明。",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("專案新增模組的說明:專屬檔照樣優先於表單通用說明", async () => {
+    setHelpFiles(
+      {
+        "/src/md/module-help/base/form-module.help.md":
+          "# 表單模組\n\n## 這個模組做什麼\n\n通用說明。",
+      },
+      {
+        additions: {
+          "/src/md/module-help/project/additions/form-alpha.help.md":
+            "# 採購申請\n\n## 這個模組做什麼\n\n專案新增的採購說明。",
+        },
+      },
+    );
+    server.use(
+      ...authWorld({
+        hasRefreshCookie: true,
+        modules: [
+          formModule("form-alpha", "採購申請"),
+          formModule("form-beta", "出差申請"),
+        ],
+      }).handlers,
+    );
+
+    const { user } = renderApp({ path: "/form-alpha" });
+    const banner = await screen.findByRole("banner");
+    await user.click(
+      await within(banner).findByRole("button", { name: "模組說明" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      await within(dialog).findByText("專案新增的採購說明。"),
+    ).toBeInTheDocument();
+    expect(dialog).not.toHaveTextContent("通用說明。");
+  });
+
   it("非模組路由(側欄一頁都進不去 → 無權限頁)不顯示「?」", async () => {
     server.use(...authWorld({ hasRefreshCookie: true, modules: [] }).handlers);
 

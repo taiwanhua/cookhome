@@ -14,7 +14,7 @@ import {
   matchModuleRoute,
   normalizePathname,
 } from "@/lib/module-tree";
-import { APPLY_CENTER_MODULE_KEY } from "@/pages/apply-center/apply-center-keys";
+import { APPLY_CENTER_MODULE_KEY } from "@/pages/base/apply-center/apply-center-keys";
 import { useSideNavStore } from "@/stores/useSideNavStore";
 
 import { AppBar } from "./AppBar/AppBar";

@@ -10,8 +10,8 @@ export const MAIN_PADDING = { xs: 1, sm: 3 } as const;
 
 /**
  * 內容區的最小寬度以哪個主題斷點為準(非手機版面才套,`xs` 不限):
- * 殼層預設 `lg`,頁面(模組 key)可在 `app/module-pages.tsx` 的 `modulePageMinWidths` 宣告更大的
- * (表單設計器、流程設計器 = `xl`)。
+ * 殼層預設 `lg`,頁面可在登記時以 `minWidth` 宣告更大的(`app/base/module-pages.ts`;表單設計器、流程設計器 = `xl`),
+ * 合成後是 `app/module-pages.tsx` 的 `modulePageMinWidths`。
  */
 export type ShellMinWidth = "lg" | "xl";
 

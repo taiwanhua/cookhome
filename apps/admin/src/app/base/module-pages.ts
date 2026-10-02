@@ -1,0 +1,96 @@
+import { OverviewPage } from "@/pages/base/OverviewPage/OverviewPage";
+import {
+  APPLY_CENTER_MODULE_KEY,
+  APPLY_CENTER_VIEW_PAGE_KEY,
+} from "@/pages/base/apply-center/apply-center-keys";
+import {
+  LazyApplyCenterPage,
+  LazyApplyCenterViewPage,
+} from "@/pages/base/apply-center/lazy-apply-center-view-page";
+import { SampleOneFormPage } from "@/pages/base/demo/SampleOneFormPage/SampleOneFormPage";
+import { SampleOnePage } from "@/pages/base/demo/SampleOnePage/SampleOnePage";
+import { SampleOneViewPage } from "@/pages/base/demo/SampleOneViewPage/SampleOneViewPage";
+import { SampleTwoFormPage } from "@/pages/base/demo/SampleTwoPage/SampleTwoFormPage";
+import { SampleTwoPage } from "@/pages/base/demo/SampleTwoPage/SampleTwoPage";
+import { SampleTwoViewPage } from "@/pages/base/demo/SampleTwoPage/SampleTwoViewPage";
+import { SAMPLE_ONE_MODULE_KEYS } from "@/pages/base/demo/demo-sample-one-config";
+import { SAMPLE_TWO_MODULE_KEYS } from "@/pages/base/demo/demo-sample-two-config";
+import { DataScopePage } from "@/pages/base/system/DataScopePage/DataScopePage";
+import { DATA_SCOPE_MODULE_KEY } from "@/pages/base/system/DataScopePage/data-scope-permissions";
+import { FieldManagerPage } from "@/pages/base/system/FieldManagerPage/FieldManagerPage";
+import { FIELD_MANAGER_MODULE_KEY } from "@/pages/base/system/FieldManagerPage/field-manager-permissions";
+import { FORMS_MODULE_KEY } from "@/pages/base/system/FormsPage/forms-permissions";
+import { LazyFormsPage } from "@/pages/base/system/FormsPage/lazy-forms-page";
+import { ModuleManagerPage } from "@/pages/base/system/ModuleManagerPage/ModuleManagerPage";
+import { MODULE_MANAGER_MODULE_KEY } from "@/pages/base/system/ModuleManagerPage/module-manager-permissions";
+import { OrgManagerPage } from "@/pages/base/system/OrgManagerPage/OrgManagerPage";
+import { ORG_MANAGER_MODULE_KEY } from "@/pages/base/system/OrgManagerPage/org-manager-permissions";
+import { RoleManagerPage } from "@/pages/base/system/RoleManagerPage/RoleManagerPage";
+import { ROLE_MANAGER_MODULE_KEY } from "@/pages/base/system/RoleManagerPage/role-manager-permissions";
+import { UserManagerPage } from "@/pages/base/system/UserManagerPage/UserManagerPage";
+import { USER_MANAGER_MODULE_KEY } from "@/pages/base/system/UserManagerPage/user-manager-permissions";
+import { LazyWorkflowBlockedPage } from "@/pages/base/system/WorkflowBlockedPage/lazy-workflow-blocked-page";
+import { LazyWorkflowsPage } from "@/pages/base/system/WorkflowsPage/lazy-workflows-page";
+import {
+  WORKFLOWS_BLOCKED_PAGE_KEY,
+  WORKFLOWS_MODULE_KEY,
+} from "@/pages/base/system/workflows-permissions";
+
+import type { ModulePageSource } from "../module-page-registry";
+
+/** 總覽模組 key(seed 正本:apps/db-migrator/seeds/modules/overview.ts;admin 不能 import db-migrator,STRUCT-01)。 */
+export const OVERVIEW_MODULE_KEY = "overview";
+
+/** 示範表單(頂層):表單模組掛在側欄頂層(seed 正本 apps/db-migrator/seeds/modules/demo-form.ts,`engine: "form"`)。 */
+export const DEMO_FORM_MODULE_KEY = "demo-form";
+
+/** 示範表單(群組內):表單模組掛在 `demo` 群組底下(seed 正本 apps/db-migrator/seeds/modules/demo.form.ts,`engine: "form"`)。 */
+export const DEMO_GROUP_FORM_MODULE_KEY = "demo.form";
+
+/** 示範表單(次群組內):表單模組掛在 `demo.sub` 次群組底下(seed 正本 apps/db-migrator/seeds/modules/demo.sub.form.ts,`engine: "form"`)。 */
+export const DEMO_SUB_GROUP_FORM_MODULE_KEY = "demo.sub.form";
+
+/**
+ * 底座的模組頁面來源(組裝層,STRUCT-03):底座模組實作時在此登記;專案的頁面不寫在這裡
+ * (新增 → `app/project/module-pages.ts`,替換底座頁 → `app/project/page-replacements.ts`)。
+ * 沒登記的模組由殼顯示佔位頁(模組名)。路由本身仍由 `me.modules` 決定,這裡只決定「進去看到什麼」。
+ *
+ * `minWidth` = 內容區最小寬度的主題斷點(沒寫 = 殼層預設 `lg`;`AdminShell/shell-geometry.ts`)。
+ * 設計器這種三欄工作區窄了會擠壞,宣告 `xl`:視窗比它窄時由內容區水平捲動。
+ */
+export const baseModulePages: ModulePageSource = {
+  pages: [
+    { key: OVERVIEW_MODULE_KEY, Page: OverviewPage },
+    // 示範模組1 四個 key = 四頁(#320);新增與編輯是**同一個共版型元件**,情境由 `module.key` 判斷
+    { key: SAMPLE_ONE_MODULE_KEYS.list, Page: SampleOnePage },
+    { key: SAMPLE_ONE_MODULE_KEYS.viewPage, Page: SampleOneViewPage },
+    { key: SAMPLE_ONE_MODULE_KEYS.createPage, Page: SampleOneFormPage },
+    { key: SAMPLE_ONE_MODULE_KEYS.editPage, Page: SampleOneFormPage },
+    // 示範模組2 四個 key = 四頁(#321);與示範模組1 同一組共用元件,差別只在設定物件
+    { key: SAMPLE_TWO_MODULE_KEYS.list, Page: SampleTwoPage },
+    { key: SAMPLE_TWO_MODULE_KEYS.viewPage, Page: SampleTwoViewPage },
+    { key: SAMPLE_TWO_MODULE_KEYS.createPage, Page: SampleTwoFormPage },
+    { key: SAMPLE_TWO_MODULE_KEYS.editPage, Page: SampleTwoFormPage },
+    { key: ORG_MANAGER_MODULE_KEY, Page: OrgManagerPage },
+    { key: MODULE_MANAGER_MODULE_KEY, Page: ModuleManagerPage },
+    { key: FIELD_MANAGER_MODULE_KEY, Page: FieldManagerPage },
+    { key: USER_MANAGER_MODULE_KEY, Page: UserManagerPage },
+    { key: ROLE_MANAGER_MODULE_KEY, Page: RoleManagerPage },
+    { key: DATA_SCOPE_MODULE_KEY, Page: DataScopePage },
+    // 表單管理:懶載入(設計器不進首屏 bundle);表單設計器(元件面板 / 畫布 / 屬性面板)要 `xl`
+    { key: FORMS_MODULE_KEY, Page: LazyFormsPage, minWidth: "xl" },
+    // 審核流程(Spec 6b §8):流程管理、阻擋清單、申請中心兩頁籤與詳情,全部懶載入(不進首屏 bundle);
+    // 流程設計器(流程圖 + 關卡屬性)要 `xl`
+    { key: WORKFLOWS_MODULE_KEY, Page: LazyWorkflowsPage, minWidth: "xl" },
+    { key: WORKFLOWS_BLOCKED_PAGE_KEY, Page: LazyWorkflowBlockedPage },
+    { key: APPLY_CENTER_MODULE_KEY, Page: LazyApplyCenterPage },
+    { key: APPLY_CENTER_VIEW_PAGE_KEY, Page: LazyApplyCenterViewPage },
+  ],
+  // 三個示範表單模組(頂層 / 群組內 / 次群組內;Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝;
+  // 表單綁了流程時,詳情頁下方自動掛審核區塊(預設組裝含)
+  forms: [
+    { moduleKey: DEMO_FORM_MODULE_KEY },
+    { moduleKey: DEMO_GROUP_FORM_MODULE_KEY },
+    { moduleKey: DEMO_SUB_GROUP_FORM_MODULE_KEY },
+  ],
+};

@@ -9,7 +9,8 @@
     "dev:mock": "pnpm --filter @repo/project-config build && vite --config vite.mock.config.ts",
     "check-types": "tsc --noEmit",
     "check:help-bundle": "node scripts/check-help-bundle.mjs",
-    "lint": "eslint src/ --max-warnings 0",
+    "check:ownership-lint": "node scripts/check-ownership-lint.mjs",
+    "lint": "eslint src/ --max-warnings 0 && pnpm run check:ownership-lint",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "dependencies": {
