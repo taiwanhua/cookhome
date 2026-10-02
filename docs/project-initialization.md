@@ -1,6 +1,6 @@
 # 專案初始化索引
 
-本索引指出新專案要設定的內容、目前正本及完成判準。它不保存第二份品牌、環境變數或資源值,也不是已可執行的初始化 skill。專案設定的契約見[專案設定與部署識別規格](plans/project-settings.md),整體範圍見[底座同步計畫](plans/base-sync.md)。
+本索引指出新專案要設定的內容、目前正本及完成判準。它不保存第二份品牌、環境變數或資源值,也不是已可執行的初始化 skill。設定契約見[專案設定與部署識別規格](plans/project-settings.md),功能來源見[功能登記與客製替換規格](plans/feature-registration.md),整體範圍見[底座同步計畫](plans/base-sync.md)。
 
 狀態必須分開記錄:「已提供」表示輸入已完整;「已建立」表示檔案或外部資源已存在;「已驗證」表示該專案的實際讀取或連線檢查通過。CookHome 既有設定不代表新專案已具備資源,以下不替未建立的專案填入成功狀態。
 
@@ -15,6 +15,27 @@
 | 前台風格與 favicon                                              | `apps/front/src/app/[locale]/styles.css`、各 app 的 public 目錄                                  | 資產可讀,前台風格由專案決定                                                                                        |
 
 專案值集中在 `packages/project-config/src/project/`:底座維護同套件 `src/base/` 的契約、驗證與各 app 的讀取接線,底座升級不覆寫專案值。換專案只改 `src/project/public.ts` 與 `src/project/mail.ts` 兩個值檔,共用測試不需要改:讀正式設定的測試只驗通用契約,既有專案的歷史值另以固定夾具驗。品牌名與 metadata 照寫原文,不必懂 ICU 語法(注入字典時自動編碼)。本節只指路,不貼設定值;上表的驗證只涵蓋本機測試與 build,部署後的畫面與信件仍依發布流程驗收。
+
+## 功能與專案內容
+
+底座與專案分來源登記,由固定入口組裝;建立專案時新增或修改 project 來源,不靠覆寫底座原檔。下列 B 接線依共同規格整理,候選程式的最終驗收及發布以 issue/PR 為準,不表示新 repo 已完成初始化。
+
+| 項目         | 專案來源                                                                      | 初始化與升級驗證                                                                                                 |
+| ------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 後台新增頁   | `apps/admin/src/pages/project/`、`app/project/module-pages.ts`                | 與 `app/base/module-pages.ts` 一起組裝;固定頁與表單展開頁均驗 key,新增不碰底座清單                               |
+| 客製治理頁   | `apps/admin/src/app/project/page-replacements.ts` 與 `pages/project/`         | 指定既有底座頁,原頁保留;同網址、授權與頁籤守門不變,省略 minWidth 繼承原版                                        |
+| 表單模組設定 | 專案 module-pages 來源的 `forms`                                              | options 與四頁同一來源,經 RootProviders 注入;不同組裝互不污染,不寫全域 Map                                       |
+| 模組說明     | `apps/admin/src/md/module-help/project/additions/`、`project/replacements/`   | 新增與替換分開,無替換則沿用底座;重複/未知/空白替換拒絕,三區真 build 與 help bundle check 通過                    |
+| API 功能     | `apps/api/src/project/api-modules.ts`、`project.module.ts`、`project/<業務>/` | 真 AppModule 掛入普通 ProjectModule;feature key/module identity 不撞底座,核心 guards 不變                        |
+| API 資料     | `apps/api/src/project/database/registrations.ts` 及該目錄的 schema/repository | 新租戶 model 的 schema、repository、org check 一起登記;驗 plugin、識別與實際綁定,資料不能漏掉刪組織/撤銷開通檢查 |
+| GraphQL 文件 | `packages/graphql/src/documents/project/`                                     | 與 base 文件生成同一份型別/hooks;operation 名稱與 fragment 名稱各自全域唯一,拒絕匿名、根目錄散檔及 symlink       |
+| 前台業務     | `apps/front/src/app/`、`components/` 及專案前台文案                           | 依專案設計完整畫面與風格;替換 CookHome 食譜等業務內容時,一併核對 API 與 documents                                |
+
+API 的新租戶資料遵守 BaseRepository、baseFields 與 tenantScope 契約,不自行注入 raw Model 或繞過資料隔離。CookHome 既有 Recipe 的公開、無 orgId 行為是固定組裝器中的精確相容例外,不能用作新租戶模組範本。底座不提供核心 module/provider 替換介面。
+
+功能登記不會寫入授權或建立 seed 模組;仍須依[新增模組流程](agents/module-scaffold.md)完成現有 seed 宣告。seed/migration 所有權分區屬後續工作,不能因 API、頁面與 documents 分區就搬 seed 或改執行順序。新增專案流程也須盤點 CookHome 業務,只換品牌不等於完成新的業務專案。
+
+GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使用 `pnpm --filter @repo/graphql test:documents`;schema 仍從真 AppModule 生成。建置前置與指令順序見 [toolbox](agents/toolbox.md#codegen-與資料庫本機)。本包驗收可證明局部擴充接縫,跨 repo 建立、正式版本升級與資料保留仍須另做完整演練。
 
 ## 部署與工具識別
 

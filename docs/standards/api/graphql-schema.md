@@ -131,17 +131,11 @@ type UsersPayload {
 
 ## GQL-05 `schema.gql` 是產物
 
-由 api 啟動時自動生成,不手改;PR 內 schema 變更以 decorator 的 diff 為準。
+由 api 啟動時自動生成,不手改;PR 內 schema 變更以 decorator 的 diff 為準。產生器使用真 AppModule,經同一個固定入口組合底座與專案功能,不另維護一份 resolver 清單。
 
 **重生指令**:`pnpm --filter @repo/api schema:generate`(`apps/api/scripts/generate-schema.ts`:起一次完整 AppModule 讓 GraphQLModule 寫檔,跑完自動退出;不必先啟 api、也不碰真資料庫)。改過 resolver / model / input 後跑一次,把產物一起進 commit。
 
-**新 checkout / 新 worktree 要先 build `@repo/domain`**:`schema:generate` 起的是真的 AppModule,而 api 對 `@repo/domain` 的 import 靠該包的 `dist` 解析 —— 沒 build 過會在載入模組時就炸,看起來像 schema 壞了。開工那一次先跑:
-
-```
-pnpm exec turbo run build --filter=@repo/domain
-```
-
-(`@repo/graphql` / `@repo/ui` 的 build 是 admin 的 lint / typecheck 需要,見 `docs/agents/issue-tracker.md` 的開工步驟。)
+**新 checkout / 新 worktree 先依 [toolbox 的建置前置步驟](../../agents/toolbox.md#pnpm--turbo建置測試格式)建置依賴**。`schema:generate` 起的是真 AppModule,api 載入 `@repo/domain`、`@repo/project-config/mail` 時需要套件的 dist;只通過 Jest 的 source mapping 不能取代這一步。缺少依賴產物會在載入模組時失敗,不代表 GraphQL schema 本身有錯。
 
 **api 改 schema 的票,兩個產物都要重產並進同一個 commit**:`apps/api/schema.gql` 與 `packages/graphql/src/generated/index.ts` 是同一條產線的前後兩段,只跑前者會讓型別停在舊 schema。順序固定:
 
@@ -152,7 +146,9 @@ pnpm --filter @repo/graphql generate
 
 api-only 的票也一樣:只改 schema 不重產第二段,型別會停在舊 schema,要等下一張 admin 票才更新。CI 的 `format-codegen` job 有一步 `codegen 產物與 schema 一致(GQL-05)`,在 `@repo/api` 或 `@repo/graphql` 受影響時重跑這兩個指令再 `git diff --exit-code`,落後就紅。
 
-正本:`apps/api/scripts/generate-schema.ts`、`.github/workflows/ci.yml`(`codegen 產物與 schema 一致` 一步)
+底座與專案 operations 分別放 `packages/graphql/src/documents/base/` 與 `documents/project/`,共用真 AppModule 產生的一份 schema,合成一份型別與 hooks。generate 在寫產物前驗證 operation 名稱與 fragment 名稱各自全域唯一,同種定義相同內容同名也拒絕;來源根目錄不放散落文件,operation 必須具名,來源樹不使用 symbolic link。CI 以專用 `test:documents` 驗證負例。僅搬目錄時,公開 schema、generated 型別與 operation 契約須保持不變;若產生器重排區塊,以匯出與 operation 一致的驗證說明差異,不手改生成碼。
+
+正本:`apps/api/scripts/generate-schema.ts`、`packages/graphql/codegen.ts`、`packages/graphql/scripts/check-documents.mjs`、`.github/workflows/ci.yml`(`codegen 產物與 schema 一致` 一步)
 
 ## GQL-06 可選輸入欄位的「缺席」與 `null` 若語意不同,必須寫在模組文件的 api 介面段
 
@@ -172,7 +168,7 @@ api-only 的票也一樣:只改 schema 不重產第二段,型別會停在舊 sch
 
 ## GQL-07 跨 api / 前端的欄位語意,正本寫在模組文件的「api 介面」節,前端段只引用
 
-`OrgNode.parentId` 對每棵樹的根一律回 `null`(不是真的上層),api 測試有斷言,但模組文件的前端段寫成「`parentId` 為 null = 站在根組織」,兩位實作者各照自己那半邊寫,前端拿它判視角就錯了。回傳欄位的語意只在 api 介面段定義一次;前端段需要時引用該段,不另寫解釋。api-only 的票也要**同 PR 補前端要用的 operation 文件**(`packages/graphql/src/documents/*.graphql` + generate),否則下游票撞不到 hook。
+`OrgNode.parentId` 對每棵樹的根一律回 `null`(不是真的上層),api 測試有斷言,但模組文件的前端段寫成「`parentId` 為 null = 站在根組織」,兩位實作者各照自己那半邊寫,前端拿它判視角就錯了。回傳欄位的語意只在 api 介面段定義一次;前端段需要時引用該段,不另寫解釋。api-only 的票也要**同 PR 補前端要用的 operation 文件**(依所有權放入 `packages/graphql/src/documents/base/` 或 `documents/project/`,再 generate),否則下游票撞不到 hook。
 
 **寫 `*.graphql` document 時,註解順手寫下 input 的形狀**:document 只寫 `$input: SetPasswordInput!`,呼叫端要知道裡面有哪些欄位就得回去翻 `schema.gql` 或 api 的 dto。在 operation 上方的註解寫一行(`# SetPasswordInput: { token, newPassword }`)成本幾乎為零,而它是下游票**第一個**會看到的地方。欄位語意(缺席 / `null`、無權限回 `null`)仍以模組文件的「api 介面」節為正本,註解只寫形狀、不重寫規則。
 

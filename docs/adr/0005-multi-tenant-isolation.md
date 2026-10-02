@@ -7,7 +7,7 @@
 **決策**:
 
 - 掛 orgId 的業務 collection 一律在 schema 掛 `tenantScopePlugin`;複合索引以 orgId 開頭。
-- 所有查詢必經 **BaseRepository**,plugin 自動把「orgId ∈ 範圍」以 `$and` 加進查詢。個別功能不自己寫、也繞不過。裸 `Model.find` 由 ESLint 規則 `@repo/no-raw-model-query` 擋。
+- orgId 租戶資料的查詢必經 **BaseRepository**,plugin 自動把「orgId ∈ 範圍」以 `$and` 加進查詢。個別功能不自己寫、也繞不過。裸 `Model.find` 由 ESLint 規則 `@repo/no-raw-model-query` 擋。
 - 資料分三類:租戶資料(自動過濾)、全域資料(不過濾)、關聯歸屬資料(users / roles,由模組先查關聯)。
 - 操作者上下文是每個方法的第一參數;**沒帶上下文就拋錯(fail-closed)**。
 - 根組織的範圍以 `"all"` 表示,不列舉 id。
@@ -24,6 +24,22 @@
 - 物化路徑讓子樹查詢一句完成;代價是搬移節點時要批次更新子孫。
 
 **已知限制**:`populate()` 的子查詢不帶上下文,對租戶資料會拋錯;現階段關聯資料分兩次查(待辦見 `docs/tmp/dis.md` 搜「populate」)。
+
+## 專案資料的登記邊界
+
+**決策**:底座與專案的 schema、repository 及組織資料檢查分開登記,由固定 DatabaseModule 入口驗證後組裝。業務模組只取得受控 repository,不取得 Mongoose model 或整個 MongooseModule。底座 repository 定義不回指組裝入口,專案新增不修改底座清單。
+
+- model name、collection、provider token 與登記 key 不得撞名,專案不能用同名宣告替換底座資料層。provider token 以本體比較,不以 class.name 判定。
+- 一般新增專案 model 使用 `orgId`、business scope、`allowGlobal: false`、baseFields 與 BaseRepository;模組資料使用 `moduleData: true`。collection 在掛 plugin 前就確定,登記驗證安裝標記與安裝時捕捉的 collection,不靠欄位形狀推論 plugin 已存在。
+- 每個一般新增專案 model 都須有同登記內的 repository 與 `orgId` 存在檢查;宣告的 modelName 須一致,啟動時再核對 repository 的實際 model / collection。漏登記或錯綁資料表即失敗。
+- 刪組織與撤銷開通共用底座 reader,專案只宣告檢查對象,不能提供取得放寬上下文的 callback 或任意 filter。workflows / tasks 保留底座的 tenantId 專用檢查,audit logs 不阻擋刪除。
+- DataScopeRuleProvider 未註冊時,DatabaseModule 的啟動檢查必須失敗,不能讓應用只剩租戶保底而略過資料範圍規則。
+
+**理由**:新增資料表若只登記 schema,容易漏掉 repository 的隔離接線或刪組織的資料引用檢查。把三者連在同一份登記,並檢查實際 repository 身分,才能在啟動時發現漏接或錯綁。純登記驗證、來源限制與 review 各有範圍,不以此介面執行不受信任的 Nest 外掛。
+
+**既有食譜原型**:Recipe / recipes 與專用 repository token 由固定入口精確登記為唯一專案例外,保留公開 API、無 orgId、專用 raw Model 存取的行為。它仍參與碰撞驗證,但不要求租戶 plugin、BaseRepository 或組織資料檢查。這不是一般專案可選的 unsafe/global 模式,新租戶模組不得套用。存放位置及完整契約見[功能登記規格](../plans/feature-registration.md#recipes-的既有相容邊界)。
+
+正本:`apps/api/src/database/registration.ts`、`apps/api/src/database/database.module.ts`、`apps/api/src/database/org-business-data.reader.ts`、`apps/api/src/database/plugins/`。
 
 ## 可見範圍
 
@@ -58,7 +74,7 @@
 
 ## 例外出口(登記在案)
 
-**決策**:「所有查詢必經 BaseRepository、套滿可見範圍與資料範圍」只有下列四個登記過的例外,新增例外要在這裡登記:
+**決策**:租戶資料存取需要放寬可見範圍或資料範圍時,只有下列四個登記過的受控出口,新增出口要在這裡登記:
 
 | 出口                                                             | 放寬了什麼                                                                         | 誰能用                                                                                                                                                       | 為什麼                                                                                                                                         |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -66,6 +82,8 @@
 | `BaseRepository.existsAny`                                       | 不套**資料範圍規則**;條件只能是歸屬欄(`orgId` / `ownerOrgId`)等於某個組織,只回有無 | 只給前置檢查(刪組織、撤銷開通的「無業務資料引用」);允許的檔案登記在 `base.repository.ts` 的 `EXISTS_ANY_CALLERS`,測試掃 src 斷言                             | 前置檢查問「有沒有」,被規則收窄的操作者會數到 0、把還有資料的組織誤判成可刪;帶不了任意條件,列表與詳情不放寬                                    |
 | `apps/api/src/database/form-submission-usage.ts`                 | 不套可見範圍、不套資料範圍規則,**跨全部租戶**計數                                  | 只給退役欄位級權限清理的三層檢查                                                                                                                             | 少算一筆草稿就會把還在用的權限刪掉;只回筆數與版本號,不回任何提交內容(檔頭 eslint 豁免附理由)                                                   |
 | `apps/api/src/database/workflow-submission-store.ts`             | 不套可見範圍、不套資料範圍規則;以 **`tenantId`** 為邊界(每個方法必填)              | 只給審核流程:引擎(推進、送出、決定)、讀取授權 `canReadSubmissionRevision`、申請中心;允許的檔案登記在該檔 `WORKFLOW_SUBMISSION_STORE_CALLERS`,測試掃 src 斷言 | 審核者 / 上層主管 / 背景推進不在申請人組織的可見範圍內,而對全員生效的資料範圍規則連系統上下文也收窄(ADR-0008);寫入只有引擎的條件同步與狀態欄位 |
+
+`existsAny` 的唯一受控 caller 是 `apps/api/src/database/org-business-data.reader.ts`,由 `EXISTS_ANY_CALLERS` 與測試鎖定。專案新增業務資料檢查走資料登記,不把 project 目錄加入 caller 例外。reader 的查詢錯誤必須讓刪除 / 撤銷失敗,不可當成沒有資料。
 
 **理由**:四者都是「照常規會算錯」的特定用途,出口收窄到具名方法 / 單一檔案,讀程式的人一眼看得到豁免;其他模組不得借用。
 
@@ -77,5 +95,5 @@
 
 ## 影響
 
-- 新增業務 collection:掛 `orgId` + `tenantScopePlugin`,並在 schema 測試登記類別。
+- 新增專案業務 collection:在 `project/database/` 建立 schema 與 repository,掛齊基礎欄位與租戶 plugin,並在專案資料登記連結 model、repository 與組織存在檢查。真 API 測試須驗隔離、資料範圍、刪組織及撤銷開通,不能只驗 schema 有欄位。步驟見 `docs/agents/module-scaffold.md`。
 - 需要讀可見範圍外的資料(如祖先的商標、祖先的欄位選項)時,要提升範圍並明列 orgId,不能繞過 BaseRepository。

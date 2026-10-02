@@ -4,7 +4,7 @@
 
 管理角色:在操作者的管理範圍內新增角色(選擁有組織 = 管轄邊界)、改名稱 / 描述、編輯權限矩陣(角色可進哪些模組、持有哪些權限)、分配使用者、停用 / 刪除。角色種類(種子 / 預設角色 / 自建)決定可改動範圍。相關 ADR:[0004 權限模型](../adr/0004-permission-model.md)、[0011 查詢與判斷流程](../adr/0011-permission-resolution-flow.md)、[0003 雙帳號體系](../adr/0003-dual-account-system.md)(擁有組織、授予資格)。
 
-正本:`apps/api/src/roles/`、`apps/admin/src/pages/system/RoleManagerPage/`、`packages/domain/src/permission/`
+正本:`apps/api/src/roles/`、`apps/admin/src/pages/base/system/RoleManagerPage/`、`packages/domain/src/permission/`
 
 ## 模組 key 與畫面
 
@@ -31,7 +31,7 @@
 | `system.role-manager.toggle-enabled` | 停用 / 啟用角色 + API(停用後持有者的該角色立即不生效,PermissionResolver 已排除 enabled=false)。**有這個權限不代表每個角色都切得動** —— 還要過角色種類規則:種子不可切、預設角色只有 root、不可停用操作者自己正持有的角色(見規則;列上顯示與否讀 `Role.abilities.canToggleEnabled`) |
 | `system.role-manager.delete`         | 刪除角色 + API(前置:無授予、非種子角色、非租戶副本;軟刪除)                                                                                                                                                                                                                       |
 
-正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/pages/system/RoleManagerPage/role-manager-permissions.ts`
+正本:`apps/db-migrator/seeds/modules/system.ts`、`apps/admin/src/pages/base/system/RoleManagerPage/role-manager-permissions.ts`
 
 ## 資料
 
@@ -137,7 +137,7 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 - **顯示樹是「連同模組底下的個別權限列一起逐筆剪」的**(`role-matrix.service.ts` 的 `buildView`):先以 `holder.moduleKeys` 濾出 `visibleModules`,再對每一筆權限各跑一次 `isSubsetOf` 濾出 `visiblePermissions`,最後才 `buildMatrixTree(visibleModules, visiblePermissions)`。**所以顯示樹上會出現「模組在、但它底下一筆權限都沒有」的節點** —— 那不是資料壞掉,是操作者剛好有那個模組的路由、卻沒有它任何一筆權限。M-07 / M-10 要處理的正是這種節點:對它整組全選**不寫 `*`**、群組列的勾選狀態也不要求它。寫矩陣的測試夾具時要照著這個形狀寫(TEST-12)。
 - `saveRoleMatrix` 的整份覆蓋**只作用在顯示樹的範圍**:操作者搆不到的既有綁定不被清掉(與 `assignUserRoles`「操作者觸及不到的既有授予不動」同一條原則)。
 
-正本:`apps/api/src/roles/roles.resolver.ts`、`apps/api/src/roles/role-matrix.service.ts`、`apps/api/src/roles/role-users.service.ts`、`apps/api/src/roles/models/`、`packages/graphql/src/documents/roles.graphql`
+正本:`apps/api/src/roles/roles.resolver.ts`、`apps/api/src/roles/role-matrix.service.ts`、`apps/api/src/roles/role-users.service.ts`、`apps/api/src/roles/models/`、`packages/graphql/src/documents/base/roles.graphql`
 
 ## admin 頁面
 
@@ -186,7 +186,7 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 
 **為什麼不統一**:兩套回答的是不同問題。資料範圍頁在挑「這條規則要套用給誰」,**組織的粒度**才有意義(同一個租戶底下的南港店角色與內湖店角色要分得開);另外兩處只要能**分辨同名角色**,租戶頂層那一層就夠了,再往下切會讓單一租戶的畫面冒出一堆只有一列的標題。兩套共用同一份排序與「只有一組就不分組」的原則,所以不是兩套邏輯、只是兩個分組鍵。`shouldGroupXxx` 與 `roleXxxGroupNameOf` 一律**成對使用**。
 
-正本:`apps/admin/src/pages/system/RoleManagerPage/`(`useRoleMatrix.ts`、`role-manager-types.ts`、`RoleDetailPanel/DetailTabs.tsx`、`AssignUsersTab/AddUsersDialog.tsx`、`RoleListPanel/`)、`apps/admin/src/lib/role-matrix-208.ts`、`apps/admin/src/lib/role-options.ts`、`apps/admin/src/hooks/useUnsavedGuard.ts`
+正本:`apps/admin/src/pages/base/system/RoleManagerPage/`(`useRoleMatrix.ts`、`role-manager-types.ts`、`RoleDetailPanel/DetailTabs.tsx`、`AssignUsersTab/AddUsersDialog.tsx`、`RoleListPanel/`)、`apps/admin/src/lib/role-matrix-208.ts`、`apps/admin/src/lib/role-options.ts`、`apps/admin/src/hooks/useUnsavedGuard.ts`
 
 ## 錯誤碼
 
@@ -206,7 +206,7 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 
 錯誤碼總表在 GQL-04。前端解讀集中在 `role-manager-error.ts`。
 
-正本:`apps/api/src/roles/roles-error.ts`、`apps/admin/src/pages/system/RoleManagerPage/role-manager-error.ts`、`docs/standards/api/graphql-schema.md`
+正本:`apps/api/src/roles/roles-error.ts`、`apps/admin/src/pages/base/system/RoleManagerPage/role-manager-error.ts`、`docs/standards/api/graphql-schema.md`
 
 ## 稽核
 
@@ -218,16 +218,16 @@ GQL-06 / GQL-07:可選輸入欄位的「缺席 / null」語意與回傳欄位語
 
 - api:`apps/api/src/roles/roles.test.ts`、`role-kinds.test.ts`、`role-matrix.test.ts`、`role-matrix-tenant-owner.test.ts`、`role-users.test.ts`(共用 `roles-test-support.ts`)
 - 矩陣純函式:`packages/domain/src/permission/matrix.test.ts`(案名對應 M-01〜M-10)
-- admin:`apps/admin/src/pages/system/RoleManagerPage/RoleManagerPage.test.tsx`、`RoleManagerMatrix.test.tsx`、`RoleManagerUsers.test.tsx`(共用 `role-manager-test-support.ts`)、`apps/admin/src/lib/role-matrix-208.test.ts`
+- admin:`apps/admin/src/pages/base/system/RoleManagerPage/RoleManagerPage.test.tsx`、`RoleManagerMatrix.test.tsx`、`RoleManagerUsers.test.tsx`(共用 `role-manager-test-support.ts`)、`apps/admin/src/lib/role-matrix-208.test.ts`
 - 劇本(`docs/testing/permission-scenarios.md`):劇本 1 wildcard 涵蓋未來、劇本 8 組織外、劇本 10 防越權;E2E 為 `apps/e2e/src/specs/scenario-01-wildcard.spec.ts`、`scenario-08-out-of-scope.spec.ts`、`scenario-10-out-of-reach.spec.ts`
 
-正本:`apps/api/src/roles/`、`packages/domain/src/permission/`、`apps/admin/src/pages/system/RoleManagerPage/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
+正本:`apps/api/src/roles/`、`packages/domain/src/permission/`、`apps/admin/src/pages/base/system/RoleManagerPage/`、`apps/e2e/src/specs/`、`docs/testing/permission-scenarios.md`
 
 ## 使用者說明(help.md)
 
-[system.role-manager.help.md](../../apps/admin/src/md/module-help/system.role-manager.help.md)(build 時打包進說明彈窗;租戶副本在這裡一律稱「預設角色」)。
+[system.role-manager.help.md](../../apps/admin/src/md/module-help/base/system.role-manager.help.md)(build 時打包進說明彈窗;租戶副本在這裡一律稱「預設角色」)。
 
-正本:`apps/admin/src/md/module-help/system.role-manager.help.md`
+正本:`apps/admin/src/md/module-help/base/system.role-manager.help.md`
 
 ## 平台視角備註
 

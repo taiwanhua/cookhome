@@ -23,8 +23,8 @@
 
 ```
 app/        組裝層:路由、守門、殼、providers(不含業務內容)
-pages/      一個頁面 = 一個模組;目錄照側欄樹長
-components/ 跨頁共用元件(含表單引擎、流程元件)
+pages/      base/ 放底座頁,project/ 放專案頁;各自依功能分目錄
+components/ 跨頁共用元件(含 base/crud/、表單引擎、流程元件)
 hooks/      跨頁共用 hook
 stores/     zustand store
 lib/        純函式與基礎設施(auth、module-tree、route-tabs、form-engine、workflow…)
@@ -33,6 +33,9 @@ test/       測試支援
 
 - import 只能往下。
 - 殼(`AdminShell`)不是頁面,住 `app/`。
+- `pages/base/` 保留底座的登入、治理、示範與申請中心頁;專案新增或客製頁放 `pages/project/`。其他層的既有共用內容由底座維護,專案內容放各層的 `project/`,不另建頂層 `src/project/` 繞過分層。
+- 專案頁使用共用的 components/hooks/lib,不 import 底座頁內部。固定欄位 CRUD 共版型在 `components/base/crud/`,底座與專案頁都可使用。
+- 底座不可反向 import 專案來源;只有頁面組裝入口 `app/module-pages.tsx` 與 help 組裝入口 `lib/help-registry.ts` 讀兩方來源。`src/test/**` 只豁免這項所有權限制,分層與循環依賴檢查仍適用。
 
 正本:`apps/admin/src/`、`docs/standards/general/structure.md` STRUCT-03
 
@@ -60,7 +63,7 @@ test/       測試支援
 
 ### 內容區的寬度與內距
 
-- **最小寬度**:只在 `sm` 以上套用。內容區最小寬度 = 主題斷點 − 側欄寬(隨收合狀態)− 左右內距。殼層預設 `lg`;表單管理與流程管理(兩個設計器)宣告 `xl`,登記在 `app/module-pages.tsx` 的 `modulePageMinWidths`。視窗比斷點窄時由 `<main>` 水平捲動,不擠壓內容;document 本身不出現水平捲軸。
+- **最小寬度**:只在 `sm` 以上套用。內容區最小寬度 = 主題斷點 − 側欄寬(隨收合狀態)− 左右內距。殼層預設 `lg`;表單管理與流程管理(兩個設計器)在 `app/base/module-pages.ts` 的頁面宣告設定 `minWidth: "xl"`,組裝後由 `app/module-pages.tsx` 的 `modulePageMinWidths` 交給殼。客製替換未寫 `minWidth` 時繼承底座值。視窗比斷點窄時由 `<main>` 水平捲動,不擠壓內容;document 本身不出現水平捲軸。
 - **內距**:手機寬(< `sm`)8px,其餘 24px(`MAIN_PADDING`)。
 - **高度**:殼外框固定 `100vh`,`<main>` 以 `flex: 1` + `minHeight: 0` 取得確定的高度,頁面可以撐滿(STYLE-08)。
 
@@ -69,9 +72,27 @@ test/       測試支援
 ### AppBar 與頭像選單
 
 - **頁名**:目前網址對上的模組名。`/` 與群組路由會立刻轉到底下第一個能進的頁面(`firstLinkRoute`),轉走前標題留空,不閃「沒有權限進入此頁面」。群組底下一個都進不去時停在無權限頁,標題顯示「沒有權限進入此頁面」,其他對不上模組的網址也一樣;`/` 一個都進不去時標題維持留空。
-- **「?」模組說明**:只有模組路由才有。內容是 `apps/admin/src/md/module-help/<key>.help.md`,build 時打包、彈窗動態載入;表單模組沒有專屬檔時用通用的 `form-module.help.md`;都沒有就停用。
+- **「?」模組說明**:只有模組路由才有。內容由底座與專案 help 合成,Markdown 原文在 build 時打包;開啟彈窗才懶載入渲染元件。表單模組沒有專屬檔時用通用的 `form-module.help.md`;都沒有就停用。
 - **當前組織切換器**:`SelectField`;切換後換發 access token,並失效 `me`。
 - **頭像選單**(`Popover`):使用者卡(姓名、帳號 · 當前組織)、**外觀**與**語言**兩組 `SegmentedControl`(切了立刻生效、不關選單)、登出 / 登出所有裝置。用 `Popover` 而不用 `Menu`,是因為 `Menu` 按 Tab 就關、分段按鈕鍵盤到不了;只有登出兩項是 `MenuList`。
+
+### 模組說明的來源與替換
+
+檔名一律是 `<moduleKey>.help.md`,三個來源都在 `apps/admin/src/md/module-help/`:
+
+| 來源     | 目錄                    | 用途                                        |
+| -------- | ----------------------- | ------------------------------------------- |
+| 底座     | `base/`                 | 底座原版說明,含通用的 `form-module.help.md` |
+| 專案新增 | `project/additions/`    | 底座沒有同 key 說明時新增專屬內容           |
+| 專案替換 | `project/replacements/` | 替換已存在的底座說明,底座原檔保留           |
+
+`lib/help-registry.ts` 是唯一 Vite glob 入口,用三份 `eager: true`、`?raw` glob 讀取原文,交給 `lib/module-help.ts` 的純函式 `composeHelpRegistry` 合成。重複 key、新增撞底座、替換不存在的底座 key、重複或空白替換都會失敗。替換的是 help key,不要求有同 key 的頁面登記。
+
+殼只經 `moduleHelpMarkdown(module)` 取內容:先專屬說明,`FORM` 模組再退到 `form-module`,最後才是沒有內容。客製替換頁未另放說明時,原版說明仍可使用;若底座只有通用說明,專案專屬檔應放 `additions/`。
+
+`scripts/check-help-bundle.mjs` 掃描三個來源,保留 `.md` 錯命名檢查與必備底座通用檔檢查;專案目錄可空。建置與 Docker 都要驗證原文進入 bundle。bundle 有文字只證明收檔,替換內容是否真的顯示仍由 HelpButton 測試驗證。
+
+正本:`apps/admin/src/lib/help-registry.ts`、`apps/admin/src/lib/module-help.ts`、`apps/admin/scripts/check-help-bundle.mjs`
 
 ### 外觀(跟隨系統 / 亮 / 暗)
 
@@ -90,9 +111,32 @@ test/       測試支援
 
 - `RequireAuth`:未登入回登入頁;`me.mustChangePassword` 導去改密碼頁。
 - `ModuleRoute`:把網址對上 `me.modules`,決定顯示哪一頁。
-- 模組 key → 頁面元件登記在 `app/module-pages.tsx`;沒登記的模組顯示佔位頁。表單模組以 `formModulePages(<模組 key>)` 一次登記四頁(表單引擎的預設組裝)。
+- 模組 key → 頁面元件由 `app/module-pages.tsx` 組裝;有路由授權但沒登記元件的模組顯示佔位頁。登記不會新增路由授權。
 
 正本:`apps/admin/src/app/routes.tsx`、`apps/admin/src/app/guards/`、`apps/admin/src/app/module-pages.tsx`
+
+### 頁面登記與客製替換
+
+| 來源     | 檔案(`apps/admin/src/`)            | 維護內容                                             |
+| -------- | ---------------------------------- | ---------------------------------------------------- |
+| 底座     | `app/base/module-pages.ts`         | `baseModulePages` 的固定頁與表單模組                 |
+| 專案新增 | `app/project/module-pages.ts`      | `projectModulePages` 的固定頁與表單模組              |
+| 專案替換 | `app/project/page-replacements.ts` | `projectPageReplacements` 的底座目標 key 與客製 Page |
+| 固定入口 | `app/module-pages.tsx`             | 合成三份來源,匯出頁面、寬度及表單設定                |
+
+新增專案功能改專案來源即可。`ModulePageSource.pages` 收 `{ key, Page, minWidth? }`,`forms` 收 `{ moduleKey, options?, pageOverrides? }`;型別與 `composeModulePages` 在 `app/module-page-registry.ts`。組裝先展開表單四頁,再檢查空 key、來源內重複、底座與專案碰撞、表單與固定頁碰撞;錯誤包含 key 與來源,不以物件 spread 靜默覆蓋。
+
+客製底座頁在替換清單寫 `{ target, Page, minWidth? }`。目標必須是既有底座頁,同一目標不能替換兩次;省略寬度繼承底座,明寫 `lg` / `xl` 才變更。原版檔案與登記保留,移除替換即恢復原版,不另開一條原版網址。登入相關頁不提供這個替換介面。
+
+頁面登記只選 renderer。網址、名稱、permissions 與 engine 仍以 `me.modules` 為準,客製頁照樣經過 `RequireAuth`、`ModuleRoute` 與頁籤守門。專案自有表單的單頁客製寫在 `pageOverrides`(四個 slot:`list`、`viewPage`、`createPage`、`editPage`),不重複登記相同 key;詳見[表單引擎](form-engine.md#前端引擎零件與預設組裝)。
+
+### 表單設定的注入
+
+`ModulePageSource.forms` 同時供應預設四頁與模組 options,不另外維護 key 清單。純函式 `lib/form-engine/form-module-options.ts` 的 `composeFormModuleOptions` 產生唯讀設定表;`formModulePages(moduleKey)` 只產生四個懶載入預設元件,不在載入時修改全域 Map。替換底座表單頁會保留原模組 options。
+
+`app/providers/RootProviders.tsx` 讀取固定入口的設定表,以既有 `AppProviders` 包住 `FormModuleOptionsProvider`。正式 `App.tsx` 與 `test/test-app.tsx` 共用這個入口。依 REACT-02,context 與 `useFormModuleOptions(moduleKey)` 同檔放在 `hooks/useFormModuleOptions.ts`,Provider 放在 `app/providers/FormModuleOptionsProvider.tsx`;components 往下用 hook,不反向 import app。
+
+Provider 內找不到模組設定時使用預設模板 `{{title}}`;缺少 Provider 則明確報接線錯誤。一般元件測試經 test-app 或 hooks 層的 context 注入。表單自身模板優先於模組模板,申請中心詳情也讀同一份設定;模板細節見[forms](../modules/forms.md#頁籤--標題模板)。
 
 ## 路由與導向
 
@@ -159,10 +203,11 @@ test/       測試支援
 
 - 共用元件不認得任何模組的 GraphQL 型別。
 - 兩個實例:`SampleOneModule.tsx`(全選配)、`SampleTwoModule.tsx`(最小可行)。
+- 實例在 `pages/base/demo/`,專案實例放 `pages/project/`;兩方直接使用 `components/base/crud/`,專案不用引用或修改示範頁。
 - 新增模組的完整步驟見 `docs/agents/module-scaffold.md`。
 - 欄位由使用者在後台自訂的模組不走共版型,走表單引擎(`docs/modules/forms.md`)。
 
-正本:`apps/admin/src/pages/demo/shared/demo-module-config.ts`、`apps/admin/src/pages/demo/shared/`
+正本:`apps/admin/src/components/base/crud/demo-module-config.ts`、`apps/admin/src/components/base/crud/`
 
 ## 操作結果提示(Snackbar)
 
@@ -202,6 +247,6 @@ test/       測試支援
 | `useWorkflowDraftStore` | 流程設計器有沒有未存的變更 | 記憶體                         |
 
 - 外觀不在 zustand:由 `AppThemeProvider` 存 localStorage(見上方「外觀」)。
-- 儲存鍵一律 `cookhome-admin-*`,登記在 `docs/branding.md`。
+- 儲存鍵由 `@repo/project-config/public` 的 `createAdminStorageKeys(projectPublic.slug)` 產生,格式是 `<slug>-admin-<用途>`;分使用者的鍵再加 `:<userId>`。slug 是專案的穩定識別,品牌更名不跟著改,變更 slug 會換掉整組瀏覽器儲存鍵。鍵與相容搬移設定登記在 `docs/branding.md`。
 
 正本:`apps/admin/src/stores/`

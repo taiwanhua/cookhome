@@ -165,7 +165,7 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 - **spec 引用的內容若 repo 沒有正本,先補文件再發 spec** —— 只存在於對話或設計圖裡的細節,對接手者等於不存在。
 - 每份 spec issue 附「**接手指南**」節:無 session 的閱讀順序(`CLAUDE.md` 文件地圖 → `docs/README.md` → `docs/agents/domain.md` 概念導讀 → 本 spec 的資料來源表)。
 - **指路要能 grep 到**:引用 `docs/tmp/dis.md` 這類長備忘時給一個關鍵字(如「dis.md 搜『頁籤』」),編號不是標題、用 heading 搜不到。
-- **指路要先開檔確認,不要憑記憶指先例**:指錯先例比不指更糟,實作者會照著一個不存在的東西做。寫到**檔案路徑**(例:列表 Switch 的先例是 `apps/admin/src/pages/system/FieldManagerPage/FieldOptionsPanel/FieldOptionsTable.tsx`,含無權限時退回 `Tag`;使用者管理的停用是 `Button`、啟用欄是 `Tag`,不是先例)。
+- **指路要先開檔確認,不要憑記憶指先例**:指錯先例比不指更糟,實作者會照著一個不存在的東西做。寫到**檔案路徑**(例:列表 Switch 的先例是 `apps/admin/src/pages/base/system/FieldManagerPage/FieldOptionsPanel/FieldOptionsTable.tsx`,含無權限時退回 `Tag`;使用者管理的停用是 `Button`、啟用欄是 `Tag`,不是先例)。
 - **名字相近的元件 / 函式點名完整檔名**:例 `OrgPickerDialog`(勾選所屬組織)與 `OrgChangeDialog`(移除確認)只差一個詞,寫「組織彈窗」兩邊都對得上。
 - **引用慣例照實際寫法寫**:admin 的錯誤解讀是 `<ns>ErrorOf(error)` 取 code、再 `tErrors(code)` 取文案(DATA-06),沒有 `messageOf` 這種東西;訊息形狀與要顯示的文案一起對(例:`login` 的訊息要帶 `name` 才顯示得出「歡迎,某某」)。
 - **引用 Figma 時節點 id 給到列層級**,給到整張畫布等於沒給。
@@ -212,7 +212,7 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 
 ### 文件的歸屬
 
-- **規則本文只由文件票寫**:ADR、`docs/concepts/`、`docs/standards/`、模組文件的行為說明與「admin 頁面」節、`docs/agents/module-scaffold.md`。實作票只碰必然連動的兩處:`docs/modules/<key>.md` 的「api 介面」節與 `apps/admin/src/md/module-help/<key>.help.md`。
+- **規則本文只由文件票寫**:ADR、`docs/concepts/`、`docs/standards/`、模組文件的行為說明與「admin 頁面」節、`docs/agents/module-scaffold.md`。實作票只碰必然連動的兩處:`docs/modules/<key>.md` 的「api 介面」節與 `apps/admin/src/md/module-help/{base,project/additions,project/replacements}/<key>.help.md`。
 - **要讓程式票順手改規則本文,票面寫明例外**:「本票例外可改 `<檔>` 的『<段名>』,只改這一段」;沒寫就留給文件票,實作票寫進 PR 的「規則回饋」。
 - **同段的文件票與實作票會寫到同一份模組文件時,拆票就分好誰寫哪一節**。
 - **`CLAUDE.md` 在每張票上都明確歸進「可改」或「不可改」**:預設不可改(入口文件,改動影響每一個 agent);要改就開獨立的文件票。

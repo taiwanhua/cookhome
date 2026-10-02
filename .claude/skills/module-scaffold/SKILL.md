@@ -9,13 +9,13 @@ description: 新增後台 CRUD 模組(固定欄位模組)時用:plan 模式問�
 
 步驟正本是 `docs/agents/module-scaffold.md`(下稱**正本**)。本 skill 只管問什麼、照什麼順序做、做到哪算完;每一步的做法打開正本對應的節,不在這裡重寫。檔案路徑與規則編號的指路清單在 [references/pointers.md](references/pointers.md)。
 
-欄位由使用者在後台設計的**表單模組**不走本 skill:只要 seed 宣告 `engine: "form"` + 登記 `formModulePages`,步驟見正本的「表單模組路線」。
+欄位由使用者在後台設計的**表單模組**不走本 skill:由 seed 宣告 `engine: "form"`,並在專案入口的 `forms` 清單登記,步驟見正本的「表單模組路線」。
 
 藍本:示範模組2 是**最小可行模組**,下文的「預設」全部取自它;要選配就回示範模組1 對照(正本「示範模組 1 vs 2 差異對照表」)。
 
-## 0. 選模式(第一個問題)
+## 0. 決定模式
 
-先問使用者要哪一種,答了才往下:
+使用者已明示 plan/build 或指定實作 issue 時直接沿用,不重問模式;只有無法從任務判定時才詢問以下選項:
 
 - **`plan`**:只做需求確認 → 產出規格卡(可選再產 issue 草稿)。不動任何檔案。
 - **`build`**:手上已有「確認」過的規格卡(對話裡、或一張 issue),照 §3 實作。給無 session 的 agent 用。
@@ -134,32 +134,15 @@ description: 新增後台 CRUD 模組(固定欄位模組)時用:plan 模式問�
 
 ## 3. build:照規格卡實作
 
-開工照 `docs/agents/issue-tracker.md`「實作一張票」(認領、看板、分支、`pnpm install` 與三個 `@repo/*` 的 build)。
+先讀 `CLAUDE.md`,再依 `docs/agents/issue-tracker.md`「實作一張票」認領、建立工作樹與交付。建置、單檔測試及全套驗證命令只依 `docs/agents/toolbox.md`,不在本 skill 另存指令副本。
 
-每一步打開**正本**對應的節照做,做完對過該步的完成判準再進下一步。lint / check-types / test 一律**進該 package 目錄**跑(`pnpm run lint`、`pnpm run check-types`、`pnpm run test -- <路徑片段>`),turbo 的快取綠燈不算數。
+逐步執行正本 `docs/agents/module-scaffold.md` 的步驟 0–8,對照規格卡驗收:模組文件、seed、schema/repository、API、documents、後台頁面、help、測試及文件回寫。專案功能新增放 project 來源並經固定入口組裝,共用接縫與替換規則見 `docs/plans/feature-registration.md`;不能把專案登記寫回底座來源或以 spread 蓋掉原版。
 
-| #   | 步驟              | 正本的節                                                  | 完成判準                                                                                                                                     | 要跑的                                                                                               |
-| --- | ----------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 1   | 模組文件前四節    | 「步驟 0:先把規格寫進模組文件」                           | `docs/modules/<key>.md` 的用途 / 模組 key 與畫面 / 權限表 / 資料四節與規格卡逐行一致                                                         | —                                                                                                    |
-| 2   | seed 宣告         | 「步驟 1:seed 宣告」(有示範資料再加「1b」)                | 節點、權限、`dataScopeTarget` 與規格卡一致;`seeds/modules.ts` 已註冊且父在前;api 測試裡寫死的種子數字已跟著改                                | `apps/db-migrator`:`pnpm run test -- seed-key-convention`、lint、check-types;`apps/api`:受影響的測試 |
-| 3   | schema            | 「步驟 2:schema」                                         | 兩個 plugin 都掛、`database.module.ts` 三處註冊、每個業務欄位有 JSDoc                                                                        | `apps/api`:lint、check-types                                                                         |
-| 4   | api 模組          | 「步驟 3:api 模組」+ 規格卡有的選配小節(欄位級權限、上傳) | 每個端點有 `@RequirePermission`,key 對得上權限表;回 `abilities`;稽核四個動作;錯誤只用通用碼                                                  | `apps/api`:lint、check-types                                                                         |
-| 5   | documents+codegen | 「步驟 4:documents + codegen」                            | `apps/api/schema.gql` 與 `packages/graphql/src/generated` 兩份產物都在同一個 commit                                                          | `pnpm --filter @repo/api schema:generate` → `pnpm --filter @repo/graphql generate`(依序)             |
-| 6   | admin             | 「步驟 5:admin」                                          | 一份 `DemoModuleConfig` 型設定 + 三個薄頁面檔;`module-pages.tsx` 登記四個 key;zh-TW / en 兩份字典都加了 namespace;共用元件一行未改           | `apps/admin`:lint、check-types                                                                       |
-| 7   | help.md           | 「步驟 6:help.md」                                        | 檔名等於模組 key;三節骨架;通篇沒有平台視角詞彙、權限 key、端點名                                                                             | `pnpm --filter @repo/admin build` → `pnpm --filter @repo/admin check:help-bundle`                    |
-| 8   | 測試              | 「步驟 7:測試」                                           | api:每個端點的守門 / 範圍 / 驗證 / 稽核 / `abilities` 都有測;admin:權限驅動的渲染、路由防守、放棄變更、錯誤標回欄位都有測;規格卡的選配各有測 | `pnpm exec turbo run test --filter=@repo/api`、`--filter=@repo/admin`                                |
-| 9   | 文件回寫          | 「步驟 8:文件回寫」                                       | 模組文件其餘章節補齊且每節附正本;`docs/data-model.md` 加一列                                                                                 | `pnpm format` → `pnpm run format:check`                                                              |
-
-**整體完成判準**(全部成立才開 PR):
-
-- 正本「交件前檢查清單」逐項打勾。
-- 部署 dev 後,root 在 dev 進得去新模組的四頁(部署由主流程觸發;PR 階段以 mock 模式截圖代替,做法見 issue-tracker「admin 票的交付要求」)。
-- `check:help-bundle` 過。
-- 劇本 E2E 手動觸發一次:`gh workflow run e2e.yml --ref <你的分支>`,run 連結附在 PR。
+完成判準以正本「交件前檢查清單」與票面驗收為準,全部確認後依 issue-tracker 開 PR。PR 附測試結果、mock 畫面與規則回饋;E2E 僅列建議與理由,由使用者決定是否觸發。部署由主流程依既有 release SOP 處理。
 
 ## 4. 不做的事
 
 - **二選一由使用者裁決**:缺答案就問,在規格卡或 PR 裡寫明誰選的。
 - **規則本文只回報**:ADR、`docs/standards/`、`CONTEXT.md`、`docs/agents/module-scaffold.md` 寫錯或缺漏,寫進 PR 的「規則回饋」,由文件票改。模組文件與 help.md 是本模組自己的,照 §3 寫。
 - **Figma 只列清單**:要畫的畫面寫在規格卡「要畫的畫面」,本 skill 不開 Figma。
-- **共用元件保持原樣**:`pages/demo/shared/` 需要改才做得出來時,停下回報,另開票。
+- **共用元件保持原樣**:`components/base/crud/` 需要改才做得出來時,停下回報,另開票。

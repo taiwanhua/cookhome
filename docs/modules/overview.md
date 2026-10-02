@@ -4,7 +4,7 @@
 
 登入後的第一頁。目前只有佔位內容(問候 + 當前組織);實際總覽內容(統計卡、最近項目、公告)尚未定案,定案後各區塊各自讀對應模組的資料。它是**正式模組**而不是寫死的首頁:各租戶要看的總覽內容不同,必須能授權 / 收回,所以進權限體系、不做固定列。
 
-正本:`apps/db-migrator/seeds/modules/overview.ts`、`apps/admin/src/pages/OverviewPage/OverviewPage.tsx`
+正本:`apps/db-migrator/seeds/modules/overview.ts`、`apps/admin/src/pages/base/OverviewPage/OverviewPage.tsx`
 
 ## 模組 key 與畫面
 
@@ -32,7 +32,7 @@
 
 無自有 collection。畫面資料來自 `me`(`name`、`currentOrg`)。
 
-正本:`apps/admin/src/pages/OverviewPage/OverviewPage.tsx`、`apps/admin/src/hooks/useMe.ts`
+正本:`apps/admin/src/pages/base/OverviewPage/OverviewPage.tsx`、`apps/admin/src/hooks/useMe.ts`
 
 ## 規則
 
@@ -46,19 +46,19 @@
 
 無自有端點;只用共用的 `me` 查詢。
 
-正本:`packages/graphql/src/documents/auth.graphql`
+正本:`packages/graphql/src/documents/base/auth.graphql`
 
 ## admin 頁面
 
-`OverviewPage` 顯示問候(`admin.session.greeting`)與當前組織(`currentOrg`;沒有組織時顯示 `noOrg`)。在 `app/module-pages.tsx` 以 `OVERVIEW_MODULE_KEY` 登記。
+`OverviewPage` 顯示問候(`admin.session.greeting`)與當前組織(`currentOrg`;沒有組織時顯示 `noOrg`)。在 `app/base/module-pages.ts` 以 `OVERVIEW_MODULE_KEY` 登記。
 
-正本:`apps/admin/src/pages/OverviewPage/OverviewPage.tsx`、`packages/i18n/messages/zh-TW/admin.json`(`admin.session`)
+正本:`apps/admin/src/pages/base/OverviewPage/OverviewPage.tsx`、`packages/i18n/messages/zh-TW/admin.json`(`admin.session`)
 
 ## 錯誤碼
 
 無,因為沒有自有端點。
 
-正本:`apps/admin/src/pages/OverviewPage/OverviewPage.tsx`
+正本:`apps/admin/src/pages/base/OverviewPage/OverviewPage.tsx`
 
 ## 稽核
 
@@ -76,9 +76,9 @@
 
 ## 使用者說明(help.md)
 
-[overview.help.md](../../apps/admin/src/md/module-help/overview.help.md)(租戶使用者說明,build 時打包進說明彈窗)。
+[overview.help.md](../../apps/admin/src/md/module-help/base/overview.help.md)(租戶使用者說明,build 時打包進說明彈窗)。
 
-正本:`apps/admin/src/md/module-help/overview.help.md`
+正本:`apps/admin/src/md/module-help/base/overview.help.md`
 
 ## 平台視角備註
 

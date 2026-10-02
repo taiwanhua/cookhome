@@ -96,7 +96,7 @@
 
 ## admin 頁面
 
-四個模組 key = 四頁,`app/module-pages.tsx` 各登記一個元件;**新增與編輯是同一個共版型元件**,情境由 `module.key` 判斷。
+專案新增頁面走 `app/project/module-pages.ts`,替換底座頁走 `app/project/page-replacements.ts`,保留底座原版。示範模組的四個 key = 四頁,`app/base/module-pages.ts` 各登記一個元件;**新增與編輯是同一個共版型元件**,情境由 `module.key` 判斷。
 
 | 模組 key                      | 元件                                  |
 | ----------------------------- | ------------------------------------- |
@@ -105,7 +105,7 @@
 | `demo.sample-two.create-page` | `SampleTwoPage/SampleTwoFormPage.tsx` |
 | `demo.sample-two.edit-page`   | 同上(共版型)                          |
 
-**三頁本體是共用的**:`pages/demo/shared/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`,設定驅動(介面與逐項 JSDoc 在 `shared/demo-module-config.ts` 的 `DemoModuleConfig`)。本模組的設定物件是 `pages/demo/SampleTwoModule.tsx`,常數在 `demo-sample-two-config.ts`。**頁面程式碼與示範模組1 一模一樣,差別全在設定物件** —— 這組共用元件就是 module-scaffold 的前端藍本。
+**三頁本體是共用的**:`components/base/crud/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`,設定驅動(介面與逐項 JSDoc 在 `shared/demo-module-config.ts` 的 `DemoModuleConfig`)。本模組的設定物件是 `pages/base/demo/SampleTwoModule.tsx`,常數在 `demo-sample-two-config.ts`。**頁面程式碼與示範模組1 一模一樣,差別全在設定物件** —— 這組共用元件就是 module-scaffold 的前端藍本。
 
 **對照組在畫面上少了什麼**(這正是它存在的理由):
 
@@ -123,7 +123,7 @@
 
 **`enabled` 不在表單上**:它由 `setDemoItemTwoEnabled` 單獨切換(守 `.edit`),表單只有 name / note。**列表的「啟用」欄是開關**:改得動的那一列(`abilities.canEdit`)直接切、不另開確認,切完只重查當前這頁清單,失敗時列表上一條 Alert 說明;改不動的列與詳情頁仍是唯讀標籤。開關是共版型的**選配**(設定物件的 `useSetEnabled`,與示範模組1 同一套),不給的模組列表就維持標籤。
 
-正本:`apps/admin/src/pages/demo/SampleTwoModule.tsx`、`apps/admin/src/pages/demo/demo-sample-two-config.ts`、`apps/admin/src/pages/demo/shared/`
+正本:`apps/admin/src/pages/base/demo/SampleTwoModule.tsx`、`apps/admin/src/pages/base/demo/demo-sample-two-config.ts`、`apps/admin/src/components/base/crud/`
 
 ## 錯誤碼
 
@@ -137,7 +137,7 @@
 
 **admin 的對應**:`VALIDATION_FAILED` 依 `extensions.fields` 標在對應欄位上(只有 `name`),其餘用一條 Alert 說明;解讀集中在 `shared/demo-error.ts`(兩支示範模組共用一份)。
 
-正本:`apps/api/src/demo-items-two/demo-items-two-error.ts`、`apps/admin/src/pages/demo/shared/demo-error.ts`
+正本:`apps/api/src/demo-items-two/demo-items-two-error.ts`、`apps/admin/src/components/base/crud/demo-error.ts`
 
 ## 稽核
 
@@ -148,16 +148,16 @@
 ## 測試
 
 - api:`apps/api/src/demo-items-two/demo-items-two.test.ts`;夾具 `test-support/fixtures.ts`。
-- admin:`apps/admin/src/pages/demo/SampleTwoPage/SampleTwoPage.test.tsx`、`SampleTwoViewPage.test.tsx`、`SampleTwoFormPage.test.tsx`、`apps/admin/src/pages/demo/SampleTwoRoutes.test.tsx`;msw handler `apps/admin/src/test/msw/demo-sample-two-handlers.ts`、夾具 `demo-two-fixtures.ts`。
+- admin:`apps/admin/src/pages/base/demo/SampleTwoPage/SampleTwoPage.test.tsx`、`SampleTwoViewPage.test.tsx`、`SampleTwoFormPage.test.tsx`、`apps/admin/src/pages/base/demo/SampleTwoRoutes.test.tsx`;msw handler `apps/admin/src/test/msw/demo-sample-two-handlers.ts`、夾具 `demo-two-fixtures.ts`。
 - 劇本 E2E:`apps/e2e/src/specs/scenario-03-undeclared-target.spec.ts`(未宣告資料範圍目標的對照);劇本本文見 [permission-scenarios](../testing/permission-scenarios.md)。
 
-正本:`apps/api/src/demo-items-two/`、`apps/admin/src/pages/demo/SampleTwoPage/`、`apps/e2e/src/specs/scenario-03-undeclared-target.spec.ts`
+正本:`apps/api/src/demo-items-two/`、`apps/admin/src/pages/base/demo/SampleTwoPage/`、`apps/e2e/src/specs/scenario-03-undeclared-target.spec.ts`
 
 ## 使用者說明(help.md)
 
-[demo.sample-two.help.md](../../apps/admin/src/md/module-help/demo.sample-two.help.md)(租戶使用者說明,build 時打包進說明彈窗)。
+[demo.sample-two.help.md](../../apps/admin/src/md/module-help/base/demo.sample-two.help.md)(租戶使用者說明,build 時打包進說明彈窗)。
 
-正本:`apps/admin/src/md/module-help/demo.sample-two.help.md`
+正本:`apps/admin/src/md/module-help/base/demo.sample-two.help.md`
 
 ## 平台視角備註
 

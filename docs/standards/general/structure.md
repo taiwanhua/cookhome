@@ -18,9 +18,10 @@
 apps/<app>/src/
 ├── app/          組裝層:main.tsx、routes.tsx、providers/、guards/(RequireAuth、ModuleRoute、ForbiddenPage)、
 │                 AdminShell/(AppBar / SideNav / RouteTabs 版面)、module-pages.tsx。不含業務內容
-├── pages/        路由進入點,一個路由一個資料夾,樹照側欄(= 路由路徑)長:
-│                 auth/LoginPage/、OverviewPage/、system/OrgManagerPage/ …;只有這頁用的元件放在頁底下
-├── components/   兩個以上頁面共用、但還不到進 @repo/ui 的元件
+├── pages/        admin 先分 base/ 與 project/,各自依功能分目錄:
+│                 base/auth/LoginPage/、base/OverviewPage/、base/system/OrgManagerPage/ …
+│                 一個頁面一個資料夾,只有這頁用的元件放在頁底下
+├── components/   兩個以上頁面共用、但還不到進 @repo/ui 的元件;CRUD 共版型在 base/crud/
 ├── hooks/        跨頁 hook(useMe、useSession)
 ├── stores/       zustand store(useXxxStore.ts)
 ├── lib/          純工具、client、paths(不含 React)
@@ -29,11 +30,13 @@ apps/<app>/src/
 
 - **import 方向只能往下**:`app → pages → components → hooks / stores → lib`;下層不准 import 上層,同層的頁面之間不准互相 import(要共用就往上提到 `components/` 或 `hooks/`)。
 - **元件放在唯一使用它的那層**:只有一頁用 → 該頁資料夾底下;兩頁以上用 → `components/`;兩個 app 用 → `@repo/ui`(STRUCT-02)。殼(AdminShell)只被 `routes.tsx` 用,所以住 `app/`。
-- **頁面一律資料夾**(路由 = 資料夾,`OverviewPage/OverviewPage.tsx`),即使目前只有一個檔;非頁面的單檔元件不開資料夾(GEN-01)。
-- **路由群組資料夾可放該群組共用的元件**:`pages/auth/AuthCard.tsx` 給四個登入線頁面用、之後 `pages/system/` 也可以放治理模組共用的東西;跨群組才上提到 `components/`。「同層頁面不互相 import」指的是頁面資料夾之間(`LoginPage/` 不 import `SetPasswordPage/` 的檔)。
+- **頁面一律資料夾**(如 `pages/base/OverviewPage/OverviewPage.tsx`),即使目前只有一個檔;非頁面的單檔元件不開資料夾(GEN-01)。
+- **路由群組資料夾可放該群組共用的元件**:`pages/base/auth/AuthCard.tsx` 給四個登入線頁面用、之後 `pages/base/system/` 也可以放治理模組共用的東西;跨群組才上提到 `components/`。「同層頁面不互相 import」指的是頁面資料夾之間(`LoginPage/` 不 import `SetPasswordPage/` 的檔)。
 - **非 React 程式碼要碰 store**(如 `lib/auth/auth-fetch.ts` 要讀 access token、失效時 `clear()`):lib 不准 import `stores/`,改由 app 層把 store 實例注入(`createAuthSession(endpoint, useSessionStore)`),lib 只認 zustand 的 `StoreApi<T>` 介面(型別放 `lib/`)。先例 `apps/admin/src/lib/auth/auth-fetch.ts`。
-- **跨路由群組要共用就上提到 `components/`**,不要複製一份:`pages/auth/NewPasswordFields/` 的密碼欄位若要給 `pages/system/` 的新增使用者彈窗用,正確做法是搬到 `components/NewPasswordFields/`。已知的重複:使用者管理的 `UserManagerPage/UserFormDialog/ActivationFields.tsx` 另有一份單欄位版的密碼規則提示,與 `NewPasswordFields` 待合併。
+- **跨路由群組要共用就上提到 `components/`**,不要複製一份:`pages/base/auth/NewPasswordFields/` 的密碼欄位若要給 `pages/base/system/` 的新增使用者彈窗用,正確做法是搬到 `components/NewPasswordFields/`。已知的重複:使用者管理的 `UserManagerPage/UserFormDialog/ActivationFields.tsx` 另有一份單欄位版的密碼規則提示,與 `NewPasswordFields` 待合併。
 - **`pages/` 為什麼取代 `features/`**:admin 的業務單位是模組(側欄每一項),「一個頁面 = 一個模組」已是產品定義(ADR-0004),不需要再一層沒定義的 feature。
+
+底座與專案的所有權限制另見 STRUCT-12;`base/`、`project/` 不改變以上分層。注入用 context 與 hook 同檔放 `hooks/`,Provider 放 `app/providers/`(REACT-02),包括表單模組 options。
 
 其他包的對應:`packages/ui` 沒有分層,`src/<Component>/<Component>.tsx` 平鋪(`theme/`、`icons/` 維持);`apps/front` 的 `app/` 是 Next.js 路由目錄(框架例外),其餘 `components / hooks / lib` 同上。front 沒有 `pages/` 層,**單一路由專用的元件放 `components/<RouteView>/`**(如 `components/HomeView/HomeView.tsx` + 它的子元件),路由檔 `app/**/page.tsx` 只剩組裝;兩個路由共用的才是一般的 `components/`。
 
@@ -167,7 +170,7 @@ admin 每個環境各建一顆 image,正是最容易吃到這個坑的形狀(`VI
 
 ## STRUCT-11 文件只寫現況:不寫日期、段落、票號;理由寫進正文;歷史查 git
 
-適用 `docs/**` 與根目錄的 `CLAUDE.md`、`CONTEXT.md`(給人與 AI 讀的文件)。`apps/admin/src/md/module-help/*.help.md` 是租戶使用者說明,另守詞彙與受眾規則(FIGMA-04、`docs/agents/module-scaffold.md`),不在本條範圍 —— 但同樣不該出現票號。
+適用 `docs/**` 與根目錄的 `CLAUDE.md`、`CONTEXT.md`(給人與 AI 讀的文件)。`apps/admin/src/md/module-help/{base,project/additions,project/replacements}/` 的 `.help.md` 是租戶使用者說明,另守詞彙與受眾規則(FIGMA-04、`docs/agents/module-scaffold.md`),不在本條範圍 —— 但同樣不該出現票號。
 
 - **不寫**「(2026-09-xx 裁決)」「第 N 段」、`#` 加票號、PR 號這類註記,也不寫「原本 A、後來改 B」:只寫 B。
 - **決策理由照寫**,寫進正文(「為什麼這樣做」「不這樣會怎樣」),但不帶時間與票號。理由是規則的一部分,刪了理由的規則沒人敢改也沒人知道能不能改。
@@ -182,3 +185,22 @@ admin 每個環境各建一顆 image,正是最容易吃到這個坑的形狀(`VI
 ```
 grep -rnE "20[0-9]{2}-[0-9]{2}-[0-9]{2}|第 [0-9一二三四五六] 段|#[0-9]{2,3}" <改到的檔>
 ```
+
+## STRUCT-12 底座與專案分來源,只有固定入口組裝
+
+專案新增功能改專案來源;客製替換另列目標,保留底座原檔與宣告。底座不可反向 import 專案內容,只允許下列固定入口讀兩方來源。完整型別、碰撞與資料安全契約見[功能登記規格](../../plans/feature-registration.md)。
+
+### admin
+
+- 頁面分 `pages/base/` 與 `pages/project/`;其他層既有共用內容仍由底座維護,專案內容放該層 `project/`,不另開頂層 `src/project/`。專案頁不可引用底座頁內部,共用能力走 components/hooks/lib;CRUD 模板在 `components/base/crud/`。
+- `app/module-pages.tsx` 組裝 `app/base/module-pages.ts`、`app/project/module-pages.ts` 與 `app/project/page-replacements.ts`。專案新增或替換不改底座清單;表單 options 與四頁來自同一筆 `forms` 宣告。
+- `lib/help-registry.ts` 組裝 `md/module-help/base/`、`project/additions/`、`project/replacements/`。原文由 Vite 打包,驗證與查詢放純函式,不以檔案順序決定覆蓋。
+- `src/test/**` 只豁免所有權方向,仍守 STRUCT-03 與循環依賴檢查。固定入口是個別檔案的例外,不放寬整個 app 層。
+
+### api
+
+- 功能來源為 `base/api-modules.ts` 與 `project/api-modules.ts`,專案功能由 `project/project.module.ts` 掛載;`app.module.ts` 是底座讀取專案功能的固定入口,不提供核心 module/provider 替換。
+- 資料來源為 `database/base/registrations.ts` 與 `project/database/registrations.ts`,只由 `database/database.module.ts` 組裝。業務服務使用 repository,不自行以 Mongoose 注入或註冊 Model。
+- repository providers 與 Nest exports 由登記導出,不匯出 Model provider 或整個 MongooseModule。底座 repository 實作放 `database/base/` 等 leaf 檔,不回指組裝入口;`database.module.ts` 保留既有 repository 的 TypeScript re-export 相容出口。
+- 新專案租戶資料沿用 BaseRepository 與隔離 plugins,同時登記組織歸屬檢查;刪組織與撤銷開通共用 `OrgBusinessDataReader`,不能新增可繞過檢查的 callback。Recipes 的既有相容例外不供新模組套用。
+- 測試 fixture 只豁免所有權方向,不新增 raw query 或 Mongoose 任意注入的例外;正式來源不得引用 fixture。驗收入口見 TEST-07 / TEST-08。

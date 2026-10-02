@@ -44,7 +44,7 @@
 - **lint / typecheck 對 `@repo/*` 報「cannot be resolved」**(`apps/db-migrator` 也會,它依賴 `@repo/domain/module-icon`) → `pnpm install` 後跑 `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`。
 - **PostToolUse hook 與 `format:check` 一路報「Command "prettier" not found」** → 新 worktree 沒有 `node_modules`,純文件票也要先 `pnpm install`。
 - **`--filter=admin` 找不到套件** → filter 一律寫全名 `@repo/admin`。
-- **`schema:generate` 解不開 `@repo/domain` 的型別** → 先 `pnpm exec turbo run build --filter=@repo/domain`。
+- **`schema:generate` 解不開 workspace 套件型別** → 先依 [toolbox 建置前置步驟](toolbox.md#pnpm--turbo建置測試格式)準備產物,包含 domain 與 project-config。
 - **改檔名為 PascalCase 時 `unicorn/filename-case` 連目錄名一起紅** → 先在該包啟用 `frontend-style` 設定再搬檔。
 
 正本:根 `package.json`、`packages/config-eslint/`

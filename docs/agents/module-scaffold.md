@@ -14,20 +14,20 @@
 
 一個最小的 CRUD 模組(四頁、四筆權限、無選配)要新增或修改的檔案:
 
-| 步驟        | 動的檔案                                                                                                                                                                                       | 正本 / 規則                                                  |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 0 規格      | `docs/modules/<模組key>.md`(新)                                                                                                                                                                | ADR-0004、本檔步驟 0                                         |
-| 1 seed 宣告 | `apps/db-migrator/seeds/modules/<模組key>.ts`(新)、`seeds/modules.ts`(註冊)                                                                                                                    | `seeds/module-declaration.ts`、ADR-0002                      |
-| 1b 示範資料 | `apps/db-migrator/seeds/<feature>.ts`(新)、`seeds/registry.ts`(註冊)                                                                                                                           | `seeds/demo-items.ts`、ADR-0002                              |
-| 2 schema    | `apps/api/src/database/schemas/<entity>.schema.ts`(新)、`database/database.module.ts`(三處註冊)                                                                                                | ADR-0007、ADR-0005、`plugins/tenant-scope.plugin.ts`         |
-| 3 api 模組  | `apps/api/src/<feature>/` 整包(新)、`app.module.ts`(掛載)                                                                                                                                      | `demo-items-two/`、STRUCT-01、GQL-02 / 03 / 04               |
-| 4 documents | `packages/graphql/src/documents/<feature>.graphql`(新)+ 兩份產物                                                                                                                               | GQL-05                                                       |
-| 5 admin     | `apps/admin/src/pages/<域>/<feature>-config.ts`、`<feature>-types.ts`、`<Xxx>Module.tsx`、三個頁面檔(新)、`app/module-pages.tsx`(登記四個 key)、`packages/i18n/messages/{zh-TW,en}/admin.json` | `pages/demo/shared/demo-module-config.ts`、ADR-0012、I18N-02 |
-| 6 help      | `apps/admin/src/md/module-help/<模組key>.help.md`(新)                                                                                                                                          | FIGMA-04、CONTEXT.md 詞彙表                                  |
-| 7 測試      | `apps/api/src/<feature>/*.test.ts`、`apps/admin/src/pages/<域>/**/*.test.tsx`、`apps/admin/src/test/msw/<feature>-handlers.ts`                                                                 | TEST-07、TEST-08                                             |
-| 8 文件回寫  | `docs/modules/<模組key>.md` 補齊、`docs/data-model.md`、`CONTEXT.md`(有新詞才動)                                                                                                               | CLAUDE.md「Domain docs」                                     |
+| 步驟        | 動的檔案                                                                                                        | 正本 / 規則                                                     |
+| ----------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 0 規格      | `docs/modules/<模組key>.md`(新)                                                                                 | ADR-0004、本檔步驟 0                                            |
+| 1 seed 宣告 | `apps/db-migrator/seeds/modules/<模組key>.ts`(新)、`seeds/modules.ts`(註冊)                                     | `seeds/module-declaration.ts`、ADR-0002                         |
+| 1b 示範資料 | `apps/db-migrator/seeds/<feature>.ts`(新)、`seeds/registry.ts`(註冊)                                            | `seeds/demo-items.ts`、ADR-0002                                 |
+| 2 schema    | `apps/api/src/project/database/<entity>.schema.ts`、repository(新)、`project/database/registrations.ts`         | ADR-0007、ADR-0005、功能登記規格                                |
+| 3 api 模組  | `apps/api/src/project/<feature>/`(新)、`project/api-modules.ts`                                                 | `demo-items-two/`、STRUCT-01、GQL-02 / 03 / 04                  |
+| 4 documents | `packages/graphql/src/documents/project/<feature>.graphql`(新)+ 兩份產物                                        | GQL-05、功能登記規格                                            |
+| 5 admin     | `apps/admin/src/pages/project/<域>/` 的設定與薄頁面、`app/project/module-pages.ts`、i18n namespace              | `components/base/crud/demo-module-config.ts`、ADR-0012、I18N-02 |
+| 6 help      | `apps/admin/src/md/module-help/project/additions/<模組key>.help.md`(新)                                         | FIGMA-04、CONTEXT.md 詞彙表                                     |
+| 7 測試      | `apps/api/src/project/<feature>/*.test.ts`、`apps/admin/src/pages/project/<域>/**/*.test.tsx`、專案 MSW fixture | TEST-07、TEST-08                                                |
+| 8 文件回寫  | `docs/modules/<模組key>.md` 補齊、`docs/data-model.md`、`CONTEXT.md`(有新詞才動)                                | CLAUDE.md「Domain docs」                                        |
 
-**新 worktree 開工先**:`pnpm install` → `pnpm exec turbo run build --filter=@repo/graphql --filter=@repo/ui --filter=@repo/domain`,否則 lint / typecheck 一開始就對 `@repo/*` 的型別報「cannot be resolved」。其餘指令見 [toolbox.md](./toolbox.md)。
+**新 worktree 開工先**依 [toolbox.md](./toolbox.md) 的「pnpm / turbo:建置、測試、格式」準備依賴及共用套件產物。功能登記與客製替換的介面見[功能登記規格](../plans/feature-registration.md);本文指向新增專案功能的來源,不要求修改底座固定組裝入口。seed/migration 目前仍沿用下方既有入口,所有權拆分另行處理。
 
 ## 步驟 0:先把規格寫進模組文件
 
@@ -79,22 +79,23 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 
 ## 步驟 2:schema(基礎欄位 plugin、租戶過濾)
 
-新增 `apps/api/src/database/schemas/<entity>.schema.ts`,抄 `demo-item-two.schema.ts`:
+新增 `apps/api/src/project/database/<entity>.schema.ts`,以底座 `database/schemas/demo-item-two.schema.ts` 為藍本:
 
-- `@Schema({ collection: "<collection>", timestamps: true })`;`orgId` 必填(租戶資料的隔離邊界,ADR-0005);業務欄位逐欄寫 JSDoc(`docs/data-model.md` 指來這裡看細節);`enabled` 預設 `true`。
+- `@Schema({ collection: "<collection>", timestamps: true })`;`orgId` 使用 `@Prop({ type: MongooseSchema.Types.ObjectId, required: true })`,其中 `MongooseSchema` 是從 `mongoose` 匯入的 `Schema` 別名,避免與 Nest 的 `@Schema` 混淆。屬性 TypeScript 型別仍可用 `Types.ObjectId`;不要把 bson 的 `Types.ObjectId` 放進 `@Prop.type`,Nest 會將它展開成 Mixed,失去 ObjectId 轉型。必填不可寫成條件函式。這是租戶資料的隔離邊界(ADR-0005);業務欄位逐欄寫 JSDoc(`docs/data-model.md` 指來這裡看細節);`enabled` 預設 `true`。
 - 索引至少 `{ orgId: 1, createdAt: 1 }`。
 - **兩個 plugin 一定要掛**:
   - `baseFieldsPlugin` —— 基礎欄位與軟刪除(ADR-0007)。
-  - `tenantScopePlugin` —— 租戶過濾。**業務模組用預設的 `business`**(吃可見範圍),參數可省略;治理資料才傳 `{ kind: "governance" }`(吃管理範圍);以 `_id` 判可見的 `orgs` 另傳 `path`;全域種子資料用 `allowGlobal`。判準寫在 schema 上、不寫在呼叫端,同一張表在不同功能裡不換範圍。
-- **`database.module.ts` 三處註冊**:`MongooseModule.forFeature` 的陣列、一個 `XxxRepository extends BaseRepository<Entity, EntityDocument>`、providers 與 exports;`HydratedDocument<Entity>` 的型別別名也在該檔。
+  - `tenantScopePlugin` —— 專案租戶資料使用 `business`(吃可見範圍)、`orgId`、`allowGlobal: false`;模組資料開 `moduleData: true`。判準寫在 schema 上,不在呼叫端切換。底座治理與全域資料的其他形狀見 ADR-0005,不是新增專案租戶模組的選項。
+- 在 `project/database/` 建 `XxxRepository extends BaseRepository<Entity, EntityDocument>`,型別別名與 repository 同居。到 `project/database/registrations.ts` 登記 model、repository 及組織資料檢查;repository 與 check 的 modelName 必須吻合。新增租戶資料沿用 business scope、orgId、allowGlobal=false,模組資料開 moduleData;collection 必須在掛 plugin 前設定。
+- 固定 `database/database.module.ts` 組裝底座與專案來源,驗 model/collection/provider/key 碰撞、plugin 與檢查關聯並導出 repository。一般專案 model 漏檢查或錯綁 repository 會失敗,不能自行另外 forFeature 或匯出 raw Model 規避。刪組織與撤銷開通會共用這份資料檢查,不再逐一修改 OrgsService。
 
-沒有 `orgId`、歸屬走核心關聯的資料(users / roles 那種)**不掛** `tenantScopePlugin`,由模組先查關聯再查本表。
+底座既有 users/roles 等特殊資料仍依自己的規則處理。專案 Recipe 是保留現行公開原型行為的唯一既有例外,不能拿來當新租戶模組藍本;新增其他資料種類須先擴充並審查契約。
 
-正本:`apps/api/src/database/schemas/demo-item-two.schema.ts`、`apps/api/src/database/database.module.ts`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`
+正本:`apps/api/src/database/schemas/demo-item-two.schema.ts`、`apps/api/src/project/database/registrations.ts`、`apps/api/src/database/registration.ts`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`
 
 ## 步驟 3:api 模組(resolver / service / error / audit / abilities)
 
-新增 `apps/api/src/<feature>/`,抄 `demo-items-two/`(最小)或 `demo-items-one/`(完整),再掛進 `app.module.ts` 的 `imports`。
+新增 `apps/api/src/project/<feature>/`,抄底座 `demo-items-two/`(最小)或 `demo-items-one/`(完整),再到 `project/api-modules.ts` 加入具名功能登記。ProjectModule 與 AppModule 負責固定組裝,不要改底座清單或核心 guards。
 
 ```
 <feature>/
@@ -138,7 +139,7 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 
 ## 步驟 4:documents + codegen
 
-新增 `packages/graphql/src/documents/<feature>.graphql`(query / mutation 文件),然後**依序**跑:
+新增 `packages/graphql/src/documents/project/<feature>.graphql`(query / mutation 文件),然後**依序**跑:
 
 ```
 pnpm --filter @repo/api schema:generate
@@ -147,15 +148,15 @@ pnpm --filter @repo/graphql generate
 
 `apps/api/schema.gql` 與 `packages/graphql/src/generated` 是同一條產線的前後兩段,**兩份產物要進同一個 commit**(GQL-05);CI 的「codegen 產物與 schema 一致」一步會擋。api-only 的票也一樣 —— 不補 document,下游的 admin 票撞不到 hook(GQL-07)。
 
-**新環境第一次跑 `schema:generate` 前先 `pnpm exec turbo run build --filter=@repo/domain`**,否則 api 解不開 `@repo/domain` 的型別。
+新工作樹先依 [toolbox 的建置前置步驟](toolbox.md#pnpm--turbo建置測試格式)準備 workspace 產物。`generate` 寫入前會驗證兩區文件;operation 名稱與 fragment 名稱各自全域唯一,相同內容也不能撞名,不以專案檔覆蓋底座檔。
 
-正本:`apps/api/package.json`(`schema:generate`)、`packages/graphql/package.json`(`generate`)、`packages/graphql/src/documents/demo-items-two.graphql`
+正本:`apps/api/package.json`(`schema:generate`)、`packages/graphql/package.json`(`generate`)、`packages/graphql/src/documents/base/demo-items-two.graphql`
 
 ## 步驟 5:admin(一份設定物件 + 三個薄頁面檔)
 
-前端藍本正本:`apps/admin/src/pages/demo/shared/demo-module-config.ts` 的 **`DemoModuleConfig`**(逐項 JSDoc 就是規格)。分工是:
+前端藍本正本:`apps/admin/src/components/base/crud/demo-module-config.ts` 的 **`DemoModuleConfig`**(逐項 JSDoc 就是規格)。分工是:
 
-- **共用元件**(`pages/demo/shared/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`)負責版型、兩層權限判斷、分頁、未儲存離開確認、刪除確認、錯誤擺放位置 —— **一行都不用改**。
+- **共用元件**(`components/base/crud/` 的 `DemoListPage` / `DemoDetailPage` / `DemoFormPage`)負責版型、兩層權限判斷、分頁、未儲存離開確認、刪除確認、錯誤擺放位置 —— **一行都不用改**。
 - **詳情頁要設 itemLabel、刪除要關子頁籤**(ADR-0011「頁籤兩種」):路由頁籤列把詳情 / 編輯頁顯示成「模組名 — 檢視・項目名」/「模組名 — 編輯・項目名」,由頁面拿到資料後呼叫 `hooks/useRouteTabItemLabel(item.name, "view" | "edit")` 提供;刪除成功後呼叫 `hooks/useCloseItemTabs` 關掉那一筆的子頁籤。共用的 `DemoDetailPage` / `DemoFormPage` / `DemoListPage` 已接好;不用共用元件、自己寫頁面的模組要自己呼叫。
 - **設定物件**負責「這個模組是什麼」:模組 key、權限 key、欄位定義、資料存取 hook、選配區塊。
 
@@ -170,7 +171,7 @@ pnpm --filter @repo/graphql generate
 | `<Xxx>Module.tsx`                         | **一份 `DemoModuleConfig`** + 包好的 `useRows` / `useItem` / `useSave`                                                         |
 | `<Xxx>Page.tsx` / `ViewPage` / `FormPage` | 各約 10 行:`<DemoListPage config={xxxModule} />` 之類                                                                          |
 
-**`app/module-pages.tsx` 登記四個 key**(組裝層,STRUCT-03):列表 / 詳情 / 新增 / 編輯,其中**新增與編輯登記到同一個共版型元件**,情境由 `module.key` 判斷。沒登記的模組由殼顯示佔位頁(標題就是模組名)。路由本身仍由 `me.modules` 決定,這裡只決定「進去看到什麼」。
+在 `app/project/module-pages.ts` 的 pages 清單登記四個 key:列表 / 詳情 / 新增 / 編輯,其中**新增與編輯登記到同一個共版型元件**,情境由 `module.key` 判斷。固定 `app/module-pages.tsx` 組裝底座與專案,新增不得撞既有 key。沒登記的模組由殼顯示佔位頁;網址與能否進入仍由 `me.modules` 決定,這裡只決定畫面。替換治理頁另存 `pages/project/`,在 `app/project/page-replacements.ts` 明列 target,保留底座原版。
 
 **兩層判斷分開問**(ADR-0011):
 
@@ -179,13 +180,13 @@ pnpm --filter @repo/graphql generate
 
 **i18n**(I18N-02):`packages/i18n/messages/zh-TW/admin.json` 與 `en/admin.json` 各加一個 namespace,三頁共用;`columns.<key>` / `fields.<key>` / `form.<key>` 的 key 與設定物件的欄位 `key` 同名 —— 表單欄位的 `key` 同時是 `FormValues` 的鍵、i18n 的 key、**api 回報 `VALIDATION_FAILED` 時的欄位名**,三者同名,錯誤才標得回正確的欄位上。
 
-**目前 `shared/` 那組共用元件掛在 `pages/demo/` 底下**(示範家族的共版型)。正式業務模組要用時,把它搬到共用位置屬於另一張票 —— 搬之前先照抄一份也行,但兩份共用元件不要長期並存。
+專案頁直接使用 `components/base/crud/` 的共版型。不要引用 `pages/base/` 的頁面內部或複製共版型;通用修改依底座維護流程回收。
 
-正本:`apps/admin/src/pages/demo/shared/demo-module-config.ts`、`apps/admin/src/pages/demo/SampleTwoModule.tsx`、`apps/admin/src/pages/demo/demo-sample-two-config.ts`、`apps/admin/src/pages/demo/SampleTwoPage/`、`apps/admin/src/app/module-pages.tsx`
+正本:`apps/admin/src/components/base/crud/demo-module-config.ts`、`apps/admin/src/pages/base/demo/SampleTwoModule.tsx`、`apps/admin/src/pages/base/demo/demo-sample-two-config.ts`、`apps/admin/src/pages/base/demo/SampleTwoPage/`、`apps/admin/src/app/module-pages.tsx`
 
 ## 步驟 6:help.md(租戶使用者看的說明)
 
-新增 `apps/admin/src/md/module-help/<模組key>.help.md`,**檔名必須等於模組 key**(`lib/module-help.ts` 以檔名對應;`lib/help-registry.ts` 的 `import.meta.glob` 在 build 時把內容內嵌進 bundle)。表單模組(`engine: "form"`)例外:不必各放一份,沒有專屬檔時退回 `form-module.help.md`(見「表單模組路線」)。
+新增 `apps/admin/src/md/module-help/project/additions/<模組key>.help.md`,**檔名必須等於模組 key**。要替換底座說明則放 `project/replacements/`,目標必須已存在於 base;不能以 additions 撞 key 覆蓋。`lib/help-registry.ts` 的三份 glob 在 build 時內嵌內容,`lib/module-help.ts` 驗證及選取。表單模組沒有專屬檔時退回底座 `form-module.help.md`;只替換畫面而未提供說明時仍使用底座說明。
 
 - 結構沿用既有的說明檔:`# <模組名>` → `## 這個模組做什麼` → `## 常用操作` → `## 重要規則`。
 - **讀者是租戶使用者**:守 `CONTEXT.md` 詞彙表、**不得出現平台視角詞彙**(根組織 / 租戶 / 開通 / 跨租戶 / 平台);聯絡窗口一律寫「系統管理員」;「租戶管理員副本」在 UI 與 help 裡叫「預設角色」(FIGMA-04)。
@@ -193,16 +194,18 @@ pnpm --filter @repo/graphql generate
 - 寫**使用者做得到的事與看得到的差異**,不寫實作(不出現 collection 名、權限 key、GraphQL 端點)。
 - 交件前先 `pnpm --filter @repo/admin build` 再跑 `pnpm --filter @repo/admin check:help-bundle`(Dockerfile 也跑這一步):它驗每份 help.md 真的被打包進 `dist/assets`。理由:根目錄 `.dockerignore` 排除 `**/*.md`,help.md 靠一條例外才進得了 build context;例外一失效,本機 build 正常、image 裡的說明卻全是空的,沒有任何一步會失敗。
 
-正本:`apps/admin/src/lib/module-help.ts`、`apps/admin/src/lib/help-registry.ts`、`apps/admin/src/md/module-help/demo.sample-two.help.md`、`apps/admin/scripts/check-help-bundle.mjs`
+正本:`apps/admin/src/lib/module-help.ts`、`apps/admin/src/lib/help-registry.ts`、`apps/admin/src/md/module-help/base/demo.sample-two.help.md`、`apps/admin/scripts/check-help-bundle.mjs`
 
 ## 步驟 7:測試
+
+專案登記的整合測試要經固定組裝入口:API fixture 只替換 `project/api-modules.ts` 與 `project/database/registrations.ts` 來源,啟動真 AppModule/DatabaseModule;後台 fixture 替換 project 登記來源,共用正式路由與 Provider。不要只測合成函式,也不要用額外 module 繞過要驗的登記。授權與資料由隔離測試建立,不把 fixture 加進正式 seed。
 
 - **api(TEST-07)**:打真的 `/graphql`、對真 MongoDB。至少覆蓋:每個端點的權限守門(有 / 沒有該 key)、範圍(看不到的資料回 `NOT_FOUND`)、輸入驗證、稽核有沒有寫、`abilities` 的值。有欄位級權限的再加投影與寫入拒絕;有 `dataScopeTarget` 的加「規則命中 → 列表與單筆一致」;沒宣告的加「規則不介入」的對照。
 - **admin(TEST-08)**:MSW 攔網路層 + RTL,`renderApp()` 渲染。至少覆蓋:權限驅動的渲染(按鈕出不出現、區塊顯不顯示)、路由防守(沒綁隱藏頁模組 → 無權限頁)、放棄變更、錯誤標回欄位。MSW handler **有連動 / 狀態語意就實作進 handler**,不要回固定資料。
 - **不要把佔位夾具登記掉**:`apps/admin/src/test/msw/module-fixtures.ts` 的 **`placeholderModules`**(`demo.not-implemented`)是專門用來驗「殼對沒登記頁面的模組顯示佔位頁」的夾具模組,**永遠不會被實作**。新增真頁面時不要順手把它加進 `module-pages.tsx`。
 - 跑法:`pnpm exec turbo run test --filter=@repo/api` / `--filter=@repo/admin`(turbo 會先 build 依賴)。只跑一個測試檔的寫法見 toolbox「pnpm / turbo」(旗標不能接在 `pnpm run test --` 後面)。
 
-正本:`apps/api/src/demo-items-two/demo-items-two.test.ts`、`apps/admin/src/pages/demo/SampleTwoPage/`(`*.test.tsx`)、`apps/admin/src/test/msw/demo-sample-two-handlers.ts`、`docs/standards/testing/testing.md`
+正本:`apps/api/src/demo-items-two/demo-items-two.test.ts`、`apps/admin/src/pages/base/demo/SampleTwoPage/`(`*.test.tsx`)、`apps/admin/src/test/msw/demo-sample-two-handlers.ts`、`docs/standards/testing/testing.md`
 
 ## 步驟 8:文件回寫
 
@@ -230,7 +233,7 @@ pnpm --filter @repo/graphql generate
 | **三層模組樹**         | `demo > demo.sub > sample-one`                           | 兩層      | 純粹是樹的深度;`route` 各寫自己那一段,完整路徑由 api 累加                                                                  |
 | **多筆個別權限**       | 8 筆(含欄位級與頁面自有)                                 | 4 筆      | 最小就是 view / create / edit / delete;wildcard 每個節點自動一筆                                                           |
 
-**兩邊一樣、沒得選的**:四個模組 key = 四頁、共用的三個頁面元件、兩層判斷分開問、`abilities` 由 api 算好、`tenantScopePlugin` + `baseFieldsPlugin`、軟刪除、payload 形狀、審計四個動作、help.md、i18n 兩份字典、錯誤解讀共用 `pages/demo/shared/demo-error.ts`(錯誤碼一律沿用 GQL-04 通用碼,不新增 code)。
+**兩邊一樣、沒得選的**:四個模組 key = 四頁、共用的三個頁面元件、兩層判斷分開問、`abilities` 由 api 算好、`tenantScopePlugin` + `baseFieldsPlugin`、軟刪除、payload 形狀、審計四個動作、help.md、i18n 兩份字典、錯誤解讀共用 `components/base/crud/demo-error.ts`(錯誤碼一律沿用 GQL-04 通用碼,不新增 code)。
 
 ### 選配、但兩支示範模組都做了的
 
@@ -240,32 +243,34 @@ pnpm --filter @repo/graphql generate
 | ----------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | **啟用 / 停用切換(選配:`useSetEnabled`)** | 各自有 `setDemoItemOneEnabled` / `setDemoItemTwoEnabled`,列表「啟用」欄是開關 | 設定物件不給 `useSetEnabled` = 這個模組沒有啟用 / 停用,列表維持唯讀 `Tag`;給了也只有 `abilities.canEdit` 為真的列才是開關 |
 
-**選配的 hook 與 React 的 hook 規則相衝 —— 用「替身 hook」解,不要條件式呼叫**:設定物件裡的 `useSetEnabled` 是選配,直覺寫法是 `config.useSetEnabled?.(…)`,但那是**條件式呼叫 hook**,`rules-of-hooks` 會擋(REACT-06),而且模組之間切換時 hook 數量會變。做法是在共用層準備一支**同簽章、什麼都不做**的替身(先例 `pages/demo/shared/useDemoQuery.ts` 的 `noDemoSetEnabled`,回一個恆 `undefined` / no-op 的結果),呼叫端一律 `(config.useSetEnabled ?? noDemoSetEnabled)(…)` —— hook 一定被呼叫、呼叫順序固定,「有沒有這個選配」變成資料而不是控制流。日後新增別的選配 hook 照同一個形狀做。
+**選配的 hook 與 React 的 hook 規則相衝 —— 用「替身 hook」解,不要條件式呼叫**:設定物件裡的 `useSetEnabled` 是選配,直覺寫法是 `config.useSetEnabled?.(…)`,但那是**條件式呼叫 hook**,`rules-of-hooks` 會擋(REACT-06),而且模組之間切換時 hook 數量會變。做法是在共用層準備一支**同簽章、什麼都不做**的替身(先例 `components/base/crud/useDemoQuery.ts` 的 `noDemoSetEnabled`,回一個恆 `undefined` / no-op 的結果),呼叫端一律 `(config.useSetEnabled ?? noDemoSetEnabled)(…)` —— hook 一定被呼叫、呼叫順序固定,「有沒有這個選配」變成資料而不是控制流。日後新增別的選配 hook 照同一個形狀做。
 
-正本:`apps/admin/src/pages/demo/shared/useDemoQuery.ts`、`apps/admin/src/pages/demo/shared/demo-module-config.ts`
+正本:`apps/admin/src/components/base/crud/useDemoQuery.ts`、`apps/admin/src/components/base/crud/demo-module-config.ts`
 
 ## 表單模組路線
 
 欄位、版面、版本由使用者在後台「表單管理」設計的模組(`engine: "form"`),**不寫 schema、api、設定物件**:只宣告骨架、登記預設組裝,其餘全走畫面。範例 [示範表單](../modules/demo-form.md)(三個表單模組,示範頂層 / 群組內 / 次群組內三種位置),規則正本 [forms](../modules/forms.md),概念見 `docs/concepts/form-engine.md`。
 
-| 步驟 | 做什麼                                                                                                                                                                                                                                                                                                                                                                                                                                                | 正本                                                                                                          |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 1    | seed 宣告:新增 `apps/db-migrator/seeds/modules/<模組 key>.ts`,呼叫 `formModuleDeclaration({ key, name, parentKey, order, route, icon, description })`,再到 `seeds/modules.ts` 註冊(父節點所在的檔排前面)。函式產出整份骨架:列表節點(`engine: "form"`)、三個隱藏頁 `view-page` / `create-page` / `edit-page`、四筆權限 `view / create / edit / delete`、`form_submissions` 的資料範圍目標(欄位目錄 = 基礎欄位 + 提交狀態七種;`moduleKey` 由 runner 填) | `apps/db-migrator/seeds/form-module-declaration.ts`、`apps/db-migrator/seeds/modules/demo-form.ts`            |
-| 2    | 登記頁面:`apps/admin/src/app/module-pages.tsx` 加模組 key 常數並展開 `...formModulePages(<模組 key>)`(四頁全用預設,各自懶載入)                                                                                                                                                                                                                                                                                                                        | `apps/admin/src/components/form-engine/FormModulePages/form-module-pages.ts`                                  |
-| 3    | help.md:**不必另寫**。表單模組沒有專屬檔時,「?」自動用通用說明 `form-module.help.md`(彈窗標題是模組名);有特殊需求才加 `apps/admin/src/md/module-help/<模組 key>.help.md` 專屬檔(專屬檔優先)                                                                                                                                                                                                                                                           | `apps/admin/src/lib/module-help.ts`(`resolveModuleHelp`)、`apps/admin/src/md/module-help/form-module.help.md` |
-| 4    | 模組文件:`docs/modules/<模組 key>.md`,照示範表單的結構                                                                                                                                                                                                                                                                                                                                                                                                | `docs/modules/demo-form.md`                                                                                   |
-| 5    | 部署後:根組織在「表單管理」建共用表單 → 設計 → 發布 → 分派租戶;要綁審核流程就在「流程管理」建流程並綁定;列表欄位配置在「模組與權限」的右面板設定                                                                                                                                                                                                                                                                                                      | `docs/modules/forms.md`、`docs/modules/workflows.md`、`docs/modules/module-manager.md`                        |
+| 步驟 | 做什麼                                                                                                                                                                                                                                                                                                                                                                                                                                                | 正本                                                                                                               |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 1    | seed 宣告:新增 `apps/db-migrator/seeds/modules/<模組 key>.ts`,呼叫 `formModuleDeclaration({ key, name, parentKey, order, route, icon, description })`,再到 `seeds/modules.ts` 註冊(父節點所在的檔排前面)。函式產出整份骨架:列表節點(`engine: "form"`)、三個隱藏頁 `view-page` / `create-page` / `edit-page`、四筆權限 `view / create / edit / delete`、`form_submissions` 的資料範圍目標(欄位目錄 = 基礎欄位 + 提交狀態七種;`moduleKey` 由 runner 填) | `apps/db-migrator/seeds/form-module-declaration.ts`、`apps/db-migrator/seeds/modules/demo-form.ts`                 |
+| 2    | 在 `app/project/module-pages.ts` 的 forms 清單加入 `{ moduleKey }`;可附 options/pageOverrides,固定入口展開四頁並驗撞 key                                                                                                                                                                                                                                                                                                                              | `app/module-page-registry.ts`、功能登記規格                                                                        |
+| 3    | help.md:**不必另寫**。表單模組沒有專屬檔時,「?」自動用通用說明 `form-module.help.md`(彈窗標題是模組名);有特殊需求才加 `apps/admin/src/md/module-help/project/additions/<模組 key>.help.md` 專屬檔(專屬檔優先)                                                                                                                                                                                                                                         | `apps/admin/src/lib/module-help.ts`(`resolveModuleHelp`)、`apps/admin/src/md/module-help/base/form-module.help.md` |
+| 4    | 模組文件:`docs/modules/<模組 key>.md`,照示範表單的結構                                                                                                                                                                                                                                                                                                                                                                                                | `docs/modules/demo-form.md`                                                                                        |
+| 5    | 部署後:根組織在「表單管理」建共用表單 → 設計 → 發布 → 分派租戶;要綁審核流程就在「流程管理」建流程並綁定;列表欄位配置在「模組與權限」的右面板設定                                                                                                                                                                                                                                                                                                      | `docs/modules/forms.md`、`docs/modules/workflows.md`、`docs/modules/module-manager.md`                             |
 
-**客製頁**:登記方式不變(模組 key → 頁面元件),想怎麼排都可以,表單相關的部分用引擎零件(`FormRenderer`、`FormSubmissionList`、`FormSubmissionDetail`、`useFormDraft`…)綁進去:
+**客製頁**:專案自有表單在 forms entry 明列 pageOverrides,表單相關部分使用引擎零件(`FormRenderer`、`FormSubmissionList`、`FormSubmissionDetail`、`useFormDraft`…):
 
 ```ts
-...formModulePages(OTHER_KEY),                                      // 四頁全用預設
-...formModulePages(OTHER_KEY), [OTHER_KEY]: OtherListPage,             // 列表頁客製、其餘預設(後寫的蓋掉前面的)
-[OTHER_KEY]: OtherListPage, [`${OTHER_KEY}.view-page`]: OtherViewPage, // 全部自己來
+{
+  moduleKey: OTHER_KEY,
+  options: { tabLabelTemplate: "{{title}}" },
+  pageOverrides: { list: { Page: OtherListPage } },
+}
 ```
 
 - `formModuleDeclaration` 固定產出三個隱藏頁。新增 / 編輯改用跳窗、不要對應的頁時,不用這個函式,照它的形狀自己寫宣告並省略那幾頁。
-- 模組層的頁籤 / 標題模板以 `formModulePages(key, { tabLabelTemplate })` 給(預設 `{{title}}`),表單自己的 `tabLabelTemplate` 可覆寫。
+- 模組層的頁籤 / 標題模板放 forms entry 的 options(預設 `{{title}}`),表單自己的 `tabLabelTemplate` 可覆寫。組裝先驗四頁 key 與 options,再由 Provider 注入,載入時不寫共享 Map。替換底座表單頁使用 page-replacements,只換畫面/寬度,不改底座 options。
 - 不必新增 i18n、MSW handler、api 測試:引擎零件的文案在 `admin.json` 的 `formEngine` namespace,測試在 `components/form-engine/` 旁邊;新模組只需要在 seed 測試與 `module-pages` 的登記裡出現。
 
 ## 交件前檢查清單
