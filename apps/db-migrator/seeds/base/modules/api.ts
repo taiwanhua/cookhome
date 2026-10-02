@@ -1,4 +1,4 @@
-import { API_MODULE_KEY } from "../../src/seed/seed-key-convention";
+import { API_MODULE_KEY } from "../../../src/seed/seed-key-convention";
 import type { ModuleSeedDeclaration } from "../module-declaration";
 
 /**

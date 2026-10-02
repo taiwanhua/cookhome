@@ -9,9 +9,13 @@ import type {
   WithId,
 } from "mongodb";
 
+import { definitionSeedId } from "@repo/domain/seed";
+
 import { ensureRootAdmin, readRootAdminInput } from "./root-admin";
+import { planSeedRegistry } from "./seed-composition";
 import {
   DEFAULT_INITIAL_SEED_VALUE_FIELDS,
+  type DefinitionSeedSet,
   type SeedAdoptBy,
   type SeedDocument,
   type SeedDocumentSet,
@@ -21,6 +25,7 @@ import {
   type SeedRelationSet,
   type SeedRootAdminSet,
   type SeedSet,
+  isDefinitionSeedSet,
   isSeedIdReference,
 } from "./seed-declaration";
 
@@ -257,14 +262,29 @@ async function runRootAdminSet(
   return { label: "root-admin", counts };
 }
 
+/**
+ * 版本化定義(表單 / 流程)的處理器:收到依引用排好的定義宣告,回每一份的處理結果。
+ * 定義不走本檔的 documents upsert —— 由上層接上 api 的受控 CLI(發布、安裝紀錄、採納與漂移保護都在那邊)。
+ */
+export type DefinitionSeedHandler = (
+  seeds: readonly DefinitionSeedSet[],
+) => Promise<SeedSetResult[]>;
+
 export interface SeedContext {
   /** 供 root 初始帳號讀取 ROOT_ADMIN_* 的環境。 */
   env: NodeJS.ProcessEnv;
+  /**
+   * 定義宣告的處理器。registry 含定義而沒有給處理器時,`runSeeds` 在**任何寫入之前**就失敗:
+   * 定義既不會被當成一般文件寫入,也不會被靜默略過。
+   */
+  definitionHandler?: DefinitionSeedHandler;
 }
+
+type PlainSeedSet = Exclude<SeedSet, DefinitionSeedSet>;
 
 function runSet(
   database: Db,
-  set: SeedSet,
+  set: PlainSeedSet,
   context: SeedContext,
   now: Date,
 ): Promise<SeedSetResult> {
@@ -281,16 +301,60 @@ function runSet(
   }
 }
 
-/** 依 registry 順序把所有種子冪等同步到資料庫,回傳每組的新增 / 更新 / 認養 / 未變計數。 */
+/** 預檢通過、排好順序的一次執行:普通種子在前,定義宣告另外交給處理器。 */
+export interface SeedRunPlan {
+  plain: PlainSeedSet[];
+  definitions: DefinitionSeedSet[];
+}
+
+/**
+ * 執行前的預檢(純函式,不碰資料庫):驗整份 registry 並依引用排出順序(`planSeedRegistry`:
+ * 撞 key、漏引用、循環、版本化定義的防線),再確認這個入口跑得完 ——
+ * 登記了定義卻沒有處理器、要建 root 初始帳號卻缺環境變數,都在這裡就失敗。
+ *
+ * 任何會寫入或刪除資料的入口(seed、reset)都要在**動資料庫之前**先呼叫:
+ * 不通過就整批不做,不會跑到一半才停、也不會先刪了資料才發現種不回去。
+ */
+export function prepareSeedRun(
+  registry: SeedRegistry,
+  context: SeedContext,
+): SeedRunPlan {
+  const plan = planSeedRegistry([{ origin: "registry", seeds: registry }]);
+  const definitions = plan.filter((set) => isDefinitionSeedSet(set));
+  if (definitions.length > 0 && context.definitionHandler === undefined) {
+    throw new Error(
+      `registry 登記了 ${String(definitions.length)} 份版本化定義(${definitions
+        .map((set) => definitionSeedId(set))
+        .join(
+          "、",
+        )}),但這個入口沒有接上定義的發布處理;定義不會被當成一般文件寫入,也不會被略過,本次沒有寫入或刪除任何資料`,
+    );
+  }
+  const plain = plan.filter((set) => !isDefinitionSeedSet(set));
+  if (plain.some((set) => set.kind === "root-admin")) {
+    readRootAdminInput(context.env);
+  }
+  return { plain, definitions };
+}
+
+/**
+ * 把所有種子冪等同步到資料庫,回傳每組的新增 / 更新 / 認養 / 未變計數。
+ *
+ * 寫入前先過 `prepareSeedRun`;有問題就整批不做。普通種子先跑(含 root 初始帳號),定義宣告最後交給處理器。
+ */
 export async function runSeeds(
   database: Db,
   registry: SeedRegistry,
   context: SeedContext,
 ): Promise<SeedSetResult[]> {
+  const { plain, definitions } = prepareSeedRun(registry, context);
   const now = new Date();
   const results: SeedSetResult[] = [];
-  for (const set of registry) {
+  for (const set of plain) {
     results.push(await runSet(database, set, context, now));
+  }
+  if (context.definitionHandler !== undefined && definitions.length > 0) {
+    results.push(...(await context.definitionHandler(definitions)));
   }
   return results;
 }

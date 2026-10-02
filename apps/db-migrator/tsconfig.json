@@ -1,7 +1,10 @@
 {
   "extends": "@repo/typescript-config/base.json",
   "compilerOptions": {
-    "types": ["jest", "node"]
+    "types": ["jest", "node"],
+    "paths": {
+      "@repo/domain/*": ["../../packages/domain/src/*"]
+    }
   },
   "include": ["src", "seeds", "test"],
   "exclude": ["node_modules"]

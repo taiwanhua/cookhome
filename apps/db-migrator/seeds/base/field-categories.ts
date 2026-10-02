@@ -1,7 +1,7 @@
 import type {
   SeedDocument,
   SeedDocumentSet,
-} from "../src/seed/seed-declaration";
+} from "../../src/seed/seed-declaration";
 
 export const GENDER_CATEGORY_KEY = "gender";
 export const DEMO_CATEGORY_KEY = "demo-category";

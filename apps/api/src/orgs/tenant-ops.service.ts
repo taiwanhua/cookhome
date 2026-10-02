@@ -458,7 +458,7 @@ export class TenantOpsService {
     });
     if (!template) {
       throw new Error(
-        `找不到種子角色 ${TENANT_ADMIN_ROLE_KEY}(apps/db-migrator/seeds/roles.ts;seed 未跑?)`,
+        `找不到種子角色 ${TENANT_ADMIN_ROLE_KEY}(apps/db-migrator/seeds/base/roles.ts;seed 未跑?)`,
       );
     }
     return template;
@@ -509,7 +509,7 @@ export class TenantOpsService {
     const root = await this.orgs.findOne(operator, { parentId: null });
     if (!root) {
       throw new Error(
-        "找不到根組織(apps/db-migrator/seeds/orgs.ts;seed 未跑?)",
+        "找不到根組織(apps/db-migrator/seeds/base/orgs.ts;seed 未跑?)",
       );
     }
     return root;

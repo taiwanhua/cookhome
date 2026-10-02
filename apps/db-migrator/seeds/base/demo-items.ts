@@ -4,7 +4,7 @@ import {
   type SeedDocument,
   type SeedDocumentSet,
   seedRef,
-} from "../src/seed/seed-declaration";
+} from "../../src/seed/seed-declaration";
 import { DEMO_CATEGORY_KEY } from "./field-categories";
 import { SAMPLE_TWO_KEY } from "./modules/demo.sample-two";
 import { SAMPLE_ONE_KEY } from "./modules/demo.sub.sample-one";

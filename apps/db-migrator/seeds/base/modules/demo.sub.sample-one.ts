@@ -17,7 +17,7 @@ const EDIT_PAGE_KEY = `${SAMPLE_ONE_KEY}.edit-page`;
  *
  * 全環境灌、seed 時 enabled=true;`enabled` 是「初始 seed 值的欄位」(建立後由人在系統內管理,
  * seed 重跑不覆寫),production 要關示範家族就在「模組與權限」頁停用。
- * 每個節點的 wildcard `<key>.*` 由 seeds/modules.ts 自動產生,此處只列個別權限。
+ * 每個節點的 wildcard `<key>.*` 由 seeds/base/modules.ts 自動產生,此處只列個別權限。
  */
 export const sampleOneModule: ModuleSeedDeclaration = {
   nodes: [
