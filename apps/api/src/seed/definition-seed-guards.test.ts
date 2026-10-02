@@ -74,7 +74,7 @@ const DELETE_FORM_DRAFT = /* GraphQL */ `
 `;
 
 /**
- * 現場的草稿、版本與 metadata 不被安裝動到(`docs/plans/seed-migration.md`「發布、身分與衝突」):
+ * 現場的草稿、版本與 metadata 不被安裝動到(`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」):
  * 未預期的草稿一律先報衝突、採納前核對完整目標狀態、metadata 與草稿的寫入條件含身分 / 目前版本 / 草稿 id。
  * 競爭以安裝流程的檢查點注入:走到某一步寫入之前,先讓「畫面上的人」經真的 `/graphql` 做一件事。
  */

@@ -43,7 +43,7 @@ jest.setTimeout(FORM_TEST_TIMEOUT_MS);
 const FORM = "form-definition";
 
 /**
- * 受管表單的安裝(`docs/plans/seed-migration.md`「發布、身分與衝突」):真 Nest app、真 MongoDB;
+ * 受管表單的安裝(`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」):真 Nest app、真 MongoDB;
  * 畫面上的操作走真的 `/graphql`,安裝走程序介面 `DefinitionSeedService`(TEST-07 的第二個接縫)。
  * 每個中斷點的續跑在 `definition-seed-resume.test.ts`,流程在 `definition-seed-workflow.test.ts`。
  */

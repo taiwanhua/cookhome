@@ -15,7 +15,7 @@ import { SeedOperatorService } from "./seed-operator.service";
 import { WorkflowDefinitionAdapter } from "./workflow-definition.adapter";
 
 /**
- * 受管定義的安裝(`docs/plans/seed-migration.md`「發布、身分與衝突」):程序介面、安裝流程、
+ * 受管定義的安裝(`docs/concepts/data-layer-and-isolation.md`「受管表單與流程」):程序介面、安裝流程、
  * 表單 / 流程適配、操作者解析與鎖核對。寫入全部經 `FormDesignModule` / `WorkflowDesignModule` 匯出的原服務。
  *
  * `OperatorContextService`、`OwnerProtectionService` 以**既有的 class** 直接註冊(兩者都沒有狀態):
