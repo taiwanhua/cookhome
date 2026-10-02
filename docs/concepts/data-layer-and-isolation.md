@@ -232,6 +232,8 @@ documents 預設以 `key` 識別,可用 `keyField` 指定其他欄位;`seedRef` 
 
 資料轉換需要特定設定時,在 migration 的 `seedDependencies` 指定 `seeds/{base,project}/revisions/` 內不可變的 `.seed.ts`。快照沿用同一份 `SeedSet`,可用 `requiresSeeds` 指定前置快照;不引用可變的當前 registry。已發布檔案保留原內容,修改設定另建新 revision。
 
+歷史定義需要的模組、欄位類別與被引用表單,都須在這組快照中可解析,即使環境裡已存在也要列入前置。執行前會檢查可攜性、引用、循環與安裝順序;缺少的前置不拿目前 registry 補齊。被引用的定義用 `requiresSeeds` 排在使用它的定義之前。
+
 有設定依賴的 migration 依序檢查是否有待轉換資料、依賴是否可安裝,再安裝缺少的精確快照、轉換資料與驗證結果。沒有待轉換資料時仍需驗證,但不安裝歷史設定。這讓舊環境可經中間版本完成資料轉換,空庫則只建立目前仍登記的目標。
 
 有 `seedDependencies` 的檔案須同時提供以下檢查,不另維護一份 migration 清單:
