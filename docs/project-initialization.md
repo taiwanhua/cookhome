@@ -69,7 +69,12 @@ GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使�
 
 ## 初始資料
 
-根組織名稱/描述、ROOT_ADMIN 輸入與 seed 欄位政策見[種子資料與遷移](concepts/data-layer-and-isolation.md#種子資料與遷移)。新專案初始化前指定值,一般部署保留 UI 修改;只有完整還原才依專案初值重建。更換 ROOT_ADMIN_ACCOUNT 會視為建立另一帳號,不是原帳號改名。
+專案種子放在 `apps/db-migrator/seeds/project/`,建立專案時檢視兩個入口:
+
+- `settings.ts`:指定 `rootOrg` 的名稱、描述與 settings,以及 `moduleInitialValues` 中各模組的 `enabled`、`icon`、`settings` 初值。一般部署保留已有值與 UI 修改,完整還原才依專案初值重建。
+- `registry.ts`:在 `moduleDeclarations` 登記專案模組,在 `seeds` 登記其他種子。底座與專案由固定入口合併、檢查引用及重名,不直接修改底座清單。
+
+ROOT_ADMIN 輸入與欄位政策見[種子資料與遷移](concepts/data-layer-and-isolation.md#種子資料與遷移)。根初始帳號由環境變數提供,不放進上述檔案;既有帳號不重設密碼,更換 ROOT_ADMIN_ACCOUNT 會建立另一帳號,不是原帳號改名。
 
 示範模組初建啟用,開關與租戶分配由人員維護;授權關聯只補不刪。初始化、一般 seed 與 data/full reset 的差別見上述概念文件,操作見 [deployment](deployment.md#資料庫還原reset僅-dev--staging)。
 

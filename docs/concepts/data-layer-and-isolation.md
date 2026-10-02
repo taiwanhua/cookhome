@@ -179,6 +179,12 @@ BaseRepository 資料操作方法的第一個參數。四個集合各有用途,�
 - root 初始帳號從 `ROOT_ADMIN_*` 環境變數建立,只在不存在時建。
 - 遷移檔名 `<14 位時間戳>_<schema|data|cleanup>_<kebab 描述>.js`,由測試強制。
 
+### 來源與組裝
+
+底座宣告位於 `apps/db-migrator/seeds/base/`,專案宣告位於 `seeds/project/`;各自的 `registry.ts` 提供模組宣告與其他種子。只有 `seeds/registry.ts` 讀取兩方,合併後一次推導模組、權限、資料目標與租戶管理員模板。專案子模組可掛在底座父節點下;既有租戶角色副本仍由人員維護。
+
+專案的根組織與模組初值在 `project/settings.ts`,由底座工廠讀入。組裝先檢查重名、引用、循環與欄位政策,全部通過才開始寫入,不依載入順序覆蓋同 key。新增模組的檔案與登記步驟見 [module scaffold](../agents/module-scaffold.md)。
+
 ### 宣告與寫入邊界
 
 documents 預設以 `key` 識別,可用 `keyField` 指定其他欄位;`seedRef` 以 collection/key 解析該環境的 ID。`initialSeedValueFields` 是完整保護清單,會取代預設的 `enabled`,不是追加。已存在的 `null`、`false`、空字串都保留,只有不存在的欄位才補初值。其他宣告欄位以 `$set` 同步,宣告外欄位與未宣告文件不自動刪除。
