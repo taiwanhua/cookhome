@@ -1,5 +1,5 @@
 /**
- * reset 指令(`docs/plans/seed-migration.md`「重置與操作者確認」;判準正本 ADR-0002「還原(reset)」)。
+ * reset 指令(`docs/deployment.md`「資料庫還原(reset)」;判準正本 ADR-0002「還原(reset)」)。
  *
  * ```
  * pnpm --filter @repo/db-migrator reset --environment=<dev|staging|production> --mode=<data|full> \

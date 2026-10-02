@@ -41,7 +41,7 @@ import {
 } from "../../test/support/update-harness";
 
 /**
- * `data` reset 的受管定義保留閉包(`docs/plans/seed-migration.md` 驗收矩陣「data reset」):
+ * `data` reset 的受管定義保留閉包(`docs/concepts/data-layer-and-isolation.md` 「還原」):
  * 真的拋棄式 MongoDB、真的 update / reset 指令子行程、真的 api 受管定義 CLI(定義是發布出來的,不是插進去的)。
  * 夾具 `test/fixtures/reset-managed/`。
  */

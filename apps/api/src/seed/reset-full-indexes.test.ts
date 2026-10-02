@@ -44,7 +44,7 @@ interface IndexShape {
 }
 
 /**
- * full reset 會 drop 每個 collection 連同索引(`docs/plans/seed-migration.md`「重置與操作者確認」:
+ * full reset 會 drop 每個 collection 連同索引(`docs/deployment.md`「資料庫還原(reset)」:
  * 完整的應用資料與索引重建)。正式 registry 沒有登記任何表單 / 流程定義時也一樣要把**全部**登記 schema 的索引
  * 建回來 —— 常駐的 api 早就做完 `model.init()`,不會自己重建,也不能要求操作者重啟服務。
  *

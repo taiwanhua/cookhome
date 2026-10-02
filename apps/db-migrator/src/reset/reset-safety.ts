@@ -1,5 +1,5 @@
 /**
- * reset 指令的安全閥(`docs/plans/seed-migration.md`「重置與操作者確認」)。
+ * reset 指令的安全閥(`docs/deployment.md`「資料庫還原(reset)」)。
  *
  * 純函式、不碰資料庫:目標環境由操作者以 `--environment` 指定(**不從資料庫名推測**),
  * 必須在 `RESET_ALLOW_ENV` 的允許清單內,而且 `--confirm` 要與
