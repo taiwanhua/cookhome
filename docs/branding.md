@@ -77,6 +77,8 @@
 | `Button` Color=Success                      | 8:42(Button 頁 8:2);Success 變體 334:2–334:36                                                                              | `@repo/ui/button` 的 `color="success"`(使用者管理「啟用」):contained 底 `success/main`、字 `success/contrastText`;outlined 框與字、text 字皆 `success/main`。語意色,換品牌主色不受影響                                                                                                                            |
 | `Draft/Avatar`                              | 312:28(Avatar 頁 311:5814)                                                                                                 | `@repo/ui/avatar`:`primary/lighter` 底 + `primary/dark` 字(頭像選單的使用者首字);隨主色衍生                                                                                                                                                                                                                       |
 
+原 CookHome 設計檔的完整頁面、元件 family、變數及樣式盤點由 [CookHome 品牌註冊表](https://github.com/taiwanhua/cookhome/blob/main/docs/branding.md#figma-現況盤點)維護。它仍是來源專案的單一設計檔,不是已拆分的正式 wowgo-base Library;拆分與同步驗收規格見[工作包 E](plans/base-sync.md#efigma-品牌與版本同步)。
+
 ## 隔離品牌相容性測試
 
 測試檔位於 Wowgo Professional 團隊的 [TEST — Multi-project Theme POC](https://www.figma.com/files/team/963068133549518258/project/661917302),與正式 CookHome Design System 分開。
