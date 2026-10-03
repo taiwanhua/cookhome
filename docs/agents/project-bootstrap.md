@@ -15,7 +15,7 @@
 ## 開始前
 
 1. 讀 `CLAUDE.md`、[初始化索引](../project-initialization.md)、[品牌註冊表](../branding.md)、[環境變數登記](../env-registry.md)、[deployment](../deployment.md),以及索引指到的實際來源檔。指令與欄位以來源檔為準;本檔與來源不合時停下回報。
-2. 確認底座正式版本可取得:底座以不可移動的 annotated tag 加 GitHub Release 交付,首版採 `v0.1.0`。可先用 `git ls-remote <底座URL> "refs/tags/<tag>" "refs/tags/<tag>^{}"` 查遠端,並查看該版 Release。**拿不到正式 tag 時停止版本建立**,不以底座 `main` 的最新 commit 代替;已取得的輸入仍可記錄。
+2. 確認底座正式版本可取得:底座以不可移動的 annotated tag 加 GitHub Release 交付,可用版本見底座 repo 的 Releases。可先用 `git ls-remote <底座URL> "refs/tags/<tag>" "refs/tags/<tag>^{}"` 查遠端,並查看該版 Release。**拿不到正式 tag 時停止版本建立**,不以底座 `main` 的最新 commit 代替;已取得的輸入仍可記錄。
 3. 進度記在新專案的 issue / PR;新 repo 尚不存在時,先沿用本次已授權的規劃 issue,建立後互相指路;沒有合適位置時先回報,不擅自把私有專案輸入發布到公開底座 repo。依[協作規則](collaboration.md)讓下一位只靠 repo 與 issue 就能接手,不另建進度檔。每個項目分三種狀態記錄,定義見初始化索引:**已提供**、**已建立**、**已驗證**。
 
 ## 1. 收集輸入
@@ -72,7 +72,7 @@ git branch --set-upstream-to=origin/main main
    ```json
    "wowgoBase": {
      "repository": "<底座 Git URL>",
-     "tag": "v0.1.0",
+     "tag": "<tag>",
      "commit": "<第 2 節核對的 40 位 commit>"
    }
    ```
