@@ -11,6 +11,9 @@ import {
 } from "./config.mjs";
 import {
   LEGACY_COOKHOME_REPOSITORY,
+  disabledCloud,
+  legacyCookhomeCloud,
+  legacyCookhomeGithub,
   liveRepository,
   makeLegacyCookhomeRoot,
   makeProjectRoot,
@@ -125,7 +128,12 @@ test("正式設定:兩份 JSON 通過 schema,三環境與看板都解析得出�
       environment,
       repository,
     });
-    assert.deepEqual(Object.keys(resolved), CLOUD_OUTPUT_KEYS, environment);
+    // 尚未啟用雲端的專案只解析出停用狀態
+    if (resolved.enabled === false) {
+      assert.deepEqual(resolved, { enabled: false }, environment);
+    } else {
+      assert.deepEqual(Object.keys(resolved), CLOUD_OUTPUT_KEYS, environment);
+    }
   }
   const board = resolveGithubConfig({ rootDir: repoRoot, repository });
   assert.equal(typeof board.enabled, "boolean");
@@ -559,6 +567,155 @@ test("看板停用:不要求 IDs / options,只輸出 enabled=false,但仍核對 
     }),
     { enabled: false },
   );
+});
+
+test("cloud 省略 enabled 或 enabled 為 true:三環境逐鍵輸出相同,輸出不多出 enabled", () => {
+  const cases = [
+    [sampleCloud, REPO, makeProjectRoot],
+    [
+      legacyCookhomeCloud,
+      LEGACY_COOKHOME_REPOSITORY,
+      ({ cloud }) => makeProjectRoot({ github: legacyCookhomeGithub(), cloud }),
+    ],
+  ];
+  for (const [fixture, repository, makeRoot] of cases) {
+    const omitted = makeRoot({ cloud: fixture() });
+    const explicit = makeRoot({ cloud: { ...fixture(), enabled: true } });
+    for (const environment of ENVIRONMENTS) {
+      const expected = resolveCloudConfig({
+        rootDir: omitted,
+        environment,
+        repository,
+      });
+      const resolved = resolveCloudConfig({
+        rootDir: explicit,
+        environment,
+        repository,
+      });
+      assert.deepEqual(Object.keys(resolved), CLOUD_OUTPUT_KEYS, environment);
+      assert.deepEqual(resolved, expected, environment);
+    }
+  }
+});
+
+test("cloud enabled 為 true 時仍整份嚴格驗證:缺欄位或未知欄位照樣拒絕", () => {
+  const missing = { ...sampleCloud(), enabled: true };
+  delete missing.environments.staging.secrets.jwtSecret;
+  const noGcp = { ...sampleCloud(), enabled: true };
+  delete noGcp.gcp;
+  const unknownTop = { ...sampleCloud(), enabled: true, fallback: {} };
+  for (const cloud of [
+    missing,
+    noGcp,
+    unknownTop,
+    { schemaVersion: 1, enabled: true },
+  ]) {
+    expectError(
+      () =>
+        resolveCloudConfig({
+          rootDir: makeProjectRoot({ cloud }),
+          environment: "dev",
+          repository: REPO,
+        }),
+      /cloud\.json/,
+    );
+  }
+});
+
+test("cloud 停用:檔案只有 schemaVersion 與 enabled,三環境都只回 { enabled: false }", () => {
+  const root = makeProjectRoot({ cloud: disabledCloud() });
+  for (const environment of ENVIRONMENTS) {
+    assert.deepEqual(
+      resolveCloudConfig({ rootDir: root, environment, repository: REPO }),
+      { enabled: false },
+      environment,
+    );
+  }
+});
+
+test("cloud 停用:夾帶 gcp / environments / 未知鍵一律拒絕(不留舊專案的目標)", () => {
+  const { gcp, environments } = sampleCloud();
+  for (const extra of [
+    { gcp },
+    { environments },
+    { gcp, environments },
+    { gcp: {} },
+    { environments: null },
+    { fallback: {} },
+    { Enabled: false },
+  ]) {
+    expectError(
+      () =>
+        resolveCloudConfig({
+          rootDir: makeProjectRoot({ cloud: { ...disabledCloud(), ...extra } }),
+          environment: "dev",
+          repository: REPO,
+        }),
+      /cloud\.json/,
+    );
+  }
+});
+
+test("cloud 的 enabled 不是 boolean(null、字串、數字、物件、陣列)即拒絕,完整檔與兩欄檔皆然", () => {
+  for (const enabled of [null, "false", "true", "", 0, 1, {}, []]) {
+    for (const base of [sampleCloud(), { schemaVersion: 1 }]) {
+      expectError(
+        () =>
+          resolveCloudConfig({
+            rootDir: makeProjectRoot({ cloud: { ...base, enabled } }),
+            environment: "dev",
+            repository: REPO,
+          }),
+        /cloud\.json.*enabled/,
+      );
+    }
+  }
+});
+
+test("cloud 停用:未知或缺少的 schemaVersion 照樣拒絕", () => {
+  for (const version of [undefined, 0, 2, "1"]) {
+    expectError(
+      () =>
+        resolveCloudConfig({
+          rootDir: makeProjectRoot({
+            cloud: { schemaVersion: version, enabled: false },
+          }),
+          environment: "dev",
+          repository: REPO,
+        }),
+      /cloud\.json.*schemaVersion/,
+    );
+  }
+});
+
+test("cloud 停用:仍先核對 environment 與 repository 身分,不以任意 repo context 繞過識別", () => {
+  const root = makeProjectRoot({ cloud: disabledCloud() });
+  for (const environment of [undefined, "", "prod", "DEV", "__proto__"]) {
+    expectError(
+      () =>
+        resolveCloudConfig({ rootDir: root, environment, repository: REPO }),
+      /environment/,
+    );
+  }
+  for (const repository of [undefined, "", "widgets", "someone/fork"]) {
+    expectError(
+      () =>
+        resolveCloudConfig({ rootDir: root, environment: "dev", repository }),
+      /repository/,
+    );
+  }
+  // github.json 不存在或壞掉時,停用的 cloud 也不放行
+  for (const github of [null, "{ not json"]) {
+    expectError(
+      () =>
+        resolveCloudConfig({
+          rootDir: makeProjectRoot({ github, cloud: disabledCloud() }),
+          environment: "dev",
+          repository: REPO,
+        }),
+      /github\.json/,
+    );
+  }
 });
 
 test("cloud scope 只用 github.json 的身分欄位:看板停用或看板欄位不完整不影響部署解析", () => {

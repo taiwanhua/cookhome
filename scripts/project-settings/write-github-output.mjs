@@ -6,6 +6,7 @@
  *
  * 輸出鍵是本程式寫死的固定清單,輸入不能提供鍵名;值含控制字元(換行會變成另一行輸出)即拒絕。
  * 全部驗證通過才一次寫入,失敗時不寫任何內容。看板的 options 以單行 JSON 寫成一個輸出。
+ * cloud 是停用狀態(`{"enabled":false}`)時明確失敗、不寫任何輸出:Deploy / Reset 因此在雲端認證前停止。
  */
 import { appendFileSync, readFileSync } from "node:fs";
 
@@ -48,6 +49,16 @@ function plainText(value, label) {
 }
 
 function cloudLines(config) {
+  // 讀取器回報停用狀態:需要雲端的 workflow 在這裡停下,不寫任何輸出(後面的認證拿不到參數)
+  if (
+    isPlainObject(config) &&
+    config.enabled === false &&
+    Object.keys(config).length === 1
+  ) {
+    fail(
+      "雲端尚未啟用(deploy/project/cloud.json 的 enabled 為 false):需要雲端的 workflow 不可執行,先完成雲端設定",
+    );
+  }
   exactKeys(config, CLOUD_OUTPUT_KEYS, "cloud 設定");
   return CLOUD_OUTPUT_KEYS.map(
     (key) => `${key}=${plainText(config[key], key)}`,

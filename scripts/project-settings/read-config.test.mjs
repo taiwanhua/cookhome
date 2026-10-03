@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import { CLOUD_OUTPUT_KEYS } from "./config.mjs";
 import {
+  disabledCloud,
   liveRepository,
   makeProjectRoot,
   repoRoot,
@@ -51,13 +52,90 @@ test("正式設定 dry-run:以目前 repo 身分跑兩個入口皆成功(只驗 
       { cwd: repoRoot },
     );
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(Object.keys(JSON.parse(result.stdout)), CLOUD_OUTPUT_KEYS);
+    const parsed = JSON.parse(result.stdout);
+    // 尚未啟用雲端的專案只輸出停用狀態
+    if (parsed.enabled === false) {
+      assert.deepEqual(parsed, { enabled: false });
+    } else {
+      assert.deepEqual(Object.keys(parsed), CLOUD_OUTPUT_KEYS);
+    }
   }
   const board = cli(["--scope", "github", "--repository", repository], {
     cwd: repoRoot,
   });
   assert.equal(board.status, 0, board.stderr);
   assert.equal(typeof JSON.parse(board.stdout).enabled, "boolean");
+});
+
+test("cloud scope 停用:三環境都成功,stdout 只有一行 enabled=false,不需要任何雲端欄位或 token", () => {
+  const cwd = makeProjectRoot({ cloud: disabledCloud() });
+  for (const environment of ["dev", "staging", "production"]) {
+    const result = cli(
+      ["--scope", "cloud", "--environment", environment, "--repository", REPO],
+      { cwd, env: { GH_PROJECT_TOKEN: "", GITHUB_TOKEN: "" } },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stderr, "");
+    assert.equal(result.stdout, '{"enabled":false}\n');
+  }
+});
+
+test("cloud scope:enabled 為 true 的完整檔與省略 enabled 的舊檔,stdout 逐字相同", () => {
+  const omitted = makeProjectRoot();
+  const explicit = makeProjectRoot({
+    cloud: { ...sampleCloud(), enabled: true },
+  });
+  for (const environment of ["dev", "staging", "production"]) {
+    const args = [
+      "--scope",
+      "cloud",
+      "--environment",
+      environment,
+      "--repository",
+      REPO,
+    ];
+    const expected = cli(args, { cwd: omitted });
+    const result = cli(args, { cwd: explicit });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, expected.stdout);
+  }
+});
+
+test("cloud scope 停用:repository 不符、非法 environment、夾帶舊欄位、enabled 型別不對、未知 schemaVersion 皆失敗且 stdout 為空", () => {
+  const cwd = makeProjectRoot({ cloud: disabledCloud() });
+  assertFailure(
+    cli(
+      ["--scope", "cloud", "--environment", "dev", "--repository", "evil/fork"],
+      { cwd },
+    ),
+    /repository/,
+  );
+  assertFailure(
+    cli(["--scope", "cloud", "--environment", "qa", "--repository", REPO], {
+      cwd,
+    }),
+    /environment/,
+  );
+  const args = [
+    "--scope",
+    "cloud",
+    "--environment",
+    "dev",
+    "--repository",
+    REPO,
+  ];
+  for (const [cloud, pattern] of [
+    [{ ...sampleCloud(), enabled: false }, /cloud\.json/],
+    [{ ...disabledCloud(), fallback: {} }, /cloud\.json/],
+    [{ schemaVersion: 1, enabled: null }, /cloud\.json.*enabled/],
+    [{ schemaVersion: 1, enabled: "false" }, /cloud\.json.*enabled/],
+    [{ schemaVersion: 1, enabled: 0 }, /cloud\.json.*enabled/],
+    [{ schemaVersion: 2, enabled: false }, /cloud\.json.*schemaVersion/],
+  ]) {
+    const result = cli(args, { cwd: makeProjectRoot({ cloud }) });
+    assertFailure(result, pattern);
+    assert.doesNotMatch(result.stderr, /acme-widgets|widgets-api|db-uri/);
+  }
 });
 
 test("argv 夾帶換行或 workflow 指令:stdout 空、非零、stderr 單行且不含控制字元與注入內容", () => {
