@@ -16,11 +16,11 @@
 
 1. 讀 `CLAUDE.md`、[初始化索引](../project-initialization.md)、[品牌註冊表](../branding.md)、[環境變數登記](../env-registry.md)、[deployment](../deployment.md),以及索引指到的實際來源檔。指令與欄位以來源檔為準;本檔與來源不合時停下回報。
 2. 確認底座正式版本可取得:底座以不可移動的 annotated tag 加 GitHub Release 交付,首版採 `v0.1.0`。可先用 `git ls-remote <底座URL> "refs/tags/<tag>" "refs/tags/<tag>^{}"` 查遠端,並查看該版 Release。**拿不到正式 tag 時停止版本建立**,不以底座 `main` 的最新 commit 代替;已取得的輸入仍可記錄。
-3. 進度記在新專案的 issue / PR;新 repo 尚不存在時,先記在本次初始化的來源規劃 issue,建立後互相指路。依[協作規則](collaboration.md)讓下一位只靠 repo 與 issue 就能接手,不另建進度檔。每個項目分三種狀態記錄,定義見初始化索引:**已提供**、**已建立**、**已驗證**。
+3. 進度記在新專案的 issue / PR;新 repo 尚不存在時,先沿用本次已授權的規劃 issue,建立後互相指路;沒有合適位置時先回報,不擅自把私有專案輸入發布到公開底座 repo。依[協作規則](collaboration.md)讓下一位只靠 repo 與 issue 就能接手,不另建進度檔。每個項目分三種狀態記錄,定義見初始化索引:**已提供**、**已建立**、**已驗證**。
 
 ## 1. 收集輸入
 
-逐節對照初始化索引,將缺項依相依性分組詢問;使用者或 issue 已回答的直接沿用。只缺外部資源時可先完成本機設定,回報仍未驗證的部分。
+逐節對照初始化索引,將缺項依相依性分組詢問;使用者或 issue 已回答的直接沿用。已有選定的正式版本、只缺外部資源時可先完成本機設定,回報仍未驗證的部分。
 
 | 類別       | 要取得的輸入                                                                                                       |
 | ---------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -40,15 +40,15 @@
 ```bash
 git clone --origin upstream --no-tags --no-checkout <底座 repo URL> <本機位置>
 cd <本機位置>
-git fetch upstream --no-tags refs/tags/<tag>:refs/remotes/upstream/releases/<tag>
-git cat-file -t refs/remotes/upstream/releases/<tag>
-git rev-parse "refs/remotes/upstream/releases/<tag>^{commit}"
+git fetch upstream --no-tags refs/tags/<tag>:refs/base/releases/<tag>
+git cat-file -t refs/base/releases/<tag>
+git rev-parse "refs/base/releases/<tag>^{commit}"
 git rev-parse --is-shallow-repository
 git switch -C main <完整 commit>
 ```
 
 - `cat-file -t` 必須印出 `tag`(annotated);`rev-parse` 的 40 位 commit 必須與該版 GitHub Release 記載的一致;`--is-shallow-repository` 必須是 `false`。任何一項不符就停止。
-- `--no-tags` 讓底座 tag 留在 `refs/remotes/upstream/releases/`,不進專案自己的 `refs/tags/`;`git tag -l` 應為空。
+- `--no-tags` 讓底座 tag 留在 `refs/base/releases/`,不進專案自己的 `refs/tags/`;新 clone 的 `git tag -l` 應為空。此 ref 不放在 `refs/remotes/upstream/`,避免一般 `fetch --prune upstream` 清理遠端分支時刪掉版本參照。
 - `switch -C` 只用於上面剛建立、沒有本機修改的新 clone:clone 可能已建好 main,此步讓它指向選定版本並建立工作檔。接續既有初始化時走「重跑」,不能用這段命令重設原工作樹。不要複製來源 repo 的 `.env` 或未追蹤工具設定。
 
 建立空的新 repo(不帶 README、不用 template)後接上 `origin`,只推明確指定的分支:
@@ -111,9 +111,11 @@ git branch --set-upstream-to=origin/main main
 
 ## 重跑
 
-先找回既有初始化分支/PR,檢查目前工作樹與未提交內容,在該分支接續;不從 main 另開一份丟掉半成品,也不重新 clone 或 reset 現有工作樹。依[協作規則](collaboration.md)保留其他工作。
+先找回既有初始化分支/PR,檢查目前工作樹與未提交內容,在該分支接續;若半成品只有 main 上的未提交修改,先從該 main 建立初始化分支並保留工作樹,不提交到 main。不另開一份丟掉半成品,也不重新 clone 或 reset 現有工作樹。依[協作規則](collaboration.md)保留其他工作。
 
-核對 `origin` 是否為這個專案、`upstream` 是否為採用的底座、是否完整歷史、tag 是否留在獨立 refs,以及 `package.json` 的 `wowgoBase` 與實際 ancestry、各來源檔現值。
+核對 `origin` 是否為這個專案、`upstream` 是否為採用的底座、是否完整歷史、tag 是否留在獨立 refs,以及 `package.json` 的 `wowgoBase` 與實際 ancestry、各來源檔現值。遠端比對的是 repo 身分,SSH 與 HTTPS URL 可不同。
+
+從新電腦 clone 專案時,`upstream` 與 `refs/base/releases/` 不會一起複製。依已提交的 `wowgoBase.repository` 補上缺少的 upstream,設定 `git config remote.upstream.tagOpt --no-tags`,再以第 2 節的明確 refspec fetch 已記錄的 tag,核對完整 commit 與 ancestry。已有 upstream 卻指向不同 repo 時先查明,不靜默覆寫;自己的 tags 不刪除。
 
 - 只補缺項,或改使用者這次明確要求變更的欄位。
 - 不覆寫已客製的來源、已存在的 `.env`、業務內容與資料。

@@ -82,7 +82,7 @@ release 後:dev / staging reset 對齊 main;進行中的 feat 分支 rebase 到�
 
 底座同步分支須保留上游版本的共同祖先,適用以下特例;一般功能分支仍依上節 rebase。
 
-1. 從引用專案已發布的 `origin/main` 建立升級分支。核對 `upstream` 指向底座 repo,以 `git fetch upstream --no-tags refs/tags/<版本>:refs/remotes/upstream/releases/<版本>` 取得指定版本,核對 tag 解析出的完整 commit。
+1. 從引用專案已發布的 `origin/main` 建立升級分支。核對 `upstream` 指向底座 repo,以 `git fetch upstream --no-tags refs/tags/<版本>:refs/base/releases/<版本>` 取得指定版本,核對 tag 解析出的完整 commit。
 2. 一般三方合併該版本並保留 merge commit。依[維護歸屬](architecture.md#底座與專案的維護歸屬)審查**全部差異**,包含 Git 沒有報衝突的專案值;底座改了專案未修改過的預設值,也可能被自動套入。專案來源、品牌、前台、部署與 seed 值保留,契約新增必填值則明確補齊。
 3. 固定組裝入口、workflow 與共用文件逐段整合;不能整個排除治理頁或檔案。CookHome 的 Recipe 資料層相容例外須保留精確範圍,不能擴成任意跳過租戶隔離。schema/hooks 與 lockfile 在人工來源整合後重產,已發布 migration/seed 快照維持原檔。
 4. 依既有 PR 與環境流程驗收。各次合併使用 merge commit,以 `git merge-base --is-ancestor <底座commit> <結果commit>` 核對 ancestry;不得用 `merge -s ours`、squash 或 cherry-pick 代替向下同步。
