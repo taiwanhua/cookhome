@@ -167,7 +167,8 @@ export function cookiePair(
 /**
  * 啟動對真 MongoDB 的完整 Nest app(#61 Testing Decisions):
  * 本地起 mongodb-memory-server;CI 沿用 MongoDB service container(MONGODB_URI)。
- * 環境變數在 import AppModule 之前設定 — AppModule 於載入時讀取設定。
+ * 環境變數在 import AppModule 之前設定 — AppModule 載入時 ConfigModule 就讀 `.env`;
+ * `MONGODB_URI` 則是連線 factory 執行時才讀。
  * `extraModules`:測試專用的額外 Nest module(如 #63 的 @RequirePermission 探針 resolver),與 AppModule 一起掛上。
  */
 export async function startAuthTestApp(
@@ -211,7 +212,7 @@ async function bootAuthTestApp(
   process.env.JWT_SECRET = TEST_JWT_SECRET;
   Object.assign(process.env, env);
 
-  // 動態載入:AppModule 內的設定於 import 時讀取,必須在環境變數就緒後才載入
+  // 動態載入:ConfigModule 於 import 時載入 .env(連線字串在 factory 執行時才讀),環境變數就緒後才載入
   const { AppModule } = await import("../../app.module");
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule, ...extraModules],
