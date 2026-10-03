@@ -6,6 +6,7 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, jest } from "@jest/globals";
 import type { INestApplicationContext } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { MONGOOSE_MODULE_OPTIONS } from "@nestjs/mongoose/dist/mongoose.constants";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose, { type Connection } from "mongoose";
 
@@ -248,6 +249,14 @@ describe("受管定義的最小 Nest 組裝與 CLI 子程序", () => {
       expect("getHttpServer" in context).toBe(false);
     });
 
+    it("連線字串原樣交給 driver(環境變數給什麼就連什麼)", () => {
+      expect(
+        context.get<{ uri: string }>(MONGOOSE_MODULE_OPTIONS, {
+          strict: false,
+        }).uri,
+      ).toBe(uriA);
+    });
+
     it("沒有登入線、檔案儲存、寄信與流程引擎:這些 provider 根本不在容器裡", () => {
       for (const token of [
         AuthService,
@@ -450,18 +459,22 @@ describe("受管定義的最小 Nest 組裝與 CLI 子程序", () => {
       }
     });
 
-    it("啟動失敗(沒有給連線字串):結束碼 1,stdout 仍是一份結果,細節在 stderr", async () => {
-      const run = await runCli(JSON.stringify(seedRequest([])), {
-        MONGODB_URI: undefined,
-        ROOT_ADMIN_ACCOUNT: ROOT_ADMIN.account,
-      });
+    it("啟動失敗(連線字串沒給、空字串、純空白):結束碼 1,stdout 仍是一份結果,細節在 stderr", async () => {
+      for (const uri of [undefined, "", " \t "]) {
+        const run = await runCli(JSON.stringify(seedRequest([])), {
+          MONGODB_URI: uri,
+          ROOT_ADMIN_ACCOUNT: ROOT_ADMIN.account,
+        });
 
-      expect(run.status).toBe(1);
-      expect(resultOf(run, "apply")).toMatchObject({
-        results: [],
-        errors: [{ code: "CLI_FAILED" }],
-      });
-      expect(run.stderr).toContain("MONGODB_URI");
+        expect(run.status).toBe(1);
+        expect(resultOf(run, "apply")).toMatchObject({
+          results: [],
+          errors: [
+            { code: "CLI_FAILED", message: expect.stringContaining("缺少") },
+          ],
+        });
+        expect(run.stderr).toContain("MONGODB_URI");
+      }
     });
 
     it("兩個環境裝同一份宣告:hash 相同,定義 id 與本地版號各自不同", async () => {

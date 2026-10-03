@@ -89,6 +89,8 @@ export const JWT_SECRET = text("E2E_JWT_SECRET", "e2e-only-jwt-secret");
  */
 export const GCS_PORT = port("E2E_GCS_PORT", 4443);
 export const GCS_ENDPOINT = `http://${HOST}:${String(GCS_PORT)}`;
+/** fake GCS 的 Compose 專案名:compose 檔的 `name` 與 harness 的 up / down 用同一個值。 */
+export const COMPOSE_PROJECT = text("E2E_COMPOSE_PROJECT", "cookhome-e2e");
 export const GCS_BUCKET_PUBLIC = text(
   "E2E_GCS_BUCKET_PUBLIC",
   "cookhome-e2e-public",

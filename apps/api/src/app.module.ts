@@ -10,6 +10,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import type { GraphqlContext } from "./auth/request-context";
 import { composeApiFeatures } from "./base/api-feature-registration";
 import { BASE_API_MODULES } from "./base/api-modules";
+import { MONGODB_URI_ENV, requireMongoDbUri } from "./database/mongodb-uri";
 import { PROJECT_API_MODULES } from "./project/api-modules";
 import { ProjectModule } from "./project/project.module";
 
@@ -32,9 +33,7 @@ const isSandboxEnabled =
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        uri:
-          config.get<string>("MONGODB_URI") ??
-          "mongodb://localhost:27017/cookhome",
+        uri: requireMongoDbUri(config.get<string>(MONGODB_URI_ENV)),
       }),
     }),
     GraphQLModule.forRoot<ApolloDriverConfig>({

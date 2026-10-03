@@ -4,11 +4,12 @@
 # 本機與 CI 走同一份。bucket 由 harness 以 JSON API 建(名稱是 E2E_GCS_BUCKET_PUBLIC / _PRIVATE,
 # compose 的 `-data` 預建目錄吃不到變數)。資料放記憶體,容器一收就沒了。
 #
-# 三個 `${…}` 由 harness 帶入(預設值與 apps/e2e/src/config.ts 同一組):
+# 四個 `${…}` 由 harness 帶入(預設值與 apps/e2e/src/config.ts 同一組):
+#   E2E_COMPOSE_PROJECT Compose 專案名(容器與網路的名稱前綴;up 與 down 帶同一個值)
 #   E2E_GCS_PORT       主機上的埠
 #   E2E_GCS_ENDPOINT   瀏覽器與 api 看到的端點(= 簽名網址與公開 URL 的前綴)
 #   E2E_GCS_PUBLIC_HOST 同上、不含 scheme
-name: cookhome-e2e
+name: ${E2E_COMPOSE_PROJECT:-cookhome-e2e}
 
 services:
   fake-gcs:

@@ -3,6 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import {
+  COMPOSE_PROJECT,
   E2E_DIR,
   FAKE_GCS_STATE_PATH,
   GCS_BUCKET_PRIVATE,
@@ -38,6 +39,7 @@ let isStarted = false;
 
 function composeEnv(): NodeJS.ProcessEnv {
   return {
+    E2E_COMPOSE_PROJECT: COMPOSE_PROJECT,
     E2E_GCS_PORT: String(GCS_PORT),
     E2E_GCS_ENDPOINT: GCS_ENDPOINT,
     E2E_GCS_PUBLIC_HOST: new URL(GCS_ENDPOINT).host,
