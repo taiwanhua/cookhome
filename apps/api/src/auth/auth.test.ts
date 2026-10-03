@@ -413,16 +413,49 @@ describe("登入線1:login / refresh / logout / switchOrg / me(GraphQL 端點,�
 
     it("root 帳號的當前組織是根組織,mustChangePassword 預設 false", async () => {
       const rootOrgId = await findRootOrgId(api.connection);
+      const orgs = api.connection.collection("orgs");
+      // 根組織名稱是各專案 seed 的值:以測試資料庫的實際名稱為準,不寫死品牌
+      const seededRoot = await orgs.findOne<{ name: string }>({
+        _id: rootOrgId,
+      });
+      const seededName = seededRoot?.name;
+      expect(typeof seededName).toBe("string");
+      expect(seededName).not.toBe("");
+
       const accessToken = await loginAccessToken(
         ROOT_ADMIN.account,
         ROOT_ADMIN.password,
       );
       const result = await api.graphql<MeData>(ME, {}, { accessToken });
-      expect(result.data?.me.currentOrg?.id).toBe(String(rootOrgId));
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.me.currentOrg).toEqual({
+        id: String(rootOrgId),
+        name: seededName,
+      });
       expect(result.data?.me.mustChangePassword).toBe(false);
       expect(result.data?.me.orgs).toEqual([
-        { id: String(rootOrgId), name: "CookHome" },
+        { id: String(rootOrgId), name: seededName },
       ]);
+
+      // 換成測試專用名稱後 me 跟著變:回傳的是資料庫現值,不依賴任何專案的 seed 名稱
+      const neutralName = "測試根組織";
+      await orgs.updateOne({ _id: rootOrgId }, { $set: { name: neutralName } });
+      try {
+        const renamed = await api.graphql<MeData>(ME, {}, { accessToken });
+        expect(renamed.errors).toBeUndefined();
+        expect(renamed.data?.me.currentOrg).toEqual({
+          id: String(rootOrgId),
+          name: neutralName,
+        });
+        expect(renamed.data?.me.orgs).toEqual([
+          { id: String(rootOrgId), name: neutralName },
+        ]);
+      } finally {
+        await orgs.updateOne(
+          { _id: rootOrgId },
+          { $set: { name: seededName } },
+        );
+      }
     });
   });
 
