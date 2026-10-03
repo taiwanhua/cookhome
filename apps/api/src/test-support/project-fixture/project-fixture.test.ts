@@ -108,24 +108,6 @@ const SAVE_DATA_SCOPE_RULE = /* GraphQL */ `
   }
 `;
 
-const RECIPES = /* GraphQL */ `
-  query Recipes {
-    recipes {
-      id
-      title
-    }
-  }
-`;
-
-const CREATE_RECIPE = /* GraphQL */ `
-  mutation CreateRecipe($input: CreateRecipeInput!) {
-    createRecipe(input: $input) {
-      id
-      title
-    }
-  }
-`;
-
 interface LoginData {
   login: { accessToken: string };
 }
@@ -429,7 +411,7 @@ describe("專案功能登記:只加專案來源,經真 AppModule / DatabaseModul
     await api.close();
   }, HOOK_TIMEOUT_MS);
 
-  describe("組裝:專案來源接進固定入口,既有專案功能照常", () => {
+  describe("組裝:專案來源接進固定入口,既有專案登記照常", () => {
     it("測試專案的 repository 由 DatabaseModule 提供,綁的是登記的那張表", () => {
       const repository = api.app.get(ProjectFixtureItemsRepository, {
         strict: false,
@@ -439,21 +421,28 @@ describe("專案功能登記:只加專案來源,經真 AppModule / DatabaseModul
       expect(repository.collectionName).toBe(PROJECT_FIXTURE_ITEMS_COLLECTION);
     });
 
-    it("既有的 Recipes 仍是公開端點,建立與查詢照常(未登入也可用)", async () => {
-      const title = next("蛋炒飯");
-      const created = await api.graphql<{
-        createRecipe: { id: string; title: string };
-      }>(CREATE_RECIPE, { input: { title } });
-      expect(created.errors).toBeUndefined();
+    it("正式專案登記的功能與 model 照常載入(fixture 只追加,不頂掉既有登記;各功能的行為由專案自己的測試驗)", () => {
+      const { PROJECT_API_MODULES } = jest.requireActual<
+        typeof import("../../project/api-modules")
+      >("../../project/api-modules");
+      const { PROJECT_DATABASE_REGISTRATIONS } = jest.requireActual<
+        typeof import("../../project/database/registrations")
+      >("../../project/database/registrations");
 
-      const listed = await api.graphql<{
-        recipes: { id: string; title: string }[];
-      }>(RECIPES);
-      expect(listed.errors).toBeUndefined();
-      expect(listed.data?.recipes).toContainEqual({
-        id: created.data?.createRecipe.id,
-        title,
-      });
+      for (const feature of PROJECT_API_MODULES) {
+        expect(api.app.get(feature.module, { strict: false })).toBeInstanceOf(
+          feature.module,
+        );
+      }
+      for (const registration of PROJECT_DATABASE_REGISTRATIONS) {
+        for (const model of registration.models) {
+          const registered = api.app.get<Model<unknown>>(
+            getModelToken(model.name),
+            { strict: false },
+          );
+          expect(registered.collection.name).toBe(model.collection);
+        }
+      }
     });
   });
 

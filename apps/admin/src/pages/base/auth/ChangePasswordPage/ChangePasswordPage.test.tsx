@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor } from "@testing-library/react";
 
-import { useRecipesQuery } from "@repo/graphql";
+import { useModuleTreeQuery } from "@repo/graphql";
 
 import { useSession } from "@/hooks/useSession";
 import { authWorld, graphqlError } from "@/test/msw/auth-handlers";
@@ -19,10 +19,10 @@ const fillAndSubmit = async (
   await user.click(screen.getByRole("button", { name: "確定" }));
 };
 
-/** 代表「其他受保護操作」的探針:一掛上就打 Recipes */
+/** 代表「其他受保護操作」的探針:一掛上就打 ModuleTree(底座既有的受保護查詢) */
 const ProtectedProbe = () => {
   const { session } = useSession();
-  useRecipesQuery(session.client);
+  useModuleTreeQuery(session.client);
   return null;
 };
 
@@ -33,11 +33,11 @@ describe("改密碼頁(/change-password;首登強改)", () => {
       mustChangePassword: true,
     });
     server.use(...world.handlers);
-    const { user } = renderApp({ path: "/overview?tab=recipes" });
+    const { user } = renderApp({ path: "/overview?tab=sample" });
 
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent(
-        "/change-password?next=%2Foverview%3Ftab%3Drecipes",
+        "/change-password?next=%2Foverview%3Ftab%3Dsample",
       );
     });
     expect(screen.getByText(/首次登入請先變更密碼/)).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe("改密碼頁(/change-password;首登強改)", () => {
 
     expect(await screen.findByText("小華,你好")).toBeInTheDocument();
     expect(screen.getByTestId("location")).toHaveTextContent(
-      "/overview?tab=recipes",
+      "/overview?tab=sample",
     );
     expect(world.calls.changePassword).toBe(1);
   });
@@ -68,7 +68,7 @@ describe("改密碼頁(/change-password;首登強改)", () => {
   it("受保護操作回 MUST_CHANGE_PASSWORD(me 尚未反映)→ client 攔截並導向改密碼頁", async () => {
     const world = authWorld({ hasRefreshCookie: true });
     server.use(
-      api.query("Recipes", () => graphqlError("MUST_CHANGE_PASSWORD")),
+      api.query("ModuleTree", () => graphqlError("MUST_CHANGE_PASSWORD")),
       ...world.handlers,
     );
     renderApp({ path: "/", extra: <ProtectedProbe /> });

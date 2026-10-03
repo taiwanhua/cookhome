@@ -30,6 +30,7 @@ import {
   findRootOrgId,
   setUserEnabled,
 } from "./test-support/fixtures";
+import { PublicProbeModule } from "./test-support/public-probe";
 
 const LOGIN = /* GraphQL */ `
   mutation Login($input: LoginInput!) {
@@ -165,7 +166,7 @@ describe("登入線1:login / refresh / logout / switchOrg / me(GraphQL 端點,�
   let api: AuthTestApp;
 
   beforeAll(async () => {
-    api = await startAuthTestApp("cookhome-test-auth");
+    api = await startAuthTestApp("cookhome-test-auth", {}, [PublicProbeModule]);
   }, HOOK_TIMEOUT_MS);
 
   afterAll(async () => {
@@ -341,16 +342,14 @@ describe("登入線1:login / refresh / logout / switchOrg / me(GraphQL 端點,�
       expect(after.errors?.[0]?.extensions?.code).toBe("ACCOUNT_DISABLED");
     });
 
-    it("recipes 查詢維持公開(front 建置要打)", async () => {
+    it("標 @Public() 的 query 沒帶 token 也通過(測試專用探針,不進正式 schema)", async () => {
       const result = await api.graphql(/* GraphQL */ `
         query {
-          recipes {
-            id
-          }
+          publicProbe
         }
       `);
       expect(result.errors).toBeUndefined();
-      expect(result.data).toEqual({ recipes: [] });
+      expect(result.data).toEqual({ publicProbe: true });
     });
   });
 
