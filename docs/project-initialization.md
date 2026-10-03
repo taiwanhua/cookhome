@@ -1,8 +1,12 @@
 # 專案初始化索引
 
-本索引指出新專案要設定的內容、值的正本與驗證責任,不保存第二份設定值。維護歸屬見[架構](architecture.md#底座與專案的維護歸屬),品牌與部署設定分別見 [branding](branding.md) 與 [deployment](deployment.md#專案部署設定deployproject)。自動初始化工具及跨 repo 建立仍屬[底座同步計畫](plans/base-sync.md)的未完成工作。
+本索引指出新專案要設定的內容、值的正本與驗證責任,不保存第二份設定值。維護歸屬見[架構](architecture.md#底座與專案的維護歸屬),品牌與部署設定分別見 [branding](branding.md) 與 [deployment](deployment.md#專案部署設定deployproject)。建立與接續初始化依[共用操作文件](agents/project-bootstrap.md);跨專案整體演練與同步工具的未完成工作見[底座同步計畫](plans/base-sync.md)。
 
 狀態必須分開記錄:「已提供」表示輸入已完整;「已建立」表示檔案或外部資源已存在;「已驗證」表示該專案的實際讀取或連線檢查通過。CookHome 既有設定不代表新專案已具備資源,以下不替未建立的專案填入成功狀態。
+
+## 採用的底座版本
+
+引用專案在根 `package.json` 的 `wowgoBase` 記錄底座 Git URL、正式 tag 與完整 commit;初始化及升級在同一 PR 更新,並核對該 commit 確實是專案祖先。底座 repo 自己不填此欄位。格式與 Git 操作見[初始化操作](agents/project-bootstrap.md#3-寫入專案值),升級見 [deployment](deployment.md#底座首次接軌與版本升級)。
 
 ## 品牌與公開設定
 
@@ -85,4 +89,4 @@ ROOT_ADMIN 輸入與欄位政策見[種子資料與遷移](concepts/data-layer-a
 
 - Figma 檔案、Library 及品牌映射見 `docs/branding.md`;同步工具規劃見底座同步計畫。新專案須確認引用權限、品牌補套與元件連結。
 - agent 入口為 `CLAUDE.md`,共同接手規則見 `docs/agents/collaboration.md`;必要設定不得僅存在某工具私有記憶。
-- skills、共用文件與專案文案的分離隨對應工作包維護。初始化 skill 尚未完成,不能用「檔案都改完」取代完整建立/驗證紀錄。
+- skills、共用文件與專案文案的分離隨對應工作包維護。初始化 skill 指向[共同操作文件](agents/project-bootstrap.md),不能用「檔案都改完」取代完整建立/驗證紀錄。

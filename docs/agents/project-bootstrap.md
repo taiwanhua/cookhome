@@ -15,12 +15,12 @@
 ## 開始前
 
 1. 讀 `CLAUDE.md`、[初始化索引](../project-initialization.md)、[品牌註冊表](../branding.md)、[環境變數登記](../env-registry.md)、[deployment](../deployment.md),以及索引指到的實際來源檔。指令與欄位以來源檔為準;本檔與來源不合時停下回報。
-2. 確認底座正式版本可取得:首版是不可移動的 annotated tag `v0.1.0` 加 GitHub Release。**拿不到正式 tag 時停止**,不以底座 `main` 的最新 commit 代替。
-3. 進度記在新專案的 issue / PR,依[協作規則](collaboration.md)讓下一位只靠 repo 與 issue 就能接手;不另建進度檔。每個項目分三種狀態記錄,定義見初始化索引:**已提供**、**已建立**、**已驗證**。
+2. 確認底座正式版本可取得:底座以不可移動的 annotated tag 加 GitHub Release 交付,首版採 `v0.1.0`。可先用 `git ls-remote <底座URL> "refs/tags/<tag>" "refs/tags/<tag>^{}"` 查遠端,並查看該版 Release。**拿不到正式 tag 時停止版本建立**,不以底座 `main` 的最新 commit 代替;已取得的輸入仍可記錄。
+3. 進度記在新專案的 issue / PR;新 repo 尚不存在時,先記在本次初始化的來源規劃 issue,建立後互相指路。依[協作規則](collaboration.md)讓下一位只靠 repo 與 issue 就能接手,不另建進度檔。每個項目分三種狀態記錄,定義見初始化索引:**已提供**、**已建立**、**已驗證**。
 
 ## 1. 收集輸入
 
-逐節對照初始化索引,列出還缺的輸入一次問完;使用者或 issue 已回答的直接沿用。
+逐節對照初始化索引,將缺項依相依性分組詢問;使用者或 issue 已回答的直接沿用。只缺外部資源時可先完成本機設定,回報仍未驗證的部分。
 
 | 類別       | 要取得的輸入                                                                                                       |
 | ---------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -44,20 +44,24 @@ git fetch upstream --no-tags refs/tags/<tag>:refs/remotes/upstream/releases/<tag
 git cat-file -t refs/remotes/upstream/releases/<tag>
 git rev-parse "refs/remotes/upstream/releases/<tag>^{commit}"
 git rev-parse --is-shallow-repository
-git switch -c main <完整 commit>
+git switch -C main <完整 commit>
 ```
 
 - `cat-file -t` 必須印出 `tag`(annotated);`rev-parse` 的 40 位 commit 必須與該版 GitHub Release 記載的一致;`--is-shallow-repository` 必須是 `false`。任何一項不符就停止。
 - `--no-tags` 讓底座 tag 留在 `refs/remotes/upstream/releases/`,不進專案自己的 `refs/tags/`;`git tag -l` 應為空。
+- `switch -C` 只用於上面剛建立、沒有本機修改的新 clone:clone 可能已建好 main,此步讓它指向選定版本並建立工作檔。接續既有初始化時走「重跑」,不能用這段命令重設原工作樹。不要複製來源 repo 的 `.env` 或未追蹤工具設定。
 
 建立空的新 repo(不帶 README、不用 template)後接上 `origin`,只推明確指定的分支:
 
 ```bash
 git remote add origin <新 repo URL>
 git push origin main:refs/heads/main main:refs/heads/dev main:refs/heads/staging
+git branch --set-upstream-to=origin/main main
 ```
 
 三條分支的起點都是已核對的底座 commit,這是唯一一次直接寫入 `main`。之後的所有專案變更(含本次初始化)從 `main` 切 feat 分支,依 `CLAUDE.md` 的分支流程走 PR,不直接提交 `main`。
+
+確認新 repo 的預設分支為 `main`。起點中的 `expectedRepository` 仍是底座身分,首次 push 的設定檢查及看板自動化會因此停止;初始化分支改成新 repo 後須通過 CI。看板只讀預設分支,初始化發布前只在已建立並啟用的新看板手動維護狀態;停用時在 issue / PR 記進度即可。操作 `gh` 明確指定新 repo,看板 ID 讀新專案設定,不照抄來源文件中的 repo、看板範例或 token。雲端停用的專案以本機/CI 驗收程式版本,啟用資源後再驗部署,不能把停用的 Deploy 記成成功。
 
 ## 3. 寫入專案值
 
@@ -90,16 +94,16 @@ git push origin main:refs/heads/main main:refs/heads/dev main:refs/heads/staging
 
 依輸入與授權建立,步驟以 [deployment](../deployment.md) 為準(Secret、GCS bucket 與 IAM、Vercel、網域),看板與 `GH_PROJECT_TOKEN` 見 [issue tracker](issue-tracker.md)。新專案使用自己的資源與密鑰。
 
-設定檔寫好只算**已提供**;資源實際存在才是**已建立**;以新專案跑過實際連線、部署或移卡才是**已驗證**。停用的整合記為「已停用」,不記成已建立。
+對外部資源這個項目,設定檔填好識別只算**已提供**;資源實際存在才是**已建立**;以新專案跑過實際連線、部署或移卡才是**已驗證**。本機檔案則依初始化索引,檔案存在即可記該檔案項目已建立,不代表它引用的外部資源存在。停用的整合記為「已停用」,不記成已建立。
 
 ## 5. 驗證
 
 指令的寫法與注意事項以 [toolbox](toolbox.md) 為準。
 
 - **Git**:`git remote -v`(`origin` 是新 repo、`upstream` 是底座)、`git merge-base --is-ancestor <wowgoBase.commit> HEAD`、`git rev-parse --is-shallow-repository` 為 `false`、`git tag -l` 沒有底座 tag。
-- **設定讀取器**:`node --test scripts/project-settings/*.test.mjs`,再以新 repo 身分跑 `read-config.mjs` 的 github scope 與三個環境的 cloud scope(指令見 [deployment](../deployment.md#專案部署設定deployproject))。雲端停用時輸出是 `{"enabled":false}`,這只證明停用狀態有效。
+- **設定讀取器**:Bash 用 `node --test scripts/project-settings/*.test.mjs`;PowerShell 先展開檔名:`node --test (Get-ChildItem scripts/project-settings -Filter '*.test.mjs').FullName`。再以新 repo 身分跑 `read-config.mjs` 的 github scope 與三個環境的 cloud scope(指令見 [deployment](../deployment.md#專案部署設定deployproject))。雲端停用時輸出是 `{"enabled":false}`,這只證明停用狀態有效。
 - **程式**:`pnpm exec turbo run test --filter=@repo/project-config`,再對改到的 package 跑 lint、型別、測試與 build;最後 `pnpm run format:check`。
-- **初始資料**:在明確建立的拋棄式空資料庫,依 [deployment](../deployment.md#設定與資料更新)執行 `update` 並原樣重跑一次;再對第二個空庫做同樣的事,確認受管定義內容一致,而組織、帳號、ID 與分派各自獨立。
+- **初始資料**:在明確建立的拋棄式空資料庫,依 [deployment](../deployment.md#設定與資料更新)建置同一 checkout 的 CLI,使用獨立 URI 與測試用 `ROOT_ADMIN_*` 執行 `update` 並原樣重跑一次;再對第二個空庫做同樣的事,確認受管定義內容一致,而組織、帳號、ID 與分派各自獨立。不要求正式密碼來驗拋棄式庫,也不以正式 URI 執行此步。
 - **本機隔離**:`docker compose config` 只核對渲染結果。兩個專案同時啟動、停一邊不影響另一邊,要實際操作過才算驗證。
 - **E2E**:只提建議與理由,不自行觸發。
 
@@ -107,19 +111,18 @@ git push origin main:refs/heads/main main:refs/heads/dev main:refs/heads/staging
 
 ## 重跑
 
-先核對再動手:`origin` 是否為這個專案、`package.json` 的 `wowgoBase` 與實際 ancestry 是否一致、各來源檔的現值。
+先找回既有初始化分支/PR,檢查目前工作樹與未提交內容,在該分支接續;不從 main 另開一份丟掉半成品,也不重新 clone 或 reset 現有工作樹。依[協作規則](collaboration.md)保留其他工作。
+
+核對 `origin` 是否為這個專案、`upstream` 是否為採用的底座、是否完整歷史、tag 是否留在獨立 refs,以及 `package.json` 的 `wowgoBase` 與實際 ancestry、各來源檔現值。
 
 - 只補缺項,或改使用者這次明確要求變更的欄位。
 - 不覆寫已客製的來源、已存在的 `.env`、業務內容與資料。
+- 修改 `expectedRepository` 前,一起核對 cloud 與看板的引用:已是新專案值或明確停用才可接線;若還留來源資源,先依已有輸入改成新值或停用,缺少決定時只暫停這項接線並詢問,不能只換 repo 身分就放行來源資源。
 - slug、資料庫名、Compose 專案名與 volume、底座版本一旦定下,初始化不更動;要換底座版本走升級流程。
 - 現值與 issue 記錄不一致時,列出差異請使用者裁決。
 
 ## 回報
 
 在 issue / PR 依 issue tracker 的交件格式回報,並附:採用的底座 repo / tag / commit、每個項目的三種狀態、停用的整合、未驗證項與原因、仍缺的輸入。全部檔案改完不等於初始化完成;以這份狀態紀錄為準。
-
-## 本流程的驗證範圍
-
-第 2 節的 Git 指令已在本機拋棄式 repo 核對過行為(annotated tag、完整歷史、tag 不進 `refs/tags/`、ancestry)。以正式底座 tag 建立真實新專案的完整演練尚未執行;在那之前,外部資源建立、雙專案同機隔離與跨環境受管定義一致性,都只有來源文件的規則,沒有本流程的實測結果。
 
 正本:本檔;設定項目與驗證責任 `docs/project-initialization.md`;Git 與部署操作 `docs/deployment.md`;採用版本欄位在引用專案根 `package.json` 的 `wowgoBase`
