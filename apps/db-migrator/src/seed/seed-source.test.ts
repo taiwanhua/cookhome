@@ -57,16 +57,16 @@ function fixtureRegistryPath(fixtureName: string): string {
   );
 }
 
-/** 以子行程執行 seed 指令;不給夾具 = 正式的 `seeds/registry.ts`。 */
+/**
+ * 以子行程執行 seed 指令;不給夾具 = 只有底座的環境(空專案來源的夾具 `seeds-base`)。
+ * 不用正式的 `seeds/registry.ts`:引用專案在那裡登記的內容不是「加入專案來源之前」的狀態。
+ */
 function runSeedCommand(
   databaseUri: string,
-  fixtureName?: string,
+  fixtureName = "seeds-base",
   env: Record<string, string> = {},
 ) {
-  const args = [TSX_CLI, SEED_ENTRY];
-  if (fixtureName !== undefined) {
-    args.push(fixtureRegistryPath(fixtureName));
-  }
+  const args = [TSX_CLI, SEED_ENTRY, fixtureRegistryPath(fixtureName)];
   return spawnSync(process.execPath, args, {
     cwd: PACKAGE_ROOT,
     env: {

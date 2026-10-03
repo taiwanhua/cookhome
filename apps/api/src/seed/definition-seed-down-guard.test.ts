@@ -82,7 +82,7 @@ describe("migrate:down 不越過中斷的受管定義安裝", () => {
       status: "in-progress",
     });
 
-    // 之後以正式 registry(沒有登記這張表單)跑 update:成功,成為最近一次執行
+    // 之後以沒有登記這張表單的 registry(空專案來源的夾具)跑 update:成功,成為最近一次執行
     await releaseSeedLock(app.connection);
     const updated = app.api.runUpdate([]);
     expect(updated.stderr).toBe("");

@@ -23,6 +23,11 @@ import type {
 import { projectSeedSource } from "../../seeds/project/registry";
 import { projectSeedSettings } from "../../seeds/project/settings";
 import { assembleSeedRegistry, seedRegistry } from "../../seeds/registry";
+import {
+  baseOnlyProjectSettings,
+  baseOnlyProjectSource,
+} from "../../test/fixtures/seeds-base/project-source";
+import { seedRegistry as baseRegistry } from "../../test/fixtures/seeds-base/registry";
 import { seedRegistry as definitionRegistry } from "../../test/fixtures/seeds-definition/registry";
 import { seed as projectRequest } from "../../test/fixtures/seeds-definition/revisions/project_request.r1.seed";
 import { seed as projectReview } from "../../test/fixtures/seeds-definition/revisions/project_review.r1.seed";
@@ -77,12 +82,25 @@ function problemsOf(run: () => unknown): string[] {
   throw new Error("預期組裝被拒絕,但通過了");
 }
 
+/**
+ * 底座 + 這個測試自己給的專案內容。疊在**空的專案來源夾具**上,不疊正式的 `seeds/project/`:
+ * 引用專案登記了什麼,都不會與這裡的內容撞 key,也不會補上負例刻意缺少的依賴。
+ */
 function withProject(
   project: Partial<SeedSource>,
-  settings: ProjectSeedSettings = projectSeedSettings,
+  settings: ProjectSeedSettings = baseOnlyProjectSettings,
 ): () => SeedRegistry {
   return () =>
-    assembleSeedRegistry(settings, { ...projectSeedSource, ...project });
+    assembleSeedRegistry(settings, { ...baseOnlyProjectSource, ...project });
+}
+
+function documentSetOf(
+  registry: SeedRegistry,
+  collection: string,
+): SeedSet | undefined {
+  return registry.find(
+    (set) => set.kind === "documents" && set.collection === collection,
+  );
 }
 
 function entryKeys(registry: SeedRegistry, collection: string): string[] {
@@ -118,10 +136,10 @@ function moduleNode(
   };
 }
 
-describe("固定組裝入口:正式 registry(專案來源是空的)", () => {
+describe("固定組裝入口:底座 + 空的專案來源(隔離夾具)", () => {
   it("普通種子的內容與搬檔前相同:8 類種子、38 個模組、114 筆權限、4 個資料範圍目標、68 筆模板綁定、root 初始帳號一份", () => {
     expect(
-      seedRegistry.map((set) =>
+      baseRegistry.map((set) =>
         set.kind === "documents" ? set.collection : set.kind,
       ),
     ).toEqual([
@@ -138,16 +156,54 @@ describe("固定組裝入口:正式 registry(專案來源是空的)", () => {
       "data_scope_targets",
       "relations",
     ]);
-    expect(entryKeys(seedRegistry, "modules")).toHaveLength(38);
-    expect(entryKeys(seedRegistry, "permissions")).toHaveLength(114);
-    expect(entryKeys(seedRegistry, "data_scope_targets")).toHaveLength(4);
+    expect(entryKeys(baseRegistry, "modules")).toHaveLength(38);
+    expect(entryKeys(baseRegistry, "permissions")).toHaveLength(114);
+    expect(entryKeys(baseRegistry, "data_scope_targets")).toHaveLength(4);
     expect(
-      relationsOf(seedRegistry, "role_module", "tenant-admin"),
+      relationsOf(baseRegistry, "role_module", "tenant-admin"),
     ).toHaveLength(34);
     expect(
-      relationsOf(seedRegistry, "role_permission", "tenant-admin"),
+      relationsOf(baseRegistry, "role_permission", "tenant-admin"),
     ).toHaveLength(34);
-    expect(seedRegistry.some((set) => isDefinitionSeedSet(set))).toBe(false);
+    expect(baseRegistry.some((set) => isDefinitionSeedSet(set))).toBe(false);
+  });
+
+  it("重新驗一次已組裝的 registry 不改變順序(執行前的再檢查是冪等的)", () => {
+    expect(plan(...baseRegistry)).toEqual(baseRegistry);
+  });
+});
+
+describe("固定組裝入口:正式 registry(專案來源由引用專案登記,可以不是空的)", () => {
+  it("就是固定組裝入口對正式專案來源的輸出(載入時已通過撞 key、引用、可攜性與 key 規約的檢查)", () => {
+    expect(seedRegistry).toEqual(
+      assembleSeedRegistry(projectSeedSettings, projectSeedSource),
+    );
+  });
+
+  it("專案登記不取代也不拿掉底座的種子:底座每一筆的 key 都還在,root 初始帳號仍只有一份", () => {
+    for (const collection of [
+      "orgs",
+      "roles",
+      "field_categories",
+      "fields",
+      "demo_items_one",
+      "demo_items_two",
+      "modules",
+      "permissions",
+      "data_scope_targets",
+    ]) {
+      expect(entryKeys(seedRegistry, collection)).toEqual(
+        expect.arrayContaining(entryKeys(baseRegistry, collection)),
+      );
+    }
+    for (const type of ["role_module", "role_permission"]) {
+      expect(relationsOf(seedRegistry, type, "tenant-admin")).toEqual(
+        expect.arrayContaining(relationsOf(baseRegistry, type, "tenant-admin")),
+      );
+    }
+    expect(
+      seedRegistry.filter((set) => set.kind === "root-admin"),
+    ).toHaveLength(1);
   });
 
   it("根組織的初值來自專案設定,初始值欄位政策由底座決定", () => {
@@ -170,7 +226,7 @@ describe("固定組裝入口:正式 registry(專案來源是空的)", () => {
           ancestors: [],
           enabled: true,
           description: projectSeedSettings.rootOrg.description,
-          settings: {},
+          settings: projectSeedSettings.rootOrg.settings,
         },
       },
     ]);
@@ -460,7 +516,7 @@ describe("固定組裝入口:明確拒絕(寫入之前)", () => {
       overview: { name: "改名", enabled: "no", icon: "not-an-icon" },
     } as unknown as ModuleInitialValues;
     const problems = problemsOf(
-      withProject({}, { ...projectSeedSettings, moduleInitialValues }),
+      withProject({}, { ...baseOnlyProjectSettings, moduleInitialValues }),
     );
     expect(problems).toEqual([
       "moduleInitialValues.ghost-module:模組 ghost-module 未宣告",
@@ -802,15 +858,30 @@ describe("版本化定義宣告的組裝", () => {
 });
 
 describe("composeModuleSeeds", () => {
-  it("底座自己的模組宣告推導出的內容與正式 registry 相同(推導只有一份)", () => {
+  it("底座自己的模組宣告推導出的內容與空專案來源的 registry 相同(推導只有一份)", () => {
     const seeds = composeModuleSeeds(baseModuleDeclarations, {});
-    const fromRegistry = (collection: string): SeedSet | undefined =>
-      seedRegistry.find(
-        (set) => set.kind === "documents" && set.collection === collection,
-      );
-    expect(seeds.modules).toEqual(fromRegistry("modules"));
-    expect(seeds.permissions).toEqual(fromRegistry("permissions"));
-    expect(seeds.dataScopeTargets).toEqual(fromRegistry("data_scope_targets"));
+    expect(seeds.modules).toEqual(documentSetOf(baseRegistry, "modules"));
+    expect(seeds.permissions).toEqual(
+      documentSetOf(baseRegistry, "permissions"),
+    );
+    expect(seeds.dataScopeTargets).toEqual(
+      documentSetOf(baseRegistry, "data_scope_targets"),
+    );
+    expect(baseRegistry).toContainEqual(seeds.tenantAdminBindings);
+  });
+
+  it("正式 registry 的模組、權限、資料範圍目標與模板,就是兩方模組宣告合併後的那一次推導", () => {
+    const seeds = composeModuleSeeds(
+      [...baseModuleDeclarations, ...projectSeedSource.moduleDeclarations],
+      projectSeedSettings.moduleInitialValues,
+    );
+    expect(seeds.modules).toEqual(documentSetOf(seedRegistry, "modules"));
+    expect(seeds.permissions).toEqual(
+      documentSetOf(seedRegistry, "permissions"),
+    );
+    expect(seeds.dataScopeTargets).toEqual(
+      documentSetOf(seedRegistry, "data_scope_targets"),
+    );
     expect(seedRegistry).toContainEqual(seeds.tenantAdminBindings);
   });
 
@@ -838,7 +909,7 @@ describe("定義夾具是既有檢查器認可的定義", () => {
 });
 
 describe("每個條目只排一次;自我引用是循環", () => {
-  /** 一份掛在底座表單模組 `demo-form` 上的定義(專案沒有自己的模組宣告)。 */
+  /** 一份掛在底座表單模組 `demo-form` 上的定義(專案沒有自己的模組宣告:疊在空的專案來源夾具上)。 */
   const orderForm: DefinitionSeedSet = {
     ...projectRequest,
     key: "order_form",
@@ -846,10 +917,7 @@ describe("每個條目只排一次;自我引用是循環", () => {
   };
 
   it("定義引用的底座模組不會被再排一次:正式組裝通過,模組文件各一筆,定義在最後", () => {
-    const registry = assembleSeedRegistry(projectSeedSettings, {
-      moduleDeclarations: [],
-      seeds: [orderForm],
-    });
+    const registry = withProject({ seeds: [orderForm] })();
     const moduleKeys = entryKeys(registry, "modules");
     expect(moduleKeys).toHaveLength(38);
     expect(new Set(moduleKeys).size).toBe(38);
@@ -857,8 +925,8 @@ describe("每個條目只排一次;自我引用是循環", () => {
       "demo-form",
     ]);
     expect(registry.at(-1)).toBe(orderForm);
-    // 除了多一份定義,其餘與正式 registry 完全相同
-    expect(registry.slice(0, -1)).toEqual(seedRegistry);
+    // 除了多一份定義,其餘與沒有登記定義的空專案來源夾具完全相同
+    expect(registry.slice(0, -1)).toEqual(baseRegistry);
     // 執行前的再檢查(runSeeds 會再排一次)結果不變
     expect(plan(...registry)).toEqual(registry);
   });
@@ -919,10 +987,7 @@ describe("每個條目只排一次;自我引用是循環", () => {
         ],
       },
     };
-    const registry = assembleSeedRegistry(projectSeedSettings, {
-      moduleDeclarations: [],
-      seeds: [selfPrefill],
-    });
+    const registry = withProject({ seeds: [selfPrefill] })();
     expect(registry.at(-1)).toBe(selfPrefill);
   });
 });

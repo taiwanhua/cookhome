@@ -3,11 +3,15 @@ import path from "node:path";
 
 import type { Connection } from "mongoose";
 
-import { ROOT_ADMIN } from "../../auth/test-support/auth-app";
+import {
+  BASE_ONLY_REGISTRY,
+  ROOT_ADMIN,
+} from "../../auth/test-support/auth-app";
 
 /**
  * 以子行程跑 db-migrator 的 reset 指令(不 import —— STRUCT-01 禁 app 互 import),對這個測試自己的拋棄式資料庫:
  * 給要驗「api 真的寫出這個狀態之後,reset 拒絕 / 放行」的測試用。回結果不丟錯。
+ * registry 與種測試資料庫的是同一份(空專案來源的夾具,沒有登記任何定義)。
  */
 
 const DB_MIGRATOR_ROOT = path.resolve(
@@ -70,7 +74,7 @@ export function runDataReset(databaseUri: string): Promise<ResetResult> {
   return runReset(databaseUri, "data");
 }
 
-/** 跑 `reset --mode=full`(清除全部 collection 後以正式來源重建)。 */
+/** 跑 `reset --mode=full`(清除全部 collection 後以正式的 migration 與夾具 registry 重建)。 */
 export function runFullReset(databaseUri: string): Promise<ResetResult> {
   return runReset(databaseUri, "full");
 }
@@ -94,6 +98,7 @@ function runReset(
       `--mode=${mode}`,
       `--environment=${ENVIRONMENT}`,
       `--confirm=reset:${ENVIRONMENT}:${databaseName}:${mode}`,
+      BASE_ONLY_REGISTRY,
     ],
     {
       cwd: DB_MIGRATOR_ROOT,
