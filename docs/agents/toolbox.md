@@ -159,6 +159,8 @@ GraphQL 文件登記負例用 `pnpm --filter @repo/graphql test:documents`,CI �
 
 ## Claude Code skill 對照表
 
+`project-bootstrap` 在 `.claude/skills/` 與 `.agents/skills/` 都有版控入口,共用 [project-bootstrap.md](project-bootstrap.md) 的步驟;Claude 與 Codex 可各自接手新專案初始化,不依賴本機記憶或另一個工具。
+
 「用哪個」欄是在 Claude Code 裡的呼叫名稱。repo 自帶的三個 skill 放在 `.agents/skills/`(版本鎖在 `skills-lock.json`);repo 自製的 skill 放在 `.claude/skills/<名稱>/`。
 
 | 情境                                                 | 用哪個                                                        | 一句提醒                                                                                                     |

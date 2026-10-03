@@ -22,12 +22,6 @@
 
 現況:已有 `.claude/skills/module-scaffold/` 入口,build 流程與驗收指向共同文件,沿用專案登記路徑。不同工具的本機副本一致性與 `/to-figma` 整合仍待整理,依 toolbox/issue tracker 的共同流程,不另訂授權或測試 SOP。
 
-### 專案模板 skill(project-bootstrap)
-
-單獨盤點新專案初始化的所有設定與修改位置,依 `docs/branding.md`、`docs/env-registry.md`、`docs/deployment.md` 與實際程式確認,涵蓋品牌、雲端資源、開發工具、資料庫、環境變數及所有須分別設定的外部整合與驗證方式。確認清單後製作 skill,引導使用者提供必要輸入,分開記錄已提供、已建立與已驗證狀態;讓新專案從底座正式版本建立獨立 repo,保留共同 Git 歷史,再完成初始化。前台畫面與風格由專案設計,不把接入後台主題當成初始化必要工作。共用名詞整理進 `CONTEXT.md`,共用文件與 skill 避免寫死引用專案品牌。
-
-現況:[初始化索引](../project-initialization.md)列出設定來源與驗證責任;初始化 skill 尚未實作。依[底座同步計畫](../plans/base-sync.md)的前置設計排票;新 repo、外部資源與共同歷史仍須實際驗證。
-
 ### Budget 終極斷路器
 
 Pub/Sub + Cloud Function 在超支時自動解綁 billing。

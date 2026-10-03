@@ -40,6 +40,10 @@
 
 ## Agent skills
 
+### 新專案初始化
+
+使用 `project-bootstrap` skill,操作正本是 [docs/agents/project-bootstrap.md](docs/agents/project-bootstrap.md)。只有全新空 repo 的初始分支可指向已審查底座 commit;之後含初始化在內的變更一律走現有 PR 流程。底座升級分支的 ancestry 特例見 [deployment](docs/deployment.md#底座首次接軌與版本升級),一般功能分支仍 rebase。
+
 ### Issue tracker
 
 Issues 追蹤在 `taiwanhua/cookhome` 的 GitHub Issues,透過 `gh` CLI 操作。見 `docs/agents/issue-tracker.md`。
