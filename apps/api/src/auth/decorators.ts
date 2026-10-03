@@ -14,8 +14,8 @@ export const ALLOW_BEFORE_CREDENTIAL_CHANGE_KEY =
   "auth:allowBeforeCredentialChange";
 
 /**
- * 公開端點:不要求登入(#61:僅 login / refresh / 密碼流程 / 健康檢查;
- * 既有 recipes 查詢為 front 的公開查詢,亦標此)。未標者一律由全域 guard 要求已登入。
+ * 公開端點:不要求登入(#61:僅 login / refresh / 密碼流程 / 健康檢查)。
+ * 未標者一律由全域 guard 要求已登入。
  */
 export const Public = (): MethodDecorator & ClassDecorator =>
   SetMetadata(IS_PUBLIC_KEY, true);

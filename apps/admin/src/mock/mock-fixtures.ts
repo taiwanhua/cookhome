@@ -1,3 +1,5 @@
+import { projectPublic } from "@repo/project-config/public";
+
 import {
   SAMPLE_ONE_MODULE_KEYS,
   SAMPLE_ONE_PERMISSIONS,
@@ -86,7 +88,7 @@ const user = (
   id,
   account,
   name,
-  email: `${account}@cookhome.online`,
+  email: `${account}@example.invalid`,
   nickname: null,
   gender: null,
   phone: null,
@@ -118,7 +120,7 @@ const grant = (
  */
 export const mockUsers: TestUser[] = [
   user("user-1", "root", "小華", {
-    orgs: [{ id: "org-root", name: "CookHome" }],
+    orgs: [{ id: "org-root", name: projectPublic.brand.name }],
   }),
   user("user-owner", "owner", "何家華", {
     roles: [grant("role-admin", "租戶管理員")],
@@ -228,7 +230,7 @@ export const modulesForView = (view: MockView): TestModule[] => [
 export const orgsForView = (view: MockView): TestOrg[] =>
   view === "root"
     ? [
-        { id: "org-root", name: "CookHome" },
+        { id: "org-root", name: projectPublic.brand.name },
         { id: "org-tenant-a", name: "租戶 A" },
       ]
     : [

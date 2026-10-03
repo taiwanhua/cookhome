@@ -5,30 +5,30 @@ import type { ProjectPublicConfig } from "../base/public-config";
  * `slug` 是建立專案時定下的穩定識別,品牌更名不跟著改 —— 改了等於換一組瀏覽器儲存鍵。
  */
 export const projectPublic = {
-  slug: "cookhome",
+  slug: "wowgo-base",
   brand: {
-    name: "CookHome",
+    name: "wowgo-base",
     primary: "#FB7B10",
   },
   admin: {
-    documentTitle: "CookHome 後台管理",
+    documentTitle: "wowgo-base 後台管理",
   },
   front: {
     metadata: {
       "zh-TW": {
-        title: "CookHome — 家常食譜",
-        titleTemplate: "%s | CookHome",
-        description: "分享與收藏家常食譜的網站",
+        title: "wowgo-base — 多租戶應用底座",
+        titleTemplate: "%s | wowgo-base",
+        description: "多租戶應用底座",
       },
       en: {
-        title: "CookHome — Home-style Recipes",
-        titleTemplate: "%s | CookHome",
-        description: "Share and collect home-style recipes",
+        title: "wowgo-base — Multi-tenant Application Base",
+        titleTemplate: "%s | wowgo-base",
+        description: "Multi-tenant Application Base",
       },
     },
   },
   compatibility: {
-    // 側欄收合狀態早期用的點分隔鍵;既存瀏覽器的值由 admin 一次性搬到新鍵
-    legacySideNavStorageKey: "cookhome.admin.sidenav",
+    // 早期點分隔的側欄收合鍵;有既存瀏覽器值要搬的專案才填,新專案為 null
+    legacySideNavStorageKey: null,
   },
 } satisfies ProjectPublicConfig;

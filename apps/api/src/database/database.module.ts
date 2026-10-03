@@ -8,8 +8,6 @@ import { ModuleRef } from "@nestjs/core";
 import { MongooseModule } from "@nestjs/mongoose";
 
 // 固定組裝入口:底座檔不得 import 專案來源,只有這裡(與 app.module.ts)例外
-import { RECIPES_COLLECTION, Recipe } from "../project/database/recipe.schema";
-import { RecipesLegacyRepository } from "../project/database/recipes-legacy.repository";
 import { PROJECT_DATABASE_REGISTRATIONS } from "../project/database/registrations";
 import { BASE_DATABASE_REGISTRATIONS } from "./base/registrations";
 import {
@@ -29,18 +27,12 @@ import {
 export * from "./base/repositories";
 
 /**
- * **唯一的既有例外**(docs/concepts/data-layer-and-isolation.md「底座與專案資料的組裝」):
- * 食譜是沒有租戶欄位的早期原型,不掛租戶 plugin、不經 BaseRepository、沒有組織歸屬檢查。
- * 精確鎖定這一組 model、collection 與專用 repository;它仍參與全部碰撞驗證。
- * 專案登記沒有任何「略過檢查」的旗標 —— 要新增例外只能改這個底座入口,由 review 把關。
+ * 無租戶原型的精確豁免清單(docs/concepts/data-layer-and-isolation.md「底座與專案資料的組裝」):
+ * 底座沒有任何例外,每張專案 model 都要掛租戶 plugin、經 BaseRepository、有組織歸屬檢查。
+ * 專案登記沒有任何「略過檢查」的旗標 —— 要新增例外只能在這個底座入口逐筆列出
+ * model、collection 與專用 repository,由 review 把關;列出的項目仍參與全部碰撞驗證。
  */
-const LEGACY_UNSCOPED_MODELS: readonly LegacyUnscopedModel[] = [
-  {
-    modelName: Recipe.name,
-    collection: RECIPES_COLLECTION,
-    repository: RecipesLegacyRepository,
-  },
-];
+const LEGACY_UNSCOPED_MODELS: readonly LegacyUnscopedModel[] = [];
 
 /** 組裝好的資料層:Nest module 的 metadata,加上啟動時要驗證的登記內容。 */
 export interface DatabaseAssembly {

@@ -5,8 +5,6 @@
     "description": "Site description"
   },
   "home": {
-    "subtitle": "Home-style Recipes",
-    "empty": "No recipes yet — come add the first dish!",
-    "recipeMeta": "{minutes} min cook · serves {servings}"
+    "subtitle": "Multi-tenant Application Base"
   }
 }

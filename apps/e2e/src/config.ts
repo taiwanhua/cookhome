@@ -66,11 +66,11 @@ export const ADMIN_URL = `http://${HOST}:${String(ADMIN_PORT)}`;
 
 /** 空 = harness 自己起 mongodb-memory-server;CI 給 service container 的位址。 */
 export const MONGODB_URI = text("E2E_MONGODB_URI", "");
-export const DB_NAME = text("E2E_DB_NAME", "cookhome_e2e");
+export const DB_NAME = text("E2E_DB_NAME", "wowgo_base_e2e");
 
 /** seed 建出來的超級管理員(ADR-0002 的 `ROOT_ADMIN_*`,這裡一律是測試值)。 */
 export const ROOT_ACCOUNT = text("E2E_ROOT_ACCOUNT", "root");
-export const ROOT_EMAIL = text("E2E_ROOT_EMAIL", "e2e-root@cookhome.test");
+export const ROOT_EMAIL = text("E2E_ROOT_EMAIL", "e2e-root@wowgo-base.test");
 export const ROOT_PASSWORD = text("E2E_ROOT_PASSWORD", "e2e-root-pw-2026");
 
 /** 劇本裡自己建出來的帳號(+tenant / +user)共用的密碼(密碼規則:8 碼以上、非純數字)。 */
@@ -90,14 +90,14 @@ export const JWT_SECRET = text("E2E_JWT_SECRET", "e2e-only-jwt-secret");
 export const GCS_PORT = port("E2E_GCS_PORT", 4443);
 export const GCS_ENDPOINT = `http://${HOST}:${String(GCS_PORT)}`;
 /** fake GCS 的 Compose 專案名:compose 檔的 `name` 與 harness 的 up / down 用同一個值。 */
-export const COMPOSE_PROJECT = text("E2E_COMPOSE_PROJECT", "cookhome-e2e");
+export const COMPOSE_PROJECT = text("E2E_COMPOSE_PROJECT", "wowgo-base-e2e");
 export const GCS_BUCKET_PUBLIC = text(
   "E2E_GCS_BUCKET_PUBLIC",
-  "cookhome-e2e-public",
+  "wowgo-base-e2e-public",
 );
 export const GCS_BUCKET_PRIVATE = text(
   "E2E_GCS_BUCKET_PRIVATE",
-  "cookhome-e2e-private",
+  "wowgo-base-e2e-private",
 );
 /**
  * 簽名用的**假**憑證(api 的 `GCS_FAKE_CLIENT_EMAIL` / `GCS_FAKE_PRIVATE_KEY`):
@@ -106,7 +106,7 @@ export const GCS_BUCKET_PRIVATE = text(
  */
 export const GCS_FAKE_CLIENT_EMAIL = text(
   "E2E_GCS_FAKE_CLIENT_EMAIL",
-  "fake-gcs@cookhome-e2e.test",
+  "fake-gcs@wowgo-base-e2e.test",
 );
 export const GCS_FAKE_PRIVATE_KEY = text("E2E_GCS_FAKE_PRIVATE_KEY", "");
 /**

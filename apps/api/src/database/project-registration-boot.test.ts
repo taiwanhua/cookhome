@@ -117,8 +117,8 @@ describe("專案資料登記:不合契約時真的 DatabaseModule 起不來", ()
     await memoryServer?.stop();
   }, HOOK_TIMEOUT_MS);
 
-  /** 以指定的專案登記載入並啟動 `DatabaseModule`;失敗就把錯誤拋出來。 */
-  async function boot(project: ProjectRegistrations): Promise<void> {
+  /** 以指定的專案登記載入並啟動 `DatabaseModule`(不給 = 用正式的專案登記);失敗就把錯誤拋出來。 */
+  async function boot(project?: ProjectRegistrations): Promise<void> {
     await jest.isolateModulesAsync(async () => {
       const mongoose = await import("mongoose");
       const fresh: FreshModules = {
@@ -129,9 +129,14 @@ describe("專案資料登記:不合契約時真的 DatabaseModule 起不來", ()
         baseFields: await import("./plugins/base-fields.plugin"),
         tenantScope: await import("./plugins/tenant-scope.plugin"),
       };
-      jest.doMock("../project/database/registrations", () => ({
-        PROJECT_DATABASE_REGISTRATIONS: project(fresh),
-      }));
+      if (project) {
+        jest.doMock("../project/database/registrations", () => ({
+          PROJECT_DATABASE_REGISTRATIONS: project(fresh),
+        }));
+      } else {
+        // doMock 的登記跨 isolateModules 留著;明確解除才載得到正式來源
+        jest.dontMock("../project/database/registrations");
+      }
       const { Test } = await import("@nestjs/testing");
       try {
         const { DatabaseModule } = await import("./database.module");
@@ -164,6 +169,14 @@ describe("專案資料登記:不合契約時真的 DatabaseModule 起不來", ()
       await expect(boot((fresh) => [bootRegistration(fresh)])).rejects.toThrow(
         /DataScopeRuleProvider 未註冊/,
       );
+    },
+    HOOK_TIMEOUT_MS,
+  );
+
+  it(
+    "正式的專案登記(不替換)通過全部登記檢查,同樣只卡在 DataScopeRuleProvider 啟動檢查",
+    async () => {
+      await expect(boot()).rejects.toThrow(/DataScopeRuleProvider 未註冊/);
     },
     HOOK_TIMEOUT_MS,
   );

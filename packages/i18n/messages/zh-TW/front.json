@@ -5,8 +5,6 @@
     "description": "網站說明"
   },
   "home": {
-    "subtitle": "家常食譜",
-    "empty": "還沒有食譜,快來新增第一道菜!",
-    "recipeMeta": "烹調 {minutes} 分鐘 · {servings} 人份"
+    "subtitle": "多租戶應用底座"
   }
 }
