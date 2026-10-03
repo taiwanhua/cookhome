@@ -8,7 +8,7 @@
 
 ## 底座識別
 
-底座名稱為 `wowgo-base`,獨立 repo 是 [taiwanhua/wowgo-base](https://github.com/taiwanhua/wowgo-base)。本表登記的是底座自己的中性值;引用專案沿用同一組專案設定入口填入自己的品牌、slug、網域與雲端資源,不沿用底座或其他專案的值。共用文件與 skills 使用「底座」「專案」等中性詞彙,詞義見 `CONTEXT.md`。抽離與初始化的未完成工作見[底座同步計畫](plans/base-sync.md)。
+底座名稱為 `wowgo-base`,獨立 repo 是 [taiwanhua/wowgo-base](https://github.com/taiwanhua/wowgo-base)。本表登記的是底座自己的中性值;引用專案沿用同一組專案設定入口填入自己的品牌、slug、網域與雲端資源,不沿用底座或其他專案的值。共用文件與 skills 使用「底座」「專案」等中性詞彙,詞義見 `CONTEXT.md`。Figma 與同步工具的未完成工作見[底座同步計畫](plans/base-sync.md)。
 
 ## 程式碼
 

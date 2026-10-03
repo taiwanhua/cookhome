@@ -8,7 +8,7 @@
 
 ### 底座維護邊界與跨專案同步
 
-待完成的初始化、Figma 工具與跨 repo 升級/回收見[底座同步計畫](../plans/base-sync.md);進度及驗收見對應 issue/PR。現行設定、功能來源與維護歸屬見[架構](../architecture.md#底座與專案的維護歸屬),seed/migration 見[資料層](../concepts/data-layer-and-isolation.md#種子資料與遷移),不在本檔另存一份要求。
+待完成的 Figma 工具與跨 repo 升級/回收見[底座同步計畫](../plans/base-sync.md);進度及驗收見對應 issue/PR。現行設定、功能來源與維護歸屬見[架構](../architecture.md#底座與專案的維護歸屬),seed/migration 見[資料層](../concepts/data-layer-and-isolation.md#種子資料與遷移),不在本檔另存一份要求。
 
 ### 自訂 `/to-figma` skill
 
@@ -68,4 +68,4 @@ schema 演進指向後相容 + 破壞性變更配遷移腳本,落點 `docs/stand
 
 ## 下一步
 
-初始化演練、Figma 與版本同步工具依共同計畫接續;引用專案的業務需求與外部資源待辦由各自 repo 維護。
+Figma 與版本同步工具依共同計畫接續;引用專案的業務需求與外部資源待辦由各自 repo 維護。
