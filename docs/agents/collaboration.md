@@ -12,8 +12,6 @@
 
 方案討論與規格設計遵守 [STRUCT-13](../standards/general/structure.md#struct-13-方案設計先核對現況優先延伸既有機制):先核對專案實際用法,優先延伸既有機制。規則本文只在結構規範維護,各工具的記憶與指引指向同一正本。
 
-方案討論與規格設計遵守 [STRUCT-13](../standards/general/structure.md#struct-13-方案設計先核對現況優先延伸既有機制):先核對專案實際用法,優先延伸既有機制。規則本文只在結構規範維護,各工具的記憶與指引指向同一正本。
-
 ## 一票一位寫入 owner、一個工作樹
 
 - 每張票明訂一位負責寫入與交付的 owner,在獨立 worktree/分支實作。主流程記錄 issue、owner、分支及 worktree;跨電腦交接以分支/commit/PR 為準,本機路徑只供當下協調。

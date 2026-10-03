@@ -27,7 +27,7 @@ E2E_GREP="劇本 7" pnpm e2e            # 只跑某一條(`--` 之後的旗標�
 Windows 的 PowerShell 沒有 `VAR=… 指令` 這種前綴,寫成 `$env:E2E_GREP="劇本 7"; pnpm e2e`(agent 在 worktree 裡用 Bash 下前綴也會被守衛擋)。
 
 本機反覆跑同一條時,`E2E_SKIP_BUILD=1` 省掉重建;接在自己手動起好的 stack 上除錯用 `E2E_SKIP_STACK=1`。
-變數清單見 `.env.example`。
+變數清單見 `.env.example`。同機不同專案要分開 DB、各服務 port、bucket 與 `E2E_COMPOSE_PROJECT`;fake GCS 起停均以 `-p` 指定後者,不沿用 shell 的 `COMPOSE_PROJECT_NAME`。
 
 ## 檔案儲存:fake GCS 容器(劇本 11 / 15,#402)
 

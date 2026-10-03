@@ -16,7 +16,7 @@
 
 以下為建立機制的已確認要求,尚需初始化工具與演練:
 
-- 底座名稱為 `wowgo-base`,預定建立 `taiwanhua/wowgo-base`,可見性為 Public(公開)。底座與每個引用專案各有獨立 repo,CookHome 保留自己的品牌與業務;不以同一 repo 的長期分支管理各專案。
+- 底座名稱為 `wowgo-base`,repo 為 `taiwanhua/wowgo-base`,可見性為 Public(公開)。底座與每個引用專案各有獨立 repo,CookHome 保留自己的品牌與業務;不以同一 repo 的長期分支管理各專案。
 - 新專案從底座正式版本建立並保留共同 Git 歷史,固定帶完整 front、admin、api。GitHub Template 按鈕不能直接視為保留共同歷史的保證。
 - 共用文件、skills、註解盡量去除專案品牌;專案值留在自己的來源,共用名詞進 `CONTEXT.md`。
 - 初始化 skill 以[初始化索引](../project-initialization.md)為清單,引導全部品牌、repo/看板、開發工具、資料庫、環境變數、雲端、寄信、網域及設計資源輸入;分開記錄已提供、已建立、已驗證。
@@ -30,39 +30,27 @@
 1. 先在 CookHome 依既有分支流程交付可共用的前置修正,保持 CookHome 品牌與業務可用。以完成驗收的 `main` commit 作為抽離起點,記錄完整 SHA。
 2. 在獨立 clone 建立底座候選分支,保留該起點的完整祖先,不複製未追蹤檔、個人工具設定或 `.env`。底座候選版使用自己的中性預設與空 project 登記,保留完整三 app、治理、表單、流程、申請中心及示範模組。
 3. 審查抽離差異、通過完整驗證後才建立第一個正式底座版本。向新 repo 只推明確指定的分支與 tag,不用 `push --mirror` 或 `push --all` 帶入 CookHome 的工作分支。保留歷史表示抽離前的 CookHome 程式與文件仍可從祖先讀到,不是刪除歷史中的品牌。
-4. 新專案從選定底座 tag 的完整歷史建立自己的分支,建立時就用 `--no-tags` 加下節的明確 refspec,不把底座 tag 寫進專案的 `refs/tags/`。`origin` 指向新專案 repo、`upstream` 指向底座;只推指定專案分支。初始化沿用現有 TypeScript/JSON/env 來源;不以複製檔案後 `git init`、淺層 clone 或 GitHub Template 按鈕替代。初次設定提交在正式 tag 之後,原 tag 不改動。
-5. CookHome 另走一次首次接軌 PR:依下節差異表正常合併底座首版,逐項保留 CookHome 的 project 來源、前台、部署值與資料相容差異。抽離所需的共用修正已由步驟 1 交付,底座候選版額外發現的共用修正須另列差異並審查。合併結果相對 CookHome `main` 只能有明列的共用修正,中性化的專案差異須為零,即使 Git 完全沒有 conflict 也一樣。合併提交必須包含底座版本的祖先;後續升級才有清楚的比較起點。
+4. 新專案從選定底座 tag 的完整歷史建立自己的分支,建立時就用 `--no-tags` 加明確 refspec,不把底座 tag 寫進專案的 `refs/tags/`。`origin` 指向新專案 repo、`upstream` 指向底座;只推指定專案分支。初始化沿用現有 TypeScript/JSON/env 來源;不以複製檔案後 `git init`、淺層 clone 或 GitHub Template 按鈕替代。初次設定提交在正式 tag 之後,原 tag 不改動。
+5. CookHome 另走一次首次接軌 PR:依 deployment 的保留規則正常合併底座首版,逐項保留 CookHome 的 project 來源、前台、部署值與資料相容差異。抽離所需的共用修正已由步驟 1 交付,底座候選版額外發現的共用修正須另列差異並審查。合併結果相對 CookHome `main` 只能有明列的共用修正,中性化的專案差異須為零,即使 Git 完全沒有 conflict 也一樣。合併提交必須包含底座版本的祖先;後續升級才有清楚的比較起點。
 
 [GitHub Template](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template) 會以單一新 commit 建立 repo,不能用來保留此流程需要的共同歷史。[Git clone](https://git-scm.com/docs/git-clone) 可保留歷史,從 tag 建立時須明確建立專案分支,不留在 detached HEAD。
 
-底座建庫目標已定為 `taiwanhua/wowgo-base`、Public;首版號與首次建庫審查路徑仍須固定。新 repo 首次寫入不等於 CookHome 已發布;底座程式版本發布與引用專案的環境部署須分開驗收。外部資源未建時,不得標成「已建立」或「已驗證」。
+底座 repo 為 `taiwanhua/wowgo-base`、Public;首版號與首次寫入審查路徑仍須固定。新 repo 首次寫入不等於 CookHome 已發布;底座程式版本發布與引用專案的環境部署須分開驗收。外部資源未建時,不得標成「已建立」或「已驗證」。
 
-### 合併時保留專案內容
+### 合併與版本識別
 
-升級分支從引用專案的已發布 `main` 建立,取指定 tag 並核對完整 commit,採一般三方合併與 merge commit。Git 的自動合併只比較文字變更,不了解維護歸屬:專案某檔沒有改過,上游變更它時可能完全沒有衝突。因此合併後要審查全部差異,不是只處理 conflict。
+首次接軌及升級的 Git 操作、專案保留與 main 前進後重建規則,見 [deployment](../deployment.md#底座首次接軌與版本升級)。Git 演練已驗機制,尚須以實際候選版與引用專案驗收,不能只靠沒有衝突判定安全。
 
-首次接軌與升級分支須另訂對齊方式:若等待期間 `main` 前進,從新 `main` 重建升級分支,重新合併同一底座版本並重做專案保留與驗證,不對含底座 merge 的分支跑一般 rebase。PR 進 `dev`、`staging`、`main` 全程保留 merge commit,每段以 `git merge-base --is-ancestor <底座 commit> <合併結果>` 驗證。實作前須在既有 deployment 操作正本明列此特例;一般功能分支維持現行 rebase 規則。
-
-| 差異種類                                                                                        | 處理方式                                                                                         |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| 底座程式與共用契約                                                                              | 接入新版本,核對權限、租戶隔離、API 與資料相容性                                                  |
-| `src/project/`、project seed、專案前台/文案/資產、`deploy/project/`、`deploy/env/` 與本機專案值 | 保留專案版本;底座預設值的新增、修改、刪除也要攔下審查。契約新增必填值時明確補值,不可整檔照抄底座 |
-| 固定組裝入口、workflow、共用文件中含專案識別的段落                                              | 逐段整合,共用機制要更新,專案目標要保留;不得整個檔案或 `system/` 排除升級                         |
-| GraphQL schema/generated、lockfile 等衍生產物                                                   | 先整合人工來源,再依既有命令重產,不直接整份選一方                                                 |
-| 已發布 migration/seed 快照                                                                      | 保留原檔與身分,不可藉抽離改寫或重編;新增依現有 base/project 契約                                 |
-
-歸屬以[架構](../architecture.md#底座與專案的維護歸屬)與[初始化索引](../project-initialization.md)為準,不另建一份手工維護的 glob 清單。需人工補的專案值與客製相容調整寫進同一個升級 PR。不得用 `merge -s ours` 跳過整個底座版本,也不得以 squash/cherry-pick 代替向下升級的 ancestry;回收獨立共用修正才使用整理過的 commit 或 patch。
-
-底座 tag 與引用專案自己的 tag 不共用本機標籤名稱。抓底座版本使用 `--no-tags` 加明確 refspec,例如把底座的 `refs/tags/<tag>` 抓到 `refs/remotes/upstream/releases/<tag>`;核對 tag 解析的 commit 後合併。版本來源、tag、完整 commit 必須可從版控及升級 PR 找到;長期欄位與自動檢查由 F 固定,不得只存在某台電腦的 remote 設定。
+版本來源、tag、完整 commit 必須可從版控及升級 PR 找到;長期欄位與自動檢查仍待固定,不得只存在某台電腦的 remote 設定。
 
 ### 已查明的抽離缺口
 
 | 範圍與現有入口                                                                                     | 待交付結果                                                                                                                                                  |
 | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/project-settings/config.mjs`、`deploy/project/cloud.json`、CI 的 `project-settings` job   | 現在 cloud 三環境必填。延伸同一份 JSON 與讀取器表達「尚未啟用雲端」,離線 CI 可驗設定,Deploy/Reset 在認證前明確停止;已配置的 CookHome 三環境維持原行為       |
-| `apps/api/src/app.module.ts`、`docker-compose.yml`、`apps/e2e/docker-compose.yml`、E2E config      | API 缺 URI 時不再落到 CookHome 庫;以既有 env 機制隔離 DB、compose 名稱、port、volume 與 bucket。CookHome 現有 volume 必須延續,不得換成新空庫                |
+| `scripts/project-settings/config.mjs`、`deploy/project/cloud.json`、CI 的 `project-settings` job   | 候選版使用現有 enabled:false 格式,核對自己的 repository;CookHome 三環境維持原值                                                                             |
+| `apps/api/src/app.module.ts`、`docker-compose.yml`、`apps/e2e/docker-compose.yml`、E2E config      | 以現有必填 URI 與 env 設定兩專案各自的 DB、compose 名稱、port、volume 與 bucket,完成實際隔離驗收;CookHome 現有 volume 須延續                                |
 | `apps/api/src/database/database.module.ts` 與 project Recipe 登記                                  | 底座候選版移除 Recipe import 與精確相容項;CookHome 保留這個經審查的既有相容差異,不新增可任意跳過租戶隔離的 project 開關。首次接軌與後續升級逐段整合這個入口 |
-| API auth/資料層測試、admin 改密碼測試與 MSW 的 Recipe 探針                                         | 共用測試改以既有底座 operation 或隔離 test fixture 驗證,使空 project 登記仍可建置。CookHome 的食譜行為另由專案測試驗證                                      |
+| API auth/資料層測試、admin 改密碼測試與 MSW 的 Recipe 探針                                         | 以去除業務探針依賴的共用測試驗空 project 登記;候選版另核對移除 Recipe 後的精確豁免與正式產物                                                                |
 | `apps/front/src/components/HomeView/`、`packages/i18n/messages/*/front.json`、project GraphQL 文件 | 底座提供中性首頁,移除食譜查詢與文案,保留 front。移除業務 API/document 後依 GQL-05 同步重產 schema/hooks;CookHome 自己保留食譜前台                           |
 | project-config、project seed settings、各 app `.env.example`、根 `package.json`                    | 底座填自己的預設,沿用原契約,`legacySideNavStorageKey` 為 null;不全域取代測試夾具、migration 歷史或共用套件的 `@repo/` 名稱                                  |
 | `apps/db-migrator/migrations/*.js` 與 `src/update/migration-sources.ts`                            | 根目錄九支 legacy migration 維持不可變,新內容進 `base/` 或 `project/`。在空庫驗證全部歷史 migration 與 seed 的初建/重跑,不可只因讀過其中一支便宣稱相容      |
@@ -72,26 +60,17 @@ Recipe 的相容差異是既有業務保留的代價,不是新增模組的範本
 
 ### 工作順序與驗收
 
-雲端未啟用狀態沿用 `deploy/project/cloud.json` 的 schemaVersion 1,新增可選 boolean `enabled`:省略或 true 維持現有三環境嚴格驗證與原本輸出;false 時檔案只能有 `schemaVersion` 與 `enabled`,不得夾帶舊專案 gcp/environments 或未知鍵。`resolveCloudConfig` 仍先核對 environment 與可信 repository 身分,停用時回 `{ enabled: false }`;既有 read-config CLI 成功輸出此狀態供 CI dry-run 驗證。雲端 Actions 的 `write-github-output --scope cloud` 遇此狀態明確失敗且不寫任何 output,因此既有 Deploy/Reset 在認證前停止。這不限制已啟用專案的 production reset,也不改 CookHome 的 cloud 設定值。正負例須驗 reader、CLI、output writer 與既有假命令 workflow harness;不用真雲端資源測這個契約。
+雲端停用與本機隔離的現行契約分別見 [deployment](../deployment.md#專案部署設定deployproject) 與[初始化索引](../project-initialization.md#本機與測試環境),設定仍使用既有 JSON/env。候選版須填自己的值並驗證資源隔離。
 
-本機隔離沿既有 env 機制實作,不新增 local JSON:
+共用授權測試使用 test-only public resolver 與底座 ModuleTree operation;Recipe 公開/CRUD/精確 ESLint 豁免驗證留在專案測試。候選版移除 Recipe 相容項時,須補專案來源零裸查豁免的斷言,不能一起刪去防止新增豁免的保護。
 
-- API 與受管定義 CLI 共用 `database/mongodb-uri.ts` 的 `requireMongoDbUri(value: string | undefined): string`,拒絕缺值、空字串與純空白,錯誤只指出 `MONGODB_URI`,不印值;合法非空字串原樣交給 driver。驗證在 Nest 連線 factory 執行,不在 module import 時讀環境;SeedRuntimeModule 保留 `MONGODB_URI_ENV` 出口。schema CLI 與測試 harness 繼續顯式提供 memory-server URI。
-- 根 compose 移除三個硬編碼 `container_name`,由 Compose 自己依專案名管理。保留沒有頂層 `name`、volume key `mongo-data` 及既有內部端口。host port 改用 `LOCAL_MONGO_PORT`/`LOCAL_API_PORT`/`LOCAL_ADMIN_PORT`,預設仍 27017/5001/8080;容器內 DB 名用 `LOCAL_MONGO_DB`,預設 `cookhome`;admin build endpoint 跟隨 host API port。不要重命名或刪除既有 volume。
-- 根 `.env.example` 列上述 LOCAL 變數與註解形式的 `COMPOSE_PROJECT_NAME`;不強制既有 CookHome 改 compose 專案名。新專案初始化才在其根 `.env` 寫入獨立名稱與端口;API 本機 `.env` 的 URI 須對應其 host port/DB。根 `.env` 沿既有 gitignore,不提交真實連線字串。
-- E2E 新增 `E2E_COMPOSE_PROJECT`,config 出口為 `COMPOSE_PROJECT`,預設仍 `cookhome-e2e`;e2e compose 的 name 與 fake-gcs up/down 使用同一值。其餘 port/DB/bucket 沿現有 E2E 變數。用 `docker compose config` 驗兩組專案參數的容器名、volume、endpoint 與 port;不必啟動既有容器或跑 E2E。若要驗雙 stack,只用明確建立的拋棄式資源。
-
-共用測試去除 Recipe 耦合時,API 公開端點探針使用僅在測試 module 註冊的 `@Public` resolver;admin 改密碼攔截探針改用既有 base GraphQL operation。Recipe 公開/CRUD/精確 ESLint 豁免的相容驗證留在 `project/recipes/` 測試;共用 project-fixture 與所有權 lint 使用可保留於空業務專案的來源。此步不改正式 Recipe API、核心授權、database.module 的精確相容清單或正式 GraphQL 產物;候選底座中性化才移除 Recipe 實作與相容項。
-
-| 工作單元                     | 依賴與交付                                                                                                                        | 寫入責任                                            |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 雲端未啟用狀態               | 先固定 JSON/讀取器相容契約,補離線 CI 與 Deploy/Reset 的停用測試;CookHome 真值不變                                                 | Claude 程式/測試,文件票收正式操作規則               |
-| 本機隔離與共用測試去業務依賴 | 固定 env 來源及現有 volume 延續方式,核對 schema CLI/測試入口,再實作與驗收                                                         | Claude 程式/測試;與上項的 workflow 修改須先分檔     |
-| 底座候選版                   | 共用修正及去業務探針測試先交付;獨立 clone 做中性化與空登記,這一步才移除底座候選版的 Recipe 相容 import/清單                       | Claude 為候選版程式 owner,主流程審查                |
-| CookHome 首次接軌            | 底座版本可取得後,在 CookHome 獨立分支整合並驗證專案內容保留;與候選版分成兩票                                                      | 另一張票指定唯一 Claude owner,主流程審查            |
-| 新專案初始化 skill           | 候選版契約固定後,依現有索引逐項收集輸入、寫入原格式、列缺項及驗證;失敗與重跑保留已有 project 內容                                 | Claude 實作,共用操作文件為正本、各工具 skill 只指路 |
-| 共用指引與專案識別分離       | 隨上述程式的實際契約收斂 CONTEXT、品牌/初始化索引、deployment 與共同操作文件;各 repo 的入口另歸該 repo 文件票,不與程式 owner 同寫 | 文件票唯一 owner;完成後移除此計畫對應內容           |
-| 正式建庫與兩專案演練         | 在已定的公開 repo 目標,待首版/tag、外部資源建立方式及各項輸入固定後執行                                                           | 主流程建庫/版本發布;依個別環境授權驗資源            |
+| 工作單元               | 依賴與交付                                                                                                                        | 寫入責任                                            |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| 底座候選版             | 共用修正及去業務探針測試先交付;獨立 clone 做中性化與空登記,這一步才移除底座候選版的 Recipe 相容 import/清單                       | Claude 為候選版程式 owner,主流程審查                |
+| CookHome 首次接軌      | 底座版本可取得後,在 CookHome 獨立分支整合並驗證專案內容保留;與候選版分成兩票                                                      | 另一張票指定唯一 Claude owner,主流程審查            |
+| 新專案初始化 skill     | 候選版契約固定後,依現有索引逐項收集輸入、寫入原格式、列缺項及驗證;失敗與重跑保留已有 project 內容                                 | Claude 實作,共用操作文件為正本、各工具 skill 只指路 |
+| 共用指引與專案識別分離 | 隨上述程式的實際契約收斂 CONTEXT、品牌/初始化索引、deployment 與共同操作文件;各 repo 的入口另歸該 repo 文件票,不與程式 owner 同寫 | 文件票唯一 owner;完成後移除此計畫對應內容           |
+| 正式建庫與兩專案演練   | 在已定的公開 repo 目標,待首版/tag、外部資源建立方式及各項輸入固定後執行                                                           | 主流程建庫/版本發布;依個別環境授權驗資源            |
 
 上表是拆票邊界,不是已開工或已完成的聲明。程式票只有在輸入格式、行為、檔案 owner 與前置條件固定後才進 Ready;未定項不能留給不同實作者各選一套。
 
