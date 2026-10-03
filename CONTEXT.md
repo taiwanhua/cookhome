@@ -9,6 +9,9 @@
 正本:`docs/architecture.md`「底座與專案的維護歸屬」;尚未實作的跨專案同步見 `docs/plans/base-sync.md`。
 
 **底座(Platform Base)**:
+
+名稱與預定 repo 名稱為 `wowgo-base`;獨立 repo 尚未建立。CookHome 是引用專案,保留自己的品牌與業務。
+
 可供多個專案共用的應用基礎:完整 front/admin/api 骨架、治理模組、認證、權限與租戶隔離、表單引擎、審核流程及申請中心。與各專案的業務域(如食譜)相對;前台畫面與風格由各專案設計。
 _Avoid_: 框架、共用系統
 

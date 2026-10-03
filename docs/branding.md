@@ -6,6 +6,10 @@
 
 **不在本表的**:設計系統的通用圖示(`@repo/ui/icons` 的 `CloseIcon`、`HelpIcon` 等)—— 它們是介面元件、跟著 `currentColor` 走,換品牌不必逐一處理;本表只登記品牌**文字、圖案(商標 / favicon)、色彩、網域**。
 
+## 底座識別
+
+底座名稱與預定 repo 名稱為 `wowgo-base`,獨立 repo 尚未建立。這個名稱不替換 CookHome 的品牌、slug、網域或雲端資源。底座建立時沿用本表的專案設定入口填入自己的值;共用文件與 skills 使用「底座」「專案」等中性詞彙,詞義見 `CONTEXT.md`。抽離與初始化的未完成工作見[底座同步計畫](plans/base-sync.md)。
+
 ## 程式碼
 
 **瀏覽器儲存的 key 一律 kebab-case、以專案 slug 開頭**:admin 的鍵由 `createAdminStorageKeys(slug)`(`@repo/project-config/public`)生成,格式 `<slug>-admin-<用途>`;本專案的 slug 是 `cookhome`(需要分使用者時由消費端再加 `:<userId>`,如 `cookhome-admin-route-tabs:<userId>`),localStorage / sessionStorage / BroadcastChannel 共用這套命名。slug 是建立專案時定下的穩定識別,品牌更名不跟著改 —— 改了等於換一組鍵,瀏覽器裡既存的值全部失效。**不要用點分隔**(`cookhome.admin.sidenav`)—— 鑰匙混用兩種寫法時,grep 一次抓不全。新增一把鑰匙:在 `packages/project-config/src/base/admin-storage-keys.ts` 加一個欄位,並在下表補一列(key 帶專案 slug,所以它是品牌元素)。
