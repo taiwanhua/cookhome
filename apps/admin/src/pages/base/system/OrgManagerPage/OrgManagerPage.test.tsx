@@ -158,7 +158,7 @@ describe("組織管理頁(/system/org-manager)", () => {
     expect(options).toContain("租戶 A / A-1 內容組");
     // 自己不能當自己的上層,根組織與別的租戶也不在同一個租戶裡
     expect(options).not.toContain("租戶 A / A-2 台北分店");
-    expect(options).not.toContain("CookHome");
+    expect(options).not.toContain("平台根組織");
 
     await actor.click(
       screen.getByRole("option", { name: "租戶 A / A-1 內容組" }),

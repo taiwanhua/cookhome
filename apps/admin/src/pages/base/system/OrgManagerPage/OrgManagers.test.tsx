@@ -34,8 +34,8 @@ describe("組織管理:主管欄", () => {
     await within(detail()).findByText("A-1-1 編輯組");
     expect(await within(detail()).findByText("未設定")).toBeInTheDocument();
 
-    await clickNode(actor, "CookHome");
-    await within(detail()).findByText("CookHome");
+    await clickNode(actor, "平台根組織");
+    await within(detail()).findByText("平台根組織");
     expect(within(detail()).queryByText("主管")).toBeNull();
   });
 

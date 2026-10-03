@@ -35,7 +35,7 @@ export interface SnackbarProps {
  * 語意色,不自帶品牌色。
  *
  * **排隊策略:一次只顯示最新的一則(latest-only),不排隊。** 本元件只負責畫「一則」,
- * 佇列在呼叫端 —— CookHome 的 app 層(`apps/admin` 的 `SnackbarProvider`)保管一個
+ * 佇列在呼叫端 —— app 層(`apps/admin` 的 `SnackbarProvider`)保管一個
  * 長度為 1 的佇列:新的一則進來就直接取代舊的那一則(舊的不補顯示)。
  * 理由是這些提示是**操作回饋**而非通知中心:連續送出三次時,使用者要看的是最後那一次
  * 的結果;排隊會讓第三則在 12 秒後才出現,那時早就換頁了。失敗的細節本來就另外

@@ -1,6 +1,6 @@
-# CookHome 程式碼規範索引
+# 程式碼規範索引
 
-本資料夾是三層約束中的第二層「可審查的檢查清單」:放 **lint 管不到、但 CookHome 已做出決定** 的規範。
+本資料夾是三層約束中的第二層「可審查的檢查清單」:放 **lint 管不到、但本底座已做出決定** 的規範。
 通用最佳實踐不放這裡 — 那是 vercel-labs skills(`react-best-practices`、`web-design-guidelines`、`writing-guidelines`)的職責。
 
 ## 怎麼用(給 AI 與人)

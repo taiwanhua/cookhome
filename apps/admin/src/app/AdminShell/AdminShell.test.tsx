@@ -96,7 +96,7 @@ describe("SideNav(模組陣列以 parentId 組樹;ADR-0011「前端判斷 / 側�
     renderApp({ path: "/" });
     const nav = await findSideNav();
 
-    expect(within(nav).getByText("CookHome")).toBeInTheDocument();
+    expect(within(nav).getByText("平台根組織")).toBeInTheDocument();
     expect(within(nav).queryByRole("img")).not.toBeInTheDocument();
   });
 
@@ -111,10 +111,10 @@ describe("SideNav(模組陣列以 parentId 組樹;ADR-0011「前端判斷 / 側�
     renderApp({ path: "/" });
     const nav = await findSideNav();
 
-    const logo = await within(nav).findByRole("img", { name: "CookHome" });
+    const logo = await within(nav).findByRole("img", { name: "平台根組織" });
     expect(logo).toHaveAttribute("src", "https://cdn.test/org-1.png");
     // 商標取代名稱文字(Figma AdminSideNav 的 ShowLogo 變體);名稱仍由 alt 讀得到
-    expect(within(nav).queryByText("CookHome")).not.toBeInTheDocument();
+    expect(within(nav).queryByText("平台根組織")).not.toBeInTheDocument();
   });
 });
 
@@ -262,7 +262,7 @@ describe("AppBar(當前組織切換、使用者選單、語言)", () => {
 
     const { user } = renderApp({ path: "/overview" });
     const switcher = await screen.findByRole("combobox", { name: "當前組織" });
-    expect(switcher).toHaveTextContent("CookHome");
+    expect(switcher).toHaveTextContent("平台根組織");
     const meCallsBefore = world.calls.me;
 
     await user.click(switcher);
@@ -310,7 +310,7 @@ describe("AppBar(當前組織切換、使用者選單、語言)", () => {
         selector: `[id="${labelId}"]`,
       }),
     ).toBeVisible();
-    expect(switcher).toHaveTextContent("CookHome");
+    expect(switcher).toHaveTextContent("平台根組織");
     expect(screen.queryByRole("combobox", { name: "語言" })).toBeNull();
   });
 
@@ -321,7 +321,7 @@ describe("AppBar(當前組織切換、使用者選單、語言)", () => {
     await user.click(await screen.findByRole("button", { name: "小華" }));
 
     const menu = screen.getByRole("dialog", { name: "使用者選單" });
-    expect(within(menu).getByText("root · CookHome")).toBeInTheDocument();
+    expect(within(menu).getByText("root · 平台根組織")).toBeInTheDocument();
     expect(
       within(menu).getByRole("group", { name: "外觀" }),
     ).toBeInTheDocument();

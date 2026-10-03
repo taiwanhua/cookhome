@@ -43,8 +43,8 @@ apps/<app>/src/
 ## STRUCT-04 GraphQL 產物只走 `@repo/graphql` 的出口
 
 ```ts
-✅ import { useRecipesQuery } from "@repo/graphql";
-❌ import { useRecipesQuery } from "@repo/graphql/src/generated";
+✅ import { useModuleTreeQuery } from "@repo/graphql";
+❌ import { useModuleTreeQuery } from "@repo/graphql/src/generated";
 ```
 
 `src/generated` 是 codegen 產物(lint 也忽略它),永遠不手改、不深層 import。
@@ -54,7 +54,7 @@ apps/<app>/src/
 需要豁免某條 lint 規則時,一律寫在**該檔案第一行**的 `/* eslint-disable ... */`,且註解**必附原因與到期條件**;禁止在 ESLint config 以路徑白名單豁免(刪檔後留殭屍設定、讀檔案的人看不見豁免)。
 
 ```ts
-/* eslint-disable @repo/no-raw-model-query -- deprecated:早期原型,食譜域重寫時整包刪除 */
+/* eslint-disable <規則> -- <具體原因>;解除條件:<何時移除> */
 ```
 
 **已知會誤判、豁免時照抄理由的規則**(碰到就在該行寫 `// eslint-disable-next-line`,別為了閃它改寫程式):

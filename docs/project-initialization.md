@@ -2,7 +2,7 @@
 
 本索引指出新專案要設定的內容、值的正本與驗證責任,不保存第二份設定值。維護歸屬見[架構](architecture.md#底座與專案的維護歸屬),品牌與部署設定分別見 [branding](branding.md) 與 [deployment](deployment.md#專案部署設定deployproject)。建立與接續初始化依[共用操作文件](agents/project-bootstrap.md);跨專案整體演練與同步工具的未完成工作見[底座同步計畫](plans/base-sync.md)。
 
-狀態必須分開記錄:「已提供」表示輸入已完整;「已建立」表示檔案或外部資源已存在;「已驗證」表示該專案的實際讀取或連線檢查通過。CookHome 既有設定不代表新專案已具備資源,以下不替未建立的專案填入成功狀態。
+狀態必須分開記錄:「已提供」表示輸入已完整;「已建立」表示檔案或外部資源已存在;「已驗證」表示該專案的實際讀取或連線檢查通過。來源設定不代表新專案已具備資源,以下不替未建立的專案填入成功狀態。
 
 ## 採用的底座版本
 
@@ -60,7 +60,7 @@ GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使�
 - **已建立**:GCP 專案、Artifact Registry、WIF pool / provider、部署用 service account 與 IAM、Cloud Run 服務與網域對應、Secret Manager 的各個 secret、GitHub 看板與 `GH_PROJECT_TOKEN`、預設分支,都由初始化工作在外部建立;設定檔不會建立任何資源。
 - **已驗證**:以新專案實際跑過 Deploy(認證、build、部署、update)與看板移卡。讀取器與離線測試通過不算這一項。
 
-新專案複製 repo 後,`expectedRepository` 不符會使 workflow 在認證前失敗。外部資源須另行建立;新專案使用自己的密鑰,不可沿用 CookHome 的值。不使用的整合須明確停用或移除專案引用,避免讀寫原專案目標。尚未啟用雲端時,`cloud.json` 只保留 `schemaVersion: 1` 與 `enabled: false`;CI 可驗設定,Deploy/Reset 在認證前停止。這表示停用狀態已驗證,不代表雲端資源已建立。格式與啟用方式見 [deployment](deployment.md#專案部署設定deployproject)。
+新專案複製 repo 後,`expectedRepository` 不符會使 workflow 在認證前失敗。外部資源須另行建立;新專案使用自己的密鑰,不可沿用來源專案的值。不使用的整合須明確停用或移除專案引用,避免讀寫原專案目標。尚未啟用雲端時,`cloud.json` 只保留 `schemaVersion: 1` 與 `enabled: false`;CI 可驗設定,Deploy/Reset 在認證前停止。這表示停用狀態已驗證,不代表雲端資源已建立。格式與啟用方式見 [deployment](deployment.md#專案部署設定deployproject)。
 
 ## 本機與測試環境
 
