@@ -38,7 +38,8 @@ const BUSINESS_FILE = "src/orgs/orgs.service.ts";
 const BASE_DATA_FILE = "src/database/base/registrations.ts";
 const APP_ENTRY = "src/app.module.ts";
 const DATABASE_ENTRY = "src/database/database.module.ts";
-const PROJECT_FEATURE_FILE = "src/project/recipes/recipes.service.ts";
+/** 專案的非資料層檔:借用空業務專案也會留著的組裝來源,不綁任何一個專案功能。 */
+const PROJECT_FEATURE_FILE = "src/project/project.module.ts";
 const PROJECT_DATA_FILE = "src/project/database/registrations.ts";
 const FIXTURE_FEATURE_FILE =
   "src/test-support/project-fixture/project-fixture.service.ts";
@@ -56,8 +57,8 @@ function importsProject(from: string): string {
 }
 
 const USES_BASE_FROM_PROJECT = `
-import { OrgsRepository } from "../../database/database.module";
-import { PROJECT_API_MODULES } from "../api-modules";
+import { OrgsRepository } from "../database/database.module";
+import { PROJECT_API_MODULES } from "./api-modules";
 
 export const uses = [OrgsRepository, PROJECT_API_MODULES];
 `;

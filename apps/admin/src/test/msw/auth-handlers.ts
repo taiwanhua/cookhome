@@ -136,7 +136,7 @@ export const SWITCHED_ACCESS_TOKEN = "access-switched";
  * - SetPassword:token 在 `validActionTokens` 內才成功(用過即失效),否則 ACTION_TOKEN_INVALID;
  *   密碼不符規則回 VALIDATION_FAILED + violations;成功發 token、種 cookie、清 mustChangePassword
  * - ChangePassword:要有效 bearer;目前密碼不對回 CURRENT_PASSWORD_INVALID;成功清 mustChangePassword
- * - Recipes(代表「其他受保護操作」):mustChangePassword 時回 MUST_CHANGE_PASSWORD
+ * - 其他受保護操作(本檔內為 SwitchOrg):mustChangePassword 時回 MUST_CHANGE_PASSWORD
  */
 export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
   const {
@@ -253,9 +253,6 @@ export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
         guard(request, true) ??
         HttpResponse.json({ data: { me: { ...me, mustChangePassword } } })
       );
-    }),
-    api.query("Recipes", ({ request }) => {
-      return guard(request) ?? HttpResponse.json({ data: { recipes: [] } });
     }),
     api.mutation("RequestPasswordReset", ({ variables }) => {
       calls.requestPasswordReset += 1;

@@ -25,7 +25,7 @@ export const STATUS_OPTION_KEYS = [
   "wontDo",
 ];
 
-/** `--scope cloud` 的固定輸出鍵(順序即輸出順序);workflow 只映射這些鍵。 */
+/** `--scope cloud` 啟用時的固定輸出鍵(順序即輸出順序);workflow 只映射這些鍵。停用時只有 `enabled`。 */
 export const CLOUD_OUTPUT_KEYS = [
   "gcp_project_id",
   "region",
@@ -287,6 +287,7 @@ function validateEnvironment(environments, name) {
  * `--scope cloud`:核對 repo 後解析某一環境的部署參數。
  * 三個環境每次都整份驗證(鍵固定為 dev / staging / production),壞掉的設定不會等到輪到該環境才被發現。
  * github.json 只用到身分欄位,看板是否啟用不影響部署。
+ * 尚未啟用雲端(`enabled: false`,檔案只有 schemaVersion 與 enabled)時照樣先核對環境與 repo,只回 `{ enabled: false }`。
  */
 export function resolveCloudConfig({ rootDir, environment, repository }) {
   if (!ENVIRONMENTS.includes(environment)) {
@@ -294,8 +295,21 @@ export function resolveCloudConfig({ rootDir, environment, repository }) {
   }
   readGithubIdentity(rootDir, repository);
 
-  const cloud = section(CLOUD_FILE, readJson(rootDir, CLOUD_FILE), null, [
+  const raw = readJson(rootDir, CLOUD_FILE);
+  // enabled 可省略(= 已啟用);寫了就必須是 boolean,不把 null / 字串 / 數字猜成任何一邊
+  const hasEnabled = Object.hasOwn(raw, "enabled");
+  if (hasEnabled && typeof raw.enabled !== "boolean") {
+    fail(`${CLOUD_FILE} 的 enabled 必須是 true 或 false`);
+  }
+  if (hasEnabled && !raw.enabled) {
+    // 尚未啟用雲端:不得夾帶 gcp / environments(舊專案的目標)或未知鍵
+    section(CLOUD_FILE, raw, null, ["schemaVersion", "enabled"]);
+    return { enabled: false };
+  }
+
+  const cloud = section(CLOUD_FILE, raw, null, [
     "schemaVersion",
+    ...(hasEnabled ? ["enabled"] : []),
     "gcp",
     "environments",
   ]);

@@ -1,8 +1,12 @@
 # 專案初始化索引
 
-本索引指出新專案要設定的內容、值的正本與驗證責任,不保存第二份設定值。維護歸屬見[架構](architecture.md#底座與專案的維護歸屬),品牌與部署設定分別見 [branding](branding.md) 與 [deployment](deployment.md#專案部署設定deployproject)。自動初始化工具及跨 repo 建立仍屬[底座同步計畫](plans/base-sync.md)的未完成工作。
+本索引指出新專案要設定的內容、值的正本與驗證責任,不保存第二份設定值。維護歸屬見[架構](architecture.md#底座與專案的維護歸屬),品牌與部署設定分別見 [branding](branding.md) 與 [deployment](deployment.md#專案部署設定deployproject)。建立與接續初始化依[共用操作文件](agents/project-bootstrap.md);跨專案整體演練與同步工具的未完成工作見[底座同步計畫](plans/base-sync.md)。
 
 狀態必須分開記錄:「已提供」表示輸入已完整;「已建立」表示檔案或外部資源已存在;「已驗證」表示該專案的實際讀取或連線檢查通過。CookHome 既有設定不代表新專案已具備資源,以下不替未建立的專案填入成功狀態。
+
+## 採用的底座版本
+
+引用專案在根 `package.json` 的 `wowgoBase` 記錄底座 Git URL、正式 tag 與完整 commit;初始化及升級在同一 PR 更新,並核對該 commit 確實是專案祖先。底座 repo 自己不填此欄位。格式與 Git 操作見[初始化操作](agents/project-bootstrap.md#3-寫入專案值),升級見 [deployment](deployment.md#底座首次接軌與版本升級)。
 
 ## 品牌與公開設定
 
@@ -56,13 +60,14 @@ GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使�
 - **已建立**:GCP 專案、Artifact Registry、WIF pool / provider、部署用 service account 與 IAM、Cloud Run 服務與網域對應、Secret Manager 的各個 secret、GitHub 看板與 `GH_PROJECT_TOKEN`、預設分支,都由初始化工作在外部建立;設定檔不會建立任何資源。
 - **已驗證**:以新專案實際跑過 Deploy(認證、build、部署、update)與看板移卡。讀取器與離線測試通過不算這一項。
 
-新專案複製 repo 後,`expectedRepository` 不符會使 workflow 在認證前失敗。外部資源須另行建立;新專案使用自己的密鑰,不可沿用 CookHome 的值。不使用的整合須明確停用或移除專案引用,避免讀寫原專案目標。
+新專案複製 repo 後,`expectedRepository` 不符會使 workflow 在認證前失敗。外部資源須另行建立;新專案使用自己的密鑰,不可沿用 CookHome 的值。不使用的整合須明確停用或移除專案引用,避免讀寫原專案目標。尚未啟用雲端時,`cloud.json` 只保留 `schemaVersion: 1` 與 `enabled: false`;CI 可驗設定,Deploy/Reset 在認證前停止。這表示停用狀態已驗證,不代表雲端資源已建立。格式與啟用方式見 [deployment](deployment.md#專案部署設定deployproject)。
 
 ## 本機與測試環境
 
 - 根 `package.json` 名稱、各 app `.env.example` 與未追蹤的本機 `.env` 必須按專案設定;範例不含真正憑證。
-- `docker-compose.yml` 的容器、port、DB 與 volume,以及 `apps/e2e/docker-compose.yml` 的專案名要考慮多專案共存;調整不能讓既有 CookHome volume 或資料庫被換成另一個空庫。
-- `apps/api/src/app.module.ts` 的本地 MongoDB fallback 與 db-migrator 範例仍含專案名稱;確切抽離由後續初始化工作處理。reset 必須核對操作者指定的環境、實際 DB 名稱與模式,不以名稱尾碼推測環境。
+- 根 `.env.example` 是 Compose 設定範本。新專案的根 `.env` 指定獨立 `COMPOSE_PROJECT_NAME`、`LOCAL_MONGO_DB` 及三個 `LOCAL_*_PORT`;容器、網路與 `mongo-data` volume 由 Compose 依專案名管理。既有專案維持原專案名與 volume key,不能因調整而改接空庫。離線 `docker compose config` 可核對渲染結果,實際啟動/停止的隔離另行驗證。
+- API 與受管定義 CLI 的 `MONGODB_URI` 必填,沒有本地 fallback。主機執行 API 時,在其 `.env` 對齊 Compose host port/DB;db-migrator 也要明確指定同一目標。reset 核對操作者指定的環境、實際 DB 名稱與模式,不以名稱尾碼推測環境。
+- E2E 在自己的 `.env` 設定 `E2E_COMPOSE_PROJECT`、DB 名、API/admin/GCS port 與 bucket namespace。fake GCS up/down 都以 `-p` 指定該名稱,不受 shell 的 `COMPOSE_PROJECT_NAME` 蓋過;Compose 檔的 name 使用相同 E2E 變數作為直接執行時的預設。
 - 測試環境變數與命令見 `docs/agents/toolbox.md`、`apps/e2e/.env.example`、`apps/e2e/src/config.ts`;測試使用隔離資料庫及各專案的 DB、port、bucket namespace,不沿用正式 URI,也不將測試假憑證當正式設定。
 
 不同專案同機開發時,須分別驗證資料庫與儲存資源隔離。
@@ -84,4 +89,4 @@ ROOT_ADMIN 輸入與欄位政策見[種子資料與遷移](concepts/data-layer-a
 
 - Figma 檔案、Library 及品牌映射見 `docs/branding.md`;同步工具規劃見底座同步計畫。新專案須確認引用權限、品牌補套與元件連結。
 - agent 入口為 `CLAUDE.md`,共同接手規則見 `docs/agents/collaboration.md`;必要設定不得僅存在某工具私有記憶。
-- skills、共用文件與專案文案的分離隨對應工作包維護。初始化 skill 尚未完成,不能用「檔案都改完」取代完整建立/驗證紀錄。
+- skills、共用文件與專案文案的分離隨對應工作包維護。初始化 skill 指向[共同操作文件](agents/project-bootstrap.md),不能用「檔案都改完」取代完整建立/驗證紀錄。

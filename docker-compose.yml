@@ -1,10 +1,12 @@
+# 容器名、volume 與網路由 Compose 依專案名管理(預設 = 這個資料夾的名稱;要改名在根 `.env` 設
+# COMPOSE_PROJECT_NAME)。主機上的埠與 DB 名走 LOCAL_* 變數,範本與說明見根目錄 `.env.example`;
+# 容器內部的埠固定不變。
 services:
   mongo:
     image: mongo:8
-    container_name: cookhome-mongo
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "${LOCAL_MONGO_PORT:-27017}:27017"
     volumes:
       - mongo-data:/data/db
 
@@ -15,15 +17,14 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: cookhome-api
     profiles: ["full"]
     environment:
-      MONGODB_URI: mongodb://mongo:27017/cookhome
+      MONGODB_URI: mongodb://mongo:27017/${LOCAL_MONGO_DB:-cookhome}
       PORT: "5001"
       # 本機專用的固定值(api 沒有 JWT_SECRET 就起不來);雲端的值在 Secret Manager
       JWT_SECRET: local-dev-jwt-secret-change-me
     ports:
-      - "5001:5001"
+      - "${LOCAL_API_PORT:-5001}:5001"
     depends_on:
       - mongo
 
@@ -32,11 +33,11 @@ services:
       context: .
       dockerfile: apps/admin/Dockerfile
       args:
-        VITE_GRAPHQL_ENDPOINT: http://localhost:5001/graphql
-    container_name: cookhome-admin
+        # 瀏覽器從主機連 api,所以跟著主機上的 api 埠走
+        VITE_GRAPHQL_ENDPOINT: http://localhost:${LOCAL_API_PORT:-5001}/graphql
     profiles: ["full"]
     ports:
-      - "8080:8080"
+      - "${LOCAL_ADMIN_PORT:-8080}:8080"
     depends_on:
       - api
 

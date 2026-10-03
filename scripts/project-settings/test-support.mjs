@@ -82,6 +82,11 @@ export function sampleCloud() {
   };
 }
 
+/** 尚未啟用雲端的 cloud.json:只能有這兩欄。 */
+export function disabledCloud() {
+  return { schemaVersion: 1, enabled: false };
+}
+
 /**
  * CookHome 相容性夾具:設定抽出當下的 CookHome 兩份 JSON 的固定副本。
  * 「抽設定前後行為相同」的斷言一律拿它當輸入,不讀 repo 裡的正式設定 ——

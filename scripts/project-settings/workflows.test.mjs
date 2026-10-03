@@ -11,6 +11,7 @@ import { test } from "node:test";
 
 import {
   LEGACY_COOKHOME_REPOSITORY,
+  disabledCloud,
   fakeCommands,
   findStep,
   installScripts,
@@ -279,6 +280,38 @@ test("deploy:repository 不符、缺值、壞設定時,在認證與任何 gcloud
       "失敗時不留下任何輸出",
     );
   }
+});
+
+test("deploy:雲端未啟用時三個環境都止於設定步驟,訊息明確,不認證、不呼叫 gcloud / docker / pnpm、不留輸出", async () => {
+  const cwd = installScripts(makeProjectRoot({ cloud: disabledCloud() }));
+  for (const environment of Object.keys(ORIGINAL_DEPLOY)) {
+    for (const force of ["false", "true"]) {
+      const job = await runDeploy(environment, {
+        repository: "acme/widgets",
+        cwd,
+        force,
+      });
+      const label = `${environment} / force=${force}`;
+      assert.equal(job.failed?.label, "專案設定(核對 repo 與環境)", label);
+      assert.match(job.failed.stderr, /雲端尚未啟用/, label);
+      assert.equal(job.trace.some(isAuth), false, label);
+      assert.deepEqual(job.calls, [], label);
+      assert.deepEqual(Object.keys(job.failed.outputs), [], label);
+    }
+  }
+});
+
+test("deploy:雲端未啟用不放寬身分核對,repository 不符時是身分錯誤而不是停用訊息", async () => {
+  const job = await runDeploy("dev", {
+    repository: "someone/fork",
+    cwd: installScripts(makeProjectRoot({ cloud: disabledCloud() })),
+  });
+  assert.equal(job.failed?.label, "專案設定(核對 repo 與環境)");
+  assert.match(job.failed.stderr, /repository/);
+  assert.doesNotMatch(job.failed.stderr, /雲端尚未啟用/);
+  assert.equal(job.trace.some(isAuth), false);
+  assert.deepEqual(job.calls, []);
+  assert.deepEqual(Object.keys(job.failed.outputs), []);
 });
 
 test("deploy:非法環境直接交給設定步驟也會被拒絕", () => {
@@ -740,6 +773,31 @@ test("reset:repository 不符時在認證與讀 Secret 之前停止", async () =
   assert.deepEqual(job.calls, []);
 });
 
+test("reset:雲端未啟用時每個環境與模式都止於設定步驟,不認證、不安裝、不讀 Secret、不執行 reset", async () => {
+  const cwd = installScripts(makeProjectRoot({ cloud: disabledCloud() }));
+  for (const environment of Object.keys(RESET_DATABASES)) {
+    for (const mode of ["data", "full"]) {
+      const job = await runReset(environment, mode, {
+        repository: "acme/widgets",
+        cwd,
+      });
+      const label = `${environment} / ${mode}`;
+      assert.equal(job.failed?.label, "專案設定(核對 repo 與環境)", label);
+      assert.match(job.failed.stderr, /雲端尚未啟用/, label);
+      assert.equal(job.trace.some(isAuth), false, label);
+      assert.deepEqual(job.calls, [], label);
+      assert.deepEqual(Object.keys(job.failed.outputs), [], label);
+    }
+  }
+  const mismatch = await runReset("dev", "data", {
+    repository: "someone/fork",
+    cwd,
+  });
+  assert.equal(mismatch.failed?.label, "專案設定(核對 repo 與環境)");
+  assert.match(mismatch.failed.stderr, /repository/);
+  assert.deepEqual(mismatch.calls, []);
+});
+
 test("reset:--confirm 是操作者輸入的原值,workflow 不解析連線字串、不替他組確認字串;RESET_ALLOW_ENV 只等於所選環境", async () => {
   const { step } = findStep(
     resetSteps,
@@ -1132,6 +1190,34 @@ test("ci:有一個不看受影響清單、不需 pnpm install 的專案設定檢
   assert.match(job, /--scope github /);
   const verify = ci.slice(ci.indexOf("\n  verify:\n"));
   assert.match(verify, /needs:\s*\[[^\]]*project-settings[^\]]*\]/);
+});
+
+test("ci:正式設定 dry-run 對雲端未啟用的專案照樣成功(三環境各輸出停用狀態),身分不符仍失敗", () => {
+  const ci = readWorkflow("ci.yml");
+  const { step } = findStep(
+    parseSteps(ci.slice(ci.indexOf("\n  project-settings:\n"))),
+    (candidate) => candidate.name === "正式設定 dry-run",
+  );
+  assert.equal(step.env.REPOSITORY, "${{ github.repository }}");
+  const cwd = installScripts(makeProjectRoot({ cloud: disabledCloud() }));
+  const run = (repository) =>
+    runStepScript(step.run, {
+      env: { REPOSITORY: repository },
+      prelude: fakeCommands,
+      cwd,
+    });
+  const result = run("acme/widgets");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, "");
+  const lines = result.stdout.trimEnd().split("\n");
+  assert.deepEqual(lines.slice(0, 3), Array(3).fill('{"enabled":false}'));
+  assert.equal(JSON.parse(lines[3]).project_id, "PVT_sampleProject");
+  assert.deepEqual(result.calls, []);
+
+  const mismatch = run("someone/fork");
+  assert.notEqual(mismatch.status, 0);
+  assert.equal(mismatch.stdout, "");
+  assert.match(mismatch.stderr, /repository/);
 });
 
 // parseSteps 取的是第一個 job(prepare)的步驟

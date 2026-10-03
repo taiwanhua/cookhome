@@ -7,14 +7,15 @@ import type { Connection } from "mongoose";
 import { AuditModule } from "../audit/audit.module";
 import { DataScopeService } from "../data-scope/data-scope.service";
 import { DatabaseModule } from "../database/database.module";
+import { MONGODB_URI_ENV, requireMongoDbUri } from "../database/mongodb-uri";
 import { FormDesignModule } from "../forms/form-design/form-design.module";
 import { FormsCoreModule } from "../forms/forms-core.module";
 import { PermissionModule } from "../permission/permission.module";
 import { WorkflowDesignModule } from "../workflows/workflow-design/workflow-design.module";
 import { DefinitionSeedModule } from "./definition-seed.module";
 
-/** 連線字串的環境變數;CLI 與啟動它的命令必須是同一個資料庫,所以沒有預設值。 */
-export const MONGODB_URI_ENV = "MONGODB_URI";
+/** 連線字串的環境變數;CLI 與啟動它的命令必須是同一個資料庫,所以沒有預設值(檢查見 `database/mongodb-uri.ts`)。 */
+export { MONGODB_URI_ENV } from "../database/mongodb-uri";
 
 /**
  * 受管定義 CLI(`seed/run.ts`)的最小 Nest 組裝:Mongoose 連線、資料層、權限解析、稽核、
@@ -34,7 +35,7 @@ export const MONGODB_URI_ENV = "MONGODB_URI";
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        uri: config.getOrThrow<string>(MONGODB_URI_ENV),
+        uri: requireMongoDbUri(config.get<string>(MONGODB_URI_ENV)),
       }),
     }),
     DatabaseModule,

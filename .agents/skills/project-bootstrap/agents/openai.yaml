@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Bootstrap"
+  short_description: "引導新專案從正式底座版本建立，沿用設定格式並記錄驗證狀態"
+  default_prompt: "Use $project-bootstrap to initialize a new project from the released base version."

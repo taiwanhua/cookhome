@@ -112,19 +112,16 @@ export function listItems(
     expect(messages).toEqual([]);
   });
 
-  it("專案來源裡的豁免只有 Recipes 的專用 repository 一檔(既有例外不擴大)", () => {
-    const waived = ["project", "test-support/project-fixture"].flatMap(
-      (directory) =>
-        sourceFiles(path.join(SRC_ROOT, directory))
-          .filter((file) => readFileSync(file, "utf8").includes(RULE_ID))
-          .map((file) =>
-            path.relative(SRC_ROOT, file).split(path.sep).join("/"),
-          ),
-    );
-    expect(waived).toEqual(["project/database/recipes-legacy.repository.ts"]);
+  it("測試專案 fixture 沒有任何豁免(專案來源的精確豁免清單由專案自己的測試守)", () => {
+    const waived = sourceFiles(
+      path.join(SRC_ROOT, "test-support/project-fixture"),
+    )
+      .filter((file) => readFileSync(file, "utf8").includes(RULE_ID))
+      .map((file) => path.relative(SRC_ROOT, file).split(path.sep).join("/"));
+    expect(waived).toEqual([]);
   });
 
-  it("檔案第一行 eslint-disable(STRUCT-05)可豁免 — 供 BaseRepository 與 recipes 舊原型使用", () => {
+  it("檔案第一行 eslint-disable(STRUCT-05)可豁免 — 供 BaseRepository 與經審查的既有例外使用", () => {
     const messages =
       lintAsProductionFile(`/* eslint-disable ${RULE_ID} -- 測試:驗證豁免機制;到期條件:無 */
 import type { Model } from "mongoose";

@@ -110,6 +110,7 @@
 - 劇本 11 / 15 要 Docker Desktop 開著(fake GCS 容器),沒有就這兩條 skip、其餘照跑。
 - `--` 之後的旗標穿不過 `pnpm --filter`,所以選劇本走 `E2E_GREP`;agent 在 worktree 裡用 Bash 下 `VAR=…` 前綴會被守衛擋,用 PowerShell 那一欄。
 - 埠一改,admin 要重 build(api 端點是 build 時烘進 bundle 的),不要同時加 `E2E_SKIP_BUILD`。
+- 多專案並行時,在各自的 `apps/e2e/.env` 分別設定 DB、port、bucket 與 `E2E_COMPOSE_PROJECT`;fake GCS up/down 都顯式指定該 Compose 專案。
 
 正本:`apps/e2e/README.md`、`apps/e2e/.env.example`、`apps/e2e/src/config.ts`
 
@@ -126,6 +127,8 @@
 正本:`apps/admin/package.json`(`dev:mock`)、`apps/admin/vite.mock.config.ts`、`docs/standards/testing/testing.md`(TEST-08「mock 開發模式」)
 
 ## codegen 與資料庫(本機)
+
+API 與受管定義 CLI 的 `MONGODB_URI` 必填,不回退到內建 DB。schema 產生器與測試 harness 會自行提供隔離 URI;一般本機啟動依[架構](../architecture.md#本地開發)準備 `.env`。
 
 | 情境                             | 指令                                                                                                                                                                                                   | 提醒                                                                                                                    |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
@@ -155,6 +158,8 @@ GraphQL 文件登記負例用 `pnpm --filter @repo/graphql test:documents`,CI �
 正本:`apps/admin/package.json`
 
 ## Claude Code skill 對照表
+
+`project-bootstrap` 在 `.claude/skills/` 與 `.agents/skills/` 都有版控入口,共用 [project-bootstrap.md](project-bootstrap.md) 的步驟;Claude 與 Codex 可各自接手新專案初始化,不依賴本機記憶或另一個工具。
 
 「用哪個」欄是在 Claude Code 裡的呼叫名稱。repo 自帶的三個 skill 放在 `.agents/skills/`(版本鎖在 `skills-lock.json`);repo 自製的 skill 放在 `.claude/skills/<名稱>/`。
 
