@@ -14,18 +14,15 @@
 
 ## D:新專案初始化與底座基線
 
-底座 repo 為 `taiwanhua/wowgo-base`,公開且保留來源完整 Git 歷史。初始化、雙工具 skill、採用版本欄位與重跑操作見[共用初始化操作](../agents/project-bootstrap.md);候選程式與文件的審查、首版 annotated tag/Release 及進度以各票為準,不能只因 repo 已存在便視為正式底座可用。
+初始化、雙工具 skill、採用版本欄位與重跑操作見[共用初始化操作](../agents/project-bootstrap.md);正式版本見 repo 的 Releases,各專案的驗證與外部資源狀態記在 issue/PR。
 
 待完成的實際演練:
 
-- 以正式底座版本建立新品牌專案,保留完整 front/admin/api 與共同歷史,沿現有 TS/JSON/env 來源設定;檢查畫面、build、repo/版本識別與重新 clone 接手。
-- 重跑初始化保留客製來源、既有 `.env`、slug、DB/volume 與採用版本;外部整合分開記錄已提供、已建立、已驗證或明確停用。
-- 兩個隔離空庫各跑初建與重跑,再以同一 SeedSet 宣告驗共用表單/流程內容一致、版本不重複;組織 ID、帳號及分派仍各自獨立。空 registry 不能代替動態定義驗收。
-- 兩個實際專案同機啟動,DB、volume、port、儲存與 E2E Compose 名稱不互踩,停一邊不影響另一邊。`docker compose config` 只算離線核對。E2E 觸發仍依 issue tracker。
+- 修正新品牌演練發現的共用 seed 測試可攜性問題,發布修補版,由已有專案正常合併升級並驗證客製內容保留。
 - CookHome 首次接軌正常合併底座正式版,逐項保留品牌、食譜、前台、部署/seed/工具設定與經審查的資料層相容差異。相對自身 main,只有明列共用修正與採用版本紀錄,中性化的專案值差異須為零。
 - 以實際專案補驗後續升級與共用改良回收:包含 Git 無衝突地套入上游預設值的情況,確認專案客製仍保留。完整工具與 Figma 驗收仍依 E/F。
 
-Git 操作、main 前進後重建、完整 diff 審查與衍生產物重產,以 [deployment](../deployment.md#底座首次接軌與版本升級) 為唯一操作正本。候選版額外發現的共用缺口須明列修正,不可用任意隔離 bypass 或清庫解決。不可變 legacy migration 與 seed 快照保留,已驗項目及限制記在 issue/PR。
+Git 操作、main 前進後重建、完整 diff 審查與衍生產物重產,以 [deployment](../deployment.md#底座首次接軌與版本升級) 為唯一操作正本。演練發現的共用缺口須明列修正,不可用任意隔離 bypass 或清庫解決。不可變 legacy migration 與 seed 快照保留,已驗項目及限制記在 issue/PR。
 
 ## E:Figma 品牌與版本同步
 
