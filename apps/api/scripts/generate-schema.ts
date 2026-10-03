@@ -7,7 +7,8 @@
  * 不另外列一份 resolver 清單(列了就會跟 app.module.ts 漂移,漏掉的型別不會進 schema 也沒人發現)。
  * 兩個前置:
  * - `NODE_ENV` 必須不是 `test`(app.module.ts 在 test 下改用記憶體 schema,不寫檔),且要在 import 之前設 —
- *   AppModule 的設定在載入當下就讀掉了,所以用動態 import。
+ *   AppModule 載入當下 ConfigModule 就讀 `.env`、sandbox 開關也讀掉 `NODE_ENV`,所以用動態 import
+ *   (`MONGODB_URI` 則是連線 factory 執行時才讀)。
  * - Mongoose 會真的連線,所以起一台 mongodb-memory-server 給它連(不碰任何真資料庫)。
  */
 import { Test } from "@nestjs/testing";

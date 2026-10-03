@@ -37,6 +37,14 @@ export type FakeGcsState =
 /** 這一輪有沒有起容器(teardown 只收自己起的)。 */
 let isStarted = false;
 
+/**
+ * up 與 down 共用的 compose 參數。專案名明確用 `-p` 帶:shell 的 `COMPOSE_PROJECT_NAME`
+ * 優先於 compose 檔的 `name`,只靠 `composeEnv()` 會被它蓋過、起到(或收掉)別的專案。
+ */
+function composeArgs(...command: string[]): string[] {
+  return ["compose", "-p", COMPOSE_PROJECT, "-f", COMPOSE_FILE, ...command];
+}
+
 function composeEnv(): NodeJS.ProcessEnv {
   return {
     E2E_COMPOSE_PROJECT: COMPOSE_PROJECT,
@@ -100,7 +108,7 @@ export async function startFakeGcs(): Promise<FakeGcsState> {
     return writeState({ available: false, reason });
   }
 
-  await run("docker", ["compose", "-f", COMPOSE_FILE, "up", "-d"], {
+  await run("docker", composeArgs("up", "-d"), {
     label: "起 fake GCS",
     cwd: E2E_DIR,
     env: composeEnv(),
@@ -123,7 +131,7 @@ export async function stopFakeGcs(): Promise<void> {
     return;
   }
   isStarted = false;
-  await run("docker", ["compose", "-f", COMPOSE_FILE, "down"], {
+  await run("docker", composeArgs("down"), {
     label: "收 fake GCS",
     cwd: E2E_DIR,
     env: composeEnv(),
