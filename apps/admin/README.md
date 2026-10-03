@@ -1,6 +1,6 @@
 # @repo/admin
 
-CookHome 後台管理(Vite + React,部署成 nginx 靜態站台)。頁面與規則的正本在 `docs/modules/`,
+多租戶後台管理(Vite + React,部署成 nginx 靜態站台)。頁面與規則的正本在 `docs/modules/`,
 資料流與規範見 `docs/standards/`(前端從 `react/` 與 `testing/testing.md` 看起)。
 
 ```

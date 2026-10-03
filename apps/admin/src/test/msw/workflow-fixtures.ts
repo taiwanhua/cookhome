@@ -241,7 +241,7 @@ export const workflowFragment = (
   name: "病假審核",
   isShared: false,
   ownerOrgId: "org-1",
-  ownerOrgName: "CookHome",
+  ownerOrgName: "平台根組織",
   forkedFrom: null,
   currentVersion: 1,
   hasDraft: true,

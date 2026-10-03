@@ -81,7 +81,7 @@
 **刪除**:前置檢查全部通過才可:無子組織、無成員(`org_user`)、不是任何存活角色的擁有組織、無業務資料引用。任一不通過 → 提示改用停用。刪除 = 軟刪除(ADR-0007)。
 
 - 「非角色擁有組織」**只算存活的角色**:角色被軟刪除時 `org_role` 關聯刻意不動(ADR-0007 / ADR-0001),只看關聯會把「角色都刪光了」的組織永遠判成不可刪,所以以 `roles` 文件為準(`ownsAliveRole()`)。
-- 「無業務資料引用」數的是 `OrgBusinessDataReader.hasBusinessData()` 組裝的全部帶組織歸屬的業務 collection:以 `orgId` 指向本組織的 `customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)、`form_submissions`、`workflow_instances`;以租戶頂層為歸屬、沒有 `orgId` 的 `forms`(`ownerOrgId`)、`workflows` 與 `workflow_tasks`(`tenantId`)—— 這三張只有租戶頂層會命中,正是撤銷開通問的那一層。任一張有一筆就不可刪 / 不可撤銷開通。`audit_logs` 不算(只增不改的歷史紀錄)。新增專案租戶 collection 時,在 `project/database/registrations.ts` 一併登記 model、repository 與組織歸屬檢查,由固定入口驗證及 reader 執行;漏登記或錯綁 repository 會失敗,查詢錯誤不能當成沒有資料。底座七份 BaseRepository 檢查與兩份 workflow 專用 adapter 保留,Recipe 既有例外見[資料層組裝](../concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
+- 「無業務資料引用」數的是 `OrgBusinessDataReader.hasBusinessData()` 組裝的全部帶組織歸屬的業務 collection:以 `orgId` 指向本組織的 `customers`、`demo_items_one`、`demo_items_two`、`fields`(租戶自訂欄位選項)、`form_submissions`、`workflow_instances`;以租戶頂層為歸屬、沒有 `orgId` 的 `forms`(`ownerOrgId`)、`workflows` 與 `workflow_tasks`(`tenantId`)—— 這三張只有租戶頂層會命中,正是撤銷開通問的那一層。任一張有一筆就不可刪 / 不可撤銷開通。`audit_logs` 不算(只增不改的歷史紀錄)。新增專案租戶 collection 時,在 `project/database/registrations.ts` 一併登記 model、repository 與組織歸屬檢查,由固定入口驗證及 reader 執行;漏登記或錯綁 repository 會失敗,查詢錯誤不能當成沒有資料。底座七份 BaseRepository 檢查與兩份 workflow 專用 adapter 保留;專案登記契約見[資料層組裝](../concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
 
 **子樹類動作不受可見範圍裁切**:停用連動、搬移的 `ancestors` 重算、刪除前置的「有沒有子組織」以整棵子樹為準(可見範圍決定「看得到誰的資料」,不該讓連動只做一半)。程式上是 `orgs.service.ts` 的 `subtreeContext()`,只准搭配把查詢釘在該子樹內的條件。
 

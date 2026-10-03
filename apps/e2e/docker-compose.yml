@@ -9,7 +9,7 @@
 #   E2E_GCS_PORT       主機上的埠
 #   E2E_GCS_ENDPOINT   瀏覽器與 api 看到的端點(= 簽名網址與公開 URL 的前綴)
 #   E2E_GCS_PUBLIC_HOST 同上、不含 scheme
-name: ${E2E_COMPOSE_PROJECT:-cookhome-e2e}
+name: ${E2E_COMPOSE_PROJECT:-wowgo-base-e2e}
 
 services:
   fake-gcs:

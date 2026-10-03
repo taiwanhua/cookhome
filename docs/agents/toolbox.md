@@ -130,13 +130,13 @@
 
 API 與受管定義 CLI 的 `MONGODB_URI` 必填,不回退到內建 DB。schema 產生器與測試 harness 會自行提供隔離 URI;一般本機啟動依[架構](../architecture.md#本地開發)準備 `.env`。
 
-| 情境                             | 指令                                                                                                                                                                                                   | 提醒                                                                                                                    |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
-| 改了 api 的 GraphQL schema       | `pnpm --filter @repo/api schema:generate` → `pnpm --filter @repo/graphql generate`(依序)                                                                                                               | `apps/api/schema.gql` 與 `packages/graphql/src/generated` 同一個 commit(GQL-05);先依上方建置前置步驟準備 workspace 產物 |
-| 本機設定與資料更新               | `pnpm --filter @repo/db-migrator run update`                                                                                                                                                           | 先依 [deployment](../deployment.md#設定與資料更新)建置同一 checkout 的 API CLI;需要 `MONGODB_URI` 與 `ROOT_ADMIN_*`     |
-| 查更新狀態 / 單支 migration 還原 | `pnpm --filter @repo/db-migrator migrate:status`、`… migrate:down`                                                                                                                                     | status 唯讀;down 只還原 migration,不回滾 seed 或定義。限制與續跑見 deployment                                           |
-| 本機還原資料庫(Bash)             | `RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev pnpm --filter @repo/db-migrator run reset --environment=dev --mode=data --confirm=reset:dev:cookhome-dev:data`                 | 先完成 update 的建置及 root 環境變數準備;環境須明示,不由 DB 名尾碼推測                                                  |
-| 本機還原資料庫(PowerShell)       | `$env:RESET_ALLOW_ENV="dev"; $env:MONGODB_URI="mongodb://127.0.0.1:27017/cookhome-dev"; pnpm --filter @repo/db-migrator run reset --environment=dev --mode=data --confirm=reset:dev:cookhome-dev:data` | 改為 full 時,模式參數與確認字串都須改為 full                                                                            |
+| 情境                             | 指令                                                                                                                                                                                                 | 提醒                                                                                                                    |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 改了 api 的 GraphQL schema       | `pnpm --filter @repo/api schema:generate` → `pnpm --filter @repo/graphql generate`(依序)                                                                                                             | `apps/api/schema.gql` 與 `packages/graphql/src/generated` 同一個 commit(GQL-05);先依上方建置前置步驟準備 workspace 產物 |
+| 本機設定與資料更新               | `pnpm --filter @repo/db-migrator run update`                                                                                                                                                         | 先依 [deployment](../deployment.md#設定與資料更新)建置同一 checkout 的 API CLI;需要 `MONGODB_URI` 與 `ROOT_ADMIN_*`     |
+| 查更新狀態 / 單支 migration 還原 | `pnpm --filter @repo/db-migrator migrate:status`、`… migrate:down`                                                                                                                                   | status 唯讀;down 只還原 migration,不回滾 seed 或定義。限制與續跑見 deployment                                           |
+| 本機還原資料庫(Bash)             | `RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/project-dev pnpm --filter @repo/db-migrator run reset --environment=dev --mode=data --confirm=reset:dev:project-dev:data`                 | 先完成 update 的建置及 root 環境變數準備;環境須明示,不由 DB 名尾碼推測                                                  |
+| 本機還原資料庫(PowerShell)       | `$env:RESET_ALLOW_ENV="dev"; $env:MONGODB_URI="mongodb://127.0.0.1:27017/project-dev"; pnpm --filter @repo/db-migrator run reset --environment=dev --mode=data --confirm=reset:dev:project-dev:data` | 改為 full 時,模式參數與確認字串都須改為 full                                                                            |
 
 正本:`apps/api/package.json`、`packages/graphql/package.json`、`apps/db-migrator/package.json`、`apps/db-migrator/src/reset/reset-safety.ts`、`docs/env-registry.md`
 
@@ -196,7 +196,7 @@ GraphQL 文件登記負例用 `pnpm --filter @repo/graphql test:documents`,CI �
 主流程派工時複製下面這段,把 `<…>` 換掉。重點是讓 agent 只靠 repo + issue 就能做完。
 
 ```
-你是無本地對話 session 的接手 agent,實作 GitHub issue taiwanhua/cookhome#<票號>(<一句話標題>)。以繁體中文工作與回報。
+你是無本地對話 session 的接手 agent,實作 GitHub issue <目前 repo>#<票號>(<一句話標題>)。以繁體中文工作與回報。
 
 ## 接手順序
 1. 讀根目錄 CLAUDE.md → docs/agents/issue-tracker.md(SOP、交件報告格式)→ docs/agents/pitfalls.md → gh issue view <票號> --json title,body,comments(票面的「可改 / 不可改」嚴格遵守)。
@@ -222,6 +222,8 @@ PR 連結、改動檔案清單、測試結果(與基準比較)、截圖或 E2E �
 正本:[issue-tracker.md](./issue-tracker.md)「實作一張票」與「交件報告格式」
 
 ## 批次 release(指路)
+
+以下是已啟用雲端的流程;底座與停用雲端的專案依 [deployment](../deployment.md#release-步驟)以 CI、本機應用與資料驗收發布程式版本。
 
 - 一批票各自合 `dev`、各自合 `staging`,累積後走一次 `staging → main` 的 release PR + 一次 production 部署;例外只有「產物依賴」才單獨先 release。
 - 步驟:逐一合 `staging` → `gh workflow run Deploy --ref staging -f environment=staging` + smoke → release PR 合 `main` → `gh workflow run Deploy --ref main -f environment=production` + smoke → 對齊 `dev` / `staging` → 關票、刪已合併的遠端分支。

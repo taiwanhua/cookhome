@@ -26,7 +26,7 @@ on:
         type: choice
         options: [data, full]
       confirmation:
-        description: "人工確認,完整輸入:reset:<environment>:<資料庫名>:<mode>(例:reset:dev:cookhome-dev:data)"
+        description: "人工確認,完整輸入:reset:<environment>:<資料庫名>:<mode>(例:reset:dev:wowgo-base-dev:data)"
         required: true
         type: string
 

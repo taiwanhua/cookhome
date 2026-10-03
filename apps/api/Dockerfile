@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# 建置方式(從 repo 根目錄):docker build -f apps/api/Dockerfile -t cookhome-api .
+# 建置方式(從 repo 根目錄):docker build -f apps/api/Dockerfile -t wowgo-base-api .
 
 # ---- base:node + pnpm(corepack 依 root package.json 的 packageManager 欄位選版本) ----
 FROM node:22-alpine AS base

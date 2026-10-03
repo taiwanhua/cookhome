@@ -7,12 +7,12 @@ export const STORAGE_CONFIG = Symbol("STORAGE_CONFIG");
 
 export interface StorageConfig {
   /**
-   * 私有 bucket 名稱(`GCS_BUCKET_PRIVATE`,如 `cookhome-assets-dev`;ADR-0010)。
+   * 私有 bucket 名稱(`GCS_BUCKET_PRIVATE`,如 `<專案>-assets-dev`;ADR-0010)。
    * 未設 → 自動改用記錄用 adapter(簽名網址是假的、檔案不會真的上傳),api 不因缺設定而啟動失敗。
    */
   privateBucket: string | undefined;
   /**
-   * 公開 bucket 名稱(`GCS_BUCKET_PUBLIC`,如 `cookhome-public-dev`;ADR-0010)。
+   * 公開 bucket 名稱(`GCS_BUCKET_PUBLIC`,如 `<專案>-public-dev`;ADR-0010)。
    * 第 3 段沒有公開檔案,先登記、先讀進來;第 5 段示範模組的封面才會用到。
    */
   publicBucket: string | undefined;

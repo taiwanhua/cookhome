@@ -43,8 +43,8 @@ apps/<app>/src/
 ## STRUCT-04 GraphQL 產物只走 `@repo/graphql` 的出口
 
 ```ts
-✅ import { useRecipesQuery } from "@repo/graphql";
-❌ import { useRecipesQuery } from "@repo/graphql/src/generated";
+✅ import { useModuleTreeQuery } from "@repo/graphql";
+❌ import { useModuleTreeQuery } from "@repo/graphql/src/generated";
 ```
 
 `src/generated` 是 codegen 產物(lint 也忽略它),永遠不手改、不深層 import。
@@ -54,7 +54,7 @@ apps/<app>/src/
 需要豁免某條 lint 規則時,一律寫在**該檔案第一行**的 `/* eslint-disable ... */`,且註解**必附原因與到期條件**;禁止在 ESLint config 以路徑白名單豁免(刪檔後留殭屍設定、讀檔案的人看不見豁免)。
 
 ```ts
-/* eslint-disable @repo/no-raw-model-query -- deprecated:早期原型,食譜域重寫時整包刪除 */
+/* eslint-disable <規則> -- <具體原因>;解除條件:<何時移除> */
 ```
 
 **已知會誤判、豁免時照抄理由的規則**(碰到就在該行寫 `// eslint-disable-next-line`,別為了閃它改寫程式):
@@ -216,7 +216,7 @@ grep -rnE "20[0-9]{2}-[0-9]{2}-[0-9]{2}|第 [0-9一二三四五六] 段|#[0-9]{2
 - 功能來源為 `base/api-modules.ts` 與 `project/api-modules.ts`,專案功能由 `project/project.module.ts` 掛載;`app.module.ts` 是底座讀取專案功能的固定入口,不提供核心 module/provider 替換。
 - 資料來源為 `database/base/registrations.ts` 與 `project/database/registrations.ts`,只由 `database/database.module.ts` 組裝。業務服務使用 repository,不自行以 Mongoose 注入或註冊 Model。
 - repository providers 與 Nest exports 由登記導出,不匯出 Model provider 或整個 MongooseModule。底座 repository 實作放 `database/base/` 等 leaf 檔,不回指組裝入口;`database.module.ts` 保留既有 repository 的 TypeScript re-export 相容出口。
-- 新專案租戶資料沿用 BaseRepository 與隔離 plugins,同時登記組織歸屬檢查;刪組織與撤銷開通共用 `OrgBusinessDataReader`,不能新增可繞過檢查的 callback。Recipes 的既有相容例外不供新模組套用。
+- 新專案租戶資料沿用 BaseRepository 與隔離 plugins,同時登記組織歸屬檢查;刪組織與撤銷開通共用 `OrgBusinessDataReader`,不能新增可繞過檢查的 callback。專案資料登記不提供略過隔離的開關。
 - 測試 fixture 只豁免所有權方向,不新增 raw query 或 Mongoose 任意注入的例外;正式來源不得引用 fixture。驗收入口見 TEST-07 / TEST-08。
 
 ## STRUCT-13 方案設計先核對現況,優先延伸既有機制

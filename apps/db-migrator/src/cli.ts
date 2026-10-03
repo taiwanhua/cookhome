@@ -33,7 +33,7 @@ export function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(
-      `缺少 ${name} 環境變數(需含資料庫名稱,例:mongodb://127.0.0.1:27017/cookhome)`,
+      `缺少 ${name} 環境變數(需含資料庫名稱,例:mongodb://127.0.0.1:27017/wowgo-base)`,
     );
   }
   return value;

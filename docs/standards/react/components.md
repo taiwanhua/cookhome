@@ -32,7 +32,7 @@
 5. context **只剩注入用**(theme、QueryClient、Intl provider、`AuthSession` 實例),不承載會變的狀態;redux / 自刻 `useSyncExternalStore` store 不用。注入用的 context 物件**與它的 hook 同檔、放 `hooks/`**(`hooks/useSession.ts` 同時匯出 `SessionContext` 與 `useSession`),provider 元件放 `app/providers/`。
 
 ```ts
-✅ export const useLocaleStore = create<LocaleState>()(persist((set) => ({ … }), { name: "cookhome-admin-locale", storage: localeStorage }));
+✅ export const useLocaleStore = create<LocaleState>()(persist((set) => ({ … }), { name: adminStorageKeys.locale, storage: localeStorage }));
 ❌ const LocaleContext = createContext<{ locale; setLocale }>(…)   // 承載狀態的 context
 ```
 
@@ -125,7 +125,7 @@ MUI X 的 `RichTreeView`、DataGrid 這類元件收的是**元件本身**,不是
 
 正本:`packages/ui/src/Tooltip/Tooltip.tsx`
 
-`@repo/ui/tooltip` 的 `Tooltip` **與 MUI 的預設不同,`describeChild` 預設是 `true`**,理由是提示在 CookHome 一律是「補充說明」而不是「這顆按鈕叫什麼」:
+`@repo/ui/tooltip` 的 `Tooltip` **與 MUI 的預設不同,`describeChild` 預設是 `true`**,理由是提示在共用介面一律是「補充說明」而不是「這顆按鈕叫什麼」:
 
 - `describeChild` 為 `true` → 掛 `aria-describedby`,**元素原本的無障礙名稱留著**;
 - MUI 的預設(`false`)會掛 `aria-label`,**把名稱整個蓋掉** ——「停用」按鈕會變成叫「平台根組織不可停用」。

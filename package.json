@@ -1,5 +1,5 @@
 {
-  "name": "cookhome",
+  "name": "wowgo-base",
   "private": true,
   "scripts": {
     "build": "turbo run build",
