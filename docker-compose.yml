@@ -19,7 +19,7 @@ services:
       dockerfile: apps/api/Dockerfile
     profiles: ["full"]
     environment:
-      MONGODB_URI: mongodb://mongo:27017/${LOCAL_MONGO_DB:-cookhome}
+      MONGODB_URI: mongodb://mongo:27017/${LOCAL_MONGO_DB:-wowgo-base}
       PORT: "5001"
       # 本機專用的固定值(api 沒有 JWT_SECRET 就起不來);雲端的值在 Secret Manager
       JWT_SECRET: local-dev-jwt-secret-change-me

@@ -89,7 +89,7 @@ describe("組織管理頁:根組織與租戶頂層的時區", () => {
     const { user: actor, fake } = renderPage();
 
     await waitForTree();
-    await clickNode(actor, "CookHome");
+    await clickNode(actor, "平台根組織");
     await actor.click(
       await within(detail()).findByRole("button", { name: "編輯" }),
     );

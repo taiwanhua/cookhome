@@ -12,7 +12,7 @@ export interface AuthConfig {
   accessTokenTtlMs: number;
   /** refresh token 效期(`REFRESH_TOKEN_TTL`,預設 30d)。 */
   refreshTokenTtlMs: number;
-  /** refresh cookie 的 Domain(`COOKIE_DOMAIN`,雲端 `.cookhome.online`);本地不設 → 不帶 Domain。 */
+  /** refresh cookie 的 Domain(`COOKIE_DOMAIN`,雲端如 `.example.com`);本地不設 → 不帶 Domain。 */
   cookieDomain: string | undefined;
 }
 

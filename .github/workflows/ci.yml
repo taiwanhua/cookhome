@@ -298,7 +298,7 @@ jobs:
       - name: test(api 第 ${{ matrix.shard }} / 2 片)
         run: pnpm --filter @repo/api exec jest --passWithNoTests --detectOpenHandles --forceExit --shard=${{ matrix.shard }}/2
         env:
-          MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
+          MONGODB_URI: mongodb://127.0.0.1:27017/wowgo-base
 
   # admin 的測試(約 600 案、單跑 5 分多)同樣用 jest 的 --shard 分兩台。
   # admin 的 jest 吃依賴的 dist(與 turbo 的 test dependsOn ^build 一致),先用 turbo build 依賴(`^...` = 不含 admin 本身),
@@ -393,7 +393,7 @@ jobs:
       - name: test
         run: pnpm exec turbo run test ${{ needs.prepare.outputs.others-filter }} --log-order=stream -- --forceExit
         env:
-          MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
+          MONGODB_URI: mongodb://127.0.0.1:27017/wowgo-base
 
       - name: 修剪 turbo 快取
         run: find .turbo/cache -type f -mtime +7 -delete 2>/dev/null || true
@@ -445,7 +445,7 @@ jobs:
           node apps/api/dist/main.js &
           timeout 60 bash -c 'until curl -sf -X POST -H "Content-Type: application/json" -d "{\"query\":\"{__typename}\"}" http://127.0.0.1:5001/graphql -o /dev/null; do sleep 2; done'
         env:
-          MONGODB_URI: mongodb://127.0.0.1:27017/cookhome
+          MONGODB_URI: mongodb://127.0.0.1:27017/wowgo-base
           PORT: "5001"
           # api 缺少 JWT_SECRET 即啟動失敗;CI 只需一個假值讓 front 預渲染能打到 api
           JWT_SECRET: ci-only-jwt-secret
