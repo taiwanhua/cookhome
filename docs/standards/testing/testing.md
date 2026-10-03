@@ -62,6 +62,15 @@ api 的功能測試只有一個接縫:用 supertest 對啟動起來的 Nest app 
 - fixture 的資料與授權由隔離測試環境建立,不改正式 seed。以真 GraphQL / MongoDB 驗證授權、租戶隔離、軟刪除與資料範圍;專案資料即使被資料範圍隱藏,仍須阻止刪組織及撤銷開通,其他組織資料不誤擋,檢查失敗不能放行。
 - 碰撞與缺少必要資料保護的負例須在組裝或啟動時失敗;另保留真實正式登記來源的載入驗證。fixture 的 import 例外只限所有權方向,不擴大 raw query 豁免(STRUCT-12)。
 
+### seed 測試的來源
+
+- 共用測試使用明確的 fixture 來源,經正式組裝與更新程序執行。固定數量、空定義、碰撞及負例不讀引用專案的正式 seed,也不把 fixture 疊在未知的 project 登記上。
+- API 的 `seedDatabase`、`runMigratorUpdate` 與 reset 測試使用 `apps/db-migrator/test/fixtures/seeds-base/registry.ts`;migration 仍讀正式來源。專案測試若需要自己的種子,可在測試資料庫建立後透過 `runMigratorUpdate` 明給 `--registry=<路徑>`,不修改共用夾具。
+- 正式 `seeds/registry.ts` 另驗實際登記、命名與來源政策,不得因隔離 fixture 而刪掉正式來源檢查。專案新增合法設定不應改變共用負例的涵義。
+- 修改這些測試來源時,同時驗空 project 與含專案模組、表單、流程的來源;沿用 `SeedSource` / `SeedSet`,不另外維護一種測試設定格式。
+
+正本:`apps/db-migrator/src/seed/seed-formal-registry.test.ts`、`seed-composition.test.ts`、`seed-key-convention.test.ts`、`seed-test-sources.test.ts`、`apps/api/src/auth/test-support/auth-app.ts`
+
 ## TEST-08 admin 的元件測試:MSW 攔網路層 + React Testing Library
 
 先例:`apps/admin/src/test/`(`setup.ts` MSW 生命週期、`msw/server.ts`、`msw/auth-handlers.ts`、`render.tsx` 的 `renderApp()`),測試檔與元件同資料夾、同名 `.test.tsx`(GEN-01)。
