@@ -6,7 +6,7 @@ import { verify as verifyArgon2 } from "@node-rs/argon2";
 import { MongoClient, ObjectId } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
-import { projectSeedSettings } from "../../seeds/project/settings";
+import { baseOnlyProjectSettings } from "../../test/fixtures/seeds-base/project-source";
 
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
 const TSX_CLI = path.join(
@@ -65,12 +65,17 @@ interface RunSeedOptions {
   registryPath?: string;
 }
 
-/** 以子行程執行 seed 指令(等同 `pnpm --filter db-migrator seed`)。 */
+/**
+ * 以子行程執行 seed 指令(等同 `pnpm --filter db-migrator seed <registry 檔>`)。
+ * 預設用**空專案來源的夾具 registry**(`test/fixtures/seeds-base/`):這個檔驗的是底座種子的落庫結果與固定數量,
+ * 不能隨引用專案在 `seeds/project/` 的登記變動。正式 registry 對真 MongoDB 的檢查在 `seed-formal-registry.test.ts`。
+ */
 function runSeedCommand(databaseUri: string, options: RunSeedOptions = {}) {
-  const args = [TSX_CLI, SEED_ENTRY];
-  if (options.registryPath) {
-    args.push(options.registryPath);
-  }
+  const args = [
+    TSX_CLI,
+    SEED_ENTRY,
+    options.registryPath ?? fixtureRegistryPath("seeds-base"),
+  ];
   return spawnSync(process.execPath, args, {
     cwd: PACKAGE_ROOT,
     env: {
@@ -266,7 +271,7 @@ describe("seed 指令(對真 MongoDB)", () => {
     expect(orgs).toHaveLength(1);
     expect(orgs[0]).toMatchObject({
       key: "root",
-      name: projectSeedSettings.rootOrg.name,
+      name: baseOnlyProjectSettings.rootOrg.name,
       parentId: null,
       ancestors: [],
       isSystem: true,
@@ -321,8 +326,8 @@ describe("seed 指令(對真 MongoDB)", () => {
     expect(runSeedCommand(databaseUri).status).toBe(0);
     const { orgs } = await readSeededDocuments(databaseUri);
     expect(orgs[0]).toMatchObject({
-      name: projectSeedSettings.rootOrg.name,
-      description: projectSeedSettings.rootOrg.description,
+      name: baseOnlyProjectSettings.rootOrg.name,
+      description: baseOnlyProjectSettings.rootOrg.description,
     });
   }, 120_000);
 

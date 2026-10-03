@@ -1,16 +1,16 @@
 import { fieldCategories } from "../../../seeds/base/field-categories";
 import { fields } from "../../../seeds/base/fields";
 import { rootOrgSeed } from "../../../seeds/base/orgs";
-import { projectSeedSettings } from "../../../seeds/project/settings";
 import { type SeedRegistry, seedRef } from "../../../src/seed/seed-declaration";
+import { baseOnlyProjectSettings } from "../seeds-base/project-source";
 
 /**
- * 夾具 registry(認養):正式的組織 / 類別 / 選項宣告,再多宣告一個 `cuisine` 類別與兩個選項 ——
+ * 夾具 registry(認養):底座的組織 / 類別 / 選項宣告(根組織用空專案來源夾具的初值),再多宣告一個 `cuisine` 類別與兩個選項 ——
  * 測試先以「root 在畫面建」的形狀塞好 `cuisine` 與 `spicy`,這一版 seed 應以 key 認養它們;
  * `demo-category` 補一段說明,驗「更新」照常計數。
  */
 export const seedRegistry: SeedRegistry = [
-  rootOrgSeed(projectSeedSettings.rootOrg),
+  rootOrgSeed(baseOnlyProjectSettings.rootOrg),
   {
     ...fieldCategories,
     entries: [
