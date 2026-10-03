@@ -327,11 +327,11 @@ RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev \
 先核對 cloud.json 的 GCP project、region 與服務名,再查狀態;不依賴本機 gcloud 的預設 project。
 
 ```bash
-gcloud run services list                                   # 服務清單與 URL
-gcloud run revisions list --service=cookhome-api           # 歷史版本(回滾用)
-gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="cookhome-api"' --limit=30
-gcloud secrets versions list mongodb-uri                   # secret 版本
-gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=asia-east1  # 網域/憑證狀態
+gcloud run services list --project=cookhome-online --region=asia-east1 # 服務清單與 URL
+gcloud run revisions list --service=cookhome-api --project=cookhome-online --region=asia-east1 # 歷史版本(回滾用)
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="cookhome-api"' --limit=30 --project=cookhome-online
+gcloud secrets versions list mongodb-uri --project=cookhome-online # secret 版本
+gcloud beta run domain-mappings describe --domain=api.cookhome.online --project=cookhome-online --region=asia-east1 # 網域/憑證狀態
 ```
 
 - Cloud Run UI:console.cloud.google.com → Cloud Run。編輯表單顯示的 max instances「20」是表單的建議值,實際生效值看 Revisions 分頁(2)。
