@@ -6,6 +6,8 @@ import { verify as verifyArgon2 } from "@node-rs/argon2";
 import { MongoClient, ObjectId } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
 
+import { projectSeedSettings } from "../../seeds/project/settings";
+
 const PACKAGE_ROOT = path.resolve(__dirname, "..", "..");
 const TSX_CLI = path.join(
   PACKAGE_ROOT,
@@ -264,7 +266,7 @@ describe("seed 指令(對真 MongoDB)", () => {
     expect(orgs).toHaveLength(1);
     expect(orgs[0]).toMatchObject({
       key: "root",
-      name: "CookHome",
+      name: projectSeedSettings.rootOrg.name,
       parentId: null,
       ancestors: [],
       isSystem: true,
@@ -319,8 +321,8 @@ describe("seed 指令(對真 MongoDB)", () => {
     expect(runSeedCommand(databaseUri).status).toBe(0);
     const { orgs } = await readSeededDocuments(databaseUri);
     expect(orgs[0]).toMatchObject({
-      name: "CookHome",
-      description: "平台營運者(根組織)",
+      name: projectSeedSettings.rootOrg.name,
+      description: projectSeedSettings.rootOrg.description,
     });
   }, 120_000);
 
