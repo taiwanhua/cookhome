@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 
 import { runReset } from "../../test/support/reset-harness";
 import {
+  BASE_ONLY_REGISTRY,
   BUILD_TIMEOUT_MS,
   PACKAGE_ROOT,
   SEED_ENTRY,
@@ -27,9 +28,14 @@ function fixtureRegistry(fixtureName: string): string {
   return `--registry=${path.join(PACKAGE_ROOT, "test", "fixtures", fixtureName, "registry.ts")}`;
 }
 
-/** 正式種子 + 一些人建的資料(租戶組織、業務表),reset 成功的話這些會被刪掉。 */
+/**
+ * 底座種子(空專案來源的夾具 registry)+ 一些人建的資料(租戶組織、業務表),reset 成功的話這些會被刪掉。
+ * 不用正式 registry:之後的 reset 換上夾具 registry,起點若已裝了引用專案登記的同 key 模組或定義,
+ * 「補上專案模組」與「定義首次發布(created)」就不是這裡要驗的情境。
+ */
 async function prepareDatabase(databaseUri: string): Promise<void> {
-  const seeded = await startEntry(SEED_ENTRY, [], databaseUri).done;
+  const seeded = await startEntry(SEED_ENTRY, [BASE_ONLY_REGISTRY], databaseUri)
+    .done;
   expect(seeded.stderr).toBe("");
   expect(seeded.status).toBe(0);
   await withDatabase(databaseUri, async (database) => {

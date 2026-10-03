@@ -159,6 +159,13 @@ export function fixtureSourceRoot(...segments: string[]): string {
   return path.join(PACKAGE_ROOT, "test", "fixtures", ...segments);
 }
 
+/**
+ * 空專案來源的夾具 registry(`test/fixtures/seeds-base/`:只有底座、沒有任何定義),寫成指令參數。
+ * 驗底座固定內容或「沒有登記定義」的案例用它,不用正式的 `seeds/registry.ts`(引用專案會在那裡登記自己的內容);
+ * migration 仍是正式來源的那幾支。
+ */
+export const BASE_ONLY_REGISTRY = `--registry=${fixtureSourceRoot("seeds-base", "registry.ts")}`;
+
 /** 本地起 mongodb-memory-server;CI 沿用既有 MongoDB service container(MONGODB_URI)。 */
 export class TestMongo {
   private memoryServer: MongoMemoryServer | undefined;

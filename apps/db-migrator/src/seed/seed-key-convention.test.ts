@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import { seedRegistry } from "../../seeds/registry";
+import { seedRegistry as baseRegistry } from "../../test/fixtures/seeds-base/registry";
 import {
   type SeedDocument,
   type SeedRegistry,
@@ -255,19 +256,36 @@ describe("種子權限 key 規約(ADR-0004;純函式全掃種子宣告)", () => 
   });
 });
 
-describe("seeds/registry.ts 靜態檢查", () => {
+function entryKeysOf(registry: SeedRegistry, collection: string): string[] {
+  return registry.flatMap((set) =>
+    set.kind === "documents" && set.collection === collection
+      ? set.entries.map((entry) => entry.key)
+      : [],
+  );
+}
+
+describe("seeds/registry.ts 靜態檢查(正式 registry:底座 + 引用專案登記的內容)", () => {
   it("所有種子模組與權限宣告皆符合 key 規約", () => {
     expect(findSeedKeyViolations(seedRegistry)).toEqual([]);
   });
 
+  it("專案登記不取代也不拿掉底座的模組與權限:底座宣告的每一個 key 都還在", () => {
+    for (const collection of ["modules", "permissions"]) {
+      expect(entryKeysOf(seedRegistry, collection)).toEqual(
+        expect.arrayContaining(entryKeysOf(baseRegistry, collection)),
+      );
+    }
+  });
+});
+
+describe("底座宣告的靜態檢查(空的專案來源夾具:數量不隨引用專案的登記變動)", () => {
+  it("所有種子模組與權限宣告皆符合 key 規約", () => {
+    expect(findSeedKeyViolations(baseRegistry)).toEqual([]);
+  });
+
   it("示範家族(含三個示範表單)、治理模組(含表單 / 流程管理)、申請中心依正本落地:個別權限 12 + 13 + 8 + 7 + 4 + 5 + 2 + 5 + 7 + 1 + 4 × 3 = 76 筆;全部 38 個模組各一筆 wildcard(共 114 筆)", () => {
-    const documentSets = seedRegistry.filter((set) => set.kind === "documents");
-    const moduleKeys = documentSets
-      .filter((set) => set.collection === "modules")
-      .flatMap((set) => set.entries.map((entry) => entry.key));
-    const permissionKeys = documentSets
-      .filter((set) => set.collection === "permissions")
-      .flatMap((set) => set.entries.map((entry) => entry.key));
+    const moduleKeys = entryKeysOf(baseRegistry, "modules");
+    const permissionKeys = entryKeysOf(baseRegistry, "permissions");
 
     // 正本:docs/modules/demo.sub.sample-one.md 家族模組樹 + demo.sample-two.md 模組節點
     // + docs/modules/demo-form.md(頂層 / 群組內 / 次群組內)
