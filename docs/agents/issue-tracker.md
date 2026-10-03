@@ -1,6 +1,6 @@
 # Issue tracker:流程 SOP
 
-本 repo 的 issues 與 PRD 都放在 GitHub Issues(`taiwanhua/cookhome`),所有操作一律用 `gh` CLI。本檔只寫**流程**;撞到怪現象先查 [pitfalls.md](./pitfalls.md),找指令查 [toolbox.md](./toolbox.md)。
+本 repo 的 issues 與 PRD 都放在 GitHub Issues,repo 身分取自 `deploy/project/github.json` 的 `expectedRepository`,所有操作一律用 `gh` CLI 並核對目標 repo。本檔只寫**流程**;撞到怪現象先查 [pitfalls.md](./pitfalls.md),找指令查 [toolbox.md](./toolbox.md)。
 
 ## gh 慣例
 
@@ -36,7 +36,7 @@
 
 ## 看板:票的生命週期(唯一真相)
 
-狀態一律以 **Project「CookHome」的 Status 欄位**為準;標籤只當資格註記(`needs-info`、`wontfix` 等),**不用標籤表示狀態**。
+看板啟用時,狀態以該專案 **GitHub Project 的 Status 欄位**為準;標籤只當資格註記(`needs-info`、`wontfix` 等),**不用標籤表示狀態**。看板停用時,進度與驗收記在 issue/PR,不操作來源專案的看板。底座預設停用看板,啟用與 IDs 以 `deploy/project/github.json` 為準。
 
 | Status         | 意義(對應 3 分支流程)                                                                     | 誰在何時移卡   |
 | -------------- | ----------------------------------------------------------------------------------------- | -------------- |
@@ -57,16 +57,18 @@
 - `Closes #n` 只在合進預設分支 `main` 時自動關票;PR 合 `dev` **不會關**,關票時機是 Released(`gh issue close <n> --comment "<PR 連結>"`)。
 - 部署一律手動觸發(deploy.yml 只有 `workflow_dispatch`),merge 不會部署任何環境。
 
-**手動移卡**(Project #3,owner taiwanhua;整行單行,PowerShell 沒有 `\` 續行):
+雲端停用時,上表的部署驗收依 [deployment 的 Release 步驟](../deployment.md#release-步驟)改用 CI、本機應用與資料驗收;Released 表示程式版本已發布,不代表雲端已部署。
+
+**手動移卡**(只適用已啟用看板;整行單行,PowerShell 沒有 `\` 續行):
 
 ```
 gh project item-edit --id <ITEM_ID> --project-id <PROJECT_ID> --field-id <STATUS_FIELD_ID> --single-select-option-id <OPTION_ID>
 ```
 
-- **看板 ID 的正本是 `deploy/project/github.json` 的 `projectStatus`**,這裡不另抄一份:PROJECT_ID = `projectId`、STATUS_FIELD_ID = `statusFieldId`、OPTION_ID = `options` 裡對應狀態的值。一次列出:`node scripts/project-settings/read-config.mjs --scope github --repository taiwanhua/cookhome`。
+- **看板 ID 的正本是 `deploy/project/github.json` 的 `projectStatus`**,這裡不另抄一份:PROJECT_ID = `projectId`、STATUS_FIELD_ID = `statusFieldId`、OPTION_ID = `options` 裡對應狀態的值。一次列出:`node scripts/project-settings/read-config.mjs --scope github --repository <owner/repo>`。
 - `options` 的鍵對應看板狀態:`backlog`=Backlog、`ready`=Ready、`inProgress`=In Progress、`review`=In Review、`devVerify`=Dev 驗證中、`devPassed`=Dev 通過、`stagingVerify`=Staging 驗證中、`stagingPassed`=Staging 通過、`released`=Released、`wontDo`=Won't Do。自動化只寫其中六個(`backlog`、`review`、`devVerify`、`stagingVerify`、`released`、`wontDo`),另外四個只由人移。
-- ITEM_ID:`gh project item-list 3 --owner taiwanhua --format json --limit 300 --jq '.items[] | select(.content.number==<票號>) | {id, status}'`(預設只回 30 筆,新票不在裡面;連 `status` 一起取,才知道現在在哪一格)。
-- 看板欄位在 UI 的位置(重建看板時對得起來):Project「CookHome」→ 右上 … → Settings → Fields → `Status` 的選項清單,順序即上面的鍵順序;重建後把新的 ID 填回 `deploy/project/github.json`。
+- ITEM_ID:`gh project item-list <project-number> --owner <owner> --format json --limit 300 --jq '.items[] | select(.content.number==<票號>) | {id, status}'`(預設只回 30 筆,新票不在裡面;連 `status` 一起取,才知道現在在哪一格)。
+- 看板欄位在 UI 的位置(重建看板時對得起來):自己的 GitHub Project → 右上 … → Settings → Fields → `Status` 的選項清單,順序即上面的鍵順序;重建後把新的 ID 填回 `deploy/project/github.json`。
 - **自動化什麼時候不會動**:workflow 只讀預設分支(`main`)上的 `deploy/project/github.json` 與 `scripts/project-settings/`。`main` 上還沒有這些檔案、設定與 repo 不符、看板啟用但拿不到 `GH_PROJECT_TOKEN`(含 fork 來的 PR)時,該次 run 明確失敗且不移卡,照本節手動移;`projectStatus.enabled` 為 `false` 時 run 成功但不移卡。
 
 正本:`deploy/project/github.json`(看板 ID)、`.github/workflows/project-status.yml`、`scripts/project-settings/project-status.mjs`(事件 → 狀態的對應)
@@ -204,7 +206,7 @@ pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort
 - **驗收項寫成「現況 / 期望」兩行**,連帶讓「其實已經是對的」那幾項當場消掉。
 - **「僅確認、不改」的項目分開寫**:票上分「要改的」與「確認後不動的(附為什麼)」兩節,否則實作者會把後者也動一遍。
 - **「逐一檢查同型」類的驗收項,要求 PR 列出「確認不動」的結論**,否則「檢查過沒問題」與「漏了」在 PR 上分不出來。
-- **驗收條件要在該環境驗得到**:先問「這個環境有讓它成立的資料或設定嗎」(例:三環境都不設收件白名單,「白名單外信箱不寄」在任何環境都驗不到;審核流程通知信只有 dev 會寄),沒有就改成單元測試覆蓋或註明需要的前置資料。
+- **驗收條件要在該環境驗得到**:先核對資料與 `deploy/env/<環境>.yaml` 的現值(例:未啟用通知信或未設收件白名單時,該環境無法驗對應行為),缺少條件就改成單元測試覆蓋或註明需要的前置資料。
 - **驗收回報附當時的 dev 部署版本**(release PR 或 commit),否則「當下看到、事後重現不出來」的項目無從判斷。
 - **「驗收缺口」類的票附原始 payload、操作順序、當時的環境與版本**,否則實作者只能重現、猜條件。
 - **部署後抓一次 bundle 驗「打包資產」**:跟著 build 烘進產物的非程式檔(help.md、i18n 字典、範本),部署完直接抓該環境 bundle 確認(做法見 pitfalls「部署與產物」);新增這類資產時同步補 Dockerfile 的檢查(`docs/deployment.md`「建置產物的規則」)。

@@ -1,6 +1,6 @@
-# CookHome 專案架構
+# 應用底座架構
 
-家常食譜平台,底層是一套可複製到其他專案的多租戶後台底座。Turborepo monorepo(pnpm workspace),workspace 套件名一律 `@repo/` 前綴(GEN-06)。
+多租戶應用底座,包含完整前台、後台與 API;專案的業務來源預設為空。Turborepo monorepo(pnpm workspace),workspace 套件名一律 `@repo/` 前綴(GEN-06)。
 
 ## Apps
 
@@ -55,7 +55,7 @@
 1. `api` 使用 code-first,由真 AppModule 組裝底座與專案;GraphQLModule 在啟動時輸出 `apps/api/schema.gql`(`NODE_ENV=test` 除外)。只重產不開服務用 `pnpm --filter @repo/api schema:generate`;新工作樹先依 [toolbox](agents/toolbox.md#pnpm--turbo建置測試格式)建置依賴
 2. `packages/graphql/src/documents/{base,project}/**/*.graphql` 定義前端要用的 query / mutation
 3. `pnpm --filter @repo/graphql generate` 先驗兩區文件,再產生唯一的 `src/generated/index.ts`(型別 + hooks);operation 與 fragment 的名稱各自全域唯一,不靠載入順序覆寫
-4. front / admin import `@repo/graphql` 取得型別安全的 hooks(如 `useRecipesQuery`)
+4. front / admin import `@repo/graphql` 取得型別安全的 hooks(如後台使用的 `useModuleTreeQuery`)
 
 後端 schema 變更後依序跑步驟 1 與 3,兩份產物同一個 commit(GQL-05;CI 的 `format-codegen` job 會擋)。
 
@@ -80,7 +80,7 @@
 
 ## 部署
 
-三環境:`dev` → dev、`staging` → staging(預發布)、`main` → production。api / admin 在 Cloud Run(手動觸發 `deploy.yml`),front 在 Vercel,資料庫是 MongoDB Atlas。網域、資源、CI / CD 與 release 步驟見 `docs/deployment.md`。
+三環境:`dev` → dev、`staging` → staging(預發布)、`main` → production。底座預設停用雲端與看板;引用專案啟用後,api / admin 由 `deploy.yml` 手動部署至 Cloud Run,front 可接 Vercel,資料庫可用 MongoDB Atlas。設定、資源與 release 步驟見 `docs/deployment.md`。
 
 ## 本地開發
 
@@ -99,7 +99,7 @@ pnpm --filter @repo/storybook dev   # 只開設計系統(http://localhost:6006)
 
 尚未寫成 ADR 的選型與理由(已寫成 ADR 的在 `docs/adr/`):
 
-- **MongoDB + Mongoose**(`@nestjs/mongoose`):食譜巢狀結構(食材、步驟)適合文件模型;Prisma 的 MongoDB 支援需要 replica set 且沒有 migration,所以用 Mongoose。
+- **MongoDB + Mongoose**(`@nestjs/mongoose`):文件模型可保存巢狀業務資料與表單/流程定義;Mongoose 的 schema、plugins 與 repository 組成目前資料層,遷移使用 migrate-mongo。
 - **graphql 固定在 v16**:Apollo Server 5 與 `@nestjs/graphql` 13 不支援 graphql 17。
 - **front 不用 Apollo Client**:SEO 頁面在 Server Component 用 `useXxxQuery.fetcher` 直接抓;瀏覽器端互動用 TanStack Query hooks。
 - **codegen 產物修正**:`typescript-react-query` plugin 會產生 graphql-request v4 的型別路徑,`packages/graphql/scripts/fix-generated.mjs` 在 generate 後自動修正。

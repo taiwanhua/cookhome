@@ -1,4 +1,4 @@
-# CookHome 待討論與待辦
+# 底座待討論與待辦
 
 只留**還開著**的討論與待辦,每項附現況;做完就從本檔刪掉(歷史查 git)。已定案的規則不寫在這裡:架構事實見 `docs/architecture.md`,程式規範見 `docs/standards/`,領域規則見 ADR 與 `CONTEXT.md`,部署見 `docs/deployment.md`,常用指令與 skill 見 `docs/agents/toolbox.md`。
 
@@ -22,12 +22,6 @@
 
 現況:已有 `.claude/skills/module-scaffold/` 入口,build 流程與驗收指向共同文件,沿用專案登記路徑。不同工具的本機副本一致性與 `/to-figma` 整合仍待整理,依 toolbox/issue tracker 的共同流程,不另訂授權或測試 SOP。
 
-### Budget 終極斷路器
-
-Pub/Sub + Cloud Function 在超支時自動解綁 billing。
-
-現況:未開票;看過前幾個月帳單再決定(目前只有 Budget NT$600 三段郵件警告)。
-
 ### AI 自動 PR review 的時機
 
 GitHub Actions 上的 AI review 與本地 `/code-review` 怎麼分工。
@@ -37,12 +31,6 @@ GitHub Actions 上的 AI review 與本地 `/code-review` 怎麼分工。
 ### Turbo remote cache
 
 現況:未開票;等 CI 時間變長再評估。
-
-### 設計殘項(等食譜域第二輪 domain modeling)
-
-食譜詳情頁、分類頁;front 會員線(註冊 —— 含 account 欄位、登入、個人頁、寫食譜、收藏);會員管理頁(admin)。
-
-現況:未開票;先做食譜域第二輪 `/domain-modeling`,這批才有規格可畫。
 
 ### 抽 `@repo/db-schemas` 共用型別
 
@@ -57,12 +45,6 @@ populate 的子查詢不帶操作者上下文,對租戶資料會拋錯(ADR-0005 
 現況:未開票;目前沒有模組需要 populate。
 
 ## 小任務
-
-### Atlas 拆三個 cluster
-
-已定案要拆;時機是 production 有真實流量、升 M10 時(或先開三個 Atlas project 各一個 M0)。過渡加固:三環境 URI 皆 `maxPoolSize=10`(`docs/deployment.md`「安全與費用備忘」)。
-
-現況:未開票,等流量。
 
 ### Claude hook 在 git worktree 誤報
 
@@ -86,4 +68,4 @@ schema 演進指向後相容 + 破壞性變更配遷移腳本,落點 `docs/stand
 
 ## 下一步
 
-初始化及同步工具依共同計畫接續。食譜域第二輪 `/domain-modeling` 用來解開「設計殘項」,與底座同步的未完成項目分開追蹤。
+初始化演練、Figma 與版本同步工具依共同計畫接續;引用專案的業務需求與外部資源待辦由各自 repo 維護。

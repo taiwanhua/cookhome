@@ -2,7 +2,7 @@
 
 本索引指出新專案要設定的內容、值的正本與驗證責任,不保存第二份設定值。維護歸屬見[架構](architecture.md#底座與專案的維護歸屬),品牌與部署設定分別見 [branding](branding.md) 與 [deployment](deployment.md#專案部署設定deployproject)。建立與接續初始化依[共用操作文件](agents/project-bootstrap.md);跨專案整體演練與同步工具的未完成工作見[底座同步計畫](plans/base-sync.md)。
 
-狀態必須分開記錄:「已提供」表示輸入已完整;「已建立」表示檔案或外部資源已存在;「已驗證」表示該專案的實際讀取或連線檢查通過。CookHome 既有設定不代表新專案已具備資源,以下不替未建立的專案填入成功狀態。
+狀態必須分開記錄:「已提供」表示輸入已完整;「已建立」表示檔案或外部資源已存在;「已驗證」表示該專案的實際讀取或連線檢查通過。來源設定不代表新專案已具備資源,以下不替未建立的專案填入成功狀態。
 
 ## 採用的底座版本
 
@@ -33,11 +33,11 @@
 | API 功能     | `apps/api/src/project/api-modules.ts`、`project.module.ts`、`project/<業務>/` | 真 AppModule 掛入普通 ProjectModule;feature key/module identity 不撞底座,核心 guards 不變                        |
 | API 資料     | `apps/api/src/project/database/registrations.ts` 及該目錄的 schema/repository | 新租戶 model 的 schema、repository、org check 一起登記;驗 plugin、識別與實際綁定,資料不能漏掉刪組織/撤銷開通檢查 |
 | GraphQL 文件 | `packages/graphql/src/documents/project/`                                     | 與 base 文件生成同一份型別/hooks;operation 名稱與 fragment 名稱各自全域唯一,拒絕匿名、根目錄散檔及 symlink       |
-| 前台業務     | `apps/front/src/app/`、`components/` 及專案前台文案                           | 依專案設計完整畫面與風格;替換 CookHome 食譜等業務內容時,一併核對 API 與 documents                                |
+| 前台業務     | `apps/front/src/app/`、`components/` 及專案前台文案                           | 依專案設計完整畫面與風格;新增或替換業務內容時,一併核對 API 與 documents                                          |
 
-API 的新租戶資料遵守 BaseRepository、baseFields 與 tenantScope 契約,不自行注入 raw Model 或繞過資料隔離。CookHome 既有 Recipe 的公開、無 orgId 行為是固定組裝器中的精確相容例外,不能用作新租戶模組範本。底座不提供核心 module/provider 替換介面。
+API 的新租戶資料遵守 BaseRepository、baseFields 與 tenantScope 契約,不自行注入 raw Model 或繞過資料隔離。底座的 project 功能與資料登記預設為空,新模組沿既有租戶資料契約登記。底座不提供核心 module/provider 替換介面。
 
-功能登記不會寫入授權或建立 seed 模組;仍須依[新增模組流程](agents/module-scaffold.md)完成 seed 宣告。新專案也須檢視並替換 CookHome 食譜等專屬業務,只換品牌不等於完成新的業務專案。
+功能登記不會寫入授權或建立 seed 模組;仍須依[新增模組流程](agents/module-scaffold.md)完成 seed 宣告。前台目前是中性首頁,業務畫面與風格由專案設計;只換品牌不等於完成業務功能。
 
 GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使用 `pnpm --filter @repo/graphql test:documents`;schema 從真 AppModule 生成。建置前置與指令順序見 [toolbox](agents/toolbox.md#codegen-與資料庫本機)。
 
@@ -60,7 +60,7 @@ GraphQL 的 `generate` 在寫產物前檢查兩份文件來源,負例驗證使�
 - **已建立**:GCP 專案、Artifact Registry、WIF pool / provider、部署用 service account 與 IAM、Cloud Run 服務與網域對應、Secret Manager 的各個 secret、GitHub 看板與 `GH_PROJECT_TOKEN`、預設分支,都由初始化工作在外部建立;設定檔不會建立任何資源。
 - **已驗證**:以新專案實際跑過 Deploy(認證、build、部署、update)與看板移卡。讀取器與離線測試通過不算這一項。
 
-新專案複製 repo 後,`expectedRepository` 不符會使 workflow 在認證前失敗。外部資源須另行建立;新專案使用自己的密鑰,不可沿用 CookHome 的值。不使用的整合須明確停用或移除專案引用,避免讀寫原專案目標。尚未啟用雲端時,`cloud.json` 只保留 `schemaVersion: 1` 與 `enabled: false`;CI 可驗設定,Deploy/Reset 在認證前停止。這表示停用狀態已驗證,不代表雲端資源已建立。格式與啟用方式見 [deployment](deployment.md#專案部署設定deployproject)。
+新專案複製 repo 後,`expectedRepository` 不符會使 workflow 在認證前失敗。外部資源須另行建立;新專案使用自己的密鑰,不可沿用來源專案的值。不使用的整合須明確停用或移除專案引用,避免讀寫原專案目標。尚未啟用雲端時,`cloud.json` 只保留 `schemaVersion: 1` 與 `enabled: false`;CI 可驗設定,Deploy/Reset 在認證前停止。這表示停用狀態已驗證,不代表雲端資源已建立。格式與啟用方式見 [deployment](deployment.md#專案部署設定deployproject)。
 
 ## 本機與測試環境
 

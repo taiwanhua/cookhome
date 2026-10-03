@@ -47,11 +47,7 @@
 
 ## 專案資料
 
-| collection | 用途                          | 資料與存取正本                                                                                                            |
-| ---------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `recipes`  | 食譜原型,供前台公開查詢與建立 | `apps/api/src/project/database/recipe.schema.ts`、`recipes-legacy.repository.ts`;API 位於 `apps/api/src/project/recipes/` |
-
-recipes 保留無 orgId 的既有形狀,僅有 Mongoose timestamps,未掛 baseFields / tenantScope,不經 BaseRepository。固定 DatabaseModule 入口精確鎖定 Recipe model、recipes collection 與專用 repository token 為既有例外,仍參與名稱碰撞檢查;一般新增專案資料不得照抄。完整邊界見[資料層組裝](concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
+底座的 `apps/api/src/project/database/registrations.ts` 預設沒有業務資料登記。引用專案在該目錄維護 schema、repository 與組織資料檢查,規則見[資料層組裝](concepts/data-layer-and-isolation.md#底座與專案資料的組裝)。
 
 ## 底座與一般專案資料的共同約定
 
