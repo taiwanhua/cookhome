@@ -6,7 +6,7 @@
 
 ### 底座與引用專案
 
-正本:`docs/architecture.md`「底座與專案的維護歸屬」;尚未實作的跨專案同步見 `docs/plans/base-sync.md`。
+正本:`docs/architecture.md`「底座與專案的維護歸屬」;尚未完成的同步工具與 Figma 同步見 `docs/plans/base-sync.md`。
 
 **底座(Platform Base)**:
 
