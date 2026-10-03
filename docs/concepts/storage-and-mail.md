@@ -4,10 +4,10 @@
 
 ## 兩個 bucket
 
-| bucket                  | 讀取   | 用途                                        |
-| ----------------------- | ------ | ------------------------------------------- |
-| `cookhome-assets-<env>` | 私有   | 預設;登入後才看的檔(商標、附件、表單上傳欄) |
-| `cookhome-public-<env>` | 公開讀 | 要 CDN、SEO、og:image 或給未登入者看的檔    |
+| bucket               | 讀取   | 用途                                        |
+| -------------------- | ------ | ------------------------------------------- |
+| `GCS_BUCKET_PRIVATE` | 私有   | 預設;登入後才看的檔(商標、附件、表單上傳欄) |
+| `GCS_BUCKET_PUBLIC`  | 公開讀 | 要 CDN、SEO、og:image 或給未登入者看的檔    |
 
 - 放哪一顆由**用途(`purpose`)**決定,不另給參數。
 - bucket 名稱由 `GCS_BUCKET_PRIVATE` / `GCS_BUCKET_PUBLIC` 設定。沒設私有 bucket → 改用記錄用 adapter(網址是假的,檔案不會真的上傳)。
@@ -92,13 +92,13 @@
 
 ## 交易信件
 
-| 項目     | 現況                                                                |
-| -------- | ------------------------------------------------------------------- |
-| 供應商   | Resend(`RESEND_API_KEY`;沒設 → 記錄用 adapter,信印到 stdout)        |
-| 寄件人   | `no-reply@cookhome.online`(SPF + DKIM)                              |
-| 介面     | `MailService`:啟用信、重設密碼信、審核流程的任務通知與結果通知      |
-| 防誤寄   | `MAIL_ALLOWLIST`:有值時只寄名單內信箱;空 = 不限。三個雲端環境都不設 |
-| 品牌文字 | 登記在 `docs/branding.md`                                           |
+| 項目     | 現況                                                                   |
+| -------- | ---------------------------------------------------------------------- |
+| 供應商   | Resend(`RESEND_API_KEY`;沒設 → 記錄用 adapter,信印到 stdout)           |
+| 寄件人   | `projectMail.senderEmail`(啟用前驗證專案寄件網域 SPF + DKIM)           |
+| 介面     | `MailService`:啟用信、重設密碼信、審核流程的任務通知與結果通知         |
+| 防誤寄   | `MAIL_ALLOWLIST`:有值時只寄名單內信箱;空 = 不限,各環境依自己的需求設定 |
+| 品牌文字 | 登記在 `docs/branding.md`                                              |
 
 - 換供應商只換 adapter,呼叫端不動。
 - 審核流程的通知信另受 `WORKFLOW_MAIL_ENABLED` 開關控制(`docs/modules/workflows.md`)。

@@ -32,7 +32,7 @@ repository token 不能與 model token、組裝器內部 token 或 Nest 全域 g
 
 每張一般新增專案 model 都須登記歸屬欄為 `orgId` 的業務資料存在檢查。reader 建立時再核對 repository 確為 BaseRepository,且其只讀 modelName / collection 識別與登記相符;錯綁另一張表會使啟動失敗。`DatabaseModule` 也保留 DataScopeRuleProvider 的啟動檢查,缺少規則提供者不能正常啟動。
 
-**食譜原型的既有例外**:`project/recipes/` 保留公開查詢與建立介面,`project/database/` 的專用 repository 存取 `recipes`。它沒有 orgId,未使用 baseFields、tenantScope 或 BaseRepository。固定 DatabaseModule 入口精確鎖定 Recipe model、recipes collection 與專用 repository token,仍檢查名稱碰撞,只豁免租戶 plugin、BaseRepository 與組織資料檢查要求。一般專案登記沒有 unsafe 或略過檢查開關,新增租戶模組不可照抄此例外。
+底座預設沒有專案業務資料,專案登記沒有 unsafe 或略過檢查開關。新增資料種類須先擴充並審查契約,不能用裸 Model 查詢繞過租戶隔離。
 
 這是受審查程式的組裝契約。來源限制、裸 Model 查詢 lint 與 review 共同守住邊界;登記驗證不代替 RBAC,也不宣稱能稽核任意 Nest module 內部的私自註冊。
 
@@ -70,7 +70,7 @@ repository token 不能與 model token、組裝器內部 token 或 Nest 全域 g
 
 ## 基礎欄位、軟刪除、更新保護
 
-- 底座與一般新增專案資料表由 `baseFieldsPlugin` 掛上 `createdAt`、`updatedAt`、`createdBy`、`updatedBy`、`deletedAt`。schema class 不宣告;食譜原型的例外見上方「底座與專案資料的組裝」。
+- 底座與一般新增專案資料表由 `baseFieldsPlugin` 掛上 `createdAt`、`updatedAt`、`createdBy`、`updatedBy`、`deletedAt`。schema class 不重複宣告。
 - 刪除 = 寫 `deletedAt`。之後查詢預設排除;要看已刪除的明講 `includeDeleted`。
 - 已刪除的不能再更新。
 - 硬刪除只有四種:關聯的移除、補償刪除(`hardDeleteById`,本次請求剛建、尚未對外可見的文件)、從未發布的版本草稿(`hardDeleteDraft`)、退役的表單欄位級權限。清單與理由見 ADR-0007;其餘抹除走 cleanup migration。

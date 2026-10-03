@@ -1,63 +1,40 @@
-# CookHome 部署架構與操作手冊
+# 部署架構與操作手冊
 
-> 三環境分支模型(`dev` / `staging` / `main`),www / erp / api 運行於自訂網域;api 與 admin **一律手動觸發部署**。本檔是部署、release 與分支對齊的操作正本。
+三環境分支為 `dev` / `staging` / `main`;api 與 admin 只由手動 Deploy 發布。本檔是設定、部署、release、分支對齊與資料更新的操作正本。
 
 ## 一、架構總覽
 
-```
-                        Cloudflare DNS(cookhome.online)
-                              │ 灰雲(DNS only)
-        ┌─────────────────────┼──────────────────────┐
-   www / 裸網域              erp                     api
-        │                     │                      │
-   ┌────▼─────┐        ┌──────▼───────┐      ┌───────▼──────┐
-   │  Vercel  │        │  Cloud Run   │      │  Cloud Run   │
-   │  front   │──build─▶│cookhome-admin│      │ cookhome-api │
-   │ (Next.js)│  時打api │ (nginx 靜態) │      │  (NestJS)    │
-   └──────────┘        └──────────────┘      └───────┬──────┘
-                                                     │ MONGODB_URI
-                                             ┌───────▼──────┐   來自 Secret Manager
-                                             │ MongoDB Atlas │
-                                             │ cookhome-dev  │
-                                             │ M0, asia-east1│
-                                             └──────────────┘
+底座預設停用 cloud 與 GitHub 看板,沒有已配置的 Cloud Run、Atlas、Vercel、DNS、寄信或儲存資源。啟用的引用專案可以採用以下架構:
 
-dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-staging.、api=api-dev./api-staging.cookhome.online),由對應分支部署
+```text
+front (Next.js / Vercel) ─┐
+admin (nginx / Cloud Run) ├─> api (NestJS / Cloud Run) ─> MongoDB
+                         └─> GCS 簽名上傳 / Resend 信件
 ```
 
 ### 環境對照(分支 ↔ 環境)
 
-|                         | dev(開發測試)                         | staging(預發布)                           | production                        |
-| ----------------------- | ------------------------------------- | ----------------------------------------- | --------------------------------- |
-| 對應分支                | `dev`                                 | `staging`                                 | `main`                            |
-| api                     | `api-dev.cookhome.online`(Sandbox 開) | `api-staging.cookhome.online`(Sandbox 關) | `api.cookhome.online`(Sandbox 關) |
-| admin                   | `erp-dev.cookhome.online`             | `erp-staging.cookhome.online`             | `erp.cookhome.online`             |
-| front                   | `dev.cookhome.online`                 | `staging.cookhome.online`                 | `www.cookhome.online`             |
-| 資料庫(同一 M0 cluster) | db `cookhome-dev`                     | db `cookhome-staging`                     | db `cookhome`                     |
-| secret                  | `mongodb-uri-dev`                     | `mongodb-uri-staging`                     | `mongodb-uri`                     |
-| 審核流程通知信          | 開(`WORKFLOW_MAIL_ENABLED`)           | 關                                        | 關                                |
-| 收件白名單              | 不設(不限收件人)                      | 不設                                      | 不設                              |
-| api / admin 部署        | 手動觸發 deploy.yml                   | 手動觸發 deploy.yml                       | 手動觸發 deploy.yml               |
-| front 部署              | Vercel 隨分支 push 自動建置           | 同左                                      | 同左                              |
+| 環境       | 分支      | 設定來源                                                   |
+| ---------- | --------- | ---------------------------------------------------------- |
+| dev        | `dev`     | `cloud.json` 的 `environments.dev` + `deploy/env/dev.yaml` |
+| staging    | `staging` | `environments.staging` + `deploy/env/staging.yaml`         |
+| production | `main`    | `environments.production` + `deploy/env/production.yaml`   |
 
-上兩列對應 `WORKFLOW_MAIL_ENABLED`、`MAIL_ALLOWLIST`;GraphQL Sandbox(`GRAPHQL_SANDBOX`)只有 dev 開。各環境的值與理由以 `docs/env-registry.md` 為正本。
+`cloud.json` 停用時沒有 environments;啟用時三環境須完整提供。資料庫、Secret、bucket、網址各自設定,不得沿用來源專案資源。
 
 ### 資源清單
 
-| 資源                | 識別                                                                                                                                                                  | 費用            |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| GCP 專案            | `cookhome-online`(region 預設 asia-east1)                                                                                                                             | —               |
-| Artifact Registry   | `asia-east1-docker.pkg.dev/cookhome-online/cookhome`                                                                                                                  | 儲存費 ~NT$1/月 |
-| Cloud Run ×6        | api / admin 各 ×(prod, staging, dev)(全部 min=0 / max=2)                                                                                                              | 無流量 = $0     |
-| Secret Manager      | 三環境各一份(`-dev` / `-staging` / 無後綴):`mongodb-uri`、`field-encryption-key`、`root-admin-password`、`jwt-secret`、`resend-api-key`;清單見 `docs/env-registry.md` | ~$0             |
-| GCS bucket ×6       | 私有 `cookhome-assets-dev` / `-staging` / `-prod`(uniform access、封鎖公開存取);公開讀 `cookhome-public-dev` / `-staging` / `-prod`(ADR-0010;建立與授權見四、)        | 空 bucket = $0  |
-| WIF + 部署身分      | pool `github` / provider `github-oidc` / SA `github-deployer`(只認 taiwanhua/cookhome)                                                                                | $0              |
-| Budget              | NT$600/月,50%/90%/100% 郵件警告                                                                                                                                       | $0              |
-| MongoDB Atlas       | cluster `cookhome-dev`(M0)                                                                                                                                            | $0              |
-| Cloudflare / Vercel | DNS 代管 / front(Hobby)                                                                                                                                               | $0              |
-| Vercel 第二專案     | `cookhome-design` → `design.cookhome.online`(Storybook,root `apps/storybook`,output `storybook-static`,只建 main:Ignored Build Step = Only build production)          | $0              |
+| 項目                                             | 識別正本 / 建立位置                                   |
+| ------------------------------------------------ | ----------------------------------------------------- |
+| repo、看板                                       | `deploy/project/github.json`;看板由專案另建或明確停用 |
+| GCP、region、registry、WIF、部署 service account | `deploy/project/cloud.json` 啟用後的 `gcp`            |
+| Cloud Run 服務、API URL、Secret 名稱、seed 帳號  | `cloud.json` 的各環境設定                             |
+| API 明文變數、bucket、cookie 與後台網址          | `deploy/env/<環境>.yaml`                              |
+| 真正密碼、連線字串與金鑰                         | Secret Manager;不進 repo 或文件                       |
+| front / Storybook                                | 專案自己的 Vercel 設定與網域                          |
+| DNS、寄件網域、資料庫與預算                      | 專案自己的外部服務設定                                |
 
-正本:`deploy/project/cloud.json`(GCP 專案、區域、registry、WIF、各環境的服務名 / API 網址 / Secret 名稱 / seed 帳號)、`deploy/project/github.json`(repo 與看板識別)、`.github/workflows/deploy.yml`(接線)、`deploy/env/<環境>.yaml`、`docs/env-registry.md`(secret 與變數清單)
+值的用途與未設行為見 `docs/env-registry.md`,建立與驗證狀態依[初始化索引](project-initialization.md)記在 issue/PR。下文的 `project`、`example.invalid`、`<...>` 是操作示例,須換成該專案實際輸入。
 
 ## 二、分支模型與 CI/CD 流程
 
@@ -84,7 +61,7 @@ release 後:dev / staging reset 對齊 main;進行中的 feat 分支 rebase 到�
 
 1. 從引用專案已發布的 `origin/main` 建立升級分支。核對 `upstream` 指向底座 repo,以 `git fetch upstream --no-tags refs/tags/<版本>:refs/base/releases/<版本>` 取得指定版本,核對 tag 解析出的完整 commit。
 2. 一般三方合併該版本並保留 merge commit。依[維護歸屬](architecture.md#底座與專案的維護歸屬)審查**全部差異**,包含 Git 沒有報衝突的專案值;底座改了專案未修改過的預設值,也可能被自動套入。專案來源、品牌、前台、部署與 seed 值保留,契約新增必填值則明確補齊。
-3. 固定組裝入口、workflow 與共用文件逐段整合;不能整個排除治理頁或檔案。CookHome 的 Recipe 資料層相容例外須保留精確範圍,不能擴成任意跳過租戶隔離。schema/hooks 與 lockfile 在人工來源整合後重產,已發布 migration/seed 快照維持原檔。
+3. 固定組裝入口、workflow 與共用文件逐段整合;不能整個排除治理頁或檔案。引用專案若有經審查的資料層相容差異,須保留精確範圍,不能擴成任意跳過租戶隔離。schema/hooks 與 lockfile 在人工來源整合後重產,已發布 migration/seed 快照維持原檔。
 4. 依既有 PR 與環境流程驗收。各次合併使用 merge commit,以 `git merge-base --is-ancestor <底座commit> <結果commit>` 核對 ancestry;不得用 `merge -s ours`、squash 或 cherry-pick 代替向下同步。
 5. 等待期間若 `main` 前進,從新 `main` **重建升級分支**,重新合併同一底座版本並驗證專案保留;不對含底座 merge 的分支跑一般 rebase,也不把 main 合入舊升級分支。
 
@@ -175,6 +152,8 @@ deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩
 
 ### Release 步驟
 
+雲端啟用的引用專案依下列步驟部署及驗收。底座或明確停用雲端的專案,仍走逐票 dev / staging PR 與同批 main release,但以 CI、本機應用與資料驗收代替未啟用的部署,在 PR 清楚記錄。停用的 Deploy 不算部署成功。底座程式發布另建立不可移動的 annotated tag 與 GitHub Release,記錄完整 commit;引用專案從該版本初始化或升級。
+
 **release 一批一次**:同一批票各自 PR 合進 `dev`、各自 PR 合進 `staging`,累積成一批之後才走一次 release(一個 `staging → main` 的 PR + 一次 production 部署)。`dev` 的部署也等該批最後一張合完才觸發,不要一張一部署。例外只有**產物依賴**:後面的票要拿前面的票已上線的產物才做得下去時,前面那張單獨先 release。
 
 每次都照這五步(票的看板狀態見 `docs/agents/issue-tracker.md`):
@@ -208,15 +187,15 @@ feat 一律從 `main` 切,而 `dev` / `staging` 各自往前走一條線;同一�
 ### 建置產物的規則
 
 - **Docker build context 排除 `.md`,但 admin 的 help.md 是程式資產**:根目錄 `.dockerignore` 有 `**/*.md`(文件不進 image),而 `apps/admin/src/md/module-help/**/*.help.md` 是 Vite 在 build 時以 `import.meta.glob` 內嵌進 bundle 的程式資產。被排除時本機 `pnpm build` 照樣正常,CI 建出來的 image 卻讓每頁的「?」全部 disabled,而且沒有任何一步會失敗。例外寫在 `.dockerignore`(`!apps/admin/src/md/**/*.md`,必須排在 `**/*.md` 之後才生效);防回歸檢查在 `apps/admin/Dockerfile` 的 builder stage:build 之後 `RUN pnpm --filter @repo/admin check:help-bundle`(腳本 `apps/admin/scripts/check-help-bundle.mjs`,比對每份說明的內容是否出現在 `dist/assets/*.js`;掃不到說明檔也算失敗)。**再有這類「跟著 build 烘進產物的非程式檔」**(i18n 字典、範本、憑證…),一律同時做兩件事:在 `.dockerignore` 補例外 + 在 Dockerfile 加一條驗產物的檢查。
-- **admin 的靜態檔快取:`index.html` = `no-cache`、`/assets/` = `immutable` 一年**(`apps/admin/nginx.conf`)。`index.html` 是唯一指向「這次部署的 bundle 檔名」的入口,一旦被快取,部署後重新整理仍會載入上一版 HTML 與它指向的 `assets/index-<hash>.js`;`/assets/` 底下的檔名帶 content hash,內容一變檔名就變,可以永久快取。`no-cache` 是「每次都先向伺服器驗證」(ETag 命中回 304,只花一個 round trip),所以**部署後使用者正常重新整理就拿到新版**,不需要 Ctrl+F5。沒有這個標頭時瀏覽器會依 `Last-Modified` 自行推算效期,就會出現「部署成功但畫面沒變」。nginx 的 `add_header` 不會繼承到自己也有 `add_header` 的子 block,所以 `location /`(SPA fallback)與 `location = /index.html`(`try_files` 的內部轉址會重新比對 location)各寫一份。改了 `nginx.conf` 之後,驗收方式是 `curl -I https://erp-<環境>.cookhome.online/` 看 `Cache-Control`。
+- **admin 的靜態檔快取:`index.html` = `no-cache`、`/assets/` = `immutable` 一年**(`apps/admin/nginx.conf`)。`index.html` 是唯一指向「這次部署的 bundle 檔名」的入口,一旦被快取,部署後重新整理仍會載入上一版 HTML 與它指向的 `assets/index-<hash>.js`;`/assets/` 底下的檔名帶 content hash,內容一變檔名就變,可以永久快取。`no-cache` 是「每次都先向伺服器驗證」(ETag 命中回 304,只花一個 round trip),所以**部署後使用者正常重新整理就拿到新版**,不需要 Ctrl+F5。沒有這個標頭時瀏覽器會依 `Last-Modified` 自行推算效期,就會出現「部署成功但畫面沒變」。nginx 的 `add_header` 不會繼承到自己也有 `add_header` 的子 block,所以 `location /`(SPA fallback)與 `location = /index.html`(`try_files` 的內部轉址會重新比對 location)各寫一份。改了 `nginx.conf` 之後,驗收方式是 `curl -I https://erp-<環境>.project.example.invalid/` 看 `Cache-Control`。
 - **改了 `.dockerignore` / Dockerfile 之後要用 `-f force=true` 部署**:這兩個檔不屬於任何 package,`turbo ls --affected` 看不到,不加 force 會整個 build 步驟被跳過。
 - **新增「會被烘進前端產物」的環境變數時,同步登記進該 package `turbo.json` 的 `tasks.build.env`**(規則正本 STRUCT-08):`VITE_*` / `NEXT_PUBLIC_*` 是 build 的輸入,沒登記就不在 build 的快取鍵裡,換一個值重 build 會直接 `cache hit`,部署出去的 image 裡烘的還是前一個值,而且沒有任何一步會失敗。admin 每環境各建一顆 image,正是最容易吃到這個坑的形狀。三處一起動:`turbo.json` 的 `env`、`docs/env-registry.md`、該環境的 build 參數(deploy.yml 的 `--build-arg` 或 Vercel dashboard)。
 - **Vercel 的 `Deployment rate limited` 是帳號層級的額度**:front 在免費方案上短時間內推太多次就會碰到,等額度回復再推即可,不要為此改 workflow 或重試設定;它不影響 api / admin 的 Cloud Run 部署。
 
 ### 認證與回滾
 
-- **認證**:Workload Identity Federation,OIDC 短期憑證換 `github-deployer` 身分,repo 裡零 GCP 金鑰,provider 限定本 repo。
-- **回滾**:`gcloud run services update-traffic cookhome-api --to-revisions=<先前的 revision>=100`,或從先前的 commit 觸發部署。
+- **認證**:Workload Identity Federation,OIDC 短期憑證換 `cloud.json` 登記的部署 service account 身分,repo 裡零 GCP 金鑰,provider 限定本 repo。
+- **回滾**:`gcloud run services update-traffic <api-service> --project=<gcp-project> --region=<region> --to-revisions=<先前的 revision>=100`,或從先前的 commit 觸發部署。
 
 正本:`.github/workflows/ci.yml`、`.github/workflows/deploy.yml`、`.github/workflows/reset-db.yml`、`.github/workflows/e2e.yml`、`.github/workflows/docs.yml`、`.github/workflows/project-status.yml`、`.dockerignore`、`apps/admin/Dockerfile`、`apps/admin/scripts/check-help-bundle.mjs`、`apps/admin/nginx.conf`
 
@@ -233,11 +212,11 @@ docker compose --profile full up -d   # 部署前驗證:mongo + api + admin 整�
 
 ### 手動部署(CD 掛掉時的備援;平常交給 deploy.yml)
 
-**照 `.github/workflows/deploy.yml` 的「deploy api」步驟打,不要憑記憶**:`gcloud run deploy` 必須同時帶 `--env-vars-file=deploy/env/<環境>.yaml`(非機密變數,整包取代)與完整的 `--set-secrets=MONGODB_URI=…,FIELD_ENCRYPTION_KEY=…,JWT_SECRET=…,RESEND_API_KEY=…`(服務名、registry 與 secret 名稱以 `node scripts/project-settings/read-config.mjs --scope cloud --environment <環境> --repository taiwanhua/cookhome` 的輸出為準)。`--set-secrets` 是整組取代,少列一個就等於把那個 secret 從服務拿掉。build / push 的部分:
+**照 `.github/workflows/deploy.yml` 的「deploy api」步驟打,不要憑記憶**:`gcloud run deploy` 必須同時帶 `--env-vars-file=deploy/env/<環境>.yaml`(非機密變數,整包取代)與完整的 `--set-secrets=MONGODB_URI=…,FIELD_ENCRYPTION_KEY=…,JWT_SECRET=…,RESEND_API_KEY=…`(服務名、registry 與 secret 名稱以 `node scripts/project-settings/read-config.mjs --scope cloud --environment <環境> --repository <owner/repo>` 的輸出為準)。`--set-secrets` 是整組取代,少列一個就等於把那個 secret 從服務拿掉。build / push 的部分:
 
 ```bash
 SHA=$(git rev-parse --short HEAD)
-REG=asia-east1-docker.pkg.dev/cookhome-online/cookhome
+REG="<讀取器輸出的registry>"
 docker build -f apps/api/Dockerfile -t $REG/api:$SHA . && docker push $REG/api:$SHA
 # 接著複製 deploy.yml「deploy api」步驟裡的 gcloud run deploy 指令,把 $VAR 換成讀取器輸出的該環境值
 ```
@@ -298,7 +277,7 @@ reset:<environment>:<實際資料庫名>:<data|full>
 CLI 範例:
 
 ```bash
-gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data -f confirmation="reset:dev:cookhome-dev:data"
+gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data -f confirmation="reset:dev:project-dev:data"
 ```
 
 確認字串的環境、資料庫名與模式必須全部符合實際目標。資料庫名從連線目標解析,環境由輸入指定;不靠名稱尾碼猜環境。`RESET_ALLOW_ENV` 必須包含所選環境,未設即拒絕。workflow 原樣傳入人工確認,不從 URI 自動產生;記錄不輸出 URI、帳密或 Secret 值。
@@ -306,8 +285,8 @@ gh workflow run "Reset DB" --ref dev -f environment=dev -f mode=data -f confirma
 本機先依[設定與資料更新](#設定與資料更新)完成 CLI 建置並準備 `ROOT_ADMIN_*`,再執行:
 
 ```bash
-RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev \
-  pnpm --filter @repo/db-migrator run reset --environment=dev --mode=data --confirm=reset:dev:cookhome-dev:data
+RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/project-dev \
+  pnpm --filter @repo/db-migrator run reset --environment=dev --mode=data --confirm=reset:dev:project-dev:data
 ```
 
 - 預檢、清除與 update 共用同一把鎖。data 若遇未完成遷移、回滾或中斷發布,在刪除前停止;先完成原 update、down 或 UI 發布後再重置。
@@ -322,17 +301,16 @@ RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev \
 
 ### 觀測與維運
 
+先核對 cloud.json 的 GCP project、region 與服務名,再查狀態;不依賴本機 gcloud 的預設 project。
+
 ```bash
-gcloud run services list                                   # 服務清單與 URL
-gcloud run revisions list --service=cookhome-api           # 歷史版本(回滾用)
-gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="cookhome-api"' --limit=30
-gcloud secrets versions list mongodb-uri                   # secret 版本
-gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=asia-east1  # 網域/憑證狀態
+gcloud run services list --project=<gcp-project> --region=<region>
+gcloud run revisions list --service=<api-service> --project=<gcp-project> --region=<region>
+gcloud secrets versions list <secret-name> --project=<gcp-project>
+gcloud beta run domain-mappings describe --domain=<api-domain> --project=<gcp-project> --region=<region>
 ```
 
-- Cloud Run UI:console.cloud.google.com → Cloud Run。編輯表單顯示的 max instances「20」是表單的建議值,實際生效值看 Revisions 分頁(2)。
-- Atlas UI:cloud.mongodb.com → Network Access(0.0.0.0/0)/ Database Access / Browse Collections
-- Cloudflare:`api`、`erp`、`api-dev`、`erp-dev`、`api-staging`、`erp-staging` CNAME → `ghs.googlehosted.com`(灰雲,對應 6 筆 Cloud Run domain mapping);`www`、`@`、`dev`、`staging`、`design` CNAME → Vercel(灰雲);TXT 為 Google 網域驗證,勿刪
+部署後核對新 revision ready、流量分配、實際 image SHA 與設定更新紀錄。資料庫、防火牆、DNS/憑證及寄件網域分別在該專案的服務後台維護。
 
 ## 四、環境變數管理
 
@@ -352,19 +330,19 @@ gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=a
 | Cloud Run(admin) | `deploy.yml` 的 `--build-arg`(Vite 值烘進 image;API 網址取自 `deploy/project/cloud.json` 的 `apiUrl`)                                                                                             | ✅                          |
 | Vercel(front)    | Vercel dashboard(Settings → Environment Variables)                                                                                                                                                | ❌(平台保存;清單記載於下表) |
 
-Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型):
+Vercel front 需設定 `NEXT_PUBLIC_GRAPHQL_ENDPOINT`(非機密 Config 型);下表是網域配置示例:
 
-| 範圍                                | 值                                            |
-| ----------------------------------- | --------------------------------------------- |
-| Production                          | `https://api.cookhome.online/graphql`         |
-| Preview → branch `staging`          | `https://api-staging.cookhome.online/graphql` |
-| Preview → branch `dev`              | `https://api-dev.cookhome.online/graphql`     |
-| Preview(其他分支 = feat 的 preview) | `https://api-dev.cookhome.online/graphql`     |
+| 範圍                                | 值                                                    |
+| ----------------------------------- | ----------------------------------------------------- |
+| Production                          | `https://api.project.example.invalid/graphql`         |
+| Preview → branch `staging`          | `https://api-staging.project.example.invalid/graphql` |
+| Preview → branch `dev`              | `https://api-dev.project.example.invalid/graphql`     |
+| Preview(其他分支 = feat 的 preview) | `https://api-dev.project.example.invalid/graphql`     |
 
 **新增一個環境變數**(依用到它的地方,最多三處):
 
 1. 本地:加進該 app 的 `.env` + 同步 `.env.example`(讓別人 / AI 知道有這個變數)。
-2. api / admin 雲端:機密 → `gcloud secrets create`(步驟見下節)+ deploy.yml `--set-secrets`;非機密 → 加進 `deploy/env/<環境>.yaml`(三個環境各給值,走 PR)。程式端一律給**內建預設值**,變數不設也能跑。
+2. api / admin 雲端:機密 → `gcloud secrets create`(步驟見下節)+ deploy.yml `--set-secrets`;非機密 → 加進 `deploy/env/<環境>.yaml`(三個環境各給值,走 PR)。必填與可省略的行為以 `docs/env-registry.md` 及讀取程式為準,例如 `MONGODB_URI` 沒有預設值。
 3. front 雲端:Vercel dashboard 加(Type 選 **Config**,除非真是機密;`NEXT_PUBLIC_` 前綴 = 會進瀏覽器,機密絕不可加此前綴)。
 
 **機密判斷準則**:「這個值出現在瀏覽器 / 版控裡會不會出事?」會 → Secret Manager(Cloud Run)或 Secret 型(Vercel);不會 → 明文設定即可。
@@ -384,22 +362,22 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 - **程式產生的金鑰**(沒有人需要看到它):node 把值寫進 Windows 暫存資料夾 → gcloud 從檔案讀 → 刪檔。值不會印在螢幕、不進 shell 歷史。
 
   ```
-  node -e "require('fs').writeFileSync(process.env.TEMP+'/k.txt', require('crypto').randomBytes(32).toString('base64'))" && gcloud secrets create <名稱>-dev --data-file="$TEMP/k.txt" --replication-policy=automatic --project=cookhome-online; rm -f "$TEMP/k.txt"
+  node -e "require('fs').writeFileSync(process.env.TEMP+'/k.txt', require('crypto').randomBytes(32).toString('base64'))" && gcloud secrets create <名稱>-dev --data-file="$TEMP/k.txt" --replication-policy=automatic --project=<gcp-project>; rm -f "$TEMP/k.txt"
   ```
 
   路徑要用 `$TEMP`(node 是 Windows 程式,`/tmp` 會被當成不存在的 `C:\tmp`)。
 
-- **人打的密碼、連線字串**:走 GCP Console(Secret Manager → Create secret → 貼值 → Create),或**另開自己的終端機**跑 `printf '%s' '<值>' | gcloud secrets create <名稱>-dev --data-file=- --replication-policy=automatic --project=cookhome-online`。**不要在 AI 對話裡貼密碼**(對話紀錄會留存,等於外洩)。
+- **人打的密碼、連線字串**:走 GCP Console(Secret Manager → Create secret → 貼值 → Create),或**另開自己的終端機**跑 `printf '%s' '<值>' | gcloud secrets create <名稱>-dev --data-file=- --replication-policy=automatic --project=<gcp-project>`。**不要在 AI 對話裡貼密碼**(對話紀錄會留存,等於外洩)。
 
 **3. 授權讀取者**(漏這步,部署或 CI 會報讀不到 secret):
 
-| 誰會讀這個 secret                              | 授權對象(`--member`)                                                                                                                                                                                                |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cloud Run 執行中的 api(`--set-secrets` 掛進去) | Cloud Run 執行身分;查法:`gcloud run services describe cookhome-api-dev --region=asia-east1 --format="value(spec.template.spec.serviceAccountName)"`,目前為預設 `728045896207-compute@developer.gserviceaccount.com` |
-| CI 步驟(如 deploy.yml 跑 update)               | 部署身分 `github-deployer@cookhome-online.iam.gserviceaccount.com`                                                                                                                                                  |
+| 誰會讀這個 secret                              | 授權對象(`--member`)                                                                                                                                                                                               |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Cloud Run 執行中的 api(`--set-secrets` 掛進去) | Cloud Run 執行身分;查法:`gcloud run services describe <api-service> --project=<gcp-project> --region=<region> --format="value(spec.template.spec.serviceAccountName)"`,依查得的實際執行身分填入,不沿用來源專案帳號 |
+| CI 步驟(如 deploy.yml 跑 update)               | `cloud.json` 的 `gcp.deployServiceAccount`                                                                                                                                                                         |
 
 ```
-gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上表身分>" --role="roles/secretmanager.secretAccessor" --project=cookhome-online
+gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上表身分>" --role="roles/secretmanager.secretAccessor" --project=<gcp-project>
 ```
 
 三個環境各跑一次。
@@ -425,34 +403,34 @@ gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上
 **1. 建 bucket**(私有;region 與 Cloud Run 同 asia-east1,跨區會付流量費):
 
 ```
-gcloud storage buckets create gs://cookhome-assets-<env> --project=cookhome-online --location=asia-east1 --uniform-bucket-level-access --public-access-prevention
+gcloud storage buckets create gs://project-assets-<env> --project=<gcp-project> --location=asia-east1 --uniform-bucket-level-access --public-access-prevention
 ```
 
-公開 bucket 同一條指令,名稱改 `gs://cookhome-public-<env>`、**拿掉 `--public-access-prevention`**,再加一行開公開讀:
+公開 bucket 同一條指令,名稱改 `gs://project-public-<env>`、**拿掉 `--public-access-prevention`**,再加一行開公開讀:
 
 ```
-gcloud storage buckets add-iam-policy-binding gs://cookhome-public-<env> --member=allUsers --role=roles/storage.objectViewer
+gcloud storage buckets add-iam-policy-binding gs://project-public-<env> --member=allUsers --role=roles/storage.objectViewer
 ```
 
 **2. 授權 Cloud Run 執行身分讀寫物件**(六個 bucket 各跑一次;身分同 Secret Manager 那張表的查法):
 
 ```
-gcloud storage buckets add-iam-policy-binding gs://cookhome-assets-<env> --member=serviceAccount:728045896207-compute@developer.gserviceaccount.com --role=roles/storage.objectAdmin
+gcloud storage buckets add-iam-policy-binding gs://project-assets-<env> --member=serviceAccount:<api-runtime-service-account> --role=roles/storage.objectAdmin
 ```
 
 **3. 讓執行身分能簽自己的名**(V4 簽名走 signBlob;漏這步 api 會在簽名時報 `iam.serviceAccounts.signBlob` 權限不足):
 
 ```
-gcloud services enable iamcredentials.googleapis.com --project=cookhome-online
-gcloud iam service-accounts add-iam-policy-binding 728045896207-compute@developer.gserviceaccount.com --member=serviceAccount:728045896207-compute@developer.gserviceaccount.com --role=roles/iam.serviceAccountTokenCreator --project=cookhome-online
+gcloud services enable iamcredentials.googleapis.com --project=<gcp-project>
+gcloud iam service-accounts add-iam-policy-binding <api-runtime-service-account> --member=serviceAccount:<api-runtime-service-account> --role=roles/iam.serviceAccountTokenCreator --project=<gcp-project>
 ```
 
 **4. 設 CORS**(瀏覽器對簽名網址 `PUT` 直傳受 CORS 限制;沒設時商標、封面上傳會在瀏覽器端失敗):
 
 ```bash
 # cors.json:origin = erp-dev / erp-staging / erp 三個網域 + http://localhost:3001,method GET / PUT / HEAD,responseHeader Content-Type,maxAge 3600
-gcloud storage buckets update gs://cookhome-assets-dev --cors-file=cors.json   # 六個 bucket 各一次
-gcloud storage buckets describe gs://cookhome-assets-dev --format="value(cors_config)"
+gcloud storage buckets update gs://project-assets-dev --cors-file=cors.json   # 六個 bucket 各一次
+gcloud storage buckets describe gs://project-assets-dev --format="value(cors_config)"
 ```
 
 新增前端網域(例如自訂網域)時要把 origin 加進去再更新。
@@ -465,16 +443,14 @@ gcloud storage buckets describe gs://cookhome-assets-dev --format="value(cors_co
 
 ### Vercel 補充設定
 
-- **分支網域**:`dev.cookhome.online` → branch `dev`、`staging.cookhome.online` → branch `staging`(Settings → Domains,各綁 Git Branch);api / admin 的 dev / staging 子網域走 Cloud Run domain mapping(`api-dev`、`erp-dev`、`api-staging`、`erp-staging`,Cloudflare 灰雲 CNAME → ghs.googlehosted.com)。
+- **分支網域**:`dev.project.example.invalid` → branch `dev`、`staging.project.example.invalid` → branch `staging`(示例)(Settings → Domains,各綁 Git Branch);api / admin 的 dev / staging 子網域走 Cloud Run domain mapping(`api-dev`、`erp-dev`、`api-staging`、`erp-staging`,Cloudflare 灰雲 CNAME → ghs.googlehosted.com)。
 - **Deploy Hooks**(Settings → Git 最下方):`dev-front`、`staging-front`。對 hook URL 發 POST 即可**不靠 commit** 重 build 該分支的 front(Vercel 會跳過無檔案變更的 commit,分支剛建立或只想重烘時用這個)。
-- **Deployment Protection 關閉**(Vercel Authentication):dev / staging 的 api / admin 在 Cloud Run 本就公開,單獨保護 front preview 沒有實益;要全面保護測試環境時再一起設計。
-- 三環境 admin image 烘入的 api 端點皆為自訂子網域(`api` / `api-dev` / `api-staging.cookhome.online`)。
+- **Deployment Protection**:由專案按測試環境需求設定,與 API/admin 的存取方式一起驗證。
+- 三環境 admin image 烘入各自 `cloud.json` 的 `apiUrl`,可使用專案的自訂子網域。
 
 ## 五、安全與費用備忘
 
-- 連線字串(含密碼)只存在 Atlas、Secret Manager、擁有者本機,從未進版控或指令輸出。
-- GraphQL Sandbox、收件白名單、審核流程通知信的各環境設定見一、「環境對照」。
-- 費用防線:全服務 `max-instances=2`(費用天花板)+ Budget NT$600 三段警告。
-- 連線池:三環境的 MongoDB URI 均含 `maxPoolSize=10`,理論上限 6 實例 × 10 = 60 連線,遠低於 M0 的 500(三環境共用同一 cluster 額度;拆 cluster 見 `docs/tmp/dis.md` 搜「Atlas」)。
-- 評估過、目前不做:固定出口 IP(VPC connector + NAT ~US$10/月)、Cloudflare 橙雲 WAF(需 Global LB ~US$18/月)、production api `min-instances=1`(用冷啟動換省錢,有流量後再開)。
-- 待議:api schema 演進規範(向後相容 + 破壞性變更配遷移腳本),預定寫進 `docs/standards/api/`。
+- 憑證與連線字串只放專案自己的 Secret 或未追蹤本機設定,不寫進版控、issue 或執行輸出。
+- Cloud Run 的 min/max instances 由 deploy.yml 設定;初始化時核對預期流量與資料庫連線額度,另在專案的 GCP 設費用預算。
+- 三環境資料庫與連線池各自規劃,以實際方案額度核對總連線數,不把來源專案的成本或限制當成新專案設定。
+- Sandbox、寄信開關、allowlist 與儲存設定以各環境 YAML 及 env-registry 為準。

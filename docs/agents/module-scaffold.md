@@ -91,7 +91,7 @@ CLAUDE.md 規定:動到環境變數同步 `docs/env-registry.md`、動到品牌�
 - 在 `project/database/` 建 `XxxRepository extends BaseRepository<Entity, EntityDocument>`,型別別名與 repository 同居。到 `project/database/registrations.ts` 登記 model、repository 及組織資料檢查;repository 與 check 的 modelName 必須吻合。新增租戶資料沿用 business scope、orgId、allowGlobal=false,模組資料開 moduleData;collection 必須在掛 plugin 前設定。
 - 固定 `database/database.module.ts` 組裝底座與專案來源,驗 model/collection/provider/key 碰撞、plugin 與檢查關聯並導出 repository。一般專案 model 漏檢查或錯綁 repository 會失敗,不能自行另外 forFeature 或匯出 raw Model 規避。刪組織與撤銷開通會共用這份資料檢查,不再逐一修改 OrgsService。
 
-底座既有 users/roles 等特殊資料仍依自己的規則處理。專案 Recipe 是保留現行公開原型行為的唯一既有例外,不能拿來當新租戶模組藍本;新增其他資料種類須先擴充並審查契約。
+底座既有 users/roles 等特殊資料仍依自己的規則處理。專案業務登記預設為空,新增其他資料種類須先擴充並審查契約。
 
 正本:`apps/api/src/database/schemas/demo-item-two.schema.ts`、`apps/api/src/project/database/registrations.ts`、`apps/api/src/database/registration.ts`、`apps/api/src/database/plugins/tenant-scope.plugin.ts`
 

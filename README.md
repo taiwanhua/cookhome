@@ -1,16 +1,10 @@
-# CookHome 🍳
+# wowgo-base
 
-家常食譜分享網站 — Turborepo monorepo,三環境(dev / staging / production)全雲端運行。
+多租戶應用底座,提供完整前台、後台、API、RBAC、租戶隔離、動態表單與審核流程。各引用專案在獨立 repo 維護品牌、業務和部署設定。
 
-## 線上環境
+## 建立新專案
 
-|      | dev(開發測試)                                      | staging(預發布)                                            | **production**                                     |
-| ---- | -------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------- |
-| 前台 | [dev.cookhome.online](https://dev.cookhome.online) | [staging.cookhome.online](https://staging.cookhome.online) | [www.cookhome.online](https://www.cookhome.online) |
-| 後台 | erp-dev.cookhome.online                            | erp-staging.cookhome.online                                | erp.cookhome.online                                |
-| API  | api-dev.cookhome.online(Sandbox 開)                | api-staging.cookhome.online                                | api.cookhome.online                                |
-
-對應分支:`dev` / `staging` / `main`。資料庫三環境完全隔離(MongoDB Atlas 同 cluster 三個 db)。
+使用 `project-bootstrap` skill,依[共用初始化操作](docs/agents/project-bootstrap.md)從正式 tag 建立完整 Git 歷史,再設定品牌、資料庫、開發工具與外部資源。底座預設停用雲端與看板,沒有預先配置的線上環境;設定來源見[初始化索引](docs/project-initialization.md)。
 
 ## 專案結構
 
@@ -38,12 +32,12 @@ pnpm install
 pnpm dev               # 同時啟動 api / front / admin / storybook
 ```
 
-| 本地服務               | 網址                                                       |
-| ---------------------- | ---------------------------------------------------------- |
-| GraphQL API(+ Sandbox) | http://localhost:5001/graphql                              |
-| 前台 front             | http://localhost:3002                                      |
-| 後台 admin             | http://localhost:3001                                      |
-| Storybook              | http://localhost:6006(線上:https://design.cookhome.online) |
+| 本地服務               | 網址                          |
+| ---------------------- | ----------------------------- |
+| GraphQL API(+ Sandbox) | http://localhost:5001/graphql |
+| 前台 front             | http://localhost:3002         |
+| 後台 admin             | http://localhost:3001         |
+| Storybook              | http://localhost:6006         |
 
 ## 常用指令
 
@@ -54,7 +48,7 @@ pnpm --filter @repo/graphql generate     # 後端 schema 變更後重生前端�
 pnpm --filter @repo/storybook dev        # 只開設計系統
 docker compose --profile full up -d      # 整套容器本地驗證(mongo+api+admin)
 
-# 部署(一律手動觸發,merge 不自動部署;分支↔環境有防呆)
+# 專案啟用雲端並完成資源設定後,才手動部署(分支↔環境有防呆)
 gh workflow run Deploy --ref dev -f environment=dev
 gh workflow run Deploy --ref staging -f environment=staging
 gh workflow run Deploy --ref main -f environment=production
