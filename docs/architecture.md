@@ -55,7 +55,7 @@
 1. `api` 使用 code-first,由真 AppModule 組裝底座與專案;GraphQLModule 在啟動時輸出 `apps/api/schema.gql`(`NODE_ENV=test` 除外)。只重產不開服務用 `pnpm --filter @repo/api schema:generate`;新工作樹先依 [toolbox](agents/toolbox.md#pnpm--turbo建置測試格式)建置依賴
 2. `packages/graphql/src/documents/{base,project}/**/*.graphql` 定義前端要用的 query / mutation
 3. `pnpm --filter @repo/graphql generate` 先驗兩區文件,再產生唯一的 `src/generated/index.ts`(型別 + hooks);operation 與 fragment 的名稱各自全域唯一,不靠載入順序覆寫
-4. front / admin import `@repo/graphql` 取得型別安全的 hooks(如 `useRecipesQuery`)
+4. front / admin import `@repo/graphql` 取得型別安全的 hooks(如後台使用的 `useModuleTreeQuery`)
 
 後端 schema 變更後依序跑步驟 1 與 3,兩份產物同一個 commit(GQL-05;CI 的 `format-codegen` job 會擋)。
 

@@ -128,23 +128,25 @@ export function evaluateSeedSource(source: string): unknown {
  * 專案登記檔的替身:照 `apps/db-migrator/seeds/project/registry.ts` 的做法 import 每個匯出檔的 `seed`,
  * 併進專案來源後交給固定組裝入口 `assembleSeedRegistry`(撞 key、引用、可攜性、依賴排序都在那裡驗),
  * 再把組裝後的定義宣告印成 JSON。
+ *
+ * 專案來源用 db-migrator 的**空專案來源夾具**(`test/fixtures/seeds-base/`),不疊正式的 `seeds/project/`:
+ * 引用專案自己登記的模組與定義不會混進回傳值,也不會與測試匯出的定義撞 key。
  */
 const REGISTER_SCRIPT = `
 import { pathToFileURL } from "node:url";
 
-const [registryPath, sourcePath, settingsPath, ...files] = process.argv.slice(2);
+const [registryPath, sourcePath, ...files] = process.argv.slice(2);
 const load = (file) => import(pathToFileURL(file).href);
 const { assembleSeedRegistry } = await load(registryPath);
-const { projectSeedSource } = await load(sourcePath);
-const { projectSeedSettings } = await load(settingsPath);
+const { baseOnlyProjectSettings, baseOnlyProjectSource } = await load(sourcePath);
 const exported = [];
 for (const file of files) {
   const loaded = await load(file);
   exported.push(loaded.seed ?? loaded.default?.seed);
 }
-const registry = assembleSeedRegistry(projectSeedSettings, {
-  ...projectSeedSource,
-  seeds: [...projectSeedSource.seeds, ...exported],
+const registry = assembleSeedRegistry(baseOnlyProjectSettings, {
+  ...baseOnlyProjectSource,
+  seeds: [...baseOnlyProjectSource.seeds, ...exported],
 });
 process.stdout.write(
   JSON.stringify(
@@ -157,7 +159,7 @@ process.stdout.write(
 `;
 
 /**
- * 把匯出檔**原樣**寫成檔案、登記進專案 registry,回組裝後(已依引用排序)的定義宣告。
+ * 把匯出檔**原樣**寫成檔案、登記進(空的)專案來源,回組裝後(已依引用排序)的定義宣告。
  * 以子行程跑 db-migrator 自己的組裝入口(STRUCT-01 禁 app 互 import,同 `seedDatabase` 的做法);
  * 組裝不通過就丟錯並帶出它列的問題。不連資料庫。
  */
@@ -181,8 +183,13 @@ export function registerExportedSeeds(
         TSX_CLI,
         script,
         path.join(DB_MIGRATOR_ROOT, "seeds", "registry.ts"),
-        path.join(DB_MIGRATOR_ROOT, "seeds", "project", "registry.ts"),
-        path.join(DB_MIGRATOR_ROOT, "seeds", "project", "settings.ts"),
+        path.join(
+          DB_MIGRATOR_ROOT,
+          "test",
+          "fixtures",
+          "seeds-base",
+          "project-source.ts",
+        ),
         ...paths,
       ],
       { cwd: DB_MIGRATOR_ROOT, encoding: "utf8", timeout: 180_000 },

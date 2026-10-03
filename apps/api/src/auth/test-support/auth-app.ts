@@ -26,6 +26,14 @@ const TSX_CLI = path.join(
 const SEED_ENTRY = path.join(DB_MIGRATOR_ROOT, "src", "seed", "run.ts");
 const UPDATE_ENTRY = path.join(DB_MIGRATOR_ROOT, "src", "update", "run.ts");
 
+/**
+ * db-migrator 的空專案來源夾具 registry(`test/fixtures/seeds-base/`:只有底座、沒有任何定義),寫成指令參數。
+ * api 的測試驗的是底座的行為,測試資料庫一律以這份夾具種,不讀正式的 `seeds/registry.ts`:
+ * 引用專案在 `seeds/project/` 登記的模組、種子與定義不會混進這些測試的資料,
+ * 也不會讓 seed 需要 api 的建置產物。migration 仍是正式來源的那幾支。
+ */
+export const BASE_ONLY_REGISTRY = `--registry=${path.join(DB_MIGRATOR_ROOT, "test", "fixtures", "seeds-base", "registry.ts")}`;
+
 /** db-migrator 指令的結果(只給要驗指令行為的測試看)。 */
 export interface MigratorResult {
   status: number | null;
@@ -53,7 +61,7 @@ export function runMigratorUpdate(
 ): MigratorResult {
   const { status, stdout, stderr } = spawnSync(
     process.execPath,
-    [TSX_CLI, UPDATE_ENTRY, ...args],
+    [TSX_CLI, UPDATE_ENTRY, BASE_ONLY_REGISTRY, ...args],
     {
       cwd: DB_MIGRATOR_ROOT,
       env: migratorEnv(databaseUri),
@@ -125,10 +133,11 @@ export function buildDatabaseUri(
 /**
  * 以子行程跑 db-migrator 的 seed 指令,對測試資料庫種 root 帳號 / 根組織 / 種子角色。
  * seed 是 update 的相容別名:同一次執行先跑尚未成功的 migration、再同步種子(與一般部署同一條路),
- * 自己取得並釋放整批互斥鎖。正式 registry 沒有登記受管定義時不需要 api 的建置產物。
+ * 自己取得並釋放整批互斥鎖。種的是空專案來源的夾具 registry:沒有登記受管定義,不需要 api 的建置產物。
  */
 export function seedDatabase(databaseUri: string): void {
-  const result = spawnSync(process.execPath, [TSX_CLI, SEED_ENTRY], {
+  const seedArgs = [TSX_CLI, SEED_ENTRY, BASE_ONLY_REGISTRY];
+  const result = spawnSync(process.execPath, seedArgs, {
     cwd: DB_MIGRATOR_ROOT,
     env: {
       ...process.env,

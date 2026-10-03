@@ -223,6 +223,8 @@ PR 連結、改動檔案清單、測試結果(與基準比較)、截圖或 E2E �
 
 ## 批次 release(指路)
 
+以下是已啟用雲端的流程;底座與停用雲端的專案依 [deployment](../deployment.md#release-步驟)以 CI、本機應用與資料驗收發布程式版本。
+
 - 一批票各自合 `dev`、各自合 `staging`,累積後走一次 `staging → main` 的 release PR + 一次 production 部署;例外只有「產物依賴」才單獨先 release。
 - 步驟:逐一合 `staging` → `gh workflow run Deploy --ref staging -f environment=staging` + smoke → release PR 合 `main` → `gh workflow run Deploy --ref main -f environment=production` + smoke → 對齊 `dev` / `staging` → 關票、刪已合併的遠端分支。
 - 每一步的前置檢查與指令細節**只在 deployment.md 寫**,這裡不重複。

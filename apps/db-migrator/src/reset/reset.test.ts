@@ -1,14 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { type Db, ObjectId, type WithId } from "mongodb";
 
-import { projectSeedSettings } from "../../seeds/project/settings";
+import { baseOnlyProjectSettings } from "../../test/fixtures/seeds-base/project-source";
 import {
   RESET_ENTRY,
+  type ResetOptions,
   confirmationOf,
   dumpApplicationData,
-  runReset,
+  runReset as runResetCommand,
 } from "../../test/support/reset-harness";
 import {
+  BASE_ONLY_REGISTRY,
   BUILD_TIMEOUT_MS,
   ROOT_ADMIN_ENV,
   SEED_ENTRY,
@@ -23,10 +25,21 @@ import {
 } from "../../test/support/update-harness";
 
 /**
- * reset 指令對真的拋棄式 MongoDB(正式 registry 與九支歷史 migration):`data` / `full` 的清留、
+ * reset 指令對真的拋棄式 MongoDB(九支歷史 migration 與空專案來源的夾具 registry):`data` / `full` 的清留、
  * 安全閥(環境允許清單 + 完整人工確認,缺一即零刪除)、以拋棄式資料庫模擬 production 的確認。
  * 資料庫名刻意不帶環境字樣:目標環境只由 `--environment` 與確認字串決定,不從名字推測。
+ *
+ * 清留的數量是底座自己的內容,所以 seed 與 reset 都指定夾具 registry(`--registry=`),不讀引用專案在
+ * `seeds/project/` 登記的內容;帶受管定義的 reset 見 `reset-managed.test.ts` / `reset-full.test.ts`。
  */
+
+/** reset 指令,registry 固定為空專案來源的夾具。 */
+function runReset(databaseUri: string, options: ResetOptions) {
+  return runResetCommand(databaseUri, {
+    ...options,
+    args: [BASE_ONLY_REGISTRY, ...(options.args ?? [])],
+  });
+}
 
 const mongo = new TestMongo("db-migrator-reset");
 
@@ -249,7 +262,7 @@ async function readState(databaseUri: string) {
 }
 
 function runSeedCommand(databaseUri: string) {
-  return startEntry(SEED_ENTRY, [], databaseUri).done;
+  return startEntry(SEED_ENTRY, [BASE_ONLY_REGISTRY], databaseUri).done;
 }
 
 /** 種子 + 人建資料 + 人改過的開關 / 圖示。 */
@@ -433,8 +446,8 @@ describe("reset --mode=full(對真 MongoDB)", () => {
     expect(moduleBy("demo.sample-two")?.enabled).toBe(true);
     expect(moduleBy("overview")?.icon).toBe("dashboard");
     expect(state.orgs.find((org) => org.key === "root")).toMatchObject({
-      name: projectSeedSettings.rootOrg.name,
-      description: projectSeedSettings.rootOrg.description,
+      name: baseOnlyProjectSettings.rootOrg.name,
+      description: baseOnlyProjectSettings.rootOrg.description,
     });
     // changelog 清掉後重新長出來:同樣九支,但每一筆都是這次重跑記的
     const changelog = await changelogOf(databaseUri);
@@ -691,7 +704,7 @@ describe("以拋棄式資料庫模擬 production:完整確認才執行", () => {
     const state = await readState(databaseUri);
     expect(state.customers).toHaveLength(0);
     expect(state.orgs.find((org) => org.key === "root")).toMatchObject({
-      name: projectSeedSettings.rootOrg.name,
+      name: baseOnlyProjectSettings.rootOrg.name,
     });
     const applicationData = await dumpApplicationData(databaseUri);
     expect(Object.keys(applicationData)).toContain("changelog");

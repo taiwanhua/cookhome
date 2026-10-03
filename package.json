@@ -1,6 +1,11 @@
 {
   "name": "cookhome",
   "private": true,
+  "wowgoBase": {
+    "repository": "https://github.com/taiwanhua/wowgo-base.git",
+    "tag": "v0.1.1",
+    "commit": "28628fc88a286cd9beb10c6672f442bbe807ef90"
+  },
   "scripts": {
     "build": "turbo run build",
     "clean": "turbo run clean",
