@@ -30,6 +30,8 @@ packages/
 
 ## 快速開始
 
+首次啟動先依各 app 的 `.env.example` 建立 `.env`;已有檔案直接核對。API 的 `MONGODB_URI` 必填。多專案共存時,根 Compose 設定與 API 連線需一起對齊,見[本地開發](docs/architecture.md#本地開發)。
+
 ```bash
 docker compose up -d   # 啟動 MongoDB
 pnpm install

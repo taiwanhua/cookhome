@@ -8,7 +8,7 @@
 
 ## 底座識別
 
-底座名稱與預定 repo 名稱為 `wowgo-base`,獨立 repo 尚未建立。這個名稱不替換 CookHome 的品牌、slug、網域或雲端資源。底座建立時沿用本表的專案設定入口填入自己的值;共用文件與 skills 使用「底座」「專案」等中性詞彙,詞義見 `CONTEXT.md`。抽離與初始化的未完成工作見[底座同步計畫](plans/base-sync.md)。
+底座名稱為 `wowgo-base`,獨立 repo 是 [taiwanhua/wowgo-base](https://github.com/taiwanhua/wowgo-base)。這個名稱不替換 CookHome 的品牌、slug、網域或雲端資源。底座建立時沿用本表的專案設定入口填入自己的值;共用文件與 skills 使用「底座」「專案」等中性詞彙,詞義見 `CONTEXT.md`。抽離與初始化的未完成工作見[底座同步計畫](plans/base-sync.md)。
 
 ## 程式碼
 

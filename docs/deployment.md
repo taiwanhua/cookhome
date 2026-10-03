@@ -78,6 +78,18 @@ release 後:dev / staging reset 對齊 main;進行中的 feat 分支 rebase 到�
 - **共通修正先單獨 release**:CI、測試工具這類每張票都受益的修正,開自己的分支、單獨走一次 release 進 `main`,不等功能批。已經開工的疊票鏈缺這個修正時,把那個 commit `cherry-pick` 到鏈的底部分支,不 merge `dev`。
 - `dev` / `staging` 只由 PR 合入,與 `main` 對齊只用 reset(見下面 Release 步驟第 4 點)。
 
+### 底座首次接軌與版本升級
+
+底座同步分支須保留上游版本的共同祖先,適用以下特例;一般功能分支仍依上節 rebase。
+
+1. 從引用專案已發布的 `origin/main` 建立升級分支。核對 `upstream` 指向底座 repo,以 `git fetch upstream --no-tags refs/tags/<版本>:refs/remotes/upstream/releases/<版本>` 取得指定版本,核對 tag 解析出的完整 commit。
+2. 一般三方合併該版本並保留 merge commit。依[維護歸屬](architecture.md#底座與專案的維護歸屬)審查**全部差異**,包含 Git 沒有報衝突的專案值;底座改了專案未修改過的預設值,也可能被自動套入。專案來源、品牌、前台、部署與 seed 值保留,契約新增必填值則明確補齊。
+3. 固定組裝入口、workflow 與共用文件逐段整合;不能整個排除治理頁或檔案。CookHome 的 Recipe 資料層相容例外須保留精確範圍,不能擴成任意跳過租戶隔離。schema/hooks 與 lockfile 在人工來源整合後重產,已發布 migration/seed 快照維持原檔。
+4. 依既有 PR 與環境流程驗收。各次合併使用 merge commit,以 `git merge-base --is-ancestor <底座commit> <結果commit>` 核對 ancestry;不得用 `merge -s ours`、squash 或 cherry-pick 代替向下同步。
+5. 等待期間若 `main` 前進,從新 `main` **重建升級分支**,重新合併同一底座版本並驗證專案保留;不對含底座 merge 的分支跑一般 rebase,也不把 main 合入舊升級分支。
+
+升級 PR 記錄底座來源、tag、完整 commit、專案保留項與驗收結果。首次接軌須確認中性化沒有帶走引用專案的品牌、業務與設定;相對原 main 的程式差異只包含明列的共用修正。資料轉換依既有 migration/update,不以 reset 代替升級。底座 tag 以獨立 upstream ref 保存,不覆蓋引用專案自己的同名 tag。
+
 ### CI(ci.yml)
 
 所有 PR 與 push 到 `main` / `dev` / `staging` 自動跑。`paths-ignore` 是 `docs/**`、根目錄 `*.md`、`.claude/**`、`.agents/**`:只改這些路徑時 ci.yml 不跑。`docs.yml` 的 `paths` 只有 `docs/**`、`*.md`、`**/*.md`,改到任何 md 就跑同一個 `format:check`。兩者合起來:
@@ -140,7 +152,9 @@ deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩
 
   cloud scope 讀兩份 JSON;github scope 只讀 `github.json`,不需要 cloud 設定或部署環境。看板停用時不要求看板 IDs/options,仍須通過 repo 身分檢查。
 
-  成功時 stdout 是一行 JSON(固定的鍵),失敗時 stdout 無輸出、stderr 一行說明、退出碼非零。在 repo 根執行;本機想看某環境會解析出什麼就直接跑。
+  成功時 stdout 是一行 JSON(啟用時為固定的設定鍵,停用時為 `{"enabled":false}`),失敗時 stdout 無輸出、stderr 一行說明、退出碼非零。在 repo 根執行;本機想看某環境會解析出什麼就直接跑。
+
+- **雲端尚未啟用**:`cloud.json` 使用 `{"schemaVersion":1,"enabled":false}`,只能有這兩個欄位,不能留下來源專案的 gcp/environments。讀取器仍驗 repository 與環境,CI dry-run 可成功;Deploy/Reset 的 output writer 會以「雲端尚未啟用」在認證前停止,不寫任何 step output。啟用時填完整三環境設定,`enabled` 省略或設為 `true` 都走同一套嚴格驗證。此開關不改變已配置專案的 production reset 確認規則。
 
 - **驗證**:`schemaVersion` 不認得、`--repository` 與 `expectedRepository` 不同、環境不是三個之一、缺欄位或多出未知欄位、值的格式不對或含控制字元,一律失敗,不回退任何預設值。workflow 傳入的 repository 取自 GitHub 的 context,所以把 repo 複製成另一個專案後,沒改設定就跑不到原專案的資源:deploy / reset 在雲端認證前停止,看板在任何寫入前停止。
 - **傳值方式**:workflow 把讀取器的輸出映射成固定的 step 輸出(`write-github-output.mjs`),再經各 step 的 `env:` 以 `"$VAR"` 傳給命令;設定值不內插進 `run` 的程式文本。
