@@ -74,6 +74,15 @@ Recipe 的相容差異是既有業務保留的代價,不是新增模組的範本
 
 雲端未啟用狀態沿用 `deploy/project/cloud.json` 的 schemaVersion 1,新增可選 boolean `enabled`:省略或 true 維持現有三環境嚴格驗證與原本輸出;false 時檔案只能有 `schemaVersion` 與 `enabled`,不得夾帶舊專案 gcp/environments 或未知鍵。`resolveCloudConfig` 仍先核對 environment 與可信 repository 身分,停用時回 `{ enabled: false }`;既有 read-config CLI 成功輸出此狀態供 CI dry-run 驗證。雲端 Actions 的 `write-github-output --scope cloud` 遇此狀態明確失敗且不寫任何 output,因此既有 Deploy/Reset 在認證前停止。這不限制已啟用專案的 production reset,也不改 CookHome 的 cloud 設定值。正負例須驗 reader、CLI、output writer 與既有假命令 workflow harness;不用真雲端資源測這個契約。
 
+本機隔離沿既有 env 機制實作,不新增 local JSON:
+
+- API 與受管定義 CLI 共用 `database/mongodb-uri.ts` 的 `requireMongoDbUri(value: string | undefined): string`,拒絕缺值、空字串與純空白,錯誤只指出 `MONGODB_URI`,不印值;合法非空字串原樣交給 driver。驗證在 Nest 連線 factory 執行,不在 module import 時讀環境;SeedRuntimeModule 保留 `MONGODB_URI_ENV` 出口。schema CLI 與測試 harness 繼續顯式提供 memory-server URI。
+- 根 compose 移除三個硬編碼 `container_name`,由 Compose 自己依專案名管理。保留沒有頂層 `name`、volume key `mongo-data` 及既有內部端口。host port 改用 `LOCAL_MONGO_PORT`/`LOCAL_API_PORT`/`LOCAL_ADMIN_PORT`,預設仍 27017/5001/8080;容器內 DB 名用 `LOCAL_MONGO_DB`,預設 `cookhome`;admin build endpoint 跟隨 host API port。不要重命名或刪除既有 volume。
+- 根 `.env.example` 列上述 LOCAL 變數與註解形式的 `COMPOSE_PROJECT_NAME`;不強制既有 CookHome 改 compose 專案名。新專案初始化才在其根 `.env` 寫入獨立名稱與端口;API 本機 `.env` 的 URI 須對應其 host port/DB。根 `.env` 沿既有 gitignore,不提交真實連線字串。
+- E2E 新增 `E2E_COMPOSE_PROJECT`,config 出口為 `COMPOSE_PROJECT`,預設仍 `cookhome-e2e`;e2e compose 的 name 與 fake-gcs up/down 使用同一值。其餘 port/DB/bucket 沿現有 E2E 變數。用 `docker compose config` 驗兩組專案參數的容器名、volume、endpoint 與 port;不必啟動既有容器或跑 E2E。若要驗雙 stack,只用明確建立的拋棄式資源。
+
+共用測試去除 Recipe 耦合時,API 公開端點探針使用僅在測試 module 註冊的 `@Public` resolver;admin 改密碼攔截探針改用既有 base GraphQL operation。Recipe 公開/CRUD/精確 ESLint 豁免的相容驗證留在 `project/recipes/` 測試;共用 project-fixture 與所有權 lint 使用可保留於空業務專案的來源。此步不改正式 Recipe API、核心授權、database.module 的精確相容清單或正式 GraphQL 產物;候選底座中性化才移除 Recipe 實作與相容項。
+
 | 工作單元                     | 依賴與交付                                                                                                                        | 寫入責任                                            |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | 雲端未啟用狀態               | 先固定 JSON/讀取器相容契約,補離線 CI 與 Deploy/Reset 的停用測試;CookHome 真值不變                                                 | Claude 程式/測試,文件票收正式操作規則               |
@@ -95,7 +104,7 @@ Recipe 的相容差異是既有業務保留的代價,不是新增模組的範本
 - CookHome 首次接軌保留品牌、食譜、專案設定與資料;再升一版仍保留客製。覆蓋「上游改了專案未修改的預設值而 Git 無衝突」的案例。
 - 回收一個只有共用修正的 commit,確認沒有把專案品牌/部署值帶回底座,再發布新版本向下驗證。完整 Figma 與發布自動化仍依 E、F 驗收。
 
-尚須固定的介面:本機 env 輸入及 port 分配、初始化命令與重跑策略、底座版本欄位、首次建庫審查流程、外部資源建立/驗證。這些定案後才開相應程式票;不為尚未確定的介面新增另一份暫存規格。
+尚須固定的介面:初始化命令與重跑策略、底座版本欄位、首次建庫審查流程、外部資源建立/驗證。這些定案後才開相應程式票;不為尚未確定的介面新增另一份暫存規格。
 
 ## E:Figma 品牌與版本同步
 
