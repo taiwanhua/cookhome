@@ -45,10 +45,10 @@ interface IndexShape {
 
 /**
  * full reset 會 drop 每個 collection 連同索引(`docs/deployment.md`「資料庫還原(reset)」:
- * 完整的應用資料與索引重建)。正式 registry 沒有登記任何表單 / 流程定義時也一樣要把**全部**登記 schema 的索引
+ * 完整的應用資料與索引重建)。registry 沒有登記任何表單 / 流程定義時也一樣要把**全部**登記 schema 的索引
  * 建回來 —— 常駐的 api 早就做完 `model.init()`,不會自己重建,也不能要求操作者重啟服務。
  *
- * 全程同一個 app instance、不重啟;reset 是真的 db-migrator 指令子行程(正式 registry,沒有定義)。
+ * 全程同一個 app instance、不重啟;reset 是真的 db-migrator 指令子行程(空專案來源的夾具 registry,沒有定義)。
  * 「全部 schema」取自這個 app 實際註冊的 model,不另列清單。
  */
 describe("full reset(沒有受管定義):同一個 api instance 不重啟,全部 schema 的索引都重建", () => {
@@ -111,7 +111,7 @@ describe("full reset(沒有受管定義):同一個 api instance 不重啟,全部
     const result = await runFullReset(databaseUri);
     expect(result.stderr).toBe("");
     expect(result.status).toBe(0);
-    // 正式 registry 沒有任何定義:這次不是靠發布定義順便建回索引
+    // 夾具 registry 沒有任何定義:這次不是靠發布定義順便建回索引
     expect(result.stdout).not.toContain("定義 form-definition");
     expect(result.stdout).not.toContain("定義 workflow-definition");
 

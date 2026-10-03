@@ -27,6 +27,7 @@ import {
 } from "../../test/support/reset-managed";
 import { cloneDatabase } from "../../test/support/update-evolve";
 import {
+  BASE_ONLY_REGISTRY,
   BUILD_TIMEOUT_MS,
   HARD_ABORT_EXIT_CODE,
   PACKAGE_ROOT,
@@ -433,10 +434,11 @@ async function indexNames(
   return indexes.map((index) => String(index.name));
 }
 
-/** 正式來源(沒有任何定義)種好的資料庫。 */
+/** 沒有任何定義的來源(正式 migration + 空專案來源的夾具 registry)種好的資料庫。 */
 async function seededDatabase(suffix: string): Promise<string> {
   const databaseUri = mongo.uri(suffix);
-  const seeded = await startEntry(SEED_ENTRY, [], databaseUri).done;
+  const seeded = await startEntry(SEED_ENTRY, [BASE_ONLY_REGISTRY], databaseUri)
+    .done;
   expect(seeded.stderr).toBe("");
   expect(seeded.status).toBe(0);
   return databaseUri;
@@ -444,14 +446,16 @@ async function seededDatabase(suffix: string): Promise<string> {
 
 const FAILING_CLI = `cli:${path.join(PACKAGE_ROOT, "test", "support", "failing-definition-cli.mjs")}`;
 
-describe("full reset:registry 沒有登記任何定義(正式來源)時,索引一樣靠 api 的 runtime 建回", () => {
+const NO_DEFINITIONS = [BASE_ONLY_REGISTRY] as const;
+
+describe("full reset:registry 沒有登記任何定義(空專案來源的夾具)時,索引一樣靠 api 的 runtime 建回", () => {
   it("受管定義 CLI 沒有建置:刪除之前就拒絕,資料庫原封不動", async () => {
     const databaseUri = await seededDatabase("no-definitions-cli-missing");
     const before = await dumpDatabase(databaseUri);
 
     const result = await runResetWithFault(
       databaseUri,
-      { mode: "full" },
+      { mode: "full", args: NO_DEFINITIONS },
       `cli:${path.join(os.tmpdir(), "db-migrator-no-such-cli", "run.js")}`,
     );
     expect(result.status).toBe(1);
@@ -466,7 +470,7 @@ describe("full reset:registry 沒有登記任何定義(正式來源)時,索引�
 
     const failed = await runResetWithFault(
       databaseUri,
-      { mode: "full" },
+      { mode: "full", args: NO_DEFINITIONS },
       FAILING_CLI,
     );
     expect(failed.status).toBe(1);
@@ -482,7 +486,10 @@ describe("full reset:registry 沒有登記任何定義(正式來源)時,索引�
     expect(await lockOf(databaseUri)).toBeNull();
     expect(await indexNames(databaseUri, "form_versions")).toEqual([]);
 
-    const again = await runReset(databaseUri, { mode: "full" });
+    const again = await runReset(databaseUri, {
+      mode: "full",
+      args: NO_DEFINITIONS,
+    });
     expect(again.stderr).toBe("");
     expect(again.status).toBe(0);
     expect(again.stdout).not.toContain("定義 form-definition");
@@ -504,7 +511,7 @@ describe("full reset:registry 沒有登記任何定義(正式來源)時,索引�
 
     const data = await runResetWithFault(
       databaseUri,
-      { mode: "data" },
+      { mode: "data", args: NO_DEFINITIONS },
       FAILING_CLI,
     );
     expect(data.stderr).toBe("");
