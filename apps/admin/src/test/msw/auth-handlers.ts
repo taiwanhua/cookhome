@@ -44,7 +44,7 @@ export type TestOrg = MeQuery["me"]["orgs"][number];
 /** 當前組織比所屬組織清單多一個 `logoUrl`(側欄的商標;清單不顯示商標所以不簽)。 */
 export type TestCurrentOrg = NonNullable<MeQuery["me"]["currentOrg"]>;
 
-export const testOrg: TestOrg = { id: "org-1", name: "CookHome" };
+export const testOrg: TestOrg = { id: "org-1", name: "平台根組織" };
 
 /** 總覽模組(seeds/base/modules/overview.ts):登入後的第一頁;預設每個測試使用者都有它 */
 export const overviewModule: TestModule = {
@@ -64,7 +64,7 @@ export const testUser: MeQuery["me"] = {
   id: "user-1",
   account: "root",
   name: "小華",
-  email: "root@cookhome.online",
+  email: "root@example.invalid",
   nickname: null,
   mustChangePassword: false,
   currentOrg: { ...testOrg, logoUrl: null, timezone: "Asia/Taipei" },
@@ -88,7 +88,7 @@ export interface AuthWorldOptions {
   expiredTokens?: string[];
   /** `me.modules`(預設只有總覽) */
   modules?: TestModule[];
-  /** 所屬組織清單(預設只有 CookHome);當前組織預設 = 第一個(#66 組織切換器) */
+  /** 所屬組織清單(預設只有平台根組織);當前組織預設 = 第一個(#66 組織切換器) */
   orgs?: TestOrg[];
   /** 當前組織的商標網址(側欄有商標就顯示圖、沒有才顯示名稱);預設沒有 */
   currentOrgLogoUrl?: string | null;

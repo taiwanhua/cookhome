@@ -1,12 +1,12 @@
 // migrate-mongo 設定(正本:ADR-0002)
 // 連現有環境資料庫:URI 一律走 MONGODB_URI 環境變數,需含資料庫名稱
-// (例:mongodb://127.0.0.1:27017/cookhome),不新開資料庫。
+// (例:mongodb://127.0.0.1:27017/wowgo-base),不新開資料庫。
 
 const uri = process.env.MONGODB_URI;
 
 if (!uri) {
   throw new Error(
-    "缺少 MONGODB_URI 環境變數(需含資料庫名稱,例:mongodb://127.0.0.1:27017/cookhome)",
+    "缺少 MONGODB_URI 環境變數(需含資料庫名稱,例:mongodb://127.0.0.1:27017/wowgo-base)",
   );
 }
 

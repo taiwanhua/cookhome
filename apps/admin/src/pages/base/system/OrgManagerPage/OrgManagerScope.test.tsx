@@ -56,7 +56,7 @@ describe("組織管理頁:管理範圍與視角(/system/org-manager)", () => {
     expect(treeLabel("A-2-1 門市櫃台")).toBe("A-2-1 門市櫃台停用");
     // 管理範圍外的組織不回傳,樹上自然沒有;樹根不是平台根組織 → 沒有「租戶」標籤
     expect(treeItem("租戶 A")).toBeUndefined();
-    expect(treeItem("CookHome")).toBeUndefined();
+    expect(treeItem("平台根組織")).toBeUndefined();
     // 預設選中第一個根
     expect(
       await within(detail()).findByText("負責食譜內容產出與審核"),

@@ -27,7 +27,7 @@ const MatrixActions = () => (
 const items: TreeNode[] = [
   {
     id: "root",
-    label: "CookHome",
+    label: "平台根組織",
     children: [
       {
         id: "org-1",
@@ -84,7 +84,7 @@ export const WithLabelSuffix: Story = {
     items: [
       {
         id: "root",
-        label: "CookHome",
+        label: "平台根組織",
         children: [
           {
             id: "org-1",

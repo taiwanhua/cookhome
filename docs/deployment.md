@@ -175,6 +175,8 @@ deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩
 
 ### Release 步驟
 
+雲端啟用的引用專案依下列步驟部署及驗收。底座或明確停用雲端的專案,仍走逐票 dev / staging PR 與同批 main release,但以 CI、本機應用與資料驗收代替未啟用的部署,在 PR 清楚記錄。停用的 Deploy 不算部署成功。底座程式發布另建立不可移動的 annotated tag 與 GitHub Release,記錄完整 commit;引用專案從該版本初始化或升級。
+
 **release 一批一次**:同一批票各自 PR 合進 `dev`、各自 PR 合進 `staging`,累積成一批之後才走一次 release(一個 `staging → main` 的 PR + 一次 production 部署)。`dev` 的部署也等該批最後一張合完才觸發,不要一張一部署。例外只有**產物依賴**:後面的票要拿前面的票已上線的產物才做得下去時,前面那張單獨先 release。
 
 每次都照這五步(票的看板狀態見 `docs/agents/issue-tracker.md`):
@@ -322,17 +324,21 @@ RESET_ALLOW_ENV=dev MONGODB_URI=mongodb://127.0.0.1:27017/cookhome-dev \
 
 ### 觀測與維運
 
+先核對 cloud.json 的 GCP project、region 與服務名,再查狀態;不依賴本機 gcloud 的預設 project。
+
 ```bash
-gcloud run services list                                   # 服務清單與 URL
-gcloud run revisions list --service=cookhome-api           # 歷史版本(回滾用)
-gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="cookhome-api"' --limit=30
-gcloud secrets versions list mongodb-uri                   # secret 版本
-gcloud beta run domain-mappings describe --domain=api.cookhome.online --region=asia-east1  # 網域/憑證狀態
+gcloud run services list --project=cookhome-online --region=asia-east1 # 服務清單與 URL
+gcloud run revisions list --service=cookhome-api --project=cookhome-online --region=asia-east1 # 歷史版本(回滾用)
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="cookhome-api"' --limit=30 --project=cookhome-online
+gcloud secrets versions list mongodb-uri --project=cookhome-online # secret 版本
+gcloud beta run domain-mappings describe --domain=api.cookhome.online --project=cookhome-online --region=asia-east1 # 網域/憑證狀態
 ```
 
 - Cloud Run UI:console.cloud.google.com → Cloud Run。編輯表單顯示的 max instances「20」是表單的建議值,實際生效值看 Revisions 分頁(2)。
 - Atlas UI:cloud.mongodb.com → Network Access(0.0.0.0/0)/ Database Access / Browse Collections
 - Cloudflare:`api`、`erp`、`api-dev`、`erp-dev`、`api-staging`、`erp-staging` CNAME → `ghs.googlehosted.com`(灰雲,對應 6 筆 Cloud Run domain mapping);`www`、`@`、`dev`、`staging`、`design` CNAME → Vercel(灰雲);TXT 為 Google 網域驗證,勿刪
+
+部署後核對新 revision ready、流量分配、實際 image SHA 與設定更新紀錄。
 
 ## 四、環境變數管理
 
@@ -364,7 +370,7 @@ Vercel 現有變數(唯一 key:`NEXT_PUBLIC_GRAPHQL_ENDPOINT`,全部 Config 型)
 **新增一個環境變數**(依用到它的地方,最多三處):
 
 1. 本地:加進該 app 的 `.env` + 同步 `.env.example`(讓別人 / AI 知道有這個變數)。
-2. api / admin 雲端:機密 → `gcloud secrets create`(步驟見下節)+ deploy.yml `--set-secrets`;非機密 → 加進 `deploy/env/<環境>.yaml`(三個環境各給值,走 PR)。程式端一律給**內建預設值**,變數不設也能跑。
+2. api / admin 雲端:機密 → `gcloud secrets create`(步驟見下節)+ deploy.yml `--set-secrets`;非機密 → 加進 `deploy/env/<環境>.yaml`(三個環境各給值,走 PR)。必填與可省略的行為以 `docs/env-registry.md` 及讀取程式為準,例如 `MONGODB_URI` 沒有預設值。
 3. front 雲端:Vercel dashboard 加(Type 選 **Config**,除非真是機密;`NEXT_PUBLIC_` 前綴 = 會進瀏覽器,機密絕不可加此前綴)。
 
 **機密判斷準則**:「這個值出現在瀏覽器 / 版控裡會不會出事?」會 → Secret Manager(Cloud Run)或 Secret 型(Vercel);不會 → 明文設定即可。

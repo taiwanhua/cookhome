@@ -36,7 +36,7 @@
 
 ## 看板:票的生命週期(唯一真相)
 
-狀態一律以 **Project「CookHome」的 Status 欄位**為準;標籤只當資格註記(`needs-info`、`wontfix` 等),**不用標籤表示狀態**。
+狀態一律以 **Project「CookHome」的 Status 欄位**為準;標籤只當資格註記(`needs-info`、`wontfix` 等),**不用標籤表示狀態**。看板的啟用與 IDs 以 `deploy/project/github.json` 為準;看板停用時,進度與驗收記在 issue/PR,不操作來源專案的看板。
 
 | Status         | 意義(對應 3 分支流程)                                                                     | 誰在何時移卡   |
 | -------------- | ----------------------------------------------------------------------------------------- | -------------- |
@@ -57,7 +57,9 @@
 - `Closes #n` 只在合進預設分支 `main` 時自動關票;PR 合 `dev` **不會關**,關票時機是 Released(`gh issue close <n> --comment "<PR 連結>"`)。
 - 部署一律手動觸發(deploy.yml 只有 `workflow_dispatch`),merge 不會部署任何環境。
 
-**手動移卡**(Project #3,owner taiwanhua;整行單行,PowerShell 沒有 `\` 續行):
+雲端停用時,上表的部署驗收依 [deployment 的 Release 步驟](../deployment.md#release-步驟)改用 CI、本機應用與資料驗收;Released 表示程式版本已發布,不代表雲端已部署。
+
+**手動移卡**(只適用已啟用看板;Project #3,owner taiwanhua;整行單行,PowerShell 沒有 `\` 續行):
 
 ```
 gh project item-edit --id <ITEM_ID> --project-id <PROJECT_ID> --field-id <STATUS_FIELD_ID> --single-select-option-id <OPTION_ID>

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # 建置方式(從 repo 根目錄):
-#   docker build -f apps/admin/Dockerfile -t cookhome-admin \
-#     --build-arg VITE_GRAPHQL_ENDPOINT=https://api.cookhome.online/graphql .
+#   docker build -f apps/admin/Dockerfile -t wowgo-base-admin \
+#     --build-arg VITE_GRAPHQL_ENDPOINT=http://localhost:5001/graphql .
 
 # ---- base ----
 FROM node:22-alpine AS base

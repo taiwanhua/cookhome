@@ -5,8 +5,8 @@
 query / mutation 一律透過 codegen 產生的 `useXxxQuery` / `useXxxMutation`;禁止在 app 內手寫 gql 字串或自組 fetch。需要新查詢時:改 `packages/graphql` 的 `.graphql` 文件 → 跑 codegen → 用新 hook。
 
 ```ts
-✅ const { data } = useRecipesQuery(client);
-❌ const data = await client.request(`query { recipes { id } }`);
+✅ const { data } = useModuleTreeQuery(client);
+❌ const data = await client.request(`query { moduleTree { id } }`);
 ```
 
 admin 傳給 hook 的 client 有兩個(`apps/admin/src/lib/auth/`):**`session.client`** 給登入後的查詢(自動帶 access token、`TOKEN_EXPIRED` 時靜默換票重送一次、`UNAUTHENTICATED` 清狀態導登入頁)、**`session.publicClient`** 只給 `login` / `refresh` / 密碼流程這幾個公開端點。拿錯 client 會在登入頁無限轉圈或已登入頁被當成沒登入。
@@ -18,8 +18,8 @@ admin 傳給 hook 的 client 有兩個(`apps/admin/src/lib/auth/`):**`session.cl
 invalidate、prefetch 一律用 codegen 提供的 `useXxxQuery.getKey()`,保證與 hook 內部一致。
 
 ```ts
-✅ queryClient.invalidateQueries({ queryKey: useRecipesQuery.getKey() });
-❌ queryClient.invalidateQueries({ queryKey: ["recipes"] });
+✅ queryClient.invalidateQueries({ queryKey: useModuleTreeQuery.getKey() });
+❌ queryClient.invalidateQueries({ queryKey: ["ModuleTree"] });
 ```
 
 ## DATA-03 Server Component 用 fetcher 模式

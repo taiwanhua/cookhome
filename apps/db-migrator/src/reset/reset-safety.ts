@@ -46,7 +46,7 @@ export function parseDatabaseName(uri: string): string {
   const name = decodeURIComponent(url.pathname.replace(/^\//, ""));
   if (name === "") {
     throw new Error(
-      "MONGODB_URI 未含資料庫名稱(例:mongodb://127.0.0.1:27017/cookhome-dev)",
+      "MONGODB_URI 未含資料庫名稱(例:mongodb://127.0.0.1:27017/wowgo-base-dev)",
     );
   }
   return name;

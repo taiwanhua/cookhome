@@ -51,7 +51,7 @@ const tenantChildren: TestOrgNode[] = [
 
 /** 根組織視角:樹根是根組織(`parentId` 為 null),它的直接子組織才是租戶。 */
 export const rootTree: TestOrgNode[] = [
-  node("org-root", "CookHome", null, {
+  node("org-root", "平台根組織", null, {
     children: [
       node("org-tenant-a", "租戶 A", "org-root", {
         ownerUserId: "user-owner",
@@ -111,7 +111,7 @@ const org = (
  * 租戶 A 的時區沒設(null = 使用預設時區)。
  */
 export const orgDetails: TestOrg[] = [
-  org("org-root", "CookHome", null, { isSystem: true }),
+  org("org-root", "平台根組織", null, { isSystem: true }),
   org("org-tenant-a", "租戶 A", "org-root", {
     description: "示範租戶",
     ownerUserId: "user-owner",
@@ -136,7 +136,7 @@ const user = (
   id,
   account: id,
   name,
-  email: `${id}@cookhome.online`,
+  email: `${id}@example.invalid`,
   enabled,
   orgs: [{ id: "org-tenant-a", name: "租戶 A" }],
   roles,
