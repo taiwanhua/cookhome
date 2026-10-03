@@ -81,21 +81,28 @@
 
 ## 隔離品牌相容性測試
 
-測試檔位於 Wowgo Professional 團隊的 [TEST — Multi-project Theme POC](https://www.figma.com/files/team/963068133549518258/project/661917302),與正式 CookHome Design System 分開。
+測試檔位於 Wowgo Professional 團隊的 [TEST — Multi-project Theme POC](https://www.figma.com/files/team/963068133549518258/project/661917302)。正式 CookHome Design System 僅作唯讀來源,沒有修改或搬移;通用補套工具與正式拆檔仍未完成。
 
-- [測試底座](https://www.figma.com/design/mqttXnyi4FQYIOcPpsyukh):橘色 primary、三種狀態按鈕與巢狀卡片。
-- [A 品牌庫](https://www.figma.com/design/6VF2f92u32aERjPJBIhwUz):藍色 primary,RGB 比例 `(0.11, 0.29, 0.85)`;[A 畫面](https://www.figma.com/design/6j7zsEZP6GF1TpEV38eCrs)引用底座元件。
-- [B 品牌庫](https://www.figma.com/design/Z9CnlJZNtHoDJyhyWLkrT9):綠色 primary,RGB 比例 `(0.03, 0.42, 0.22)`;[B 畫面](https://www.figma.com/design/BheD3ROYOZ3nRYmv2TDWLh)引用底座元件。
-- 三庫皆為 `POC Brand` → `POC Color`,每個集合只有一個 `Light` mode。顏色與名稱僅供隔離測試,不能用作正式品牌來源。
+- [完整測試底座](https://www.figma.com/design/3iVrNZst71aih3och6yW66):預設橘色,隔離基線為 51 組共用元件 family、含變體共 210 個 component 節點,以及 90 個治理與示範參考畫面;其中 Badge、Tab、Tabs 目前位於搬移測試庫。
+- [搬移測試庫](https://www.figma.com/design/F7QDPKwoDnFyC07GHtWPTh):Badge、Tab、Tabs 的跨檔來源與巢狀連結測試。
+- [A 品牌庫](https://www.figma.com/design/6VF2f92u32aERjPJBIhwUz)與 [A 畫面](https://www.figma.com/design/6j7zsEZP6GF1TpEV38eCrs):primary `#1C4AD9`。
+- [B 品牌庫](https://www.figma.com/design/Z9CnlJZNtHoDJyhyWLkrT9)與 [B 畫面](https://www.figma.com/design/BheD3ROYOZ3nRYmv2TDWLh):primary `#086B38`。
+- [小型操作樣本](https://www.figma.com/design/mqttXnyi4FQYIOcPpsyukh):狀態按鈕與巢狀卡片,不代表完整元件覆蓋。
 
-| 測試操作                                                                              | 可確認的行為                                                 |
-| ------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| 發布底座與品牌庫,Swap library 只換 Color 並勾選 Swap default collections in instances | A 藍、B 綠;三狀態及巢狀按鈕保留 component key 與 remote 連結 |
-| 底座更新 padding/radius,並在各按鈕加入綁 primary 的圓點;專案接受 Library 更新         | 幾何更新,既有品牌和客製文字保留;新圓點仍是底座橘色           |
-| 插入新底座實例或切換按鈕變體                                                          | 新實例及部分變體樣式仍取底座橘色,須重新套用品牌              |
-| A 再做 Swap library;B 按 base-variable-key → project-variable-key 對照補套            | 品牌恢復,元件連結與新幾何保留;B 第二次執行為 0 修改          |
+A、B 的品牌六色與 `Shadow/Primary` 分別由既有 `createBrandFromPrimary`、`createCustomShadows` 生成,不另維護人工六色表。兩個品牌庫各自使用 `POC Brand` → `POC Color`,每個集合只有一個 `Light` mode;專案品牌不占用底座 mode。這些主色僅供隔離測試。
 
-此測試證明可用每專案獨立品牌變數庫配合更新後補套,無須每個品牌占底座一個 mode;一次換庫不是永久全檔主題規則。尚未涵蓋十個以上專案、新 token、刪除重建圖層或所有正式元件,也沒有通用補套工具。後續驗證及工具範圍見[同步計畫](plans/base-sync.md#efigma-品牌與版本同步);原生操作參考 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
+| 驗證範圍            | 可確認的行為與限制                                                                                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 元件與參考畫面      | 兩個品牌均核對全部共用 family、變體及參考畫面的受管顏色、陰影與來源。每套參考畫面含 2,923 個遠端實例、11,180 個節點及 71 處品牌陰影,精確色值與陰影檢查無未解析項。 |
+| Library 更新與變體  | 接受更新後可保留新幾何及元件連結;新增實例、切換變體或新增受管圖層仍可能帶入底座品牌,必須補套,一次 Swap library 不是永久主題規則。                                  |
+| 客製與語意保留      | 代表情境的文字、圖片、visible、圖示 swap、自訂色與專案變數保留;Primary 隨品牌變更,中性及 Error/Success 保持原語意。隱藏後代也納入檢查。                            |
+| 新 token 與資產身分 | 缺少對照會阻擋同步;同名重建可由新 key 辨認,不能靠名稱或 HEX 自動配對。來源語意變動的辨認須結合累積補套紀錄與上層實例脈絡。                                         |
+| 重跑與中斷          | 受控中斷後可重新盤點剩餘變更再續作;完成後重跑為零修改。這是隔離腳本的驗證結果,尚無可交付的通用工具。                                                               |
+| 部分接受與跨次發布  | 已驗部分接受、完整接受及跨兩次發布升級;必須核對實際接受的資產與頁面範圍,不能把 component key 或發布名稱當成版本鎖。                                                |
+| 跨檔搬出            | Badge、Tab、Tabs 搬出後,含變體的 9 個來源 key 均改變;A、B 接受更新後仍連到搬移庫,各 12 個客製節點的受保護欄位逐欄一致。                                            |
+| 搬回限制            | 搬回完整測試底座時,發布面板顯示 Added 而非 Move,返程尚未發布。可重現搬回流程尚未通過,不能據此執行正式拆檔或將工具實作視為 Ready。                                  |
+
+未綁變數的 `logoImg` 固定橘色與部分導覽圖示固定色保留原樣;它們不會因 HEX 相同就被判定為受管品牌。正式同步仍須處理來源語意漂移與跨檔身分對照,剩餘驗收及工具介面見[同步計畫](plans/base-sync.md#efigma-品牌與版本同步)。原生換庫操作見 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
 
 ## 資料
 
