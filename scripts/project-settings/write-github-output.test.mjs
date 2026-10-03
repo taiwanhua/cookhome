@@ -5,7 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 
 import { CLOUD_OUTPUT_KEYS } from "./config.mjs";
-import { makeProjectRoot, runScript } from "./test-support.mjs";
+import { disabledCloud, makeProjectRoot, runScript } from "./test-support.mjs";
 
 const REPO = "acme/widgets";
 
@@ -102,6 +102,60 @@ test("輸入是空的(讀取器失敗)、不是 JSON、鍵不符或多鍵:失敗
     assert.notEqual(result.status, 0, input);
     assert.equal(result.written, "sha=abc1234\n", input);
     assert.notEqual(result.stderr, "");
+  }
+});
+
+test("cloud 停用:明確錯誤、非零退出,既有 GITHUB_OUTPUT 不增加任何內容", () => {
+  const input = runScript(
+    "read-config.mjs",
+    ["--scope", "cloud", "--environment", "dev", "--repository", REPO],
+    { cwd: makeProjectRoot({ cloud: disabledCloud() }) },
+  ).stdout;
+  assert.equal(input, '{"enabled":false}\n');
+  for (const preset of ["", "sha=abc1234\n"]) {
+    const result = write("cloud", input, { preset });
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, "");
+    assert.equal(result.written, preset);
+    assert.match(
+      result.stderr,
+      /^project-settings: [^\n]*雲端尚未啟用[^\n]*\n$/,
+    );
+  }
+});
+
+test("cloud 停用狀態夾帶其他鍵或 enabled 不是 false:拒絕、不寫,錯誤不回印輸入值", () => {
+  const full = JSON.parse(
+    resolved([
+      "--scope",
+      "cloud",
+      "--environment",
+      "dev",
+      "--repository",
+      REPO,
+    ]),
+  );
+  const cases = [
+    { enabled: false, gcp_project_id: "leaked-project-id" },
+    { enabled: false, note: "leaked-secret-value" },
+    { ...full, enabled: false },
+    { ...full, enabled: true },
+    { enabled: true },
+    { enabled: null },
+    { enabled: "false" },
+    { enabled: 0 },
+  ];
+  for (const config of cases) {
+    const input = JSON.stringify(config);
+    const result = write("cloud", input, { preset: "sha=abc1234\n" });
+    assert.notEqual(result.status, 0, input);
+    assert.equal(result.written, "sha=abc1234\n", input);
+    assert.match(result.stderr, /^project-settings: [^\n]+\n$/, input);
+    assert.doesNotMatch(
+      result.stderr,
+      /leaked|acme-widgets|widgets-api|db-uri|owner@/,
+      input,
+    );
   }
 });
 
