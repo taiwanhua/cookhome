@@ -288,6 +288,52 @@ test("apply(consumer):生成碼與直接 factories 在兩個相同世界得到�
   );
 });
 
+test("累積其他範圍的受管記錄後仍能產碼,完整 plan 與寫入結果保持一致", async () => {
+  const scenario = await createScenario();
+  const planned = await scenario.sync("history-size", { planOnly: true });
+  const plan = structuredClone(planned.plan);
+  for (let index = 0; index < 180; index += 1) {
+    const slot = structuredClone(plan.managedSlots[0]);
+    slot.locator.nodeId = `history:${index}`;
+    slot.locator.rootInstanceId = `history-root:${index}`;
+    slot.scopeEvidence = {
+      pageId: "history-page",
+      scopeRootId: `history-root:${index}`,
+      ancestorIds: [`history-root:${index}`, "history-page"],
+    };
+    plan.managedSlots.push(slot);
+  }
+  const request = {
+    ...planned.input.request,
+    inputDigests: {
+      ...planned.input.request.inputDigests,
+      plan: contract.digest(plan),
+    },
+  };
+  const source = buildExecutionSource({ request, plan });
+  assert.ok(source.length <= MAX_TOOL_CODE_CHARS);
+  assert.deepEqual(embeddedPayload(source).value.plan, plan);
+  const { artifact } = await runGenerated(
+    scenario.world,
+    CONSUMER_FILE,
+    request,
+    plan,
+  );
+  assert.equal(artifact.status, "applied");
+  assert.equal(artifact.completedActions.length, planned.plan.actions.length);
+  assert.equal(artifact.planDigest, contract.digest(plan));
+  const directWorld = (await createScenario()).world;
+  const direct = await createRuntime(
+    createFakeFigma(directWorld, CONSUMER_FILE),
+  ).applyPlan(request, plan);
+  assert.deepEqual(settle(artifact), settle(direct));
+  assert.deepEqual(scenario.world.mutations, directWorld.mutations);
+  assert.equal(
+    scenario.world.mutations.filter((entry) => entry.type === "scene").length,
+    planned.plan.actions.length,
+  );
+});
+
 test("apply(品牌庫初建):生成碼真的建立資產,回傳交給 Node 端同一份 core 驗證得到 receipt", async () => {
   const world = createWorld();
   world.addFile(BRAND_FILE, ["Brand"]);

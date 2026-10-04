@@ -381,6 +381,8 @@ codec 固定 `gzip-base64`，先將 canonical JSON 編為標準 UTF-8 bytes，�
 
 生成碼只組該 operation 必需的 factories：scan 使用 contract、assets、source、scanner；apply 再加 recovery/executor。Node 完整 core 保持原組裝。整個具名入口組好後由 esbuild 以 `target:es2017,minify:true,charset:utf8` 轉換，再由同版 Terser 以 `ecma:2017`、`compress.passes:3`、`unsafe:false`、`pure_getters:false` 與 `ascii_only:false` 壓縮。不逐支改名拼接、不 mangle properties；保留具名入口、MIT notice，最後用 top-level `return await` 呼叫。來源 digest 須涵蓋參與生成的本機 modules、schema 與常量生成邏輯、codec/bundler/AST/minifier 的實際固定版本及 bundle bytes，不能把未提交或不同依賴冒稱同一工具來源。
 
+一般壓縮仍超過字元上限時,由同版 Terser 改用單碼元的局部識別字(先 ASCII,再 CJK),保留相同作用域、屬性名稱、完整資料與驗證。這會增加 UTF-8 bytes,生成後仍同時驗證字元及完整工具參數的 bytes 上限;超限仍在寫入前拒絕。
+
 生成碼內的壓縮輸入可用純資料字串減少字元：以 `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=` 為固定 65 字元表，兩個 base64 字元映為 `0x4000 + firstIndex * 65 + secondIndex` 的單一 UTF-16 碼元（U+4000–U+5080）。產生端拒絕奇數長度及未知字元，執行端拒絕範圍外碼元；還原完整 base64 後仍走同一個有界 decoder、canonical SHA、schema、planDigest 與所有寫前保護。此表示只存在機器生成的 JS 資料 literal，不是可執行碼或新增業務 artifact，回傳 codec 仍是 `gzip-base64`。測試涵蓋全部 4,225 種字元配對、JSON/UTF-8 往返、padding、損壞拒絕及 Node/生成碼等價；不得要求 caller 手改字串或跳過原驗證。
 
 預算固定：完整 envelope 最多 18,000 UTF-8 bytes；每塊 base64 最多 12,288 ASCII chars；生成的 `code` 最多 50,000 字元（以 JavaScript string.length 計），完整 tool arguments JSON 另驗最多 128 KiB UTF-8 bytes；單件未壓縮 canonical payload 最多 16 MiB；一份 payload 最多 32 chunks。字元與 bytes 上限各自驗證，超量明確失敗，不裁切、不默默改走上百次重掃。這些上限在 TEST 真機驗收後才可宣稱支援，壓縮率量測不能取代限制。
