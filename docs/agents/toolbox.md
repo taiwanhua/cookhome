@@ -14,10 +14,11 @@
 6. [本機跑 E2E](#本機跑-e2e)
 7. [mock 模式](#mock-模式)
 8. [codegen 與資料庫(本機)](#codegen-與資料庫本機)
-9. [第三方依賴](#第三方依賴)
-10. [Claude Code skill 對照表](#claude-code-skill-對照表)
-11. [派工模板(給無 session 的 agent)](#派工模板給無-session-的-agent)
-12. [批次 release(指路)](#批次-release指路)
+9. [Figma 品牌同步](#figma-品牌同步)
+10. [第三方依賴](#第三方依賴)
+11. [Claude Code skill 對照表](#claude-code-skill-對照表)
+12. [派工模板(給無 session 的 agent)](#派工模板給無-session-的-agent)
+13. [批次 release(指路)](#批次-release指路)
 
 ## gh:issue 與 PR
 
@@ -49,11 +50,11 @@
 
 ## 自動跑的 workflow
 
-| workflow                                 | 觸發                                                                                                          | 看什麼                                                                                                                                                                                                                |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CI**(`ci.yml`)                         | PR 與 push 到 `main` / `dev` / `staging`;paths-ignore 是 `docs/**`、根目錄 `*.md`、`.claude/**`、`.agents/**` | `project-settings` 每次跑;workspace 的 lint / test / build 依受影響清單執行,全部 job 由 `verify` 彙整。完整 job 圖與過濾規則見 [deployment](../deployment.md#ciciyml),接線見 [ci.yml](../../.github/workflows/ci.yml) |
-| **Docs**(`docs.yml`)                     | 同上,但 paths 只有 `docs/**`、`*.md`、`**/*.md`                                                               | `pnpm run format:check`(與 ci.yml 同一個腳本)                                                                                                                                                                         |
-| **Project Status**(`project-status.yml`) | issue / PR 事件                                                                                               | 自動移看板卡(規則見 issue-tracker「看板」)                                                                                                                                                                            |
+| workflow                                 | 觸發                                                                                                          | 看什麼                                                                                                                                                                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CI**(`ci.yml`)                         | PR 與 push 到 `main` / `dev` / `staging`;paths-ignore 是 `docs/**`、根目錄 `*.md`、`.claude/**`、`.agents/**` | `project-settings` 與 `figma-sync` 每次跑;workspace 的 lint / test / build 依受影響清單執行,全部 job 由 `verify` 彙整。完整 job 圖與過濾規則見 [deployment](../deployment.md#ciciyml),接線見 [ci.yml](../../.github/workflows/ci.yml) |
+| **Docs**(`docs.yml`)                     | 同上,但 paths 只有 `docs/**`、`*.md`、`**/*.md`                                                               | `pnpm run format:check`(與 ci.yml 同一個腳本)                                                                                                                                                                                         |
+| **Project Status**(`project-status.yml`) | issue / PR 事件                                                                                               | 自動移看板卡(規則見 issue-tracker「看板」)                                                                                                                                                                                            |
 
 只改 `.claude/**`、`.agents/**` 裡的非 md 檔時兩支都不跑,prettier 要自己在本機跑(對照見 `docs/deployment.md`「CI」)。
 
@@ -141,6 +142,87 @@ API 與受管定義 CLI 的 `MONGODB_URI` 必填,不回退到內建 DB。schema 
 正本:`apps/api/package.json`、`packages/graphql/package.json`、`apps/db-migrator/package.json`、`apps/db-migrator/src/reset/reset-safety.ts`、`docs/env-registry.md`
 
 GraphQL 文件登記負例用 `pnpm --filter @repo/graphql test:documents`,CI 的 `format-codegen` 執行它。這是 Node test,不接共用 Jest 的 `--forceExit`;一般 `turbo run test` 不會執行此專用指令。`generate` 本身仍會先檢查正式文件來源,失敗不寫產物。
+
+## Figma 品牌同步
+
+本節是操作正本。工具以 `projectPublic.brand` 為唯一人工品牌輸入,沿用 `@repo/ui` 的色盤及陰影推導,處理六個主色角色的 fill/stroke 與 `Shadow/Primary`。一般文字樣式、圓角、其他變數與首次移檔不由品牌補套代辦。實際檔案用途、引用權限與正式 Library 狀態見[品牌註冊表](../branding.md),維護規則見 [Figma 規範](../standards/general/figma.md);TEST 成功不能當成正式拆分完成。
+
+### 前置與命令
+
+在目前專案 repo 根執行,先安裝依賴並建置品牌來源:
+
+```bash
+pnpm exec turbo run build --filter=@repo/ui --filter=@repo/project-config
+```
+
+核對 `deploy/project/github.json` 的 repo 身分、專案 slug、目標 fileKey 與操作權限。每次掃描明示同一 page 的 roots,包含隱藏後代;不把局部範圍的結果報成全檔升級。CLI 不讀 token、不直接呼叫 Figma;`scan`、`apply` 只產生 request 與 JavaScript,由現有 Figma 執行工具執行。
+
+入口是 `node scripts/figma-sync/prepare.mjs <命令>`。以下列必填參數,`<…>` 須換成當次實際值:
+
+| 命令         | 必填參數                                                                                                                                                         | 用途與可選參數                                                                                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scan`       | `--kind <base-library\|brand-library\|consumer> --file-key <key> --roots <逗號分隔IDs> --run-id <新runId>`                                                       | 產生唯讀掃描;每次使用未存在的 runId。                                                                                                                      |
+| `review`     | `--base <inventory> --brand <inventory> --selections-json <JSON陣列> --review-evidence-url <https網址>`                                                          | 核對精確 file/key/type/role;可加 `--consumer <inventory> --resolutions-json <JSON陣列>` 審查現值衝突。                                                     |
+| `plan-brand` | `--brand <inventory>`                                                                                                                                            | 建立或更新本專案 Light 品牌庫;恢復可加 `--resume <原plan.json>`。                                                                                          |
+| `plan`       | `--base <inventory> --brand <inventory> --consumer <inventory> --identity-review <identity-review.json> --verification-target <brand-bindings\|library-upgrade>` | 消費端補套;可加 `--resume <原plan.json>`。`library-upgrade` 必須另給 `--publication-evidence-json <JSON物件>` 與 `--acceptance-evidence-json <JSON物件>`。 |
+| `apply`      | `--plan <plan.json>`                                                                                                                                             | 產生 `request-apply.json` 與 `execute.js`;`blocked` plan 不可執行。                                                                                        |
+| `record`     | `--request <request.json>` 及 `--result <原協定JSON檔>` / `--transport-result <envelope檔>` 擇一                                                                 | 封存掃描或執行結果;傳輸收齊後驗證,只有 `verified` 才更新成功 receipt。                                                                                     |
+
+`--*-json` 收的是單一 JSON 字串,不是檔名。審查項目取自當次 inventories,不能按名稱或 HEX 猜 key;`selections` 的形狀與 `adopt-source` / `preserve-project` 的 resolution 欄位見 `core-contract-review.mjs`,發布/接受證據形狀見 `core-contract-schema.mjs`。既有 receipt 仍能在兩側精確對上的 selections 會帶入;新增或重建的來源仍須明示審查,不能用空陣列跳過。
+
+成功命令回傳一行 `{runId,status,artifacts,counts}`;後續一律使用 `artifacts[].path`。退出碼 0 只表示命令完成,`blocked`、`transport-pending`、`apply-requested` 都不表示同步成功。
+
+### 執行與完整回讀
+
+呼叫端讀取生成 JS,使用 `prepare.mjs` 匯出的 `buildFigmaToolArguments({fileKey,source})` 產生 `use_figma` 的完整參數,原樣交給工具。不要手改、裁切、重新 escape 或拼接生成碼。回傳的 envelope 原樣保存成 JSON,交給同一 request 的 `record --transport-result`。
+
+若回 `transport-pending`,執行它列出的下一支唯讀 JS,將該次完整 envelope 再交給同一 `record`;直到掃描回 `recorded` 或寫入驗證回 `verified`。不能手拼 chunks、只存摘要,也不能重跑 apply 來補取遺失的回應。工具會驗完整 digest、長度、順序與來源;有變動或缺塊即停止成功流程。
+
+| 檢查                     | 上限                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| 生成 `code`              | 50,000 字元,以 JavaScript `string.length` 計                                   |
+| 完整 tool arguments JSON | 128 KiB UTF-8 bytes,含 code escaping 與其他參數                                |
+| 每次完整回傳 envelope    | 18,000 UTF-8 bytes                                                             |
+| 單一 payload             | 未壓縮 canonical JSON 16 MiB,最多 32 chunks;每塊 base64 最多 12,288 ASCII 字元 |
+
+字元與 bytes 分別檢查;生成碼可包含非 ASCII 資料 literal,不以「檔案 bytes 小於 50,000」代替 code 字元檢查。超量不裁切內容或移除驗證;consumer 範圍過大時改用較小的同頁 roots 重掃與產生完整 plan,不手拆 actions。`TRANSPORT_TRACE_TOO_LARGE` 表示寫前回讀預算不足,該次不執行 mutation。
+
+### 最小操作順序
+
+新品牌庫先在已授權的獨立檔案操作。下例指令在 Bash / PowerShell 相同,所有佔位值與檔案路徑均替換為當次輸出;JSON 回傳由 Figma 工具保存,不是人工填結果:
+
+```bash
+node scripts/figma-sync/prepare.mjs scan --kind brand-library --file-key '<brand-file-key>' --roots '<page-or-root-id>' --run-id brand-scan-1
+# 執行 artifacts 中的 scan-brand-library.js,將回傳存為 <scan-envelope.json>
+node scripts/figma-sync/prepare.mjs record --request '.artifacts/figma-sync/brand-scan-1/request-brand-library-scan.json' --transport-result '<scan-envelope.json>'
+# 若仍 transport-pending,先依上節取齊;recorded 後使用產出的 inventory
+node scripts/figma-sync/prepare.mjs plan-brand --brand '<inventory-brand-library.json>'
+node scripts/figma-sync/prepare.mjs apply --plan '<plan.json>'
+# 執行 artifacts 中的 execute.js,將回傳存為 <apply-envelope.json>
+node scripts/figma-sync/prepare.mjs record --request '<request-apply.json>' --transport-result '<apply-envelope.json>'
+```
+
+品牌庫 `verified` 後,在 Figma 原生介面發布。消費端接軌或升級時,先完成所需的 Library 發布與接受,再分別以 `base-library`、`brand-library`、`consumer` 掃描三側,各自 `record` 收齊 inventory。依序執行 `review → plan → apply → 執行生成JS → record`,使用上表的精確參數。
+
+`brand-bindings` 只驗品牌綁定;`library-upgrade` 另驗發布與實際接受的資產/範圍、來源語意及當次完整 scope。每次都保留文字、圖片、組織識別、可見性、swap 與私人覆寫;同一 component key 不能證明已採用某次發布。`noop` plan 仍要走 apply/readback/record,才能取得當次驗證結果。零 action 本身不是成功證據。
+
+### 紀錄與恢復
+
+當次資料在 `.artifacts/figma-sync/<runId>/`,既有 snapshot、plan、attempt 不覆寫。成功 receipt 在 `deploy/project/figma/receipts/<fileKey>.json`,綁定 repo、slug 與 fileKey,累積仍可證明的受管狀態及各範圍驗證結果;隨正常 PR 提交,底座升級保留。Git 衝突以目前 Figma 重掃及驗證後重新生成,不整份選 ours/theirs。失敗結果不取代前次成功紀錄,相同 record 可重送但不重做 Figma mutation。
+
+| 情況                                          | 處理                                                                                                                                                                                                                         |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 來源、角色、key、品牌輸入、工具或受管現值改變 | 重新 scan/review/plan;依 ownership 審查現值,不按同名或同色認養。                                                                                                                                                             |
+| 執行中斷或回應遺失                            | 先保存能取得的完整結果與 attempt,重新掃描,以 `plan` / `plan-brand --resume <原plan.json>` 產生新 run。工具核對現值與 readBack;不能按 action 次序猜完成度,不自動 rollback。新建資產的 exact 身分不明時停下核對,不能再建一次。 |
+| after inventory 無法傳輸                      | 保存含真實 trace 的失敗 attempt,不產成功 receipt;重新掃描後沿上述 resume 處理。                                                                                                                                              |
+| 品牌庫的受管值被手改                          | 此版沒有品牌庫 resolution;確認後把同一 exact key 的值還原至 receipt 的 `lastWrittenValue`,再 scan/plan-brand。換品牌改 `projectPublic.brand`,不刪 receipt 或使用 force。                                                     |
+| `RECEIPT_CHANGED` / `RECEIPT_BUSY`            | 核對目前紀錄與其他 writer,不強制覆蓋。殘留鎖須先確認 writer 已停止、核對 receipt 與 pending attempt,再由操作者移除並重送相同 record。                                                                                        |
+
+跨人接手的必要 plan/inventory/attempt 依既有 issue/PR 保存於可取得的位置,不以個人的 `.codex` 或 session 作唯一來源。掃描資料可能包含專案畫面內容,依專案可見性保存,不要因底座 repo 公開就把私人設計資料貼上去。
+
+離線測試:先完成本節建置,Bash 跑 `node --test scripts/figma-sync/*.test.mjs`;PowerShell 跑 `node --test (Get-ChildItem scripts/figma-sync -Filter '*.test.mjs').FullName`。CI 的 `figma-sync` job 跑同套測試,不讀 Figma token、不操作正式檔;實際發布、接受與當次 Figma 驗收另留 issue/PR 證據。
+
+正本:本節操作;`scripts/figma-sync/prepare-arguments.mjs`(六命令)、`execution-source.mjs`(完整工具參數)、`core-contract*.mjs`(協定欄位)、`artifacts.mjs`(run/receipt)、`.github/workflows/ci.yml`(離線驗證)。
 
 ## 第三方依賴
 

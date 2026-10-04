@@ -405,7 +405,7 @@ apply 只執行一次。當次 head 必須完整保存真 completedActions/error
 
 runtime finish 在封定 attempt 前處理傳輸能力：若 mutation 已發生、真 trace 已取得，但 afterInventory 超過 payload/chunk 上限或壓縮失敗，返回真 interrupted attempt，保留全部 completedActions/readBack，令 afterInventory=null、afterInventoryDigest=null，加入固定 `AFTER_INVENTORY_TRANSPORT_FAILED`；以這份最終 attempt 計 artifactDigest，傳有界 head。record 保存失敗 attempt、拒成功 receipt，後續沿新 scan 恢復。不能把 snapshot 清空後仍使用含 snapshot 的舊 digest，也不能只回 error 而丟掉已取得的新 keys。head 自身是有界普通 JSON，無 afterInventory 時不要求 gzip 成功才能保留 trace。
 
-**寫前 trace 預算**：attemptHead 的保守未壓縮上界為 10,240 bytes，連同外層 head 再驗 18,000-byte response 預算。計算含已知 request/plan headers、每筆 readBack shape、最長固定 status/errors 與 identifiers，不能靠預期壓縮率。新建身分支援 ASCII `[A-Za-z0-9:_./;-]`，key 最長 64 bytes、localId 最長 128 bytes、defaultModeId 最長 64 bytes；這是 adapter 支援範圍，不是對所有 Figma 未來 ID 的假設。預留以各欄位最大值計，任何 mutation 前超量回 `TRANSPORT_TRACE_TOO_LARGE`。正常空品牌庫的 28 actions 必須可執行並受測。建立後若取得範圍外身分，回 interrupted/`CREATED_ASSET_IDENTITY_UNRESOLVED`，不猜身分、不再建、不產成功 receipt；新建資產無 exactly-once 保證。已知身分的操作以實際值計 bytes，未知或不能給出保守上界的回讀不執行。超量的 consumer plan 用既有 roots 產較小完整計畫，仍保留全 scope 驗證與累積 receipt。
+**寫前 trace 預算**：attemptHead 的保守未壓縮上界為 10,240 bytes，連同外層 head 再驗 18,000-byte response 預算。計算含已知 request/plan headers、每筆 readBack shape、最長固定 status/errors 與 identifiers，不能靠預期壓縮率。新建身分支援 ASCII `[A-Za-z0-9:,_./;-]`（包含 Figma style localId 的逗號），key 最長 64 bytes、localId 最長 128 bytes、defaultModeId 最長 64 bytes；這是 adapter 支援範圍，不是對所有 Figma 未來 ID 的假設。預留以各欄位最大值計，任何 mutation 前超量回 `TRANSPORT_TRACE_TOO_LARGE`。正常空品牌庫的 28 actions 必須可執行並受測。建立後若取得範圍外身分，回 interrupted/`CREATED_ASSET_IDENTITY_UNRESOLVED`，不猜身分、不再建、不產成功 receipt；新建資產無 exactly-once 保證。已知身分的操作以實際值計 bytes，未知或不能給出保守上界的回讀不執行。超量的 consumer plan 用既有 roots 產較小完整計畫，仍保留全 scope 驗證與累積 receipt。
 
 六命令不變，record 只增加互斥輸入：
 
