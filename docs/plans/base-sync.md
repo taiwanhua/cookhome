@@ -97,25 +97,25 @@ Figma 官方的[搬移已發布元件](https://help.figma.com/hc/en-us/articles/
 
 以下檔案均位於 `scripts/figma-sync/`。入口與內部 factories 一起列入實作白名單，公開的六命令及 JSON 協定不因拆檔改變。
 
-| 檔案                     | 固定接縫                                                                                                                                                                                      |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `brand.mjs`              | `createFigmaBrandProjection(projectPublic)` → 六色、Brand→Color aliases、primary effect；無 Figma I/O。                                                                                       |
-| `core.mjs`               | `createSyncCore(parts)` 組裝並提供 `validateArtifact`、`createIdentityReview`、`planSync`、`verifySync`、`reconcileInterruptedPlan`；無 Node/Figma import。                                   |
-| `core-contract.mjs`      | `createArtifactContract()` → `validateArtifact(value)`、`createIdentityReview(input)`；同一 JSON 協定與精確身分選擇。                                                                         |
-| `core-plan-consumer.mjs` | `createConsumerPlanner(contract)` → `planConsumer(input)`；受管/釋出 slots、來源漂移、resolutions 及場景 actions。                                                                            |
-| `core-plan-brand.mjs`    | `createBrandPlanner(contract)` → `planBrand(input)`；品牌庫相依 actions 與既有 managedAssets。                                                                                                |
-| `core-verification.mjs`  | `createSyncVerifier(contract)` → `verifySync(input)`；品牌/來源/保護欄位精驗與累積 receipt。                                                                                                  |
-| `core-recovery.mjs`      | `createRecoveryCore(contract)` → `reconcileInterruptedPlan(input)`；before/after/第三值與 create 身分遺失。                                                                                   |
-| `runtime.mjs`            | `createFigmaRuntime(figma,core,parts)` 組裝 `scanScope(request)`、`applyPlan(request,plan)`。Plugin API 僅在 runtime 系列檔使用。                                                             |
-| `runtime-assets.mjs`     | `createAssetRuntime(figma,core)`；變數/alias/mode/style/publication owner 讀取及 exact import，無場景寫入。                                                                                   |
-| `runtime-source.mjs`     | `createSourceRuntime(figma,core)`；source correspondence、祖先 context 與結構 guards。                                                                                                        |
-| `runtime-scan.mjs`       | `createScopeScanner(figma,core,assets,source)` → `scanScope(request)`；完整 scope inventory。                                                                                                 |
-| `runtime-apply.mjs`      | `createPlanExecutor(figma,core,assets,scanScope)` → `applyPlan(request,plan)`；先驗、逐筆執行及回讀。                                                                                         |
-| `artifacts.mjs`          | `readArtifact(path)`、`writeArtifact({runDir,name,artifact})`、`hashArtifact(artifact)`、`writeVerifiedReceipt({rootDir,receipt,expectedPreviousDigest})`；Node SHA-256、路徑驗證、原子寫入。 |
-| `prepare.mjs`            | import-safe `main(argv,io)` 與 direct-entry guard；re-export `buildExecutionSource`，不在 import 時執行 CLI。                                                                                 |
-| `prepare-arguments.mjs`  | `parseArguments(argv)`；六命令與各自參數白名單。                                                                                                                                              |
-| `prepare-commands.mjs`   | `runCommand(command,context,io)`；既有品牌/專案來源讀取與 artifact 生命週期。                                                                                                                 |
-| `execution-source.mjs`   | `buildExecutionSource({request,plan})`；固定 factory 清單、受驗 JSON 與依賴組裝。                                                                                                             |
+| 檔案                     | 固定接縫                                                                                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `brand.mjs`              | `createFigmaBrandProjection(projectPublic)` → 六色、Brand→Color aliases、primary effect；無 Figma I/O。                                                                                                                                                                               |
+| `core.mjs`               | `createSyncCore(parts)` 組裝並提供 `validateArtifact`、`createIdentityReview`、`planSync`、`verifySync`、`reconcileInterruptedPlan`；無 Node/Figma import。                                                                                                                           |
+| `core-contract.mjs`      | `createArtifactContract()` → `validateArtifact(value)`、`createIdentityReview(input)`；同一 JSON 協定與精確身分選擇。                                                                                                                                                                 |
+| `core-plan-consumer.mjs` | `createConsumerPlanner(contract)` → `planConsumer(input)`；受管/釋出 slots、來源漂移、resolutions 及場景 actions。                                                                                                                                                                    |
+| `core-plan-brand.mjs`    | `createBrandPlanner(contract)` → `planBrand(input)`；品牌庫相依 actions 與既有 managedAssets。                                                                                                                                                                                        |
+| `core-verification.mjs`  | `createSyncVerifier(contract)` → `verifySync(input)`；品牌/來源/保護欄位精驗與累積 receipt。                                                                                                                                                                                          |
+| `core-recovery.mjs`      | `createRecoveryCore(contract)` → `reconcileInterruptedPlan(input)`；before/after/第三值與 create 身分遺失。                                                                                                                                                                           |
+| `runtime.mjs`            | `createFigmaRuntime(figma,core,parts)` 組裝 `scanScope(request)`、`applyPlan(request,plan)`。Plugin API 僅在 runtime 系列檔使用。                                                                                                                                                     |
+| `runtime-assets.mjs`     | `createAssetRuntime(figma,core)`；變數/alias/mode/style/publication owner 讀取及 exact import，無場景寫入。                                                                                                                                                                           |
+| `runtime-source.mjs`     | `createSourceRuntime(figma,core)`；source correspondence、祖先 context 與結構 guards。                                                                                                                                                                                                |
+| `runtime-scan.mjs`       | `createScopeScanner(figma,core,assets,source)` → `scanScope(request)`；完整 scope inventory。                                                                                                                                                                                         |
+| `runtime-apply.mjs`      | `createPlanExecutor(figma,core,assets,scanScope)` → `applyPlan(request,plan)`；先驗、逐筆執行及回讀。                                                                                                                                                                                 |
+| `artifacts.mjs`          | `readArtifact(path)`、`writeArtifact({runDir,name,artifact})`、`hashArtifact(artifact)`、`writeExecutionSource({runDir,name,source})`、`readReceipt({rootDir,fileKey,project})`、`writeVerifiedReceipt({rootDir,receipt,expectedPreviousDigest})`；Node SHA-256、路徑驗證、原子寫入。 |
+| `prepare.mjs`            | import-safe `main(argv,io)` 與 direct-entry guard；re-export `buildExecutionSource`，不在 import 時執行 CLI。                                                                                                                                                                         |
+| `prepare-arguments.mjs`  | `parseArguments(argv)`；六命令與各自參數白名單。                                                                                                                                                                                                                                      |
+| `prepare-commands.mjs`   | `runCommand(command,context,io)`；既有品牌/專案來源讀取與 artifact 生命週期。                                                                                                                                                                                                         |
+| `execution-source.mjs`   | `buildExecutionSource({request,plan})`；固定 factory 清單、受驗 JSON 與依賴組裝。                                                                                                                                                                                                     |
 
 `core.parts={contract,consumerPlanner,brandPlanner,verifier,recovery}`，值均為上述 factory 的回傳物件；`planSync` 依 targetKind 分派兩個 planner。`runtime.parts={scanScope,applyPlan}`，分別注入 scanner 與 executor 回傳的方法。依賴建立順序為 contract → planners/verifier/recovery → core → assets/source → scanner → executor → runtime；core/runtime 不隱藏取得 module closure。
 
@@ -165,6 +165,8 @@ inventory:
   issues[]: {code,locator?,assetKey?,detail}
 ```
 
+inventory.assets 的 kind 包含 collection；collection 的 resolvedType=null、collectionKey=自身 key，modes 保存實際 modeId/name，valueOrEffects={defaultModeId}。遠端 metadata 無法讀取 owner file 時，asset.fileKey=null 只表示未知；不得以此推測來源或認養。selection 仍以來源 Library 的實際掃描 fileKey+key 核對，不放寬 request、observedFileKey 與 receipt 的檔案驗證。
+
 v1 **要求 `figma.fileKey` 可讀且 exact match** request.target.fileKey；缺少或不符，在任何 mutation/import 前失敗，不設 external context、檔名或 request echo 備援。roots 明確指定、去重，場景只寫 roots 及所有後代；Library metadata 可全檔唯讀列舉。hidden 不因目前不可見而略過。
 
 一次 request 的 roots 限同一 page；讀出 page 後，每次生成執行入口最多呼叫一次 `setCurrentPageAsync`，apply 前後掃描沿同一 page。跨頁由多次完整 run 和累積 receipt 處理，不能以 `loadAllPagesAsync` 或多次切頁繞過工具限制。scope 外控制節點在同頁明列抽樣範圍，不冒称驗過其他頁。scope 是 nested instance 內部時，來源脈絡從可讀祖先 instance 建立後走到指定 root，祖先只讀，不擴大寫入範圍。
@@ -203,7 +205,7 @@ reviewEvidenceURL 指既有 issue/PR 的審查紀錄，不是工具憑此 URL �
 ##### Plan / Attempt / Receipt
 
 ```text
-planSync({request,inventories,identityReview,previousReceipt,resumePlan}) → plan:
+planSync({request,inventories,identityReview,previousReceipt,resumePlan,resumeAttempt,verificationTarget}) → plan:
   status: ready|blocked|noop
   targetKind, scope
   inputDigests
@@ -211,8 +213,8 @@ planSync({request,inventories,identityReview,previousReceipt,resumePlan}) → pl
   actions[]: {actionId,locator,operation,params,role,sourceEvidence,before,expectedAfter,preconditions}
   preserved[]: {locator,reason,snapshotDigest}
   conflicts[]: {code,locator?,observed,expected,resolutionRequired}
-  managedSlots[], managedAssets[]
-  verification: {target:brand-bindings|library-upgrade,expectedRoleValues,expectedPrimaryEffect,protectedBefore,outsideScopeControls}
+  managedSlots[], managedAssets[], releasedSlots[]
+  verification: {target:brand-bindings|library-upgrade,expectedRoleValues,expectedPrimaryEffect,protectedBefore,outsideScopeControls,brandProjectionDigest,publicationEvidence,acceptanceEvidence,recoveredAlreadyApplied}
 
 attempt:
   observedFileKey:null|string
@@ -239,6 +241,12 @@ receipt:
 ```
 
 場景 actions 僅 `set-paint-variable|set-effect-style`；品牌庫另可 `create-collection|create-variable|set-variable-value|create-effect-style|set-effect-style-effects`。品牌庫 locator 為 `{fileKey,assetKind,key:null|string,localId:null|string,collectionRole:null|Brand|Color,role}`；collection 的 role=null，variable 為六色角色，effect-style 為 primary-shadow。collectionRole 區分 Brand/main 與 Color/main；effect-style 為 null。create.before=null，讀回真 key/localId 才記帳。空庫生成 Brand、Color 兩個僅有 Light 的集合、六 Brand 值/六 Color aliases、一個 Shadow/Primary style；同名未登記資產阻擋，不自動認養。發布仍走 UI，consumer 規劃前重掃 published keys。
+
+plan.releasedSlots 與 receipt 同型，累積既有釋出及本次決定；scope 外保留，只有 fresh adopt-source resolution 才能收回。consumer 的 verificationTarget 必填，brand 固定 brand-bindings。resumeAttempt 為 optional，須符合原 resumePlan 的 digest/run/project/tool 並原樣封存。verification 的 brandProjectionDigest 由本次 request.brandProjection 推導；publicationEvidence/acceptanceEvidence 沿用 request 既有型別和內容。recoveredAlreadyApplied 只由已驗 reconciliation 推導，與本次 attempt 不重複計數，均不可由使用者填入成功值。
+
+品牌庫受管值若不同於 receipt.lastWrittenValue 且不能由恢復證據解釋，plan-brand 回 blocked；consumer resolutions 不適用品牌資產。操作者確認後可將同一 exact key 還原至 receipt.lastWrittenValue，再 scan/plan-brand。更換品牌仍修改 projectPublic.brand；不以 force、刪 receipt、改生成色票或同名認養解套。
+
+managedSlots.sourceMatchStatus 可為 direct-binding，只表示當次直接綁定已驗，限 brand-bindings；不等同來源結構驗證，也不能替既有 override 缺 counterpart 解套。raw sourceMatch.status 仍只有下述三值。
 
 `params` 依 operation 固定，不另填品牌檔；其中 RGBA/effects 僅由 brandProjection 產生：
 
