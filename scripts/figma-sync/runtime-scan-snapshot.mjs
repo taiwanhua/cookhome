@@ -19,6 +19,19 @@ export function createNodeSnapshots(figma, assets) {
     "strokeWeight",
   ];
 
+  function geometryOf(node) {
+    const geometry = {};
+    for (const name of GEOMETRY) {
+      geometry[name] =
+        name in node && typeof node[name] === "number" ? node[name] : null;
+    }
+    return geometry;
+  }
+
+  function refreshGeometry(node, protectedSnapshot) {
+    protectedSnapshot.geometry = geometryOf(node);
+  }
+
   function paintViews(paints) {
     if (paints === figma.mixed) return "mixed";
     if (!Array.isArray(paints)) return null;
@@ -42,11 +55,7 @@ export function createNodeSnapshots(figma, assets) {
    * 其餘 paint 欄位、文字、圖片 hash、visible、nested main、幾何與未套 style 的 raw effects 都在。
    */
   async function snapshot(node) {
-    const geometry = {};
-    for (const name of GEOMETRY) {
-      geometry[name] =
-        name in node && typeof node[name] === "number" ? node[name] : null;
-    }
+    const geometry = geometryOf(node);
     const main =
       node.type === "INSTANCE" ? await node.getMainComponentAsync() : null;
     const styled =
@@ -90,5 +99,5 @@ export function createNodeSnapshots(figma, assets) {
     };
   }
 
-  return { snapshot, observe };
+  return { snapshot, observe, refreshGeometry };
 }

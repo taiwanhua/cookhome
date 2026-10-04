@@ -25,6 +25,7 @@ export function createScopeScanner(figma, core, assets, source, parts) {
     const issues = [];
     const slots = [];
     const nodes = [];
+    const observedNodes = [];
     const publicationOwners = [];
     const pageIds = [];
     const coverage = {
@@ -120,6 +121,7 @@ export function createScopeScanner(figma, core, assets, source, parts) {
     async function emit(node, context, scopeRootId) {
       const observed = await parts.snapshots.observe(node, scopeRootId);
       nodes.push(observed);
+      observedNodes.push(node);
       const resolved = context && context.status !== "unresolved";
       const locatorOf = (field, index) => ({
         fileKey,
@@ -365,6 +367,14 @@ export function createScopeScanner(figma, core, assets, source, parts) {
     }
     if (!rootIds.has(page.id)) {
       for (const child of childrenOf(page)) await control(child);
+    }
+    // 原生 Figma 讀取後代時可能才計算 auto-layout。從後代往祖先重讀尺寸,
+    // 避免同份 inventory 混入重算前的父層尺寸;slots 與 nodes 共用 snapshot。
+    for (let index = nodes.length - 1; index >= 0; index -= 1) {
+      parts.snapshots.refreshGeometry(
+        observedNodes[index],
+        nodes[index].protectedSnapshot,
+      );
     }
     return finish();
   }

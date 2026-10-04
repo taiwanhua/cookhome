@@ -52,6 +52,30 @@ test("PAGE / DOCUMENT 的 unsupported getter 會拋例外；掃描須先查 capa
   assert.equal(world.mutations.length, 0);
 });
 
+test("原生後代尺寸惰性計算後,父層及所有 slot 使用同一個最終尺寸", async () => {
+  const { world, consumer } = setup();
+  const parent = consumer.nodes.button;
+  const child = parent.children[0];
+  const width = child.width;
+  parent.width = 121;
+  Object.defineProperty(child, "width", {
+    configurable: true,
+    get() {
+      parent.width = 130;
+      return width;
+    },
+  });
+  const first = await scanConsumer(world, ["10:1"], "lazy-geometry-1");
+  assert.equal(nodeOf(first, parent.id).protectedSnapshot.geometry.width, 130);
+  for (const slot of slotsOf(first, parent.id)) {
+    assert.equal(slot.protectedSnapshot.geometry.width, 130);
+  }
+  const second = await scanConsumer(world, ["10:1"], "lazy-geometry-2");
+  assert.deepEqual(first.nodes, second.nodes);
+  assert.deepEqual(first.slots, second.slots);
+  assert.equal(world.mutations.length, 0);
+});
+
 test("完整 scope:roots 與所有後代(含隱藏)各有一筆 node 觀測,全程唯讀、最多切頁一次", async () => {
   const { world, consumer } = setup();
   const inventory = await scanConsumer(world);
