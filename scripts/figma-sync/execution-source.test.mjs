@@ -62,7 +62,7 @@ function embeddedPayload(source) {
       const digest = fields.get("canonicalDigest");
       let literal;
       const findLiteral = (item) => {
-        if (ts.isStringLiteral(item) && /^[\u4000-\u5080]+$/.test(item.text))
+        if (ts.isStringLiteral(item) && /^[\u4000-\ubfff]+$/.test(item.text))
           literal = item;
         ts.forEachChild(item, findLiteral);
       };
@@ -82,6 +82,10 @@ function embeddedPayload(source) {
           },
           start: literal.getStart(file),
           end: literal.end,
+          sizeStart: size.getStart(file),
+          sizeEnd: size.end,
+          digestStart: digest.getStart(file),
+          digestEnd: digest.end,
         };
       }
     }
@@ -160,7 +164,7 @@ test("生成碼:同一份受測函式整體轉成 ES2017 並 minify,UTF-8 無損
     source,
     "UTF-8 source 不含孤立 surrogate",
   );
-  assert.match(source, /[\u4000-\u5080]/);
+  assert.match(source, /[\u4000-\ubfff]/);
   assert.ok(Buffer.byteLength(source, "utf8") <= MAX_TOOL_ARGUMENT_BYTES);
   assert.equal(MAX_TOOL_ARGUMENT_BYTES, 128 * 1024);
   // 受驗 JSON 只以字串常值嵌入;沒有 import / require / eval,也沒有 ES2017 之後的語法
@@ -660,7 +664,7 @@ test("生成器拒絕超量完整輸入，呼叫端無法透過舊 limits 參數
   );
 });
 
-test("內嵌的 schema / request / constants 被改動時，完整 SHA / byteLength 阻擋且零 mutation", async () => {
+test("內嵌資料或其 SHA / byteLength 被改動時，封裝與完整性守門阻擋且零 mutation", async () => {
   const scenario = await createScenario();
   const request = scanRequest("sealed-input");
   const source = buildExecutionSource({ request, plan: null });
@@ -673,6 +677,27 @@ test("內嵌的 schema / request / constants 被改動時，完整 SHA / byteLen
       source.slice(0, payload.start) +
       JSON.stringify(packed) +
       source.slice(payload.end);
+    await assert.rejects(
+      executeSource(modified, createFakeFigma(scenario.world, CONSUMER_FILE)),
+      (error) => {
+        // Minifier 會固定 literal 長度；換成不同長度的資料也可能先被封裝守門拒絕。
+        assert.ok(
+          ["EXECUTION_PAYLOAD_INVALID", "TRANSPORT_PAYLOAD_INVALID"].includes(
+            error.code,
+          ),
+          error.message,
+        );
+        return true;
+      },
+    );
+    assert.equal(scenario.world.mutations.length, 0);
+  }
+  // 保持 packed literal 原樣，獨立確認 byteLength 與 SHA 守門確實執行。
+  for (const [start, end, replacement] of [
+    [payload.sizeStart, payload.sizeEnd, payload.encoded.uncompressedBytes + 1],
+    [payload.digestStart, payload.digestEnd, JSON.stringify("0".repeat(64))],
+  ]) {
+    const modified = source.slice(0, start) + replacement + source.slice(end);
     await assert.rejects(
       executeSource(modified, createFakeFigma(scenario.world, CONSUMER_FILE)),
       code("TRANSPORT_PAYLOAD_INVALID"),
