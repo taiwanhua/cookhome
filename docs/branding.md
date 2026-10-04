@@ -91,6 +91,16 @@
 
 A、B 的品牌六色與 `Shadow/Primary` 分別由既有 `createBrandFromPrimary`、`createCustomShadows` 生成,不另維護人工六色表。兩個品牌庫各自使用 `POC Brand` → `POC Color`,每個集合只有一個 `Light` mode;專案品牌不占用底座 mode。這些主色僅供隔離測試。
 
+通用同步工具另有獨立的隔離資源,使用相同兩個測試主色,與上述相容性樣本分開保留。品牌庫由專案設定生成 `Brand` → `Color`,各只有 `Light`;操作見 [toolbox](agents/toolbox.md#figma-品牌同步),逐次驗收與可下載證據留在工具的 issue/PR。
+
+| 用途                   | A（primary `#1C4AD9`）                                                 | B（primary `#086B38`）                                                 |
+| ---------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 工具生成的品牌庫       | [A Brand Library](https://www.figma.com/design/Zs4sd4ZzBtlnCKPhkp1sJc) | [B Brand Library](https://www.figma.com/design/mp67nPCUGu2SSJ4H9s8bBt) |
+| 新實例、更新與恢復樣本 | [A Consumer](https://www.figma.com/design/ShB0MqNerAxd6yABCgOIMR)      | [B Consumer](https://www.figma.com/design/F5G0yUZO39tKltGdxJDosA)      |
+| 全元件與參考畫面副本   | [A Full Coverage](https://www.figma.com/design/JNKv4VNPRQm80m6XeimEoN) | [B Full Coverage](https://www.figma.com/design/AvDWlskqqRupYNBKUABw8M) |
+
+[更新情境來源庫](https://www.figma.com/design/QTGmn0zLp2FoJmcWkdOCJM)提供隔離的元件、alias 與隱藏圖層更新。這些 TEST 檔案不充作正式底座或專案 Library。
+
 | 驗證範圍            | 可確認的行為與限制                                                                                                                                                           |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 元件與參考畫面      | 兩個品牌均核對全部共用 family、變體及參考畫面的受管顏色、陰影與來源。每套參考畫面含 2,923 個遠端實例、11,180 個節點及 71 處品牌陰影,精確色值與陰影檢查無未解析項。           |

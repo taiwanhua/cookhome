@@ -157,6 +157,8 @@ pnpm exec turbo run build --filter=@repo/ui --filter=@repo/project-config
 
 核對 `deploy/project/github.json` 的 repo 身分、專案 slug、目標 fileKey 與操作權限。每次掃描明示同一 page 的 roots,包含隱藏後代;不把局部範圍的結果報成全檔升級。CLI 不讀 token、不直接呼叫 Figma;`scan`、`apply` 只產生 request 與 JavaScript,由現有 Figma 執行工具執行。
 
+`--roots` 的整個值加引號,例如 `--roots '12:3,I12:4;5:6'`;巢狀實例 ID 中的分號也是 ID 的一部分,不能讓 shell 當成指令分隔符。
+
 入口是 `node scripts/figma-sync/prepare.mjs <命令>`。以下列必填參數,`<…>` 須換成當次實際值:
 
 | 命令         | 必填參數                                                                                                                                                         | 用途與可選參數                                                                                                                                             |
@@ -209,6 +211,8 @@ node scripts/figma-sync/prepare.mjs record --request '<request-apply.json>' --tr
 ### 紀錄與恢復
 
 當次資料在 `.artifacts/figma-sync/<runId>/`,既有 snapshot、plan、attempt 不覆寫。成功 receipt 在 `deploy/project/figma/receipts/<fileKey>.json`,綁定 repo、slug 與 fileKey,累積仍可證明的受管狀態及各範圍驗證結果;隨正常 PR 提交,底座升級保留。Git 衝突以目前 Figma 重掃及驗證後重新生成,不整份選 ours/theirs。失敗結果不取代前次成功紀錄,相同 record 可重送但不重做 Figma mutation。
+
+consumer plan 只攜帶本次範圍的管理與釋出紀錄。`record` 核對前次 receipt 並完成驗證後,將範圍外紀錄原樣合回,保留其原驗證時間與身分證據。分批不會清掉歷史,也不會將未掃描的範圍標成這次已驗;已釋出的專案覆寫只有明示採來源才能重新納管。
 
 | 情況                                          | 處理                                                                                                                                                                                                                         |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

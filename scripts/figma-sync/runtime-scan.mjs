@@ -81,17 +81,18 @@ export function createScopeScanner(figma, core, assets, source, parts) {
     const rootIds = new Set(target.rootNodeIds);
     const roots = [];
     const pages = [];
+    const located = new Map();
     for (const id of target.rootNodeIds) {
       const node = await figma.getNodeByIdAsync(id);
-      const page = node && node.type !== "DOCUMENT" ? pageOf(node) : null;
+      located.set(id, node);
+      // Figma 尚未載入該頁時,實例後代的 composite ID 可能回 null。
+      // 外層實例只用來定位頁面;切頁後仍須找到原 ID,不能以 host 代替 root。
+      const hostId = !node && /^I(\d+:\d+);/.exec(id);
+      const host = hostId ? await figma.getNodeByIdAsync(hostId[1]) : null;
+      const anchor = node || (host?.type === "INSTANCE" ? host : null);
+      const page = anchor && anchor.type !== "DOCUMENT" ? pageOf(anchor) : null;
       if (!page) return stop("ROOT_NOT_FOUND", "指定的 root 不存在");
       if (!pages.includes(page)) pages.push(page);
-      let nested = false;
-      for (let up = node.parent; up; up = up.parent) {
-        if (rootIds.has(up.id)) nested = true;
-      }
-      // root 已是另一個 root 的後代時不重複掃
-      if (!nested) roots.push(node);
     }
     if (pages.length !== 1) {
       return stop("ROOTS_NOT_SAME_PAGE", "一次 request 的 roots 必須在同一頁");
@@ -100,6 +101,18 @@ export function createScopeScanner(figma, core, assets, source, parts) {
     pageIds.push(page.id);
     if (figma.currentPage && figma.currentPage.id !== page.id) {
       await figma.setCurrentPageAsync(page);
+    }
+    for (const id of target.rootNodeIds) {
+      const node = located.get(id) || (await figma.getNodeByIdAsync(id));
+      if (!node || node.id !== id || pageOf(node)?.id !== page.id) {
+        return stop("ROOT_NOT_FOUND", "指定的 root 不存在");
+      }
+      let nested = false;
+      for (let up = node.parent; up; up = up.parent) {
+        if (rootIds.has(up.id)) nested = true;
+      }
+      // root 已是另一個 root 的後代時不重複掃
+      if (!nested) roots.push(node);
     }
 
     const mainOf = async (node) => {
