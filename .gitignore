@@ -37,3 +37,6 @@ storybook-static
 apps/e2e/.tmp
 apps/e2e/playwright-report
 apps/e2e/test-results
+
+# figma-sync 的暫存 run(request / inventory / plan / attempt 與生成 JS);成功狀態另存 deploy/project/figma/receipts/、要 commit
+.artifacts/figma-sync/

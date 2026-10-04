@@ -15,6 +15,10 @@
   "prettier": "@repo/prettier-config",
   "devDependencies": {
     "@repo/prettier-config": "workspace:*",
+    "@repo/project-config": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "esbuild": "0.28.2",
+    "fflate": "0.8.3",
     "prettier": "^3.6.0",
     "turbo": "^2.10.7"
   },

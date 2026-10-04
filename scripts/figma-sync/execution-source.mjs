@@ -1,0 +1,230 @@
+/**
+ * 生成在 Figma 執行的 JavaScript:把**同一份受測 factories** 以 `toString()` 序列化,只組該 operation 必需的部分,
+ * 連同 codec 與完整壓縮的 request / plan 組成一個具名入口,再由 esbuild 整體轉成 ES2017 並 minify。
+ * 不另存字串版實作、不逐支改名拼接、不 mangle properties、不 eval 使用者資料。
+ * scan 與唯讀分塊入口只含 contract、assets、source、scanner 與傳輸;apply 才另含 recovery 與 executor。
+ */
+import { transformSync } from "esbuild";
+
+import {
+  APPLY_CONTRACT_FACTORIES,
+  SCAN_CONTRACT_FACTORIES,
+  SCENE_APPLY_CONTRACT_FACTORIES,
+  assembleContract,
+  createContract,
+} from "./core-contract.mjs";
+import {
+  createAssetClassifier,
+  createSceneClassifier,
+} from "./core-recovery-classify.mjs";
+import { assembleRecovery, createRecoveryCore } from "./core-recovery.mjs";
+import {
+  ASSET_APPLY_FACTORIES,
+  SCAN_FACTORIES,
+  SCENE_APPLY_FACTORIES,
+  assembleRuntime,
+} from "./runtime.mjs";
+import { createTraceBudget } from "./transport-budget.mjs";
+import { createByteCodec } from "./transport-bytes.mjs";
+import {
+  codecNotice,
+  createCodecSource,
+  createNodeTransport,
+} from "./transport-codec.mjs";
+import { createEnvelopeLimits } from "./transport-envelope.mjs";
+import {
+  createRuntimeTransport,
+  runTransportEntry,
+} from "./transport-runtime.mjs";
+import { createTransport } from "./transport.mjs";
+
+const contract = createContract();
+
+/** 工具輸入驗證對 `code` 的硬上限(字元數;實測超過即在送入前被拒絕)。 */
+export const MAX_TOOL_CODE_CHARS = 50000;
+/** 完整 tool arguments JSON(UTF-8 bytes)的上限;超量明確失敗,不裁切內容。 */
+export const MAX_TOOL_ARGUMENT_BYTES = 128 * 1024;
+const TOOL_LIMITS = {
+  codeChars: MAX_TOOL_CODE_CHARS,
+  argumentBytes: MAX_TOOL_ARGUMENT_BYTES,
+};
+
+/** 兩個上限各自驗證:code 的字元數,以及完整 arguments JSON 的 UTF-8 bytes。 */
+function checkToolArguments(args, limits) {
+  const bytes = Buffer.byteLength(JSON.stringify(args), "utf8");
+  if (args.code.length > limits.codeChars || bytes > limits.argumentBytes) {
+    contract.fail("EXECUTION_SOURCE_TOO_LARGE");
+  }
+  return args;
+}
+
+/**
+ * 交給現有 use_figma 工具的實際參數,固定四個欄位。generator 與實際 caller 都用這一支,
+ * 驗 code 最多 50,000 字元,並以 `JSON.stringify(args)` 的 UTF-8 bytes 驗 128 KiB 預算(含 code 的 escaping 與其他欄位);
+ * 任一超限回 EXECUTION_SOURCE_TOO_LARGE。caller 不改寫回傳的參數。source 檔自身的 SHA 仍只計原始 source bytes,與這裡無關。
+ */
+export function buildFigmaToolArguments({ fileKey, source }) {
+  if (typeof fileKey !== "string" || fileKey === "") {
+    contract.fail("FILE_KEY_INVALID");
+  }
+  if (typeof source !== "string" || source === "") {
+    contract.fail("EXECUTION_SOURCE_INVALID");
+  }
+  return checkToolArguments(toolArguments(fileKey, source), TOOL_LIMITS);
+}
+
+const toolArguments = (fileKey, source) => ({
+  fileKey,
+  code: source,
+  description: "Execute verified Figma sync request",
+  skillNames: "figma-use,figma-generate-library",
+});
+
+/** scan / 唯讀分塊入口的固定 factory 清單:contract 只有 request / inventory,沒有 executor,也沒有 recovery。 */
+export const SCAN_ENTRY_FACTORIES = Object.assign(
+  {},
+  SCAN_CONTRACT_FACTORIES,
+  { assembleContract, createByteCodec, createEnvelopeLimits, createTransport },
+  SCAN_FACTORIES,
+  { assembleRuntime, createRuntimeTransport, runTransportEntry },
+);
+const APPLY_SHARED = {
+  createTraceBudget,
+  createRecoveryCore,
+  assembleRecovery,
+};
+/** consumer 的 apply 入口:另加 plan / attempt、相依圖、guards、場景的逐筆判定與 writer。 */
+export const SCENE_APPLY_ENTRY_FACTORIES = Object.assign(
+  {},
+  SCAN_ENTRY_FACTORIES,
+  SCENE_APPLY_CONTRACT_FACTORIES,
+  APPLY_SHARED,
+  { createSceneClassifier },
+  SCENE_APPLY_FACTORIES,
+);
+/** 品牌庫的 apply 入口:資產 action 的相依圖規則、逐筆判定與 writer(不含場景 writer)。 */
+export const ASSET_APPLY_ENTRY_FACTORIES = Object.assign(
+  {},
+  SCAN_ENTRY_FACTORIES,
+  APPLY_CONTRACT_FACTORIES,
+  APPLY_SHARED,
+  { createAssetClassifier },
+  ASSET_APPLY_FACTORIES,
+);
+/** 兩種 apply 的聯集:Node 端測試拿它與完整 factories 比對;生成碼依 targetKind 只取上面其中一份。 */
+export const APPLY_ENTRY_FACTORIES = Object.assign(
+  {},
+  SCENE_APPLY_ENTRY_FACTORIES,
+  ASSET_APPLY_ENTRY_FACTORIES,
+);
+/** plan 的相依圖已限定:品牌庫只有資產 action、consumer 只有場景 action、base-library 沒有 action。 */
+export const applyEntryFactories = (targetKind) =>
+  targetKind === "brand-library"
+    ? ASSET_APPLY_ENTRY_FACTORIES
+    : SCENE_APPLY_ENTRY_FACTORIES;
+
+function render(factories, input, fileKey, limits) {
+  const names = Object.keys(factories);
+  const entry = [
+    "async function __figmaSyncEntry(figma) {",
+    `const codec = ${createCodecSource()};`,
+    ...names.map((name) => factories[name].toString()),
+    `const factories = { ${names.join(", ")} };`,
+    // 受驗 JSON 只以字串常值嵌入(base64、hex 與數字),執行時 JSON.parse
+    `const input = JSON.parse(${JSON.stringify(JSON.stringify(input))});`,
+    "return runTransportEntry(figma, codec, input, factories);",
+    "}",
+  ].join("\n");
+  const { code } = transformSync(entry, {
+    target: "es2017",
+    minify: true,
+    charset: "ascii",
+    legalComments: "none",
+  });
+  const source = [
+    codecNotice(),
+    // 生成碼全程維持 ASCII(工具參數與回傳的 bytes 預算都以此計)
+    "// figma-sync execution-source: generated by scripts/figma-sync/execution-source.mjs; do not edit.",
+    "// Run with the existing Figma tool; save the returned JSON value as-is, then: record --transport-result <file>",
+    code.trim(),
+    "return await __figmaSyncEntry(figma);",
+    "",
+  ].join("\n");
+  // 以實際的工具參數驗兩個上限(不只 source 的 bytes)
+  checkToolArguments(
+    toolArguments(fileKey, source),
+    Object.assign({}, TOOL_LIMITS, limits),
+  );
+  return source;
+}
+
+function checkedRequest(request) {
+  if (contract.validateArtifact(request).kind !== "request") {
+    contract.fail("ARTIFACT_KIND_MISMATCH", "request");
+  }
+  return request;
+}
+
+/**
+ * 首次入口:scan 回 inventory 的 head;apply 執行一次並回 attempt 的 head。
+ * limits 只供 fake Figma 測試與量測放寬 codeChars;正式的 CLI 入口不提供這個選項,
+ * 實際 caller 仍必須通過 buildFigmaToolArguments 的固定上限。
+ */
+export function buildExecutionSource({ request, plan, limits }) {
+  checkedRequest(request);
+  const transport = createNodeTransport(contract);
+  const applying = request.operation === "apply";
+  if (applying !== Boolean(plan)) contract.fail("REQUEST_OPERATION_INVALID");
+  if (applying) {
+    const valid =
+      contract.validateArtifact(plan).kind === "plan" &&
+      contract.digest(plan) === request.inputDigests.plan &&
+      plan.runId === request.runId;
+    if (!valid) contract.fail("PLAN_CHANGED");
+  }
+  return render(
+    applying ? applyEntryFactories(request.targetKind) : SCAN_ENTRY_FACTORIES,
+    {
+      request: transport.encodeInput(request),
+      plan: applying ? transport.encodeInput(plan) : null,
+      read: null,
+    },
+    request.target.fileKey,
+    limits,
+  );
+}
+
+/**
+ * 後續的唯讀分塊入口:重掃同一 scope,內容與 head 記錄的完整 digest 相同才回第 index 塊。
+ * 這支生成碼不含 executor,也不帶 plan;對 apply 的 run 一樣只會掃描。
+ */
+export function buildReadonlyTransportSource({ request, head, index }) {
+  checkedRequest(request);
+  const transport = createNodeTransport(contract);
+  transport.checkEnvelope(request, head);
+  const payload = head.payload;
+  const valid =
+    head.type === "head" &&
+    payload !== null &&
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < payload.chunkCount;
+  if (!valid) contract.fail("TRANSPORT_INDEX_INVALID");
+  return render(
+    SCAN_ENTRY_FACTORIES,
+    {
+      request: transport.encodeInput(request),
+      plan: null,
+      read: {
+        index,
+        head: {
+          artifactKind: head.artifactKind,
+          artifactDigest: head.artifactDigest,
+          payload,
+          headDigest: contract.digest(head),
+        },
+      },
+    },
+    request.target.fileKey,
+  );
+}

@@ -17,6 +17,7 @@ concurrency:
 # job 圖(牆鐘最短優先;各 job 各一台 runner,不再搶同一台的 CPU):
 #
 #   project-settings             專案部署設定與讀取器(不看受影響清單,每次都跑)
+#   figma-sync                   Figma 品牌同步工具(root scripts,不看受影響清單,每次都跑)
 #   prepare ─┬─ format-codegen   格式檢查 + codegen 產物一致(GQL-05)
 #            ├─ lint-typecheck   turbo lint / check-types
 #            ├─ test-api-1 / 2   api 的 jest 分兩片(--shard)
@@ -158,6 +159,35 @@ jobs:
           node scripts/project-settings/read-config.mjs --scope cloud --environment staging --repository "$REPOSITORY"
           node scripts/project-settings/read-config.mjs --scope cloud --environment production --repository "$REPOSITORY"
           node scripts/project-settings/read-config.mjs --scope github --repository "$REPOSITORY"
+
+  # Figma 品牌同步工具(scripts/figma-sync/)是 root scripts,不屬於任何 workspace:turbo 的受影響清單、
+  # lint 與 check-types 都不涵蓋它,所以不掛在 prepare 後面、每次都跑。
+  # 品牌測試用 @repo/ui 與 @repo/project-config 的真 exports,先 build 這兩個套件。
+  # 離線執行:生成碼在測試內的 fake Figma 跑,不需要 Figma token,也不碰正式檔。
+  figma-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安裝依賴
+        run: pnpm install --frozen-lockfile
+        env:
+          MONGOMS_DISABLE_POSTINSTALL: "1"
+
+      - name: build UI / project-config(品牌推導的真 exports)
+        run: pnpm exec turbo run build --filter=@repo/ui --filter=@repo/project-config
+
+      - name: 品牌投影 / core / runtime / CLI 測試
+        run: node --test scripts/figma-sync/*.test.mjs
 
   # prettier 不經 turbo lint(各 workspace 的 lint 只跑 eslint,且根目錄 docs/ 不屬於任何 workspace),
   # 範圍是全 repo 的 md + ts/tsx/js/json/yaml(STRUCT-09),所以不看受影響清單、每次都跑。
@@ -466,6 +496,7 @@ jobs:
       [
         prepare,
         project-settings,
+        figma-sync,
         format-codegen,
         lint-typecheck,
         test-api,
