@@ -14,7 +14,9 @@
 
 ## E:Figma 品牌與版本同步
 
-E 的拆分歸屬、品牌來源、同步範圍及驗收矩陣由 [wowgo-base 共用規格](https://github.com/taiwanhua/wowgo-base/blob/main/docs/plans/base-sync.md#efigma-品牌與版本同步)維護。本 repo 只保留[原 Figma 現況盤點](../branding.md#figma-現況盤點)與 CookHome 資產、接軌結果,不另寫一份同步契約。正式拆檔與通用工具尚未完成;現有小型隔離測試見[品牌註冊表](../branding.md#隔離品牌相容性測試)。
+E 的共用範圍與未完成項目由 [wowgo-base 同步計畫](https://github.com/taiwanhua/wowgo-base/blob/main/docs/plans/base-sync.md#efigma-品牌與版本同步)維護,尚未正式發布的變更以對應 issue/PR 分支為準。本 repo 的設計來源及客製歸屬見[品牌註冊表](../branding.md#figma),品牌補套操作見 [toolbox](../agents/toolbox.md#figma-品牌同步),不另寫一份同步契約。
+
+共用 Library 與底座參考頁已分離、發布,並由 CookHome 接受更新;專案 Brand Library 已建立。尚待完成 consumer 品牌補套、成功 receipt 與兩個 repo 的正式版本交付。接受 Library 更新不等於 consumer 已完成品牌補套;E 全部完成後才執行 F。
 
 ## F:正式版本升級、回收與整體演練
 
