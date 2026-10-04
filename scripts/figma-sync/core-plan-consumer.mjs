@@ -88,7 +88,7 @@ export function createConsumerPlanner(contract, parts) {
 
     // 品牌庫現值必須已等於程式推導;否則先 plan-brand,不在 consumer 端另填色
     const projection = request.brandProjection;
-    const identityMap = review.selections.map((selection) => {
+    const reviewedIdentities = review.selections.map((selection) => {
       const isStyle = selection.assetKind === "effect-style";
       const asset = state.brandAssets.get(
         `${selection.assetKind}:${selection.project.key}`,
@@ -117,6 +117,14 @@ export function createConsumerPlanner(contract, parts) {
         reviewEvidenceURL: review.reviewEvidenceURL,
       };
     });
+    // 對照與受管 slots 一樣累積;本輪審查只取代同一來源身分,其餘保留原證據。
+    // 分類與寫入仍只使用上方 review.selections,不以歷史對照自動擴大本輪授權。
+    const identityKey = (item) =>
+      `${item.assetKind}:${item.source.fileKey}:${item.source.key}`;
+    const renewed = new Set(reviewedIdentities.map(identityKey));
+    const identityMap = (prior ? prior.identityMap : [])
+      .filter((item) => !renewed.has(identityKey(item)))
+      .concat(reviewedIdentities);
 
     // 範圍內的節點與用到的元件 key 取自完整的 nodes,不靠有沒有可補套的 slot
     const usedComponents = new Set();
