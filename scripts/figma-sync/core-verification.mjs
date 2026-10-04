@@ -147,18 +147,17 @@ export function createSyncVerifier(contract) {
     const semantic = { managed: 0, withSourceSlot: 0, directBinding: 0 };
     const liveAfter = (id) =>
       afterNodes.has(id) && afterNodes.get(id).scopeRootId !== null;
+    const liveNodes = new Set(
+      [...before.nodes, ...after.nodes]
+        .filter((node) => node.scopeRootId !== null)
+        .map((node) => node.nodeId),
+    );
     const managedSlots = plan.managedSlots.map((entry) => {
       const key = slotKey(entry.locator);
       const slot = afterSlots.get(key);
       if (!slot || !liveAfter(entry.locator.nodeId)) {
         // 不在本次範圍才可沿用既有已驗登記;範圍內消失或本輪新收管卻讀不到都是失敗
-        const evidence = entry.scopeEvidence;
-        const inScope =
-          liveAfter(entry.locator.nodeId) ||
-          (after.scope.pageIds.includes(evidence.pageId) &&
-            evidence.ancestorIds.some(
-              (id) => after.scope.rootNodeIds.includes(id) || liveAfter(id),
-            ));
+        const inScope = contract.ownershipInScope(entry, plan.scope, liveNodes);
         if (inScope || entry.lastVerifiedRunId === null) {
           error("MANAGED_SLOT_MISSING", key);
         }
@@ -189,6 +188,14 @@ export function createSyncVerifier(contract) {
         lastVerifiedRunId: plan.runId,
       });
     });
+
+    const ownership = contract.mergeOwnership(
+      plan,
+      prior,
+      liveNodes,
+      managedSlots,
+      error,
+    );
 
     const released = new Set();
     for (const slot of plan.releasedSlots) released.add(slotKey(slot.locator));
@@ -369,8 +376,8 @@ export function createSyncVerifier(contract) {
         projectionDigest: expected.brandProjectionDigest,
         sourceGitCommit: plan.project.gitCommit,
       },
-      releasedSlots: plan.releasedSlots,
-      managedSlots,
+      releasedSlots: ownership.releasedSlots,
+      managedSlots: ownership.managedSlots,
       managedAssets,
       changes: {
         planned: plan.actions.length,

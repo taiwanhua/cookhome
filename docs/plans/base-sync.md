@@ -242,7 +242,9 @@ receipt:
 
 場景 actions 僅 `set-paint-variable|set-effect-style`；品牌庫另可 `create-collection|create-variable|set-variable-value|create-effect-style|set-effect-style-effects`。品牌庫 locator 為 `{fileKey,assetKind,key:null|string,localId:null|string,collectionRole:null|Brand|Color,role}`；collection 的 role=null，variable 為六色角色，effect-style 為 primary-shadow。collectionRole 區分 Brand/main 與 Color/main；effect-style 為 null。create.before=null，讀回真 key/localId 才記帳。空庫生成 Brand、Color 兩個僅有 Light 的集合、六 Brand 值/六 Color aliases、一個 Shadow/Primary style；同名未登記資產阻擋，不自動認養。發布仍走 UI，consumer 規劃前重掃 published keys。
 
-plan.releasedSlots 與 receipt 同型，累積既有釋出及本次決定；scope 外保留，只有 fresh adopt-source resolution 才能收回。consumer 的 verificationTarget 必填，brand 固定 brand-bindings。resumeAttempt 為 optional，須符合原 resumePlan 的 digest/run/project/tool 並原樣封存。verification 的 brandProjectionDigest 由本次 request.brandProjection 推導；publicationEvidence/acceptanceEvidence 沿用 request 既有型別和內容。recoveredAlreadyApplied 只由已驗 reconciliation 推導，與本次 attempt 不重複計數，均不可由使用者填入成功值。
+consumer plan 的 managedSlots / releasedSlots 與 receipt 同型，但只攜帶本次 scope 的狀態，包含由持久祖先證據判定仍屬本範圍的消失節點。規劃仍以完整 previousReceipt 判斷管理與釋出；Node 精驗核對其 digest，禁止漏掉範圍內的既有紀錄，再將範圍外紀錄逐欄原樣併回累積 receipt，保留其 lastVerifiedRunId。舊版完整 plan 仍可驗證，但其中範圍外的狀態不可新增、修改或變更管理歸屬。只有 fresh adopt-source resolution 才能重新收管已釋出的 slot；局部同步不會刪除其他範圍的歷史，也不將那些歷史帶進 Figma 執行碼。
+
+consumer 的 verificationTarget 必填，brand 固定 brand-bindings。resumeAttempt 為 optional，須符合原 resumePlan 的 digest/run/project/tool 並原樣封存。verification 的 brandProjectionDigest 由本次 request.brandProjection 推導；publicationEvidence/acceptanceEvidence 沿用 request 既有型別和內容。recoveredAlreadyApplied 只由已驗 reconciliation 推導，與本次 attempt 不重複計數，均不可由使用者填入成功值。
 
 品牌庫受管值若不同於 receipt.lastWrittenValue 且不能由恢復證據解釋，plan-brand 回 blocked；consumer resolutions 不適用品牌資產。操作者確認後可將同一 exact key 還原至 receipt.lastWrittenValue，再 scan/plan-brand。更換品牌仍修改 projectPublic.brand；不以 force、刪 receipt、改生成色票或同名認養解套。
 

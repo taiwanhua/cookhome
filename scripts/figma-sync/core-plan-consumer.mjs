@@ -202,8 +202,12 @@ export function createConsumerPlanner(contract, parts) {
         actions: state.actions,
         preserved: state.preserved,
         conflicts: state.conflicts,
-        managedSlots: Array.from(state.managed.values()),
-        releasedSlots: Array.from(state.released.values()),
+        managedSlots: Array.from(state.managed.values()).filter((entry) =>
+          contract.ownershipInScope(entry, consumer.scope, state.liveNodes),
+        ),
+        releasedSlots: Array.from(state.released.values()).filter((entry) =>
+          contract.ownershipInScope(entry, consumer.scope, state.liveNodes),
+        ),
         managedAssets: prior ? prior.managedAssets : [],
         verification: {
           target: input.verificationTarget,

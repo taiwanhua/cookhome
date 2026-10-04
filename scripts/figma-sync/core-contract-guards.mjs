@@ -109,7 +109,7 @@ export function createGuardValues(values) {
 }
 
 export function createPlanningValues(values, guards) {
-  const { fail, has } = values;
+  const { fail, has, canonicalJson } = values;
   const { slotKey } = guards;
   const MAX_ALIAS_DEPTH = 8;
 
@@ -169,6 +169,67 @@ export function createPlanningValues(values, guards) {
     };
   }
 
+  /** 本次 live 節點或持久祖先證據皆可界定範圍,包含已消失的 root 自己。 */
+  function ownershipInScope(entry, scope, liveNodes) {
+    if (entry.locator.fileKey !== scope.fileKey) return false;
+    if (liveNodes.has(entry.locator.nodeId)) return true;
+    const evidence = entry.scopeEvidence;
+    return (
+      scope.pageIds.includes(evidence.pageId) &&
+      [entry.locator.nodeId, ...evidence.ancestorIds].some(
+        (id) => scope.rootNodeIds.includes(id) || liveNodes.has(id),
+      )
+    );
+  }
+
+  /** 局部 plan 精驗後才合回累積狀態;舊版完整 plan 的範圍外記錄也必須逐欄未變。 */
+  function mergeOwnership(plan, prior, liveNodes, verifiedManaged, error) {
+    const kinds = ["managedSlots", "releasedSlots"];
+    const planned = new Map();
+    const previous = new Map();
+    for (const kind of kinds) {
+      for (const entry of prior ? prior[kind] : []) {
+        previous.set(slotKey(entry.locator), { kind, entry });
+      }
+      for (const entry of plan[kind]) {
+        const key = slotKey(entry.locator);
+        if (planned.has(key)) error("OWNERSHIP_STATE_DUPLICATE", key);
+        planned.set(key, { kind, entry });
+      }
+    }
+    const merged = {
+      managedSlots: [...verifiedManaged],
+      releasedSlots: [...plan.releasedSlots],
+    };
+    for (const [key, old] of previous) {
+      if (ownershipInScope(old.entry, plan.scope, liveNodes)) {
+        if (!planned.has(key)) error("OWNERSHIP_STATE_MISSING", key);
+      } else if (!planned.has(key)) {
+        merged[old.kind].push(old.entry);
+      } else {
+        const next = planned.get(key);
+        if (
+          next.kind !== old.kind ||
+          canonicalJson(next.entry) !== canonicalJson(old.entry)
+        ) {
+          error("OUTSIDE_OWNERSHIP_CHANGED", key);
+        }
+      }
+    }
+    for (const [key, next] of planned) {
+      if (ownershipInScope(next.entry, plan.scope, liveNodes)) continue;
+      const old = previous.get(key);
+      if (
+        !old ||
+        old.kind !== next.kind ||
+        canonicalJson(old.entry) !== canonicalJson(next.entry)
+      ) {
+        error("OUTSIDE_OWNERSHIP_CHANGED", key);
+      }
+    }
+    return merged;
+  }
+
   /** 掃描時留下、不能靜默略過的問題:全域問題、alias / 讀取錯誤、或涉及已審 key / 受管 slot 者。 */
   function blockingIssue(issue, identityKeys, managedKeys) {
     return Boolean(
@@ -184,6 +245,8 @@ export function createPlanningValues(values, guards) {
     chainKeys,
     stamp,
     scopeEvidenceOf,
+    ownershipInScope,
+    mergeOwnership,
     blockingIssue,
   };
 }

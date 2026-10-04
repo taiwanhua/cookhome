@@ -208,12 +208,16 @@ test("範圍內消失的非 instance 受管節點:靠保存的 scope 證據判�
   const elsewhere = await scenario.sync("n3", {
     previousReceipt,
     roots: ["10:2"],
-    planOnly: true,
   });
   assert.equal(elsewhere.plan.status, "noop");
+  assert.equal(elsewhere.verdict.status, "verified");
+  assert.ok(
+    !elsewhere.plan.managedSlots.some((slot) => slot.locator.nodeId === "10:7"),
+  );
   assert.equal(
-    elsewhere.plan.managedSlots.find((slot) => slot.locator.nodeId === "10:7")
-      .lastVerifiedRunId,
+    elsewhere.verdict.receipt.managedSlots.find(
+      (slot) => slot.locator.nodeId === "10:7",
+    ).lastVerifiedRunId,
     "n1",
   );
   // 明示確認後才釋出,留下可追溯的紀錄
