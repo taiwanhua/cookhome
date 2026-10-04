@@ -83,26 +83,26 @@
 
 測試檔位於 Wowgo Professional 團隊的 [TEST — Multi-project Theme POC](https://www.figma.com/files/team/963068133549518258/project/661917302)。正式 CookHome Design System 僅作唯讀來源,沒有修改或搬移;通用補套工具與正式拆檔仍未完成。
 
-- [完整測試底座](https://www.figma.com/design/3iVrNZst71aih3och6yW66):預設橘色,隔離基線為 51 組共用元件 family、含變體共 210 個 component 節點,以及 90 個治理與示範參考畫面;其中 Badge、Tab、Tabs 目前位於搬移測試庫。
-- [搬移測試庫](https://www.figma.com/design/F7QDPKwoDnFyC07GHtWPTh):Badge、Tab、Tabs 的跨檔來源與巢狀連結測試。
+- [完整測試底座](https://www.figma.com/design/3iVrNZst71aih3och6yW66):預設橘色,隔離基線為 51 組共用元件 family、含變體共 210 個 component 節點,以及 90 個治理與示範參考畫面;Badge、Tab、Tabs 的返程主元件位於 `2015:2` 頁面。
+- [搬移測試庫](https://www.figma.com/design/F7QDPKwoDnFyC07GHtWPTh):保存跨檔搬出與恢復的發布歷史;元件已返回完整測試底座。
 - [A 品牌庫](https://www.figma.com/design/6VF2f92u32aERjPJBIhwUz)與 [A 畫面](https://www.figma.com/design/6j7zsEZP6GF1TpEV38eCrs):primary `#1C4AD9`。
 - [B 品牌庫](https://www.figma.com/design/Z9CnlJZNtHoDJyhyWLkrT9)與 [B 畫面](https://www.figma.com/design/BheD3ROYOZ3nRYmv2TDWLh):primary `#086B38`。
 - [小型操作樣本](https://www.figma.com/design/mqttXnyi4FQYIOcPpsyukh):狀態按鈕與巢狀卡片,不代表完整元件覆蓋。
 
 A、B 的品牌六色與 `Shadow/Primary` 分別由既有 `createBrandFromPrimary`、`createCustomShadows` 生成,不另維護人工六色表。兩個品牌庫各自使用 `POC Brand` → `POC Color`,每個集合只有一個 `Light` mode;專案品牌不占用底座 mode。這些主色僅供隔離測試。
 
-| 驗證範圍            | 可確認的行為與限制                                                                                                                                                 |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 元件與參考畫面      | 兩個品牌均核對全部共用 family、變體及參考畫面的受管顏色、陰影與來源。每套參考畫面含 2,923 個遠端實例、11,180 個節點及 71 處品牌陰影,精確色值與陰影檢查無未解析項。 |
-| Library 更新與變體  | 接受更新後可保留新幾何及元件連結;新增實例、切換變體或新增受管圖層仍可能帶入底座品牌,必須補套,一次 Swap library 不是永久主題規則。                                  |
-| 客製與語意保留      | 代表情境的文字、圖片、visible、圖示 swap、自訂色與專案變數保留;Primary 隨品牌變更,中性及 Error/Success 保持原語意。隱藏後代也納入檢查。                            |
-| 新 token 與資產身分 | 缺少對照會阻擋同步;同名重建可由新 key 辨認,不能靠名稱或 HEX 自動配對。來源語意變動的辨認須結合累積補套紀錄與上層實例脈絡。                                         |
-| 重跑與中斷          | 受控中斷後可重新盤點剩餘變更再續作;完成後重跑為零修改。這是隔離腳本的驗證結果,尚無可交付的通用工具。                                                               |
-| 部分接受與跨次發布  | 已驗部分接受、完整接受及跨兩次發布升級;必須核對實際接受的資產與頁面範圍,不能把 component key 或發布名稱當成版本鎖。                                                |
-| 跨檔搬出            | Badge、Tab、Tabs 搬出後,含變體的 9 個來源 key 均改變;A、B 接受更新後仍連到搬移庫,各 12 個客製節點的受保護欄位逐欄一致。                                            |
-| 搬回限制            | 搬回完整測試底座時,發布面板顯示 Added 而非 Move,返程尚未發布。可重現搬回流程尚未通過,不能據此執行正式拆檔或將工具實作視為 Ready。                                  |
+| 驗證範圍            | 可確認的行為與限制                                                                                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 元件與參考畫面      | 兩個品牌均核對全部共用 family、變體及參考畫面的受管顏色、陰影與來源。每套參考畫面含 2,923 個遠端實例、11,180 個節點及 71 處品牌陰影,精確色值與陰影檢查無未解析項。           |
+| Library 更新與變體  | 接受更新後可保留新幾何及元件連結;新增實例、切換變體或新增受管圖層仍可能帶入底座品牌,必須補套,一次 Swap library 不是永久主題規則。                                            |
+| 客製與語意保留      | 代表情境的文字、圖片、visible、圖示 swap、自訂色與專案變數保留;Primary 隨品牌變更,中性及 Error/Success 保持原語意。隱藏後代也納入檢查。                                      |
+| 新 token 與資產身分 | 缺少對照會阻擋同步;同名重建可由新 key 辨認,不能靠名稱或 HEX 自動配對。來源語意變動的辨認須結合累積補套紀錄與上層實例脈絡。                                                   |
+| 重跑與中斷          | 受控中斷後可重新盤點剩餘變更再續作;完成後重跑為零修改。這是隔離腳本的驗證結果,尚無可交付的通用工具。                                                                         |
+| 部分接受與跨次發布  | 已驗部分接受、完整接受及跨兩次發布升級;必須核對實際接受的資產與頁面範圍,不能把 component key 或發布名稱當成版本鎖。                                                          |
+| 跨檔搬出            | Badge、Tab、Tabs 搬出後,含變體的 9 個來源 key 均改變;A、B 接受更新後仍連到搬移庫,各 12 個客製節點的受保護欄位逐欄一致。                                                      |
+| 跨檔搬回            | 原測試底座先接受全頁待更新內容,再剪貼、以 Move 發布並接受返程更新。Badge、Tab、Tabs 含變體的 9 個 key 重新登記;兩品牌各 3406 個實例無斷連或舊來源,各 12 個客製節點逐欄一致。 |
 
-未綁變數的 `logoImg` 固定橘色與部分導覽圖示固定色保留原樣;它們不會因 HEX 相同就被判定為受管品牌。正式同步仍須處理來源語意漂移與跨檔身分對照,剩餘驗收及工具介面見[同步計畫](plans/base-sync.md#efigma-品牌與版本同步)。原生換庫操作見 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
+未綁變數的 `logoImg` 固定橘色與部分導覽圖示固定色保留原樣;它們不會因 HEX 相同就被判定為受管品牌。搬移前須核對來源、目的及引用檔的全頁待更新內容;目的面板必須辨認為 Move,只有 Added 時不能冒稱保留連結。此測試證明元件返程,不代表任意 variable/style 都能搬移。正式同步仍須處理來源語意漂移與跨檔身分對照,工具及正式拆分見[同步計畫](plans/base-sync.md#efigma-品牌與版本同步)。原生換庫操作見 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
 
 ## 資料
 
