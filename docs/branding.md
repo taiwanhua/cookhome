@@ -39,10 +39,10 @@
 
 正式設計檔位於 Wowgo 團隊的 [Design system](https://www.figma.com/files/team/963068133549518258/project/28668795)。
 
-| 檔案                                                                            | fileKey                  | 目前用途                                                    |
-| ------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------- |
-| [CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)   | `SvnBvi8Opfj8daJAclOnWW` | CookHome 品牌與業務畫面;共用元件引用 wowgo-base Library     |
-| [wowgo-base Design System](https://www.figma.com/design/XKQ18kf6SkfAQYk7GmBkk5) | `XKQ18kf6SkfAQYk7GmBkk5` | 共用元件與後台殼 Library;51 組元件已發布,治理參考畫面整理中 |
+| 檔案                                                                            | fileKey                  | 目前用途                                                     |
+| ------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------ |
+| [CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)   | `SvnBvi8Opfj8daJAclOnWW` | CookHome 品牌與業務畫面;共用元件引用 wowgo-base Library      |
+| [wowgo-base Design System](https://www.figma.com/design/XKQ18kf6SkfAQYk7GmBkk5) | `XKQ18kf6SkfAQYk7GmBkk5` | 共用元件與後台殼 Library;51 組元件與 15 頁治理及示範參考畫面 |
 
 [CookHome Brand Library](https://www.figma.com/design/ZuPRBveUMzbnJeDCt7mFP3)(`ZuPRBveUMzbnJeDCt7mFP3`)是專案品牌資產的獨立檔,已發布由程式產生的色彩與品牌陰影。共用元件及專案畫面的節點分別列於 FIGMA-09 與下表;node ID 必須搭配所屬檔案使用。
 
@@ -93,7 +93,7 @@
 
 ## Figma 現況盤點
 
-共用的 51 組元件 family(210 個 component、34 個 component set)位於 wowgo-base Design System。CookHome 保留自己的前台元件、後台畫面與業務 POC,後台畫面以實例引用底座。底座的治理及示範參考畫面是另外保存的設計藍本,專案畫面不由整頁覆蓋更新。
+共用的 51 組元件 family(210 個 component、34 個 component set)位於 wowgo-base Design System。CookHome 保留自己的前台元件、後台畫面與業務 POC,後台畫面以實例引用底座。底座的 15 頁治理及示範參考畫面是另外保存的中性設計藍本,專案畫面不由整頁覆蓋更新。底座使用 wowgo-base 預設名稱及 Brand 的 Default mode;CookHome 畫面保留自己的品牌與組織識別。
 
 CookHome Brand Library 由 `projectPublic.brand` 生成兩個 Light 集合、十二個品牌變數及 `Shadow/Primary`;色盤與陰影推導沿用 `@repo/ui`。資產 keys 與驗證狀態由 [品牌庫 receipt](../deploy/project/figma/receipts/ZuPRBveUMzbnJeDCt7mFP3.json) 保存,不另手填六色。文字、商標、組織名稱、私人色與其他專案覆寫不屬品牌色補套。操作見 [Figma 品牌同步](agents/toolbox.md#figma-品牌同步)。
 
@@ -113,7 +113,7 @@ CookHome Brand Library 由 `projectPublic.brand` 生成兩個 Light 集合、十
 | 插入新底座實例或切換按鈕變體                                                          | 新實例及部分變體樣式仍取底座橘色,須重新套用品牌              |
 | A 再做 Swap library;B 按 base-variable-key → project-variable-key 對照補套            | 品牌恢復,元件連結與新幾何保留;B 第二次執行為 0 修改          |
 
-此測試證明可用每專案獨立品牌變數庫配合更新後補套,無須每個品牌占底座一個 mode;一次換庫不是永久全檔主題規則。尚未涵蓋十個以上專案、新 token、刪除重建圖層或所有正式元件,也沒有通用補套工具。後續驗證及工具範圍見[同步計畫](plans/base-sync.md#efigma-品牌與版本同步);原生操作參考 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
+此測試證明可用每專案獨立品牌變數庫配合更新後補套,無須每個品牌占底座一個 mode;一次換庫不是永久全檔主題規則。此小型測試未涵蓋十個以上專案、新 token、刪除重建圖層或所有正式元件。通用工具操作見 [Figma 品牌同步](agents/toolbox.md#figma-品牌同步),完整隔離驗收見[底座品牌註冊表](https://github.com/taiwanhua/wowgo-base/blob/main/docs/branding.md#隔離品牌相容性測試);原生操作參考 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
 
 ## 資料
 
