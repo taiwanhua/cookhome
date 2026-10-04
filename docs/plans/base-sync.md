@@ -61,7 +61,9 @@ component key 是來源身分,不是版本鎖。發現指定發布後又有變�
 
 ### 隔離驗收矩陣
 
-所有既有共用元件 family、變體與參考畫面先做綁定及身分基線盤點;所有畫面驗品牌殘留與連結。下表的更新情境用能涵蓋不同結構的代表元件,明列覆蓋清單,不只重跑三顆按鈕。兩個隔離品牌皆須通過,不將既有 POC 結果直接外推為全元件已驗。
+隔離驗收以不同機制與結構為單位,沿用兩品牌已取得的元件、代表畫面及更新證據。參考畫面選能涵蓋直接綁定、巢狀與隱藏實例、樣式及專案覆寫的代表案例,不要求兩品牌所有參考畫面逐一重跑。證據須明列實際範圍、程式版本、來源身分與未驗項目;抽樣結果不能宣稱整份檔案已同步。
+
+正式拆分仍須核對完整搬移清單、資產身分與消費端引用,並比較受影響範圍的預期及非預期差異;視覺驗收採代表畫面。元件搬移證據不能代替變數或文字/效果樣式的連結驗證。基線只記錄擷取當時的狀態,正式操作前仍要確認相關內容未漂移。
 
 | 編號           | 現況 / 操作                                                     | 期望                                                               |
 | -------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
@@ -85,7 +87,7 @@ Figma 官方的[搬移已發布元件](https://help.figma.com/hc/en-us/articles/
 
 ### E3 工具契約
 
-以下是尚未實作的工具目標契約,不可作為目前可用工具的操作說明。隔離驗收結果見品牌註冊表,逐次發布、身分映射及驗證證據留執行 issue。
+以下保留工具交付的驗收契約;候選程式的實作與驗收狀態以 issue/PR 為準,操作見 [toolbox](../agents/toolbox.md#figma-品牌同步)。隔離測試檔見品牌註冊表,逐次發布、身分映射及驗證證據留執行 issue。
 
 #### 現有接縫與維護歸屬
 
@@ -430,7 +432,9 @@ transport 存在 `.artifacts/figma-sync/<runId>/transport/<scan|apply>/`：`head
 - `runtime.test.mjs` 及各 runtime helper 同名測試：fake Figma；fileKey 缺/不符零 mutation、hidden/scope 外保護、noop 零 import、paint 其他欄位保留、shadow、partial write/丟回應、create 身分遺失。空品牌庫初建兩集合/12 variables/aliases/一 style、再跑零 action；attempt 內嵌完整 afterInventory。mock 不能充當真發布/搬檔證據。
 - `prepare.test.mjs`、`artifacts.test.mjs`、各 CLI/generator helper 同名測試與 `test-support.mjs`：native node:test + tmp/spawnSync，六命令完整串接而不手編 artifact、stdout/stderr、run 首次 append/拒絕覆蓋、record 同內容冪等/異內容拒絕、receipt CAS/路徑/跨 repo 拒絕、partial scope 保留、失敗不改前次 receipt、新 clone 只靠 committed receipt 續跑。生成 JS 必須在 fake Figma 真執行並與直接 factories 結果相等，不能只驗字串或語法解析；各依賴皆使用同一份受測函式。
 - CI 獨立 `figma-sync` job：pnpm frozen install、build UI/project-config、`node --test scripts/figma-sync/*.test.mjs`，加入 `verify.needs`；root scripts 不依賴 Turbo affected 自動涵蓋。格式用現有 Prettier；離線 CI 不要 Figma token。
-- 正式工具完成後，以它重跑 E2 必要隔離驗收；probe 通過不是 E3 程式測試通過。
+- 正式工具須有適用的隔離驗收證據;probe 通過不能代替正式工具。相同工具程式與相關設計來源未變時沿用既有結果,只有受修改影響或缺少證據的行為才補測,不因文件或進度更新重跑真機矩陣。
+- 比對、格式、傳輸及恢復邏輯優先由本機測試與 CI 驗證;Figma 呼叫用於真實 API、發布/接受、身分連結與代表覆寫。修改程式先跑相關測試,交付遵守既有 CI,通過後沒有新變更或疑點就不重跑。
+- 大型 inventory 與完整日誌留 artifact,程式比對後只輸出摘要、差異與失敗項。每項真機補測先列證據缺口與預估讀寫呼叫數,通過即結束;超出預估先檢查原因,不自動展開新的全量排程。傳輸中斷沿既有唯讀續傳及 record 恢復,不重送已執行的 apply。
 
 #### 搬移證據與開工條件
 
@@ -440,7 +444,7 @@ transport 存在 `.artifacts/figma-sync/<runId>/transport/<scan|apply>/`：`head
 
 ### 交付順序
 
-1. **E3 補套工具與測試**:Claude 依固定介面實作,沿用現有品牌函式、測試工具與 `scripts/` 慣例。修正 Palette Lab 舊註解的品牌入口指路,不新增專案 `brands/<name>.ts` 正本。以正式工具重跑上述適用的隔離驗收。
+1. **E3 補套工具與測試**:依固定介面交付,沿用現有品牌函式、測試工具與 `scripts/` 慣例。修正 Palette Lab 舊註解的品牌入口指路,不新增專案 `brands/<name>.ts` 正本。核對正式工具的適用證據,只補未涵蓋或受變更影響的隔離驗收;全量 TEST 參考頁重跑不作正式拆分前置。
 2. **E4 正式拆分及首次接軌**:工具驗收後,提供精確來源/目的/影響實例/搬回方案,依正式操作的授權範圍執行。更新品牌註冊表、FIGMA-09 與操作正本;完成 E 後移除本節已交付計畫。F 再做跨 repo 的完整升級與回收演練。
 
 ## F:正式版本升級、回收與整體演練
