@@ -69,8 +69,11 @@
 | 稽核、儲存與寄信     | 服務機制及共用模板                                  | bucket、網址、寄件識別與外部資源                            |
 | 功能與資料           | 組裝、repository 基礎、組織資料檢查、示範藍本       | project 來源中的頁面、API、schema、repository、GraphQL 文件 |
 | 工具與部署           | 共用規範、測試工具、設定讀取器及 workflow           | 依賴擴充、專案測試、repo／看板／雲端／環境設定              |
+| Figma 同步           | 品牌投影、身分審查、補套與驗證工具及契約            | 品牌值、Brand Library、Screens、客製內容與成功 receipt      |
 
 上表是 repo 內容的維護歸屬;人員、角色授權、租戶分派、綁定與業務資料由各環境管理。專案值的正本見[初始化索引](project-initialization.md)。`project-config` 是 build 輸入,不讀 `process.env`、瀏覽器全域或遠端服務;公開欄位的型別與驗證在 `packages/project-config/src/base/public-config.ts`。前台自行設計版型與風格,可選用共用 UI,不要求接後台主題。示範程式是底座藍本,專案業務另建模組。
+
+Figma 品牌同步讀取 `packages/project-config/src/project/public.ts` 的 `projectPublic.brand`,沿用 `@repo/ui` 的色盤與陰影函式,不另填六色色票。Node CLI 產生掃描、審查與執行資料,由 Figma 工具執行生成的 JavaScript;完整回讀驗證成功後,才更新 `deploy/project/figma/receipts/` 的專案狀態。底座升級保留專案資源、客製及 receipt;操作見 [toolbox](agents/toolbox.md#figma-品牌同步),實際 Library 是否已建立與發布見[品牌註冊表](branding.md)。
 
 ### 功能來源與組裝
 
@@ -103,7 +106,7 @@ pnpm --filter @repo/storybook dev   # 只開設計系統(http://localhost:6006)
 - **graphql 固定在 v16**:Apollo Server 5 與 `@nestjs/graphql` 13 不支援 graphql 17。
 - **front 不用 Apollo Client**:SEO 頁面在 Server Component 用 `useXxxQuery.fetcher` 直接抓;瀏覽器端互動用 TanStack Query hooks。
 - **codegen 產物修正**:`typescript-react-query` plugin 會產生 graphql-request v4 的型別路徑,`packages/graphql/scripts/fix-generated.mjs` 在 generate 後自動修正。
-- **程式碼是設計的唯一真實來源**:設計系統先存在於 `@repo/ui`(tokens + MUI theme + 元件),Figma 是它的投影(figma-generate-library 生成、Code Connect 對應);不買現成 Figma kit 或模板。
+- **程式碼是設計的唯一真實來源**:設計系統先存在於 `@repo/ui`(tokens + MUI theme + 元件),Figma 是它的投影。品牌同步沿用程式的品牌推導,共用元件的原生發布與接受另行驗證;不買現成 Figma kit 或模板。
 - **設計風格走 Minimal 方向**:以 MUI theme 客製(柔和陰影、大圓角、冷灰階)重現,不購買模板。
 - **版本統一**:同一套件全 repo 同一版本(見上面「技術棧版本」);已知例外 `eslint-plugin-unicorn` 釘 65(最後支援 ESLint 9 的版本)。
 - **TS 編譯目標統一**:`@repo/typescript-config` 各範本一律 `lib` ES2024、`target` ES2022(執行環境 Node 22 與現代瀏覽器都支援;不用 `ESNext`,因為它隨 TS 版本變動),各 app / package 不自訂這兩項,只補 `DOM` 之類的環境差異。

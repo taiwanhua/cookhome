@@ -61,7 +61,9 @@ component key 是來源身分,不是版本鎖。發現指定發布後又有變�
 
 ### 隔離驗收矩陣
 
-所有既有共用元件 family、變體與參考畫面先做綁定及身分基線盤點;所有畫面驗品牌殘留與連結。下表的更新情境用能涵蓋不同結構的代表元件,明列覆蓋清單,不只重跑三顆按鈕。兩個隔離品牌皆須通過,不將既有 POC 結果直接外推為全元件已驗。
+隔離驗收以不同機制與結構為單位,沿用兩品牌已取得的元件、代表畫面及更新證據。參考畫面選能涵蓋直接綁定、巢狀與隱藏實例、樣式及專案覆寫的代表案例,不要求兩品牌所有參考畫面逐一重跑。證據須明列實際範圍、程式版本、來源身分與未驗項目;抽樣結果不能宣稱整份檔案已同步。
+
+正式拆分仍須核對完整搬移清單、資產身分與消費端引用,並比較受影響範圍的預期及非預期差異;視覺驗收採代表畫面。元件搬移證據不能代替變數或文字/效果樣式的連結驗證。基線只記錄擷取當時的狀態,正式操作前仍要確認相關內容未漂移。
 
 | 編號           | 現況 / 操作                                                     | 期望                                                               |
 | -------------- | --------------------------------------------------------------- | ------------------------------------------------------------------ |
@@ -85,7 +87,7 @@ Figma 官方的[搬移已發布元件](https://help.figma.com/hc/en-us/articles/
 
 ### E3 工具契約
 
-以下是尚未實作的工具目標契約,不可作為目前可用工具的操作說明。隔離驗收結果見品牌註冊表,逐次發布、身分映射及驗證證據留執行 issue。
+以下保留工具交付的驗收契約;候選程式的實作與驗收狀態以 issue/PR 為準,操作見 [toolbox](../agents/toolbox.md#figma-品牌同步)。隔離測試檔見品牌註冊表,逐次發布、身分映射及驗證證據留執行 issue。
 
 #### 現有接縫與維護歸屬
 
@@ -97,29 +99,31 @@ Figma 官方的[搬移已發布元件](https://help.figma.com/hc/en-us/articles/
 
 以下檔案均位於 `scripts/figma-sync/`。入口與內部 factories 一起列入實作白名單，公開的六命令及 JSON 協定不因拆檔改變。
 
-| 檔案                     | 固定接縫                                                                                                                                                                                      |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `brand.mjs`              | `createFigmaBrandProjection(projectPublic)` → 六色、Brand→Color aliases、primary effect；無 Figma I/O。                                                                                       |
-| `core.mjs`               | `createSyncCore(parts)` 組裝並提供 `validateArtifact`、`createIdentityReview`、`planSync`、`verifySync`、`reconcileInterruptedPlan`；無 Node/Figma import。                                   |
-| `core-contract.mjs`      | `createArtifactContract()` → `validateArtifact(value)`、`createIdentityReview(input)`；同一 JSON 協定與精確身分選擇。                                                                         |
-| `core-plan-consumer.mjs` | `createConsumerPlanner(contract)` → `planConsumer(input)`；受管/釋出 slots、來源漂移、resolutions 及場景 actions。                                                                            |
-| `core-plan-brand.mjs`    | `createBrandPlanner(contract)` → `planBrand(input)`；品牌庫相依 actions 與既有 managedAssets。                                                                                                |
-| `core-verification.mjs`  | `createSyncVerifier(contract)` → `verifySync(input)`；品牌/來源/保護欄位精驗與累積 receipt。                                                                                                  |
-| `core-recovery.mjs`      | `createRecoveryCore(contract)` → `reconcileInterruptedPlan(input)`；before/after/第三值與 create 身分遺失。                                                                                   |
-| `runtime.mjs`            | `createFigmaRuntime(figma,core,parts)` 組裝 `scanScope(request)`、`applyPlan(request,plan)`。Plugin API 僅在 runtime 系列檔使用。                                                             |
-| `runtime-assets.mjs`     | `createAssetRuntime(figma,core)`；變數/alias/mode/style/publication owner 讀取及 exact import，無場景寫入。                                                                                   |
-| `runtime-source.mjs`     | `createSourceRuntime(figma,core)`；source correspondence、祖先 context 與結構 guards。                                                                                                        |
-| `runtime-scan.mjs`       | `createScopeScanner(figma,core,assets,source)` → `scanScope(request)`；完整 scope inventory。                                                                                                 |
-| `runtime-apply.mjs`      | `createPlanExecutor(figma,core,assets,scanScope)` → `applyPlan(request,plan)`；先驗、逐筆執行及回讀。                                                                                         |
-| `artifacts.mjs`          | `readArtifact(path)`、`writeArtifact({runDir,name,artifact})`、`hashArtifact(artifact)`、`writeVerifiedReceipt({rootDir,receipt,expectedPreviousDigest})`；Node SHA-256、路徑驗證、原子寫入。 |
-| `prepare.mjs`            | import-safe `main(argv,io)` 與 direct-entry guard；re-export `buildExecutionSource`，不在 import 時執行 CLI。                                                                                 |
-| `prepare-arguments.mjs`  | `parseArguments(argv)`；六命令與各自參數白名單。                                                                                                                                              |
-| `prepare-commands.mjs`   | `runCommand(command,context,io)`；既有品牌/專案來源讀取與 artifact 生命週期。                                                                                                                 |
-| `execution-source.mjs`   | `buildExecutionSource({request,plan})`；固定 factory 清單、受驗 JSON 與依賴組裝。                                                                                                             |
+| 檔案                     | 固定接縫                                                                                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `brand.mjs`              | `createFigmaBrandProjection(projectPublic)` → 六色、Brand→Color aliases、primary effect；無 Figma I/O。                                                                                                                                                                               |
+| `core.mjs`               | `createSyncCore(parts)` 組裝並提供 `validateArtifact`、`createIdentityReview`、`planSync`、`verifySync`、`reconcileInterruptedPlan`；無 Node/Figma import。                                                                                                                           |
+| `core-contract.mjs`      | `createArtifactContract()` → `validateArtifact(value)`、`createIdentityReview(input)`；同一 JSON 協定與精確身分選擇。                                                                                                                                                                 |
+| `core-plan-consumer.mjs` | `createConsumerPlanner(contract)` → `planConsumer(input)`；受管/釋出 slots、來源漂移、resolutions 及場景 actions。                                                                                                                                                                    |
+| `core-plan-brand.mjs`    | `createBrandPlanner(contract)` → `planBrand(input)`；品牌庫相依 actions 與既有 managedAssets。                                                                                                                                                                                        |
+| `core-verification.mjs`  | `createSyncVerifier(contract)` → `verifySync(input)`；品牌/來源/保護欄位精驗與累積 receipt。                                                                                                                                                                                          |
+| `core-recovery.mjs`      | `createRecoveryCore(contract)` → `reconcileInterruptedPlan(input)`；before/after/第三值與 create 身分遺失。                                                                                                                                                                           |
+| `runtime.mjs`            | `createFigmaRuntime(figma,core,parts)` 組裝 `scanScope(request)`、`applyPlan(request,plan)`。Plugin API 僅在 runtime 系列檔使用。                                                                                                                                                     |
+| `runtime-assets.mjs`     | `createAssetRuntime(figma,core)`；變數/alias/mode/style/publication owner 讀取及 exact import，無場景寫入。                                                                                                                                                                           |
+| `runtime-source.mjs`     | `createSourceRuntime(figma,core)`；source correspondence、祖先 context 與結構 guards。                                                                                                                                                                                                |
+| `runtime-scan.mjs`       | `createScopeScanner(figma,core,assets,source)` → `scanScope(request)`；完整 scope inventory。                                                                                                                                                                                         |
+| `runtime-apply.mjs`      | `createPlanExecutor(figma,core,assets,scanScope)` → `applyPlan(request,plan)`；先驗、逐筆執行及回讀。                                                                                                                                                                                 |
+| `artifacts.mjs`          | `readArtifact(path)`、`writeArtifact({runDir,name,artifact})`、`hashArtifact(artifact)`、`writeExecutionSource({runDir,name,source})`、`readReceipt({rootDir,fileKey,project})`、`writeVerifiedReceipt({rootDir,receipt,expectedPreviousDigest})`；Node SHA-256、路徑驗證、原子寫入。 |
+| `prepare.mjs`            | import-safe `main(argv,io)` 與 direct-entry guard；re-export `buildExecutionSource`，不在 import 時執行 CLI。                                                                                                                                                                         |
+| `prepare-arguments.mjs`  | `parseArguments(argv)`；六命令與各自參數白名單。                                                                                                                                                                                                                                      |
+| `prepare-commands.mjs`   | `runCommand(command,context,io)`；既有品牌/專案來源讀取與 artifact 生命週期。                                                                                                                                                                                                         |
+| `execution-source.mjs`   | `buildExecutionSource({request,plan})`；固定 factory 清單、受驗 JSON 與依賴組裝。                                                                                                                                                                                                     |
 
 `core.parts={contract,consumerPlanner,brandPlanner,verifier,recovery}`，值均為上述 factory 的回傳物件；`planSync` 依 targetKind 分派兩個 planner。`runtime.parts={scanScope,applyPlan}`，分別注入 scanner 與 executor 回傳的方法。依賴建立順序為 contract → planners/verifier/recovery → core → assets/source → scanner → executor → runtime；core/runtime 不隱藏取得 module closure。
 
-各 factory 必須能獨立序列化，依賴只由參數或函式內部取得。generator 序列化**同一份受測函式**並按上述順序組裝、加入已驗 JSON，不另存字串版實作、不以正則改 A/B probe、不 eval 使用者資料。執行仍用現有 Figma 工具；CLI 不讀 token、不使用私有 API。依已固定接縫控制檔案責任；已知仍超過 400 行時依 issue tracker 先補定拆檔，不自行改協定。root mjs 不受現有 frontend max-lines lint 直接覆蓋，不以 Turbo lint 成功冒稱已驗 root scripts。
+各 factory 必須能獨立序列化，依賴只由參數或函式內部取得。generator 序列化**同一份受測函式**並按上述順序組裝、加入已驗 JSON，不另存字串版實作、不以正則改 A/B probe、不 eval 使用者資料。執行仍用現有 Figma 工具；CLI 不讀 token、不使用私有 API。root mjs 不受現有 frontend max-lines lint 直接覆蓋，不以 Turbo lint 成功冒稱已驗 root scripts。
+
+內部分拆限下列責任與檔名家族，不改公開六命令或另外建立業務協定：`core-contract-*.mjs` 分 canonical/通用值、schema、plan graph 與身分審查；`core-plan-consumer-*.mjs` 分來源 guards、ownership/resolution 與組裝；`runtime-scan-*.mjs` 分 node snapshot、source slot 與遍歷；`prepare-commands-*.mjs` 分 planning、record 與共同 context；`test-support-*.mjs` 分 fake Figma、場景與 CLI fixture。每個有行為的檔案配同名測試；factory 的細分仍以明示注入組裝，生成碼使用同一份受測函式。生產檔依這些責任拆到 400 行內，不以合併行或刪說明規避；測試按行為拆分，不靠一個巨型支援檔維持所有替身。
 
 E3 白名單另含：上述檔案對應的 `*.test.mjs` 與 `test-support.mjs`、根 `package.json`/`pnpm-lock.yaml`、`.github/workflows/ci.yml`、`.gitignore`、`.prettierignore`、`deploy/project/figma/receipts/*.json`、`apps/storybook/stories/palette-lab.stories.tsx` 的舊品牌入口註解。根 devDependencies 加 `@repo/ui`、`@repo/project-config` 的 `workspace:*`，先 build 兩套件再跑 generator；不得借 Storybook 依賴或私有 dist 路徑。CLI 直接沿用 `scripts/project-settings/single-line.mjs`，不複製 sanitizer。正式操作文件的必要同步由主流程列入文件票或明示例外，不讓實作者無界修改 CLAUDE。
 
@@ -158,11 +162,18 @@ inventory:
   coverage: {nodes,instances,remoteInstances,hiddenNodes,brokenInstances,unsupportedNodes}
   assets[]: {kind,fileKey,key,localId,name,resolvedType,collectionKey:null|string,modes,valueOrEffects}
   publicationOwners[]: {componentKey,componentNodeId,rawStatus,ownerKind,ownerKey,ownerNodeId,ownerRawStatus}
-  slots[]: {locator,value,resolvedValue,aliasChain[],sourceMatch,observedOverrides[],protectedSnapshot}
+ slots[]: {locator,value,resolvedValue,aliasChain[],sourceMatch,observedOverrides[],protectedSnapshot}
+ nodes[]: {nodeId,pageId,scopeRootId:null|string,ancestorIds[],protectedSnapshot}
   issues[]: {code,locator?,assetKey?,detail}
 ```
 
+inventory.assets 的 kind 包含 collection；collection 的 resolvedType=null、collectionKey=自身 key，modes 保存實際 modeId/name，valueOrEffects={defaultModeId}。遠端 metadata 無法讀取 owner file 時，asset.fileKey=null 只表示未知；不得以此推測來源或認養。selection 仍以來源 Library 的實際掃描 fileKey+key 核對，不放寬 request、observedFileKey 與 receipt 的檔案驗證。
+
 v1 **要求 `figma.fileKey` 可讀且 exact match** request.target.fileKey；缺少或不符，在任何 mutation/import 前失敗，不設 external context、檔名或 request echo 備援。roots 明確指定、去重，場景只寫 roots 及所有後代；Library metadata 可全檔唯讀列舉。hidden 不因目前不可見而略過。
+
+一次 request 的 roots 限同一 page；讀出 page 後，每次生成執行入口最多呼叫一次 `setCurrentPageAsync`，apply 前後掃描沿同一 page。跨頁由多次完整 run 和累積 receipt 處理，不能以 `loadAllPagesAsync` 或多次切頁繞過工具限制。scope 外控制節點在同頁明列抽樣範圍，不冒称驗過其他頁。scope 是 nested instance 內部時，來源脈絡從可讀祖先 instance 建立後走到指定 root，祖先只讀，不擴大寫入範圍。
+
+`nodes` 保存每個 scope 節點及明列控制節點，不因沒有 solid paint/effect slot 而省略；純圖片、空 fills、container 的 visible/geometry/swap 仍須保護。managedSlots/releasedSlots 另保存由 nodes 產生的 `scopeEvidence={pageId,scopeRootId,ancestorIds[]}`，判斷既有節點消失屬範圍內或外；不得以目前找不到 node 就當成 scope 外。釋出節點消失而同一受管祖先出現新 locator 時，保守列身分 conflict，不因新 locator 直接綁 base key 而自動收管。
 
 `locator={fileKey,rootInstanceId:null|string,nodeId,field,index}`；field 僅 `fill-color|stroke-color|effect-style`，對應 `fills[i].color`、`strokes[i].color`、`effectStyleId`，effect-style 的 index=null。value 區分固定色/variable key/style key/mixed/missing，本地 ID 只定位，不是跨檔身分。aliasChain 每一步保存 `{variableKey,collectionKey,modeId,resolvedType,aliasTargetKey|null}`，按實際 consumer mode 解析；cycle、缺值、缺 mode、深度超限明確失敗。去重不能丟 mode/consumer 差異。
 
@@ -196,7 +207,7 @@ reviewEvidenceURL 指既有 issue/PR 的審查紀錄，不是工具憑此 URL �
 ##### Plan / Attempt / Receipt
 
 ```text
-planSync({request,inventories,identityReview,previousReceipt,resumePlan}) → plan:
+planSync({request,inventories,identityReview,previousReceipt,resumePlan,resumeAttempt,verificationTarget}) → plan:
   status: ready|blocked|noop
   targetKind, scope
   inputDigests
@@ -204,8 +215,8 @@ planSync({request,inventories,identityReview,previousReceipt,resumePlan}) → pl
   actions[]: {actionId,locator,operation,params,role,sourceEvidence,before,expectedAfter,preconditions}
   preserved[]: {locator,reason,snapshotDigest}
   conflicts[]: {code,locator?,observed,expected,resolutionRequired}
-  managedSlots[], managedAssets[]
-  verification: {target:brand-bindings|library-upgrade,expectedRoleValues,expectedPrimaryEffect,protectedBefore,outsideScopeControls}
+  managedSlots[], managedAssets[], releasedSlots[]
+  verification: {target:brand-bindings|library-upgrade,expectedRoleValues,expectedPrimaryEffect,protectedBefore,outsideScopeControls,brandProjectionDigest,publicationEvidence,acceptanceEvidence,recoveredAlreadyApplied}
 
 attempt:
   observedFileKey:null|string
@@ -220,9 +231,9 @@ receipt:
   previousReceiptDigest:null|string
   publicationEvidence, acceptanceEvidence, identityMap[], identityReviewDigest
   brand: {inputDigest,projectionDigest,sourceGitCommit}
-  releasedSlots[]: {locator,previousReceiptDigest,resolutionEvidenceURL,reason,reviewedValue,sourceMatchDigest,releasedRunId}
+ releasedSlots[]: {locator,scopeEvidence,previousReceiptDigest,resolutionEvidenceURL,reason,reviewedValue,sourceMatchDigest,releasedRunId}
   managedSlots[]: {
-    locator,role,
+  locator,role,scopeEvidence,
     source{fileKey,componentKey,nodeContextFileKey,sourceNodeId,ancestryPath,field,index,bindingKey,aliasChain},
     lastWrittenValue,verifiedValue,sourceMatchStatus,firstManagedRunId,lastVerifiedRunId
   }
@@ -232,6 +243,14 @@ receipt:
 ```
 
 場景 actions 僅 `set-paint-variable|set-effect-style`；品牌庫另可 `create-collection|create-variable|set-variable-value|create-effect-style|set-effect-style-effects`。品牌庫 locator 為 `{fileKey,assetKind,key:null|string,localId:null|string,collectionRole:null|Brand|Color,role}`；collection 的 role=null，variable 為六色角色，effect-style 為 primary-shadow。collectionRole 區分 Brand/main 與 Color/main；effect-style 為 null。create.before=null，讀回真 key/localId 才記帳。空庫生成 Brand、Color 兩個僅有 Light 的集合、六 Brand 值/六 Color aliases、一個 Shadow/Primary style；同名未登記資產阻擋，不自動認養。發布仍走 UI，consumer 規劃前重掃 published keys。
+
+consumer plan 的 managedSlots / releasedSlots 與 receipt 同型，但只攜帶本次 scope 的狀態，包含由持久祖先證據判定仍屬本範圍的消失節點。規劃仍以完整 previousReceipt 判斷管理與釋出；Node 精驗核對其 digest，禁止漏掉範圍內的既有紀錄，再將範圍外紀錄逐欄原樣併回累積 receipt，保留其 lastVerifiedRunId。舊版完整 plan 仍可驗證，但其中範圍外的狀態不可新增、修改或變更管理歸屬。只有 fresh adopt-source resolution 才能重新收管已釋出的 slot；局部同步不會刪除其他範圍的歷史，也不將那些歷史帶進 Figma 執行碼。
+
+consumer 的 verificationTarget 必填，brand 固定 brand-bindings。resumeAttempt 為 optional，須符合原 resumePlan 的 digest/run/project/tool 並原樣封存。verification 的 brandProjectionDigest 由本次 request.brandProjection 推導；publicationEvidence/acceptanceEvidence 沿用 request 既有型別和內容。recoveredAlreadyApplied 只由已驗 reconciliation 推導，與本次 attempt 不重複計數，均不可由使用者填入成功值。
+
+品牌庫受管值若不同於 receipt.lastWrittenValue 且不能由恢復證據解釋，plan-brand 回 blocked；consumer resolutions 不適用品牌資產。操作者確認後可將同一 exact key 還原至 receipt.lastWrittenValue，再 scan/plan-brand。更換品牌仍修改 projectPublic.brand；不以 force、刪 receipt、改生成色票或同名認養解套。
+
+managedSlots.sourceMatchStatus 可為 direct-binding，只表示當次直接綁定已驗，限 brand-bindings；不等同來源結構驗證，也不能替既有 override 缺 counterpart 解套。raw sourceMatch.status 仍只有下述三值。
 
 `params` 依 operation 固定，不另填品牌檔；其中 RGBA/effects 僅由 brandProjection 產生：
 
@@ -340,11 +359,71 @@ record 保存原始協定回傳為 `runtime-result.json`（內容 kind 仍是 in
 
 **正式生成狀態：`deploy/project/figma/receipts/<targetFileKey>.json`，應 commit。** consumer/brand-library 都按自己的 fileKey 分檔。檔案包含累積 managedSlots/managedAssets、身分對照、最新 scope 驗證及來源證據，未來新 clone 直接讀它。不是把所有 scene 文案/圖像 bytes 存進 repo；protected 完整資料留暫存，成功檔只需其摘要/digest 與補套必需的品牌 slot 狀態。
 
-writeVerifiedReceipt 必須同時驗 expectedPreviousDigest 等於磁碟現值、repository/slug/targetFileKey 相同，並在同目錄暫存後原子 rename；前次已被更新則 `RECEIPT_CHANGED`，不覆蓋。無 previous 時檔案必須不存在。fileKey 驗為單一路徑片段，拒絕 slash、dot segment、控制字元。此寫檔不自動 commit；依原 PR 流程提交。合併衝突不能整份選 ours/theirs，須以當前 Figma 重掃、保留仍可證明的 ownership 後生成。
+writeVerifiedReceipt 必須同時驗 expectedPreviousDigest 等於磁碟現值、repository/slug/targetFileKey 相同，並在同目錄暫存後原子 rename；前次已被更新則 `RECEIPT_CHANGED`，不覆蓋。compare 與 rename 必須由跨程序互斥保護；只有原子 rename 不構成 CAS。同 target 的鎖檔以 exclusive create 取得，內容記操作識別，finally 僅釋放本次持有的鎖。鎖仍存在則回 `RECEIPT_BUSY`，不靠時間或 PID 猜測自動刪除；程序中斷的鎖在確認沒有 writer、核對 receipt 與 pending attempt 後由操作者移除，再冪等 record。無 previous 時檔案必須不存在。fileKey 驗為單一路徑片段，拒絕 slash、dot segment、控制字元。此寫檔不自動 commit；依原 PR 流程提交。合併衝突不能整份選 ours/theirs，須以當前 Figma 重掃、保留仍可證明的 ownership 後生成。
 
 新專案不能使用隨底座複製而來、repository/slug 不符的 receipt；初始化只繼承工具，不認養其他 repo/file 的成功狀態。這項納入既有 project-bootstrap/初始化索引，不另造獨立初始化設定。底座更新也不得覆蓋引用專案的 project receipts。
 
 issue/PR 沿既有交件格式附完整 Git SHA/tag、三側 file/scope、品牌來源、原生發布連結、實際接受資產與範圍、plan/receipt digest、planned/applied/remaining/conflict/unsupported 數、精確色/陰影/連結/覆寫結果，以及必要暫存 evidence 的可下載位置。失敗跨人接手須附 pending plan/inventory/attempt，不能只剩某人的 `.codex`；成功後接手的必要持久狀態則已在 repo。
+
+#### 有界傳輸與完整性
+
+[Figma write-to-canvas](https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/#current-limitations) 的回傳上限是每次 20 KB；實際工具的輸入驗證將 `code` 限為 50,000 字元。工具沒有跨 call state、任意 JSON 結果下載或 cursor；執行時間上限尚未公布。其餘數值是工具自身的操作預算，不冒稱官方保證。傳輸包由機器產生，不新增第七種業務 artifact，也不是第二份人工品牌格式。
+
+新增固定接縫：
+
+| 檔案                    | 責任                                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `transport-codec.mjs`   | Node 端 codec bundle 與壓縮輸入生成；公開 `createCodecSource()`、`encodeExecutionPayload(value)`。                             |
+| `transport.mjs`         | 純 factory `createTransport(contract,codec)`：header/chunk/完整 digest、byte 預算、重建；無 Node/Figma I/O。                   |
+| `transport-runtime.mjs` | `createRuntimeTransport(runtime,contract,codec)`：首次 scan/apply 編碼與後續唯讀 inventory 分塊，不儲存 Figma workflow state。 |
+| `transport-record.mjs`  | `recordTransport({request,envelope,runDir,context})`：append 收件、下一支唯讀 JS 或完整原協定；不自行寫成功 receipt。          |
+| `execution-source.mjs`  | 延伸 `buildExecutionSource` 的傳輸輸出；新增 `buildReadonlyTransportSource({request,head,index})`，此入口不包含 executor。     |
+
+上述檔案、按同一責任拆分的 `transport-*.mjs`、`execution-source-*.mjs` 及同名測試納入 E3 白名單；不得另造 token/網路 connector。根 devDependencies 明列 exact `fflate:0.8.3`、`esbuild:0.28.2`、`typescript:5.9.3`、`terser:5.49.0` 並更新 lock，沿用既有相依版本。fflate 只用同步 browser exports，TypeScript AST 只共用字串常量，不改實際 property keys；來源與授權見 [fflate](https://github.com/101arrowz/fflate)、[esbuild](https://esbuild.github.io/api/)、[Terser](https://terser.org/docs/api-reference/)。
+
+codec 固定 `gzip-base64`，先將 canonical JSON 編為標準 UTF-8 bytes，再 `gzipSync(bytes,{level:6,mtime:0})`，無 filename/dictionary。UTF-8 轉換沿同一受測的 `transport-bytes.mjs` 純函式，支援 surrogate pair，孤立 surrogate 依標準轉 U+FFFD；解碼拒絕不合法 continuation、overlong、surrogate code point 與超出 U+10FFFF。Node/Figma 使用同一轉換，與 Node Buffer 的合法輸入逐 byte 比對，不依賴 fflate 的字串轉換 fallback。輸入 request/plan 也完整壓縮，Figma 解碼後驗 byteLength、完整 canonical SHA、schema/planDigest 再執行。不得刪 plan 欄位換取較小請求。Node 解壓使用有 `maxOutputLength` 的 `node:zlib.gunzipSync`；Figma 使用 bundle 中同版純 JS gunzip，不依賴 TextEncoder、Worker、fetch、Buffer 或 CompressionStream。codec MIT notice 保留，不手抄第三方 minified 程式。
+
+生成碼只組該 operation 必需的 factories：scan 使用 contract、assets、source、scanner；apply 再加 recovery/executor。Node 完整 core 保持原組裝。整個具名入口組好後由 esbuild 以 `target:es2017,minify:true,charset:utf8` 轉換，再由同版 Terser 以 `ecma:2017`、`compress.passes:3`、`unsafe:false`、`pure_getters:false` 與 `ascii_only:false` 壓縮。不逐支改名拼接、不 mangle properties；保留具名入口、MIT notice，最後用 top-level `return await` 呼叫。來源 digest 須涵蓋參與生成的本機 modules、schema 與常量生成邏輯、codec/bundler/AST/minifier 的實際固定版本及 bundle bytes，不能把未提交或不同依賴冒稱同一工具來源。
+
+一般壓縮仍超過字元上限時,由同版 Terser 改用單碼元的局部識別字(先 ASCII,再 CJK),保留相同作用域、屬性名稱、完整資料與驗證。這會增加 UTF-8 bytes,生成後仍同時驗證字元及完整工具參數的 bytes 上限;超限仍在寫入前拒絕。
+
+生成碼內的壓縮輸入可用純資料字串減少字元：以 `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=` 為固定 65 字元表，兩個 base64 字元映為 `0x4000 + firstIndex * 65 + secondIndex` 的單一 UTF-16 碼元（U+4000–U+5080）。產生端拒絕奇數長度及未知字元，執行端拒絕範圍外碼元；還原完整 base64 後仍走同一個有界 decoder、canonical SHA、schema、planDigest 與所有寫前保護。此表示只存在機器生成的 JS 資料 literal，不是可執行碼或新增業務 artifact，回傳 codec 仍是 `gzip-base64`。測試涵蓋全部 4,225 種字元配對、JSON/UTF-8 往返、padding、損壞拒絕及 Node/生成碼等價；不得要求 caller 手改字串或跳過原驗證。
+
+預算固定：完整 envelope 最多 18,000 UTF-8 bytes；每塊 base64 最多 12,288 ASCII chars；生成的 `code` 最多 50,000 字元（以 JavaScript string.length 計），完整 tool arguments JSON 另驗最多 128 KiB UTF-8 bytes；單件未壓縮 canonical payload 最多 16 MiB；一份 payload 最多 32 chunks。字元與 bytes 上限各自驗證，超量明確失敗，不裁切、不默默改走上百次重掃。這些上限在 TEST 真機驗收後才可宣稱支援，壓縮率量測不能取代限制。
+
+`execution-source.mjs` 另提供 `buildFigmaToolArguments({fileKey,source})`，並由 import-safe `prepare.mjs` re-export。回傳現有 use_figma 的四個欄位：`{fileKey,code:source,description:"Execute verified Figma sync request",skillNames:"figma-use,figma-generate-library"}`；固定形狀不新增 artifact kind。generator 與實際 caller 都以這個 helper 檢查 source 字元數與 `JSON.stringify(args)` 的 UTF-8 bytes，包含 code escaping 及其他欄位，任一超限回 `EXECUTION_SOURCE_TOO_LARGE`。caller 不改寫 helper 產出的參數；source 檔自身的 SHA 仍只計原始 source bytes。內部 factory 因拆分新增明示 parts 注入可接受，仍須由固定組裝入口及同一受測函式生成。為符合上限可按 operation 收斂必要的受測 helpers，再由既有 esbuild 做 bundle/tree-shaking；保留完整 request/plan/schema 與寫前保護，不以執行期 eval/Function、跨 call 快取或隱藏 Figma state 迴避上限。
+
+傳輸 envelope 共用欄位：
+
+```text
+transportVersion:1, type:head|chunk|error
+runId, requestDigest, operation:scan|apply
+targetFileKey, observedFileKey:null|string
+artifactKind:inventory|attempt
+artifactDigest:原完整 raw artifact 的 canonical SHA
+```
+
+head 帶 `codec:{name:gzip-base64,implementation:fflate,version:0.8.3,level:6,mtime:0}`、`payload:null|{subject:inventory|after-inventory,canonicalDigest,generatedAt,uncompressedBytes,compressedBytes,base64Length,chunkSize:12288,chunkCount}`、`attemptHead:null|原 attempt 去除 afterInventory 的全部欄位`、`chunk0:null|{index:0,payloadBase64,chunkDigest}`。scan 的 attemptHead=null；沒有 afterInventory 的失敗 attempt 以 null 重建。attemptHead 不能獨立算成功，raw afterInventoryDigest=null 保持原樣。head 可在完整 bytes 足夠時帶 chunk0，否則由下一次唯讀取得，不縮短固定區塊。
+
+chunk 帶固定 head 的 `headDigest`、`index`、`payloadBase64`、`chunkDigest=digest({index,payloadBase64})`。先壓縮整份 canonical JSON 再切片；除最後一塊外長度固定。後續每次只唯讀重掃相同 scope，保留第一份 generatedAt，另在包裝中記本次 observedAt；其餘資料完整比 canonical SHA，相同才返回對應區塊。漂移回 `TRANSFER_SNAPSHOT_CHANGED`，不因相同名稱或顏色放行。所有包須驗 request/run/file 與同一 head；同 index 的內容身分以固定共用欄位、headDigest、index、payloadBase64、chunkDigest 比較，重讀時間 observedAt 不參與內容身分，重送保留首次封存包不覆寫。異內容拒絕。組回時驗所有 index、bytes、gzip、原 canonical SHA、schema；apply 再驗完整 raw attempt digest，才交原 record。
+
+apply 只執行一次。當次 head 必須完整保存真 completedActions/errors/readBack，以及由 plan locator 明確還原的 mutated node IDs；之後只補讀 afterInventory。head 遺失或截斷不能重跑 apply 取資料，也不能用新 scan 捏造原 trace；沿原 plan + 新 inventory 恢復，create 身分遺失仍是 unresolved。傳輸錯誤不代表先前 mutation 沒發生。
+
+runtime finish 在封定 attempt 前處理傳輸能力：若 mutation 已發生、真 trace 已取得，但 afterInventory 超過 payload/chunk 上限或壓縮失敗，返回真 interrupted attempt，保留全部 completedActions/readBack，令 afterInventory=null、afterInventoryDigest=null，加入固定 `AFTER_INVENTORY_TRANSPORT_FAILED`；以這份最終 attempt 計 artifactDigest，傳有界 head。record 保存失敗 attempt、拒成功 receipt，後續沿新 scan 恢復。不能把 snapshot 清空後仍使用含 snapshot 的舊 digest，也不能只回 error 而丟掉已取得的新 keys。head 自身是有界普通 JSON，無 afterInventory 時不要求 gzip 成功才能保留 trace。
+
+**寫前 trace 預算**：attemptHead 的保守未壓縮上界為 10,240 bytes，連同外層 head 再驗 18,000-byte response 預算。計算含已知 request/plan headers、每筆 readBack shape、最長固定 status/errors 與 identifiers，不能靠預期壓縮率。新建身分支援 ASCII `[A-Za-z0-9:,_./;-]`（包含 Figma style localId 的逗號），key 最長 64 bytes、localId 最長 128 bytes、defaultModeId 最長 64 bytes；這是 adapter 支援範圍，不是對所有 Figma 未來 ID 的假設。預留以各欄位最大值計，任何 mutation 前超量回 `TRANSPORT_TRACE_TOO_LARGE`。正常空品牌庫的 28 actions 必須可執行並受測。建立後若取得範圍外身分，回 interrupted/`CREATED_ASSET_IDENTITY_UNRESOLVED`，不猜身分、不再建、不產成功 receipt；新建資產無 exactly-once 保證。已知身分的操作以實際值計 bytes，未知或不能給出保守上界的回讀不執行。超量的 consumer plan 用既有 roots 產較小完整計畫，仍保留全 scope 驗證與累積 receipt。
+
+六命令不變，record 只增加互斥輸入：
+
+```text
+record --request <request.json> (--result <原協定.json> | --transport-result <transport-envelope.json>)
+```
+
+不接受 MCP content envelope 或任意混合文字，caller 只將指定 text content 的完整 JSON 存檔。`--result` 維持原驗證；`--transport-result` 先持久保存固定 head/chunk，再生成下一個缺失 index 的唯讀 JS，stdout 一行 `status:transport-pending`、exit0，artifacts 只列 `execution-source`，counts 帶 receivedChunks/totalChunks。pending 不是成功。接齊後自動交同一 recordScan/recordApply/verifySync/CAS，不要求 agent 手拼 JSON。
+
+transport 存在 `.artifacts/figma-sync/<runId>/transport/<scan|apply>/`：`head.json`、`chunk-000000.json`、`read-000000.js`、`error-000000.json`。序號與檔名由 CLI 產生，first append/相同重送冪等/異內容拒絕；不列為業務 kind、不提交至 receipts。最後 raw runtime-result 保持唯一原協定內容。傳輸錯誤保存後 exit1，不動前次 receipt；已完成結果重送仍受原 CAS 與 RESULT_CHANGED 限制。
+
+必要測試包含 >20KB/數 MB JSON 往返、中文/emoji、損壞 gzip/超解壓上限、缺塊/異值重送/錯 request/scope、時間固定但實值漂移、apply 恰一次/後續 chunk 零 mutation、create 真 keys、head 遺失恢復、input/trace 限制在 mutation 前拒絕；生成/minify/codec 後的結果與直接 factories 完全相同。真 TEST 驗收記未壓縮/gzip/envelope/tool args bytes、calls、時間與完整 SHA，確認大 inventory 組回、一筆 mutation 的 record/receipt/重跑，以及兩塊間漂移拒絕。不能只以 fake 通過宣稱 Figma 支援。
 
 #### 測試與 CI
 
@@ -353,7 +432,9 @@ issue/PR 沿既有交件格式附完整 Git SHA/tag、三側 file/scope、品牌
 - `runtime.test.mjs` 及各 runtime helper 同名測試：fake Figma；fileKey 缺/不符零 mutation、hidden/scope 外保護、noop 零 import、paint 其他欄位保留、shadow、partial write/丟回應、create 身分遺失。空品牌庫初建兩集合/12 variables/aliases/一 style、再跑零 action；attempt 內嵌完整 afterInventory。mock 不能充當真發布/搬檔證據。
 - `prepare.test.mjs`、`artifacts.test.mjs`、各 CLI/generator helper 同名測試與 `test-support.mjs`：native node:test + tmp/spawnSync，六命令完整串接而不手編 artifact、stdout/stderr、run 首次 append/拒絕覆蓋、record 同內容冪等/異內容拒絕、receipt CAS/路徑/跨 repo 拒絕、partial scope 保留、失敗不改前次 receipt、新 clone 只靠 committed receipt 續跑。生成 JS 必須在 fake Figma 真執行並與直接 factories 結果相等，不能只驗字串或語法解析；各依賴皆使用同一份受測函式。
 - CI 獨立 `figma-sync` job：pnpm frozen install、build UI/project-config、`node --test scripts/figma-sync/*.test.mjs`，加入 `verify.needs`；root scripts 不依賴 Turbo affected 自動涵蓋。格式用現有 Prettier；離線 CI 不要 Figma token。
-- 正式工具完成後，以它重跑 E2 必要隔離驗收；probe 通過不是 E3 程式測試通過。
+- 正式工具須有適用的隔離驗收證據;probe 通過不能代替正式工具。相同工具程式與相關設計來源未變時沿用既有結果,只有受修改影響或缺少證據的行為才補測,不因文件或進度更新重跑真機矩陣。
+- 比對、格式、傳輸及恢復邏輯優先由本機測試與 CI 驗證;Figma 呼叫用於真實 API、發布/接受、身分連結與代表覆寫。修改程式先跑相關測試,交付遵守既有 CI,通過後沒有新變更或疑點就不重跑。
+- 大型 inventory 與完整日誌留 artifact,程式比對後只輸出摘要、差異與失敗項。每項真機補測先列證據缺口與預估讀寫呼叫數,通過即結束;超出預估先檢查原因,不自動展開新的全量排程。傳輸中斷沿既有唯讀續傳及 record 恢復,不重送已執行的 apply。
 
 #### 搬移證據與開工條件
 
@@ -363,7 +444,7 @@ issue/PR 沿既有交件格式附完整 Git SHA/tag、三側 file/scope、品牌
 
 ### 交付順序
 
-1. **E3 補套工具與測試**:Claude 依固定介面實作,沿用現有品牌函式、測試工具與 `scripts/` 慣例。修正 Palette Lab 舊註解的品牌入口指路,不新增專案 `brands/<name>.ts` 正本。以正式工具重跑上述適用的隔離驗收。
+1. **E3 補套工具與測試**:依固定介面交付,沿用現有品牌函式、測試工具與 `scripts/` 慣例。修正 Palette Lab 舊註解的品牌入口指路,不新增專案 `brands/<name>.ts` 正本。核對正式工具的適用證據,只補未涵蓋或受變更影響的隔離驗收;全量 TEST 參考頁重跑不作正式拆分前置。
 2. **E4 正式拆分及首次接軌**:工具驗收後,提供精確來源/目的/影響實例/搬回方案,依正式操作的授權範圍執行。更新品牌註冊表、FIGMA-09 與操作正本;完成 E 後移除本節已交付計畫。F 再做跨 repo 的完整升級與回收演練。
 
 ## F:正式版本升級、回收與整體演練
