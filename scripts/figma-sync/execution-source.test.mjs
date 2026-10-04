@@ -318,6 +318,16 @@ test("apply(品牌庫初建):生成碼真的建立資產,回傳交給 Node 端�
     plan,
   );
   assert.equal(head.attemptHead.completedActions.length, 28);
+  const styleId = head.attemptHead.completedActions.find(
+    (item) => item.readBack.kind === "effect-style",
+  ).readBack.localId;
+  assert.match(styleId, /^S:[0-9a-f]{40},$/);
+  assert.equal(
+    artifact.afterInventory.assets.find(
+      (asset) => asset.kind === "effect-style",
+    ).localId,
+    styleId,
+  );
   assert.equal(
     Array.from(world.variables.values()).filter(
       (variable) => variable.fileKey === BRAND_FILE,
@@ -333,6 +343,11 @@ test("apply(品牌庫初建):生成碼真的建立資產,回傳交給 Node 端�
   });
   assert.equal(verdict.status, "verified");
   assert.equal(verdict.receipt.changes.createdAssets, 15);
+  assert.equal(
+    verdict.receipt.managedAssets.find((asset) => asset.kind === "effect-style")
+      .localId,
+    styleId,
+  );
 });
 
 test("生成前先驗:request / plan 必須是協定內容且互相對應;唯讀入口的 index 要在範圍內", async () => {

@@ -111,6 +111,15 @@ test("plan-brand → apply → record:初次 plan 不需要不存在的 plan dig
   });
   const receipt = receiptOf(root, BRAND_FILE);
   assert.equal(receipt.previousReceiptDigest, null);
+  const styleId = run.envelopes[0].attemptHead.completedActions.find(
+    (item) => item.readBack.kind === "effect-style",
+  ).readBack.localId;
+  assert.match(styleId, /^S:[0-9a-f]{40},$/);
+  assert.equal(
+    receipt.managedAssets.find((asset) => asset.kind === "effect-style")
+      .localId,
+    styleId,
+  );
   const files = runFiles(root, receipt.runId);
   assert.deepEqual(files.top, [
     "attempt.json",

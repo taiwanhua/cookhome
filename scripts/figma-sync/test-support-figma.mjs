@@ -220,7 +220,8 @@ export function createWorld() {
         : (world.createdKey ?? world.nextKey("sk"));
     const state = { effects };
     const item = {
-      id: `S:${world.nextKey("s")}`,
+      // Figma 的本地 style ID 是 S:<40 hex>,;尾逗號是身分的一部分。
+      id: world.createdStyleId ?? `S:${world.nextKey("").padStart(40, "0")},`,
       key,
       name,
       fileKey,

@@ -5,7 +5,7 @@
  */
 export function createAssetWriter(figma, assets) {
   // 新建身分的支援範圍(傳輸 trace 以此上界預留);範圍外視為身分未解
-  const IDENTITY = /^[A-Za-z0-9:_./;-]+$/;
+  const IDENTITY = /^[A-Za-z0-9:_./;,-]+$/;
   const bounded = (value, limit) =>
     typeof value === "string" &&
     value.length > 0 &&

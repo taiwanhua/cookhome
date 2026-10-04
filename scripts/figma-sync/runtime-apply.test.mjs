@@ -271,6 +271,11 @@ test("空品牌庫初建:兩個只有 Light 的集合、12 個變數、六個 al
   }
   assert.equal(own("styles").length, 1);
   assert.equal(own("styles")[0].name, "Shadow/Primary");
+  assert.match(own("styles")[0].id, /^S:[0-9a-f]{40},$/);
+  const createdStyle = first.attempt.completedActions.find(
+    (item) => item.readBack.kind === "effect-style",
+  );
+  assert.equal(createdStyle.readBack.localId, own("styles")[0].id);
   assert.deepEqual(own("styles")[0].effects, [
     first.plan.verification.expectedPrimaryEffect,
   ]);
@@ -499,6 +504,47 @@ test("新建身分超出支援範圍(過長或含不支援字元):視為身分�
     assert.equal(attempt.errors[0].detail, "create-collection:Brand");
     assert.deepEqual(attempt.completedActions, []);
     assert.equal(world.count("asset"), 1);
+    assert.equal(verdict.status, "failed");
+    assert.equal(verdict.receipt, null);
+  }
+});
+
+test("style localId 的尾逗號保留原值,仍拒絕超長或需 JSON escaping 的身分", async () => {
+  const world = createWorld();
+  world.addFile(BRAND_FILE, ["Brand"]);
+  world.createdStyleId = `S:${"a".repeat(125)},`;
+  assert.equal(world.createdStyleId.length, 128);
+  const valid = await planBrandRun(world, { runId: "style-id-limit" });
+  assert.equal(valid.attempt.status, "applied");
+  assert.equal(valid.attempt.completedActions.length, 28);
+  assert.equal(
+    valid.verdict.receipt.managedAssets.find(
+      (asset) => asset.kind === "effect-style",
+    ).localId,
+    world.createdStyleId,
+  );
+
+  for (const localId of [
+    `S:${"a".repeat(126)},`,
+    'S:unsafe"id,',
+    "S:unsafe\\id,",
+    "S:unsafe\nid,",
+    "S:含中文,",
+  ]) {
+    const invalid = createWorld();
+    invalid.addFile(BRAND_FILE, ["Brand"]);
+    invalid.createdStyleId = localId;
+    const { attempt, verdict } = await planBrandRun(invalid, {
+      runId: "style-id-invalid",
+    });
+    assert.equal(attempt.status, "interrupted");
+    assert.equal(attempt.errors[0].code, "CREATED_ASSET_IDENTITY_UNRESOLVED");
+    assert.equal(attempt.completedActions.length, 26);
+    assert.equal(invalid.styles.size, 1);
+    assert.equal(
+      invalid.mutations.filter((entry) => entry.op === "set-effects").length,
+      0,
+    );
     assert.equal(verdict.status, "failed");
     assert.equal(verdict.receipt, null);
   }
