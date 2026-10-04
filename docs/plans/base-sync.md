@@ -363,7 +363,7 @@ issue/PR 沿既有交件格式附完整 Git SHA/tag、三側 file/scope、品牌
 
 #### 有界傳輸與完整性
 
-[Figma write-to-canvas](https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/#current-limitations) 的回傳上限是每次 20 KB。工具沒有跨 call state、任意 JSON 結果下載或 cursor；input/time 的數值上限尚未公布。以下是工具自身的操作預算，不冒稱官方保證。傳輸包由機器產生，不新增第七種業務 artifact，也不是第二份人工品牌格式。
+[Figma write-to-canvas](https://developers.figma.com/docs/figma-mcp-server/write-to-canvas/#current-limitations) 的回傳上限是每次 20 KB；實際工具的輸入驗證將 `code` 限為 50,000 字元。工具沒有跨 call state、任意 JSON 結果下載或 cursor；執行時間上限尚未公布。其餘數值是工具自身的操作預算，不冒稱官方保證。傳輸包由機器產生，不新增第七種業務 artifact，也不是第二份人工品牌格式。
 
 新增固定接縫：
 
@@ -381,9 +381,9 @@ codec 固定 `gzip-base64`，先將 canonical JSON 編為標準 UTF-8 bytes，�
 
 生成碼只組該 operation 必需的 factories：scan 使用 contract、assets、source、scanner；apply 再加 recovery/executor。Node 完整 core 保持原組裝。整個具名入口組好後由 esbuild 以 `target:es2017,minify:true,charset:ascii` 轉換，不逐支改名拼接、不 mangle properties；最後用 top-level `return await` 呼叫具名入口。來源 digest 須涵蓋參與生成的本機 modules、codec/bundler 的固定版本及 bundle bytes，不能把未提交或不同依賴冒稱同一工具來源。
 
-預算固定：完整 envelope 最多 18,000 UTF-8 bytes；每塊 base64 最多 12,288 ASCII chars；完整 tool arguments JSON 最多 128 KiB；單件未壓縮 canonical payload 最多 16 MiB；一份 payload 最多 32 chunks。所有限制驗 bytes，超量明確失敗，不裁切、不默默改走上百次重掃。這些上限在 TEST 真機驗收後才可宣稱支援，壓縮率量測不能取代限制。
+預算固定：完整 envelope 最多 18,000 UTF-8 bytes；每塊 base64 最多 12,288 ASCII chars；生成的 ASCII `code` 最多 50,000 字元，完整 tool arguments JSON 另驗最多 128 KiB；單件未壓縮 canonical payload 最多 16 MiB；一份 payload 最多 32 chunks。字元與 bytes 上限各自驗證，超量明確失敗，不裁切、不默默改走上百次重掃。這些上限在 TEST 真機驗收後才可宣稱支援，壓縮率量測不能取代限制。
 
-`execution-source.mjs` 另提供 `buildFigmaToolArguments({fileKey,source})`，並由 import-safe `prepare.mjs` re-export。回傳現有 use_figma 的四個欄位：`{fileKey,code:source,description:"Execute verified Figma sync request",skillNames:"figma-use,figma-generate-library"}`；固定形狀不新增 artifact kind。generator 與實際 caller 都以這個 helper 檢查 `JSON.stringify(args)` 的 UTF-8 bytes，包含 code escaping 及其他欄位，超限回 `EXECUTION_SOURCE_TOO_LARGE`。caller 不改寫 helper 產出的參數；source 檔自身的 SHA 仍只計原始 source bytes。內部 factory 因拆分新增明示 parts 注入可接受，仍須由固定組裝入口及同一受測函式生成。
+`execution-source.mjs` 另提供 `buildFigmaToolArguments({fileKey,source})`，並由 import-safe `prepare.mjs` re-export。回傳現有 use_figma 的四個欄位：`{fileKey,code:source,description:"Execute verified Figma sync request",skillNames:"figma-use,figma-generate-library"}`；固定形狀不新增 artifact kind。generator 與實際 caller 都以這個 helper 檢查 source 字元數與 `JSON.stringify(args)` 的 UTF-8 bytes，包含 code escaping 及其他欄位，任一超限回 `EXECUTION_SOURCE_TOO_LARGE`。caller 不改寫 helper 產出的參數；source 檔自身的 SHA 仍只計原始 source bytes。內部 factory 因拆分新增明示 parts 注入可接受，仍須由固定組裝入口及同一受測函式生成。為符合上限可按 operation 收斂必要的受測 helpers，再由既有 esbuild 做 bundle/tree-shaking；保留完整 request/plan/schema 與寫前保護，不以執行期 eval/Function、跨 call 快取或隱藏 Figma state 迴避上限。
 
 傳輸 envelope 共用欄位：
 
