@@ -15,6 +15,7 @@ import { gzipSync } from "fflate";
 import { createContract } from "./core-contract.mjs";
 import { createTraceBudget } from "./transport-budget.mjs";
 import { createByteCodec } from "./transport-bytes.mjs";
+import { createPayloadDecoder } from "./transport-decode.mjs";
 import {
   createEnvelopeLimits,
   createEnvelopeRules,
@@ -111,9 +112,12 @@ export function createNodeCodec() {
 /** Node 端的 transport(收件、重建與輸入編碼共用)。 */
 export function createNodeTransport(contract = createContract()) {
   const limits = createEnvelopeLimits(contract);
-  const transport = createTransport(contract, createNodeCodec(), {
-    bytes: createByteCodec(contract),
+  const bytes = createByteCodec(contract);
+  const codec = createNodeCodec();
+  const transport = createTransport(contract, codec, {
+    bytes,
     envelope: limits,
+    decoder: createPayloadDecoder(contract, codec, bytes, limits.LIMITS),
   });
   return Object.assign(
     {},

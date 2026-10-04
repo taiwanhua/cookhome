@@ -60,13 +60,10 @@ export function commitAll(root, message) {
 
 /**
  * 以子行程跑 CLI;設定與 artifact 相對於 `cwd` 解析。
- * apply 預設走 test-support-cli-entry.mjs(放寬生成碼字元上限,見該檔說明);strict:true 時走正式入口。
+ * 所有測試都使用正式 prepare.mjs 與固定工具輸入上限。
  */
-export function runCli(args, { cwd, strict = false }) {
-  const entry =
-    args[0] === "apply" && !strict
-      ? "test-support-cli-entry.mjs"
-      : "prepare.mjs";
+export function runCli(args, { cwd }) {
+  const entry = "prepare.mjs";
   const result = spawnSync(
     process.execPath,
     [path.join(scriptsDir, entry), ...args],

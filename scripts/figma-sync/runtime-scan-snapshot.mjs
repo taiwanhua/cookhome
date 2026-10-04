@@ -44,23 +44,29 @@ export function createNodeSnapshots(figma, assets) {
   async function snapshot(node) {
     const geometry = {};
     for (const name of GEOMETRY) {
-      geometry[name] = typeof node[name] === "number" ? node[name] : null;
+      geometry[name] =
+        name in node && typeof node[name] === "number" ? node[name] : null;
     }
     const main =
       node.type === "INSTANCE" ? await node.getMainComponentAsync() : null;
     const styled =
-      typeof node.effectStyleId === "string" && node.effectStyleId !== "";
+      "effectStyleId" in node &&
+      typeof node.effectStyleId === "string" &&
+      node.effectStyleId !== "";
     return {
       nodeType: node.type,
-      visible: node.visible !== false,
+      visible: !("visible" in node) || node.visible !== false,
       characters: node.type === "TEXT" ? node.characters : null,
       mainComponentKey: main ? main.key : null,
-      childCount: Array.isArray(node.children) ? node.children.length : 0,
+      childCount:
+        "children" in node && Array.isArray(node.children)
+          ? node.children.length
+          : 0,
       geometry,
-      fills: paintViews(node.fills),
-      strokes: paintViews(node.strokes),
+      fills: paintViews("fills" in node ? node.fills : undefined),
+      strokes: paintViews("strokes" in node ? node.strokes : undefined),
       effects:
-        styled || !Array.isArray(node.effects)
+        styled || !("effects" in node) || !Array.isArray(node.effects)
           ? null
           : assets.effectsView(node.effects),
     };

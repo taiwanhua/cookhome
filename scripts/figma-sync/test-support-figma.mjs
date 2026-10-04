@@ -121,10 +121,51 @@ export function createWorld() {
         children: [],
       }),
     );
+    const document = world.node(fileKey, {
+      id: `D${fileKey}`,
+      type: "DOCUMENT",
+      children: [],
+    });
+    for (const page of pages) document.append(page);
     world.files.set(fileKey, { fileKey, pages });
     return pages;
   };
-  world.node = (fileKey, spec) => new FakeNode(world, fileKey, spec);
+  world.node = (fileKey, spec) => {
+    const node = new FakeNode(world, fileKey, spec);
+    if (!["PAGE", "DOCUMENT"].includes(spec.type)) return node;
+    // Figma host nodes throw for unsupported properties; missing plain JS fields hid this failure.
+    const unsupported = new Set([
+      "visible",
+      "x",
+      "y",
+      "width",
+      "height",
+      "rotation",
+      "cornerRadius",
+      "paddingLeft",
+      "paddingRight",
+      "paddingTop",
+      "paddingBottom",
+      "itemSpacing",
+      "strokeWeight",
+      "fills",
+      "strokes",
+      "effects",
+      "effectStyleId",
+    ]);
+    const strict = new Proxy(node, {
+      has: (target, key) => !unsupported.has(key) && key in target,
+      get(target, key, receiver) {
+        if (unsupported.has(key))
+          throw new TypeError(
+            `node.${String(key)}: no such property on ${target.type}`,
+          );
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    world.nodes.set(node.id, strict);
+    return strict;
+  };
   world.addCollection = (fileKey, name, modeNames = ["Mode 1"]) => {
     const key =
       world.createWithoutKey === "collection"

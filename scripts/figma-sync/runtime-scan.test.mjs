@@ -29,6 +29,29 @@ const slotsOf = (inventory, nodeId) =>
   inventory.slots.filter((slot) => slot.locator.nodeId === nodeId);
 const codes = (inventory) => inventory.issues.map((issue) => issue.code);
 
+test("PAGE / DOCUMENT 的 unsupported getter 會拋例外；掃描須先查 capability，含父層與完整 page root", async () => {
+  const { world, consumer } = setup();
+  assert.equal("visible" in consumer.page, false);
+  assert.equal("visible" in consumer.page.parent, false);
+  assert.throws(() => consumer.page.visible, TypeError);
+  assert.throws(() => consumer.page.parent.visible, TypeError);
+  const inventory = await scanConsumer(
+    world,
+    [consumer.page.id],
+    "strict-page",
+  );
+  assert.ok(inventory.coverage.nodes > 24);
+  assert.ok(
+    inventory.nodes.every((node) => node.scopeRootId === consumer.page.id),
+  );
+  const page = nodeOf(inventory, consumer.page.id);
+  assert.equal(page.protectedSnapshot.visible, true);
+  assert.equal(page.protectedSnapshot.geometry.x, null);
+  assert.equal(page.protectedSnapshot.fills, null);
+  assert.deepEqual(inventory.issues, []);
+  assert.equal(world.mutations.length, 0);
+});
+
 test("完整 scope:roots 與所有後代(含隱藏)各有一筆 node 觀測,全程唯讀、最多切頁一次", async () => {
   const { world, consumer } = setup();
   const inventory = await scanConsumer(world);

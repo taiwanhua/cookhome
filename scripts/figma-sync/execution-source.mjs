@@ -4,8 +4,17 @@
  * 不另存字串版實作、不逐支改名拼接、不 mangle properties、不 eval 使用者資料。
  * scan 與唯讀分塊入口只含 contract、assets、source、scanner 與傳輸;apply 才另含 recovery 與 executor。
  */
-import { transformSync } from "esbuild";
+import { createRequire } from "node:module";
 
+import { transformSync } from "esbuild";
+import { minify_sync } from "terser";
+import ts from "typescript";
+
+import { createRecordSchema } from "./core-contract-schema-records.mjs";
+import {
+  createContractSchema,
+  createSchemaDefinitions,
+} from "./core-contract-schema.mjs";
 import {
   APPLY_CONTRACT_FACTORIES,
   SCAN_CONTRACT_FACTORIES,
@@ -18,6 +27,11 @@ import {
   createSceneClassifier,
 } from "./core-recovery-classify.mjs";
 import { assembleRecovery, createRecoveryCore } from "./core-recovery.mjs";
+import { poolExecutionSource } from "./execution-source-constants.mjs";
+import {
+  packBase64Literal,
+  unpackBase64Literal,
+} from "./execution-source-data.mjs";
 import {
   ASSET_APPLY_FACTORIES,
   SCAN_FACTORIES,
@@ -31,6 +45,7 @@ import {
   createCodecSource,
   createNodeTransport,
 } from "./transport-codec.mjs";
+import { createPayloadDecoder } from "./transport-decode.mjs";
 import { createEnvelopeLimits } from "./transport-envelope.mjs";
 import {
   createRuntimeTransport,
@@ -39,6 +54,15 @@ import {
 import { createTransport } from "./transport.mjs";
 
 const contract = createContract();
+const require = createRequire(import.meta.url);
+const terserVersion = require("terser/package.json").version;
+
+export function sourceCompilerFingerprint() {
+  if (ts.version !== "5.9.3" || terserVersion !== "5.49.0") {
+    contract.fail("SOURCE_COMPILER_VERSION_MISMATCH");
+  }
+  return { typescript: ts.version, terser: terserVersion };
+}
 
 /** 工具輸入驗證對 `code` 的硬上限(字元數;實測超過即在送入前被拒絕)。 */
 export const MAX_TOOL_CODE_CHARS = 50000;
@@ -84,7 +108,13 @@ const toolArguments = (fileKey, source) => ({
 export const SCAN_ENTRY_FACTORIES = Object.assign(
   {},
   SCAN_CONTRACT_FACTORIES,
-  { assembleContract, createByteCodec, createEnvelopeLimits, createTransport },
+  {
+    assembleContract,
+    createByteCodec,
+    createEnvelopeLimits,
+    createTransport,
+    createPayloadDecoder,
+  },
   SCAN_FACTORIES,
   { assembleRuntime, createRuntimeTransport, runTransportEntry },
 );
@@ -123,38 +153,83 @@ export const applyEntryFactories = (targetKind) =>
     ? ASSET_APPLY_ENTRY_FACTORIES
     : SCENE_APPLY_ENTRY_FACTORIES;
 
-function render(factories, input, fileKey, limits) {
-  const names = Object.keys(factories);
+function render(factories, input, fileKey) {
+  sourceCompilerFingerprint();
+  const transport = createNodeTransport(contract);
+  const definitions = {
+    schema: createSchemaDefinitions(contract),
+    records: null,
+  };
+  if (factories.createPlanGraph) {
+    definitions.records = createRecordSchema(
+      createContractSchema(contract),
+    ).bodies;
+  }
+  // Runtime 只讀這兩個共用片段；request/inventory/plan/attempt 的 bodies 全部保留。
+  const { SCENE_LOCATOR, ASSET_LOCATOR } = definitions.schema.pieces;
+  definitions.schema.pieces = { SCENE_LOCATOR, ASSET_LOCATOR };
+  const bootstrapNames = [
+    "createContractValues",
+    "createByteCodec",
+    "createPayloadDecoder",
+    "createEnvelopeLimits",
+  ];
+  const names = Object.keys(factories).filter(
+    (name) => !["createSchemaDefinitions", "createRecordSchema"].includes(name),
+  );
   const entry = [
-    "async function __figmaSyncEntry(figma) {",
-    `const codec = ${createCodecSource()};`,
-    ...names.map((name) => factories[name].toString()),
+    "async function __figmaSyncEntry(figma, __figmaSyncConstants, codec, input) {",
+    ...names
+      .filter((name) => !bootstrapNames.includes(name))
+      .map((name) => factories[name].toString()),
     `const factories = { ${names.join(", ")} };`,
-    // 受驗 JSON 只以字串常值嵌入(base64、hex 與數字),執行時 JSON.parse
-    `const input = JSON.parse(${JSON.stringify(JSON.stringify(input))});`,
-    "return runTransportEntry(figma, codec, input, factories);",
+    "return runTransportEntry(figma, codec, input, factories, true);",
     "}",
   ].join("\n");
-  const { code } = transformSync(entry, {
+  const pooled = poolExecutionSource(entry);
+  const payload = transport.encodeInput({
+    constants: pooled.constants,
+    schema: definitions,
+    request: transport.decodeInput(input.request),
+    plan: input.plan ? transport.decodeInput(input.plan) : null,
+    read: input.read,
+  });
+  const program = [
+    "async function __figmaSyncBootstrap(figma) {",
+    `const codec = ${createCodecSource()};`,
+    ...bootstrapNames.map((name) => factories[name].toString()),
+    "const values = createContractValues();",
+    "const bytes = createByteCodec(values);",
+    "const decoder = createPayloadDecoder(values, codec, bytes, createEnvelopeLimits(values).LIMITS);",
+    unpackBase64Literal.toString(),
+    `const input = decoder.decodeInput({ base64: unpackBase64Literal(${JSON.stringify(packBase64Literal(payload.base64))}), uncompressedBytes: ${payload.uncompressedBytes}, canonicalDigest: ${JSON.stringify(payload.canonicalDigest)} });`,
+    pooled.source,
+    "return __figmaSyncEntry(figma, input.constants, codec, input);",
+    "}",
+  ].join("\n");
+  const { code } = transformSync(program, {
     target: "es2017",
     minify: true,
-    charset: "ascii",
+    charset: "utf8",
     legalComments: "none",
   });
+  const minified = minify_sync(code, {
+    ecma: 2017,
+    compress: { passes: 3, unsafe: false, pure_getters: false },
+    mangle: { properties: false, reserved: ["__figmaSyncBootstrap"] },
+    format: { ascii_only: false, comments: false },
+  });
+  if (!minified.code) contract.fail("SOURCE_COMPILER_FAILED");
   const source = [
     codecNotice(),
-    // 生成碼全程維持 ASCII(工具參數與回傳的 bytes 預算都以此計)
     "// figma-sync execution-source: generated by scripts/figma-sync/execution-source.mjs; do not edit.",
     "// Run with the existing Figma tool; save the returned JSON value as-is, then: record --transport-result <file>",
-    code.trim(),
-    "return await __figmaSyncEntry(figma);",
+    minified.code.trim(),
+    "return await __figmaSyncBootstrap(figma);",
     "",
   ].join("\n");
   // 以實際的工具參數驗兩個上限(不只 source 的 bytes)
-  checkToolArguments(
-    toolArguments(fileKey, source),
-    Object.assign({}, TOOL_LIMITS, limits),
-  );
+  checkToolArguments(toolArguments(fileKey, source), TOOL_LIMITS);
   return source;
 }
 
@@ -167,10 +242,9 @@ function checkedRequest(request) {
 
 /**
  * 首次入口:scan 回 inventory 的 head;apply 執行一次並回 attempt 的 head。
- * limits 只供 fake Figma 測試與量測放寬 codeChars;正式的 CLI 入口不提供這個選項,
- * 實際 caller 仍必須通過 buildFigmaToolArguments 的固定上限。
+ * 與實際 caller 共用固定 code 字元 / 完整 arguments bytes 上限，不提供放寬選項。
  */
-export function buildExecutionSource({ request, plan, limits }) {
+export function buildExecutionSource({ request, plan }) {
   checkedRequest(request);
   const transport = createNodeTransport(contract);
   const applying = request.operation === "apply";
@@ -190,7 +264,6 @@ export function buildExecutionSource({ request, plan, limits }) {
       read: null,
     },
     request.target.fileKey,
-    limits,
   );
 }
 

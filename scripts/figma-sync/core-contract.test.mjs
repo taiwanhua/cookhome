@@ -44,10 +44,12 @@ test("contract 由 values / schema / records / graph / review 明示注入組裝
     await import("./core-contract.mjs");
   assert.deepEqual(Object.keys(CONTRACT_FACTORIES), [
     "createContractValues",
-    "createContractSchema",
+    "createSchemaDefinitions",
+    "createSchemaRuntime",
     "createArtifactContract",
     "createGuardValues",
     "createRecordSchema",
+    "createRecordChecks",
     "createPlanGraph",
     "createAssetGraphRules",
     "createPlanningValues",

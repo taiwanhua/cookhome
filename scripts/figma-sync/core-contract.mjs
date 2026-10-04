@@ -18,8 +18,12 @@ import {
   createReviewSchema,
 } from "./core-contract-review.mjs";
 import { createReceiptSchema } from "./core-contract-schema-receipt.mjs";
-import { createRecordSchema } from "./core-contract-schema-records.mjs";
-import { createContractSchema } from "./core-contract-schema.mjs";
+import {
+  createRecordChecks,
+  createRecordSchema,
+} from "./core-contract-schema-records.mjs";
+import { createSchemaRuntime } from "./core-contract-schema-runtime.mjs";
+import { createSchemaDefinitions } from "./core-contract-schema.mjs";
 import { createContractValues } from "./core-contract-values.mjs";
 
 export function createArtifactContract(parts) {
@@ -54,7 +58,7 @@ export function createArtifactContract(parts) {
   /** 驗一份協定 JSON;通過回傳原值。未知 kind、缺欄位、錯型別、來源不符都拒絕。 */
   function validateArtifact(value) {
     if (!isObject(value)) fail("ARTIFACT_INVALID", "artifact 須為物件");
-    HEADER.kind(value.kind, "kind");
+    schema.shape(value.kind, HEADER.kind, "kind");
     schema.shape(
       value,
       Object.assign({}, HEADER, bodies[value.kind]),
@@ -71,14 +75,20 @@ export function createArtifactContract(parts) {
 /** scan / 唯讀分塊入口需要的 contract:基本值運算、request / inventory。 */
 export const SCAN_CONTRACT_FACTORIES = {
   createContractValues,
-  createContractSchema,
+  createSchemaDefinitions,
+  createSchemaRuntime,
   createArtifactContract,
 };
 /** consumer 的 apply 另加 guards、plan / attempt 與相依圖(只接受場景 action)。 */
 export const SCENE_APPLY_CONTRACT_FACTORIES = Object.assign(
   {},
   SCAN_CONTRACT_FACTORIES,
-  { createGuardValues, createRecordSchema, createPlanGraph },
+  {
+    createGuardValues,
+    createRecordSchema,
+    createRecordChecks,
+    createPlanGraph,
+  },
 );
 /** 品牌庫的 apply 再加資產 action 的角色 / 集合規則。 */
 export const APPLY_CONTRACT_FACTORIES = Object.assign(
@@ -98,7 +108,7 @@ export const CONTRACT_FACTORIES = Object.assign({}, APPLY_CONTRACT_FACTORIES, {
  * 依固定順序組裝 contract;Node 端與生成碼共用這一支。清單內沒有的部分不組:
  * 對應的 kind 會被 validateArtifact 拒絕,對應的 helpers 不存在。
  */
-export function assembleContract(factories) {
+export function assembleContract(factories, definitions) {
   const base = factories.createContractValues();
   const guards = factories.createGuardValues
     ? factories.createGuardValues(base)
@@ -107,11 +117,18 @@ export function assembleContract(factories) {
     ? factories.createPlanningValues(base, guards)
     : null;
   const values = Object.assign({}, base, guards, planning);
-  const schema = factories.createContractSchema(values);
+  const schema = definitions
+    ? factories.createSchemaRuntime(values, definitions.schema)
+    : factories.createSchemaRuntime(
+        values,
+        factories.createSchemaDefinitions(values),
+      );
   const sets = [schema];
   let records = null;
-  if (factories.createRecordSchema) {
-    records = factories.createRecordSchema(schema);
+  if (factories.createPlanGraph) {
+    records = definitions
+      ? { bodies: definitions.records, checks: factories.createRecordChecks() }
+      : factories.createRecordSchema(schema, factories.createRecordChecks());
     const assetRules = factories.createAssetGraphRules
       ? factories.createAssetGraphRules(values)
       : null;

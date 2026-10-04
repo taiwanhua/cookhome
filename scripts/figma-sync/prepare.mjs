@@ -30,11 +30,9 @@ export {
 export function main(argv, io) {
   try {
     const command = parseArguments(argv);
-    // io.toolLimits 只由測試注入(放寬生成碼字元上限以在 fake Figma 驗 apply 邏輯);直接執行的 CLI 不帶
     const context = createProjectContext({
       rootDir: io.cwd,
       now: io.now,
-      toolLimits: io.toolLimits,
     });
     runCommand(command, context, io);
     return 0;

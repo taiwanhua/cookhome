@@ -10,7 +10,7 @@ export function createScopeScanner(figma, core, assets, source, parts) {
     ["strokes", "stroke-color"],
   ];
   const childrenOf = (node) =>
-    Array.isArray(node.children) ? node.children : [];
+    "children" in node && Array.isArray(node.children) ? node.children : [];
   const pageOf = (node) => {
     let up = node;
     while (up && up.type !== "PAGE") up = up.parent;
@@ -164,7 +164,7 @@ export function createScopeScanner(figma, core, assets, source, parts) {
       };
 
       for (const [prop, field] of PAINT_FIELDS) {
-        const paints = node[prop];
+        const paints = prop in node ? node[prop] : undefined;
         if (paints === figma.mixed) {
           // mixed text:不拆段補套;任何一段綁了變數都列為未支援
           const locator = locatorOf(field, 0);
@@ -188,7 +188,10 @@ export function createScopeScanner(figma, core, assets, source, parts) {
         }
         if (!Array.isArray(paints)) continue;
         const shape = resolved
-          ? source.paintShape(paints, context.sourceNode[prop])
+          ? source.paintShape(
+              paints,
+              prop in context.sourceNode ? context.sourceNode[prop] : undefined,
+            )
           : null;
         for (let index = 0; index < paints.length; index += 1) {
           const paint = paints[index];
@@ -282,7 +285,8 @@ export function createScopeScanner(figma, core, assets, source, parts) {
 
     async function visit(node, context, scopeRootId, parentHidden) {
       coverage.nodes += 1;
-      const hidden = parentHidden || node.visible === false;
+      const hidden =
+        parentHidden || ("visible" in node && node.visible === false);
       if (hidden) coverage.hiddenNodes += 1;
       let current = context;
       if (node.type === "INSTANCE") {
@@ -341,7 +345,7 @@ export function createScopeScanner(figma, core, assets, source, parts) {
       const context = await source.contextFor(root);
       let hidden = false;
       for (let up = root.parent; up; up = up.parent) {
-        if (up.visible === false) hidden = true;
+        if ("visible" in up && up.visible === false) hidden = true;
       }
       await visit(root, context, root.id, hidden);
     }

@@ -4,7 +4,7 @@
  * plan 的相依圖檢查由 assembleContract 以 core-contract-graph.mjs 掛進 checks.plan。
  * 無 Node / Figma import;會被序列化進 Figma 執行。
  */
-export function createRecordSchema(schema) {
+export function createRecordSchema(schema, checks = {}) {
   const { oneOf, pieces } = schema;
   const targets = oneOf(["brand-bindings", "library-upgrade"]);
 
@@ -136,7 +136,22 @@ export function createRecordSchema(schema) {
     },
   };
 
-  const checks = {
+  return {
+    bodies,
+    checks,
+    pieces: {
+      TARGETS: targets,
+      MANAGED_SLOT,
+      MANAGED_ASSET,
+      RELEASED_SLOT,
+      IDENTITY,
+    },
+  };
+}
+
+/** plan 由 graph factory 另驗；attempt 內嵌 inventory 的來源沿同一檢查。 */
+export function createRecordChecks() {
+  return {
     attempt(value, tools) {
       if (value.afterInventory === null) return;
       const after = tools.validateArtifact(value.afterInventory);
@@ -147,18 +162,6 @@ export function createRecordSchema(schema) {
           "attempt.afterInventory 的來源與 attempt 不符",
         );
       }
-    },
-  };
-
-  return {
-    bodies,
-    checks,
-    pieces: {
-      TARGETS: targets,
-      MANAGED_SLOT,
-      MANAGED_ASSET,
-      RELEASED_SLOT,
-      IDENTITY,
     },
   };
 }

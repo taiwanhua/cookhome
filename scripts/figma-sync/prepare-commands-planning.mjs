@@ -265,7 +265,6 @@ export function apply(options, context) {
   const source = buildExecutionSource({
     request,
     plan: artifact,
-    limits: context.toolLimits,
   });
   return {
     runId: artifact.runId,

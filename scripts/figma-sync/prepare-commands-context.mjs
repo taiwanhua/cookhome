@@ -18,6 +18,7 @@ import {
 } from "./artifacts.mjs";
 import { createFigmaBrandProjection } from "./brand.mjs";
 import { createCore } from "./core.mjs";
+import { sourceCompilerFingerprint } from "./execution-source.mjs";
 import { codecFingerprint } from "./transport-codec.mjs";
 
 export const { contract, core } = createCore();
@@ -43,16 +44,14 @@ function toolSourceDigest() {
     const text = readFileSync(path.join(toolDir, name), "utf8");
     hash.update(`${name}\0${text.replaceAll("\r\n", "\n")}\0`);
   }
-  hash.update(JSON.stringify(codecFingerprint()));
+  hash.update(
+    JSON.stringify({ ...codecFingerprint(), ...sourceCompilerFingerprint() }),
+  );
   return hash.digest("hex");
 }
 
 /** 目前專案與工具的來源身分。dirty 如實記錄,不拿 commit 冒稱完整輸入。 */
-export function createProjectContext({
-  rootDir,
-  now = () => new Date(),
-  toolLimits = null,
-}) {
+export function createProjectContext({ rootDir, now = () => new Date() }) {
   let repository;
   try {
     repository = JSON.parse(
@@ -66,7 +65,6 @@ export function createProjectContext({
   }
   return {
     rootDir,
-    toolLimits,
     brandProjection: createFigmaBrandProjection(projectPublic),
     project: {
       slug: projectPublic.slug,

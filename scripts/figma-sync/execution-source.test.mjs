@@ -3,7 +3,13 @@ import { randomBytes } from "node:crypto";
 import { test } from "node:test";
 import vm from "node:vm";
 
+import ts from "typescript";
+
 import { CORE_FACTORIES, assembleCore } from "./core.mjs";
+import {
+  packBase64Literal,
+  unpackBase64Literal,
+} from "./execution-source-data.mjs";
 import {
   APPLY_ENTRY_FACTORIES,
   ASSET_APPLY_ENTRY_FACTORIES,
@@ -34,11 +40,59 @@ import {
 import { createNodeTransport } from "./transport-codec.mjs";
 
 const transport = createNodeTransport();
-/**
- * apply 的生成碼目前超過工具的 50,000 字元上限(見下方「上限」各測試),正式入口會拒絕。
- * 這裡明示放寬字元上限,讓生成 / minify / codec 後的 apply 仍在 fake Figma 真執行並與直接 factories 比對。
- */
-const LIFTED = { codeChars: Number.MAX_SAFE_INTEGER };
+/** Read the generated JSON payload without evaluating the program. */
+function embeddedPayload(source) {
+  const file = ts.createSourceFile(
+    "generated.js",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.JS,
+  );
+  let found;
+  const visit = (node) => {
+    if (ts.isObjectLiteralExpression(node)) {
+      const fields = new Map(
+        node.properties
+          .filter(ts.isPropertyAssignment)
+          .map((item) => [item.name.text, item.initializer]),
+      );
+      const packed = fields.get("base64");
+      const size = fields.get("uncompressedBytes");
+      const digest = fields.get("canonicalDigest");
+      let literal;
+      const findLiteral = (item) => {
+        if (ts.isStringLiteral(item) && /^[\u4000-\u5080]+$/.test(item.text))
+          literal = item;
+        ts.forEachChild(item, findLiteral);
+      };
+      if (packed) findLiteral(packed);
+      if (
+        literal &&
+        size &&
+        ts.isNumericLiteral(size) &&
+        digest &&
+        ts.isStringLiteral(digest)
+      ) {
+        found = {
+          encoded: {
+            base64: unpackBase64Literal(literal.text),
+            uncompressedBytes: Number(size.text),
+            canonicalDigest: digest.text,
+          },
+          start: literal.getStart(file),
+          end: literal.end,
+        };
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  assert.ok(found, "完整傳輸 payload 須存在");
+  return { ...found, value: transport.decodeInput(found.encoded) };
+}
+const constantsOf = (source) =>
+  embeddedPayload(source).value.constants.join("|");
 const EXECUTOR_ONLY =
   /setBoundVariableForPaint|setEffectStyleIdAsync|setValueForMode|createVariableCollection|createEffectStyle/;
 /**
@@ -67,7 +121,7 @@ const scanRequest = (runId) =>
 async function runGenerated(world, fileKey, request, plan) {
   const figma = () => createFakeFigma(world, fileKey);
   const head = await executeSource(
-    buildExecutionSource({ request, plan, limits: plan ? LIFTED : undefined }),
+    buildExecutionSource({ request, plan }),
     figma(),
   );
   const chunks = [];
@@ -92,14 +146,21 @@ function addNoise(scenario, count) {
   }
 }
 
-test("生成碼:同一份受測函式整體轉成 ES2017 並 minify,ASCII、在工具參數上限內、保留 MIT notice", () => {
+test("生成碼:同一份受測函式整體轉成 ES2017 並 minify,UTF-8 無損、在工具參數上限內、保留 MIT notice", () => {
   const request = scanRequest("gen-1");
   const source = buildExecutionSource({ request, plan: null });
   assert.equal(buildExecutionSource({ request, plan: null }), source);
   assert.ok(source.startsWith("/*! fflate 0.8.3"));
   assert.ok(source.includes("MIT License"));
-  assert.ok(source.trimEnd().endsWith("return await __figmaSyncEntry(figma);"));
-  assert.ok(/^[\x09\x0a\x20-\x7e]*$/.test(source), "生成碼必須是 ASCII");
+  assert.ok(
+    source.trimEnd().endsWith("return await __figmaSyncBootstrap(figma);"),
+  );
+  assert.equal(
+    Buffer.from(source, "utf8").toString("utf8"),
+    source,
+    "UTF-8 source 不含孤立 surrogate",
+  );
+  assert.match(source, /[\u4000-\u5080]/);
   assert.ok(Buffer.byteLength(source, "utf8") <= MAX_TOOL_ARGUMENT_BYTES);
   assert.equal(MAX_TOOL_ARGUMENT_BYTES, 128 * 1024);
   // 受驗 JSON 只以字串常值嵌入;沒有 import / require / eval,也沒有 ES2017 之後的語法
@@ -114,7 +175,7 @@ test("生成碼:同一份受測函式整體轉成 ES2017 並 minify,ASCII、在�
     "boundVariables",
     "rootNodeIds",
   ]) {
-    assert.ok(source.includes(name), name);
+    assert.ok(embeddedPayload(source).value.constants.includes(name), name);
   }
 });
 
@@ -139,10 +200,9 @@ test("只組該 operation 必需的 factories:scan 與唯讀分塊入口沒有 e
   const applySource = buildExecutionSource({
     request,
     plan: planned.plan,
-    limits: LIFTED,
   });
-  assert.ok(!EXECUTOR_ONLY.test(scanSource));
-  assert.ok(EXECUTOR_ONLY.test(applySource));
+  assert.ok(!EXECUTOR_ONLY.test(constantsOf(scanSource)));
+  assert.ok(EXECUTOR_ONLY.test(constantsOf(applySource)));
   assert.ok(Buffer.byteLength(applySource, "utf8") <= MAX_TOOL_ARGUMENT_BYTES);
   // apply 的後續取塊入口同樣不含 executor,也不帶 plan
   const head = await executeSource(
@@ -150,7 +210,7 @@ test("只組該 operation 必需的 factories:scan 與唯讀分塊入口沒有 e
     createFakeFigma(scenario.world, CONSUMER_FILE),
   );
   const readSource = buildReadonlyTransportSource({ request, head, index: 0 });
-  assert.ok(!EXECUTOR_ONLY.test(readSource));
+  assert.ok(!EXECUTOR_ONLY.test(constantsOf(readSource)));
   assert.ok(readSource.length < applySource.length);
 });
 
@@ -397,7 +457,7 @@ test("buildFigmaToolArguments:固定四欄位;code 字元數與完整 arguments 
   );
 });
 
-/** 四個代表案例的生成碼(apply 以放寬的字元上限生成,才能量到實際大小)。 */
+/** 四個代表案例都走正式的固定上限生成器。 */
 async function representativeSources() {
   const scenario = await createScenario();
   const request = scanRequest("size-scan");
@@ -495,47 +555,68 @@ test("上限:scan 與唯讀分塊的生成碼在 50,000 字元與 128 KiB 內,�
   assert.ok(!/set-variable-value|PLAN_REF_ROLE|STALE_PLAN/.test(scanSource));
 });
 
-test("上限:apply 的生成碼目前仍超過 50,000 字元 → 生成階段明確拒絕,零 mutation、不產生可執行檔", async () => {
+test("上限:正常 consumer 15 actions 與品牌初建 28 actions 在真正上限內，生成碼完成後才可得 receipt", async () => {
   const { consumer, brand } = await representativeSources();
-  const tooLarge = (error) => {
-    assert.equal(error.name, "FigmaSyncError");
-    assert.equal(error.code, "EXECUTION_SOURCE_TOO_LARGE");
-    return true;
-  };
-  for (const [name, run, fileKey, actions] of [
+  for (const [name, run, fileKey, count] of [
     ["consumer", consumer, CONSUMER_FILE, 15],
-    ["brand-library", brand, BRAND_FILE, 28],
+    ["brand", brand, BRAND_FILE, 28],
   ]) {
-    assert.equal(run.plan.actions.length, actions, name);
+    assert.equal(run.plan.actions.length, count);
     run.world.resetLog();
-    // 正式入口(固定上限):不回傳任何 source,world 沒有任何寫入
-    assert.throws(
-      () => buildExecutionSource({ request: run.request, plan: run.plan }),
-      tooLarge,
-    );
-    assert.equal(run.world.mutations.length, 0);
-    // 實際大小:完整 arguments 仍在 128 KiB 內,超的是 code 的字元數
     const source = buildExecutionSource({
       request: run.request,
       plan: run.plan,
-      limits: LIFTED,
     });
-    const size = sizeOf(fileKey, source);
-    assert.ok(size.chars > MAX_TOOL_CODE_CHARS, `${name} ${size.chars}`);
-    assert.ok(size.chars < 66000, `${name} ${size.chars}`);
-    assert.ok(size.argumentBytes <= MAX_TOOL_ARGUMENT_BYTES);
-    // 實際 caller 用的 helper 一樣拒絕:超量的 code 送不進工具
-    assert.throws(() => buildFigmaToolArguments({ fileKey, source }), tooLarge);
-    // 放寬只影響字元上限:128 KiB 的完整 arguments 上限不能放寬掉
-    assert.throws(
-      () =>
-        buildExecutionSource({
-          request: run.request,
-          plan: run.plan,
-          limits: { codeChars: LIFTED.codeChars, argumentBytes: 1000 },
-        }),
-      tooLarge,
+    const args = buildFigmaToolArguments({ fileKey, source });
+    assert.ok(args.code.length <= MAX_TOOL_CODE_CHARS, name);
+    assert.ok(
+      Buffer.byteLength(JSON.stringify(args), "utf8") <=
+        MAX_TOOL_ARGUMENT_BYTES,
+      name,
     );
+    assert.equal(run.world.mutations.length, 0);
+    const head = await executeSource(
+      source,
+      createFakeFigma(run.world, fileKey),
+    );
+    assert.equal(head.attemptHead.status, "applied", name);
+    assert.equal(head.attemptHead.completedActions.length, count, name);
+    assert.ok(run.world.mutations.length > 0);
+  }
+});
+
+test("生成器拒絕超量完整輸入，呼叫端無法透過舊 limits 參數放寬", () => {
+  const request = scanRequest("large-input");
+  request.brandProjection.name = randomBytes(48000).toString("base64");
+  assert.throws(
+    () =>
+      buildExecutionSource({
+        request,
+        plan: null,
+        limits: { codeChars: Infinity, argumentBytes: Infinity },
+      }),
+    code("EXECUTION_SOURCE_TOO_LARGE"),
+  );
+});
+
+test("內嵌的 schema / request / constants 被改動時，完整 SHA / byteLength 阻擋且零 mutation", async () => {
+  const scenario = await createScenario();
+  const request = scanRequest("sealed-input");
+  const source = buildExecutionSource({ request, plan: null });
+  const payload = embeddedPayload(source);
+  for (const field of ["schema", "request", "constants"]) {
+    const changed = structuredClone(payload.value);
+    changed[field] = field === "constants" ? [] : {};
+    const packed = packBase64Literal(transport.encodeInput(changed).base64);
+    const modified =
+      source.slice(0, payload.start) +
+      JSON.stringify(packed) +
+      source.slice(payload.end);
+    await assert.rejects(
+      executeSource(modified, createFakeFigma(scenario.world, CONSUMER_FILE)),
+      code("TRANSPORT_PAYLOAD_INVALID"),
+    );
+    assert.equal(scenario.world.mutations.length, 0);
   }
 });
 
@@ -571,26 +652,24 @@ test("apply 入口依 targetKind 只組需要的 writer / 判定 / 相依圖規�
   const consumerSource = buildExecutionSource({
     request: consumer.request,
     plan: consumer.plan,
-    limits: LIFTED,
   });
   const brandSource = buildExecutionSource({
     request: brand.request,
     plan: brand.plan,
-    limits: LIFTED,
   });
   // consumer 的生成碼沒有建立 / 寫入資產的 API;品牌庫的生成碼沒有場景寫入的 API
   assert.ok(
     !/createVariableCollection|createEffectStyle|setValueForMode/.test(
-      consumerSource,
+      constantsOf(consumerSource),
     ),
   );
-  assert.ok(/setBoundVariableForPaint/.test(consumerSource));
+  assert.ok(/setBoundVariableForPaint/.test(constantsOf(consumerSource)));
   assert.ok(
     !/setBoundVariableForPaint|setEffectStyleIdAsync|loadFontAsync/.test(
-      brandSource,
+      constantsOf(brandSource),
     ),
   );
-  assert.ok(/createVariableCollection/.test(brandSource));
+  assert.ok(/createVariableCollection/.test(constantsOf(brandSource)));
 });
 test("沒有 TextEncoder / TextDecoder / Buffer 的 runtime:生成碼照跑,含 emoji 的內容組回後完全相同", async () => {
   const scenario = await createScenario();

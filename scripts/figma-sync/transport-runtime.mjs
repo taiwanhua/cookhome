@@ -41,20 +41,44 @@ export function createRuntimeTransport(runtime, transport, budget) {
  * 只組該 operation 必需的 factories,再交給上面的傳輸入口。
  * input={request,plan:null|payload,read:null|{head,index}};read 入口的 factories 不含 executor / recovery。
  */
-export async function runTransportEntry(figma, codec, input, factories) {
-  const contract = factories.assembleContract(factories);
-  const transport = factories.createTransport(contract, codec, {
-    bytes: factories.createByteCodec(contract),
-    envelope: factories.createEnvelopeLimits(contract),
+export async function runTransportEntry(
+  figma,
+  codec,
+  input,
+  factories,
+  decoded = false,
+) {
+  const values = factories.createContractValues();
+  const bytes = factories.createByteCodec(values);
+  const envelope = factories.createEnvelopeLimits(values);
+  const transport = factories.createTransport(values, codec, {
+    bytes,
+    envelope,
+    decoder: factories.createPayloadDecoder(
+      values,
+      codec,
+      bytes,
+      envelope.LIMITS,
+    ),
   });
+  const contract = factories.assembleContract(
+    factories,
+    input.schema
+      ? decoded
+        ? input.schema
+        : transport.decodeInput(input.schema)
+      : undefined,
+  );
   const request = contract.validateArtifact(
-    transport.decodeInput(input.request),
+    decoded ? input.request : transport.decodeInput(input.request),
   );
   if (request.kind !== "request") contract.fail("ARTIFACT_KIND_MISMATCH");
   const core = { validateArtifact: contract.validateArtifact };
   let plan = null;
   if (input.plan) {
-    plan = contract.validateArtifact(transport.decodeInput(input.plan));
+    plan = contract.validateArtifact(
+      decoded ? input.plan : transport.decodeInput(input.plan),
+    );
     const matched =
       plan.kind === "plan" &&
       request.operation === "apply" &&

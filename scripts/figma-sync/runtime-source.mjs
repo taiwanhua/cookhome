@@ -8,7 +8,7 @@
 // figma / core 依固定接縫注入;來源對照只走呼叫端交進來的節點,本檔目前兩者都不必直接取用
 export function createSourceRuntime(figma, core) {
   const childrenOf = (node) =>
-    Array.isArray(node.children) ? node.children : [];
+    "children" in node && Array.isArray(node.children) ? node.children : [];
   const unresolved = (context, reason) =>
     Object.assign({}, context, {
       status: "unresolved",
