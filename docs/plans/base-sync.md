@@ -377,11 +377,13 @@ issue/PR 沿既有交件格式附完整 Git SHA/tag、三側 file/scope、品牌
 
 上述檔案、按同一責任拆分的 `transport-*.mjs` 及同名測試納入 E3 白名單；不得另造 token/網路 connector。根 devDependencies 明列 exact `fflate:0.8.3`、`esbuild:0.28.2` 並更新 lock。fflate 只用同步 browser exports，esbuild 沿既有版本；來源與授權見 [fflate](https://github.com/101arrowz/fflate)、[esbuild](https://esbuild.github.io/api/)。
 
-codec 固定 `gzip-base64`，`gzipSync(strToU8(canonicalJson(value)),{level:6,mtime:0})`，無 filename/dictionary。輸入 request/plan 也完整壓縮，Figma 解碼後驗 byteLength、完整 canonical SHA、schema/planDigest 再執行。不得刪 plan 欄位換取較小請求。Node 解壓使用有 `maxOutputLength` 的 `node:zlib.gunzipSync`；Figma 使用 bundle 中同版純 JS gunzip，不依賴 TextEncoder、Worker、fetch、Buffer 或 CompressionStream。codec MIT notice 保留，不手抄第三方 minified 程式。
+codec 固定 `gzip-base64`，先將 canonical JSON 編為標準 UTF-8 bytes，再 `gzipSync(bytes,{level:6,mtime:0})`，無 filename/dictionary。UTF-8 轉換沿同一受測的 `transport-bytes.mjs` 純函式，支援 surrogate pair，孤立 surrogate 依標準轉 U+FFFD；解碼拒絕不合法 continuation、overlong、surrogate code point 與超出 U+10FFFF。Node/Figma 使用同一轉換，與 Node Buffer 的合法輸入逐 byte 比對，不依賴 fflate 的字串轉換 fallback。輸入 request/plan 也完整壓縮，Figma 解碼後驗 byteLength、完整 canonical SHA、schema/planDigest 再執行。不得刪 plan 欄位換取較小請求。Node 解壓使用有 `maxOutputLength` 的 `node:zlib.gunzipSync`；Figma 使用 bundle 中同版純 JS gunzip，不依賴 TextEncoder、Worker、fetch、Buffer 或 CompressionStream。codec MIT notice 保留，不手抄第三方 minified 程式。
 
 生成碼只組該 operation 必需的 factories：scan 使用 contract、assets、source、scanner；apply 再加 recovery/executor。Node 完整 core 保持原組裝。整個具名入口組好後由 esbuild 以 `target:es2017,minify:true,charset:ascii` 轉換，不逐支改名拼接、不 mangle properties；最後用 top-level `return await` 呼叫具名入口。來源 digest 須涵蓋參與生成的本機 modules、codec/bundler 的固定版本及 bundle bytes，不能把未提交或不同依賴冒稱同一工具來源。
 
 預算固定：完整 envelope 最多 18,000 UTF-8 bytes；每塊 base64 最多 12,288 ASCII chars；完整 tool arguments JSON 最多 128 KiB；單件未壓縮 canonical payload 最多 16 MiB；一份 payload 最多 32 chunks。所有限制驗 bytes，超量明確失敗，不裁切、不默默改走上百次重掃。這些上限在 TEST 真機驗收後才可宣稱支援，壓縮率量測不能取代限制。
+
+`execution-source.mjs` 另提供 `buildFigmaToolArguments({fileKey,source})`，並由 import-safe `prepare.mjs` re-export。回傳現有 use_figma 的四個欄位：`{fileKey,code:source,description:"Execute verified Figma sync request",skillNames:"figma-use,figma-generate-library"}`；固定形狀不新增 artifact kind。generator 與實際 caller 都以這個 helper 檢查 `JSON.stringify(args)` 的 UTF-8 bytes，包含 code escaping 及其他欄位，超限回 `EXECUTION_SOURCE_TOO_LARGE`。caller 不改寫 helper 產出的參數；source 檔自身的 SHA 仍只計原始 source bytes。內部 factory 因拆分新增明示 parts 注入可接受，仍須由固定組裝入口及同一受測函式生成。
 
 傳輸 envelope 共用欄位：
 
