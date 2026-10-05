@@ -275,7 +275,7 @@ pnpm --filter @repo/db-migrator run update
 pnpm --filter @repo/db-migrator run migrate:status
 ```
 
-加 `--json` 可供工具讀取,也可用 `run update --status --json`;此模式只讀,不能與 down/unlock/reset 等寫入動作混用。輸出區分最近嘗試、最近成功的 update/reset、該基準後或與它重疊的其他執行,以及目前 applied/pending/orphaned/open migration、未完成定義安裝與鎖。沒有成功基準是未知,不是尚無待更新內容;有效完整 SHA 以外的 commit 記為 null。失敗查詢用非零 exit,不以空成功陣列代替。
+機器讀取用 `pnpm --silent --filter @repo/db-migrator run migrate:status --json`,或 `pnpm --silent --filter @repo/db-migrator run update --status --json`;`--silent` 避免 pnpm 的腳本說明混入 JSON。此模式只讀,不能與 down/unlock/reset 等寫入動作混用。輸出區分最近嘗試、最近成功的 update/reset、該基準後或與它重疊的其他執行,以及目前 applied/pending/orphaned/open migration、未完成定義安裝與鎖。沒有成功基準是未知,不是尚無待更新內容;有效完整 SHA 以外的 commit 記為 null。失敗查詢用非零 exit,不以空成功陣列代替。
 
 `sourceCommit` 只在執行來源與 registry 可證明屬於同一乾淨 checkout 時提供完整 HEAD;外部來源、未追蹤檔或未提交修改會使它為 null,不以環境變數猜測。失敗只輸出固定錯誤碼,不回顯原始例外。機器欄位正本是 [UpdateStatusJson](../apps/db-migrator/src/update/status-json.ts)。
 
