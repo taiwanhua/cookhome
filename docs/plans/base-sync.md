@@ -64,7 +64,7 @@ agent 逐項整合全部差異,保留品牌/front/專案值/業務來源/cloud/e
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `schemaVersion`        | `1`                                                                                                                                                                   |
 | `generatedAt`          | ISO string                                                                                                                                                            |
-| `sourceCommit`         | 執行來源 checkout 的 full SHA,未知為 `null`                                                                                                                           |
+| `sourceCommit`         | 執行來源 checkout 的 full SHA;外部/未追蹤/有相關未提交改動的 source-root 或 registry 無法證明來源時為 `null`,不採用 GITHUB_SHA 猜測                                   |
 | `lastAttempt`          | `RunSummary` 或 `null`,最近開始的一次執行                                                                                                                             |
 | `lastSuccessfulUpdate` | `RunSummary` 或 `null`,成功且已完成的 update/reset-data/reset-full,依完成時間取最後一筆,排除 migrate-down                                                             |
 | `subsequentRuns`       | 除基準自身外,startedAt 或 finishedAt 大於等於基準 startedAt 的 runs,按 startedAt/runId 穩定排序;同毫秒與重疊均保留供審查。沒有成功基準為 `null`,有基準但無後續為 `[]` |
@@ -72,6 +72,7 @@ agent 逐項整合全部差異,保留品牌/front/專案值/業務來源/cloud/e
 | `migrations.pending`   | `[{fileName,origin}]`                                                                                                                                                 |
 | `migrations.orphaned`  | `[{fileName,appliedAt}]`,依 fileName 排序                                                                                                                             |
 | `migrations.open`      | `[{fileName,status,runId,releaseCommit}]`                                                                                                                             |
+| `definitions.open`     | `[{kind,key,revision,runId}]`,沿既有 findUnfinishedUpdate 的未完成安裝查詢,按 kind/key/revision 排序                                                                  |
 | `lock`                 | `null` 或 `{owner,runId,operation,releaseCommit,startedAt}`                                                                                                           |
 
 `RunSummary` 固定為 `{runId,operation,status,stage,releaseCommit,startedAt,finishedAt}`;日期為 ISO 或依原始 nullable 欄位為 null,releaseCommit 只有合法 full SHA 才輸出,否則 null。migration 來源排序沿現有 plan。歷史成功不等於目前資料版本;其後失敗、rollback 或 reset 可能已改部分資料,不能忽略 subsequentRuns/open/lock/changelog。
