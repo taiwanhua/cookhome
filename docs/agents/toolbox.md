@@ -259,7 +259,7 @@ pnpm exec turbo run build --filter=@repo/ui --filter=@repo/project-config
 | `apply`      | `--plan <plan.json>`                                                                                                                                             | 產生 `request-apply.json` 與 `execute.js`;`blocked` plan 不可執行。                                                                                        |
 | `record`     | `--request <request.json>` 及 `--result <原協定JSON檔>` / `--transport-result <envelope檔>` 擇一                                                                 | 封存掃描或執行結果;傳輸收齊後驗證,只有 `verified` 才更新成功 receipt。                                                                                     |
 
-`--*-json` 收的是單一 JSON 字串,不是檔名。審查項目取自當次 inventories,不能按名稱或 HEX 猜 key;`selections` 的形狀與 `adopt-source` / `preserve-project` 的 resolution 欄位見 `core-contract-review.mjs`,發布/接受證據形狀見 `core-contract-schema.mjs`。既有 receipt 仍能在兩側精確對上的 selections 會帶入;新增或重建的來源仍須明示審查,不能用空陣列跳過。
+`--*-json` 收的是單一 JSON 字串,不是檔名。審查項目取自當次 inventories,不能按名稱或 HEX 猜 key;`selections` 的形狀與 `adopt-source` / `preserve-project` 的 resolution 欄位見 `core-contract-review.mjs`,發布/接受證據形狀見 `core-contract-schema.mjs`。同一 scope 混合 Base 與 consumer 本地舊品牌時,可在同一輪明示兩側來源 selections:Base 來源由 `--base` 核對,不同檔的本地來源由 `--consumer` 核對,遠端未知 fileKey 不算來源證據。既有 receipt 仍能在兩側精確對上的 selections 會帶入;新增或重建的來源仍須明示審查,不能用空陣列跳過。
 
 成功命令回傳一行 `{runId,status,artifacts,counts}`;後續一律使用 `artifacts[].path`。退出碼 0 只表示命令完成,`blocked`、`transport-pending`、`apply-requested` 都不表示同步成功。
 
