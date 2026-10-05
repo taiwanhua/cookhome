@@ -8,7 +8,7 @@
 - **讀取 issue**:`gh issue view <n> --json body,comments,labels`;篩欄位用 gh 內建的 `--jq`。
 - **列出 issues**:`gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`,視情況加 `--label` / `--state`。
 - **留言 / 標籤 / 關閉**:`gh issue comment <n> --body "..."`、`gh issue edit <n> --add-label "..."` / `--remove-label "..."`、`gh issue close <n> --comment "..."`。
-- repo 由 `git remote -v` 推斷,在 clone 內執行時 `gh` 會自動處理。
+- 上列 repo 範圍指令一律追加 `--repo <owner/repo>`,並與 `deploy/project/github.json.expectedRepository` 及 origin 核對。引用專案可同時有 origin/upstream,不依 gh 的自動 remote 選擇決定目標。
 - GitHub 的 issue 與 PR 共用同一組編號:先 `gh pr view <n>`,失敗再 `gh issue view <n>`。
 
 正本:`gh help issue`、[toolbox.md](./toolbox.md)「gh」
