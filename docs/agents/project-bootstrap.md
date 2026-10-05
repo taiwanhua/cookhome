@@ -8,7 +8,7 @@
 
 - **適用**:建立新的引用專案,或接續一次尚未完成的初始化。
 - **不適用**:替既有專案換品牌、升級底座版本、還原資料庫。升級見 [deployment](../deployment.md#底座首次接軌與版本升級),還原見 [deployment](../deployment.md#資料庫還原reset)。初始化不會靜默更換既有專案的 slug、資料庫、volume 或上游版本。
-- **不新增格式或工具**:專案值沿用既有的 TypeScript / JSON / YAML / env 來源,沒有另外的 manifest、狀態檔或 CLI wizard。唯一新增的是根 `package.json` 的 `wowgoBase` 欄位(見第 3 節)。
+- **沿用既有設定來源**:專案值寫入現有 TypeScript / JSON / YAML / env,不另建初始化 manifest 或 wizard。採用版本記在根 `package.json` 的 `wowgoBase`(見第 3 節);Figma 成功 receipt 是工具生成的驗證狀態,不是第二份人工品牌設定。
 - **授權沿用現況**:建 repo、雲端、看板、DNS、部署等外部操作,依使用者已授權的範圍與實際提供的輸入執行;本流程不擴大授權,也不對已授權的範圍逐步重問。E2E 仍依 [issue tracker](issue-tracker.md) 由使用者決定是否觸發。
 - **機密不落檔**:密碼、金鑰、連線字串不寫進版控檔、issue、PR 或回報;建立方式見 [deployment](../deployment.md#新增一個-secret-manager-機密的標準步驟)。文件與範例裡的值都是示意,不是可用的憑證。
 
@@ -94,6 +94,8 @@ git branch --set-upstream-to=origin/main main
 
 依輸入與授權建立,步驟以 [deployment](../deployment.md) 為準(Secret、GCS bucket 與 IAM、Vercel、網域),看板與 `GH_PROJECT_TOKEN` 見 [issue tracker](issue-tracker.md)。新專案使用自己的資源與密鑰。
 
+啟用 Figma 時,核對底座來源、專案 Brand Library 與 Screens 的 fileKey、引用權限及維護者,登記於[品牌註冊表](../branding.md),操作見 [toolbox](toolbox.md#figma-品牌同步)。新專案繼承工具,不承接來源 repo 的成功 receipt;須以自己的 repo、slug 與實際 fileKey 建立驗證紀錄。資源未知就記缺項,停用就記停用,不自動沿用來源檔案。
+
 對外部資源這個項目,設定檔填好識別只算**已提供**;資源實際存在才是**已建立**;以新專案跑過實際連線、部署或移卡才是**已驗證**。本機檔案則依初始化索引,檔案存在即可記該檔案項目已建立,不代表它引用的外部資源存在。停用的整合記為「已停用」,不記成已建立。
 
 ## 5. 驗證
@@ -105,6 +107,7 @@ git branch --set-upstream-to=origin/main main
 - **程式**:`pnpm exec turbo run test --filter=@repo/project-config`,再對改到的 package 跑 lint、型別、測試與 build;最後 `pnpm run format:check`。
 - **初始資料**:在明確建立的拋棄式空資料庫,依 [deployment](../deployment.md#設定與資料更新)建置同一 checkout 的 CLI,使用獨立 URI 與測試用 `ROOT_ADMIN_*` 執行 `update` 並原樣重跑一次;再對第二個空庫做同樣的事,確認受管定義內容一致,而組織、帳號、ID 與分派各自獨立。不要求正式密碼來驗拋棄式庫,也不以正式 URI 執行此步。
 - **本機隔離**:`docker compose config` 只核對渲染結果。兩個專案同時啟動、停一邊不影響另一邊,要實際操作過才算驗證。
+- **Figma**:啟用時依 toolbox 完成品牌補套及元件連結驗證,再重跑確認無待寫 action 且驗證通過;Library 升級另核對發布與實際接受證據。只有本專案的成功 receipt 能列為已驗證,檔案存在或來源專案的結果都不能代替。
 - **E2E**:只提建議與理由,不自行觸發。
 
 沒跑的項目照實列為未驗證,並寫明原因(缺輸入、缺授權、外部資源不存在、底座版本缺機制)。
@@ -119,6 +122,7 @@ git branch --set-upstream-to=origin/main main
 
 - 只補缺項,或改使用者這次明確要求變更的欄位。
 - 不覆寫已客製的來源、已存在的 `.env`、業務內容與資料。
+- 保留身分相符的 Figma receipt;repo、slug 或 fileKey 不符先查明,不手改 receipt 冒認成功。既有同步中斷依 toolbox 的恢復步驟處理。
 - 修改 `expectedRepository` 前,一起核對 cloud 與看板的引用:已是新專案值或明確停用才可接線;若還留來源資源,先依已有輸入改成新值或停用,缺少決定時只暫停這項接線並詢問,不能只換 repo 身分就放行來源資源。
 - slug、資料庫名、Compose 專案名與 volume、底座版本一旦定下,初始化不更動;要換底座版本走升級流程。
 - 現值與 issue 記錄不一致時,列出差異請使用者裁決。

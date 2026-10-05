@@ -1,0 +1,456 @@
+{
+  "schemaVersion": 1,
+  "kind": "receipt",
+  "runId": "plan-brand-20261004T191516Z-91d9211f",
+  "generatedAt": "2026-10-04T19:16:41.760Z",
+  "project": {
+    "slug": "cookhome",
+    "repository": "taiwanhua/cookhome",
+    "gitCommit": "68ed123063f71d87cf43da6226b3b19103da4e25",
+    "dirty": true,
+    "brandInputDigest": "76b29997219a923c3a695592463313f119565284af4be08301b093460cfd76a8"
+  },
+  "tool": {
+    "gitCommit": "68ed123063f71d87cf43da6226b3b19103da4e25",
+    "sourceDigest": "23bf44079e402636b13412cb4726ca83ded02b03461dd5cdfda5aae9062f2a4f"
+  },
+  "status": "verified",
+  "verifiedFor": "brand-bindings",
+  "targetFileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+  "lastRunScope": {
+    "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+    "includeHidden": true,
+    "pageIds": ["0:1"],
+    "rootNodeIds": ["0:1"]
+  },
+  "planDigest": "9ed0419a801c35d02128205072137acce7f24ae2545550f477cb74610a1158b7",
+  "beforeDigest": "17ffb70584a34b8a6f8ec9f60b8f58b228561a44a51ba394d5b235f5305015d7",
+  "afterDigest": "1dba1d68162d1debd395b0e632342eea061ac5d01d1314b9b7386b21fc34a727",
+  "previousReceiptDigest": "0a6a69305a08cd302b0e9e04a997a05561c04bb49d9eaedff80a231ddf285c1a",
+  "publicationEvidence": null,
+  "acceptanceEvidence": null,
+  "identityMap": [],
+  "identityReviewDigest": null,
+  "brand": {
+    "inputDigest": "76b29997219a923c3a695592463313f119565284af4be08301b093460cfd76a8",
+    "projectionDigest": "a14d7e737d6975c767e03d2b93c1326dffaf2d7bdfec2f183b105695ef539b74",
+    "sourceGitCommit": "68ed123063f71d87cf43da6226b3b19103da4e25"
+  },
+  "releasedSlots": [],
+  "managedSlots": [],
+  "managedAssets": [
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "collection",
+      "key": "e6429ef3eedf54fc4dbf4a075d2a3daaf791da4b",
+      "localId": "VariableCollectionId:3:2",
+      "role": null,
+      "collectionRole": "Brand",
+      "collectionKey": "e6429ef3eedf54fc4dbf4a075d2a3daaf791da4b",
+      "lastWrittenValue": {
+        "kind": "collection",
+        "modeName": "Light"
+      },
+      "verifiedValue": {
+        "kind": "collection",
+        "modeName": "Light"
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "collection",
+      "key": "0195340c1a37a00d9002d5037cb52cd820530eba",
+      "localId": "VariableCollectionId:3:3",
+      "role": null,
+      "collectionRole": "Color",
+      "collectionKey": "0195340c1a37a00d9002d5037cb52cd820530eba",
+      "lastWrittenValue": {
+        "kind": "collection",
+        "modeName": "Light"
+      },
+      "verifiedValue": {
+        "kind": "collection",
+        "modeName": "Light"
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "61f423ea803a15f2c0f4e5a150248ad73fa91792",
+      "localId": "VariableID:3:4",
+      "role": "lighter",
+      "collectionRole": "Brand",
+      "collectionKey": "e6429ef3eedf54fc4dbf4a075d2a3daaf791da4b",
+      "lastWrittenValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.8745098114013672,
+          "g": 0.9215686321258545,
+          "r": 1
+        }
+      },
+      "verifiedValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.8745098114013672,
+          "g": 0.9215686321258545,
+          "r": 1
+        }
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "5ebbd2ac6af1566f86db33df7d2bf3001743cf18",
+      "localId": "VariableID:3:5",
+      "role": "light",
+      "collectionRole": "Brand",
+      "collectionKey": "e6429ef3eedf54fc4dbf4a075d2a3daaf791da4b",
+      "lastWrittenValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.5882353186607361,
+          "g": 0.7411764860153198,
+          "r": 1
+        }
+      },
+      "verifiedValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.5882353186607361,
+          "g": 0.7411764860153198,
+          "r": 1
+        }
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "588ae7eb6cd1fbe5bed142c2df08b5484bd78ad4",
+      "localId": "VariableID:3:6",
+      "role": "main",
+      "collectionRole": "Brand",
+      "collectionKey": "e6429ef3eedf54fc4dbf4a075d2a3daaf791da4b",
+      "lastWrittenValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.062745101749897,
+          "g": 0.48235294222831726,
+          "r": 0.9843137264251709
+        }
+      },
+      "verifiedValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.062745101749897,
+          "g": 0.48235294222831726,
+          "r": 0.9843137264251709
+        }
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "fd3646f8c818cd0879349d09995e26ca294c1456",
+      "localId": "VariableID:3:7",
+      "role": "dark",
+      "collectionRole": "Brand",
+      "collectionKey": "e6429ef3eedf54fc4dbf4a075d2a3daaf791da4b",
+      "lastWrittenValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.027450980618596077,
+          "g": 0.32549020648002625,
+          "r": 0.6823529601097107
+        }
+      },
+      "verifiedValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.027450980618596077,
+          "g": 0.32549020648002625,
+          "r": 0.6823529601097107
+        }
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "b1426f274b2f01c30e145bc2139b29b30e86d7e4",
+      "localId": "VariableID:3:8",
+      "role": "darker",
+      "collectionRole": "Brand",
+      "collectionKey": "e6429ef3eedf54fc4dbf4a075d2a3daaf791da4b",
+      "lastWrittenValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.007843137718737125,
+          "g": 0.16078431904315948,
+          "r": 0.3607843220233917
+        }
+      },
+      "verifiedValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.007843137718737125,
+          "g": 0.16078431904315948,
+          "r": 0.3607843220233917
+        }
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "6f81b41c4cb2c41e27e19600c8dd3176e18e251f",
+      "localId": "VariableID:3:9",
+      "role": "contrast",
+      "collectionRole": "Brand",
+      "collectionKey": "e6429ef3eedf54fc4dbf4a075d2a3daaf791da4b",
+      "lastWrittenValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.2078431397676468,
+          "g": 0.16862745583057404,
+          "r": 0.13333334028720856
+        }
+      },
+      "verifiedValue": {
+        "kind": "rgba",
+        "rgba": {
+          "a": 1,
+          "b": 0.2078431397676468,
+          "g": 0.16862745583057404,
+          "r": 0.13333334028720856
+        }
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "14ecc68ebcc7997f5e90a5b20221d3981ee23f92",
+      "localId": "VariableID:3:10",
+      "role": "lighter",
+      "collectionRole": "Color",
+      "collectionKey": "0195340c1a37a00d9002d5037cb52cd820530eba",
+      "lastWrittenValue": {
+        "kind": "alias",
+        "variableKey": "61f423ea803a15f2c0f4e5a150248ad73fa91792"
+      },
+      "verifiedValue": {
+        "kind": "alias",
+        "variableKey": "61f423ea803a15f2c0f4e5a150248ad73fa91792"
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "a79ee855a1d71a843e8087bf43e1383e6a0666ae",
+      "localId": "VariableID:3:11",
+      "role": "light",
+      "collectionRole": "Color",
+      "collectionKey": "0195340c1a37a00d9002d5037cb52cd820530eba",
+      "lastWrittenValue": {
+        "kind": "alias",
+        "variableKey": "5ebbd2ac6af1566f86db33df7d2bf3001743cf18"
+      },
+      "verifiedValue": {
+        "kind": "alias",
+        "variableKey": "5ebbd2ac6af1566f86db33df7d2bf3001743cf18"
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "8c99a7d0035cb23bb68d4a0da17c5627d00133df",
+      "localId": "VariableID:3:12",
+      "role": "main",
+      "collectionRole": "Color",
+      "collectionKey": "0195340c1a37a00d9002d5037cb52cd820530eba",
+      "lastWrittenValue": {
+        "kind": "alias",
+        "variableKey": "588ae7eb6cd1fbe5bed142c2df08b5484bd78ad4"
+      },
+      "verifiedValue": {
+        "kind": "alias",
+        "variableKey": "588ae7eb6cd1fbe5bed142c2df08b5484bd78ad4"
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "11e25f92abb973c26dd89e55624719b5513ea9fa",
+      "localId": "VariableID:3:13",
+      "role": "dark",
+      "collectionRole": "Color",
+      "collectionKey": "0195340c1a37a00d9002d5037cb52cd820530eba",
+      "lastWrittenValue": {
+        "kind": "alias",
+        "variableKey": "fd3646f8c818cd0879349d09995e26ca294c1456"
+      },
+      "verifiedValue": {
+        "kind": "alias",
+        "variableKey": "fd3646f8c818cd0879349d09995e26ca294c1456"
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "3fed5d0dfbea91355c10ced9fb834ce03e50ba5a",
+      "localId": "VariableID:3:14",
+      "role": "darker",
+      "collectionRole": "Color",
+      "collectionKey": "0195340c1a37a00d9002d5037cb52cd820530eba",
+      "lastWrittenValue": {
+        "kind": "alias",
+        "variableKey": "b1426f274b2f01c30e145bc2139b29b30e86d7e4"
+      },
+      "verifiedValue": {
+        "kind": "alias",
+        "variableKey": "b1426f274b2f01c30e145bc2139b29b30e86d7e4"
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "variable",
+      "key": "f63151a860a07c12360b34a74241e12149877cb4",
+      "localId": "VariableID:3:15",
+      "role": "contrast",
+      "collectionRole": "Color",
+      "collectionKey": "0195340c1a37a00d9002d5037cb52cd820530eba",
+      "lastWrittenValue": {
+        "kind": "alias",
+        "variableKey": "6f81b41c4cb2c41e27e19600c8dd3176e18e251f"
+      },
+      "verifiedValue": {
+        "kind": "alias",
+        "variableKey": "6f81b41c4cb2c41e27e19600c8dd3176e18e251f"
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    },
+    {
+      "fileKey": "ZuPRBveUMzbnJeDCt7mFP3",
+      "kind": "effect-style",
+      "key": "2173ca0cf4e6a21670479714e73424ff08792e1a",
+      "localId": "S:2173ca0cf4e6a21670479714e73424ff08792e1a,",
+      "role": "primary-shadow",
+      "collectionRole": null,
+      "collectionKey": null,
+      "lastWrittenValue": {
+        "kind": "effects",
+        "effects": [
+          {
+            "blendMode": "NORMAL",
+            "color": {
+              "a": 0.23999999463558197,
+              "b": 0.062745101749897,
+              "g": 0.48235294222831726,
+              "r": 0.9843137264251709
+            },
+            "offset": {
+              "x": 0,
+              "y": 8
+            },
+            "radius": 16,
+            "spread": 0,
+            "type": "DROP_SHADOW",
+            "visible": true
+          }
+        ]
+      },
+      "verifiedValue": {
+        "kind": "effects",
+        "effects": [
+          {
+            "blendMode": "NORMAL",
+            "color": {
+              "a": 0.23999999463558197,
+              "b": 0.062745101749897,
+              "g": 0.48235294222831726,
+              "r": 0.9843137264251709
+            },
+            "offset": {
+              "x": 0,
+              "y": 8
+            },
+            "radius": 16,
+            "spread": 0,
+            "type": "DROP_SHADOW",
+            "visible": true
+          }
+        ]
+      },
+      "firstManagedRunId": "plan-brand-20261004T182449Z-1ce6c583",
+      "lastVerifiedRunId": "plan-brand-20261004T191516Z-91d9211f"
+    }
+  ],
+  "changes": {
+    "planned": 0,
+    "applied": 0,
+    "recoveredAlreadyApplied": 0,
+    "createdAssets": 0,
+    "importedAssets": 0
+  },
+  "verification": {
+    "exactColors": 12,
+    "exactPrimaryEffects": 1,
+    "remainingBaseBrandSlots": 0,
+    "sourceKeysPreserved": true,
+    "brokenInstances": 0,
+    "protectedChanges": 0,
+    "outsideScopeChanges": 0,
+    "unresolved": 0,
+    "unsupported": 0,
+    "coverage": {
+      "brokenInstances": 0,
+      "hiddenNodes": 0,
+      "instances": 0,
+      "nodes": 1,
+      "remoteInstances": 0,
+      "unsupportedNodes": 0
+    },
+    "sourceSemanticCoverage": {
+      "managed": 0,
+      "withSourceSlot": 0,
+      "directBinding": 0
+    },
+    "errors": []
+  }
+}

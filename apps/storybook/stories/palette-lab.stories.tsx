@@ -19,7 +19,8 @@ const DEFAULT_HEX = "#FB7B10";
 
 /**
  * Palette Lab:貼上一個主色,立即預覽所有元件換裝後的效果。
- * 為新品牌挑色的流程:調色 → 逛一圈 → 滿意再落地成 brands/<name>.ts。
+ * 為新品牌挑色的流程:調色 → 逛一圈 → 滿意再把主色填進專案設定正本
+ * `packages/project-config/src/project/public.ts` 的 `projectPublic.brand.primary`(登記於 docs/branding.md)。
  */
 function PaletteLab() {
   const [hex, setHex] = useState(DEFAULT_HEX);

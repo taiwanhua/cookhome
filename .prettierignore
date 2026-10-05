@@ -19,3 +19,6 @@ pnpm-lock.yaml
 .claude/settings.local.json
 # `msw init` 產生的 service worker 正本(admin mock 模式用;重排會與 msw 上游漂移)
 apps/admin/mock-public/mockServiceWorker.js
+
+# figma-sync 的暫存 run(機器生成的 JSON 與 JS,不入版控);committed receipts 不在此列、照常檢查
+.artifacts/figma-sync/
