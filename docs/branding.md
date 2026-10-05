@@ -97,6 +97,8 @@
 
 CookHome Brand Library 由 `projectPublic.brand` 生成兩個 Light 集合、十二個品牌變數及 `Shadow/Primary`;色盤與陰影推導沿用 `@repo/ui`。資產 keys 與驗證狀態由 [品牌庫 receipt](../deploy/project/figma/receipts/ZuPRBveUMzbnJeDCt7mFP3.json) 保存,不另手填六色。文字、商標、組織名稱、私人色與其他專案覆寫不屬品牌色補套。操作見 [Figma 品牌同步](agents/toolbox.md#figma-品牌同步)。
 
+[畫面補套 receipt](../deploy/project/figma/receipts/SvnBvi8Opfj8daJAclOnWW.json) 累積各範圍已驗證的品牌接線與明示保留項目。它只代表列出的受管範圍,不代表整份設計檔已完成補套;其餘範圍見[同步計畫](plans/base-sync.md#cookhome-首次品牌補套)。前台母元件的品牌由實例繼承,已正常繼承的畫面位置保持未接管,不另新增個別覆寫。
+
 ## 隔離品牌相容性測試
 
 測試檔位於 Wowgo Professional 團隊的 [TEST — Multi-project Theme POC](https://www.figma.com/files/team/963068133549518258/project/661917302),與正式 CookHome Design System 分開。
