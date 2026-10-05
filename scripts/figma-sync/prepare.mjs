@@ -12,7 +12,7 @@
  * 協定:成功時 stdout 只有一行 `{runId,status,artifacts,counts}`、stderr 無輸出、退出碼 0;
  * 失敗時 stdout 無輸出、stderr 一行、退出碼 1。blocked 的 plan 是有效分析輸出(退出碼 0),但不能 apply。
  * 本程式不讀 token、不呼叫 Figma;scan / apply 生成的 JS 交由現有 Figma 工具執行,回傳的 JSON 值再交給 record。
- * 規格正本:docs/plans/base-sync.md「E3 工具契約」。
+ * 操作正本:docs/agents/toolbox.md「Figma 品牌同步」;協定欄位見 core-contract-schema.mjs。
  */
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";

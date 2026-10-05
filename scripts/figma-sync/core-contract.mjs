@@ -3,7 +3,7 @@
  * parts={values,schema,sets} 由 assembleContract 依序建立後注入,factory 本身不取用 module closure。
  * sets 是 {bodies,checks} 的清單,依 operation 組裝:scan 只有 request / inventory;apply 另加 plan / attempt 與相依圖;
  * receipt、identity-review 與規劃用的值運算只在 Node 端。沒有組進來的 kind 一律被拒絕(ARTIFACT_INVALID)。
- * 無 Node / Figma import;會被序列化進 Figma 執行。規格正本:docs/plans/base-sync.md「E3 工具契約」。
+ * 無 Node / Figma import;會被序列化進 Figma 執行。協定欄位見 core-contract-schema.mjs,操作見 docs/agents/toolbox.md「Figma 品牌同步」。
  */
 import {
   createAssetGraphRules,
