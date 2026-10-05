@@ -1,6 +1,6 @@
 /**
  * preflight 測試的夾具:真 Git 的目標 checkout,加上 gcloud 與 migrator status 子行程的假實作(系統邊界)。
- * F2 status JSON 的形狀照固定契約(docs/plans/base-sync.md「F2:既有資料狀態的唯讀 JSON」),不另訂格式。
+ * status JSON 的形狀以 db-migrator 的型別與 docs/deployment.md「設定與資料更新」為準,不另訂格式。
  */
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";

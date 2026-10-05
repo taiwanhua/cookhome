@@ -6,10 +6,6 @@
 
 ## 需要討論決策
 
-### 底座維護邊界與跨專案同步
-
-待完成的跨 repo 升級、回收工具與整體演練見[底座同步計畫](../plans/base-sync.md);進度及驗收見對應 issue/PR。現行設定、功能來源與維護歸屬見[架構](../architecture.md#底座與專案的維護歸屬),seed/migration 見[資料層](../concepts/data-layer-and-isolation.md#種子資料與遷移),不在本檔另存一份要求。
-
 ### 自訂 `/to-figma` skill
 
 設計系統收尾的唯一剩項:由 spec 產出 Figma 設計稿,之後實作照稿產出程式碼。Figma 端的做法(殼元件實例覆寫、備用槽、RWD 三檔)已寫在 `docs/standards/general/figma.md`。
