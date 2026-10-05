@@ -46,7 +46,7 @@ Issues 追蹤在 `taiwanhua/cookhome` 的 GitHub Issues,透過 `gh` CLI 操作�
 - 跨工具分工、工作樹與接手 → `docs/agents/collaboration.md`(Claude、Codex 與人員共用)
 - **新增**一個後台 CRUD 模組 → `docs/agents/module-scaffold.md`(檔案清單 + 步驟 + 每步的正本;藍本是示範模組 1 / 2)
 - 開發/修改後台模組 → 先讀 `docs/modules/<key>.md`(內部技術文件)+ `apps/admin/src/md/module-help/{base,project/additions,project/replacements}/<key>.help.md`(租戶使用者說明:守詞彙表、不得出現平台視角詞彙;build 時打包進說明彈窗)
-- 設計稿 → [Figma:CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)(頁面結構:Foundations / 各元件頁 / Screen 系列;規範見 `docs/standards/general/figma.md`)
+- 設計稿 → `docs/branding.md` 的設計資源登記(底座、專案設計檔與品牌 Library);元件 / 畫面節點及規範見 `docs/standards/general/figma.md`
 - 進行中討論與待辦 → `docs/tmp/dis.md`
 - 資料模型地圖 → `docs/data-model.md`;欄位/索引細節見 `apps/api/src/database/schemas/*.schema.ts`(逐欄有註解)
 - 環境變數 → `docs/env-registry.md`(用途/是否機密/放哪)
