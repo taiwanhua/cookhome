@@ -159,7 +159,9 @@ test("相同區塊重送冪等並保留首包;observedAt 不參與比較;異內�
   assert.deepEqual(readFileSync(stored), bytes);
   assert.equal(JSON.parse(bytes).observedAt, first.observedAt);
   // 同 index 的不同內容(即使 chunkDigest 自洽)
-  const payloadBase64 = `B${first.payloadBase64.slice(1)}`;
+  const differentPrefix = first.payloadBase64[0] === "B" ? "A" : "B";
+  const payloadBase64 = `${differentPrefix}${first.payloadBase64.slice(1)}`;
+  assert.notEqual(payloadBase64, first.payloadBase64);
   const different = {
     ...first,
     payloadBase64,
