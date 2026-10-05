@@ -170,7 +170,12 @@ test("chunk 與 error:固定欄位、index、base64、自洽的 chunkDigest、ob
     (copy) => (copy.index = 32),
     (copy) => (copy.index = "1"),
     (copy) => (copy.payloadBase64 = ""),
-    (copy) => (copy.payloadBase64 = `B${copy.payloadBase64.slice(1)}`),
+    (copy) => {
+      const prefix = copy.payloadBase64[0] === "B" ? "A" : "B";
+      const changed = `${prefix}${copy.payloadBase64.slice(1)}`;
+      assert.notEqual(changed, copy.payloadBase64);
+      copy.payloadBase64 = changed;
+    },
     (copy) => (copy.payloadBase64 = `${copy.payloadBase64}AAAA`),
     (copy) => (copy.chunkDigest = contract.digest("x")),
     (copy) => (copy.headDigest = "x"),

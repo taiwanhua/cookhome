@@ -249,7 +249,10 @@ test("多塊:除最後一塊外長度固定,接齊後組回與原 artifact 完�
     invalid,
   );
   const altered = structuredClone(chunks);
-  altered[1].payloadBase64 = `B${altered[1].payloadBase64.slice(1)}`;
+  const prefix = chunks[1].payloadBase64[0] === "B" ? "A" : "B";
+  const changedPayload = `${prefix}${chunks[1].payloadBase64.slice(1)}`;
+  assert.notEqual(changedPayload, chunks[1].payloadBase64);
+  altered[1].payloadBase64 = changedPayload;
   // 內容與自己的 chunkDigest 不符:在 envelope 驗證就被拒絕
   assert.throws(
     () => transport.assemble(scanRequest, head, altered),
@@ -257,7 +260,7 @@ test("多塊:除最後一塊外長度固定,接齊後組回與原 artifact 完�
   );
   // digest 自洽但內容不是原 payload:組回時完整 SHA / gzip 對不上
   const consistent = structuredClone(chunks);
-  consistent[1].payloadBase64 = `B${consistent[1].payloadBase64.slice(1)}`;
+  consistent[1].payloadBase64 = changedPayload;
   consistent[1].chunkDigest = contract.digest({
     index: 1,
     payloadBase64: consistent[1].payloadBase64,
