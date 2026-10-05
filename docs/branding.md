@@ -8,7 +8,7 @@
 
 ## 底座識別
 
-底座名稱為 `wowgo-base`,獨立 repo 是 [taiwanhua/wowgo-base](https://github.com/taiwanhua/wowgo-base)。本表登記的是底座自己的中性值;引用專案沿用同一組專案設定入口填入自己的品牌、slug、網域與雲端資源,不沿用底座或其他專案的值。共用文件與 skills 使用「底座」「專案」等中性詞彙,詞義見 `CONTEXT.md`。Figma 與同步工具的未完成工作見[底座同步計畫](plans/base-sync.md)。
+底座名稱為 `wowgo-base`,獨立 repo 是 [taiwanhua/wowgo-base](https://github.com/taiwanhua/wowgo-base)。本表登記的是底座自己的中性值;引用專案沿用同一組專案設定入口填入自己的品牌、slug、網域與雲端資源,不沿用底座或其他專案的值。共用文件與 skills 使用「底座」「專案」等中性詞彙,詞義見 `CONTEXT.md`。跨 repo 升級與回收的未完成工作見[底座同步計畫](plans/base-sync.md)。
 
 ## 程式碼
 
@@ -46,7 +46,7 @@
 
 底座維護共用元件、字型、固定語意色、圓角、陰影與後台參考畫面。共用元件位於 27 頁,共 51 組、210 個 component;15 頁治理及示範參考畫面保留完整後台藍本。CookHome 保留自己的畫面與業務內容,共用元件以實例引用本庫。
 
-本庫目前的[中性內容發布](https://www.figma.com/design/XKQ18kf6SkfAQYk7GmBkk5/wowgo-base-Design-System?version-id=2406587150460058202)已由 CookHome 以全頁範圍接受 27 組更新;CookHome consumer 品牌補套及對應 Git 正式版本仍待交付。Figma 發布不代表 main 已 release。
+本庫目前的[中性內容發布](https://www.figma.com/design/XKQ18kf6SkfAQYk7GmBkk5/wowgo-base-Design-System?version-id=2406587150460058202)對應 [wowgo-base v0.2.0](https://github.com/taiwanhua/wowgo-base/releases/tag/v0.2.0)。CookHome 已接受 Library 更新並完成首次盤點範圍的品牌補套;受管與明示保留項目以專案的生成 receipt 為準。
 
 引用專案使用自己的畫面檔與 Brand Library,品牌 Library 不占用底座的 mode。底座 Brand 集合的 mode 是 `Default`(`6:0`),Color 的 Light/Dark 與原有 variable key/value 保留。畫面統一設計 Light,不修改應用的亮暗切換。
 
@@ -116,12 +116,12 @@ A、B 的品牌六色與 `Shadow/Primary` 分別由既有 `createBrandFromPrimar
 | Library 更新與變體  | 接受更新後可保留新幾何及元件連結;新增實例、切換變體或新增受管圖層仍可能帶入底座品牌,必須補套,一次 Swap library 不是永久主題規則。                                            |
 | 客製與語意保留      | 代表情境的文字、圖片、visible、圖示 swap、自訂色與專案變數保留;Primary 隨品牌變更,中性及 Error/Success 保持原語意。隱藏後代也納入檢查。                                      |
 | 新 token 與資產身分 | 缺少對照會阻擋同步;同名重建可由新 key 辨認,不能靠名稱或 HEX 自動配對。來源語意變動的辨認須結合累積補套紀錄與上層實例脈絡。                                                   |
-| 重跑與中斷          | 受控中斷後可重新盤點剩餘變更再續作;完成後重跑為零修改。隔離腳本證據與正式工具驗證分開保存;通用 CLI 已在 dev/staging 可用,尚未 main release。                                 |
+| 重跑與中斷          | 受控中斷後可重新盤點剩餘變更再續作;完成後重跑為零修改。隔離腳本證據與正式工具驗證分開保存。                                                                                  |
 | 部分接受與跨次發布  | 已驗部分接受、完整接受及跨兩次發布升級;必須核對實際接受的資產與頁面範圍,不能把 component key 或發布名稱當成版本鎖。                                                          |
 | 跨檔搬出            | Badge、Tab、Tabs 搬出後,含變體的 9 個來源 key 均改變;A、B 接受更新後仍連到搬移庫,各 12 個客製節點的受保護欄位逐欄一致。                                                      |
 | 跨檔搬回            | 原測試底座先接受全頁待更新內容,再剪貼、以 Move 發布並接受返程更新。Badge、Tab、Tabs 含變體的 9 個 key 重新登記;兩品牌各 3406 個實例無斷連或舊來源,各 12 個客製節點逐欄一致。 |
 
-未綁變數的 `logoImg` 固定橘色與部分導覽圖示固定色保留原樣;它們不會因 HEX 相同就被判定為受管品牌。搬移前須核對來源、目的及引用檔的全頁待更新內容;目的面板必須辨認為 Move,只有 Added 時不能冒稱保留連結。此測試證明元件返程,不代表任意 variable/style 都能搬移。正式同步仍須處理來源語意漂移與跨檔身分對照,consumer 補套及版本交付見[同步計畫](plans/base-sync.md#efigma-品牌與版本同步)。原生換庫操作見 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
+未綁變數的 `logoImg` 固定橘色與部分導覽圖示固定色保留原樣;它們不會因 HEX 相同就被判定為受管品牌。搬移前須核對來源、目的及引用檔的全頁待更新內容;目的面板必須辨認為 Move,只有 Added 時不能冒稱保留連結。此測試證明元件返程,不代表任意 variable/style 都能搬移。正式同步仍須處理來源語意漂移與跨檔身分對照,品牌補套見 [toolbox](agents/toolbox.md#figma-品牌同步),版本交付見 [deployment](deployment.md#release-步驟)。原生換庫操作見 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
 
 ## 資料
 

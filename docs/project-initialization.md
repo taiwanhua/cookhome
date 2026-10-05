@@ -1,6 +1,6 @@
 # 專案初始化索引
 
-本索引指出新專案要設定的內容、值的正本與驗證責任,不保存第二份設定值。維護歸屬見[架構](architecture.md#底座與專案的維護歸屬),品牌與部署設定分別見 [branding](branding.md) 與 [deployment](deployment.md#專案部署設定deployproject)。建立與接續初始化依[共用操作文件](agents/project-bootstrap.md);跨專案整體演練與同步工具的未完成工作見[底座同步計畫](plans/base-sync.md)。
+本索引指出新專案要設定的內容、值的正本與驗證責任,不保存第二份設定值。維護歸屬見[架構](architecture.md#底座與專案的維護歸屬),品牌與部署設定分別見 [branding](branding.md) 與 [deployment](deployment.md#專案部署設定deployproject)。建立與接續初始化依[共用操作文件](agents/project-bootstrap.md);跨專案升級、回收與整體演練的未完成工作見[底座同步計畫](plans/base-sync.md)。
 
 狀態必須分開記錄:「已提供」表示輸入已完整;「已建立」表示檔案或外部資源已存在;「已驗證」表示該專案的實際讀取或連線檢查通過。來源設定不代表新專案已具備資源,以下不替未建立的專案填入成功狀態。
 
@@ -87,6 +87,6 @@ ROOT_ADMIN 輸入與欄位政策見[種子資料與遷移](concepts/data-layer-a
 
 ## 設計與開發工具
 
-- Figma 啟用時提供底座來源、本專案 Brand Library 與 Screens 的 fileKey、權限及維護者,登記見[品牌註冊表](branding.md);品牌值沿用 `projectPublic.brand`。操作見 [toolbox](agents/toolbox.md#figma-品牌同步),成功狀態在本專案 `deploy/project/figma/receipts/`。資源存在只算已建立,實際補套與連結驗證通過才是已驗證;來源 repo 的 receipt 不算本專案結果。未提供、停用與已驗證分開記錄,正式拆分與整體演練的未完成範圍見[底座同步計畫](plans/base-sync.md)。
+- Figma 啟用時提供底座來源、本專案 Brand Library 與 Screens 的 fileKey、權限及維護者,登記見[品牌註冊表](branding.md);品牌值沿用 `projectPublic.brand`。操作見 [toolbox](agents/toolbox.md#figma-品牌同步),成功狀態在本專案 `deploy/project/figma/receipts/`。資源存在只算已建立,實際補套與連結驗證通過才是已驗證;來源 repo 的 receipt 不算本專案結果。未提供、停用與已驗證分開記錄。
 - agent 入口為 `CLAUDE.md`,共同接手規則見 `docs/agents/collaboration.md`;必要設定不得僅存在某工具私有記憶。
 - skills、共用文件與專案文案的分離隨對應工作包維護。初始化 skill 指向[共同操作文件](agents/project-bootstrap.md),不能用「檔案都改完」取代完整建立/驗證紀錄。
