@@ -334,6 +334,6 @@ PR 連結、改動檔案清單、測試結果(與基準比較)、截圖或 E2E �
 | 看累積未部署變更     | `node scripts/project-settings/preflight.mjs --environment <環境> --target <完整SHA>`                                          | 實際 app/DB 基準、累積差異與未核對事項       |
 | 讀資料狀態 JSON      | `pnpm --silent --filter @repo/db-migrator run migrate:status --json`                                                           | 現有 plan/journal/lock 的唯讀投影            |
 
-新 clone 沿用 `gh repo clone <owner/repo> <路徑>`，版本身分沿根 `package.json.wowgoBase`。CLI 的 JSON 報告不另作人工維護正本；不自動 push、開 PR、接受回收或部署。preflight/status 的 exit 0 只表示成功讀取或生成，須審查 issues 與資料恢復限制，不能当作部署核准。
+新 clone 沿用 `gh repo clone <owner/repo> <路徑>`，版本身分沿根 `package.json.wowgoBase`。CLI 的 JSON 報告不另作人工維護正本；不自動 push、開 PR、接受回收或部署。preflight/status 的 exit 0 只表示成功讀取或生成，須審查 issues 與資料恢復限制，不能當作部署核准。
 
 正本：`scripts/base-sync/`、`scripts/project-settings/preflight.mjs`、`apps/db-migrator/src/update/`；操作與驗收：[deployment](../deployment.md#發布前環境與資料核對)。

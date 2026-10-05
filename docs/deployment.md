@@ -106,7 +106,7 @@ exit 0 只表示報告已生成,**不是部署核准**。報告的 issues 仍可
 **job 圖**:拆成多個 job,各佔一台 runner 並行,牆鐘最短優先。
 
 ```
-project-settings             專案部署設定與讀取器的測試 + 三環境解析(每次都跑,不看受影響清單)
+project-settings             專案設定、發布前核對與底座同步 CLI 測試 + 三環境解析(每次都跑)
 figma-sync                   建置 UI / project-config + Figma 同步離線測試(每次都跑,不碰 Figma)
 prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產物與 schema 一致(GQL-05)
          ├─ lint-typecheck   turbo run lint check-types
@@ -276,6 +276,8 @@ pnpm --filter @repo/db-migrator run migrate:status
 ```
 
 加 `--json` 可供工具讀取,也可用 `run update --status --json`;此模式只讀,不能與 down/unlock/reset 等寫入動作混用。輸出區分最近嘗試、最近成功的 update/reset、該基準後或與它重疊的其他執行,以及目前 applied/pending/orphaned/open migration、未完成定義安裝與鎖。沒有成功基準是未知,不是尚無待更新內容;有效完整 SHA 以外的 commit 記為 null。失敗查詢用非零 exit,不以空成功陣列代替。
+
+`sourceCommit` 只在執行來源與 registry 可證明屬於同一乾淨 checkout 時提供完整 HEAD;外部來源、未追蹤檔或未提交修改會使它為 null,不以環境變數猜測。失敗只輸出固定錯誤碼,不回顯原始例外。機器欄位正本是 [UpdateStatusJson](../apps/db-migrator/src/update/status-json.ts)。
 
 JSON 是現有資料的投影,不新增設定格式或版本帳。即使查詢成功,歷史 successful 仍不能證明目前資料完整;須連同後續 failed/down/reset 與現行 plan 解讀。發布前的完整流程見[環境與資料核對](#發布前環境與資料核對)。
 
