@@ -91,7 +91,6 @@ concepts 的順序:`accounts-and-tenants` → `authorization` → `data-layer-an
 | `docs/deployment.md`                                                                        | 部署、release、分支對齊、reset                   | 部署或 release             |
 | `docs/env-registry.md`                                                                      | 環境變數登記                                     | 新增或改環境變數           |
 | `docs/branding.md`                                                                          | 品牌文字、色彩、網域、儲存鍵登記                 | 動品牌元素或儲存鍵         |
-| `docs/plans/base-sync.md`                                                                   | 跨 repo 升級與回收的未完成工作                   | 接手版本同步與回收工具     |
 | `docs/agents/project-bootstrap.md`                                                          | 建立引用專案與接續初始化的共用操作               | 新專案初始化               |
 | `docs/project-initialization.md`                                                            | 初始化設定的正本索引與驗證責任                   | 建立專案與核對初始化設定   |
 | `docs/tmp/dis.md`                                                                           | 進行中討論與待辦                                 | 查尚未定案的事             |
