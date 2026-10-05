@@ -88,6 +88,7 @@ export function review(options, context) {
   const explicit = options.selectionsJson;
   const taken = new Set(explicit.map((item) => item && item.source?.key));
   const present = (inventory, kind, ref) =>
+    inventory.observedFileKey === ref.fileKey &&
     inventory.assets.some(
       (asset) =>
         asset.kind === kind &&
@@ -99,7 +100,15 @@ export function review(options, context) {
     .filter(
       (item) =>
         !taken.has(item.source.key) &&
-        present(base, item.assetKind, item.source) &&
+        present(
+          consumer &&
+            item.source.fileKey !== base.observedFileKey &&
+            item.source.fileKey === consumer.observedFileKey
+            ? consumer
+            : base,
+          item.assetKind,
+          item.source,
+        ) &&
         present(brand, item.assetKind, item.project),
     )
     .map(({ role, assetKind, source, project }) => ({

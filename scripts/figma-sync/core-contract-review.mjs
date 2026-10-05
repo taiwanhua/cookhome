@@ -59,10 +59,24 @@ export function createIdentityReviewer(
     schema.shape(input.selections, [SELECTION], "selections");
     schema.shape(input.resolutions, [RESOLUTION], "resolutions");
     if (input.selections.length === 0) fail("SELECTIONS_EMPTY");
-    const sides = [
-      ["source", base, values.indexAssets(base)],
-      ["project", brand, values.indexAssets(brand)],
-    ];
+    const baseAssets = values.indexAssets(base);
+    const brandAssets = values.indexAssets(brand);
+    const consumerAssets = consumer ? values.indexAssets(consumer) : null;
+    const sidesOf = (selection) => {
+      // 本次 consumer 自己的本地資產也可明示為來源;同檔 Base 仍以原 Library inventory 為準。
+      const isConsumerSource =
+        consumer &&
+        selection.source.fileKey !== base.observedFileKey &&
+        selection.source.fileKey === consumer.observedFileKey;
+      return [
+        [
+          "source",
+          isConsumerSource ? consumer : base,
+          isConsumerSource ? consumerAssets : baseAssets,
+        ],
+        ["project", brand, brandAssets],
+      ];
+    };
     const roleOf = { source: new Map(), project: new Map() };
     const terminalOf = new Map();
     input.selections.forEach((selection, i) => {
@@ -74,10 +88,10 @@ export function createIdentityReviewer(
       if (selection.source.resolvedType !== selection.project.resolvedType) {
         fail("SELECTION_TYPE_MISMATCH", where);
       }
-      for (const [side, inventory, assets] of sides) {
+      for (const [side, inventory, assets] of sidesOf(selection)) {
         const ref = selection[side];
         const asset = assets.get(`${selection.assetKind}:${ref.key}`);
-        // asset.fileKey=null(遠端、來源檔未知)不算 exact:selection 必須落在該 Library 自己的掃描
+        // asset.fileKey=null(遠端、來源檔未知)不算 exact:來源必須由自己的檔案直接觀察。
         const exact =
           asset &&
           asset.fileKey === ref.fileKey &&
@@ -98,7 +112,7 @@ export function createIdentityReviewer(
     // alias 終點:同角色的 project 終點必須同一把 key;終點若也被選擇,角色必須一致
     input.selections.forEach((selection, i) => {
       if (selection.assetKind !== "variable") return;
-      for (const [side, , assets] of sides) {
+      for (const [side, , assets] of sidesOf(selection)) {
         const terminal = values.resolveAssetChain(
           assets,
           selection[side].key,
