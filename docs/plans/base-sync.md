@@ -82,7 +82,7 @@ agent 逐項整合全部差異,保留品牌/front/專案值/業務來源/cloud/e
 
 入口放在既有 `scripts/project-settings/preflight.mjs`,參數為 `--environment <dev|staging|production> --target <full-sha>`。目標 SHA 必須等於執行 checkout;未提交來源改動須拒絕,不能以某 commit 名義執行其他來源。沿用既有 config 讀取器,不新增部署設定。
 
-逐一讀 API/admin **正在承接流量**的 revision 及其 image 版本,混合流量保留全部 revision,不以最新建立的 revision 代替。依現有部署 image tag 格式解析 full SHA;無法對應的 digest 或版本明列 unknown,不猜測。由每個已知基準比較到 target 的全部累積差異,不限當次 PR。
+逐一讀 API/admin **正在承接流量**的 revision 及其 image 版本,混合流量保留全部 revision,不以最新建立的 revision 代替。Cloud Run 常回 digest,須經 Artifact Registry 的 docker tags list 核對相同 image 與 exact digest,再解析現有部署 tag(SHA 或 admin 的 SHA 加環境尾碼)。短 SHA 必須由本 repo Git 唯一解析為完整 commit;多個相異 commit、無法取得或無法對應的 digest 明列 unknown,不猜測。由每個已知基準比較到 target 的全部累積差異,不限當次 PR。
 
 DB 使用同 checkout 的既有 migrator status JSON,經受控子行程讀取現有 MONGODB_URI 或設定指定的 Secret。不能將 API image SHA 當作 DB 設定版本。gcloud/DB 存取不足、來源不符、未完成執行、無成功基準等列為未核對或問題,不能報成沒有待部署差異。Secret 值只在記憶體/子行程環境傳遞,不輸出、不存產物。
 
