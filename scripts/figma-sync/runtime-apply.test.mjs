@@ -35,7 +35,13 @@ async function planned(runId = "ap-1", options = {}) {
       applyRequest,
       plan,
     );
-  return { scenario, plan: result.plan, request, execute };
+  return {
+    scenario,
+    plan: result.plan,
+    inventory: result.inventory,
+    request,
+    execute,
+  };
 }
 const errorCodes = (attempt) => attempt.errors.map((error) => error.code);
 const variableIdOf = (paint) => paint.boundVariables.color.id;
@@ -209,9 +215,54 @@ test("回應遺失後以同一 plan 重送:逐筆判定為 already-applied,不�
   );
 });
 
+test("未載入字型的文字只改 paint:不觸發載字型重排,文字與父實例幾何保持", async () => {
+  const { scenario, plan, inventory, request } = await planned(
+    "paint-unloaded-font",
+  );
+  const parent = scenario.consumer.nodes.button;
+  const text = parent.children[0];
+  text.hasMissingFont = false;
+  const before = [text.width, text.height, parent.width, parent.height];
+  const figma = createFakeFigma(scenario.world, CONSUMER_FILE);
+  figma.loadFontAsync = async () => {
+    text.width += 7;
+    parent.width += 7;
+    throw new Error("載字型會重排既有文字");
+  };
+  text.getRangeAllFontNames = () => {
+    throw new Error("單純改色不應列舉字型");
+  };
+
+  const attempt = await createRuntime(figma).applyPlan(request, plan);
+  assert.equal(attempt.status, "applied");
+  assert.deepEqual(errorCodes(attempt), []);
+  assert.equal(attempt.completedActions.length, plan.actions.length);
+  assert.deepEqual(
+    [text.width, text.height, parent.width, parent.height],
+    before,
+  );
+  const paintAction = plan.actions.find(
+    (action) =>
+      action.locator.nodeId === text.id &&
+      action.locator.field === "fill-color",
+  );
+  const changed = attempt.completedActions.find(
+    (item) => item.actionId === paintAction.actionId,
+  );
+  assert.equal(changed.readBack.value.key, paintAction.expectedAfter.key);
+  const verdict = core.verifySync({
+    plan,
+    beforeInventory: inventory,
+    afterInventory: attempt.afterInventory,
+    previousReceipt: null,
+    attempt,
+  });
+  assert.equal(verdict.status, "verified");
+});
+
 test("缺字型或資產未發布:寫入前失敗,不代換、不留半套", async () => {
   const missingFont = await planned();
-  missingFont.scenario.world.missingFonts.add("Public Sans");
+  missingFont.scenario.consumer.nodes.button.children[0].hasMissingFont = true;
   const fontAttempt = await missingFont.execute();
   assert.equal(fontAttempt.status, "failed");
   assert.deepEqual(errorCodes(fontAttempt), ["FONT_MISSING"]);

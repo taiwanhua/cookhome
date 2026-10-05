@@ -1,6 +1,6 @@
 /**
  * 場景寫入(consumer 的補套):只寫 roots 與其後代,且只動指定 paint 的 color 綁定或 effectStyleId,其他欄位原樣保留。
- * prepare 在任何寫入前確認每個節點在 scope 內、字型可載入、匯入的專案資產實際值仍是 plan 的品牌推導;
+ * prepare 在任何寫入前確認每個節點在 scope 內、文字未缺字型、匯入的專案資產實際值仍是 plan 的品牌推導;
  * write 逐筆寫前只重掃該節點再驗一次,寫入後讀回。回傳 begin(run),由 runtime-apply.mjs 的 executor 呼叫。
  * 會被序列化進 Figma 執行。
  */
@@ -37,18 +37,13 @@ export function createSceneWriter(figma, core, assets, scanScope) {
           if (roots.includes(up.id)) inScope = true;
         }
         if (!inScope) return { code: "OUT_OF_SCOPE", detail: action.actionId };
-        if (node.type === "TEXT" && action.locator.field !== "effect-style") {
-          // 文字 paint 寫入前載入需要的字型;缺字型失敗,不代換
-          try {
-            if (node.hasMissingFont) throw coded("FONT_MISSING");
-            const fonts =
-              node.fontName === figma.mixed
-                ? node.getRangeAllFontNames(0, node.characters.length)
-                : [node.fontName];
-            for (const font of fonts) await figma.loadFontAsync(font);
-          } catch (error) {
-            return { code: "FONT_MISSING", detail: action.actionId };
-          }
+        // Figma 的文字 fills / strokes 改色不需載字型,避免額外載入影響既有排版;缺字型仍拒絕。
+        if (
+          node.type === "TEXT" &&
+          action.locator.field !== "effect-style" &&
+          node.hasMissingFont
+        ) {
+          return { code: "FONT_MISSING", detail: action.actionId };
         }
         nodes.set(action.actionId, node);
       }
