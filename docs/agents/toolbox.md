@@ -4,6 +4,8 @@
 
 指令預設在 repo 根執行;PowerShell 與 Bash 兩種寫法不同時,兩種都列。
 
+凡 gh 指令有 repo 範圍,均明示 `--repo <owner/repo>` 並核對 `deploy/project/github.json.expectedRepository` 與 origin。下表省略的例子也適用;不能靠 gh 在 origin/upstream 之間自動選擇。
+
 ## 目錄
 
 1. [gh:issue 與 PR](#ghissue-與-pr)
@@ -19,6 +21,7 @@
 11. [Claude Code skill 對照表](#claude-code-skill-對照表)
 12. [派工模板(給無 session 的 agent)](#派工模板給無-session-的-agent)
 13. [批次 release(指路)](#批次-release指路)
+14. [底座升級與回收](#底座升級與回收)
 
 ## gh:issue 與 PR
 
@@ -318,3 +321,19 @@ PR 連結、改動檔案清單、測試結果(與基準比較)、截圖或 E2E �
 - 每一步的前置檢查與指令細節**只在 deployment.md 寫**,這裡不重複。
 
 正本:`docs/deployment.md`(二、分支模型與 CI/CD 流程 → Release 步驟)
+
+## 底座升級與回收
+
+人員、Claude 與 Codex 共用同一 Node CLI，不需要另一個工具在線。先核對本次 repo、正式版本與差異，依[deployment](../deployment.md#底座首次接軌與版本升級)整合與驗收，再沿既有 gh/PR 流程交付。
+
+| 工作                 | 指令                                                                                                                           | 結果                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| 看完整差異與回收候選 | `node scripts/base-sync/run.mjs inspect --project <路徑> --from <commit> --to <commit>`                                        | 唯讀分類，候選仍需語意審查                   |
+| 準備正式版本升級     | `node scripts/base-sync/run.mjs upgrade --project <路徑> --tag <版本> --worktree-root <父目錄>`                                | 隔離分支與未提交 merge；批次重複 `--project` |
+| 準備共用改良回收     | `node scripts/base-sync/run.mjs contribute --project <來源路徑> --commit <完整SHA> --base <底座路徑> --worktree-root <父目錄>` | common-only contribution，不帶整個專案歷史   |
+| 看累積未部署變更     | `node scripts/project-settings/preflight.mjs --environment <環境> --target <完整SHA>`                                          | 實際 app/DB 基準、累積差異與未核對事項       |
+| 讀資料狀態 JSON      | `pnpm --silent --filter @repo/db-migrator run migrate:status --json`                                                           | 現有 plan/journal/lock 的唯讀投影            |
+
+新 clone 沿用 `gh repo clone <owner/repo> <路徑>`，版本身分沿根 `package.json.wowgoBase`。CLI 的 JSON 報告不另作人工維護正本；不自動 push、開 PR、接受回收或部署。preflight/status 的 exit 0 只表示成功讀取或生成，須審查 issues 與資料恢復限制，不能當作部署核准。
+
+正本：`scripts/base-sync/`、`scripts/project-settings/preflight.mjs`、`apps/db-migrator/src/update/`；操作與驗收：[deployment](../deployment.md#發布前環境與資料核對)。
