@@ -1,6 +1,6 @@
 # 底座跨專案維護與同步計畫
 
-本文件只保留尚未完成的 Figma 與跨 repo 同步工作。現有行為見下列正式文件;實作進度、驗收及部署結果以 issue/PR 為準。
+本文件只保留尚未完成的跨 repo 版本升級、回收與整體演練。現有行為見下列正式文件;實作進度、驗收及部署結果以 issue/PR 為準。
 
 ## 正式文件入口
 
@@ -8,15 +8,9 @@
 - [前端架構](../concepts/frontend-architecture.md)、[資料層](../concepts/data-layer-and-isolation.md)、STRUCT-12:頁面、help、API 與資料登記契約。
 - [設定交付](../concepts/data-layer-and-isolation.md#種子資料與遷移)、[操作](../deployment.md#設定與資料更新)、ADR-0002:seed/migration 來源、受管定義、更新與重置。
 - [初始化操作](../agents/project-bootstrap.md)、[初始化索引](../project-initialization.md)、[品牌註冊表](../branding.md)、[部署](../deployment.md):專案值、設定來源與操作。
-- [Figma 隔離測試](../branding.md#隔離品牌相容性測試):測試資產、可重現結果與限制。
+- [Figma 資源](../branding.md#figma-現況盤點)、[品牌同步操作](../agents/toolbox.md#figma-品牌同步):Library、專案品牌補套與驗證紀錄。
 
 接手先讀 `CLAUDE.md`、[協作規則](../agents/collaboration.md)、負責的 issue 全文與留言。未定介面依 [issue tracker](../agents/issue-tracker.md) 固定規格後才進 Ready;本計畫不代表外部資源已建立或工具已啟用。完成的內容依 STRUCT-11 歸入既有正本並從本計畫移除。
-
-## E:Figma 品牌與版本同步
-
-E 的共用範圍與未完成項目由 [wowgo-base 同步計畫](https://github.com/taiwanhua/wowgo-base/blob/main/docs/plans/base-sync.md#efigma-品牌與版本同步)維護,尚未正式發布的變更以對應 issue/PR 分支為準。本 repo 的設計來源及客製歸屬見[品牌註冊表](../branding.md#figma),品牌補套操作見 [toolbox](../agents/toolbox.md#figma-品牌同步),不另寫一份同步契約。
-
-共用 Library 與底座參考頁已分離、發布,並由 CookHome 接受更新;專案 Brand Library 已建立。尚待完成 consumer 品牌補套、成功 receipt 與兩個 repo 的正式版本交付。接受 Library 更新不等於 consumer 已完成品牌補套;E 全部完成後才執行 F。
 
 ## F:正式版本升級、回收與整體演練
 
@@ -28,7 +22,8 @@ E 的共用範圍與未完成項目由 [wowgo-base 同步計畫](https://github.
 - 升級保留專案品牌、設定、客製頁、帳號、組織與業務資料;資料轉換走明確 migration,不能以 reset 取代。
 - 底座治理頁原版持續更新,不得整個 `system/` 排除升級;客製版須檢查 API、權限及互動相容性。依賴宣告整合後更新 lockfile,不整份選上游或本地。
 - 升級報告列出新增能力及 wildcard 影響,區分種子模板、既有租戶副本與個別權限角色;Figma 接受更新及品牌補套納入同一次驗收。
+- 發布前比對目標環境實際版本、main 累積未部署差異與待執行 migration,列出資料修改、刪除範圍及恢復限制;不能只檢查本批 PR。
 
 正式 tag/Release、採用版本記錄與共同祖先操作見初始化及 deployment 正本。仍待設計回收分支起點、引用專案清單、觸發器、憑證權限、失敗回報與重試,並完成向下升級與回收的工具。
 
-前置是 E;初始化與手動接軌/升級操作見上列正本。整體演練需以不同品牌、新增業務模組及替換治理頁的引用專案,升級共用 UI、API、seed 與 Figma;再回收一項通用修正,發布並再次向下升級。驗收須能從 repo 與操作文件重現,不能只以計畫或 skill 檔存在判定完成。
+初始化與手動接軌/升級操作見上列正本。整體演練需以不同品牌、新增業務模組及替換治理頁的引用專案,升級共用 UI、API、seed 與 Figma;再回收一項通用修正,發布並再次向下升級。驗收須能從 repo 與操作文件重現,不能只以計畫或 skill 檔存在判定完成。
