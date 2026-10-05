@@ -178,7 +178,7 @@ export async function findOpenMigrations(
 }
 
 /** 會套用種子與定義的操作(一次完整的 update,或內含 update 的 reset);down 不在內。 */
-const UPDATE_OPERATIONS = ["update", "reset-data", "reset-full"];
+export const UPDATE_OPERATIONS = ["update", "reset-data", "reset-full"];
 
 /** 一筆還沒走完的受管定義安裝(api 的 `seed_definition_installations`;這裡只讀)。 */
 export interface UnfinishedInstallation {

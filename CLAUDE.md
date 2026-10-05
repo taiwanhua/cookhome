@@ -28,6 +28,10 @@
 
 使用 `project-bootstrap` skill,操作正本是 [docs/agents/project-bootstrap.md](docs/agents/project-bootstrap.md)。只有全新空 repo 的初始分支可指向已審查底座 commit;之後含初始化在內的變更一律走現有 PR 流程。底座升級分支的 ancestry 特例見 [deployment](docs/deployment.md#底座首次接軌與版本升級),一般功能分支仍 rebase。
 
+### 底座升級與共用改良回收
+
+共用 CLI、升級整合、回收與發布前環境/資料核對見 [deployment](docs/deployment.md#底座首次接軌與版本升級);指令速查見 [toolbox](docs/agents/toolbox.md#底座升級與回收)。Claude、Codex 與人員使用同一入口,各自可獨立接手;工具準備分支與報告,接受回收及發布沿既有審查流程。
+
 ### Issue tracker
 
 Issues 追蹤在 `taiwanhua/cookhome` 的 GitHub Issues,透過 `gh` CLI 操作。見 `docs/agents/issue-tracker.md`。

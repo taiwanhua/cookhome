@@ -5,6 +5,7 @@
  * ```
  * pnpm --filter @repo/db-migrator run update                 完整更新:migration → 普通種子 → 定義 → 核對
  * pnpm --filter @repo/db-migrator run update --status        唯讀:所有來源的 migration 與 changelog、未完成紀錄、鎖
+ * pnpm --filter @repo/db-migrator run update --status --json 唯讀:同上加執行紀錄的成功基準,輸出一個 JSON object(`status-json.ts`)
  * pnpm --filter @repo/db-migrator run update --down          還原最後一支已執行的 migration(只還原它的資料變更)
  * pnpm --filter @repo/db-migrator run update --unlock-owner=<token>   解除硬中止留下的鎖(先確認原程序已停止)
  * pnpm --filter @repo/db-migrator run update --check-cli     確認 api 的受管定義 CLI 已建置且啟動得起來
@@ -54,10 +55,19 @@ import {
 import { rollbackLastMigration } from "./rollback";
 import { type RunReport, applyUpdatePlan } from "./runner";
 import { loadSeedSnapshots } from "./seed-snapshots";
+import { resolveSourceCommit } from "./source-commit";
+import {
+  STATUS_JSON_FLAG,
+  StatusJsonError,
+  isStatusJsonRequest,
+  readUpdateStatus,
+  statusJsonErrorLine,
+  statusJsonStep,
+} from "./status-json";
 import { NO_UPDATE_HOOKS, type UpdateHooks } from "./update-hooks";
 
 const USAGE =
-  "用法:update [registry 檔] [--registry=<檔>] [--source-root=<目錄>] [--status | --down | --unlock-owner=<token> | --check-cli]";
+  "用法:update [registry 檔] [--registry=<檔>] [--source-root=<目錄>] [--status [--json] | --down | --unlock-owner=<token> | --check-cli]";
 
 type UpdateAction = "update" | "status" | "down" | "unlock" | "check-cli";
 
@@ -67,6 +77,8 @@ interface UpdateArgs {
   sourceRoot: string;
   registryPath: string;
   unlockOwner: string | null;
+  /** status 以一個 JSON object 輸出(只搭配 `--status`)。 */
+  json: boolean;
 }
 
 /** 一次指令可注入的東西:顯示名稱(別名)與檢查點(測試讓指定步驟中斷)。 */
@@ -83,12 +95,52 @@ const FLAG_ACTIONS: Readonly<Record<string, UpdateAction>> = {
   "--check-cli": "check-cli",
 };
 
+const JSON_FLAG = STATUS_JSON_FLAG;
+/** 會寫入(或不是 status)的動作旗標:不能與 `--json` 併用。 */
+const NON_STATUS_FLAGS: ReadonlySet<string> = new Set([
+  "--down",
+  "--check-cli",
+  "--unlock-owner",
+]);
+
+function flagOf(argument: string): string {
+  return argument.split("=", 1)[0] ?? "";
+}
+
+/**
+ * `--json` 只用於唯讀的 status。一般參數是「最後一個動作為準」,這裡在讀來源與連資料庫之前另外收緊:
+ * 不得混入其他動作、旗標不得重複(registry 的位置參數與 `--registry` 算同一個)、`--json` 不帶值。
+ * 失敗一律是固定代碼 `invalid-arguments`,不回顯參數。
+ */
+function assertJsonStatusArgs(argv: readonly string[]): void {
+  const seen = new Set<string>();
+  for (const argument of argv) {
+    const flag = argument.startsWith("--") ? flagOf(argument) : "--registry";
+    if (
+      (flag === JSON_FLAG && argument !== JSON_FLAG) ||
+      NON_STATUS_FLAGS.has(flag) ||
+      seen.has(flag)
+    ) {
+      throw new StatusJsonError("invalid-arguments");
+    }
+    seen.add(flag);
+  }
+  if (!seen.has("--status")) {
+    throw new StatusJsonError("invalid-arguments");
+  }
+}
+
 export function parseUpdateArgs(argv: readonly string[]): UpdateArgs {
+  const json = isStatusJsonRequest(argv);
+  if (json) {
+    assertJsonStatusArgs(argv);
+  }
   let action: UpdateAction = "update";
   let sourceRoot = PACKAGE_ROOT;
   let registryPath: string | null = null;
   let unlockOwner: string | null = null;
-  for (const argument of argv) {
+  // `--json` 已由 assertJsonStatusArgs 核對過,其餘照原本的規則解析
+  for (const argument of argv.filter((item) => item !== JSON_FLAG || !json)) {
     const [flag = "", ...rest] = argument.split("=");
     const value = rest.join("=");
     const flagAction = FLAG_ACTIONS[argument];
@@ -117,6 +169,7 @@ export function parseUpdateArgs(argv: readonly string[]): UpdateArgs {
     sourceRoot,
     registryPath: registryPath ?? defaultRegistry,
     unlockOwner,
+    json,
   };
 }
 
@@ -335,6 +388,32 @@ async function runStatus(args: UpdateArgs): Promise<void> {
   });
 }
 
+/**
+ * 唯讀:同 status 的查詢,輸出一個 JSON object(stdout 沒有其他文字)。
+ * 失敗只丟固定代碼(`StatusJsonError`),原始錯誤不往外帶。
+ */
+async function runStatusJson(args: UpdateArgs): Promise<void> {
+  const sources = await statusJsonStep("invalid-sources", () =>
+    loadUpdateSources(args.sourceRoot, args.registryPath),
+  );
+  const sourceCommit = resolveSourceCommit({
+    checkoutRoot: PACKAGE_ROOT,
+    sourceRoot: args.sourceRoot,
+    registryPath: args.registryPath,
+  });
+  const status = await statusJsonStep("query-failed", () =>
+    withDatabase(async (client) => {
+      const database = client.db();
+      return readUpdateStatus(
+        database,
+        await planUpdate(database, sources),
+        sourceCommit,
+      );
+    }),
+  );
+  print(JSON.stringify(status));
+}
+
 async function runUnlock(owner: string): Promise<void> {
   await withDatabase(async (client) => {
     const database = client.db();
@@ -351,7 +430,11 @@ export async function runUpdateCommand(
   argv: readonly string[],
   options: UpdateCommandOptions,
 ): Promise<void> {
-  const args = parseUpdateArgs(argv);
+  const args = isStatusJsonRequest(argv)
+    ? await statusJsonStep("invalid-arguments", () =>
+        Promise.resolve().then(() => parseUpdateArgs(argv)),
+      )
+    : parseUpdateArgs(argv);
   switch (args.action) {
     case "update": {
       await runUpdate(args, options);
@@ -362,7 +445,7 @@ export async function runUpdateCommand(
       return;
     }
     case "status": {
-      await runStatus(args);
+      await (args.json ? runStatusJson(args) : runStatus(args));
       return;
     }
     case "unlock": {
@@ -384,8 +467,13 @@ export async function runUpdateEntry(
   try {
     await runUpdateCommand(argv, options);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`${options.label} 失敗:${message}\n`);
+    if (isStatusJsonRequest(argv)) {
+      // `--json`:只寫固定代碼,不帶別名前綴與原始錯誤
+      process.stderr.write(`${statusJsonErrorLine(error)}\n`);
+    } else {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`${options.label} 失敗:${message}\n`);
+    }
     process.exitCode = 1;
   }
 }
