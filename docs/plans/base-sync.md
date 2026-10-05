@@ -10,7 +10,7 @@
 - [初始化操作](../agents/project-bootstrap.md)、[初始化索引](../project-initialization.md)、[品牌註冊表](../branding.md)、[部署](../deployment.md):專案值、設定來源與操作。
 - [Figma 資源](../branding.md#figma-現況盤點)、[品牌同步操作](../agents/toolbox.md#figma-品牌同步):Library、專案品牌補套與驗證紀錄。
 
-接手先讀 `CLAUDE.md`、[協作規則](../agents/collaboration.md)、負責的 issue 全文與留言。未定介面依 [issue tracker](../agents/issue-tracker.md) 固定規格後才進 Ready;本計畫不代表外部資源已建立或工具已啟用。完成的內容依 STRUCT-11 歸入既有正本並從本計畫移除。
+接手先讀 `CLAUDE.md`、[協作規則](../agents/collaboration.md)、負責的 issue 全文與留言。未定介面依 [issue tracker](../agents/issue-tracker.md) 固定規格後才進 Ready;未完成範圍以本計畫為準,現有工具與設計資源以正式文件及驗證產物為準。完成的內容依 STRUCT-11 歸入既有正本並從本計畫移除。
 
 ## F:正式版本升級、回收與整體演練
 
