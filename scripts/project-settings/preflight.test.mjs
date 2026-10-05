@@ -1,5 +1,5 @@
 /**
- * 發布前環境與累積資料差異(契約正本:docs/plans/base-sync.md「F1:發布前環境與累積資料差異」)。
+ * 發布前環境與累積資料差異(操作正本:docs/deployment.md「發布前環境與資料核對」)。
  * 目標 checkout 是真 Git;gcloud 與 migrator status 子行程是假實作(系統邊界)。
  */
 import assert from "node:assert/strict";

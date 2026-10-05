@@ -6,7 +6,7 @@
 
 ### 底座與引用專案
 
-正本:`docs/architecture.md`「底座與專案的維護歸屬」;Figma 資源見 `docs/branding.md`,操作見 `docs/agents/toolbox.md`。尚未完成的跨 repo 升級與回收見 `docs/plans/base-sync.md`。
+正本:`docs/architecture.md`「底座與專案的維護歸屬」;Figma 資源見 `docs/branding.md`,操作見 `docs/agents/toolbox.md`。跨 repo 升級與回收依 `docs/deployment.md`。
 
 **底座(Platform Base)**:
 

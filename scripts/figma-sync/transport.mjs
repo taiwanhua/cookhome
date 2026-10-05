@@ -4,7 +4,7 @@
  * 超量明確失敗,不裁切。codec={gzip,gunzip} 由呼叫端注入(Figma 端是同版純 JS,Node 端解壓走 zlib);
  * parts={bytes,envelope}:transport-bytes.mjs 的 UTF-8 / base64、transport-envelope.mjs 的固定預算(createEnvelopeLimits)。
  * 收件端的邊界驗證與組回(assemble)在 transport-receive.mjs,只有 Node 端使用。
- * 會被序列化進 Figma 執行。規格正本:docs/plans/base-sync.md「有界傳輸與完整性」。
+ * 會被序列化進 Figma 執行。傳輸協定見本檔匯出介面,操作見 docs/agents/toolbox.md「Figma 品牌同步」。
  */
 export function createTransport(contract, codec, parts) {
   const { digest, fail } = contract;

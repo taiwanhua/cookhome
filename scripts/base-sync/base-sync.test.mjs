@@ -1,5 +1,5 @@
 /**
- * base-sync 的驗收測試(契約正本:docs/plans/base-sync.md「F1:跨 repo 升級與回收」)。
+ * base-sync 的驗收測試(操作正本:docs/deployment.md「底座首次接軌與版本升級」)。
  * Git 全部真跑在隔離夾具;只有 gh 換成假實作(系統邊界)。
  */
 import assert from "node:assert/strict";

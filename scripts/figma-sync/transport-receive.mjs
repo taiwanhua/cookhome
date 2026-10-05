@@ -1,7 +1,7 @@
 /**
  * 有界傳輸的收件端純運算:生成碼輸入的壓縮、每個 envelope 的邊界驗證、接齊後組回原協定。只有 Node 端使用,不進生成碼。
  * transport 是 transport.mjs 的產生端(同一份 codec 與預算),rules 是 transport-envelope.mjs 的 createEnvelopeRules。
- * 無 Node / Figma I/O。規格正本:docs/plans/base-sync.md「有界傳輸與完整性」。
+ * 無 Node / Figma I/O。傳輸協定見本檔匯出介面,操作見 docs/agents/toolbox.md「Figma 品牌同步」。
  */
 export function createTransportReceiver(contract, transport, rules) {
   const { digest, fail } = contract;
