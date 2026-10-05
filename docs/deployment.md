@@ -59,6 +59,10 @@ release 後:dev / staging reset 對齊 main;進行中的 feat 分支 rebase 到�
 
 底座同步分支須保留上游版本的共同祖先,適用以下特例;一般功能分支仍依上節 rebase。
 
+日常升級由人員或 agent 呼叫 `node scripts/base-sync/run.mjs upgrade --project <專案路徑> --tag <正式版本> --worktree-root <工作樹父目錄>`;多個專案重複 `--project`。工具核對 repo 身分、正式 annotated tag/Release 與採用記錄,從各專案 `origin/main` 準備隔離分支,留下未提交的三方 merge 供審查。它不 push、開 PR、合併環境分支或部署。專案清單就是本次參數,不另外維護版本帳或中央名冊。
+
+重跑先核對來源、main 基線與既有工作樹;相符才回報目前狀態,不覆蓋整合中的內容。main 前進或同名 tag 改指其他內容時停止。所有 gh 指令明示 `--repo <owner/repo>`,避免同時存在 origin/upstream 時操作錯 repo。採用版本仍只記在 `package.json.wowgoBase`。
+
 1. 從引用專案已發布的 `origin/main` 建立升級分支。核對 `upstream` 指向底座 repo,以 `git fetch upstream --no-tags refs/tags/<版本>:refs/base/releases/<版本>` 取得指定版本,核對 tag 解析出的完整 commit。
 2. 一般三方合併該版本並保留 merge commit。依[維護歸屬](architecture.md#底座與專案的維護歸屬)審查**全部差異**,包含 Git 沒有報衝突的專案值;底座改了專案未修改過的預設值,也可能被自動套入。專案來源、品牌、前台、部署、seed 值與 Figma receipt 保留,契約新增必填值則明確補齊;receipt 衝突依 [toolbox](agents/toolbox.md#figma-品牌同步)重掃與驗證,不整份選 ours/theirs。
 3. 固定組裝入口、workflow 與共用文件逐段整合;不能整個排除治理頁或檔案。引用專案若有經審查的資料層相容差異,須保留精確範圍,不能擴成任意跳過租戶隔離。schema/hooks 與 lockfile 在人工來源整合後重產,已發布 migration/seed 快照維持原檔。
@@ -66,6 +70,30 @@ release 後:dev / staging reset 對齊 main;進行中的 feat 分支 rebase 到�
 5. 等待期間若 `main` 前進,從新 `main` **重建升級分支**,重新合併同一底座版本並驗證專案保留;不對含底座 merge 的分支跑一般 rebase,也不把 main 合入舊升級分支。
 
 升級 PR 記錄底座來源、tag、完整 commit、專案保留項與驗收結果。首次接軌須確認中性化沒有帶走引用專案的品牌、業務與設定;相對原 main 的程式差異只包含明列的共用修正。資料轉換依既有 migration/update,不以 reset 代替升級。底座 tag 以獨立 upstream ref 保存,不覆蓋引用專案自己的同名 tag。
+
+PR 另列新增能力、客製治理頁與 API/權限的相容性,以及 wildcard 對種子模板、既有租戶副本、個別角色的不同影響。Figma Library 接受與品牌補套屬同次驗收;沒有來源/scope 變更時沿用有效證據,不重跑首次全量搬遷。agent 完成整合、更新採用記錄並檢查 Base ancestry 後,使用既有 gh 開 draft PR;同 head 已有 PR 就更新它,由使用者審查接受與發布。
+
+### 共用改良回收
+
+先用 `node scripts/base-sync/run.mjs inspect --project <專案路徑> --from <基準commit> --to <目標commit>` 看完整差異與維護歸屬。共用路徑只是候選,仍須檢查是否含品牌、業務耦合、資料假設或客製行為,不等於已同意回收。
+
+選定後整理成只有共用改良的單一 commit,再執行 `node scripts/base-sync/run.mjs contribute --project <專案路徑> --commit <完整SHA> --base <底座路徑> --worktree-root <工作樹父目錄>`。工具以該 commit 的唯一 parent 為差異基準,從底座最新 `origin/main` 建 contribution 分支;含專案、混合或未知路徑、merge commit 時先停止。不能把整個專案歷史 merge 回底座,也不能改寫已發布 migration/seed 快照。
+
+agent 核對 exact diff、處理相容性並測試後,沿現有 PR 流程交底座審查。PR 記錄來源 repo/commit、通用性與驗證;接受回收不等於立即同步,須等納入底座正式 tag/Release,再向下升級。
+
+### 發布前環境與資料核對
+
+在乾淨、等於欲發布完整 SHA 的 checkout 執行:
+
+```bash
+node scripts/project-settings/preflight.mjs --environment <dev|staging|production> --target <完整SHA>
+```
+
+讀取器沿既有 `deploy/project` 設定、gcloud 登入與 DB 存取,分別讀 API/admin 真正承接流量的 revisions。Cloud Run 的 digest 由 Artifact Registry 相同 image/digest 的 tag 對回 Git;短 SHA 必須在此 repo 唯一解析。混合流量保留每個基準,無法解析或多個不同 commit 明列未核對。
+
+報告包含各基準到目標的全部累積差異,以及同 checkout 的 migrator JSON 狀態。API image 版本不是 DB 設定版本;資料更新可能在沒有部署 API 時執行,也可能部分失敗。agent 必須連同最後成功更新、後續嘗試、changelog、pending/open migration、未完成定義安裝與鎖閱讀,再列資料修改/刪除範圍、恢復限制與待人員判斷事項,不能只看本次 PR。
+
+exit 0 只表示報告已生成,**不是部署核准**。報告的 issues 仍可能包含存取不足、無成功資料基準、來源不符、未完成資料更新或未知版本。先解讀這些結果,再按 release SOP 與實際授權部署;不以空資料或歷史成功代替目前狀態,不以 reset 取代升級。Secret 值不寫入報告或版控。
 
 ### CI(ci.yml)
 
@@ -78,7 +106,7 @@ release 後:dev / staging reset 對齊 main;進行中的 feat 分支 rebase 到�
 **job 圖**:拆成多個 job,各佔一台 runner 並行,牆鐘最短優先。
 
 ```
-project-settings             專案部署設定與讀取器的測試 + 三環境解析(每次都跑,不看受影響清單)
+project-settings             專案設定、發布前核對與底座同步 CLI 測試 + 三環境解析(每次都跑)
 figma-sync                   建置 UI / project-config + Figma 同步離線測試(每次都跑,不碰 Figma)
 prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產物與 schema 一致(GQL-05)
          ├─ lint-typecheck   turbo run lint check-types
@@ -160,7 +188,7 @@ deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩
 
 **release 一批一次**:同一批票各自 PR 合進 `dev`、各自 PR 合進 `staging`,累積成一批之後才走一次 release(一個 `staging → main` 的 PR + 一次 production 部署)。`dev` 的部署也等該批最後一張合完才觸發,不要一張一部署。例外只有**產物依賴**:後面的票要拿前面的票已上線的產物才做得下去時,前面那張單獨先 release。
 
-每次都照這五步(票的看板狀態見 `docs/agents/issue-tracker.md`):
+每個環境部署前先依[發布前核對](#發布前環境與資料核對)讀取該環境到欲部署 commit 的累積差異與資料風險。每次照這五步(票的看板狀態見 `docs/agents/issue-tracker.md`):
 
 1. dev 的 CI 綠 → 要上線的 feat 分支**逐一** PR 合進 `staging`(PR 內文帶 `Refs #<票號>`,看板自動化才找得到票)。這批就是 `dev` 上的全部時,合完 `git diff --stat origin/dev origin/staging` 應為空。
 2. `gh workflow run Deploy --ref staging -f environment=staging` → 對 `api-staging` 打一個 smoke(例:登入 mutation 帶錯帳密,回 `INVALID_CREDENTIALS`)。
@@ -246,6 +274,12 @@ pnpm --filter @repo/db-migrator run update
 ```bash
 pnpm --filter @repo/db-migrator run migrate:status
 ```
+
+機器讀取用 `pnpm --silent --filter @repo/db-migrator run migrate:status --json`,或 `pnpm --silent --filter @repo/db-migrator run update --status --json`;`--silent` 避免 pnpm 的腳本說明混入 JSON。此模式只讀,不能與 down/unlock/reset 等寫入動作混用。輸出區分最近嘗試、最近成功的 update/reset、該基準後或與它重疊的其他執行,以及目前 applied/pending/orphaned/open migration、未完成定義安裝與鎖。沒有成功基準是未知,不是尚無待更新內容;有效完整 SHA 以外的 commit 記為 null。失敗查詢用非零 exit,不以空成功陣列代替。
+
+`sourceCommit` 只在執行來源與 registry 可證明屬於同一乾淨 checkout 時提供完整 HEAD;外部來源、未追蹤檔或未提交修改會使它為 null,不以環境變數猜測。失敗只輸出固定錯誤碼,不回顯原始例外。機器欄位正本是 [UpdateStatusJson](../apps/db-migrator/src/update/status-json.ts)。
+
+JSON 是現有資料的投影,不新增設定格式或版本帳。即使查詢成功,歷史 successful 仍不能證明目前資料完整;須連同後續 failed/down/reset 與現行 plan 解讀。發布前的完整流程見[環境與資料核對](#發布前環境與資料核對)。
 
 正常失敗會釋放鎖,修正原因後以相同來源重跑 `update`,接續原本的 migration context 及定義安裝紀錄。不要改寫已發布快照或以 reset 取代一般升級。若是現場草稿或內容漂移,先確認並處理差異,重跑不會強制覆蓋。
 
