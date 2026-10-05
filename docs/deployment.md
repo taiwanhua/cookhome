@@ -156,6 +156,8 @@ deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩
 
 雲端啟用的引用專案依下列步驟部署及驗收。底座或明確停用雲端的專案,仍走逐票 dev / staging PR 與同批 main release,但以 CI、本機應用與資料驗收代替未啟用的部署,在 PR 清楚記錄。停用的 Deploy 不算部署成功。底座程式發布另建立不可移動的 annotated tag 與 GitHub Release,記錄完整 commit;引用專案從該版本初始化或升級。
 
+涉及 Figma 的正式版本,Git Release 與 Library 發布描述互相指向,記錄完整 commit、fileKey、可核對的 Figma 版本連結、變更資產與實際接受範圍。資產身分見[品牌註冊表](branding.md),機器狀態見生成 receipt,不另建人工發布帳本。component key 是來源身分,不是版本鎖;發布內容再變時須重核實際狀態,不能以 Git tag 單獨證明已接受或可回退任意歷史 Library。
+
 **release 一批一次**:同一批票各自 PR 合進 `dev`、各自 PR 合進 `staging`,累積成一批之後才走一次 release(一個 `staging → main` 的 PR + 一次 production 部署)。`dev` 的部署也等該批最後一張合完才觸發,不要一張一部署。例外只有**產物依賴**:後面的票要拿前面的票已上線的產物才做得下去時,前面那張單獨先 release。
 
 每次都照這五步(票的看板狀態見 `docs/agents/issue-tracker.md`):
