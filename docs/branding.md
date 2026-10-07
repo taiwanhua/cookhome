@@ -110,6 +110,8 @@ A、B 的品牌六色與 `Shadow/Primary` 分別由既有 `createBrandFromPrimar
 
 [更新情境來源庫](https://www.figma.com/design/QTGmn0zLp2FoJmcWkdOCJM)提供隔離的元件、alias 與隱藏圖層更新。這些 TEST 檔案不充作正式底座或專案 Library。
 
+本機外掛的隔離檔是 [TEST — Local Brand Sync](https://www.figma.com/design/ZX7IkFkgkbMJ1e6tYZgOp5) 與 [TEST — Local Screens Sync](https://www.figma.com/design/cuXz54wNCRVdr3UiwxyVXv)。Screens 目前有一張由底座遠端 Button 與巢狀側欄實例組成的樣本；品牌庫與外掛換色、Library 更新仍待桌面版驗收，不屬正式專案資源。
+
 | 驗證範圍            | 可確認的行為與限制                                                                                                                                                           |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 元件與參考畫面      | 兩個品牌均核對全部共用 family、變體及參考畫面的受管顏色、陰影與來源。每套參考畫面含 2,923 個遠端實例、11,180 個節點及 71 處品牌陰影,精確色值與陰影檢查無未解析項。           |
