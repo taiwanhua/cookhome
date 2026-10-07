@@ -64,7 +64,7 @@ release 後:dev / staging reset 對齊 main;進行中的 feat 分支 rebase 到�
 重跑先核對來源、main 基線與既有工作樹;相符才回報目前狀態,不覆蓋整合中的內容。main 前進或同名 tag 改指其他內容時停止。所有 gh 指令明示 `--repo <owner/repo>`,避免同時存在 origin/upstream 時操作錯 repo。採用版本仍只記在 `package.json.wowgoBase`。
 
 1. 從引用專案已發布的 `origin/main` 建立升級分支。核對 `upstream` 指向底座 repo,以 `git fetch upstream --no-tags refs/tags/<版本>:refs/base/releases/<版本>` 取得指定版本,核對 tag 解析出的完整 commit。
-2. 一般三方合併該版本並保留 merge commit。依[維護歸屬](architecture.md#底座與專案的維護歸屬)審查**全部差異**,包含 Git 沒有報衝突的專案值;底座改了專案未修改過的預設值,也可能被自動套入。專案來源、品牌、前台、部署、seed 值與 Figma receipt 保留,契約新增必填值則明確補齊;receipt 衝突依 [toolbox](agents/toolbox.md#figma-品牌同步)重掃與驗證,不整份選 ours/theirs。
+2. 一般三方合併該版本並保留 merge commit。依[維護歸屬](architecture.md#底座與專案的維護歸屬)審查**全部差異**,包含 Git 沒有報衝突的專案值;底座改了專案未修改過的預設值,也可能被自動套入。專案來源、品牌、前台、部署、seed 值及 Figma Brand Library / Screens 身分保留,契約新增必填值則明確補齊;Figma 資源或檔案身分不符時依 [toolbox](agents/toolbox.md#figma-品牌同步)核對,不以 Git 合併覆蓋專案設計稿,也不整份選 ours/theirs。
 3. 固定組裝入口、workflow 與共用文件逐段整合;不能整個排除治理頁或檔案。引用專案若有經審查的資料層相容差異,須保留精確範圍,不能擴成任意跳過租戶隔離。schema/hooks 與 lockfile 在人工來源整合後重產,已發布 migration/seed 快照維持原檔。
 4. 依既有 PR 與環境流程驗收。各次合併使用 merge commit,以 `git merge-base --is-ancestor <底座commit> <結果commit>` 核對 ancestry;不得用 `merge -s ours`、squash 或 cherry-pick 代替向下同步。
 5. 等待期間若 `main` 前進,從新 `main` **重建升級分支**,重新合併同一底座版本並驗證專案保留;不對含底座 merge 的分支跑一般 rebase,也不把 main 合入舊升級分支。
@@ -122,7 +122,7 @@ prepare ─┬─ format-codegen   prettier --check(每次都跑)+ codegen 產�
 - **turbo 快取**:`.turbo/cache` 用 `actions/cache` 在 run 之間保存,每個跑 turbo 的 job 各一把 key(lockfile hash + job 名 + commit),找不到時退回同 lockfile 的最近一份;沒改到的 package 的 lint / typecheck / build 直接 `cache hit`。存回前刪掉 7 天前的項目,快取才不會無限長大;lockfile 一變就從頭累積。api 的 shard 不走 turbo(jest 直接吃 `@repo/domain` 原始碼),沒有快取。
 - **本機重現某一片**:api 是 `pnpm --filter @repo/api exec jest --shard=1/2`;admin 是 `pnpm --filter @repo/admin exec node --experimental-vm-modules node_modules/jest/bin/jest.js --shard=1/2`(要先有依賴的 dist)。不能寫成 `pnpm run test -- --shard=1/2`,參數會被 jest 當成路徑 pattern。
 - **跨程序建置依賴**:api 有變時也驗 db-migrator;它的測試透過 Turbo 先建置同一 checkout 的 API CLI 與依賴。migration 與種子快照的不可變檢查在 `prepare` 對照 Git 基線執行。
-- **Figma 同步**:`figma-sync` 獨立於 `prepare`,先建置 `@repo/ui` 與 `@repo/project-config`,再跑 `node --test scripts/figma-sync/*.test.mjs`;結果納入 `verify`。它不讀 Figma token、不操作設計檔,離線通過不代表 Library 已發布或專案已接受更新;實際操作見 [toolbox](agents/toolbox.md#figma-品牌同步)。
+- **Figma 同步**:`figma-sync` 獨立於 `prepare`,先建置 `@repo/ui` 與 `@repo/project-config`,再跑本機外掛與舊工具的離線測試(`scripts/figma-local/*.test.mjs`、`scripts/figma-sync/*.test.mjs`);結果納入 `verify`。CI 不讀 Figma token、不操作設計檔;離線通過不代表 Library 已發布或專案已接受更新。實際操作見 [toolbox](agents/toolbox.md#figma-品牌同步)。
 - **逾時**:`prepare` 10 分、`project-settings` / `verify` 5 分、`figma-sync` 15 分、`test-others` 30 分,其餘 20 分。
 - `build` job 起 api 時給假的 `JWT_SECRET`(api 缺它就啟動失敗)。
 
@@ -184,7 +184,7 @@ deploy / reset 的雲端目標與看板識別不寫在 workflow 裡,正本是兩
 
 雲端啟用的引用專案依下列步驟部署及驗收。底座或明確停用雲端的專案,仍走逐票 dev / staging PR 與同批 main release,但以 CI、本機應用與資料驗收代替未啟用的部署,在 PR 清楚記錄。停用的 Deploy 不算部署成功。底座程式發布另建立不可移動的 annotated tag 與 GitHub Release,記錄完整 commit;引用專案從該版本初始化或升級。
 
-涉及 Figma 的正式版本,Git Release 與 Library 發布描述互相指向,記錄完整 commit、fileKey、可核對的 Figma 版本連結、變更資產與實際接受範圍。資產身分見[品牌註冊表](branding.md),機器狀態見生成 receipt,不另建人工發布帳本。component key 是來源身分,不是版本鎖;發布內容再變時須重核實際狀態,不能以 Git tag 單獨證明已接受或可回退任意歷史 Library。
+涉及 Figma 的正式版本,Git Release 與 Library 發布描述互相指向,記錄完整 commit、fileKey、可核對的 Figma 版本連結、變更資產與實際接受範圍。資產身分見[品牌註冊表](branding.md),實際操作結果記在初始化或升級 PR,新流程不產生 receipt 或另建發布帳本。component key 是來源身分,不是版本鎖;發布內容再變時須重核實際狀態,不能以 Git tag 單獨證明已接受或可回退任意歷史 Library。
 
 **release 一批一次**:同一批票各自 PR 合進 `dev`、各自 PR 合進 `staging`,累積成一批之後才走一次 release(一個 `staging → main` 的 PR + 一次 production 部署)。`dev` 的部署也等該批最後一張合完才觸發,不要一張一部署。例外只有**產物依賴**:後面的票要拿前面的票已上線的產物才做得下去時,前面那張單獨先 release。
 

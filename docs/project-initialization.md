@@ -87,6 +87,6 @@ ROOT_ADMIN 輸入與欄位政策見[種子資料與遷移](concepts/data-layer-a
 
 ## 設計與開發工具
 
-- Figma 啟用時提供底座來源、本專案 Brand Library 與 Screens 的 fileKey、權限及維護者,登記見[品牌註冊表](branding.md);品牌值沿用 `projectPublic.brand`。操作見 [toolbox](agents/toolbox.md#figma-品牌同步),成功狀態在本專案 `deploy/project/figma/receipts/`。資源存在只算已建立,實際補套與連結驗證通過才是已驗證;來源 repo 的 receipt 不算本專案結果。未提供、停用與已驗證分開記錄。
+- Figma 啟用時提供底座來源、本專案 Brand Library 與 Screens 的 fileKey、權限及維護者,登記見[品牌註冊表](branding.md);品牌值沿用 `projectPublic.brand`。操作見 [toolbox](agents/toolbox.md#figma-品牌同步):用本機外掛套用品牌庫與 Screens 主色,原生發布/接受 Library,另處理陰影與品牌示例文字。資源存在只算已建立,本專案的代表畫面與元件連結驗證通過才是已驗證;不靠來源 repo 或舊 receipt 冒認結果。未提供、停用與已驗證分開記錄。
 - agent 入口為 `CLAUDE.md`,共同接手規則見 `docs/agents/collaboration.md`;必要設定不得僅存在某工具私有記憶。
 - skills、共用文件與專案文案的分離隨對應工作包維護。初始化 skill 指向[共同操作文件](agents/project-bootstrap.md),不能用「檔案都改完」取代完整建立/驗證紀錄。

@@ -1,6 +1,6 @@
 # Figma 本機品牌同步外掛
 
-這支外掛在 Figma 檔案內直接執行，沒有本機服務、token、MCP 程式碼傳輸或新的 receipt。品牌值只來自 `packages/project-config/src/project/public.ts`；`export-brand.mjs` 沿用 `scripts/figma-sync/brand.mjs` 的色盤與陰影算法。這是新流程的候選實作；正式操作仍以 [toolbox](../../docs/agents/toolbox.md#figma-品牌同步) 為準，直到隔離檔完成實際驗收。
+這支外掛在 Figma 檔案內直接執行，沒有本機服務、token、MCP 程式碼傳輸或新的 receipt。品牌值只來自 `packages/project-config/src/project/public.ts`；`export-brand.mjs` 沿用 `scripts/figma-sync/brand.mjs` 的色盤與陰影算法。正式操作與升級紀錄見 [toolbox](../../docs/agents/toolbox.md#figma-品牌同步)。
 
 ## 安裝與品牌庫
 
@@ -19,7 +19,7 @@ Screens 必須是**另一個檔案**，共用畫面引用底座已發布的遠�
 1. 在 Screens 的 Figma Library 面板啟用底座與本專案 Brand Library，先接受可用的 Library 更新。Plugin API 無法代替這個 UI 步驟。
 2. 開外掛，貼 Screens 網址中的 file key，選底座與專案 Library。先選一張代表畫面或目前頁面，按「檢查綁定」；確認例外為 0、遠端元件實例數與待處理數合理，再「補綁專案色」。完成後再檢查，待處理應為 0。
 3. 其餘需要套色的頁面同樣處理；初建可選「全部頁面」。外掛只處理**直接綁定**底座 `Brand`/`Color` 六個 primary 角色的 fill/stroke，保留私人變數、文字、圖、布局和元件實例關係。`Shadow/Primary` 在 Screens 用 Figma 原生 **Swap libraries** 換成專案品牌樣式。
-4. 核對一個 Primary Button、巢狀側欄和一張代表畫面：專案色、中文、變體、布局與遠端 Base 主元件連結。這是有變更時的代表性驗收；新/變更的角色或共用元件另選對應樣本，不必每次重掃全部畫面。
+4. 初建時另外覆寫品牌示例文字、商標與業務內容。核對一個 Primary Button、巢狀側欄和一張代表畫面：專案色與陰影、文字、變體、布局及遠端 Base 主元件連結。這是有變更時的代表性驗收；新/變更的角色或共用元件另選對應樣本，不必每次重掃全部畫面。
 
 底座發布新 Library 時，專案先依 `base-sync upgrade` 準備程式碼 PR，再在 Figma 接受對應 Library 更新、按受影響範圍重新檢查及補綁，將版本連結、file key 和代表畫面結果記在升級 PR。Library 版本與 Git tag 在發布說明互相指向；Git 合併不會自動讓 Figma 接受更新。
 
