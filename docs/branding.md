@@ -99,9 +99,9 @@
 
 各專案的品牌 Library 不占用底座 mode。底座 Brand 的 Default mode 是 `6:0`,Color 的 Light/Dark 與原有 variable key/value 保留;畫面統一設計 Light,不修改應用的亮暗切換。
 
-CookHome Brand Library 由 `projectPublic.brand` 生成兩個 Light 集合、十二個品牌變數及 `Shadow/Primary`;色盤與陰影推導沿用 `@repo/ui`。資產 keys 與驗證狀態由 [品牌庫 receipt](../deploy/project/figma/receipts/ZuPRBveUMzbnJeDCt7mFP3.json) 保存,不另手填六色。文字、商標、組織名稱、私人色與其他專案覆寫不屬品牌色補套。操作見 [Figma 品牌同步](agents/toolbox.md#figma-品牌同步)。
+CookHome Brand Library 由 `projectPublic.brand` 生成兩個 Light 集合、十二個品牌變數及 `Shadow/Primary`;色盤與陰影推導沿用 `@repo/ui`,不另手填六色。文字、商標、組織名稱、私人色與其他專案覆寫不屬品牌色補套。操作見 [Figma 品牌同步](agents/toolbox.md#figma-品牌同步)。
 
-首次接軌已依頁面盤點完成品牌補套;各受管位置及明示保留項目由[畫面補套 receipt](../deploy/project/figma/receipts/SvnBvi8Opfj8daJAclOnWW.json)記錄。前台母元件的品牌由實例繼承,正常繼承的位置保持未接管,不新增個別覆寫。後續接受 Library 更新後,依 [toolbox](agents/toolbox.md#figma-品牌同步)盤點受影響範圍並補套。
+首次接軌已依頁面盤點完成品牌補套;舊[品牌庫 receipt](../deploy/project/figma/receipts/ZuPRBveUMzbnJeDCt7mFP3.json)與[畫面補套 receipt](../deploy/project/figma/receipts/SvnBvi8Opfj8daJAclOnWW.json)保留為當時紀錄,不作新流程的必要輸入或當前狀態證明。前台母元件的品牌由實例繼承,正常繼承的位置保持未接管。後續接受 Library 更新後,依 [toolbox](agents/toolbox.md#figma-品牌同步)核對受影響範圍並補綁;結果記在升級 PR。
 
 ## 隔離品牌相容性測試
 
@@ -115,7 +115,32 @@ CookHome Brand Library 由 `projectPublic.brand` 生成兩個 Light 集合、十
 
 A、B 的品牌六色與 `Shadow/Primary` 分別由既有 `createBrandFromPrimary`、`createCustomShadows` 生成,不另維護人工六色表。兩個品牌庫各自使用 `POC Brand` → `POC Color`,每個集合只有一個 `Light` mode;專案品牌不占用底座 mode。這些主色僅供隔離測試。
 
-此測試證明可用每專案獨立品牌變數庫配合更新後補套,無須每個品牌占底座一個 mode;一次換庫不是永久全檔主題規則。此小型測試未涵蓋十個以上專案、新 token、刪除重建圖層或所有正式元件。通用工具操作見 [Figma 品牌同步](agents/toolbox.md#figma-品牌同步),完整隔離驗收見[底座品牌註冊表](https://github.com/taiwanhua/wowgo-base/blob/main/docs/branding.md#隔離品牌相容性測試);原生操作參考 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
+每專案獨立品牌變數庫不占用底座 mode;隔離測試的結果不等於 CookHome 正式設計檔已接受最新 Library。正式資產狀態以上述登記與當次升級 PR 為準。
+
+通用同步工具另有獨立的隔離資源,使用相同兩個測試主色,與上述相容性樣本分開保留。品牌庫由專案設定生成 `Brand` → `Color`,各只有 `Light`;操作見 [toolbox](agents/toolbox.md#figma-品牌同步),逐次驗收與可下載證據留在工具的 issue/PR。
+
+| 用途                   | A（primary `#1C4AD9`）                                                 | B（primary `#086B38`）                                                 |
+| ---------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 工具生成的品牌庫       | [A Brand Library](https://www.figma.com/design/Zs4sd4ZzBtlnCKPhkp1sJc) | [B Brand Library](https://www.figma.com/design/mp67nPCUGu2SSJ4H9s8bBt) |
+| 新實例、更新與恢復樣本 | [A Consumer](https://www.figma.com/design/ShB0MqNerAxd6yABCgOIMR)      | [B Consumer](https://www.figma.com/design/F5G0yUZO39tKltGdxJDosA)      |
+| 全元件與參考畫面副本   | [A Full Coverage](https://www.figma.com/design/JNKv4VNPRQm80m6XeimEoN) | [B Full Coverage](https://www.figma.com/design/AvDWlskqqRupYNBKUABw8M) |
+
+[更新情境來源庫](https://www.figma.com/design/QTGmn0zLp2FoJmcWkdOCJM)提供隔離的元件、alias 與隱藏圖層更新。這些 TEST 檔案不充作正式底座或專案 Library。
+
+本機外掛的隔離檔是 [TEST — scratch-lot Brand Library](https://www.figma.com/design/ZX7IkFkgkbMJ1e6tYZgOp5) 與 [TEST — Local Screens Sync](https://www.figma.com/design/cuXz54wNCRVdr3UiwxyVXv)。Brand Library 先以底座橘色、再以 scratch-lot `#FFD700` 套用,重預覽皆為 0 待處理;Screens 的 Button、巢狀側欄與代表畫面補綁 40 處專案色,回讀 137 個節點、41 個遠端實例,沒有剩餘底座主色綁定。專案名稱及 Button 陰影樣式分別以 Figma 原生操作改為 scratch-lot 與專案 `Shadow/Primary`。在同一 Screens 的獨立測試卡接受來源 Library 尺寸更新(157×48→173×56)後,遠端元件連結與專案金色綁定均保留。這些 TEST 檔案不屬正式專案資源。
+
+| 驗證範圍            | 可確認的行為與限制                                                                                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 元件與參考畫面      | 兩個品牌均核對全部共用 family、變體及參考畫面的受管顏色、陰影與來源。每套參考畫面含 2,923 個遠端實例、11,180 個節點及 71 處品牌陰影,精確色值與陰影檢查無未解析項。           |
+| Library 更新與變體  | 接受更新後可保留新幾何及元件連結;新增實例、切換變體或新增受管圖層仍可能帶入底座品牌,必須補套,一次 Swap library 不是永久主題規則。                                            |
+| 客製與語意保留      | 代表情境的文字、圖片、visible、圖示 swap、自訂色與專案變數保留;Primary 隨品牌變更,中性及 Error/Success 保持原語意。隱藏後代也納入檢查。                                      |
+| 新 token 與資產身分 | 缺少對照會阻擋同步;同名重建可由新 key 辨認,不能靠名稱或 HEX 自動配對。來源語意變動的辨認須結合累積補套紀錄與上層實例脈絡。                                                   |
+| 重跑與中斷          | 受控中斷後可重新盤點剩餘變更再續作;完成後重跑為零修改。隔離腳本證據與正式工具驗證分開保存。                                                                                  |
+| 部分接受與跨次發布  | 已驗部分接受、完整接受及跨兩次發布升級;必須核對實際接受的資產與頁面範圍,不能把 component key 或發布名稱當成版本鎖。                                                          |
+| 跨檔搬出            | Badge、Tab、Tabs 搬出後,含變體的 9 個來源 key 均改變;A、B 接受更新後仍連到搬移庫,各 12 個客製節點的受保護欄位逐欄一致。                                                      |
+| 跨檔搬回            | 原測試底座先接受全頁待更新內容,再剪貼、以 Move 發布並接受返程更新。Badge、Tab、Tabs 含變體的 9 個 key 重新登記;兩品牌各 3406 個實例無斷連或舊來源,各 12 個客製節點逐欄一致。 |
+
+未綁變數的 `logoImg` 固定橘色與部分導覽圖示固定色保留原樣;它們不會因 HEX 相同就被判定為受管品牌。搬移前須核對來源、目的及引用檔的全頁待更新內容;目的面板必須辨認為 Move,只有 Added 時不能冒稱保留連結。此測試證明元件返程,不代表任意 variable/style 都能搬移。正式同步仍須處理來源語意漂移與跨檔身分對照,品牌補套見 [toolbox](agents/toolbox.md#figma-品牌同步),版本交付見 [deployment](deployment.md#release-步驟)。原生換庫操作見 [Swap libraries](https://help.figma.com/hc/en-us/articles/4404856784663-Swap-libraries)。
 
 ## 資料
 
