@@ -91,6 +91,8 @@
 | help.md 有沒有被打包          | `pnpm --filter @repo/admin build` → `pnpm --filter @repo/admin check:help-bundle`                                                          | 新增 / 改 help.md 的票交件前跑;Dockerfile 也跑這一步                                                           |
 | 查套件最新版                  | `npm view <pkg> version`                                                                                                                   | 不照記憶寫版本號                                                                                               |
 
+新專案初始化驗證依賴順序分開跑:先建置共用套件,再對改到的 package 各跑 lint、型別、測試與 build。不要在本機以 `turbo run lint check-types test build --force` 同時重建與讀取同一份 `dist`:大量平行任務可能讀到建置中的產物或造成測試逾時。需跑全 repo 時按任務分階段,資源有限可用 `--concurrency=1`;正式 CI 的 job 與快取仍依其 workflow 執行。
+
 只跑一個測試檔一律用上表「單檔測試」的 `pnpm --filter <pkg> exec …` 寫法(本段是全 repo 的正本,其他文件指回這裡)。三個不要:
 
 - **不要 `pnpm run test -- <旗標> <路徑片段>`、`pnpm --filter <pkg> test -- …`**:pnpm 會把 `--` 原樣傳給 script,jest 把 `--` 之後的東西全當成路徑 pattern,旗標沒生效(輸出是 `Ran all test suites matching --maxWorkers=2|<路徑片段>`);api 會因此跑整包、十幾分鐘沒輸出像卡住。
@@ -190,7 +192,7 @@ GraphQL 文件登記負例用 `pnpm --filter @repo/graphql test:documents`,CI �
 
 `project-bootstrap` 在 `.claude/skills/` 與 `.agents/skills/` 都有版控入口,共用 [project-bootstrap.md](project-bootstrap.md) 的步驟;Claude 與 Codex 可各自接手新專案初始化,不依賴本機記憶或另一個工具。
 
-「用哪個」欄是在 Claude Code 裡的呼叫名稱。repo 自帶的三個 skill 放在 `.agents/skills/`(版本鎖在 `skills-lock.json`);repo 自製的 skill 放在 `.claude/skills/<名稱>/`。
+「用哪個」欄是在 Claude Code 裡的呼叫名稱。三個外部 skill 的版控來源在 `.agents/skills/`(版本鎖在 `skills-lock.json`),Claude 入口 `.claude/skills/<名稱>/` 是未版控的連結。新 clone、底座升級後與初始化重跑均在 repo 根執行 `node scripts/project-settings/restore-claude-skills.mjs`;Windows 建 junction,其他系統建目錄 symlink。重跑會檢查既有連結,遇到同名但來源不同的內容會停止,不覆寫。repo 自製的 Claude skill 放在 `.claude/skills/<名稱>/`;Codex 的 `module-scaffold` 入口另在 `.agents/skills/module-scaffold/` 指向共同操作文件。
 
 | 情境                                                 | 用哪個                                                        | 一句提醒                                                                                                     |
 | ---------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |

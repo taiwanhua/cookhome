@@ -36,6 +36,32 @@ admin (nginx / Cloud Run) ├─> api (NestJS / Cloud Run) ─> MongoDB
 
 值的用途與未設行為見 `docs/env-registry.md`,建立與驗證狀態依[初始化索引](project-initialization.md)記在 issue/PR。下文的 `project`、`example.invalid`、`<...>` 是操作示例,須換成該專案實際輸入。
 
+### 新專案的 GCP 基礎資源
+
+啟用雲端時先用**新專案自己的** GCP project、帳單帳戶、region、GitHub repo 和 service account 建立資源;識別填入 `deploy/project/cloud.json`。以下是目前 `deploy.yml` 的建立順序與 Bash 指令範例,已存在的資源先查現值,不要重建或沿用 CookHome 的身分。建立 GCP project、綁帳單帳戶及選擇預算金額由專案輸入決定。
+
+```bash
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com secretmanager.googleapis.com storage.googleapis.com cloudresourcemanager.googleapis.com compute.googleapis.com billingbudgets.googleapis.com --project=<gcp-project>
+gcloud artifacts repositories create <registry-repo> --repository-format=docker --location=<region> --project=<gcp-project>
+gcloud iam service-accounts create github-deployer --project=<gcp-project>
+gcloud projects add-iam-policy-binding <gcp-project> --member="serviceAccount:<deployer-sa>" --role=roles/run.admin
+gcloud projects add-iam-policy-binding <gcp-project> --member="serviceAccount:<deployer-sa>" --role=roles/artifactregistry.writer
+```
+
+`<deployer-sa>` 是剛建立的完整 email。`deploy.yml` 未指定 Cloud Run 的 `--service-account`:**新服務**初建使用該 GCP project 的預設 Compute Engine service account(`<project-number>-compute@developer.gserviceaccount.com`);既有服務以 `gcloud run services describe` 查實際執行身分,不可假設仍是預設值。部署 SA 要能代用執行身分;執行身分另需依下文取得 Secret、GCS 與 `signBlob` 權限。
+
+```bash
+gcloud projects describe <gcp-project> --format="value(projectNumber)"
+gcloud iam service-accounts add-iam-policy-binding <runtime-sa> --member="serviceAccount:<deployer-sa>" --role=roles/iam.serviceAccountUser --project=<gcp-project>
+gcloud iam workload-identity-pools create github --location=global --project=<gcp-project>
+gcloud iam workload-identity-pools providers create-oidc github-oidc --location=global --workload-identity-pool=github --issuer-uri="https://token.actions.githubusercontent.com" --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" --attribute-condition="assertion.repository=='<owner/repo>'" --project=<gcp-project>
+gcloud iam service-accounts add-iam-policy-binding <deployer-sa> --member="principalSet://iam.googleapis.com/projects/<project-number>/locations/global/workloadIdentityPools/github/attribute.repository/<owner/repo>" --role=roles/iam.workloadIdentityUser --project=<gcp-project>
+```
+
+`cloud.json.gcp.artifactRegistry` 填 `<region>-docker.pkg.dev/<gcp-project>/<registry-repo>`、`workloadIdentityProvider` 填 `projects/<project-number>/locations/global/workloadIdentityPools/github/providers/github-oidc`、`deployServiceAccount` 填 `<deployer-sa>`。WIF 僅信任該 repo,`deploy.yml` 的 `id-token: write` 取得短效 OIDC token;不建立服務帳戶金鑰。Secret 的讀取者與每環境授權見[下方步驟](#新增一個-secret-manager-機密的標準步驟),GCS 權限見 [GCS 段](#gcs-bucket-與-iam重建或加新環境時照此)。Cloud Run api/admin 服務由**首次手動 Deploy** 建立,不是此處預先建立。
+
+預算在選定帳單帳戶、金額與通知門檻後建立,例如 `gcloud billing budgets create --billing-account=<billing-account-id> --display-name="<project> budget" --budget-amount=<amount><currency> --filter-projects=projects/<gcp-project> --threshold-rule=percent=0.5 --threshold-rule=percent=0.9`。預算只通知、不會自動停止服務;建立後在 Billing 核對通知收件者與範圍。
+
 ## 二、分支模型與 CI/CD 流程
 
 ### 分支模型
@@ -88,6 +114,10 @@ agent 核對 exact diff、處理相容性並測試後,沿現有 PR 流程交底�
 ```bash
 node scripts/project-settings/preflight.mjs --environment <dev|staging|production> --target <完整SHA>
 ```
+
+初次雲端部署也要執行,每個環境各核對一次。新建空環境還沒有 Cloud Run 服務及資料更新基準時,`CLOUD_STATUS_UNAVAILABLE`、`DATA_BASELINE_MISSING` 可是預期結果;先確認服務與資料庫確實尚未初始化、記錄原因,並處理其他 issues,不能把所有 preflight 錯誤一概略過。首次 Deploy 完成後再核對 revision、資料更新與 smoke。
+
+preflight 要求工作目錄乾淨且 HEAD 等於 `--target`。若日常 checkout 有未追蹤工具檔,另用短路徑的 detached worktree 檢查完整 commit,不清掉原目錄的檔案。資料狀態讀取器會從同一 checkout 的 `apps/db-migrator` 解析 `tsx`,所以檢查工作樹須 `pnpm install --frozen-lockfile`；不需執行整個 repo build。Windows 建立工作樹前可在本 repo 設 `git config core.longpaths true`,工作樹路徑也要短,避免 `node_modules` 長路徑;移除時若檔案仍被程序使用,先關閉持有檔案的程序再處理,不要強制清掉原工作樹。跨工具本機狀態 `.codex/` 已排除追蹤,外部 skill 的 Claude 連結由還原指令建立;仍須檢查 `git status --short` 的實際結果。
 
 讀取器沿既有 `deploy/project` 設定、gcloud 登入與 DB 存取,分別讀 API/admin 真正承接流量的 revisions。Cloud Run 的 digest 由 Artifact Registry 相同 image/digest 的 tag 對回 Git;短 SHA 必須在此 repo 唯一解析。混合流量保留每個基準,無法解析或多個不同 commit 明列未核對。
 
@@ -420,6 +450,8 @@ gcloud secrets add-iam-policy-binding <名稱>-dev --member="serviceAccount:<上
 
 三個環境各跑一次。
 
+首次部署前,每個環境的 `mongodbUri`、`fieldEncryptionKey`、`rootAdminPassword`、`jwtSecret` 指向的 Secret **都要有可讀取的版本**,只有建立 Secret 名稱不夠。`resendApiKey` 有寄信服務時填 Secret 名稱並建立版本;未啟用時在 `cloud.json` 的該欄填 `null`,部署不掛 `RESEND_API_KEY`,API 沿用記錄用 mail adapter。啟用後改回 Secret 名稱、授權執行身分並部署;不能填不存在版本的名稱。Cloud Run 執行身分讀前三項中的 `mongodbUri`、`fieldEncryptionKey`、`jwtSecret` 與啟用時的 `resendApiKey`;部署 SA 讀 `mongodbUri`、`rootAdminPassword` 以執行資料更新。
+
 **4. 接線**(走 PR):secret 名稱登記在 `deploy/project/cloud.json` 各環境的 `secrets`,讀取器(`scripts/project-settings/config.mjs`)的欄位與固定輸出鍵同步加一個,並補測試。Cloud Run 用的 → deploy.yml「deploy api」步驟的 `env:` 接該輸出、`--set-secrets` 追加 `<環境變數名>=$<變數>:latest`;CI 步驟用的 → 該步驟 `gcloud secrets versions access latest --secret="$<變數>"`。
 
 **5. 登記**:更新 `docs/env-registry.md`(狀態、secret 名稱、讀取身分)與本檔「資源清單」。
@@ -481,10 +513,16 @@ gcloud storage buckets describe gs://project-assets-dev --format="value(cors_con
 
 ### Vercel 補充設定
 
+- **兩個 Vercel 專案**:front 連此 repo 並選 Root Directory `apps/front`,依既有 workspace 建置 Next.js;Storybook 另建專案,Root Directory `apps/storybook`,build 後 Output Directory `storybook-static`。兩者都需要 repo 根的 workspace 套件,若 Vercel 沒自動讀到 Root Directory 外的來源,啟用「Include source files outside of the Root Directory in the Build Step」。首次部署實際核對 monorepo 依賴可安裝、各自 build 成功,不要把 Storybook 當 front 的子路由。
+- **前台環境值**:`NEXT_PUBLIC_GRAPHQL_ENDPOINT` 的 Production 指向正式 API;Preview 可對 `staging` 分支指定預發布 API,其他 Preview 分支指向 dev API。三種目標分別預覽並檢查請求位置,避免把 Preview 指到 production。
 - **分支網域**:`dev.project.example.invalid` → branch `dev`、`staging.project.example.invalid` → branch `staging`(示例)(Settings → Domains,各綁 Git Branch);api / admin 的 dev / staging 子網域走 Cloud Run domain mapping(`api-dev`、`erp-dev`、`api-staging`、`erp-staging`,Cloudflare 灰雲 CNAME → ghs.googlehosted.com)。
 - **Deploy Hooks**(Settings → Git 最下方):`dev-front`、`staging-front`。對 hook URL 發 POST 即可**不靠 commit** 重 build 該分支的 front(Vercel 會跳過無檔案變更的 commit,分支剛建立或只想重烘時用這個)。
 - **Deployment Protection**:由專案按測試環境需求設定,與 API/admin 的存取方式一起驗證。
 - 三環境 admin image 烘入各自 `cloud.json` 的 `apiUrl`,可使用專案的自訂子網域。
+
+Cloud Run 自訂網域映射前,用執行映射的**同一 Google 帳號**於 Search Console 驗證網域擁有權,並確認 `gcloud domains list-user-verified --project=<gcp-project>` 能列出該網域;再建立 mapping、設定 DNS、等待憑證可用。若 root 管理員信箱使用新專案網域,須先在該網域配置收信或轉寄(例如 Cloudflare Email Routing),再寄送邀請或重設密碼信。
+
+MongoDB Atlas 每環境建立獨立 DB 使用者,只給該環境資料庫的 `readWrite` 權限;URI 指向對應資料庫,資料庫於首次寫入建立。Cloud Run 預設對外 IP 可能變動,Atlas Network Access 必須允許實際出口:有固定出口時用該 IP 的狹窄 allowlist;未配置固定出口而選擇 `0.0.0.0/0` 時,要由專案明確接受公開網路入口,並維持強密碼、TLS、每環境獨立帳號與最小權限。不要把來源專案的 Atlas 帳號或網路規則複製過來。
 
 ## 五、安全與費用備忘
 
