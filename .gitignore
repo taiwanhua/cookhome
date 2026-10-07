@@ -40,3 +40,6 @@ apps/e2e/test-results
 
 # figma-sync 的暫存 run(request / inventory / plan / attempt 與生成 JS);成功狀態另存 deploy/project/figma/receipts/、要 commit
 .artifacts/figma-sync/
+
+# 本機 Figma 外掛的可丟棄品牌 JSON 與測試截圖
+.artifacts/figma-local/
