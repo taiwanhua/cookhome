@@ -148,6 +148,8 @@ GraphQL 文件登記負例用 `pnpm --filter @repo/graphql test:documents`,CI �
 
 ## Figma 品牌同步
 
+較短的本機外掛流程正在隔離驗收，使用方式與目前限制見 [figma-local README](../../scripts/figma-local/README.md)。完成 Figma 桌面版實測前，本節仍是正式操作正本；不要把新外掛的離線測試當成正式設計稿已同步。
+
 本節是操作正本。工具以 `projectPublic.brand` 為唯一人工品牌輸入,沿用 `@repo/ui` 的色盤及陰影推導,處理六個主色角色的 fill/stroke 與 `Shadow/Primary`。一般文字樣式、圓角、其他變數與首次移檔不由品牌補套代辦。實際檔案用途、引用權限與正式 Library 狀態見[品牌註冊表](../branding.md),維護規則見 [Figma 規範](../standards/general/figma.md);TEST 成功不能當成正式拆分完成。
 
 日常驗證依受影響的元件、品牌角色與使用範圍選取 scope,並檢查代表畫面;共用結構或全域 tokens 變更時再擴大範圍。未受影響且仍適用的既有證據可沿用,不每次重跑首次全檔盤點或隔離 TEST 全套,也不將未重掃的範圍標成當次已驗。每次實際寫入仍須通過原有前置檢查及完整回讀、`record` 驗證;縮小範圍不省略保護檢查。
