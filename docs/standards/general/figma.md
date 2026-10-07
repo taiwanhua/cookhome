@@ -94,9 +94,9 @@ Figma MCP 的 `get_design_context(nodeId)` 對「頁(canvas)」的 id 會直接�
 
 底座治理、表單、流程與示範模組的中性參考畫面位於 wowgo-base Design System,節點索引見[底座 FIGMA-09](https://github.com/taiwanhua/wowgo-base/blob/v0.2.0/docs/standards/general/figma.md#底座後台參考畫面)。參考畫面與下表的 CookHome 畫面分別維護,不能用底座節點 ID 操作專案檔案。
 
-### CookHome 專案畫面
+### CookHome 舊檔節點
 
-下表使用 [CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW) 的節點。修改專案畫面時保留元件實例連結,共用元件回到底座維護。
+下表是保留的 [CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW) 舊檔節點。現行後台畫面位於 [CookHome Screens](https://www.figma.com/design/Wi9DIhrSILy2bj9nqXb051)；兩檔節點 id 不可混用。修改現行畫面時保留元件實例連結,共用元件回到底座維護。
 
 | 頁(頁 id)                         | 節點                                            | 節點 id                               | 內容                                                                                                                                                                                                                                                        |
 | --------------------------------- | ----------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
