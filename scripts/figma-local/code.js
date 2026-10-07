@@ -360,7 +360,12 @@ async function analyzeScreens(options) {
         issues.push({ code: "INSTANCE_SOURCE_MISSING", nodeId: node.id });
     }
     for (const prop of ["fills", "strokes"]) {
+      if (!(prop in node)) continue;
       const paints = node[prop];
+      if (paints === figma.mixed) {
+        issues.push({ code: "MIXED_PAINTS", nodeId: node.id, prop });
+        continue;
+      }
       if (!Array.isArray(paints)) continue;
       for (let index = 0; index < paints.length; index += 1) {
         const paint = paints[index];
