@@ -81,7 +81,7 @@
       >檢查範圍
       <select id="scope">
         <option value="selection">目前選取</option>
-        <option value="page">目前頁面</option>
+        <option value="page" selected>目前頁面</option>
         <option value="all">全部頁面</option>
       </select></label
     >
@@ -196,7 +196,11 @@
           );
         } else if (message.type === "error") {
           busy(false);
-          status(`已停止：${message.code}。請重新預覽目前狀態後再操作。`, true);
+          const advice =
+            message.code === "SELECTION_EMPTY"
+              ? "請在「檢查範圍」選「目前頁面」，或先在畫布選物件。"
+              : "請重新預覽目前狀態後再操作。";
+          status(`已停止：${message.code}。${advice}`, true);
         }
       };
       post("init");
