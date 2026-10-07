@@ -39,10 +39,15 @@
 
 正式設計檔位於 Wowgo 團隊的 [Design system](https://www.figma.com/files/team/963068133549518258/project/28668795)。
 
-| 檔案                                                                            | fileKey                  | 目前用途                                                     |
-| ------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------ |
-| [CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)   | `SvnBvi8Opfj8daJAclOnWW` | CookHome 品牌與業務畫面;共用元件引用 wowgo-base Library      |
-| [wowgo-base Design System](https://www.figma.com/design/XKQ18kf6SkfAQYk7GmBkk5) | `XKQ18kf6SkfAQYk7GmBkk5` | 共用元件與後台殼 Library;51 組元件與 15 頁治理及示範參考畫面 |
+| 檔案                                                                              | fileKey                  | 目前用途                                                                         |
+| --------------------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------- |
+| [wowgo-base Design System](https://www.figma.com/design/XKQ18kf6SkfAQYk7GmBkk5)   | `XKQ18kf6SkfAQYk7GmBkk5` | 共用元件與後台殼 Library;51 組元件與 15 頁治理及示範參考畫面                     |
+| [wowgo-base Screens Starter](https://www.figma.com/design/t80RWevFt8yezd0Bue9aGJ) | `t80RWevFt8yezd0Bue9aGJ` | 新專案取用的中性後台 Screens;15 頁、96 張參考畫面，共用元件維持遠端 Library 實例 |
+| [CookHome Design System](https://www.figma.com/design/SvnBvi8Opfj8daJAclOnWW)     | `SvnBvi8Opfj8daJAclOnWW` | CookHome 品牌與業務畫面;共用元件引用 wowgo-base Library                          |
+
+底座維護共用元件、字型、固定語意色、圓角、陰影與後台參考畫面。Screens Starter 只含中性後台畫面，使用底座變數、陰影樣式與遠端元件實例；新專案從它逐頁複製內容到自己的 Screens 檔。CookHome 保留自己的品牌、業務畫面與實例覆寫，不因底座升級改用 Starter 覆蓋既有檔案。
+
+底座 Library 的 Figma 發布版本與 Git tag 在 GitHub Release 互相指向；專案接受 Library 更新的範圍與代表畫面結果記在升級 PR，不另產生 receipt。
 
 [CookHome Brand Library](https://www.figma.com/design/ZuPRBveUMzbnJeDCt7mFP3)(`ZuPRBveUMzbnJeDCt7mFP3`)是專案品牌資產的獨立檔,已發布由程式產生的色彩與品牌陰影。共用元件及專案畫面的節點分別列於 FIGMA-09 與下表;node ID 必須搭配所屬檔案使用。
 
