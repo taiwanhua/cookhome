@@ -50,11 +50,24 @@ export class Form {
   /**
    * 頁籤 / 標題模板(`{{名稱}}` 佔位符,套法是 `@repo/domain/form` 的 `renderTemplate`,前端從那筆的值即時算):
    * 摘要槽 `{{title}}` / `{{date}}` / `{{amount}}`、欄位值 `{{value.<欄位key>}}`、
-   * 系統 `{{applicant}}` / `{{form}}` / `{{module}}` / `{{action}}`(清單正本 admin 的 `lib/form-engine/tab-label.ts`)。
+   * 系統 `{{applicant}}` / `{{form}}` / `{{module}}` / `{{action}}`(清單正本 admin 的 `lib/base/form-engine/tab-label.ts`)。
    * null = 用模組層模板。
    */
   @Prop({ type: String, default: null })
   tabLabelTemplate!: string | null;
+
+  /**
+   * 允許存草稿(表單設定;`docs/modules/forms.md`「表單設定」):關掉時新增 / 編輯頁不顯示 [存草稿],
+   * `createFormDraft` 與對草稿的 `saveFormDraft` 回 `FORBIDDEN`(`DRAFT_DISABLED`),只能直接送出。
+   * 缺席(這個設定之前建的表單)= 開;一律用 `allowsDraft()` 讀。
+   */
+  @Prop({ type: Boolean, default: true })
+  allowDraft?: boolean;
+}
+
+/** 表單允不允許存草稿:缺席(舊資料)視為開。 */
+export function allowsDraft(form: { allowDraft?: boolean | null }): boolean {
+  return form.allowDraft !== false;
 }
 
 // 由 class 產生 Mongoose Schema(供 MongooseModule 註冊為 model,並掛下方索引)
