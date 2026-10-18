@@ -96,7 +96,7 @@ export interface AuthWorldOptions {
   modules?: TestModule[];
   /** `me.id`(預設 `testUser.id`);換人登入、依使用者分把的儲存鍵用 */
   userId?: string;
-  /** 所屬組織清單(預設只有平台根組織);當前組織預設 = 第一個(#66 組織切換器) */
+  /** 所屬組織清單(預設只有平台根組織);當前組織預設 = 第一個(組織切換器用) */
   orgs?: TestOrg[];
   /** 當前組織的商標網址(側欄有商標就顯示圖、沒有才顯示名稱);預設沒有 */
   currentOrgLogoUrl?: string | null;

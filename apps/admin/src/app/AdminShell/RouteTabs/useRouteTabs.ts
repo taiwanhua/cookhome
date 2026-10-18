@@ -29,7 +29,7 @@ export interface RouteTabsState {
 }
 
 /**
- * 路由頁籤列的狀態(#67):把 `useRouteTabsStore` 接上目前的使用者、路由集合與網址,並把「關閉當前 tab」的落點轉成導向。
+ * 路由頁籤列的狀態:把 `useRouteTabsStore` 接上目前的使用者、路由集合與網址,並把「關閉當前 tab」的落點轉成導向。
  * 狀態本體在 store(zustand + sessionStorage);登出會卸載殼,換帳號登入時殼重新 mount、重新 `bind` 到新的一把 key。
  */
 export const useRouteTabs = ({

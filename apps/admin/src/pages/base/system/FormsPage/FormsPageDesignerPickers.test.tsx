@@ -362,7 +362,7 @@ describe("表單管理:型別導向的表達式選擇器", () => {
       "運算",
     ]);
     await user.keyboard("{Escape}");
-    // 三種單位都開放(#482:天 = 日曆日、小時 / 分鐘 = 精確差)
+    // 三種單位都開放(天 = 日曆日、小時 / 分鐘 = 精確差)
     expect(await openSelect(user, "單位", formula)).toEqual([
       "天",
       "小時",

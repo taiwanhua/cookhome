@@ -65,12 +65,12 @@ export const DEMO_SUB_GROUP_FORM_MODULE_KEY = "demo.sub.form";
 export const baseModulePages: ModulePageSource = {
   pages: [
     { key: OVERVIEW_MODULE_KEY, Page: OverviewPage },
-    // 示範模組1 四個 key = 四頁(#320);新增與編輯是**同一個共版型元件**,情境由 `module.key` 判斷
+    // 示範模組1 四個 key = 四頁;新增與編輯是**同一個共版型元件**,情境由 `module.key` 判斷
     { key: SAMPLE_ONE_MODULE_KEYS.list, Page: SampleOnePage },
     { key: SAMPLE_ONE_MODULE_KEYS.viewPage, Page: SampleOneViewPage },
     { key: SAMPLE_ONE_MODULE_KEYS.createPage, Page: SampleOneFormPage },
     { key: SAMPLE_ONE_MODULE_KEYS.editPage, Page: SampleOneFormPage },
-    // 示範模組2 四個 key = 四頁(#321);與示範模組1 同一組共用元件,差別只在設定物件
+    // 示範模組2 四個 key = 四頁;與示範模組1 同一組共用元件,差別只在設定物件
     { key: SAMPLE_TWO_MODULE_KEYS.list, Page: SampleTwoPage },
     { key: SAMPLE_TWO_MODULE_KEYS.viewPage, Page: SampleTwoViewPage },
     { key: SAMPLE_TWO_MODULE_KEYS.createPage, Page: SampleTwoFormPage },

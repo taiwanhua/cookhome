@@ -105,7 +105,7 @@ function readerOf(
     currentOrgId,
     visibleOrgIds: "all",
     managedOrgIds: "all",
-    // 權限解析只碰非租戶資料,走不到資料範圍規則(ADR-0008);明寫空集合(#246 的 6)
+    // 權限解析只碰非租戶資料,走不到資料範圍規則(ADR-0008);明寫空集合
     memberOrgIds: [],
     roleIds: [],
   };

@@ -33,7 +33,7 @@ export interface RouteTabsStoreState extends RouteTabsPersisted {
     currentSearch?: string,
   ) => void;
   /**
-   * 詳情子頁籤的項目名(#428;「模組名 — 項目名」的後半):頁面拿到資料後經 `hooks/base/useRouteTabItemLabel` 呼叫,
+   * 詳情子頁籤的項目名(「模組名 — 項目名」的後半):頁面拿到資料後經 `hooks/base/useRouteTabItemLabel` 呼叫,
    * 同名不寫回、不通知。`route` 是該頁的完整網址(已正規化)。
    */
   setItemLabel: (route: string, itemLabel: string) => void;
@@ -50,7 +50,7 @@ export interface RouteTabsStoreState extends RouteTabsPersisted {
   ) => string | null;
   move: (fromRoute: string, toRoute: string) => void;
   /**
-   * 清空頁籤並刪掉目前這把 key 的存檔(#375:其他分頁登出或換了帳號時,不把上一個人的頁籤留在這個分頁)。
+   * 清空頁籤並刪掉目前這把 key 的存檔(其他分頁登出或換了帳號時,不把上一個人的頁籤留在這個分頁)。
    * 換帳號後由殼重新 `bind(新的 userId)`。
    */
   reset: () => void;
@@ -75,7 +75,7 @@ const storage: PersistStorage<RouteTabsPersisted> = {
 };
 
 /**
- * 路由頁籤列的狀態(#67;REACT-02 zustand + persist):進入模組路由即生成 tab、以路由去重;每個 tab 記「路徑 + 網址參數」;
+ * 路由頁籤列的狀態(REACT-02 zustand + persist):進入模組路由即生成 tab、以路由去重;每個 tab 記「路徑 + 網址參數」;
  * 關閉當前 tab 切到相鄰;順序可調;
  * 保留在 sessionStorage(同一分頁重新整理後還在,關掉分頁即清),每個使用者一把 key。
  * 純函式(`syncEntries` / `closeEntry` / `moveEntry`)在 `lib/base/route-tabs.ts`;這裡只負責狀態、寫回與通知。

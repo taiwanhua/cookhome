@@ -149,10 +149,10 @@ interface MeData {
 }
 
 /**
- * 角色管理的清單 / CRUD / 刪除前置 / 停用連動(#203;規則正本 docs/modules/role-manager.md)。
+ * 角色管理的清單 / CRUD / 刪除前置 / 停用連動(規則正本 docs/modules/role-manager.md)。
  * 打真的 GraphQL 端點、對真 MongoDB(TEST-07)。
  */
-describe("角色管理:清單與 CRUD(#203,GraphQL 端點 + 真 MongoDB)", () => {
+describe("角色管理:清單與 CRUD(GraphQL 端點 + 真 MongoDB)", () => {
   let world: RolesWorld;
   let connection: Connection;
   let manager: Manager;
@@ -282,7 +282,7 @@ describe("角色管理:清單與 CRUD(#203,GraphQL 端點 + 真 MongoDB)", () =>
       expect(page.items[0]?.name).toBe("夜班值勤");
     });
 
-    it("ownerOrgId 只留擁有組織正好是它的角色,不含子樹(#246 的 3)", async () => {
+    it("ownerOrgId 只留擁有組織正好是它的角色,不含子樹", async () => {
       const onDeptTwo = await createRole(world.api.app, connection, {
         name: "篩選用:部門二的角色",
         ownerOrgId: world.deptTwo,

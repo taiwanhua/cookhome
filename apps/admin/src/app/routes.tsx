@@ -18,7 +18,7 @@ import { RequireAuth } from "./guards/RequireAuth";
 import { modulePageMinWidths, modulePages } from "./module-pages";
 
 /**
- * 路由表(#61「admin — 三頁與殼」):
+ * 路由表(admin 的三頁與殼):
  * - 公開:/login、/forgot-password、/set-password(登入線7)
  * - 已登入者的 /change-password(首登強改也走它;守門在 RequireAuth)
  * - 受保護:殼(`AdminShell`)包住 `/` 與所有模組路由;路由由 `me.modules` 決定(ADR-0011「路由與導向規則」):

@@ -96,7 +96,7 @@ const categoryForm = () =>
 const errorsOf = (result: { errors?: unknown }): unknown => result.errors;
 
 /**
- * 填寫端的類別選項與定義投影(#469):
+ * 填寫端的類別選項與定義投影:
  * 真 GraphQL + 真 MongoDB(TEST-07)。
  */
 describe("formFieldOptions 與 formRuntimeVersion 的讀者投影", () => {
