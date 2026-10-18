@@ -98,7 +98,7 @@ export class OperatorContextService {
         ? currentOrgId
         : (memberOrgs[0]?.id ?? null);
 
-    // 依序讀(TX-02):B5 自動通過在推進的交易內以審核者本人的身分跑守門,也走這裡
+    // 依序讀(TX-02):自動通過在推進的交易內以審核者本人的身分跑守門,也走這裡
     const visibleOrgIds = await this.visibleOrgIdsOf(
       reader,
       memberOrgDocuments,

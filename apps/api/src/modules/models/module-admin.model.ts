@@ -42,7 +42,7 @@ export class PermissionAdmin {
  * `api` 權限樹,也含已停用的模組與權限;停用與否一律以 `enabled` 表示,不以「不回」表示。
  *
  * `isRootOnly` 只存在於 seed 宣告層、不落庫(`apps/db-migrator/seeds/base/module-declaration.ts`),
- * 執行期無從得知,故本型別不回該欄位(Spec #201 Interface design 已載明)。
+ * 執行期無從得知,故本型別不回該欄位(#201 Interface design 已載明)。
  */
 @ObjectType()
 export class ModuleAdminNode {

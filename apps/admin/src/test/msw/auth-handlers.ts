@@ -350,7 +350,7 @@ export const authWorld = (options: AuthWorldOptions = {}): AuthWorld => {
       mustChangePassword = false;
       return HttpResponse.json({ data: { changePassword: { success: true } } });
     }),
-    // 個人偏好(規格 10.6):只讀寫自己的、不看權限;未登記的 key 回 VALIDATION_FAILED(api 只登記 locale)
+    // 個人偏好:只讀寫自己的、不看權限;未登記的 key 回 VALIDATION_FAILED(api 只登記 locale)
     api.query("MyPreferences", ({ request }) => {
       calls.myPreferences += 1;
       return (

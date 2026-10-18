@@ -6,7 +6,7 @@ import {
 import { type ShellModule, matchModuleRoute } from "./module-tree";
 
 /**
- * 一筆路由頁籤的紀錄(#67;dis #15:以路由 id 去重)。持久化到 sessionStorage 的就是這個形狀(`[{ route, itemLabel?, search? }]`),
+ * 一筆路由頁籤的紀錄(#67;以路由 id 去重)。持久化到 sessionStorage 的就是這個形狀(`[{ route, itemLabel?, search? }]`),
  * 模組名一律回頭從 `me.modules` 解析,權限或名稱變了不會留下舊字;存下來的只有頁面給的 `itemLabel` 與網址參數 `search`。
  */
 export interface RouteTabEntry {
@@ -21,7 +21,7 @@ export interface RouteTabEntry {
    */
   itemLabel?: string;
   /**
-   * 這個頁籤記下的網址參數(含開頭的 `?`;規格 10.1「頁籤記住網址參數」):頁面以 `useUrlState` 寫進網址的篩選、頁碼、頁內分頁。
+   * 這個頁籤記下的網址參數(含開頭的 `?`):頁面以 `useUrlState` 寫進網址的篩選、頁碼、頁內分頁。
    * 切回這個頁籤、從側欄點同一頁時帶回去;沒有參數(= 預設條件)時不存這個欄位。
    */
   search?: string;
@@ -114,7 +114,7 @@ const isEnterable = (
  * (= 進入路由即生成 tab;重複進入不重複生成)。`/`、群組路由、無權限頁都不在集合內,不生成。
  * 詳情 / 編輯頁的 `/…/view-page/<id>` 也算能進(#428):每一筆各生成一個子頁籤。
  *
- * 目前路徑的頁籤同時記下目前的網址參數(`currentSearch`,規格 10.1):改篩選、切頁內分頁、用帶參數的網址打開
+ * 目前路徑的頁籤同時記下目前的網址參數(`currentSearch`):改篩選、切頁內分頁、用帶參數的網址打開
  * (原本的條件直接換掉)、參數被清掉,都以網址為準。沒變化就回原陣列內容(逐筆同參考)。
  */
 export const syncEntries = (

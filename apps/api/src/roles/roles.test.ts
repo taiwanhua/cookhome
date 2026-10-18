@@ -308,11 +308,11 @@ describe("角色管理:清單與 CRUD(#203,GraphQL 端點 + 真 MongoDB)", () =>
 
     it("ownerOrgId 與 keyword 可疊加", async () => {
       await createRole(world.api.app, connection, {
-        name: "疊加測試:早班值勤",
+        name: "疊加測試:日間值勤",
         ownerOrgId: world.deptTwo,
       });
       await createRole(world.api.app, connection, {
-        name: "疊加測試:早班巡檢",
+        name: "疊加測試:日間巡檢",
         ownerOrgId: world.deptOne,
       });
       const page = await listAs(manager.token, {
@@ -321,7 +321,7 @@ describe("角色管理:清單與 CRUD(#203,GraphQL 端點 + 真 MongoDB)", () =>
         pageSize: 100,
       });
       expect(page.items.map((role) => role.name)).toEqual([
-        "疊加測試:早班值勤",
+        "疊加測試:日間值勤",
       ]);
     });
 

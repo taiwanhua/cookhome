@@ -12,7 +12,7 @@ export interface UseRouteTabsOptions {
   routes: ReadonlyMap<string, ShellModule>;
   /** 目前網址(已正規化) */
   currentPath: string;
-  /** 目前的網址參數(`location.search`,含 `?`):目前頁籤記下它,切回來時帶回去(規格 10.1) */
+  /** 目前的網址參數(`location.search`,含 `?`):目前頁籤記下它,切回來時帶回去 */
   currentSearch: string;
 }
 
@@ -61,7 +61,7 @@ export const useRouteTabs = ({
   const activeRoute =
     matchModuleRoute(routes, currentPath) === undefined ? null : currentPath;
 
-  /** 切到頁籤 = 回到它記下的「路徑 + 網址參數」(規格 10.1) */
+  /** 切到頁籤 = 回到它記下的「路徑 + 網址參數」 */
   const select = useCallback(
     (route: string) => {
       const entry = entries.find((item) => item.route === route);

@@ -1031,7 +1031,7 @@ export function demoItemOneAttachmentUrlRaw(
 
 /* ---- 劇本 18 / 19:表單引擎 ---- */
 /**
- * 表單引擎的前置操作(劇本 18 / 19;正本 `packages/graphql/src/documents/forms.graphql`、
+ * 表單引擎的前置操作(劇本 18 / 19;正本 `packages/graphql/src/documents/base/forms.graphql`、
  * `form-submissions.graphql`,這裡只抄 e2e 用到的欄位)。前置一律走 api(TEST-11):
  * 劇本 19 的共用表單由 root 以 api 建好、發布、分派,畫面只跑客製與退役那一段。
  */

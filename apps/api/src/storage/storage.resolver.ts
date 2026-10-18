@@ -73,7 +73,7 @@ export class StorageResolver {
       resolution.modules.some(
         (module) =>
           module.engine === "form" &&
-          // 新增資格走表單模組的同一份判準(B9b 模組看任一張表單的 `create-<formKey>`)
+          // 新增資格走表單模組的同一份判準(依表單分開新增權限的模組看任一張表單的 `create-<formKey>`)
           (canCreateInFormModule(resolution, module) ||
             holdsPermission(resolution, `${module.key}.edit`)),
       );

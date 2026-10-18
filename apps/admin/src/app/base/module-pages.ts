@@ -84,7 +84,7 @@ export const baseModulePages: ModulePageSource = {
     // 表單管理:懶載入(設計器不進首屏 bundle);沿用殼層預設 `lg`,設計器在 `xl` 以下自己換版
     // (`pages/base/system/designer-layout.ts`)
     { key: FORMS_MODULE_KEY, Page: LazyFormsPage },
-    // 審核流程(Spec 6b §8):流程管理、阻擋清單、申請中心兩頁籤與詳情,全部懶載入(不進首屏 bundle);
+    // 審核流程:流程管理、阻擋清單、申請中心兩頁籤與詳情,全部懶載入(不進首屏 bundle);
     // 流程設計器(流程圖 + 關卡屬性)同表單管理沿用 `lg`、在 `xl` 以下收窄屬性面板
     { key: WORKFLOWS_MODULE_KEY, Page: LazyWorkflowsPage },
     { key: WORKFLOWS_BLOCKED_PAGE_KEY, Page: LazyWorkflowBlockedPage },
@@ -95,7 +95,7 @@ export const baseModulePages: ModulePageSource = {
     // 印表機管理:懶載入(測試頁的條碼 / QR code 零件不進首屏 bundle)
     { key: PRINTERS_MODULE_KEY, Page: LazyPrintersPage },
   ],
-  // 三個示範表單模組(頂層 / 群組內 / 次群組內;Spec 6a §8「登記與客製」):四個 key 全用表單引擎的預設組裝;
+  // 三個示範表單模組(頂層 / 群組內 / 次群組內):四個 key 全用表單引擎的預設組裝;
   // 表單綁了流程時,詳情頁下方自動掛審核區塊(預設組裝含)
   forms: [
     { moduleKey: DEMO_FORM_MODULE_KEY },

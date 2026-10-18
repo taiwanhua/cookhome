@@ -103,7 +103,7 @@ export class OrgsResolver {
   }
 
   /**
-   * 組織的主管(`org_manager`,Spec 6b §4):讀得到這筆組織(`org` / `setOrgManagers` 已把關範圍)
+   * 組織的主管(`org_manager`):讀得到這筆組織(`org` / `setOrgManagers` 已把關範圍)
    * 就讀得到它的主管名單;名單含停用的主管(解析時不算,但管理者要看得到才移得掉)。
    */
   @ResolveField(() => [UserSummary])

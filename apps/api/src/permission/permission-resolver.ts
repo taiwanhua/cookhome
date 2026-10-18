@@ -36,7 +36,7 @@ export interface ResolvedModule {
   icon: string | null;
   /** 頁面組裝方式(`modules.engine`)。 */
   engine: ModuleEngine;
-  /** 表單模組依表單分開新增權限(B9b,`modules.perFormCreate`);不送前端(`me.modules` 不帶)。 */
+  /** 表單模組依表單分開新增權限(`modules.perFormCreate`);不送前端(`me.modules` 不帶)。 */
   perFormCreate: boolean;
   /** 有效權限 key(moduleId 等於此模組者)。 */
   permissions: string[];

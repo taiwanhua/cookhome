@@ -396,7 +396,7 @@ const mockWorkflowRuntime = () => ({
         }),
         instanceStep("confirm", "原部門確認"),
       ],
-      // 時間軸示範 B4 跳過、B5 自動通過的原因,與自動通過被守門擋下(錯誤碼沒有文案 → 通用句)
+      // 時間軸示範跳過、自動通過的原因,與自動通過被守門擋下(錯誤碼沒有文案 → 通用句)
       history: [
         historyEvent("started", null, null, APPLICANT),
         historyEvent("step_entered", "review", null),

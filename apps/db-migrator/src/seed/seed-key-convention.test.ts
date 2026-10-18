@@ -391,7 +391,7 @@ describe("底座宣告的靜態檢查(空的專案來源夾具:數量不隨引�
           `${key}.edit`,
           `${key}.delete`,
         ]),
-        // 流程管理(Spec 6b §8):6 個 + 阻擋清單頁自有的改派
+        // 流程管理:6 個 + 阻擋清單頁自有的改派
         "system.workflows.view",
         "system.workflows.create",
         "system.workflows.edit",

@@ -298,7 +298,7 @@ describe("表單管理:類別 / 表單 / 欄位改用下拉選", () => {
   });
 });
 
-describe("表單管理:型別導向的表達式選擇器(表 B)", () => {
+describe("表單管理:型別導向的表達式選擇器", () => {
   it("自訂驗證的根只列回是 / 否的運算(沒有常數、系統值);填錯誤訊息存進 rules.customMessage", async () => {
     const { user, world } = renderFormsPage();
     await findDesigner();

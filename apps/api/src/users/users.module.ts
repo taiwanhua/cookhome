@@ -17,7 +17,7 @@ import { UsersService } from "./users.service";
  * 稽核與權限解析分別由 @Global 的 AuditModule / PermissionModule 提供。
  */
 @Module({
-  // 停用 / 移出租戶時的審核者失效 hook(`AssigneeInvalidationService`,Spec 6b §6)
+  // 停用 / 移出租戶時的審核者失效 hook(`AssigneeInvalidationService`)
   imports: [DatabaseModule, AuthModule, OrgsModule, WorkflowEngineModule],
   providers: [
     UsersService,

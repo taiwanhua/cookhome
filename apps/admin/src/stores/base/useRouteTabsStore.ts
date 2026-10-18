@@ -25,7 +25,7 @@ export interface RouteTabsStoreState extends RouteTabsPersisted {
   bind: (userId: string) => void;
   /**
    * 與「可進入路由集合」對齊 + 目前路徑生成 tab,並記下目前的網址參數(進入路由、網址參數變了即呼叫;沒變化不寫回、不通知)。
-   * `currentSearch` 是 `location.search`(含 `?`;規格 10.1「頁籤記住網址參數」)。
+   * `currentSearch` 是 `location.search`(含 `?`)。
    */
   sync: (
     routes: ReadonlyMap<string, ShellModule>,
@@ -57,7 +57,7 @@ export interface RouteTabsStoreState extends RouteTabsPersisted {
 }
 
 /**
- * sessionStorage 存的是紀錄陣列本身(`[{ route, itemLabel?, search? }]`;`search` 是規格 10.1 加的,舊存檔沒有它照樣讀得回來),不是 zustand 的 JSON 封包 — 沿用重構前的格式與 key(docs/branding.md)。
+ * sessionStorage 存的是紀錄陣列本身(`[{ route, itemLabel?, search? }]`;`search` 是後來加的,舊存檔沒有它照樣讀得回來),不是 zustand 的 JSON 封包 — 沿用重構前的格式與 key(docs/branding.md)。
  * `getItem` 讀不到回空陣列(不是 null),讓 `bind` 換使用者時一定以 storage 內容覆蓋記憶體、不會撿到上一個人的頁籤。
  */
 const storage: PersistStorage<RouteTabsPersisted> = {
@@ -75,7 +75,7 @@ const storage: PersistStorage<RouteTabsPersisted> = {
 };
 
 /**
- * 路由頁籤列的狀態(#67;REACT-02 zustand + persist):進入模組路由即生成 tab、以路由去重;每個 tab 記「路徑 + 網址參數」(規格 10.1);
+ * 路由頁籤列的狀態(#67;REACT-02 zustand + persist):進入模組路由即生成 tab、以路由去重;每個 tab 記「路徑 + 網址參數」;
  * 關閉當前 tab 切到相鄰;順序可調;
  * 保留在 sessionStorage(同一分頁重新整理後還在,關掉分頁即清),每個使用者一把 key。
  * 純函式(`syncEntries` / `closeEntry` / `moveEntry`)在 `lib/base/route-tabs.ts`;這裡只負責狀態、寫回與通知。

@@ -6,7 +6,7 @@ export const FORGOT_PASSWORD_PATH = "/forgot-password";
 export const SET_PASSWORD_PATH = "/set-password";
 export const CHANGE_PASSWORD_PATH = "/change-password";
 /**
- * 個人設定(規格 10.6):殼層路由、不是模組 —— 不分配給角色,所有登入者都能開;
+ * 個人設定:殼層路由、不是模組 —— 不分配給角色,所有登入者都能開;
  * 分頁記在 `?tab=`(`preferences` 偏好 / `delegations` 代理人),不帶 = 偏好。
  */
 export const PERSONAL_SETTINGS_PATH = "/settings/personal";

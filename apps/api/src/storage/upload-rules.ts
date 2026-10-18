@@ -11,7 +11,7 @@ export enum UploadPurpose {
   DEMO_COVER = "DEMO_COVER",
   /** 示範模組1 的附件:**私有** bucket,看時現簽(#318)。 */
   DEMO_ATTACHMENT = "DEMO_ATTACHMENT",
-  /** 表單提交的上傳欄(`type: "upload"`):**私有** bucket,讀取走簽名網址與欄位權限(Spec 6a §7)。 */
+  /** 表單提交的上傳欄(`type: "upload"`):**私有** bucket,讀取走簽名網址與欄位權限。 */
   FORM_ATTACHMENT = "FORM_ATTACHMENT",
 }
 
