@@ -61,7 +61,7 @@ export interface PrintButtonProps {
 }
 
 /**
- * 列印按鈕(底座規格第 6 章「列印按鈕元件」「權限」;Figma `Draft/PrintButton`)。
+ * 列印按鈕(Figma `Draft/PrintButton`)。
  *
  * | 狀態 | 畫面 |
  * | --- | --- |

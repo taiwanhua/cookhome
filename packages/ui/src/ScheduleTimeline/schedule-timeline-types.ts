@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 /** 時點:`Date` 或 epoch 毫秒(呼叫端給時點,元件依瀏覽器時區換成「哪一天的幾點」)。 */
 export type ScheduleTimelineTime = Date | number;
 
-/** 日模式一天,時間由左往右;週模式每天一欄,時間由上往下(《底座規格》10.11)。 */
+/** 日模式一天,時間由左往右;週模式每天一欄,時間由上往下。 */
 export type ScheduleTimelineMode = "day" | "week";
 
 /** 顯示的一天(日模式 1 天、週模式 7 天,順序就是欄的順序)。 */

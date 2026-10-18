@@ -43,7 +43,7 @@ export interface AudiencePickerProps {
 }
 
 /**
- * 人員條件編輯器(《底座規格》3.0「元件 AudiencePicker」;Figma `Draft/AudiencePicker`,
+ * 人員條件編輯器(Figma `Draft/AudiencePicker`,
  * 變體 所有人 / 符合條件 / 不允許所有人)。
  *
  * - 頂層明確二選一:「所有人」/「符合條件」;選所有人時條件樹收起,**切回來保留先前內容**

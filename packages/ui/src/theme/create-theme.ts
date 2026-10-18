@@ -41,7 +41,7 @@ export interface CreateAppThemeOptions {
 const GREY_500_CHANNELS = "147, 158, 169";
 
 /**
- * 互動狀態(《底座規格》10.11):全站一套,照 Minimal —— grey/500 疊 8% / 16% / 24% / 80% / 24%
+ * 互動狀態:全站一套,照 Minimal —— grey/500 疊 8% / 16% / 24% / 80% / 24%
  * (hover / selected / focus / disabled / disabledBackground),亮暗模式相同。
  * 有色元件的 state layer = 同色系 main × `hoverOpacity` / `selectedOpacity`,與白底元件同一組 8% / 16%。
  * MUI 亮色預設是 4% / 8%,這裡刻意統一成 8% / 16%。Figma 的 `action/*` 變數是同一組值。

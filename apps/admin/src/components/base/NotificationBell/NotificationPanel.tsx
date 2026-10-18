@@ -34,7 +34,7 @@ export interface NotificationPanelProps {
 }
 
 /**
- * 通知清單(Figma `Draft/NotificationPanel`;底座規格第 5 章「通知鈴與通知清單」):
+ * 通知清單(Figma `Draft/NotificationPanel`):
  * 標題列「通知」+「全部標為已讀」、「全部 / 未讀」切換、依時間新到舊一次 20 則,捲到底載入下一批,
  * 沒有更多時不再載入。
  */

@@ -6,7 +6,7 @@ import { Typography } from "../Typography/Typography";
 import { MonthCalendar, type MonthCalendarProps } from "./MonthCalendar";
 
 /**
- * **一週固定從星期日開始**(《底座規格》第 11 章 B 類):星期列與每一週都是「日 一 二 三 四 五 六」,
+ * **一週固定從星期日開始**:星期列與每一週都是「日 一 二 三 四 五 六」,
  * 不提供改成星期一開始的選項。
  *
  * 月份(`month` + `onMonthChange`)與選取(`selectedDates` + `onSelectedDatesChange`)都是受控值,

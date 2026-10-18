@@ -53,7 +53,7 @@ export const AppBar = ({ me, title, module }: AppBarProps) => (
     )}
     <Box sx={{ flex: 1 }} />
 
-    {/* 通知鈴(底座規格第 5 章):組織切換器左邊,所有登入者都有 */}
+    {/* 通知鈴:組織切換器左邊,所有登入者都有 */}
     <NotificationBell />
     <OrgSwitcher me={me} />
     <UserMenu

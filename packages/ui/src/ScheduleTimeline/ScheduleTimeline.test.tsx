@@ -65,7 +65,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe("進入畫面自動捲動(《底座規格》10.11)", () => {
+describe("進入畫面自動捲動", () => {
   it("週模式:捲到最早的長條前 1 小時(每小時 36px)", () => {
     renderTimeline({
       groups: [

@@ -11,18 +11,10 @@ const AUDIT_CONFIG = {
   draftMarker: "本輪草稿",
   // 本機過渡變數集合的名稱前綴(例 Draft/tagPalettes;回收後要沒有綁定)
   draftCollectionPrefix: "Draft/",
-  // wowgo-base Design System 的變數集合 key(Color / Radius / Primitives / Brand)
-  baseCollections: [
-    "9d2d67ea73654a9894d5c083e28754341526fba4",
-    "84c5f309f7b50688d1eca745ea4db116afb1ad5a",
-    "1eea29cadf44f500544c6b840aea015c8a3b092b",
-    "aa51fafef4bb2e4d3b578ccaa8bc8f1a930ed17e",
-  ],
+  // 底座 Library 的變數集合 key(Color / Radius / Primitives / Brand):專案從自己訂閱的 Library 取得後填入
+  baseCollections: [],
   // 上面之中放 primary/* 的集合(Color、Brand):專案頁不得殘留這兩個集合的 primary/* 綁定
-  basePrimaryCollections: [
-    "9d2d67ea73654a9894d5c083e28754341526fba4",
-    "aa51fafef4bb2e4d3b578ccaa8bc8f1a930ed17e",
-  ],
+  basePrimaryCollections: [],
 
   // audit-layout.js
   layout: {
