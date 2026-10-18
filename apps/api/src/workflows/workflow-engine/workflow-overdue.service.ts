@@ -342,7 +342,7 @@ function messageOf(error: unknown): string {
 
 /**
  * 第 1 級的收件人:目前承辦人,加上這張任務代理承接的被代理者(派任計畫該項的 `delegatorIds`,
- * 見代理人)。流程管理者改派後計畫清空 `delegatorIds`,就只剩新承辦人。去重:同一人只收一則。
+ * 見 `docs/modules/workflows.md`「代理人」)。流程管理者改派後計畫清空 `delegatorIds`,就只剩新承辦人。去重:同一人只收一則。
  */
 function reviewersOf(
   instance: InstanceRecord,

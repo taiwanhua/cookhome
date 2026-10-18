@@ -33,7 +33,7 @@ const TODAY = D4;
 
 /** 每一天的上午場 / 晚場(11/3 公休不排)。 */
 const baseGroups: ScheduleTimelineGroup[] = [
-  group("d1-early", D1, 8.5, 14.5, "上午場 · 場地 A", "早", [
+  group("d1-early", D1, 8.5, 14.5, "上午場 · 場地 A", "上", [
     bar("d1-e1", D1, 8.5, 14.5, "王小明", { isLead: true }),
     vacancy("d1-e2", "協同"),
   ]),
@@ -51,7 +51,7 @@ const baseGroups: ScheduleTimelineGroup[] = [
     bar("d1-l1", D1, 14.5, 22, "陳大文", { isLead: true }),
     bar("d1-l2", D1, 14.5, 22, "林美麗"),
   ]),
-  group("d2-early", D2, 8.5, 14.5, "上午場 · 場地 A", "早", [
+  group("d2-early", D2, 8.5, 14.5, "上午場 · 場地 A", "上", [
     bar("d2-e1", D2, 8.5, 14.5, "林美麗", { isLead: true, marks: [autoMark] }),
     bar("d2-e2", D2, 8.5, 14.5, "王小明"),
   ]),
@@ -59,7 +59,7 @@ const baseGroups: ScheduleTimelineGroup[] = [
     bar("d2-l1", D2, 14.5, 22, "陳大文", { isLead: true }),
     vacancy("d2-l2", "協同"),
   ]),
-  group("d4-early", D4, 8.5, 14.5, "上午場 · 場地 A", "早", [
+  group("d4-early", D4, 8.5, 14.5, "上午場 · 場地 A", "上", [
     bar("d4-e1", D4, 8.5, 14.5, "李小華", { isLead: true }),
     bar("d4-e2", D4, 8.5, 14.5, "林美麗"),
   ]),
@@ -67,7 +67,7 @@ const baseGroups: ScheduleTimelineGroup[] = [
     bar("d4-l1", D4, 17, 22, "王小明", { isLead: true, marks: [autoMark] }),
   ]),
   ...[D5, D6, D7].flatMap((date) => [
-    group(`${date}-early`, date, 8.5, 14.5, "上午場 · 場地 A", "早", [
+    group(`${date}-early`, date, 8.5, 14.5, "上午場 · 場地 A", "上", [
       bar(`${date}-e1`, date, 8.5, 14.5, "王小明", { isLead: true }),
       bar(`${date}-e2`, date, 8.5, 14.5, "張小芳"),
     ]),
@@ -85,7 +85,7 @@ const restock = group(
   13,
   17,
   "加開場 · 場地 C",
-  "補",
+  "加",
   [bar("d1-r1", D1, 13, 17, "張小芳"), vacancy("d1-r2", "協同")],
   { sortKeys: [2, 1] },
 );
@@ -163,14 +163,14 @@ export const DayToday: Story = {
 };
 
 const extensionGroups: ScheduleTimelineGroup[] = [
-  group("x-early", D4, 8.5, 14.5, "上午場 · 場地 A", "早", [
+  group("x-early", D4, 8.5, 14.5, "上午場 · 場地 A", "上", [
     bar("x-e1", D4, 7.5, 14.5, "王小明", {
       isLead: true,
       subtitle: "提早 1 小時到",
     }),
     bar("x-e2", D4, 8.5, 16, "林美麗", { subtitle: "延後到 16:00" }),
   ]),
-  group("x-restock", D4, 13, 17, "加開場 · 場地 C", "補", [
+  group("x-extra", D4, 13, 17, "加開場 · 場地 C", "加", [
     bar("x-r1", D4, 13, 18, "張小芳", { subtitle: "排到 18:00" }),
   ]),
 ];
@@ -190,7 +190,7 @@ export const ExtensionsDay: Story = {
 };
 
 const vacancyGroups: ScheduleTimelineGroup[] = [
-  group("v-early", D4, 8.5, 14.5, "上午場 · 場地 A", "早", [
+  group("v-early", D4, 8.5, 14.5, "上午場 · 場地 A", "上", [
     bar("v-e1", D4, 8.5, 14.5, "王小明", { isLead: true }),
     vacancy("v-e2", "協同"),
   ]),
@@ -222,7 +222,7 @@ export const DisabledTime: Story = {
     dates: [{ date: D4, label: "三" }],
     disabledRanges: [{ start: at(D4, 18), end: at(D4, 24), label: "公休" }],
     groups: [
-      group("dt-early", D4, 8.5, 14.5, "上午場 · 場地 A", "早", [
+      group("dt-early", D4, 8.5, 14.5, "上午場 · 場地 A", "上", [
         bar("dt-e1", D4, 8.5, 14.5, "王小明", { isLead: true }),
         bar("dt-e2", D4, 8.5, 14.5, "陳大文", {
           state: "disabled",
@@ -246,7 +246,7 @@ export const BarStates: Story = {
       // 示範用:可點才有滑過 / 焦點的互動狀態
     },
     groups: [
-      group("bs-early", D4, 8.5, 14.5, "上午場 · 場地 A", "早", [
+      group("bs-early", D4, 8.5, 14.5, "上午場 · 場地 A", "上", [
         bar("bs-normal", D4, 8.5, 14.5, "王小明", {
           isLead: true,
           subtitle: "正常 · 休 30 分",

@@ -159,9 +159,9 @@ interface CreatedPermission {
   name: string;
 }
 
-const FORM_A = "b9b_a";
-const FORM_B = "b9b_b";
-const FORM_PLAIN = "b9b_plain";
+const FORM_A = "per_form_a";
+const FORM_B = "per_form_b";
+const FORM_PLAIN = "per_form_plain";
 const PLAIN_MODULE = "demo.form";
 const createKey = (formKey: string): string =>
   `${MODULE_KEY}.create-${formKey}`;
@@ -463,22 +463,22 @@ describe("依表單分開新增權限", () => {
         input: {
           sourceKey: FORM_A,
           sourceVersion: 2,
-          key: "b9b_a_custom",
+          key: "per_form_a_custom",
           name: "租戶請假單",
         },
       });
       const created = await publishWith(
         designer.token,
-        "b9b_a_custom",
+        "per_form_a_custom",
         "existing",
       );
       expect(created).toEqual({
-        key: createKey("b9b_a_custom"),
+        key: createKey("per_form_a_custom"),
         name: "租戶請假單 新增",
       });
       const permissionId = await findPermissionIdByKey(
         connection,
-        createKey("b9b_a_custom"),
+        createKey("per_form_a_custom"),
       );
       expect(
         await connection
@@ -490,7 +490,7 @@ describe("依表單分開新增權限", () => {
         moduleForms: { key: string; canCreate: boolean }[];
       }>(api, moduleOnly.token, MODULE_FORMS, { moduleKey: MODULE_KEY });
       expect(data.moduleForms).toContainEqual({
-        key: "b9b_a_custom",
+        key: "per_form_a_custom",
         canCreate: false,
       });
     });
