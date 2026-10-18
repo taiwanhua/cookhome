@@ -208,7 +208,7 @@ function dateRule(cond: string, values: string[]) {
   ];
 }
 
-/** 名稱排序後比對:查詢順序不是本票的斷言對象。 */
+/** 名稱排序後比對:查詢順序不是本測試的斷言對象。 */
 function sortedNames(rows: readonly { name: string }[]): string[] {
   return rows.map((row) => row.name).toSorted((a, b) => a.localeCompare(b));
 }
