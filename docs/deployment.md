@@ -59,7 +59,7 @@ dev / staging 環境:同構的一套(front=dev./staging.、admin=erp-dev./erp-st
 
 正本:`deploy/project/cloud.json`(GCP 專案、區域、registry、WIF、各環境的服務名 / API 網址 / Secret 名稱 / seed 帳號)、`deploy/project/github.json`(repo 與看板識別)、`.github/workflows/deploy.yml`(接線)、`deploy/env/<環境>.yaml`、`docs/env-registry.md`(secret 與變數清單)
 
-底座 v0.4.0 起提供的 Cloud Scheduler 排程、即時通道(Cloudflare Worker)與列印代理程式發布,CookHome 尚未建立雲端資源:未設 `SCHEDULER_*` / `realtime` 時各自停用(admin 以輪詢運作)。啟用步驟見[Cloud Scheduler](#cloud-scheduler排程任務)、[即時通道](#即時通道cloudflare-worker)、[列印代理程式發布](#列印代理程式發布print-agent-releaseyml)。
+底座 v0.4.0 起提供的 Cloud Scheduler 排程、即時通道(Cloudflare Worker)與列印代理程式發布,CookHome 三環境都已啟用:Scheduler 工作 `cookhome-api[-dev|-staging]-scheduled-jobs`(呼叫身分 `scheduler-invoker`)、Worker `cookhome-realtime[-dev|-staging]`、密鑰 `realtime-{ticket,publish}-secret[-dev|-staging]`,列印代理程式安裝檔在三個私有 bucket 的 `print-agent/`。啟用步驟見[Cloud Scheduler](#cloud-scheduler排程任務)、[即時通道](#即時通道cloudflare-worker)、[列印代理程式發布](#列印代理程式發布print-agent-releaseyml)。
 
 ### 新專案的 GCP 基礎資源
 
