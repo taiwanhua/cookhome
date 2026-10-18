@@ -26,12 +26,6 @@ Pub/Sub + Cloud Function 在超支時自動解綁 billing。
 
 現況:未開票,等流量。
 
-### 啟用底座 v0.4.0 的雲端服務
-
-底座 v0.4.0 帶來的 Cloud Scheduler 排程、即時通道(Cloudflare Worker)與列印代理程式發布,CookHome 三環境都還沒建立雲端資源,目前各自停用(admin 以 60 秒輪詢運作)。啟用步驟見 `docs/deployment.md`「Cloud Scheduler」「即時通道」「列印代理程式發布」;啟用狀態依 `docs/project-initialization.md` 記在 issue / PR。
-
-現況:未開票;要不要開、先開哪個環境待決定。
-
 ## 下一步
 
 食譜域第二輪 `/domain-modeling` 用來解開「設計殘項」,與底座同步的未完成項目分開追蹤。
