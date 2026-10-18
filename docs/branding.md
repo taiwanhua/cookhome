@@ -135,7 +135,7 @@ A、B 的品牌六色與 `Shadow/Primary` 分別由既有 `createBrandFromPrimar
 
 [更新情境來源庫](https://www.figma.com/design/QTGmn0zLp2FoJmcWkdOCJM)提供隔離的元件、alias 與隱藏圖層更新。這些 TEST 檔案不充作正式底座或專案 Library。
 
-本機外掛的隔離檔是 [TEST — scratch-lot Brand Library](https://www.figma.com/design/ZX7IkFkgkbMJ1e6tYZgOp5) 與 [TEST — Local Screens Sync](https://www.figma.com/design/cuXz54wNCRVdr3UiwxyVXv)。Brand Library 先以底座橘色、再以 scratch-lot `#FFD700` 套用,重預覽皆為 0 待處理;Screens 的 Button、巢狀側欄與代表畫面補綁 40 處專案色,回讀 137 個節點、41 個遠端實例,沒有剩餘底座主色綁定。專案名稱及 Button 陰影樣式分別以 Figma 原生操作改為 scratch-lot 與專案 `Shadow/Primary`。在同一 Screens 的獨立測試卡接受來源 Library 尺寸更新(157×48→173×56)後,遠端元件連結與專案金色綁定均保留。這些 TEST 檔案不屬正式專案資源。
+本機外掛的隔離檔是 [TEST — scratch-lot Brand Library](https://www.figma.com/design/ZX7IkFkgkbMJ1e6tYZgOp5) 與 [TEST — Local Screens Sync](https://www.figma.com/design/cuXz54wNCRVdr3UiwxyVXv)。Brand Library 先以底座橘色、再以另一個專案色 `#FFD700` 套用,重預覽皆為 0 待處理;Screens 的 Button、巢狀側欄與代表畫面補綁 40 處專案色,回讀 137 個節點、41 個遠端實例,沒有剩餘底座主色綁定。專案名稱及 Button 陰影樣式分別以 Figma 原生操作改為 scratch-lot 與專案 `Shadow/Primary`。在同一 Screens 的獨立測試卡接受來源 Library 尺寸更新(157×48→173×56)後,遠端元件連結與專案金色綁定均保留。這些 TEST 檔案不屬正式專案資源。
 
 | 驗證範圍            | 可確認的行為與限制                                                                                                                                                           |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
