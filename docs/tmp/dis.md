@@ -42,7 +42,7 @@ populate 的子查詢不帶操作者上下文,對租戶資料會拋錯(ADR-0005 
 
 ### 人員條件權限選項:root 看得到租戶客製表單的模組權限
 
-`audiencePermissionOptions`(人員條件的權限樹)沿用權限矩陣的顯示樹與 `foreignFieldPermissionKeys` 過濾:只擋別租戶客製表單的**欄位級**權限(`show-` / `edit-`)。root 是超級管理員,有效權限集是全部,所以租戶客製表單**模組本身**的權限(`<表單模組>.view` 等)仍會出現在 root 的樹裡,與規格「資料範圍由 root 設定,只列底座與專案的權限」有落差。權限選項的過濾規則待定案,畫面端是 AudiencePicker 的權限樹。
+`audiencePermissionOptions`(人員條件的權限樹)沿用權限矩陣的顯示樹與 `foreignFieldPermissionKeys` 過濾:只擋別租戶客製表單的**欄位級**權限(`show-` / `edit-`)。root 是超級管理員,有效權限集是全部,所以租戶客製表單**模組本身**的權限(`<表單模組>.view` 等)仍會出現在 root 的樹裡,與「資料範圍由 root 設定,只列底座與專案的權限」的設計有落差。權限選項的過濾規則待定案,畫面端是 AudiencePicker 的權限樹。
 
 現況:未開票;人員條件上線時決定沿用現有過濾,不等租戶權限樹另行調整。
 
@@ -204,7 +204,7 @@ lookup 的動態條件目前只有「依另一欄位篩選」;加其他動態條
 
 ### 流程設計器「符合條件」一詞兩用
 
-「符合條件」同時是關卡面板「跳過這一關」的公式那一項(`admin.workflows.step.skip.condition`),也是人員條件頂層模式的名稱(「所有人 / 符合條件」,`AudiencePicker`);另外 `admin.workflows.step.skipNeedsCheckForm` 仍寫「跳過條件的欄位來自它」,與區塊改名後的用詞不一致(流程設計器關卡面板審查時發現)。之後評估統一用詞(一個東西一個名詞),連同 help 與規格 3.4。
+「符合條件」同時是關卡面板「跳過這一關」的公式那一項(`admin.workflows.step.skip.condition`),也是人員條件頂層模式的名稱(「所有人 / 符合條件」,`AudiencePicker`);另外 `admin.workflows.step.skipNeedsCheckForm` 仍寫「跳過條件的欄位來自它」,與區塊改名後的用詞不一致(流程設計器關卡面板審查時發現)。之後評估統一用詞(一個東西一個名詞),連同 help 與 `docs/modules/workflows.md` 的關卡面板段落。
 
 現況:未開票。
 
