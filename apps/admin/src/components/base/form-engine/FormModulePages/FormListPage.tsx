@@ -23,9 +23,10 @@ import {
   type FormError,
   formErrorOf,
 } from "@/lib/base/form-engine/form-errors";
+import { LIST_PAGE_SHELL_SX } from "@/lib/base/list-page-layout";
 import type { ModulePageProps } from "@/lib/base/module-tree";
 
-import { ReasonDialog } from "../../workflow/ApprovalSection/ReasonDialog";
+import { VoidDialog } from "../../workflow/ApprovalSection/VoidDialog";
 import { useSubmissionActions } from "../../workflow/useSubmissionActions";
 import { FormPicker } from "../FormPicker";
 import {
@@ -46,18 +47,38 @@ const listSchema = z
   })
   .default({ keyword: "", formKey: null, status: null, page: 1 });
 
+export interface FormListPageProps extends ModulePageProps {
+  /**
+   * 這一頁不處理的表單(由組裝頁另外呈現的表單):列表、表單篩選選項與 [+ 新增] 都不出現;
+   * 排除條件送到 api 查詢,總筆數與分頁照排除後算。不給 = 模組內全部表單。
+   */
+  excludeFormKeys?: readonly string[];
+}
+
+const NO_EXCLUDED: readonly string[] = [];
+
 /**
  * 表單模組列表頁(預設組裝):搜尋、依表單 / 狀態篩選、分頁;
  * 新增鈕 —— 此刻可新增(且讀者有新增權限)的表單一張 → 直接進、多張 → 先選(`FormPicker`)。
  * 列操作依 api 的 `abilities`(已含權限)與「有沒有綁那一頁」相乘:綁流程且已核准的單鎖定 ——
  * 不出現「編輯」(api 的 `canEdit` 為 false)、改出現「作廢」(`canVoid`)。
  */
-export const FormListPage = ({ module }: ModulePageProps) => {
+export const FormListPage = ({
+  module,
+  excludeFormKeys = NO_EXCLUDED,
+}: FormListPageProps) => {
   const moduleKey = formModuleKeyOf(module.key);
   const t = useTranslations("admin.formEngine.pages");
   const navigate = useNavigate();
   const access = useFormModuleAccess(moduleKey);
-  const { forms, creatableForms, isLoading } = useModuleForms(moduleKey);
+  const moduleForms = useModuleForms(moduleKey);
+  const { isLoading } = moduleForms;
+  const forms = moduleForms.forms.filter(
+    (form) => !excludeFormKeys.includes(form.key),
+  );
+  const creatableForms = moduleForms.creatableForms.filter(
+    (form) => !excludeFormKeys.includes(form.key),
+  );
   // [+ 新增] 出現:有可新增的表單;或有模組 `create`、此刻一張表單都沒有(停用並附原因)。
   // 有表單但一張都不能新增(依表單分開新增權限的模組只有模組 `create`)→ 不出現(ADR-0011)。
   // 表單清單載完之前不出現(否則依表單分開新增權限的模組會先閃一下停用的按鈕再消失)
@@ -175,7 +196,8 @@ export const FormListPage = ({ module }: ModulePageProps) => {
   );
 
   return (
-    <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+    // 列表頁殼(STYLE-08):平板以上且視窗夠高時釘高、表格在卡片裡捲(表頭固定);手機寬與矮視窗不釘高,整頁捲
+    <Stack spacing={2} sx={LIST_PAGE_SHELL_SX}>
       <FormListToolbar
         keyword={keyword}
         onKeywordChange={(value) => {
@@ -200,6 +222,7 @@ export const FormListPage = ({ module }: ModulePageProps) => {
         <FormSubmissionList
           moduleKey={moduleKey}
           filters={filters}
+          excludeFormKeys={excludeFormKeys}
           onPageChange={(page) => {
             setFilters((current) => ({ ...current, page }));
           }}
@@ -220,9 +243,8 @@ export const FormListPage = ({ module }: ModulePageProps) => {
         />
       )}
       {voidTarget !== null && (
-        <ReasonDialog
-          namespace="admin.approval.void"
-          requiresReason
+        <VoidDialog
+          formKey={voidTarget.formKey}
           isSubmitting={submissionActions.isPending}
           errorMessage={submissionActions.errorMessage}
           onCancel={() => {

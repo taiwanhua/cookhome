@@ -3,7 +3,12 @@ import path from "node:path";
 import { describe, expect, it } from "@jest/globals";
 
 import { defaultLocale } from ".";
-import { keysOf, namespacesOf } from "./message-keys";
+import {
+  flattenKeys,
+  keysOf,
+  namespacesOf,
+  readProjectFile,
+} from "./message-keys";
 import { referencedKeys } from "./usage-scan";
 
 /**
@@ -25,6 +30,11 @@ const SOURCE_ROOTS = [
  * 其餘是單一個鍵。每一條都寫「值從哪裡來」,之後有人要刪才知道去哪裡確認。
  */
 const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
+  {
+    key: "admin.sidebarBadgeSettings.descriptions.",
+    reason:
+      "通知設定頁「側欄數字」的「數什麼」:完整 key 由 api 側欄計數登記的 `descriptionKey` 給(`SidebarBadgeSettingsSection`)",
+  },
   {
     key: "admin.shell.userMenu.modes.",
     reason:
@@ -49,6 +59,11 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
     key: "admin.roleManager.delete.reasons.",
     reason:
       "`t(`reasons.${reason}`)`,reason 是 api `ROLE_NOT_DELETABLE` 帶回的 `RoleNotDeletableReason`",
+  },
+  {
+    key: "admin.roleManager.delete.references.",
+    reason:
+      "`t(`references.${kind}`)`,kind 是 api `ROLE_NOT_DELETABLE` 帶回的 `extensions.references[].kind`",
   },
   {
     key: "admin.userManager.orgChange.reasons.",
@@ -142,7 +157,7 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
   {
     key: "admin.formEngine.list.slots.",
     reason:
-      "`t(`slots.${spec.key}`)`,key 是列表欄位配置的摘要槽(title / date / amount)",
+      "`t(`slots.${spec.key}`)`,key 是列表欄位配置的摘要槽(title / date / amount)與單號 serialNo",
   },
   {
     key: "admin.moduleManager.listColumns.builtinColumns.",
@@ -274,6 +289,16 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
     key: "admin.forms.lookupSource.summarySlots.",
     reason:
       "`t(`summarySlots.${slot}`)`,slot 是 `form_submission` 欄位目錄裡的摘要槽",
+  },
+  {
+    key: "admin.forms.detail.serialPeriods.",
+    reason:
+      "`t(`serialPeriods.${period}`)`,period 取自 `SERIAL_PERIODS`(單號的期間 none / year / month)",
+  },
+  {
+    key: "admin.forms.detail.serialSeparators.",
+    reason:
+      "`t(`serialSeparators.${option.key}`)`,key 取自 `SerialFormatField` 的分隔符選項(dash / underscore / slash / dot / none)",
   },
   {
     key: "admin.moduleManager.listColumns.slots.",
@@ -450,6 +475,16 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
       "`lib/base/notification-type-name.ts` 的 `t(`types.${type}`)`,type 是 api 回的通知類型 key(`workflow.task-created` 等;沒有文案的類型退回 api 的 `name`)",
   },
   {
+    key: "admin.notifications.recipientNotes.",
+    reason:
+      "`lib/base/notification-type-name.ts` 的 `t(`recipientNotes.${type}`)`,type 是 api 回的通知類型 key(沒有文案退回 api 的 `recipientNote`)",
+  },
+  {
+    key: "admin.notifications.scheduleDateLabels.",
+    reason:
+      "通知設定頁提醒時間摘要 `tNotifications(`scheduleDateLabels.${type}`)`(`NotificationSettingsPage/notification-schedule.ts`),type 是 api 回的通知類型 key(沒有文案退回 api 的 `scheduleDateLabel`)",
+  },
+  {
     key: "admin.approval.timeline.delegated.",
     reason:
       "`ApprovalTimeline` 的 `t(`delegated.${event.kind}`)`,kind 是帶了被代理者的 `task_created` / `approved` / `rejected` / `returned`",
@@ -482,6 +517,14 @@ const allKeys = () => {
     for (const key of keys.branches) {
       branches.add(key);
     }
+  }
+  // 專案新增的後台文案併進 admin namespace,同樣要有引用(替換檔沒有自己的鍵)
+  const project = flattenKeys(readProjectFile(defaultLocale, "admin"), "admin");
+  for (const key of project.leaves) {
+    leaves.add(key);
+  }
+  for (const key of project.branches) {
+    branches.add(key);
   }
   return { leaves, branches };
 };
