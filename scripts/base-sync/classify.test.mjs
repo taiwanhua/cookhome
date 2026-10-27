@@ -73,8 +73,8 @@ test("專案的名詞表與 docs/tmp 判為 project,底座的 CONTEXT.md 與 dis
     "docs/tmp/project-dis.md",
     "docs/tmp/spec-project-x.md",
     "docs/tmp/handoff-round.md",
-    "docs/tmp/figma-base-round/_kit.js",
-    "docs/tmp/figma-base-round/project/r4-store.js",
+    "docs/tmp/figma-x/_kit.js",
+    "docs/tmp/figma-x/project/screen.js",
   ]) {
     assert.equal(classifyPath(file, "A"), "project", file);
   }
