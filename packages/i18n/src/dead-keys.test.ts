@@ -9,14 +9,17 @@ import {
   namespacesOf,
   readProjectFile,
 } from "./message-keys";
-import { referencedKeys } from "./usage-scan";
+import { PROJECT_DYNAMIC_KEYS } from "./project/dynamic-keys";
+import { type DynamicKey, referencedKeys } from "./usage-scan";
 
 /**
  * 死鍵守門:字典裡的鍵在 `apps/admin/src`、`apps/front/src` 沒有任何引用就失敗。
  * 掃描做法(字面字串 × namespace 的配對、配對範圍、掃不到什麼)寫在 `usage-scan.ts` 檔頭。
  *
- * 失敗時二選一:①真的沒人用了 → 兩語系一起刪掉那個鍵;②鍵是執行期組出來的 → 加進下方
- * `DYNAMIC_KEYS` 並寫理由。**不要**為了讓測試過而在程式碼裡寫一個沒用到的字串。
+ * 失敗時二選一:①真的沒人用了 → 兩語系一起刪掉那個鍵;②鍵是執行期組出來的 → 加進白名單並寫理由:
+ * 底座字典的鍵加進下方 `BASE_DYNAMIC_KEYS`,專案字典(`messages/<locale>/project/`)的鍵加進
+ * `project/dynamic-keys.ts` 的 `PROJECT_DYNAMIC_KEYS`。兩份合成 `DYNAMIC_KEYS` 一起檢查。
+ * **不要**為了讓測試過而在程式碼裡寫一個沒用到的字串。
  */
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
@@ -28,8 +31,9 @@ const SOURCE_ROOTS = [
 /**
  * 靜態掃描看不到、由執行期的值組出來的鍵。以 `.` 結尾的是前綴(底下全部算有引用),
  * 其餘是單一個鍵。每一條都寫「值從哪裡來」,之後有人要刪才知道去哪裡確認。
+ * 這份只放底座的;專案的在 `project/dynamic-keys.ts`(底座那份是空陣列,升級不覆寫)。
  */
-const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
+const BASE_DYNAMIC_KEYS: readonly DynamicKey[] = [
   {
     key: "admin.sidebarBadgeSettings.descriptions.",
     reason:
@@ -491,6 +495,11 @@ const DYNAMIC_KEYS: readonly { key: string; reason: string }[] = [
   },
 ];
 
+const DYNAMIC_KEYS: readonly DynamicKey[] = [
+  ...BASE_DYNAMIC_KEYS,
+  ...PROJECT_DYNAMIC_KEYS,
+];
+
 const isCoveredByDynamicKeys = (key: string): boolean =>
   DYNAMIC_KEYS.some((entry) =>
     entry.key.endsWith(".") ? key.startsWith(entry.key) : key === entry.key,
@@ -540,5 +549,16 @@ describe("字典沒有死鍵", () => {
     ).map((entry) => entry.key);
 
     expect(stale).toEqual([]);
+  });
+
+  it("底座與專案的白名單沒有重複的 key", () => {
+    const seen = new Set<string>();
+    const duplicated = DYNAMIC_KEYS.filter((entry) => {
+      const repeated = seen.has(entry.key);
+      seen.add(entry.key);
+      return repeated;
+    }).map((entry) => entry.key);
+
+    expect(duplicated).toEqual([]);
   });
 });
