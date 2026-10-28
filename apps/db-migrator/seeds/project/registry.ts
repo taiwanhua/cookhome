@@ -1,3 +1,4 @@
+import type { DemoSource } from "../../src/demo/demo-source";
 import type { SeedSource } from "../base/seed-source";
 
 /**
@@ -15,3 +16,9 @@ export const projectSeedSource: SeedSource = {
   moduleDeclarations: [],
   seeds: [],
 };
+
+/**
+ * 專案的示範資料(demo 指令用;不進一般 seed,ADR-0002)。
+ * 由 `seeds/registry.ts` 轉給底座的 demo 指令(`docs/deployment.md`「示範資料(demo)」);底座沒有示範資料,為 null。
+ */
+export const projectDemoSource: DemoSource | null = null;
