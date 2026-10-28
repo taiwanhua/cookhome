@@ -46,6 +46,8 @@ Figma MCP 的 `get_design_context(nodeId)` 對「頁(canvas)」的 id 會直接�
 
 **`get_metadata` 不帶 nodeId 只列得出 Cover 頁**(這個檔如此):各元件頁 / 畫面頁的 frame id 進不去就找不到,一律記在下表。一列一個節點;新畫一個元件或畫面,就在該頁最後一列後面追加一列。
 
+下表只登記底座 Design System 的節點。引用專案 Screens 的節點(專案畫面,以及底座模組在專案檔裡的畫面)寫在專案的 `docs/project/figma-nodes.md`,底座模組文件也不寫專案檔的節點。
+
 ### 底座共用元件與樣式
 
 下表使用 [wowgo-base Design System](https://www.figma.com/design/XKQ18kf6SkfAQYk7GmBkk5) 的節點。Library 採用狀態與品牌檔位置見 [設計資源登記](../../branding.md#設計資源登記)。
@@ -248,8 +250,9 @@ Components 區凡是先有實作、後補稿的元件(Tooltip、DatePicker、Dat
 - 畫面上每個顏色、圖示、符號、線型(實線 / 虛線)都要在同一張畫面的圖例找到外觀一樣的項目;圖例的每一項在這個畫面都會出現。
 - 圖例樣本用真實的圖例項目元件實例,和畫面上的標示同一外觀(實心就實心、虛線就虛線)。
 - 同一個元件狀態用在不同畫面時,圖例文字可以依那個畫面的意思改寫,顏色和狀態仍一對一。
+- 圖例照程式清單固定列出「可能出現」的記號的頁(不看當下示範資料),寫進稽核設定的例外(`legend.exempt`)並附理由。
 
-自動檢查:`audit-legend.js` 的 `legendMismatch` 要是 0(以解析後的實際色值比對)。「意思一致」腳本查不到,每次截圖逐張對。
+自動檢查:`audit-legend.js` 的 `legendMismatch` 要是 0(以解析後的實際色值比對),`legendExempted` 照列理由(`exemptReason`)。「意思一致」腳本查不到,每次截圖逐張對。
 
 ## FIGMA-15 元件:用實例、先盤點、互動狀態照 MUI
 
@@ -284,3 +287,15 @@ Components 區凡是先有實作、後補稿的元件(Tooltip、DatePicker、Dat
 4. **回報**附每頁自動檢查的原始數字與人工核對結果,做不到的明說。
 
 自動檢查:`audit.js` 的 `devTextInScreens`、`canvasOverlap`、`baseScreensNotFromRef` 要是 0。各腳本的執行方式、每項數字的意思與設定檔欄位見 [figma-audit README](../../../scripts/figma-audit/README.md)。
+
+## FIGMA-18 頁面動作按鈕照程式的同一套位置
+
+設計稿的按鈕位置與順序照 [REACT-16](../react/components.md#react-16-admin-頁面動作按鈕的位置與順序),三種尺寸一致:
+
+- **列表**:篩選靠左,[+ 新增<名詞>] 在最右。
+- **新增 / 編輯**:動作列在表單底部、靠右,[取消](text)→[存草稿](outlined)→[送出 / 儲存](contained);手機與平板畫成黏在畫面底部、左右撐滿的白底列(上邊框)。編輯頁的 [刪除] 放在動作列左側。
+- **檢視**:內容上方一列,左 [← 返回列表];右 次要 →[刪除 / 作廢 / 停用](text, error)→[編輯 / 主要](contained)。標題卡不放動作鈕。
+- **對話框**:靠右 [取消](text)→[主要](contained;破壞性用 error)。
+- **審核區塊**:[退回修改]→[駁回]→[核准],核准在最右。
+
+既有畫面與這套位置不同時,以這套為準,改稿時一併修正(FIGMA-10:較新的決定為準)。

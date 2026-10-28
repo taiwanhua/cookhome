@@ -125,11 +125,11 @@
 
 新 checkout 或依賴有改動時,先執行[建置前置步驟](#pnpm--turbo建置測試格式)的「讓 `@repo/*` 型別與出口解得開」指令,再直接啟動 admin 或 mock。Vite 設定載入時就會讀取 `@repo/project-config/public`;`dev:mock` 會先建置 project-config 再啟動 Vite,但不經 Turbo,其他 workspace 依賴仍須先建置。
 
-| 情境                      | 指令                                                              | 提醒                                                                                      |
-| ------------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 起 admin 的 mock 模式     | `pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort` | **不要在 `--port` 前加 `--`**(加了 vite 會忽略,照樣從 3002 靜默跳埠);網址以 `Local:` 為準 |
-| 換租戶管理員視角 / 登入頁 | 網址加 `?view=tenant` / `?auth=off`                               | 預設自動登入 root、各頁都有假資料                                                         |
-| PR 截圖                   | 見 issue-tracker「admin 票的交付要求」                            | 截圖前確認畫面裡看得到自己的改動                                                          |
+| 情境                      | 指令                                                              | 提醒                                                                                                                   |
+| ------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 起 admin 的 mock 模式     | `pnpm --filter @repo/admin dev:mock --port <自選埠> --strictPort` | **不要在 `--port` 前加 `--`**(加了 vite 會忽略,照樣從 3002 靜默跳埠);網址以 `Local:` 為準                              |
+| 換租戶管理員視角 / 登入頁 | 網址加 `?view=tenant` / `?auth=off`                               | 預設自動登入 root、各頁都有假資料;**專案頁在根組織視角只顯示切換提示**,截圖 / 驗收專案頁請加 `?view=tenant` 或切到機構 |
+| PR 截圖                   | 見 issue-tracker「admin 票的交付要求」                            | 截圖前確認畫面裡看得到自己的改動                                                                                       |
 
 正本:`apps/admin/package.json`(`dev:mock`)、`apps/admin/vite.mock.config.ts`、`docs/standards/testing/testing.md`(TEST-08「mock 開發模式」)
 
@@ -186,6 +186,7 @@ GraphQL 文件登記負例用 `pnpm --filter @repo/graphql test:documents`,CI �
 - 兩者只在流程管理頁用,頁面懶載入,不進首屏 bundle。
 - React Flow 在 jest(jsdom)要 `ResizeObserver` / `DOMMatrixReadOnly` 替身(`apps/admin/src/test/react-flow.ts` 的 `setupReactFlowEnvironment()`);點節點用 `fireEvent.click`(d3-drag 的指標事件在 jsdom 會炸)。
 - 表單設計器的拖拉是 dnd-kit(`@dnd-kit/core`、`@dnd-kit/sortable`,MIT),測試替身在 `apps/admin/src/test/dnd-kit-double.tsx`。
+- 月曆、人員排程、時間軸(`@repo/ui` 的 `MonthCalendar`、`RosterGrid`、`ScheduleTimeline`)不用第三方行事曆套件:資源排程表在常見套件屬於付費功能。這三個元件自己做,`RosterGrid` 建在既有的 `DataTable` 上。
 
 正本:`apps/admin/package.json`
 
@@ -193,7 +194,7 @@ GraphQL 文件登記負例用 `pnpm --filter @repo/graphql test:documents`,CI �
 
 `project-bootstrap` 在 `.claude/skills/` 與 `.agents/skills/` 都有版控入口,共用 [project-bootstrap.md](project-bootstrap.md) 的步驟;Claude 與 Codex 可各自接手新專案初始化,不依賴本機記憶或另一個工具。
 
-「用哪個」欄是在 Claude Code 裡的呼叫名稱。三個外部 skill 的版控來源在 `.agents/skills/`(版本鎖在 `skills-lock.json`),Claude 入口 `.claude/skills/<名稱>/` 是未版控的連結。新 clone、底座升級後與初始化重跑均在 repo 根執行 `node scripts/project-settings/restore-claude-skills.mjs`;Windows 建 junction,其他系統建目錄 symlink。重跑會檢查既有連結,遇到同名但來源不同的內容會停止,不覆寫。repo 自製的 Claude skill 放在 `.claude/skills/<名稱>/`;Codex 的 `module-scaffold` 入口另在 `.agents/skills/module-scaffold/` 指向共同操作文件。
+「用哪個」欄是在 Claude Code 裡的呼叫名稱。三個外部 skill 的版控來源在 `.agents/skills/`(版本鎖在 `skills-lock.json`),Claude 入口 `.claude/skills/<名稱>/` 是未版控的連結。新 clone、底座升級後與初始化重跑均在 repo 根執行 `node scripts/project-settings/restore-claude-skills.mjs`;Windows 建 junction,其他系統建目錄 symlink。重跑會檢查既有連結,遇到同名但來源不同的內容會停止,不覆寫。repo 自製的 Claude skill 放在 `.claude/skills/<名稱>/`;Codex 的 `module-scaffold` 入口另在 `.agents/skills/module-scaffold/` 指向共同操作文件。專案自己的 skill 命名 `<slug>-<名稱>`(slug = `projectPublic.slug`),`.claude/skills/` 與 `.agents/skills/` 同名成對;底座 skill 只有 `module-scaffold`、`project-bootstrap` 與 `skills-lock.json` 的外部 skill,命名與成對由 base-sync verify 第 7 節檢查。
 
 | 情境                                                 | 用哪個                                                        | 一句提醒                                                                                                     |
 | ---------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -267,15 +268,15 @@ PR 連結、改動檔案清單、測試結果(與基準比較)、截圖或 E2E �
 
 人員、Claude 與 Codex 共用同一 Node CLI，不需要另一個工具在線。`node scripts/base-sync/run.mjs --help` 或 `<命令> --help` 顯示用法，不需 repo 或網路；`-h` 同義。先核對本次 repo、正式版本與差異，依[deployment](../deployment.md#底座首次接軌與版本升級)整合與驗收，再沿既有 gh/PR 流程交付。
 
-| 工作                 | 指令                                                                                                                           | 結果                                                              |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| 看完整差異與回收候選 | `node scripts/base-sync/run.mjs inspect --project <路徑> --from <commit> --to <commit>`                                        | 唯讀分類，候選仍需語意審查                                        |
-| 準備正式版本升級     | `node scripts/base-sync/run.mjs upgrade --project <路徑> --tag <版本> --worktree-root <父目錄>`                                | 隔離分支與未提交 merge；批次重複 `--project`                      |
-| 升級後確認去除重複   | `node scripts/base-sync/run.mjs verify --project <升級工作樹> --tag <版本> [--out <檔案>]`                                     | 唯讀 Markdown 四節報告；皆 0 才 exit 0，人只判讀例外              |
-| 準備共用改良回收     | `node scripts/base-sync/run.mjs contribute --project <來源路徑> --commit <完整SHA> --base <底座路徑> --worktree-root <父目錄>` | common 路徑加明列混合檔的 contribution，不帶整個專案歷史          |
-| 回收含混合檔         | 上一列加 `--accept-mixed <路徑>`(可重複)                                                                                       | 只收明列且只含底座段落的混合檔；差異列在報告 `mixedReview` 供審查 |
-| 看累積未部署變更     | `node scripts/project-settings/preflight.mjs --environment <環境> --target <完整SHA>`                                          | 實際 app/DB 基準、累積差異與未核對事項                            |
-| 讀資料狀態 JSON      | `pnpm --silent --filter @repo/db-migrator run migrate:status --json`                                                           | 現有 plan/journal/lock 的唯讀投影                                 |
+| 工作                 | 指令                                                                                                                           | 結果                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| 看完整差異與回收候選 | `node scripts/base-sync/run.mjs inspect --project <路徑> --from <commit> --to <commit>`                                        | 唯讀分類，候選仍需語意審查                                                          |
+| 準備正式版本升級     | `node scripts/base-sync/run.mjs upgrade --project <路徑> --tag <版本> --worktree-root <父目錄>`                                | 隔離分支與未提交 merge；批次重複 `--project`                                        |
+| 升級後確認去除重複   | `node scripts/base-sync/run.mjs verify --project <升級工作樹> --tag <版本> [--out <檔案>]`                                     | 唯讀 Markdown 七節報告(含專案字樣、值行檔、專案 skill);皆 0 才 exit 0，人只判讀例外 |
+| 準備共用改良回收     | `node scripts/base-sync/run.mjs contribute --project <來源路徑> --commit <完整SHA> --base <底座路徑> --worktree-root <父目錄>` | common 路徑加明列混合檔的 contribution，不帶整個專案歷史;新增行含專案字樣即停止     |
+| 回收含混合檔         | 上一列加 `--accept-mixed <路徑>`(可重複)                                                                                       | 只收明列且只含底座段落的混合檔；差異列在報告 `mixedReview` 供審查                   |
+| 看累積未部署變更     | `node scripts/project-settings/preflight.mjs --environment <環境> --target <完整SHA>`                                          | 實際 app/DB 基準、累積差異與未核對事項                                              |
+| 讀資料狀態 JSON      | `pnpm --silent --filter @repo/db-migrator run migrate:status --json`                                                           | 現有 plan/journal/lock 的唯讀投影                                                   |
 
 規格與 Figma 工作檔放實作 repo：`docs/tmp/spec-<主題>.md`、`docs/tmp/figma-<主題>/`，在 `feat/<主題>-spec` 分支 commit 並 push 備份，定稿後走 dev → staging → main，實作整合分支從合併後的 main 開出（[deployment](../deployment.md#共用改良回收)）。
 
