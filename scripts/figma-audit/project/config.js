@@ -76,6 +76,8 @@ const AUDIT_CONFIG = {
     // 圖例項目元件與它的文字屬性
     legendItem: "Draft/LegendItem",
     legendLabelProp: "Label",
+    // 圖例照程式清單固定列出「可能出現」記號的頁 → 理由:「圖例樣本畫面沒用到」改列 legendExempted、不算錯
+    exempt: {},
   },
 
   // audit.js
