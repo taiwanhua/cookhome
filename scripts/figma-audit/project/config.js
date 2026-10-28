@@ -78,6 +78,8 @@ const AUDIT_CONFIG = {
     legendLabelProp: "Label",
     // 圖例照程式清單固定列出「可能出現」記號的頁 → 理由:「圖例樣本畫面沒用到」改列 legendExempted、不算錯
     exempt: {},
+    // 「畫面名稱開頭|變數名稱」→ 理由:那些畫面用了這個標示色、圖例刻意不列樣本(改列 legendExempted)
+    exemptMarks: {},
   },
 
   // audit.js
