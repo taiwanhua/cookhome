@@ -26,6 +26,18 @@ Pub/Sub + Cloud Function 在超支時自動解綁 billing。
 
 現況:未開票,等流量。
 
+### repo 改回 private
+
+repo 目前是 public,為了用 GitHub Actions 的免費額度(private 每月 2000 分鐘曾用完)。改回 private 時照順序做:① GitHub Settings → Billing 先提高 Actions 花費上限 ② 再把 repo 改回 private ③ 改完跑一次 Deploy 確認 workflow 正常。沒先提高上限就改,CI 與部署會停擺。
+
+現況:使用者決定暫不改;使用者提出時再照上面三步做,不主動提醒。
+
+### 正式環境目前沒有使用者
+
+production 目前沒有真實使用者,升級或部署時資料風險低;但清資料(reset DB)仍是破壞性動作,要先跟使用者確認。
+
+現況:開始有使用者後刪掉這條,之後的升級照一般資料風險處理。
+
 ## 下一步
 
 食譜域第二輪 `/domain-modeling` 用來解開「設計殘項」,與底座同步的未完成項目分開追蹤。
