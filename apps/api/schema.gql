@@ -194,6 +194,7 @@ input CreateDemoItemOneInput {
 input CreateDemoItemTwoInput {
   name: String!
   note: String
+  shareOrgs: [ShareOrgInput!]
 }
 
 input CreateFieldCategoryInput {
@@ -539,8 +540,10 @@ type DemoItemTwo {
   createdBy: DemoItemTwoUser
   enabled: Boolean!
   id: ID!
+  isShared: Boolean!
   name: String!
   note: String
+  shareOrgs: [ShareOrg!]!
   updatedAt: DateTime!
 }
 
@@ -840,9 +843,12 @@ type FormModel {
   name: String!
   ownerOrgId: ID
   ownerOrgName: String
+  serial: FormSerialFormat
+  sharedByFieldKeys: [String!]!
   tabLabelTemplate: String
   tenantEnabled: Boolean
   updatedAt: DateTime!
+  voidReasonCategoryKey: String
   workflowBinding: FormWorkflowBinding
 }
 
@@ -855,6 +861,20 @@ type FormPreviewPayload {
   fieldStates: [FormFieldState!]!
   summary: FormSubmissionSummary!
   values: JSONObject!
+}
+
+type FormSerialFormat {
+  digits: Int!
+  period: String!
+  prefix: String!
+  separator: String
+}
+
+input FormSerialFormatInput {
+  digits: Int!
+  period: String!
+  prefix: String!
+  separator: String
 }
 
 type FormSubmissionAbilities {
@@ -900,6 +920,7 @@ type FormSubmissionModel {
   replacedById: ID
   revision: Int!
   revisions: [FormSubmissionRevisionMeta!]!
+  serialNo: String
   status: FormSubmissionStatus!
   submittedAt: DateTime
   summary: FormSubmissionSummary
@@ -910,6 +931,8 @@ type FormSubmissionModel {
   viewedRevision: Int!
   viewedVersion: Int!
   voidReason: String
+  voidReasonKey: String
+  voidReasonLabel: String
   voidedAt: DateTime
 }
 
@@ -952,6 +975,7 @@ type FormSubmissionSummary {
 }
 
 input FormSubmissionsInput {
+  excludeFormKeys: [ID!]
   formKey: ID
   keyword: String
   moduleKey: String!
@@ -1045,6 +1069,11 @@ enum FormVersionStatus {
 type FormVersionsPayload {
   items: [FormVersionModel!]!
   totalCount: Int!
+}
+
+type FormVoidReasonOptionsPayload {
+  categoryKey: String
+  items: [FormFieldOption!]!
 }
 
 type FormWorkflowBinding {
@@ -1305,11 +1334,13 @@ type Mutation {
   provisionTenant(input: ProvisionTenantInput!): ProvisionTenantPayload!
   publishFormVersion(input: PublishFormVersionInput!): FormVersionPayload!
   publishWorkflowVersion(input: PublishWorkflowVersionInput!): WorkflowVersionPayload!
+  purgeDemoTenant(input: PurgeDemoTenantInput!): PurgeDemoTenantPayload!
   reassignTask(input: ReassignTaskInput!): WorkflowTaskPayload!
   refresh: RefreshPayload!
   requestPasswordReset(input: RequestPasswordResetInput!): RequestPasswordResetPayload!
   resetNotificationSetting(input: ResetNotificationSettingInput!): NotificationSettingPayload!
   resetPrintAgentPairing(input: PrintAgentIdInput!): PrintAgentPairingPayload!
+  resetSidebarBadgeSetting(input: ResetSidebarBadgeSettingInput!): SidebarBadgeSettingPayload!
   retireCurrentVersion(input: RetireCurrentVersionInput!): FormPayload!
   retireCurrentWorkflowVersion(input: WorkflowKeyInput!): WorkflowPayload!
   retryAdvanceInstance(input: RetryAdvanceInstanceInput!): WorkflowInstancePayload!
@@ -1355,6 +1386,7 @@ type Mutation {
   updateOrg(input: UpdateOrgInput!): OrgPayload!
   updatePrinter(input: UpdatePrinterInput!): PrinterPayload!
   updateRole(input: UpdateRoleInput!): RolePayload!
+  updateSidebarBadgeSetting(input: UpdateSidebarBadgeSettingInput!): SidebarBadgeSettingPayload!
   updateUser(input: UpdateUserInput!): UserPayload!
   updateWorkflow(input: UpdateWorkflowInput!): WorkflowPayload!
   upgradeFormSubmissions(input: UpgradeFormSubmissionsInput!): FormUpgradePayload!
@@ -1474,15 +1506,48 @@ type NotificationOrgScope {
   ref: String!
 }
 
+type NotificationSchedule {
+  dayOfMonth: Int
+  daysBefore: [Int!]
+  kind: NotificationScheduleKind!
+  time: String!
+}
+
+input NotificationScheduleInput {
+  dayOfMonth: Int
+  daysBefore: [Int!]
+  kind: NotificationScheduleKind!
+  time: String!
+}
+
+"""提醒時間的寫法:某日期前 N 天(可多個)/ 逾期後每天 / 每月第 N 天;由類型宣告,租戶不能換"""
+enum NotificationScheduleKind {
+  DAILY_OVERDUE
+  DAYS_BEFORE
+  MONTHLY
+}
+
 type NotificationSetting {
-  audience: JSONObject!
-  defaultAudience: JSONObject!
+  audience: JSONObject
+  category: String!
+  defaultAudience: JSONObject
+  defaultSchedule: NotificationSchedule
   isDefault: Boolean!
+  isScheduleDefault: Boolean!
   name: String!
-  orgScope: NotificationOrgScope!
+  orgScope: NotificationOrgScope
+  recipientNote: String
+  schedule: NotificationSchedule
+  scheduleDateLabel: String
   type: String!
   updatedAt: DateTime
   updatedBy: ID
+}
+
+"""還原預設的範圍:收件人 / 提醒時間"""
+enum NotificationSettingPart {
+  AUDIENCE
+  SCHEDULE
 }
 
 type NotificationSettingPayload {
@@ -1514,6 +1579,7 @@ type Org {
   description: String
   enabled: Boolean!
   id: ID!
+  isDemo: Boolean!
   isSystem: Boolean!
   logoUrl: String
   managers: [UserSummary!]!
@@ -1790,9 +1856,15 @@ type PrintersPayload {
   totalCount: Int!
 }
 
+type ProvisionTarget {
+  databaseName: String!
+}
+
 input ProvisionTenantInput {
   adminAccount: String!
   adminEmail: String!
+  adminInitialPassword: String
+  demo: Boolean = false
   logoPath: String
   moduleKeys: [String!]!
   name: String!
@@ -1817,6 +1889,25 @@ input PublishWorkflowVersionInput {
   changelog: String!
   expectedDraftRevision: Int!
   workflowKey: ID!
+}
+
+input PurgeDemoTenantInput {
+  slug: String!
+}
+
+type PurgeDemoTenantPayload {
+  collections: [PurgedCollection!]!
+  deletedDocuments: Int!
+  deletedFiles: Int!
+  deletedUsers: Int!
+  detachedUsers: Int!
+  orgId: ID
+  purged: Boolean!
+}
+
+type PurgedCollection {
+  collection: String!
+  deleted: Int!
 }
 
 type Query {
@@ -1849,6 +1940,7 @@ type Query {
   formUpgradePlan(formKey: ID!, targetVersion: Int!): FormUpgradePlan!
   formVersion(formKey: ID!, version: Int): FormVersionPayload!
   formVersions(formKey: ID!): FormVersionsPayload!
+  formVoidReasonOptions(formKey: ID!): FormVoidReasonOptionsPayload!
   formWorkflowOptions(formKey: ID!): FormWorkflowOptionsPayload!
   forms(input: FormsInput!): FormsPayload!
   me: Me!
@@ -1877,6 +1969,7 @@ type Query {
   printJobs(input: PrintJobsInput!): PrintJobsPayload!
   printablePrinters(orgId: ID!): PrintablePrintersPayload!
   printers(input: PrintersInput!): PrintersPayload!
+  provisionTarget: ProvisionTarget!
   realtimeTicket(board: RealtimeBoardInput): RealtimeTicketPayload
   recipe(id: ID!): Recipe!
   recipes: [Recipe!]!
@@ -1887,8 +1980,10 @@ type Query {
   roleUserCandidates(input: RoleUserCandidatesInput!, roleId: ID!): RoleUserCandidatesPayload!
   roleUsers(input: RoleUsersInput!, roleId: ID!): RoleUsersPayload!
   roles(input: RolesInput!): RolesPayload!
+  sidebarBadgeSettings: SidebarBadgeSettingsPayload!
   sidebarBadges: [SidebarBadge!]!
   tenantModuleOptions: [ModuleOption!]!
+  tenantOrgTree: [TenantOrgNode!]!
   user(id: ID!): User!
   users(input: UsersInput!): UsersPayload!
   validateFormVersion(input: ValidateFormVersionInput!): FormValidationReport!
@@ -1963,7 +2058,12 @@ type RequestPasswordResetPayload {
 }
 
 input ResetNotificationSettingInput {
+  part: NotificationSettingPart
   type: String!
+}
+
+input ResetSidebarBadgeSettingInput {
+  moduleKey: String!
 }
 
 input RetireCurrentVersionInput {
@@ -2320,12 +2420,58 @@ type SetUserOrgsPayload {
   user: User!
 }
 
+type ShareOrg {
+  includeDescendants: Boolean!
+  orgId: ID!
+}
+
+input ShareOrgInput {
+  includeDescendants: Boolean
+  orgId: ID!
+}
+
 type SidebarBadge {
   """數字;0 也回傳,前端只在大於 0 時顯示"""
   count: Int!
 
+  """「數什麼」的說明文字在 admin 訊息檔的 key(登記時給;側欄數字的提示與通知設定頁同一份);沒有 = null"""
+  descriptionKey: String
+
   """模組 key(側欄以它對上模組節點)"""
   moduleKey: String!
+}
+
+type SidebarBadgeSetting {
+  """租戶調整過的人員條件(綁了模組之後再看它);沒調整 = null,用程式預設"""
+  audience: JSONObject
+
+  """「數什麼」的說明文字在 admin 訊息檔的 key(登記時給);沒有 = null"""
+  descriptionKey: String
+
+  """true = 沒有調整,用程式預設"""
+  isDefault: Boolean!
+
+  """模組 key"""
+  moduleKey: String!
+
+  """模組名稱;模組不存在時退回模組 key"""
+  moduleName: String!
+
+  """程式預設要求的權限 key(登記的 requires);沒有 = null"""
+  requires: String
+
+  """最後一次調整 / 還原的時間;從沒動過 = null"""
+  updatedAt: DateTime
+  updatedBy: ID
+}
+
+type SidebarBadgeSettingPayload {
+  setting: SidebarBadgeSetting!
+}
+
+type SidebarBadgeSettingsPayload {
+  items: [SidebarBadgeSetting!]!
+  totalCount: Int!
 }
 
 input SubmitFormSubmissionInput {
@@ -2340,6 +2486,16 @@ input SwitchOrgInput {
 
 type SwitchOrgPayload {
   accessToken: String!
+}
+
+type TenantOrgNode {
+  children: [TenantOrgNode!]!
+  enabled: Boolean!
+  id: ID!
+  isManaged: Boolean!
+  isVisible: Boolean!
+  name: String!
+  parentId: ID
 }
 
 input TransferOrgOwnerInput {
@@ -2375,6 +2531,7 @@ input UpdateDemoItemTwoInput {
   id: ID!
   name: String
   note: String
+  shareOrgs: [ShareOrgInput!]
 }
 
 input UpdateFieldCategoryInput {
@@ -2394,7 +2551,10 @@ input UpdateFormInput {
   allowDraft: Boolean
   key: ID!
   name: String
+  serial: FormSerialFormatInput
+  sharedByFieldKeys: [String!]
   tabLabelTemplate: String
+  voidReasonCategoryKey: String
 }
 
 input UpdateFormSubmissionInput {
@@ -2413,7 +2573,8 @@ type UpdateMyPreferencesPayload {
 }
 
 input UpdateNotificationSettingInput {
-  audience: JSONObject!
+  audience: JSONObject
+  schedule: NotificationScheduleInput
   type: String!
 }
 
@@ -2438,6 +2599,11 @@ input UpdateRoleInput {
   description: String
   id: ID!
   name: String
+}
+
+input UpdateSidebarBadgeSettingInput {
+  audience: JSONObject!
+  moduleKey: String!
 }
 
 input UpdateUserInput {
@@ -2592,7 +2758,8 @@ input ValidateWorkflowVersionInput {
 input VoidSubmissionInput {
   expectedEditVersion: Int!
   id: ID!
-  reason: String!
+  reasonKey: String
+  reasonNote: String!
 }
 
 input WithdrawSubmissionInput {
@@ -2745,6 +2912,7 @@ enum WorkflowInstanceStatus {
 
 type WorkflowInstanceStepModel {
   allowReturn: Boolean!
+  allowsApplicantAssignee: Boolean!
   blocked: Boolean!
   decisions: [WorkflowDecisionModel!]!
   kind: String!

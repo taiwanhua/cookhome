@@ -12,6 +12,8 @@ export const projectPublic = {
   },
   admin: {
     documentTitle: "CookHome 後台管理",
+    // 可安裝成 app(manifest 與圖示);底座不帶圖示、不可安裝
+    webApp: null,
   },
   front: {
     metadata: {

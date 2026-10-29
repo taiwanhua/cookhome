@@ -17,6 +17,10 @@ import {
   UsersRepository,
 } from "../database/database.module";
 import { RelationService } from "../database/relation.service";
+import {
+  countDbCommands,
+  expectDbCommandsAtMost,
+} from "../database/test-support/db-commands";
 import { HOOK_TIMEOUT_MS } from "../database/test-support/mongo-connection";
 import { TransactionService } from "../database/transaction";
 import {
@@ -39,7 +43,11 @@ import {
   WORKFLOW_TASK_CREATED,
 } from "./base-notification-types";
 import { EmailChannelAdapter } from "./notification-channels";
-import { notificationPreferenceKey } from "./notification-registry";
+import {
+  type NotificationTypeDefinition,
+  notificationPreferenceKey,
+} from "./notification-registry";
+import { NOTIFICATION_TYPES } from "./notification-registry.module";
 import { NotificationService, type NotifyInput } from "./notification.service";
 
 jest.setTimeout(120_000);
@@ -127,6 +135,10 @@ const NOTIFICATION_SETTINGS = /* GraphQL */ `
         audience
         isDefault
         defaultAudience
+        schedule {
+          kind
+        }
+        isScheduleDefault
       }
       totalCount
     }
@@ -258,6 +270,15 @@ describe("通知 notify() / 通知清單 / 通知設定", () => {
       id: new Types.ObjectId().toHexString(),
     },
     dedupeKey,
+  });
+
+  /** 收件人只給 id(大量收件人的測試用,不必每位都建成可登入的操作者)。 */
+  const toUsers = (
+    userIds: Types.ObjectId[],
+    dedupeKey: string,
+  ): NotifyInput => ({
+    ...partyInput(WORKFLOW_RESULT, [], dedupeKey),
+    recipients: { kind: "users", userIds },
   });
 
   const rowsOf = (dedupeKey: string) =>
@@ -618,6 +639,91 @@ describe("通知 notify() / 通知清單 / 通知設定", () => {
         spy.mockRestore();
       }
     });
+
+    it("TX-06 / TX-07:1 位與 50 位收件人的指令數相同(去重、寫入、寄信前查收件人都整批);已通知過的只略過那幾位", async () => {
+      const now = new Date();
+      const prefix = `bulk-${String(Date.now())}`;
+      const { insertedIds } = await api.connection
+        .collection("users")
+        .insertMany(
+          Array.from({ length: 50 }, (_, index) => ({
+            name: `${prefix}-${String(index)}`,
+            account: `${prefix}-${String(index)}`,
+            email: `${prefix}-${String(index)}@example.com`,
+            enabled: true,
+            settings: {},
+            createdAt: now,
+            updatedAt: now,
+            createdBy: null,
+            updatedBy: null,
+            deletedAt: null,
+          })),
+        );
+      const userIds = Object.values(insertedIds);
+      try {
+        const fromMails = mail.sent.length;
+
+        const one = await countDbCommands(() =>
+          service.notify(partyInput(WORKFLOW_RESULT, [alice], nextKey("one"))),
+        );
+        const fiftyKey = nextKey("fifty");
+        const fifty = await countDbCommands(() =>
+          service.notify(toUsers(userIds, fiftyKey)),
+        );
+        expectDbCommandsAtMost(fifty, one.total, "notify 50 位收件人");
+        expect(await rowsOf(fiftyKey)).toHaveLength(50);
+        expect(
+          mailsSince(fromMails).filter((message) =>
+            message.to.startsWith(prefix),
+          ),
+        ).toHaveLength(50);
+
+        // 前 25 位已通知過:同一 dedupeKey 再送給 50 位 → 只寫、只寄另外 25 位
+        const partialKey = nextKey("partial");
+        await service.notify(toUsers(userIds.slice(0, 25), partialKey));
+        const fromPartial = mail.sent.length;
+        await service.notify(toUsers(userIds, partialKey));
+        expect(await rowsOf(partialKey)).toHaveLength(50);
+        expect(mailsSince(fromPartial)).toHaveLength(25);
+      } finally {
+        // 這 50 位不屬任何組織、只為本案而建:清掉,免得之後「全部使用者」類的人員條件多出人
+        await api.connection
+          .collection("users")
+          .deleteMany({ _id: { $in: userIds } });
+        await api.connection
+          .collection("notifications")
+          .deleteMany({ recipientId: { $in: userIds } });
+      }
+    });
+
+    it("寄信前讀收件人失敗:這批信不寄、只記 log;交易照常提交、站內通知照常送", async () => {
+      const users = api.app.get(UsersRepository, { strict: false });
+      const original = users.findMany.bind(users);
+      // 只讓寄信那一次(交易提交後、取信箱)失敗;解析收件人的那一次照常
+      const spy = jest
+        .spyOn(users, "findMany")
+        .mockImplementation((operator, filter, options) =>
+          options?.select === "email name"
+            ? Promise.reject(new Error("模擬讀收件人失敗"))
+            : original(operator, filter, options),
+        );
+      try {
+        const dedupeKey = nextKey("mail-lookup-fail");
+        const fromSignals = signals.length;
+        const fromMails = mail.sent.length;
+        await service.notify(partyInput(WORKFLOW_RESULT, [alice], dedupeKey));
+        expect(await rowsOf(dedupeKey)).toHaveLength(1);
+        expect(notificationSignalsSince(fromSignals)).toEqual([
+          [topicOf(alice)],
+        ]);
+        expect(mailsSince(fromMails)).toEqual([]);
+        expect(
+          spy.mock.calls.some((args) => args[2]?.select === "email name"),
+        ).toBe(true);
+      } finally {
+        spy.mockRestore();
+      }
+    });
   });
 
   describe("通知清單 API", () => {
@@ -723,15 +829,31 @@ describe("通知 notify() / 通知清單 / 通知設定", () => {
           totalCount: number;
         };
       }>(api, admin.token, NOTIFICATION_SETTINGS, { input: {} });
-      expect(notificationSettings.totalCount).toBe(1);
-      expect(notificationSettings.items[0]).toMatchObject({
+      // 清單 = 底座 + 專案登記的負責人提醒 + 宣告了可調時間的當事人通知(數量從 app 實際組裝的登記推出,專案加了類型這裡照樣綠)
+      expect(notificationSettings.totalCount).toBe(
+        [
+          ...api.app
+            .get<ReadonlyMap<string, NotificationTypeDefinition>>(
+              NOTIFICATION_TYPES,
+              { strict: false },
+            )
+            .values(),
+        ].filter(
+          (type) =>
+            type.category === "responsible" || type.schedule !== undefined,
+        ).length,
+      );
+      const offline = notificationSettings.items.find(
+        (item) => item.type === PRINTING_AGENT_OFFLINE,
+      );
+      expect(offline).toMatchObject({
         type: PRINTING_AGENT_OFFLINE,
         isDefault: true,
         orgScope: { ref: "event-org", range: "ancestors" },
+        schedule: null,
+        isScheduleDefault: true,
       });
-      expect(notificationSettings.items[0]?.audience).toEqual(
-        notificationSettings.items[0]?.defaultAudience,
-      );
+      expect(offline?.audience).toEqual(offline?.defaultAudience);
     });
 
     it("租戶調整人員條件後,下一次觸發依新條件(且只在類型宣告的組織範圍內);還原預設後回到類型宣告", async () => {
