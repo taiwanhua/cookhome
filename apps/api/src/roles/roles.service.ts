@@ -10,6 +10,7 @@ import { OrgsRepository, RolesRepository } from "../database/database.module";
 import type { OperatorContext } from "../database/operator-context";
 import { RelationService } from "../database/relation.service";
 import { tenantIdOfOrg } from "../database/tenant-id";
+import { TransactionService } from "../database/transaction";
 import type { DeletePayload } from "../orgs/models/org-payloads.model";
 import type { CreateRoleInput } from "./dto/create-role.input";
 import type { DeleteRoleInput } from "./dto/delete-role.input";
@@ -32,8 +33,10 @@ import {
 } from "./role-rules";
 import { RoleScopeService, toObjectId } from "./role-scope.service";
 import {
+  ROLE_NOT_DELETABLE_REASONS,
   type RoleNotDeletableReason,
   forbiddenError,
+  notFoundError,
   roleNotDeletableError,
   validationError,
 } from "./roles-error";
@@ -80,6 +83,7 @@ export class RolesService {
     private readonly scope: RoleScopeService,
     private readonly orgs: OrgsRepository,
     private readonly audienceReferences: AudienceReferencesService,
+    private readonly transactions: TransactionService,
   ) {}
 
   // ---- 讀 ----
@@ -146,46 +150,48 @@ export class RolesService {
     operator: OperatorContext,
     input: CreateRoleInput,
   ): Promise<RoleModel> {
-    const name = requireText(input.name, "name");
-    const description = input.description?.trim();
-    const ownerOrgId =
-      input.ownerOrgId === undefined || input.ownerOrgId === null
-        ? operator.currentOrgId
-        : toObjectId(input.ownerOrgId, "ownerOrgId");
-    if (ownerOrgId === null) {
-      throw validationError(
-        "ownerOrgId is required when the operator has no current org",
-        ["ownerOrgId"],
-      );
-    }
-    const ownerOrg = await this.scope.findManagedOrg(operator, ownerOrgId);
-    if (ownerOrg === null) {
-      throw forbiddenError(
-        `Org ${String(ownerOrgId)} is outside the operator's managed scope`,
-      );
-    }
+    return this.transactions.withTransaction(async () => {
+      const name = requireText(input.name, "name");
+      const description = input.description?.trim();
+      const ownerOrgId =
+        input.ownerOrgId === undefined || input.ownerOrgId === null
+          ? operator.currentOrgId
+          : toObjectId(input.ownerOrgId, "ownerOrgId");
+      if (ownerOrgId === null) {
+        throw validationError(
+          "ownerOrgId is required when the operator has no current org",
+          ["ownerOrgId"],
+        );
+      }
+      const ownerOrg = await this.scope.findManagedOrg(operator, ownerOrgId);
+      if (ownerOrg === null) {
+        throw forbiddenError(
+          `Org ${String(ownerOrgId)} is outside the operator's managed scope`,
+        );
+      }
 
-    const role = await this.roles.create(operator, {
-      name,
-      ...(description === undefined || description === ""
-        ? {}
-        : { description }),
-      enabled: true,
-      isSystem: false,
-      settings: {},
-    });
-    await this.relations.setRoleOwnerOrg(operator, ownerOrg._id, role._id);
-    await this.audit.record(operator, {
-      action: AUDIT_ACTIONS.create,
-      targetType: AUDIT_TARGET_TYPE,
-      targetId: role._id,
-      after: {
+      const role = await this.roles.create(operator, {
         name,
-        ...(description === undefined ? {} : { description }),
-        ownerOrgId: String(ownerOrg._id),
-      },
+        ...(description === undefined || description === ""
+          ? {}
+          : { description }),
+        enabled: true,
+        isSystem: false,
+        settings: {},
+      });
+      await this.relations.setRoleOwnerOrg(operator, ownerOrg._id, role._id);
+      await this.audit.record(operator, {
+        action: AUDIT_ACTIONS.create,
+        targetType: AUDIT_TARGET_TYPE,
+        targetId: role._id,
+        after: {
+          name,
+          ...(description === undefined ? {} : { description }),
+          ownerOrgId: String(ownerOrg._id),
+        },
+      });
+      return this.scope.decorateOne(operator, role);
     });
-    return this.scope.decorateOne(operator, role);
   }
 
   /**
@@ -196,49 +202,51 @@ export class RolesService {
     operator: OperatorContext,
     input: UpdateRoleInput,
   ): Promise<RoleModel> {
-    const role = await this.scope.loadManagedRole(operator, input.id);
-    if (isSeedRole(role)) {
-      throw forbiddenError(
-        `Role ${input.id} is a seed role and cannot be renamed`,
-        "SYSTEM_ROLE",
-      );
-    }
-    const before: Record<string, unknown> = {};
-    const after: Record<string, unknown> = {};
-    const update: Record<string, unknown> = {};
-
-    if (input.name !== undefined && input.name !== null) {
-      const name = requireText(input.name, "name");
-      if (name !== role.name) {
-        before.name = role.name;
-        after.name = name;
-        update.name = name;
+    return this.transactions.withTransaction(async () => {
+      const role = await this.scope.loadManagedRole(operator, input.id);
+      if (isSeedRole(role)) {
+        throw forbiddenError(
+          `Role ${input.id} is a seed role and cannot be renamed`,
+          "SYSTEM_ROLE",
+        );
       }
-    }
-    if (input.description !== undefined) {
-      const description = input.description?.trim() ?? "";
-      const current = role.description ?? "";
-      if (description !== current) {
-        before.description = role.description ?? null;
-        after.description = description === "" ? null : description;
-        update.description = description === "" ? null : description;
-      }
-    }
-    if (Object.keys(update).length === 0) {
-      return this.scope.decorateOne(operator, role);
-    }
+      const before: Record<string, unknown> = {};
+      const after: Record<string, unknown> = {};
+      const update: Record<string, unknown> = {};
 
-    const updated =
-      (await this.roles.updateById(operator, role._id, { $set: update })) ??
-      role;
-    await this.audit.record(operator, {
-      action: AUDIT_ACTIONS.edit,
-      targetType: AUDIT_TARGET_TYPE,
-      targetId: role._id,
-      before,
-      after,
+      if (input.name !== undefined && input.name !== null) {
+        const name = requireText(input.name, "name");
+        if (name !== role.name) {
+          before.name = role.name;
+          after.name = name;
+          update.name = name;
+        }
+      }
+      if (input.description !== undefined) {
+        const description = input.description?.trim() ?? "";
+        const current = role.description ?? "";
+        if (description !== current) {
+          before.description = role.description ?? null;
+          after.description = description === "" ? null : description;
+          update.description = description === "" ? null : description;
+        }
+      }
+      if (Object.keys(update).length === 0) {
+        return this.scope.decorateOne(operator, role);
+      }
+
+      const updated =
+        (await this.roles.updateById(operator, role._id, { $set: update })) ??
+        role;
+      await this.audit.record(operator, {
+        action: AUDIT_ACTIONS.edit,
+        targetType: AUDIT_TARGET_TYPE,
+        targetId: role._id,
+        before,
+        after,
+      });
+      return this.scope.decorateOne(operator, updated);
     });
-    return this.scope.decorateOne(operator, updated);
   }
 
   /**
@@ -254,23 +262,25 @@ export class RolesService {
     operator: OperatorContext,
     input: SetRoleEnabledInput,
   ): Promise<RoleModel> {
-    const role = await this.scope.loadManagedRole(operator, input.id);
-    await this.assertToggleAllowed(operator, role, input.enabled);
-    if (role.enabled === input.enabled) {
-      return this.scope.decorateOne(operator, role);
-    }
-    const updated =
-      (await this.roles.updateById(operator, role._id, {
-        $set: { enabled: input.enabled },
-      })) ?? role;
-    await this.audit.record(operator, {
-      action: AUDIT_ACTIONS.toggleEnabled,
-      targetType: AUDIT_TARGET_TYPE,
-      targetId: role._id,
-      before: { enabled: role.enabled },
-      after: { enabled: input.enabled },
+    return this.transactions.withTransaction(async () => {
+      const role = await this.scope.loadManagedRole(operator, input.id);
+      await this.assertToggleAllowed(operator, role, input.enabled);
+      if (role.enabled === input.enabled) {
+        return this.scope.decorateOne(operator, role);
+      }
+      const updated =
+        (await this.roles.updateById(operator, role._id, {
+          $set: { enabled: input.enabled },
+        })) ?? role;
+      await this.audit.record(operator, {
+        action: AUDIT_ACTIONS.toggleEnabled,
+        targetType: AUDIT_TARGET_TYPE,
+        targetId: role._id,
+        before: { enabled: role.enabled },
+        after: { enabled: input.enabled },
+      });
+      return this.scope.decorateOne(operator, updated);
     });
-    return this.scope.decorateOne(operator, updated);
   }
 
   /**
@@ -280,33 +290,52 @@ export class RolesService {
    * 軟刪除只動 `roles` 文件:`org_role` / `role_module` / `role_permission` 留著 —
    * 關聯是「有/沒有」的事實(RelationService 的硬刪除註解),角色一旦查不到,
    * PermissionResolver 與清單都不再看得到它,復原時綁定也還在。
+   *
+   * 前置檢查在交易外做完(交易只留寫入,TX-01);交易內再核對會被並發改變的兩項
+   * (授予、人員條件引用),檢查後才被授予 / 引用的仍擋下。種子與副本身分不會在檢查後改變。
    */
   async remove(
     operator: OperatorContext,
     input: DeleteRoleInput,
   ): Promise<DeletePayload> {
     const role = await this.scope.loadManagedRole(operator, input.id);
-    const { reasons, references } = await this.notDeletableReasons(
-      operator,
-      role,
-    );
+    const tenantId = await this.tenantIdOfRole(operator, role);
+    const fixed = fixedNotDeletableReasons(role);
+    const changing = await this.changingNotDeletableReasons(role, tenantId);
+    const reasons = [...changing.reasons, ...fixed];
     if (reasons.length > 0) {
-      throw roleNotDeletableError(reasons, references);
+      throw roleNotDeletableError(orderedReasons(reasons), changing.references);
     }
-    await this.roles.softDeleteById(operator, role._id);
-    await this.audit.record(operator, {
-      action: AUDIT_ACTIONS.delete,
-      targetType: AUDIT_TARGET_TYPE,
-      targetId: role._id,
-      before: { name: role.name, enabled: role.enabled },
+    return this.transactions.withTransaction(async () => {
+      const recheck = await this.changingNotDeletableReasons(role, tenantId);
+      if (recheck.reasons.length > 0) {
+        throw roleNotDeletableError(
+          orderedReasons(recheck.reasons),
+          recheck.references,
+        );
+      }
+      // 同時有人刪了同一個角色(或交易重跑時已刪):查不到 = 不存在,不再寫稽核
+      const deleted = await this.roles.softDeleteById(operator, role._id);
+      if (deleted === null) {
+        throw notFoundError(`Role ${String(role._id)} not found`);
+      }
+      await this.audit.record(operator, {
+        action: AUDIT_ACTIONS.delete,
+        targetType: AUDIT_TARGET_TYPE,
+        targetId: role._id,
+        before: { name: role.name, enabled: role.enabled },
+      });
+      return { success: true, deletedId: String(role._id) };
     });
-    return { success: true, deletedId: String(role._id) };
   }
 
-  /** 刪除前置(role-manager.md 權限表「刪除」);逐項列出,前端一次顯示全部。 */
-  private async notDeletableReasons(
-    operator: OperatorContext,
+  /**
+   * 刪除前置中會被並發改變的兩項(role-manager.md 權限表「刪除」):授予、人員條件引用。
+   * 交易外先查一次,交易內再核對一次。
+   */
+  private async changingNotDeletableReasons(
     role: RoleRecord,
+    tenantId: Types.ObjectId | null,
   ): Promise<{
     reasons: RoleNotDeletableReason[];
     references: AudienceReference[];
@@ -316,14 +345,8 @@ export class RolesService {
     if (grantedUserIds.length > 0) {
       reasons.push("HAS_GRANTS");
     }
-    if (isSeedRole(role)) {
-      reasons.push("SYSTEM_ROLE");
-    }
-    if (isTemplateCopy(role)) {
-      reasons.push("TEMPLATE_COPY");
-    }
     const references = await this.audienceReferences.referencesToRole(
-      await this.tenantIdOfRole(operator, role),
+      tenantId,
       role._id,
     );
     if (references.length > 0) {
@@ -384,4 +407,21 @@ export class RolesService {
       "SELF_LOCK",
     );
   }
+}
+
+/** 依 `ROLE_NOT_DELETABLE_REASONS` 的順序列出(前端逐項顯示)。 */
+function orderedReasons(
+  reasons: readonly RoleNotDeletableReason[],
+): RoleNotDeletableReason[] {
+  return ROLE_NOT_DELETABLE_REASONS.filter((reason) =>
+    reasons.includes(reason),
+  );
+}
+
+/** 刪除前置中角色本身的身分(種子、租戶副本);檢查後不會被並發改變。 */
+function fixedNotDeletableReasons(role: RoleRecord): RoleNotDeletableReason[] {
+  return [
+    ...(isSeedRole(role) ? (["SYSTEM_ROLE"] as const) : []),
+    ...(isTemplateCopy(role) ? (["TEMPLATE_COPY"] as const) : []),
+  ];
 }
