@@ -8,8 +8,8 @@
 
 **決策**:
 
-- `cookhome-assets-<env>`:私有(預設),uniform bucket-level access。
-- `cookhome-public-<env>`:公開讀。
+- `GCS_BUCKET_PRIVATE` 指定的專案 bucket:私有(預設),uniform bucket-level access。
+- `GCS_BUCKET_PUBLIC` 指定的專案 bucket:公開讀。
 - `StorageService` 以**用途(`purpose`)**決定路徑前綴、bucket 與簽發前要驗的權限;visibility 是用途的衍生屬性,不另給參數。新模組要存檔只登記一個 purpose,不碰基建。
 
 **理由**:私有是安全的預設;空的公開 bucket 零成本,先建著。讓用途決定一切,呼叫端就不會傳錯 bucket。
@@ -60,13 +60,13 @@
 
 **決策**:
 
-- 用 Resend,寄件人 `no-reply@cookhome.online`(SPF + DKIM)。
+- 用 Resend,寄件人由 `packages/project-config/src/project/mail.ts` 指定;啟用前在專案寄件網域驗證 SPF + DKIM。
 - API key 依環境存 Secret Manager。
-- `MailService` 支援收件白名單(`MAIL_ALLOWLIST`,有值時只寄名單內信箱),三個雲端環境都不設(= 不限收件人);名單外的信靜默略過、不視為錯誤,留作本機或臨時防誤寄用。
+- `MailService` 支援收件白名單(`MAIL_ALLOWLIST`,有值時只寄名單內信箱),空值表示不限收件人;名單外的信靜默略過、不視為錯誤,留作本機或臨時防誤寄用。
 - api 內做 `MailService` 介面,Resend 只是第一個 adapter。
 - 信件模板的品牌文字 / logo 登記 `docs/branding.md`。
 
-**理由**:免費額度(100 封 / 日、3000 封 / 月)對啟用信與重設密碼信綽綽有餘,API 簡潔;介面抽象讓換供應商不動呼叫端。
+**理由**:交易信件需求集中在啟用、重設密碼與通知,API 簡潔;介面抽象讓換供應商不動呼叫端。
 
 ## 影響
 

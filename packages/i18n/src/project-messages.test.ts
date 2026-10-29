@@ -345,12 +345,15 @@ const sourceOf = (file: string): string =>
   readFileSync(path.join(SRC_DIR, file), "utf8");
 
 describe("套件內部的依賴方向", () => {
-  it.each(["locales.ts", "base-messages.ts", "project-messages.ts"])(
-    "%s 不回頭 import index(避免循環依賴)",
-    (file) => {
-      expect(sourceOf(file)).not.toMatch(/from\s+"(?:\.|\.\/|\.\/index)"/);
-    },
-  );
+  it.each([
+    "locales.ts",
+    "base-messages.ts",
+    "project-messages.ts",
+    "project-admin-messages.ts",
+    "icu-arguments.ts",
+  ])("%s 不回頭 import index(避免循環依賴)", (file) => {
+    expect(sourceOf(file)).not.toMatch(/from\s+"(?:\.|\.\/|\.\/index)"/);
+  });
 
   it("index 只作出口:每一行都是 export … from", () => {
     const statements = sourceOf("index.ts")
@@ -369,8 +372,12 @@ describe("套件內部的依賴方向", () => {
       "utf8",
     );
     expect(manifest).not.toContain("@repo/project-config");
-    for (const file of readdirSync(SRC_DIR)) {
-      if (file.endsWith(".test.ts")) {
+    // 含子目錄(專案登記 `project/`)
+    for (const file of readdirSync(SRC_DIR, {
+      recursive: true,
+      encoding: "utf8",
+    })) {
+      if (!/\.(m?ts|tsx)$/.test(file) || /\.test\.(m?ts|tsx)$/.test(file)) {
         continue;
       }
       expect({

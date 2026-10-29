@@ -4,10 +4,10 @@
 
 ## 兩個 bucket
 
-| bucket                  | 讀取   | 用途                                        |
-| ----------------------- | ------ | ------------------------------------------- |
-| `cookhome-assets-<env>` | 私有   | 預設;登入後才看的檔(商標、附件、表單上傳欄) |
-| `cookhome-public-<env>` | 公開讀 | 要 CDN、SEO、og:image 或給未登入者看的檔    |
+| bucket               | 讀取   | 用途                                        |
+| -------------------- | ------ | ------------------------------------------- |
+| `GCS_BUCKET_PRIVATE` | 私有   | 預設;登入後才看的檔(商標、附件、表單上傳欄) |
+| `GCS_BUCKET_PUBLIC`  | 公開讀 | 要 CDN、SEO、og:image 或給未登入者看的檔    |
 
 - 放哪一顆由**用途(`purpose`)**決定,不另給參數。
 - bucket 名稱由 `GCS_BUCKET_PRIVATE` / `GCS_BUCKET_PUBLIC` 設定。沒設私有 bucket → 改用記錄用 adapter(網址是假的,檔案不會真的上傳)。
@@ -76,7 +76,7 @@
 
 ## 換檔與孤兒物件
 
-- 換檔即刪舊:`updateOrg` 把 `logoPath` 換掉或清空後,刪舊物件。刪不掉只記 log,不擋更新。
+- 換檔即刪舊:`updateOrg` 把 `logoPath` 換掉或清空後,在交易提交後(`afterCommit`)刪舊物件。刪不掉只記 log,不擋更新;更新回復時不刪。
 - 「上傳了但沒送出」的物件沒有任何欄位指向它,api 也不知道它存在。不掃描、不做 TTL 清理。
 - 開通租戶失敗由交易整個回復(資料庫的寫入),不碰 bucket;已上傳的商標物件同上一條,沒有欄位指向它。
 - 真要清孤兒,在 bucket 設 lifecycle rule(前綴 + 年齡),不在 api 寫掃描器。
@@ -92,13 +92,13 @@
 
 ## 交易信件
 
-| 項目     | 現況                                                                |
-| -------- | ------------------------------------------------------------------- |
-| 供應商   | Resend(`RESEND_API_KEY`;沒設 → 記錄用 adapter,信印到 stdout)        |
-| 寄件人   | `no-reply@cookhome.online`(SPF + DKIM)                              |
-| 介面     | `MailService`:啟用信、重設密碼信、審核流程的任務通知與結果通知      |
-| 防誤寄   | `MAIL_ALLOWLIST`:有值時只寄名單內信箱;空 = 不限。三個雲端環境都不設 |
-| 品牌文字 | 登記在 `docs/branding.md`                                           |
+| 項目     | 現況                                                                   |
+| -------- | ---------------------------------------------------------------------- |
+| 供應商   | Resend(`RESEND_API_KEY`;沒設 → 記錄用 adapter,信印到 stdout)           |
+| 寄件人   | `projectMail.senderEmail`(啟用前驗證專案寄件網域 SPF + DKIM)           |
+| 介面     | `MailService`:啟用信、重設密碼信、審核流程的任務通知與結果通知         |
+| 防誤寄   | `MAIL_ALLOWLIST`:有值時只寄名單內信箱;空 = 不限,各環境依自己的需求設定 |
+| 品牌文字 | 登記在 `docs/branding.md`                                              |
 
 - 換供應商只換 adapter,呼叫端不動。
 - 通知的 email(含審核流程)另受總開關 `WORKFLOW_MAIL_ENABLED` 控制(`docs/modules/notification-settings.md`);啟用信 / 重設密碼信不受它管。

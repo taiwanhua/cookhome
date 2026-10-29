@@ -17,7 +17,7 @@
 ```
 
 - 已在交易內的 service 再呼叫 `withTransaction` 會直接在同一個交易裡執行,**沒有獨立的回復點**:內層拋錯若被外層 `catch` 後繼續,內層已做的寫入會隨外層一起提交。要回復就讓錯誤往外拋,不要在外層吞掉。
-- 預設上限 60 秒(`timeoutMs` 可改);動作應在毫秒級,長批次(db-migrator 的大批次遷移)改成每批一個交易 + 檢查點續跑。上限由 `withTransaction` 自己計時:每次嘗試開始前與 `fn` 結束後(提交前)各檢查一次,超過就拋 `TransactionTimeoutError`、整個回復且不再重試;單一操作卡住時由伺服器的 `transactionLifetimeLimitSeconds`(預設 60 秒)中止交易。**不要把 `timeoutMS` 交給 driver 的 `withTransaction`**:mongodb 7.x 會讓交易內游標的 getMore 帶上 `maxTimeMS`、被 server 拒絕,交易內讀超過一批(101 筆)就失敗。連線字串與 MongoClient 也不要設 `timeoutMS`(session 會繼承,交易就會再啟用同一套逾時)。
+- 預設上限 60 秒(`timeoutMs` 可改);動作應在毫秒級,長批次(db-migrator 的大批次遷移)改成每批一個交易 + 檢查點續跑。上限由 `withTransaction` 自己計時:每次嘗試開始前與 `fn` 結束後(提交前)各檢查一次,超過就拋 `TransactionTimeoutError`(`GraphQLError`,`extensions.code = TRANSACTION_TIMEOUT`,前端顯示「處理時間過長、已取消、資料沒有變更」)、整個回復且不再重試;單一操作卡住時由伺服器的 `transactionLifetimeLimitSeconds`(預設 60 秒)中止交易。**不要把 `timeoutMS` 交給 driver 的 `withTransaction`**:mongodb 7.x 會讓交易內游標的 getMore 帶上 `maxTimeMS`、被 server 拒絕,交易內讀超過一批(101 筆)就失敗。連線字串與 MongoClient 也不要設 `timeoutMS`(session 會繼承,交易就會再啟用同一套逾時)。
 
 ## TX-02 讀寫預設帶目前交易的 session;原生 collection 自己帶;交易內不平行讀寫
 
@@ -73,4 +73,75 @@ await this.transactions.withTransaction(async (session) => {
 
 `editVersion` / `version` 的條件更新照舊:它防的是兩個人先後編輯、後存蓋掉先存,讀與寫之間隔著使用者的編輯時間,不在同一個交易裡。
 
-正本:`apps/api/src/database/transaction.ts`、`apps/api/src/database/transaction.test.ts`、`apps/api/src/database/base.repository.ts`
+## TX-06 交易內對多筆資料的讀寫要整批做,不逐筆來回
+
+交易內每一次讀寫都是一次資料庫往返,而且依序 `await`(TX-02)。逐筆讀寫時往返數隨筆數成長:本機往返幾乎是 0 毫秒看不出來,雲端每次幾十毫秒,幾百筆就超過 60 秒上限(TX-01),整個動作逾時回復。
+
+```ts
+❌ for (const item of items) {
+     const row = await this.rows.findOne(operator, { _id: item.id });
+     await this.rows.findOneAndUpdate(operator, { _id: item.id, version: row.version }, update);
+   }
+✅ const rows = await this.rows.findMany(operator, { _id: { $in: ids } });
+   const modified = await this.rows.updateMany(
+     operator,
+     { _id: { $in: ids }, version },
+     update,
+   );
+   if (modified !== ids.length) throw conflictError(); // 筆數不符 = 有幾筆已被別人改
+```
+
+- **讀**:一次 `findMany({ _id: { $in } })`(或 `$or` 多組條件),在記憶體裡分組;不在迴圈裡 `findOne` / `count`。
+- **條件更新**:條件與要改的欄位都相同的一組一次 `updateMany`,樂觀鎖(TX-05)照樣帶在條件裡;**寫入筆數與這組筆數不符 → 拋衝突**,整個交易回復(不吞掉,TX-04)。
+  - 以寫入筆數判衝突時,**更新一定要帶 `$inc` 版本**(或保證每筆的值一定會變):`updateMany` 回的是 `modifiedCount`,符合條件但值沒變的列不算,會被誤判成衝突。
+  - 每筆要改的值不同時(例:每一本自己的單價)依值分組,**組數隨值的種類成長**:每多一種值多一次往返。防退化測試要放一組值各不相同的資料,確認多出的次數只等於多出的種類數。
+  - 值的種類幾乎和筆數一樣多(例:每筆各自的開始時間)時,改用 `bulkUpdateByIds`:一次 `bulkWrite`,每筆帶自己的值與條件。
+- **批次出口**(都在 `BaseRepository` / `AuditService`,**都必須在交易內**,空清單不送指令):
+
+  | 出口                                                   | 用途                                   | 回傳 / 筆數不符時                                                                                                                                                                                                                                                                                |
+  | ------------------------------------------------------ | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | `createMany(operator, docs)`                           | 新增多筆(同組織的租戶推導只查一次)     | 一筆沒過整批不寫                                                                                                                                                                                                                                                                                 |
+  | `softDeleteMany(operator, ids)`                        | 軟刪多筆(一次 `updateMany`)            | 有不存在 / 已刪除 / 範圍外的 → 底座直接拋 `CONFLICT`(`writeCountConflictError`,`EDIT_VERSION_MISMATCH`),交易回復、沒有部分提交                                                                                                                                                                   |
+  | `bulkUpdateByIds(operator, [{ id, update, filter? }])` | 每筆值不同的條件更新(一次 `bulkWrite`) | 同上(以 `matchedCount` 判,值沒變的列也算命中,不必為了判衝突加 `$inc`)。只收 `$set` / `$unset` / `$inc` / `$push`(單一元素或 `$each`),不收位置運算子、`arrayFilters`、`$pull`;`$set` / `$unset`(必填欄位擋下)/ `$push` 的值照 schema 驗,欄位保護同 `updateById`,加密欄位照樣加密,同批重複 id 拋錯 |
+  | `reassignOrgMany(operator, ids, newOrgId)`             | 搬家(全有或全無、一筆稽核)             | 回 `mismatched`                                                                                                                                                                                                                                                                                  |
+  | `AuditService.recordMany(operator, inputs)`            | 稽核多筆(一次 `createMany`)            | 每筆與 `record` 同形狀;粒度不變,原本逐筆幾筆就給幾筆。**必須在交易內**(`record` 不用)                                                                                                                                                                                                            |
+
+  ```ts
+  ❌ for (const entry of entries) {
+       await this.entries.softDeleteById(operator, entry._id);
+       await this.audit.record(operator, { action: "x.delete", targetId: entry._id });
+     }
+  ✅ await this.entries.softDeleteMany(operator, ids); // 筆數不符 → 拋 CONFLICT,整個交易回復
+     await this.audit.recordMany(operator, ids.map((targetId) => ({ action: "x.delete", targetId })));
+  ```
+
+- **先讀再整批寫回**時,讀取條件併上 `BaseRepository.writableFilterOf(operator)`(寫入範圍:可見範圍 + 資料範圍,不含共用分支):讀得到、寫不到的唯讀共用資料不會讀進來,整批寫回也不會因此筆數不符。
+- **同一筆在同一批出現多次**(先 A 再 B 兩個變動):依出現順序分輪,每輪每筆最多一次,往返數只隨輪數成長。
+- 迴圈裡呼叫的若是會讀寫資料庫的 service 方法(守門、原因檢查),先依輸入去重,同樣的輸入只呼叫一次。
+- **防退化測試數資料庫指令次數,不計時**:`apps/api/src/database/test-support/db-commands.ts` 的 `countDbCommands` 數一段動作送出的指令,`expectDbCommandsAtMost` 斷言上限;上限與筆數無關,同一個動作做 1 筆與多筆,多筆不得比 1 筆多出幾次以上。計時在 CI 上不穩定,本機往返又近乎 0,抓不到逐筆讀寫。
+
+正本:`apps/api/src/database/transaction.ts`、`apps/api/src/database/transaction.test.ts`、`apps/api/src/database/base.repository.ts`、`apps/api/src/database/batch-writes.test.ts`
+
+## TX-07 交易外的列表 / 頁面讀取也整批讀,不逐列查(N+1)
+
+TX-06 管交易內;交易外的讀取一樣是依序往返:列表每一列再各查一次關聯、報表每一筆各查一次明細,往返數隨列數成長,一頁 50 列 × 4 次 × 50 毫秒就是 10 秒;資料隨時間累積的(全部歷史資料、所有組織)會一直變慢,最後撞到請求上限。
+
+```ts
+❌ const result = [];
+   for (const row of rows) {
+     result.push({ ...row, owner: await this.users.findById(operator, row.ownerId) });
+   }
+   return result;
+✅ const owners = await this.users.findMany(operator, {
+     _id: { $in: [...new Set(rows.map((row) => String(row.ownerId)))] },
+   });
+   const ownerOf = new Map(owners.map((owner) => [String(owner._id), owner]));
+   return rows.map((row) => ({ ...row, owner: ownerOf.get(String(row.ownerId)) ?? null }));
+```
+
+- 依整頁(或整批)的 id 去重後一次 `findMany({ $in })`,在記憶體裡對回每一列。
+- 改成 `Promise.all(rows.map(...))` 平行送出也不行:每列仍是一次指令,指令數照樣隨列數成長;一次送出幾十上百個查詢會佔滿連線池,同時間其他請求要排隊,資料庫負載也跟著放大。
+- 每列要的是「各組最後一筆 / 最早一筆 / 合計」時,用一次 `aggregate`(`$match` + `$group`),不逐組查。
+- 上下文、租戶邊界(`tenantBoundaryContext`,2 次往返)、設定、定義版本這類「同一個值」先建好一次,不在每列重建。
+- 筆數會隨時間無上限成長的掃描(例:全部已完成的資料),除了批次讀,還要先用條件或索引縮到「還需要看的」那些。
+- 防退化測試同 TX-06:`countDbCommands` 數 1 列與一整頁,指令數相同。
