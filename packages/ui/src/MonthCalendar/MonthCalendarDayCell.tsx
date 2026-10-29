@@ -1,14 +1,25 @@
 "use client";
 
+import { type Theme, alpha } from "@mui/material/styles";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { Box } from "../Box/Box";
 import { Tooltip } from "../Tooltip/Tooltip";
 import { stateLayerSx } from "../theme/state-layer";
 import { todayMarkSx } from "../theme/today-mark";
-import { MonthCalendarCornerMark } from "./MonthCalendarCornerMark";
+import { MonthCalendarCornerMarks } from "./MonthCalendarCornerMark";
 import type { CalendarDay } from "./month-calendar-grid";
-import type { MonthCalendarDayInfo } from "./month-calendar-types";
+import type {
+  MonthCalendarCorner,
+  MonthCalendarDayInfo,
+  MonthCalendarDayTone,
+} from "./month-calendar-types";
+
+/** 底色語意 → 主題 token(色碼由主題決定,深色模式跟著換)。 */
+const TONE_BACKGROUND: Record<MonthCalendarDayTone, string> = {
+  special: "info.lighter",
+  closed: "action.hover",
+};
 
 export interface MonthCalendarDayCellProps {
   day: CalendarDay;
@@ -24,8 +35,49 @@ export interface MonthCalendarDayCellProps {
   onSelect: (date: string) => void;
 }
 
+/**
+ * 格子底色:停用色 > 資料帶來的顏色(以主題的 `selectedOpacity` 淡化,文字對比照舊)> 語意底色 > 紙色。
+ */
+const backgroundOf = (
+  theme: Theme,
+  {
+    disabled,
+    tone,
+    source,
+  }: {
+    disabled: boolean;
+    tone: MonthCalendarDayTone | undefined;
+    source: string | undefined;
+  },
+): string => {
+  if (disabled) {
+    return "action.disabledBackground";
+  }
+  if (source !== undefined) {
+    // 資料帶來的是一般色碼(例 `#006064`):用獨立的 `alpha`(`theme.alpha` 在 CSS 變數主題下只收色彩通道)
+    return alpha(source, theme.palette.action.selectedOpacity);
+  }
+  return tone === undefined ? "background.paper" : TONE_BACKGROUND[tone];
+};
+
+/** 這一天的角標:`corners` 優先;只給舊的單一 `corner` 時當成一個。 */
+const cornersOf = (
+  info: MonthCalendarDayInfo,
+): readonly MonthCalendarCorner[] => {
+  if (info.corners !== undefined) {
+    return info.corners;
+  }
+  return info.corner === undefined ? [] : [info.corner];
+};
+
 const isActivationKey = (event: KeyboardEvent) =>
   event.key === "Enter" || event.key === " ";
+
+/**
+ * 日期數字與註記疊在 `content` 的鋪滿裝飾(`position: absolute` 的底紋等)之上;
+ * 格子自成一層(`isolation: isolate`),這個層級不會蓋到格子外的浮層。
+ */
+const aboveContentSx = { position: "relative", zIndex: 1 } as const;
 
 /** 月曆的一格(Figma Draft/MonthCalendarCell):日期數字、角標、註記、自訂內容。 */
 export const MonthCalendarDayCell = ({
@@ -40,6 +92,8 @@ export const MonthCalendarDayCell = ({
 }: MonthCalendarDayCellProps) => {
   const disabled = day.inMonth && info?.disabled === true;
   const muted = !day.inMonth || disabled;
+  const tone = day.inMonth ? info?.tone : undefined;
+  const source = day.inMonth ? info?.background : undefined;
   const select = () => {
     if (selectable) onSelect(day.date);
   };
@@ -50,6 +104,8 @@ export const MonthCalendarDayCell = ({
       aria-selected={selectionEnabled ? selected : undefined}
       aria-disabled={muted || undefined}
       data-date={day.date}
+      data-tone={tone}
+      data-background={source}
       tabIndex={selectable ? 0 : undefined}
       onClick={select}
       onKeyDown={(event: KeyboardEvent) => {
@@ -59,6 +115,7 @@ export const MonthCalendarDayCell = ({
       }}
       sx={(theme) => ({
         position: "relative",
+        isolation: "isolate",
         minWidth: 0,
         // 電腦大格、手機約 48px;寬度由容器七等分
         minHeight: { xs: theme.spacing(6), md: theme.spacing(12) },
@@ -66,7 +123,7 @@ export const MonthCalendarDayCell = ({
         display: "flex",
         flexDirection: "column",
         gap: 0.5,
-        bgcolor: disabled ? "action.disabledBackground" : "background.paper",
+        bgcolor: backgroundOf(theme, { disabled, tone, source }),
         color: muted ? "text.disabled" : "text.primary",
         borderRight: 1,
         borderBottom: 1,
@@ -81,20 +138,24 @@ export const MonthCalendarDayCell = ({
     >
       <Box
         component="span"
+        data-day-number
         sx={(theme) => ({
+          ...aboveContentSx,
           typography: "body2",
           ...todayMarkSx(theme, { isToday, shape: "circle" }),
         })}
       >
         {day.day}
       </Box>
-      {day.inMonth && info?.corner ? (
-        <MonthCalendarCornerMark corner={info.corner} />
+      {day.inMonth && info !== undefined ? (
+        <MonthCalendarCornerMarks corners={cornersOf(info)} />
       ) : null}
       {day.inMonth && info?.note ? (
         <Box
           component="span"
+          data-day-note
           sx={{
+            ...aboveContentSx,
             typography: "caption",
             color: "text.secondary",
             overflow: "hidden",

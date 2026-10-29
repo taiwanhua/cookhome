@@ -232,6 +232,7 @@ export type CreateDemoItemOneInput = {
 export type CreateDemoItemTwoInput = {
   name: Scalars['String']['input'];
   note?: InputMaybe<Scalars['String']['input']>;
+  shareOrgs?: InputMaybe<Array<ShareOrgInput>>;
 };
 
 export type CreateFieldCategoryInput = {
@@ -589,8 +590,10 @@ export type DemoItemTwo = {
   createdBy?: Maybe<DemoItemTwoUser>;
   enabled: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  isShared: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
   note?: Maybe<Scalars['String']['output']>;
+  shareOrgs: Array<ShareOrg>;
   updatedAt: Scalars['DateTime']['output'];
 };
 
@@ -921,9 +924,12 @@ export type FormModel = {
   name: Scalars['String']['output'];
   ownerOrgId?: Maybe<Scalars['ID']['output']>;
   ownerOrgName?: Maybe<Scalars['String']['output']>;
+  serial?: Maybe<FormSerialFormat>;
+  sharedByFieldKeys: Array<Scalars['String']['output']>;
   tabLabelTemplate?: Maybe<Scalars['String']['output']>;
   tenantEnabled?: Maybe<Scalars['Boolean']['output']>;
   updatedAt: Scalars['DateTime']['output'];
+  voidReasonCategoryKey?: Maybe<Scalars['String']['output']>;
   workflowBinding?: Maybe<FormWorkflowBinding>;
 };
 
@@ -938,6 +944,21 @@ export type FormPreviewPayload = {
   fieldStates: Array<FormFieldState>;
   summary: FormSubmissionSummary;
   values: Scalars['JSONObject']['output'];
+};
+
+export type FormSerialFormat = {
+  __typename?: 'FormSerialFormat';
+  digits: Scalars['Int']['output'];
+  period: Scalars['String']['output'];
+  prefix: Scalars['String']['output'];
+  separator?: Maybe<Scalars['String']['output']>;
+};
+
+export type FormSerialFormatInput = {
+  digits: Scalars['Int']['input'];
+  period: Scalars['String']['input'];
+  prefix: Scalars['String']['input'];
+  separator?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type FormSubmissionAbilities = {
@@ -987,6 +1008,7 @@ export type FormSubmissionModel = {
   replacedById?: Maybe<Scalars['ID']['output']>;
   revision: Scalars['Int']['output'];
   revisions: Array<FormSubmissionRevisionMeta>;
+  serialNo?: Maybe<Scalars['String']['output']>;
   status: FormSubmissionStatus;
   submittedAt?: Maybe<Scalars['DateTime']['output']>;
   summary?: Maybe<FormSubmissionSummary>;
@@ -997,6 +1019,8 @@ export type FormSubmissionModel = {
   viewedRevision: Scalars['Int']['output'];
   viewedVersion: Scalars['Int']['output'];
   voidReason?: Maybe<Scalars['String']['output']>;
+  voidReasonKey?: Maybe<Scalars['String']['output']>;
+  voidReasonLabel?: Maybe<Scalars['String']['output']>;
   voidedAt?: Maybe<Scalars['DateTime']['output']>;
 };
 
@@ -1042,6 +1066,7 @@ export type FormSubmissionSummary = {
 };
 
 export type FormSubmissionsInput = {
+  excludeFormKeys?: InputMaybe<Array<Scalars['ID']['input']>>;
   formKey?: InputMaybe<Scalars['ID']['input']>;
   keyword?: InputMaybe<Scalars['String']['input']>;
   moduleKey: Scalars['String']['input'];
@@ -1145,6 +1170,12 @@ export type FormVersionsPayload = {
   __typename?: 'FormVersionsPayload';
   items: Array<FormVersionModel>;
   totalCount: Scalars['Int']['output'];
+};
+
+export type FormVoidReasonOptionsPayload = {
+  __typename?: 'FormVoidReasonOptionsPayload';
+  categoryKey?: Maybe<Scalars['String']['output']>;
+  items: Array<FormFieldOption>;
 };
 
 export type FormWorkflowBinding = {
@@ -1418,11 +1449,13 @@ export type Mutation = {
   provisionTenant: ProvisionTenantPayload;
   publishFormVersion: FormVersionPayload;
   publishWorkflowVersion: WorkflowVersionPayload;
+  purgeDemoTenant: PurgeDemoTenantPayload;
   reassignTask: WorkflowTaskPayload;
   refresh: RefreshPayload;
   requestPasswordReset: RequestPasswordResetPayload;
   resetNotificationSetting: NotificationSettingPayload;
   resetPrintAgentPairing: PrintAgentPairingPayload;
+  resetSidebarBadgeSetting: SidebarBadgeSettingPayload;
   retireCurrentVersion: FormPayload;
   retireCurrentWorkflowVersion: WorkflowPayload;
   retryAdvanceInstance: WorkflowInstancePayload;
@@ -1468,6 +1501,7 @@ export type Mutation = {
   updateOrg: OrgPayload;
   updatePrinter: PrinterPayload;
   updateRole: RolePayload;
+  updateSidebarBadgeSetting: SidebarBadgeSettingPayload;
   updateUser: UserPayload;
   updateWorkflow: WorkflowPayload;
   upgradeFormSubmissions: FormUpgradePayload;
@@ -1726,6 +1760,11 @@ export type MutationPublishWorkflowVersionArgs = {
 };
 
 
+export type MutationPurgeDemoTenantArgs = {
+  input: PurgeDemoTenantInput;
+};
+
+
 export type MutationReassignTaskArgs = {
   input: ReassignTaskInput;
 };
@@ -1743,6 +1782,11 @@ export type MutationResetNotificationSettingArgs = {
 
 export type MutationResetPrintAgentPairingArgs = {
   input: PrintAgentIdInput;
+};
+
+
+export type MutationResetSidebarBadgeSettingArgs = {
+  input: ResetSidebarBadgeSettingInput;
 };
 
 
@@ -1971,6 +2015,11 @@ export type MutationUpdateRoleArgs = {
 };
 
 
+export type MutationUpdateSidebarBadgeSettingArgs = {
+  input: UpdateSidebarBadgeSettingInput;
+};
+
+
 export type MutationUpdateUserArgs = {
   input: UpdateUserInput;
 };
@@ -2113,17 +2162,51 @@ export type NotificationOrgScope = {
   ref: Scalars['String']['output'];
 };
 
+export type NotificationSchedule = {
+  __typename?: 'NotificationSchedule';
+  dayOfMonth?: Maybe<Scalars['Int']['output']>;
+  daysBefore?: Maybe<Array<Scalars['Int']['output']>>;
+  kind: NotificationScheduleKind;
+  time: Scalars['String']['output'];
+};
+
+export type NotificationScheduleInput = {
+  dayOfMonth?: InputMaybe<Scalars['Int']['input']>;
+  daysBefore?: InputMaybe<Array<Scalars['Int']['input']>>;
+  kind: NotificationScheduleKind;
+  time: Scalars['String']['input'];
+};
+
+/** 提醒時間的寫法:某日期前 N 天(可多個)/ 逾期後每天 / 每月第 N 天;由類型宣告,租戶不能換 */
+export enum NotificationScheduleKind {
+  DailyOverdue = 'DAILY_OVERDUE',
+  DaysBefore = 'DAYS_BEFORE',
+  Monthly = 'MONTHLY'
+}
+
 export type NotificationSetting = {
   __typename?: 'NotificationSetting';
-  audience: Scalars['JSONObject']['output'];
-  defaultAudience: Scalars['JSONObject']['output'];
+  audience?: Maybe<Scalars['JSONObject']['output']>;
+  category: Scalars['String']['output'];
+  defaultAudience?: Maybe<Scalars['JSONObject']['output']>;
+  defaultSchedule?: Maybe<NotificationSchedule>;
   isDefault: Scalars['Boolean']['output'];
+  isScheduleDefault: Scalars['Boolean']['output'];
   name: Scalars['String']['output'];
-  orgScope: NotificationOrgScope;
+  orgScope?: Maybe<NotificationOrgScope>;
+  recipientNote?: Maybe<Scalars['String']['output']>;
+  schedule?: Maybe<NotificationSchedule>;
+  scheduleDateLabel?: Maybe<Scalars['String']['output']>;
   type: Scalars['String']['output'];
   updatedAt?: Maybe<Scalars['DateTime']['output']>;
   updatedBy?: Maybe<Scalars['ID']['output']>;
 };
+
+/** 還原預設的範圍:收件人 / 提醒時間 */
+export enum NotificationSettingPart {
+  Audience = 'AUDIENCE',
+  Schedule = 'SCHEDULE'
+}
 
 export type NotificationSettingPayload = {
   __typename?: 'NotificationSettingPayload';
@@ -2157,6 +2240,7 @@ export type Org = {
   description?: Maybe<Scalars['String']['output']>;
   enabled: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
+  isDemo: Scalars['Boolean']['output'];
   isSystem: Scalars['Boolean']['output'];
   logoUrl?: Maybe<Scalars['String']['output']>;
   managers: Array<UserSummary>;
@@ -2449,9 +2533,16 @@ export type PrintersPayload = {
   totalCount: Scalars['Int']['output'];
 };
 
+export type ProvisionTarget = {
+  __typename?: 'ProvisionTarget';
+  databaseName: Scalars['String']['output'];
+};
+
 export type ProvisionTenantInput = {
   adminAccount: Scalars['String']['input'];
   adminEmail: Scalars['String']['input'];
+  adminInitialPassword?: InputMaybe<Scalars['String']['input']>;
+  demo?: InputMaybe<Scalars['Boolean']['input']>;
   logoPath?: InputMaybe<Scalars['String']['input']>;
   moduleKeys: Array<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -2477,6 +2568,27 @@ export type PublishWorkflowVersionInput = {
   changelog: Scalars['String']['input'];
   expectedDraftRevision: Scalars['Int']['input'];
   workflowKey: Scalars['ID']['input'];
+};
+
+export type PurgeDemoTenantInput = {
+  slug: Scalars['String']['input'];
+};
+
+export type PurgeDemoTenantPayload = {
+  __typename?: 'PurgeDemoTenantPayload';
+  collections: Array<PurgedCollection>;
+  deletedDocuments: Scalars['Int']['output'];
+  deletedFiles: Scalars['Int']['output'];
+  deletedUsers: Scalars['Int']['output'];
+  detachedUsers: Scalars['Int']['output'];
+  orgId?: Maybe<Scalars['ID']['output']>;
+  purged: Scalars['Boolean']['output'];
+};
+
+export type PurgedCollection = {
+  __typename?: 'PurgedCollection';
+  collection: Scalars['String']['output'];
+  deleted: Scalars['Int']['output'];
 };
 
 export type Query = {
@@ -2510,6 +2622,7 @@ export type Query = {
   formUpgradePlan: FormUpgradePlan;
   formVersion: FormVersionPayload;
   formVersions: FormVersionsPayload;
+  formVoidReasonOptions: FormVoidReasonOptionsPayload;
   formWorkflowOptions: FormWorkflowOptionsPayload;
   forms: FormsPayload;
   me: Me;
@@ -2538,6 +2651,7 @@ export type Query = {
   printJobs: PrintJobsPayload;
   printablePrinters: PrintablePrintersPayload;
   printers: PrintersPayload;
+  provisionTarget: ProvisionTarget;
   realtimeTicket?: Maybe<RealtimeTicketPayload>;
   recipe: Recipe;
   recipes: Array<Recipe>;
@@ -2548,8 +2662,10 @@ export type Query = {
   roleUserCandidates: RoleUserCandidatesPayload;
   roleUsers: RoleUsersPayload;
   roles: RolesPayload;
+  sidebarBadgeSettings: SidebarBadgeSettingsPayload;
   sidebarBadges: Array<SidebarBadge>;
   tenantModuleOptions: Array<ModuleOption>;
+  tenantOrgTree: Array<TenantOrgNode>;
   user: User;
   users: UsersPayload;
   validateFormVersion: FormValidationReport;
@@ -2684,6 +2800,11 @@ export type QueryFormVersionArgs = {
 
 
 export type QueryFormVersionsArgs = {
+  formKey: Scalars['ID']['input'];
+};
+
+
+export type QueryFormVoidReasonOptionsArgs = {
   formKey: Scalars['ID']['input'];
 };
 
@@ -2943,7 +3064,12 @@ export type RequestPasswordResetPayload = {
 };
 
 export type ResetNotificationSettingInput = {
+  part?: InputMaybe<NotificationSettingPart>;
   type: Scalars['String']['input'];
+};
+
+export type ResetSidebarBadgeSettingInput = {
+  moduleKey: Scalars['String']['input'];
 };
 
 export type RetireCurrentVersionInput = {
@@ -3319,12 +3445,55 @@ export type SetUserOrgsPayload = {
   user: User;
 };
 
+export type ShareOrg = {
+  __typename?: 'ShareOrg';
+  includeDescendants: Scalars['Boolean']['output'];
+  orgId: Scalars['ID']['output'];
+};
+
+export type ShareOrgInput = {
+  includeDescendants?: InputMaybe<Scalars['Boolean']['input']>;
+  orgId: Scalars['ID']['input'];
+};
+
 export type SidebarBadge = {
   __typename?: 'SidebarBadge';
   /** 數字;0 也回傳,前端只在大於 0 時顯示 */
   count: Scalars['Int']['output'];
+  /** 「數什麼」的說明文字在 admin 訊息檔的 key(登記時給;側欄數字的提示與通知設定頁同一份);沒有 = null */
+  descriptionKey?: Maybe<Scalars['String']['output']>;
   /** 模組 key(側欄以它對上模組節點) */
   moduleKey: Scalars['String']['output'];
+};
+
+export type SidebarBadgeSetting = {
+  __typename?: 'SidebarBadgeSetting';
+  /** 租戶調整過的人員條件(綁了模組之後再看它);沒調整 = null,用程式預設 */
+  audience?: Maybe<Scalars['JSONObject']['output']>;
+  /** 「數什麼」的說明文字在 admin 訊息檔的 key(登記時給);沒有 = null */
+  descriptionKey?: Maybe<Scalars['String']['output']>;
+  /** true = 沒有調整,用程式預設 */
+  isDefault: Scalars['Boolean']['output'];
+  /** 模組 key */
+  moduleKey: Scalars['String']['output'];
+  /** 模組名稱;模組不存在時退回模組 key */
+  moduleName: Scalars['String']['output'];
+  /** 程式預設要求的權限 key(登記的 requires);沒有 = null */
+  requires?: Maybe<Scalars['String']['output']>;
+  /** 最後一次調整 / 還原的時間;從沒動過 = null */
+  updatedAt?: Maybe<Scalars['DateTime']['output']>;
+  updatedBy?: Maybe<Scalars['ID']['output']>;
+};
+
+export type SidebarBadgeSettingPayload = {
+  __typename?: 'SidebarBadgeSettingPayload';
+  setting: SidebarBadgeSetting;
+};
+
+export type SidebarBadgeSettingsPayload = {
+  __typename?: 'SidebarBadgeSettingsPayload';
+  items: Array<SidebarBadgeSetting>;
+  totalCount: Scalars['Int']['output'];
 };
 
 export type SubmitFormSubmissionInput = {
@@ -3340,6 +3509,17 @@ export type SwitchOrgInput = {
 export type SwitchOrgPayload = {
   __typename?: 'SwitchOrgPayload';
   accessToken: Scalars['String']['output'];
+};
+
+export type TenantOrgNode = {
+  __typename?: 'TenantOrgNode';
+  children: Array<TenantOrgNode>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  isManaged: Scalars['Boolean']['output'];
+  isVisible: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  parentId?: Maybe<Scalars['ID']['output']>;
 };
 
 export type TransferOrgOwnerInput = {
@@ -3376,6 +3556,7 @@ export type UpdateDemoItemTwoInput = {
   id: Scalars['ID']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
   note?: InputMaybe<Scalars['String']['input']>;
+  shareOrgs?: InputMaybe<Array<ShareOrgInput>>;
 };
 
 export type UpdateFieldCategoryInput = {
@@ -3395,7 +3576,10 @@ export type UpdateFormInput = {
   allowDraft?: InputMaybe<Scalars['Boolean']['input']>;
   key: Scalars['ID']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
+  serial?: InputMaybe<FormSerialFormatInput>;
+  sharedByFieldKeys?: InputMaybe<Array<Scalars['String']['input']>>;
   tabLabelTemplate?: InputMaybe<Scalars['String']['input']>;
+  voidReasonCategoryKey?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type UpdateFormSubmissionInput = {
@@ -3415,7 +3599,8 @@ export type UpdateMyPreferencesPayload = {
 };
 
 export type UpdateNotificationSettingInput = {
-  audience: Scalars['JSONObject']['input'];
+  audience?: InputMaybe<Scalars['JSONObject']['input']>;
+  schedule?: InputMaybe<NotificationScheduleInput>;
   type: Scalars['String']['input'];
 };
 
@@ -3440,6 +3625,11 @@ export type UpdateRoleInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
   name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateSidebarBadgeSettingInput = {
+  audience: Scalars['JSONObject']['input'];
+  moduleKey: Scalars['String']['input'];
 };
 
 export type UpdateUserInput = {
@@ -3602,7 +3792,8 @@ export type ValidateWorkflowVersionInput = {
 export type VoidSubmissionInput = {
   expectedEditVersion: Scalars['Int']['input'];
   id: Scalars['ID']['input'];
-  reason: Scalars['String']['input'];
+  reasonKey?: InputMaybe<Scalars['String']['input']>;
+  reasonNote: Scalars['String']['input'];
 };
 
 export type WithdrawSubmissionInput = {
@@ -3768,6 +3959,7 @@ export enum WorkflowInstanceStatus {
 export type WorkflowInstanceStepModel = {
   __typename?: 'WorkflowInstanceStepModel';
   allowReturn: Scalars['Boolean']['output'];
+  allowsApplicantAssignee: Scalars['Boolean']['output'];
   blocked: Scalars['Boolean']['output'];
   decisions: Array<WorkflowDecisionModel>;
   kind: Scalars['String']['output'];
@@ -3960,7 +4152,7 @@ export type WorkflowsPayload = {
 
 export type WorkflowTaskFieldsFragment = { __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null };
 
-export type WorkflowInstanceFieldsFragment = { __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, allowReturn: boolean, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, taskId?: string | null, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }>, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, reason?: string | null, code?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } };
+export type WorkflowInstanceFieldsFragment = { __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, allowReturn: boolean, allowsApplicantAssignee: boolean, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, taskId?: string | null, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }>, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, reason?: string | null, code?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } };
 
 export type MyApplicationsQueryVariables = Exact<{
   input: MyApplicationsInput;
@@ -3991,7 +4183,7 @@ export type WorkflowInstanceQueryVariables = Exact<{
 }>;
 
 
-export type WorkflowInstanceQuery = { __typename?: 'Query', workflowInstance: { __typename?: 'WorkflowInstancePayload', instance: { __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, allowReturn: boolean, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, taskId?: string | null, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }>, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, reason?: string | null, code?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } } } };
+export type WorkflowInstanceQuery = { __typename?: 'Query', workflowInstance: { __typename?: 'WorkflowInstancePayload', instance: { __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, allowReturn: boolean, allowsApplicantAssignee: boolean, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, taskId?: string | null, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }>, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, reason?: string | null, code?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } } } };
 
 export type DecideTaskMutationVariables = Exact<{
   input: DecideTaskInput;
@@ -4012,21 +4204,21 @@ export type WithdrawSubmissionMutationVariables = Exact<{
 }>;
 
 
-export type WithdrawSubmissionMutation = { __typename?: 'Mutation', withdrawSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+export type WithdrawSubmissionMutation = { __typename?: 'Mutation', withdrawSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type VoidSubmissionMutationVariables = Exact<{
   input: VoidSubmissionInput;
 }>;
 
 
-export type VoidSubmissionMutation = { __typename?: 'Mutation', voidSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+export type VoidSubmissionMutation = { __typename?: 'Mutation', voidSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type CopySubmissionToDraftMutationVariables = Exact<{
   input: CopySubmissionToDraftInput;
 }>;
 
 
-export type CopySubmissionToDraftMutation = { __typename?: 'Mutation', copySubmissionToDraft: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', clearedFields: Array<string>, id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+export type CopySubmissionToDraftMutation = { __typename?: 'Mutation', copySubmissionToDraft: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', clearedFields: Array<string>, id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type AudiencePermissionOptionsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -4165,35 +4357,35 @@ export type SetDemoItemOneEnabledMutationVariables = Exact<{
 
 export type SetDemoItemOneEnabledMutation = { __typename?: 'Mutation', setDemoItemOneEnabled: { __typename?: 'DemoItemOnePayload', item: { __typename?: 'DemoItemOne', id: string, name: string, category?: string | null, categoryLabel?: string | null, note?: string | null, internalNote?: string | null, coverPath?: string | null, coverUrl?: string | null, status: DemoItemOneStatus, enabled: boolean, createdAt: string, updatedAt: string, attachment?: { __typename?: 'DemoItemOneAttachment', path: string, name?: string | null, size?: number | null, contentType?: string | null } | null, createdBy?: { __typename?: 'DemoItemOneUserRef', id: string, name: string } | null, abilities: { __typename?: 'DemoItemOneAbilities', canEdit: boolean, canDelete: boolean, canEditInternalNote: boolean } } } };
 
-export type DemoItemTwoFieldsFragment = { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean } };
+export type DemoItemTwoFieldsFragment = { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, isShared: boolean, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean }, shareOrgs: Array<{ __typename?: 'ShareOrg', orgId: string, includeDescendants: boolean }> };
 
 export type DemoItemsTwoQueryVariables = Exact<{
   input: DemoItemsTwoInput;
 }>;
 
 
-export type DemoItemsTwoQuery = { __typename?: 'Query', demoItemsTwo: { __typename?: 'DemoItemsTwoPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean } }> } };
+export type DemoItemsTwoQuery = { __typename?: 'Query', demoItemsTwo: { __typename?: 'DemoItemsTwoPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, isShared: boolean, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean }, shareOrgs: Array<{ __typename?: 'ShareOrg', orgId: string, includeDescendants: boolean }> }> } };
 
 export type DemoItemTwoQueryVariables = Exact<{
   id: Scalars['ID']['input'];
 }>;
 
 
-export type DemoItemTwoQuery = { __typename?: 'Query', demoItemTwo: { __typename?: 'DemoItemTwoPayload', item: { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean } } } };
+export type DemoItemTwoQuery = { __typename?: 'Query', demoItemTwo: { __typename?: 'DemoItemTwoPayload', item: { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, isShared: boolean, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean }, shareOrgs: Array<{ __typename?: 'ShareOrg', orgId: string, includeDescendants: boolean }> } } };
 
 export type CreateDemoItemTwoMutationVariables = Exact<{
   input: CreateDemoItemTwoInput;
 }>;
 
 
-export type CreateDemoItemTwoMutation = { __typename?: 'Mutation', createDemoItemTwo: { __typename?: 'DemoItemTwoPayload', item: { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean } } } };
+export type CreateDemoItemTwoMutation = { __typename?: 'Mutation', createDemoItemTwo: { __typename?: 'DemoItemTwoPayload', item: { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, isShared: boolean, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean }, shareOrgs: Array<{ __typename?: 'ShareOrg', orgId: string, includeDescendants: boolean }> } } };
 
 export type UpdateDemoItemTwoMutationVariables = Exact<{
   input: UpdateDemoItemTwoInput;
 }>;
 
 
-export type UpdateDemoItemTwoMutation = { __typename?: 'Mutation', updateDemoItemTwo: { __typename?: 'DemoItemTwoPayload', item: { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean } } } };
+export type UpdateDemoItemTwoMutation = { __typename?: 'Mutation', updateDemoItemTwo: { __typename?: 'DemoItemTwoPayload', item: { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, isShared: boolean, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean }, shareOrgs: Array<{ __typename?: 'ShareOrg', orgId: string, includeDescendants: boolean }> } } };
 
 export type DeleteDemoItemTwoMutationVariables = Exact<{
   input: DeleteDemoItemTwoInput;
@@ -4207,7 +4399,7 @@ export type SetDemoItemTwoEnabledMutationVariables = Exact<{
 }>;
 
 
-export type SetDemoItemTwoEnabledMutation = { __typename?: 'Mutation', setDemoItemTwoEnabled: { __typename?: 'DemoItemTwoPayload', item: { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean } } } };
+export type SetDemoItemTwoEnabledMutation = { __typename?: 'Mutation', setDemoItemTwoEnabled: { __typename?: 'DemoItemTwoPayload', item: { __typename?: 'DemoItemTwo', id: string, name: string, note?: string | null, enabled: boolean, createdAt: string, updatedAt: string, isShared: boolean, createdBy?: { __typename?: 'DemoItemTwoUser', id: string, name: string } | null, abilities: { __typename?: 'DemoItemTwoAbilities', canEdit: boolean, canDelete: boolean }, shareOrgs: Array<{ __typename?: 'ShareOrg', orgId: string, includeDescendants: boolean }> } } };
 
 export type FieldFieldsFragment = { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null };
 
@@ -4269,7 +4461,7 @@ export type SetFieldEnabledMutationVariables = Exact<{
 
 export type SetFieldEnabledMutation = { __typename?: 'Mutation', setFieldEnabled: { __typename?: 'FieldPayload', field: { __typename?: 'Field', id: string, categoryId: string, label: string, value: string, order: number, enabled: boolean, description?: string | null, isOwn: boolean, canEdit: boolean, canToggleEnabled: boolean, ownerOrg?: { __typename?: 'FieldOwnerOrg', id: string, name: string } | null } } };
 
-export type FormSubmissionFieldsFragment = { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } };
+export type FormSubmissionFieldsFragment = { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } };
 
 export type FormLookupRecordFieldsFragment = { __typename?: 'FormLookupRecord', id: string, value?: string | null, label?: string | null, values: Record<string, unknown> };
 
@@ -4293,7 +4485,7 @@ export type FormSubmissionsQueryVariables = Exact<{
 }>;
 
 
-export type FormSubmissionsQuery = { __typename?: 'Query', formSubmissions: { __typename?: 'FormSubmissionsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } }> } };
+export type FormSubmissionsQuery = { __typename?: 'Query', formSubmissions: { __typename?: 'FormSubmissionsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } }> } };
 
 export type FormSubmissionQueryVariables = Exact<{
   id: Scalars['ID']['input'];
@@ -4301,7 +4493,7 @@ export type FormSubmissionQueryVariables = Exact<{
 }>;
 
 
-export type FormSubmissionQuery = { __typename?: 'Query', formSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+export type FormSubmissionQuery = { __typename?: 'Query', formSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type FormSubmissionRevisionsQueryVariables = Exact<{
   id: Scalars['ID']['input'];
@@ -4324,35 +4516,35 @@ export type CreateAndSubmitFormSubmissionMutationVariables = Exact<{
 }>;
 
 
-export type CreateAndSubmitFormSubmissionMutation = { __typename?: 'Mutation', createAndSubmitFormSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+export type CreateAndSubmitFormSubmissionMutation = { __typename?: 'Mutation', createAndSubmitFormSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type CreateFormDraftMutationVariables = Exact<{
   input: CreateFormDraftInput;
 }>;
 
 
-export type CreateFormDraftMutation = { __typename?: 'Mutation', createFormDraft: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+export type CreateFormDraftMutation = { __typename?: 'Mutation', createFormDraft: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type SaveFormDraftMutationVariables = Exact<{
   input: SaveFormDraftInput;
 }>;
 
 
-export type SaveFormDraftMutation = { __typename?: 'Mutation', saveFormDraft: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+export type SaveFormDraftMutation = { __typename?: 'Mutation', saveFormDraft: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type SubmitFormSubmissionMutationVariables = Exact<{
   input: SubmitFormSubmissionInput;
 }>;
 
 
-export type SubmitFormSubmissionMutation = { __typename?: 'Mutation', submitFormSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+export type SubmitFormSubmissionMutation = { __typename?: 'Mutation', submitFormSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type UpdateFormSubmissionMutationVariables = Exact<{
   input: UpdateFormSubmissionInput;
 }>;
 
 
-export type UpdateFormSubmissionMutation = { __typename?: 'Mutation', updateFormSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
+export type UpdateFormSubmissionMutation = { __typename?: 'Mutation', updateFormSubmission: { __typename?: 'FormSubmissionPayload', submission: { __typename?: 'FormSubmissionModel', id: string, moduleKey: string, formKey: string, formName?: string | null, version: number, status: FormSubmissionStatus, revision: number, viewedRevision: number, values: Record<string, unknown>, viewedVersion: number, editVersion: number, orgId: string, serialNo?: string | null, submittedAt?: string | null, createdAt: string, updatedAt: string, currentInstanceId?: string | null, blocked: boolean, voidedAt?: string | null, voidReason?: string | null, voidReasonKey?: string | null, voidReasonLabel?: string | null, replacedById?: string | null, copiedFrom?: string | null, touched: Array<string>, fieldStates: Array<{ __typename?: 'FormFieldState', key: string, visible: boolean, readonly: boolean, redacted: boolean }>, displayValues: Array<{ __typename?: 'FormDisplayValue', fieldKey: string, items: Array<{ __typename?: 'FormDisplayItem', value: string, label?: string | null, available: boolean }> }>, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, ctx?: { __typename?: 'FormSubmissionContext', at: string, timezone: string, userId?: string | null, orgId?: string | null, orgIds: Array<string>, tenantId?: string | null } | null, createdBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, abilities: { __typename?: 'FormSubmissionAbilities', canEdit: boolean, canSaveDraft: boolean, canDelete: boolean, canEditField: Array<string>, canWithdraw: boolean, canVoid: boolean, canCopy: boolean } } } };
 
 export type DeleteFormSubmissionMutationVariables = Exact<{
   input: DeleteFormSubmissionInput;
@@ -4375,6 +4567,13 @@ export type FormFieldOptionsQueryVariables = Exact<{
 
 export type FormFieldOptionsQuery = { __typename?: 'Query', formFieldOptions: { __typename?: 'FormFieldOptionsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormFieldOption', value: string, label: string }> } };
 
+export type FormVoidReasonOptionsQueryVariables = Exact<{
+  formKey: Scalars['ID']['input'];
+}>;
+
+
+export type FormVoidReasonOptionsQuery = { __typename?: 'Query', formVoidReasonOptions: { __typename?: 'FormVoidReasonOptionsPayload', categoryKey?: string | null, items: Array<{ __typename?: 'FormFieldOption', value: string, label: string }> } };
+
 export type FormLookupRecordQueryVariables = Exact<{
   input: FormLookupRecordInput;
 }>;
@@ -4382,7 +4581,7 @@ export type FormLookupRecordQueryVariables = Exact<{
 
 export type FormLookupRecordQuery = { __typename?: 'Query', formLookupRecord: { __typename?: 'FormLookupRecordPayload', record?: { __typename?: 'FormLookupRecord', id: string, value?: string | null, label?: string | null, values: Record<string, unknown> } | null } };
 
-export type FormFieldsFragment = { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null };
+export type FormFieldsFragment = { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null };
 
 export type FormVersionFieldsFragment = { __typename?: 'FormVersionModel', id: string, formKey: string, version?: number | null, status: FormVersionStatus, draftRevision: number, baseVersion?: number | null, fields: Array<Record<string, unknown>>, layout: Record<string, unknown>, summaryMap: Record<string, unknown>, prefills: Array<Record<string, unknown>>, changelog?: string | null, publishedAt?: string | null, createdAt: string, updatedAt: string, publishedBy?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null };
 
@@ -4393,35 +4592,35 @@ export type FormsQueryVariables = Exact<{
 }>;
 
 
-export type FormsQuery = { __typename?: 'Query', forms: { __typename?: 'FormsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null }> } };
+export type FormsQuery = { __typename?: 'Query', forms: { __typename?: 'FormsPayload', totalCount: number, page: number, pageSize: number, items: Array<{ __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null }> } };
 
 export type FormQueryVariables = Exact<{
   key: Scalars['ID']['input'];
 }>;
 
 
-export type FormQuery = { __typename?: 'Query', form: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type FormQuery = { __typename?: 'Query', form: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type CreateFormMutationVariables = Exact<{
   input: CreateFormInput;
 }>;
 
 
-export type CreateFormMutation = { __typename?: 'Mutation', createForm: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type CreateFormMutation = { __typename?: 'Mutation', createForm: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type UpdateFormMutationVariables = Exact<{
   input: UpdateFormInput;
 }>;
 
 
-export type UpdateFormMutation = { __typename?: 'Mutation', updateForm: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type UpdateFormMutation = { __typename?: 'Mutation', updateForm: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type ForkFormMutationVariables = Exact<{
   input: ForkFormInput;
 }>;
 
 
-export type ForkFormMutation = { __typename?: 'Mutation', forkForm: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type ForkFormMutation = { __typename?: 'Mutation', forkForm: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type FormLookupProvidersQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -4469,7 +4668,7 @@ export type RetireCurrentVersionMutationVariables = Exact<{
 }>;
 
 
-export type RetireCurrentVersionMutation = { __typename?: 'Mutation', retireCurrentVersion: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type RetireCurrentVersionMutation = { __typename?: 'Mutation', retireCurrentVersion: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type ExportFormSeedQueryVariables = Exact<{
   input: ExportFormSeedInput;
@@ -4498,7 +4697,7 @@ export type DeleteFormVersionDraftMutationVariables = Exact<{
 }>;
 
 
-export type DeleteFormVersionDraftMutation = { __typename?: 'Mutation', deleteFormVersionDraft: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type DeleteFormVersionDraftMutation = { __typename?: 'Mutation', deleteFormVersionDraft: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type ValidateFormVersionQueryVariables = Exact<{
   input: ValidateFormVersionInput;
@@ -4519,21 +4718,21 @@ export type AssignFormToTenantsMutationVariables = Exact<{
 }>;
 
 
-export type AssignFormToTenantsMutation = { __typename?: 'Mutation', assignFormToTenants: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type AssignFormToTenantsMutation = { __typename?: 'Mutation', assignFormToTenants: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type RevokeFormFromTenantMutationVariables = Exact<{
   input: RevokeFormFromTenantInput;
 }>;
 
 
-export type RevokeFormFromTenantMutation = { __typename?: 'Mutation', revokeFormFromTenant: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type RevokeFormFromTenantMutation = { __typename?: 'Mutation', revokeFormFromTenant: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type SetTenantFormEnabledMutationVariables = Exact<{
   input: SetTenantFormEnabledInput;
 }>;
 
 
-export type SetTenantFormEnabledMutation = { __typename?: 'Mutation', setTenantFormEnabled: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type SetTenantFormEnabledMutation = { __typename?: 'Mutation', setTenantFormEnabled: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type RetiredFormPermissionsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -4625,28 +4824,30 @@ export type MyNotificationPreferencesQueryVariables = Exact<{ [key: string]: nev
 
 export type MyNotificationPreferencesQuery = { __typename?: 'Query', myNotificationPreferences: { __typename?: 'MyNotificationPreferencesPayload', items: Array<{ __typename?: 'NotificationTypePreference', type: string, name: string, channels: Array<{ __typename?: 'NotificationChannelPreference', channel: string, preferenceKey: string, enabled: boolean, canDisable: boolean }> }> } };
 
-export type NotificationSettingItemFragment = { __typename?: 'NotificationSetting', type: string, name: string, audience: Record<string, unknown>, isDefault: boolean, defaultAudience: Record<string, unknown>, updatedAt?: string | null, updatedBy?: string | null, orgScope: { __typename?: 'NotificationOrgScope', ref: string, range: string } };
+export type NotificationScheduleFieldsFragment = { __typename?: 'NotificationSchedule', kind: NotificationScheduleKind, daysBefore?: Array<number> | null, dayOfMonth?: number | null, time: string };
+
+export type NotificationSettingItemFragment = { __typename?: 'NotificationSetting', type: string, name: string, category: string, audience?: Record<string, unknown> | null, isDefault: boolean, defaultAudience?: Record<string, unknown> | null, recipientNote?: string | null, isScheduleDefault: boolean, scheduleDateLabel?: string | null, updatedAt?: string | null, updatedBy?: string | null, orgScope?: { __typename?: 'NotificationOrgScope', ref: string, range: string } | null, schedule?: { __typename?: 'NotificationSchedule', kind: NotificationScheduleKind, daysBefore?: Array<number> | null, dayOfMonth?: number | null, time: string } | null, defaultSchedule?: { __typename?: 'NotificationSchedule', kind: NotificationScheduleKind, daysBefore?: Array<number> | null, dayOfMonth?: number | null, time: string } | null };
 
 export type NotificationSettingsQueryVariables = Exact<{
   input: NotificationSettingsInput;
 }>;
 
 
-export type NotificationSettingsQuery = { __typename?: 'Query', notificationSettings: { __typename?: 'NotificationSettingsPayload', page: number, pageSize: number, totalCount: number, items: Array<{ __typename?: 'NotificationSetting', type: string, name: string, audience: Record<string, unknown>, isDefault: boolean, defaultAudience: Record<string, unknown>, updatedAt?: string | null, updatedBy?: string | null, orgScope: { __typename?: 'NotificationOrgScope', ref: string, range: string } }> } };
+export type NotificationSettingsQuery = { __typename?: 'Query', notificationSettings: { __typename?: 'NotificationSettingsPayload', page: number, pageSize: number, totalCount: number, items: Array<{ __typename?: 'NotificationSetting', type: string, name: string, category: string, audience?: Record<string, unknown> | null, isDefault: boolean, defaultAudience?: Record<string, unknown> | null, recipientNote?: string | null, isScheduleDefault: boolean, scheduleDateLabel?: string | null, updatedAt?: string | null, updatedBy?: string | null, orgScope?: { __typename?: 'NotificationOrgScope', ref: string, range: string } | null, schedule?: { __typename?: 'NotificationSchedule', kind: NotificationScheduleKind, daysBefore?: Array<number> | null, dayOfMonth?: number | null, time: string } | null, defaultSchedule?: { __typename?: 'NotificationSchedule', kind: NotificationScheduleKind, daysBefore?: Array<number> | null, dayOfMonth?: number | null, time: string } | null }> } };
 
 export type UpdateNotificationSettingMutationVariables = Exact<{
   input: UpdateNotificationSettingInput;
 }>;
 
 
-export type UpdateNotificationSettingMutation = { __typename?: 'Mutation', updateNotificationSetting: { __typename?: 'NotificationSettingPayload', setting: { __typename?: 'NotificationSetting', type: string, name: string, audience: Record<string, unknown>, isDefault: boolean, defaultAudience: Record<string, unknown>, updatedAt?: string | null, updatedBy?: string | null, orgScope: { __typename?: 'NotificationOrgScope', ref: string, range: string } } } };
+export type UpdateNotificationSettingMutation = { __typename?: 'Mutation', updateNotificationSetting: { __typename?: 'NotificationSettingPayload', setting: { __typename?: 'NotificationSetting', type: string, name: string, category: string, audience?: Record<string, unknown> | null, isDefault: boolean, defaultAudience?: Record<string, unknown> | null, recipientNote?: string | null, isScheduleDefault: boolean, scheduleDateLabel?: string | null, updatedAt?: string | null, updatedBy?: string | null, orgScope?: { __typename?: 'NotificationOrgScope', ref: string, range: string } | null, schedule?: { __typename?: 'NotificationSchedule', kind: NotificationScheduleKind, daysBefore?: Array<number> | null, dayOfMonth?: number | null, time: string } | null, defaultSchedule?: { __typename?: 'NotificationSchedule', kind: NotificationScheduleKind, daysBefore?: Array<number> | null, dayOfMonth?: number | null, time: string } | null } } };
 
 export type ResetNotificationSettingMutationVariables = Exact<{
   input: ResetNotificationSettingInput;
 }>;
 
 
-export type ResetNotificationSettingMutation = { __typename?: 'Mutation', resetNotificationSetting: { __typename?: 'NotificationSettingPayload', setting: { __typename?: 'NotificationSetting', type: string, name: string, audience: Record<string, unknown>, isDefault: boolean, defaultAudience: Record<string, unknown>, updatedAt?: string | null, updatedBy?: string | null, orgScope: { __typename?: 'NotificationOrgScope', ref: string, range: string } } } };
+export type ResetNotificationSettingMutation = { __typename?: 'Mutation', resetNotificationSetting: { __typename?: 'NotificationSettingPayload', setting: { __typename?: 'NotificationSetting', type: string, name: string, category: string, audience?: Record<string, unknown> | null, isDefault: boolean, defaultAudience?: Record<string, unknown> | null, recipientNote?: string | null, isScheduleDefault: boolean, scheduleDateLabel?: string | null, updatedAt?: string | null, updatedBy?: string | null, orgScope?: { __typename?: 'NotificationOrgScope', ref: string, range: string } | null, schedule?: { __typename?: 'NotificationSchedule', kind: NotificationScheduleKind, daysBefore?: Array<number> | null, dayOfMonth?: number | null, time: string } | null, defaultSchedule?: { __typename?: 'NotificationSchedule', kind: NotificationScheduleKind, daysBefore?: Array<number> | null, dayOfMonth?: number | null, time: string } | null } } };
 
 export type OrgNodeFieldsFragment = { __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, ownerUserId?: string | null };
 
@@ -4654,6 +4855,13 @@ export type OrgTreeQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type OrgTreeQuery = { __typename?: 'Query', orgTree: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, ownerUserId?: string | null, children: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, ownerUserId?: string | null, children: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, ownerUserId?: string | null, children: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, ownerUserId?: string | null, children: Array<{ __typename?: 'OrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, outOfScope: boolean, ownerUserId?: string | null }> }> }> }> }> };
+
+export type TenantOrgNodeFieldsFragment = { __typename?: 'TenantOrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, isVisible: boolean, isManaged: boolean };
+
+export type TenantOrgTreeQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type TenantOrgTreeQuery = { __typename?: 'Query', tenantOrgTree: Array<{ __typename?: 'TenantOrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, isVisible: boolean, isManaged: boolean, children: Array<{ __typename?: 'TenantOrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, isVisible: boolean, isManaged: boolean, children: Array<{ __typename?: 'TenantOrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, isVisible: boolean, isManaged: boolean, children: Array<{ __typename?: 'TenantOrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, isVisible: boolean, isManaged: boolean, children: Array<{ __typename?: 'TenantOrgNode', id: string, name: string, parentId?: string | null, enabled: boolean, isVisible: boolean, isManaged: boolean }> }> }> }> }> };
 
 export type OrgQueryVariables = Exact<{
   id: Scalars['ID']['input'];
@@ -5011,7 +5219,28 @@ export type RevokeRoleUsersMutation = { __typename?: 'Mutation', revokeRoleUsers
 export type SidebarBadgesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type SidebarBadgesQuery = { __typename?: 'Query', sidebarBadges: Array<{ __typename?: 'SidebarBadge', moduleKey: string, count: number }> };
+export type SidebarBadgesQuery = { __typename?: 'Query', sidebarBadges: Array<{ __typename?: 'SidebarBadge', moduleKey: string, count: number, descriptionKey?: string | null }> };
+
+export type SidebarBadgeSettingItemFragment = { __typename?: 'SidebarBadgeSetting', moduleKey: string, moduleName: string, descriptionKey?: string | null, requires?: string | null, audience?: Record<string, unknown> | null, isDefault: boolean, updatedAt?: string | null, updatedBy?: string | null };
+
+export type SidebarBadgeSettingsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type SidebarBadgeSettingsQuery = { __typename?: 'Query', sidebarBadgeSettings: { __typename?: 'SidebarBadgeSettingsPayload', totalCount: number, items: Array<{ __typename?: 'SidebarBadgeSetting', moduleKey: string, moduleName: string, descriptionKey?: string | null, requires?: string | null, audience?: Record<string, unknown> | null, isDefault: boolean, updatedAt?: string | null, updatedBy?: string | null }> } };
+
+export type UpdateSidebarBadgeSettingMutationVariables = Exact<{
+  input: UpdateSidebarBadgeSettingInput;
+}>;
+
+
+export type UpdateSidebarBadgeSettingMutation = { __typename?: 'Mutation', updateSidebarBadgeSetting: { __typename?: 'SidebarBadgeSettingPayload', setting: { __typename?: 'SidebarBadgeSetting', moduleKey: string, moduleName: string, descriptionKey?: string | null, requires?: string | null, audience?: Record<string, unknown> | null, isDefault: boolean, updatedAt?: string | null, updatedBy?: string | null } } };
+
+export type ResetSidebarBadgeSettingMutationVariables = Exact<{
+  input: ResetSidebarBadgeSettingInput;
+}>;
+
+
+export type ResetSidebarBadgeSettingMutation = { __typename?: 'Mutation', resetSidebarBadgeSetting: { __typename?: 'SidebarBadgeSettingPayload', setting: { __typename?: 'SidebarBadgeSetting', moduleKey: string, moduleName: string, descriptionKey?: string | null, requires?: string | null, audience?: Record<string, unknown> | null, isDefault: boolean, updatedAt?: string | null, updatedBy?: string | null } } };
 
 export type CreateUploadUrlMutationVariables = Exact<{
   input: CreateUploadUrlInput;
@@ -5242,14 +5471,14 @@ export type BindFormWorkflowMutationVariables = Exact<{
 }>;
 
 
-export type BindFormWorkflowMutation = { __typename?: 'Mutation', bindFormWorkflow: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type BindFormWorkflowMutation = { __typename?: 'Mutation', bindFormWorkflow: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type UnbindFormWorkflowMutationVariables = Exact<{
   input: UnbindFormWorkflowInput;
 }>;
 
 
-export type UnbindFormWorkflowMutation = { __typename?: 'Mutation', unbindFormWorkflow: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
+export type UnbindFormWorkflowMutation = { __typename?: 'Mutation', unbindFormWorkflow: { __typename?: 'FormPayload', form: { __typename?: 'FormModel', id: string, key: string, moduleKey: string, moduleName?: string | null, name: string, isShared: boolean, ownerOrgId?: string | null, ownerOrgName?: string | null, currentVersion?: number | null, tabLabelTemplate?: string | null, allowDraft: boolean, voidReasonCategoryKey?: string | null, sharedByFieldKeys: Array<string>, hasDraft: boolean, tenantEnabled?: boolean | null, createdAt: string, updatedAt: string, forkedFrom?: { __typename?: 'FormForkSourceModel', formKey: string, version: number } | null, serial?: { __typename?: 'FormSerialFormat', prefix: string, period: string, digits: number, separator?: string | null } | null, assignments: Array<{ __typename?: 'FormAssignment', tenantOrgId: string, tenantName?: string | null, enabled: boolean }>, abilities: { __typename?: 'FormAbilities', canEdit: boolean, canAssign: boolean, canSetEnabled: boolean, canFork: boolean }, workflowBinding?: { __typename?: 'FormWorkflowBinding', workflowKey: string, workflowName?: string | null, isValid: boolean } | null } } };
 
 export type FormWorkflowOptionsQueryVariables = Exact<{
   formKey: Scalars['ID']['input'];
@@ -5263,7 +5492,7 @@ export type BlockedInstancesQueryVariables = Exact<{
 }>;
 
 
-export type BlockedInstancesQuery = { __typename?: 'Query', blockedInstances: { __typename?: 'WorkflowInstancesPayload', totalCount: number, page: number, pageSize: number, truncated: boolean, items: Array<{ __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, allowReturn: boolean, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, taskId?: string | null, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }>, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, reason?: string | null, code?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } }> } };
+export type BlockedInstancesQuery = { __typename?: 'Query', blockedInstances: { __typename?: 'WorkflowInstancesPayload', totalCount: number, page: number, pageSize: number, truncated: boolean, items: Array<{ __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, allowReturn: boolean, allowsApplicantAssignee: boolean, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, taskId?: string | null, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }>, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, reason?: string | null, code?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } }> } };
 
 export type ReassignTaskMutationVariables = Exact<{
   input: ReassignTaskInput;
@@ -5284,7 +5513,7 @@ export type RetryAdvanceInstanceMutationVariables = Exact<{
 }>;
 
 
-export type RetryAdvanceInstanceMutation = { __typename?: 'Mutation', retryAdvanceInstance: { __typename?: 'WorkflowInstancePayload', instance: { __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, allowReturn: boolean, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, taskId?: string | null, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }>, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, reason?: string | null, code?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } } } };
+export type RetryAdvanceInstanceMutation = { __typename?: 'Mutation', retryAdvanceInstance: { __typename?: 'WorkflowInstancePayload', instance: { __typename?: 'WorkflowInstanceModel', id: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, formVersion: number, workflowKey: string, workflowName?: string | null, workflowVersion: number, status: WorkflowInstanceStatus, activeStepKeys: Array<string>, editVersion: number, createdAt: string, updatedAt: string, finishedAt?: string | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, steps: Array<{ __typename?: 'WorkflowInstanceStepModel', stepKey: string, name: string, kind: string, mode?: string | null, allowReturn: boolean, allowsApplicantAssignee: boolean, status: WorkflowStepStatus, blocked: boolean, plan: Array<{ __typename?: 'WorkflowPlanItemModel', taskKey: string, assigneeState: string, taskId?: string | null, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, previousAssignees: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }>, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, decisions: Array<{ __typename?: 'WorkflowDecisionModel', taskKey: string, decision: string, comment?: string | null, at: string, user: { __typename?: 'FormUserRef', id: string, name?: string | null } }> }>, history: Array<{ __typename?: 'WorkflowHistoryEventModel', at: string, kind: string, stepKey?: string | null, taskKey?: string | null, comment?: string | null, result?: string | null, reason?: string | null, code?: string | null, user?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, toUser?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, delegators: Array<{ __typename?: 'FormUserRef', id: string, name?: string | null }> }>, outcome?: { __typename?: 'WorkflowOutcomeModel', kind: string, stepKey: string, taskKey: string } | null, myTasks: Array<{ __typename?: 'WorkflowTaskModel', id: string, instanceId: string, submissionId: string, revision: number, moduleKey: string, moduleName?: string | null, formKey: string, formName?: string | null, stepKey: string, stepName: string, taskKey: string, status: WorkflowTaskStatus, instanceStatus: WorkflowInstanceStatus, decidedAt?: string | null, comment?: string | null, editVersion: number, createdAt: string, assignee: { __typename?: 'FormUserRef', id: string, name?: string | null }, applicant?: { __typename?: 'FormUserRef', id: string, name?: string | null } | null, summary?: { __typename?: 'FormSubmissionSummary', title?: string | null, date?: string | null, amount?: string | null } | null }>, abilities: { __typename?: 'WorkflowInstanceAbilities', canWithdraw: boolean, canManage: boolean } } } };
 
 export type RecipesQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -5370,6 +5599,7 @@ export const WorkflowInstanceFieldsFragmentDoc = `
     kind
     mode
     allowReturn
+    allowsApplicantAssignee
     status
     blocked
     plan {
@@ -5439,7 +5669,7 @@ export const WorkflowInstanceFieldsFragmentDoc = `
   updatedAt
   finishedAt
 }
-    ${WorkflowTaskFieldsFragmentDoc}`;
+    `;
 export const DemoItemOneFieldsFragmentDoc = `
     fragment DemoItemOneFields on DemoItemOne {
   id
@@ -5487,6 +5717,11 @@ export const DemoItemTwoFieldsFragmentDoc = `
     canEdit
     canDelete
   }
+  shareOrgs {
+    orgId
+    includeDescendants
+  }
+  isShared
 }
     `;
 export const FieldFieldsFragmentDoc = `
@@ -5562,6 +5797,7 @@ export const FormSubmissionFieldsFragmentDoc = `
     id
     name
   }
+  serialNo
   submittedAt
   createdAt
   updatedAt
@@ -5569,6 +5805,8 @@ export const FormSubmissionFieldsFragmentDoc = `
   blocked
   voidedAt
   voidReason
+  voidReasonKey
+  voidReasonLabel
   replacedById
   copiedFrom
   touched
@@ -5608,6 +5846,14 @@ export const FormFieldsFragmentDoc = `
   currentVersion
   tabLabelTemplate
   allowDraft
+  serial {
+    prefix
+    period
+    digits
+    separator
+  }
+  voidReasonCategoryKey
+  sharedByFieldKeys
   hasDraft
   tenantEnabled
   assignments {
@@ -5701,10 +5947,19 @@ export const NotificationItemFragmentDoc = `
   createdAt
 }
     `;
+export const NotificationScheduleFieldsFragmentDoc = `
+    fragment NotificationScheduleFields on NotificationSchedule {
+  kind
+  daysBefore
+  dayOfMonth
+  time
+}
+    `;
 export const NotificationSettingItemFragmentDoc = `
     fragment NotificationSettingItem on NotificationSetting {
   type
   name
+  category
   orgScope {
     ref
     range
@@ -5712,6 +5967,15 @@ export const NotificationSettingItemFragmentDoc = `
   audience
   isDefault
   defaultAudience
+  recipientNote
+  schedule {
+    ...NotificationScheduleFields
+  }
+  defaultSchedule {
+    ...NotificationScheduleFields
+  }
+  isScheduleDefault
+  scheduleDateLabel
   updatedAt
   updatedBy
 }
@@ -5724,6 +5988,16 @@ export const OrgNodeFieldsFragmentDoc = `
   enabled
   outOfScope
   ownerUserId
+}
+    `;
+export const TenantOrgNodeFieldsFragmentDoc = `
+    fragment TenantOrgNodeFields on TenantOrgNode {
+  id
+  name
+  parentId
+  enabled
+  isVisible
+  isManaged
 }
     `;
 export const OrgMemberFieldsFragmentDoc = `
@@ -5873,8 +6147,7 @@ export const RoleMatrixFieldsFragmentDoc = `
     }
   }
 }
-    ${RoleFieldsFragmentDoc}
-${RoleMatrixNodeFieldsFragmentDoc}`;
+    `;
 export const RoleUsersFieldsFragmentDoc = `
     fragment RoleUsersFields on RoleUsersPayload {
   role {
@@ -5897,7 +6170,19 @@ export const RoleUsersFieldsFragmentDoc = `
     }
   }
 }
-    ${RoleFieldsFragmentDoc}`;
+    `;
+export const SidebarBadgeSettingItemFragmentDoc = `
+    fragment SidebarBadgeSettingItem on SidebarBadgeSetting {
+  moduleKey
+  moduleName
+  descriptionKey
+  requires
+  audience
+  isDefault
+  updatedAt
+  updatedBy
+}
+    `;
 export const UserDelegationFieldsFragmentDoc = `
     fragment UserDelegationFields on UserDelegationModel {
   id
@@ -6160,7 +6445,8 @@ export const WorkflowInstanceDocument = `
     }
   }
 }
-    ${WorkflowInstanceFieldsFragmentDoc}`;
+    ${WorkflowInstanceFieldsFragmentDoc}
+${WorkflowTaskFieldsFragmentDoc}`;
 
 export const useWorkflowInstanceQuery = <
       TData = WorkflowInstanceQuery,
@@ -7969,6 +8255,41 @@ useFormFieldOptionsQuery.getKey = (variables: FormFieldOptionsQueryVariables) =>
 
 useFormFieldOptionsQuery.fetcher = (client: GraphQLClient, variables: FormFieldOptionsQueryVariables, headers?: RequestInit['headers']) => fetcher<FormFieldOptionsQuery, FormFieldOptionsQueryVariables>(client, FormFieldOptionsDocument, variables, headers);
 
+export const FormVoidReasonOptionsDocument = `
+    query FormVoidReasonOptions($formKey: ID!) {
+  formVoidReasonOptions(formKey: $formKey) {
+    categoryKey
+    items {
+      value
+      label
+    }
+  }
+}
+    `;
+
+export const useFormVoidReasonOptionsQuery = <
+      TData = FormVoidReasonOptionsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables: FormVoidReasonOptionsQueryVariables,
+      options?: Omit<UseQueryOptions<FormVoidReasonOptionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<FormVoidReasonOptionsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<FormVoidReasonOptionsQuery, TError, TData>(
+      {
+    queryKey: ['FormVoidReasonOptions', variables],
+    queryFn: fetcher<FormVoidReasonOptionsQuery, FormVoidReasonOptionsQueryVariables>(client, FormVoidReasonOptionsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useFormVoidReasonOptionsQuery.getKey = (variables: FormVoidReasonOptionsQueryVariables) => ['FormVoidReasonOptions', variables];
+
+
+useFormVoidReasonOptionsQuery.fetcher = (client: GraphQLClient, variables: FormVoidReasonOptionsQueryVariables, headers?: RequestInit['headers']) => fetcher<FormVoidReasonOptionsQuery, FormVoidReasonOptionsQueryVariables>(client, FormVoidReasonOptionsDocument, variables, headers);
+
 export const FormLookupRecordDocument = `
     query FormLookupRecord($input: FormLookupRecordInput!) {
   formLookupRecord(input: $input) {
@@ -9239,7 +9560,8 @@ export const NotificationSettingsDocument = `
     totalCount
   }
 }
-    ${NotificationSettingItemFragmentDoc}`;
+    ${NotificationSettingItemFragmentDoc}
+${NotificationScheduleFieldsFragmentDoc}`;
 
 export const useNotificationSettingsQuery = <
       TData = NotificationSettingsQuery,
@@ -9272,7 +9594,8 @@ export const UpdateNotificationSettingDocument = `
     }
   }
 }
-    ${NotificationSettingItemFragmentDoc}`;
+    ${NotificationSettingItemFragmentDoc}
+${NotificationScheduleFieldsFragmentDoc}`;
 
 export const useUpdateNotificationSettingMutation = <
       TError = unknown,
@@ -9302,7 +9625,8 @@ export const ResetNotificationSettingDocument = `
     }
   }
 }
-    ${NotificationSettingItemFragmentDoc}`;
+    ${NotificationSettingItemFragmentDoc}
+${NotificationScheduleFieldsFragmentDoc}`;
 
 export const useResetNotificationSettingMutation = <
       TError = unknown,
@@ -9366,6 +9690,49 @@ useOrgTreeQuery.getKey = (variables?: OrgTreeQueryVariables) => variables === un
 
 
 useOrgTreeQuery.fetcher = (client: GraphQLClient, variables?: OrgTreeQueryVariables, headers?: RequestInit['headers']) => fetcher<OrgTreeQuery, OrgTreeQueryVariables>(client, OrgTreeDocument, variables, headers);
+
+export const TenantOrgTreeDocument = `
+    query TenantOrgTree {
+  tenantOrgTree {
+    ...TenantOrgNodeFields
+    children {
+      ...TenantOrgNodeFields
+      children {
+        ...TenantOrgNodeFields
+        children {
+          ...TenantOrgNodeFields
+          children {
+            ...TenantOrgNodeFields
+          }
+        }
+      }
+    }
+  }
+}
+    ${TenantOrgNodeFieldsFragmentDoc}`;
+
+export const useTenantOrgTreeQuery = <
+      TData = TenantOrgTreeQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: TenantOrgTreeQueryVariables,
+      options?: Omit<UseQueryOptions<TenantOrgTreeQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<TenantOrgTreeQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<TenantOrgTreeQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['TenantOrgTree'] : ['TenantOrgTree', variables],
+    queryFn: fetcher<TenantOrgTreeQuery, TenantOrgTreeQueryVariables>(client, TenantOrgTreeDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useTenantOrgTreeQuery.getKey = (variables?: TenantOrgTreeQueryVariables) => variables === undefined ? ['TenantOrgTree'] : ['TenantOrgTree', variables];
+
+
+useTenantOrgTreeQuery.fetcher = (client: GraphQLClient, variables?: TenantOrgTreeQueryVariables, headers?: RequestInit['headers']) => fetcher<TenantOrgTreeQuery, TenantOrgTreeQueryVariables>(client, TenantOrgTreeDocument, variables, headers);
 
 export const OrgDocument = `
     query Org($id: ID!) {
@@ -10755,7 +11122,9 @@ export const RoleMatrixDocument = `
     ...RoleMatrixFields
   }
 }
-    ${RoleMatrixFieldsFragmentDoc}`;
+    ${RoleMatrixFieldsFragmentDoc}
+${RoleFieldsFragmentDoc}
+${RoleMatrixNodeFieldsFragmentDoc}`;
 
 export const useRoleMatrixQuery = <
       TData = RoleMatrixQuery,
@@ -10786,7 +11155,9 @@ export const SaveRoleMatrixDocument = `
     ...RoleMatrixFields
   }
 }
-    ${RoleMatrixFieldsFragmentDoc}`;
+    ${RoleMatrixFieldsFragmentDoc}
+${RoleFieldsFragmentDoc}
+${RoleMatrixNodeFieldsFragmentDoc}`;
 
 export const useSaveRoleMatrixMutation = <
       TError = unknown,
@@ -10814,7 +11185,8 @@ export const RoleUsersDocument = `
     ...RoleUsersFields
   }
 }
-    ${RoleUsersFieldsFragmentDoc}`;
+    ${RoleUsersFieldsFragmentDoc}
+${RoleFieldsFragmentDoc}`;
 
 export const useRoleUsersQuery = <
       TData = RoleUsersQuery,
@@ -10890,7 +11262,8 @@ export const GrantRoleUsersDocument = `
     ...RoleUsersFields
   }
 }
-    ${RoleUsersFieldsFragmentDoc}`;
+    ${RoleUsersFieldsFragmentDoc}
+${RoleFieldsFragmentDoc}`;
 
 export const useGrantRoleUsersMutation = <
       TError = unknown,
@@ -10918,7 +11291,8 @@ export const RevokeRoleUsersDocument = `
     ...RoleUsersFields
   }
 }
-    ${RoleUsersFieldsFragmentDoc}`;
+    ${RoleUsersFieldsFragmentDoc}
+${RoleFieldsFragmentDoc}`;
 
 export const useRevokeRoleUsersMutation = <
       TError = unknown,
@@ -10945,6 +11319,7 @@ export const SidebarBadgesDocument = `
   sidebarBadges {
     moduleKey
     count
+    descriptionKey
   }
 }
     `;
@@ -10971,6 +11346,100 @@ useSidebarBadgesQuery.getKey = (variables?: SidebarBadgesQueryVariables) => vari
 
 
 useSidebarBadgesQuery.fetcher = (client: GraphQLClient, variables?: SidebarBadgesQueryVariables, headers?: RequestInit['headers']) => fetcher<SidebarBadgesQuery, SidebarBadgesQueryVariables>(client, SidebarBadgesDocument, variables, headers);
+
+export const SidebarBadgeSettingsDocument = `
+    query SidebarBadgeSettings {
+  sidebarBadgeSettings {
+    items {
+      ...SidebarBadgeSettingItem
+    }
+    totalCount
+  }
+}
+    ${SidebarBadgeSettingItemFragmentDoc}`;
+
+export const useSidebarBadgeSettingsQuery = <
+      TData = SidebarBadgeSettingsQuery,
+      TError = unknown
+    >(
+      client: GraphQLClient,
+      variables?: SidebarBadgeSettingsQueryVariables,
+      options?: Omit<UseQueryOptions<SidebarBadgeSettingsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<SidebarBadgeSettingsQuery, TError, TData>['queryKey'] },
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useQuery<SidebarBadgeSettingsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['SidebarBadgeSettings'] : ['SidebarBadgeSettings', variables],
+    queryFn: fetcher<SidebarBadgeSettingsQuery, SidebarBadgeSettingsQueryVariables>(client, SidebarBadgeSettingsDocument, variables, headers),
+    ...options
+  }
+    )};
+
+useSidebarBadgeSettingsQuery.getKey = (variables?: SidebarBadgeSettingsQueryVariables) => variables === undefined ? ['SidebarBadgeSettings'] : ['SidebarBadgeSettings', variables];
+
+
+useSidebarBadgeSettingsQuery.fetcher = (client: GraphQLClient, variables?: SidebarBadgeSettingsQueryVariables, headers?: RequestInit['headers']) => fetcher<SidebarBadgeSettingsQuery, SidebarBadgeSettingsQueryVariables>(client, SidebarBadgeSettingsDocument, variables, headers);
+
+export const UpdateSidebarBadgeSettingDocument = `
+    mutation UpdateSidebarBadgeSetting($input: UpdateSidebarBadgeSettingInput!) {
+  updateSidebarBadgeSetting(input: $input) {
+    setting {
+      ...SidebarBadgeSettingItem
+    }
+  }
+}
+    ${SidebarBadgeSettingItemFragmentDoc}`;
+
+export const useUpdateSidebarBadgeSettingMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<UpdateSidebarBadgeSettingMutation, TError, UpdateSidebarBadgeSettingMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<UpdateSidebarBadgeSettingMutation, TError, UpdateSidebarBadgeSettingMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateSidebarBadgeSetting'],
+    mutationFn: (variables?: UpdateSidebarBadgeSettingMutationVariables) => fetcher<UpdateSidebarBadgeSettingMutation, UpdateSidebarBadgeSettingMutationVariables>(client, UpdateSidebarBadgeSettingDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useUpdateSidebarBadgeSettingMutation.fetcher = (client: GraphQLClient, variables: UpdateSidebarBadgeSettingMutationVariables, headers?: RequestInit['headers']) => fetcher<UpdateSidebarBadgeSettingMutation, UpdateSidebarBadgeSettingMutationVariables>(client, UpdateSidebarBadgeSettingDocument, variables, headers);
+
+export const ResetSidebarBadgeSettingDocument = `
+    mutation ResetSidebarBadgeSetting($input: ResetSidebarBadgeSettingInput!) {
+  resetSidebarBadgeSetting(input: $input) {
+    setting {
+      ...SidebarBadgeSettingItem
+    }
+  }
+}
+    ${SidebarBadgeSettingItemFragmentDoc}`;
+
+export const useResetSidebarBadgeSettingMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(
+      client: GraphQLClient,
+      options?: UseMutationOptions<ResetSidebarBadgeSettingMutation, TError, ResetSidebarBadgeSettingMutationVariables, TContext>,
+      headers?: RequestInit['headers']
+    ) => {
+    
+    return useMutation<ResetSidebarBadgeSettingMutation, TError, ResetSidebarBadgeSettingMutationVariables, TContext>(
+      {
+    mutationKey: ['ResetSidebarBadgeSetting'],
+    mutationFn: (variables?: ResetSidebarBadgeSettingMutationVariables) => fetcher<ResetSidebarBadgeSettingMutation, ResetSidebarBadgeSettingMutationVariables>(client, ResetSidebarBadgeSettingDocument, variables, headers)(),
+    ...options
+  }
+    )};
+
+
+useResetSidebarBadgeSettingMutation.fetcher = (client: GraphQLClient, variables: ResetSidebarBadgeSettingMutationVariables, headers?: RequestInit['headers']) => fetcher<ResetSidebarBadgeSettingMutation, ResetSidebarBadgeSettingMutationVariables>(client, ResetSidebarBadgeSettingDocument, variables, headers);
 
 export const CreateUploadUrlDocument = `
     mutation CreateUploadUrl($input: CreateUploadUrlInput!) {
@@ -12180,7 +12649,8 @@ export const BlockedInstancesDocument = `
     truncated
   }
 }
-    ${WorkflowInstanceFieldsFragmentDoc}`;
+    ${WorkflowInstanceFieldsFragmentDoc}
+${WorkflowTaskFieldsFragmentDoc}`;
 
 export const useBlockedInstancesQuery = <
       TData = BlockedInstancesQuery,
@@ -12275,7 +12745,8 @@ export const RetryAdvanceInstanceDocument = `
     }
   }
 }
-    ${WorkflowInstanceFieldsFragmentDoc}`;
+    ${WorkflowInstanceFieldsFragmentDoc}
+${WorkflowTaskFieldsFragmentDoc}`;
 
 export const useRetryAdvanceInstanceMutation = <
       TError = unknown,

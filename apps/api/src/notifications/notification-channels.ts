@@ -77,6 +77,7 @@ const RECIPIENT_READER: OperatorContext = {
   managedOrgIds: "all",
   memberOrgIds: [],
   roleIds: [],
+  memberTenants: [],
 };
 
 /**
@@ -99,6 +100,11 @@ export class InAppChannelAdapter implements NotificationChannelAdapter {
     // publish 本身盡力而為(Worker 失敗只記 log)
     await this.realtime.publish(tenantId, topics, { type: "notification" });
   }
+}
+
+/** log 用的一封通知信描述。 */
+function mailLabelOf(delivery: NotificationDelivery): string {
+  return `通知信(${delivery.type}、收件人 ${String(delivery.recipientId)})`;
 }
 
 /**
@@ -125,17 +131,34 @@ export class EmailChannelAdapter implements NotificationChannelAdapter {
     _tenantId: Types.ObjectId | null,
     deliveries: readonly NotificationDelivery[],
   ): Promise<void> {
-    for (const delivery of deliveries) {
-      const label = `通知信(${delivery.type}、收件人 ${String(delivery.recipientId)})`;
-      if (!this.isEnabled()) {
-        this.logger.log(`${NOTIFICATION_MAIL_SWITCH} 未開啟,不寄${label}`);
-        continue;
-      }
-      try {
-        const user = await this.users.findById(
-          RECIPIENT_READER,
-          delivery.recipientId,
+    if (!this.isEnabled()) {
+      for (const delivery of deliveries) {
+        this.logger.log(
+          `${NOTIFICATION_MAIL_SWITCH} 未開啟,不寄${mailLabelOf(delivery)}`,
         );
+      }
+      return;
+    }
+    // 收件人帳號一次讀(TX-07:不逐位查);讀取失敗同寄信失敗,只記 log、這批不寄
+    let recipients: Map<string, { email: string; name: string }>;
+    try {
+      const ids = [...new Set(deliveries.map((d) => String(d.recipientId)))];
+      const users = await this.users.findMany(
+        RECIPIENT_READER,
+        { _id: { $in: ids } },
+        { select: "email name" },
+      );
+      recipients = new Map(users.map((user) => [String(user._id), user]));
+    } catch (error) {
+      this.logger.warn(
+        `通知信讀收件人失敗(${String(deliveries.length)} 封不寄,不影響觸發它的動作):${String(error)}`,
+      );
+      return;
+    }
+    for (const delivery of deliveries) {
+      const label = mailLabelOf(delivery);
+      try {
+        const user = recipients.get(String(delivery.recipientId));
         if (!user || user.email === "") {
           this.logger.warn(`${label}:收件人不存在或沒有信箱,略過`);
           continue;

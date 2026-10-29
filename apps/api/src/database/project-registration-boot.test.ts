@@ -133,9 +133,14 @@ describe("專案資料登記:不合契約時真的 DatabaseModule 起不來", ()
         jest.doMock("../project/database/registrations", () => ({
           PROJECT_DATABASE_REGISTRATIONS: project(fresh),
         }));
+        // 換掉資料登記時,引用專案自己的 lookup 來源指到的 repository 已不在登記裡,一併清空
+        jest.doMock("../project/lookup-providers", () => ({
+          PROJECT_LOOKUP_PROVIDERS: [],
+        }));
       } else {
         // doMock 的登記跨 isolateModules 留著;明確解除才載得到正式來源
         jest.dontMock("../project/database/registrations");
+        jest.dontMock("../project/lookup-providers");
       }
       const { Test } = await import("@nestjs/testing");
       try {
@@ -174,7 +179,7 @@ describe("專案資料登記:不合契約時真的 DatabaseModule 起不來", ()
   );
 
   it(
-    "正式的專案登記(不替換,含 Recipe 既有例外)通過全部登記檢查,同樣只卡在 DataScopeRuleProvider 啟動檢查",
+    "正式的專案登記(不替換)通過全部登記檢查,同樣只卡在 DataScopeRuleProvider 啟動檢查",
     async () => {
       await expect(boot()).rejects.toThrow(/DataScopeRuleProvider 未註冊/);
     },

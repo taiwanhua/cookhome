@@ -1,10 +1,20 @@
 import { Injectable } from "@nestjs/common";
 import { Types } from "mongoose";
 
-import { isValidFormKey } from "@repo/domain/form";
+import {
+  type SerialFormat,
+  isValidFieldCategoryKey,
+  isValidFormKey,
+  normalizeSerialFormat,
+  serialFormatIssues,
+  sharedByFieldIssues,
+} from "@repo/domain/form";
 
 import { AuditService } from "../../audit/audit.service";
-import { BusinessRelationshipsRepository } from "../../database/business-relationships.repository";
+import {
+  type BusinessRelationshipRecord,
+  BusinessRelationshipsRepository,
+} from "../../database/business-relationships.repository";
 import {
   FormVersionsRepository,
   FormsRepository,
@@ -12,7 +22,12 @@ import {
   OrgsRepository,
 } from "../../database/database.module";
 import type { OperatorContext } from "../../database/operator-context";
-import { allowsDraft } from "../../database/schemas/form.schema";
+import {
+  allowsDraft,
+  sharedByFieldKeysOf,
+  voidReasonCategoryOf,
+} from "../../database/schemas/form.schema";
+import { FieldCategoryOptionsService } from "../field-category-options.service";
 import {
   FormAccessService,
   type FormOperatorFacts,
@@ -22,6 +37,7 @@ import {
 } from "../form-access.service";
 import { FORMS_PERMISSIONS } from "../form-permission-keys";
 import {
+  FORM_VALIDATION_REASONS,
   conflictError,
   forbiddenError,
   isDuplicateKeyError,
@@ -79,7 +95,116 @@ export interface UpdateFormInternalOptions {
     tabLabelTemplate: string | null;
     /** 允許存草稿(缺席的舊資料 = 開) */
     allowDraft: boolean;
+    /** 單號格式(null / 缺席 = 不給號);缺席 = 不比對(這個欄位之前的呼叫端) */
+    serial?: SerialFormat | null;
+    /** 作廢原因類別(null / 缺席 = 沒設);缺席 = 不比對(這個欄位之前的呼叫端) */
+    voidReasonCategoryKey?: string | null;
+    /** 依欄位共用(空 / 缺席 = 不共用);缺席 = 不比對(這個欄位之前的呼叫端) */
+    sharedByFieldKeys?: readonly string[];
   };
+}
+
+/** 受管安裝的條件更新條件:表單身分與各個受管 metadata 都還是 `expected`(見 `UpdateFormInternalOptions`)。 */
+function expectedFormFilterOf(
+  key: string,
+  expected: NonNullable<UpdateFormInternalOptions["expected"]>,
+): Record<string, unknown> {
+  const sharedByFieldKeys = expected.sharedByFieldKeys;
+  return {
+    _id: expected.definitionId,
+    key,
+    currentVersion: expected.currentVersion,
+    name: expected.name,
+    tabLabelTemplate: expected.tabLabelTemplate,
+    // 缺席 = 開:預期開時「不是 false」都算
+    allowDraft: expected.allowDraft ? { $ne: false } : false,
+    // 單號格式:null 也比到「沒有這個欄位」的舊表單;有值以存檔時的固定鍵順序整份比對
+    ...(expected.serial === undefined
+      ? {}
+      : { serial: normalizeSerialFormat(expected.serial) }),
+    // 作廢原因類別:null 也比到「沒有這個欄位」的舊表單
+    ...(expected.voidReasonCategoryKey === undefined
+      ? {}
+      : { voidReasonCategoryKey: expected.voidReasonCategoryKey ?? null }),
+    // 依欄位共用:空也比到「沒有這個欄位」的舊表單;有值整份比對(順序照存的)
+    ...(sharedByFieldKeys === undefined
+      ? {}
+      : sharedByFieldsFilterOf(sharedByFieldKeys)),
+  };
+}
+
+function sharedByFieldsFilterOf(
+  keys: readonly string[],
+): Record<string, unknown> {
+  return keys.length === 0
+    ? { sharedByFieldKeys: { $in: [null, []] } }
+    : { sharedByFieldKeys: [...keys] };
+}
+
+/** `updateForm` 要寫的欄位(缺席 = 不動;各欄的空值規則見 `UpdateFormInput`)。 */
+function formSettingsSetOf(input: UpdateFormInput): Record<string, unknown> {
+  const set: Record<string, unknown> = {};
+  if (input.name !== undefined && input.name !== null) {
+    set.name = requireName(input.name);
+  }
+  if (input.tabLabelTemplate !== undefined) {
+    const template = input.tabLabelTemplate?.trim() ?? "";
+    set.tabLabelTemplate = template === "" ? null : template;
+  }
+  if (input.allowDraft !== undefined && input.allowDraft !== null) {
+    set.allowDraft = input.allowDraft;
+  }
+  if (input.serial !== undefined) {
+    set.serial = serialFormatFromInput(input.serial);
+  }
+  if (input.voidReasonCategoryKey !== undefined) {
+    const key = input.voidReasonCategoryKey?.trim() ?? "";
+    if (key !== "" && !isValidFieldCategoryKey(key)) {
+      throw validationError(`Invalid void reason category key: ${key}`, [
+        "voidReasonCategoryKey",
+      ]);
+    }
+    set.voidReasonCategoryKey = key === "" ? null : key;
+  }
+  if (input.sharedByFieldKeys !== undefined) {
+    // null = 清空(不共用);欄位存不存在、是不是組織引用欄在 `assertSharedByFields` 對照版本驗
+    set.sharedByFieldKeys = [...(input.sharedByFieldKeys ?? [])];
+  }
+  return set;
+}
+
+/**
+ * 表單設定的單號格式:null = 不給號;有給就照 `serialFormatIssues` 驗,不合法 → `VALIDATION_FAILED`
+ * (`fields` 指到 `serial.<鍵>`)。存檔形狀 = `normalizeSerialFormat`(固定鍵順序,條件更新整份比對靠它)。
+ */
+function serialFormatFromInput(input: unknown): SerialFormat | null {
+  if (input === null) {
+    return null;
+  }
+  const issues = serialFormatIssues(input);
+  const format = normalizeSerialFormat(input);
+  if (issues.length > 0 || format === null) {
+    throw validationError(
+      `Invalid serial format: ${issues.map((issue) => issue.detail).join("; ")}`,
+      issues.map((issue) =>
+        issue.path === "" ? "serial" : `serial.${issue.path}`,
+      ),
+    );
+  }
+  return format;
+}
+
+/** 存的單號格式 → GraphQL 形狀(讀不懂的舊值當作沒設)。 */
+function serialModelOf(stored: unknown): FormModel["serial"] {
+  const format = normalizeSerialFormat(stored);
+  return format === null
+    ? null
+    : {
+        prefix: format.prefix,
+        period: format.period,
+        digits: format.digits,
+        separator: format.separator ?? null,
+      };
 }
 
 /** 讀組織只取名稱等判斷用欄位,不受管理範圍影響。 */
@@ -110,6 +235,7 @@ export class FormsService {
     private readonly access: FormAccessService,
     private readonly versionsService: FormVersionsService,
     private readonly audit: AuditService,
+    private readonly categories: FieldCategoryOptionsService,
   ) {}
 
   async list(
@@ -146,11 +272,12 @@ export class FormsService {
         limit: pageSize,
       }),
     ]);
-    const items: FormModel[] = [];
-    for (const record of records) {
-      items.push(await this.toModel(facts, record));
-    }
-    return { items, totalCount, page, pageSize };
+    return {
+      items: await this.toModels(facts, records),
+      totalCount,
+      page,
+      pageSize,
+    };
   }
 
   async get(facts: FormOperatorFacts, key: string): Promise<FormModel> {
@@ -195,6 +322,53 @@ export class FormsService {
     return this.toModel(facts, created);
   }
 
+  /** 要設的作廢原因類別要存在(不存在 → `VALIDATION_FAILED`,`fields: ["voidReasonCategoryKey"]`)。 */
+  private async assertVoidReasonCategory(
+    operator: OperatorContext,
+    set: Record<string, unknown>,
+  ): Promise<void> {
+    const key = set.voidReasonCategoryKey;
+    if (typeof key !== "string") {
+      return;
+    }
+    const keys = await this.categories.categoryKeys(operator);
+    if (!keys.has(key)) {
+      throw validationError(`Field category not found: ${key}`, [
+        "voidReasonCategoryKey",
+      ]);
+    }
+  }
+
+  /**
+   * 要設的依欄位共用欄位要是表單層的組織引用欄(不重複):對照目前發布版(沒有發布版 = 草稿;都沒有 = 不對照)。
+   * 不合 → `VALIDATION_FAILED`(`fields: ["sharedByFieldKeys"]`)。
+   */
+  private async assertSharedByFields(
+    operator: OperatorContext,
+    form: FormRecord,
+    set: Record<string, unknown>,
+  ): Promise<void> {
+    const keys = set.sharedByFieldKeys;
+    if (!Array.isArray(keys) || keys.length === 0) {
+      return;
+    }
+    const version = await this.versions.findOne(
+      operator,
+      form.currentVersion === null
+        ? { formKey: form.key, status: "draft" }
+        : { formKey: form.key, version: form.currentVersion },
+    );
+    const issues = sharedByFieldIssues(version?.fields ?? [], keys as string[]);
+    if (version !== null && issues.length > 0) {
+      throw validationError(
+        `Shared-by fields must be org reference fields: ${issues
+          .map((issue) => `${issue.key} (${issue.reason})`)
+          .join(", ")}`,
+        ["sharedByFieldKeys"],
+      );
+    }
+  }
+
   /** 改名稱 / 頁籤模板(key 建立後不可改;欄位級權限的 `name` 在下次發布時跟著更新)。 */
   async update(
     facts: FormOperatorFacts,
@@ -202,34 +376,18 @@ export class FormsService {
     internal: UpdateFormInternalOptions = {},
   ): Promise<FormModel> {
     const form = await this.access.requireWritableForm(facts, input.key);
-    const set: Record<string, unknown> = {};
-    if (input.name !== undefined && input.name !== null) {
-      set.name = requireName(input.name);
-    }
-    if (input.tabLabelTemplate !== undefined) {
-      const template = input.tabLabelTemplate?.trim() ?? "";
-      set.tabLabelTemplate = template === "" ? null : template;
-    }
-    if (input.allowDraft !== undefined && input.allowDraft !== null) {
-      set.allowDraft = input.allowDraft;
-    }
+    const set = formSettingsSetOf(input);
     if (Object.keys(set).length === 0) {
       return this.toModel(facts, form);
     }
+    await this.assertVoidReasonCategory(facts.operator, set);
+    await this.assertSharedByFields(facts.operator, form, set);
     const { expected } = internal;
     const updated = await this.forms.findOneAndUpdate(
       facts.operator,
       expected === undefined
         ? { _id: form._id }
-        : {
-            _id: expected.definitionId,
-            key: form.key,
-            currentVersion: expected.currentVersion,
-            name: expected.name,
-            tabLabelTemplate: expected.tabLabelTemplate,
-            // 缺席 = 開:預期開時「不是 false」都算
-            allowDraft: expected.allowDraft ? { $ne: false } : false,
-          },
+        : expectedFormFilterOf(form.key, expected),
       { $set: set },
     );
     if (!updated) {
@@ -248,6 +406,13 @@ export class FormsService {
         name: form.name,
         tabLabelTemplate: form.tabLabelTemplate,
         ...("allowDraft" in set ? { allowDraft: allowsDraft(form) } : {}),
+        ...("serial" in set ? { serial: form.serial ?? null } : {}),
+        ...("voidReasonCategoryKey" in set
+          ? { voidReasonCategoryKey: voidReasonCategoryOf(form) }
+          : {}),
+        ...("sharedByFieldKeys" in set
+          ? { sharedByFieldKeys: sharedByFieldKeysOf(form) }
+          : {}),
       },
       after: set,
     });
@@ -472,7 +637,11 @@ export class FormsService {
       });
     } catch (error) {
       if (isDuplicateKeyError(error)) {
-        throw validationError(`Form key already exists: ${data.key}`, ["key"]);
+        throw validationError(
+          `Form key already exists: ${data.key}`,
+          ["key"],
+          FORM_VALIDATION_REASONS.formKeyDuplicate,
+        );
       }
       throw error;
     }
@@ -482,40 +651,105 @@ export class FormsService {
     facts: FormOperatorFacts,
     form: FormRecord,
   ): Promise<FormModel> {
+    const [model] = await this.toModels(facts, [form]);
+    if (model === undefined) {
+      throw new Error(`表單 ${form.key} 沒有產生對外形狀`);
+    }
+    return model;
+  }
+
+  /**
+   * 一頁表單 → 對外形狀(順序同輸入)。模組、擁有者、草稿、本租戶的 `org_form` 依整頁一次讀;
+   * root 視角的分派依租戶各一次(TX-07:指令數不隨列數成長)。
+   */
+  private async toModels(
+    facts: FormOperatorFacts,
+    forms: readonly FormRecord[],
+  ): Promise<FormModel[]> {
+    if (forms.length === 0) {
+      return [];
+    }
     const operator = facts.operator;
-    const [module, owner, draft] = await Promise.all([
-      this.modules.findOne(operator, { key: form.moduleKey }),
-      form.ownerOrgId
-        ? this.orgs.findById(orgReader(operator), form.ownerOrgId)
-        : null,
-      this.versions.findOne(operator, { formKey: form.key, status: "draft" }),
+    const ownerIds = forms
+      .map((form) => form.ownerOrgId)
+      .filter((id): id is Types.ObjectId => id !== null);
+    const [modules, owners, drafts] = await Promise.all([
+      this.modules.findMany(operator, {
+        key: { $in: [...new Set(forms.map((form) => form.moduleKey))] },
+      }),
+      ownerIds.length === 0
+        ? []
+        : this.orgs.findMany(orgReader(operator), { _id: { $in: ownerIds } }),
+      this.versions.findMany(operator, {
+        formKey: { $in: forms.map((form) => form.key) },
+        status: "draft",
+      }),
     ]);
-    const tenantLink =
+    const moduleNameOf = new Map(
+      modules.map((module) => [module.key, module.name]),
+    );
+    const ownerNameOf = new Map(
+      owners.map((owner) => [String(owner._id), owner.name]),
+    );
+    const draftKeys = new Set(drafts.map((draft) => draft.formKey));
+    const tenantLinkOf =
       facts.tenantId === null
-        ? null
-        : await this.relations.findOne(facts.tenantId, {
-            type: "org_form",
-            secondId: form._id,
-          });
-    const assignments =
-      facts.isRoot && form.ownerOrgId === null
-        ? await this.assignmentsOf(operator, form)
-        : [];
+        ? new Map<string, BusinessRelationshipRecord>()
+        : firstLinkBySecondId(
+            await this.relations.findMany(facts.tenantId, {
+              type: "org_form",
+              secondId: { $in: forms.map((form) => form._id) },
+            }),
+          );
+    const assignmentsOf = facts.isRoot
+      ? await this.assignmentsOf(
+          operator,
+          forms.filter((form) => form.ownerOrgId === null),
+        )
+      : new Map<string, FormAssignment[]>();
+    return forms.map((form) =>
+      this.modelOf(facts, form, {
+        moduleName: moduleNameOf.get(form.moduleKey) ?? null,
+        ownerOrgName: form.ownerOrgId
+          ? (ownerNameOf.get(String(form.ownerOrgId)) ?? null)
+          : null,
+        hasDraft: draftKeys.has(form.key),
+        tenantLink: tenantLinkOf.get(String(form._id)) ?? null,
+        assignments: assignmentsOf.get(String(form._id)) ?? [],
+      }),
+    );
+  }
+
+  private modelOf(
+    facts: FormOperatorFacts,
+    form: FormRecord,
+    loaded: {
+      moduleName: string | null;
+      ownerOrgName: string | null;
+      hasDraft: boolean;
+      tenantLink: BusinessRelationshipRecord | null;
+      assignments: FormAssignment[];
+    },
+  ): FormModel {
+    const { tenantLink, assignments } = loaded;
     const canWrite = this.access.canWriteDesign(facts, form);
     return {
       id: String(form._id),
       key: form.key,
       moduleKey: form.moduleKey,
-      moduleName: module?.name ?? null,
+      moduleName: loaded.moduleName,
       name: form.name,
       isShared: form.ownerOrgId === null,
       ownerOrgId: form.ownerOrgId ? String(form.ownerOrgId) : null,
-      ownerOrgName: owner?.name ?? null,
+      ownerOrgName: loaded.ownerOrgName,
       forkedFrom: form.forkedFrom,
       currentVersion: form.currentVersion,
       tabLabelTemplate: form.tabLabelTemplate,
       allowDraft: allowsDraft(form),
-      hasDraft: draft !== null,
+      serial: serialModelOf(form.serial),
+      voidReasonCategoryKey: voidReasonCategoryOf(form),
+      sharedByFieldKeys: sharedByFieldKeysOf(form),
+      hasDraft: loaded.hasDraft,
       tenantEnabled:
         tenantLink === null ? null : tenantLink.meta?.enabled === true,
       assignments,
@@ -535,29 +769,54 @@ export class FormsService {
     };
   }
 
-  /** root 視角:共用表單分派到哪些租戶(`org_form` 以各租戶為邊界各讀一次)。 */
+  /**
+   * root 視角:這些共用表單各分派到哪些租戶(以表單 id 為鍵)。`org_form` 以租戶為邊界,
+   * 所以依租戶各讀一次、一次涵蓋整頁的表單(指令數 = 租戶數 + 1,不隨列數成長)。
+   */
   private async assignmentsOf(
     operator: OperatorContext,
-    form: FormRecord,
-  ): Promise<FormAssignment[]> {
+    forms: readonly FormRecord[],
+  ): Promise<Map<string, FormAssignment[]>> {
+    const assignments = new Map<string, FormAssignment[]>();
+    if (forms.length === 0) {
+      return assignments;
+    }
     const tenants = await this.orgs.findMany(orgReader(operator), {
       "ancestors.0": { $exists: true },
       "ancestors.1": { $exists: false },
     });
-    const assignments: FormAssignment[] = [];
     for (const tenant of tenants) {
-      const link = await this.relations.findOne(tenant._id, {
-        type: "org_form",
-        secondId: form._id,
-      });
-      if (link) {
-        assignments.push({
-          tenantOrgId: String(tenant._id),
-          tenantName: tenant.name,
-          enabled: link.meta?.enabled === true,
-        });
+      const links = firstLinkBySecondId(
+        await this.relations.findMany(tenant._id, {
+          type: "org_form",
+          secondId: { $in: forms.map((form) => form._id) },
+        }),
+      );
+      for (const [formId, link] of links) {
+        assignments.set(formId, [
+          ...(assignments.get(formId) ?? []),
+          {
+            tenantOrgId: String(tenant._id),
+            tenantName: tenant.name,
+            enabled: link.meta?.enabled === true,
+          },
+        ]);
       }
     }
     return assignments;
   }
+}
+
+/** 關聯依 `secondId` 對照(同一個 `secondId` 有多筆時取第一筆,同逐筆時的 `findOne`)。 */
+function firstLinkBySecondId(
+  links: readonly BusinessRelationshipRecord[],
+): Map<string, BusinessRelationshipRecord> {
+  const bySecondId = new Map<string, BusinessRelationshipRecord>();
+  for (const link of links) {
+    const key = String(link.secondId);
+    if (!bySecondId.has(key)) {
+      bySecondId.set(key, link);
+    }
+  }
+  return bySecondId;
 }

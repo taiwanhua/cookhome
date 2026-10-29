@@ -4,7 +4,7 @@
 
 ## 決策
 
-- **基礎欄位**:底座與一般新增專案 collection 由共用 plugin 補上 `createdAt` / `updatedAt` / `createdBy` / `updatedBy` / `deletedAt`;schema class 不重複宣告。食譜原型 recipes 保留未掛此 plugin 的既有形狀,僅有 Mongoose timestamps,不是新模組的藍本;例外邊界見 ADR-0005「專案資料的登記邊界」。
+- **基礎欄位**:底座與新增專案 collection 由共用 plugin 補上 `createdAt` / `updatedAt` / `createdBy` / `updatedBy` / `deletedAt`;schema class 不重複宣告。專案登記邊界見 ADR-0005「專案資料的登記邊界」。
 - **安裝識別**:baseFields plugin 完成安裝後才以原 schema 物件記錄 WeakSet 標記,供專案資料登記驗證。自行補同名欄位不能取代 plugin 的查詢中介層,組裝器也不自動 clone schema 或再掛一次 plugin。
 - 各表的偏好設定統一叫 `settings`,為受控 JSON:已知 key 在程式裡定義與驗證。
 - **軟刪除**:刪除 = 寫 `deletedAt`;之後預設排除,要看已刪除的明講 `includeDeleted`。已刪除的不能再更新。

@@ -38,12 +38,12 @@ pnpm install
 pnpm dev               # 同時啟動 api / front / admin / storybook
 ```
 
-| 本地服務               | 網址                                                       |
-| ---------------------- | ---------------------------------------------------------- |
-| GraphQL API(+ Sandbox) | http://localhost:5001/graphql                              |
-| 前台 front             | http://localhost:3002                                      |
-| 後台 admin             | http://localhost:3001                                      |
-| Storybook              | http://localhost:6006(線上:https://design.cookhome.online) |
+| 本地服務               | 網址                          |
+| ---------------------- | ----------------------------- |
+| GraphQL API(+ Sandbox) | http://localhost:5001/graphql |
+| 前台 front             | http://localhost:3002         |
+| 後台 admin             | http://localhost:3001         |
+| Storybook              | http://localhost:6006         |
 
 ## 常用指令
 
@@ -54,7 +54,7 @@ pnpm --filter @repo/graphql generate     # 後端 schema 變更後重生前端�
 pnpm --filter @repo/storybook dev        # 只開設計系統
 docker compose --profile full up -d      # 整套容器本地驗證(mongo+api+admin)
 
-# 部署(一律手動觸發,merge 不自動部署;分支↔環境有防呆)
+# 專案啟用雲端並完成資源設定後,才手動部署(分支↔環境有防呆)
 gh workflow run Deploy --ref dev -f environment=dev
 gh workflow run Deploy --ref staging -f environment=staging
 gh workflow run Deploy --ref main -f environment=production

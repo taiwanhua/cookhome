@@ -26,10 +26,10 @@ invalidate、prefetch 一律用 codegen 提供的 `useXxxQuery.getKey()`,保證�
 
 ## DATA-03 Server Component 用 fetcher 模式
 
-front 的 RSC 不能用 hooks,用 codegen 的 fetcher(現有範例:`apps/front/src/components/HomeView/HomeView.tsx`):
+front 的 RSC 不能用 hooks,用該 operation 的 codegen fetcher。底座中性首頁不讀業務 API;專案新增公開查詢後,將下例的 `useXxxQuery` 換成該查詢的生成出口(受保護端點須另帶合適憑證):
 
 ```ts
-const { recipes } = await useRecipesQuery.fetcher(graphqlClient)();
+const data = await useXxxQuery.fetcher(graphqlClient)();
 ```
 
 ## DATA-04 mutation 成功後:先寫回傳的 payload,再精準 invalidate
@@ -102,7 +102,8 @@ const setOrgEnabled = useSetOrgEnabledMutation(
   `deleteSuccess`、`enableSuccess` / `disableSuccess`…),兩語系同時補齊(I18N-02);
   同一支端點兩種說法(啟用 / 停用)就給一個吃 payload 的函式,不要各寫一個 mutation。
 - **失敗文案用該頁既有的錯誤解讀**(`<ns>ErrorOf(error)` + `errors.<code>`),不要在提示裡另起一套;
-  **表單 / 彈窗內原本的錯誤顯示保留** —— 欄位級標示講「哪裡要改」,Snackbar 講「這次沒成功」。
+  **表單 / 彈窗內原本的錯誤顯示保留** —— 欄位級標示講「哪裡要改、為什麼」(原因寫在欄位正下方,REACT-18),
+  Snackbar 講「這次沒成功」(有欄位錯誤時只放通用句)。
   **錯誤解讀的回傳形狀只有一種**:`<ns>ErrorOf` 一律回 `apps/admin/src/lib/base/errors.ts`
   的 `AdminError`(`{ code, reason?, reasons?, fields?, path?, message? }`,選填欄位沒有就缺席),
   各頁的 `*-error.ts` 只宣告碼表 / 原因白名單交給 `parseAdminError`,不再各自解析 `extensions`;

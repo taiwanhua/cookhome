@@ -1,6 +1,6 @@
-# CookHome 專案架構
+# 應用底座架構
 
-家常食譜平台,底層是一套可複製到其他專案的多租戶後台底座。Turborepo monorepo(pnpm workspace),workspace 套件名一律 `@repo/` 前綴(GEN-06)。
+多租戶應用底座,包含完整前台、後台與 API;專案的業務來源預設為空。Turborepo monorepo(pnpm workspace),workspace 套件名一律 `@repo/` 前綴(GEN-06)。
 
 ## Apps
 
@@ -63,17 +63,19 @@
 
 ## 底座與專案的維護歸屬
 
-| 範圍                 | 底座維護                                            | 專案維護                                                    |
-| -------------------- | --------------------------------------------------- | ----------------------------------------------------------- |
-| 權限、租戶與治理     | 登入、RBAC、隔離、治理 API、後台殼與守門            | 品牌、模組宣告及客製頁                                      |
-| 表單、審核與申請中心 | 引擎、共用型別及預設畫面                            | 表單模組的頁面與 options 宣告                               |
-| UI 與文案            | 共用元件、語意 tokens、色盤算法、中性預設與共用訊息 | 品牌值、前台畫面與風格、業務文案和資產                      |
-| 稽核、儲存與寄信     | 服務機制及共用模板                                  | bucket、網址、寄件識別與外部資源                            |
-| 功能與資料           | 組裝、repository 基礎、組織資料檢查、示範藍本       | project 來源中的頁面、API、schema、repository、GraphQL 文件 |
-| 工具與部署           | 共用規範、測試工具、設定讀取器及 workflow           | 依賴擴充、專案測試、repo／看板／雲端／環境設定              |
-| Figma 同步           | 品牌投影、本機外掛與底座共用 Library                | 品牌值、Brand Library、Screens 與客製內容                   |
+| 範圍                 | 底座維護                                                                  | 專案維護                                                                                    |
+| -------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 權限、租戶與治理     | 登入、RBAC、隔離、治理 API、後台殼與守門                                  | 品牌、模組宣告及客製頁                                                                      |
+| 表單、審核與申請中心 | 引擎、共用型別及預設畫面                                                  | 表單模組的頁面與 options 宣告                                                               |
+| UI 與文案            | 共用元件、語意 tokens、色盤算法、中性預設與共用訊息                       | 品牌值、前台畫面與風格、業務文案和資產;後台文案在 `messages/<locale>/project/`(新增 / 替換) |
+| 稽核、儲存與寄信     | 服務機制及共用模板                                                        | bucket、網址、寄件識別與外部資源                                                            |
+| 功能與資料           | 組裝、repository 基礎、組織資料檢查、示範藍本                             | project 來源中的頁面、API、schema、repository、GraphQL 文件                                 |
+| 工具與部署           | 共用規範、測試工具、設定讀取器及 workflow                                 | 依賴擴充、專案測試、repo／看板／雲端／環境設定                                              |
+| Figma 同步           | 品牌投影、本機外掛與底座共用 Library                                      | 品牌值、Brand Library、Screens 與客製內容                                                   |
+| 文件                 | `docs/**`、`CONTEXT.md`(底座現況與規則)                                   | 各目錄的 `project/` 與 `docs/project/`、`CONTEXT-PROJECT.md`、`docs/tmp/`(`dis.md` 除外)    |
+| agent skill          | `module-scaffold`、`project-bootstrap` 與 `skills-lock.json` 的外部 skill | `.claude/skills/<slug>-<名稱>/` 與 `.agents/skills/` 成對                                   |
 
-上表是 repo 內容的維護歸屬;人員、角色授權、租戶分派、綁定與業務資料由各環境管理。專案值的正本見[初始化索引](project-initialization.md)。`project-config` 是 build 輸入,不讀 `process.env`、瀏覽器全域或遠端服務;公開欄位的型別與驗證在 `packages/project-config/src/base/public-config.ts`。前台自行設計版型與風格,可選用共用 UI,不要求接後台主題。示範程式是底座藍本,專案業務另建模組。
+專案內容一律放所在目錄的 `project/`(skill 以 slug 前綴),路徑分類與檢查見 [deployment](deployment.md#共用改良回收)。上表是 repo 內容的維護歸屬;人員、角色授權、租戶分派、綁定與業務資料由各環境管理。專案值的正本見[初始化索引](project-initialization.md)。`project-config` 是 build 輸入,不讀 `process.env`、瀏覽器全域或遠端服務;公開欄位的型別與驗證在 `packages/project-config/src/base/public-config.ts`。前台自行設計版型與風格,可選用共用 UI,不要求接後台主題。示範程式是底座藍本,專案業務另建模組。
 
 底座以正式 annotated tag 與 GitHub Release 交付,引用專案的採用版本記在 `package.json.wowgoBase`。`scripts/base-sync/` 準備隔離升級/回收分支與差異報告,不改變上述歸屬或自動接受內容。向下升級保留共同祖先,向上回收只移植經審查的共用改良;操作與驗收見 [deployment](deployment.md#底座首次接軌與版本升級)。發布前讀取實際應用/資料狀態,不另存人工環境版本帳。
 
@@ -87,7 +89,7 @@ Figma 品牌同步讀取 `packages/project-config/src/project/public.ts` 的 `pr
 
 ## 部署
 
-三環境:`dev` → dev、`staging` → staging(預發布)、`main` → production。api / admin 在 Cloud Run(手動觸發 `deploy.yml`),front 在 Vercel,資料庫是 MongoDB Atlas。網域、資源、CI / CD 與 release 步驟見 `docs/deployment.md`。
+三環境:`dev` → dev、`staging` → staging(預發布)、`main` → production。底座預設停用雲端與看板;引用專案啟用後,api / admin 由 `deploy.yml` 手動部署至 Cloud Run,front 可接 Vercel,資料庫可用 MongoDB Atlas。設定、資源與 release 步驟見 `docs/deployment.md`。
 
 ## 本地開發
 
@@ -106,7 +108,7 @@ pnpm --filter @repo/storybook dev   # 只開設計系統(http://localhost:6006)
 
 尚未寫成 ADR 的選型與理由(已寫成 ADR 的在 `docs/adr/`):
 
-- **MongoDB + Mongoose**(`@nestjs/mongoose`):食譜巢狀結構(食材、步驟)適合文件模型;Prisma 的 MongoDB 支援需要 replica set 且沒有 migration,所以用 Mongoose。
+- **MongoDB + Mongoose**(`@nestjs/mongoose`):文件模型可保存巢狀業務資料與表單/流程定義;Mongoose 的 schema、plugins 與 repository 組成目前資料層,遷移使用 migrate-mongo。
 - **graphql 固定在 v16**:Apollo Server 5 與 `@nestjs/graphql` 13 不支援 graphql 17。
 - **front 不用 Apollo Client**:SEO 頁面在 Server Component 用 `useXxxQuery.fetcher` 直接抓;瀏覽器端互動用 TanStack Query hooks。
 - **codegen 產物修正**:`typescript-react-query` plugin 會產生 graphql-request v4 的型別路徑,`packages/graphql/scripts/fix-generated.mjs` 在 generate 後自動修正。
