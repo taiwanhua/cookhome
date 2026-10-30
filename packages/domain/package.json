@@ -128,6 +128,26 @@
         "types": "./dist/cjs/printing.d.cts",
         "default": "./dist/cjs/printing.cjs"
       }
+    },
+    "./tag-palette": {
+      "import": {
+        "types": "./dist/es/tag-palette.d.ts",
+        "default": "./dist/es/tag-palette.js"
+      },
+      "require": {
+        "types": "./dist/cjs/tag-palette.d.cts",
+        "default": "./dist/cjs/tag-palette.cjs"
+      }
+    },
+    "./collation": {
+      "import": {
+        "types": "./dist/es/collation.d.ts",
+        "default": "./dist/es/collation.js"
+      },
+      "require": {
+        "types": "./dist/cjs/collation.d.cts",
+        "default": "./dist/cjs/collation.cjs"
+      }
     }
   },
   "typesVersions": {
@@ -167,6 +187,12 @@
       ],
       "printing": [
         "./dist/es/printing.d.ts"
+      ],
+      "tag-palette": [
+        "./dist/es/tag-palette.d.ts"
+      ],
+      "collation": [
+        "./dist/es/collation.d.ts"
       ]
     }
   },
@@ -194,6 +220,7 @@
     "@types/json-logic-js": "^2.0.8",
     "@types/node": "^24.19.2",
     "bunchee": "^6.4.0",
+    "dayjs": "^1.11.23",
     "eslint": "^9.39.0",
     "jest": "^30.5.2",
     "typescript": "5.9.3"

@@ -620,6 +620,7 @@ type Field {
   canEdit: Boolean!
   canToggleEnabled: Boolean!
   categoryId: ID!
+  color: String
   description: String
   enabled: Boolean!
   id: ID!
@@ -754,6 +755,13 @@ type FormForkSourceModel {
   version: Int!
 }
 
+input FormLookupDefaultInput {
+  fieldKey: String!
+  filterValues: JSONObject
+  formKey: ID!
+  version: Int
+}
+
 input FormLookupInput {
   filterValues: JSONObject
   formKey: ID!
@@ -778,6 +786,7 @@ type FormLookupProvider {
   key: String!
   labelField: String!
   name: String!
+  operatorDefault: Boolean!
   valueField: String!
 }
 
@@ -964,10 +973,13 @@ type FormSubmissionSummary {
 }
 
 input FormSubmissionsInput {
+  dateFrom: String
+  dateTo: String
   excludeFormKeys: [ID!]
   formKey: ID
   keyword: String
   moduleKey: String!
+  orgId: ID
   page: Int = 1
 
   """每頁筆數,上限 100"""
@@ -1214,6 +1226,7 @@ type ModuleListColumn {
   formKey: ID
   key: String!
   kind: ModuleListColumnKind!
+  label: String
   order: Int!
   width: Int!
 }
@@ -1222,14 +1235,16 @@ input ModuleListColumnInput {
   formKey: ID
   key: String!
   kind: ModuleListColumnKind!
+  label: String
   order: Int!
   width: Int!
 }
 
-"""列表欄位的種類:摘要槽 / 表單欄位"""
+"""列表欄位的種類:摘要槽 / 表單欄位 / 組合欄"""
 enum ModuleListColumnKind {
   FIELD
   SLOT
+  TEMPLATE
 }
 
 type ModuleListColumnsPayload {
@@ -1334,6 +1349,7 @@ type Mutation {
   setDemoItemOneEnabled(input: SetDemoItemOneEnabledInput!): DemoItemOnePayload!
   setDemoItemTwoEnabled(input: SetDemoItemTwoEnabledInput!): DemoItemTwoPayload!
   setFieldCategoryEnabled(input: SetFieldCategoryEnabledInput!): FieldCategoryPayload!
+  setFieldColor(input: SetFieldColorInput!): FieldPayload!
   setFieldEnabled(input: SetFieldEnabledInput!): FieldPayload!
   setModuleEnabled(input: SetModuleEnabledInput!): ModuleAdminPayload!
   setModuleIcon(input: SetModuleIconInput!): ModuleAdminPayload!
@@ -1431,7 +1447,10 @@ type MyNotificationUnreadCountPayload {
 }
 
 input MyNotificationsInput {
-  page: Int = 1
+  """
+  上一批回傳的 nextCursor;缺席 / null = 從最新的開始。格式不對 → VALIDATION_FAILED(reason INVALID_CURSOR)
+  """
+  after: String
 
   """每頁筆數,上限 100"""
   pageSize: Int = 20
@@ -1440,7 +1459,7 @@ input MyNotificationsInput {
 
 type MyNotificationsPayload {
   items: [Notification!]!
-  page: Int!
+  nextCursor: String
   pageSize: Int!
   totalCount: Int!
   unreadCount: Int!
@@ -1534,6 +1553,11 @@ type NotificationSettingPayload {
 
 input NotificationSettingsInput {
   keyword: String
+
+  """
+  前端以顯示名稱比中 keyword 的類型 key(與 keyword 比對 name / key 的結果取聯集;沒給 keyword 時不影響清單)
+  """
+  nameMatchedTypes: [String!]
   page: Int = 1
 
   """每頁筆數,上限 100"""
@@ -1909,6 +1933,7 @@ type Query {
   form(key: ID!): FormPayload!
   formFieldOptions(input: FormFieldOptionsInput!): FormFieldOptionsPayload!
   formLookup(input: FormLookupInput!): FormLookupPayload!
+  formLookupDefault(input: FormLookupDefaultInput!): FormLookupRecordPayload!
   formLookupProviders: FormLookupProvidersPayload!
   formLookupRecord(input: FormLookupRecordInput!): FormLookupRecordPayload!
   formRuntimeVersion(formKey: ID!, version: Int!): FormVersionPayload!
@@ -2290,6 +2315,11 @@ input SetDemoItemTwoEnabledInput {
 
 input SetFieldCategoryEnabledInput {
   enabled: Boolean!
+  id: ID!
+}
+
+input SetFieldColorInput {
+  color: String
   id: ID!
 }
 
