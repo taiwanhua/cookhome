@@ -1,9 +1,10 @@
-// 底座的 Figma 稽核設定範本(專案維護;底座升級不覆蓋,base-sync 判為 project)。
+// cookhome 的 Figma 稽核設定(專案維護;底座升級不覆蓋,base-sync 判為 project)。
 // 用法見 ../README.md:在 Figma MCP use_figma 裡,把本檔全文貼在稽核腳本前面一起執行。
-// 欄位意思見 README「設定檔欄位」。底座沒有自己的 Screens,頁面、元件名稱與例外留空;專案初始化時換成自己的值。
+// 欄位意思見 README「設定檔欄位」;節點 id 是 CookHome Screens(Wi9DIhrSILy2bj9nqXb051)的頁 id。
+// 目前 Screens 只有底座 Screens Starter 的 15 個「Screen / Admin …」頁,沒有分尺寸 Section 的專案頁,所以 sync 頁面清單留空。
 const AUDIT_CONFIG = {
   // 專案名詞:底座共用腳本(scripts/figma-audit/*.js)不得出現這些字(figma-audit.test.mjs 檢查)
-  projectTerms: [],
+  projectTerms: ["CookHome", "cookhome", "食譜", "recipe"],
 
   // 底座草稿頁:名稱以這個開頭的頁只綁底座變數,不檢查「殘留底座主色」
   baseDraftPagePrefix: "Base Draft",
@@ -11,10 +12,19 @@ const AUDIT_CONFIG = {
   draftMarker: "本輪草稿",
   // 本機過渡變數集合的名稱前綴(例 Draft/tagPalettes;回收後要沒有綁定)
   draftCollectionPrefix: "Draft/",
-  // 底座 Library 的變數集合 key(Color / Radius / Primitives / Brand):專案從自己訂閱的 Library 取得後填入
-  baseCollections: [],
+  // wowgo-base Design System 的變數集合 key(Color / Radius / Primitives / Brand / tagPalettes)
+  baseCollections: [
+    "9d2d67ea73654a9894d5c083e28754341526fba4",
+    "84c5f309f7b50688d1eca745ea4db116afb1ad5a",
+    "1eea29cadf44f500544c6b840aea015c8a3b092b",
+    "aa51fafef4bb2e4d3b578ccaa8bc8f1a930ed17e",
+    "7a1c297f46864f27457e07e60a87d5cb7c6a0530", // tagPalettes(標籤色票,v0.4.7 起在底座 Library)
+  ],
   // 上面之中放 primary/* 的集合(Color、Brand):專案頁不得殘留這兩個集合的 primary/* 綁定
-  basePrimaryCollections: [],
+  basePrimaryCollections: [
+    "9d2d67ea73654a9894d5c083e28754341526fba4",
+    "aa51fafef4bb2e4d3b578ccaa8bc8f1a930ed17e",
+  ],
 
   // audit-layout.js
   layout: {
